@@ -91,7 +91,7 @@ type inboundChainConfig struct {
 	// so that those policies can be found
 	policyService *model.Service
 
-	configMetadata config.Meta
+	configMetadata *config.Meta
 }
 
 // StatPrefix returns the stat prefix for the config
@@ -320,25 +320,30 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
 	chains := make([]*listener.FilterChain, 0, len(opts))
 	for _, opt := range opts {
+		var filterChain *listener.FilterChain
 		switch opt.Protocol {
 		// Switch on the protocol. Note: we do not need to handle Auto protocol as it will already be split into a TCP and HTTP option.
 		case istionetworking.ListenerProtocolHTTP:
-			chains = append(chains, &listener.FilterChain{
+			filterChain = &listener.FilterChain{
 				FilterChainMatch: cc.ToFilterChainMatch(opt),
 				Filters:          lb.buildInboundNetworkFiltersForHTTP(cc),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
 				Name:             cc.Name(opt.Protocol),
-				Metadata:         util.BuildConfigInfoMetadata(cc.configMetadata),
-			})
+			}
+
 		case istionetworking.ListenerProtocolTCP:
-			chains = append(chains, &listener.FilterChain{
+			filterChain = &listener.FilterChain{
 				FilterChainMatch: cc.ToFilterChainMatch(opt),
 				Filters:          lb.buildInboundNetworkFilters(cc),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
 				Name:             cc.Name(opt.Protocol),
-				Metadata:         util.BuildConfigInfoMetadata(cc.configMetadata),
-			})
+			}
+
 		}
+		if cc.configMetadata != nil {
+			filterChain.Metadata = util.BuildConfigInfoMetadata(*cc.configMetadata)
+		}
+		chains = append(chains, filterChain)
 	}
 	return chains
 }
@@ -468,7 +473,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				bind:        i.Bind,
 				bindToPort:  bindtoPort,
 				hbone:       lb.node.IsWaypointProxy(),
-				configMetadata: config.Meta{
+				configMetadata: &config.Meta{
 					Name:             lb.node.SidecarScope.Name,
 					Namespace:        lb.node.SidecarScope.Namespace,
 					GroupVersionKind: gvk.Sidecar,
