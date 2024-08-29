@@ -1119,6 +1119,8 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		ListenerFilters:  listenerFilters,
 		FilterChains:     filterChains,
 		// No listener filter timeout is set for the gateway here; it will default to 15 seconds in Envoy.
+		// This timeout setting helps prevent memory leaks in Envoy when a TLS inspector filter is present,
+		// by avoiding slow requests that could otherwise lead to such issues.
 		// Note that this timer only takes effect when a listener filter is present.
 	}
 	switch transport {
