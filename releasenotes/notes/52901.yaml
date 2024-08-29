@@ -11,8 +11,8 @@ issue:
 # release notes.
 releaseNotes:
   - |
-    **Improved** Waypoint pod topologySpreadConstraints is now configurable using `.Values.waypoint.topologySpreadConstraints`.
+    **Improved** Waypoint pod topologySpreadConstraints is now configurable using `.Values.global.waypoint.topologySpreadConstraints`.
   - |
-    **Improved** Waypoint pod tolerations is now configurable using `.Values.waypoint.tolerations`.
+    **Improved** Waypoint pod tolerations is now configurable using `.Values.global.waypoint.tolerations`.
   - |
-    **Improved** Waypoint pod nodeSelector is now configurable using `.Values.waypoint.nodeSelector`.
+    **Improved** Waypoint pod nodeSelector is now configurable using `.Values.global.waypoint.nodeSelector`.
