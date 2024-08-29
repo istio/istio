@@ -148,8 +148,12 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 	deleteCmds := [][]string{
 		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
-		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
+	}
+	if !cfg.cfg.TPROXYRedirection {
+		deleteCmds = append(deleteCmds, []string{
+			"-t", iptablesconstants.NAT, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting,
+		})
 	}
 
 	// these sometimes fail due to "Device or resource busy"
