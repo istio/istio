@@ -68,9 +68,21 @@ spec:
             "gateway.istio.io/managed" "istio.io-mesh-controller"
           ) | nindent 8}}
     spec:
-      {{- if .Values.waypoint.affinity }}
+      {{- if .Values.global.waypoint.affinity }}
       affinity:
-      {{- toYaml .Values.waypoint.affinity | nindent 8 }}
+      {{- toYaml .Values.global.waypoint.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.waypoint.topologySpreadConstraints }}
+      topologySpreadConstraints:
+      {{- toYaml .Values.global.waypoint.topologySpreadConstraints | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.waypoint.nodeSelector }}
+      nodeSelector:
+      {{- toYaml .Values.global.waypoint.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.waypoint.tolerations }}
+      tolerations:
+      {{- toYaml .Values.global.waypoint.tolerations | nindent 8 }}
       {{- end }}
       terminationGracePeriodSeconds: 2
       serviceAccountName: {{.ServiceAccount | quote}}
