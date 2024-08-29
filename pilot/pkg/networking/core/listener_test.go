@@ -1797,7 +1797,7 @@ func testOutboundListenerFilterTimeout(t *testing.T, services ...*model.Service)
 		}
 
 		auto := xdstest.ExtractListener("0.0.0.0_9090", listeners)
-		if auto.ContinueOnListenerFiltersTimeout || auto.ListenerFiltersTimeout == nil {
+		if !auto.ContinueOnListenerFiltersTimeout || auto.ListenerFiltersTimeout == nil {
 			t.Fatalf("expected timeout enabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
 				auto.ContinueOnListenerFiltersTimeout,
 				auto.ListenerFiltersTimeout)

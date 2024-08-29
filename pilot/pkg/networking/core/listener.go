@@ -550,7 +550,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		Address:                          util.BuildAddress(le.bind.Primary(), uint32(le.servicePort.Port)),
 		AdditionalAddresses:              util.BuildAdditionalAddresses(le.bind.Extra(), uint32(le.servicePort.Port)),
 		TrafficDirection:                 core.TrafficDirection_OUTBOUND,
-		ContinueOnListenerFiltersTimeout: false,
+		ContinueOnListenerFiltersTimeout: true,
 	}
 	if builder.node.Metadata.OutboundListenerExactBalance {
 		l.ConnectionBalanceConfig = &listener.Listener_ConnectionBalanceConfig{
@@ -592,10 +592,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 
 	if needHTTPInspector {
 		l.ListenerFilters = append(l.ListenerFilters, xdsfilters.HTTPInspector)
-	}
-
-	if len(l.ListenerFilters) > 0 {
-		// Enable timeout only if they configure it and we have listener filters.
+		// Enable timeout only if they configure it and we have an HTTP inspector.
 		// This is really unsafe, so hopefully not used...
 		l.ListenerFiltersTimeout = builder.push.Mesh.ProtocolDetectionTimeout
 	} else {
@@ -1118,18 +1115,11 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 	}
 
 	res := &listener.Listener{
-		TrafficDirection:                 core.TrafficDirection_OUTBOUND,
-		ListenerFilters:                  listenerFilters,
-		FilterChains:                     filterChains,
-		ContinueOnListenerFiltersTimeout: false,
-	}
-	if len(listenerFilters) > 0 {
-		// Enable timeout only if they configure it and we have listener filters.
-		// This is really unsafe, so hopefully not used...
-		res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
-	} else {
-		// Otherwise, do not have a timeout at all
-		res.ListenerFiltersTimeout = durationpb.New(0)
+		TrafficDirection: core.TrafficDirection_OUTBOUND,
+		ListenerFilters:  listenerFilters,
+		FilterChains:     filterChains,
+		// No listener filter timeout is set for the gateway here; it will default to 15 seconds in Envoy.
+		// Note that this timer only takes effect when a listener filter is present.
 	}
 	switch transport {
 	case istionetworking.TransportProtocolTCP:
