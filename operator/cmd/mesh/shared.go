@@ -20,11 +20,20 @@ import (
 	"io"
 	"strings"
 
+	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"istio.io/istio/pkg/log"
 )
 
 // installerScope is the scope for all commands in the mesh package.
 var installerScope = log.RegisterScope("installer", "installer")
+
+func init() {
+	// adding to remove message about the controller-runtime logs not getting displayed
+	// We cannot do this in the `log` package since it would place a runtime dependency on controller-runtime for all binaries.
+	scope := log.RegisterScope("controlleruntime", "scope for controller runtime")
+	controllruntimelog.SetLogger(log.NewLogrAdapter(scope))
+}
 
 type Printer interface {
 	Printf(format string, a ...any)
