@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
@@ -195,6 +196,20 @@ func newController(store model.ConfigStore, xdsUpdater model.XDSUpdater, meshCon
 		o(s)
 	}
 	return s
+}
+
+// ConvertClientWorkloadEntry merges the metadata.labels and spec.labels
+func ConvertClientWorkloadEntry(cfg *clientnetworking.WorkloadEntry) *clientnetworking.WorkloadEntry {
+	if cfg.Spec.Labels == nil {
+		// Short circuit, we don't have to do any conversion
+		return cfg
+	}
+	cfg = cfg.DeepCopy()
+	// Set both fields to be the merged result, so either can be used
+	cfg.Spec.Labels = maps.MergeCopy(cfg.Spec.Labels, cfg.Labels)
+	cfg.Labels = cfg.Spec.Labels
+
+	return cfg
 }
 
 // ConvertWorkloadEntry convert wle from Config.Spec and populate the metadata labels into it.
