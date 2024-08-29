@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -91,6 +92,8 @@ var (
 	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
+
+	defaultGatewayTransportSocketConnectTimeout = 15 * time.Second
 )
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
@@ -1111,6 +1114,9 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		filterChains = append(filterChains, &listener.FilterChain{
 			FilterChainMatch: match,
 			TransportSocket:  transportSocket,
+			// Setting this timeout enables the gateway to enhance its resistance against memory exhaustion attacks,
+			// such as slow TLS Handshake attacks.
+			TransportSocketConnectTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout),
 		})
 	}
 
