@@ -124,12 +124,6 @@ const (
 // they should be dynamic to allow migrations without restart.
 // Both are critical.
 var (
-	// Require3PToken disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
-	// 3P TOKENS. A 1P token is the token automatically mounted by Kubelet and used for authentication with
-	// the Apiserver.
-	Require3PToken = env.Register("REQUIRE_3P_TOKEN", false,
-		"Reject k8s default tokens, without audience. If false, default K8S token will be accepted")
-
 	// TokenAudiences specifies a list of audiences for SDS trustworthy JWT. This is to make sure that the CSR requests
 	// contain the JWTs intended for Citadel.
 	TokenAudiences = strings.Split(env.Register("TOKEN_AUDIENCES", "istio-ca",
