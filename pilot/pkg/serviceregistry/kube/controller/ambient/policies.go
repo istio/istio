@@ -36,17 +36,8 @@ func PolicyCollections(
 	AuthzDerivedPolicies := krt.NewCollection(authzPolicies, func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WorkloadAuthorization {
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		pol, status := convertAuthorizationPolicy(meshCfg.GetRootNamespace(), i)
-		if status != nil {
-			return &model.WorkloadAuthorization{
-				LabelSelector: model.LabelSelector{},
-				Authorization: nil, // TODO(ilrudie) controllers do not know how to deal with this at all :(
-				Source:        MakeSource(i),
-				Binding: model.WorkloadAuthorizationBindingStatus{
-					ResourceName: string(model.Ztunnel),
-					Error:        status,
-					Warn:         []string{},
-				},
-			}
+		if status == nil && pol == nil {
+			return nil
 		}
 		return &model.WorkloadAuthorization{
 			Authorization: pol,
@@ -54,7 +45,7 @@ func PolicyCollections(
 			Source:        MakeSource(i),
 			Binding: model.WorkloadAuthorizationBindingStatus{
 				ResourceName: string(model.Ztunnel),
-				Error:        nil,
+				Error:        status,
 				Warn:         []string{},
 			},
 		}
