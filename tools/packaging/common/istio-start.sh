@@ -56,7 +56,7 @@ fi
 if [[ ${1-} == "clean" ]] ; then
   if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
     # clean the previous Istio iptables chains.
-    "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
+    "${ISTIO_BIN_BASE}/pilot-agent" istio-iptables --cleanup-only
   fi
   exit 0
 fi
@@ -66,7 +66,7 @@ if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
     if [[ ${1-} == "init" || ${1-} == "-p" ]] ; then
       # clean the previous Istio iptables chains. This part is different from the init image mode,
       # where the init container runs in a fresh environment and there cannot be previous Istio chains
-      "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
+      "${ISTIO_BIN_BASE}/pilot-agent" istio-iptables "${@}" --cleanup-only
 
       # Update iptables, based on current config. This is for backward compatibility with the init image mode.
       # The sidecar image can replace the k8s init image, to avoid downloading 2 different images.
@@ -77,7 +77,7 @@ if [ "${ISTIO_CUSTOM_IP_TABLES}" != "true" ] ; then
     if [[ ${1-} != "run" ]] ; then
       # clean the previous Istio iptables chains. This part is different from the init image mode,
       # where the init container runs in a fresh environment and there cannot be previous Istio chains
-      "${ISTIO_BIN_BASE}/pilot-agent" istio-clean-iptables
+      "${ISTIO_BIN_BASE}/pilot-agent" istio-iptables --cleanup-only
 
       # Update iptables, based on config file
       "${ISTIO_BIN_BASE}/pilot-agent" istio-iptables
