@@ -25,6 +25,10 @@ defaults:
     ipFamilies: []
 
   base:
+    # A list of CRDs to exclude. Requires `enableCRDTemplates` to be true.
+    # Example: `excludedCRDs: ["envoyfilters.networking.istio.io"]`.
+    # Note: when installing with `istioctl`, `enableIstioConfigCRDs=false` must also be set.
+    excludedCRDs: []
     # Used for helm2 to add the CRDs to templates.
     enableCRDTemplates: false
 
