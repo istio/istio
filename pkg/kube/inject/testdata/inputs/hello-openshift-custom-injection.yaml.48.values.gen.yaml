@@ -4,6 +4,7 @@
     "securityContext": {}
   },
   "global": {
+    "autoscalingv2API": true,
     "caAddress": "",
     "caName": "",
     "certSigners": [],
@@ -91,24 +92,16 @@
       "servicePort": 0
     },
     "tag": "latest",
-    "variant": "",
-    "waypoint": {
-      "resources": {
-        "limits": {
-          "cpu": "2",
-          "memory": "1Gi"
-        },
-        "requests": {
-          "cpu": "100m",
-          "memory": "128Mi"
-        }
-      }
-    }
+    "variant": ""
+  },
+  "istio_cni": {
+    "chained": true,
+    "enabled": true,
+    "provider": "default"
   },
   "pilot": {
     "cni": {
-      "enabled": true,
-      "namespace": "istio-system",
+      "enabled": false,
       "provider": "default"
     }
   },
