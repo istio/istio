@@ -1,3 +1,13 @@
 {{- if .Values.base.enableCRDTemplates }}
+{{- if .Values.base.excludedCRDs }}
+{{- range $crd := .Files.Get "crds/crd-all.gen.yaml"|splitList "\n---\n"}}
+{{- $name := (index ($crd |fromYaml) "metadata" "name") }}
+{{- if not (has $name $.Values.base.excludedCRDs)}}
+{{$crd}}
+---
+{{- end }}
+{{- end }}
+{{- else }}
 {{ .Files.Get "crds/crd-all.gen.yaml" }}
+{{- end }}
 {{- end }}
