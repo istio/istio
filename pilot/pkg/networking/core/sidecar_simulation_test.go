@@ -1295,6 +1295,88 @@ spec:
 	})
 }
 
+func TestOverlappingServices(t *testing.T) {
+	// Regression test for https://github.com/istio/istio/issues/52847
+	// Ensure we can have a partial overlap between ServiceEntry addresses and Service addresses.
+	runSimulationTest(t, &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: "Kubernetes"}}, xds.FakeOptions{}, simulationTest{
+		config: `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: echo-se-cip-first
+  namespace: default
+spec:
+  addresses:
+    - 10.96.0.1 # Service IP. This is first in the list for this case
+    - 240.240.0.1
+    - 240.240.3.0/24 # CIDR
+  hosts:
+    - test-first
+  ports:
+  - name: TCP-443
+    number: 443
+    protocol: TCP
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: echo-se-unique-first
+  namespace: default
+spec:
+  addresses:
+    - 240.240.0.2
+    - 10.96.0.1  # Service IP. This is last in the list for this case
+  hosts:
+    - test-last
+  ports:
+  - name: TCP-443
+    number: 443
+    protocol: TCP`,
+		kubeConfig: `apiVersion: v1
+kind: Service
+metadata:
+  name: echo-svc
+  namespace: default
+spec:
+  clusterIP: 10.96.0.1
+  clusterIPs:
+  - 10.96.0.1
+  ports:
+  - name: https
+    port: 443
+  type: ClusterIP`,
+		calls: []simulation.Expect{
+			{
+				Name: "Service",
+				Call: simulation.Call{Address: "10.96.0.1", Port: 443, Protocol: simulation.TCP},
+				Result: simulation.Result{
+					ClusterMatched: "outbound|443||echo-svc.default.svc.cluster.local",
+				},
+			},
+			{
+				Name: "SE first",
+				Call: simulation.Call{Address: "240.240.0.1", Port: 443, Protocol: simulation.TCP},
+				Result: simulation.Result{
+					ClusterMatched: "outbound|443||test-first",
+				},
+			},
+			{
+				Name: "SE first cidr",
+				Call: simulation.Call{Address: "240.240.3.2", Port: 443, Protocol: simulation.TCP},
+				Result: simulation.Result{
+					ClusterMatched: "outbound|443||test-first",
+				},
+			},
+			{
+				Name: "SE last",
+				Call: simulation.Call{Address: "240.240.0.2", Port: 443, Protocol: simulation.TCP},
+				Result: simulation.Result{
+					ClusterMatched: "outbound|443||test-last",
+				},
+			},
+		},
+	})
+}
+
 func TestPassthroughTraffic(t *testing.T) {
 	calls := map[string]simulation.Call{}
 	for port := 80; port < 87; port++ {

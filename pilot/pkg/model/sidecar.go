@@ -192,6 +192,7 @@ func (sc *SidecarScope) MarshalJSON() ([]byte, error) {
 		"namespace":             sc.Namespace,
 		"outboundTrafficPolicy": sc.OutboundTrafficPolicy,
 		"services":              sc.services,
+		"egressListeners":       sc.EgressListeners[0].services,
 		"servicesByHostname":    sc.servicesByHostname,
 		"sidecar":               sc.Sidecar,
 		"destinationRules":      sc.destinationRules,

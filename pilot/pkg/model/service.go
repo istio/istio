@@ -1312,6 +1312,16 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	return
 }
 
+// GetAddresses returns a Service's addresses.
+// This method returns all the VIPs of a service if the ClusterID is explicitly set to "", otherwise only return the VIP
+// specific to the cluster where the node resides
+func (s *Service) GetAddresses(node *Proxy) []string {
+	if node.Metadata != nil && node.Metadata.ClusterID == "" {
+		return s.getAllAddresses()
+	}
+
+	return []string{s.GetAddressForProxy(node)}
+}
 // GetAddressForProxy returns a Service's address specific to the cluster where the node resides
 func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
@@ -1338,22 +1348,6 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 	return s.DefaultAddress
 }
 
-// GetExtraAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
-// Especially for dual stack k8s service to get other IP family addresses.
-func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
-	addresses := s.getAllAddressesForProxy(node)
-	if len(addresses) > 1 {
-		return addresses[1:]
-	}
-	return nil
-}
-
-// GetAllAddressesForProxy returns a k8s service's all addresses to the cluster where the node resides.
-// Especially for dual stack k8s service to get other IP family addresses.
-func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
-	return s.getAllAddressesForProxy(node)
-}
-
 // nodeUsesAutoallocatedIPs checks to see if this node is eligible to consume automatically allocated IPs
 func nodeUsesAutoallocatedIPs(node *Proxy) bool {
 	if node == nil {
@@ -1371,34 +1365,6 @@ func nodeUsesAutoallocatedIPs(node *Proxy) bool {
 	nodeConsumesAutoIP := DNSCapture || node.Type == Waypoint
 
 	return autoallocationEnabled && nodeConsumesAutoIP
-}
-
-func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
-	addresses := []string{}
-	if node.Metadata != nil && node.Metadata.ClusterID != "" {
-		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
-	}
-	if len(addresses) == 0 && nodeUsesAutoallocatedIPs(node) {
-		// The criteria to use AutoAllocated addresses is met so we should go ahead and use them if they are populated
-		if s.AutoAllocatedIPv4Address != "" {
-			addresses = append(addresses, s.AutoAllocatedIPv4Address)
-		}
-		if s.AutoAllocatedIPv6Address != "" {
-			addresses = append(addresses, s.AutoAllocatedIPv6Address)
-		}
-	}
-	if (!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual {
-		addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
-	}
-	if len(addresses) > 0 {
-		return addresses
-	}
-
-	// fallback to the default address
-	if a := s.DefaultAddress; len(a) > 0 {
-		return []string{a}
-	}
-	return nil
 }
 
 func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {
@@ -1430,6 +1396,47 @@ func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {
 		return ipv4Addresses
 	}
 	return ipv6Addresses
+}
+// GetExtraAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
+// Especially for dual stack k8s service to get other IP family addresses.
+func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
+	if features.EnableDualStack && node.Metadata != nil {
+		if node.Metadata.ClusterID != "" {
+			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
+			if len(addresses) > 1 {
+				return addresses[1:]
+			}
+		}
+	}
+	return nil
+}
+
+// GetAllAddressesForProxy returns a k8s service's all addresses to the cluster where the node resides.
+// Especially for dual stack k8s service to get other IP family addresses.
+func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
+	if (features.EnableDualStack || features.EnableAmbient) && node.Metadata != nil && node.Metadata.ClusterID != "" {
+		addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
+		if len(addresses) > 0 {
+			return addresses
+		}
+	}
+
+	// fallback to the default address
+	if a := s.DefaultAddress; len(a) > 0 {
+		return []string{a}
+	}
+	return nil
+}
+
+// getAllAddresses returns a Service's all addresses.
+func (s *Service) getAllAddresses() []string {
+	var addresses []string
+	addressMap := s.ClusterVIPs.GetAddresses()
+	for _, clusterAddresses := range addressMap {
+		addresses = append(addresses, clusterAddresses...)
+	}
+
+	return addresses
 }
 
 // GetTLSModeFromEndpointLabels returns the value of the label

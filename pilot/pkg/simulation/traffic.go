@@ -679,13 +679,17 @@ func matchListener(listeners []*listener.Listener, input Call) *listener.Listene
 	// First find exact match for the IP/Port, then fallback to wildcard IP/Port
 	// There is no wildcard port
 	for _, l := range listeners {
-		if matchAddress(l.GetAddress(), input.Address, input.Port) {
-			return l
+		for _, addr := range getAllAddresses(l) {
+			if matchAddress(addr, input.Address, input.Port) {
+				return l
+			}
 		}
 	}
 	for _, l := range listeners {
-		if matchAddress(l.GetAddress(), "0.0.0.0", input.Port) {
-			return l
+		for _, addr := range getAllAddresses(l) {
+			if matchAddress(addr, "0.0.0.0", input.Port) {
+				return l
+			}
 		}
 	}
 
@@ -697,6 +701,12 @@ func matchListener(listeners []*listener.Listener, input Call) *listener.Listene
 		}
 	}
 	return nil
+}
+
+func getAllAddresses(l *listener.Listener) []*envoycore.Address {
+	base := []*envoycore.Address{l.GetAddress()}
+	base = append(base, slices.Map(l.GetAdditionalAddresses(), (*listener.AdditionalAddress).GetAddress)...)
+	return base
 }
 
 func matchAddress(a *envoycore.Address, address string, port int) bool {
