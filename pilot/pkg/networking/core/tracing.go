@@ -269,19 +269,7 @@ func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_Extensio
 		ServiceName: serviceName,
 	}
 
-	if otelProvider.GetGrpc() != nil {
-		// export via gRPC with options
-		oc.GrpcService = &core.GrpcService{
-			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-					ClusterName: cluster,
-					Authority:   hostname,
-				},
-			},
-			Timeout:         otelProvider.GetGrpc().GetTimeout(),
-			InitialMetadata: buildInitialMetadata(otelProvider.GetGrpc().GetInitialMetadata()),
-		}
-	} else if otelProvider.GetHttp() != nil {
+	if otelProvider.GetHttp() != nil {
 		// export via HTTP
 		httpService := otelProvider.GetHttp()
 		te, err := url.JoinPath(hostname, httpService.GetPath())
@@ -308,6 +296,8 @@ func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_Extensio
 					Authority:   hostname,
 				},
 			},
+			Timeout:         otelProvider.GetGrpc().GetTimeout(),
+			InitialMetadata: buildInitialMetadata(otelProvider.GetGrpc().GetInitialMetadata()),
 		}
 	}
 

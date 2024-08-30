@@ -203,6 +203,9 @@ func ValidateExtensionProviderTracingOpentelemetry(provider *meshconfig.MeshConf
 	if err := validateExtensionProviderService(provider.Service); err != nil {
 		errs = AppendErrors(errs, err)
 	}
+	if provider.GetGrpc() != nil && provider.GetHttp() != nil {
+		errs = AppendErrors(errs, fmt.Errorf("OpenTelemetryTracingProvider cannot specify both grpc and http"))
+	}
 	return
 }
 
