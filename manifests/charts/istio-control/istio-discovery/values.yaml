@@ -480,6 +480,12 @@ defaults:
     # Istiod is the default
     pilotCertProvider: istiod
 
+    # Customizable list of providers for which the certificate signing cluster role should not be included.
+    omitCertProvidersForClusterRole:
+      - istiod
+      - custom
+      - none
+
     sds:
       # The JWT token for SDS and the aud field of such JWT. See RFC 7519, section 4.1.3.
       # When a CSR is sent from Istio Agent to the CA (e.g. Istiod), this aud is to make sure the

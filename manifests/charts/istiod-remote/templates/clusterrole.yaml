@@ -96,8 +96,7 @@ rules:
     verbs: ["create", "get", "list", "watch", "update"]
 
   # Istiod and bootstrap.
-{{- $omitCertProvidersForClusterRole := list "istiod" "custom" "none"}}
-{{- if or .Values.env.EXTERNAL_CA (not (has .Values.global.pilotCertProvider $omitCertProvidersForClusterRole)) }}
+{{- if or .Values.env.EXTERNAL_CA (not (has .Values.global.pilotCertProvider .Values.global.omitCertProvidersForClusterRole)) }}
   - apiGroups: ["certificates.k8s.io"]
     resources:
       - "certificatesigningrequests"

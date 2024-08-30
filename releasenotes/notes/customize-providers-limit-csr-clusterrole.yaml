@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Added** a new `.Values.global.omitCertProvidersForClusterRole` to permit customizing the set of `pilotCertProvider`
+    values that are excluded from adding certificate signing permissions to istiod's cluster role. Previously this list
+    was hard-coded in templates.
