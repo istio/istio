@@ -15,6 +15,7 @@
 package analyze
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -23,6 +24,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/testutil"
 	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestErrorOnIssuesFound(t *testing.T) {
@@ -76,4 +78,43 @@ func TestSkipPodsInFiles(t *testing.T) {
 	}
 	analyze := Analyze(cli.NewFakeContext(nil))
 	testutil.VerifyOutput(t, analyze, c)
+}
+
+func TestIsValidFile(t *testing.T) {
+	cases := []struct {
+		name     string
+		fileName string
+		expected bool
+	}{
+		{
+			name:     "Test .json extension",
+			fileName: "abc.json",
+			expected: true,
+		},
+		{
+			name:     "Test .yaml extension",
+			fileName: "abc.yaml",
+			expected: true,
+		},
+		{
+			name:     "Test .yml extension",
+			fileName: "abc.yml",
+			expected: true,
+		},
+		{
+			name:     "Test invalid extension",
+			fileName: "abc.tsc",
+			expected: false,
+		},
+		{
+			name:     "Test empty extension",
+			fileName: "abc",
+			expected: false,
+		},
+	}
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("case %d %s", i, c.name), func(t *testing.T) {
+			assert.Equal(t, c.expected, isValidFile(c.fileName))
+		})
+	}
 }
