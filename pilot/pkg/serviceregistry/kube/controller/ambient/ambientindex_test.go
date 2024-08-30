@@ -1171,7 +1171,7 @@ func TestRBACConvert(t *testing.T) {
 			var o *security.Authorization
 			switch pol[0].GroupVersionKind {
 			case gvk.AuthorizationPolicy:
-				o = convertAuthorizationPolicy(systemNS, &clientsecurityv1beta1.AuthorizationPolicy{
+				o, _ = convertAuthorizationPolicy(systemNS, &clientsecurityv1beta1.AuthorizationPolicy{
 					TypeMeta: metav1.TypeMeta{},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      pol[0].Name,

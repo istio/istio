@@ -361,11 +361,19 @@ func (a *index) buildWorkloadPolicies(
 	// We need to filter from the policies that are present, which apply to us.
 	// We only want label selector ones; global ones are not attached to the final WorkloadInfo
 	// In general we just take all of the policies
-	basePolicies := krt.Fetch(ctx, authorizationPolicies, krt.FilterSelects(workloadLabels), krt.FilterGeneric(func(a any) bool {
-		wa := a.(model.WorkloadAuthorization)
-		nsMatch := wa.Authorization.Namespace == meshCfg.RootNamespace || wa.Authorization.Namespace == workloadNamespace
-		return nsMatch && wa.GetLabelSelector() != nil
-	}))
+	basePolicies := krt.Fetch(
+		ctx,
+		authorizationPolicies,
+		krt.FilterSelects(workloadLabels),
+		krt.FilterGeneric(func(a any) bool {
+			wa := a.(model.WorkloadAuthorization)
+			if wa.Authorization == nil {
+				return false // filter policy which are invalid, only exist to hold the error condition
+			}
+			nsMatch := wa.Authorization.Namespace == meshCfg.RootNamespace || wa.Authorization.Namespace == workloadNamespace
+			return nsMatch && wa.GetLabelSelector() != nil
+		}),
+	)
 	policies := slices.Sort(slices.Map(basePolicies, func(t model.WorkloadAuthorization) string {
 		return t.ResourceName()
 	}))

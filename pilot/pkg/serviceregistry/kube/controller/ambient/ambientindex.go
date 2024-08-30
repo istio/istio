@@ -184,12 +184,13 @@ func New(options Options) Index {
 
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints)
-	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater, func(i model.WorkloadAuthorization) model.ConfigKey {
-		if i.Authorization == nil {
-			return model.ConfigKey{}
-		}
-		return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
-	}), false)
+	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater,
+		func(i model.WorkloadAuthorization) (model.ConfigKey, bool) {
+			if i.Authorization == nil {
+				return model.ConfigKey{}, true // nop, filter this out
+			}
+			return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}, false
+		}), false)
 
 	serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
 	servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
@@ -237,8 +238,8 @@ func New(options Options) Index {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Service
 		},
-		PushXds(a.XDSUpdater, func(i model.ServiceInfo) model.ConfigKey {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
+		PushXds(a.XDSUpdater, func(i model.ServiceInfo) (model.ConfigKey, bool) {
+			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}, false
 		})), false)
 
 	Workloads := a.WorkloadsCollection(
@@ -282,8 +283,8 @@ func New(options Options) Index {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
-		PushXds(a.XDSUpdater, func(i model.WorkloadInfo) model.ConfigKey {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
+		PushXds(a.XDSUpdater, func(i model.WorkloadInfo) (model.ConfigKey, bool) {
+			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}, false
 		})), false)
 
 	a.workloads = workloadsCollection{
@@ -521,12 +522,15 @@ type (
 	LookupNetworkGateways func() []model.NetworkGateway
 )
 
-func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T], initialSync bool) {
+func PushXds[T any](xds model.XDSUpdater, f func(T) (model.ConfigKey, bool)) func(events []krt.Event[T], initialSync bool) {
 	return func(events []krt.Event[T], initialSync bool) {
 		cu := sets.New[model.ConfigKey]()
 		for _, e := range events {
 			for _, i := range e.Items() {
-				cu.Insert(f(i))
+				c, nop := f(i)
+				if !nop {
+					cu.Insert(c)
+				}
 			}
 		}
 		xds.ConfigUpdate(&model.PushRequest{

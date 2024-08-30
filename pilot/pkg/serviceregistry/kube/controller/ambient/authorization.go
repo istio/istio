@@ -42,6 +42,11 @@ func (a *index) Policies(requested sets.Set[model.ConfigKey]) []model.WorkloadAu
 	}
 	res := make([]model.WorkloadAuthorization, 0, l)
 	for _, cfg := range cfgs {
+		// a nil Authoriztion means the WorkloadAuthorization contains an error conidition which needs to be written but
+		// is otherwise an invalid policy and will be ignored
+		if cfg.Authorization == nil {
+			continue
+		}
 		k := model.ConfigKey{
 			Kind:      kind.AuthorizationPolicy,
 			Name:      cfg.Authorization.Name,
