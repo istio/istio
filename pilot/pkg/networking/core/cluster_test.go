@@ -2293,15 +2293,17 @@ func TestApplyLoadBalancer(t *testing.T) {
 		expectClusterLoadAssignmenttoBeNil bool
 	}{
 		{
-			name:             "ORIGINAL_DST discovery type is a no op",
-			discoveryType:    cluster.Cluster_ORIGINAL_DST,
-			expectedLbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
+			name:                           "ORIGINAL_DST discovery type is a no op",
+			discoveryType:                  cluster.Cluster_ORIGINAL_DST,
+			expectedLbPolicy:               cluster.Cluster_CLUSTER_PROVIDED,
+			expectedLocalityWeightedConfig: false,
 		},
 		{
-			name:             "redis protocol",
-			discoveryType:    cluster.Cluster_EDS,
-			port:             &model.Port{Protocol: protocol.Redis},
-			expectedLbPolicy: cluster.Cluster_MAGLEV,
+			name:                           "redis protocol",
+			discoveryType:                  cluster.Cluster_EDS,
+			port:                           &model.Port{Protocol: protocol.Redis},
+			expectedLbPolicy:               cluster.Cluster_MAGLEV,
+			expectedLocalityWeightedConfig: false,
 		},
 		{
 			name: "Loadbalancer has distribute",
@@ -2333,12 +2335,14 @@ func TestApplyLoadBalancer(t *testing.T) {
 			},
 			expectedLbPolicy:                   cluster.Cluster_CLUSTER_PROVIDED,
 			expectClusterLoadAssignmenttoBeNil: true,
+			expectedLocalityWeightedConfig:     false,
 		},
 		{
-			name:                   "Send Unhealthy Endpoints enabled",
-			discoveryType:          cluster.Cluster_EDS,
-			sendUnhealthyEndpoints: true,
-			expectedLbPolicy:       defaultLBAlgorithm(),
+			name:                           "Send Unhealthy Endpoints enabled",
+			discoveryType:                  cluster.Cluster_EDS,
+			sendUnhealthyEndpoints:         true,
+			expectedLbPolicy:               defaultLBAlgorithm(),
+			expectedLocalityWeightedConfig: false,
 		},
 		// TODO: add more to cover all cases
 	}
@@ -2379,6 +2383,11 @@ func TestApplyLoadBalancer(t *testing.T) {
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
 				t.Errorf("cluster expected to have weighed config, but is nil")
 			}
+
+			if !tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() != nil {
+				t.Errorf("cluster unexpected locality weighed config, but it is present")
+			}
+
 			if tt.expectClusterLoadAssignmenttoBeNil && c.LoadAssignment != nil {
 				t.Errorf("cluster expected not to have load assignmentset, but is present")
 			}

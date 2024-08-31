@@ -163,10 +163,11 @@ func TestApplyLocalitySetting(t *testing.T) {
 	t.Run("Failover: with locality lb disabled", func(t *testing.T) {
 		g := NewWithT(t)
 		cluster := buildSmallClusterWithNilLocalities()
-		lbsetting := &networking.LocalityLoadBalancerSetting{
-			Enabled: &wrappers.BoolValue{Value: false},
-		}
-		ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, lbsetting, true)
+		// lbsetting := &networking.LocalityLoadBalancerSetting{
+		// 	Enabled: &wrappers.BoolValue{Value: false},
+		// }
+		// disabled locality lb setting should be converted to nil
+		ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, nil, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
 		}

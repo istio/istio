@@ -193,4 +193,8 @@ var (
 
 	EnableDeferredStatsCreation = env.Register("ENABLE_DEFERRED_STATS_CREATION", true,
 		"If enabled, Istio will lazily initialize a subset of the stats").Get()
+
+	EnableLocalityWeightedLbConfig = env.Register("ENABLE_LOCALITY_WEIGHTED_LB_CONFIG", false,
+		"If enabled, always set LocalityWeightedLbConfig for a cluster, "+
+			" otherwise only apply it when locality lb is specified by DestinationRule for a service").Get()
 )
