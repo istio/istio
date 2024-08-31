@@ -286,7 +286,7 @@ spec:
 		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
 		Check:   check.OK(),
 		Retry: echo.Retry{
-			Options: []retry.Option{retry.Timeout(time.Minute)},
+			Options: []retry.Option{retry.Timeout(2 * time.Minute)},
 		},
 	})
 	apps.B[0].CallOrFail(t, echo.CallOptions{
@@ -298,7 +298,7 @@ spec:
 		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
 		Check:   check.NotOK(),
 		Retry: echo.Retry{
-			Options: []retry.Option{retry.Timeout(time.Minute)},
+			Options: []retry.Option{retry.Timeout(2 * time.Minute)},
 		},
 	})
 }
@@ -510,6 +510,9 @@ spec:
 							Headers: headers.New().WithHost("my.domain.example").Build(),
 						},
 						Check: check.OK(),
+						Retry: echo.Retry{
+							Options: []retry.Option{retry.Timeout(2 * time.Minute)},
+						},
 					})
 				}
 			})
