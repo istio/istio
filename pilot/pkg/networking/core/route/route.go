@@ -124,6 +124,13 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	}
 
 	for _, svc := range serviceRegistry {
+		// Filter any aliases out. While we want to be able to use them as the backend to a route, we don't want
+		// to have them build standalone route matches; this is already handled.
+		// Each alias will get a mapping of 'Alias -> Concrete' service when the concrete service is built
+		// if we let this through, we would get 'Alias -> Alias'.
+		if svc.Resolution == model.Alias {
+			continue
+		}
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTPOrSniffed() {
 				hash, destinationRule := hashForService(push, node, svc, port)
