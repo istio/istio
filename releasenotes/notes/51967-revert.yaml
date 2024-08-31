@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 52944
+  - 52847
+releaseNotes:
+  - |
+    **Removed** a change in 1.22.4 to the handling of multiple service VIPs in ServiceEntry.
