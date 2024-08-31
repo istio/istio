@@ -722,6 +722,9 @@ func buildHTTPHeaders(headers []*meshconfig.MeshConfig_ExtensionProvider_HttpHea
 }
 
 func buildInitialMetadata(metadata []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader) []*core.HeaderValue {
+	if metadata == nil {
+		return nil
+	}
 	target := make([]*core.HeaderValue, 0, len(metadata))
 	for _, h := range metadata {
 		hv := &core.HeaderValue{
