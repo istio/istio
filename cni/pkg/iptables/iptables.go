@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/cni/pkg/scopes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -135,60 +136,33 @@ func NewIptablesConfigurator(
 	return configurator, inPodConfigurator, nil
 }
 
-func (cfg *IptablesConfigurator) DeleteInpodRules() error {
+func (cfg *IptablesConfigurator) DeleteInpodRules(hostProbeSNAT, hostProbeV6SNAT *netip.Addr) error {
 	var inpodErrs []error
 
 	log.Debug("Deleting iptables rules")
+	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT)
 
-	inpodErrs = append(inpodErrs, cfg.executeDeleteCommands(), cfg.delInpodMarkIPRule(), cfg.delLoopbackRoute())
-	return errors.Join(inpodErrs...)
-}
-
-func (cfg *IptablesConfigurator) executeDeleteCommands() error {
-	deleteCmds := [][]string{
-		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
-		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
-		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
-		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
-		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
-		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
-	}
-
-	// these sometimes fail due to "Device or resource busy"
-	optionalDeleteCmds := [][]string{
-		// flush-then-delete our created chains
-		{"-t", iptablesconstants.MANGLE, "-F", ChainInpodPrerouting},
-		{"-t", iptablesconstants.MANGLE, "-F", ChainInpodOutput},
-		{"-t", iptablesconstants.NAT, "-F", ChainInpodPrerouting},
-		{"-t", iptablesconstants.NAT, "-F", ChainInpodOutput},
-		{"-t", iptablesconstants.MANGLE, "-X", ChainInpodPrerouting},
-		{"-t", iptablesconstants.MANGLE, "-X", ChainInpodOutput},
-		{"-t", iptablesconstants.NAT, "-X", ChainInpodPrerouting},
-		{"-t", iptablesconstants.NAT, "-X", ChainInpodOutput},
-	}
-
-	var delErrs []error
-
-	iptablesVariant := []dep.IptablesVersion{}
-	iptablesVariant = append(iptablesVariant, cfg.iptV)
-
-	if cfg.cfg.EnableIPv6 {
-		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
-	}
-
-	for _, iptVer := range iptablesVariant {
-		for _, cmd := range deleteCmds {
-			delErrs = append(delErrs, cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...))
-		}
-
-		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
-			if err != nil {
+	runCommands := func(cmds [][]string, version *dep.IptablesVersion) []error {
+		var errs []error
+		for _, cmd := range cmds {
+			err := cfg.ext.Run(iptablesconstants.IPTables, version, nil, cmd...)
+			// -F/-X may sometimes fail due to "Device or resource busy"
+			if err != nil && (slices.Contains(cmd, "-F") || slices.Contains(cmd, "--flush") || slices.Contains(cmd, "-X") || slices.Contains(cmd, "--delete-chain")) {
 				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
+			} else {
+				errs = append(errs, err)
 			}
 		}
+		return errs
 	}
-	return errors.Join(delErrs...)
+	inpodErrs = append(inpodErrs, runCommands(builder.BuildCleanupV4(), &cfg.iptV)...)
+
+	if cfg.cfg.EnableIPv6 {
+		inpodErrs = append(inpodErrs, runCommands(builder.BuildCleanupV6(), &cfg.ipt6V)...)
+	}
+
+	inpodErrs = append(inpodErrs, cfg.delInpodMarkIPRule(), cfg.delLoopbackRoute())
+	return errors.Join(inpodErrs...)
 }
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
@@ -549,34 +523,20 @@ func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks(hostSNATIP, host
 	return nil
 }
 
-func (cfg *IptablesConfigurator) DeleteHostRules() {
+func (cfg *IptablesConfigurator) DeleteHostRules(hostSNATIP, hostSNATIPV6 *netip.Addr) {
 	log.Debug("Attempting to delete hostside iptables rules (if they exist)")
-
-	cfg.executeHostDeleteCommands()
-}
-
-func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
-	optionalDeleteCmds := [][]string{
-		// delete our main jump in the host ruleset. If it's not there, NBD.
-		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.POSTROUTING, "-j", ChainHostPostrouting},
-		// flush-then-delete our created chains
-		// these sometimes fail due to "Device or resource busy" - again NBD.
-		{"-t", iptablesconstants.NAT, "-F", ChainHostPostrouting},
-		{"-t", iptablesconstants.NAT, "-X", ChainHostPostrouting},
+	builder := cfg.appendHostRules(hostSNATIP, hostSNATIPV6)
+	runCommands := func(cmds [][]string, version *dep.IptablesVersion) {
+		for _, cmd := range cmds {
+			// Ignore errors, as it is expected to fail in cases where the node is already cleaned up.
+			cfg.ext.RunQuietlyAndIgnore(iptablesconstants.IPTables, version, nil, cmd...)
+		}
 	}
 
-	// iptablei seems like a reasonable pluralization of iptables
-	iptablesVariant := []dep.IptablesVersion{}
-	iptablesVariant = append(iptablesVariant, cfg.iptV)
+	runCommands(builder.BuildCleanupV4(), &cfg.iptV)
 
 	if cfg.cfg.EnableIPv6 {
-		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
-	}
-	for _, iptVer := range iptablesVariant {
-		for _, cmd := range optionalDeleteCmds {
-			// Ignore errors, as it is expected to fail in cases where the node is already cleaned up.
-			cfg.ext.RunQuietlyAndIgnore(iptablesconstants.IPTables, &iptVer, nil, cmd...)
-		}
+		runCommands(builder.BuildCleanupV6(), &cfg.ipt6V)
 	}
 }
 

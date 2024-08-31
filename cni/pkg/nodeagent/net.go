@@ -224,7 +224,7 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 		if openNetns != nil {
 			// pod is removed from the mesh, but is still running. remove iptables rules
 			log.Debugf("calling DeleteInpodRules")
-			if err := s.netnsRunner(openNetns, func() error { return s.podIptables.DeleteInpodRules() }); err != nil {
+			if err := s.netnsRunner(openNetns, func() error { return s.podIptables.DeleteInpodRules(&HostProbeSNATIP, &HostProbeSNATIPV6) }); err != nil {
 				return fmt.Errorf("failed to delete inpod rules: %w", err)
 			}
 		} else {
