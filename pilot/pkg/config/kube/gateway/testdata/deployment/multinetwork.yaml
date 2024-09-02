@@ -12,7 +12,6 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
-    istio.io/gateway-name: default
     topology.istio.io/network: network-1
   name: default-istio
   namespace: default
@@ -30,7 +29,6 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
-    istio.io/gateway-name: default
     topology.istio.io/network: network-1
   name: default
   namespace: default
@@ -51,9 +49,9 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
       labels:
+        gateway.istio.io/managed: istio.io-gateway-controller
         gateway.networking.k8s.io/gateway-name: default
         istio.io/dataplane-mode: none
-        istio.io/gateway-name: default
         service.istio.io/canonical-name: default
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
@@ -231,7 +229,6 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
     istio.io/dataplane-mode: none
-    istio.io/gateway-name: default
     topology.istio.io/network: network-1
   name: default
   namespace: default

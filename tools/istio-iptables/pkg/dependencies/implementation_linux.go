@@ -203,18 +203,23 @@ func mount(src, dst string) error {
 	return syscall.Mount(src, dst, "", syscall.MS_BIND|syscall.MS_RDONLY, "")
 }
 
-func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
+func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion,
+	ignoreErrors bool, stdin io.ReadSeeker, args ...string,
+) (*bytes.Buffer, error) {
 	mode := "without lock"
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
 	cmdBin := iptVer.CmdToString(cmd)
 	if cmdBin == "" {
-		return fmt.Errorf("called without iptables binary, cannot execute!: %+v", iptVer)
+		return stdout, fmt.Errorf("called without iptables binary, cannot execute!: %+v", iptVer)
 	}
 	var c *exec.Cmd
 	needLock := iptVer.IsWriteCmd(cmd) && !iptVer.NoLocks()
 	run := func(c *exec.Cmd) error {
 		return c.Run()
 	}
-	if r.CNIMode {
+	if r.HostFilesystemPodNetwork {
 		c = exec.Command(cmdBin, args...)
 		// In CNI, we are running the pod network namespace, but the host filesystem, so we need to do some tricks
 		// Call our binary again, but with <original binary> "unshare (subcommand to trigger mounts)" --lock-file=<network namespace> <original command...>
@@ -249,10 +254,8 @@ func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *Ipt
 			c = exec.Command(cmdBin, args...)
 		}
 	}
-
 	log.Infof("Running command (%s): %s %s", mode, cmdBin, strings.Join(args, " "))
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
+
 	c.Stdout = stdout
 	c.Stderr = stderr
 	c.Stdin = stdin
@@ -273,5 +276,10 @@ func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *Ipt
 		log.Errorf("Command error output: %v", stderrStr)
 	}
 
+	return stdout, err
+}
+
+func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
+	_, err := r.executeXTablesWithOutput(cmd, iptVer, ignoreErrors, stdin, args...)
 	return err
 }

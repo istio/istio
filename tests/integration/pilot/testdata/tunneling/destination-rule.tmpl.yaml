@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: tunnel-outbound-traffic-to-external-svc-via-external-forward-proxy
@@ -17,7 +17,7 @@ spec:
         targetPort: {{ .externalSvcTlsPort }}
 ---
 {{ if .tlsEnabled }}
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: originate-tls-for-outbound-traffic-to-external-forward-proxy

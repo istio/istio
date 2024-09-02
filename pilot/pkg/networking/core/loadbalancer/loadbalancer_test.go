@@ -163,10 +163,11 @@ func TestApplyLocalitySetting(t *testing.T) {
 	t.Run("Failover: with locality lb disabled", func(t *testing.T) {
 		g := NewWithT(t)
 		cluster := buildSmallClusterWithNilLocalities()
-		lbsetting := &networking.LocalityLoadBalancerSetting{
-			Enabled: &wrappers.BoolValue{Value: false},
-		}
-		ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, lbsetting, true)
+		// lbsetting := &networking.LocalityLoadBalancerSetting{
+		// 	Enabled: &wrappers.BoolValue{Value: false},
+		// }
+		// disabled locality lb setting should be converted to nil
+		ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, nil, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
 		}
@@ -227,6 +228,31 @@ func TestApplyLocalitySetting(t *testing.T) {
 							},
 							{
 								HostIdentifier: buildEndpoint("4.4.4.4"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 2,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("1.2.3.4", "2001:1::1"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("1.2.3.4", "2001:1::1"),
 								LoadBalancingWeight: &wrappers.UInt32Value{
 									Value: 1,
 								},
@@ -323,6 +349,44 @@ func TestApplyLocalitySetting(t *testing.T) {
 						},
 						Priority: 1,
 					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("1.2.3.4", "2001:1::1"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("2.3.4.5", "2001:1::2"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 1,
+					},
 				},
 			},
 			{
@@ -373,6 +437,31 @@ func TestApplyLocalitySetting(t *testing.T) {
 							},
 							{
 								HostIdentifier: buildEndpoint("4.4.4.4"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 2,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("1.2.3.4", "2001:1::1"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("2.3.4.5", "2001:1::2"),
 								LoadBalancingWeight: &wrappers.UInt32Value{
 									Value: 1,
 								},
@@ -470,6 +559,44 @@ func TestApplyLocalitySetting(t *testing.T) {
 						},
 						Priority: 2,
 					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("2.3.4.5", "2001:1::2"), // match [key, network, cluster]
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("1.2.3.4", "2001:1::1"), // match no label
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 2,
+					},
 				},
 			},
 			{
@@ -556,6 +683,44 @@ func TestApplyLocalitySetting(t *testing.T) {
 						},
 						Priority: 1,
 					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("1.2.3.4", "2001:1::1"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("2.3.4.5", "2001:1::2"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 1,
+					},
 				},
 			},
 			{
@@ -606,6 +771,31 @@ func TestApplyLocalitySetting(t *testing.T) {
 							},
 							{
 								HostIdentifier: buildEndpoint("4.4.4.4"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 2,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("1.2.3.4", "2001:1::1"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+							{
+								HostIdentifier: buildEndpointWithMultipleAddresses("2.3.4.5", "2001:1::2"),
 								LoadBalancingWeight: &wrappers.UInt32Value{
 									Value: 1,
 								},
@@ -1225,6 +1415,12 @@ func buildSmallClusterForFailOverPriority() *cluster.Cluster {
 							},
 						},
 						{
+							HostIdentifier: buildEndpointWithMultipleAddresses("1.2.3.4", "2001:1::1"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+						{
 							HostIdentifier: buildEndpoint("2.2.2.2"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 1,
@@ -1247,6 +1443,27 @@ func buildSmallClusterForFailOverPriority() *cluster.Cluster {
 						},
 						{
 							HostIdentifier: buildEndpoint("4.4.4.4"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+					},
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region3",
+						Zone:    "zone3",
+						SubZone: "subzone3",
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: buildEndpointWithMultipleAddresses("1.2.3.4", "2001:1::1"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+						{
+							HostIdentifier: buildEndpointWithMultipleAddresses("2.3.4.5", "2001:1::2"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 1,
 							},
@@ -1376,6 +1593,37 @@ func buildEndpoint(ip string) *endpoint.LbEndpoint_Endpoint {
 	}
 }
 
+func buildEndpointWithMultipleAddresses(ip, additionIP string) *endpoint.LbEndpoint_Endpoint {
+	return &endpoint.LbEndpoint_Endpoint{
+		Endpoint: &endpoint.Endpoint{
+			Address: &core.Address{
+				Address: &core.Address_SocketAddress{
+					SocketAddress: &core.SocketAddress{
+						Address: ip,
+						PortSpecifier: &core.SocketAddress_PortValue{
+							PortValue: 10001,
+						},
+					},
+				},
+			},
+			AdditionalAddresses: []*endpoint.Endpoint_AdditionalAddress{
+				{
+					Address: &core.Address{
+						Address: &core.Address_SocketAddress{
+							SocketAddress: &core.SocketAddress{
+								Address: additionIP,
+								PortSpecifier: &core.SocketAddress_PortValue{
+									PortValue: 10001,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func buildWrappedLocalityLbEndpoints() []*WrappedLocalityLbEndpoints {
 	cluster := buildSmallClusterForFailOverPriority()
 	return []*WrappedLocalityLbEndpoints{
@@ -1386,7 +1634,7 @@ func buildWrappedLocalityLbEndpoints() []*WrappedLocalityLbEndpoints {
 						"topology.istio.io/network": "n1",
 						"topology.istio.io/cluster": "c1",
 					},
-					Address: "1.1.1.1",
+					Addresses: []string{"1.1.1.1"},
 				},
 				{
 					Labels: map[string]string{
@@ -1394,7 +1642,7 @@ func buildWrappedLocalityLbEndpoints() []*WrappedLocalityLbEndpoints {
 						"topology.istio.io/network": "n2",
 						"topology.istio.io/cluster": "c2",
 					},
-					Address: "2.2.2.2",
+					Addresses: []string{"2.2.2.2"},
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[0],
@@ -1407,7 +1655,7 @@ func buildWrappedLocalityLbEndpoints() []*WrappedLocalityLbEndpoints {
 						"topology.istio.io/network": "n1",
 						"topology.istio.io/cluster": "c3",
 					},
-					Address: "3.3.3.3",
+					Addresses: []string{"3.3.3.3"},
 				},
 				{
 					Labels: map[string]string{
@@ -1415,10 +1663,31 @@ func buildWrappedLocalityLbEndpoints() []*WrappedLocalityLbEndpoints {
 						"topology.istio.io/network": "n2",
 						"topology.istio.io/cluster": "c4",
 					},
-					Address: "4.4.4.4",
+					Addresses: []string{"4.4.4.4"},
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[1],
+		},
+		{
+			IstioEndpoints: []*model.IstioEndpoint{
+				{
+					Labels: map[string]string{
+						"key":                       "value",
+						"topology.istio.io/network": "n1",
+						"topology.istio.io/cluster": "c1",
+					},
+					Addresses: []string{"1.2.3.4", "2001:1::1"},
+				},
+				{
+					Labels: map[string]string{
+						"key":                       "value",
+						"topology.istio.io/network": "n2",
+						"topology.istio.io/cluster": "c2",
+					},
+					Addresses: []string{"2.3.4.5", "2001:1::2"},
+				},
+			},
+			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[2],
 		},
 	}
 }
@@ -1433,7 +1702,7 @@ func buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover() []*Wrapped
 						"topology.istio.io/network": "n1",
 						"topology.istio.io/cluster": "c1",
 					},
-					Address: "1.1.1.1",
+					Addresses: []string{"1.1.1.1"},
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[0],
@@ -1446,7 +1715,7 @@ func buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover() []*Wrapped
 						"topology.istio.io/network": "n2",
 						"topology.istio.io/cluster": "c2",
 					},
-					Address: "2.2.2.2",
+					Addresses: []string{"2.2.2.2"},
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[1],
@@ -1459,7 +1728,7 @@ func buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover() []*Wrapped
 						"topology.istio.io/network": "n1",
 						"topology.istio.io/cluster": "c3",
 					},
-					Address: "3.3.3.3",
+					Addresses: []string{"3.3.3.3"},
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[2],
@@ -1472,7 +1741,7 @@ func buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover() []*Wrapped
 						"topology.istio.io/network": "n2",
 						"topology.istio.io/cluster": "c4",
 					},
-					Address: "4.4.4.4",
+					Addresses: []string{"4.4.4.4"},
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[3],
@@ -1484,7 +1753,7 @@ func buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover() []*Wrapped
 						"topology.istio.io/network": "n2",
 						"topology.istio.io/cluster": "c2",
 					},
-					Address: "5.5.5.5",
+					Addresses: []string{"5.5.5.5"},
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[4],
@@ -1497,7 +1766,7 @@ func buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover() []*Wrapped
 						"topology.istio.io/network": "n1",
 						"topology.istio.io/cluster": "c6",
 					},
-					Address: "6.6.6.6",
+					Addresses: []string{"6.6.6.6"},
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[5],

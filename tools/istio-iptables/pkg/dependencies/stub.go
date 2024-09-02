@@ -16,6 +16,7 @@ package dependencies
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -39,6 +40,12 @@ func (s *DependenciesStub) Run(cmd constants.IptablesCmd, iptVer *IptablesVersio
 	s.execute(false /*quietly*/, cmd, iptVer, stdin, args...)
 	_ = s.writeAllToDryRunPath()
 	return nil
+}
+
+func (s *DependenciesStub) RunWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error) {
+	s.execute(false /*quietly*/, cmd, iptVer, stdin, args...)
+	_ = s.writeAllToDryRunPath()
+	return &bytes.Buffer{}, nil
 }
 
 func (s *DependenciesStub) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {

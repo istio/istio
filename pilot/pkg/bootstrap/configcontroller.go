@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/status/distribution"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/analysis/incluster"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -59,7 +58,6 @@ const (
 
 // initConfigController creates the config controller in the pilotConfig.
 func (s *Server) initConfigController(args *PilotArgs) error {
-	s.initStatusController(args, features.EnableStatus && features.EnableDistributionTracking)
 	meshConfig := s.environment.Mesh()
 	if len(meshConfig.ConfigSources) > 0 {
 		// Using MCP for config.
@@ -304,43 +302,6 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 		return nil
 	})
 	return nil
-}
-
-func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
-	if s.statusManager == nil && writeStatus {
-		s.initStatusManager(args)
-	}
-	if features.EnableDistributionTracking {
-		s.statusReporter = &distribution.Reporter{
-			UpdateInterval: features.StatusUpdateInterval,
-			PodName:        args.PodName,
-		}
-		s.addStartFunc("status reporter init", func(stop <-chan struct{}) error {
-			s.statusReporter.Init(s.environment.GetLedger(), stop)
-			return nil
-		})
-		s.addTerminatingStartFunc("status reporter", func(stop <-chan struct{}) error {
-			if writeStatus {
-				s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
-			}
-			return nil
-		})
-		s.XDSServer.StatusReporter = s.statusReporter
-	}
-	if writeStatus {
-		s.addTerminatingStartFunc("status distribution", func(stop <-chan struct{}) error {
-			leaderelection.
-				NewLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
-				AddRunFunction(func(leaderStop <-chan struct{}) {
-					// Controller should be created for calling the run function every time, so it can
-					// avoid concurrently calling of informer Run() for controller in controller.Start
-					controller := distribution.NewController(s.kubeClient.RESTConfig(), args.Namespace, s.RWConfigStore, s.statusManager)
-					s.statusReporter.SetController(controller)
-					controller.Start(leaderStop)
-				}).Run(stop)
-			return nil
-		})
-	}
 }
 
 func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {

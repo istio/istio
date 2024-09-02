@@ -55,7 +55,7 @@ func runRegressionTest(t *testing.T, name string, fuzz func(data []byte) int) {
 			} else {
 				// Ensure we update brokenCases when they are fixed
 				if _, broken := brokenCases[name]; broken {
-					t.Fatalf("expected broken case passed")
+					t.Fatal("expected broken case passed")
 				}
 			}
 		}()
@@ -123,21 +123,10 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzXds", FuzzXds},
 		{"FuzzAnalyzer", FuzzAnalyzer},
 		{"FuzzCompareDiff", FuzzCompareDiff},
-		{"FuzzHelmReconciler", FuzzHelmReconciler},
 		{"FuzzIntoResourceFile", FuzzIntoResourceFile},
-		{"FuzzTranslateFromValueToSpec", FuzzTranslateFromValueToSpec},
 		{"FuzzConfigValidation2", FuzzConfigValidation2},
 		{"FuzzBNMUnmarshalJSON", FuzzBNMUnmarshalJSON},
 		{"FuzzValidateClusters", FuzzValidateClusters},
-		{"FuzzCheckIstioOperatorSpec", FuzzCheckIstioOperatorSpec},
-		{"FuzzV1Alpha1ValidateConfig", FuzzV1Alpha1ValidateConfig},
-		{"FuzzGetEnabledComponents", FuzzGetEnabledComponents},
-		{"FuzzUnmarshalAndValidateIOPS", FuzzUnmarshalAndValidateIOPS},
-		{"FuzzRenderManifests", FuzzRenderManifests},
-		{"FuzzOverlayIOP", FuzzOverlayIOP},
-		{"FuzzNewControlplane", FuzzNewControlplane},
-		{"FuzzResolveK8sConflict", FuzzResolveK8sConflict},
-		{"FuzzYAMLManifestPatch", FuzzYAMLManifestPatch},
 		{"FuzzGalleyDiag", FuzzGalleyDiag},
 		{"FuzzNewBootstrapServer", FuzzNewBootstrapServer},
 		{"FuzzGenCSR", FuzzGenCSR},
@@ -145,7 +134,6 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzConfigValidation3", FuzzConfigValidation3},
 		{"FuzzCidrRange", FuzzCidrRange},
 		{"FuzzHeaderMatcher", FuzzHeaderMatcher},
-		{"FuzzHostMatcherWithRegex", FuzzHostMatcherWithRegex},
 		{"FuzzHostMatcher", FuzzHostMatcher},
 		{"FuzzMetadataListMatcher", FuzzMetadataListMatcher},
 		{"FuzzGrpcGenGenerate", FuzzGrpcGenGenerate},
@@ -153,7 +141,6 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzConvertIngressV1alpha3", FuzzConvertIngressV1alpha3},
 		{"FuzzAggregateController", FuzzAggregateController},
 		{"FuzzKubeCRD", FuzzKubeCRD},
-		{"FuzzReconcileStatuses", FuzzReconcileStatuses},
 		{"FuzzWE", FuzzWE},
 		{"FuzzVerifyCertificate", FuzzVerifyCertificate},
 		{"FuzzExtractIDs", FuzzExtractIDs},

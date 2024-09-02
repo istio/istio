@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"strings"
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -60,7 +62,7 @@ func forEachInpodMarkIPRule(cfg *Config, f func(*netlink.Rule) error) error {
 	}
 
 	for _, rule := range rules {
-		log.Debugf("Iterating netlink rule : %+v", rule)
+		log.Debugf("processing netlink rule: %+v", rule)
 		if err := f(rule); err != nil {
 			return fmt.Errorf("failed to configure netlink rule: %w", err)
 		}
@@ -77,6 +79,16 @@ func DelLoopbackRoutes(cfg *Config) error {
 	return forEachLoopbackRoute(cfg, "remove", netlink.RouteDel)
 }
 
+const ipv6DisabledLo = "/proc/sys/net/ipv6/conf/lo/disable_ipv6"
+
+func ReadSysctl(key string) (string, error) {
+	data, err := os.ReadFile(key)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
 func forEachLoopbackRoute(cfg *Config, operation string, f func(*netlink.Route) error) error {
 	loopbackLink, err := netlink.LinkByName("lo")
 	if err != nil {
@@ -86,7 +98,17 @@ func forEachLoopbackRoute(cfg *Config, operation string, f func(*netlink.Route) 
 	// Set up netlink routes for localhost
 	cidrs := []string{"0.0.0.0/0"}
 	if cfg.EnableIPv6 {
-		cidrs = append(cidrs, "0::0/0")
+		// IPv6 may be enabled, but only partially
+		v, err := ReadSysctl(ipv6DisabledLo)
+		if v != "1" {
+			// If we got an error, we will proceed. Maybe it will work anyways
+			if err != nil {
+				log.Warnf("attempted to read %q got error: %v; attemping to continue", ipv6DisabledLo, err)
+			}
+			cidrs = append(cidrs, "0::0/0")
+		} else {
+			log.Debugf("IPv6 is enabled, but the loopback interface has IPv6 disabled; skipping")
+		}
 	}
 	for _, fullCIDR := range cidrs {
 		_, localhostDst, err := net.ParseCIDR(fullCIDR)
@@ -108,7 +130,7 @@ func forEachLoopbackRoute(cfg *Config, operation string, f func(*netlink.Route) 
 		}
 
 		for _, route := range netlinkRoutes {
-			log.Debugf("Iterating netlink route: %+v", route)
+			log.Debugf("processing netlink route: %+v", route)
 			if err := f(route); err != nil {
 				return fmt.Errorf("failed to %v route (%+v): %v", operation, route, err)
 			}

@@ -3,9 +3,9 @@ kind: Service
 metadata:
   name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
-  {{- if .Values.pilot.serviceAnnotations }}
+  {{- if .Values.serviceAnnotations }}
   annotations:
-{{ toYaml .Values.pilot.serviceAnnotations | indent 4 }}
+{{ toYaml .Values.serviceAnnotations | indent 4 }}
   {{- end }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" | quote }}
@@ -14,6 +14,8 @@ metadata:
     app: istiod
     istio: pilot
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 spec:
   ports:
     - port: 15010
@@ -38,12 +40,12 @@ spec:
     # This avoids default deployment picking the canary
     istio: pilot
     {{- end }}
-  {{- if .Values.pilot.ipFamilyPolicy }}
-  ipFamilyPolicy: {{ .Values.pilot.ipFamilyPolicy }}
+  {{- if .Values.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.ipFamilyPolicy }}
   {{- end }}
-  {{- if .Values.pilot.ipFamilies }}
+  {{- if .Values.ipFamilies }}
   ipFamilies:
-  {{- range .Values.pilot.ipFamilies }}
+  {{- range .Values.ipFamilies }}
   - {{ . }}
   {{- end }}
   {{- end }}

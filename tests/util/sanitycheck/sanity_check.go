@@ -15,35 +15,57 @@
 package sanitycheck
 
 import (
+	"istio.io/api/label"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 )
 
 // RunTrafficTest deploys echo server/client and runs an Istio traffic test
-func RunTrafficTest(t framework.TestContext, ctx resource.Context) {
+func RunTrafficTest(t framework.TestContext, ambient bool) {
 	scopes.Framework.Infof("running sanity test")
-	_, client, server := SetupTrafficTest(t, ctx, "")
+	_, client, server := setupTrafficTest(t, "", ambient)
 	RunTrafficTestClientServer(t, client, server)
 }
 
-func SetupTrafficTest(t framework.TestContext, ctx resource.Context, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
+func SetupTrafficTestAmbient(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
+	return setupTrafficTest(t, revision, true)
+}
+
+func SetupTrafficTest(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
+	return setupTrafficTest(t, revision, false)
+}
+
+func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (namespace.Instance, echo.Instance, echo.Instance) {
 	var client, server echo.Instance
-	testNs := namespace.NewOrFail(t, ctx, namespace.Config{
+	nsConfig := namespace.Config{
 		Prefix:   "default",
 		Revision: revision,
 		Inject:   true,
-	})
-	deployment.New(ctx).
+	}
+	var subsetConfig []echo.SubsetConfig
+	if ambient {
+		nsConfig.Inject = false
+		nsConfig.Labels = map[string]string{
+			constants.DataplaneModeLabel: "ambient",
+		}
+		// not really needed from Istio POV, but the test will add the `istio-proxy` container if we don't tell it not to.
+		subsetConfig = []echo.SubsetConfig{{
+			Annotations: map[string]string{label.SidecarInject.Name: "false"},
+		}}
+	}
+	testNs := namespace.NewOrFail(t, nsConfig)
+	deployment.New(t).
 		With(&client, echo.Config{
 			Service:   "client",
 			Namespace: testNs,
 			Ports:     []echo.Port{},
+			Subsets:   subsetConfig,
 		}).
 		With(&server, echo.Config{
 			Service:   "server",
@@ -55,6 +77,7 @@ func SetupTrafficTest(t framework.TestContext, ctx resource.Context, revision st
 					WorkloadPort: 8090,
 				},
 			},
+			Subsets: subsetConfig,
 		}).
 		BuildOrFail(t)
 

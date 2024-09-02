@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/copystructure"
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/constants"
@@ -175,6 +175,7 @@ type Config struct {
 	// IPFamilyPolicy. This is optional field. Mainly is used for dual stack testing.
 	IPFamilyPolicy string
 
+	// This is an optional field used as part of dual stack testing.
 	DualStack bool
 
 	// ServiceWaypointProxy specifies if this workload should have an associated Waypoint for service-addressed traffic
@@ -182,6 +183,9 @@ type Config struct {
 
 	// WorkloadWaypointProxy specifies if this workload should have an associated Waypoint for workload-addressed traffic
 	WorkloadWaypointProxy string
+
+	// Specify IP family to which echo will bind
+	BindFamily string
 }
 
 // Getter for a custom echo deployment

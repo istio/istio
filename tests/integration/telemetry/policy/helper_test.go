@@ -43,7 +43,7 @@ const (
 	// ServiceEntry is used to create conflicts on various ports
 	// As defined below, the tcp-conflict and https-conflict ports are 9443 and 9091
 	ServiceEntry = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: http
@@ -61,7 +61,7 @@ spec:
   resolution: DNS
 `
 	SidecarScope = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: restrict-to-service-entry-namespace
@@ -75,7 +75,7 @@ spec:
 `
 
 	Gateway = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: istio-egressgateway
@@ -90,7 +90,7 @@ spec:
     hosts:
     - "some-external-site.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route-via-egressgateway
@@ -123,7 +123,7 @@ spec:
           add:
             handled-by-egress-gateway: "true"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: ext-service-entry
@@ -296,11 +296,11 @@ func RunExternalRequest(t *testing.T, cases []*TestCase, prometheus prometheus.I
 
 func setupEcho(t framework.TestContext, mode TrafficPolicy) (echo.Instance, echo.Target) {
 	t.Helper()
-	appsNamespace := namespace.NewOrFail(t, t, namespace.Config{
+	appsNamespace := namespace.NewOrFail(t, namespace.Config{
 		Prefix: "app",
 		Inject: true,
 	})
-	serviceNamespace := namespace.NewOrFail(t, t, namespace.Config{
+	serviceNamespace := namespace.NewOrFail(t, namespace.Config{
 		Prefix: "service",
 		Inject: true,
 	})

@@ -160,8 +160,8 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
 	if enabled && features.EnableGatewayAPIStatus && statusManager != nil {
 		c.statusController.Store(
-			statusManager.CreateGenericController(func(status any, context any) status.GenerationProvider {
-				return &gatewayGeneration{context}
+			statusManager.CreateGenericController(func(status status.Manipulator, context any) {
+				status.SetInner(context)
 			}),
 		)
 	} else {

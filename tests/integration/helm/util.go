@@ -25,13 +25,15 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
@@ -411,16 +413,38 @@ func DeleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster, config
 	if err := h.DeleteChart(BaseReleaseName, config.Get(BaseReleaseName)); err != nil {
 		t.Errorf("failed to delete %s release: %v", BaseReleaseName, err)
 	}
+	g := errgroup.Group{}
 	for _, ns := range config.AllNamespaces() {
 		if ns == constants.KubeSystemNamespace {
 			continue
 		}
-		if err := cs.Kube().CoreV1().Namespaces().Delete(context.TODO(), ns, metav1.DeleteOptions{}); err != nil {
-			t.Errorf("failed to delete %s namespace: %v", ns, err)
+		g.Go(func() error {
+			if err := cs.Kube().CoreV1().Namespaces().Delete(context.TODO(), ns, metav1.DeleteOptions{}); err != nil {
+				return fmt.Errorf("failed to delete %s namespace: %v", ns, err)
+			}
+			if err := kubetest.WaitForNamespaceDeletion(cs.Kube(), ns, retry.Timeout(RetryTimeOut)); err != nil {
+				return fmt.Errorf("waiting for %s namespace to be deleted: %v", ns, err)
+			}
+			return nil
+		})
+	}
+	// try to delete all leader election locks. Istiod will drop them on shutdown, but `helm delete` ordering removes the
+	// Role allowing it to do so before it is able to, so it ends up failing to do so.
+	// Help it out to ensure the next test doesn't need to wait 30s.
+	g.Go(func() error {
+		locks := []string{
+			leaderelection.NamespaceController,
+			leaderelection.GatewayDeploymentController,
+			leaderelection.GatewayStatusController,
+			leaderelection.IngressController,
 		}
-		if err := kubetest.WaitForNamespaceDeletion(cs.Kube(), ns, retry.Timeout(RetryTimeOut)); err != nil {
-			t.Errorf("waiting for %s namespace to be deleted: %v", ns, err)
+		for _, lock := range locks {
+			_ = cs.Kube().CoreV1().ConfigMaps(config.Get(IstiodReleaseName)).Delete(context.Background(), lock, metav1.DeleteOptions{})
 		}
+		return nil
+	})
+	if err := g.Wait(); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -517,7 +541,7 @@ func VerifyValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster
 // verifyValidation verifies that Istio resource validation is active on the cluster.
 func verifyValidation(ctx framework.TestContext, revision string) {
 	ctx.Helper()
-	invalidGateway := &v1alpha3.Gateway{
+	invalidGateway := &clientnetworking.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "invalid-istio-gateway",
 			Namespace: IstioNamespace,
@@ -531,7 +555,7 @@ func verifyValidation(ctx framework.TestContext, revision string) {
 		}
 	}
 	createOptions := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
-	istioClient := ctx.Clusters().Default().Istio().NetworkingV1alpha3()
+	istioClient := ctx.Clusters().Default().Istio().NetworkingV1()
 	retry.UntilOrFail(ctx, func() bool {
 		_, err := istioClient.Gateways(IstioNamespace).Create(context.TODO(), invalidGateway, createOptions)
 		rejected := err != nil

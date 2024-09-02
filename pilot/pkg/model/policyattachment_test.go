@@ -21,6 +21,7 @@ import (
 
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -44,6 +45,11 @@ func TestPolicyMatcher(t *testing.T) {
 		Kind:  gvk.Service.Kind,
 		Name:  "sample-svc",
 	}
+	serviceEntryTargetRef := &v1beta1.PolicyTargetReference{
+		Group: gvk.ServiceEntry.Group,
+		Kind:  gvk.ServiceEntry.Kind,
+		Name:  "sample-svc-entry",
+	}
 	sampleSelector := &v1beta1.WorkloadSelector{
 		MatchLabels: labels.Instance{
 			"app": "my-app",
@@ -60,34 +66,47 @@ func TestPolicyMatcher(t *testing.T) {
 		},
 	}
 	regularApp := WorkloadPolicyMatcher{
-		Namespace: "default",
+		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
 			"app": "my-app",
 		},
 		IsWaypoint: false,
 	}
 	sampleGateway := WorkloadPolicyMatcher{
-		Namespace: "default",
+		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
 			constants.GatewayNameLabel: "sample-gateway",
 		},
 		IsWaypoint: false,
 	}
 	sampleWaypoint := WorkloadPolicyMatcher{
-		Namespace: "default",
+		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
 			constants.GatewayNameLabel: "sample-waypoint",
 		},
 		IsWaypoint: true,
 	}
 	serviceTarget := WorkloadPolicyMatcher{
-		Namespace: "default",
+		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
 			"app":                      "my-app",
 			constants.GatewayNameLabel: "sample-waypoint",
 		},
-		IsWaypoint: true,
-		Service:    "sample-svc",
+		IsWaypoint:       true,
+		Service:          "sample-svc",
+		ServiceNamespace: "default",
+		ServiceRegistry:  provider.Kubernetes,
+	}
+	serviceEntryTarget := WorkloadPolicyMatcher{
+		WorkloadNamespace: "default",
+		WorkloadLabels: labels.Instance{
+			"app":                      "my-app",
+			constants.GatewayNameLabel: "sample-waypoint",
+		},
+		IsWaypoint:       true,
+		ServiceNamespace: "default",
+		Service:          "sample-svc-entry",
+		ServiceRegistry:  provider.External,
 	}
 	tests := []struct {
 		name                   string
@@ -262,6 +281,28 @@ func TestPolicyMatcher(t *testing.T) {
 			},
 			enableSelectorPolicies: false,
 			expected:               true,
+		},
+		{
+			name:      "service entry attached policy",
+			selection: serviceEntryTarget,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{serviceEntryTargetRef},
+			},
+			enableSelectorPolicies: false,
+			expected:               true,
+		},
+		{
+			name:      "service entry policy selecting",
+			selection: serviceTarget,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{{
+					Group: gvk.ServiceEntry.Group,
+					Kind:  gvk.ServiceEntry.Kind,
+					Name:  "sample-svc",
+				}},
+			},
+			enableSelectorPolicies: false,
+			expected:               false,
 		},
 	}
 

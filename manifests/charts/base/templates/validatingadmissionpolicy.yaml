@@ -7,6 +7,8 @@ metadata:
     release: {{ .Release.Name }}
     istio: istiod
     istio.io/rev: {{ .Values.defaultRevision }}
+    app.kubernetes.io/name: "istiod"
+    {{ include "istio.labels" . | nindent 4 }}
 spec:
   failurePolicy: Fail
   matchConstraints:

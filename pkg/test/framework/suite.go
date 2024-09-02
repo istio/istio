@@ -116,6 +116,8 @@ type Suite interface {
 	RequireMinVersion(minorVersion uint) Suite
 	// RequireMaxVersion validates the environment meets a maximum version
 	RequireMaxVersion(minorVersion uint) Suite
+	// RequireDualStack validates the test context has the required dual-stack setting enabled
+	RequireDualStack() Suite
 	// Setup runs enqueues the given setup function to run before test execution.
 	Setup(fn resource.SetupFn) Suite
 	Teardown(fn resource.TeardownFn) Suite
@@ -316,6 +318,17 @@ func (s *suiteImpl) RequireMinVersion(minorVersion uint) Suite {
 	return s
 }
 
+func (s *suiteImpl) RequireDualStack() Suite {
+	fn := func(ctx resource.Context) error {
+		if !ctx.Settings().EnableDualStack {
+			s.Skip("Required DualStack condition is not satisfied")
+		}
+		return nil
+	}
+	s.requireFns = append(s.requireFns, fn)
+	return s
+}
+
 func (s *suiteImpl) RequireMaxVersion(minorVersion uint) Suite {
 	fn := func(ctx resource.Context) error {
 		for _, c := range ctx.Clusters() {
@@ -383,13 +396,6 @@ func (s *suiteImpl) isSkipped(ctx SuiteContext) bool {
 
 func (s *suiteImpl) doSkip(ctx *suiteContext) int {
 	scopes.Framework.Infof("Skipping suite %q: %s", ctx.Settings().TestID, s.skipMessage)
-
-	// Mark this suite as skipped in the context.
-	ctx.skipped = true
-
-	// Run the tests so that the golang test framework exits normally. The tests will not run because
-	// they see that this suite has been skipped.
-	_ = s.mRun(ctx)
 
 	// Return success.
 	return 0

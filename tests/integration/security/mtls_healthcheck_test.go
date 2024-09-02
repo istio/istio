@@ -38,7 +38,7 @@ import (
 func TestMtlsHealthCheck(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{Prefix: "healthcheck", Inject: true})
+			ns := namespace.NewOrFail(t, namespace.Config{Prefix: "healthcheck", Inject: true})
 			for _, testCase := range []struct {
 				name    string
 				rewrite bool
@@ -57,7 +57,7 @@ func runHealthCheckDeployment(ctx framework.TestContext, ns namespace.Instance, 
 ) {
 	ctx.Helper()
 	wantSuccess := rewrite
-	policyYAML := fmt.Sprintf(`apiVersion: security.istio.io/v1beta1
+	policyYAML := fmt.Sprintf(`apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: "mtls-strict-for-%v"

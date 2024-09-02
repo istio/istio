@@ -337,11 +337,11 @@ func TestAgent(t *testing.T) {
 		})
 	})
 	t.Run("Unhealthy SDS socket", func(t *testing.T) {
-		dir := filepath.Dir(security.WorkloadIdentitySocketPath)
+		dir := filepath.Dir(security.GetIstioSDSServerSocketPath())
 		os.MkdirAll(dir, 0o755)
 
 		// starting an unresponsive listener on the socket
-		l, err := net.Listen("unix", security.WorkloadIdentitySocketPath)
+		l, err := net.Listen("unix", security.GetIstioSDSServerSocketPath())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -356,11 +356,11 @@ func TestAgent(t *testing.T) {
 
 	t.Run("Unhealthy SDS socket - required", func(t *testing.T) {
 		// starting an unresponsive listener on the socket
-		a := NewAgent(nil, &AgentOptions{UseExternalWorkloadSDS: true}, nil, envoy.ProxyConfig{})
+		a := NewAgent(nil, &AgentOptions{WorkloadIdentitySocketFile: "non-default-sockfile"}, nil, envoy.ProxyConfig{})
 		ctx, done := context.WithCancel(context.Background())
 		_, err := a.Run(ctx)
 		if err == nil {
-			t.Fatalf("expected to return an error if SDS socket not provided")
+			t.Fatal("expected to return an error if SDS socket not provided, and not default")
 		}
 		t.Cleanup(done)
 		t.Cleanup(func() {
@@ -585,7 +585,7 @@ func TestAgent(t *testing.T) {
 			xdsc := xds.NewAdsTest(t, conn).WithMetadata(meta)
 			_ = xdsc.RequestResponseAck(t, nil)
 		}); err == nil {
-			t.Fatalf("connect success with wrong CA")
+			t.Fatal("connect success with wrong CA")
 		}
 
 		// change ROOT CA, XDS will success
@@ -618,6 +618,7 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		CaAuthenticator:  security.NewFakeAuthenticator("ca").Set("fake", ""),
 		ProxyConfig:      mesh.DefaultProxyConfig(),
 	}
+
 	// Run through opts one time just to get the authenticators.
 	for _, opt := range opts {
 		resp = opt(resp)
@@ -653,6 +654,8 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 		SDSFactory: func(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *meshconfig.PrivateKeyProvider) SDSService {
 			return sds.NewServer(options, workloadSecretCache, pkpConf)
 		},
+		// Set this, as we aren't loading defaults from env
+		WorkloadIdentitySocketFile: security.DefaultWorkloadIdentitySocketFile,
 	}
 
 	// Set-up envoy defaults
@@ -703,7 +706,7 @@ func (a *AgentTest) Check(t *testing.T, expectedSDS ...string) map[string]*xds.A
 	sdsStreams := map[string]*xds.AdsTest{}
 	gotKeys := []string{}
 	for _, res := range xdstest.ExtractSecretResources(t, resp.Resources) {
-		sds := xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, security.WorkloadIdentitySocketPath)).
+		sds := xds.NewSdsTest(t, setupDownstreamConnectionUDS(t, security.GetIstioSDSServerSocketPath())).
 			WithMetadata(meta).
 			WithTimeout(time.Second * 20) // CSR can be extremely slow with race detection enabled due to 2048 RSA
 		sds.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{res}})
@@ -801,7 +804,7 @@ func expectFileUnchanged(t *testing.T, files ...string) {
 		for i, f := range files {
 			now := testutil.ReadFile(t, f)
 			if !reflect.DeepEqual(initials[i], now) {
-				t.Fatalf("file is changed!")
+				t.Fatal("file is changed!")
 			}
 		}
 	}
@@ -904,7 +907,7 @@ func setupDiscovery(t *testing.T, auth *security.FakeAuthenticator, certPem []by
 	opt := tlsOptions(t, certPem)
 	// Set up a simple service to make sure we have mTLS requested
 	ds := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: app
@@ -912,12 +915,13 @@ metadata:
 spec:
   hosts:
   - app.com
+  location: MESH_INTERNAL
   ports:
   - number: 80
     name: http
     protocol: HTTP
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: plaintext

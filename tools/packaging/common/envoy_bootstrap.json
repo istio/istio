@@ -76,9 +76,28 @@
   "stats_config": {
     "use_all_default_tags": false,
     "stats_tags": [
+      {{- if .delimited_stats_tags_enabled }}
+      {
+        "tag_name": "cluster_name",
+        "regex": "^cluster(\\.(.+);)"
+      },
+      {
+        "tag_name": "http_conn_manager_prefix",
+        "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));\\.)"
+      },
+      {{- else }}
       {
         "tag_name": "cluster_name",
         "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
+      },
+      {
+        "tag_name": "http_conn_manager_prefix",
+        "regex": "^http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
+      },
+      {{- end }}
+      {
+        "tag_name": "thread_name",
+        "regex": "^server(\\.(.+))\\.watchdog"
       },
       {
         "tag_name": "tcp_prefix",
@@ -95,10 +114,6 @@
       {
         "tag_name": "http_conn_manager_listener_prefix",
         "regex": "^listener(?=\\.).*?\\.http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
-      },
-      {
-        "tag_name": "http_conn_manager_prefix",
-        "regex": "^http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
       },
       {
         "tag_name": "listener_address",
@@ -228,6 +243,7 @@
     "clusters": [
       {
         "name": "prometheus_stats",
+        "alt_stat_name": "prometheus_stats;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -250,6 +266,7 @@
       },
       {
         "name": "agent",
+        "alt_stat_name": "agent;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -272,6 +289,7 @@
       },
       {
         "name": "sds-grpc",
+        "alt_stat_name": "sds-grpc;",
         "type": "STATIC",
         "typed_extension_protocol_options": {
           "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
@@ -300,6 +318,7 @@
       },
       {
         "name": "xds-grpc",
+        "alt_stat_name": "xds-grpc;",
         "type" : "STATIC",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -352,6 +371,7 @@
       ,
       {
         "name": "zipkin",
+        "alt_stat_name": "zipkin;",
         {{- if .tracing_tls }}
         "transport_socket": {{ .tracing_tls }},
         {{- end }}
@@ -378,6 +398,7 @@
       ,
       {
         "name": "lightstep",
+        "alt_stat_name": "lightstep;",
         {{- if .tracing_tls }}
         "transport_socket": {{ .tracing_tls }},
         {{- end }}
@@ -411,6 +432,7 @@
       ,
       {
         "name": "datadog_agent",
+        "alt_stat_name": "datadog_agent;",
         {{- if .tracing_tls }}
         "transport_socket": {{ .tracing_tls }},
         {{- end }}
@@ -437,6 +459,7 @@
       ,
       {
         "name": "envoy_metrics_service",
+        "alt_stat_name": "envoy_metrics_service;",
         "type": "STRICT_DNS",
       {{- if .envoy_metrics_service_tls }}
         "transport_socket": {{ .envoy_metrics_service_tls }},
@@ -474,6 +497,7 @@
       ,
       {
         "name": "envoy_accesslog_service",
+        "alt_stat_name": "envoy_accesslog_service;",
         "type": "STRICT_DNS",
       {{- if .envoy_accesslog_service_tls }}
         "transport_socket": {{ .envoy_accesslog_service_tls }},
@@ -510,6 +534,11 @@
     ],
     "listeners":[
       {
+        {{- if .metrics_localhost_access_only }}
+        "name": "{{ .localhost }}_{{ .envoy_prometheus_port }}",
+        {{ else }}
+        "name": "{{ .wildcard }}_{{ .envoy_prometheus_port }}",
+        {{ end }}
         "address": {
           "socket_address": {
             "protocol": "TCP",
@@ -611,6 +640,7 @@
         ]
       },
       {
+        "name": "{{ .wildcard }}_{{ .envoy_status_port }}",
         "address": {
            "socket_address": {
              "protocol": "TCP",
@@ -788,5 +818,11 @@
     "load_stats_config": {{- .load_stats_config_json_str }}
     {{- end }}
   }
+  {{ if .deferred_stats_creation }}
+  ,
+  "deferred_stat_options": {
+    "enable_deferred_creation_stats": true
+  }
+  {{- end }}
   {{ end }}
 }

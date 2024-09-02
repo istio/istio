@@ -25,7 +25,6 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -53,11 +52,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 
 	if svc.Spec.Type == corev1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
 		externalName = svc.Spec.ExternalName
-		if features.EnableExternalNameAlias {
-			resolution = model.Alias
-		} else {
-			resolution = model.DNSLB
-		}
+		resolution = model.Alias
 	}
 	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == corev1.ServiceInternalTrafficPolicyLocal {
 		nodeLocal = true
@@ -167,30 +162,6 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	}
 
 	return istioService
-}
-
-func ExternalNameEndpoints(svc *model.Service) []*model.IstioEndpoint {
-	if svc.Attributes.ExternalName == "" {
-		return nil
-	}
-	out := make([]*model.IstioEndpoint, 0, len(svc.Ports))
-
-	discoverabilityPolicy := model.AlwaysDiscoverable
-	if features.EnableMCSServiceDiscovery {
-		// MCS spec does not allow export of external name services.
-		// See https://github.com/kubernetes/enhancements/tree/master/keps/sig-multicluster/1645-multi-cluster-services-api#exporting-services.
-		discoverabilityPolicy = model.DiscoverableFromSameCluster
-	}
-	for _, portEntry := range svc.Ports {
-		out = append(out, &model.IstioEndpoint{
-			Address:               svc.Attributes.ExternalName,
-			EndpointPort:          uint32(portEntry.Port),
-			ServicePortName:       portEntry.Name,
-			Labels:                svc.Attributes.Labels,
-			DiscoverabilityPolicy: discoverabilityPolicy,
-		})
-	}
-	return out
 }
 
 // ServiceHostname produces FQDN for a k8s service

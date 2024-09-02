@@ -89,7 +89,7 @@ func (s *CniPluginServer) Start() error {
 	if s.sockAddress == "" {
 		return fmt.Errorf("no socket address provided")
 	}
-	log.Info("Start a listen server for CNI plugin events")
+	log.Infof("starting listener for CNI plugin events at %v", s.sockAddress)
 	unixListener, err := pluginlistener.NewListener(s.sockAddress)
 	if err != nil {
 		return fmt.Errorf("failed to create CNI listener: %v", err)
@@ -126,19 +126,19 @@ func (s *CniPluginServer) handleAddEvent(w http.ResponseWriter, req *http.Reques
 	defer req.Body.Close()
 	data, err := io.ReadAll(req.Body)
 	if err != nil {
-		log.Errorf("Failed to read event report from cni plugin: %v", err)
+		log.Errorf("failed to read event report from cni plugin: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	msg, err := processAddEvent(data)
 	if err != nil {
-		log.Errorf("Failed to process CNI event payload: %v", err)
+		log.Errorf("failed to process CNI event payload: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if err := s.ReconcileCNIAddEvent(req.Context(), msg); err != nil {
-		log.Errorf("Failed to handle add event: %v", err)
+		log.WithLabels("ns", msg.PodNamespace, "name", msg.PodName).Errorf("failed to handle add event: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -175,7 +175,7 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 		ip, _ := netip.AddrFromSlice(configuredPodIPs.Address.IP)
 		// We ignore the mask of the IPNet - it's fine if the IPNet defines
 		// a block grant of addresses, we just need one for checking routes.
-		podIps = append(podIps, ip)
+		podIps = append(podIps, ip.Unmap())
 	}
 	// Note that we use the IP info from the CNI plugin here - the Pod struct as reported by K8S doesn't have this info
 	// yet (because the K8S control plane doesn't), so it will be empty there.

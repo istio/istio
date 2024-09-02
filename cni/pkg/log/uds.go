@@ -64,7 +64,7 @@ func (l *UDSLogger) StartUDSLogServer(sockAddress string, stop <-chan struct{}) 
 	if sockAddress == "" {
 		return nil
 	}
-	log.Info("Start a UDS server for CNI plugin logs")
+	log.Debugf("starting UDS server for CNI plugin logs")
 	unixListener, err := uds.NewListener(sockAddress)
 	if err != nil {
 		return fmt.Errorf("failed to create UDS listener: %v", err)

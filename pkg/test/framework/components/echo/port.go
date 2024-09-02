@@ -54,6 +54,9 @@ type Port struct {
 
 	// LocalhostIP determines if echo will listen on the localhost IP; otherwise, it will listen on wildcard
 	LocalhostIP bool
+
+	// ProxyProtocol determines if echo should accept PROXY protocol.
+	ProxyProtocol bool
 }
 
 // IsWorkloadOnly returns true if there is no service port specified for this Port.

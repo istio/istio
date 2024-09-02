@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
@@ -93,7 +92,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMinVersion(24).
-		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
 			return nil
@@ -123,10 +121,19 @@ values:
 
 			return nil
 		}).
-		Setup(func(t resource.Context) error {
-			return SetupApps(t, i, apps)
-		}).
-		Setup(testRegistrySetup).
+		SetupParallel(
+			testRegistrySetup,
+			func(t resource.Context) error {
+				return SetupApps(t, i, apps)
+			},
+			func(t resource.Context) (err error) {
+				prom, err = prometheus.New(t, prometheus.Config{})
+				if err != nil {
+					return err
+				}
+				return
+			},
+		).
 		Run()
 }
 
@@ -161,11 +168,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			"istio.io/test-exclude-namespace": "true",
 		},
 	})
-	if err != nil {
-		return err
-	}
-
-	prom, err = prometheus.New(t, prometheus.Config{})
 	if err != nil {
 		return err
 	}
@@ -327,8 +329,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Mesh = inMesh.GetMatches(echos)
 	apps.MeshExternal = match.Not(inMesh).GetMatches(echos)
 
-	// TODO(https://github.com/istio/istio/issues/51083) remove manually allocate
-	if err := cdeployment.DeployExternalServiceEntry(t.ConfigIstio(), apps.Namespace, apps.ExternalNamespace, true).
+	if err := cdeployment.DeployExternalServiceEntry(t.ConfigIstio(), apps.Namespace, apps.ExternalNamespace, false).
 		Apply(apply.CleanupConditionally); err != nil {
 		return err
 	}

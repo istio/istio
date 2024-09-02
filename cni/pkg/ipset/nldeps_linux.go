@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"strings"
 
 	"github.com/vishvananda/netlink"
-	"github.com/vishvananda/netlink/nl"
 	"golang.org/x/sys/unix"
 )
 
@@ -40,10 +40,18 @@ func (m *realDeps) ipsetIPHashCreate(name string, v6 bool) error {
 		family = unix.AF_INET
 	}
 	err := netlink.IpsetCreate(name, "hash:ip", netlink.IpsetCreateOptions{Comments: true, Replace: true, Family: family})
-	if ipsetErr, ok := err.(nl.IPSetError); ok && ipsetErr == nl.IPSET_ERR_EXIST {
+	// Note there appears to be a bug in vishvananda/netlink here:
+	// https://github.com/vishvananda/netlink/issues/992
+	//
+	// The "right" way to do this is:
+	// if err == nl.IPSetError(nl.IPSET_ERR_EXIST) {
+	// 	log.Debugf("ignoring ipset err")
+	// 	return nil
+	// }
+	// but that doesn't actually work, so strings.Contains the error.
+	if err != nil && strings.Contains(err.Error(), "exists") {
 		return nil
 	}
-
 	return err
 }
 

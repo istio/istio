@@ -59,4 +59,7 @@ var (
 
 	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
 		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
+
+	EnableDelimitedStatsTagRegex = env.Register("ENABLE_DELIMITED_STATS_TAG_REGEX", true,
+		"If true, pilot will use the new delimited stat tag regex to generate Envoy stats tags.").Get()
 )

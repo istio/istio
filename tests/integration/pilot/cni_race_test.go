@@ -48,7 +48,7 @@ func TestCNIRaceRepair(t *testing.T) {
 			}
 			c := t.Clusters().Default()
 
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "cni-race",
 				Inject: true,
 			})

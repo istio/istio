@@ -10,7 +10,6 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
       ) | nindent 4 }}
   {{- if ge .KubeVersion 128 }}
   # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
@@ -33,7 +32,6 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
         "gateway.istio.io/managed" "istio.io-mesh-controller"
       ) | nindent 4 }}
   ownerReferences:
@@ -67,10 +65,25 @@ spec:
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
-            "istio.io/gateway-name" .Name
             "gateway.istio.io/managed" "istio.io-mesh-controller"
           ) | nindent 8}}
     spec:
+      {{- if .Values.global.waypoint.affinity }}
+      affinity:
+      {{- toYaml .Values.global.waypoint.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.waypoint.topologySpreadConstraints }}
+      topologySpreadConstraints:
+      {{- toYaml .Values.global.waypoint.topologySpreadConstraints | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.waypoint.nodeSelector }}
+      nodeSelector:
+      {{- toYaml .Values.global.waypoint.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.waypoint.tolerations }}
+      tolerations:
+      {{- toYaml .Values.global.waypoint.tolerations | nindent 8 }}
+      {{- end }}
       terminationGracePeriodSeconds: 2
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
@@ -182,13 +195,10 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
         {{- end }}
+        {{- if .Values.global.waypoint.resources }}
         resources:
-          limits:
-            cpu: "2"
-            memory: 1Gi
-          requests:
-            cpu: 100m
-            memory: 128Mi
+        {{- toYaml .Values.global.waypoint.resources | nindent 10 }}
+        {{- end }}
         startupProbe:
           failureThreshold: 30
           httpGet:
@@ -219,6 +229,10 @@ spec:
           capabilities:
             drop:
             - ALL
+{{- if .Values.gateways.seccompProfile }}
+          seccompProfile:
+{{- toYaml .Values.gateways.seccompProfile | nindent 12 }}
+{{- end }}
         volumeMounts:
         - name: workload-socket
           mountPath: /var/run/secrets/workload-spiffe-uds
@@ -281,7 +295,6 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
       ) | nindent 4 }}
   name: {{.DeploymentName | quote}}
   namespace: {{.Namespace | quote}}
@@ -291,6 +304,7 @@ metadata:
     name: "{{.Name}}"
     uid: "{{.UID}}"
 spec:
+  ipFamilyPolicy: PreferDualStack
   ports:
   {{- range $key, $val := .Ports }}
   - name: {{ $val.Name | quote }}

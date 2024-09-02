@@ -271,23 +271,14 @@ func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, r
 	// we match on the port number and virtual host for sidecars
 	// we match on port number, server port name, gateway name, plus virtual host for gateways
 	if patchContext != networking.EnvoyFilter_GATEWAY {
-		listenerPort := 0
-		if strings.HasPrefix(rc.Name, string(model.TrafficDirectionInbound)) {
-			_, _, _, listenerPort = model.ParseSubsetKey(rc.Name)
-		} else {
-			listenerPort, _ = strconv.Atoi(rc.Name)
-		}
-
-		// FIXME: Ports on a route can be 0. the API only takes uint32 for ports
-		// We should either make that field in API as a wrapper type or switch to int
-		if rMatch.PortNumber != 0 && int(rMatch.PortNumber) != listenerPort {
-			return false
-		}
-
 		if rMatch.Name != "" && rMatch.Name != rc.Name {
 			return false
 		}
-
+		// FIXME: Ports on a route can be 0. the API only takes uint32 for ports
+		// We should either make that field in API as a wrapper type or switch to int
+		if rMatch.PortNumber != 0 && int(rMatch.PortNumber) != getListenerPortFromName(rc.Name) {
+			return false
+		}
 		return true
 	}
 
@@ -308,6 +299,16 @@ func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, r
 	}
 
 	return true
+}
+
+func getListenerPortFromName(name string) int {
+	listenerPort := 0
+	if strings.HasPrefix(name, string(model.TrafficDirectionInbound)) {
+		_, _, _, listenerPort = model.ParseSubsetKey(name)
+	} else {
+		listenerPort, _ = strconv.Atoi(name)
+	}
+	return listenerPort
 }
 
 func anyPortMatches(m model.GatewayPortMap, number int, matchNumber int) bool {

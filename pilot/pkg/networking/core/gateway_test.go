@@ -4408,11 +4408,6 @@ func TestGatewayHCMInternalAddressConfig(t *testing.T) {
 			expectedconfig: nil,
 		},
 		{
-			name:           "empty networks",
-			networks:       &meshconfig.MeshNetworks{},
-			expectedconfig: nil,
-		},
-		{
 			name: "networks populated",
 			networks: &meshconfig.MeshNetworks{
 				Networks: map[string]*meshconfig.Network{
@@ -4421,11 +4416,6 @@ func TestGatewayHCMInternalAddressConfig(t *testing.T) {
 							{
 								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
 									FromCidr: "192.168.0.0/16",
-								},
-							},
-							{
-								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
-									FromCidr: "172.16.0.0/12",
 								},
 							},
 						},
@@ -4437,10 +4427,6 @@ func TestGatewayHCMInternalAddressConfig(t *testing.T) {
 					{
 						AddressPrefix: "192.168.0.0",
 						PrefixLen:     &wrappers.UInt32Value{Value: 16},
-					},
-					{
-						AddressPrefix: "172.16.0.0",
-						PrefixLen:     &wrappers.UInt32Value{Value: 12},
 					},
 				},
 			},

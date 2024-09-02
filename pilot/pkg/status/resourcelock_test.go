@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config"
 )
 
@@ -50,15 +49,14 @@ func TestResourceLock_Lock(t *testing.T) {
 	x := make(chan struct{})
 	y := make(chan struct{})
 	mgr := NewManager(nil)
-	fakefunc := func(status *v1alpha1.IstioStatus, context any) *v1alpha1.IstioStatus {
+	fakefunc := func(status Manipulator, context any) {
 		x <- struct{}{}
 		atomic.AddInt32(&runCount, 1)
 		y <- struct{}{}
-		return nil
 	}
 	c1 := mgr.CreateIstioStatusController(fakefunc)
 	c2 := mgr.CreateIstioStatusController(fakefunc)
-	workers := NewWorkerPool(func(_ *config.Config, _ any) {
+	workers := NewWorkerPool(func(_ *config.Config) {
 	}, func(resource Resource) *config.Config {
 		return &config.Config{
 			Meta: config.Meta{Generation: 11},

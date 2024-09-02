@@ -1,9 +1,9 @@
 {
   "gateways": {
+    "seccompProfile": {},
     "securityContext": {}
   },
   "global": {
-    "autoscalingv2API": true,
     "caAddress": "",
     "caName": "",
     "certSigners": [],
@@ -17,7 +17,6 @@
         "cpu": "10m"
       }
     },
-    "enabled": false,
     "externalIstiod": false,
     "hub": "gcr.io/istio-testing",
     "imagePullPolicy": "Never",
@@ -37,7 +36,6 @@
       "clusterName": "",
       "enabled": false
     },
-    "namespace": "istio-system",
     "network": "",
     "omitSidecarInjectorConfigMap": false,
     "operatorManageWebhooks": false,
@@ -79,6 +77,7 @@
       "tracer": "none"
     },
     "proxy_init": {
+      "forceApplyIptables": false,
       "image": "proxyv2"
     },
     "remotePilotAddress": "",
@@ -91,12 +90,23 @@
       "servicePort": 0
     },
     "tag": "latest",
-    "variant": ""
-  },
-  "istio_cni": {
-    "chained": true,
-    "enabled": false,
-    "provider": "default"
+    "variant": "",
+    "waypoint": {
+      "affinity": {},
+      "nodeSelector": {},
+      "resources": {
+        "limits": {
+          "cpu": "2",
+          "memory": "1Gi"
+        },
+        "requests": {
+          "cpu": "100m",
+          "memory": "128Mi"
+        }
+      },
+      "tolerations": [],
+      "topologySpreadConstraints": []
+    }
   },
   "pilot": {
     "cni": {

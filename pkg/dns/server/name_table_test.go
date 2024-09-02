@@ -68,6 +68,13 @@ func TestNameTable(t *testing.T) {
 		DNSDomain:   "testns.svc.cluster.local",
 	}
 
+	cl1DualStackproxy := &model.Proxy{
+		IPAddresses: []string{"9.9.9.9", "2001:2::2001"},
+		Metadata:    &model.NodeMetadata{ClusterID: "cl1"},
+		Type:        model.SidecarProxy,
+		DNSDomain:   "testns.svc.cluster.local",
+	}
+
 	pod1 := &model.Proxy{
 		IPAddresses: []string{"1.2.3.4"},
 		Metadata:    &model.NodeMetadata{},
@@ -447,7 +454,7 @@ func TestNameTable(t *testing.T) {
 		},
 		{
 			name:  "dual stack",
-			proxy: cl1proxy,
+			proxy: cl1DualStackproxy,
 			push: func() *model.PushContext {
 				push := model.NewPushContext()
 				push.Mesh = mesh
@@ -551,6 +558,7 @@ func TestNameTable(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(tt.push, "default")
+			tt.proxy.DiscoverIPMode()
 			if diff := cmp.Diff(dnsServer.BuildNameTable(dnsServer.Config{
 				Node:                        tt.proxy,
 				Push:                        tt.push,
@@ -569,7 +577,7 @@ func makeInstances(proxy *model.Proxy, svc *model.Service, servicePort int, targ
 			continue
 		}
 		ret = append(ret, &model.IstioEndpoint{
-			Address:         proxy.IPAddresses[0],
+			Addresses:       proxy.IPAddresses,
 			ServicePortName: p.Name,
 			EndpointPort:    uint32(targetPort),
 		})

@@ -15,6 +15,7 @@
 package dependencies
 
 import (
+	"bytes"
 	"io"
 
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -24,6 +25,10 @@ import (
 type Dependencies interface {
 	// Run runs a command
 	Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error
+
+	// Run runs a command and get the output
+	RunWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error)
+
 	// RunQuietlyAndIgnore runs a command quietly and ignores errors
 	RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string)
 

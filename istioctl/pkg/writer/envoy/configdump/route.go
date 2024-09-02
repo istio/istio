@@ -100,7 +100,7 @@ func describeRouteDomains(domains []string) string {
 	}
 
 	// Return the shortest non-numeric domain.  Count of domains seems uninteresting.
-	max := 2
+	maximum := 2
 	withoutPort := make([]string, 0, len(domains))
 	for _, d := range domains {
 		if !strings.Contains(d, ":") {
@@ -114,9 +114,9 @@ func describeRouteDomains(domains []string) string {
 		}
 	}
 	withoutPort = unexpandDomains(withoutPort)
-	if len(withoutPort) > max {
-		ret := strings.Join(withoutPort[:max], ", ")
-		return fmt.Sprintf("%s + %d more...", ret, len(withoutPort)-max)
+	if len(withoutPort) > maximum {
+		ret := strings.Join(withoutPort[:maximum], ", ")
+		return fmt.Sprintf("%s + %d more...", ret, len(withoutPort)-maximum)
 	}
 	return strings.Join(withoutPort, ", ")
 }
@@ -160,7 +160,7 @@ func describeManagement(metadata *core.Metadata) string {
 }
 
 func renderConfig(configPath string) string {
-	if strings.HasPrefix(configPath, "/apis/networking.istio.io/v1alpha3/namespaces/") {
+	if strings.HasPrefix(configPath, "/apis/networking.istio.io/") {
 		pieces := strings.Split(configPath, "/")
 		if len(pieces) != 8 {
 			return ""

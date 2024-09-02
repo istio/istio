@@ -82,11 +82,17 @@ type Config struct {
 	DNSServersV4            []string      `json:"DNS_SERVERS_V4"`
 	DNSServersV6            []string      `json:"DNS_SERVERS_V6"`
 	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`
-	CNIMode                 bool          `json:"CNI_MODE"`
-	TraceLogging            bool          `json:"IPTABLES_TRACE_LOGGING"`
-	DualStack               bool          `json:"DUAL_STACK"`
-	HostIP                  netip.Addr    `json:"HOST_IP"`
-	HostIPv4LoopbackCidr    string        `json:"HOST_IPV4_LOOPBACK_CIDR"`
+	// When running in host filesystem, we have different semantics around the environment.
+	// For instance, we would have a node-shared IPTables lock, despite not needing it.
+	// HostFilesystemPodNetwork indicates we are in this mode, typically from the CNI.
+	HostFilesystemPodNetwork bool       `json:"CNI_MODE"`
+	TraceLogging             bool       `json:"IPTABLES_TRACE_LOGGING"`
+	DualStack                bool       `json:"DUAL_STACK"`
+	HostIP                   netip.Addr `json:"HOST_IP"`
+	HostIPv4LoopbackCidr     string     `json:"HOST_IPV4_LOOPBACK_CIDR"`
+	Reconcile                bool       `json:"RECONCILE"`
+	CleanupOnly              bool       `json:"CLEANUP_ONLY"`
+	ForceApply               bool       `json:"FORCE_APPLY"`
 }
 
 func (c *Config) String() string {
@@ -128,8 +134,11 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("CAPTURE_ALL_DNS=%t\n", c.CaptureAllDNS))
 	b.WriteString(fmt.Sprintf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6))
 	b.WriteString(fmt.Sprintf("NETWORK_NAMESPACE=%s\n", c.NetworkNamespace))
-	b.WriteString(fmt.Sprintf("CNI_MODE=%s\n", strconv.FormatBool(c.CNIMode)))
+	b.WriteString(fmt.Sprintf("CNI_MODE=%s\n", strconv.FormatBool(c.HostFilesystemPodNetwork)))
 	b.WriteString(fmt.Sprintf("EXCLUDE_INTERFACES=%s\n", c.ExcludeInterfaces))
+	b.WriteString(fmt.Sprintf("RECONCILE=%t\n", c.Reconcile))
+	b.WriteString(fmt.Sprintf("CLEANUP_ONLY=%t\n", c.CleanupOnly))
+	b.WriteString(fmt.Sprintf("FORCE_APPLY=%t\n", c.ForceApply))
 	log.Infof("Istio iptables variables:\n%s", b.String())
 }
 

@@ -53,7 +53,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(istio_build{component=\"ztunnel\"}) by (tag)",
+               "expr": "sum by (tag) (istio_build{component=\"ztunnel\"})",
                "legendFormat": "Version ({{tag}})"
             }
          ],
@@ -100,7 +100,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum by (pod) (\n  container_memory_working_set_bytes{container=\"istio-proxy\", pod=~\"ztunnel-.*\"}\n)",
+               "expr": "sum by (pod) (container_memory_working_set_bytes{container=\"istio-proxy\",pod=~\"ztunnel-.*\"})",
                "legendFormat": "Container ({{pod}})"
             }
          ],
@@ -146,7 +146,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum by (pod) (\n  irate(\n    container_cpu_usage_seconds_total{container=\"istio-proxy\", pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "expr": "sum by (pod) (irate(container_cpu_usage_seconds_total{container=\"istio-proxy\",pod=~\"ztunnel-.*\"}[$__rate_interval]))",
                "legendFormat": "Container ({{pod}})"
             }
          ],
@@ -206,7 +206,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum by (pod) (\n  rate(\n    istio_tcp_connections_opened_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "expr": "sum by (pod) (rate(istio_tcp_connections_opened_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
                "legendFormat": "Opened ({{pod}})"
             },
             {
@@ -214,7 +214,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "-sum by (pod) (\n  rate(\n    istio_tcp_connections_closed_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "expr": "-sum by (pod) (rate(istio_tcp_connections_closed_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
                "legendFormat": "Closed ({{pod}})"
             }
          ],
@@ -226,7 +226,7 @@
             "type": "datasource",
             "uid": "-- Mixed --"
          },
-         "description": "Bytes sent and recieved per instance",
+         "description": "Bytes sent and received per instance",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -261,7 +261,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum by (pod) (\n  rate(\n    istio_tcp_sent_bytes_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "expr": "sum by (pod) (rate(istio_tcp_sent_bytes_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
                "legendFormat": "Sent ({{pod}})"
             },
             {
@@ -269,7 +269,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum by (pod) (\n  rate(\n    istio_tcp_received_bytes_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "expr": "sum by (pod) (rate(istio_tcp_received_bytes_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
                "legendFormat": "Received ({{pod}})"
             }
          ],
@@ -281,7 +281,7 @@
             "type": "datasource",
             "uid": "-- Mixed --"
          },
-         "description": "DNS queries recieved per instance",
+         "description": "DNS queries received per instance",
          "fieldConfig": {
             "defaults": {
                "custom": {
@@ -316,7 +316,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum by (pod) (\n  rate(\n    istio_dns_requests_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "expr": "sum by (pod) (rate(istio_dns_requests_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
                "legendFormat": "Request ({{pod}})"
             }
          ],
@@ -353,7 +353,7 @@
          },
          "gridPos": {
             "h": 8,
-            "w": 12,
+            "w": 8,
             "x": 0,
             "y": 19
          },
@@ -375,11 +375,192 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum by (pod) (\n  rate(\n    istio_xds_connection_terminations_total{pod=~\"ztunnel-.*\"}\n  [$__rate_interval])\n)",
+               "expr": "sum by (pod) (rate(istio_xds_connection_terminations_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
                "legendFormat": "XDS Connection Terminations ({{pod}})"
             }
          ],
-         "title": "XDS",
+         "title": "XDS Connections",
+         "type": "timeseries"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "drawStyle": "bars",
+                  "fillOpacity": 100,
+                  "gradientMode": "none",
+                  "showPoints": "never",
+                  "stacking": {
+                     "mode": "normal"
+                  }
+               },
+               "unit": "ops"
+            },
+            "overrides": [
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "cds"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Clusters"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "eds"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Endpoints"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "lds"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Listeners"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "rds"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Routes"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "nds"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "DNS Tables"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "istio.io/debug"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Debug"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "istio.io/debug/syncz"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Debug"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "wads"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Authorization"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "wds"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Workloads"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "type.googleapis.com/istio.security.Authorization"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Authorizations"
+                     }
+                  ]
+               },
+               {
+                  "matcher": {
+                     "id": "byName",
+                     "options": "type.googleapis.com/istio.workload.Address"
+                  },
+                  "properties": [
+                     {
+                        "id": "displayName",
+                        "value": "Addresses"
+                     }
+                  ]
+               }
+            ]
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 19
+         },
+         "id": 11,
+         "interval": "15s",
+         "options": {
+            "legend": {
+               "calcs": [ ],
+               "displayMode": "list"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (url) (irate(istio_xds_message_total{pod=~\"ztunnel-.*\"}[$__rate_interval]))",
+               "legendFormat": "{{url}}"
+            }
+         ],
+         "title": "XDS Pushes",
          "type": "timeseries"
       },
       {
@@ -399,11 +580,11 @@
          },
          "gridPos": {
             "h": 8,
-            "w": 12,
-            "x": 12,
+            "w": 8,
+            "x": 16,
             "y": 19
          },
-         "id": 11,
+         "id": 12,
          "interval": "5s",
          "options": {
             "legend": {

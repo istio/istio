@@ -96,7 +96,8 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 
 			// If statPrefix has been set before calling this method, respect that.
 			if len(opt.httpOpts.statPrefix) == 0 {
-				opt.httpOpts.statPrefix = strings.ToLower(ml.Listener.TrafficDirection.String()) + "_" + ml.Listener.Name
+				statPrefix := strings.ToLower(ml.Listener.TrafficDirection.String()) + "_" + ml.Listener.Name
+				opt.httpOpts.statPrefix = util.DelimitedStatsPrefix(statPrefix)
 			}
 			opt.httpOpts.port = opts.port
 			httpConnectionManagers[i] = builder.buildHTTPConnectionManager(opt.httpOpts)
@@ -130,7 +131,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	// listener port -> host/bind
 	tlsHostsByPort := map[uint32]map[string]string{}
 	for _, port := range mergedGateway.ServerPorts {
-		// Skip ports we cannot bind to. Note that MergeGateways will already translate Service port to
+		// Skip ports we cannot bind to. Note that mergeGateways will already translate Service port to
 		// targetPort, which handles the common case of exposing ports like 80 and 443 but listening on
 		// higher numbered ports.
 		if builder.node.IsUnprivileged() && port.Number < 1024 {
@@ -727,15 +728,7 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		httpConnManager.CodecType = hcm.HttpConnectionManager_HTTP3
 	}
 	if features.EnableHCMInternalNetworks && push.Networks != nil {
-		for _, internalnetwork := range push.Networks.GetNetworks() {
-			iac := &hcm.HttpConnectionManager_InternalAddressConfig{}
-			for _, ne := range internalnetwork.Endpoints {
-				if cidr := util.ConvertAddressToCidr(ne.GetFromCidr()); cidr != nil {
-					iac.CidrRanges = append(iac.CidrRanges, cidr)
-				}
-			}
-			httpConnManager.InternalAddressConfig = iac
-		}
+		httpConnManager.InternalAddressConfig = util.MeshNetworksToEnvoyInternalAddressConfig(push.Networks)
 	}
 
 	return httpConnManager

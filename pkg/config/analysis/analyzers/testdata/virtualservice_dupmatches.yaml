@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: sample-foo-cluster01
@@ -22,7 +22,7 @@ spec:
         host: sample.bar.svc.cluster.local
         subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: duplicate-match
@@ -47,7 +47,7 @@ spec:
         host: sample.bar.svc.cluster.local
         subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: almost-duplicate-match
@@ -75,7 +75,7 @@ spec:
         subset: v1
 ---
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: duplicate-tcp-match
@@ -102,7 +102,7 @@ spec:
           number: 9000
         subset: v2
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: duplicate-empty-tcp
@@ -125,7 +125,7 @@ spec:
           number: 9000
         subset: v2
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: almost-duplicate-tcp-match
@@ -153,7 +153,7 @@ spec:
           number: 9000
         subset: v2
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: tls-routing
@@ -178,7 +178,7 @@ spec:
     - destination:
         host: api1.facebook.com
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: tls-routing-almostmatch

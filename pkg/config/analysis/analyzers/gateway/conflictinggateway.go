@@ -23,11 +23,11 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -45,6 +45,7 @@ func (*ConflictingGatewayAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks a gateway's selector, port number and hosts",
 		Inputs: []config.GroupVersionKind{
 			gvk.Gateway,
+			gvk.Pod,
 		},
 	}
 }
@@ -59,7 +60,7 @@ func (s *ConflictingGatewayAnalyzer) Analyze(c analysis.Context) {
 }
 
 func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analysis.Context,
-	gwCMap map[string]map[string][]string,
+	gwCMap gatewaysContextMap,
 ) {
 	gw := r.Message.(*v1alpha3.Gateway)
 	gwName := r.Metadata.FullName.String()
@@ -69,12 +70,33 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 
 	// Check non-exist gateway with particular selector
 	isExists := false
+	hitSameGateways := gatewaysContextMap{}
 	for gwmKey := range gwCMap {
-		if strings.Contains(gwmKey, sGWSelector) {
+		matched := false
+		xSelectorStr, _ := parseFromGatewayMapKey(gwmKey)
+
+		if sGWSelector == xSelectorStr {
+			matched = true
+		} else if strings.Contains(xSelectorStr, sGWSelector) || strings.Contains(sGWSelector, xSelectorStr) {
+			xSelector := parseSelectorFromString(xSelectorStr)
+			c.ForEach(gvk.Pod, func(rPod *resource.Instance) bool {
+				// need match the same pod
+				podLabels := klabels.Set(rPod.Metadata.Labels)
+				if gwSelector.Matches(podLabels) && xSelector.Matches(podLabels) {
+					matched = true
+					return false
+				}
+				return true
+			})
+		}
+
+		if matched {
 			isExists = true
-			break
+			// record match same selector
+			hitSameGateways[gwmKey] = gwCMap[gwmKey]
 		}
 	}
+
 	if sGWSelector != "" && !isExists {
 		m := msg.NewReferencedResourceNotFound(r, "selector", sGWSelector)
 		label := util.ExtractLabelFromSelectorString(sGWSelector)
@@ -89,18 +111,16 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		var gateways []string
 		conflictingGWMatch := 0
 		sPortNumber := strconv.Itoa(int(server.GetPort().GetNumber()))
-		mapKey := genGatewayMapKey(sGWSelector, sPortNumber)
-		for gwNameKey, gwHostsValue := range gwCMap[mapKey] {
-			for _, gwHost := range server.GetHosts() {
-				// both selector and portnumber are the same, then check hosts
-				if isGWsHostMatched(gwHost, gwHostsValue) {
-					if gwName != gwNameKey {
-						conflictingGWMatch++
-						gateways = append(gateways, gwNameKey)
-					}
+		for _, values := range hitSameGateways {
+			for gwNameKey, gwHostsBind := range values {
+				// both selector and port number are the same, then check hosts and bind
+				if gwName != gwNameKey && isGWConflict(server, gwHostsBind) {
+					conflictingGWMatch++
+					gateways = append(gateways, gwNameKey)
 				}
 			}
 		}
+
 		if conflictingGWMatch > 0 {
 			sort.Strings(gateways)
 			reportMsg := strings.Join(gateways, ",")
@@ -111,21 +131,24 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 	}
 }
 
-// isGWsHostMatched implements gateway's hosts match
-func isGWsHostMatched(gwInstance string, gwHostList []string) bool {
-	gwInstanceNamed := host.Name(gwInstance)
-	for _, gwElem := range gwHostList {
-		gwElemNamed := host.Name(gwElem)
-		if gwInstanceNamed.Matches(gwElemNamed) {
-			return true
-		}
-	}
-	return false
+// isGWConflict implements gateway's hosts match
+func isGWConflict(server *v1alpha3.Server, knowHostsBind gatewayHostsBind) bool {
+	newHostsBind := knowHostsBind
+	// CheckDuplicates returns all of the hosts provided that are already known
+	// If there were no duplicates, all hosts are added to the known hosts.
+	duplicates := model.CheckDuplicates(server.GetHosts(), server.GetBind(), newHostsBind)
+	return len(duplicates) > 0
 }
 
+// gatewayHostsBind: key host, value bind
+type gatewayHostsBind map[string]string
+
+// gatewaysContextMap: key selectors~port, valueKey gatewayName
+type gatewaysContextMap map[string]map[string]gatewayHostsBind
+
 // initGatewaysMap implements initialization for gateways Map
-func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
-	gwConflictingMap := make(map[string]map[string][]string)
+func initGatewaysMap(ctx analysis.Context) gatewaysContextMap {
+	gwConflictingMap := make(map[string]map[string]gatewayHostsBind)
 	ctx.ForEach(gvk.Gateway, func(r *resource.Instance) bool {
 		gw := r.Message.(*v1alpha3.Gateway)
 		gwName := r.Metadata.FullName.String()
@@ -136,19 +159,42 @@ func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
 			sPortNumber := strconv.Itoa(int(server.GetPort().GetNumber()))
 			mapKey := genGatewayMapKey(sGWSelector, sPortNumber)
 			if _, exits := gwConflictingMap[mapKey]; !exits {
-				objMap := make(map[string][]string)
-				objMap[gwName] = server.GetHosts()
+				objMap := make(map[string]gatewayHostsBind)
 				gwConflictingMap[mapKey] = objMap
-			} else {
-				gwConflictingMap[mapKey][gwName] = server.GetHosts()
 			}
+			hb := map[string]string{}
+			for _, h := range server.GetHosts() {
+				hb[h] = server.GetBind()
+			}
+			gwConflictingMap[mapKey][gwName] = hb
 		}
 		return true
 	})
+
 	return gwConflictingMap
 }
 
 func genGatewayMapKey(selector, portNumber string) string {
 	key := selector + "~" + portNumber
 	return key
+}
+
+func parseFromGatewayMapKey(key string) (selector string, port string) {
+	parts := strings.Split(key, "~")
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return parts[0], parts[1]
+}
+
+func parseSelectorFromString(selectorString string) klabels.Selector {
+	selector := make(map[string]string)
+	selectorParts := strings.Split(selectorString, ",")
+	for _, pair := range selectorParts {
+		keyValue := strings.Split(pair, "=")
+		if len(keyValue) == 2 {
+			selector[keyValue[0]] = keyValue[1]
+		}
+	}
+	return klabels.SelectorFromSet(selector)
 }

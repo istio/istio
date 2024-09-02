@@ -57,6 +57,20 @@ func TestNewKubeJWTAuthenticator(t *testing.T) {
 	}
 }
 
+type fakeRemoteGetter struct {
+	f func(clusterID cluster.ID) kubernetes.Interface
+}
+
+func (f fakeRemoteGetter) GetRemoteKubeClient(clusterID cluster.ID) kubernetes.Interface {
+	return f.f(clusterID)
+}
+
+func (f fakeRemoteGetter) ListClusters() []cluster.ID {
+	return []cluster.ID{"test-remote"}
+}
+
+var _ RemoteKubeClientGetter = fakeRemoteGetter{}
+
 func TestAuthenticate(t *testing.T) {
 	primaryCluster := constants.DefaultClusterName
 	remoteCluster := cluster.ID("remote")
@@ -109,7 +123,7 @@ func TestAuthenticate(t *testing.T) {
 					"Basic callername",
 				},
 			},
-			expectedErrMsg: "could not get cluster non-exist's kube client",
+			expectedErrMsg: `client claims to be in cluster "non-exist", but we only know about local cluster "Kubernetes" and remote clusters [test-remote]`,
 		},
 	}
 
@@ -139,7 +153,7 @@ func TestAuthenticate(t *testing.T) {
 				Groups:   []string{"system:serviceaccounts"},
 			}
 
-			client := fake.NewSimpleClientset()
+			client := fake.NewClientset()
 			if !tc.remoteCluster {
 				client.PrependReactor("create", "tokenreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
 					return true, tokenReview, nil
@@ -148,7 +162,7 @@ func TestAuthenticate(t *testing.T) {
 
 			remoteKubeClientGetter := func(clusterID cluster.ID) kubernetes.Interface {
 				if clusterID == remoteCluster {
-					client := fake.NewSimpleClientset()
+					client := fake.NewClientset()
 					if tc.remoteCluster {
 						client.PrependReactor("create", "tokenreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
 							return true, tokenReview, nil
@@ -158,7 +172,7 @@ func TestAuthenticate(t *testing.T) {
 				return nil
 			}
 
-			authenticator := NewKubeJWTAuthenticator(meshHolder, client, constants.DefaultClusterName, remoteKubeClientGetter)
+			authenticator := NewKubeJWTAuthenticator(meshHolder, client, constants.DefaultClusterName, fakeRemoteGetter{remoteKubeClientGetter})
 			actualCaller, err := authenticator.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tc.expectedErrMsg) > 0 {
 				if err == nil {
@@ -183,28 +197,6 @@ func TestAuthenticate(t *testing.T) {
 			}
 
 			assert.Equal(t, actualCaller, expectedCaller)
-		})
-	}
-}
-
-func TestIsAllowedKubernetesAudience(t *testing.T) {
-	tests := []struct {
-		in   string
-		want bool
-	}{
-		{"kubernetes.default.svc", true},
-		{"kubernetes.default.svc.cluster.local", true},
-		{"https://kubernetes.default.svc", true},
-		{"https://kubernetes.default.svc.cluster.local", true},
-		{"foo.default.svc", false},
-		{"foo.default.svc:80", false},
-		{"https://foo.default.svc:80", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.in, func(t *testing.T) {
-			if got := isAllowedKubernetesAudience(tt.in); got != tt.want {
-				t.Errorf("isAllowedKubernetesAudience() = %v, want %v", got, tt.want)
-			}
 		})
 	}
 }

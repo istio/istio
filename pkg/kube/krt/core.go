@@ -16,6 +16,7 @@ package krt
 
 import (
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -75,6 +76,9 @@ type internalCollection[T any] interface {
 
 	// Augment mutates an object for use in various function calls. See WithObjectAugmentation
 	augment(any) any
+
+	// Create a new index into the collection
+	index(extract func(o T) []string) kclient.RawIndexer
 }
 
 // Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,

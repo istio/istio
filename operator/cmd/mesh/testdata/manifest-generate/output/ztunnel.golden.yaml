@@ -2,7 +2,9 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   annotations: {}
-  labels: {}
+  labels:
+    app.kubernetes.io/name: ztunnel
+    app.kubernetes.io/part-of: istio
   name: ztunnel
   namespace: istio-system
 spec:
@@ -12,13 +14,12 @@ spec:
   template:
     metadata:
       annotations:
-        ambient.istio.io/redirection: disabled
-        cni.projectcalico.org/allowedSourcePrefixes: '["0.0.0.0/0"]'
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
       labels:
         app: ztunnel
+        istio.io/dataplane-mode: none
         sidecar.istio.io/inject: "false"
     spec:
       containers:
@@ -30,8 +31,16 @@ spec:
           value: istiod.istio-system.svc:15012
         - name: XDS_ADDRESS
           value: istiod.istio-system.svc:15012
+        - name: RUST_LOG
+          value: info
+        - name: RUST_BACKTRACE
+          value: "1"
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
+        - name: INPOD_ENABLED
+          value: "true"
+        - name: TERMINATION_GRACE_PERIOD_SECONDS
+          value: "30"
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -54,7 +63,7 @@ spec:
               fieldPath: spec.serviceAccountName
         - name: ISTIO_META_ENABLE_HBONE
           value: "true"
-        image: gcr.io/istio-testing/ztunnel:latest-distroless
+        image: gcr.io/istio-testing/ztunnel:latest
         name: istio-proxy
         ports:
         - containerPort: 15020
@@ -72,10 +81,12 @@ spec:
             cpu: 100m
             memory: 100Mi
         securityContext:
-          allowPrivilegeEscalation: false
+          allowPrivilegeEscalation: true
           capabilities:
             add:
             - NET_ADMIN
+            - SYS_ADMIN
+            - NET_RAW
             drop:
             - ALL
           privileged: false
@@ -88,6 +99,10 @@ spec:
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        - mountPath: /var/run/ztunnel
+          name: cni-ztunnel-sock-dir
+        - mountPath: /tmp
+          name: tmp
       nodeSelector:
         kubernetes.io/os: linux
       priorityClassName: system-node-critical
@@ -111,9 +126,13 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
+      - hostPath:
+          path: /var/run/ztunnel
+          type: DirectoryOrCreate
+        name: cni-ztunnel-sock-dir
+      - emptyDir: {}
+        name: tmp
   updateStrategy:
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
-
----

@@ -51,6 +51,7 @@ type Config struct {
 	IstioVersion          string
 	Namespace             string
 	DisableALPN           bool
+	ReportRequest         func()
 }
 
 func (c Config) String() string {
@@ -209,6 +210,7 @@ func (s *Instance) getListenerIPs(port *common.Port) ([]string, error) {
 	if r, f := os.LookupEnv("INSTANCE_IPS"); f {
 		ips := strings.Split(r, ",")
 		if bf, f := os.LookupEnv("BIND_FAMILY"); f {
+			bf := strings.ToLower(bf)
 			ips = slices.FilterInPlace(ips, func(s string) bool {
 				ip, err := netip.ParseAddr(s)
 				if err != nil {
@@ -233,6 +235,7 @@ func (s *Instance) newEndpoint(port *common.Port, listenerIP string, udsServer s
 		Port:          port,
 		UDSServer:     udsServer,
 		IsServerReady: s.isReady,
+		ReportRequest: s.ReportRequest,
 		Version:       s.Version,
 		Cluster:       s.Cluster,
 		TLSCert:       s.TLSCert,

@@ -22,14 +22,16 @@ import (
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
-	networkingclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
-	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -46,38 +48,62 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
+// WorkloadsCollection builds out the core Workload object type used in ambient mode.
+// A Workload represents a single addressable unit of compute -- typically a Pod or a VM.
+// Workloads can come from a variety of sources; these are joined together to build one complete `Collection[WorkloadInfo]`.
 func (a *index) WorkloadsCollection(
-	Pods krt.Collection[*v1.Pod],
-	Nodes krt.Collection[*v1.Node],
-	MeshConfig krt.Singleton[MeshConfig],
-	AuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
-	Waypoints krt.Collection[Waypoint],
-	WorkloadServices krt.Collection[model.ServiceInfo],
-	WorkloadEntries krt.Collection[*networkingclient.WorkloadEntry],
-	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
-	EndpointSlices krt.Collection[*discovery.EndpointSlice],
-	Namespaces krt.Collection[*v1.Namespace],
+	pods krt.Collection[*v1.Pod],
+	nodes krt.Collection[*v1.Node],
+	meshConfig krt.Singleton[MeshConfig],
+	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
+	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	waypoints krt.Collection[Waypoint],
+	workloadServices krt.Collection[model.ServiceInfo],
+	workloadEntries krt.Collection[*networkingclient.WorkloadEntry],
+	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
+	endpointSlices krt.Collection[*discovery.EndpointSlice],
+	namespaces krt.Collection[*v1.Namespace],
 ) krt.Collection[model.WorkloadInfo] {
-	WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
+	WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(workloadServices)
+	EndpointSlicesByIPIndex := endpointSliceAddressIndex(endpointSlices)
+	// Workloads coming from pods. There should be one workload for each (running) Pod.
 	PodWorkloads := krt.NewCollection(
-		Pods,
-		a.podWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, WorkloadServicesNamespaceIndex, Namespaces, Nodes),
+		pods,
+		a.podWorkloadBuilder(
+			meshConfig,
+			authorizationPolicies,
+			peerAuths,
+			waypoints,
+			workloadServices,
+			WorkloadServicesNamespaceIndex,
+			endpointSlices,
+			EndpointSlicesByIPIndex,
+			namespaces,
+			nodes,
+		),
 		krt.WithName("PodWorkloads"),
 	)
+	// Workloads coming from workloadEntries. These are 1:1 with WorkloadEntry.
 	WorkloadEntryWorkloads := krt.NewCollection(
-		WorkloadEntries,
-		a.workloadEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, WorkloadServices, WorkloadServicesNamespaceIndex, Namespaces),
+		workloadEntries,
+		a.workloadEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, workloadServices, WorkloadServicesNamespaceIndex, namespaces),
 		krt.WithName("WorkloadEntryWorkloads"),
 	)
+	// Workloads coming from serviceEntries. These are inlined workloadEntries (under `spec.endpoints`); these serviceEntries will
+	// also be generating `workloadapi.Service` definitions in the `ServicesCollection` logic.
 	ServiceEntryWorkloads := krt.NewManyCollection(
-		ServiceEntries,
-		a.serviceEntryWorkloadBuilder(MeshConfig, AuthorizationPolicies, PeerAuths, Waypoints, Namespaces),
+		serviceEntries,
+		a.serviceEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, namespaces),
 		krt.WithName("ServiceEntryWorkloads"),
 	)
+	// Workloads coming from endpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
+	// into the EndpointSlice. This is because Kubernetes has 3 APIs in its model: Service, Pod, and EndpointSlice.
+	// In our API, we only have two: Service and Workload.
+	// Pod provides much more information than EndpointSlice, so typically we just consume that directly; see method for more details
+	// on when we will build from an EndpointSlice.
 	EndpointSliceWorkloads := krt.NewManyCollection(
-		EndpointSlices,
-		a.endpointSlicesBuilder(MeshConfig, WorkloadServices),
+		endpointSlices,
+		a.endpointSlicesBuilder(meshConfig, workloadServices),
 		krt.WithName("EndpointSliceWorkloads"))
 
 	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
@@ -96,32 +122,31 @@ func (a *index) WorkloadsCollection(
 }
 
 func (a *index) workloadEntryWorkloadBuilder(
-	MeshConfig krt.Singleton[MeshConfig],
-	AuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
-	Waypoints krt.Collection[Waypoint],
-	WorkloadServices krt.Collection[model.ServiceInfo],
-	WorkloadServicesNamespaceIndex *krt.Index[model.ServiceInfo, string],
-	Namespaces krt.Collection[*v1.Namespace],
+	meshConfig krt.Singleton[MeshConfig],
+	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
+	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	waypoints krt.Collection[Waypoint],
+	workloadServices krt.Collection[model.ServiceInfo],
+	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
+	namespaces krt.Collection[*v1.Namespace],
 ) krt.TransformationSingle[*networkingclient.WorkloadEntry, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, wle *networkingclient.WorkloadEntry) *model.WorkloadInfo {
-		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
-		policies := a.buildWorkloadPolicies(ctx, AuthorizationPolicies, PeerAuths, meshCfg, wle.Labels, wle.Namespace)
+		// WLE can put labels in multiple places; normalize this
+		wle = serviceentry.ConvertClientWorkloadEntry(wle)
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+		policies := a.buildWorkloadPolicies(ctx, authorizationPolicies, peerAuths, meshCfg, wle.Labels, wle.Namespace)
 		var waypoint *Waypoint
 		if wle.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
-			waypoint = fetchWaypointForWorkload(ctx, Waypoints, Namespaces, wle.ObjectMeta)
+			// TODO: report status for workload-attached waypoints
+			waypoint, _ = fetchWaypointForWorkload(ctx, waypoints, namespaces, wle.ObjectMeta)
 		}
-		var waypointAddress *workloadapi.GatewayAddress
-		if waypoint != nil {
-			waypointAddress = a.getWaypointAddress(waypoint)
-		}
-		fo := []krt.FetchOption{krt.FilterIndex(WorkloadServicesNamespaceIndex, wle.Namespace), krt.FilterSelectsNonEmpty(wle.GetLabels())}
+		fo := []krt.FetchOption{krt.FilterIndex(workloadServicesNamespaceIndex, wle.Namespace), krt.FilterSelectsNonEmpty(wle.GetLabels())}
 		if !features.EnableK8SServiceSelectWorkloadEntries {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
-				return a.(model.ServiceInfo).Source == kind.ServiceEntry
+				return a.(model.ServiceInfo).Source.Kind == kind.ServiceEntry
 			}))
 		}
-		services := krt.Fetch(ctx, WorkloadServices, fo...)
+		services := krt.Fetch(ctx, workloadServices, fo...)
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		network := a.Network(wle.Spec.Address, wle.Labels).String()
 		if wle.Spec.Network != "" {
@@ -129,7 +154,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 		}
 
 		// enforce traversing waypoints
-		policies = append(policies, implicitWaypointPolicies(ctx, Waypoints, waypoint, services)...)
+		policies = append(policies, implicitWaypointPolicies(ctx, waypoints, waypoint, services)...)
 
 		w := &workloadapi.Workload{
 			Uid:                   a.generateWorkloadEntryUID(wle.Namespace, wle.Name),
@@ -142,16 +167,16 @@ func (a *index) workloadEntryWorkloadBuilder(
 			Services:              constructServicesFromWorkloadEntry(&wle.Spec, services),
 			AuthorizationPolicies: policies,
 			Status:                workloadapi.WorkloadStatus_HEALTHY, // TODO: WE can be unhealthy
-			Waypoint:              waypointAddress,
+			Waypoint:              waypoint.GetAddress(),
 			TrustDomain:           pickTrustDomain(meshCfg),
 			Locality:              getWorkloadEntryLocality(&wle.Spec),
 		}
 
 		if addr, err := netip.ParseAddr(wle.Spec.Address); err == nil {
 			w.Addresses = [][]byte{addr.AsSlice()}
-		} else {
+		} else if wle.Spec.Address != "" {
 			log.Warnf("skipping workload entry %s/%s; DNS Address resolution is not yet implemented", wle.Namespace, wle.Name)
-		}
+		} // Else it is an empty address with network set, this is ok
 
 		w.WorkloadName, w.WorkloadType = wle.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(wle.Labels, w.WorkloadName)
@@ -162,26 +187,25 @@ func (a *index) workloadEntryWorkloadBuilder(
 }
 
 func (a *index) podWorkloadBuilder(
-	MeshConfig krt.Singleton[MeshConfig],
-	AuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
-	Waypoints krt.Collection[Waypoint],
-	WorkloadServices krt.Collection[model.ServiceInfo],
-	WorkloadServicesNamespaceIndex *krt.Index[model.ServiceInfo, string],
-	Namespaces krt.Collection[*v1.Namespace],
-	Nodes krt.Collection[*v1.Node],
+	meshConfig krt.Singleton[MeshConfig],
+	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
+	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	waypoints krt.Collection[Waypoint],
+	workloadServices krt.Collection[model.ServiceInfo],
+	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
+	endpointSlices krt.Collection[*discovery.EndpointSlice],
+	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
+	namespaces krt.Collection[*v1.Namespace],
+	nodes krt.Collection[*v1.Node],
 ) krt.TransformationSingle[*v1.Pod, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
 		// Pod Is Pending but have a pod IP should be a valid workload, we should build it ,
 		// Such as the pod have initContainer which is initialing.
 		// See https://github.com/istio/istio/issues/48854
-		if (!IsPodRunning(p) && !IsPodPending(p)) || p.Spec.HostNetwork {
+		if kubeutil.CheckPodTerminal(p) {
 			return nil
 		}
-		k8sPodIPs := p.Status.PodIPs
-		if len(k8sPodIPs) == 0 && p.Status.PodIP != "" {
-			k8sPodIPs = []v1.PodIP{{IP: p.Status.PodIP}}
-		}
+		k8sPodIPs := getPodIPs(p)
 		if len(k8sPodIPs) == 0 {
 			return nil
 		}
@@ -196,16 +220,17 @@ func (a *index) podWorkloadBuilder(
 			// Is this possible? Probably not in typical case, but anyone could put garbage there.
 			return nil
 		}
-		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
-		policies := a.buildWorkloadPolicies(ctx, AuthorizationPolicies, PeerAuths, meshCfg, p.Labels, p.Namespace)
-		fo := []krt.FetchOption{krt.FilterIndex(WorkloadServicesNamespaceIndex, p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+		policies := a.buildWorkloadPolicies(ctx, authorizationPolicies, peerAuths, meshCfg, p.Labels, p.Namespace)
+		fo := []krt.FetchOption{krt.FilterIndex(workloadServicesNamespaceIndex, p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableServiceEntrySelectPods {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
-				return a.(model.ServiceInfo).Source == kind.Service
+				return a.(model.ServiceInfo).Source.Kind == kind.Service
 			}))
 		}
-		services := krt.Fetch(ctx, WorkloadServices, fo...)
-		// Logic from https://github.com/howardjohn/kubernetes/blob/7c873327b679a70337288da62b96dd610858181d/staging/src/k8s.io/endpointslice/utils.go#L37
+		services := krt.Fetch(ctx, workloadServices, fo...)
+		services = append(services, a.matchingServicesWithoutSelectors(ctx, p, services, workloadServices, endpointSlices, endpointSlicesAddressIndex)...)
+		// Logic from https://github.com/kubernetes/kubernetes/blob/7c873327b679a70337288da62b96dd610858181d/staging/src/k8s.io/endpointslice/utils.go#L37
 		// Kubernetes has Ready, Serving, and Terminating. We only have a boolean, which is sufficient for our cases
 		status := workloadapi.WorkloadStatus_HEALTHY
 		if !IsPodReady(p) || p.DeletionTimestamp != nil {
@@ -217,19 +242,20 @@ func (a *index) podWorkloadBuilder(
 
 		var appTunnel *workloadapi.ApplicationTunnel
 		var targetWaypoint *Waypoint
-		if instancedWaypoint := fetchWaypointForInstance(ctx, Waypoints, p.ObjectMeta); instancedWaypoint != nil {
+		if instancedWaypoint := fetchWaypointForInstance(ctx, waypoints, p.ObjectMeta); instancedWaypoint != nil {
 			// we're an instance of a waypoint, set inbound tunnel info
 			appTunnel = &workloadapi.ApplicationTunnel{
 				Protocol: instancedWaypoint.DefaultBinding.Protocol,
 				Port:     instancedWaypoint.DefaultBinding.Port,
 			}
-		} else if waypoint := fetchWaypointForWorkload(ctx, Waypoints, Namespaces, p.ObjectMeta); waypoint != nil {
+		} else if waypoint, err := fetchWaypointForWorkload(ctx, waypoints, namespaces, p.ObjectMeta); err == nil {
 			// there is a workload-attached waypoint, point there with a GatewayAddress
+			// TODO: report status for workload-attached waypoints
 			targetWaypoint = waypoint
 		}
 
 		// enforce traversing waypoints
-		policies = append(policies, implicitWaypointPolicies(ctx, Waypoints, targetWaypoint, services)...)
+		policies = append(policies, implicitWaypointPolicies(ctx, waypoints, targetWaypoint, services)...)
 
 		w := &workloadapi.Workload{
 			Uid:                   a.generatePodUID(p),
@@ -240,14 +266,18 @@ func (a *index) podWorkloadBuilder(
 			ClusterId:             string(a.ClusterID),
 			Addresses:             podIPs,
 			ServiceAccount:        p.Spec.ServiceAccountName,
-			Waypoint:              a.getWaypointAddress(targetWaypoint),
+			Waypoint:              targetWaypoint.GetAddress(),
 			Node:                  p.Spec.NodeName,
 			ApplicationTunnel:     appTunnel,
 			Services:              constructServices(p, services),
 			AuthorizationPolicies: policies,
 			Status:                status,
 			TrustDomain:           pickTrustDomain(meshCfg),
-			Locality:              getPodLocality(ctx, Nodes, p),
+			Locality:              getPodLocality(ctx, nodes, p),
+		}
+
+		if p.Spec.HostNetwork {
+			w.NetworkMode = workloadapi.NetworkMode_HOST_NETWORK
 		}
 
 		w.WorkloadName, w.WorkloadType = workloadNameAndType(p)
@@ -258,10 +288,75 @@ func (a *index) podWorkloadBuilder(
 	}
 }
 
+func getPodIPs(p *v1.Pod) []v1.PodIP {
+	k8sPodIPs := p.Status.PodIPs
+	if len(k8sPodIPs) == 0 && p.Status.PodIP != "" {
+		k8sPodIPs = []v1.PodIP{{IP: p.Status.PodIP}}
+	}
+	return k8sPodIPs
+}
+
+// matchingServicesWithoutSelectors finds all Services that match a given pod that do not use selectors.
+// See https://kubernetes.io/docs/concepts/services-networking/service/#services-without-selectors for more info.
+// For selector service, we query by the selector elsewhere, so this only handles the services that are NOT already found
+// by a selector.
+// For EndpointSlices that happen to point to the same IP as the pod, but are not directly bound to the pod (via TargetRef),
+// we ignore them here. These will produce a model.Workload directly from the EndpointSlice, but with limited information;
+// we do not implicitly merge a Pod with an EndpointSlice just based on IP.
+func (a *index) matchingServicesWithoutSelectors(
+	ctx krt.HandlerContext,
+	p *v1.Pod,
+	alreadyMatchingServices []model.ServiceInfo,
+	workloadServices krt.Collection[model.ServiceInfo],
+	endpointSlices krt.Collection[*discovery.EndpointSlice],
+	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
+) []model.ServiceInfo {
+	var res []model.ServiceInfo
+	// Build out our set of already-matched services to avoid double-selecting a service
+	seen := sets.NewWithLength[string](len(alreadyMatchingServices))
+	for _, s := range alreadyMatchingServices {
+		seen.Insert(s.Hostname)
+	}
+	tr := TargetRef{
+		Kind:      gvk.Pod.Kind,
+		Namespace: p.Namespace,
+		Name:      p.Name,
+		UID:       p.UID,
+	}
+	// For each IP, find any endpointSlices referencing it.
+	matchedSlices := krt.Fetch(ctx, endpointSlices, krt.FilterIndex(endpointSlicesAddressIndex, tr))
+	for _, es := range matchedSlices {
+		serviceName, f := es.Labels[discovery.LabelServiceName]
+		if !f {
+			// Not for a service; we don't care about it.
+			continue
+		}
+		hostname := string(kube.ServiceHostname(serviceName, es.Namespace, a.DomainSuffix))
+		if seen.Contains(hostname) {
+			// We already know about this service
+			continue
+		}
+		// This pod is included in the EndpointSlice. We need to fetch the Service object for it, by key.
+		serviceKey := es.Namespace + "/" + hostname
+		svcs := krt.Fetch(ctx, workloadServices, krt.FilterKey(serviceKey), krt.FilterGeneric(func(a any) bool {
+			// Only find Service, not Service Entry
+			return a.(model.ServiceInfo).Source.Kind == kind.Service
+		}))
+		if len(svcs) == 0 {
+			// no service found
+			continue
+		}
+		// There SHOULD only be one. This is only for `Service` which has unique hostnames.
+		svc := svcs[0]
+		res = append(res, svc)
+	}
+	return res
+}
+
 func (a *index) buildWorkloadPolicies(
 	ctx krt.HandlerContext,
-	AuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
+	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
+	peerAuths krt.Collection[*securityclient.PeerAuthentication],
 	meshCfg *MeshConfig,
 	workloadLabels map[string]string,
 	workloadNamespace string,
@@ -269,7 +364,7 @@ func (a *index) buildWorkloadPolicies(
 	// We need to filter from the policies that are present, which apply to us.
 	// We only want label selector ones; global ones are not attached to the final WorkloadInfo
 	// In general we just take all of the policies
-	basePolicies := krt.Fetch(ctx, AuthorizationPolicies, krt.FilterSelects(workloadLabels), krt.FilterGeneric(func(a any) bool {
+	basePolicies := krt.Fetch(ctx, authorizationPolicies, krt.FilterSelects(workloadLabels), krt.FilterGeneric(func(a any) bool {
 		wa := a.(model.WorkloadAuthorization)
 		nsMatch := wa.Authorization.Namespace == meshCfg.RootNamespace || wa.Authorization.Namespace == workloadNamespace
 		return nsMatch && wa.GetLabelSelector() != nil
@@ -278,17 +373,17 @@ func (a *index) buildWorkloadPolicies(
 		return t.ResourceName()
 	}))
 	// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
-	auths := fetchPeerAuthentications(ctx, PeerAuths, meshCfg, workloadNamespace, workloadLabels)
+	auths := fetchPeerAuthentications(ctx, peerAuths, meshCfg, workloadNamespace, workloadLabels)
 	policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
 	return policies
 }
 
 func (a *index) serviceEntryWorkloadBuilder(
-	MeshConfig krt.Singleton[MeshConfig],
-	AuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
-	Waypoints krt.Collection[Waypoint],
-	Namespaces krt.Collection[*v1.Namespace],
+	meshConfig krt.Singleton[MeshConfig],
+	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
+	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, se *networkingclient.ServiceEntry) []model.WorkloadInfo {
 		eps := se.Spec.Endpoints
@@ -301,7 +396,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 		}
 		// here we don't care about the *service* waypoint (hence it is nil); we are only going to use a subset of the info in
 		// `allServices` (since we are building workloads here, not services).
-		allServices := a.serviceEntriesInfo(se, nil)
+		allServices := a.serviceEntriesInfo(se, nil, nil)
 		if implicitEndpoints {
 			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
 				return &networkingv1alpha3.WorkloadEntry{Address: si.Hostname}
@@ -312,7 +407,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 		}
 		res := make([]model.WorkloadInfo, 0, len(eps))
 
-		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 
 		for i, wle := range eps {
 			services := allServices
@@ -323,19 +418,19 @@ func (a *index) serviceEntryWorkloadBuilder(
 				services = []model.ServiceInfo{allServices[i]}
 			}
 
-			policies := a.buildWorkloadPolicies(ctx, AuthorizationPolicies, PeerAuths, meshCfg, se.Labels, se.Namespace)
+			policies := a.buildWorkloadPolicies(ctx, authorizationPolicies, peerAuths, meshCfg, se.Labels, se.Namespace)
 
 			var waypointAddress *workloadapi.GatewayAddress
 			// Endpoint does not have a real ObjectMeta, so make one
 			if !implicitEndpoints {
-				if waypoint := fetchWaypointForWorkload(ctx, Waypoints, Namespaces, metav1.ObjectMeta{
+				if waypoint, err := fetchWaypointForWorkload(ctx, waypoints, namespaces, metav1.ObjectMeta{
 					Name:      se.Name,
 					Namespace: se.Namespace,
 					Labels:    wle.Labels,
-				}); waypoint != nil {
-					waypointAddress = a.getWaypointAddress(waypoint)
+				}); err != nil {
+					waypointAddress = waypoint.Address
 					// enforce traversing waypoints
-					policies = append(policies, implicitWaypointPolicies(ctx, Waypoints, waypoint, services)...)
+					policies = append(policies, implicitWaypointPolicies(ctx, waypoints, waypoint, services)...)
 				}
 			}
 
@@ -377,8 +472,8 @@ func (a *index) serviceEntryWorkloadBuilder(
 }
 
 func (a *index) endpointSlicesBuilder(
-	MeshConfig krt.Singleton[MeshConfig],
-	WorkloadServices krt.Collection[model.ServiceInfo],
+	meshConfig krt.Singleton[MeshConfig],
+	workloadServices krt.Collection[model.ServiceInfo],
 ) krt.TransformationMulti[*discovery.EndpointSlice, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, es *discovery.EndpointSlice) []model.WorkloadInfo {
 		// EndpointSlices carry port information and a list of IPs.
@@ -396,13 +491,13 @@ func (a *index) endpointSlicesBuilder(
 		}
 		var res []model.WorkloadInfo
 		seen := sets.New[string]()
-		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 
 		// The slice must be for a single service, based on the label above.
 		serviceKey := es.Namespace + "/" + string(kube.ServiceHostname(serviceName, es.Namespace, a.DomainSuffix))
-		svcs := krt.Fetch(ctx, WorkloadServices, krt.FilterKey(serviceKey), krt.FilterGeneric(func(a any) bool {
+		svcs := krt.Fetch(ctx, workloadServices, krt.FilterKey(serviceKey), krt.FilterGeneric(func(a any) bool {
 			// Only find Service, not Service Entry
-			return a.(model.ServiceInfo).Source == kind.Service
+			return a.(model.ServiceInfo).Source.Kind == kind.Service
 		}))
 		if len(svcs) == 0 {
 			// no service found
@@ -480,16 +575,19 @@ func (a *index) endpointSlicesBuilder(
 				continue
 			}
 			w := &workloadapi.Workload{
-				Uid:                   a.ClusterID.String() + "/discovery.k8s.io/EndpointSlice/" + es.Namespace + "/" + es.Name + "/" + key,
-				Name:                  es.Name,
-				Namespace:             es.Namespace,
-				Addresses:             addresses,
-				Hostname:              "",
-				Network:               a.Network(key, nil).String(),
-				TrustDomain:           pickTrustDomain(meshCfg),
-				Services:              services,
-				Status:                health,
-				ClusterId:             string(a.ClusterID),
+				Uid:         a.ClusterID.String() + "/discovery.k8s.io/EndpointSlice/" + es.Namespace + "/" + es.Name + "/" + key,
+				Name:        es.Name,
+				Namespace:   es.Namespace,
+				Addresses:   addresses,
+				Hostname:    "",
+				Network:     a.Network(key, nil).String(),
+				TrustDomain: pickTrustDomain(meshCfg),
+				Services:    services,
+				Status:      health,
+				ClusterId:   string(a.ClusterID),
+				// For opaque endpoints, we do not know anything about them. They could be overlapping with other IPs, so treat it
+				// as a shared address rather than a unique one.
+				NetworkMode:           workloadapi.NetworkMode_HOST_NETWORK,
 				AuthorizationPolicies: nil, // Not support. This can only be used for outbound, so not relevant
 				ServiceAccount:        "",  // Unknown. TODO: make this possible to express in ztunnel
 				Waypoint:              nil, // Not supported. In theory, we could allow it as an EndpointSlice label, but there is no real use case.
@@ -528,12 +626,12 @@ func pickTrustDomain(mesh *MeshConfig) string {
 
 func fetchPeerAuthentications(
 	ctx krt.HandlerContext,
-	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
+	peerAuths krt.Collection[*securityclient.PeerAuthentication],
 	meshCfg *MeshConfig,
 	ns string,
 	matchLabels map[string]string,
 ) []*securityclient.PeerAuthentication {
-	return krt.Fetch(ctx, PeerAuths, krt.FilterGeneric(func(a any) bool {
+	return krt.Fetch(ctx, peerAuths, krt.FilterGeneric(func(a any) bool {
 		pol := a.(*securityclient.PeerAuthentication)
 		if pol.Namespace == meshCfg.GetRootNamespace() && pol.Spec.Selector == nil {
 			return true
@@ -558,7 +656,7 @@ func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, ser
 		for _, port := range svc.Ports {
 			targetPort := port.TargetPort
 			// Named targetPort has different semantics from Service vs ServiceEntry
-			if svc.Source == kind.Service {
+			if svc.Source.Kind == kind.Service {
 				// Service has explicit named targetPorts.
 				if named, f := svc.PortNames[int32(port.ServicePort)]; f && named.TargetPortName != "" {
 					// This port is a named target port, look it up
@@ -680,10 +778,10 @@ func implicitWaypointPolicies(ctx krt.HandlerContext, Waypoints krt.Collection[W
 		return nil
 	}
 	serviceWaypointKeys := slices.MapFilter(services, func(si model.ServiceInfo) *string {
-		if si.Waypoint == "" || (waypoint != nil && waypoint.ResourceName() == si.Waypoint) {
+		if si.Waypoint.ResourceName == "" || (waypoint != nil && waypoint.ResourceName() == si.Waypoint.ResourceName) {
 			return nil
 		}
-		return ptr.Of(si.Waypoint)
+		return ptr.Of(si.Waypoint.ResourceName)
 	})
 	if len(serviceWaypointKeys) == 0 {
 		if waypoint != nil {
@@ -764,4 +862,46 @@ func (a *index) getNetworkGatewayAddress(network string) *workloadapi.GatewayAdd
 		}
 	}
 	return nil
+}
+
+// TargetRef is a subset of the Kubernetes ObjectReference which has some fields we don't care about
+type TargetRef struct {
+	Kind      string
+	Namespace string
+	Name      string
+	UID       types.UID
+}
+
+func (t TargetRef) String() string {
+	return t.Kind + "/" + t.Namespace + "/" + t.Name + "/" + string(t.UID)
+}
+
+// endpointSliceAddressIndex builds an index from IP Address
+func endpointSliceAddressIndex(EndpointSlices krt.Collection[*discovery.EndpointSlice]) krt.Index[TargetRef, *discovery.EndpointSlice] {
+	return krt.NewIndex(EndpointSlices, func(es *discovery.EndpointSlice) []TargetRef {
+		if es.AddressType == discovery.AddressTypeFQDN {
+			// Currently we do not support FQDN.
+			return nil
+		}
+		_, f := es.Labels[discovery.LabelServiceName]
+		if !f {
+			// Not for a service; we don't care about it.
+			return nil
+		}
+		res := make([]TargetRef, 0, len(es.Endpoints))
+		for _, ep := range es.Endpoints {
+			if ep.TargetRef == nil || ep.TargetRef.Kind != gvk.Pod.Kind {
+				// We only want pods here
+				continue
+			}
+			tr := TargetRef{
+				Kind:      ep.TargetRef.Kind,
+				Namespace: ep.TargetRef.Namespace,
+				Name:      ep.TargetRef.Name,
+				UID:       ep.TargetRef.UID,
+			}
+			res = append(res, tr)
+		}
+		return res
+	})
 }

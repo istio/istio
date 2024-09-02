@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 
@@ -148,8 +149,16 @@ func (z *ztunnelServer) Close() error {
 func (z *ztunnelServer) Run(ctx context.Context) {
 	context.AfterFunc(ctx, func() { _ = z.Close() })
 
+	// Allow at most 5 requests per second. This is still a ridiculous amount; at most we should have 2 ztunnels on our node,
+	// and they will only connect once and persist.
+	// However, if they do get in a state where they call us in a loop, we will quickly OOM
+	limit := rate.NewLimiter(rate.Limit(5), 1)
 	for {
 		log.Debug("accepting conn")
+		if err := limit.Wait(ctx); err != nil {
+			log.Errorf("failed to wait for ztunnel connection: %v", err)
+			return
+		}
 		conn, err := z.accept()
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
@@ -179,7 +188,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 	defer conn.Close()
 
 	context.AfterFunc(ctx, func() {
-		log.Debug("context cancelled - closing conn")
+		log.Debug("context cancelled, closing ztunnel server")
 		conn.Close()
 	})
 
@@ -192,7 +201,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 	if err != nil {
 		return err
 	}
-	log.Infof("received hello from ztunnel. %v", m.Version)
+	log.WithLabels("version", m.Version).Infof("received hello from ztunnel")
 	log.Debug("sending snapshot to ztunnel")
 	if err := z.sendSnapshot(ctx, conn); err != nil {
 		return err
@@ -333,9 +342,16 @@ func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn *ZtunnelConnectio
 	for uid, wl := range snap {
 		var resp *zdsapi.WorkloadResponse
 		var err error
+		log := log.WithLabels("uid", uid)
+		if wl.Workload != nil {
+			log = log.WithLabels(
+				"name", wl.Workload.Name,
+				"namespace", wl.Workload.Namespace,
+				"serviceAccount", wl.Workload.ServiceAccount)
+		}
 		if wl.Netns != nil {
 			fd := int(wl.Netns.Fd())
-			log.Infof("Sending local pod %s ztunnel", uid)
+			log.Infof("sending pod to ztunnel as part of snapshot")
 			resp, err = conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 				Payload: &zdsapi.WorkloadRequest_Add{
 					Add: &zdsapi.AddWorkload{
@@ -345,7 +361,7 @@ func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn *ZtunnelConnectio
 				},
 			}, &fd)
 		} else {
-			log.Infof("netns not available for local pod %s. sending keep to ztunnel", uid)
+			log.Infof("netns is not available for pod, sending 'keep' to ztunnel")
 			resp, err = conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 				Payload: &zdsapi.WorkloadRequest_Keep{
 					Keep: &zdsapi.KeepWorkload{
@@ -422,14 +438,14 @@ func (z *ZtunnelConnection) send(ctx context.Context, data []byte, fd *int) (*zd
 	select {
 	case z.Updates <- req:
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("context expired before request sent: %v", ctx.Err())
 	}
 
 	select {
 	case r := <-ret:
 		return r.resp, r.err
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, fmt.Errorf("context expired before response received: %v", ctx.Err())
 	}
 }
 

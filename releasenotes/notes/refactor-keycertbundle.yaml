@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue: []
+releaseNotes:
+  - |
+    **Fixed** Corrected documentation for `rootCertExpiryTimestamp` and `citadel_server_cert_chain_expiry_timestamp`.
+upgradeNotes:
+  - title: Change in cert expiry metrics
+    content: |
+      `rootCertExpiryTimestamp` and `certChainExpiryTimestamp` no longer record a negative number for expired certificate/certificate chains.
+      This was never the actual behavior, but the docs are now updated to reflect the actual behavior.
+      Users who relied on this behavior should check the signs of `rootCertExpirySeconds` and `certChainExpirySeconds` instead.
+

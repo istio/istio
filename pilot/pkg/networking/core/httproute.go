@@ -116,7 +116,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 // TODO: trace decorators, inbound timeouts
 func buildSidecarInboundHTTPRouteConfig(lb *ListenerBuilder, cc inboundChainConfig) *route.RouteConfiguration {
 	traceOperation := telemetry.TraceOperation(string(cc.telemetryMetadata.InstanceHostname), cc.port.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(cc.clusterName, traceOperation)
+	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(lb.node, cc.clusterName, traceOperation)
 
 	inboundVHost := &route.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
@@ -388,10 +388,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 	servicesByName := make(map[host.Name]*model.Service)
 	for _, svc := range services {
-		if svc.Resolution == model.Alias {
-			// Will be handled by the service it is an alias for
-			continue
-		}
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
@@ -400,6 +396,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			servicesByName[svc.Hostname] = &model.Service{
 				Hostname:       svc.Hostname,
 				DefaultAddress: svc.GetAddressForProxy(node),
+				ClusterVIPs:    *svc.ClusterVIPs.DeepCopy(),
 				MeshExternal:   svc.MeshExternal,
 				Resolution:     svc.Resolution,
 				Ports:          []*model.Port{svcPort},
@@ -410,10 +407,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 					Aliases:         svc.Attributes.Aliases,
 					K8sAttributes:   svc.Attributes.K8sAttributes,
 				},
-			}
-			if features.EnableDualStack {
-				// cannot correctly build virtualHost domains for dual stack without ClusterVIPs
-				servicesByName[svc.Hostname].ClusterVIPs = *svc.ClusterVIPs.DeepCopy()
 			}
 		}
 	}
@@ -644,16 +637,10 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 		}
 	}
 
-	svcAddr := service.GetAddressForProxy(node)
-	if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
-		domains = appendDomainPort(domains, svcAddr, port)
-	}
-
-	// handle dual stack's extra address when generating the virtualHost domains
-	// assumes that conversion is stripping out the DefaultAddress from ClusterVIPs
-	extraAddr := service.GetExtraAddressesForProxy(node)
-	for _, addr := range extraAddr {
-		domains = appendDomainPort(domains, addr, port)
+	for _, svcAddr := range service.GetAllAddressesForProxy(node) {
+		if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
+			domains = appendDomainPort(domains, svcAddr, port)
+		}
 	}
 
 	return domains, allAltHosts

@@ -549,7 +549,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 	}()
 	select {
 	case <-time.After(time.Second * 10):
-		t.Fatalf("setup timeout")
+		t.Fatal("setup timeout")
 	case <-up:
 	}
 
@@ -570,7 +570,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 	}()
 	select {
 	case <-time.After(time.Second * 10):
-		t.Fatalf("setup timeout")
+		t.Fatal("setup timeout")
 	case <-up:
 	}
 	t.Cleanup(func() { _ = server.Shutdown() })
@@ -578,7 +578,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 
 	select {
 	case <-time.After(time.Second * 10):
-		t.Fatalf("setup timeout")
+		t.Fatal("setup timeout")
 	case <-up:
 	}
 	t.Cleanup(func() { _ = tcp.Shutdown() })

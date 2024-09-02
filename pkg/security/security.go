@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -45,8 +46,12 @@ const (
 	// DefaultRootCertFilePath is the well-known path for an existing root certificate file
 	DefaultRootCertFilePath = "./etc/certs/root-cert.pem"
 
-	// WorkloadIdentitySocketPath is the well-known path to the Unix Domain Socket for SDS.
-	WorkloadIdentitySocketPath = "./var/run/secrets/workload-spiffe-uds/socket"
+	// WorkloadIdentityPath is the well-known path to the Unix Domain Socket for SDS.
+	WorkloadIdentityPath = "./var/run/secrets/workload-spiffe-uds"
+
+	// WorkloadIdentitySocketFile is the name of the UDS socket file
+	// Istio's internal SDS server uses.
+	DefaultWorkloadIdentitySocketFile = "socket"
 
 	// CredentialNameSocketPath is the well-known path to the Unix Domain Socket for Credential Name.
 	CredentialNameSocketPath = "./var/run/secrets/credential-uds/socket"
@@ -119,12 +124,6 @@ const (
 // they should be dynamic to allow migrations without restart.
 // Both are critical.
 var (
-	// Require3PToken disables the use of K8S 1P tokens. Note that 1P tokens can be used to request
-	// 3P TOKENS. A 1P token is the token automatically mounted by Kubelet and used for authentication with
-	// the Apiserver.
-	Require3PToken = env.Register("REQUIRE_3P_TOKEN", false,
-		"Reject k8s default tokens, without audience. If false, default K8S token will be accepted")
-
 	// TokenAudiences specifies a list of audiences for SDS trustworthy JWT. This is to make sure that the CSR requests
 	// contain the JWTs intended for Citadel.
 	TokenAudiences = strings.Split(env.Register("TOKEN_AUDIENCES", "istio-ca",
@@ -216,6 +215,11 @@ type Options struct {
 	// The ratio of cert lifetime to refresh a cert. For example, at 0.10 and 1 hour TTL,
 	// we would refresh 6 minutes before expiration.
 	SecretRotationGracePeriodRatio float64
+
+	// The amount of randomness to add to SecretRotationGracePeriodRatio. This is used
+	// to prevent spikes in resource consumption when large fleets of proxies try to renew
+	// their certs simultaneously.
+	SecretRotationGracePeriodRatioJitter float64
 
 	// STS port
 	STSPort int
@@ -479,6 +483,21 @@ func CheckWorkloadCertificate(certChainFilePath, keyFilePath, rootCertFilePath s
 		return false
 	}
 	return true
+}
+
+// This is the fixed-path, configurable filename location where the Istio agent will
+// look for a SDS workload identity server socket.
+//
+// If we are using Istio's SDS server, the SDS socket listen path == the serve path
+// If we are not using Istio's SDS server, the SDS socket listen path may != the Istio SDS serve path
+func GetWorkloadSDSSocketListenPath(sockfile string) string {
+	return filepath.Join(WorkloadIdentityPath, sockfile)
+}
+
+// This is the fixed-path, fixed-filename location where Istio's default SDS workload identity server
+// will put its socket.
+func GetIstioSDSServerSocketPath() string {
+	return filepath.Join(WorkloadIdentityPath, DefaultWorkloadIdentitySocketFile)
 }
 
 type SdsCertificateConfig struct {

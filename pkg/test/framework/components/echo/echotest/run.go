@@ -167,7 +167,7 @@ func (gi gatewayInstance) ServiceName() types.NamespacedName {
 func (t *T) RunViaGatewayIngress(gatewayClass string, testFn ingressTest) {
 	// Build and apply any completed configuration that does not require to/from params.
 	t.cfg.BuildCompleteSources().Apply()
-	istioInstance := istio.GetOrFail(t.rootCtx, t.rootCtx)
+	istioInstance := istio.GetOrFail(t.rootCtx)
 	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
 		gwInstance := gatewayInstance{
 			NamespacedName: types.NamespacedName{
@@ -202,7 +202,7 @@ func (t *T) RunViaIngress(testFn ingressTest) {
 	// Build and apply any completed configuration that does not require to/from params.
 	t.cfg.BuildCompleteSources().Apply()
 
-	istioInstance := istio.GetOrFail(t.rootCtx, t.rootCtx)
+	istioInstance := istio.GetOrFail(t.rootCtx)
 	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
 		// Build and apply per-destination config
 		callers := istioInstance.Ingresses().Callers()

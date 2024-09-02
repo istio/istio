@@ -30,40 +30,10 @@ import (
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 )
-
-func TestWait(t *testing.T) {
-	// nolint: staticcheck
-	framework.NewTest(t).
-		RequiresSingleCluster().
-		RequiresLocalControlPlane().
-		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
-				Prefix: "default",
-				Inject: true,
-			})
-			t.ConfigIstio().YAML(ns.Name(), `
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: reviews
-spec:
-  gateways: [missing-gw]
-  hosts:
-  - reviews
-  http:
-  - route:
-    - destination:
-        host: reviews
-`).ApplyOrFail(t)
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
-			istioCtl.InvokeOrFail(t, []string{"x", "wait", "-v", "VirtualService", "reviews." + ns.Name()})
-		})
-}
 
 func TestAnalysisWritesStatus(t *testing.T) {
 	// nolint: staticcheck
@@ -71,7 +41,7 @@ func TestAnalysisWritesStatus(t *testing.T) {
 		RequiresLocalControlPlane().
 		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix:   "default",
 				Inject:   true,
 				Revision: "",
@@ -94,7 +64,7 @@ spec:
 `).ApplyOrFail(t)
 			// Apply bad config (referencing invalid host)
 			t.ConfigIstio().YAML(ns.Name(), `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews
@@ -110,10 +80,10 @@ spec:
 			// Status should report error
 			retry.UntilSuccessOrFail(t, func() error {
 				return expectVirtualServiceStatus(t, ns, true)
-			}, retry.Timeout(time.Minute*5))
+			}, retry.Timeout(time.Second*5))
 			// Apply config to make this not invalid
 			t.ConfigIstio().YAML(ns.Name(), `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: missing-gw
@@ -138,7 +108,7 @@ spec:
 func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, t, namespace.Config{
+			ns := namespace.NewOrFail(t, namespace.Config{
 				Prefix:   "default",
 				Inject:   true,
 				Revision: "",
@@ -147,7 +117,7 @@ func TestWorkloadEntryUpdatesStatus(t *testing.T) {
 
 			// create WorkloadEntry
 			t.ConfigIstio().YAML(ns.Name(), `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: vm-1
@@ -175,7 +145,7 @@ spec:
 			}
 
 			// Get WorkloadEntry to append to
-			we, err := t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+			we, err := t.Clusters().Default().Istio().NetworkingV1().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
 			if err != nil {
 				t.Error(err)
 			}
@@ -186,7 +156,7 @@ spec:
 			// append to conditions
 			we.Status.Conditions = append(we.Status.Conditions, addedConds...)
 			// update the status
-			_, err = t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
+			_, err = t.Clusters().Default().Istio().NetworkingV1().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
 			if err != nil {
 				t.Error(err)
 			}
@@ -208,7 +178,7 @@ spec:
 			})
 
 			// get the workload entry to replace the health condition field
-			we, err = t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+			we, err = t.Clusters().Default().Istio().NetworkingV1().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -224,7 +194,7 @@ spec:
 			}
 
 			// update this new status
-			_, err = t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
+			_, err = t.Clusters().Default().Istio().NetworkingV1().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
 			if err != nil {
 				t.Error(err)
 			}
@@ -249,7 +219,7 @@ spec:
 func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, hasError bool) error {
 	c := t.Clusters().Default()
 
-	x, err := c.Istio().NetworkingV1alpha3().VirtualServices(ns.Name()).Get(context.TODO(), "reviews", metav1.GetOptions{})
+	x, err := c.Istio().NetworkingV1().VirtualServices(ns.Name()).Get(context.TODO(), "reviews", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("unexpected test failure: can't get virtualservice: %v", err)
 	}
@@ -269,32 +239,17 @@ func expectVirtualServiceStatus(t framework.TestContext, ns namespace.Instance, 
 		if !found {
 			return fmt.Errorf("expected error %v to exist", msg.ReferencedResourceNotFound.Code())
 		}
-	} else if status.ValidationMessages != nil && len(status.ValidationMessages) > 0 {
+	} else if len(status.ValidationMessages) > 0 {
 		return fmt.Errorf("expected no validation messages, but got %d", len(status.ValidationMessages))
 	}
 
-	if len(status.Conditions) < 1 {
-		return fmt.Errorf("expected conditions to exist, but got nothing")
-	}
-	found := false
-	for _, condition := range status.Conditions {
-		if condition.Type == "Reconciled" {
-			found = true
-			if condition.Status != "True" {
-				return fmt.Errorf("expected Reconciled to be true but was %v", condition.Status)
-			}
-		}
-	}
-	if !found {
-		return fmt.Errorf("expected Reconciled condition to exist, but got %v", status.Conditions)
-	}
 	return nil
 }
 
 func expectWorkloadEntryStatus(t framework.TestContext, ns namespace.Instance, expectedConds []*v1alpha1.IstioCondition) error {
 	c := t.Clusters().Default()
 
-	x, err := c.Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
+	x, err := c.Istio().NetworkingV1().WorkloadEntries(ns.Name()).Get(context.TODO(), "vm-1", metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("unexpected test failure: can't get workloadentry: %v", err)
 		return err

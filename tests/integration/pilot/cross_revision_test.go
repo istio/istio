@@ -51,7 +51,7 @@ func TestRevisionTraffic(t *testing.T) {
 			for _, rev := range extraRevs {
 				namespaces = append(namespaces, revisionedNamespace{
 					revision: rev,
-					namespace: namespace.NewOrFail(t, t, namespace.Config{
+					namespace: namespace.NewOrFail(t, namespace.Config{
 						Prefix:   fmt.Sprintf("revision-%s", rev),
 						Inject:   true,
 						Revision: rev,
@@ -59,7 +59,7 @@ func TestRevisionTraffic(t *testing.T) {
 				})
 			}
 			// Allow all namespaces so we do not hit passthrough cluster
-			t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1alpha3
+			t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: allow-cross-namespaces

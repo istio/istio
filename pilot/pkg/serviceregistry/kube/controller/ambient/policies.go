@@ -18,9 +18,7 @@ package ambient
 import (
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
-
-	securityclient "istio.io/client-go/pkg/apis/security/v1beta1"
+	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube/krt"
@@ -30,14 +28,13 @@ import (
 )
 
 func PolicyCollections(
-	AuthzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
-	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
-	MeshConfig krt.Singleton[MeshConfig],
-	Waypoints krt.Collection[Waypoint],
-	Pods krt.Collection[*v1.Pod],
+	authzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
+	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	meshConfig krt.Singleton[MeshConfig],
+	waypoints krt.Collection[Waypoint],
 ) (krt.Collection[model.WorkloadAuthorization], krt.Collection[model.WorkloadAuthorization]) {
-	AuthzDerivedPolicies := krt.NewCollection(AuthzPolicies, func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WorkloadAuthorization {
-		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
+	AuthzDerivedPolicies := krt.NewCollection(authzPolicies, func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WorkloadAuthorization {
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		pol := convertAuthorizationPolicy(meshCfg.GetRootNamespace(), i)
 		if pol == nil {
 			return nil
@@ -48,8 +45,8 @@ func PolicyCollections(
 		}
 	}, krt.WithName("AuthzDerivedPolicies"))
 
-	PeerAuthDerivedPolicies := krt.NewCollection(PeerAuths, func(ctx krt.HandlerContext, i *securityclient.PeerAuthentication) *model.WorkloadAuthorization {
-		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
+	PeerAuthDerivedPolicies := krt.NewCollection(peerAuths, func(ctx krt.HandlerContext, i *securityclient.PeerAuthentication) *model.WorkloadAuthorization {
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		pol := convertPeerAuthentication(meshCfg.GetRootNamespace(), i)
 		if pol == nil {
 			return nil
@@ -60,15 +57,15 @@ func PolicyCollections(
 		}
 	}, krt.WithName("PeerAuthDerivedPolicies"))
 
-	ImplicitWaypointPolicies := krt.NewCollection(Waypoints, func(ctx krt.HandlerContext, waypoint Waypoint) *model.WorkloadAuthorization {
-		return implicitWaypointPolicy(ctx, MeshConfig, waypoint)
+	ImplicitWaypointPolicies := krt.NewCollection(waypoints, func(ctx krt.HandlerContext, waypoint Waypoint) *model.WorkloadAuthorization {
+		return implicitWaypointPolicy(ctx, meshConfig, waypoint)
 	}, krt.WithName("DefaultAllowFromWaypointPolicies"))
 
 	DefaultPolicy := krt.NewSingleton[model.WorkloadAuthorization](func(ctx krt.HandlerContext) *model.WorkloadAuthorization {
-		if len(krt.Fetch(ctx, PeerAuths)) == 0 {
+		if len(krt.Fetch(ctx, peerAuths)) == 0 {
 			return nil
 		}
-		meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		// If there are any PeerAuthentications in our cache, send our static STRICT policy
 		return &model.WorkloadAuthorization{
 			LabelSelector: model.LabelSelector{},

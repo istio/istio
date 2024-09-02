@@ -57,22 +57,20 @@ var (
 
 	rootCertExpiryTimestamp = monitoring.NewGauge(
 		"citadel_server_root_cert_expiry_timestamp",
-		"The unix timestamp, in seconds, when Citadel root cert will expire. "+
-			"A negative time indicates the cert is expired.",
+		"The unix timestamp, in seconds, when the root cert will expire.",
 	)
 	rootCertExpirySeconds = monitoring.NewDerivedGauge(
 		"citadel_server_root_cert_expiry_seconds",
-		"The time remaining, in seconds, before the root certificate will expire. "+
+		"The time remaining, in seconds, before the root cert will expire. "+
 			"A negative value indicates the cert is expired.",
 	)
 	certChainExpiryTimestamp = monitoring.NewGauge(
 		"citadel_server_cert_chain_expiry_timestamp",
-		"The unix timestamp, in seconds, when Citadel cert chain will expire. "+
-			"A negative time indicates the cert is expired.",
+		"The unix timestamp, in seconds, when Istio generated cert chain will expire.",
 	)
 	certChainExpirySeconds = monitoring.NewDerivedGauge(
 		"citadel_server_cert_chain_expiry_seconds",
-		"The time remaining, in seconds, before the certificate chain will expire. "+
+		"The time remaining, in seconds, before the Istio Generated cert chain will expire. "+
 			"A negative value indicates the cert is expired.",
 	)
 )

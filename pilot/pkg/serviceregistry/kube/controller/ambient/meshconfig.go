@@ -35,7 +35,7 @@ func (m MeshConfig) ResourceName() string { return " " }
 
 func (m MeshConfig) Equals(other MeshConfig) bool { return proto.Equal(m.MeshConfig, other.MeshConfig) }
 
-func MeshConfigCollection(ConfigMaps krt.Collection[*v1.ConfigMap], options Options) krt.Singleton[MeshConfig] {
+func MeshConfigCollection(configMaps krt.Collection[*v1.ConfigMap], options Options) krt.Singleton[MeshConfig] {
 	cmName := "istio"
 	if options.Revision != "" && options.Revision != "default" {
 		cmName = cmName + "-" + options.Revision
@@ -45,10 +45,10 @@ func MeshConfigCollection(ConfigMaps krt.Collection[*v1.ConfigMap], options Opti
 			meshCfg := mesh.DefaultMeshConfig()
 			cms := []*v1.ConfigMap{}
 			if features.SharedMeshConfig != "" {
-				cms = AppendNonNil(cms, krt.FetchOne(ctx, ConfigMaps,
+				cms = AppendNonNil(cms, krt.FetchOne(ctx, configMaps,
 					krt.FilterObjectName(types.NamespacedName{Name: features.SharedMeshConfig, Namespace: options.SystemNamespace})))
 			}
-			cms = AppendNonNil(cms, krt.FetchOne(ctx, ConfigMaps,
+			cms = AppendNonNil(cms, krt.FetchOne(ctx, configMaps,
 				krt.FilterObjectName(types.NamespacedName{Name: cmName, Namespace: options.SystemNamespace})))
 
 			for _, c := range cms {

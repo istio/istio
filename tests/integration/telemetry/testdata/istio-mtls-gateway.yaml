@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: istio-egressgateway
@@ -11,6 +11,6 @@ spec:
       name: mtls-tcp
       protocol: TLS
     hosts:
-    - fake.external.com
+    - server.default.svc
     tls:
       mode: ISTIO_MUTUAL

@@ -35,7 +35,7 @@ import (
 	"istio.io/api/annotation"
 	meshapi "istio.io/api/mesh/v1alpha1"
 	proxyConfig "istio.io/api/networking/v1beta1"
-	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	opconfig "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -73,7 +73,7 @@ func TestInjection(t *testing.T) {
 			want: "hello.yaml.cni.injected",
 			setFlags: []string{
 				"components.cni.enabled=true",
-				"values.istio_cni.provider=default",
+				"values.cni.provider=default",
 				"values.global.network=network1",
 			},
 		},
@@ -176,7 +176,7 @@ func TestInjection(t *testing.T) {
 			want: "hello-cncf-networks.yaml.injected",
 			setFlags: []string{
 				`components.cni.enabled=true`,
-				`values.istio_cni.provider=multus`,
+				`values.cni.provider=multus`,
 			},
 		},
 		{
@@ -185,7 +185,7 @@ func TestInjection(t *testing.T) {
 			want: "hello-existing-cncf-networks.yaml.injected",
 			setFlags: []string{
 				`components.cni.enabled=true`,
-				`values.istio_cni.provider=multus`,
+				`values.cni.provider=multus`,
 			},
 		},
 		{
@@ -194,7 +194,7 @@ func TestInjection(t *testing.T) {
 			want: "hello-existing-cncf-networks-json.yaml.injected",
 			setFlags: []string{
 				`components.cni.enabled=true`,
-				`values.istio_cni.provider=multus`,
+				`values.cni.provider=multus`,
 			},
 		},
 		{
@@ -378,6 +378,18 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			// Test webhook custom injection on OpenShift.
+			in:   "hello-openshift-custom-injection.yaml",
+			want: "hello-openshift-custom-injection.yaml.injected",
+			setFlags: []string{
+				"components.cni.enabled=true",
+			},
+			skipInjection: true,
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, platform.Platform.Name, platform.OpenShift)
+			},
+		},
+		{
 			// Validates localhost probes get injected correctly
 			in:   "hello-probes-localhost.yaml",
 			want: "hello-probes-localhost.yaml.injected",
@@ -403,7 +415,7 @@ func TestInjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(files) < 3 {
-		t.Fatalf("Didn't find test files - something must have gone wrong")
+		t.Fatal("Didn't find test files - something must have gone wrong")
 	}
 	// Automatically add any other test files in the folder. This ensures we don't
 	// forget to add to this list, that we don't have duplicates, etc
@@ -497,7 +509,7 @@ func TestInjection(t *testing.T) {
 					t.Fatalf("IntoResourceFile(%v) returned an error: %v", inputFilePath, err)
 				}
 				if c.expectedError != "" {
-					t.Fatalf("expected error but got none")
+					t.Fatal("expected error but got none")
 				}
 				if c.expectedLog != "" {
 					hasExpectedLog := false
@@ -526,7 +538,7 @@ func TestInjection(t *testing.T) {
 			}
 			// Next run the webhook test. This one is a bit trickier as the webhook operates
 			// on Pods, but the inputs are Deployments/StatefulSets/etc. As a result, we need
-			// to convert these to pods, then run the injection This test will *not*
+			// to convert these to pods, then run the injection. This test will *not*
 			// overwrite golden files, as we do not have identical textual output as
 			// kube-inject. Instead, we just compare the desired/actual pod specs.
 			t.Run("webhook", func(t *testing.T) {

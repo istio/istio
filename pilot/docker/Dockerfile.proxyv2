@@ -6,10 +6,10 @@ ARG BASE_VERSION=latest
 ARG ISTIO_BASE_REGISTRY=gcr.io/istio-release
 
 # The following section is used as base image if BASE_DISTRIBUTION=debug
-FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION} as debug
+FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION} AS debug
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM ${ISTIO_BASE_REGISTRY}/iptables:${BASE_VERSION} as distroless
+FROM ${ISTIO_BASE_REGISTRY}/iptables:${BASE_VERSION} AS distroless
 
 # This will build the final image based on either debug or distroless from above
 # hadolint ignore=DL3006
@@ -22,14 +22,13 @@ ARG SIDECAR=envoy
 
 # Copy Envoy bootstrap templates used by pilot-agent
 COPY envoy_bootstrap.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
 # Install Envoy.
 ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/${SIDECAR} /usr/local/bin/${SIDECAR}
 
 # Environment variable indicating the exact proxy sha - for debugging or version-specific configs
-ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
+ENV ISTIO_META_ISTIO_PROXY_SHA=$proxy_version
 
 ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/pilot-agent /usr/local/bin/pilot-agent

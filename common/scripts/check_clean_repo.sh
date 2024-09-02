@@ -24,6 +24,7 @@ function write_patch_file() {
     git diff > "${PATCH_OUT}"
 
     [ -n "${JOB_NAME}" ] && [ -n "${BUILD_ID}" ]
+    # shellcheck disable=SC2319
     IN_PROW="$?"
 
     # Don't persist large diffs (30M+) on CI

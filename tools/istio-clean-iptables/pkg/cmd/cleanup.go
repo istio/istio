@@ -81,7 +81,7 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, iptV *dep.Iptable
 	}
 
 	// Must be last, the others refer to it
-	chains = []string{constants.ISTIOREDIRECT, constants.ISTIOINREDIRECT}
+	chains = []string{constants.ISTIOREDIRECT, constants.ISTIOINREDIRECT, constants.ISTIOOUTPUT}
 	flushAndDeleteChains(ext, iptV, constants.NAT, chains)
 }
 
@@ -102,6 +102,11 @@ func cleanupDNSUDP(cfg *config.Config, ext dep.Dependencies, iptV, ipt6V *dep.Ip
 		common.HandleDNSUDP(common.DeleteOps, builder.NewIptablesRuleBuilder(nil), ext, iptV, ipt6V, cfg.ProxyUID, cfg.ProxyGID,
 			cfg.DNSServersV4, cfg.DNSServersV6, cfg.CaptureAllDNS, ownerGroupsFilter)
 	}
+
+	// Drop the ISTIO_OUTPUT chain
+	chains := []string{constants.ISTIOOUTPUT}
+	flushAndDeleteChains(ext, iptV, constants.RAW, chains)
+	flushAndDeleteChains(ext, iptV, constants.NAT, chains)
 }
 
 func (c *IptablesCleaner) Run() {

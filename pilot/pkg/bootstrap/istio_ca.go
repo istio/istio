@@ -343,7 +343,9 @@ func handleEvent(s *Server) {
 		log.Errorf("Failed to update new Plug-in CA certs: %v", err)
 		return
 	}
-
+	if len(s.CA.GetCAKeyCertBundle().GetRootCertPem()) != 0 {
+		caserver.RecordCertsExpiry(s.CA.GetCAKeyCertBundle())
+	}
 	err = s.updateRootCertAndGenKeyCert()
 	if err != nil {
 		log.Errorf("Failed generating plugged-in istiod key cert: %v", err)

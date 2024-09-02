@@ -15,14 +15,10 @@
 package mesh
 
 import (
-	"flag"
-
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/istioctl/pkg/cli"
 	binversion "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/url"
-	"istio.io/istio/pkg/version"
 )
 
 var (
@@ -43,18 +39,8 @@ const (
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
 	filenameFlagHelpStr = `Path to file containing IstioOperator custom resource
 This flag can be specified multiple times to overlay multiple files. Multiple files are overlaid in left to right order.`
-	installationCompleteStr            = `Installation complete`
-	ForceFlagHelpStr                   = `Proceed even with validation errors.`
-	MaxConcurrentReconcilesFlagHelpStr = `Defines the concurrency limit for operator to reconcile IstioOperatorSpec in parallel. Default value is 1.`
-	HubFlagHelpStr                     = `The hub for the operator controller image.`
-	TagFlagHelpStr                     = `The tag for the operator controller image.`
-	ImagePullSecretsHelpStr            = `The imagePullSecrets are used to pull the operator image from the private registry,
-could be secret list separated by comma, eg. '--imagePullSecrets imagePullSecret1,imagePullSecret2'`
-	OperatorNamespaceHelpstr  = `The namespace the operator controller is installed into.`
-	OperatorRevFlagHelpStr    = `Target revision for the operator.`
-	AllOperatorRevFlagHelpStr = `Remove all versions of Istio operator.`
-	ComponentFlagHelpStr      = "Specify which component to generate manifests for."
-	VerifyCRInstallHelpStr    = "Verify the Istio control plane after installation/in-place upgrade"
+	ForceFlagHelpStr       = `Proceed even with validation errors.`
+	VerifyCRInstallHelpStr = "Verify the Istio control plane after installation/in-place upgrade"
 )
 
 type RootArgs struct {
@@ -65,26 +51,4 @@ type RootArgs struct {
 func addFlags(cmd *cobra.Command, rootArgs *RootArgs) {
 	cmd.PersistentFlags().BoolVarP(&rootArgs.DryRun, "dry-run", "",
 		false, "Console/log output only, make no changes.")
-}
-
-// GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(ctx cli.Context, args []string) *cobra.Command {
-	rootCmd := &cobra.Command{
-		Use:          "mesh",
-		Short:        "Command line Istio install utility.",
-		SilenceUsage: true,
-		Long: "This command uses the Istio operator code to generate templates, query configurations and perform " +
-			"utility operations.",
-	}
-	rootCmd.SetArgs(args)
-	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-
-	rootCmd.AddCommand(ManifestCmd(ctx))
-	rootCmd.AddCommand(InstallCmd(ctx))
-	rootCmd.AddCommand(ProfileCmd(ctx))
-	rootCmd.AddCommand(OperatorCmd(ctx))
-	rootCmd.AddCommand(version.CobraCommand())
-	rootCmd.AddCommand(UpgradeCmd(ctx))
-
-	return rootCmd
 }

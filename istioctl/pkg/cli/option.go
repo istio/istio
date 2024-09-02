@@ -24,36 +24,51 @@ import (
 )
 
 const (
-	FlagKubeConfig     = "kubeconfig"
-	FlagContext        = "context"
-	FlagNamespace      = "namespace"
-	FlagIstioNamespace = "istioNamespace"
+	FlagKubeConfig       = "kubeconfig"
+	FlagContext          = "context"
+	FlagImpersonate      = "as"
+	FlagImpersonateUID   = "as-uid"
+	FlagImpersonateGroup = "as-group"
+	FlagNamespace        = "namespace"
+	FlagIstioNamespace   = "istioNamespace"
 )
 
 type RootFlags struct {
-	kubeconfig     *string
-	configContext  *string
-	namespace      *string
-	istioNamespace *string
+	kubeconfig       *string
+	configContext    *string
+	impersonate      *string
+	impersonateUID   *string
+	impersonateGroup *[]string
+	namespace        *string
+	istioNamespace   *string
 
 	defaultNamespace string
 }
 
 func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 	r := &RootFlags{
-		kubeconfig:     ptr.Of[string](""),
-		configContext:  ptr.Of[string](""),
-		namespace:      ptr.Of[string](""),
-		istioNamespace: ptr.Of[string](""),
+		kubeconfig:       ptr.Of[string](""),
+		configContext:    ptr.Of[string](""),
+		impersonate:      ptr.Of[string](""),
+		impersonateUID:   ptr.Of[string](""),
+		impersonateGroup: ptr.Of[[]string]([]string{""}),
+		namespace:        ptr.Of[string](""),
+		istioNamespace:   ptr.Of[string](""),
 	}
 	flags.StringVarP(r.kubeconfig, FlagKubeConfig, "c", "",
 		"Kubernetes configuration file")
 	flags.StringVar(r.configContext, FlagContext, "",
 		"Kubernetes configuration context")
+	flags.StringVar(r.impersonate, FlagImpersonate, *r.impersonate,
+		"Username to impersonate for the operation. User could be a regular user or a service account in a namespace")
+	flags.StringVar(r.impersonateUID, FlagImpersonateUID, *r.impersonateUID, "UID to impersonate for the operation.")
+	flags.StringArrayVar(r.impersonateGroup, FlagImpersonateGroup, *r.impersonateGroup,
+		"Group to impersonate for the operation, this flag can be repeated to specify multiple groups.")
 	flags.StringVarP(r.namespace, FlagNamespace, "n", v1.NamespaceAll,
 		"Kubernetes namespace")
 	flags.StringVarP(r.istioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
 		"Istio system namespace")
+
 	return r
 }
 

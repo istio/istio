@@ -16,6 +16,7 @@ package monitortest
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -103,10 +104,30 @@ func DoesNotExist(any) error {
 	return nil
 }
 
+// Check if two floats are equal with some room for errors (for example, rounding errors)
+// For rounding errors, setting `eps` to 1e-7 is a good default
+func AlmostEquals(v float64, eps float64) func(any) error {
+	return func(f any) error {
+		if math.Abs(v-toFloat(f)) > eps {
+			return fmt.Errorf("%v and %v and not within %v", v, toFloat(f), eps)
+		}
+		return nil
+	}
+}
+
 func Exactly(v float64) func(any) error {
 	return func(f any) error {
 		if v != toFloat(f) {
 			return fmt.Errorf("want %v, got %v", v, toFloat(f))
+		}
+		return nil
+	}
+}
+
+func LessThan(v float64) func(any) error {
+	return func(f any) error {
+		if v <= toFloat(f) {
+			return fmt.Errorf("want <= %v (got %v)", v, toFloat(f))
 		}
 		return nil
 	}

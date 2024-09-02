@@ -1,5 +1,3 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/istio/operator)](https://goreportcard.com/report/github.com/istio/operator)
-
 # Istio Operator
 
 The istio/operator repo is part of istio/istio from 1.5 onwards.
@@ -13,6 +11,9 @@ This document is an overview of how the operator works from a user perspective. 
 architecture and a code overview, see [ARCHITECTURE.md](../architecture/environments/operator.md).
 
 ## Introduction
+
+The operator formerly acted as an in-cluster operator, dynamically reconciling and Istio installation.
+This mode has now been removed, and it only serves as a client-side CLI tool to install Istio.
 
 The operator uses the [IstioOperator API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto), which has
 three main components:
@@ -63,64 +64,6 @@ make build
 ```
 
 Ensure the created binary is in your PATH to run the examples below.
-
-### Controller (in cluster)
-
-Building a custom controller requires a Dockerhub (or similar) account. To build using the container based build:
-
-```bash
-HUB=docker.io/<your-account> TAG=latest make docker.operator
-```
-
-This builds the controller binary and docker file, and pushes the image to the specified hub with the `latest` tag.
-Once the images are pushed, configure kubectl to point to your cluster and install the controller.
-
-Install the controller manifest:
-
-```bash
-istioctl operator init --hub docker.io/<your-account> --tag latest
-kubectl create ns istio-system
-kubectl apply -f operator/samples/default-install.yaml
-```
-
-This installs the controller into the cluster in the istio-operator namespace. The controller in turns installs
-the Istio control plane into the istio-system namespace by default.
-
-### Controller (running locally)
-
-1. Set env $WATCH_NAMESPACE (default value is "istio-system") and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
-
-1. Create the `WATCH_NAMESPACE` and `LEADER_ELECTION_NAMESPACE` if they are not created yet.
-
-```bash
-kubectl create ns $WATCH_NAMESPACE --dry-run -o yaml | kubectl apply -f -
-kubectl create ns $LEADER_ELECTION_NAMESPACE --dry-run -o yaml | kubectl apply -f -
-```
-
-1. From the istio repo root directory, run `go run ./operator/cmd/operator/*.go server`
-
-To use Remote debugging with IntelliJ, replace above step 2 with following:
-
-1. From `./operator/cmd/operator` path run
-`
-dlv debug --headless --listen=:2345 --api-version=2 -- server
-`.
-
-1. In IntelliJ, create a new Go Remote debug configuration with default settings.
-
-1. Start debugging process and verify it is working. For example, try adding a breakpoint at Reconcile logic and apply a new CR.
-
-### Relationship between the CLI and controller
-
-The CLI and controller share the same API and codebase for generating manifests from the API. You can think of the
-controller as the CLI command `istioctl install` running in a loop in a pod in the cluster and using the config
-from the in-cluster IstioOperator custom resource (CR).
-There are two major differences:
-
-1. The controller does not accept any dynamic user config through flags. All user interaction is through the
-IstioOperator CR.
-1. The controller has additional logic that mirrors istioctl commands like upgrade, but is driven from the declarative
-API rather than command line.
 
 ### Quick tour of CLI commands
 
@@ -177,11 +120,6 @@ istioctl profile dump demo
 
 # show the values after a customization file is applied
 istioctl profile dump -f samples/pilot-k8s.yaml
-
-# show differences between the default and demo profiles
-istioctl profile dump default > 1.yaml
-istioctl profile dump demo > 2.yaml
-istioctl profile diff 1.yaml 2.yaml
 
 # show the differences in the generated manifests between the default profile and a customized install
 istioctl manifest generate > 1.yaml
@@ -343,7 +281,7 @@ be used for reference. All K8s overlay values are also validated in the operator
 The new platform install API above deals with K8s level settings. The remaining values.yaml parameters deal with Istio
 control plane operation rather than installation. For the time being, the operator just passes these through to the Helm
 charts unmodified (but validated through a
-[schema](pkg/apis/istio/v1alpha1/values_types.proto)). Values.yaml settings
+[schema](pkg/apis/values_types.proto)). Values.yaml settings
 are overridden the same way as the new API, though a customized CR overlaid over default values for the selected
 profile. Here's an example of overriding some global level default values ([samples/values-global.yaml](samples/values-global.yaml)):
 
@@ -412,12 +350,6 @@ The user-defined overlay uses a path spec that includes the ability to select li
 the container with the key-value "name: discovery" is selected from the list of containers, and the command line
 parameter with value "30m" is selected to be modified. The advanced overlay capability is described in more detail in
 the spec.
-
-## Interaction with controller
-
-The controller shares the same API as the operator CLI, so it's possible to install any of the above examples as a CR
-in the cluster in the istio-system namespace and the controller will react to it with the same outcome as running
-`istioctl install -f <path-to-custom-resource-file>`.
 
 ## Architecture
 

@@ -67,12 +67,12 @@ components:
 func TestMultiRevision(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			stable := namespace.NewOrFail(t, t, namespace.Config{
+			stable := namespace.NewOrFail(t, namespace.Config{
 				Prefix:   "stable",
 				Inject:   true,
 				Revision: "stable",
 			})
-			canary := namespace.NewOrFail(t, t, namespace.Config{
+			canary := namespace.NewOrFail(t, namespace.Config{
 				Prefix:   "canary",
 				Inject:   true,
 				Revision: "canary",

@@ -151,10 +151,6 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 
-	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.ID(), req.TypeUrl, req.ResponseNonce)
-	}
-
 	shouldRespond, delta := xds.ShouldRespond(con.proxy, con.ID(), req)
 	if !shouldRespond {
 		return nil
@@ -293,20 +289,12 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 		return
 	}
 	s.removeCon(con.ID())
-	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterDisconnect(con.ID(), AllTrackingEventTypes)
-	}
 	s.WorkloadEntryController.OnDisconnect(con)
 }
 
 func connectionID(node string) string {
 	id := atomic.AddInt64(&connectionNumber, 1)
 	return node + "-" + strconv.FormatInt(id, 10)
-}
-
-// Only used for test
-func ResetConnectionNumberForTest() {
-	atomic.StoreInt64(&connectionNumber, 0)
 }
 
 // initProxyMetadata initializes just the basic metadata of a proxy. This is decoupled from
@@ -398,7 +386,17 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 }
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
-	proxy.SetServiceTargets(s.Env.ServiceDiscovery)
+	var shouldResetGateway, shouldResetSidecarScope bool
+	// 1. If request == nil(initiation phase) or request.ConfigsUpdated == nil(global push), set proxy serviceTargets.
+	// 2. otherwise only set when svc update, this is for the case that a service may select the proxy
+	if request == nil || len(request.ConfigsUpdated) == 0 ||
+		model.HasConfigsOfKind(request.ConfigsUpdated, kind.ServiceEntry) {
+		proxy.SetServiceTargets(s.Env.ServiceDiscovery)
+		// proxy.SetGatewaysForProxy depends on the serviceTargets,
+		// so when we reset serviceTargets, should reset gateway as well.
+		shouldResetGateway = true
+	}
+
 	// only recompute workload labels when
 	// 1. stream established and proxy first time initialization
 	// 2. proxy update
@@ -411,38 +409,35 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
 	// applicable to this proxy
-	var sidecar, gateway bool
 	push := proxy.LastPushContext
 	if request == nil {
-		sidecar = true
-		gateway = true
+		shouldResetSidecarScope = true
 	} else {
 		push = request.Push
 		if len(request.ConfigsUpdated) == 0 {
-			sidecar = true
-			gateway = true
+			shouldResetSidecarScope = true
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
 			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.Sidecar, kind.HTTPRoute, kind.TCPRoute, kind.TLSRoute, kind.GRPCRoute:
-				sidecar = true
+				shouldResetSidecarScope = true
 			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferenceGrant:
-				gateway = true
+				shouldResetGateway = true
 			case kind.Ingress:
-				sidecar = true
-				gateway = true
+				shouldResetSidecarScope = true
+				shouldResetGateway = true
 			}
-			if sidecar && gateway {
+			if shouldResetSidecarScope && shouldResetGateway {
 				break
 			}
 		}
 	}
 	// compute the sidecarscope for both proxy type whenever it changes.
-	if sidecar {
+	if shouldResetSidecarScope {
 		proxy.SetSidecarScope(push)
 	}
 	// only compute gateways for "router" type proxy.
-	if gateway && proxy.Type == model.Router {
+	if shouldResetGateway && proxy.Type == model.Router {
 		proxy.SetGatewaysForProxy(push)
 	}
 	proxy.LastPushContext = push
@@ -485,10 +480,6 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
 		log.Debugf("Skipping push to %v, no updates required", con.ID())
-		if pushRequest.Full {
-			// Only report for full versions, incremental pushes do not have a new version.
-			reportAllEventsForProxyNoPush(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
-		}
 		return nil
 	}
 
@@ -500,11 +491,6 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 			return err
 		}
 	}
-	if pushRequest.Full {
-		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportEventsForUnWatched(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
-	}
-
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
 	return nil
 }
@@ -632,7 +618,7 @@ func (conn *Connection) Clusters() []string {
 // watchedResourcesByOrder returns the ordered list of
 // watched resources for the proxy, ordered in accordance with known push order.
 func (conn *Connection) watchedResourcesByOrder() []*model.WatchedResource {
-	allWatched := conn.proxy.CloneWatchedResources()
+	allWatched := conn.proxy.ShallowCloneWatchedResources()
 	ordered := make([]*model.WatchedResource, 0, len(allWatched))
 	// first add all known types, in order
 	for _, tp := range PushOrder {
@@ -647,35 +633,4 @@ func (conn *Connection) watchedResourcesByOrder() []*model.WatchedResource {
 		}
 	}
 	return ordered
-}
-
-// reportAllEventsForProxyNoPush reports all tracking events for a proxy without need to push xds.
-func reportAllEventsForProxyNoPush(con *Connection, statusReporter DistributionStatusCache, nonce string) {
-	if statusReporter == nil {
-		return
-	}
-	for distributionType := range AllTrackingEventTypes {
-		statusReporter.RegisterEvent(con.ID(), distributionType, nonce)
-	}
-}
-
-// reportEventsForUnWatched is to report events for unwatched types after push.
-// e.g. there is no rds if no route configured for gateway.
-// nolint
-func reportEventsForUnWatched(con *Connection, statusReporter DistributionStatusCache, nonce string) {
-	if statusReporter == nil {
-		return
-	}
-
-	// if typeUrl is not empty, report all events that are not being watched
-	unWatched := sets.NewWithLength[EventType](len(AllTrackingEventTypes))
-	watchedTypes := con.proxy.GetWatchedResourceTypes()
-	for tyeUrl := range AllTrackingEventTypes {
-		if _, exists := watchedTypes[tyeUrl]; !exists {
-			unWatched.Insert(tyeUrl)
-		}
-	}
-	for tyeUrl := range unWatched {
-		statusReporter.RegisterEvent(con.ID(), tyeUrl, nonce)
-	}
 }

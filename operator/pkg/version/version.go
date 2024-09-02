@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	goversion "github.com/hashicorp/go-version"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -57,12 +56,11 @@ func NewVersionFromString(s string) (*Version, error) {
 
 // IsVersionString checks whether the given string is a version string
 func IsVersionString(path string) bool {
-	_, err := goversion.NewSemver(path)
-	if err != nil {
+	if _, err := goversion.NewSemver(path); err != nil {
 		return false
 	}
-	vs := Version{}
-	return yaml.Unmarshal([]byte(path), &vs) == nil
+	_, err := NewVersionFromString(path)
+	return err == nil
 }
 
 // TagToVersionString converts an istio container tag into a version string
@@ -166,18 +164,4 @@ func (v *Version) String() string {
 		return v.PatchVersion.String()
 	}
 	return fmt.Sprintf("%s-%s", v.PatchVersion, v.Suffix)
-}
-
-// UnmarshalYAML implements the Unmarshaler interface.
-func (v *Version) UnmarshalYAML(unmarshal func(any) error) error {
-	s := ""
-	if err := unmarshal(&s); err != nil {
-		return err
-	}
-	out, err := NewVersionFromString(s)
-	if err != nil {
-		return err
-	}
-	*v = *out
-	return nil
 }

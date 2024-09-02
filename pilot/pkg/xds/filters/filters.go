@@ -113,7 +113,9 @@ var (
 	TLSInspector = &listener.ListenerFilter{
 		Name: wellknown.TLSInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&tlsinspector.TlsInspector{}),
+			TypedConfig: protoconv.MessageToAny(&tlsinspector.TlsInspector{
+				InitialReadBufferSize: &wrapperspb.UInt32Value{Value: 512}, // Default is 64KB.
+			}),
 		},
 	}
 	HTTPInspector = &listener.ListenerFilter{

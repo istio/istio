@@ -1,3 +1,5 @@
+iptables-save
+ip6tables-save
 iptables -t nat -N ISTIO_INBOUND
 iptables -t nat -N ISTIO_REDIRECT
 iptables -t nat -N ISTIO_IN_REDIRECT

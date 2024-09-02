@@ -51,11 +51,6 @@ import (
 )
 
 const (
-	// Location of K8S CA root.
-	k8sCAPath = "./var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-	// Location of K8s CA root mounted by istio. This is to avoid issues when service account automount is disabled.
-	k8sCAIstioMountedPath = "./var/run/secrets/istio/kubernetes/ca.crt"
-
 	// CitadelCACertPath is the directory for Citadel CA certificate.
 	// This is mounted from config map 'istio-ca-root-cert'. Part of startup,
 	// this may be replaced with ./etc/certs, if a root-cert.pem is found, to
@@ -228,12 +223,16 @@ type AgentOptions struct {
 
 	WASMOptions wasm.Options
 
-	UseExternalWorkloadSDS bool
-
 	// Enable metadata discovery bootstrap extension
 	MetadataDiscovery bool
 
 	SDSFactory func(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *mesh.PrivateKeyProvider) SDSService
+
+	// Name of the socket file which will be used for workload SDS.
+	// If this is set to something other than the default socket file used
+	// by Istio's default SDS server, the socket file must be present.
+	// Note that the path is not configurable by design - only the socket file name.
+	WorkloadIdentitySocketFile string
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -351,20 +350,47 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		return nil, fmt.Errorf("failed to start local DNS server: %v", err)
 	}
 
-	socketExists, err := checkSocket(ctx, security.WorkloadIdentitySocketPath)
+	// There are a couple of things we have to do here
+	//
+	// 1. Use a custom SDS workload socket if one is found+healthy at the configured path
+	// 3. Error out if a custom SDS socket path is configured but no socket is found there.
+	// 4. Do NOT error out, but just start and use the default Istio SDS server, if no socket
+	// is found AND no custom SDS socket path is configured.
+	//
+	//
+	// We do that like so
+	// 1. compare the (hardcoded) Istio default SDS server path with the (configurable) client path.
+	// 2. if they are different, do not start the Istio default SDS server.
+	// 3. if they are different, and no socket exists at that location, error out.
+	// 4. if they are not different, start the Istio default SDS server and use it.
+
+	// Correctness check - we do not want people sneaking paths into this
+	if a.cfg.WorkloadIdentitySocketFile != filepath.Base(a.cfg.WorkloadIdentitySocketFile) {
+		return nil, fmt.Errorf("workload identity socket file override must be a filename, not a path: %s", a.cfg.WorkloadIdentitySocketFile)
+	}
+
+	configuredAgentSocketPath := security.GetWorkloadSDSSocketListenPath(a.cfg.WorkloadIdentitySocketFile)
+
+	// Are we listening to the Istio default SDS server socket, or something else?
+	isIstioSDS := configuredAgentSocketPath == security.GetIstioSDSServerSocketPath()
+
+	socketExists, err := checkSocket(ctx, configuredAgentSocketPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check SDS socket: %v", err)
 	}
 	if socketExists {
-		log.Info("Workload SDS socket found. Istio SDS Server won't be started")
+		log.Infof("Existing workload SDS socket found at %s. Default Istio SDS Server won't be started", configuredAgentSocketPath)
 	} else {
-		if a.cfg.UseExternalWorkloadSDS {
-			return nil, errors.New("workload SDS socket is required but not found")
+		// If we are configured to use something other than the default Istio SDS server and we can't find a socket at that path, error out.
+		if !isIstioSDS {
+			return nil, fmt.Errorf("agent configured for non-default SDS socket path: %s but no socket found", configuredAgentSocketPath)
 		}
-		log.Info("Workload SDS socket not found. Starting Istio SDS Server")
+
+		// otherwise we are not configured to listen to something else, so just start the Istio SDS server and use it.
+		log.Info("Starting default Istio SDS Server")
 		err = a.initSdsServer()
 		if err != nil {
-			return nil, fmt.Errorf("failed to start SDS server: %v", err)
+			return nil, fmt.Errorf("failed to start default Istio SDS server: %v", err)
 		}
 	}
 	a.xdsProxy, err = initXdsProxy(a)
@@ -622,13 +648,6 @@ func (a *Agent) FindRootCAForXDS() (string, error) {
 		// not connecting to CA_ADDR because this mode uses external
 		// agent (Secret refresh, etc)
 		return security.DefaultRootCertFilePath, nil
-	} else if a.secOpts.PilotCertProvider == constants.CertProviderKubernetes {
-		// Using K8S - this is likely incorrect, may work by accident (https://github.com/istio/istio/issues/22161)
-		if fileExists(k8sCAIstioMountedPath) {
-			rootCAPath = k8sCAIstioMountedPath
-		} else {
-			rootCAPath = k8sCAPath
-		}
 	} else if a.secOpts.ProvCert != "" {
 		// This was never completely correct - PROV_CERT are only intended for auth with CA_ADDR,
 		// and should not be involved in determining the root CA.
@@ -687,6 +706,7 @@ func socketFileExists(path string) bool {
 // If it cannot be deleted, returns (false, error).
 // Otherwise, returns (true, nil)
 func checkSocket(ctx context.Context, socketPath string) (bool, error) {
+	log := log.WithLabels("path", socketPath)
 	socketExists := socketFileExists(socketPath)
 	if !socketExists {
 		return false, nil
@@ -734,14 +754,6 @@ func (a *Agent) FindRootCAForCA() (string, error) {
 		return "", nil
 	} else if a.cfg.CARootCerts != "" {
 		rootCAPath = a.cfg.CARootCerts
-	} else if a.secOpts.PilotCertProvider == constants.CertProviderKubernetes {
-		// Using K8S - this is likely incorrect, may work by accident.
-		// API is GA.
-		if fileExists(k8sCAIstioMountedPath) {
-			rootCAPath = k8sCAIstioMountedPath
-		} else {
-			rootCAPath = k8sCAPath
-		}
 	} else if a.secOpts.PilotCertProvider == constants.CertProviderCustom {
 		rootCAPath = security.DefaultRootCertFilePath // ./etc/certs/root-cert.pem
 	} else if a.secOpts.ProvCert != "" {

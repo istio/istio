@@ -71,6 +71,7 @@ var versionMap = map[string]*resourceNames{
 			"debug/resourcesz",
 			"debug/syncz",
 			"debug/telemetryz",
+			"debug/ambientz",
 			"metrics",
 		},
 		proxyDebugURLs: []string{

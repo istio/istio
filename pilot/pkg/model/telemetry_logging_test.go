@@ -79,6 +79,12 @@ func TestAccessLogging(t *testing.T) {
 		Labels:          labels,
 		Metadata:        &NodeMetadata{Labels: labels},
 	}
+	waypoint := &Proxy{
+		ConfigNamespace: "default",
+		Type:            Waypoint,
+		Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "waypoint"},
+		Metadata:        &NodeMetadata{Labels: map[string]string{"gateway.networking.k8s.io/gateway-name": "waypoint"}},
+	}
 	prometheus := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{
 			{
@@ -136,7 +142,7 @@ func TestAccessLogging(t *testing.T) {
 		TargetRef: &v1beta1.PolicyTargetReference{
 			Group: gvk.KubernetesGateway.Group,
 			Kind:  gvk.KubernetesGateway.Kind,
-			Name:  "my-gateway",
+			Name:  "waypoint",
 		},
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -472,7 +478,7 @@ func TestAccessLogging(t *testing.T) {
 			"client - gateway defined by targetRef",
 			[]config.Config{newTelemetry("default", targetRefClient)},
 			networking.ListenerClassGateway,
-			sidecar,
+			waypoint,
 			nil,
 			[]string{"envoy"},
 		},
@@ -955,13 +961,14 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 	fakeCluster := "outbound|55680||otel-collector.monitoring.svc.cluster.local"
 	fakeAuthority := "otel-collector.monitoring.svc.cluster.local"
 	for _, tc := range []struct {
-		name        string
-		logName     string
-		clusterName string
-		hostname    string
-		body        string
-		labels      *structpb.Struct
-		expected    *otelaccesslog.OpenTelemetryAccessLogConfig
+		name         string
+		logName      string
+		clusterName  string
+		hostname     string
+		body         string
+		labels       *structpb.Struct
+		expected     *otelaccesslog.OpenTelemetryAccessLogConfig
+		proxyVersion *IstioVersion
 	}{
 		{
 			name:        "default",
@@ -1591,7 +1598,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 
 			got := telemetryAccessLog(push, tc.fp)
 			if got == nil {
-				t.Fatalf("get nil accesslog")
+				t.Fatal("get nil accesslog")
 			}
 			assert.Equal(t, tc.expected, got)
 		})

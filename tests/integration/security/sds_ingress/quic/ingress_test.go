@@ -64,7 +64,7 @@ func TestMain(m *testing.M) {
 			Configs: echo.ConfigFuture(&customConfig),
 		})).
 		Setup(func(ctx resource.Context) error {
-			return ingressutil.CreateCustomInstances(&apps)
+			return ingressutil.SetInstances(apps.All)
 		}).
 		Run()
 }

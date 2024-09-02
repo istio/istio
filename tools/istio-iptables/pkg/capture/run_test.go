@@ -15,13 +15,21 @@
 package capture
 
 import (
+	"bytes"
 	"net/netip"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
+	// Create a new network namespace. This will have the 'lo' interface ready but nothing else.
+	_ "github.com/howardjohn/unshare-go/netns"
+	// Create a new user namespace. This will map the current UID/GID to 0.
+	_ "github.com/howardjohn/unshare-go/userns"
+
 	testutil "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
@@ -42,8 +50,11 @@ func constructTestConfig() *config.Config {
 	}
 }
 
-func TestIptables(t *testing.T) {
-	cases := []struct {
+func getCommonTestCases() []struct {
+	name   string
+	config func(cfg *config.Config)
+} {
+	return []struct {
 		name   string
 		config func(cfg *config.Config)
 	}{
@@ -271,7 +282,10 @@ func TestIptables(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range cases {
+}
+
+func TestIptables(t *testing.T) {
+	for _, tt := range getCommonTestCases() {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
 			tt.config(cfg)
@@ -333,6 +347,164 @@ func TestSeparateV4V6(t *testing.T) {
 			if !reflect.DeepEqual(v6Range, tt.v6) {
 				t.Fatalf("expected %v, got %v", tt.v6, v6Range)
 			}
+		})
+	}
+}
+
+func TestIdempotentEquivalentRerun(t *testing.T) {
+	commonCases := getCommonTestCases()
+	ext := &dep.RealDependencies{
+		HostFilesystemPodNetwork: false,
+		NetworkNamespace:         "",
+	}
+	iptVer, err := ext.DetectIptablesVersion(false)
+	if err != nil {
+		t.Fatalf("Can't detect iptables version")
+	}
+
+	ipt6Ver, err := ext.DetectIptablesVersion(true)
+	if err != nil {
+		t.Fatalf("Can't detect ip6tables version")
+	}
+
+	for _, tt := range commonCases {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := constructTestConfig()
+			tt.config(cfg)
+			// Override UID and GID otherwise test will fail in the linux namespace from unshare-go lib
+			cfg.ProxyUID = "0"
+			cfg.ProxyGID = "0"
+			if cfg.OwnerGroupsExclude != "" {
+				cfg.OwnerGroupsInclude = "0"
+			}
+			if cfg.OwnerGroupsInclude != "" {
+				cfg.OwnerGroupsInclude = "0"
+			}
+
+			defer func() {
+				// Final Cleanup
+				cfg.CleanupOnly = true
+				cfg.Reconcile = false
+				iptConfigurator := NewIptablesConfigurator(cfg, ext)
+				assert.NoError(t, iptConfigurator.Run())
+				residueExists, deltaExists := iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+				assert.Equal(t, residueExists, false)
+				assert.Equal(t, deltaExists, true)
+			}()
+
+			// First Pass
+			cfg.Reconcile = false
+			iptConfigurator := NewIptablesConfigurator(cfg, ext)
+			assert.NoError(t, iptConfigurator.Run())
+			residueExists, deltaExists := iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+			assert.Equal(t, residueExists, true)
+			assert.Equal(t, deltaExists, false)
+
+			// Second Pass
+			iptConfigurator = NewIptablesConfigurator(cfg, ext)
+			assert.NoError(t, iptConfigurator.Run())
+
+			// Execution should fail if force-apply is used and chains exists
+			cfg.ForceApply = true
+			iptConfigurator = NewIptablesConfigurator(cfg, ext)
+			assert.Error(t, iptConfigurator.Run())
+		})
+	}
+}
+
+func TestIdempotentUnequaledRerun(t *testing.T) {
+	commonCases := getCommonTestCases()
+	ext := &dep.RealDependencies{
+		HostFilesystemPodNetwork: false,
+		NetworkNamespace:         "",
+	}
+	iptVer, err := ext.DetectIptablesVersion(false)
+	if err != nil {
+		t.Fatalf("Can't detect iptables version")
+	}
+
+	ipt6Ver, err := ext.DetectIptablesVersion(true)
+	if err != nil {
+		t.Fatalf("Can't detect ip6tables version")
+	}
+
+	for _, tt := range commonCases {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := constructTestConfig()
+			tt.config(cfg)
+			// Override UID and GID otherwise test will fail in the linux namespace from unshare-go lib
+			cfg.ProxyUID = "0"
+			cfg.ProxyGID = "0"
+			var stdout, stderr bytes.Buffer
+			if cfg.OwnerGroupsExclude != "" {
+				cfg.OwnerGroupsInclude = "0"
+			}
+			if cfg.OwnerGroupsInclude != "" {
+				cfg.OwnerGroupsInclude = "0"
+			}
+
+			defer func() {
+				// Final Cleanup
+				cfg.CleanupOnly = true
+				cfg.Reconcile = false
+				iptConfigurator := NewIptablesConfigurator(cfg, ext)
+				assert.NoError(t, iptConfigurator.Run())
+				residueExists, deltaExists := iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+				assert.Equal(t, residueExists, true) // residue found due to extra OUTPUT rule
+				assert.Equal(t, deltaExists, true)
+				// Remove additional rule
+				cmd := exec.Command("iptables", "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
+				cmd.Stdout = &stdout
+				cmd.Stderr = &stderr
+				if err := cmd.Run(); err != nil {
+					t.Errorf("iptables cmd (%s %s) failed: %s", cmd.Path, cmd.Args, stderr.String())
+				}
+				residueExists, deltaExists = iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+				assert.Equal(t, residueExists, false)
+				assert.Equal(t, deltaExists, true)
+			}()
+
+			// First Pass
+			iptConfigurator := NewIptablesConfigurator(cfg, ext)
+			assert.NoError(t, iptConfigurator.Run())
+			residueExists, deltaExists := iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+			assert.Equal(t, residueExists, true)
+			assert.Equal(t, deltaExists, false)
+
+			// Diverge from installation
+			cmd := exec.Command("iptables", "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+			if err := cmd.Run(); err != nil {
+				t.Errorf("iptables cmd (%s %s) failed: %s", cmd.Path, cmd.Args, stderr.String())
+			}
+
+			// Apply not required after tainting non-ISTIO chains with extra rules
+			residueExists, deltaExists = iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+			assert.Equal(t, residueExists, true)
+			assert.Equal(t, deltaExists, false)
+
+			cmd = exec.Command("iptables", "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+			if err := cmd.Run(); err != nil {
+				t.Errorf("iptables cmd (%s %s) failed: %s", cmd.Path, cmd.Args, stderr.String())
+			}
+
+			// Apply required after tainting ISTIO chains
+			residueExists, deltaExists = iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+			assert.Equal(t, residueExists, true)
+			assert.Equal(t, deltaExists, true)
+
+			// Fail is expected if cleanup is skipped
+			cfg.Reconcile = false
+			iptConfigurator = NewIptablesConfigurator(cfg, ext)
+			assert.Error(t, iptConfigurator.Run())
+
+			// Second pass with cleanup
+			cfg.Reconcile = true
+			iptConfigurator = NewIptablesConfigurator(cfg, ext)
+			assert.NoError(t, iptConfigurator.Run())
 		})
 	}
 }

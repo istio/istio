@@ -10,7 +10,6 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
       ) | nindent 4 }}
   {{- if ge .KubeVersion 128 }}
   # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
@@ -33,7 +32,7 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
+        "gateway.istio.io/managed" "istio.io-gateway-controller"
       ) | nindent 4 }}
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1
@@ -65,7 +64,7 @@ spec:
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
-            "istio.io/gateway-name" .Name
+            "gateway.istio.io/managed" "istio.io-gateway-controller"
           ) | nindent 8 }}
     spec:
       securityContext:
@@ -75,6 +74,10 @@ spec:
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
+      {{- if .Values.gateways.seccompProfile }}
+        seccompProfile:
+      {{- toYaml .Values.gateways.seccompProfile | nindent 10 }}
+      {{- end }}
       {{- end }}
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
@@ -313,7 +316,6 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
-        "istio.io/gateway-name" .Name
       ) | nindent 4 }}
   name: {{.DeploymentName | quote}}
   namespace: {{.Namespace | quote}}

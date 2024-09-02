@@ -269,6 +269,10 @@ func MetadataDiscovery(value bool) Instance {
 	return newOption("metadata_discovery", value)
 }
 
+func DelimitedStatsTagsEnabled(value bool) Instance {
+	return newOption("delimited_stats_tags_enabled", value)
+}
+
 func MetricsLocalhostAccessOnly(proxyMetadata map[string]string) Instance {
 	value, ok := proxyMetadata["METRICS_LOCALHOST_ACCESS_ONLY"]
 	if ok && value == "true" {
@@ -279,6 +283,10 @@ func MetricsLocalhostAccessOnly(proxyMetadata map[string]string) Instance {
 
 func DeferredClusterCreation(deferred bool) Instance {
 	return newOption("deferred_cluster_creation", deferred)
+}
+
+func DeferredStatsCreation(deferred bool) Instance {
+	return newOption("deferred_stats_creation", deferred)
 }
 
 func LoadStatsConfigJSONStr(node *model.Node) Instance {

@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: [52532]
+releaseNotes:
+  - |
+    **Fixed** an issue causing any `portLevelSettings` to be ignored in DestinationRules for waypoints.

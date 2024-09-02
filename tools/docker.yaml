@@ -30,15 +30,11 @@ images:
   dockerfile: pilot/docker/Dockerfile.proxyv2
   files:
   - tools/packaging/common/envoy_bootstrap.json
-  - tools/packaging/common/gcp_envoy_bootstrap.json
   - ${TARGET_OUT_LINUX}/${RELEASE_MODE}/${SIDECAR}
   targets:
   - ${TARGET_OUT_LINUX}/pilot-agent
 - name: pilot
   dockerfile: pilot/docker/Dockerfile.pilot
-  files:
-  - tools/packaging/common/envoy_bootstrap.json
-  - tools/packaging/common/gcp_envoy_bootstrap.json
   targets:
   - ${TARGET_OUT_LINUX}/pilot-discovery
 
@@ -46,13 +42,6 @@ images:
   dockerfile: istioctl/docker/Dockerfile.istioctl
   targets:
   - ${TARGET_OUT_LINUX}/istioctl
-
-- name: operator
-  dockerfile: operator/docker/Dockerfile.operator
-  files:
-  - manifests
-  targets:
-  - ${TARGET_OUT_LINUX}/operator
 
 - name: install-cni
   dockerfile: cni/deployments/kubernetes/Dockerfile.install-cni

@@ -48,6 +48,21 @@ func writeForwardedHeaders(out *bytes.Buffer, requestID int, header http.Header)
 	}
 }
 
+type SpecificVersionDialer struct {
+	network string
+	inner   hbone.Dialer
+}
+
+func (s SpecificVersionDialer) Dial(network, addr string) (c net.Conn, err error) {
+	return s.DialContext(context.Background(), network, addr)
+}
+
+func (s SpecificVersionDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	return s.inner.DialContext(ctx, s.network, address)
+}
+
+var _ hbone.Dialer = SpecificVersionDialer{}
+
 func newDialer(cfg *Config) hbone.Dialer {
 	if cfg.Request.Hbone.GetAddress() != "" {
 		out := hbone.NewDialer(hbone.Config{
@@ -65,10 +80,17 @@ func newDialer(cfg *Config) hbone.Dialer {
 	out := &net.Dialer{
 		Timeout: common.ConnectionTimeout,
 	}
+
 	if cfg.forceDNSLookup {
 		out.Resolver = newResolver(common.ConnectionTimeout, "", "")
 	}
-	return out
+	if ipf := cfg.Request.ForceIpFamily; ipf != "" {
+		return proxy.FromEnvironmentUsing(SpecificVersionDialer{
+			network: ipf,
+			inner:   out,
+		}).(hbone.Dialer)
+	}
+	return proxy.FromEnvironmentUsing(out).(hbone.Dialer)
 }
 
 func newResolver(timeout time.Duration, protocol, dnsServer string) *net.Resolver {

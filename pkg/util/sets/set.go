@@ -15,9 +15,8 @@
 package sets
 
 import (
+	"cmp"
 	"fmt"
-
-	"golang.org/x/exp/constraints"
 
 	"istio.io/istio/pkg/slices"
 )
@@ -200,7 +199,7 @@ func (s Set[T]) UnsortedList() []T {
 }
 
 // SortedList returns the slice with contents sorted.
-func SortedList[T constraints.Ordered](s Set[T]) []T {
+func SortedList[T cmp.Ordered](s Set[T]) []T {
 	res := s.UnsortedList()
 	slices.Sort(res)
 	return res

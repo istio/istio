@@ -853,134 +853,127 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 		},
 	}
 
-	OptimizedConfigRebuildModes := []bool{true, false}
 	for _, tt := range cases {
-		for _, mode := range OptimizedConfigRebuildModes {
-			t.Run(tt.name, func(t *testing.T) {
-				test.SetForTest(t, &features.OptimizedConfigRebuild, mode)
-				env := &Environment{}
-				store := NewFakeStore()
-				for _, cfg := range initialEnvoyFilters {
-					_, _ = store.Create(cfg)
+		t.Run(tt.name, func(t *testing.T) {
+			env := &Environment{}
+			store := NewFakeStore()
+			for _, cfg := range initialEnvoyFilters {
+				_, _ = store.Create(cfg)
+			}
+			env.ConfigStore = store
+			m := mesh.DefaultMeshConfig()
+			env.Watcher = mesh.NewFixedWatcher(m)
+			env.Init()
+
+			// Init a new push context
+			pc1 := NewPushContext()
+			pc1.initEnvoyFilters(env, nil, nil)
+
+			// Update store with incoming changes
+			creates := map[ConfigKey]config.Config{}
+			for _, cfg := range tt.creates {
+				if _, err := store.Create(cfg); err != nil {
+					t.Errorf("Error creating config %s/%s", cfg.Namespace, cfg.Name)
 				}
-				env.ConfigStore = store
-				m := mesh.DefaultMeshConfig()
-				env.Watcher = mesh.NewFixedWatcher(m)
-				env.Init()
-
-				// Init a new push context
-				pc1 := NewPushContext()
-				pc1.initEnvoyFilters(env, nil, nil)
-
-				// Update store with incoming changes
-				creates := map[ConfigKey]config.Config{}
-				for _, cfg := range tt.creates {
-					if _, err := store.Create(cfg); err != nil {
-						t.Errorf("Error creating config %s/%s", cfg.Namespace, cfg.Name)
-					}
-					creates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
+				creates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
+			}
+			updates := map[ConfigKey]config.Config{}
+			for _, cfg := range tt.updates {
+				if _, err := store.Update(cfg); err != nil {
+					t.Errorf("Error updating config %s/%s", cfg.Namespace, cfg.Name)
 				}
-				updates := map[ConfigKey]config.Config{}
-				for _, cfg := range tt.updates {
-					if _, err := store.Update(cfg); err != nil {
-						t.Errorf("Error updating config %s/%s", cfg.Namespace, cfg.Name)
-					}
-					updates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
-				}
-				deletes := sets.Set[ConfigKey]{}
-				for _, key := range tt.deletes {
-					store.Delete(gvk.EnvoyFilter, key.Name, key.Namespace, nil)
-					deletes.Insert(key)
-				}
+				updates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
+			}
+			deletes := sets.Set[ConfigKey]{}
+			for _, key := range tt.deletes {
+				store.Delete(gvk.EnvoyFilter, key.Name, key.Namespace, nil)
+				deletes.Insert(key)
+			}
 
-				createSet := sets.New(maps.Keys(creates)...)
-				updateSet := sets.New(maps.Keys(updates)...)
-				changes := deletes.Union(createSet).Union(updateSet)
+			createSet := sets.New(maps.Keys(creates)...)
+			updateSet := sets.New(maps.Keys(updates)...)
+			changes := deletes.Union(createSet).Union(updateSet)
 
-				pc2 := NewPushContext()
-				pc2.initEnvoyFilters(env, changes, pc1.envoyFiltersByNamespace)
+			pc2 := NewPushContext()
+			pc2.initEnvoyFilters(env, changes, pc1.envoyFiltersByNamespace)
 
-				total2 := 0
-				for ns, envoyFilters := range pc2.envoyFiltersByNamespace {
-					total2 += len(envoyFilters)
-					for _, ef := range envoyFilters {
-						key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
-						previousVersion := slices.FindFunc(pc1.envoyFiltersByNamespace[ns], func(e *EnvoyFilterWrapper) bool {
-							return e.Name == ef.Name
-						})
-						switch {
-						// Newly created Envoy filter.
-						case createSet.Contains(key):
-							cfg := creates[key]
-							// If the filter is newly created, it should not have a previous version.
-							if previousVersion != nil {
-								t.Errorf("Created Envoy filter %s/%s already existed", ns, ef.Name)
+			total2 := 0
+			for ns, envoyFilters := range pc2.envoyFiltersByNamespace {
+				total2 += len(envoyFilters)
+				for _, ef := range envoyFilters {
+					key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
+					previousVersion := slices.FindFunc(pc1.envoyFiltersByNamespace[ns], func(e *EnvoyFilterWrapper) bool {
+						return e.Name == ef.Name
+					})
+					switch {
+					// Newly created Envoy filter.
+					case createSet.Contains(key):
+						cfg := creates[key]
+						// If the filter is newly created, it should not have a previous version.
+						if previousVersion != nil {
+							t.Errorf("Created Envoy filter %s/%s already existed", ns, ef.Name)
+						}
+						// Validate that the generated filter is the same as the one created.
+						if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
+							t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
+						}
+					// Updated Envoy filter.
+					case updateSet.Contains(key):
+						cfg := updates[key]
+						// If the filter is updated, it should have a previous version.
+						if previousVersion == nil {
+							t.Errorf("Updated Envoy filter %s/%s did not exist", ns, ef.Name)
+						} else if reflect.DeepEqual(*previousVersion, ef) {
+							// Validate that the generated filter is different from the previous version.
+							t.Errorf("Envoy filter %s/%s was not updated", ns, ef.Name)
+						}
+						// Validate that the generated filter is the same as the one updated.
+						if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
+							t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
+						}
+					// Deleted Envoy filter.
+					case deletes.Contains(key):
+						t.Errorf("Found deleted EnvoyFilter %s/%s", ns, ef.Name)
+					// Unchanged Envoy filter.
+					default:
+						if previousVersion == nil {
+							t.Errorf("Unchanged EnvoyFilter was not previously found %s/%s", ns, ef.Name)
+						} else {
+							if *previousVersion != ef {
+								// Validate that Unchanged filter is not regenerated when config optimization is enabled.
+								t.Errorf("Unchanged EnvoyFilter is different from original %s/%s", ns, ef.Name)
 							}
-							// Validate that the generated filter is the same as the one created.
-							if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
-								t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
-							}
-						// Updated Envoy filter.
-						case updateSet.Contains(key):
-							cfg := updates[key]
-							// If the filter is updated, it should have a previous version.
-							if previousVersion == nil {
-								t.Errorf("Updated Envoy filter %s/%s did not exist", ns, ef.Name)
-							} else if reflect.DeepEqual(*previousVersion, ef) {
-								// Validate that the generated filter is different from the previous version.
-								t.Errorf("Envoy filter %s/%s was not updated", ns, ef.Name)
-							}
-							// Validate that the generated filter is the same as the one updated.
-							if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
-								t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
-							}
-						// Deleted Envoy filter.
-						case deletes.Contains(key):
-							t.Errorf("Found deleted EnvoyFilter %s/%s", ns, ef.Name)
-						// Unchanged Envoy filter.
-						default:
-							if previousVersion == nil {
-								t.Errorf("Unchanged EnvoyFilter was not previously found %s/%s", ns, ef.Name)
-							} else {
-								if mode && *previousVersion != ef {
-									// Validate that Unchanged filter is not regenerated when config optimization is enabled.
-									t.Errorf("Unchanged EnvoyFilter is different from original %s/%s", ns, ef.Name)
-								} else if !mode && *previousVersion == ef {
-									// Validate that Unchanged filter is regenerated when config optimization is disabled.
-									t.Errorf("Unchanged EnvoyFilter is not regenerated from original %s/%s", ns, ef.Name)
-								}
-								if !reflect.DeepEqual(*previousVersion, ef) {
-									t.Errorf("Envoy filter %s/%s has unexpected change", ns, ef.Name)
-								}
+							if !reflect.DeepEqual(*previousVersion, ef) {
+								t.Errorf("Envoy filter %s/%s has unexpected change", ns, ef.Name)
 							}
 						}
 					}
 				}
+			}
 
-				total1 := 0
-				// Validate that empty namespace is deleted when all filters in that namespace are deleted.
-				for ns, envoyFilters := range pc1.envoyFiltersByNamespace {
-					total1 += len(envoyFilters)
-					deleted := 0
-					for _, ef := range envoyFilters {
-						key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
-						if deletes.Contains(key) {
-							deleted++
-						}
-					}
-
-					if deleted == len(envoyFilters) {
-						if _, ok := pc2.envoyFiltersByNamespace[ns]; ok {
-							t.Errorf("Empty Namespace %s was not deleted", ns)
-						}
+			total1 := 0
+			// Validate that empty namespace is deleted when all filters in that namespace are deleted.
+			for ns, envoyFilters := range pc1.envoyFiltersByNamespace {
+				total1 += len(envoyFilters)
+				deleted := 0
+				for _, ef := range envoyFilters {
+					key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
+					if deletes.Contains(key) {
+						deleted++
 					}
 				}
 
-				if total2 != total1+len(tt.creates)-len(tt.deletes) {
-					t.Errorf("Expected %d envoy filters, found %d", total1+len(tt.creates)-len(tt.deletes), total2)
+				if deleted == len(envoyFilters) {
+					if _, ok := pc2.envoyFiltersByNamespace[ns]; ok {
+						t.Errorf("Empty Namespace %s was not deleted", ns)
+					}
 				}
-			})
-		}
+			}
+
+			if total2 != total1+len(tt.creates)-len(tt.deletes) {
+				t.Errorf("Expected %d envoy filters, found %d", total1+len(tt.creates)-len(tt.deletes), total2)
+			}
+		})
 	}
 }
 
@@ -1340,13 +1333,22 @@ func TestServiceIndex(t *testing.T) {
 				},
 			},
 		},
-		serviceInstances: []*ServiceInstance{{
-			Endpoint: &IstioEndpoint{
-				Address:      "192.168.1.2",
-				EndpointPort: 8000,
-				TLSMode:      DisabledTLSModeLabel,
+		serviceInstances: []*ServiceInstance{
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
 			},
-		}},
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.3", "2001:1::3"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
+			},
+		},
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(m)
@@ -1595,13 +1597,22 @@ func TestInitPushContext(t *testing.T) {
 				},
 			},
 		},
-		serviceInstances: []*ServiceInstance{{
-			Endpoint: &IstioEndpoint{
-				Address:      "192.168.1.2",
-				EndpointPort: 8000,
-				TLSMode:      DisabledTLSModeLabel,
+		serviceInstances: []*ServiceInstance{
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
 			},
-		}},
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.3", "2001:1::3"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
+			},
+		},
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(m)
@@ -1874,7 +1885,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 
 	instancePlainText := &ServiceInstance{
 		Endpoint: &IstioEndpoint{
-			Address:      "192.168.1.2",
+			Addresses:    []string{"192.168.1.2"},
 			EndpointPort: 1000000,
 			TLSMode:      DisabledTLSModeLabel,
 		},
@@ -2696,188 +2707,299 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 }
 
 func TestInitVirtualService(t *testing.T) {
-	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
-	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
-	ps.Mesh = env.Mesh()
-	configStore := NewFakeStore()
-	gatewayName := "ns1/gateway"
-
-	root := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             "root",
-			Namespace:        "ns1",
-		},
-		Spec: &networking.VirtualService{
-			ExportTo: []string{"*"},
-			Hosts:    []string{"*.org"},
-			Gateways: []string{"gateway"},
-			Http: []*networking.HTTPRoute{
-				{
-					Match: []*networking.HTTPMatchRequest{
-						{
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
-							},
-						},
-						{
-							Uri: &networking.StringMatch{
-								MatchType: &networking.StringMatch_Exact{Exact: "/login"},
-							},
-						},
-					},
-					Delegate: &networking.Delegate{
-						Name:      "delegate",
-						Namespace: "ns2",
-					},
-				},
+	testCase := func(legacy bool, ns1GatewayExpectedDestinations, ns5GatewayExpectedDestinations sets.String) {
+		test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
+		test.SetForTest(t, &features.ScopeGatewayToNamespace, legacy)
+		ps := NewPushContext()
+		env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+		ps.Mesh = env.Mesh()
+		configStore := NewFakeStore()
+		gatewayName := "ns1/gateway"
+		root := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "root",
+				Namespace:        "ns1",
 			},
-		},
-	}
-	delegate := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             "delegate",
-			Namespace:        "ns2",
-		},
-		Spec: &networking.VirtualService{
-			ExportTo: []string{"*"},
-			Hosts:    []string{},
-			Gateways: []string{gatewayName},
-			Http: []*networking.HTTPRoute{
-				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "delegate",
-								Port: &networking.PortSelector{
-									Number: 80,
+			Spec: &networking.VirtualService{
+				ExportTo: []string{"*"},
+				Hosts:    []string{"*.org"},
+				Gateways: []string{"gateway"},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+								},
+							},
+							{
+								Uri: &networking.StringMatch{
+									MatchType: &networking.StringMatch_Exact{Exact: "/login"},
 								},
 							},
 						},
-					},
-				},
-			},
-		},
-	}
-	public := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             "public",
-			Namespace:        "ns3",
-		},
-		Spec: &networking.VirtualService{
-			Hosts:    []string{"*.org"},
-			Gateways: []string{gatewayName},
-			Http: []*networking.HTTPRoute{
-				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "public",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-							},
+						Delegate: &networking.Delegate{
+							Name:      "delegate",
+							Namespace: "ns2",
 						},
 					},
 				},
 			},
-		},
-	}
-	private := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             "private",
-			Namespace:        "ns1",
-		},
-		Spec: &networking.VirtualService{
-			ExportTo: []string{".", "ns2"},
-			Hosts:    []string{"*.org"},
-			Gateways: []string{gatewayName},
-			Http: []*networking.HTTPRoute{
-				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "private",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	invisible := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.VirtualService,
-			Name:             "invisible",
-			Namespace:        "ns5",
-		},
-		Spec: &networking.VirtualService{
-			ExportTo: []string{".", "ns3"},
-			Hosts:    []string{"*.org"},
-			Gateways: []string{"gateway", "mesh"},
-			Http: []*networking.HTTPRoute{
-				{
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "invisible",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, c := range []config.Config{root, delegate, public, private, invisible} {
-		if _, err := configStore.Create(c); err != nil {
-			t.Fatalf("could not create %v", c.Name)
 		}
-	}
-
-	env.ConfigStore = configStore
-	ps.initDefaultExportMaps()
-	ps.initVirtualServices(env)
-
-	t.Run("resolve shortname", func(t *testing.T) {
-		rules := ps.VirtualServicesForGateway("ns1", gatewayName)
-		if len(rules) != 3 {
-			t.Fatalf("wanted 3 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
+		delegate := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "delegate",
+				Namespace:        "ns2",
+			},
+			Spec: &networking.VirtualService{
+				ExportTo: []string{"*"},
+				Hosts:    []string{},
+				Gateways: []string{gatewayName},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "delegate",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 		}
-		gotHTTPHosts := make([]string, 0)
-		for _, r := range rules {
-			vs := r.Spec.(*networking.VirtualService)
-			for _, route := range vs.GetHttp() {
-				for _, dst := range route.Route {
-					gotHTTPHosts = append(gotHTTPHosts, dst.Destination.Host)
-				}
+		public := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "public",
+				Namespace:        "ns3",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"*.org"},
+				Gateways: []string{gatewayName},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "public",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		private := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "private",
+				Namespace:        "ns1",
+			},
+			Spec: &networking.VirtualService{
+				ExportTo: []string{".", "ns2"},
+				Hosts:    []string{"*.org"},
+				Gateways: []string{gatewayName},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "private",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		invisible := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "invisible",
+				Namespace:        "ns5",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"*.org"},
+				Gateways: []string{"gateway", "mesh"},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "invisible",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		sourceNamespaceMatch := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "matchNs1FromDifferentNamespace",
+				Namespace:        "ns5",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"*.org"},
+				Gateways: []string{gatewayName},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								SourceNamespace: "ns1",
+							},
+						},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "match-ns1",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		sourceNamespaceMatchWithoutGatewayNamespace := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "matchNs1-without-explicit-gateway-namespace",
+				Namespace:        "ns1",
+			},
+			Spec: &networking.VirtualService{
+				ExportTo: []string{".", "ns3"},
+				Hosts:    []string{"*.org"},
+				Gateways: []string{"gateway"},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								SourceNamespace: "ns1",
+							},
+						},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "match-ns1",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		sourceNamespaceNotMatch := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "matchNs7",
+				Namespace:        "ns7",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"*.org"},
+				Gateways: []string{gatewayName},
+				Http: []*networking.HTTPRoute{
+					{
+						Match: []*networking.HTTPMatchRequest{
+							{
+								SourceNamespace: "ns7",
+							},
+						},
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "match-ns7",
+									Port: &networking.PortSelector{
+										Number: 80,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		for _, c := range []config.Config{
+			root,
+			delegate,
+			public,
+			private,
+			invisible,
+			sourceNamespaceMatch,
+			sourceNamespaceMatchWithoutGatewayNamespace,
+			sourceNamespaceNotMatch,
+		} {
+			if _, err := configStore.Create(c); err != nil {
+				t.Fatalf("could not create %v", c.Name)
 			}
 		}
-		if !reflect.DeepEqual(gotHTTPHosts, []string{"private.ns1", "public.ns3", "delegate.ns2"}) {
-			t.Errorf("got %+v", gotHTTPHosts)
-		}
-	})
 
-	t.Run("destinations by gateway", func(t *testing.T) {
-		got := ps.virtualServiceIndex.destinationsByGateway
-		want := map[string]sets.String{
-			gatewayName:   sets.New("delegate.ns2", "public.ns3", "private.ns1"),
-			"ns5/gateway": sets.New("invisible.ns5"),
-		}
-		if !reflect.DeepEqual(got, want) {
-			t.Errorf("destinationsByGateway: got %+v", got)
-		}
-	})
+		env.ConfigStore = configStore
+		ps.initDefaultExportMaps()
+		ps.initVirtualServices(env)
+
+		t.Run("resolve shortname", func(t *testing.T) {
+			rules := ps.VirtualServicesForGateway("ns1", gatewayName)
+			if len(rules) != 6 {
+				t.Fatalf("wanted 6 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
+			}
+			gotHTTPHosts := make([]string, 0)
+			for _, r := range rules {
+				vs := r.Spec.(*networking.VirtualService)
+				for _, route := range vs.GetHttp() {
+					for _, dst := range route.Route {
+						gotHTTPHosts = append(gotHTTPHosts, dst.Destination.Host)
+					}
+				}
+			}
+			if !reflect.DeepEqual(gotHTTPHosts, []string{"match-ns1.ns1", "private.ns1", "match-ns1.ns5", "match-ns7.ns7", "public.ns3", "delegate.ns2"}) {
+				t.Errorf("got %+v", gotHTTPHosts)
+			}
+		})
+
+		t.Run("destinations by gateway", func(t *testing.T) {
+			got := ps.virtualServiceIndex.destinationsByGateway
+			want := map[string]sets.String{
+				gatewayName:   ns1GatewayExpectedDestinations,
+				"ns5/gateway": ns5GatewayExpectedDestinations,
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("destinationsByGateway: got %+v", got)
+			}
+		})
+	}
+
+	testCase(false,
+		sets.New("delegate.ns2", "public.ns3", "private.ns1", "match-ns1.ns5", "match-ns1.ns1", "match-ns7.ns7"),
+		sets.New("invisible.ns5"),
+	)
+	testCase(true,
+		sets.New("delegate.ns2", "public.ns3", "private.ns1", "match-ns1.ns5", "match-ns1.ns1"),
+		sets.New("invisible.ns5"),
+	)
 }
 
 func TestServiceWithExportTo(t *testing.T) {
@@ -3019,12 +3141,12 @@ func TestInstancesByPort(t *testing.T) {
 				Shards: map[ShardKey][]*IstioEndpoint{
 					{Cluster: "Kubernets", Provider: provider.External}: {
 						&IstioEndpoint{
-							Address:         "1.1.1.1",
+							Addresses:       []string{"1.1.1.1"},
 							EndpointPort:    7000,
 							ServicePortName: "uds",
 						},
 						&IstioEndpoint{
-							Address:         "1.1.1.2",
+							Addresses:       []string{"1.1.1.2", "2001:1::2"},
 							EndpointPort:    8000,
 							ServicePortName: "uds",
 						},

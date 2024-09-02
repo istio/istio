@@ -114,6 +114,12 @@ func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runE
 	}
 }
 
+// nolint: unused // (not true)
+func (i *informer[I]) index(extract func(o I) []string) kclient.RawIndexer {
+	idx := i.inf.Index(extract)
+	return idx
+}
+
 func informerEventHandler[I controllers.ComparableObject](handler func(o Event[I], initialSync bool)) cache.ResourceEventHandler {
 	return controllers.EventHandler[I]{
 		AddExtendedFunc: func(obj I, initialSync bool) {

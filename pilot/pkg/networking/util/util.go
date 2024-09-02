@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
 	pm "istio.io/istio/pkg/model"
@@ -156,18 +157,23 @@ func AddrStrToPrefix(addr string) (netip.Prefix, error) {
 	return netip.PrefixFrom(ipa, ipa.BitLen()), nil
 }
 
+// PrefixToCidrRange converts from CIDR prefix to CIDR proto
+func PrefixToCidrRange(prefix netip.Prefix) *core.CidrRange {
+	return &core.CidrRange{
+		AddressPrefix: prefix.Addr().String(),
+		PrefixLen: &wrapperspb.UInt32Value{
+			Value: uint32(prefix.Bits()),
+		},
+	}
+}
+
 // AddrStrToCidrRange converts from string to CIDR proto
 func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
 	prefix, err := AddrStrToPrefix(addr)
 	if err != nil {
 		return nil, err
 	}
-	return &core.CidrRange{
-		AddressPrefix: prefix.Addr().String(),
-		PrefixLen: &wrapperspb.UInt32Value{
-			Value: uint32(prefix.Bits()),
-		},
-	}, nil
+	return PrefixToCidrRange(prefix), nil
 }
 
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
@@ -595,6 +601,34 @@ func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.ForwardClientCertDet
 	return hcm.HttpConnectionManager_ForwardClientCertDetails(c - 1)
 }
 
+// MeshNetworksToEnvoyInternalAddressConfig converts all of the FromCidr Endpoints into Envy internal networks.
+// Because the input is an unordered map, the output is sorted to ensure config stability.
+func MeshNetworksToEnvoyInternalAddressConfig(nets *meshconfig.MeshNetworks) *hcm.HttpConnectionManager_InternalAddressConfig {
+	if nets == nil {
+		return nil
+	}
+	prefixes := []netip.Prefix{}
+	for _, internalnetwork := range nets.Networks {
+		for _, ne := range internalnetwork.Endpoints {
+			if prefix, err := AddrStrToPrefix(ne.GetFromCidr()); err == nil {
+				prefixes = append(prefixes, prefix)
+			}
+		}
+	}
+	if len(prefixes) == 0 {
+		return nil
+	}
+	sort.Slice(prefixes, func(a, b int) bool {
+		ap, bp := prefixes[a], prefixes[b]
+		return ap.Addr().Less(bp.Addr()) || (ap.Addr() == bp.Addr() && ap.Bits() < bp.Bits())
+	})
+	iac := &hcm.HttpConnectionManager_InternalAddressConfig{}
+	for _, prefix := range prefixes {
+		iac.CidrRanges = append(iac.CidrRanges, PrefixToCidrRange(prefix))
+	}
+	return iac
+}
+
 // ByteCount returns a human readable byte format
 // Inspired by https://yourbasic.org/golang/formatting-byte-size-to-human-readable-format/
 func ByteCount(b int) string {
@@ -845,4 +879,15 @@ func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.Tr
 	ret.Tunnel = original.Tunnel
 	ret.ProxyProtocol = original.ProxyProtocol
 	return ret
+}
+
+func VersionGreaterOrEqual124(proxy *model.Proxy) bool {
+	return proxy.VersionGreaterAndEqual(&model.IstioVersion{Major: 1, Minor: 24, Patch: -1})
+}
+
+func DelimitedStatsPrefix(statPrefix string) string {
+	if features.EnableDelimitedStatsTagRegex {
+		statPrefix += constants.StatPrefixDelimiter
+	}
+	return statPrefix
 }

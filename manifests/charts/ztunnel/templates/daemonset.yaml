@@ -4,9 +4,16 @@ metadata:
   name: ztunnel
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- .Values.labels | toYaml | nindent 4}}
+    app.kubernetes.io/name: ztunnel
+    {{- include "istio.labels" . | nindent 4}}
+    {{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
   annotations:
+{{- if .Values.revision }}
+    {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
+    {{- toYaml $annos | nindent 4}}
+{{- else }}
     {{- .Values.annotations | toYaml | nindent 4 }}
+{{- end }}
 spec:
   updateStrategy:
     rollingUpdate:
@@ -21,9 +28,14 @@ spec:
         sidecar.istio.io/inject: "false"
         istio.io/dataplane-mode: none
         app: ztunnel
+        app.kubernetes.io/name: ztunnel
+        {{- include "istio.labels" . | nindent 8}}
 {{ with .Values.podLabels -}}{{ toYaml . | indent 8 }}{{ end }}
       annotations:
         sidecar.istio.io/inject: "false"
+{{- if .Values.revision }}
+        istio.io/rev: {{ .Values.revision }}
+{{- end }}
 {{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
     spec:
       nodeSelector:
@@ -62,7 +74,10 @@ spec:
         imagePullPolicy: {{ . }}
 {{- end }}
         securityContext:
-          allowPrivilegeEscalation: false
+          # K8S docs are clear that CAP_SYS_ADMIN *or* privileged: true
+          # both force this to `true`: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+          # But there is a K8S validation bug that doesn't propery catch this: https://github.com/kubernetes/kubernetes/issues/119568
+          allowPrivilegeEscalation: true
           privileged: false
           capabilities:
             drop:
@@ -99,6 +114,10 @@ spec:
         {{- else }}
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
         {{- end }}
+        {{- if .Values.logAsJson }}
+        - name: LOG_FORMAT
+          value: json
+        {{- end}}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
         - name: RUST_BACKTRACE
@@ -107,8 +126,8 @@ spec:
           value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         - name: INPOD_ENABLED
           value: "true"
-        - name: ISTIO_META_DNS_PROXY_ADDR
-          value: "127.0.0.1:15053"
+        - name: TERMINATION_GRACE_PERIOD_SECONDS
+          value: "{{ .Values.terminationGracePeriodSeconds }}"
         - name: POD_NAME
           valueFrom:
             fieldRef:

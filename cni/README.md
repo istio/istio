@@ -16,22 +16,7 @@ Regardless of mode, the Istio CNI Node Agent requires privileged node permission
 
 ## Ambient mode details
 
-Fundamentally, this component is responsible for the following:
-
-- Sets up redirection with newly-started (or newly-added, previously-started) application pods such that traffic from application pods is forwarded to the local node's ztunnel pod.
-- Configures required iptables, sockets, and packet routing miscellanea within the `ztunnel` and application pod network namespaces to make that happen.
-
-This component accomplishes that in the following ways:
-
-1. By installing a separate, very basic "CNI plugin" binary onto the node to forward low-level pod lifecycle events (CmdAdd/CmdDel/etc) from whatever node-level CNI subsystem is in use to this node agent for processing via socket.
-1. By running as a node-level daemonset that:
-
-- listens for these UDS events from the CNI plugin (which fire when new pods are spawned in an ambient-enabled namespace), and adds those pods to the ambient mesh.
-- watches k8s resource for existing pods, so that pods that have already been started can be moved in or out of the ambient mesh.
-- sends UDS events to ztunnel via a socket whenever a pod is enabled for ambient mesh (whether from CNI plugin or node watcher), instructing ztunnel to create the "tube" socket.
-
-The ambient CNI agent is the only place where ambient network config and pod redirection machinery happens.
-In ambient mode, the CNI plugin is effectively just a shim to catch pod creation events and notify the CNI agent early enough to set up network redirection before the pod is fully started. This is necessary because the CNI plugin is effectively the first thing to see a scheduled pod - before the K8S control plane will see things like the pod IP or networking info, the CNI will - but the CNI plugin alone is not sufficient to handle all pod events (already-started pod updates, rebuilding current state on CNI restart) that the node agent cares about.
+See [architecture doc](../architecture/ambient/ztunnel-cni-lifecycle.md).
 
 ## Reference
 

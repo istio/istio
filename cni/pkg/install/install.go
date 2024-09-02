@@ -19,12 +19,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
+	"time"
+
+	"golang.org/x/time/rate"
 
 	"istio.io/istio/cni/pkg/config"
+	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -41,7 +48,7 @@ type Installer struct {
 func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	return &Installer{
 		cfg:                cfg,
-		kubeconfigFilepath: filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename),
+		kubeconfigFilepath: filepath.Join(cfg.CNIAgentRunDir, constants.CNIPluginKubeconfName),
 		isReady:            isReady,
 	}
 }
@@ -56,10 +63,12 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 		return copiedFiles, fmt.Errorf("copy binaries: %v", err)
 	}
 
-	// Install kubeconfig (if needed) - we write/update this in the shared node CNI netdir,
-	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
-	// unless it's missing or the contents are not what we expect.
-	if err := maybeWriteKubeConfigFile(in.cfg); err != nil {
+	// Write kubeconfig with our current service account token as the contents, to the Istio agent rundir.
+	// We do not write this to the common/shared CNI config dir, because it's not CNI config, we do not
+	// need to watch it, and writing non-shared stuff to that location creates churn for other node agents.
+	// Only our plugin consumes this kubeconfig, and it resides in our owned rundir on the host node,
+	// so we are good to simply write it out if our watched svcacct token changes.
+	if err := writeKubeConfigFile(in.cfg); err != nil {
 		cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
 		return copiedFiles, fmt.Errorf("write kubeconfig: %v", err)
 	}
@@ -68,7 +77,7 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
 	// unless it's missing or the contents are not what we expect.
 	if err := checkValidCNIConfig(in.cfg, in.cniConfigFilepath); err != nil {
-		installLog.Infof("missing (or invalid) configuration detected, (re)writing CNI config file at %s", in.cniConfigFilepath)
+		installLog.Infof("configuration requires updates, (re)writing CNI config file at %q: %v", in.cniConfigFilepath, err)
 		cfgPath, err := createCNIConfigFile(ctx, in.cfg)
 		if err != nil {
 			cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
@@ -93,38 +102,39 @@ func (in *Installer) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	installLog.Info("Installation succeed, start watching for re-installation.")
-
+	installLog.Info("initial installation complete, start watching for re-installation")
+	throttle := newInstallationThrottle(in)
 	for {
+		throttle.Throttle(ctx)
 		// if sleepWatchInstall yields without error, that means the config might have been modified in some fashion.
 		// so we rerun `install`, which will update the modified config if it has fallen out of sync with
 		// our desired state
 		err := in.sleepWatchInstall(ctx, installedBins)
 		if err != nil {
-			installLog.Error("error watching node CNI config")
+			installLog.Errorf("error watching node CNI config: %v", err)
 			return err
 		}
-		installLog.Info("Detected changes to the node-level CNI setup, checking to see if configs or binaries need redeploying")
+		installLog.Info("detected changes to the node-level CNI setup, checking to see if configs or binaries need redeploying")
 		// We don't support (or want) to silently (re)deploy any binaries that were not in the initial "snapshot"
 		// so we intentionally discard/do not update the list of installedBins on redeploys.
 		if _, err := in.installAll(ctx); err != nil {
 			return err
 		}
-		installLog.Info("Istio CNI configuration and binaries validated/reinstalled.")
+		installLog.Info("Istio CNI configuration and binaries validated/reinstalled")
 	}
 }
 
 // Cleanup remove Istio CNI's config, kubeconfig file, and binaries.
 func (in *Installer) Cleanup() error {
-	installLog.Info("Cleaning up.")
+	installLog.Info("cleaning up CNI installation")
 	if len(in.cniConfigFilepath) > 0 && file.Exists(in.cniConfigFilepath) {
 		if in.cfg.ChainedCNIPlugin {
-			installLog.Infof("Removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
+			installLog.Infof("removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
 
 			// Read JSON from CNI config file
 			cniConfigMap, err := util.ReadCNIConfigMap(in.cniConfigFilepath)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to read CNI config map from file %s: %w", in.cniConfigFilepath, err)
 			}
 			// Find Istio CNI and remove from plugin list
 			plugins, err := util.GetPlugins(cniConfigMap)
@@ -144,31 +154,31 @@ func (in *Installer) Cleanup() error {
 
 			cniConfig, err := util.MarshalCNIConfig(cniConfigMap)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to marshal CNI config map in file %s: %w", in.cniConfigFilepath, err)
 			}
 			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
-				return err
+				return fmt.Errorf("failed to write updated CNI config to file %s: %w", in.cniConfigFilepath, err)
 			}
 		} else {
-			installLog.Infof("Removing Istio CNI config file: %s", in.cniConfigFilepath)
+			installLog.Infof("removing Istio CNI config file: %s", in.cniConfigFilepath)
 			if err := os.Remove(in.cniConfigFilepath); err != nil {
-				return err
+				return fmt.Errorf("failed to remove CNI config file %s: %w", in.cniConfigFilepath, err)
 			}
 		}
 	}
 
 	if len(in.kubeconfigFilepath) > 0 && file.Exists(in.kubeconfigFilepath) {
-		installLog.Infof("Removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
+		installLog.Infof("removing Istio CNI kubeconfig file: %s", in.kubeconfigFilepath)
 		if err := os.Remove(in.kubeconfigFilepath); err != nil {
-			return err
+			return fmt.Errorf("failed to remove kubeconfig file %s: %w", in.kubeconfigFilepath, err)
 		}
 	}
 
 	for _, targetDir := range in.cfg.CNIBinTargetDirs {
 		if istioCNIBin := filepath.Join(targetDir, "istio-cni"); file.Exists(istioCNIBin) {
-			installLog.Infof("Removing binary: %s", istioCNIBin)
+			installLog.Infof("removing binary: %s", istioCNIBin)
 			if err := os.Remove(istioCNIBin); err != nil {
-				return err
+				return fmt.Errorf("failed to remove binary %s: %w", istioCNIBin, err)
 			}
 		}
 	}
@@ -246,9 +256,9 @@ func checkValidCNIConfig(cfg *config.InstallConfig, cniConfigFilepath string) er
 		if len(cfg.CNIConfName) > 0 || !cfg.ChainedCNIPlugin {
 			// Install was run with overridden CNI config file so don't error out on preempt check
 			// Likely the only use for this is testing the script
-			installLog.Warnf("CNI config file %s preempted by %s", cniConfigFilepath, defaultCNIConfigFilepath)
+			installLog.Warnf("CNI config file %q preempted by %q", cniConfigFilepath, defaultCNIConfigFilepath)
 		} else {
-			return fmt.Errorf("CNI config file %s preempted by %s", cniConfigFilepath, defaultCNIConfigFilepath)
+			return fmt.Errorf("CNI config file %q preempted by %q", cniConfigFilepath, defaultCNIConfigFilepath)
 		}
 	}
 
@@ -300,4 +310,52 @@ func setReady(isReady *atomic.Value) {
 func setNotReady(isReady *atomic.Value) {
 	installReady.Record(0)
 	isReady.Store(false)
+}
+
+// installationThrottle is a small wrapper around a rate limitter. It aims to avoid excessive writes to CNI configuration,
+// and detect if there is a loop of requests, typically caused by another component constantly reverting our work.
+// Where possible, the remediate steps are logged.
+type installationThrottle struct {
+	limiter *rate.Limiter
+	hits    int
+	in      *Installer
+}
+
+func newInstallationThrottle(in *Installer) *installationThrottle {
+	return &installationThrottle{
+		// Setup the limiter to once every 5s. We don't actually limit to only 1/5, this is just to use it to keep track
+		// of whether we got a lot of requests
+		limiter: rate.NewLimiter(rate.Limit(0.2), 1),
+		hits:    0,
+		in:      in,
+	}
+}
+
+func (i *installationThrottle) Throttle(ctx context.Context) {
+	res := i.limiter.Reserve()
+	// Slightly weird usage of the limiter, as we are not strictly using it for limiting
+	// First, we get a reservation. This will use up the limit for 5s
+	if res.Delay() == 0 {
+		// If its available, we haven't tried to install in over 5s, reset our hits and return
+		i.hits = 0
+		return
+	}
+	// Otherwise, wait. We only wait up to 1s.
+	sleep.UntilContext(ctx, min(res.Delay(), time.Second))
+	// Increment our hits. If we are spamming this loop, we will hit this many times as we continually are sending >1 RPS
+	i.hits++
+	// Log every 5 times to not spam too much (and not log on initial startup where some reconciling is expected
+	if i.hits > 5 {
+		detectedCNI := ""
+		if strings.Contains(i.in.cniConfigFilepath, "cilium") {
+			detectedCNI = "cilium"
+		}
+		hint := ""
+		switch detectedCNI {
+		case "cilium":
+			hint = " Hint: Cilium CNI was detected; ensure 'cni.exclusive=false' in the Cilium configuration."
+		}
+		log.Warnf("Configuration has been reconciled multiple times in a short period of time. "+
+			"This may be due to a conflicting component constantly reverting our work.%s", hint)
+	}
 }

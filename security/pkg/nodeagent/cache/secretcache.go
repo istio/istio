@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -584,7 +585,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 		ServiceAccount: sc.configOptions.ServiceAccount,
 	}
 
-	cacheLog.Debugf("constructed host name for CSR: %s", csrHostName.String())
+	cacheLog.Debugf("%s constructed host name for CSR: %s", logPrefix, csrHostName.String())
 	options := pkiutil.CertOptions{
 		Host:       csrHostName.String(),
 		RSAKeySize: sc.configOptions.WorkloadRSAKeySize,
@@ -626,7 +627,10 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 		return nil, fmt.Errorf("failed to extract expire time from server certificate in CSR response: %v", err)
 	}
 
-	cacheLog.WithLabels("latency", time.Since(t0), "ttl", time.Until(expireTime)).Info("generated new workload certificate")
+	cacheLog.WithLabels("resourceName", resourceName,
+		"latency", time.Since(t0),
+		"ttl", time.Until(expireTime)).
+		Info("generated new workload certificate")
 
 	if len(trustBundlePEM) > 0 {
 		rootCertPEM = concatCerts(trustBundlePEM)
@@ -645,9 +649,18 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	}, nil
 }
 
-var rotateTime = func(secret security.SecretItem, graceRatio float64) time.Duration {
+var rotateTime = func(secret security.SecretItem, graceRatio float64, graceRatioJitter float64) time.Duration {
+	// stagger rotation times to prevent large fleets of clients from renewing at the same moment.
+	jitter := (rand.Float64() * graceRatioJitter) * float64(rand.IntN(2)*2-1) // #nosec G404 -- crypto/rand not worth the cost
+	jitterGraceRatio := graceRatio + jitter
+	if jitterGraceRatio > 1 {
+		jitterGraceRatio = 1
+	}
+	if jitterGraceRatio < 0 {
+		jitterGraceRatio = 0
+	}
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
-	gracePeriod := time.Duration((graceRatio) * float64(secretLifeTime))
+	gracePeriod := time.Duration((jitterGraceRatio) * float64(secretLifeTime))
 	delay := time.Until(secret.ExpireTime.Add(-gracePeriod))
 	if delay < 0 {
 		delay = 0
@@ -656,8 +669,7 @@ var rotateTime = func(secret security.SecretItem, graceRatio float64) time.Durat
 }
 
 func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
-	delay := rotateTime(item, sc.configOptions.SecretRotationGracePeriodRatio)
-	certExpirySeconds.ValueFrom(func() float64 { return time.Until(item.ExpireTime).Seconds() }, ResourceName.Value(item.ResourceName))
+	delay := rotateTime(item, sc.configOptions.SecretRotationGracePeriodRatio, sc.configOptions.SecretRotationGracePeriodRatioJitter)
 	item.ResourceName = security.WorkloadKeyCertResourceName
 	// In case there are two calls to GenerateSecret at once, we don't want both to be concurrently registered
 	if sc.cache.GetWorkload() != nil {
@@ -666,6 +678,7 @@ func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 	}
 	sc.cache.SetWorkload(&item)
 	resourceLog(item.ResourceName).Debugf("scheduled certificate for rotation in %v", delay)
+	certExpirySeconds.ValueFrom(func() float64 { return time.Until(item.ExpireTime).Seconds() }, ResourceName.Value(item.ResourceName))
 	sc.queue.PushDelayed(func() error {
 		// In case `UpdateConfigTrustBundle` called, it will resign workload cert.
 		// Check if this is a stale scheduled rotating task.

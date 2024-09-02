@@ -45,7 +45,6 @@ const (
 	// this was formally "istio-gateway-leader"; because they are a different API group we need a different
 	// election to ensure we do not only handle one or the other.
 	GatewayStatusController = "istio-gateway-status-leader"
-	StatusController        = "istio-status-leader"
 	AnalyzeController       = "istio-analyze-leader"
 	// GatewayDeploymentController controls translating Kubernetes Gateway objects into various derived
 	// resources (Service, Deployment, etc).
@@ -55,6 +54,7 @@ const (
 	// * Other types use "prioritized leader election", which isn't implemented for Lease
 	GatewayDeploymentController = "istio-gateway-deployment"
 	NodeUntaintController       = "istio-node-untaint"
+	IPAutoallocateController    = "istio-ip-autoallocate"
 )
 
 // Leader election key prefix for remote istiod managed clusters

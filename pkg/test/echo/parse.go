@@ -35,9 +35,11 @@ var (
 	ClusterFieldRegex        = regexp.MustCompile(string(ClusterField) + "=(.*)")
 	IstioVersionFieldRegex   = regexp.MustCompile(string(IstioVersionField) + "=(.*)")
 	IPFieldRegex             = regexp.MustCompile(string(IPField) + "=(.*)")
+	SourceIPFieldRegex       = regexp.MustCompile(string(SourceIPField) + "=(.*)")
 	methodFieldRegex         = regexp.MustCompile(string(MethodField) + "=(.*)")
 	protocolFieldRegex       = regexp.MustCompile(string(ProtocolField) + "=(.*)")
 	alpnFieldRegex           = regexp.MustCompile(string(AlpnField) + "=(.*)")
+	proxyProtocolFieldRegex  = regexp.MustCompile(string(ProxyProtocolField) + "=(.*)")
 )
 
 func ParseResponses(req *proto.ForwardEchoRequest, resp *proto.ForwardEchoResponse) Responses {
@@ -74,6 +76,11 @@ func parseResponse(output string) Response {
 	match = alpnFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.Alpn = match[1]
+	}
+
+	match = proxyProtocolFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.ProxyProtocol = match[1]
 	}
 
 	match = serviceVersionFieldRegex.FindStringSubmatch(output)
@@ -121,7 +128,12 @@ func parseResponse(output string) Response {
 		out.IP = match[1]
 	}
 
-	out.rawBody = map[string]string{}
+	match = SourceIPFieldRegex.FindStringSubmatch(output)
+	if match != nil {
+		out.SourceIP = match[1]
+	}
+
+	out.RawBody = map[string]string{}
 
 	matches := requestHeaderFieldRegex.FindAllStringSubmatch(output, -1)
 	for _, kv := range matches {
@@ -150,7 +162,7 @@ func parseResponse(output string) Response {
 		if len(kv) != 2 {
 			continue
 		}
-		out.rawBody[kv[0]] = kv[1]
+		out.RawBody[kv[0]] = kv[1]
 	}
 
 	return out

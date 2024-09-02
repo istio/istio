@@ -23,7 +23,7 @@ spec:
     name: https-test
     protocol: HTTPS
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-reviews
@@ -32,7 +32,7 @@ spec:
   hosts:
   - external-reviews.org
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: eu-wildcard
@@ -41,7 +41,7 @@ spec:
   hosts:
   - "*.eu.bookinfo.com"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-entry-ignore
@@ -52,7 +52,7 @@ spec:
   hosts:
   - "*" # This ServiceEntry should not match any instance as it isn't exported to other namespaces
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-entry-other
@@ -63,7 +63,7 @@ spec:
   hosts:
   - "other.bookinfo.com" # This ServiceEntry should not match any instance as it isn't exported to other namespaces
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: service-entry-exported
@@ -74,7 +74,7 @@ spec:
   hosts:
   - "abc.bookinfo.com" # This ServiceEntry matches a destination host in a virtualService in another namespace
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews
@@ -86,7 +86,7 @@ spec:
         host: reviews
         subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-bogushost
@@ -94,11 +94,12 @@ metadata:
 spec:
   http:
   - route:
+    - {} # test destination null
     - destination:
         host: reviews-bogus # This host does not exist, should result in a validation error
         subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-fqdn
@@ -110,7 +111,7 @@ spec:
         host: reviews.default.svc.cluster.local # FQDN representation is valid and should not generate an error
         subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-external
@@ -122,7 +123,7 @@ spec:
         host: external-reviews.org  # Referring to a ServiceEntry host is valid and should not generate an error
                                     # Since this is an "external" service, subset is omitted
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-bookinfo-eu
@@ -133,7 +134,7 @@ spec:
     - destination:
         host: reviews.eu.bookinfo.com # This should match the eu-wildcard service entry and not generate an error
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-bookinfo-eu-wildcard
@@ -144,7 +145,7 @@ spec:
     - destination:
         host: "*.eu.bookinfo.com" # Should match *.eu.bookinfo.com
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-bookinfo-other
@@ -155,7 +156,7 @@ spec:
     - destination:
         host: other.bookinfo.com # Should generate validation error, the SE is in another namespace
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-mirror
@@ -170,7 +171,7 @@ spec:
       host: reviews
       subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-mirror-bogushost
@@ -185,7 +186,7 @@ spec:
       host: reviews-bogus # This host does not exist, should result in a validation error
       subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-bogusport
@@ -199,7 +200,7 @@ spec:
         port:
           number: 999 # No match for this port number, should generate an error
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-2port-missing
@@ -211,7 +212,7 @@ spec:
         host: reviews-2port
         subset: v1
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: reviews-2port-present
@@ -225,7 +226,7 @@ spec:
         port:
           number: 80 # Should not generate an error since we specify a valid port, as required in this case
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   # This VirtualService is in 'istio-system' and uses a FQDN destination
@@ -256,7 +257,7 @@ spec:
   selector:
     app: details
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   # This VirtualService is in 'istio-system' and uses a FQDN destination, but this ns doesn't see that Service
@@ -270,7 +271,7 @@ spec:
             # Should generate error, because details is only exported to "banana" ns
             host: details.default.svc.cluster.local
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   # This is cross-namespace, but not a problem, details has explicit networking.istio.io/exportTo=banana
@@ -300,7 +301,7 @@ spec:
   selector:
     app: hello
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   # This is cross-namespace, but not a problem, details has explicit networking.istio.io/exportTo=hello1,hello2,.
@@ -313,7 +314,7 @@ spec:
         - destination:
             host: hello.hello.svc.cluster.local
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   # This is cross-namespace, but not a problem, details has explicit networking.istio.io/exportTo=hello1,hello2,.
@@ -326,7 +327,7 @@ spec:
         - destination:
             host: hello.hello.svc.cluster.local
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   # This is cross-namespace, but not a problem, details has explicit networking.istio.io/exportTo=hello1,hello2,.
@@ -339,7 +340,7 @@ spec:
         - destination:
             host: hello.hello.svc.cluster.local
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: hello-export-to-bogus
@@ -353,7 +354,7 @@ spec:
         - destination:
             host: hello.hello.svc.cluster.local
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: vs-to-extporto-serviceentry

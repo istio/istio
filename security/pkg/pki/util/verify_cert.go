@@ -77,7 +77,7 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte, 
 	opts.KeyUsages = append(opts.KeyUsages, x509.ExtKeyUsageAny)
 
 	if _, err = cert.Verify(opts); err != nil {
-		return fmt.Errorf("failed to verify certificate: " + err.Error())
+		return fmt.Errorf("failed to verify certificate: %v", err)
 	}
 	if privPem != nil {
 		priv, err := ParsePemEncodedKey(privPem)

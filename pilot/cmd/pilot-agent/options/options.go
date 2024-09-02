@@ -15,6 +15,7 @@
 package options
 
 import (
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -54,6 +55,9 @@ var (
 	xdsRootCA = env.Register("XDS_ROOT_CA", "",
 		"Explicitly set the root CA to expect for the XDS connection.").Get()
 
+	workloadIdentitySocketFile = env.Register("WORKLOAD_IDENTITY_SOCKET_FILE", security.DefaultWorkloadIdentitySocketFile,
+		fmt.Sprintf("SPIRE workload identity SDS socket filename. If set, an SDS socket with this name must exist at %s", security.WorkloadIdentityPath)).Get()
+
 	// set to "SYSTEM" for ACME/public signed CA servers.
 	caRootCA = env.Register("CA_ROOT_CA", "",
 		"Explicitly set the root CA to expect for the CA connection.").Get()
@@ -76,6 +80,10 @@ var (
 
 	secretRotationGracePeriodRatioEnv = env.Register("SECRET_GRACE_PERIOD_RATIO", 0.5,
 		"The grace period ratio for the cert rotation, by default 0.5.").Get()
+
+	secretRotationGracePeriodRatioJitterEnv = env.Register("SECRET_GRACE_PERIOD_RATIO_JITTER", .01,
+		"Randomize the grace period ratio up or down by this amount to stagger cert renewals, by default .01 (~15 minutes over 24 hours).").Get()
+
 	workloadRSAKeySizeEnv = env.Register("WORKLOAD_RSA_KEY_SIZE", 2048,
 		"Specify the RSA key size to use for workload certificates.").Get()
 	pkcs8KeysEnv = env.Register("PKCS8_KEY", false,
@@ -152,7 +160,4 @@ var (
 	exitOnZeroActiveConnectionsEnv = env.Register("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",
 		false,
 		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
-
-	useExternalWorkloadSDSEnv = env.Register("USE_EXTERNAL_WORKLOAD_SDS", false,
-		"When set to true, the istio-agent will require an external SDS and will throw an error if the workload SDS socket is not found").Get()
 )

@@ -31,7 +31,7 @@ func TestUpdateExistingContents(t *testing.T) {
 	src := NewKubeSource(collections.Istio)
 
 	applyAndValidate := func(version string) {
-		configTemplate := `apiVersion: networking.istio.io/v1beta1
+		configTemplate := `apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: productpage

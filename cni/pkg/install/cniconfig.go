@@ -33,14 +33,10 @@ import (
 
 func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {
 	pluginConfig := plugin.Config{
-		PluginLogLevel:  cfg.PluginLogLevel,
-		LogUDSAddress:   cfg.LogUDSAddress,
-		CNIEventAddress: cfg.CNIEventAddress,
-		AmbientEnabled:  cfg.AmbientEnabled,
-		Kubernetes: plugin.Kubernetes{
-			Kubeconfig:        filepath.Join(cfg.CNINetDir, cfg.KubeconfigFilename),
-			ExcludeNamespaces: strings.Split(cfg.ExcludeNamespaces, ","),
-		},
+		PluginLogLevel:    cfg.PluginLogLevel,
+		CNIAgentRunDir:    cfg.CNIAgentRunDir,
+		AmbientEnabled:    cfg.AmbientEnabled,
+		ExcludeNamespaces: strings.Split(cfg.ExcludeNamespaces, ","),
 	}
 
 	pluginConfig.Name = "istio-cni"
@@ -97,7 +93,7 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 		cniConfigFilepath += "list"
 	}
 
-	installLog.Infof("Created CNI config %s", cniConfigFilepath)
+	installLog.Infof("created CNI config %s", cniConfigFilepath)
 	installLog.Debugf("CNI config: %s", pluginConfig)
 	return cniConfigFilepath, nil
 }
@@ -147,7 +143,7 @@ func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir str
 		}
 	}
 
-	installLog.Infof("CNI config file %s exists. Proceeding.", cniConfigFilepath)
+	installLog.Debugf("CNI config file %s exists, proceeding", cniConfigFilepath)
 
 	return cniConfigFilepath, err
 }

@@ -70,12 +70,14 @@ const (
 	NamespaceField        Field = "Namespace"
 	MethodField           Field = "Method"
 	ProtocolField         Field = "Proto"
+	ProxyProtocolField    Field = "ProxyProtocol"
 	AlpnField             Field = "Alpn"
 	RequestHeaderField    Field = "RequestHeader"
 	ResponseHeaderField   Field = "ResponseHeader"
 	ClusterField          Field = "Cluster"
 	IstioVersionField     Field = "IstioVersion"
-	IPField               Field = "IP" // The Requester’s IP Address.
+	IPField               Field = "IP"       // The Requester’s IP Address, as reported from the destination
+	SourceIPField         Field = "SourceIP" // The Requester’s IP Address, as reported from the source.
 	LatencyField          Field = "Latency"
 	ActiveRequestsField   Field = "ActiveRequests"
 	DNSProtocolField      Field = "Protocol"

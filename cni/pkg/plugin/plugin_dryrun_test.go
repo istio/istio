@@ -81,7 +81,7 @@ func buildDryrunConf() string {
 		"1.0.0",
 		"eth0",
 		testSandboxDirectory,
-		"",
+		filepath.Dir("/tmp"),
 		false,
 		"iptables",
 	)
@@ -234,6 +234,10 @@ func getRules(b []byte) map[string]string {
 	for _, table := range parts {
 		// If table is not empty, get table name from the first line
 		lines := strings.Split(strings.Trim(table, "\n"), "\n")
+		lines = slices.Filter(lines, func(line string) bool {
+			return line != "iptables-save" && line != "ip6tables-save"
+		})
+
 		if len(lines) >= 1 && strings.HasPrefix(lines[0], "* ") {
 			tableName := lines[0][2:]
 			lines = append(lines, "COMMIT")

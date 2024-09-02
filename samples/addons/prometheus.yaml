@@ -7,8 +7,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v2.52.0
-    helm.sh/chart: prometheus-25.21.0
+    app.kubernetes.io/version: v2.53.1
+    helm.sh/chart: prometheus-25.24.1
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
@@ -24,8 +24,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v2.52.0
-    helm.sh/chart: prometheus-25.21.0
+    app.kubernetes.io/version: v2.53.1
+    helm.sh/chart: prometheus-25.24.1
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
@@ -359,8 +359,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v2.52.0
-    helm.sh/chart: prometheus-25.21.0
+    app.kubernetes.io/version: v2.53.1
+    helm.sh/chart: prometheus-25.24.1
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
@@ -411,8 +411,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v2.52.0
-    helm.sh/chart: prometheus-25.21.0
+    app.kubernetes.io/version: v2.53.1
+    helm.sh/chart: prometheus-25.24.1
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
@@ -433,8 +433,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v2.52.0
-    helm.sh/chart: prometheus-25.21.0
+    app.kubernetes.io/version: v2.53.1
+    helm.sh/chart: prometheus-25.24.1
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
@@ -460,8 +460,8 @@ metadata:
     app.kubernetes.io/component: server
     app.kubernetes.io/name: prometheus
     app.kubernetes.io/instance: prometheus
-    app.kubernetes.io/version: v2.52.0
-    helm.sh/chart: prometheus-25.21.0
+    app.kubernetes.io/version: v2.53.1
+    helm.sh/chart: prometheus-25.24.1
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
@@ -483,8 +483,8 @@ spec:
         app.kubernetes.io/component: server
         app.kubernetes.io/name: prometheus
         app.kubernetes.io/instance: prometheus
-        app.kubernetes.io/version: v2.52.0
-        helm.sh/chart: prometheus-25.21.0
+        app.kubernetes.io/version: v2.53.1
+        helm.sh/chart: prometheus-25.24.1
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: prometheus
         
@@ -494,18 +494,35 @@ spec:
       serviceAccountName: prometheus
       containers:
         - name: prometheus-server-configmap-reload
-          image: "ghcr.io/prometheus-operator/prometheus-config-reloader:v0.73.2"
+          image: "ghcr.io/prometheus-operator/prometheus-config-reloader:v0.74.0"
           imagePullPolicy: "IfNotPresent"
           args:
             - --watched-dir=/etc/config
+            - --listen-address=0.0.0.0:8080
             - --reload-url=http://127.0.0.1:9090/-/reload
+          ports:
+            - containerPort: 8080
+              name: metrics
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+              scheme: HTTP
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: metrics
+              scheme: HTTP
+            periodSeconds: 10
           volumeMounts:
             - name: config-volume
               mountPath: /etc/config
               readOnly: true
 
         - name: prometheus-server
-          image: "prom/prometheus:v2.52.0"
+          image: "prom/prometheus:v2.53.1"
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d

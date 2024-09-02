@@ -1,4 +1,4 @@
-{{ $mcsAPIGroup := or .Values.pilot.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
+{{ $mcsAPIGroup := or .Values.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -6,6 +6,8 @@ metadata:
   labels:
     app: istiod
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 rules:
   # sidecar injection controller
   - apiGroups: ["admissionregistration.k8s.io"]
@@ -25,21 +27,32 @@ rules:
     resources: ["*"]
 {{- if .Values.global.istiod.enableAnalysis }}
   - apiGroups: ["config.istio.io", "security.istio.io", "networking.istio.io", "authentication.istio.io", "rbac.istio.io", "telemetry.istio.io", "extensions.istio.io"]
-    verbs: ["update"]
-    # TODO: should be on just */status but wildcard is not supported
-    resources: ["*"]
-
-  # Needed because status reporter sets the config map owner reference to the istiod pod
-  - apiGroups: [""]
-    verbs: ["update"]
-    resources: ["pods/finalizers"]
+    verbs: ["update", "patch"]
+    resources:
+    - authorizationpolicies/status
+    - destinationrules/status
+    - envoyfilters/status
+    - gateways/status
+    - peerauthentications/status
+    - proxyconfigs/status
+    - requestauthentications/status
+    - serviceentries/status
+    - sidecars/status
+    - telemetries/status
+    - virtualservices/status
+    - wasmplugins/status
+    - workloadentries/status
+    - workloadgroups/status
 {{- end }}
   - apiGroups: ["networking.istio.io"]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "workloadentries" ]
   - apiGroups: ["networking.istio.io"]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
-    resources: [ "workloadentries/status" ]
+    resources: [ "workloadentries/status",  "serviceentries/status" ]
+  - apiGroups: [""]
+    verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
+    resources: [ "services/status" ]
 
   # auto-detect installed CRD definitions
   - apiGroups: ["apiextensions.k8s.io"]
@@ -54,7 +67,7 @@ rules:
     resources: ["endpointslices"]
     verbs: ["get", "list", "watch"]
 
-{{- if .Values.pilot.taint.enabled }}
+{{- if .Values.taint.enabled }}
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["patch"]
@@ -83,7 +96,7 @@ rules:
 
   # Istiod and bootstrap.
 {{- $omitCertProvidersForClusterRole := list "istiod" "custom" "none"}}
-{{- if or .Values.pilot.env.EXTERNAL_CA (not (has .Values.global.pilotCertProvider $omitCertProvidersForClusterRole)) }}
+{{- if or .Values.env.EXTERNAL_CA (not (has .Values.global.pilotCertProvider $omitCertProvidersForClusterRole)) }}
   - apiGroups: ["certificates.k8s.io"]
     resources:
       - "certificatesigningrequests"
@@ -111,11 +124,20 @@ rules:
     verbs: ["create"]
 
   # Use for Kubernetes Service APIs
-  - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
+  - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["*"]
     verbs: ["get", "watch", "list"]
-  - apiGroups: ["networking.x-k8s.io", "gateway.networking.k8s.io"]
-    resources: ["*"] # TODO: should be on just */status but wildcard is not supported
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources:
+    - backendtlspolicies/status
+    - gatewayclasses/status
+    - gateways/status
+    - grpcroutes/status
+    - httproutes/status
+    - referencegrants/status
+    - tcproutes/status
+    - tlsroutes/status
+    - udproutes/status
     verbs: ["update", "patch"]
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["gatewayclasses"]
@@ -136,7 +158,7 @@ rules:
     resources: ["serviceimports"]
     verbs: ["get", "watch", "list"]
 ---
-{{- if not (eq (toString .Values.pilot.env.PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER) "false") }}
+{{- if not (eq (toString .Values.env.PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER) "false") }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -144,6 +166,8 @@ metadata:
   labels:
     app: istiod
     release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
 rules:
   - apiGroups: ["apps"]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]

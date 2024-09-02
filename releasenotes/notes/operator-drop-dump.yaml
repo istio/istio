@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Removed** `istioctl profile` command. The same information can be found in Istio documentation.

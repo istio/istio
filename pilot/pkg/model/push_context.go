@@ -261,9 +261,6 @@ type PushContext struct {
 	// PushVersion describes the push version this push context was computed for
 	PushVersion string
 
-	// LedgerVersion is the version of the configuration ledger
-	LedgerVersion string
-
 	// JwtKeyResolver holds a reference to the JWT key resolver instance.
 	JwtKeyResolver *JwksResolver
 
@@ -299,6 +296,8 @@ type ConsolidatedDestRule struct {
 	// the original dest rules from which above rule is merged.
 	from []types.NamespacedName
 }
+
+type EdsUpdateFn func(shard ShardKey, hostname string, namespace string, entry []*IstioEndpoint)
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
 // Pilot uses multiple registries - for example each K8S cluster is a registry
@@ -754,6 +753,12 @@ func (ps *PushContext) UpdateMetrics() {
 
 // It is called after virtual service short host name is resolved to FQDN
 func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Set[int] {
+	return virtualServiceDestinationsFilteredBySourceNamespace(v, "")
+}
+
+// It is called after virtual service short host name is resolved to FQDN
+// It filters destinations present in VirtualService by using configNamespace, when the value is empty string, then filtering is disabled
+func virtualServiceDestinationsFilteredBySourceNamespace(v *networking.VirtualService, configNamespace string) map[string]sets.Set[int] {
 	if v == nil {
 		return nil
 	}
@@ -771,6 +776,21 @@ func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Se
 	}
 
 	for _, h := range v.Http {
+		if configNamespace != "" {
+			namespaceMatched := true
+			for _, m := range h.Match {
+				if m.SourceNamespace != "" {
+					if m.SourceNamespace == configNamespace {
+						namespaceMatched = true
+						break
+					}
+					namespaceMatched = false
+				}
+			}
+			if !namespaceMatched {
+				continue
+			}
+		}
 		for _, r := range h.Route {
 			if r.Destination != nil {
 				addDestination(r.Destination.Host, r.Destination.GetPort())
@@ -1251,7 +1271,6 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	ps.Mesh = env.Mesh()
 	ps.Networks = env.MeshNetworks()
-	ps.LedgerVersion = env.Version()
 
 	// Must be initialized first as initServiceRegistry/VirtualServices/Destrules
 	// use the default export map.
@@ -1328,9 +1347,7 @@ func (ps *PushContext) updateContext(
 			wasmPluginsChanged = true
 		case kind.EnvoyFilter:
 			envoyFiltersChanged = true
-			if features.OptimizedConfigRebuild {
-				changedEnvoyFilters.Insert(conf)
-			}
+			changedEnvoyFilters.Insert(conf)
 		case kind.AuthorizationPolicy:
 			authzChanged = true
 		case kind.RequestAuthentication,
@@ -1439,9 +1456,7 @@ func (ps *PushContext) updateContext(
 func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.Set[ConfigKey]) {
 	// Sort the services in order of creation.
 	allServices := SortServicesByCreationTime(env.Services())
-	if features.EnableExternalNameAlias {
-		resolveServiceAliases(allServices, configsUpdate)
-	}
+	resolveServiceAliases(allServices, configsUpdate)
 
 	for _, s := range allServices {
 		portMap := map[string]int{}
@@ -1752,9 +1767,20 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				if gw == constants.IstioMeshGateway {
 					continue
 				}
-				for host := range virtualServiceDestinations(rule) {
-					sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
+				if features.ScopeGatewayToNamespace {
+					gatewayNamespace := ns
+					if gwNs, _, found := strings.Cut(gw, "/"); found {
+						gatewayNamespace = gwNs
+					}
+					for host := range virtualServiceDestinationsFilteredBySourceNamespace(rule, gatewayNamespace) {
+						sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
+					}
+				} else {
+					for host := range virtualServiceDestinations(rule) {
+						sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
+					}
 				}
+
 			}
 		}
 
@@ -2137,13 +2163,10 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 // pre computes envoy filters per namespace
 func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[ConfigKey], previousIndex map[string][]*EnvoyFilterWrapper) {
 	envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
-	var previous map[ConfigKey]*EnvoyFilterWrapper
-	if features.OptimizedConfigRebuild {
-		previous = make(map[ConfigKey]*EnvoyFilterWrapper)
-		for namespace, nsEnvoyFilters := range previousIndex {
-			for _, envoyFilter := range nsEnvoyFilters {
-				previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
-			}
+	previous := make(map[ConfigKey]*EnvoyFilterWrapper)
+	for namespace, nsEnvoyFilters := range previousIndex {
+		for _, envoyFilter := range nsEnvoyFilters {
+			previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
 		}
 	}
 
@@ -2167,12 +2190,10 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 
 	for _, envoyFilterConfig := range envoyFilterConfigs {
 		var efw *EnvoyFilterWrapper
-		if features.OptimizedConfigRebuild {
-			key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
-			if prev, ok := previous[key]; ok && !changed.Contains(key) {
-				// Reuse the previous EnvoyFilterWrapper if it exists and hasn't changed when optimized config rebuild is enabled
-				efw = prev
-			}
+		key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
+		if prev, ok := previous[key]; ok && !changed.Contains(key) {
+			// Reuse the previous EnvoyFilterWrapper if it exists and hasn't changed when optimized config rebuild is enabled
+			efw = prev
 		}
 		// Rebuild the envoy filter in all other cases.
 		if efw == nil {
@@ -2345,7 +2366,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 
-	return MergeGateways(gatewayInstances, proxy, ps)
+	return mergeGateways(gatewayInstances, proxy, ps)
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {

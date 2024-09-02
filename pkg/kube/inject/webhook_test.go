@@ -45,9 +45,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	v1beta12 "istio.io/api/networking/v1beta1"
-	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
@@ -629,28 +627,16 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 		inFilenames = []string{"testdata/inject/" + inFilePath}
 	}
 
-	l := clog.NewConsoleLogger(os.Stdout, os.Stderr, nil)
-	manifests, _, err := manifest.GenManifests(inFilenames, setFlags, false, nil, nil, l)
+	manifests, _, err := render.GenerateManifest(inFilenames, setFlags, false, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to generate manifests: %v", err)
 	}
-	for _, mlist := range manifests[name.PilotComponentName] {
-		for _, object := range strings.Split(mlist, yamlSeparator) {
-			if len(object) == 0 {
-				continue
-			}
-			r := bytes.NewReader([]byte(object))
-			decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
-
-			out := &unstructured.Unstructured{}
-			err := decoder.Decode(out)
-			if err != nil {
-				t.Fatalf("error decoding object %q: %v", object, err)
-			}
-			if out.GetName() == "istio-sidecar-injector" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
-				data, ok := out.Object["data"].(map[string]any)
+	for _, object := range manifests {
+		for _, o := range object.Manifests {
+			if o.GetName() == "istio-sidecar-injector" && o.GetKind() == gvk.ConfigMap.Kind {
+				data, ok := o.Object["data"].(map[string]any)
 				if !ok {
-					t.Fatalf("failed to convert %v", out)
+					t.Fatalf("failed to convert %v", o)
 				}
 				config, ok := data["config"].(string)
 				if !ok {
@@ -666,10 +652,10 @@ func writeInjectionSettings(t testing.TB, fname string, setFlags []string, inFil
 				if err := os.WriteFile(filepath.Join("testdata", "inputs", fname+".template.gen.yaml"), []byte(config), 0o644); err != nil {
 					t.Fatal(err)
 				}
-			} else if out.GetName() == "istio" && (out.GroupVersionKind() == schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}) {
-				data, ok := out.Object["data"].(map[string]any)
+			} else if o.GetName() == "istio" && o.GetKind() == gvk.ConfigMap.Kind {
+				data, ok := o.Object["data"].(map[string]any)
 				if !ok {
-					t.Fatalf("failed to convert %v", out)
+					t.Fatalf("failed to convert %v", o)
 				}
 				meshdata, ok := data["mesh"].(string)
 				if !ok {
@@ -697,7 +683,7 @@ func splitYamlBytes(yaml []byte, t *testing.T) [][]byte {
 		byteParts = append(byteParts, getInjectableYamlDocs(stringPart, t)...)
 	}
 	if len(byteParts) == 0 {
-		t.Fatalf("Found no injectable parts")
+		t.Fatal("Found no injectable parts")
 	}
 	return byteParts
 }
@@ -748,7 +734,7 @@ func prettyJSON(inputJSON []byte, t test.Failer) []byte {
 	// Pretty-print the JSON
 	var prettyBuffer bytes.Buffer
 	if err := json.Indent(&prettyBuffer, inputJSON, "", "  "); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	return prettyBuffer.Bytes()
 }
@@ -1029,7 +1015,7 @@ func TestRunAndServe(t *testing.T) {
 			var gotPatch bytes.Buffer
 			if len(gotReview.Response.Patch) > 0 {
 				if err := json.Compact(&gotPatch, gotReview.Response.Patch); err != nil {
-					t.Fatalf(err.Error())
+					t.Fatal(err.Error())
 				}
 			}
 		})

@@ -22,7 +22,7 @@ spec:
   {{- end }}
   containers:
   - name: istio-proxy
-  {{- if contains "/" .Values.global.proxy.image }}
+  {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
     image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
   {{- else }}
     image: "{{ .ProxyImage }}"

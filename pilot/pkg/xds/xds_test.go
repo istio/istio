@@ -40,7 +40,7 @@ type SidecarTestConfig struct {
 }
 
 var scopeConfig = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: sidecar
@@ -60,7 +60,7 @@ spec:
       - {{$ns}}
 {{ end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: app
@@ -80,7 +80,7 @@ spec:
   - address: 1.1.1.1
 {{- end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: excluded
@@ -100,7 +100,7 @@ spec:
   - address: 9.9.9.9
 {{- end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: included
@@ -120,7 +120,7 @@ spec:
   - address: 2.2.2.2
 {{- end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: app-https
@@ -142,7 +142,7 @@ spec:
   - address: 10.10.10.10
 {{- end }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: excluded-https
@@ -306,7 +306,7 @@ func TestEgressProxy(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: `
 # Add a random endpoint, otherwise there will be no routes to check
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: pod
@@ -322,7 +322,7 @@ spec:
   endpoints:
   - address: 10.10.10.20
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Sidecar
 metadata:
   name: sidecar-with-egressproxy
@@ -366,7 +366,7 @@ spec:
 		found = true
 	}
 	if !found {
-		t.Fatalf("failed to find tcp proxy")
+		t.Fatal("failed to find tcp proxy")
 	}
 
 	found = false
@@ -385,7 +385,7 @@ spec:
 		}
 	}
 	if !found {
-		t.Fatalf("failed to find expected fallthrough route")
+		t.Fatal("failed to find expected fallthrough route")
 	}
 }
 
@@ -458,7 +458,7 @@ ports:
 					DefaultClusterName:              "cluster-1",
 					KubernetesObjectStringByCluster: k8sObjects,
 					ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: echo-app
@@ -483,7 +483,7 @@ spec:
 		"serviceentry": {
 			fakeOpts: xds.FakeOptions{
 				ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-svc-mongocluster

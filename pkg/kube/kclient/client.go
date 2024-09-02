@@ -142,6 +142,19 @@ func (n *writeClient[T]) Patch(name, namespace string, pt apitypes.PatchType, da
 	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{})
 }
 
+func (n *writeClient[T]) PatchStatus(name, namespace string, pt apitypes.PatchType, data []byte) (T, error) {
+	api := kubeclient.GetWriteClient[T](n.client, namespace)
+	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{}, "status")
+}
+
+func (n *writeClient[T]) ApplyStatus(name, namespace string, pt apitypes.PatchType, data []byte, fieldManager string) (T, error) {
+	api := kubeclient.GetWriteClient[T](n.client, namespace)
+	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{
+		Force:        ptr.Of(true),
+		FieldManager: fieldManager,
+	}, "status")
+}
+
 func (n *writeClient[T]) UpdateStatus(object T) (T, error) {
 	api, ok := kubeclient.GetWriteClient[T](n.client, object.GetNamespace()).(kubetypes.WriteStatusAPI[T])
 	if !ok {
@@ -272,7 +285,7 @@ func NewDelayedInformer[T controllers.ComparableObject](
 ) Informer[T] {
 	watcher := c.CrdWatcher()
 	if watcher == nil {
-		log.Fatalf("NewDelayedInformer called without a CrdWatcher enabled")
+		log.Fatal("NewDelayedInformer called without a CrdWatcher enabled")
 	}
 	delay := newDelayedFilter(gvr, watcher)
 	inf := func() informerfactory.StartableInformer {

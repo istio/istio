@@ -35,7 +35,9 @@ const (
 
 func testRegistrySetup(ctx resource.Context) (err error) {
 	registry, err = registryredirector.New(ctx, registryredirector.Config{
-		Cluster: ctx.AllClusters().Default(),
+		Cluster:        ctx.AllClusters().Default(),
+		TargetRegistry: "kind-registry:5000",
+		Scheme:         "http",
 	})
 	if err != nil {
 		return

@@ -124,6 +124,13 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	}
 
 	for _, svc := range serviceRegistry {
+		// Filter any aliases out. While we want to be able to use them as the backend to a route, we don't want
+		// to have them build standalone route matches; this is already handled.
+		// Each alias will get a mapping of 'Alias -> Concrete' service when the concrete service is built
+		// if we let this through, we would get 'Alias -> Alias'.
+		if svc.Resolution == model.Alias {
+			continue
+		}
 		for _, port := range svc.Ports {
 			if port.Protocol.IsHTTPOrSniffed() {
 				hash, destinationRule := hashForService(push, node, svc, port)
@@ -200,7 +207,7 @@ func separateVSHostsAndServices(virtualService config.Config,
 			}
 			// The mostSpecificWildcardVsIndex ensures that each VirtualService host is only associated with
 			// a single service in the registry. This is generally results in the most specific wildcard match for
-			// a given wildcard host (unless PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING is true).
+			// a given wildcard host.
 			vs, ok := mostSpecificWildcardVsIndex[svcHost]
 			if !ok {
 				// This service doesn't have a virtualService that matches it.
@@ -332,7 +339,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 	h := host.Name(destination.Host)
 	// If this is an Alias, point to the concrete service
 	// TODO: this will not work if we have Alias -> Alias -> Concrete service.
-	if features.EnableExternalNameAlias && service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
+	if service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
 		h = host.Name(service.Attributes.K8sAttributes.ExternalName)
 	}
 	port := listenerPort
@@ -1232,7 +1239,7 @@ func GetRouteOperation(in *route.Route, vsName string, port int) string {
 }
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
-func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.Route {
+func BuildDefaultHTTPInboundRoute(proxy *model.Proxy, clusterName string, operation string) *route.Route {
 	out := buildDefaultHTTPRoute(clusterName, operation)
 	// For inbound, configure with notimeout.
 	out.GetRoute().Timeout = Notimeout
@@ -1241,6 +1248,14 @@ func BuildDefaultHTTPInboundRoute(clusterName string, operation string) *route.R
 		// If not configured at all, the grpc-timeout header is not used and
 		// gRPC requests time out like any other requests using timeout or its default.
 		GrpcTimeoutHeaderMax: Notimeout,
+	}
+	if util.VersionGreaterOrEqual124(proxy) && features.EnableInboundRetryPolicy {
+		out.GetRoute().RetryPolicy = &route.RetryPolicy{
+			RetryOn: "reset-before-request",
+			NumRetries: &wrapperspb.UInt32Value{
+				Value: 2,
+			},
+		}
 	}
 	return out
 }

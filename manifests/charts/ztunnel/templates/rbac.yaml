@@ -10,9 +10,16 @@ metadata:
   name: ztunnel
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- .Values.labels | toYaml | nindent 4}}
+    app.kubernetes.io/name: ztunnel
+    {{- include "istio.labels" . | nindent 4}}
+    {{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
   annotations:
+{{- if .Values.revision }}
+    {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
+    {{- toYaml $annos | nindent 4}}
+{{- else }}
     {{- .Values.annotations | toYaml | nindent 4 }}
+{{- end }}
 ---
 {{- if (eq .Values.platform "openshift") }}
 apiVersion: rbac.authorization.k8s.io/v1
@@ -22,8 +29,16 @@ metadata:
   labels:
     app: ztunnel
     release: {{ .Release.Name }}
-    istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    app.kubernetes.io/name: ztunnel
+    {{- include "istio.labels" . | nindent 4}}
+  annotations:
+{{- if .Values.revision }}
+    {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
+    {{- toYaml $annos | nindent 4}}
+{{- else }}
+    {{- .Values.annotations | toYaml | nindent 4 }}
+{{- end }}
 rules:
 - apiGroups: ["security.openshift.io"]
   resources: ["securitycontextconstraints"]
@@ -37,8 +52,16 @@ metadata:
   labels:
     app: ztunnel
     release: {{ .Release.Name }}
-    istio.io/rev: {{ .Values.revision | default "default" }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    app.kubernetes.io/name: ztunnel
+    {{- include "istio.labels" . | nindent 4}}
+  annotations:
+{{- if .Values.revision }}
+    {{- $annos := set $.Values.annotations "istio.io/rev" .Values.revision }}
+    {{- toYaml $annos | nindent 4}}
+{{- else }}
+    {{- .Values.annotations | toYaml | nindent 4 }}
+{{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

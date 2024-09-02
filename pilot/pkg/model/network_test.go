@@ -78,7 +78,7 @@ func TestGatewayHostnames(t *testing.T) {
 		gateways = env.NetworkManager.AllGateways()
 		// A and AAAA
 		if len(gateways) != 2 {
-			t.Fatalf("expected 2 IPs")
+			t.Fatal("expected 2 IPs")
 		}
 		if gateways[0].Network != "nw0" || gateways[1].Network != "nw0" {
 			t.Fatalf("unexpected network: %v", gateways)
@@ -102,7 +102,7 @@ func TestGatewayHostnames(t *testing.T) {
 			t.Fatalf("unexpected network: %v", currentGateways)
 		}
 		if !env.NetworkManager.IsMultiNetworkEnabled() {
-			t.Fatalf("multi network is not enabled")
+			t.Fatal("multi network is not enabled")
 		}
 	})
 
@@ -122,7 +122,7 @@ func TestGatewayHostnames(t *testing.T) {
 		}, 0, retry.Timeout(10*model.MinGatewayTTL))
 		xdsUpdater.WaitOrFail(t, "xds full")
 		if env.NetworkManager.IsMultiNetworkEnabled() {
-			t.Fatalf("multi network should not be enabled when there are no gateways")
+			t.Fatal("multi network should not be enabled when there are no gateways")
 		}
 	})
 
@@ -139,7 +139,7 @@ func TestGatewayHostnames(t *testing.T) {
 		meshNetworks.SetNetworks(nil)
 		xdsUpdater.WaitOrFail(t, "xds full")
 		if len(env.NetworkManager.AllGateways()) > 0 {
-			t.Fatalf("expected no gateways")
+			t.Fatal("expected no gateways")
 		}
 	})
 }

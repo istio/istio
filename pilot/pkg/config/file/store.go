@@ -28,7 +28,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
-	yamlv3 "gopkg.in/yaml.v3"
+	yamlv3 "gopkg.in/yaml.v3" // nolint: depguard // needed for line numbers
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"

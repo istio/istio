@@ -157,7 +157,7 @@ func setupSDS(t *testing.T) *TestServer {
 		t:       t,
 		server:  server,
 		store:   st,
-		udsPath: ca2.WorkloadIdentitySocketPath,
+		udsPath: ca2.GetIstioSDSServerSocketPath(),
 	}
 }
 

@@ -102,8 +102,6 @@ type DiscoveryServer struct {
 	adsClients      map[string]*Connection
 	adsClientsMutex sync.RWMutex
 
-	StatusReporter DistributionStatusCache
-
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
 	Authenticators []security.Authenticator
 

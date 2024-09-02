@@ -107,10 +107,7 @@ func TestCNIPluginServer(t *testing.T) {
 		valid.Netns,
 	).Return(nil)
 
-	dpServer := &meshDataplane{
-		kubeClient: client.Kube(),
-		netServer:  fs,
-	}
+	dpServer := getFakeDP(fs, client.Kube())
 
 	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
 
@@ -183,10 +180,7 @@ func TestGetPodWithRetry(t *testing.T) {
 	wg, _ := NewWaitForNCalls(t, 1)
 	fs := &fakeServer{testWG: wg}
 
-	dpServer := &meshDataplane{
-		kubeClient: client.Kube(),
-		netServer:  fs,
-	}
+	dpServer := getFakeDP(fs, client.Kube())
 
 	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
 
@@ -261,10 +255,7 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 		valid.Netns,
 	).Return(nil)
 
-	dpServer := &meshDataplane{
-		kubeClient: client.Kube(),
-		netServer:  fs,
-	}
+	dpServer := getFakeDP(fs, client.Kube())
 
 	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
 

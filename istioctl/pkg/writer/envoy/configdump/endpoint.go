@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/slices"
 )
 
 type EndpointFilter struct {
@@ -43,9 +44,15 @@ func (e *EndpointFilter) Verify(ep *endpoint.LbEndpoint, cluster string) bool {
 	if e.Address == "" && e.Port == 0 && e.Cluster == "" && e.Status == "" {
 		return true
 	}
-	if e.Address != "" && !strings.EqualFold(retrieveEndpointAddress(ep), e.Address) {
-		return false
+	if e.Address != "" {
+		found := slices.FindFunc(retrieveEndpointAddresses(ep), func(s string) bool {
+			return strings.EqualFold(s, e.Address)
+		}) != nil
+		if !found {
+			return false
+		}
 	}
+
 	if e.Port != 0 && retrieveEndpointPort(ep) != e.Port {
 		return false
 	}
@@ -67,21 +74,32 @@ func retrieveEndpointPort(ep *endpoint.LbEndpoint) uint32 {
 	return ep.GetEndpoint().GetAddress().GetSocketAddress().GetPortValue()
 }
 
-func retrieveEndpointAddress(ep *endpoint.LbEndpoint) string {
-	addr := ep.GetEndpoint().GetAddress()
-	if addr := addr.GetSocketAddress(); addr != nil {
-		return addr.Address + ":" + strconv.Itoa(int(addr.GetPortValue()))
+func retrieveEndpointAddresses(ep *endpoint.LbEndpoint) []string {
+	addrs := []*core.Address{ep.GetEndpoint().GetAddress()}
+	for _, a := range ep.GetEndpoint().GetAdditionalAddresses() {
+		addrs = append(addrs, a.GetAddress())
 	}
-	if addr := addr.GetPipe(); addr != nil {
-		return addr.GetPath()
-	}
-	if internal := addr.GetEnvoyInternalAddress(); internal != nil {
-		switch an := internal.GetAddressNameSpecifier().(type) {
-		case *core.EnvoyInternalAddress_ServerListenerName:
-			return fmt.Sprintf("envoy://%s/%s", an.ServerListenerName, internal.EndpointId)
+	result := make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		if addr := addr.GetSocketAddress(); addr != nil {
+			result = append(result, addr.Address+":"+strconv.Itoa(int(addr.GetPortValue())))
+			continue
 		}
+		if addr := addr.GetPipe(); addr != nil {
+			result = append(result, addr.GetPath())
+			continue
+		}
+		if internal := addr.GetEnvoyInternalAddress(); internal != nil {
+			switch an := internal.GetAddressNameSpecifier().(type) {
+			case *core.EnvoyInternalAddress_ServerListenerName:
+				result = append(result, fmt.Sprintf("envoy://%s/%s", an.ServerListenerName, internal.EndpointId))
+				continue
+			}
+		}
+		result = append(result, "unknown")
 	}
-	return "unknown"
+
+	return result
 }
 
 func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string) error {
@@ -120,7 +138,7 @@ func (c *ConfigWriter) PrintEndpointsSummary(filter EndpointFilter) error {
 	for _, eds := range dump {
 		for _, llb := range eds.Endpoints {
 			for _, ep := range llb.LbEndpoints {
-				addr := retrieveEndpointAddress(ep)
+				addr := strings.Join(retrieveEndpointAddresses(ep), ",")
 				if includeConfigType {
 					addr = fmt.Sprintf("endpoint/%s", addr)
 				}

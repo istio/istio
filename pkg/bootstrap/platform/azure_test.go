@@ -103,3 +103,22 @@ func TestAzureMetadata(t *testing.T) {
 		})
 	}
 }
+
+func TestStringToJSON(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected map[string]any
+	}{
+		{"empty", "{}", map[string]any{}},
+		{"valid", `{"key": "value"}`, map[string]any{"key": "value"}},
+	}
+
+	for idx, tt := range tests {
+		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+			if got := stringToJSON(tt.input); !reflect.DeepEqual(got, tt.expected) {
+				t.Errorf("stringToJSON() => '%v'; want '%v'", got, tt.expected)
+			}
+		})
+	}
+}

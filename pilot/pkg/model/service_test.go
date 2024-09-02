@@ -21,11 +21,13 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	fuzz "github.com/google/gofuzz"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -119,7 +121,7 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 	exampleInstance := &WorkloadInstance{
 		Endpoint: &IstioEndpoint{
 			Labels:          labels.Instance{"app": "prod-app"},
-			Address:         "an-address",
+			Addresses:       []string{"an-address"},
 			ServicePortName: "service-port-name",
 			ServiceAccount:  "service-account",
 			Network:         "Network",
@@ -133,7 +135,7 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 		},
 	}
 	differingAddr := exampleInstance.DeepCopy()
-	differingAddr.Endpoint.Address = "another-address"
+	differingAddr.Endpoint.Addresses = []string{"another-address"}
 	differingNetwork := exampleInstance.DeepCopy()
 	differingNetwork.Endpoint.Network = "AnotherNetwork"
 	differingTLSMode := exampleInstance.DeepCopy()
@@ -584,5 +586,174 @@ func TestParseSubsetKeyHostname(t *testing.T) {
 		t.Run(tt.in, func(t *testing.T) {
 			assert.Equal(t, ParseSubsetKeyHostname(tt.in), tt.out)
 		})
+	}
+}
+
+func TestGetAllAddresses(t *testing.T) {
+	tests := []struct {
+		name                   string
+		service                *Service
+		ipMode                 IPMode
+		dualStackEnabled       bool
+		ambientEnabled         bool
+		autoAllocationEnabled  bool
+		expectedAddresses      []string
+		expectedExtraAddresses []string
+	}{
+		{
+			name: "IPv4 mode, IPv4 and IPv6 CIDR addresses, expected to return only IPv4 addresses",
+			service: &Service{
+				DefaultAddress: "10.0.0.0/28",
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"id": {"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32/96", "::ffff:10.0.0.48/96"},
+					},
+				},
+			},
+			ipMode:                 IPv4,
+			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28"},
+			expectedExtraAddresses: []string{"10.0.0.16/28"},
+		},
+		{
+			name: "IPv6 mode, IPv4 and IPv6 CIDR addresses, expected to return only IPv6 addresses",
+			service: &Service{
+				DefaultAddress: "10.0.0.0/28",
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"id": {"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32/96", "::ffff:10.0.0.48/96"},
+					},
+				},
+			},
+			ipMode:                 IPv6,
+			expectedAddresses:      []string{"::ffff:10.0.0.32/96", "::ffff:10.0.0.48/96"},
+			expectedExtraAddresses: []string{"::ffff:10.0.0.48/96"},
+		},
+		{
+			name: "dual mode, ISTIO_DUAL_STACK disabled, IPv4 and IPv6 addresses, expected to return only IPv4 addresses",
+			service: &Service{
+				DefaultAddress: "10.0.0.0",
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"id": {"10.0.0.0", "10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+					},
+				},
+			},
+			ipMode:                 Dual,
+			expectedAddresses:      []string{"10.0.0.0", "10.0.0.16"},
+			expectedExtraAddresses: []string{"10.0.0.16"},
+		},
+		{
+			name: "dual mode, ISTIO_DUAL_STACK enabled, IPv4 and IPv6 addresses, expected to return only IPv4 addresses",
+			service: &Service{
+				DefaultAddress: "10.0.0.0",
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"id": {"10.0.0.0", "10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+					},
+				},
+			},
+			ipMode:                 Dual,
+			dualStackEnabled:       true,
+			expectedAddresses:      []string{"10.0.0.0", "10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedExtraAddresses: []string{"10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+		},
+		{
+			name: "IPv4 mode, ISTIO_DUAL_STACK disabled, ambient enabled, IPv4 and IPv6 addresses, expected to return all addresses",
+			service: &Service{
+				DefaultAddress: "10.0.0.0/28",
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"id": {"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+					},
+				},
+			},
+			ipMode:                 IPv4,
+			ambientEnabled:         true,
+			expectedAddresses:      []string{"10.0.0.0/28", "10.0.0.16/28"},
+			expectedExtraAddresses: []string{"10.0.0.16/28"},
+		},
+		{
+			name: "IPv6 mode, ISTIO_DUAL_STACK disabled, ambient enabled, IPv4 and IPv6 addresses, expected to return all addresses",
+			service: &Service{
+				DefaultAddress: "10.0.0.0/28",
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"id": {"10.0.0.0/28", "10.0.0.16/28", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+					},
+				},
+			},
+			ipMode:                 IPv6,
+			ambientEnabled:         true,
+			expectedAddresses:      []string{"::ffff:10.0.0.32", "::ffff:10.0.0.48"},
+			expectedExtraAddresses: []string{"::ffff:10.0.0.48"},
+		},
+		{
+			name: "IPv4 mode, auto-allocation enabled, expected auto-allocated address",
+			service: &Service{
+				DefaultAddress:           "0.0.0.0",
+				AutoAllocatedIPv4Address: "240.240.0.1",
+			},
+			ipMode:                 IPv4,
+			autoAllocationEnabled:  true,
+			expectedAddresses:      []string{"240.240.0.1"},
+			expectedExtraAddresses: []string{},
+		},
+		{
+			name: "IPv6 mode, auto-allocation enabled, expected auto-allocated address",
+			service: &Service{
+				DefaultAddress:           "0.0.0.0",
+				AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+			},
+			ipMode:                 IPv6,
+			autoAllocationEnabled:  true,
+			expectedAddresses:      []string{"2001:2::f0f0:e351"},
+			expectedExtraAddresses: []string{},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.dualStackEnabled {
+				test.SetForTest(t, &features.EnableDualStack, true)
+			}
+			if tc.ambientEnabled {
+				test.SetForTest(t, &features.EnableAmbient, true)
+			}
+			proxy := &Proxy{Metadata: &NodeMetadata{ClusterID: "id"}, ipMode: tc.ipMode}
+			if tc.autoAllocationEnabled {
+				proxy.Metadata.DNSCapture = true
+				proxy.Metadata.DNSAutoAllocate = true
+			}
+			addresses := tc.service.GetAllAddressesForProxy(proxy)
+			assert.Equal(t, addresses, tc.expectedAddresses)
+			extraAddresses := tc.service.GetExtraAddressesForProxy(proxy)
+			assert.Equal(t, extraAddresses, tc.expectedExtraAddresses)
+		})
+	}
+}
+
+func BenchmarkEndpointDeepCopy(b *testing.B) {
+	ep := &IstioEndpoint{
+		Labels:          labels.Instance{"label-foo": "aaa", "label-bar": "bbb"},
+		Addresses:       []string{"address-foo", "address-bar"},
+		ServicePortName: "service-port-name",
+		ServiceAccount:  "service-account",
+		Network:         "Network",
+		Locality: Locality{
+			ClusterID: "cluster-id",
+			Label:     "region1/zone1/subzone1",
+		},
+		EndpointPort: 22,
+		LbWeight:     100,
+		TLSMode:      "mutual",
+		Namespace:    "namespace",
+		WorkloadName: "workload-name",
+		HostName:     "foo-pod.svc",
+		SubDomain:    "subdomain",
+		HealthStatus: Healthy,
+		NodeName:     "node1",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = ep.DeepCopy()
 	}
 }

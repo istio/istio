@@ -17,6 +17,8 @@ package deployment
 import (
 	"path"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
@@ -67,7 +69,9 @@ func (e External) Build(t resource.Context, b deployment.Builder) deployment.Bui
 	}
 	if t.Settings().EnableDualStack {
 		config.IPFamilies = "IPv6, IPv4"
-		config.IPFamilyPolicy = "RequireDualStack"
+		config.IPFamilyPolicy = string(corev1.IPFamilyPolicyRequireDualStack)
+	} else {
+		config.IPFamilyPolicy = string(corev1.IPFamilyPolicyPreferDualStack)
 	}
 	return b.WithConfig(config)
 }

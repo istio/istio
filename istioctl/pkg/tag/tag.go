@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util"
@@ -213,7 +214,7 @@ func tagListCommand(ctx cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Short:   "List existing revision tags",
-		Example: "istioctl tag list",
+		Example: "  istioctl tag list",
 		Aliases: []string{"show"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
@@ -231,7 +232,7 @@ func tagListCommand(ctx cli.Context) *cobra.Command {
 	}
 
 	cmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", util.TableFormat, "Output format for tag description "+
-		"(available formats: table,json)")
+		"(available formats: table,json,yaml)")
 	return cmd
 }
 
@@ -434,8 +435,8 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	})
 
 	switch outputFormat {
-	case util.JSONFormat:
-		return PrintJSON(writer, tags)
+	case util.JSONFormat, util.YamlFormat:
+		return printJSONYAML(writer, tags, outputFormat)
 	case util.TableFormat:
 	default:
 		return fmt.Errorf("unknown format: %s", outputFormat)
@@ -449,10 +450,15 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	return w.Flush()
 }
 
-func PrintJSON(w io.Writer, res any) error {
+func printJSONYAML(w io.Writer, res any, outformat string) error {
 	out, err := json.MarshalIndent(res, "", "\t")
 	if err != nil {
 		return fmt.Errorf("error while marshaling to JSON: %v", err)
+	}
+	if outformat == util.YamlFormat {
+		if out, err = yaml.JSONToYAML(out); err != nil {
+			return fmt.Errorf("error while marshaling to YAML: %v", err)
+		}
 	}
 	fmt.Fprintln(w, string(out))
 	return nil

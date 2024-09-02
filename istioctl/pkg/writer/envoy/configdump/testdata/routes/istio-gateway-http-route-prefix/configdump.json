@@ -94,7 +94,7 @@
           "metadata": {
            "filter_metadata": {
             "istio": {
-             "config": "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/httpbin"
+             "config": "/apis/networking.istio.io/v1/namespaces/default/virtual-service/httpbin"
             }
            }
           },

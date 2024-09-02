@@ -16,7 +16,6 @@ package strcase
 
 import (
 	"bytes"
-	"strings"
 )
 
 // CamelCase converts the string into camel case string
@@ -58,15 +57,6 @@ func CamelCase(s string) string {
 		}
 	}
 	return string(t)
-}
-
-// CamelCaseWithSeparator splits the given string by the separator, converts the parts to CamelCase and then re-joins them.
-func CamelCaseWithSeparator(n string, sep string) string {
-	p := strings.Split(n, sep)
-	for i := 0; i < len(p); i++ {
-		p[i] = CamelCase(p[i])
-	}
-	return strings.Join(p, "")
 }
 
 // CamelCaseToKebabCase converts "MyName" to "my-name"

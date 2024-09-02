@@ -15,7 +15,6 @@
 package ambient
 
 import (
-	"net/netip"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -163,8 +162,8 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns", "waypoint-ns-pod")
 	// We should now see the waypoint service IP
 	assert.Equal(t,
-		s.lookup(s.addrXdsName("127.0.0.3"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
-		netip.MustParseAddr("10.0.0.2").AsSlice())
+		s.lookup(s.addrXdsName("127.0.0.3"))[0].Address.GetWorkload().Waypoint.GetHostname().GetHostname(),
+		"waypoint-ns.ns1.svc.company.com")
 
 	// Add another one, expect the same result
 	s.addPods(t, "127.0.0.201", "waypoint2-ns-pod", "namespace-wide",
@@ -203,8 +202,8 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.addWorkloadEntries(t, "127.0.0.6", "name6", "sa6", map[string]string{"app": "a"})
 	s.assertEvent(t, s.wleXdsName("name6"))
 	assert.Equal(t,
-		s.lookup(s.addrXdsName("127.0.0.6"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
-		netip.MustParseAddr("10.0.0.2").AsSlice())
+		s.lookup(s.addrXdsName("127.0.0.6"))[0].Address.GetWorkload().Waypoint.GetHostname().GetHostname(),
+		"waypoint-ns.ns1.svc.company.com")
 
 	s.deleteWorkloadEntry(t, "name6")
 	s.assertEvent(t, s.wleXdsName("name6"))
@@ -221,7 +220,6 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	// all affected addresses with the waypoint should be updated
 	s.assertEvent(t,
 		s.svcXdsName("svc1"),
-		s.svcXdsName("waypoint-ns"),
 		s.wleXdsName("name1"),
 		s.wleXdsName("name2"),
 		s.wleXdsName("name3"))

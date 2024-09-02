@@ -81,7 +81,7 @@ func newWebhookPatcherQueue(reconciler controllers.ReconcilerFn) controllers.Que
 		// Try first few(5) retries quickly so that we can detect true conflicts by multiple Istiod instances fast.
 		// If there is a conflict beyond this, it means Istiods are seeing different ca certs and are in inconsistent
 		// state for longer duration. Slowdown the retries, so that we do not overload kube api server and etcd.
-		controllers.WithRateLimiter(workqueue.NewItemFastSlowRateLimiter(100*time.Millisecond, 1*time.Minute, 5)),
+		controllers.WithRateLimiter(workqueue.NewTypedItemFastSlowRateLimiter[any](100*time.Millisecond, 1*time.Minute, 5)),
 		// Webhook patching has to be retried forever. But the retries would be rate limited.
 		controllers.WithMaxAttempts(math.MaxInt))
 }

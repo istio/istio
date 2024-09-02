@@ -39,6 +39,7 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -84,6 +85,7 @@ var (
 		"5xx",
 		"gateway-error",
 		"reset",
+		"reset-before-request",
 		"connect-failure",
 		"retriable-4xx",
 		"refused-stream",
@@ -229,6 +231,21 @@ func checkDryRunAnnotation(cfg config.Config, allowed bool) error {
 func ValidateHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
+	}
+	if !validHeaderRegex.MatchString(name) {
+		return fmt.Errorf("header name %s is not a valid header name", name)
+	}
+	return nil
+}
+
+// ValidateCORSHTTPHeaderName validates a headers for CORS.
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Headers#directives
+func ValidateCORSHTTPHeaderName(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
+	if name == "*" {
+		return nil
 	}
 	if !validHeaderRegex.MatchString(name) {
 		return fmt.Errorf("header name %s is not a valid header name", name)
@@ -733,7 +750,7 @@ var ValidateSidecar = RegisterValidateFunc("ValidateSidecar",
 					}
 					if sHost != "" && sHost != "127.0.0.1" && sHost != "0.0.0.0" && sHost != "::1" && sHost != "::" {
 						errMsg := "sidecar: defaultEndpoint must be of form 127.0.0.1:<port>,0.0.0.0:<port>,[::1]:port,[::]:port,unix://filepath or unset"
-						errs = AppendValidation(errs, fmt.Errorf(errMsg))
+						errs = AppendValidation(errs, errors.New(errMsg))
 					}
 					port, err := strconv.Atoi(sPort)
 					if err != nil {
@@ -1060,6 +1077,17 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if tcp.MaxConnectionDuration != nil {
 			errs = appendErrors(errs, agent.ValidateDuration(tcp.MaxConnectionDuration))
 		}
+		if tcp.IdleTimeout != nil {
+			errs = appendErrors(errs, agent.ValidateDuration(tcp.IdleTimeout))
+		}
+		if ka := tcp.TcpKeepalive; ka != nil {
+			if ka.Time != nil {
+				errs = appendErrors(errs, agent.ValidateDuration(ka.Time))
+			}
+			if ka.Interval != nil {
+				errs = appendErrors(errs, agent.ValidateDuration(ka.Interval))
+			}
+		}
 	}
 
 	return
@@ -1100,6 +1128,9 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 	}
 
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
+	if settings.WarmupDurationSecs != nil {
+		errs = AppendValidation(errs, agent.ValidateDuration(settings.WarmupDurationSecs))
+	}
 	return
 }
 
@@ -1175,6 +1206,7 @@ func validatePolicyTargetReferences(targetRefs []*type_beta.PolicyTargetReferenc
 // don't validate version, just group and kind
 var allowedTargetRefs = []config.GroupVersionKind{
 	gvk.Service,
+	gvk.ServiceEntry,
 	gvk.KubernetesGateway,
 }
 
@@ -1508,6 +1540,11 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 			errs = multierror.Append(errs, err)
 		}
 	}
+	if rule.Timeout != nil {
+		if err := agent.ValidateDuration(rule.Timeout); err != nil {
+			errs = multierror.Append(errs, err)
+		}
+	}
 	return
 }
 
@@ -1533,8 +1570,8 @@ var ValidatePeerAuthentication = RegisterValidateFunc("ValidatePeerAuthenticatio
 		}
 
 		for port := range in.PortLevelMtls {
-			if port == 0 {
-				errs = appendErrors(errs, fmt.Errorf("port cannot be 0"))
+			if port <= 0 || port > 65535 {
+				errs = appendErrors(errs, fmt.Errorf("port must be in range 1..65535"))
 			}
 		}
 
@@ -1575,13 +1612,8 @@ var ValidateVirtualService = RegisterValidateFunc("ValidateVirtualService",
 			appliesToMesh = true
 		} else {
 			errs = AppendValidation(errs, validateGatewayNames(virtualService.Gateways, gatewaySemantics))
-			for _, gatewayName := range virtualService.Gateways {
-				if gatewayName == constants.IstioMeshGateway {
-					appliesToMesh = true
-				} else {
-					appliesToGateway = true
-				}
-			}
+			appliesToGateway = isGateway(virtualService)
+			appliesToMesh = !appliesToGateway
 		}
 
 		if !appliesToGateway {
@@ -1603,7 +1635,13 @@ var ValidateVirtualService = RegisterValidateFunc("ValidateVirtualService",
 
 		allHostsValid := true
 		for _, virtualHost := range virtualService.Hosts {
-			if err := agent.ValidateWildcardDomain(virtualHost); err != nil {
+			var err error
+			if appliesToGateway {
+				err = agent.ValidateWildcardDomainForVirtualServiceBoundToGateway(isSniHost(virtualService), virtualHost)
+			} else {
+				err = agent.ValidateWildcardDomain(virtualHost)
+			}
+			if err != nil {
 				if !netutil.IsValidIPAddress(virtualHost) {
 					errs = AppendValidation(errs, err)
 					allHostsValid = false
@@ -1678,6 +1716,26 @@ func assignExactOrPrefix(exact, prefix string) string {
 		return matchPrefix + prefix
 	}
 	return ""
+}
+
+func isSniHost(context *networking.VirtualService) bool {
+	for _, tls := range context.Tls {
+		for _, match := range tls.Match {
+			if len(match.SniHosts) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func isGateway(context *networking.VirtualService) bool {
+	for _, gatewayName := range context.Gateways {
+		if gatewayName == constants.IstioMeshGateway {
+			return false
+		}
+	}
+	return true
 }
 
 // genMatchHTTPRoutes build the match rules into struct OverlappingMatchValidationForHTTPRoute
@@ -2048,7 +2106,13 @@ func validateTLSMatch(match *networking.TLSMatchAttributes, context *networking.
 }
 
 func validateSniHost(sniHost string, context *networking.VirtualService) (errs Validation) {
-	if err := agent.ValidateWildcardDomain(sniHost); err != nil {
+	var err error
+	if isGateway(context) {
+		err = agent.ValidateWildcardDomainForVirtualServiceBoundToGateway(true, sniHost)
+	} else {
+		err = agent.ValidateWildcardDomain(sniHost)
+	}
+	if err != nil {
 		// Could also be an IP
 		if netutil.IsValidIPAddress(sniHost) {
 			errs = AppendValidation(errs, WrapWarning(fmt.Errorf("using an IP address (%q) goes against SNI spec and most clients do not support this", sniHost)))
@@ -2255,11 +2319,11 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 	}
 
 	for _, name := range policy.AllowHeaders {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateCORSHTTPHeaderName(name))
 	}
 
 	for _, name := range policy.ExposeHeaders {
-		errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+		errs = appendErrors(errs, ValidateCORSHTTPHeaderName(name))
 	}
 
 	if policy.MaxAge != nil {
@@ -2647,7 +2711,7 @@ func validateReadinessProbe(probe *networking.ReadinessProbe) (errs error) {
 		}
 		errs = appendErrors(errs, agent.ValidatePort(int(h.Port)))
 		if h.Scheme != "" && h.Scheme != string(apimirror.URISchemeHTTPS) && h.Scheme != string(apimirror.URISchemeHTTP) {
-			errs = appendErrors(errs, fmt.Errorf(`httpGet.scheme must be one of "http", "https"`))
+			errs = appendErrors(errs, fmt.Errorf(`httpGet.scheme must be one of %q, %q`, apimirror.URISchemeHTTPS, apimirror.URISchemeHTTP))
 		}
 		for _, header := range h.HttpHeaders {
 			if header == nil {
@@ -2729,6 +2793,8 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 			}
 		}
 
+		// check for v2 auto IP allocation or opt-out by user
+		autoAllocation := serviceentry.ShouldV2AutoAllocateIPFromConfig(cfg)
 		servicePortNumbers := sets.New[uint32]()
 		servicePorts := sets.NewWithLength[string](len(serviceEntry.Ports))
 		for _, port := range serviceEntry.Ports {
@@ -2748,7 +2814,7 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					errs = AppendWarningf(errs, "targetPort has no effect when resolution mode is NONE")
 				}
 			}
-			if len(serviceEntry.Addresses) == 0 {
+			if len(serviceEntry.Addresses) == 0 && !autoAllocation {
 				if port.Protocol == "" || port.Protocol == "TCP" {
 					errs = AppendValidation(errs, WrapWarning(fmt.Errorf("addresses are required for ports serving TCP (or unset) protocol "+
 						"when ISTIO_META_DNS_AUTO_ALLOCATE is not set on a proxy")))
@@ -3066,6 +3132,8 @@ var ValidateWasmPlugin = RegisterValidateFunc("ValidateWasmPlugin",
 			validatePolicyTargetReferences(spec.GetTargetRefs()),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
+			validateWasmPluginImagePullSecret(spec),
+			validateWasmPluginName(spec),
 			validateWasmPluginVMConfig(spec.VmConfig),
 			validateWasmPluginMatch(spec.Match),
 		)
@@ -3080,14 +3148,34 @@ func validateWasmPluginURL(pluginURL string) error {
 		"": true, "file": true, "http": true, "https": true, "oci": true,
 	}
 
-	u, err := url.Parse(pluginURL)
+	u, err := strictParseURL(pluginURL)
 	if err != nil {
-		return fmt.Errorf("failed to parse url: %s", err)
+		return err
 	}
 	if _, found := validSchemes[u.Scheme]; !found {
 		return fmt.Errorf("url contains unsupported scheme: %s", u.Scheme)
 	}
 	return nil
+}
+
+func strictParseURL(originalURL string) (*url.URL, error) {
+	u := originalURL
+	ur, err := url.ParseRequestURI(u)
+	if err != nil {
+		u = "http://" + originalURL
+		nu, nerr := url.ParseRequestURI(u)
+		if nerr != nil {
+			return nil, fmt.Errorf("failed to parse url: %s", err) // return original err
+		}
+		if _, err := url.Parse(u); err != nil {
+			return nil, fmt.Errorf("failed to strict parse url: %s", err)
+		}
+		return nu, nil
+	}
+	if _, err := url.Parse(u); err != nil {
+		return nil, fmt.Errorf("failed to strict parse url: %s", err)
+	}
+	return ur, nil
 }
 
 func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
@@ -3101,6 +3189,20 @@ func validateWasmPluginSHA(plugin *extensions.WasmPlugin) error {
 		if !('a' <= r && r <= 'f' || '0' <= r && r <= '9') {
 			return fmt.Errorf("sha256 field must match [a-f0-9]{64} pattern")
 		}
+	}
+	return nil
+}
+
+func validateWasmPluginImagePullSecret(plugin *extensions.WasmPlugin) error {
+	if len(plugin.ImagePullSecret) > 253 {
+		return fmt.Errorf("imagePullSecret field must be less than 253 characters long")
+	}
+	return nil
+}
+
+func validateWasmPluginName(plugin *extensions.WasmPlugin) error {
+	if len(plugin.PluginName) > 256 {
+		return fmt.Errorf("pluginName field must be less than 255 characters long")
 	}
 	return nil
 }
@@ -3120,8 +3222,16 @@ func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 			return fmt.Errorf("spec.vmConfig.env invalid")
 		}
 
+		if len(env.Name) > 256 {
+			return fmt.Errorf("env.name field must be less than 255 characters long")
+		}
+
 		if keys.InsertContains(env.Name) {
 			return fmt.Errorf("duplicate env")
+		}
+
+		if env.ValueFrom != extensions.EnvValueSource_INLINE && env.Value != "" {
+			return fmt.Errorf("value may only be set when valueFrom is INLINE")
 		}
 	}
 

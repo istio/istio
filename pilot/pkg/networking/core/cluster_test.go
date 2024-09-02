@@ -451,7 +451,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:         "6.6.6.6",
+				Addresses:       []string{"6.6.6.6"},
 				ServicePortName: servicePort[0].Name,
 				EndpointPort:    10001,
 				Locality: model.Locality{
@@ -466,7 +466,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:         "6.6.6.6",
+				Addresses:       []string{"6.6.6.6"},
 				ServicePortName: servicePort[0].Name,
 				EndpointPort:    10001,
 				Locality: model.Locality{
@@ -481,7 +481,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:         "6.6.6.6",
+				Addresses:       []string{"6.6.6.6"},
 				ServicePortName: servicePort[0].Name,
 				EndpointPort:    10001,
 				Locality: model.Locality{
@@ -497,7 +497,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			ServicePort: servicePort[1],
 			Endpoint: &model.IstioEndpoint{
 				ServicePortName: servicePort[1].Name,
-				Address:         "6.6.6.6",
+				Addresses:       []string{"6.6.6.6"},
 				EndpointPort:    10002,
 				Locality: model.Locality{
 					ClusterID: "",
@@ -1075,7 +1075,7 @@ func TestClusterMetadata(t *testing.T) {
 			istio := md.FilterMetadata[util.IstioMetadataKey]
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
+			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1/namespaces//destination-rule/acme"))
 			if strings.Contains(cluster.Name, "Subset") {
 				foundSubset = true
 				sub := istio.Fields["subset"]
@@ -1103,7 +1103,7 @@ func TestClusterMetadata(t *testing.T) {
 			istio := md.FilterMetadata[util.IstioMetadataKey]
 			g.Expect(istio.Fields["config"]).NotTo(BeNil())
 			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
+			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1/namespaces//destination-rule/acme"))
 			if strings.Contains(cluster.Name, "foobar") {
 				foundSNISubset = true
 				sub := istio.Fields["subset"]
@@ -1276,16 +1276,25 @@ func TestStatNamePattern(t *testing.T) {
 		InboundClusterStatName:  "LocalService_%SERVICE%",
 		OutboundClusterStatName: "%SERVICE%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
 	}
+	enableDelimitedStatsTagValues := []bool{true, false}
 
-	clusters := buildTestClusters(clusterTest{
-		t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
-		locality: &core.Locality{}, mesh: statConfigMesh,
-		destRule: &networking.DestinationRule{
-			Host: "*.example.org",
-		},
-	})
-	g.Expect(xdstest.ExtractCluster("outbound|8080||*.example.org", clusters).AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(xdstest.ExtractCluster("inbound|10001||", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
+	for _, enableDelimitedStatsTagValue := range enableDelimitedStatsTagValues {
+		test.SetForTest(t, &features.EnableDelimitedStatsTagRegex, enableDelimitedStatsTagValue)
+		clusters := buildTestClusters(clusterTest{
+			t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
+			locality: &core.Locality{}, mesh: statConfigMesh,
+			destRule: &networking.DestinationRule{
+				Host: "*.example.org",
+			},
+		})
+		if enableDelimitedStatsTagValue {
+			g.Expect(xdstest.ExtractCluster("outbound|8080||*.example.org", clusters).AltStatName).To(Equal("*.example.org_default_8080;"))
+			g.Expect(xdstest.ExtractCluster("inbound|10001||", clusters).AltStatName).To(Equal("LocalService_*.example.org;"))
+		} else {
+			g.Expect(xdstest.ExtractCluster("outbound|8080||*.example.org", clusters).AltStatName).To(Equal("*.example.org_default_8080"))
+			g.Expect(xdstest.ExtractCluster("inbound|10001||", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
+		}
+	}
 }
 
 func TestDuplicateClusters(t *testing.T) {
@@ -1734,7 +1743,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Address:      "1.1.1.1",
+				Addresses:    []string{"1.1.1.1"},
 				EndpointPort: 10001,
 			},
 		},
@@ -1876,7 +1885,7 @@ func TestInboundClustersPassThroughBindIPs(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Address:      "1.1.1.1",
+				Addresses:    []string{"1.1.1.1"},
 				EndpointPort: 10001,
 			},
 		},
@@ -1884,11 +1893,28 @@ func TestInboundClustersPassThroughBindIPs(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Address:      "2001:1::1",
+				Addresses:    []string{"2001:1::1"},
+				EndpointPort: 10001,
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Addresses:    []string{"1.1.1.1", "2001:1::1"},
+				EndpointPort: 10001,
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Addresses:    []string{"2.2.2.2", "2001:1::2"},
 				EndpointPort: 10001,
 			},
 		},
 	}
+
 	inboundFilter := func(c *cluster.Cluster) bool {
 		return strings.HasPrefix(c.Name, "inbound|")
 	}
@@ -2267,15 +2293,17 @@ func TestApplyLoadBalancer(t *testing.T) {
 		expectClusterLoadAssignmenttoBeNil bool
 	}{
 		{
-			name:             "ORIGINAL_DST discovery type is a no op",
-			discoveryType:    cluster.Cluster_ORIGINAL_DST,
-			expectedLbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
+			name:                           "ORIGINAL_DST discovery type is a no op",
+			discoveryType:                  cluster.Cluster_ORIGINAL_DST,
+			expectedLbPolicy:               cluster.Cluster_CLUSTER_PROVIDED,
+			expectedLocalityWeightedConfig: false,
 		},
 		{
-			name:             "redis protocol",
-			discoveryType:    cluster.Cluster_EDS,
-			port:             &model.Port{Protocol: protocol.Redis},
-			expectedLbPolicy: cluster.Cluster_MAGLEV,
+			name:                           "redis protocol",
+			discoveryType:                  cluster.Cluster_EDS,
+			port:                           &model.Port{Protocol: protocol.Redis},
+			expectedLbPolicy:               cluster.Cluster_MAGLEV,
+			expectedLocalityWeightedConfig: false,
 		},
 		{
 			name: "Loadbalancer has distribute",
@@ -2307,12 +2335,14 @@ func TestApplyLoadBalancer(t *testing.T) {
 			},
 			expectedLbPolicy:                   cluster.Cluster_CLUSTER_PROVIDED,
 			expectClusterLoadAssignmenttoBeNil: true,
+			expectedLocalityWeightedConfig:     false,
 		},
 		{
-			name:                   "Send Unhealthy Endpoints enabled",
-			discoveryType:          cluster.Cluster_EDS,
-			sendUnhealthyEndpoints: true,
-			expectedLbPolicy:       defaultLBAlgorithm(),
+			name:                           "Send Unhealthy Endpoints enabled",
+			discoveryType:                  cluster.Cluster_EDS,
+			sendUnhealthyEndpoints:         true,
+			expectedLbPolicy:               defaultLBAlgorithm(),
+			expectedLocalityWeightedConfig: false,
 		},
 		// TODO: add more to cover all cases
 	}
@@ -2353,6 +2383,11 @@ func TestApplyLoadBalancer(t *testing.T) {
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
 				t.Errorf("cluster expected to have weighed config, but is nil")
 			}
+
+			if !tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() != nil {
+				t.Errorf("cluster unexpected locality weighed config, but it is present")
+			}
+
 			if tt.expectClusterLoadAssignmenttoBeNil && c.LoadAssignment != nil {
 				t.Errorf("cluster expected not to have load assignmentset, but is present")
 			}
@@ -2972,11 +3007,10 @@ func TestVerifyCertAtClient(t *testing.T) {
 	testCases := []struct {
 		name               string
 		policy             *networking.TrafficPolicy
-		verifyCertAtClient bool
 		expectedCARootPath string
 	}{
 		{
-			name: "VERIFY_CERTIFICATE_AT_CLIENT works as expected",
+			name: "Check that certs are verfied against the OS CA certificate bundle",
 			policy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
@@ -2987,11 +3021,10 @@ func TestVerifyCertAtClient(t *testing.T) {
 					CaCertificates: "",
 				},
 			},
-			verifyCertAtClient: true,
 			expectedCARootPath: "system",
 		},
 		{
-			name: "VERIFY_CERTIFICATE_AT_CLIENT does not override CaCertificates",
+			name: "Check that CaCertificates has priority over OS CA certificate bundle",
 			policy: &networking.TrafficPolicy{
 				ConnectionPool: &networking.ConnectionPoolSettings{
 					Http: &networking.ConnectionPoolSettings_HTTPSettings{
@@ -3002,44 +3035,12 @@ func TestVerifyCertAtClient(t *testing.T) {
 					CaCertificates: "file-root:certPath",
 				},
 			},
-			verifyCertAtClient: true,
 			expectedCARootPath: "file-root:certPath",
-		},
-		{
-			name: "Filled CaCertificates does not get over written by VERIFY_CERTIFICATE_AT_CLIENT is false",
-			policy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 10,
-					},
-				},
-				Tls: &networking.ClientTLSSettings{
-					CaCertificates: "file-root:certPath",
-				},
-			},
-			verifyCertAtClient: false,
-			expectedCARootPath: "file-root:certPath",
-		},
-		{
-			name: "Empty CaCertificates does not get over written by VERIFY_CERTIFICATE_AT_CLIENT is false",
-			policy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 10,
-					},
-				},
-				Tls: &networking.ClientTLSSettings{
-					CaCertificates: "",
-				},
-			},
-			verifyCertAtClient: false,
-			expectedCARootPath: "",
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			test.SetForTest(t, &features.VerifyCertAtClient, testCase.verifyCertAtClient)
 			selectTrafficPolicyComponents(testCase.policy)
 			if testCase.policy.Tls.CaCertificates != testCase.expectedCARootPath {
 				t.Errorf("%v got %v when expecting %v", testCase.name, testCase.policy.Tls.CaCertificates, testCase.expectedCARootPath)
@@ -3290,7 +3291,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 			instances: []*model.ServiceInstance{{
 				Service:     testService1,
 				ServicePort: &model.Port{Port: 8080},
-				Endpoint:    &model.IstioEndpoint{Address: "127.0.0.1", ServicePortName: "8080", EndpointPort: 8080},
+				Endpoint:    &model.IstioEndpoint{Addresses: []string{"127.0.0.1"}, ServicePortName: "8080", EndpointPort: 8080},
 			}},
 			watchedResourceNames: []string{"outbound|7070||test.com", "inbound|7070||", "inbound|8080||"},
 			usedDelta:            true,

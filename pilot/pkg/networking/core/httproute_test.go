@@ -278,9 +278,69 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				"echo.default.svc",
 				"echo.default",
 				"1.2.3.4",
-				"[2406:3003:2064:35b8:864:a648:4b96:e37d]",
+				// "[2406:3003:2064:35b8:864:a648:4b96:e37d]", not included because the proxy does not support ipv6
 			},
 			enableDualStack: true,
+		},
+		{
+			name: "service entry with multiple VIPs, IPv4 only",
+			service: &model.Service{
+				Hostname:       "echo.default.svc.cluster.local",
+				MeshExternal:   false,
+				DefaultAddress: "1.2.3.4",
+				ClusterVIPs: model.AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cluster-1": {"1.2.3.4", "1.2.3.5", "2406:3003:2064:35b8:864:a648:4b96:e37d"},
+						"cluster-2": {"4.3.2.1"}, // ensure other clusters aren't being populated in domains slice
+					},
+				},
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "default.svc.cluster.local",
+				Metadata: &model.NodeMetadata{
+					ClusterID: "cluster-1",
+				},
+				IPAddresses: []string{"1.1.1.1"},
+			},
+			want: []string{
+				"echo.default.svc.cluster.local",
+				"echo",
+				"echo.default.svc",
+				"echo.default",
+				"1.2.3.4",
+				"1.2.3.5",
+			},
+		},
+		{
+			name: "service entry with multiple VIPs, IPv6 only",
+			service: &model.Service{
+				Hostname:       "echo.default.svc.cluster.local",
+				MeshExternal:   false,
+				DefaultAddress: "1.2.3.4",
+				ClusterVIPs: model.AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cluster-1": {"1.2.3.4", "1.2.3.5", "2001:2::f0f0:239", "2001:2::f0f0:240"},
+						"cluster-2": {"4.3.2.1"}, // ensure other clusters aren't being populated in domains slice
+					},
+				},
+			},
+			port: 8123,
+			node: &model.Proxy{
+				DNSDomain: "default.svc.cluster.local",
+				Metadata: &model.NodeMetadata{
+					ClusterID: "cluster-1",
+				},
+				IPAddresses: []string{"2406:3003:2064:35b8:864:a648:4b96:e37d"},
+			},
+			want: []string{
+				"echo.default.svc.cluster.local",
+				"echo",
+				"echo.default.svc",
+				"echo.default",
+				"[2001:2::f0f0:239]",
+				"[2001:2::f0f0:240]",
+			},
 		},
 		{
 			name: "alias",
@@ -303,6 +363,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	}
 
 	testFn := func(t test.Failer, service *model.Service, port int, node *model.Proxy, want []string) {
+		node.DiscoverIPMode()
 		out, _ := generateVirtualHostDomains(service, port, port, node)
 		assert.Equal(t, out, want)
 	}

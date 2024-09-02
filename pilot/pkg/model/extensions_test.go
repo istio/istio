@@ -269,11 +269,11 @@ func TestFailStrategy(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			out := convertToWasmPluginWrapper(config.Config{Spec: tc.in})
 			if out == nil {
-				t.Fatalf("must not get nil")
+				t.Fatal("must not get nil")
 			}
 			filter := out.BuildHTTPWasmFilter()
 			if out == nil {
-				t.Fatalf("filter can not be nil")
+				t.Fatal("filter can not be nil")
 			}
 			if got := filter.Config.FailOpen; got != tc.out {
 				t.Errorf("got %t, want %t", got, tc.out)
@@ -514,9 +514,9 @@ func TestMatchListener(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
 			opts := WorkloadPolicyMatcher{
-				Namespace:      "ns",
-				WorkloadLabels: tc.proxyLabels,
-				IsWaypoint:     false,
+				WorkloadNamespace: "ns",
+				WorkloadLabels:    tc.proxyLabels,
+				IsWaypoint:        false,
 			}
 			got := tc.wasmPlugin.MatchListener(opts, tc.listenerInfo)
 			if tc.want != got {

@@ -468,7 +468,7 @@ func TestCustomGateway(t *testing.T) {
 			}
 
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal", Inject: inject})
+				gatewayNs := namespace.NewOrFail(t, namespace.Config{Prefix: "custom-gateway-minimal", Inject: inject})
 				_ = t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: v1
 kind: Service
 metadata:
@@ -508,7 +508,7 @@ spec:
         image: auto
         imagePullPolicy: {{ .imagePullPolicy }}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: app
@@ -523,7 +523,7 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: app
@@ -551,10 +551,96 @@ spec:
 					Check:   check.OK(),
 				})
 			})
+			t.NewSubTest("minimal-delay-create-gateway-svc").Run(func(t framework.TestContext) {
+				gatewayNs := namespace.NewOrFail(t, namespace.Config{Prefix: "custom-gateway-minimal", Inject: inject})
+				_ = t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-gateway
+spec:
+  selector:
+    matchLabels:
+      istio: custom
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: gateway
+      labels:
+        istio: custom
+        {{ .injectLabel }}
+    spec:
+      {{- if ne .imagePullSecret "" }}
+      imagePullSecrets:
+      - name: {{ .imagePullSecret }}
+      {{- end }}
+      containers:
+      - name: istio-proxy
+        image: auto
+        imagePullPolicy: {{ .imagePullPolicy }}
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: app
+spec:
+  selector:
+    istio: custom
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: app
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - app
+  http:
+  - route:
+    - destination:
+        host: {{ .host }}
+        port:
+          number: 80
+`).Apply(apply.NoCleanup)
+				cs := t.Clusters().Default().(*kubecluster.Cluster)
+				retry.UntilSuccessOrFail(t, func() error {
+					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom"))
+					return err
+				}, retry.Timeout(time.Minute*2))
+				// create gateway service after its pod get started
+				_ = t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: v1
+kind: Service
+metadata:
+  name: custom-gateway
+  labels:
+    istio: custom
+spec:
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  selector:
+    istio: custom
+`).Apply(apply.NoCleanup)
+				apps.B[0].CallOrFail(t, echo.CallOptions{
+					Port:    echo.Port{ServicePort: 80},
+					Scheme:  scheme.HTTP,
+					Address: fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name()),
+					Check:   check.OK(),
+				})
+			})
+
 			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
 			// that mess with certs, multicluster, etc
 			t.NewSubTest("helm").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
+				gatewayNs := namespace.NewOrFail(t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
 				if t.Settings().Revisions.Default() != "" {
@@ -586,7 +672,7 @@ gateways:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway-helm"))
 					return err
 				}, retry.Timeout(time.Minute*2), retry.Delay(time.Millisecond*500))
-				_ = t.ConfigIstio().YAML(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+				_ = t.ConfigIstio().YAML(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: app
@@ -601,7 +687,7 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: app
@@ -625,7 +711,7 @@ spec:
 				})
 			})
 			t.NewSubTest("helm-simple").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
+				gatewayNs := namespace.NewOrFail(t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
 				if t.Settings().Revisions.Default() != "" {
@@ -653,7 +739,7 @@ resources:
 					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=helm-simple"))
 					return err
 				}, retry.Timeout(time.Minute*2), retry.Delay(time.Millisecond*500))
-				_ = t.ConfigIstio().YAML(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+				_ = t.ConfigIstio().YAML(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: app
@@ -668,7 +754,7 @@ spec:
     hosts:
     - "*"
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: app

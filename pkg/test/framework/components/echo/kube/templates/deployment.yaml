@@ -121,6 +121,9 @@ spec:
 {{- if $p.ServerFirst }}
           - --server-first={{ $p.Port }}
 {{- end }}
+{{- if $p.ProxyProtocol }}
+          - --proxy-protocol={{ $p.Port }}
+{{- end }}
 {{- if $p.InstanceIP }}
           - --bind-ip={{ $p.Port }}
 {{- end }}
@@ -158,6 +161,8 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: BIND_FAMILY
+          value: {{ $.BindFamily }}
 {{- if $.ProxylessGRPC }}
         - name: EXPOSE_GRPC_ADMIN
           value: "true"

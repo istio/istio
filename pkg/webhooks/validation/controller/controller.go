@@ -34,7 +34,7 @@ import (
 
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -124,7 +124,7 @@ func newController(o Options, client kube.Client) *Controller {
 		// Unlike the mutating webhook controller, we do not use NewItemFastSlowRateLimiter. This is because
 		// the validation controller waits for its own service to be ready, so typically this takes a few seconds
 		// before we are ready; using FastSlow means we tend to always take the Slow time (1min).
-		controllers.WithRateLimiter(workqueue.NewItemExponentialFailureRateLimiter(100*time.Millisecond, 1*time.Minute)))
+		controllers.WithRateLimiter(workqueue.NewTypedItemExponentialFailureRateLimiter[any](100*time.Millisecond, 1*time.Minute)))
 
 	c.webhooks = kclient.NewFiltered[*kubeApiAdmission.ValidatingWebhookConfiguration](client, kclient.Filter{
 		LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioRev.Name, o.Revision),
@@ -205,7 +205,7 @@ const (
 
 // Confirm invalid configuration is successfully rejected before switching to FAIL-CLOSE.
 func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason string) {
-	invalidGateway := &v1alpha3.Gateway{
+	invalidGateway := &clientnetworking.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "invalid-gateway",
 			Namespace: c.o.WatchedNamespace,
@@ -224,7 +224,7 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	}
 
 	createOptions := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
-	istioClient := c.client.Istio().NetworkingV1alpha3()
+	istioClient := c.client.Istio().NetworkingV1()
 	_, err := istioClient.Gateways(c.o.WatchedNamespace).Create(context.TODO(), invalidGateway, createOptions)
 	if kerrors.IsAlreadyExists(err) {
 		updateOptions := metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}}

@@ -146,8 +146,8 @@ func GenCertKeyFromOptions(options CertOptions) (pemCert []byte, pemKey []byte, 
 		return genCert(options, ecPriv, &ecPriv.PublicKey)
 	}
 
-	if options.RSAKeySize < minimumRsaKeySize {
-		return nil, nil, fmt.Errorf("requested key size does not meet the minimum required size of %d (requested: %d)", minimumRsaKeySize, options.RSAKeySize)
+	if options.RSAKeySize < MinimumRsaKeySize {
+		return nil, nil, fmt.Errorf("requested key size does not meet the minimum required size of %d (requested: %d)", MinimumRsaKeySize, options.RSAKeySize)
 	}
 	rsaPriv, err := rsa.GenerateKey(rand.Reader, options.RSAKeySize)
 	if err != nil {

@@ -56,8 +56,8 @@ templates:
         kubectl.kubernetes.io/default-container: "{{ index $containers 0 }}",
         {{- end }}
         {{- end }}
-    {{- if or .Values.pilot.cni.enabled .Values.istio_cni.enabled }}
-        {{- if or (eq .Values.pilot.cni.provider "multus") (eq .Values.istio_cni.provider "multus") (not .Values.istio_cni.chained)}}
+    {{- if .Values.pilot.cni.enabled }}
+        {{- if eq .Values.pilot.cni.provider "multus" }}
         k8s.v1.cni.cncf.io/networks: '{{ appendMultusNetwork (index .ObjectMeta.Annotations `k8s.v1.cni.cncf.io/networks`) `default/istio-cni` }}',
         {{- end }}
         sidecar.istio.io/interceptionMode: "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}",
@@ -81,7 +81,7 @@ templates:
           (not $nativeSidecar) }}
       initContainers:
       {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
-      {{ if or .Values.pilot.cni.enabled .Values.istio_cni.enabled -}}
+      {{ if .Values.pilot.cni.enabled -}}
       - name: istio-validation
       {{ else -}}
       - name: istio-init
@@ -133,9 +133,11 @@ templates:
         {{ if .Values.global.logAsJson -}}
         - "--log_as_json"
         {{ end -}}
-        {{ if or .Values.pilot.cni.enabled .Values.istio_cni.enabled -}}
+        {{ if .Values.pilot.cni.enabled -}}
         - "--run-validation"
         - "--skip-rule-apply"
+        {{ else if .Values.global.proxy_init.forceApplyIptables -}}
+        - "--force-apply"
         {{ end -}}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
       {{- if .ProxyConfig.ProxyMetadata }}
@@ -151,14 +153,14 @@ templates:
           allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
           privileged: {{ .Values.global.proxy.privileged }}
           capabilities:
-        {{- if not (or .Values.pilot.cni.enabled .Values.istio_cni.enabled) }}
+        {{- if not .Values.pilot.cni.enabled }}
             add:
             - NET_ADMIN
             - NET_RAW
         {{- end }}
             drop:
             - ALL
-        {{- if not (or .Values.pilot.cni.enabled .Values.istio_cni.enabled) }}
+        {{- if not .Values.pilot.cni.enabled }}
           readOnlyRootFilesystem: false
           runAsGroup: 0
           runAsNonRoot: false
@@ -441,10 +443,6 @@ templates:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         {{- end }}
-        {{- if eq .Values.global.pilotCertProvider "kubernetes" }}
-        - mountPath: /var/run/secrets/istio/kubernetes
-          name: kube-ca-cert
-        {{- end }}
         - mountPath: /var/lib/istio/data
           name: istio-data
         {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
@@ -520,11 +518,6 @@ templates:
         configMap:
           name: istio-ca-root-cert
       {{- end }}
-      {{- if eq .Values.global.pilotCertProvider "kubernetes" }}
-      - name: kube-ca-cert
-        configMap:
-          name: kube-root-ca.crt
-      {{- end }}
       {{- if .Values.global.mountMtlsCerts }}
       # Use the key and cert mounted to /etc/certs/ for the in-cluster mTLS communications.
       - name: istio-certs
@@ -579,7 +572,7 @@ templates:
       {{- end }}
       containers:
       - name: istio-proxy
-      {{- if contains "/" .Values.global.proxy.image }}
+      {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
         image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
       {{- else }}
         image: "{{ .ProxyImage }}"
@@ -1195,7 +1188,6 @@ templates:
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
-            "istio.io/gateway-name" .Name
           ) | nindent 4 }}
       {{- if ge .KubeVersion 128 }}
       # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
@@ -1218,7 +1210,6 @@ templates:
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
-            "istio.io/gateway-name" .Name
             "gateway.istio.io/managed" "istio.io-mesh-controller"
           ) | nindent 4 }}
       ownerReferences:
@@ -1252,10 +1243,25 @@ templates:
               .InfrastructureLabels
               (strdict
                 "gateway.networking.k8s.io/gateway-name" .Name
-                "istio.io/gateway-name" .Name
                 "gateway.istio.io/managed" "istio.io-mesh-controller"
               ) | nindent 8}}
         spec:
+          {{- if .Values.global.waypoint.affinity }}
+          affinity:
+          {{- toYaml .Values.global.waypoint.affinity | nindent 8 }}
+          {{- end }}
+          {{- if .Values.global.waypoint.topologySpreadConstraints }}
+          topologySpreadConstraints:
+          {{- toYaml .Values.global.waypoint.topologySpreadConstraints | nindent 8 }}
+          {{- end }}
+          {{- if .Values.global.waypoint.nodeSelector }}
+          nodeSelector:
+          {{- toYaml .Values.global.waypoint.nodeSelector | nindent 8 }}
+          {{- end }}
+          {{- if .Values.global.waypoint.tolerations }}
+          tolerations:
+          {{- toYaml .Values.global.waypoint.tolerations | nindent 8 }}
+          {{- end }}
           terminationGracePeriodSeconds: 2
           serviceAccountName: {{.ServiceAccount | quote}}
           containers:
@@ -1367,13 +1373,10 @@ templates:
             - name: ISTIO_META_MESH_ID
               value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
             {{- end }}
+            {{- if .Values.global.waypoint.resources }}
             resources:
-              limits:
-                cpu: "2"
-                memory: 1Gi
-              requests:
-                cpu: 100m
-                memory: 128Mi
+            {{- toYaml .Values.global.waypoint.resources | nindent 10 }}
+            {{- end }}
             startupProbe:
               failureThreshold: 30
               httpGet:
@@ -1404,6 +1407,10 @@ templates:
               capabilities:
                 drop:
                 - ALL
+    {{- if .Values.gateways.seccompProfile }}
+              seccompProfile:
+    {{- toYaml .Values.gateways.seccompProfile | nindent 12 }}
+    {{- end }}
             volumeMounts:
             - name: workload-socket
               mountPath: /var/run/secrets/workload-spiffe-uds
@@ -1466,7 +1473,6 @@ templates:
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
-            "istio.io/gateway-name" .Name
           ) | nindent 4 }}
       name: {{.DeploymentName | quote}}
       namespace: {{.Namespace | quote}}
@@ -1476,6 +1482,7 @@ templates:
         name: "{{.Name}}"
         uid: "{{.UID}}"
     spec:
+      ipFamilyPolicy: PreferDualStack
       ports:
       {{- range $key, $val := .Ports }}
       - name: {{ $val.Name | quote }}
@@ -1503,7 +1510,6 @@ templates:
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
-            "istio.io/gateway-name" .Name
           ) | nindent 4 }}
       {{- if ge .KubeVersion 128 }}
       # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
@@ -1526,7 +1532,7 @@ templates:
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
-            "istio.io/gateway-name" .Name
+            "gateway.istio.io/managed" "istio.io-gateway-controller"
           ) | nindent 4 }}
       ownerReferences:
       - apiVersion: gateway.networking.k8s.io/v1beta1
@@ -1558,7 +1564,7 @@ templates:
               .InfrastructureLabels
               (strdict
                 "gateway.networking.k8s.io/gateway-name" .Name
-                "istio.io/gateway-name" .Name
+                "gateway.istio.io/managed" "istio.io-gateway-controller"
               ) | nindent 8 }}
         spec:
           securityContext:
@@ -1568,6 +1574,10 @@ templates:
             sysctls:
             - name: net.ipv4.ip_unprivileged_port_start
               value: "0"
+          {{- if .Values.gateways.seccompProfile }}
+            seccompProfile:
+          {{- toYaml .Values.gateways.seccompProfile | nindent 10 }}
+          {{- end }}
           {{- end }}
           serviceAccountName: {{.ServiceAccount | quote}}
           containers:
@@ -1806,7 +1816,6 @@ templates:
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
-            "istio.io/gateway-name" .Name
           ) | nindent 4 }}
       name: {{.DeploymentName | quote}}
       namespace: {{.Namespace | quote}}

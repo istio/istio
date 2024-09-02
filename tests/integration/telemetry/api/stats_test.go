@@ -20,6 +20,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"path/filepath"
 	"testing"
 	"time"
@@ -34,18 +35,17 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
-	cdeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 )
 
 var PeerAuthenticationConfig = `
-apiVersion: security.istio.io/v1beta1
+apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: default
@@ -194,39 +194,29 @@ func TestStatsGatewayServerTCPFilter(t *testing.T) {
 			base := filepath.Join(env.IstioSrc, "tests/integration/telemetry/testdata/")
 			// Following resources are being deployed to test sidecar->gateway communication. With following resources,
 			// routing is being setup from sidecar to external site, via egress gateway.
-			// clt(https:443) -> sidecar(tls:443) -> istio-mtls -> (TLS:443)egress-gateway-> vs(tcp:443) -> cnn.com
+			// app(https:443) -> sidecar(tls:443) -> istio-mtls -> (TLS:443)egress-gateway-> vs(tcp:443) -> external.external.svc.cluster.local
+			address := "240.240.240.255"
+			if _, ipv6 := getSupportedIPFamilies(t); ipv6 {
+				address = "2001:2::f0f0:255"
+			}
+			values := map[string]any{
+				"Address":   address,
+				"Namespace": apps.External.Namespace.Name(),
+			}
 			t.ConfigIstio().File(apps.Namespace.Name(), filepath.Join(base, "istio-mtls-dest-rule.yaml")).ApplyOrFail(t)
 			t.ConfigIstio().File(apps.Namespace.Name(), filepath.Join(base, "istio-mtls-gateway.yaml")).ApplyOrFail(t)
-			t.ConfigIstio().File(apps.Namespace.Name(), filepath.Join(base, "istio-mtls-vs.yaml")).ApplyOrFail(t)
+			t.ConfigIstio().EvalFile(apps.Namespace.Name(), values, filepath.Join(base, "istio-mtls-vs.yaml")).ApplyOrFail(t)
+			t.ConfigIstio().EvalFile(ist.Settings().SystemNamespace, values, filepath.Join(base, "external-service-entry.yaml")).ApplyOrFail(t, apply.NoCleanup)
+			t.ConfigIstio().EvalFile(apps.A.NamespaceName(), values, filepath.Join(base, "external-service-entry.yaml")).ApplyOrFail(t, apply.NoCleanup)
 
-			// The main SE is available only to app namespace, make one the egress can access.
-			t.ConfigIstio().Eval(ist.Settings().SystemNamespace, map[string]any{
-				"Namespace": apps.External.Namespace.Name(),
-				"Hostname":  cdeployment.ExternalHostname,
-			}, `apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: external-service
-spec:
-  exportTo: [.]
-  hosts:
-  - {{.Hostname}}
-  location: MESH_EXTERNAL
-  resolution: DNS
-  endpoints:
-  - address: external.{{.Namespace}}.svc.cluster.local
-  ports:
-  - name: https
-    number: 443
-    protocol: HTTPS
-`).ApplyOrFail(t, apply.NoCleanup)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
 				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if _, err := cltInstance.Call(echo.CallOptions{
-							Address: "fake.external.com",
+							Address: address,
+							TLS:     echo.TLS{ServerName: "server.default.svc"},
 							Scheme:  scheme.HTTPS,
 							Port:    ports.HTTPS,
 							Count:   1,
@@ -470,7 +460,6 @@ func ValidateBucket(cluster cluster.Cluster, prom prometheus.Instance, sourceApp
 // Kiali depends on these metrics
 func TestGRPCCountMetrics(t *testing.T) {
 	framework.NewTest(t).
-		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
 			// Metrics to be queried and tested
 			metrics := []string{"istio_request_messages_total", "istio_response_messages_total"}
@@ -533,4 +522,21 @@ func SendGRPCTraffic() error {
 		}
 	}
 	return nil
+}
+
+func getSupportedIPFamilies(t framework.TestContext) (v4 bool, v6 bool) {
+	addrs := apps.A.WorkloadsOrFail(t).Addresses()
+	for _, a := range addrs {
+		ip, err := netip.ParseAddr(a)
+		assert.NoError(t, err)
+		if ip.Is4() {
+			v4 = true
+		} else if ip.Is6() {
+			v6 = true
+		}
+	}
+	if !v4 && !v6 {
+		t.Fatalf("pod is neither v4 nor v6? %v", addrs)
+	}
+	return
 }

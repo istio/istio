@@ -233,6 +233,40 @@ func setupEnvoyLogConfig(kubeClient kube.CLIClient, param, podName, podNamespace
 	return string(result), nil
 }
 
+func printStatus(c *cobra.Command, kubeClient kube.CLIClient, statsType, podName, podNamespace string) error {
+	var stats string
+	var err error
+
+	switch statsType {
+	case "", "server":
+		stats, err = setupEnvoyServerStatsConfig(kubeClient, podName, podNamespace, outputFormat)
+		if err != nil {
+			return err
+		}
+	case "cluster", "clusters":
+		stats, err = setupEnvoyClusterStatsConfig(kubeClient, podName, podNamespace, outputFormat)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unknown stats type %s", statsType)
+	}
+
+	fmt.Fprintf(c.OutOrStdout(), "\nThe result of pod %s:\n\n", podName)
+	switch outputFormat {
+	// convert the json output to yaml
+	case yamlOutput:
+		var out []byte
+		if out, err = yaml.JSONToYAML([]byte(stats)); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprint(c.OutOrStdout(), string(out))
+	default:
+		_, _ = fmt.Fprint(c.OutOrStdout(), stats)
+	}
+	return nil
+}
+
 func getLogLevelFromConfigMap(ctx cli.Context) (string, error) {
 	valuesConfig, err := kubeinject.GetValuesFromConfigMap(ctx, "")
 	if err != nil {
@@ -483,7 +517,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 	allConfigCmd.PersistentFlags().StringVar(&listenerType, "type", "", "Filter listeners by type field")
 
 	// route
-	allConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
+	allConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter routes by route name field")
 
 	return allConfigCmd
 }
@@ -570,7 +604,8 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 }
 
 func StatsConfigCmd(ctx cli.Context) *cobra.Command {
-	var podName, podNamespace string
+	var podNamespace string
+	var podNames []string
 
 	statsConfigCmd := &cobra.Command{
 		Use:   "envoy-stats [<type>/]<name>[.<namespace>]",
@@ -597,41 +632,31 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("stats requires pod name or label selector")
 			}
+			if len(args) == 1 && (labelSelector != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("name cannot be provided when the label selector is specified")
+			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			var stats string
 			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return err
 			}
-			if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
-				return err
-			}
-			if statsType == "" || statsType == "server" {
-				stats, err = setupEnvoyServerStatsConfig(kubeClient, podName, podNamespace, outputFormat)
-				if err != nil {
-					return err
-				}
-			} else if statsType == "cluster" || statsType == "clusters" {
-				stats, err = setupEnvoyClusterStatsConfig(kubeClient, podName, podNamespace, outputFormat)
-				if err != nil {
+			if labelSelector != "" {
+				if podNames, podNamespace, err = getPodNameBySelector(ctx, kubeClient, labelSelector); err != nil {
 					return err
 				}
 			} else {
-				return fmt.Errorf("unknown stats type %s", statsType)
-			}
-
-			switch outputFormat {
-			// convert the json output to yaml
-			case yamlOutput:
-				var out []byte
-				if out, err = yaml.JSONToYAML([]byte(stats)); err != nil {
+				if podNames, podNamespace, err = getPodNames(ctx, args[0], ctx.Namespace()); err != nil {
 					return err
 				}
-				_, _ = fmt.Fprint(c.OutOrStdout(), string(out))
-			default:
-				_, _ = fmt.Fprint(c.OutOrStdout(), stats)
+			}
+			for _, pod := range podNames {
+				err := printStatus(c, kubeClient, statsType, pod, podNamespace)
+				if err != nil {
+					return err
+				}
 			}
 
 			return nil
@@ -640,6 +665,7 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
 	}
 	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short|prom|prom-merged")
 	statsConfigCmd.PersistentFlags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
+	statsConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	statsConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
 
 	return statsConfigCmd
@@ -1206,7 +1232,7 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 			} else {
 				report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the non identical ROOTCA, theoretically the connectivity between them is unavailable",
 					podName1, podNamespace1, podName2, podNamespace2)
-				returnErr = fmt.Errorf(report)
+				returnErr = errors.New(report)
 			}
 			return returnErr
 		},

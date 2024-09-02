@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: extensibility
+
+issue:
+  - 52102
+
+docs:
+ - '[reference] https://istio.io/latest/docs/reference/commands/pilot-agent/#envvars'
+
+releaseNotes:
+- |
+  **Added** `SECRET_GRACE_PERIOD_RATIO_JITTER` with a default value of `0.01` to introduce a randomized offset in `SECRET_GRACE_PERIOD_RATIO`. Without this configuration proxies deployed at the same time will all request renewed certificates simultaneously. At high enough volumes this can cause signifcant load events that need not occur. The new default behavior of renewing certificates every 12 hours is augmented by this value to be +/- approximately 15 minutes.

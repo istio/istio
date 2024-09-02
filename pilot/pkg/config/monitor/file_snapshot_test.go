@@ -27,7 +27,7 @@ import (
 )
 
 var gatewayYAML = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: some-ingress
@@ -42,7 +42,7 @@ spec:
 `
 
 var statusRegressionYAML = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: test
@@ -60,7 +60,7 @@ spec:
 status: {}`
 
 var virtualServiceYAML = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route-for-myapp

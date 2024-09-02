@@ -1,6 +1,6 @@
 # Split traffic using header
 # Will use c-weighted endpoint
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: headers-route

@@ -239,7 +239,7 @@ func restrictUserGroups(t framework.TestContext) {
 	for _, ns := range []string{userGroup1NS.Name(), userGroup2NS.Name()} {
 		t.ConfigIstio().Eval(ns, map[string]any{
 			"Namespace": ns,
-		}, `apiVersion: security.istio.io/v1beta1
+		}, `apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
   name: "usergroup-peerauth"
@@ -255,7 +255,7 @@ func allowExternalService(t framework.TestContext, ns string, externalNs string,
 	t.ConfigIstio().Eval(ns, map[string]any{
 		"Namespace": externalNs,
 		"Revision":  revision,
-	}, `apiVersion: networking.istio.io/v1alpha3
+	}, `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: external-service

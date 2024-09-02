@@ -28,9 +28,12 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextval "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/validation"
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/cel"
 	structuraldefaulting "k8s.io/apiextensions-apiserver/pkg/apiserver/schema/defaulting"
+	structurallisttype "k8s.io/apiextensions-apiserver/pkg/apiserver/schema/listtype"
+	structuralpruning "k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,6 +42,7 @@ import (
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/yml"
@@ -141,6 +145,19 @@ func (v *Validator) ValidateCustomResource(o runtime.Object) error {
 	if err := validation.ValidateCustomResource(nil, un.Object, vd).ToAggregate(); err != nil {
 		return fmt.Errorf("%v/%v/%v: %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), err)
 	}
+	if err := structurallisttype.ValidateListSetsAndMaps(nil, structural, un.Object).ToAggregate(); err != nil {
+		return fmt.Errorf("%v/%v/%v: %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), err)
+	}
+	pruneOpts := structuralschema.UnknownFieldPathOptions{TrackUnknownFieldPaths: true}
+	unknownFieldPaths := structuralpruning.PruneWithOptions(un.DeepCopy().Object, structural, false, pruneOpts)
+	unknownFieldPaths = slices.FilterInPlace(unknownFieldPaths, func(s string) bool {
+		// Some CRDs don't spell out all the fields in metadata, and k8s doesn't care
+		return !strings.HasPrefix(s, "metadata.")
+	})
+	if len(unknownFieldPaths) > 0 {
+		return fmt.Errorf("%v/%v/%v: unknown fields %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), unknownFieldPaths)
+	}
+
 	errs, _ := v.cel[un.GroupVersionKind()].Validate(context.Background(), nil, structural, un.Object, nil, celconfig.RuntimeCELCostBudget)
 	if errs.ToAggregate() != nil {
 		return fmt.Errorf("%v/%v/%v: %v", un.GroupVersionKind().Kind, un.GetName(), un.GetNamespace(), errs.ToAggregate().Error())
@@ -221,6 +238,13 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 		if len(versions) == 0 {
 			versions = []apiextensions.CustomResourceDefinitionVersion{{Name: crd.Spec.Version}} // nolint: staticcheck
 		}
+		crd.Status.StoredVersions = slices.Map(versions, func(e apiextensions.CustomResourceDefinitionVersion) string {
+			return e.Name
+		})
+		errs := apiextval.ValidateCustomResourceDefinition(context.Background(), &crd)
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("CRD %v is not valid: %v", crd.Name, errs.ToAggregate())
+		}
 		for _, ver := range versions {
 			gvk := schema.GroupVersionKind{
 				Group:   crd.Spec.Group,
@@ -260,7 +284,8 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 func NewIstioValidator(t test.Failer) *Validator {
 	v, err := NewValidatorFromFiles(
 		filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/gateway-api-crd.yaml"),
-		filepath.Join(env.IstioSrc, "manifests/charts/base/crds/crd-all.gen.yaml"))
+		filepath.Join(env.IstioSrc, "manifests/charts/base/crds/crd-all.gen.yaml"),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

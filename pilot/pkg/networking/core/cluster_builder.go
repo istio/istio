@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -45,6 +46,8 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 )
+
+var maxSecondsValue = int64((math.MaxInt64 - 999999999) / (1000 * 1000 * 1000)) // 9223372035, which is about 292 years.
 
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
 // nolint
@@ -85,7 +88,7 @@ type ClusterBuilder struct {
 	metadataCerts      *metadataCerts        // Client certificates specified in metadata.
 	clusterID          string                // Cluster in which proxy is running.
 	proxyID            string                // Identifier that uniquely identifies a proxy.
-	proxyVersion       string                // Version of Proxy.
+	proxyVersion       *model.IstioVersion   // Version of Proxy.
 	proxyType          model.NodeType        // Indicates whether the proxy is sidecar or gateway.
 	sidecarScope       *model.SidecarScope   // Computed sidecar for the proxy.
 	passThroughBindIPs []string              // Passthrough IPs to be used while building clusters.
@@ -109,7 +112,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		serviceTargets:     proxy.ServiceTargets,
 		proxyID:            proxy.ID,
 		proxyType:          proxy.Type,
-		proxyVersion:       proxy.Metadata.IstioVersion,
+		proxyVersion:       model.ParseIstioVersion(proxy.Metadata.IstioVersion),
 		sidecarScope:       proxy.SidecarScope,
 		passThroughBindIPs: getPassthroughBindIPs(proxy.GetIPMode()),
 		supportsIPv4:       proxy.SupportsIPv4(),
@@ -221,13 +224,14 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	// merge applicable port level traffic policy settings
 	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
-		mesh:           cb.req.Push.Mesh,
-		serviceTargets: cb.serviceTargets,
-		mutable:        mc,
-		policy:         trafficPolicy,
-		port:           port,
-		clusterMode:    clusterMode,
-		direction:      model.TrafficDirectionOutbound,
+		mesh:                  cb.req.Push.Mesh,
+		serviceTargets:        cb.serviceTargets,
+		mutable:               mc,
+		policy:                trafficPolicy,
+		port:                  port,
+		clusterMode:           clusterMode,
+		direction:             model.TrafficDirectionOutbound,
+		credentialSocketExist: cb.credentialSocketExist,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -291,6 +295,10 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
+
+	// Build default alt stat name - This may be overwritten by the MeshConfig options.
+	c.AltStatName = util.DelimitedStatsPrefix(name)
+
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
 		if networkutil.AllIPv4(cb.proxyIPAddresses) {
@@ -299,6 +307,12 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		} else if networkutil.AllIPv6(cb.proxyIPAddresses) {
 			// IPv6 only
 			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
+			// If we are in this mode, Istio sees ourselves as only have IPv6 addresses, but there is actually a link-local
+			// interface that serves the IPv4. Allow both families.
+			// This ensures we do not break DNS resolution to destinations that are IPv4 only.
+			if features.EnableAdditionalIpv4OutboundListenerForIpv6Only {
+				c.DnsLookupFamily = cluster.Cluster_ALL
+			}
 		} else {
 			// Dual Stack
 			if features.EnableDualStack {
@@ -342,8 +356,8 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	if direction == model.TrafficDirectionOutbound {
 		// If stat name is configured, build the alternate stats name.
 		if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
-			ec.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-				string(service.Hostname), subset, port, 0, &service.Attributes)
+			statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName, string(service.Hostname), subset, port, 0, &service.Attributes)
+			ec.cluster.AltStatName = util.DelimitedStatsPrefix(statPrefix)
 		}
 	}
 
@@ -358,20 +372,31 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 // Note: clusterPort and instance.Endpoint.EndpointPort are identical for standard Services; however,
 // Sidecar.Ingress allows these to be different.
 func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
-	proxy *model.Proxy, instance model.ServiceTarget, inboundServices []model.ServiceTarget,
+	proxy *model.Proxy, inboundServices []model.ServiceTarget,
 ) *clusterWrapper {
-	clusterName := model.BuildInboundSubsetKey(clusterPort)
+	// should not happen
+	if len(inboundServices) == 0 {
+		return nil
+	}
+	instance := inboundServices[0]
 	localityLbEndpoints := buildInboundLocalityLbEndpoints(bind, instance.Port.TargetPort)
 	clusterType := cluster.Cluster_ORIGINAL_DST
 	if len(localityLbEndpoints) > 0 {
 		clusterType = cluster.Cluster_STATIC
 	}
+	clusterName := model.BuildInboundSubsetKey(clusterPort)
 	localCluster := cb.buildCluster(clusterName, clusterType, localityLbEndpoints,
 		model.TrafficDirectionInbound, instance.Port.ServicePort, instance.Service, inboundServices, "")
 	// If stat name is configured, build the alt statname.
 	if len(cb.req.Push.Mesh.InboundClusterStatName) != 0 {
-		localCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
-			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort, &instance.Service.Attributes)
+		statPrefix := telemetry.BuildStatPrefix(cb.req.Push.Mesh.InboundClusterStatName,
+			string(instance.Service.Hostname), "", instance.Port.ServicePort, clusterPort,
+			&instance.Service.Attributes)
+		localCluster.cluster.AltStatName = util.DelimitedStatsPrefix(statPrefix)
+	}
+	if clusterType == cluster.Cluster_ORIGINAL_DST {
+		// Disable cleanup for inbound clusters - set to Max possible duration.
+		localCluster.cluster.CleanupInterval = durationpb.New(time.Duration(maxSecondsValue) * time.Second)
 	}
 
 	opts := buildClusterOpts{
@@ -492,6 +517,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 		ConnectTimeout:       proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
+	c.AltStatName = util.DelimitedStatsPrefix(util.BlackHoleCluster)
 	return c
 }
 
@@ -507,6 +533,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
+	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster)
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
 	cb.applyMetadataExchange(cluster)
 	return cluster
@@ -558,7 +585,7 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 
 // nolint
 // revive:disable-next-line
-func (cb *ClusterBuilder) isHttp2Cluster(mc *clusterWrapper) bool {
+func isHttp2Cluster(mc *clusterWrapper) bool {
 	options := mc.httpProtocolOptions
 	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil
 }
@@ -720,6 +747,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(options),
 		},
 	}
+	c.AltStatName = util.DelimitedStatsPrefix(security.SDSExternalClusterName)
 	return c
 }
 
@@ -733,7 +761,8 @@ func addTelemetryMetadata(cluster *cluster.Cluster,
 	if cluster == nil {
 		return
 	}
-	if direction == model.TrafficDirectionInbound && (len(inboundServices) == 0 || port == nil) {
+	if direction == model.TrafficDirectionInbound &&
+		(len(inboundServices) == 0 || inboundServices[0].Service.MeshExternal || port == nil) {
 		// At inbound, port and local service instance has to be provided
 		return
 	}

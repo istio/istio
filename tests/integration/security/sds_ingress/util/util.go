@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
-	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
@@ -130,7 +129,7 @@ func CreateIngressKubeSecret(t framework.TestContext, credName string,
 
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, t)
-	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+	systemNS := namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 	CreateIngressKubeSecretInNamespace(t, credName, ingressType, ingressCred, isCompoundAndNotGeneric, systemNS.Name(), clusters...)
 }
 
@@ -184,7 +183,7 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 func deleteKubeSecret(t framework.TestContext, credName string) {
 	// Get namespace for ingress gateway pod.
 	istioCfg := istio.DefaultConfigOrFail(t, t)
-	systemNS := namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
+	systemNS := namespace.ClaimOrFail(t, istioCfg.SystemNamespace)
 
 	// Delete Kubernetes secret for ingress gateway
 	c := t.Clusters().Default()
@@ -356,8 +355,8 @@ func RotateSecrets(ctx framework.TestContext, credName string, // nolint:interfa
 ) {
 	ctx.Helper()
 	c := ctx.Clusters().Default()
-	ist := istio.GetOrFail(ctx, ctx)
-	systemNS := namespace.ClaimOrFail(ctx, ctx, ist.Settings().SystemNamespace)
+	ist := istio.GetOrFail(ctx)
+	systemNS := namespace.ClaimOrFail(ctx, ist.Settings().SystemNamespace)
 	scrt, err := c.Kube().CoreV1().Secrets(systemNS.Name()).Get(context.TODO(), credName, metav1.GetOptions{})
 	if err != nil {
 		ctx.Errorf("Failed to get secret %s:%s (error: %s)", systemNS.Name(), credName, err)
@@ -433,7 +432,7 @@ type TestConfig struct {
 }
 
 const vsTemplate = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: {{.CredentialName}}
@@ -454,7 +453,7 @@ spec:
 `
 
 const gwTemplate = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: {{.CredentialName}}
@@ -635,13 +634,13 @@ func RunTestMultiQUICGateways(t framework.TestContext, inst istio.Instance, call
 	}
 }
 
-func CreateCustomInstances(apps *deployment.SingleNamespaceView) error {
-	for index, namespacedName := range apps.EchoNamespace.All.NamespacedNames() {
+func SetInstances(apps echo.Services) error {
+	for index, namespacedName := range apps.NamespacedNames() {
 		switch {
 		case namespacedName.Name == "a":
-			A = apps.EchoNamespace.All[index]
+			A = apps[index]
 		case namespacedName.Name == "vm":
-			VM = apps.EchoNamespace.All[index]
+			VM = apps[index]
 		}
 	}
 	return nil

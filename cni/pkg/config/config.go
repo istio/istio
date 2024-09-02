@@ -26,10 +26,10 @@ type Config struct {
 
 // InstallConfig struct defines the Istio CNI installation options
 type InstallConfig struct {
-	// Location of the CNI config files in the host's filesystem
-	CNINetDir string
 	// Location of the CNI config files in the container's filesystem (mount location of the CNINetDir)
 	MountedCNINetDir string
+	// Location of the node agent writable path on the node (used for sockets, etc)
+	CNIAgentRunDir string
 	// Name of the CNI config file
 	CNIConfName string
 	// Whether to install CNI plugin as a chained or standalone
@@ -38,8 +38,6 @@ type InstallConfig struct {
 	// Logging level for the CNI plugin
 	// Since it runs out-of-process, it has to be separately configured
 	PluginLogLevel string
-	// Name of the kubeconfig file used by the CNI plugin
-	KubeconfigFilename string
 	// The file mode to set when creating the kubeconfig file
 	KubeconfigMode int
 	// CA file for kubeconfig
@@ -70,12 +68,6 @@ type InstallConfig struct {
 	// The HTTP port for monitoring
 	MonitoringPort int
 
-	// The UDS server address that CNI plugin will send log to.
-	LogUDSAddress string
-
-	// The watch server socket address that CNI plugin will forward CNI events to.
-	CNIEventAddress string
-
 	// The ztunnel server socket address that the ztunnel will connect to.
 	ZtunnelUDSAddress string
 
@@ -87,6 +79,9 @@ type InstallConfig struct {
 
 	// Whether ipv6 is enabled for ambient capture
 	AmbientIPv6 bool
+
+	// Feature flag to determined whether TPROXY is used for redirection.
+	AmbientTPROXYRedirection bool
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -124,13 +119,12 @@ type RepairConfig struct {
 
 func (c InstallConfig) String() string {
 	var b strings.Builder
-	b.WriteString("CNINetDir: " + c.CNINetDir + "\n")
 	b.WriteString("MountedCNINetDir: " + c.MountedCNINetDir + "\n")
 	b.WriteString("CNIConfName: " + c.CNIConfName + "\n")
 	b.WriteString("ChainedCNIPlugin: " + fmt.Sprint(c.ChainedCNIPlugin) + "\n")
+	b.WriteString("CNIAgentRunDir: " + fmt.Sprint(c.CNIAgentRunDir) + "\n")
 
 	b.WriteString("PluginLogLevel: " + c.PluginLogLevel + "\n")
-	b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")
 	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")
 	b.WriteString("KubeCAFile: " + c.KubeCAFile + "\n")
 	b.WriteString("SkipTLSVerify: " + fmt.Sprint(c.SkipTLSVerify) + "\n")
@@ -145,13 +139,12 @@ func (c InstallConfig) String() string {
 	b.WriteString("CNIBinTargetDirs: " + strings.Join(c.CNIBinTargetDirs, ",") + "\n")
 
 	b.WriteString("MonitoringPort: " + fmt.Sprint(c.MonitoringPort) + "\n")
-	b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
-	b.WriteString("CNIEventAddress: " + fmt.Sprint(c.CNIEventAddress) + "\n")
 	b.WriteString("ZtunnelUDSAddress: " + fmt.Sprint(c.ZtunnelUDSAddress) + "\n")
 
 	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")
 	b.WriteString("AmbientDNSCapture: " + fmt.Sprint(c.AmbientDNSCapture) + "\n")
 	b.WriteString("AmbientIPv6: " + fmt.Sprint(c.AmbientIPv6) + "\n")
+	b.WriteString("AmbientRedirectTPROXY: " + fmt.Sprint(c.AmbientTPROXYRedirection) + "\n")
 
 	return b.String()
 }

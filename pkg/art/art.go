@@ -28,5 +28,5 @@ func IstioArt() string {
 }
 
 func IstioColoredArt() string {
-	return color.New(color.FgHiBlue).Add(color.Bold).Sprintf(istioASCIIArt)
+	return color.New(color.FgHiBlue).Add(color.Bold).Sprint(istioASCIIArt)
 }

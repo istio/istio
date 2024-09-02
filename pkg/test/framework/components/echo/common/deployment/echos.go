@@ -21,11 +21,11 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -283,7 +283,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Subsets:         []echo.SubsetConfig{{}},
 			IncludeExtAuthz: c.IncludeExtAuthz,
 			IPFamilies:      "IPv6, IPv4",
-			IPFamilyPolicy:  "RequireDualStack",
+			IPFamilyPolicy:  string(corev1.IPFamilyPolicyRequireDualStack),
 			DualStack:       true,
 		}
 		eSvc := echo.Config{
@@ -293,7 +293,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Subsets:         []echo.SubsetConfig{{}},
 			IncludeExtAuthz: c.IncludeExtAuthz,
 			IPFamilies:      "IPv6",
-			IPFamilyPolicy:  "SingleStack",
+			IPFamilyPolicy:  string(corev1.IPFamilyPolicySingleStack),
 			DualStack:       true,
 		}
 		defaultConfigs = append(defaultConfigs, dSvc, eSvc)
@@ -519,9 +519,9 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 }
 
 // NewOrFail calls New and fails if an error is returned.
-func NewOrFail(t test.Failer, ctx resource.Context, cfg Config) *Echos {
+func NewOrFail(t resource.ContextFailer, cfg Config) *Echos {
 	t.Helper()
-	out, err := New(ctx, cfg)
+	out, err := New(t, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

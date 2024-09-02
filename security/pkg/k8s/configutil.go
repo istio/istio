@@ -27,10 +27,6 @@ import (
 )
 
 // InsertDataToConfigMap inserts a data to a configmap in a namespace.
-// client: the k8s client interface.
-// lister: the configmap lister.
-// meta: the metadata of configmap.
-// caBundle: ca cert data bytes.
 func InsertDataToConfigMap(client kclient.Client[*v1.ConfigMap], meta metav1.ObjectMeta, caBundle []byte) error {
 	configmap := client.Get(meta.Name, meta.Namespace)
 	if configmap == nil {
@@ -43,8 +39,8 @@ func InsertDataToConfigMap(client kclient.Client[*v1.ConfigMap], meta metav1.Obj
 		}
 		if _, err := client.Create(configmap); err != nil {
 			// Namespace may be deleted between now... and our previous check. Just skip this, we cannot create into deleted ns
-			// And don't retry a create if the namespace is terminating
-			if errors.IsAlreadyExists(err) || errors.HasStatusCause(err, v1.NamespaceTerminatingCause) {
+			// And don't retry a create if the namespace is terminating or already deleted (not found)
+			if errors.IsAlreadyExists(err) || errors.HasStatusCause(err, v1.NamespaceTerminatingCause) || errors.IsNotFound(err) {
 				return nil
 			}
 			if errors.IsForbidden(err) {

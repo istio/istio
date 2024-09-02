@@ -22,9 +22,9 @@ import (
 	"reflect"
 
 	"github.com/hashicorp/go-multierror"
-	"gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -39,6 +39,17 @@ func FromJSON(s resource.Schema, js string) (config.Spec, error) {
 		return nil, err
 	}
 	if err = config.ApplyJSON(c, js); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func FromJSONStrict(s resource.Schema, js string) (config.Spec, error) {
+	c, err := s.NewInstance()
+	if err != nil {
+		return nil, err
+	}
+	if err = config.ApplyJSONStrict(c, js); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -90,13 +101,14 @@ func FromJSONMap(s resource.Schema, data any) (config.Spec, error) {
 	return out, nil
 }
 
-// ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
-func ConvertObject(schema resource.Schema, object IstioObject, domain string) (*config.Config, error) {
+type ConversionFunc = func(s resource.Schema, js string) (config.Spec, error)
+
+func ConvertObjectInternal(schema resource.Schema, object IstioObject, domain string, convert ConversionFunc) (*config.Config, error) {
 	js, err := json.Marshal(object.GetSpec())
 	if err != nil {
 		return nil, err
 	}
-	spec, err := FromJSON(schema, string(js))
+	spec, err := convert(schema, string(js))
 	if err != nil {
 		return nil, err
 	}
@@ -120,6 +132,11 @@ func ConvertObject(schema resource.Schema, object IstioObject, domain string) (*
 		Spec:   spec,
 		Status: status,
 	}, nil
+}
+
+// ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
+func ConvertObject(schema resource.Schema, object IstioObject, domain string) (*config.Config, error) {
+	return ConvertObjectInternal(schema, object, domain, FromJSON)
 }
 
 // ConvertConfig translates Istio config to k8s config JSON

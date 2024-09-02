@@ -88,7 +88,7 @@ func TestMinimumIstioVersion(t *testing.T) {
 		{
 			"three versions",
 			IstioVersions([]IstioVersion{
-				"1.9", "1.23", "1.10",
+				"1.9", "1.24", "1.10",
 			}),
 			IstioVersion("1.9"),
 		},
@@ -103,9 +103,9 @@ func TestMinimumIstioVersion(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			min := tc.versions.Minimum()
-			if min != tc.result {
-				t.Errorf("expected %v, got %v", tc.result, min)
+			minimum := tc.versions.Minimum()
+			if minimum != tc.result {
+				t.Errorf("expected %v, got %v", tc.result, minimum)
 			}
 		})
 	}
@@ -146,9 +146,9 @@ func TestAtLeast(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			min := tc.versions.AtLeast(tc.version)
-			if min != tc.result {
-				t.Errorf("expected %v, got %v", tc.result, min)
+			minimum := tc.versions.AtLeast(tc.version)
+			if minimum != tc.result {
+				t.Errorf("expected %v, got %v", tc.result, minimum)
 			}
 		})
 	}

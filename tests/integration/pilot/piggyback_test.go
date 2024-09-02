@@ -36,7 +36,7 @@ func TestPiggyback(t *testing.T) {
 		RequireIstioVersion("1.10.0").
 		Run(func(t framework.TestContext) {
 			workloads := []echo.Instances{apps.A, apps.Sotw}
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Default()})
 			for _, workload := range workloads {
 				podName := workload[0].WorkloadsOrFail(t)[0].PodName()
 				namespace := workload.Config().Namespace.Name()
@@ -68,7 +68,7 @@ func TestPiggyback(t *testing.T) {
 						{[]string{"proxy-status", "--plaintext", "--xds-address", pf.Address()}},
 					}
 					for _, args := range argsToTest {
-						istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+						istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Default()})
 						output, _, err := istioCtl.Invoke(args.args)
 						if err != nil {
 							return err
@@ -85,7 +85,7 @@ func TestPiggyback(t *testing.T) {
 
 				// Test gRPC-based --xds-via-agents
 				retry.UntilSuccessOrFail(t, func() error {
-					istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+					istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Default()})
 					args := []string{"x", "proxy-status", "--xds-via-agents"}
 					output, _, err := istioCtl.Invoke(args)
 					if err != nil {

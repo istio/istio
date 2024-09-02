@@ -31,9 +31,11 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // applyTrafficPolicy applies the trafficPolicy defined within destinationRule,
@@ -81,7 +83,7 @@ func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
 	proxyProtocol := policy.ProxyProtocol
 
 	// Check if CA Certificate should be System CA Certificate
-	if features.VerifyCertAtClient && tls != nil && tls.CaCertificates == "" {
+	if tls != nil && tls.CaCertificates == "" {
 		tls.CaCertificates = "system"
 	}
 
@@ -232,13 +234,8 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	if features.SendUnhealthyEndpoints.Load() {
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
-	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-	if localityLbSetting != nil {
-		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
-			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
-		}
-	}
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
+	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
 	applyLocalityLoadBalancer(locality, proxyLabels, c, localityLbSetting)
 
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
@@ -273,14 +270,23 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	ApplyRingHashLoadBalancer(c, lb)
 }
 
-func applyLocalityLoadBalancer(locality *core.Locality, proxyLabels map[string]string, cluster *cluster.Cluster,
+func applyLocalityLoadBalancer(locality *core.Locality, proxyLabels map[string]string, c *cluster.Cluster,
 	localityLB *networking.LocalityLoadBalancerSetting,
 ) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
-	enableFailover := cluster.OutlierDetection != nil
-	if cluster.LoadAssignment != nil {
+	enableFailover := c.OutlierDetection != nil
+	// set locality weighted lb config when locality lb is enabled, otherwise it will influence the result of LBPolicy like `least request`
+	if features.EnableLocalityWeightedLbConfig ||
+		(enableFailover && (localityLB.GetFailover() != nil || localityLB.GetFailoverPriority() != nil)) ||
+		localityLB.GetDistribute() != nil {
+		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
+		}
+	}
+
+	if c.LoadAssignment != nil {
 		// TODO: enable failoverPriority for `STRICT_DNS` cluster type
-		loadbalancer.ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, proxyLabels, localityLB, enableFailover)
+		loadbalancer.ApplyLocalityLoadBalancer(c.LoadAssignment, nil, locality, proxyLabels, localityLB, enableFailover)
 	}
 }
 
@@ -472,10 +478,23 @@ func (cb *ClusterBuilder) applyUpstreamProxyProtocol(
 		return
 	}
 	c := opts.mutable
+
+	// No existing transport; wrap RawBuffer.
+	if c.cluster.TransportSocket == nil && len(c.cluster.TransportSocketMatches) == 0 {
+		c.cluster.TransportSocket = &core.TransportSocket{
+			Name: "envoy.transport_sockets.upstream_proxy_protocol",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocolUpstreamTransport{
+				Config:          &core.ProxyProtocolConfig{Version: core.ProxyProtocolConfig_Version(proxyProtocol.Version)},
+				TransportSocket: util.RawBufferTransport(),
+			})},
+		}
+		return
+	}
+
 	if c.cluster.TransportSocket != nil {
 		// add an upstream proxy protocol wrapper for transportSocket
 		c.cluster.TransportSocket = &core.TransportSocket{
-			Name: "envoy.transport_sockets.upstream_proxy_protocol",
+			Name: wellknown.TransportSocketPROXY,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocolUpstreamTransport{
 				Config:          &core.ProxyProtocolConfig{Version: core.ProxyProtocolConfig_Version(proxyProtocol.Version)},
 				TransportSocket: c.cluster.TransportSocket,
@@ -486,7 +505,7 @@ func (cb *ClusterBuilder) applyUpstreamProxyProtocol(
 	// add an upstream proxy protocol wrapper for each transportSocket
 	for _, tsm := range c.cluster.TransportSocketMatches {
 		tsm.TransportSocket = &core.TransportSocket{
-			Name: "envoy.transport_sockets.upstream_proxy_protocol",
+			Name: wellknown.TransportSocketPROXY,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocolUpstreamTransport{
 				Config:          &core.ProxyProtocolConfig{Version: core.ProxyProtocolConfig_Version(proxyProtocol.Version)},
 				TransportSocket: tsm.TransportSocket,
