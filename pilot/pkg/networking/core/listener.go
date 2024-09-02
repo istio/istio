@@ -610,6 +610,9 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		chain := &listener.FilterChain{
 			Metadata:        opt.metadata,
 			TransportSocket: buildDownstreamTLSTransportSocket(opt.tlsContext),
+			// Setting this timeout enables the proxy to enhance its resistance against memory exhaustion attacks,
+			// such as slow TLS Handshake attacks.
+			TransportSocketConnectTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout),
 		}
 		if opt.httpOpts == nil {
 			// we are building a network filter chain (no http connection manager) for this filter chain
@@ -1114,7 +1117,7 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		filterChains = append(filterChains, &listener.FilterChain{
 			FilterChainMatch: match,
 			TransportSocket:  transportSocket,
-			// Setting this timeout enables the gateway to enhance its resistance against memory exhaustion attacks,
+			// Setting this timeout enables the proxy to enhance its resistance against memory exhaustion attacks,
 			// such as slow TLS Handshake attacks.
 			TransportSocketConnectTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout),
 		})
