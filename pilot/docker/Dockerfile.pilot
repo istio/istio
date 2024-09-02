@@ -28,4 +28,4 @@ RUN chmod +x /usr/local/bin/higress-pilot-start.sh
 
 USER 1337:1337
 
-ENTRYPOINT ["/usr/local/bin/pilot-discovery"]
+ENTRYPOINT ["/usr/local/bin/higress-pilot-start.sh"]
