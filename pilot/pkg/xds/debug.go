@@ -219,9 +219,12 @@ func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, internalMux *http.
 	if internalMux != nil {
 		internalMux.HandleFunc(path, handler)
 	}
-
+	handlerFunc := http.HandlerFunc(handler)
+	if features.DebugAuth {
+		handlerFunc = s.allowAuthenticatedOrLocalhost(handlerFunc)
+	}
 	// Add handler with auth; this is expose on an HTTP server
-	mux.HandleFunc(path, s.allowAuthenticatedOrLocalhost(http.HandlerFunc(handler)))
+	mux.HandleFunc(path, handlerFunc)
 }
 
 func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.HandlerFunc {
