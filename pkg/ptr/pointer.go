@@ -77,3 +77,13 @@ func Flatten[T any](t **T) *T {
 	}
 	return *t
 }
+
+func Equal[T comparable](a, b *T) bool {
+	if (a == nil) != (b == nil) {
+		return false
+	}
+	if a == nil {
+		return true
+	}
+	return *a == *b
+}

@@ -38,6 +38,15 @@ func TestEmpty(t *testing.T) {
 	assertEqual(t, Empty[*ts](), nil)
 }
 
+func TestEqual(t *testing.T) {
+	one := 1
+	otherOne := 1
+	two := 2
+	assertEqual(t, Equal(&one, &two), false)
+	assertEqual(t, Equal(&one, &one), true)
+	assertEqual(t, Equal(&one, &otherOne), true)
+}
+
 func TestOf(t *testing.T) {
 	one := 1
 	assertEqual(t, Of(1), &one)
