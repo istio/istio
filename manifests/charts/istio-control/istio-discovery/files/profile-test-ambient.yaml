@@ -1,12 +1,16 @@
+# WARNING: DO NOT EDIT, THIS FILE IS A COPY.
+# The original version of this file is located at /manifests/helm-profiles directory.
+# If you want to make a change in this file, edit the original one and run "make gen".
+
 meshConfig:
   defaultConfig:
     proxyMetadata:
       ISTIO_META_ENABLE_HBONE: "true"
 global:
-  platform: openshift
+  platform: kind
   variant: distroless
-seLinuxOptions:
-  type: spc_t
+  seLinuxOptions:
+    type: spc_t
 cni:
   ambient:
     enabled: true

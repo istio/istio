@@ -33,6 +33,13 @@ Finally, we can set all of that under .Values so the chart behaves without aware
 {{ fail (cat "unknown compatibility version" $.Values.compatibilityVersion) }}
 {{- end }}
 {{- end }}
+{{- with .Values.global.platform }}
+{{- with $.Files.Get (printf "files/profile-platform-%s.yaml" .) }}
+{{- $ignore := mustMergeOverwrite $profile (. | fromYaml) }}
+{{- else }}
+{{ fail (cat "unknown platform" $.Values.global.platform) }}
+{{- end }}
+{{- end }}
 {{- if $profile }}
 {{- $a := mustMergeOverwrite $defaults $profile }}
 {{- end }}
