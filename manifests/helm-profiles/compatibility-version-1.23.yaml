@@ -9,4 +9,5 @@ meshConfig:
   defaultConfig:
     proxyMetadata:
       # 1.24 behaviour changes
-      ENABLE_DEFERRED_STATS_CREATION: "false"  
+      ENABLE_DEFERRED_STATS_CREATION: "false"
+      BYPASS_OVERLOAD_MANAGER_FOR_STATIC_LISTENERS: "false"

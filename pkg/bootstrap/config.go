@@ -115,6 +115,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.MetricsLocalhostAccessOnly(cfg.Metadata.ProxyConfig.ProxyMetadata),
 		option.DeferredClusterCreation(features.EnableDeferredClusterCreation),
 		option.DeferredStatsCreation(features.EnableDeferredStatsCreation),
+		option.BypassOverloadManagerForStaticListeners(features.BypassOverloadManagerForStaticListeners),
 	)
 
 	// Add GCPProjectNumber to access in bootstrap template.

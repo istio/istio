@@ -421,6 +421,9 @@
             "port_value": 15090
           }
         },
+        "ignore_global_conn_limit": true,
+        "bypass_overload_manager": true,
+        
         "filter_chains": [
           {
             "filters": [
@@ -484,6 +487,9 @@
              "port_value": 15021
            }
         },
+        "ignore_global_conn_limit": true,
+        "bypass_overload_manager": true,
+        
         "filter_chains": [
           {
             "filters": [

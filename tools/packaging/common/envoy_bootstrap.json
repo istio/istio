@@ -550,6 +550,10 @@
             "port_value": {{ .envoy_prometheus_port }}
           }
         },
+        {{- if .bypass_overload_manager}}
+        "ignore_global_conn_limit": true,
+        "bypass_overload_manager": true,
+        {{ end}}
         {{- if .dual_stack }}
         "additionalAddresses": [
           {
@@ -648,6 +652,10 @@
              "port_value": {{ .envoy_status_port }}
            }
         },
+        {{- if .bypass_overload_manager}}
+        "ignore_global_conn_limit": true,
+        "bypass_overload_manager": true,
+        {{ end}}
         {{- if .dual_stack }}
         "additionalAddresses": [
           {

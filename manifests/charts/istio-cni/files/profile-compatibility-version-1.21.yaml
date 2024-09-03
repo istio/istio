@@ -25,6 +25,7 @@ meshConfig:
       ENABLE_DELIMITED_STATS_TAG_REGEX: "false"
       # 1.24 behaviour changes
       ENABLE_DEFERRED_STATS_CREATION: "false"
+      BYPASS_OVERLOAD_MANAGER_FOR_STATIC_LISTENERS: "false"
     tracing:
       zipkin:
         address: zipkin.istio-system:9411
