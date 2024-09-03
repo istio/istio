@@ -376,6 +376,10 @@ func (sd *ServiceDiscovery) ServicesForWaypoint(model.WaypointKey) []model.Servi
 	return nil
 }
 
+func (sd *ServiceDiscovery) ServicesWithWaypoint(string) []model.ServiceWaypointInfo {
+	return nil
+}
+
 func (sd *ServiceDiscovery) Waypoint(string, string) []netip.Addr {
 	return nil
 }

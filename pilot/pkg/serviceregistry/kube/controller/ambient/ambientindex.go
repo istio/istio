@@ -304,6 +304,16 @@ func New(options Options) Index {
 			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}, false
 		})), false)
 
+	if features.EnableIngressWaypointRouting {
+		RegisterEdsShim(
+			a.XDSUpdater,
+			Workloads,
+			WorkloadServiceIndex,
+			WorkloadServices,
+			ServiceAddressIndex,
+		)
+	}
+
 	a.workloads = workloadsCollection{
 		Collection:       Workloads,
 		ByAddress:        WorkloadAddressIndex,
