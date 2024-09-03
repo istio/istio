@@ -609,7 +609,7 @@ func (ep *IstioEndpoint) FirstAddressOrNil() string {
 
 // Key returns a function suitable for usage to distinguish this IstioEndpoint from another
 func (ep *IstioEndpoint) Key() string {
-	return ep.FirstAddressOrNil() + "/" + ep.WorkloadName
+	return ep.FirstAddressOrNil() + "/" + ep.WorkloadName + "/" + ep.ServicePortName
 }
 
 // EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.
