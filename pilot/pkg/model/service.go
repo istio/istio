@@ -864,6 +864,7 @@ type ServiceDiscovery interface {
 }
 
 type AmbientIndexes interface {
+	ServicesWithWaypoint(key string) []ServiceWaypointInfo
 	AddressInformation(addresses sets.String) ([]AddressInfo, sets.String)
 	AdditionalPodSubscriptions(
 		proxy *Proxy,
@@ -926,6 +927,10 @@ func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
 	return nil
 }
 
+func (u NoopAmbientIndexes) ServicesWithWaypoint(string) []ServiceWaypointInfo {
+	return nil
+}
+
 var _ AmbientIndexes = NoopAmbientIndexes{}
 
 type AddressInfo struct {
@@ -962,6 +967,11 @@ func (i AddressInfo) ResourceName() string {
 		name = serviceResourceName(addr.Service)
 	}
 	return name
+}
+
+type ServiceWaypointInfo struct {
+	Service          *workloadapi.Service
+	WaypointHostname string
 }
 
 type TypedObject struct {
