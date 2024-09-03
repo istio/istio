@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: ztunnel
+  name: {{ include "ztunnel.release-name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: ztunnel
