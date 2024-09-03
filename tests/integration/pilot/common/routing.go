@@ -19,6 +19,8 @@ package common
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/util/assert"
 	"net/http"
 	"net/netip"
 	"net/url"
@@ -5020,4 +5022,20 @@ func LocationHeader(expected string) echo.Checker {
 				exp,
 				"Location")
 		})
+}
+
+func getSupportedIPFamilies(t framework.TestContext, instace echo.Instance) (v4 bool, v6 bool) {
+	for _, a := range instace.WorkloadsOrFail(t).Addresses() {
+		ip, err := netip.ParseAddr(a)
+		assert.NoError(t, err)
+		if ip.Is4() {
+			v4 = true
+		} else if ip.Is6() {
+			v6 = true
+		}
+	}
+	if !v4 && !v6 {
+		t.Fatalf("pod is neither v4 nor v6? %v", instace.WorkloadsOrFail(t).Addresses())
+	}
+	return
 }
