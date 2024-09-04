@@ -1,0 +1,2 @@
+cni:
+  cniNetnsDir: /var/run/docker/netns
