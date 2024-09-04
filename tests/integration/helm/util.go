@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -197,7 +196,7 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 	if ctx.Settings().OpenShift {
 		platform = "openshift"
 	} else {
-		platform = "" //no platform
+		platform = "" // no platform
 	}
 
 	// TODO why not just use yaml parsing here, this sprintf stuff is fragile.
