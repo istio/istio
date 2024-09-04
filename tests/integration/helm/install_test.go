@@ -40,6 +40,7 @@ global:
   hub: %s
   tag: %s
   variant: %q
+  %s
 `
 	framework.
 		NewTest(t).
@@ -92,6 +93,7 @@ global:
   hub: %s
   tag: %s
   variant: %q
+  %s
 profile: stable
 `
 
@@ -133,6 +135,7 @@ global:
   hub: %s
   tag: %s
   variant: %q
+  %s
 profile: stable
 revision: 1-x
 defaultRevision: ""
@@ -198,8 +201,15 @@ func baseSetup(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
 		if !strings.Contains(overrideValuesStr, "tag: ") {
 			tag = "tag: " + tag
 		}
-		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, tag, s.Image.Variant)
-		overrideValues = adjustValuesForOpenShift(t, overrideValues)
+
+		var platform string
+		// Handle Openshift platform override if set
+		if ctx.Settings().OpenShift {
+			platform = "openshift"
+		} else {
+			platform = "" // no platform
+		}
+		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, tag, s.Image.Variant, platform)
 
 		overrideValuesFile := filepath.Join(workDir, "values.yaml")
 		if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
