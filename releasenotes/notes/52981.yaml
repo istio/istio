@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Added** Platform-specific configurations for Helm installs. Example:
+      `helm install istio-cni --set profile=ambient --set global.platform=k3s`
+      `helm install istiod --set profile=ambient --set global.platform=k3s`
+
+      For list of currently-supported platform overrides, see `manifests/charts/platform-xxx.yaml` files.
+
+    **Removed** Openshift profile variants, replaced with `global.platform` overrides. Example:
+      `helm install istio-cni --set profile=ambient-openshift` is now
+      `helm install istio-cni --set profile=ambient --set global.platform=openshift`
