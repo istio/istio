@@ -200,7 +200,7 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 	}
 
 	// TODO why not just use yaml parsing here, this sprintf stuff is fragile.
-	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, revision, platform)
+	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, platform, revision)
 	if isAmbient {
 		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag, variant, platform)
 	}
