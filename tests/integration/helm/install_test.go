@@ -206,7 +206,7 @@ func baseSetup(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
 		var platform string
 		// Handle Openshift platform override if set
 		if t.Settings().OpenShift {
-			platform = "openshift"
+			platform = "platform: openshift"
 		} else {
 			platform = "" // no platform
 		}

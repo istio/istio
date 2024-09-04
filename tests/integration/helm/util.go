@@ -194,7 +194,7 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 	var platform string
 	// Handle Openshift platform override if set
 	if ctx.Settings().OpenShift {
-		platform = "openshift"
+		platform = "platform: openshift"
 	} else {
 		platform = "" // no platform
 	}
