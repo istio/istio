@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi/security"
 )
@@ -368,8 +369,8 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 		action = security.Action_DENY
 	default:
 		return nil, &model.StatusMessage{
-			Reason:  "UnsupportedAction",
-			Message: fmt.Sprintf("Policy not accepted because of unsupported action: %s", pol.Action),
+			Reason:  "UnsupportedValue",
+			Message: fmt.Sprintf("ztunnel does not support the %s action", pol.Action),
 		}
 	}
 	opol := &security.Authorization{
@@ -380,13 +381,28 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 		Groups:    nil,
 	}
 
-	for _, rule := range pol.Rules {
-		rules := handleRule(action, rule)
+	rulesWithL7 := []string{}
+
+	for index, rule := range pol.Rules {
+		rules, foundL7 := handleRule(action, rule)
 		if rules != nil {
 			rg := &security.Group{
 				Rules: rules,
 			}
 			opol.Groups = append(opol.Groups, rg)
+		}
+		if foundL7 {
+			rulesWithL7 = append(rulesWithL7, strconv.Itoa(index))
+		}
+	}
+	if len(rulesWithL7) > 0 {
+		// this is an accepted with warning condition
+
+		warnIndecies := slices.Join(",", rulesWithL7...)
+
+		return opol, &model.StatusMessage{
+			Reason:  "UnsupportedValue",
+			Message: fmt.Sprintf("ztunnel does not support L7 rules which were present in the following indecies: [%s]", warnIndecies),
 		}
 	}
 
@@ -402,14 +418,18 @@ func anyNonEmpty[T any](arr ...[]T) bool {
 	return false
 }
 
-func handleRule(action security.Action, rule *v1beta1.Rule) []*security.Rules {
+func handleRule(action security.Action, rule *v1beta1.Rule) ([]*security.Rules, bool) {
+	l7RuleFound := false
 	toMatches := []*security.Match{}
 	for _, to := range rule.To {
 		op := to.Operation
-		if action == security.Action_ALLOW && anyNonEmpty(op.Hosts, op.NotHosts, op.Methods, op.NotMethods, op.Paths, op.NotPaths) {
+		if anyNonEmpty(op.Hosts, op.NotHosts, op.Methods, op.NotMethods, op.Paths, op.NotPaths) {
+			l7RuleFound = true
+		}
+		if action == security.Action_ALLOW && l7RuleFound {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
-			return nil
+			return nil, true
 		}
 		match := &security.Match{
 			DestinationPorts:    stringToPort(op.Ports),
@@ -420,10 +440,13 @@ func handleRule(action security.Action, rule *v1beta1.Rule) []*security.Rules {
 	fromMatches := []*security.Match{}
 	for _, from := range rule.From {
 		op := from.Source
-		if action == security.Action_ALLOW && anyNonEmpty(op.RemoteIpBlocks, op.NotRemoteIpBlocks, op.RequestPrincipals, op.NotRequestPrincipals) {
+		if anyNonEmpty(op.RemoteIpBlocks, op.NotRemoteIpBlocks, op.RequestPrincipals, op.NotRequestPrincipals) {
+			l7RuleFound = true
+		}
+		if action == security.Action_ALLOW && l7RuleFound {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
-			return nil
+			return nil, true
 		}
 		match := &security.Match{
 			SourceIps:     stringToIP(op.IpBlocks),
@@ -445,10 +468,13 @@ func handleRule(action security.Action, rule *v1beta1.Rule) []*security.Rules {
 	}
 	for _, when := range rule.When {
 		l4 := l4WhenAttributes.Contains(when.Key)
+		if !l4 {
+			l7RuleFound = true
+		}
 		if action == security.Action_ALLOW && !l4 {
 			// L7 policies never match for ALLOW
 			// For DENY they will always match, so it is more restrictive
-			return nil
+			return nil, true
 		}
 		positiveMatch := &security.Match{
 			Namespaces:       whenMatch("source.namespace", when, false, stringToMatch),
@@ -465,7 +491,7 @@ func handleRule(action security.Action, rule *v1beta1.Rule) []*security.Rules {
 		}
 		rules = append(rules, &security.Rules{Matches: []*security.Match{positiveMatch}})
 	}
-	return rules
+	return rules, l7RuleFound
 }
 
 var l4WhenAttributes = sets.New(

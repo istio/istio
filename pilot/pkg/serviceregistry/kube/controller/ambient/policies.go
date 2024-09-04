@@ -46,7 +46,6 @@ func PolicyCollections(
 			Binding: model.WorkloadAuthorizationBindingStatus{
 				ResourceName: string(model.Ztunnel),
 				Error:        status,
-				Warn:         []string{},
 			},
 		}
 	}, krt.WithName("AuthzDerivedPolicies"))
