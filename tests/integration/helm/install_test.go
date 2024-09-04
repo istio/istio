@@ -76,6 +76,7 @@ global:
   hub: %s
   %s
   variant: %q
+  %s
 profile: ambient
 pilot:
   trustedZtunnelNamespace: ztunnel
