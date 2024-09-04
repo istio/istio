@@ -78,6 +78,7 @@ global:
   hub: %s
   %s
   variant: %q
+  %s
 revision: "%s"
 `
 	ambientProfileOverride = `
@@ -85,6 +86,7 @@ global:
   hub: %s
   %s
   variant: %q
+  %s
 profile: ambient
 `
 	sampleEnvoyFilter = `
@@ -175,22 +177,6 @@ spec:
 // ManifestsChartPath is path of local Helm charts used for testing.
 var ManifestsChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
-// adjustValuesForOpenShift adds the "openshift" or "openshift-ambient" profile to the
-// values if tests are running in OpenShift, and returns the modified values
-func adjustValuesForOpenShift(ctx framework.TestContext, values string) string {
-	if !ctx.Settings().OpenShift {
-		return values
-	}
-
-	if !strings.Contains(values, "profile: ") {
-		values += "\nprofile: openshift\n"
-	} else if strings.Contains(values, "profile: ambient") {
-		values = strings.ReplaceAll(values, "profile: ambient", "profile: openshift-ambient")
-	}
-
-	return values
-}
-
 // getValuesOverrides returns the values file created to pass into Helm override default values
 // for the hub and tag.
 //
@@ -206,11 +192,19 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 		tag = "tag: " + tag
 	}
 
-	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, revision)
-	if isAmbient {
-		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag, variant)
+	var platform string
+	// Handle Openshift platform override if set
+	if ctx.Settings().OpenShift {
+		platform = "openshift"
+	} else {
+		platform = "" //no platform
 	}
-	overrideValues = adjustValuesForOpenShift(ctx, overrideValues)
+
+	// TODO why not just use yaml parsing here, this sprintf stuff is fragile.
+	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, revision, platform)
+	if isAmbient {
+		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag, variant, platform)
+	}
 
 	overrideValuesFile := filepath.Join(workDir, "values.yaml")
 	if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
