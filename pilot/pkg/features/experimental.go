@@ -204,4 +204,7 @@ var (
 	EnableEnhancedDestinationRuleMerge = env.Register("ENABLE_ENHANCED_DESTINATIONRULE_MERGE", true,
 		"If enabled, Istio merge destinationrules considering their exportTo fields,"+
 			" they will be kept as independent rules if the exportTos are not equal.").Get()
+
+	UnifiedSidecarScoping = env.Register("PILOT_UNIFIED_SIDECAR_SCOPE", true,
+		"If true, unified SidecarScope creation will be used. This is only intended as a temporary feature flag for backwards compatibility.").Get()
 )

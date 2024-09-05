@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -270,7 +271,81 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 // that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
 // We use this scope when the user has not set any sidecar Config for a given config namespace.
 func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *SidecarScope {
-	return convertToSidecarScope(ps, nil, configNamespace)
+	if features.UnifiedSidecarScoping {
+		// Modern way: treat no Sidecar the same as having a Sidecar with a single egress listener for `*/*`
+		return convertToSidecarScope(ps, nil, configNamespace)
+	}
+	// Legacy way, for compatibility: disjoint logic for Sidecar vs no Sidecar. This has minor differences in the face of
+	// overlapping hostnames across services.
+	defaultEgressListener := &IstioEgressListenerWrapper{
+		IstioListener: &networking.IstioEgressListener{
+			Hosts: []string{"*/*"},
+		},
+	}
+	services := ps.servicesExportedToNamespace(configNamespace)
+	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
+	defaultEgressListener.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(
+		defaultEgressListener.virtualServices, services)
+
+	out := &SidecarScope{
+		Name:                    defaultSidecar,
+		Namespace:               configNamespace,
+		EgressListeners:         []*IstioEgressListenerWrapper{defaultEgressListener},
+		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
+		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
+		servicesByHostname:      make(map[host.Name]*Service, len(defaultEgressListener.services)),
+		configDependencies:      make(sets.Set[ConfigHash]),
+		Version:                 ps.PushVersion,
+	}
+
+	servicesAdded := make(map[host.Name]sidecarServiceIndex)
+	for _, s := range services {
+		out.appendSidecarServices(servicesAdded, s)
+	}
+	defaultEgressListener.services = out.services
+
+	// add dependencies on delegate virtual services
+	delegates := ps.DelegateVirtualServices(defaultEgressListener.virtualServices)
+	for _, delegate := range delegates {
+		out.AddConfigDependencies(delegate)
+	}
+	for _, vs := range defaultEgressListener.virtualServices {
+		for _, cfg := range VirtualServiceDependencies(vs) {
+			out.AddConfigDependencies(cfg.HashCode())
+		}
+	}
+
+	// Now that we have all the services that sidecars using this scope (in
+	// this config namespace) will see, identify all the destinationRules
+	// that these services need
+	for _, s := range out.services {
+		if dr := ps.destinationRule(configNamespace, s); dr != nil {
+			out.destinationRules[s.Hostname] = dr
+			for _, cdr := range dr {
+				for _, from := range cdr.from {
+					out.destinationRulesByNames[from] = cdr.rule
+					out.AddConfigDependencies(ConfigKey{
+						Kind:      kind.DestinationRule,
+						Name:      from.Name,
+						Namespace: from.Namespace,
+					}.HashCode())
+				}
+			}
+		}
+		out.AddConfigDependencies(ConfigKey{
+			Kind:      kind.ServiceEntry,
+			Name:      string(s.Hostname),
+			Namespace: s.Attributes.Namespace,
+		}.HashCode())
+	}
+
+	if ps.Mesh.OutboundTrafficPolicy != nil {
+		out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
+			Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
+		}
+	}
+
+	return out
 }
 
 // convertToSidecarScope converts from Sidecar config to SidecarScope object
@@ -685,36 +760,54 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 
-	type namespaceProvider struct {
-		Namespace         string
-		KubernetesService bool
-	}
-
-	validServices := make(map[host.Name]namespaceProvider, len(importedServices))
-	for _, svc := range importedServices {
-		np := namespaceProvider{Namespace: svc.Attributes.Namespace, KubernetesService: svc.Attributes.ServiceRegistry == provider.Kubernetes}
-		ex, f := validServices[svc.Hostname]
-		// Select a single namespace for a given hostname.
-		// If the same hostname is imported from multiple namespaces, pick the one in the configNamespace
-		// If neither are in configNamespace, an arbitrary one will be chosen, preferring Kubernetes services over ServiceEntry
-		if !f {
-			// First time we saw the hostname, take it
-			validServices[svc.Hostname] = np
-		} else if svc.Attributes.Namespace == configNamespace {
-			// We have seen the hostname, but now its in the configNamespace which has precedence
-			validServices[svc.Hostname] = np
-		} else if !ex.KubernetesService && np.KubernetesService && (np.Namespace == configNamespace || ex.Namespace != configNamespace) {
-			// We saw the hostname, but this time it is a Kubernetes service, rather than a ServiceEntry for the same hostname.
-			// Make sure this isn't preempting the "same namespace wins" rule as well.
-			// Prefer this one.
-			validServices[svc.Hostname] = np
+	if features.UnifiedSidecarScoping {
+		type namespaceProvider struct {
+			Namespace         string
+			KubernetesService bool
 		}
-	}
+		validServices := make(map[host.Name]namespaceProvider, len(importedServices))
+		for _, svc := range importedServices {
+			np := namespaceProvider{Namespace: svc.Attributes.Namespace, KubernetesService: svc.Attributes.ServiceRegistry == provider.Kubernetes}
+			ex, f := validServices[svc.Hostname]
+			// Select a single namespace for a given hostname.
+			// If the same hostname is imported from multiple namespaces, pick the one in the configNamespace
+			// If neither are in configNamespace, an arbitrary one will be chosen, preferring Kubernetes services over ServiceEntry
+			if !f {
+				// First time we saw the hostname, take it
+				validServices[svc.Hostname] = np
+			} else if svc.Attributes.Namespace == configNamespace {
+				// We have seen the hostname, but now its in the configNamespace which has precedence
+				validServices[svc.Hostname] = np
+			} else if !ex.KubernetesService && np.KubernetesService && (np.Namespace == configNamespace || ex.Namespace != configNamespace) {
+				// We saw the hostname, but this time it is a Kubernetes service, rather than a ServiceEntry for the same hostname.
+				// Make sure this isn't preempting the "same namespace wins" rule as well.
+				// Prefer this one.
+				validServices[svc.Hostname] = np
+			}
+		}
 
-	// Filter down to just instances in scope for the service
-	return slices.FilterInPlace(importedServices, func(svc *Service) bool {
-		return validServices[svc.Hostname].Namespace == svc.Attributes.Namespace
-	})
+		// Filter down to just instances in scope for the service
+		return slices.FilterInPlace(importedServices, func(svc *Service) bool {
+			return validServices[svc.Hostname].Namespace == svc.Attributes.Namespace
+		})
+	} else {
+		// Legacy path
+		validServices := make(map[host.Name]string, len(importedServices))
+		for _, svc := range importedServices {
+			_, f := validServices[svc.Hostname]
+			// Select a single namespace for a given hostname.
+			// If the same hostname is imported from multiple namespaces, pick the one in the configNamespace
+			// If neither are in configNamespace, an arbitrary one will be chosen
+			if !f || svc.Attributes.Namespace == configNamespace {
+				validServices[svc.Hostname] = svc.Attributes.Namespace
+			}
+		}
+
+		// Filter down to just instances in scope for the service
+		return slices.FilterInPlace(importedServices, func(svc *Service) bool {
+			return validServices[svc.Hostname] == svc.Attributes.Namespace
+		})
+	}
 }
 
 // Return the original service or a trimmed service which has a subset of the ports in original service.

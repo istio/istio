@@ -19,6 +19,8 @@ upgradeNotes:
       Behavior before, without `Sidecar`: prefer the local proxy namespace, to allow consumer overrides.
       Behavior before, with `Sidecar`: arbitrary order.
       New behavior: prefer the local proxy namespace, to allow consumer overrides.
+      
+      The old behavior can be retained, temporarily, by setting `PILOT_UNIFIED_SIDECAR_SCOPE=false`.
 
 releaseNotes:
   - |
