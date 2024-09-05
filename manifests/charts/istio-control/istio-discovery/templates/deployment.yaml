@@ -190,7 +190,7 @@ spec:
               resourceFieldRef:
                 resource: limits.cpu
           - name: PLATFORM
-            value: "{{ coalesce .Values.platform .Values.global.platform }}"
+            value: "{{ .Values.global.platform }}"
           resources:
 {{- if .Values.resources }}
 {{ toYaml .Values.resources | trim | indent 12 }}
