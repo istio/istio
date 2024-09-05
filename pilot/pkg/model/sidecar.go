@@ -193,9 +193,12 @@ func (sc *SidecarScope) MarshalJSON() ([]byte, error) {
 		"namespace":             sc.Namespace,
 		"outboundTrafficPolicy": sc.OutboundTrafficPolicy,
 		"services":              sc.services,
-		"servicesByHostname":    sc.servicesByHostname,
-		"sidecar":               sc.Sidecar,
-		"destinationRules":      sc.destinationRules,
+		"egressListenerServices": slices.Map(sc.EgressListeners, func(e *IstioEgressListenerWrapper) []*Service {
+			return e.services
+		}),
+		"servicesByHostname": sc.servicesByHostname,
+		"sidecar":            sc.Sidecar,
+		"destinationRules":   sc.destinationRules,
 	}, "", "  ")
 }
 
@@ -790,24 +793,23 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		return slices.FilterInPlace(importedServices, func(svc *Service) bool {
 			return validServices[svc.Hostname].Namespace == svc.Attributes.Namespace
 		})
-	} else {
-		// Legacy path
-		validServices := make(map[host.Name]string, len(importedServices))
-		for _, svc := range importedServices {
-			_, f := validServices[svc.Hostname]
-			// Select a single namespace for a given hostname.
-			// If the same hostname is imported from multiple namespaces, pick the one in the configNamespace
-			// If neither are in configNamespace, an arbitrary one will be chosen
-			if !f || svc.Attributes.Namespace == configNamespace {
-				validServices[svc.Hostname] = svc.Attributes.Namespace
-			}
-		}
-
-		// Filter down to just instances in scope for the service
-		return slices.FilterInPlace(importedServices, func(svc *Service) bool {
-			return validServices[svc.Hostname] == svc.Attributes.Namespace
-		})
 	}
+	// Legacy path
+	validServices := make(map[host.Name]string, len(importedServices))
+	for _, svc := range importedServices {
+		_, f := validServices[svc.Hostname]
+		// Select a single namespace for a given hostname.
+		// If the same hostname is imported from multiple namespaces, pick the one in the configNamespace
+		// If neither are in configNamespace, an arbitrary one will be chosen
+		if !f || svc.Attributes.Namespace == configNamespace {
+			validServices[svc.Hostname] = svc.Attributes.Namespace
+		}
+	}
+
+	// Filter down to just instances in scope for the service
+	return slices.FilterInPlace(importedServices, func(svc *Service) bool {
+		return validServices[svc.Hostname] == svc.Attributes.Namespace
+	})
 }
 
 // Return the original service or a trimmed service which has a subset of the ports in original service.
