@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** DestinationRules on same host but with different ExportTo can behave inconsistently, so stop merging the destinationRules when the exportTo attributes are totally different.
+  **Fixed** DestinationRules on same host but with different ExportTo can behave inconsistently, so stop merging the destinationRules when the exportTo attributes are totally different. If you want to toggle this behavior, you can set the `PILOT_ENABLE_MERGE_DESTINATIONRULES` environment variable to `false` in the pilot deployment.

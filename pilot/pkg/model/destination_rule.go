@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -53,11 +54,13 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 		// `appendSeparately` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
 		appendSeparately := true
 		for _, mdr := range mdrList {
-			if exportToSet.Equals(mdr.exportTo) {
-				appendSeparately = false
-			} else if len(exportToSet.Difference(mdr.exportTo)) > 0 && len(mdr.exportTo.Difference(exportToSet)) > 0 {
-				// If anyone's exportTo is not the subset of the other, skip merging, append as a standalone one
-				continue
+			if features.EnableEnhancedDestinationRuleMerge {
+				if exportToSet.Equals(mdr.exportTo) {
+					appendSeparately = false
+				} else if len(exportToSet.Difference(mdr.exportTo)) > 0 && len(mdr.exportTo.Difference(exportToSet)) > 0 {
+					// If anyone's exportTo is not the subset of the other, skip merging, append as a standalone one
+					continue
+				}
 			}
 
 			existingRule := mdr.rule.Spec.(*networking.DestinationRule)
