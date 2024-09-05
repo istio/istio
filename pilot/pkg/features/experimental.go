@@ -203,5 +203,5 @@ var (
 
 	EnableEnhancedDestinationRuleMerge = env.Register("ENABLE_ENHANCED_DESTINATIONRULE_MERGE", true,
 		"If enabled, Istio merge destinationrules considering their exportTo fields,"+
-			" they will be kept as independant rules if the exportTos are not equal.").Get()
+			" they will be kept as independent rules if the exportTos are not equal.").Get()
 )
