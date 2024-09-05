@@ -1118,17 +1118,16 @@ const (
 	WorkloadScope  WorkloadAuthorizationBindingScope = "Workload"
 )
 
-// const Ztunnel string = "ztunnel"
-
 type WorkloadAuthorizationBindingStatus struct {
 	ResourceName string
-	Error        *StatusMessage // label selector has no targets or similar?
-	Warn         []string       // concerns, contains L7 thus will be oddly enfoced by ztunnel
+	Status       *StatusMessage
+	Bound        bool
 }
 
 func (i WorkloadAuthorizationBindingStatus) Equals(other WorkloadAuthorizationBindingStatus) bool {
-	return ptr.Equal(i.Error, other.Error) &&
-		slices.Equal(i.Warn, other.Warn)
+	return ptr.Equal(i.Status, other.Status) &&
+		i.Bound == other.Bound &&
+		i.ResourceName == other.ResourceName
 }
 
 type WorkloadAuthorization struct {
@@ -1148,24 +1147,18 @@ func (i WorkloadAuthorization) GetStatusTarget() TypedObject {
 func (i WorkloadAuthorization) GetConditions() ConditionSet {
 	set := make(ConditionSet, 1)
 
-	if i.Binding.Error != nil {
-		set[ZtunnelBound] = &Condition{
-			Reason:  i.Binding.Error.Reason,
-			Message: i.Binding.Error.Message,
-			Status:  false,
+	if i.Binding.Status != nil {
+		set["Accepted"] = &Condition{
+			Reason:  i.Binding.Status.Reason,
+			Message: i.Binding.Status.Message,
+			Status:  i.Binding.Bound,
 		}
 	} else {
-		var message string
-		message = "Successfully attached to ztunnel"
-		if len(i.Binding.Warn) != 0 {
-			// attached but with warning
-			// TODO(ilrudie): formatting is not great, fix me!
-			message = message + fmt.Sprintf(", with warnings: %v", i.Binding.Warn)
-		}
-		set[ZtunnelBound] = &Condition{
-			Reason:  "ztunnelAccepted",
+		message := "attached to ztunnel"
+		set["Accepted"] = &Condition{
+			Reason:  "Accepted",
 			Message: message,
-			Status:  true,
+			Status:  i.Binding.Bound,
 		}
 	}
 

@@ -39,13 +39,15 @@ func PolicyCollections(
 		if status == nil && pol == nil {
 			return nil
 		}
+
 		return &model.WorkloadAuthorization{
 			Authorization: pol,
 			LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels()),
 			Source:        MakeSource(i),
 			Binding: model.WorkloadAuthorizationBindingStatus{
 				ResourceName: string(model.Ztunnel),
-				Error:        status,
+				Status:       status,
+				Bound:        pol != nil,
 			},
 		}
 	}, krt.WithName("AuthzDerivedPolicies"))
