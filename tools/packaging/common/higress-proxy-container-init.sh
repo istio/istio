@@ -10,7 +10,7 @@ chown -R 1337.1337 /var/lib/logrotate
 
 chown -R 1337.1337 /var/lib/istio
 
-cat <<EOF > /etc/logrotate.d/higress-logrotate
+cat <<'EOF' > /etc/logrotate.d/higress-logrotate
 /var/log/proxy/access.log
 {
 su 1337 1337
