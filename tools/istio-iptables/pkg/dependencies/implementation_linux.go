@@ -62,7 +62,7 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 	// does the "xx-save" binary exist?
 	rulesDump, binExistsErr := exec.Command(iptablesSaveBin).CombinedOutput()
 	if binExistsErr != nil {
-		return IptablesVersion{}, fmt.Errorf("binary %s not found in path: %w", iptablesSaveBin, binExistsErr)
+		return IptablesVersion{}, fmt.Errorf("failed to execute %s: %w %v", iptablesSaveBin, binExistsErr, string(rulesDump))
 	}
 
 	// Binary is there, so try to parse version
