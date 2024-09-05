@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 52944
+  - 52847
+releaseNotes:
+  - |
+    **Removed** a change in Istio 1.23.0 causing regressions for ServiceEntries with multiple addresses defined.
+    Note: the reverted change did fix an issue around missing addresses (#51747), but introduce a new set of issues.
+    The original issue can be worked around by creating a Sidecar resource.
