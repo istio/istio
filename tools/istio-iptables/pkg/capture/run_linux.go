@@ -53,7 +53,7 @@ func configureTProxyRoutes(cfg *config.Config) error {
 				r := netlink.NewRule()
 				r.Family = family
 				r.Table = tproxyTable
-				r.Mark = tproxyMark
+				r.Mark = uint32(tproxyMark)
 				if err := netlink.RuleAdd(r); err != nil {
 					return fmt.Errorf("failed to configure netlink rule: %v", err)
 				}
