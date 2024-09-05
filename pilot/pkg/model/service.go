@@ -1011,8 +1011,8 @@ func (i ServiceInfo) GetStatusTarget() TypedObject {
 type ConditionType string
 
 const (
-	WaypointBound ConditionType = "istio.io/WaypointBound"
-	ZtunnelBound  ConditionType = "istio.io/ZtunnelBound"
+	WaypointBound   ConditionType = "istio.io/WaypointBound"
+	ZtunnelAccepted ConditionType = "ZtunnelAccepted"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1148,14 +1148,14 @@ func (i WorkloadAuthorization) GetConditions() ConditionSet {
 	set := make(ConditionSet, 1)
 
 	if i.Binding.Status != nil {
-		set["Accepted"] = &Condition{
+		set[ZtunnelAccepted] = &Condition{
 			Reason:  i.Binding.Status.Reason,
 			Message: i.Binding.Status.Message,
 			Status:  i.Binding.Bound,
 		}
 	} else {
 		message := "attached to ztunnel"
-		set["Accepted"] = &Condition{
+		set[ZtunnelAccepted] = &Condition{
 			Reason:  "Accepted",
 			Message: message,
 			Status:  i.Binding.Bound,
