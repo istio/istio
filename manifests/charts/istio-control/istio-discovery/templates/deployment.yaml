@@ -189,6 +189,7 @@ spec:
             valueFrom:
               resourceFieldRef:
                 resource: limits.cpu
+                divisor: "1"
           - name: PLATFORM
             value: "{{ .Values.global.platform }}"
           resources:
