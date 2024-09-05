@@ -83,7 +83,7 @@ func getPodID(zPods []corev1.Pod) (string, error) {
 }
 
 // getStructFieldNames returns the field names of a struct as a slice of strings
-func getStructFieldNames(v interface{}) []string {
+func getStructFieldNames(v any) []string {
 	val := reflect.ValueOf(v)
 	typ := val.Type()
 
@@ -91,6 +91,5 @@ func getStructFieldNames(v interface{}) []string {
 	for i := 0; i < val.NumField(); i++ {
 		fieldNames = append(fieldNames, typ.Field(i).Tag.Get("json"))
 	}
-	fmt.Println(fieldNames)
 	return fieldNames
 }
