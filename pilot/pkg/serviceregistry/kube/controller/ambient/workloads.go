@@ -420,19 +420,21 @@ func (a *index) serviceEntryWorkloadBuilder(
 
 			policies := a.buildWorkloadPolicies(ctx, authorizationPolicies, peerAuths, meshCfg, se.Labels, se.Namespace)
 
-			var waypointAddress *workloadapi.GatewayAddress
+			var waypoint *Waypoint
 			// Endpoint does not have a real ObjectMeta, so make one
 			if !implicitEndpoints {
-				if waypoint, err := fetchWaypointForWorkload(ctx, waypoints, namespaces, metav1.ObjectMeta{
+				if wp, err := fetchWaypointForWorkload(ctx, waypoints, namespaces, metav1.ObjectMeta{
 					Name:      se.Name,
 					Namespace: se.Namespace,
 					Labels:    wle.Labels,
-				}); err != nil {
-					waypointAddress = waypoint.Address
-					// enforce traversing waypoints
-					policies = append(policies, implicitWaypointPolicies(ctx, waypoints, waypoint, services)...)
+				}); err == nil {
+					// TODO: report status for workload-attached waypoints
+					waypoint = wp
 				}
 			}
+
+			// enforce traversing waypoints
+			policies = append(policies, implicitWaypointPolicies(ctx, waypoints, waypoint, services)...)
 
 			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 			network := a.Network(wle.Address, wle.Labels).String()
@@ -450,7 +452,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 				Services:              constructServicesFromWorkloadEntry(wle, services),
 				AuthorizationPolicies: policies,
 				Status:                workloadapi.WorkloadStatus_HEALTHY,
-				Waypoint:              waypointAddress,
+				Waypoint:              waypoint.GetAddress(),
 				TrustDomain:           pickTrustDomain(meshCfg),
 				Locality:              getWorkloadEntryLocality(wle),
 			}
