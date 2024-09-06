@@ -39,14 +39,33 @@ printf "package main\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/testing\
 go mod edit -replace github.com/AdamKorcz/go-118-fuzz-build="$SRC"/go-118-fuzz-build
 go mod tidy
 
-# Find all native fuzzers and compile them
-# shellcheck disable=SC2016
-grep --line-buffered --include '*_test.go' -Pr 'func Fuzz.*\(.* \*testing\.F' | sed -E 's/(func Fuzz(.*)\(.*)/\2/' | xargs -I{} sh -c '
-  fname="$(dirname $(echo "{}" | cut -d: -f1))"
-  func="Fuzz$(echo "{}" | cut -d: -f2)"
-  set -x
-  compile_native_go_fuzzer istio.io/istio/$fname $func $func
-'
+# compile native-format fuzzers
+compile_native_go_fuzzer istio.io/istio/security/pkg/pki/ra ValidateCSR ValidateCSR
+compile_native_go_fuzzer istio.io/istio/security/pkg/pki/ca FuzzIstioCASign FuzzIstioCASign
+compile_native_go_fuzzer istio.io/istio/security/pkg/server/ca FuzzCreateCertificate FuzzCreateCertificate
+compile_native_go_fuzzer istio.io/istio/security/pkg/server/ca/authenticate FuzzBuildSecurityCaller FuzzBuildSecurityCaller
+compile_native_go_fuzzer istio.io/istio/security/pkg/k8s/chiron FuzzReadCACert FuzzReadCACert
+#compile_native_go_fuzzer istio.io/istio/pkg/config/validation FuzzCRDs FuzzCRDs
+compile_native_go_fuzzer istio.io/istio/pkg/config/validation FuzzValidateHeaderValue FuzzValidateHeaderValue
+compile_native_go_fuzzer istio.io/istio/pkg/config/mesh FuzzValidateMeshConfig FuzzValidateMeshConfig
+compile_native_go_fuzzer istio.io/istio/pkg/bootstrap FuzzWriteTo FuzzWriteTo
+compile_native_go_fuzzer istio.io/istio/pkg/kube/inject FuzzRunTemplate FuzzRunTemplate
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder FuzzBuildHTTP FuzzBuildHTTP
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder FuzzBuildTCP FuzzBuildTCP
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/config/kube/gateway FuzzConvertResources FuzzConvertResources
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/model FuzzDeepCopyService FuzzDeepCopyService
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/model FuzzDeepCopyServiceInstance FuzzDeepCopyServiceInstance
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/model FuzzDeepCopyWorkloadInstance FuzzDeepCopyWorkloadInstance
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/model FuzzDeepCopyIstioEndpoint FuzzDeepCopyIstioEndpoint
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/util FuzzShallowCopyTrafficPolicy FuzzShallowCopyTrafficPolicy
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/util FuzzShallowCopyPortTrafficPolicy FuzzShallowCopyPortTrafficPolicy
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/util FuzzMergeTrafficPolicy FuzzMergeTrafficPolicy
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/core/loadbalancer FuzzApplyLocalityLBSetting FuzzApplyLocalityLBSetting
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/core/envoyfilter FuzzApplyClusterMerge FuzzApplyClusterMerge
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/core FuzzBuildGatewayListeners FuzzBuildGatewayListeners
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/core FuzzBuildSidecarOutboundHTTPRouteConfig FuzzBuildSidecarOutboundHTTPRouteConfig
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/networking/core FuzzBuildSidecarOutboundListeners FuzzBuildSidecarOutboundListeners
+compile_native_go_fuzzer istio.io/istio/pilot/pkg/serviceregistry/kube/controller FuzzKubeController FuzzKubeController
 
 # Now compile fuzzers from tests/fuzz
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzCRDRoundtrip fuzz_crd_roundtrip
