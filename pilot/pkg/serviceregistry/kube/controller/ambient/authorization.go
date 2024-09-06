@@ -352,7 +352,7 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 	polTargetRef := model.GetTargetRefs(pol)
 	if len(polTargetRef) > 0 {
 		// TargetRef is not intended for ztunnel
-		return nil, nil // this is not an error per se, should we have a message that this is not bound to ztunnel though?
+		return nil, nil
 	}
 
 	scope := security.Scope_WORKLOAD_SELECTOR
@@ -364,10 +364,12 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 		}
 	}
 	action := security.Action_ALLOW
+	boilerplate := httpAllowRuleBoilerplate
 	switch pol.Action {
 	case v1beta1.AuthorizationPolicy_ALLOW:
 	case v1beta1.AuthorizationPolicy_DENY:
 		action = security.Action_DENY
+		boilerplate = httpDenyRuleBoilerplate
 	default:
 		return nil, &model.StatusMessage{
 			Reason:  "UnsupportedValue",
@@ -401,12 +403,17 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 
 		return opol, &model.StatusMessage{
 			Reason:  "UnsupportedValue",
-			Message: fmt.Sprintf("ztunnel does not support HTTP rules (%s require HTTP parsing)", warnings),
+			Message: fmt.Sprintf("ztunnel does not support HTTP rules (%s require HTTP parsing), in ambient mode you must use waypoint proxy to enforce HTTP rules. %s", warnings, boilerplate),
 		}
 	}
 
 	return opol, nil
 }
+
+const (
+	httpDenyRuleBoilerplate  string = "Deny rules with HTTP attributes will be enforced without the HTTP components of the rule. This is more restrictive than intended."
+	httpAllowRuleBoilerplate string = "Allow rules with HTTP attributes will be empty and never match. This is more restrictive than requested."
+)
 
 func anyNonEmpty[T any](arr ...[]T) bool {
 	for _, a := range arr {
