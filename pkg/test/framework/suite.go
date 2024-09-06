@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/tracing"
 )
 
@@ -468,7 +467,7 @@ func (s *suiteImpl) run() (errLevel int) {
 		ctx.RecordTraceEvent("yaml-apply", GlobalYAMLWrites.Load())
 		traceFile := filepath.Join(ctx.Settings().BaseDir, "trace.yaml")
 		scopes.Framework.Infof("Wrote trace to %v", prow.ArtifactsURL(traceFile))
-		_ = file.AppendToFile(ctx.marshalTraceEvent(), traceFile)
+		_ = appendToFile(ctx.marshalTraceEvent(), traceFile)
 	}()
 
 	attempt := 0
@@ -611,4 +610,20 @@ func mustCompileAll(patterns ...string) []*regexp.Regexp {
 	}
 
 	return out
+}
+
+func appendToFile(contents []byte, file string) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = f.Close()
+	}()
+
+	if _, err = f.Write(contents); err != nil {
+		return err
+	}
+	return nil
 }

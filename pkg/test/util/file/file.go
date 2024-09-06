@@ -200,19 +200,3 @@ func WriteOrFail(t test.Failer, filePath string, contents []byte) {
 		t.Fatal(err)
 	}
 }
-
-func AppendToFile(contents []byte, file string) error {
-	f, err := os.OpenFile(file, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		_ = f.Close()
-	}()
-
-	if _, err = f.Write(contents); err != nil {
-		return err
-	}
-	return nil
-}

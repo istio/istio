@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	helmtest "istio.io/istio/tests/integration/helm"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
@@ -645,7 +644,7 @@ spec:
 				if t.Settings().Revisions.Default() != "" {
 					rev = t.Settings().Revisions.Default()
 				}
-				os.WriteFile(d, []byte(fmt.Sprintf(`
+				gatewayValues := fmt.Sprintf(`
 revision: %q
 service:
   type: ClusterIP # LoadBalancer is slow and not necessary for this tests
@@ -655,10 +654,11 @@ resources:
   requests:
     cpu: 10m
     memory: 40Mi
-`, rev)), 0o644)
+`, rev)
 				if t.Settings().OpenShift {
-					_ = file.AppendToFile([]byte(`platform: openshift`), d)
+					gatewayValues += "\nplatform: openshift"
 				}
+				os.WriteFile(d, []byte(gatewayValues), 0o644)
 				cs := t.Clusters().Default().(*kubecluster.Cluster)
 				h := helm.New(cs.Filename())
 				// Install ingress gateway chart
