@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi/security"
-	"k8s.io/utils/set"
 )
 
 const (
@@ -44,7 +43,7 @@ func (a *index) Policies(requested sets.Set[model.ConfigKey]) []model.WorkloadAu
 	}
 	res := make([]model.WorkloadAuthorization, 0, l)
 	for _, cfg := range cfgs {
-		// a nil Authoriztion means the WorkloadAuthorization contains an error conidition which needs to be written but
+		// a nil Authorization means the WorkloadAuthorization contains an error condition which needs to be written but
 		// is otherwise an invalid policy and will be ignored
 		if cfg.Authorization == nil {
 			continue
@@ -384,7 +383,7 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 		Groups:    nil,
 	}
 
-	rulesWithL7 := set.New[string]()
+	rulesWithL7 := sets.New[string]()
 
 	for _, rule := range pol.Rules {
 		rules, foundL7 := handleRule(action, rule)
@@ -394,16 +393,16 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 			}
 			opol.Groups = append(opol.Groups, rg)
 		}
-		rulesWithL7.Insert(foundL7...)
+		rulesWithL7.InsertAll(foundL7...)
 	}
 	if len(rulesWithL7) > 0 {
 		// this is an accepted with warning condition
 
-		warnings := slices.Join(", ", rulesWithL7.SortedList()...)
+		warnings := slices.Join(", ", sets.SortedList(rulesWithL7)...)
 
 		return opol, &model.StatusMessage{
 			Reason:  "UnsupportedValue",
-			Message: fmt.Sprintf("ztunnel does not support HTTP rules (%s require HTTP parsing), in ambient mode you must use waypoint proxy to enforce HTTP rules. %s", warnings, boilerplate),
+			Message: fmt.Sprintf(httpRuleFmt, warnings, boilerplate),
 		}
 	}
 
@@ -411,18 +410,11 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 }
 
 const (
-	httpDenyRuleBoilerplate  string = "Deny rules with HTTP attributes will be enforced without the HTTP components of the rule. This is more restrictive than intended."
+	httpRuleFmt string = "ztunnel does not support HTTP rules (%s require HTTP parsing), in ambient mode you must use waypoint proxy to enforce HTTP rules. %s"
+
+	httpDenyRuleBoilerplate  string = "Deny rules with HTTP attributes will be enforced without their HTTP components. This is more restrictive than intended."
 	httpAllowRuleBoilerplate string = "Allow rules with HTTP attributes will be empty and never match. This is more restrictive than requested."
 )
-
-func anyNonEmpty[T any](arr ...[]T) bool {
-	for _, a := range arr {
-		if len(a) > 0 {
-			return true
-		}
-	}
-	return false
-}
 
 func httpOperations(op *v1beta1.Operation) []string {
 	foundUnsupportedOperations := []string{}
@@ -468,14 +460,14 @@ func httpSources(s *v1beta1.Source) []string {
 
 func handleRule(action security.Action, rule *v1beta1.Rule) ([]*security.Rules, []string) {
 	l7RuleFound := false
-	httpMatch := set.New[string]()
+	httpMatch := sets.New[string]()
 	toMatches := []*security.Match{}
 	for _, to := range rule.To {
 		op := to.Operation
 		problems := httpOperations(op)
 		if len(problems) > 0 {
 			l7RuleFound = true
-			httpMatch.Insert(problems...)
+			httpMatch.InsertAll(problems...)
 		}
 		match := &security.Match{
 			DestinationPorts:    stringToPort(op.Ports),
@@ -489,7 +481,7 @@ func handleRule(action security.Action, rule *v1beta1.Rule) ([]*security.Rules, 
 		problems := httpSources(op)
 		if len(problems) > 0 {
 			l7RuleFound = true
-			httpMatch.Insert(problems...)
+			httpMatch.InsertAll(problems...)
 		}
 		match := &security.Match{
 			SourceIps:     stringToIP(op.IpBlocks),
