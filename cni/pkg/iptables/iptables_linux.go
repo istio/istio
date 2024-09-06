@@ -23,6 +23,8 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+
+	"istio.io/istio/pkg/ptr"
 )
 
 func AddInpodMarkIPRule(cfg *Config) error {
@@ -56,7 +58,7 @@ func forEachInpodMarkIPRule(cfg *Config, f func(*netlink.Rule) error) error {
 		inpodMarkRule.Family = family
 		inpodMarkRule.Table = RouteTableInbound
 		inpodMarkRule.Mark = InpodTProxyMark
-		inpodMarkRule.Mask = InpodTProxyMask
+		inpodMarkRule.Mask = ptr.Of(uint32(InpodTProxyMask))
 		inpodMarkRule.Priority = 32764
 		rules = append(rules, inpodMarkRule)
 	}
