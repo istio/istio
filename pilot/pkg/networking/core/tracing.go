@@ -269,17 +269,7 @@ func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_Extensio
 		ServiceName: serviceName,
 	}
 
-	if otelProvider.GetHttp() == nil {
-		// export via gRPC
-		oc.GrpcService = &core.GrpcService{
-			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-					ClusterName: cluster,
-					Authority:   hostname,
-				},
-			},
-		}
-	} else {
+	if otelProvider.GetHttp() != nil {
 		// export via HTTP
 		httpService := otelProvider.GetHttp()
 		te, err := url.JoinPath(hostname, httpService.GetPath())
@@ -295,6 +285,19 @@ func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_Extensio
 				Timeout: httpService.GetTimeout(),
 			},
 			RequestHeadersToAdd: buildHTTPHeaders(httpService.GetHeaders()),
+		}
+
+	} else {
+		// export via gRPC
+		oc.GrpcService = &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: cluster,
+					Authority:   hostname,
+				},
+			},
+			Timeout:         otelProvider.GetGrpc().GetTimeout(),
+			InitialMetadata: buildInitialMetadata(otelProvider.GetGrpc().GetInitialMetadata()),
 		}
 	}
 
@@ -714,6 +717,21 @@ func buildHTTPHeaders(headers []*meshconfig.MeshConfig_ExtensionProvider_HttpHea
 			},
 		}
 		target = append(target, hvo)
+	}
+	return target
+}
+
+func buildInitialMetadata(metadata []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader) []*core.HeaderValue {
+	if metadata == nil {
+		return nil
+	}
+	target := make([]*core.HeaderValue, 0, len(metadata))
+	for _, h := range metadata {
+		hv := &core.HeaderValue{
+			Key:   h.GetName(),
+			Value: h.GetValue(),
+		}
+		target = append(target, hv)
 	}
 	return target
 }

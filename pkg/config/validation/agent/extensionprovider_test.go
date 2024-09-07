@@ -506,6 +506,16 @@ func TestValidateExtensionProviderTracingOpentelemetry(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "set both grpc and http",
+			provider: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service: "collector.namespace.svc",
+				Port:    4317,
+				Grpc:    &meshconfig.MeshConfig_ExtensionProvider_GrpcService{},
+				Http:    &meshconfig.MeshConfig_ExtensionProvider_HttpService{},
+			},
+			valid: false,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
