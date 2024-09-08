@@ -20,7 +20,6 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"istio.io/istio/pkg/config/host"
 )
 
@@ -237,7 +236,10 @@ func TestMoreSpecific(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			require.Equal(t, test.expected, host.MoreSpecific(test.host1, test.host2))
+			result := host.MoreSpecific(test.host1, test.host2)
+			if !reflect.DeepEqual(test.expected, result) {
+				t.Fatalf("%v.MoreSpecific(%v) = %v, want %v", test.host1, test.host2, result, test.expected)
+			}
 		})
 	}
 }
