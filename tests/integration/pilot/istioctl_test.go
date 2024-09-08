@@ -369,7 +369,8 @@ func TestAuthZCheck(t *testing.T) {
 				"GatewayIstioLabel": istioLabel,
 			}, "testdata/authz-b.yaml").ApplyOrFail(t)
 
-			gwPod, err := i.IngressFor(t.Clusters().Default()).PodID(0)
+			ingress := i.IngressFor(t.Clusters().Default())
+			gwPod, err := ingress.PodID(0)
 			if err != nil {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
@@ -385,7 +386,7 @@ func TestAuthZCheck(t *testing.T) {
 			}{
 				{
 					name: "ingressgateway",
-					pod:  fmt.Sprintf("%s.%s", gwPod, i.Settings().SystemNamespace),
+					pod:  fmt.Sprintf("%s.%s", gwPod, ingress.Namespace()),
 					wants: []*regexp.Regexp{
 						regexp.MustCompile(fmt.Sprintf(`DENY\s+deny-policy\.%s\s+2`, i.Settings().SystemNamespace)),
 						regexp.MustCompile(fmt.Sprintf(`ALLOW\s+allow-policy\.%s\s+1`, i.Settings().SystemNamespace)),

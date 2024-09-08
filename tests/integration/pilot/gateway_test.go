@@ -636,7 +636,7 @@ func TestGatewayReadinessProbes(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			c := t.Clusters().Default()
 			var svc *corev1.Service
-			svc, _, err := testKube.WaitUntilServiceEndpointsAreReady(c.Kube(), "istio-system", "istio-ingressgateway")
+			svc, _, err := testKube.WaitUntilServiceEndpointsAreReady(c.Kube(), i.IngressFor(c).Namespace(), "istio-ingressgateway")
 			if err != nil {
 				t.Fatalf("error getting ingress gateway svc ips: %v", err)
 			}
@@ -668,7 +668,7 @@ func TestGatewayMetricsEndpoints(t *testing.T) {
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			c := t.Clusters().Default()
-			podIPs, err := i.PodIPsFor(c, i.Settings().SystemNamespace, "app=istio-ingressgateway")
+			podIPs, err := i.PodIPsFor(c, i.IngressFor(c).Namespace(), "app=istio-ingressgateway")
 			if err != nil {
 				t.Fatalf("error getting ingress gateway pod ips: %v", err)
 			}
