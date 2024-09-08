@@ -42,7 +42,7 @@ func MoreSpecific(a, b Name) bool {
 	}
 
 	// we sort longest to shortest, alphabetically, with wildcards last
-	ai, aj := string(a[0]) == "*", string(b[0]) == "*"
+	ai, aj := isWildCarded(a), isWildCarded(b)
 	if ai && !aj {
 		// h[i] is a wildcard, but h[j] isn't; therefore h[j] < h[i]
 		return false
@@ -57,6 +57,11 @@ func MoreSpecific(a, b Name) bool {
 	}
 
 	return len(a) > len(b)
+}
+
+// isWildCarded checks if the string starts with a wildcard character '*'.
+func isWildCarded(host Name) bool {
+	return len(host) > 0 && host[0] == '*'
 }
 
 func (h Names) Swap(i, j int) {
