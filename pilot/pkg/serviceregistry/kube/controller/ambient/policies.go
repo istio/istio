@@ -35,13 +35,20 @@ func PolicyCollections(
 ) (krt.Collection[model.WorkloadAuthorization], krt.Collection[model.WorkloadAuthorization]) {
 	AuthzDerivedPolicies := krt.NewCollection(authzPolicies, func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WorkloadAuthorization {
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
-		pol := convertAuthorizationPolicy(meshCfg.GetRootNamespace(), i)
-		if pol == nil {
+		pol, status := convertAuthorizationPolicy(meshCfg.GetRootNamespace(), i)
+		if status == nil && pol == nil {
 			return nil
 		}
+
 		return &model.WorkloadAuthorization{
 			Authorization: pol,
 			LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels()),
+			Source:        MakeSource(i),
+			Binding: model.WorkloadAuthorizationBindingStatus{
+				ResourceName: string(model.Ztunnel),
+				Status:       status,
+				Bound:        pol != nil,
+			},
 		}
 	}, krt.WithName("AuthzDerivedPolicies"))
 

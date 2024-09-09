@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -1010,7 +1011,8 @@ func (i ServiceInfo) GetStatusTarget() TypedObject {
 type ConditionType string
 
 const (
-	WaypointBound ConditionType = "istio.io/WaypointBound"
+	WaypointBound   ConditionType = "istio.io/WaypointBound"
+	ZtunnelAccepted ConditionType = "ZtunnelAccepted"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1109,15 +1111,67 @@ func (i WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
 }
 
+type WorkloadAuthorizationBindingScope string
+
+const (
+	NamespaceScope WorkloadAuthorizationBindingScope = "Namespace"
+	WorkloadScope  WorkloadAuthorizationBindingScope = "Workload"
+)
+
+type WorkloadAuthorizationBindingStatus struct {
+	ResourceName string
+	Status       *StatusMessage
+	Bound        bool
+}
+
+func (i WorkloadAuthorizationBindingStatus) Equals(other WorkloadAuthorizationBindingStatus) bool {
+	return ptr.Equal(i.Status, other.Status) &&
+		i.Bound == other.Bound &&
+		i.ResourceName == other.ResourceName
+}
+
 type WorkloadAuthorization struct {
 	// LabelSelectors for the workload. Note these are only used internally, not sent over XDS
 	LabelSelector
 	Authorization *security.Authorization
+
+	Source  TypedObject
+	Binding WorkloadAuthorizationBindingStatus
 }
 
+// impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
+func (i WorkloadAuthorization) GetStatusTarget() TypedObject {
+	return i.Source
+}
+
+func (i WorkloadAuthorization) GetConditions() ConditionSet {
+	set := make(ConditionSet, 1)
+
+	if i.Binding.Status != nil {
+		set[ZtunnelAccepted] = &Condition{
+			Reason:  i.Binding.Status.Reason,
+			Message: i.Binding.Status.Message,
+			Status:  i.Binding.Bound,
+		}
+	} else {
+		message := "attached to ztunnel"
+		set[ZtunnelAccepted] = &Condition{
+			Reason:  "Accepted",
+			Message: message,
+			Status:  i.Binding.Bound,
+		}
+	}
+
+	return set
+}
+
+// end impl StatusWriter
+
 func (i WorkloadAuthorization) Equals(other WorkloadAuthorization) bool {
-	return maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
-		proto.Equal(i.Authorization, other.Authorization)
+	return maps.Equal(i.Labels, other.Labels) &&
+		proto.Equal(i.Authorization, other.Authorization) &&
+		i.Source == other.Source &&
+		i.Binding.Equals(other.Binding)
 }
 
 func (i WorkloadAuthorization) ResourceName() string {

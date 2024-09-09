@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi/security"
 )
@@ -42,6 +43,11 @@ func (a *index) Policies(requested sets.Set[model.ConfigKey]) []model.WorkloadAu
 	}
 	res := make([]model.WorkloadAuthorization, 0, l)
 	for _, cfg := range cfgs {
+		// a nil Authorization means the WorkloadAuthorization contains an error condition which needs to be written but
+		// is otherwise an invalid policy and will be ignored
+		if cfg.Authorization == nil {
+			continue
+		}
 		k := model.ConfigKey{
 			Kind:      kind.AuthorizationPolicy,
 			Name:      cfg.Authorization.Name,
@@ -339,13 +345,13 @@ func convertPeerAuthentication(rootNamespace string, cfg *securityclient.PeerAut
 	return opol
 }
 
-func convertAuthorizationPolicy(rootns string, obj *securityclient.AuthorizationPolicy) *security.Authorization {
+func convertAuthorizationPolicy(rootns string, obj *securityclient.AuthorizationPolicy) (*security.Authorization, *model.StatusMessage) {
 	pol := &obj.Spec
 
 	polTargetRef := model.GetTargetRefs(pol)
 	if len(polTargetRef) > 0 {
 		// TargetRef is not intended for ztunnel
-		return nil
+		return nil, nil
 	}
 
 	scope := security.Scope_WORKLOAD_SELECTOR
@@ -357,12 +363,17 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 		}
 	}
 	action := security.Action_ALLOW
+	boilerplate := httpAllowRuleBoilerplate
 	switch pol.Action {
 	case v1beta1.AuthorizationPolicy_ALLOW:
 	case v1beta1.AuthorizationPolicy_DENY:
 		action = security.Action_DENY
+		boilerplate = httpDenyRuleBoilerplate
 	default:
-		return nil
+		return nil, &model.StatusMessage{
+			Reason:  "UnsupportedValue",
+			Message: fmt.Sprintf("ztunnel does not support the %s action", pol.Action),
+		}
 	}
 	opol := &security.Authorization{
 		Name:      obj.Name,
@@ -372,36 +383,91 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 		Groups:    nil,
 	}
 
+	rulesWithL7 := sets.New[string]()
+
 	for _, rule := range pol.Rules {
-		rules := handleRule(action, rule)
+		rules, foundL7 := handleRule(action, rule)
 		if rules != nil {
 			rg := &security.Group{
 				Rules: rules,
 			}
 			opol.Groups = append(opol.Groups, rg)
 		}
+		rulesWithL7.InsertAll(foundL7...)
 	}
+	if len(rulesWithL7) > 0 {
+		// this is an accepted with warning condition
 
-	return opol
-}
+		warnings := slices.Join(", ", sets.SortedList(rulesWithL7)...)
 
-func anyNonEmpty[T any](arr ...[]T) bool {
-	for _, a := range arr {
-		if len(a) > 0 {
-			return true
+		return opol, &model.StatusMessage{
+			Reason:  "UnsupportedValue",
+			Message: fmt.Sprintf(httpRuleFmt, warnings, boilerplate),
 		}
 	}
-	return false
+
+	return opol, nil
 }
 
-func handleRule(action security.Action, rule *v1beta1.Rule) []*security.Rules {
+const (
+	httpRuleFmt string = "ztunnel does not support HTTP rules (%s require HTTP parsing), in ambient mode you must use waypoint proxy to enforce HTTP rules. %s"
+
+	httpDenyRuleBoilerplate  string = "Deny rules with HTTP attributes will be enforced without their HTTP components. This is more restrictive than intended."
+	httpAllowRuleBoilerplate string = "Allow rules with HTTP attributes will be empty and never match. This is more restrictive than requested."
+)
+
+func httpOperations(op *v1beta1.Operation) []string {
+	foundUnsupportedOperations := []string{}
+	if len(op.Hosts) > 0 {
+		foundUnsupportedOperations = append(foundUnsupportedOperations, "hosts")
+	}
+	if len(op.NotHosts) > 0 {
+		foundUnsupportedOperations = append(foundUnsupportedOperations, "notHosts")
+	}
+	if len(op.Methods) > 0 {
+		foundUnsupportedOperations = append(foundUnsupportedOperations, "methods")
+	}
+	if len(op.NotMethods) > 0 {
+		foundUnsupportedOperations = append(foundUnsupportedOperations, "notMethods")
+	}
+	if len(op.Paths) > 0 {
+		foundUnsupportedOperations = append(foundUnsupportedOperations, "paths")
+	}
+	if len(op.NotPaths) > 0 {
+		foundUnsupportedOperations = append(foundUnsupportedOperations, "notPaths")
+	}
+	return foundUnsupportedOperations
+}
+
+func httpSources(s *v1beta1.Source) []string {
+	foundUnsupportedSources := []string{}
+
+	if len(s.RemoteIpBlocks) > 0 {
+		foundUnsupportedSources = append(foundUnsupportedSources, "remoteIpBlocks")
+	}
+	if len(s.NotRemoteIpBlocks) > 0 {
+		foundUnsupportedSources = append(foundUnsupportedSources, "notRemoteIpBlocks")
+	}
+	if len(s.RequestPrincipals) > 0 {
+		foundUnsupportedSources = append(foundUnsupportedSources, "requestPrincipals")
+	}
+	if len(s.NotRequestPrincipals) > 0 {
+		foundUnsupportedSources = append(foundUnsupportedSources, "notRequestPrincipals")
+	}
+
+	return foundUnsupportedSources
+}
+
+func handleRule(action security.Action, rule *v1beta1.Rule) ([]*security.Rules, []string) {
+	l7RuleFound := false
+	httpMatch := sets.New[string]()
 	toMatches := []*security.Match{}
 	for _, to := range rule.To {
 		op := to.Operation
-		if action == security.Action_ALLOW && anyNonEmpty(op.Hosts, op.NotHosts, op.Methods, op.NotMethods, op.Paths, op.NotPaths) {
-			// L7 policies never match for ALLOW
-			// For DENY they will always match, so it is more restrictive
-			return nil
+		problems := httpOperations(op)
+		if len(problems) > 0 {
+			l7RuleFound = true
+			httpMatch.InsertAll(problems...)
 		}
 		match := &security.Match{
 			DestinationPorts:    stringToPort(op.Ports),
@@ -412,10 +478,10 @@ func handleRule(action security.Action, rule *v1beta1.Rule) []*security.Rules {
 	fromMatches := []*security.Match{}
 	for _, from := range rule.From {
 		op := from.Source
-		if action == security.Action_ALLOW && anyNonEmpty(op.RemoteIpBlocks, op.NotRemoteIpBlocks, op.RequestPrincipals, op.NotRequestPrincipals) {
-			// L7 policies never match for ALLOW
-			// For DENY they will always match, so it is more restrictive
-			return nil
+		problems := httpSources(op)
+		if len(problems) > 0 {
+			l7RuleFound = true
+			httpMatch.InsertAll(problems...)
 		}
 		match := &security.Match{
 			SourceIps:     stringToIP(op.IpBlocks),
@@ -437,10 +503,9 @@ func handleRule(action security.Action, rule *v1beta1.Rule) []*security.Rules {
 	}
 	for _, when := range rule.When {
 		l4 := l4WhenAttributes.Contains(when.Key)
-		if action == security.Action_ALLOW && !l4 {
-			// L7 policies never match for ALLOW
-			// For DENY they will always match, so it is more restrictive
-			return nil
+		if !l4 {
+			l7RuleFound = true
+			httpMatch.Insert(when.Key)
 		}
 		positiveMatch := &security.Match{
 			Namespaces:       whenMatch("source.namespace", when, false, stringToMatch),
@@ -457,7 +522,13 @@ func handleRule(action security.Action, rule *v1beta1.Rule) []*security.Rules {
 		}
 		rules = append(rules, &security.Rules{Matches: []*security.Match{positiveMatch}})
 	}
-	return rules
+	if action == security.Action_ALLOW && l7RuleFound {
+		// L7 policies never match for ALLOW
+		// For DENY they will always match, so it is more restrictive
+		rules = nil
+	}
+	// we will sort later, don't spend effort sorting now
+	return rules, httpMatch.UnsortedList()
 }
 
 var l4WhenAttributes = sets.New(
