@@ -232,13 +232,49 @@ var (
 	_ CLIClient = &client{}
 )
 
+// setupFakeClient builds the initial state for a fake client
+func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object) T {
+	tracker := fc.Tracker()
+	// We got a set of objects... but which client do they apply to? Filter based on the group
+	filterGroup := func(object runtime.Object) bool {
+		g := object.GetObjectKind().GroupVersionKind().Group
+		if strings.Contains(g, "istio.io") {
+			return group == "istio"
+		}
+		if strings.Contains(g, "gateway.networking.k8s.io") {
+			return group == "gateway"
+		}
+		return group == "kube"
+	}
+	for _, obj := range objects {
+		if !filterGroup(obj) {
+			continue
+		}
+		gk := config.FromKubernetesGVK(obj.GetObjectKind().GroupVersionKind())
+		if gk.Group == "" {
+			gvks, _, _ := IstioScheme.ObjectKinds(obj)
+			gk = config.FromKubernetesGVK(gvks[0])
+		}
+		gvr, ok := gvk.ToGVR(gk)
+		if !ok {
+			gvr, _ = meta.UnsafeGuessKindToResource(gk.Kubernetes())
+		}
+		// Run Create() instead of Add(), so we can pass the GVR. Otherwise, Kubernetes guesses, and it guesses wrong for 'Gateways'
+		if err := tracker.Create(gvr, obj, obj.(metav1.ObjectMetaAccessor).GetObjectMeta().GetNamespace()); err != nil {
+			panic(fmt.Sprintf("failed to create: %v", err))
+		}
+	}
+	return fc
+}
+
 // NewFakeClient creates a new, fake, client
 func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c := &client{
 		informerWatchesPending: atomic.NewInt32(0),
 		clusterID:              "fake",
 	}
-	c.kube = fake.NewClientset(objects...)
+
+	c.kube = setupFakeClient(fake.NewClientset(), "kube", objects)
 
 	c.config = &rest.Config{
 		Host: "server",
@@ -249,8 +285,8 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
-	c.istio = istiofake.NewSimpleClientset()
-	c.gatewayapi = gatewayapifake.NewSimpleClientset()
+	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
+	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)
 	c.extSet = extfake.NewClientset()
 
 	// https://github.com/kubernetes/kubernetes/issues/95372
