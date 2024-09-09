@@ -16,9 +16,9 @@ package adsc
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
-	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -29,29 +29,32 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/testing/protocmp"
 
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/workloadapi"
 )
 
-type mockDeltaXdsServer struct{}
-
-var deltaHandler func(stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error
+type mockDeltaXdsServer struct {
+	handler func(stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer)
+	ctx     context.Context
+}
 
 func (t *mockDeltaXdsServer) StreamAggregatedResources(discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	return nil
 }
 
 func (t *mockDeltaXdsServer) DeltaAggregatedResources(delta discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
-	return deltaHandler(delta)
+	t.handler(delta)
+	<-t.ctx.Done()
+	return nil
 }
 
 var testCluster = &cluster.Cluster{
@@ -214,53 +217,13 @@ var testRouteConfig = &route.RouteConfiguration{
 }
 
 func TestDeltaClient(t *testing.T) {
-	type testCase struct {
-		desc                   string
-		deltaHandler           func(server discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error
-		inClient               *Client
-		expectedDeltaResources *Client
-		expectedTree           string
+	add := func(typ, name string) string {
+		return fmt.Sprintf("add/%s/%s", typ, name)
 	}
-
-	var tests []testCase
-
-	clusterHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *cluster.Cluster, event Event) {
-		if event == EventDelete {
-			return
-		}
-		ctx.RegisterDependency(v3.SecretType, xdstest.ExtractClusterSecretResources(t, resourceEntity)...)
-		ctx.RegisterDependency(v3.EndpointType, xdstest.ExtractEdsClusterNames([]*cluster.Cluster{resourceEntity})...)
-	})
-	endpointsHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *endpoint.ClusterLoadAssignment,
-		event Event) {
-	})
-	listenerHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *listener.Listener, event Event) {
-		if event == EventDelete {
-			return
-		}
-		ctx.RegisterDependency(v3.SecretType, xdstest.ExtractListenerSecretResources(t, resourceEntity)...)
-		ctx.RegisterDependency(v3.RouteType, xdstest.ExtractRoutesFromListeners([]*listener.Listener{resourceEntity})...)
-		// TODO: ECDS
-	})
-	routesHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *route.RouteConfiguration, event Event) {
-	})
-	secretsHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *tls.Secret, event Event) {
-	})
-
-	handlers := []Option{
-		clusterHandler,
-		Watch[*cluster.Cluster]("*"),
-		listenerHandler,
-		Watch[*listener.Listener]("*"),
-		endpointsHandler,
-		routesHandler,
-		secretsHandler,
-	}
-
-	descs := []struct {
+	cases := []struct {
 		desc            string
-		inClient        *Client
 		serverResponses []*discovery.DeltaDiscoveryResponse
+		expectedRecv    []string
 		expectedTree    string
 	}{
 		{
@@ -276,6 +239,7 @@ func TestDeltaClient(t *testing.T) {
 					},
 				},
 			},
+			expectedRecv: []string{add(v3.ClusterType, "test-eds"), add(v3.EndpointType, "test-eds")},
 			expectedTree: `CDS/:
   CDS/test-eds:
     EDS/test-eds:
@@ -414,40 +378,23 @@ LDS/:
 `,
 		},
 	}
-	for _, item := range descs {
-		desc := item // avoid refer to on-stack-var
-		expected := make(map[string]*discovery.DeltaDiscoveryResponse)
-		for _, response := range item.serverResponses {
-			expected[response.TypeUrl] = response
-		}
-		tc := testCase{
-			desc:     desc.desc,
-			inClient: NewDeltaWithBackoffPolicy("", &DeltaADSConfig{}, nil),
-			deltaHandler: func(delta discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
-				for _, response := range desc.serverResponses {
+	for _, tt := range cases {
+		t.Run(tt.desc, func(t *testing.T) {
+			dh := func(delta discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) {
+				for _, response := range tt.serverResponses {
 					_ = delta.Send(response)
 				}
-				return nil
-			},
-			expectedDeltaResources: &Client{
-				lastReceived: expected,
-			},
-			expectedTree: desc.expectedTree,
-		}
-		tests = append(tests, tc)
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.desc, func(t *testing.T) {
-			deltaHandler = tt.deltaHandler
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			deltaHandler := &mockDeltaXdsServer{handler: dh, ctx: ctx}
 			l, err := net.Listen("tcp", ":0")
 			if err != nil {
 				t.Errorf("Unable to listen with tcp err %v", err)
 				return
 			}
-			tt.inClient.cfg.Address = l.Addr().String()
 			xds := grpc.NewServer()
-			discovery.RegisterAggregatedDiscoveryServiceServer(xds, new(mockDeltaXdsServer))
+			discovery.RegisterAggregatedDiscoveryServiceServer(xds, deltaHandler)
 			go func() {
 				err = xds.Serve(l)
 				if err != nil {
@@ -460,38 +407,133 @@ LDS/:
 				return
 			}
 
-			tt.inClient = NewDeltaWithBackoffPolicy(tt.inClient.cfg.Address, tt.inClient.cfg, nil, handlers...)
-			if err := tt.inClient.Run(context.TODO()); err != nil {
-				t.Errorf("ADSC: failed running %v", err)
-				return
-			}
-			assert.EventuallyEqual(t, func() bool {
-				tt.inClient.mutex.Lock()
-				defer tt.inClient.mutex.Unlock()
-				rec := tt.inClient.lastReceived
+			tracker := assert.NewTracker[string](t)
+			handlers := buildHandlers(t, tracker)
 
-				if rec == nil && len(rec) != len(tt.expectedDeltaResources.lastReceived) {
-					return false
+			client := NewDeltaWithBackoffPolicy(l.Addr().String(), &DeltaADSConfig{}, nil, handlers...)
+			assert.NoError(t, client.Run(test.NewContext(t)))
+			wantRecv := slices.Flatten(slices.Map(tt.serverResponses, func(e *discovery.DeltaDiscoveryResponse) []string {
+				res := []string{}
+				for _, r := range e.Resources {
+					res = append(res, "add/"+e.TypeUrl+"/"+r.Name)
 				}
-				for tpe, rsrcs := range tt.expectedDeltaResources.lastReceived {
-					if _, ok := rec[tpe]; !ok {
-						return false
-					}
-					if len(rsrcs.Resources) != len(rec[tpe].Resources) {
-						return false
-					}
+				for _, r := range e.RemovedResources {
+					res = append(res, "delete/"+e.TypeUrl+"/"+r)
 				}
-				return true
-			}, true, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
-
-			if !cmp.Equal(tt.inClient.lastReceived, tt.expectedDeltaResources.lastReceived, protocmp.Transform()) {
-				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedDeltaResources.lastReceived, tt.inClient.lastReceived)
-			}
-
-			tree := tt.inClient.dumpTree()
-			if diff := cmp.Diff(tt.expectedTree, tree); diff != "" {
-				t.Errorf("%s: expected tree %v got %v", tt.desc, tt.expectedTree, tree)
-			}
+				return res
+			}))
+			tracker.WaitUnordered(wantRecv...)
+			tracker.Empty()
+			// Close the listener and wait for things to gracefully close down
+			cancel()
+			assert.NoError(t, l.Close())
+			assert.EventuallyEqual(t, client.closed.Load, true)
+			assert.Equal(t, client.dumpTree(), tt.expectedTree)
 		})
 	}
+}
+
+func buildHandlers(t *testing.T, tracker *assert.Tracker[string]) []Option {
+	clusterHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *cluster.Cluster, event Event) {
+		tracker.Record(fmt.Sprintf("%v/%v/%v", event, v3.ClusterType, resourceName))
+		if event == EventDelete {
+			return
+		}
+		ctx.RegisterDependency(v3.SecretType, xdstest.ExtractClusterSecretResources(t, resourceEntity)...)
+		ctx.RegisterDependency(v3.EndpointType, xdstest.ExtractEdsClusterNames([]*cluster.Cluster{resourceEntity})...)
+	})
+	endpointsHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *endpoint.ClusterLoadAssignment,
+		event Event,
+	) {
+		tracker.Record(fmt.Sprintf("%v/%v/%v", event, v3.EndpointType, resourceName))
+	})
+	listenerHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *listener.Listener, event Event) {
+		tracker.Record(fmt.Sprintf("%v/%v/%v", event, v3.ListenerType, resourceName))
+		if event == EventDelete {
+			return
+		}
+		ctx.RegisterDependency(v3.SecretType, xdstest.ExtractListenerSecretResources(t, resourceEntity)...)
+		ctx.RegisterDependency(v3.RouteType, xdstest.ExtractRoutesFromListeners([]*listener.Listener{resourceEntity})...)
+		// TODO: ECDS
+	})
+	routesHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *route.RouteConfiguration, event Event) {
+		tracker.Record(fmt.Sprintf("%v/%v/%v", event, v3.RouteType, resourceName))
+	})
+	secretsHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *tls.Secret, event Event) {
+		tracker.Record(fmt.Sprintf("%v/%v/%v", event, v3.SecretType, resourceName))
+	})
+
+	handlers := []Option{
+		clusterHandler,
+		Watch[*cluster.Cluster]("*"),
+		listenerHandler,
+		Watch[*listener.Listener]("*"),
+		endpointsHandler,
+		routesHandler,
+		secretsHandler,
+	}
+	return handlers
+}
+
+type fakeClient struct{}
+
+func (f fakeClient) Send(request *discovery.DeltaDiscoveryRequest) error {
+	return nil
+}
+
+func (f fakeClient) Recv() (*discovery.DeltaDiscoveryResponse, error) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func TestState(t *testing.T) {
+	svcHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *workloadapi.Workload, event Event) {
+	})
+	handlers := []Option{
+		svcHandler,
+		Watch[*workloadapi.Workload]("*"),
+	}
+	c := NewDeltaWithBackoffPolicy("", &DeltaADSConfig{}, nil, handlers...)
+	c.xdsClient = fakeClient{}
+	makeRes := func(s *workloadapi.Workload) *discovery.Resource {
+		return &discovery.Resource{
+			Name:     s.Uid,
+			Resource: protoconv.MessageToAny(s),
+		}
+	}
+	send := func(removes []string, res ...*workloadapi.Workload) {
+		t.Log(c.handleDeltaResponse(&discovery.DeltaDiscoveryResponse{
+			SystemVersionInfo: "",
+			Resources:         slices.Map(res, makeRes),
+			RemovedResources:  removes,
+			TypeUrl:           v3.WorkloadType,
+		}))
+		t.Log(c.dumpTree())
+	}
+	assertResources := func(want ...string) {
+		t.Helper()
+		child := c.tree[resourceKey{Name: "", TypeURL: v3.WorkloadType}].Children
+		have := slices.Sort(slices.Map(child.UnsortedList(), func(e resourceKey) string {
+			return e.Name
+		}))
+		assert.Equal(t, want, have)
+	}
+	// Create a resource
+	send(nil, &workloadapi.Workload{Uid: "a"})
+	assertResources("a")
+
+	// Remove it
+	send([]string{"a"})
+	assertResources()
+
+	// Remove it again; should be a NO-OP
+	send([]string{"a"})
+	assertResources()
+
+	// Add multiple resources
+	send(nil, &workloadapi.Workload{Uid: "a"}, &workloadapi.Workload{Uid: "b"})
+	assertResources("a", "b")
+	// Add one, update one
+	send([]string{"a"}, &workloadapi.Workload{Uid: "b"})
+	assertResources("b")
 }

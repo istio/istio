@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"sync"
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -32,11 +31,11 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
-	"k8s.io/utils/set"
 
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -184,6 +183,8 @@ type HandlerFunc func(ctx HandlerContext, res *Resource, event Event)
 // It means that the client will watch all clusters and listeners, and trigger resource events for
 // clusters, listeners, endpoints, routes and secrets that the clusters and listeners depend on.
 type Client struct {
+	log *log.Scope
+
 	cfg      *DeltaADSConfig
 	handlers map[string]HandlerFunc
 	// tree is a map where each key is a `resourceKey` (comprising the resource name and typeURL)
@@ -191,25 +192,23 @@ type Client struct {
 	// and relationships of resources.
 	tree map[resourceKey]resourceNode
 
-	xdsClient discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	xdsClient DeltaAggregatedResourcesClient
 	conn      *grpc.ClientConn
 
 	// initialWatches is the list of resources we are watching on startup
 	initialWatches []resourceKey
 
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta
-	sendNodeMeta atomic.Bool
+	sendNodeMeta bool
 
-	mutex sync.RWMutex
-	// lastReceived message, by type
-	lastReceived    map[string]*discovery.DeltaDiscoveryResponse
-	deltaXDSUpdates chan *discovery.DeltaDiscoveryResponse
+	// lastReceivedNonce nonce, by type
+	lastReceivedNonce map[string]string
 
 	// errChan is used to signal errors from the delta stream
 	errChan chan error
 
 	// closed is set to true when the client is closed
-	closed bool
+	closed *atomic.Bool
 }
 
 func (c *Client) trigger(ctx *handlerContext, typeURL string, r *discovery.Resource, event Event) error {
@@ -241,7 +240,7 @@ func (c *Client) trigger(ctx *handlerContext, typeURL string, r *discovery.Resou
 	}
 	handler, f := c.handlers[typeURL]
 	if !f {
-		deltaLog.Warnf("ignoring unknown type %v", typeURL)
+		c.log.Warnf("ignoring unknown type %v", typeURL)
 		return nil
 	}
 	handler(ctx, res, event)
@@ -268,12 +267,16 @@ func (c *Client) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("delta stream: %v", err)
 	}
-	c.sendNodeMeta.Store(true)
+	c.log.WithLabels("node", c.nodeID()).Infof("established connection")
+	c.sendNodeMeta = true
 	c.xdsClient = xdsClient
-	go c.handleRecv()
 	for _, w := range c.initialWatches {
-		c.request(w)
+		c.log.Infof("sending initial watch %v", w.TypeURL)
+		if err := c.request(w); err != nil {
+			return fmt.Errorf("initial watch: %v", err)
+		}
 	}
+	go c.handleRecv()
 	return nil
 }
 
@@ -288,12 +291,9 @@ func (c *Client) Dial() error {
 
 // reconnect will create a new stream
 func (c *Client) reconnect() {
-	c.mutex.RLock()
-	if c.closed {
-		c.mutex.RUnlock()
+	if c.closed.Load() {
 		return
 	}
-	c.mutex.RUnlock()
 
 	err := c.Run(context.Background())
 	if err != nil {
@@ -313,13 +313,13 @@ func NewDelta(discoveryAddr string, config *DeltaADSConfig, opts ...Option) *Cli
 	config.Address = discoveryAddr
 	config.Config = setDefaultConfig(&config.Config)
 	c := &Client{
-		cfg:             config,
-		handlers:        map[string]HandlerFunc{},
-		tree:            map[resourceKey]resourceNode{},
-		errChan:         make(chan error, 10),
-		deltaXDSUpdates: make(chan *discovery.DeltaDiscoveryResponse, 100),
-		lastReceived:    map[string]*discovery.DeltaDiscoveryResponse{},
-		mutex:           sync.RWMutex{},
+		log:               deltaLog.WithLabels("target", ptr.NonEmptyOrDefault(config.ClientName, discoveryAddr)),
+		cfg:               config,
+		handlers:          map[string]HandlerFunc{},
+		tree:              map[resourceKey]resourceNode{},
+		errChan:           make(chan error, 10),
+		lastReceivedNonce: map[string]string{},
+		closed:            atomic.NewBool(false),
 	}
 	for _, o := range opts {
 		o(c)
@@ -387,14 +387,9 @@ func initWatch(typeURL string, resourceName string) Option {
 
 func (c *Client) handleRecv() {
 	for {
-		deltaLog.Infof("Start Recv for node %v", c.nodeID)
 		msg, err := c.xdsClient.Recv()
 		if err != nil {
-			deltaLog.Infof("Connection closed for node %v with err: %v", c.nodeID, err)
-			select {
-			case c.errChan <- err:
-			default:
-			}
+			c.log.Infof("Connection closed: %v", err)
 			// if 'reconnect' enabled - schedule a new Run
 			if c.cfg.BackoffPolicy != nil {
 				time.AfterFunc(c.cfg.BackoffPolicy.NextBackOff(), c.reconnect)
@@ -403,23 +398,20 @@ func (c *Client) handleRecv() {
 			}
 			return
 		}
-		deltaLog.Infof("Received response: %s", msg.TypeUrl)
+		c.log.WithLabels("type", msg.TypeUrl, "size", len(msg.Resources), "removes", len(msg.RemovedResources)).Infof("received response")
 		if err := c.handleDeltaResponse(msg); err != nil {
-			deltaLog.Infof("Handle response %s failed: %v", msg.TypeUrl, err)
+			c.log.WithLabels("type", msg.TypeUrl).Infof("handle response failed: %v", err)
 			c.Close()
 			return
 		}
-		c.mutex.Lock()
-		c.lastReceived[msg.TypeUrl] = msg
-		c.mutex.Unlock()
-		c.deltaXDSUpdates <- msg
+		c.lastReceivedNonce[msg.TypeUrl] = msg.Nonce
 	}
 }
 
 func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error {
 	var rejects []error
-	allAdds := map[string]set.Set[string]{}
-	allRemoves := map[string]set.Set[string]{}
+	allAdds := map[string]sets.Set[string]{}
+	allRemoves := map[string]sets.Set[string]{}
 	ctx := &handlerContext{}
 	if isDebugType(d.TypeUrl) {
 		// No need to ack and type check for debug types
@@ -427,7 +419,7 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 	}
 	for _, r := range d.Resources {
 		if d.TypeUrl != r.Resource.TypeUrl {
-			deltaLog.Errorf("Invalid response: mismatch of type url: %v vs %v", d.TypeUrl, r.Resource.TypeUrl)
+			c.log.Errorf("Invalid response: mismatch of type url: %v vs %v", d.TypeUrl, r.Resource.TypeUrl)
 			continue
 		}
 		err := c.trigger(ctx, d.TypeUrl, r, EventAdd)
@@ -447,17 +439,11 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 
 		remove, add := c.tree[parentKey].Children.Diff(ctx.sub)
 		for _, key := range add {
-			if _, f := allAdds[key.TypeURL]; !f {
-				allAdds[key.TypeURL] = set.New[string]()
-			}
-			allAdds[key.TypeURL].Insert(key.Name)
+			sets.InsertOrNew(allAdds, key.TypeURL, key.Name)
 			c.relate(parentKey, key)
 		}
 		for _, key := range remove {
-			if _, f := allRemoves[key.TypeURL]; !f {
-				allRemoves[key.TypeURL] = set.New[string]()
-			}
-			allRemoves[key.TypeURL].Insert(key.Name)
+			sets.InsertOrNew(allRemoves, key.TypeURL, key.Name)
 			c.unrelate(parentKey, key)
 		}
 	}
@@ -474,13 +460,12 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 			return err
 		}
 
-		if _, f := allRemoves[key.TypeURL]; !f {
-			allRemoves[key.TypeURL] = set.New[string]()
-		}
-		allRemoves[key.TypeURL].Insert(key.Name)
+		sets.InsertOrNew(allRemoves, key.TypeURL, key.Name)
 		c.drop(key)
 	}
-	c.send(resourceKey{TypeURL: d.TypeUrl}, d.Nonce, joinError(rejects))
+	if err := c.send(resourceKey{TypeURL: d.TypeUrl}, d.Nonce, joinError(rejects)); err != nil {
+		return err
+	}
 	for t, sub := range allAdds {
 		unsub, f := allRemoves[t]
 		if f {
@@ -528,14 +513,14 @@ func (c *Client) establishResource(key resourceKey) {
 
 	if !f && !wildFound {
 		// We are receiving an unwanted resource, silently ignore it.
-		deltaLog.Debugf("Received unsubscribed resource: %v, %v", key, c.tree)
+		c.log.Debugf("Received unsubscribed resource: %v, %v", key, c.tree)
 	}
 }
 
 func (c *Client) relate(parent, child resourceKey) {
 	parentNode, f := c.tree[parent]
 	if !f {
-		deltaLog.Fatalf("Failed to relate resource: unknown parent: %v, %v", parent, c.tree)
+		c.log.Fatalf("Failed to relate resource: unknown parent: %v, %v", parent, c.tree)
 	}
 	childNode, f := c.tree[child]
 	if !f {
@@ -554,33 +539,35 @@ func (c *Client) relate(parent, child resourceKey) {
 func (c *Client) drop(parent resourceKey) {
 	parentNode, f := c.tree[parent]
 	if !f {
-		deltaLog.Fatalf("Failed to drop resource: unknown parent: %v, %v", parent, c.tree)
+		// Can happen if a removal is attempted on a resource we aren't watching
+		c.log.Debugf("Failed to drop resource: unknown parent: %v, %v", parent, c.tree)
+		return
 	}
 	for p := range parentNode.Parents {
 		c.unrelate(p, parent)
 	}
 
 	if _, f := c.tree[parent]; f {
-		deltaLog.Fatalf("Failed to drop resource: unrelate should have handled this: %v", c.dumpTree())
+		c.log.Fatalf("Failed to drop resource: unrelate should have handled this: %v", c.dumpTree())
 	}
 }
 
 func (c *Client) unrelate(parent, child resourceKey) {
 	parentNode, f := c.tree[parent]
 	if !f {
-		deltaLog.Fatalf("Failed to unrelate resource: unknown parent: %v, %v", parent, c.tree)
+		c.log.Fatalf("Failed to unrelate resource: unknown parent: %v, %v", parent, c.tree)
 	}
 	parentNode.Children.Delete(child)
 	childNode, f := c.tree[child]
 	if !f {
-		deltaLog.Fatalf("Failed to unrelate resource: unknown child: %v, %v", parent, c.tree)
+		c.log.Fatalf("Failed to unrelate resource: unknown child: %v, %v", parent, c.tree)
 	}
 	// We are already watching, just update
 	childNode.Parents.Delete(parent)
 
 	if len(childNode.Parents) == 0 {
 		// Node fully removed
-		deltaLog.Infof("Removed resource: %v", child.shortName())
+		c.log.Infof("Removed resource: %v", child.shortName())
 		delete(c.tree, child)
 	}
 }
@@ -645,27 +632,16 @@ func (c *Client) dumpNode(sb *strings.Builder, key resourceKey, indent string) {
 }
 
 func (c *Client) Close() {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.closed.Store(true)
 	c.conn.Close()
-	c.closed = true
-	c.WaitClear()
-	// Signal the channel to close
-	c.deltaXDSUpdates <- nil
 }
 
-func (c *Client) request(w resourceKey) {
-	c.mutex.Lock()
-	ex := c.lastReceived[w.TypeURL]
-	c.mutex.Unlock()
-	nonce := ""
-	if ex != nil {
-		nonce = ex.Nonce
-	}
-	c.send(w, nonce, nil)
+func (c *Client) request(w resourceKey) error {
+	nonce := c.lastReceivedNonce[w.TypeURL]
+	return c.send(w, nonce, nil)
 }
 
-func (c *Client) send(w resourceKey, nonce string, err error) {
+func (c *Client) send(w resourceKey, nonce string, nack error) error {
 	req := &discovery.DeltaDiscoveryRequest{
 		Node: &core.Node{
 			Id: c.nodeID(),
@@ -673,21 +649,19 @@ func (c *Client) send(w resourceKey, nonce string, err error) {
 		TypeUrl:       w.TypeURL,
 		ResponseNonce: nonce,
 	}
-	if c.sendNodeMeta.Load() {
+	if c.sendNodeMeta {
 		req.Node = c.node()
-		c.sendNodeMeta.Store(false)
+		c.sendNodeMeta = false
 	}
 
-	if w.Name != "" && err == nil {
+	if w.Name != "" && nack == nil {
 		req.ResourceNamesSubscribe = []string{w.Name}
 	}
-	if err != nil {
-		req.ErrorDetail = &status.Status{Message: err.Error()}
+	if nack != nil {
+		req.ErrorDetail = &status.Status{Message: nack.Error()}
 	}
-	err = c.xdsClient.Send(req)
-	if err != nil {
-		c.errChan <- err
-	}
+
+	return c.xdsClient.Send(req)
 }
 
 func (c *Client) nodeID() string {
@@ -698,7 +672,7 @@ func (c *Client) node() *core.Node {
 	return buildNode(&c.cfg.Config)
 }
 
-func (c *Client) update(t string, sub, unsub set.Set[string], d *discovery.DeltaDiscoveryResponse) {
+func (c *Client) update(t string, sub, unsub sets.Set[string], d *discovery.DeltaDiscoveryResponse) {
 	req := &discovery.DeltaDiscoveryRequest{
 		Node: &core.Node{
 			Id: c.nodeID(),
@@ -718,50 +692,11 @@ func (c *Client) update(t string, sub, unsub set.Set[string], d *discovery.Delta
 	}
 }
 
-// WaitClear will clear the waiting events, so next call to Wait will get
-// the next push type.
-func (c *Client) WaitClear() {
-	for {
-		select {
-		case <-c.deltaXDSUpdates:
-		case <-c.errChan:
-		default:
-			return
-		}
-	}
-}
-
-// WaitResp waits for the latest delta response for a typeURL.
-func (c *Client) WaitResp(to time.Duration, typeURL string) (*discovery.DeltaDiscoveryResponse, error) {
-	t := time.NewTimer(to)
-	c.mutex.Lock()
-	ex := c.lastReceived[typeURL]
-	c.mutex.Unlock()
-	if ex != nil {
-		return ex, nil
-	}
-
-	for {
-		select {
-		case t := <-c.deltaXDSUpdates:
-			if t == nil {
-				return nil, fmt.Errorf("closed")
-			}
-			if t.TypeUrl == typeURL {
-				return t, nil
-			}
-
-		case <-t.C:
-			return nil, fmt.Errorf("timeout, still waiting for updates: %v", typeURL)
-		case err, ok := <-c.errChan:
-			if ok {
-				return nil, err
-			}
-			return nil, fmt.Errorf("connection closed")
-		}
-	}
-}
-
 func isDebugType(typeURL string) bool {
 	return strings.HasPrefix(typeURL, v3.DebugType)
+}
+
+type DeltaAggregatedResourcesClient interface {
+	Send(*discovery.DeltaDiscoveryRequest) error
+	Recv() (*discovery.DeltaDiscoveryResponse, error)
 }

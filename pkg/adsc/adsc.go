@@ -69,6 +69,9 @@ const (
 )
 
 type Config struct {
+	// Is the name of the client for user-facing logs. If not set, Address will be used
+	ClientName string
+
 	// Address of the xDS server
 	Address string
 
