@@ -297,6 +297,16 @@ type ConsolidatedDestRule struct {
 	from []types.NamespacedName
 }
 
+// MarshalJSON implements json.Marshaller
+func (c *ConsolidatedDestRule) MarshalJSON() ([]byte, error) {
+	// Json cannot expose unexported fields, so copy the ones we want here
+	return json.MarshalIndent(map[string]any{
+		"exportTo": c.exportTo,
+		"rule":     c.rule,
+		"from":     c.from,
+	}, "", "  ")
+}
+
 type EdsUpdateFn func(shard ShardKey, hostname string, namespace string, entry []*IstioEndpoint)
 
 // XDSUpdater is used for direct updates of the xDS model and incremental push.
