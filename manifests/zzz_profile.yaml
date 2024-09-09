@@ -15,9 +15,12 @@ However, we can workaround this by placing all of (1) under a specific key (.Val
 We can then merge the profile onto the defaults, then the user settings onto that.
 Finally, we can set all of that under .Values so the chart behaves without awareness.
 */}}
+{{- if $.Values.defaults}}
+{{ fail "Setting with .default prefix found; remove it. For example, replace `--set defaults.hub=foo` with `--set hub=foo`" }}
+{{- end }}
 {{- $globals := $.Values.global | default dict | deepCopy }}
-{{- $defaults := $.Values.defaults }}
-{{- $_ := unset $.Values "defaults" }}
+{{- $defaults := $.Values._internal_defaults_do_not_set }}
+{{- $_ := unset $.Values "_internal_defaults_do_not_set" }}
 {{- $profile := dict }}
 {{- with .Values.profile }}
 {{- with $.Files.Get (printf "files/profile-%s.yaml" .)}}
