@@ -59,11 +59,6 @@ func MoreSpecific(a, b Name) bool {
 	return len(a) > len(b)
 }
 
-// isWildCarded checks if the string starts with a wildcard character '*'.
-func isWildCarded(host string) bool {
-	return len(host) > 0 && host[0] == '*'
-}
-
 func (h Names) Swap(i, j int) {
 	h[i], h[j] = h[j], h[i]
 }
