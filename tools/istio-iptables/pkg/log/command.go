@@ -21,8 +21,6 @@ type Command struct {
 }
 
 var (
-	JumpInbound             = Command{"JumpInbound", "direct all traffic through ISTIO_INBOUND chain"}
-	JumpOutbound            = Command{"JumpOutbound", "direct all traffic through ISTIO_OUTBOUND chain"}
 	ExcludeInboundPort      = Command{"ExcludeInboundPort", "exclude inbound port from capture"}
 	IncludeInboundPort      = Command{"IncludeInboundPort", "include inbound port for capture"}
 	InboundCapture          = Command{"InboundCapture", "redirect inbound request to proxy"}
@@ -32,8 +30,6 @@ var (
 )
 
 var IDToCommand = map[string]Command{
-	"JumpInbound":             JumpInbound,
-	"JumpOutbound":            JumpOutbound,
 	"ExcludeInboundPort":      ExcludeInboundPort,
 	"IncludeInboundPort":      IncludeInboundPort,
 	"InboundCapture":          InboundCapture,

@@ -53,10 +53,9 @@ const (
 )
 
 type Config struct {
-	RestoreFormat bool `json:"RESTORE_FORMAT"`
-	TraceLogging  bool `json:"IPTABLES_TRACE_LOGGING"`
-	EnableIPv6    bool `json:"ENABLE_INBOUND_IPV6"`
-	RedirectDNS   bool `json:"REDIRECT_DNS"`
+	TraceLogging bool `json:"IPTABLES_TRACE_LOGGING"`
+	EnableIPv6   bool `json:"ENABLE_INBOUND_IPV6"`
+	RedirectDNS  bool `json:"REDIRECT_DNS"`
 	// If true, TPROXY will be used for redirection. Else, REDIRECT will be used.
 	// Currently, this is treated as a feature flag, but may be promoted to a permanent feature if there is a need.
 	TPROXYRedirection bool `json:"TPROXY_REDIRECTION"`
@@ -72,10 +71,9 @@ type IptablesConfigurator struct {
 
 func ipbuildConfig(c *Config) *iptablesconfig.Config {
 	return &iptablesconfig.Config{
-		RestoreFormat: c.RestoreFormat,
-		TraceLogging:  c.TraceLogging,
-		EnableIPv6:    c.EnableIPv6,
-		RedirectDNS:   c.RedirectDNS,
+		TraceLogging: c.TraceLogging,
+		EnableIPv6:   c.EnableIPv6,
+		RedirectDNS:  c.RedirectDNS,
 	}
 }
 
@@ -86,9 +84,7 @@ func NewIptablesConfigurator(
 	nlDeps NetlinkDependencies,
 ) (*IptablesConfigurator, *IptablesConfigurator, error) {
 	if cfg == nil {
-		cfg = &Config{
-			RestoreFormat: true,
-		}
+		cfg = &Config{}
 	}
 
 	configurator := &IptablesConfigurator{
@@ -197,7 +193,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbeSNAT, hostProbeV6SNAT *netip.Addr) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbeSNAT, hostProbeV6SNAT netip.Addr) error {
 	// Append our rules here
 	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT)
 
@@ -218,7 +214,7 @@ func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbe
 	return nil
 }
 
-func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT *netip.Addr) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT netip.Addr) *builder.IptablesRuleBuilder {
 	redirectDNS := cfg.cfg.RedirectDNS
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
@@ -477,22 +473,11 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBuilder *builder.IptablesRuleBuilder) error {
 	var execErrs []error
 
-	if cfg.cfg.RestoreFormat {
-		// Execute iptables-restore
-		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV))
-		// Execute ip6tables-restore
-		if cfg.cfg.EnableIPv6 {
-			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V))
-		}
-	} else {
-		// Execute iptables commands
-		execErrs = append(execErrs,
-			cfg.executeIptablesCommands(&cfg.iptV, iptablesBuilder.BuildV4()))
-		// Execute ip6tables commands
-		if cfg.cfg.EnableIPv6 {
-			execErrs = append(execErrs,
-				cfg.executeIptablesCommands(&cfg.ipt6V, iptablesBuilder.BuildV6()))
-		}
+	// Execute iptables-restore
+	execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV))
+	// Execute ip6tables-restore
+	if cfg.cfg.EnableIPv6 {
+		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V))
 	}
 	return errors.Join(execErrs...)
 }

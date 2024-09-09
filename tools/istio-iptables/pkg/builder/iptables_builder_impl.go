@@ -124,7 +124,7 @@ func (rb *IptablesRuleBuilder) appendInternal(ipt *[]Rule, command iptableslog.C
 		match := params[:idx]
 		// 1337 group is just a random constant to be matched on the log reader side
 		// Size of 20 allows reading the IPv4 IP header.
-		match = append(match, "-j", "NFLOG", "--nflog-prefix", fmt.Sprintf(`%q`, command.Identifier), "--nflog-group", "1337", "--nflog-size", "20")
+		match = append(match, "-j", "NFLOG", "--nflog-prefix", command.Identifier, "--nflog-group", "1337", "--nflog-size", "20")
 		*ipt = append(*ipt, Rule{
 			chain:  chain,
 			table:  table,

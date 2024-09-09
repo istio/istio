@@ -34,7 +34,6 @@ import (
 
 func DefaultConfig() *Config {
 	return &Config{
-		RestoreFormat:           true,
 		ProxyPort:               "15001",
 		InboundCapturePort:      "15006",
 		InboundTunnelPort:       "15008",
@@ -72,7 +71,6 @@ type Config struct {
 	IptablesProbePort       uint16        `json:"IPTABLES_PROBE_PORT"`
 	ProbeTimeout            time.Duration `json:"PROBE_TIMEOUT"`
 	DryRun                  bool          `json:"DRY_RUN"`
-	RestoreFormat           bool          `json:"RESTORE_FORMAT"`
 	SkipRuleApply           bool          `json:"SKIP_RULE_APPLY"`
 	RunValidation           bool          `json:"RUN_VALIDATION"`
 	RedirectDNS             bool          `json:"REDIRECT_DNS"`

@@ -70,7 +70,6 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 	}
 
 	cfg := &iptables.Config{
-		RestoreFormat:     true,
 		RedirectDNS:       args.DNSCapture,
 		EnableIPv6:        args.EnableIPv6,
 		TPROXYRedirection: args.TPROXYRedirection,

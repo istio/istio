@@ -150,7 +150,7 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 		} else {
 			table = constants.NAT
 		}
-		cfg.ruleBuilder.AppendRule(iptableslog.JumpInbound, constants.PREROUTING, table, "-p", constants.TCP,
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.PREROUTING, table, "-p", constants.TCP,
 			"-j", constants.ISTIOINBOUND)
 
 		if cfg.cfg.InboundPortsInclude == "*" {
@@ -348,7 +348,7 @@ func (cfg *IptablesConfigurator) Run() error {
 	// TODO: change the default behavior to not intercept any output - user may use http_proxy or another
 	// iptablesOrFail wrapper (like ufw). Current default is similar with 0.1
 	// Jump to the ISTIOOUTPUT chain from OUTPUT chain for all tcp traffic
-	cfg.ruleBuilder.AppendRule(iptableslog.JumpOutbound, constants.OUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
+	cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.NAT, "-p", constants.TCP, "-j", constants.ISTIOOUTPUT)
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
 	if cfg.cfg.OutboundPortsExclude != "" {
 		for _, port := range split(cfg.cfg.OutboundPortsExclude) {
@@ -508,8 +508,8 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	if redirectDNS {
 		// Jump from OUTPUT chain to ISTIOOUTPUT chain for all UDP traffic
-		cfg.ruleBuilder.AppendRule(iptableslog.JumpOutbound, constants.OUTPUT, constants.NAT, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
-		cfg.ruleBuilder.AppendRule(iptableslog.JumpOutbound, constants.OUTPUT, constants.RAW, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.NAT, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.RAW, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
 
 		HandleDNSUDP(
 			AppendOps, cfg.ruleBuilder, cfg.ext, &iptVer, &ipt6Ver,
@@ -882,24 +882,13 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 	// Apply Step
 	if (deltaExists || cfg.cfg.ForceApply) && !cfg.cfg.CleanupOnly {
 		log.Info("Applying iptables chains and rules")
-		if cfg.cfg.RestoreFormat {
-			// Execute iptables-restore
-			if err := cfg.executeIptablesRestoreCommand(iptVer, cfg.ruleBuilder.BuildV4Restore()); err != nil {
-				return err
-			}
-			// Execute ip6tables-restore
-			if err := cfg.executeIptablesRestoreCommand(ipt6Ver, cfg.ruleBuilder.BuildV6Restore()); err != nil {
-				return err
-			}
-		} else {
-			// Execute iptables commands
-			if err := cfg.executeIptablesCommands(iptVer, cfg.ruleBuilder.BuildV4()); err != nil {
-				return err
-			}
-			// Execute ip6tables commands
-			if err := cfg.executeIptablesCommands(ipt6Ver, cfg.ruleBuilder.BuildV6()); err != nil {
-				return err
-			}
+		// Execute iptables-restore
+		if err := cfg.executeIptablesRestoreCommand(iptVer, cfg.ruleBuilder.BuildV4Restore()); err != nil {
+			return err
+		}
+		// Execute ip6tables-restore
+		if err := cfg.executeIptablesRestoreCommand(ipt6Ver, cfg.ruleBuilder.BuildV6Restore()); err != nil {
+			return err
 		}
 	}
 
