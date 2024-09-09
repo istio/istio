@@ -207,3 +207,39 @@ func BenchmarkNamesSort(b *testing.B) {
 		sort.Sort(given)
 	}
 }
+
+func TestMoreSpecific(t *testing.T) {
+	tests := []struct {
+		host1       host.Name
+		host2       host.Name
+		expected    bool
+		description string
+	}{
+		// Both hostnames are empty
+		{"", "", true, "Both hostnames are empty"},
+		// One hostname is empty, other is not
+		{"", "example.com", false, "One hostname is empty, other is not"},
+		{"example.com", "", true, "One hostname is empty, other is not"},
+		// Hostnames have the same length, MoreSpecific does not check if both host1 and host2 are of the same subset
+		{"example.com", "example.net", true, "Hostnames have the same length and are compared alphabetically"},
+		{"example.net", "example.com", false, "Hostnames have the same length and are compared alphabetically"},
+		// Hostnames have different lengths
+		{"example.com", "test.example.com", false, "Hostnames have different lengths, longer hostname is more specific"},
+		{"test.example.com", "example.com", true, "Hostnames have different lengths, longer hostname is more specific"},
+		// Hostnames have different lengths and both have wildcards
+		{"*.example.com", "*.example.co.in", false, "Hostnames have different lengths and both have wildcards"},
+		{"*.example.co.in", "*.example.com", true, "Hostnames have different lengths and both have wildcards"},
+		// Hostnames have different lengths and only one has a wildcard
+		{"*.example.com", "example.net", false, "One hostname has a wildcard but the other does not"},
+		{"example.net", "*.example.com", true, "One hostname has a wildcard but the other does not"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.description, func(t *testing.T) {
+			result := host.MoreSpecific(test.host1, test.host2)
+			if !reflect.DeepEqual(test.expected, result) {
+				t.Fatalf("%v.MoreSpecific(%v) = %v, want %v", test.host1, test.host2, result, test.expected)
+			}
+		})
+	}
+}

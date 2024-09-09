@@ -42,7 +42,7 @@ func MoreSpecific(a, b Name) bool {
 	}
 
 	// we sort longest to shortest, alphabetically, with wildcards last
-	ai, aj := string(a[0]) == "*", string(b[0]) == "*"
+	ai, aj := strings.HasPrefix(a.String(), "*"), strings.HasPrefix(b.String(), "*")
 	if ai && !aj {
 		// h[i] is a wildcard, but h[j] isn't; therefore h[j] < h[i]
 		return false
