@@ -16,6 +16,8 @@ linters-settings:
             desc: "don't use v3; v2 is orders of magnitude higher performance"
           - pkg: k8s.io/apimachinery/pkg/util/sets
             desc: "use istio.io/istio/pkg/util/sets"
+          - pkg: k8s.io/utils/set
+            desc: "use istio.io/istio/pkg/util/sets"
           - pkg: k8s.io/utils/env
             desc: "use istio.io/istio/pkg/env"
           - pkg: k8s.io/utils/strings/slices
