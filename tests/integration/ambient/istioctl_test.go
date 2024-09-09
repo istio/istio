@@ -85,7 +85,7 @@ func getConfigDumpFromEndpoint(istioCfg istio.Config, podName string) ([]byte, e
 
 func getPodName(zPods []corev1.Pod) (string, error) {
 	for _, ztunnel := range zPods {
-		return fmt.Sprintf("%s", ztunnel.Name), nil
+		return ztunnel.GetName(), nil
 	}
 
 	return "", fmt.Errorf("no ztunnel pod")
