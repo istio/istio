@@ -57,8 +57,12 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			if features.EnableEnhancedDestinationRuleMerge {
 				if exportToSet.Equals(mdr.exportTo) {
 					appendSeparately = false
-				} else if len(exportToSet.Difference(mdr.exportTo)) > 0 && len(mdr.exportTo.Difference(exportToSet)) > 0 {
-					// If anyone's exportTo is not the subset of the other, skip merging, append as a standalone one
+				} else if exportToSet.SupersetOf(mdr.exportTo) {
+					// If the new exportTo is superset of existing, merge and also append as a standalone one
+					appendSeparately = true
+				} else {
+					// can not merge with existing one, append as a standalone one
+					appendSeparately = true
 					continue
 				}
 			}
@@ -76,7 +80,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			// If both the destination rules are without a workload selector or with matching workload selectors, simply merge them.
 			// If the incoming rule has a workload selector, it has to be merged with the existing rules with workload selector, and
 			// at the same time added as a unique entry in the processedDestRules.
-			if !appendSeparately && (bothWithoutSelector || (rule.GetWorkloadSelector() != nil && selectorsMatch)) {
+			if !appendSeparately && (bothWithoutSelector || (bothWithSelector && selectorsMatch)) {
 				appendSeparately = false
 			} else {
 				appendSeparately = true
