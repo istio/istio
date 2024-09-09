@@ -52,7 +52,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 
 	if mdrList, exists := destRules[resolvedHost]; exists {
 		// `appendSeparately` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
-		appendSeparately := false
+		appendSeparately := true
 		for _, mdr := range mdrList {
 			if features.EnableEnhancedDestinationRuleMerge.Get() {
 				if exportToSet.Equals(mdr.exportTo) {
@@ -74,7 +74,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			if bothWithSelector && !selectorsMatch {
 				// If the new destination rule and the existing one has workload selectors associated with them, skip merging
 				// if the selectors do not match
-				//appendSeparately = true
+				appendSeparately = true
 				continue
 			}
 			// If both the destination rules are without a workload selector or with matching workload selectors, simply merge them.
