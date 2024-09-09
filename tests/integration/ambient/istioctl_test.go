@@ -20,14 +20,13 @@ package ambient
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
+	"os/exec"
 	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
-	"istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -43,53 +42,51 @@ func TestZtunnelConfig(t *testing.T) {
 			// we do not know which ztunnel instance is located on the node as the workload, so we need to check all of them initially
 			ztunnelPods, err := kubetest.NewPodFetch(t.AllClusters()[0], istioCfg.SystemNamespace, "app=ztunnel")()
 			assert.NoError(t, err)
-
-			podID, err := getPodID(ztunnelPods)
+			podName, err := getPodName(ztunnelPods)
 			if err != nil {
 				t.Fatalf("Failed to get pod ID: %v", err)
 			}
 
-			var output string
+			// get raw config dump from the Ztunnel instance
+			var configDump []byte
+			if configDump, err = getConfigDumpFromEndpoint(istioCfg, podName); err != nil {
+				t.Fatalf("Failed to get raw config dump from Ztunnel instance: %v", err)
+			}
+			var rawZtunnelDump map[string]any
+			if err = json.Unmarshal(configDump, &rawZtunnelDump); err != nil {
+				t.Fatalf("Failed to unmarshal JSON output for %s: %v", err)
+			}
+
+			// get the config dump generated when running the istioctl zc all command
+			var istioctOutputConfigDump string
 			var args []string
 			g := NewWithT(t)
-
 			args = []string{
 				"--namespace=dummy",
-				"zc", "all", podID, "-o", "json",
+				"zc", "all", podName, "-o", "json",
 			}
-			output, _ = istioCtl.InvokeOrFail(t, args)
-
-			var jsonOutput map[string]interface{}
-			if err = json.Unmarshal([]byte(output), &jsonOutput); err != nil {
+			istioctOutputConfigDump, _ = istioCtl.InvokeOrFail(t, args)
+			var istioctlAllOutput map[string]any
+			if err = json.Unmarshal([]byte(istioctOutputConfigDump), &istioctlAllOutput); err != nil {
 				t.Fatalf("Failed to unmarshal JSON output for %s: %v", strings.Join(args, " "), err)
 			}
 
-			// Use reflection to get the expected keys from the configdump.ZtunnelDump struct
-			expectedKeys := getStructFieldNames(configdump.ZtunnelDump{})
-
-			// Ensure that the unmarshaled JSON has the expected keys
-			for _, key := range expectedKeys {
-				g.Expect(jsonOutput).To(HaveKey(key))
-			}
+			// compare the raw config dump to the istioctl output
+			g.Expect(rawZtunnelDump).To(Equal(istioctlAllOutput))
 		})
 }
 
-func getPodID(zPods []corev1.Pod) (string, error) {
+func getConfigDumpFromEndpoint(istioCfg istio.Config, podName string) ([]byte, error) {
+	path := "config_dump"
+	url := fmt.Sprintf("http://localhost:15000/%s", path)
+	cmd := exec.Command("kubectl", "exec", podName, "-n", istioCfg.SystemNamespace, "--", "curl", "-X", "GET", url)
+	return cmd.Output()
+}
+
+func getPodName(zPods []corev1.Pod) (string, error) {
 	for _, ztunnel := range zPods {
-		return fmt.Sprintf("%s.%s", ztunnel.Name, ztunnel.Namespace), nil
+		return fmt.Sprintf("%s", ztunnel.Name), nil
 	}
 
 	return "", fmt.Errorf("no ztunnel pod")
-}
-
-// getStructFieldNames returns the field names of a struct as a slice of strings
-func getStructFieldNames(v any) []string {
-	val := reflect.ValueOf(v)
-	typ := val.Type()
-
-	var fieldNames []string
-	for i := 0; i < val.NumField(); i++ {
-		fieldNames = append(fieldNames, typ.Field(i).Tag.Get("json"))
-	}
-	return fieldNames
 }
