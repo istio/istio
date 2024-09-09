@@ -1969,6 +1969,7 @@ func scopeToSidecar(scope *SidecarScope) string {
 }
 
 func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
+	test.SetEnvForTest(t, features.EnableEnhancedDestinationRuleMerge.Name, "true")
 	now := time.Now()
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
@@ -2170,6 +2171,7 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 }
 
 func TestSetDestinationRuleMerging(t *testing.T) {
+	test.SetEnvForTest(t, features.EnableEnhancedDestinationRuleMerge.Name, "true")
 	ps := NewPushContext()
 	ps.exportToDefaults.destinationRule = sets.New(visibility.Public)
 	testhost := "httpbin.org"
