@@ -50,7 +50,7 @@ func (s *ServiceAnalyzer) Metadata() analysis.Metadata {
 func (s *ServiceAnalyzer) Analyze(c analysis.Context) {
 	services := map[resource.FullName]map[cluster.ID]*resource.Instance{}
 	c.ForEach(gvk.Service, func(r *resource.Instance) bool {
-		clusterID := r.Origin.ClusterName()
+		clusterID := r.Origin.ClusterAPIServerHost()
 		if clusterID == "" {
 			return true
 		}

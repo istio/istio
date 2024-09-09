@@ -77,8 +77,7 @@ func (o *Origin) FieldMap() map[string]int {
 	return o.FieldsMap
 }
 
-// ClusterName implements resource.Origin
-func (o *Origin) ClusterName() cluster.ID {
+func (o *Origin) ClusterAPIServerHost() cluster.ID {
 	return o.Cluster
 }
 

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"sort"
 	"strings"
@@ -28,12 +29,10 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/formatting"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -41,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 )
@@ -491,47 +489,28 @@ type Client struct {
 }
 
 func getClients(ctx cli.Context) ([]*Client, error) {
-	client, err := ctx.CLIClient()
+	defaultClient, err := ctx.CLIClient()
 	if err != nil {
 		return nil, err
 	}
 	clients := []*Client{
 		{
-			client: client,
+			client: defaultClient,
 			remote: false,
 		},
 	}
-	secrets, err := client.Kube().CoreV1().Secrets(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s", multicluster.MultiClusterSecretLabel, "true"),
-	})
+	allClients, err := ctx.AllCLIClients()
 	if err != nil {
 		return nil, err
 	}
-	for _, s := range secrets.Items {
-		for _, cfg := range s.Data {
-			clientConfig, err := clientcmd.NewClientConfigFromBytes(cfg)
-			if err != nil {
-				return nil, err
-			}
-			rawConfig, err := clientConfig.RawConfig()
-			if err != nil {
-				return nil, err
-			}
-			curContext := rawConfig.Contexts[rawConfig.CurrentContext]
-			if curContext == nil {
-				continue
-			}
-			client, err := kube.NewCLIClient(clientConfig,
-				kube.WithRevision(revisionSpecified),
-				kube.WithCluster(cluster.ID(curContext.Cluster)))
-			if err != nil {
-				return nil, err
-			}
-			clients = append(clients, &Client{
-				client: client,
-				remote: true,
-			})
+	for _, c := range allClients {
+		if reflect.DeepEqual(c.RESTConfig(), defaultClient.RESTConfig()) {
+			continue
 		}
+		clients = append(clients, &Client{
+			client: c,
+			remote: true,
+		})
 	}
 	return clients, nil
 }

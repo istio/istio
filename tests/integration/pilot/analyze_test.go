@@ -20,19 +20,22 @@ package pilot
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/istioctl/pkg/analyze"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/tests/integration/helm"
 )
 
 const (
@@ -475,26 +478,7 @@ func TestMultiCluster(t *testing.T) {
 				Inject: true,
 			})
 
-			// create remote secrets for analysis
-			secrets := map[string]string{}
-			for _, c := range t.Environment().Clusters() {
-				istioCtl := istioctl.NewOrFail(t, istioctl.Config{
-					Cluster: c,
-				})
-				secret, _, err := createRemoteSecret(t, istioCtl, c.Name())
-				g.Expect(err).To(BeNil())
-				secrets[c.Name()] = secret
-			}
 			for ind, c := range t.Environment().Clusters() {
-				// apply remote secret to be used for analysis
-				for sc, secret := range secrets {
-					if c.Name() == sc {
-						continue
-					}
-					err := c.ApplyYAMLFiles(helm.IstioNamespace, secret)
-					g.Expect(err).To(BeNil())
-				}
-
 				svc := fmt.Sprintf(`
 apiVersion: v1
 kind: Service
@@ -511,21 +495,30 @@ spec:
     targetPort: 8080
 `, ind)
 				// apply inconsistent services
-				err := c.ApplyYAMLFiles(ns.Name(), svc)
+				err := c.ApplyYAMLContents(ns.Name(), svc)
 				g.Expect(err).To(BeNil())
 			}
+			mergedConfig := api.NewConfig()
+			mergedKubeconfig, err := os.CreateTemp("", "merged_kubeconfig.yaml")
+			g.Expect(err).To(BeNil(), fmt.Sprintf("Create file for storing merged kubeconfig: %v", err))
+			defer os.Remove(mergedKubeconfig.Name())
 
+			for _, c := range t.Environment().Clusters() {
+				filenamer, ok := c.(istioctl.Filenamer)
+				g.Expect(ok).To(BeTrue(), fmt.Sprintf("Cluster %v does not support fetching kubeconfig", c))
+				config, err := clientcmd.LoadFromFile(filenamer.Filename())
+				g.Expect(err).To(BeNil(), fmt.Sprintf("Load config from file %q: %v", filenamer.Filename(), err))
+				if mergedConfig.CurrentContext == "" {
+					mergedConfig.CurrentContext = config.CurrentContext
+				}
+				maps.Copy(mergedConfig.Clusters, config.Clusters)
+				maps.Copy(mergedConfig.AuthInfos, config.AuthInfos)
+				maps.Copy(mergedConfig.Contexts, config.Contexts)
+			}
+			err = clientcmd.WriteToFile(*mergedConfig, mergedKubeconfig.Name())
+			g.Expect(err).To(BeNil(), fmt.Sprintf("Write merged kubeconfig to file %q: %v", mergedKubeconfig.Name(), err))
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})
-			output, _ := istioctlSafe(t, istioCtl, "", true, "--all-namespaces")
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true, "--kubeconfig", mergedKubeconfig.Name())
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
 		})
-}
-
-func createRemoteSecret(t test.Failer, i istioctl.Instance, cluster string) (string, string, error) {
-	t.Helper()
-
-	args := []string{"create-remote-secret"}
-	args = append(args, "--name", cluster)
-
-	return i.Invoke(args)
 }

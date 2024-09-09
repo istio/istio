@@ -122,10 +122,10 @@ func (f *fakeClientImpl) ClusterID() cluster.ID {
 	return f.clusterID
 }
 
-func addStore(sa *local.IstiodAnalyzer, clusterName string, yamls []string) error {
+func addStore(sa *local.IstiodAnalyzer, clusterAPIServerHost string, yamls []string) error {
 	client := &fakeClientImpl{
 		CLIClient: kube.NewFakeClient(),
-		clusterID: cluster.ID(clusterName),
+		clusterID: cluster.ID(clusterAPIServerHost),
 	}
 	// Gather test files
 	src := file.NewKubeSource(collections.All)
@@ -139,7 +139,7 @@ func addStore(sa *local.IstiodAnalyzer, clusterName string, yamls []string) erro
 			return err
 		}
 	}
-	sa.AddSourceForCluster(src, cluster.ID(clusterName))
-	sa.AddRunningKubeSourceWithRevision(client, clusterName, false)
+	sa.AddSourceForCluster(src, cluster.ID(clusterAPIServerHost))
+	sa.AddRunningKubeSourceWithRevision(client, clusterAPIServerHost, false)
 	return nil
 }

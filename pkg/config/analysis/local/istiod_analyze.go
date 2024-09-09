@@ -420,11 +420,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 	}, krs)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
 	if remote {
-		clusterID := c.ClusterID()
-		if clusterID == "" {
-			clusterID = "default"
-		}
-		sa.multiClusterStores[clusterID] = store
+		sa.multiClusterStores[cluster.ID(c.RESTConfig().Host)] = store
 	} else {
 		sa.stores = append(sa.stores, store)
 	}
@@ -549,8 +545,8 @@ func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Clie
 
 // AddSourceForCluster adds a source based on user supplied configstore to the current IstiodAnalyzer with cluster specified.
 // It functions like the same as AddSource, but it adds the source to the specified cluster.
-func (sa *IstiodAnalyzer) AddSourceForCluster(src model.ConfigStoreController, clusterName cluster.ID) {
-	sa.multiClusterStores[clusterName] = src
+func (sa *IstiodAnalyzer) AddSourceForCluster(src model.ConfigStoreController, clusterAPIServerHost cluster.ID) {
+	sa.multiClusterStores[clusterAPIServerHost] = src
 }
 
 // CollectionReporterFn is a hook function called whenever a collection is accessed through the AnalyzingDistributor's context

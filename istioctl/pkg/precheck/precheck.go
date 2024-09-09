@@ -502,7 +502,7 @@ func checkServerVersion(cli kube.CLIClient) (diag.Messages, error) {
 // clusterOrigin defines an Origin that refers to the cluster
 type clusterOrigin struct{}
 
-func (o clusterOrigin) ClusterName() istiocluster.ID {
+func (o clusterOrigin) ClusterAPIServerHost() istiocluster.ID {
 	return "Cluster"
 }
 

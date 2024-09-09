@@ -31,7 +31,7 @@ type testOrigin struct {
 	cluster  cluster.ID
 }
 
-func (o testOrigin) ClusterName() cluster.ID {
+func (o testOrigin) ClusterAPIServerHost() cluster.ID {
 	return o.cluster
 }
 

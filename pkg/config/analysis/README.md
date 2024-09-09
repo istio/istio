@@ -86,10 +86,10 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 }
 ```
 
-If you are writing a multi-cluster analyzer, you can obtain the cluster name from the resource metadata:
+If you are writing a multi-cluster analyzer, you can obtain the cluster's API server host (as the UID) from the resource metadata:
 
 ```go
-clusterID := r.Origin.ClusterName()
+clusterID := r.Origin.ClusterAPIServerHost()
 ```
 
 ### 2. Add the Analyzer to All()
