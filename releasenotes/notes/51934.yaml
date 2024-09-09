@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+
+issue: 
+  - 51934
+
+releaseNotes:
+- |
+  **Deprecated** the use of remote secrets when running multi-cluster service analyzer. Instead, the cluster contexts in the user-supplied kubeconfig would be used to determine the target clusters for the analyzer.
