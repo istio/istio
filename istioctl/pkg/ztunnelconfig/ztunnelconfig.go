@@ -33,7 +33,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/completion"
 	ambientutil "istio.io/istio/istioctl/pkg/util/ambient"
-	ztunnelDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
+	ZDump "istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
@@ -90,7 +90,7 @@ func certificatesConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"certificates", "certs", "cert"},
 		Args:    common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+		RunE: runConfigDump(ctx, common, func(cw *ZDump.ConfigWriter) error {
 			switch common.outputFormat {
 			case summaryOutput:
 				return cw.PrintSecretSummary()
@@ -123,8 +123,8 @@ func servicesCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"services", "s", "svc"},
 		Args:    common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
-			filter := ztunnelDump.ServiceFilter{
+		RunE: runConfigDump(ctx, common, func(cw *ZDump.ConfigWriter) error {
+			filter := ZDump.ServiceFilter{
 				Namespace: serviceNamespace,
 			}
 			switch common.outputFormat {
@@ -161,8 +161,8 @@ func policiesCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"policies", "p", "pol"},
 		Args:    common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
-			filter := ztunnelDump.PolicyFilter{
+		RunE: runConfigDump(ctx, common, func(cw *ZDump.ConfigWriter) error {
+			filter := ZDump.PolicyFilter{
 				Namespace: policyNamespace,
 			}
 			switch common.outputFormat {
@@ -197,7 +197,7 @@ func allCmd(ctx cli.Context) *cobra.Command {
   istioctl ztunnel-config policies <ztunnel-name[.namespace]> -o json
 `,
 		Args: common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+		RunE: runConfigDump(ctx, common, func(cw *ZDump.ConfigWriter) error {
 			switch common.outputFormat {
 			case summaryOutput:
 				return cw.PrintFullSummary()
@@ -244,8 +244,8 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"w", "workloads"},
 		Args:    common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
-			filter := ztunnelDump.WorkloadFilter{
+		RunE: runConfigDump(ctx, common, func(cw *ZDump.ConfigWriter) error {
+			filter := ZDump.WorkloadFilter{
 				Namespace: workloadsNamespace,
 				Address:   address,
 				Node:      workloadNode,
@@ -291,8 +291,8 @@ func connectionsCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"cons"},
 		Args:    common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
-			filter := ztunnelDump.ConnectionsFilter{
+		RunE: runConfigDump(ctx, common, func(cw *ZDump.ConfigWriter) error {
+			filter := ZDump.ConnectionsFilter{
 				Namespace: workloadsNamespace,
 				Direction: direction,
 				Raw:       raw,
@@ -534,7 +534,7 @@ func getPodNameWithNamespace(ctx cli.Context, podflag, ns string) (string, strin
 	return podName, podNamespace, nil
 }
 
-func setupZtunnelConfigDumpWriter(kubeClient kube.CLIClient, podName, podNamespace string, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
+func setupZtunnelConfigDumpWriter(kubeClient kube.CLIClient, podName, podNamespace string, out io.Writer) (*ZDump.ConfigWriter, error) {
 	debug, err := extractZtunnelConfigDump(kubeClient, podName, podNamespace)
 	if err != nil {
 		return nil, err
@@ -568,8 +568,8 @@ func extractZtunnelConfigDump(kubeClient kube.CLIClient, podName, podNamespace s
 	return debug, err
 }
 
-func setupConfigdumpZtunnelConfigWriter(debug []byte, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
-	cw := &ztunnelDump.ConfigWriter{Stdout: out, FullDump: debug}
+func setupConfigdumpZtunnelConfigWriter(debug []byte, out io.Writer) (*ZDump.ConfigWriter, error) {
+	cw := &ZDump.ConfigWriter{Stdout: out, FullDump: debug}
 	err := cw.Prime(debug)
 	if err != nil {
 		return nil, err
@@ -577,7 +577,7 @@ func setupConfigdumpZtunnelConfigWriter(debug []byte, out io.Writer) (*ztunnelDu
 	return cw, nil
 }
 
-func setupFileZtunnelConfigdumpWriter(filename string, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
+func setupFileZtunnelConfigdumpWriter(filename string, out io.Writer) (*ZDump.ConfigWriter, error) {
 	data, err := readFile(filename)
 	if err != nil {
 		return nil, err
@@ -585,14 +585,14 @@ func setupFileZtunnelConfigdumpWriter(filename string, out io.Writer) (*ztunnelD
 	return setupConfigdumpZtunnelConfigWriter(data, out)
 }
 
-func runConfigDump(ctx cli.Context, common *commonFlags, f func(cw *ztunnelDump.ConfigWriter) error) func(c *cobra.Command, args []string) error {
+func runConfigDump(ctx cli.Context, common *commonFlags, f func(cw *ZDump.ConfigWriter) error) func(c *cobra.Command, args []string) error {
 	return func(c *cobra.Command, args []string) error {
 		var podName, podNamespace string
 		kubeClient, err := ctx.CLIClient()
 		if err != nil {
 			return err
 		}
-		var configWriter *ztunnelDump.ConfigWriter
+		var configWriter *ZDump.ConfigWriter
 		if common.configDumpFile != "" {
 			configWriter, err = setupFileZtunnelConfigdumpWriter(common.configDumpFile, c.OutOrStdout())
 		} else {

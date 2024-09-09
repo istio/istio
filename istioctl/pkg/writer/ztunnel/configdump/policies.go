@@ -44,7 +44,7 @@ func (wf *PolicyFilter) Verify(pol *ZtunnelPolicy) bool {
 // PrintServiceSummary prints a summary of the relevant services in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintPolicySummary(filter PolicyFilter) error {
 	w := c.tabwriter()
-	zDump := c.ztunnelDump
+	zDump := c.ZDump
 
 	pols := slices.Filter(zDump.Policies, filter.Verify)
 	slices.SortFunc(pols, func(a, b *ZtunnelPolicy) int {
@@ -64,7 +64,7 @@ func (c *ConfigWriter) PrintPolicySummary(filter PolicyFilter) error {
 
 // PrintPolicyDump prints the relevant services in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintPolicyDump(filter PolicyFilter, outputFormat string) error {
-	zDump := c.ztunnelDump
+	zDump := c.ZDump
 	policies := slices.Filter(zDump.Policies, filter.Verify)
 	slices.SortFunc(policies, func(a, b *ZtunnelPolicy) int {
 		if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {

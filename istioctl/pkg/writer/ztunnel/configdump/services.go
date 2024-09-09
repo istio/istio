@@ -44,7 +44,7 @@ func (wf *ServiceFilter) Verify(svc *ZtunnelService) bool {
 // PrintServiceSummary prints a summary of the relevant services in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintServiceSummary(filter ServiceFilter) error {
 	w := c.tabwriter()
-	zDump := c.ztunnelDump
+	zDump := c.ZDump
 
 	workloadsByUID := slices.GroupUnique(zDump.Workloads, func(t *ZtunnelWorkload) string {
 		return t.UID
@@ -90,7 +90,7 @@ func (c *ConfigWriter) PrintServiceSummary(filter ServiceFilter) error {
 
 // PrintServiceDump prints the relevant services in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintServiceDump(filter ServiceFilter, outputFormat string) error {
-	zDump := c.ztunnelDump
+	zDump := c.ZDump
 	svcs := slices.Filter(zDump.Services, filter.Verify)
 	slices.SortFunc(svcs, func(a, b *ZtunnelService) int {
 		if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {

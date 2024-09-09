@@ -63,7 +63,7 @@ func (wf *WorkloadFilter) Verify(workload *ZtunnelWorkload) bool {
 // PrintWorkloadSummary prints a summary of the relevant listeners in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 	w := c.tabwriter()
-	zDump := c.ztunnelDump
+	zDump := c.ZDump
 
 	verifiedWorkloads := make([]*ZtunnelWorkload, 0, len(zDump.Workloads))
 	for _, wl := range zDump.Workloads {
@@ -101,7 +101,7 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 
 // PrintWorkloadDump prints the relevant workloads in the config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintWorkloadDump(filter WorkloadFilter, outputFormat string) error {
-	zDump := c.ztunnelDump
+	zDump := c.ZDump
 	filteredWorkloads := []*ZtunnelWorkload{}
 	for _, workload := range zDump.Workloads {
 		if filter.Verify(workload) {

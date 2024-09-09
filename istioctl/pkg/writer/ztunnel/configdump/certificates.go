@@ -29,10 +29,10 @@ import (
 
 // PrintSecretDump prints just the secret config dump to the ConfigWriter stdout
 func (c *ConfigWriter) PrintSecretDump(outputFormat string) error {
-	if c.ztunnelDump == nil {
+	if c.ZDump == nil {
 		return fmt.Errorf("config writer has not been primed")
 	}
-	secretDump := c.ztunnelDump.Certificates
+	secretDump := c.ZDump.Certificates
 	out, err := json.MarshalIndent(secretDump, "", "    ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal secrets dump: %v", err)
@@ -48,10 +48,10 @@ func (c *ConfigWriter) PrintSecretDump(outputFormat string) error {
 
 // PrintSecretSummary prints a summary of dynamic active secrets from the config dump
 func (c *ConfigWriter) PrintSecretSummary() error {
-	if c.ztunnelDump == nil {
+	if c.ZDump == nil {
 		return fmt.Errorf("config writer has not been primed")
 	}
-	secretDump := c.ztunnelDump.Certificates
+	secretDump := c.ZDump.Certificates
 	w := new(tabwriter.Writer).Init(c.Stdout, 0, 8, 5, ' ', 0)
 	fmt.Fprintln(w, "CERTIFICATE NAME\tTYPE\tSTATUS\tVALID CERT\tSERIAL NUMBER\tNOT AFTER\tNOT BEFORE")
 
