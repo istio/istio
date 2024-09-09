@@ -298,12 +298,12 @@ type ConsolidatedDestRule struct {
 }
 
 // MarshalJSON implements json.Marshaller
-func (c *ConsolidatedDestRule) MarshalJSON() ([]byte, error) {
+func (l *ConsolidatedDestRule) MarshalJSON() ([]byte, error) {
 	// Json cannot expose unexported fields, so copy the ones we want here
 	return json.MarshalIndent(map[string]any{
-		"exportTo": c.exportTo,
-		"rule":     c.rule,
-		"from":     c.from,
+		"exportTo": l.exportTo,
+		"rule":     l.rule,
+		"from":     l.from,
 	}, "", "  ")
 }
 

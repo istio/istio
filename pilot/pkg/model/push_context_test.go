@@ -2235,7 +2235,6 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 	publicExpectedDestRules := []types.NamespacedName{
 		{Namespace: "test", Name: "rule1"},
 		{Namespace: "test", Name: "rule2"},
-		{Namespace: "test", Name: "rule3"},
 	}
 	ps.setDestinationRules([]config.Config{destinationRuleNamespace1, destinationRuleNamespace2, destinationRuleNamespace3})
 	private := ps.destinationRuleIndex.namespaceLocal["test"].specificDestRules[host.Name(testhost)]
@@ -2249,7 +2248,7 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 	if len(subsetsLocal) != 4 {
 		t.Errorf("want %d, but got %d", 4, len(subsetsLocal))
 	}
-	if len(subsetsExport) != 6 {
+	if len(subsetsExport) != 4 {
 		t.Errorf("want %d, but got %d", 6, len(subsetsExport))
 	}
 
