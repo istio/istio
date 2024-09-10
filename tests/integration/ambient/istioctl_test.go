@@ -112,7 +112,6 @@ func TestZtunnelConfig(t *testing.T) {
 				"--namespace=dummy",
 				"zc", "certs", podName, "-o", "json",
 			}
-			// var dumpCerts configdump.ZtunnelDump
 			zcCertsOutput, _ := istioCtl.InvokeOrFail(t, args)
 			if err = jsonUnmarshalListOrMap([]byte(zcCertsOutput), &dumpParsed.Certificates); err != nil {
 				t.Fatalf("Failed to unmarshal zc certs output: %v", err)
