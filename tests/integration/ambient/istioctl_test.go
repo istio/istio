@@ -75,7 +75,7 @@ func TestZtunnelConfig(t *testing.T) {
 			if err = jsonUnmarshalListOrMap([]byte(zcSvcOutput), &dumpParsed.Services); err != nil {
 				t.Fatalf("Failed to unmarshal zc svc output: %v", err)
 			}
-			// need to initialize the SubjectAltNames field to an empty slice to avoid nil pointer dereference
+			// need to initialize the SubjectAltNames field to an empty slice to avoid nil / slice comparison that fails the test
 			for _, svc := range dumpParsed.Services {
 				if svc.SubjectAltNames == nil {
 					svc.SubjectAltNames = []string{}
