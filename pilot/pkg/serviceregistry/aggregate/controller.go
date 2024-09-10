@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
@@ -117,6 +118,39 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressI
 		}
 	}
 	return i, removed
+}
+
+func (c *Controller) Workloads(requested sets.Set[model.ConfigKey]) []ambient.WorkloadsCollection {
+	var res []ambient.WorkloadsCollection
+	if !features.EnableAmbient {
+		return res
+	}
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.GetWorkloads())
+	}
+	return res
+}
+
+func (c *Controller) Services(requested sets.Set[model.ConfigKey]) []ambient.ServicesCollection {
+	var res []ambient.ServicesCollection
+	if !features.EnableAmbient {
+		return res
+	}
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.GetServices())
+	}
+	return res
+}
+
+func (c *Controller) Waypoints(requested sets.Set[model.ConfigKey]) []ambient.WaypointsCollection {
+	var res []ambient.WaypointsCollection
+	if !features.EnableAmbient {
+		return res
+	}
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.GetWaypoints())
+	}
+	return res
 }
 
 type registryEntry struct {

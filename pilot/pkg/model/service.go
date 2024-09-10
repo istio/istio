@@ -37,6 +37,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -941,6 +942,21 @@ func (u NoopAmbientIndexes) Waypoint(string, string) []netip.Addr {
 }
 
 func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
+	return nil
+}
+
+func (u NoopAmbientIndexes) GetWorkloads(WaypointKey) *ambient.WorkloadsCollection {
+	// Get workloads collection from AmbientIndex.go
+	return nil
+}
+
+func (u NoopAmbientIndexes) GetServices(WaypointKey) *ambient.ServicesCollection {
+	// Get services collection from AmbientIndex.go
+	return nil
+}
+
+func (u NoopAmbientIndexes) GetWaypoints(WaypointKey) *ambient.WaypointsCollection {
+	// Get waypoints collection from AmbientIndex.go
 	return nil
 }
 
