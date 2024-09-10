@@ -15,7 +15,9 @@
 package wasm
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -26,14 +28,26 @@ import (
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/hashicorp/go-multierror"
+	"github.com/tetratelabs/wazero"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
+	"github.com/hashicorp/go-version"
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/xds"
 )
+
+// Added by Ingress
+const (
+	wamrRuntime       = "envoy.wasm.runtime.wamr"
+	wamrAotPrefix     = "wamr-aot-"
+	wamrAot           = "wamr-aot"
+	wamrAotMaxVersion = "2.1.0"
+)
+
+// End added by Ingress
 
 var allowTypedConfig = protoconv.MessageToAny(&rbac.RBAC{})
 
@@ -238,6 +252,15 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 		return nil, fmt.Errorf("cannot fetch Wasm module %v: %w", remote.GetHttpUri().GetUri(), err)
 	}
 
+	// Added by Ingress
+	// Check for wamr-aot custom section
+	hasWamrAotSection := containsWamrAotInCustomSection(f)
+	if hasWamrAotSection {
+		vm.Runtime = wamrRuntime
+		vm.AllowPrecompiled = true
+	}
+	// End added by Ingress
+
 	// Rewrite remote fetch to local file.
 	vm.Code = &core.AsyncDataSource{
 		Specifier: &core.AsyncDataSource_Local{
@@ -267,3 +290,41 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 	// ECDS will be rewritten successfully.
 	return nec, nil
 }
+
+// Added by Ingress
+func containsWamrAotInCustomSection(wasmModulePath string) bool {
+	wasmBinary, err := os.ReadFile(wasmModulePath)
+	if err != nil {
+		wasmLog.Debugf("WASM module not found: %v\n", err)
+		return false
+	}
+	ctx := context.Background()
+	// Create Runtime
+	r := wazero.NewRuntime(ctx)
+	defer r.Close(ctx)
+	// Compile Module
+	compiledModule, err := r.CompileModule(ctx, wasmBinary)
+	if err != nil {
+		wasmLog.Debugf("Failed to compile WASM module: %v\n", err)
+		return false
+	}
+	// Get Wasm Custom Sections
+	sections := compiledModule.CustomSections()
+	for _, section := range sections {
+		if strings.HasPrefix(section.Name(), wamrAotPrefix) {
+			versionPart := strings.TrimPrefix(section.Name(), wamrAotPrefix)
+			v1, err := version.NewVersion(versionPart)
+			if err != nil {
+				wasmLog.Debugf("Failed to parse version: %v\n", err)
+				return false
+			}
+			maxVersion, _ := version.NewVersion(wamrAotMaxVersion)
+			return v1.LessThan(maxVersion)
+		} else if section.Name() == wamrAot {
+			return true
+		}
+	}
+	return false
+}
+
+// End added by Ingress

@@ -16,9 +16,11 @@ package extension
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	composite_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/composite/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -28,6 +30,11 @@ import (
 	"istio.io/istio/pkg/util/sets"
 	_ "istio.io/istio/pkg/wasm" // include for registering wasm logging scope
 )
+
+// Added by Ingress
+const compositeFilterType = "envoy.extensions.filters.http.composite.v3.Composite"
+
+// End added by Ingress
 
 var defaultConfigSource = &core.ConfigSource{
 	ConfigSourceSpecifier: &core.ConfigSource_Ads{
@@ -53,6 +60,26 @@ func PopAppend(list []*hcm.HttpFilter,
 }
 
 func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm.HttpFilter {
+	// Added by Ingress
+	if wasmPlugin.FailStrategy == extensions.FailStrategy_FAIL_OPEN {
+		defaultConfig, _ := anypb.New(&composite_v3.Composite{})
+		return &hcm.HttpFilter{
+			Name: wasmPlugin.ResourceName,
+			ConfigType: &hcm.HttpFilter_ConfigDiscovery{
+				ConfigDiscovery: &core.ExtensionConfigSource{
+					ConfigSource:                     defaultConfigSource,
+					ApplyDefaultConfigWithoutWarming: false,
+					DefaultConfig:                    defaultConfig,
+					TypeUrls: []string{
+						xds.WasmHTTPFilterType,
+						xds.RBACHTTPFilterType,
+						"type.googleapis.com/" + compositeFilterType,
+					},
+				},
+			},
+		}
+	}
+	// End Added by Ingress
 	return &hcm.HttpFilter{
 		Name: wasmPlugin.ResourceName,
 		ConfigType: &hcm.HttpFilter_ConfigDiscovery{

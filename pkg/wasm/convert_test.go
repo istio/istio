@@ -17,9 +17,11 @@ package wasm
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"reflect"
 	"testing"
+	"time"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -28,6 +30,7 @@ import (
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -501,3 +504,78 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 		},
 	}),
 }
+
+// Added by Ingress
+func TestContainsAotInCustomSectionWithValidWasm(t *testing.T) {
+	tmpDir := t.TempDir()
+	options := defaultOptions()
+	options.HTTPRequestTimeout = 10 * time.Second
+	cache := NewLocalFileCache(tmpDir, options)
+	defer cache.Cleanup()
+	defer remote.DefaultTransport.(*http.Transport).CloseIdleConnections()
+
+	tests := []struct {
+		name        string
+		downloadURL string
+		expected    bool
+	}{
+		{
+			name:        "wasm file without AOT section",
+			downloadURL: "oci://higress-registry.cn-hangzhou.cr.aliyuncs.com/plugins/request-block:1.0.0",
+			expected:    false,
+		},
+		{
+			name:        "wasm file with AOT section",
+			downloadURL: "oci://registry.cn-hangzhou.aliyuncs.com/jingze/wasm-plugin:1.0.0",
+			expected:    true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			f, err := cache.Get(test.downloadURL, GetOptions{
+				ResourceName:    "test_wasm",
+				ResourceVersion: "1.0.0",
+				RequestTimeout:  10 * time.Second,
+				PullSecret:      []byte{},
+				PullPolicy:      extensions.PullPolicy_UNSPECIFIED_POLICY,
+			})
+			if err != nil {
+				t.Errorf("failed to download wasm file: %v", err)
+			}
+			hasAotSection := containsWamrAotInCustomSection(f)
+			if hasAotSection != test.expected {
+				t.Errorf("containsWamrAotInCustomSection(%q) = %v; want %v", f, hasAotSection, test.expected)
+			}
+		})
+	}
+}
+
+func TestContainsAotInCustomSectionWithInValidWasm(t *testing.T) {
+	tests := []struct {
+		name     string
+		wasmFile string
+		expected bool
+	}{
+		{
+			name:     "empty wasm file",
+			wasmFile: "",
+			expected: false,
+		},
+		{
+			name:     "invalid wasm file",
+			wasmFile: "./convert.go",
+			expected: false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := containsWamrAotInCustomSection(test.wasmFile)
+			if result != test.expected {
+				t.Errorf("containsWamrAotInCustomSection(%q) = %v; want %v", test.wasmFile, result, test.expected)
+			}
+		})
+	}
+}
+
+// End added by Ingress

@@ -83,6 +83,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
 	github.com/stoewer/go-strcase v1.3.0
+	github.com/tetratelabs/wazero v1.7.3
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/yl2chen/cidranger v1.0.2
 	go.opentelemetry.io/otel v1.17.0

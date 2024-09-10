@@ -41,8 +41,12 @@
         "regex": "^wasm\\.envoy\\.wasm\\.(.*?\\.)plugin"
       },
       {
+        "tag_name": "thread_name",
+        "regex": "^wasm\\..*?\\.plugin\\..*?\\..*?\\.(\\w+\\.)"
+      },
+      {
         "tag_name": "plugin_name",
-        "regex": "^wasm\\..*?plugin\\.(.*?\\.)\\w+$"
+        "regex": "^wasm\\..*?plugin\\.(.*?\\..*?\\.)"
       },
       {
         "tag_name": "route",

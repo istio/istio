@@ -61,6 +61,18 @@
     "use_all_default_tags": false,
     "stats_tags": [
       {
+        "tag_name": "wasm_runtime",
+        "regex": "^wasm\\.envoy\\.wasm\\.(.*?\\.)plugin"
+      },
+      {
+        "tag_name": "thread_name",
+        "regex": "^wasm\\..*?\\.plugin\\..*?\\..*?\\.(\\w+\\.)"
+      },
+      {
+        "tag_name": "plugin_name",
+        "regex": "^wasm\\..*?plugin\\.(.*?\\..*?\\.)"
+      },
+      {
         "tag_name": "phase",
         "regex": "(_phase=([a-z_]+))"
       },
