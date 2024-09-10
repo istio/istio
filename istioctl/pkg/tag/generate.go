@@ -280,6 +280,7 @@ func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (s
 		"values.revisionTags.[0]=" + config.Tag,
 		"values.sidecarInjectorWebhook.enableNamespacesByDefault=" + strconv.FormatBool(opts.AutoInjectNamespaces),
 		"values.istiodRemote.injectionURL=" + config.URL,
+		"values.global.istioNamespace=" + config.IstioNamespace,
 	}
 	mfs, _, err := render.GenerateManifest(nil, flags, false, nil, nil)
 	if err != nil {
