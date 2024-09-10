@@ -35,14 +35,6 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-type rawDump struct {
-	Services      json.RawMessage                     `json:"services"`
-	Workloads     json.RawMessage                     `json:"workloads"`
-	Policies      json.RawMessage                     `json:"policies"`
-	Certificates  json.RawMessage                     `json:"certificates"`
-	WorkloadState map[string]configdump.WorkloadState `json:"workloadstate"`
-}
-
 func TestZtunnelConfig(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {

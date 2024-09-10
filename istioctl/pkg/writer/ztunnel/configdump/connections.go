@@ -34,7 +34,7 @@ type ConnectionsFilter struct {
 }
 
 func (c *ConfigWriter) PrintConnectionsDump(filter ConnectionsFilter, outputFormat string) error {
-	d := c.ZDump
+	d := c.ztunnelDump
 	workloads := maps.Values(d.WorkloadState)
 	workloads = slices.SortFunc(workloads, func(a, b WorkloadState) int {
 		if r := cmp.Compare(a.Info.Namespace, b.Info.Namespace); r != 0 {
@@ -63,7 +63,7 @@ func (c *ConfigWriter) PrintConnectionsDump(filter ConnectionsFilter, outputForm
 
 func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 	w := c.tabwriter()
-	d := c.ZDump
+	d := c.ztunnelDump
 	serviceNames := map[string]string{}
 	workloadNames := map[string]string{}
 	for _, s := range d.Services {

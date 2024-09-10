@@ -27,9 +27,9 @@ import (
 
 // ConfigWriter is a writer for processing responses from the Ztunnel Admin config_dump endpoint
 type ConfigWriter struct {
-	Stdout   io.Writer
-	ZDump    *ZtunnelDump
-	FullDump []byte
+	Stdout      io.Writer
+	ztunnelDump *ZtunnelDump
+	FullDump    []byte
 }
 
 type rawDump struct {
@@ -64,7 +64,7 @@ func (c *ConfigWriter) Prime(b []byte) error {
 		return err
 	}
 	zDump.WorkloadState = rawDump.WorkloadState
-	c.ZDump = zDump
+	c.ztunnelDump = zDump
 	return nil
 }
 

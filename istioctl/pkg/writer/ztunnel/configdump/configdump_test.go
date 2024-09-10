@@ -48,12 +48,12 @@ func TestConfigWriter_Prime(t *testing.T) {
 			cw := &ConfigWriter{}
 			cd, _ := os.ReadFile(tt.inputFile)
 			err := cw.Prime(cd)
-			if cw.ZDump == nil {
+			if cw.ztunnelDump == nil {
 				if tt.wantConfigs != 0 {
 					t.Errorf("wanted some configs loaded but config dump was nil")
 				}
-			} else if len(cw.ZDump.Workloads) != tt.wantConfigs {
-				t.Errorf("wanted %v configs loaded in got %v", tt.wantConfigs, len(cw.ZDump.Workloads))
+			} else if len(cw.ztunnelDump.Workloads) != tt.wantConfigs {
+				t.Errorf("wanted %v configs loaded in got %v", tt.wantConfigs, len(cw.ztunnelDump.Workloads))
 			}
 			if tt.wantErr {
 				assert.Error(t, err)
