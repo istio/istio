@@ -88,7 +88,6 @@ func TestZtunnelConfig(t *testing.T) {
 				"--namespace=dummy",
 				"zc", "policies", podName, "-o", "json",
 			}
-			// var dumpPolicies configdump.ZtunnelDump
 			zcPoliciesOutput, _ := istioCtl.InvokeOrFail(t, args)
 			if err = jsonUnmarshalListOrMap([]byte(zcPoliciesOutput), &dumpParsed.Policies); err != nil {
 				t.Fatalf("Failed to unmarshal zc policies output: %v", err)
@@ -100,7 +99,6 @@ func TestZtunnelConfig(t *testing.T) {
 				"--namespace=dummy",
 				"zc", "workloads", podName, "-o", "json",
 			}
-			// var dumpWorkloads configdump.ZtunnelDump
 			zcWorkloadsOutput, _ := istioCtl.InvokeOrFail(t, args)
 			if err = jsonUnmarshalListOrMap([]byte(zcWorkloadsOutput), &dumpParsed.Workloads); err != nil {
 				t.Fatalf("Failed to unmarshal zc workloads output: %v", err)
