@@ -1,0 +1,23 @@
+name: client
+traffic_direction: OUTBOUND
+address:
+  socket_address:
+    address: 127.0.0.1
+    port_value: {{ .Ports.ClientPort }}
+listener_filters:
+- name: "envoy.filters.listener.tls_inspector"
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+- name: "envoy.filters.listener.http_inspector"
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.filters.listener.http_inspector.v3.HttpInspector
+filter_chains:
+- filters:
+{{ .Vars.ClientNetworkFilters | fill | indent 2 }}
+  - name: tcp_proxy
+    typed_config:
+      "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+      type_url: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+      value:
+        stat_prefix: outbound_tcp
+        cluster: outbound|9080|tcp|server.default.svc.cluster.local

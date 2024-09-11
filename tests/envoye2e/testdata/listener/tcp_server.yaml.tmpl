@@ -1,0 +1,24 @@
+name: server
+traffic_direction: INBOUND
+address:
+  socket_address:
+    address: 127.0.0.2
+    port_value: {{ .Ports.ServerPort }}
+listener_filters:
+- name: "envoy.filters.listener.tls_inspector"
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+- name: "envoy.filters.listener.http_inspector"
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.filters.listener.http_inspector.v3.HttpInspector
+filter_chains:
+- filters:
+{{ .Vars.ServerNetworkFilters | fill | indent 2 }}
+  - name: tcp_proxy
+    typed_config:
+      "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+      type_url: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+      value:
+        stat_prefix: inbound_tcp
+        cluster: inbound|9080|tcp|server.default.svc.cluster.local
+{{ .Vars.ServerListenerTLSContext | indent 2 }}

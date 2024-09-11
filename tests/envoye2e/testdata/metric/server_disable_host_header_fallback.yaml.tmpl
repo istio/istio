@@ -1,0 +1,56 @@
+name: istio_requests_total
+type: COUNTER
+metric:
+- counter:
+    value: {{ .Vars.RequestCount }}
+  label:
+  - name: reporter
+    value: destination
+  - name: source_workload
+    value: productpage-v1
+  - name: source_canonical_service
+    value: productpage-v1
+  - name: source_canonical_revision
+    value: version-1
+  - name: source_workload_namespace
+    value: default
+  - name: source_principal
+    value: unknown
+  - name: source_app
+    value: productpage
+  - name: source_version
+    value: v1
+  - name: source_cluster
+    value: client-cluster
+  - name: destination_workload
+    value: ratings-v1
+  - name: destination_workload_namespace
+    value: default
+  - name: destination_principal
+    value: unknown
+  - name: destination_app
+    value: ratings
+  - name: destination_version
+    value: v1
+  - name: destination_service
+    value: ratings
+  - name: destination_canonical_service
+    value: ratings
+  - name: destination_canonical_revision
+    value: version-1
+  - name: destination_service_name
+    value: ratings
+  - name: destination_service_namespace
+    value: default
+  - name: destination_cluster
+    value: server-cluster
+  - name: request_protocol
+    value: http
+  - name: response_code
+    value: "200"
+  - name: grpc_response_status
+    value: ""
+  - name: response_flags
+    value: "-"
+  - name: connection_security_policy
+    value: none

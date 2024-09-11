@@ -1,0 +1,12 @@
+name: envoy_listener_http_downstream_rq_xx
+type: COUNTER
+metric:
+- counter:
+    value: {{ .Vars.RequestCount }}
+  label:
+  - name: envoy_response_code_class
+    value: "2"
+  - name: envoy_http_conn_manager_prefix
+    value: client
+  - name: envoy_listener_address
+    value: "127.0.0.1_{{ .Ports.ClientPort }}"

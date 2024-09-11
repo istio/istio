@@ -1,0 +1,59 @@
+name: istio_tcp_connections_opened_total
+type: COUNTER
+metric:
+- counter:
+    value: 10
+  label:
+  - name: reporter
+    value: destination
+  - name: source_workload
+    value: productpage-v1
+  - name: source_canonical_service
+    value: productpage-v1
+  - name: source_canonical_revision
+    value: version-1
+  - name: source_workload_namespace
+    value: default
+  - name: source_principal
+    value: spiffe://cluster.local/ns/default/sa/client
+{{- if eq .Vars.AppVersionFallback "true" }}
+  - name: source_app
+    value: productpage-v1
+  - name: source_version
+    value: version-1
+{{- else }}
+  - name: source_app
+    value: productpage
+  - name: source_version
+    value: v1
+{{- end }}
+  - name: source_cluster
+    value: client-cluster
+  - name: destination_workload
+    value: ratings-v1
+  - name: destination_workload_namespace
+    value: default
+  - name: destination_principal
+    value: spiffe://cluster.local/ns/default/sa/server
+  - name: destination_app
+    value: ratings
+  - name: destination_version
+    value: v1
+  - name: destination_service
+    value: server.default.svc.cluster.local
+  - name: destination_canonical_service
+    value: ratings
+  - name: destination_canonical_revision
+    value: version-1
+  - name: destination_service_name
+    value: server
+  - name: destination_service_namespace
+    value: default
+  - name: destination_cluster
+    value: server-cluster
+  - name: request_protocol
+    value: tcp
+  - name: response_flags
+    value: "-"
+  - name: connection_security_policy
+    value: mutual_tls

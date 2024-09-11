@@ -1,0 +1,54 @@
+name: istio_requests_total
+type: COUNTER
+metric:
+- counter:
+    value: {{ .Vars.RequestCount }}
+  label:
+  - name: reporter
+    value: source
+  - name: source_workload
+    value: _productpage-v1
+  - name: source_canonical_service
+    value: productpage-v1
+  - name: source_canonical_revision
+    value: version-1
+  - name: source_workload_namespace
+    value: _default
+  - name: source_principal
+    value: malicious
+  - name: source_app
+    value: _productpage
+  - name: source_version
+    value: _productpage
+  - name: source_cluster
+    value: client-cluster
+  - name: destination_workload
+    value: "unknown"
+  - name: destination_workload_namespace
+    value: default
+  - name: destination_principal
+    value: unknown
+  - name: destination_version
+    value: _v1
+  - name: destination_service
+    value: server.default.svc.cluster.local
+  - name: destination_canonical_service
+    value: ratings
+  - name: destination_canonical_revision
+    value: version-1
+  - name: destination_service_name
+    value: server
+  - name: destination_service_namespace
+    value: _ratings
+  - name: destination_cluster
+    value: server-cluster
+  - name: request_protocol
+    value: HTTP/1.1
+  - name: response_code
+    value: "200"
+  - name: connection_security_policy
+    value: unknown
+  - name: configurable_metric_a
+    value: gateway
+  - name: route_name
+    value: client_route,server-outbound-cluster,server

@@ -1,0 +1,7 @@
+basicConstraints = CA:FALSE
+nsCertType = client
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth
+subjectAltName = @alt_names
+[alt_names]
+URI.1 = spiffe://cluster.local/ns/default/sa/client

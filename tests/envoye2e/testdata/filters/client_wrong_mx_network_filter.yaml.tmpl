@@ -1,0 +1,6 @@
+- name: envoy.filters.network.upstream.metadata_exchange
+  typed_config: 
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: envoy.tcp.metadataexchange.config.MetadataExchange
+    value:
+      protocol: mx-protocol1

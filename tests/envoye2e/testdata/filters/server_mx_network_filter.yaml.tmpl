@@ -1,0 +1,9 @@
+- name: envoy.filters.network.metadata_exchange
+  typed_config: 
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: envoy.tcp.metadataexchange.config.MetadataExchange
+    value:
+      protocol: mx-protocol
+{{- if eq .Vars.EnableMetadataDiscovery "true" }}
+      enable_discovery: true
+{{- end }}

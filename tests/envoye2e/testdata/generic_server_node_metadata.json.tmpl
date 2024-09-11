@@ -1,0 +1,38 @@
+"APP_CONTAINERS": "server",
+"CONFIG_NAMESPACE": "default",
+"INCLUDE_INBOUND_PORTS": "9080",
+"INSTANCE_IPS": "10.52.0.34,fe80::a075:11ff:fe5e:f1cd",
+"INTERCEPTION_MODE": "REDIRECT",
+"ISTIO_PROXY_SHA": "istio-proxy:47e4559b8e4f0d516c0d17b233d127a3deb3d7ce",
+"ISTIO_VERSION": "1.14-dev",
+"LABELS": {
+    "app": "ratings",
+    "version": "v1",
+    "service.istio.io/canonical-name": "ratings",
+    "service.istio.io/canonical-revision": "version-1"
+},
+"MESH_ID": "proj-123",
+"NAME": "ratings-v1-84975bc778-pxz2w",
+"NAMESPACE": "default",
+"CLUSTER_ID": "server-cluster",
+"OWNER": "kubernetes://apis/networking.istio.io/v1alpha3/namespace/default/workloadgroups/ratings-v1",
+"PLATFORM_METADATA": {
+    "gcp_location": "us-east4-b",
+    "gcp_project": "test-project"
+},
+"POD_NAME": "ratings-v1-84975bc778-pxz2w",
+"SERVICE_ACCOUNT": "bookinfo-ratings",
+"SECURE_STACKDRIVER_ENDPOINT": "localhost:{{.Vars.SDPort }}",
+"STACKDRIVER_ROOT_CA_FILE": "{{ .Vars.StackdriverRootCAFile }}",
+"STACKDRIVER_TOKEN_FILE": "{{ .Vars.StackdriverTokenFile }}",
+"STS_PORT": "{{ .Vars.STSPort  }}",
+"STACKDRIVER_MONITORING_EXPORT_INTERVAL_SECS": "20",
+{{- if .Vars.StackdriverLoggingExportIntervalSecs }}
+"STACKDRIVER_LOGGING_EXPORT_INTERVAL_SECS": "{{ .Vars.StackdriverLoggingExportIntervalSecs }}",
+{{- else }}
+"STACKDRIVER_LOGGING_EXPORT_INTERVAL_SECS": "20",
+{{- end }}
+{{- if .Vars.StackdriverTcpLogEntryTimeoutSecs }}
+"STACKDRIVER_TCP_LOG_ENTRY_TIMEOUT_SECS": "{{ .Vars.StackdriverTcpLogEntryTimeoutSecs }}",
+{{- end }}
+"WORKLOAD_NAME": "ratings-v1",

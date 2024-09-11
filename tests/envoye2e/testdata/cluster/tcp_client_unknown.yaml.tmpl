@@ -1,0 +1,22 @@
+name: outbound|9080|tcp|server.default.svc.cluster.local
+metadata:
+  filter_metadata:
+    istio:
+      services:
+        - host: server.default.svc.cluster.local
+          name: server
+          namespace: default
+connect_timeout: 5s
+type: STATIC
+load_assignment:
+  cluster_name: outbound|9080|tcp|server.default.svc.cluster.local
+  endpoints:
+  - lb_endpoints:
+    - endpoint:
+        address:
+          socket_address:
+            address: 127.0.0.3
+            port_value: {{ .Ports.BackendPort }}
+{{ .Vars.ClientClusterTLSContext }}
+filters:
+{{ .Vars.ClientUpstreamFilters | fill }}

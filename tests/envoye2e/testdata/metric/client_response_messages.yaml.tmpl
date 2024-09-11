@@ -1,0 +1,48 @@
+name: istio_response_messages_total
+type: COUNTER
+metric:
+- counter:
+    value: {{ .Vars.ResponseMessages }}
+  label:
+  - name: reporter
+    value: source
+  - name: source_workload
+    value: productpage-v1
+  - name: source_canonical_service
+    value: productpage-v1
+  - name: source_canonical_revision
+    value: version-1
+  - name: source_workload_namespace
+    value: default
+  - name: source_principal
+    value: unknown
+  - name: source_app
+    value: productpage
+  - name: source_version
+    value: v1
+  - name: source_cluster
+    value: client-cluster
+  - name: destination_workload
+    value: ratings-v1
+  - name: destination_workload_namespace
+    value: default
+  - name: destination_principal
+    value: unknown
+  - name: destination_app
+    value: ratings
+  - name: destination_version
+    value: v1
+  - name: destination_service
+    value: server.default.svc.cluster.local
+  - name: destination_canonical_service
+    value: ratings
+  - name: destination_canonical_revision
+    value: version-1
+  - name: destination_service_name
+    value: server
+  - name: destination_service_namespace
+    value: default
+  - name: destination_cluster
+    value: server-cluster
+  - name: configurable_metric_a
+    value: v1

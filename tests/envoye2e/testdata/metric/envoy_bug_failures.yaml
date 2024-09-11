@@ -1,0 +1,5 @@
+name: envoy_server_envoy_bug_failures
+type: COUNTER
+metric:
+- counter:
+    value: 0

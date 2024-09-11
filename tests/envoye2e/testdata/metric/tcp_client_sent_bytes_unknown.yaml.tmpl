@@ -1,0 +1,57 @@
+name: istio_tcp_sent_bytes_total
+type: COUNTER
+metric:
+- counter:
+    value: 0
+  label:
+  - name: reporter
+    value: source
+  - name: source_workload
+    value: productpage-v1
+  - name: source_canonical_service
+    value: productpage-v1
+  - name: source_canonical_revision
+    value: version-1
+  - name: source_workload_namespace
+    value: default
+  - name: source_principal
+    value: unknown
+  - name: source_app
+    value: productpage
+  - name: source_version
+    value: v1
+  - name: source_cluster
+    value: client-cluster
+  - name: destination_workload
+    value: unknown
+  - name: destination_workload_namespace
+    value: unknown
+  - name: destination_principal
+    value: unknown
+  - name: destination_app
+    value: unknown
+{{- if eq .Vars.AppVersionFallback "true" }}
+  - name: destination_version
+    value: version-1
+{{- else }}
+  - name: destination_version
+    value: unknown
+{{- end }}
+  - name: destination_service
+    value: server.default.svc.cluster.local
+  - name: destination_canonical_service
+    value: unknown
+  - name: destination_canonical_revision
+    value: latest
+  - name: destination_service_name
+    value: server
+  - name: destination_service_namespace
+    value: unknown
+  - name: destination_cluster
+    value: unknown
+  - name: request_protocol
+    value: tcp
+  - name: response_flags
+    value: "-"
+  - name: connection_security_policy
+    value: unknown

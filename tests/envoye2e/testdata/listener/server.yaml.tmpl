@@ -1,0 +1,45 @@
+{{- if ne .Vars.ServerListeners "" }}
+{{ .Vars.ServerListeners }}
+{{- else }}
+{{- if ne .Vars.ServerInternalAddress "" }}
+name: {{ .Vars.ServerInternalAddress }}
+{{- else }}
+name: server
+{{- end }}
+traffic_direction: INBOUND
+{{- if ne .Vars.ServerInternalAddress "" }}
+internal_listener: {}
+{{- else }}
+address:
+  socket_address:
+    address: 127.0.0.2
+    port_value: {{ .Ports.ServerPort }}
+{{- end }}
+filter_chains:
+- filters:
+{{ .Vars.ServerNetworkFilters | fill | indent 2 }}
+  - name: http
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+      codec_type: AUTO
+      stat_prefix: server
+{{ .Vars.ServerHTTPAccessLogs | fill | indent 6 }}
+      http_filters:
+{{ .Vars.ServerHTTPFilters | fill | indent 6 }}
+      - name: envoy.filters.http.router
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      route_config:
+        name: server
+        virtual_hosts:
+        - name: server
+          domains: ["*"]
+          routes:
+          - name: server_route
+            match: { prefix: / }
+            route:
+              cluster: server-inbound-cluster
+              timeout: 0s
+{{ .Vars.ServerRouteRateLimits | fill | indent 14 }}
+{{ .Vars.ServerTLSContext | indent 2 }}
+{{- end }}

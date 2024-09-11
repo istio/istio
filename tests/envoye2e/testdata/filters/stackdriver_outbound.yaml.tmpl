@@ -1,0 +1,26 @@
+- name: stackdriver_outbound
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: envoy.extensions.filters.http.wasm.v3.Wasm
+    value:
+      config:
+        root_id: "stackdriver_outbound"
+        vm_config:
+          {{- if .Vars.ReloadVM }}
+          vm_id: "stackdriver_outbound_{{ .Vars.Version }}"
+          {{- else }}
+          vm_id: "stackdriver_outbound"
+          {{- end }}
+          runtime: "envoy.wasm.runtime.null"
+          code:
+            local: { inline_string: "envoy.wasm.null.stackdriver" }
+        configuration:
+          "@type": "type.googleapis.com/google.protobuf.StringValue"
+          value: |
+            {{- if .Vars.JustSendErrorClientLog }}
+            {"access_logging": "ERRORS_ONLY", "enable_audit_log": true, "metrics_overrides": {"client/request_bytes":{"drop": true}, "client/request_count":{"tag_overrides":{"request_operation":"'override'"}}}}
+            {{- else if .Vars.StackdriverFilterCustomClientConfig }}
+            {{ .Vars.StackdriverFilterCustomClientConfig | fill }}
+            {{- else }}
+            {"access_logging": "FULL", "enable_audit_log": true, "metrics_overrides": {"client/request_bytes":{"drop": true}, "client/request_count":{"tag_overrides":{"request_operation":"'override'"}}}}
+            {{- end }}

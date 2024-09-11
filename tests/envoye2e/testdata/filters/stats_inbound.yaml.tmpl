@@ -1,0 +1,23 @@
+- name: stats_inbound{{ .N }}
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+{{ if ne .Vars.WasmRuntime "" }}
+    type_url: envoy.extensions.filters.http.wasm.v3.Wasm
+    value:
+      config:
+        root_id: stats_inbound
+        vm_config:
+          vm_id: stats_inbound{{ .N }}
+          runtime: {{ .Vars.WasmRuntime }}
+          code:
+            local: { {{ .Vars.StatsFilterCode }} }
+          allow_precompiled: true
+        configuration:
+          "@type": "type.googleapis.com/google.protobuf.StringValue"
+          value: |
+            {{ .Vars.StatsFilterServerConfig | fill }}
+{{ else }}
+    type_url: type.googleapis.com/stats.PluginConfig
+    value:
+      {{ .Vars.StatsFilterServerConfig | fill | indent 6 }}
+{{ end }}

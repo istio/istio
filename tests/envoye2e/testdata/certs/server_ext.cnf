@@ -1,0 +1,7 @@
+basicConstraints = CA:FALSE
+nsCertType = server
+keyUsage = critical, digitalSignature, keyEncipherment
+subjectAltName = @alt_names
+[alt_names]
+URI.1 = spiffe://cluster.local/ns/default/sa/server
+DNS.1 = istio.io

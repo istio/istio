@@ -1,0 +1,25 @@
+name: tcp_passthrough
+internal_listener: {}
+listener_filters:
+- name: set_dst_address
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: type.googleapis.com/envoy.extensions.filters.listener.original_dst.v3.OriginalDst
+filter_chains:
+- filters:
+  - name: connect_authority
+    typed_config:
+      "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+      type_url: type.googleapis.com/envoy.extensions.filters.network.set_filter_state.v3.Config
+      value:
+        on_new_connection:
+        - object_key: envoy.filters.listener.original_dst.local_ip
+          format_string:
+            text_format_source:
+              inline_string: "%FILTER_STATE(envoy.filters.listener.original_dst.local_ip:PLAIN)%"
+          shared_with_upstream: ONCE
+  - name: tcp_proxy
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+      cluster: internal_outbound
+      stat_prefix: tcp_passthrough

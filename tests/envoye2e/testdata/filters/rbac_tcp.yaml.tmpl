@@ -1,0 +1,30 @@
+- name: envoy.filters.network.rbac
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: envoy.extensions.filters.network.rbac.v3.RBAC
+    value:
+      statPrefix: tcp.
+      shadowRulesStatPrefix: istio_dry_run_deny_
+      shadowRules:
+        action: DENY
+        policies:
+          ns[foo]-policy[tcp-dryrun-deny]-rule[0]:
+            permissions:
+              - any: true
+            principals:
+              - any: true
+- name: envoy.filters.network.rbac
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: envoy.extensions.filters.network.rbac.v3.RBAC
+    value:
+      statPrefix: tcp.
+      shadowRulesStatPrefix: istio_dry_run_allow_
+      shadowRules:
+        action: ALLOW
+        policies:
+          ns[foo]-policy[tcp-dryrun-allow]-rule[0]:
+            permissions:
+              - any: true
+            principals:
+              - any: true

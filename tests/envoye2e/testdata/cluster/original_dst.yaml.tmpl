@@ -1,0 +1,63 @@
+name: original_dst
+type: ORIGINAL_DST
+cleanup_interval: 1s
+lb_policy: CLUSTER_PROVIDED
+{{- if eq .Vars.EnableOriginalDstPortOverride "true" }}
+original_dst_lb_config:
+  upstream_port_override: {{ .Ports.ServerTunnelPort }}
+{{ end }}
+typed_extension_protocol_options:
+  envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+    '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+    explicit_http_config:
+{{ if eq .Vars.quic "true" }}
+      http3_protocol_options:
+        allow_extended_connect: true
+{{ else }}
+      http2_protocol_options:
+        allow_connect: true
+{{ end }}
+transport_socket:
+{{ if eq .Vars.quic "true" }}
+  name: envoy.transport_sockets.quic
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: type.googleapis.com/envoy.extensions.transport_sockets.quic.v3.QuicUpstreamTransport
+    value:
+      upstream_tls_context:
+        common_tls_context:
+          tls_certificate_sds_secret_configs:
+            name: client
+            sds_config:
+              api_config_source:
+                api_type: GRPC
+                grpc_services:
+                - envoy_grpc:
+                    cluster_name: xds_cluster
+                set_node_on_first_message_only: true
+                transport_api_version: V3
+              resource_api_version: V3
+          validation_context:
+            trusted_ca: { filename: "testdata/certs/root.cert" }
+        sni: istio.io
+{{ else }}
+  name: tls
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+    value:
+      common_tls_context:
+        tls_certificate_sds_secret_configs:
+          name: client
+          sds_config:
+            api_config_source:
+              api_type: GRPC
+              grpc_services:
+              - envoy_grpc:
+                  cluster_name: xds_cluster
+              set_node_on_first_message_only: true
+              transport_api_version: V3
+            resource_api_version: V3
+        validation_context:
+          trusted_ca: { filename: "testdata/certs/root.cert" }
+{{ end }}

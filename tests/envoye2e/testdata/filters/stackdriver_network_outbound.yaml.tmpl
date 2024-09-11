@@ -1,0 +1,20 @@
+- name: envoy.filters.network.wasm
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: envoy.extensions.filters.network.wasm.v3.Wasm
+    value:
+      config:
+        root_id: "stackdriver_outbound"
+        vm_config:
+          {{- if .Vars.ReloadVM }}
+          vm_id: "stackdriver_outbound_{{ .Vars.Version }}"
+          {{- else }}
+          vm_id: "stackdriver_outbound"
+          {{- end }}
+          runtime: "envoy.wasm.runtime.null"
+          code:
+            local: { inline_string: "envoy.wasm.null.stackdriver" }
+        configuration:
+          "@type": "type.googleapis.com/google.protobuf.StringValue"
+          value: |
+            {"access_logging": "FULL", "metrics_overrides": {"client/request_bytes":{"drop": true}, "client/request_count":{"tag_overrides":{"request_operation":"'override'"}}}}

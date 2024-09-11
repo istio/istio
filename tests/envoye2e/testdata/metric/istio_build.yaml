@@ -1,0 +1,10 @@
+name: istio_build
+type: GAUGE
+metric:
+- gauge:
+    value: 1
+  label:
+  - name: component
+    value: proxy
+  - name: tag
+    value: 1.5-dev

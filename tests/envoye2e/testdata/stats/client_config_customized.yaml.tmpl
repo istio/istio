@@ -1,0 +1,35 @@
+definitions:
+- name: custom
+  value: "1"
+  type: COUNTER
+metrics:
+  - name: request_duration_milliseconds
+    drop: true
+  - name: custom
+    dimensions:
+      reporter: "'proxy'"
+  - tags_to_remove:
+    - response_flags
+    - source_principal
+  - name: requests_total
+    dimensions:
+      configurable_metric_a: "'gateway'"
+      source_workload: "'_' + node.metadata['WORKLOAD_NAME']"
+      source_workload_namespace: "'_' + node.metadata['NAMESPACE']"
+      source_app: "'_' + node.metadata['LABELS']['app']"
+      source_version: "'_' + node.metadata['LABELS']['app']" # same as above expression
+      request_protocol: request.protocol
+      destination_version: "'_' + (has(node.metadata.LABELS.version) ? node.metadata.LABELS.version : 'unknown')"
+      destination_service_namespace: "'_' + upstream_peer.labels['app'].value"
+      destination_app: "cannot _ parse | {{ .N }}"
+      destination_workload: "cannot_evaluate"
+      route_name: xds.route_name + "," + xds.cluster_name + "," + xds.cluster_metadata.filter_metadata.istio.services[0].name
+    tags_to_remove:
+    - grpc_response_status
+  - name: request_bytes
+    dimensions:
+      configurable_metric_b: "'test'"
+    tags_to_remove:
+    - reporter
+  - dimensions:
+      source_principal: "'malicious'"

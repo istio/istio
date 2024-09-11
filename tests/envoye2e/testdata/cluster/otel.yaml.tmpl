@@ -1,0 +1,12 @@
+- connect_timeout: 1s
+  load_assignment:
+    cluster_name: otel
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: 127.0.0.1
+              port_value: {{ .Vars.OtelPort }}
+  http2_protocol_options: {}
+  name: otel

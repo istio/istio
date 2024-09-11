@@ -1,0 +1,13 @@
+- name: envoy.filters.http.rbac
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: envoy.extensions.filters.http.rbac.v3.RBAC
+    value:
+      rules:
+        action: LOG
+        policies:
+          "test":
+            permissions:
+              - any: true
+            principals:
+              - any: true

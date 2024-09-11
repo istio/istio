@@ -1,0 +1,8 @@
+name: envoy_tcp_downstream_cx_total
+type: COUNTER
+metric:
+- counter:
+    value: {{ .Vars.ConnectionCount }}
+  label:
+  - name: envoy_tcp_prefix
+    value: "outbound_tcp"

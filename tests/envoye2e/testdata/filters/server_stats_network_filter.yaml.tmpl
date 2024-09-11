@@ -1,0 +1,21 @@
+- name: envoy.filters.network.wasm
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+{{ if ne .Vars.WasmRuntime "" }}
+    type_url: envoy.extensions.filters.network.wasm.v3.Wasm
+    value:
+      config:
+        root_id: "stats_inbound"
+        vm_config:
+          runtime: envoy.wasm.runtime.null
+          code:
+            local: { inline_string: "envoy.wasm.stats" }
+        configuration:
+          "@type": "type.googleapis.com/google.protobuf.StringValue"
+          value: |
+            { "debug": "false", "field_separator": ";.;", "tcp_reporting_duration": "1s" }
+{{ else }}
+    type_url: type.googleapis.com/stats.PluginConfig
+    value:
+      tcp_reporting_duration: 1s
+{{ end }}

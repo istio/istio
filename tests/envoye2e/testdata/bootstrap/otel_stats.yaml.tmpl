@@ -1,0 +1,12 @@
+stats_sinks:
+- name: otel
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig
+    grpc_service:
+      envoy_grpc:
+        cluster_name: otel
+stats_config:
+  stats_matcher:
+    inclusion_list:
+      patterns:
+      - prefix: "istiocustom."

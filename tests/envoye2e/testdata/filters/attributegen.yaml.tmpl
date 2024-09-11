@@ -1,0 +1,40 @@
+- name: istio.attributegen
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+    value:
+      config:
+        vm_config:
+          vm_id: attributegen{{ .N }}
+          runtime: envoy.wasm.runtime.v8
+          code:
+            local: { {{ .Vars.AttributeGenFilterConfig }} }
+        configuration:
+          "@type": "type.googleapis.com/google.protobuf.StringValue"
+          value: |
+            {
+              "attributes": [
+                {
+                  "output_attribute": "istio_responseClass",
+                  "match": [
+                    {
+                      "value": "2xx",
+                      "condition": "response.code >= 200 && response.code <= 299"
+                    }
+                  ]
+                },
+                {
+                  "output_attribute": "istio_operationId",
+                  "match": [
+                    {
+                      "value": "GetMethod",
+                      "condition": "request.method == 'GET'"
+                    },
+                    {
+                      "value": "PostMethod",
+                      "condition": "request.method == 'POST'"
+                    }
+                  ]
+                }
+              ]
+            }

@@ -1,0 +1,9 @@
+- name: mx_outbound{{.N}}
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: type.googleapis.com/io.istio.http.peer_metadata.Config
+    value:
+      upstream_discovery:
+      - istio_headers: {}
+      upstream_propagation:
+      - istio_headers: {}

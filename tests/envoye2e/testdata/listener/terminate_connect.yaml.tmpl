@@ -1,0 +1,123 @@
+name: terminate_connect
+address:
+  socket_address:
+{{ if eq .Vars.quic "true" }}
+    protocol: UDP
+{{ end }}
+    address: 127.0.0.2
+    port_value: {{ .Ports.ServerTunnelPort }}
+{{ if eq .Vars.quic "true" }}
+udp_listener_config:
+  quic_options: {}
+  downstream_socket_config:
+    prefer_gro: true
+{{ end }}
+filter_chains:
+- filters:
+  # Capture SSL info for the internal listener passthrough
+  - name: envoy.filters.network.http_connection_manager
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+      stat_prefix: terminate_connect
+{{ if eq .Vars.quic "true" }}
+      codec_type: HTTP3
+{{ end }}
+      route_config:
+        name: local_route
+        virtual_hosts:
+        - name: local_service
+          domains:
+          - "*"
+          routes:
+          - match:
+              connect_matcher:
+                {}
+            route:
+              cluster: internal_inbound
+              upgrade_configs:
+              - upgrade_type: CONNECT
+                connect_config:
+                  {}
+      http_filters:
+      {{ if eq .Vars.quic "true" }}
+      # TODO: accessing uriSanPeerCertificates() triggers a crash in quiche version.
+      {{ else }}
+      - name: authn
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.http.set_filter_state.v3.Config
+          value:
+            on_request_headers:
+            - object_key: io.istio.peer_principal
+              factory_key: envoy.string
+              format_string:
+                text_format_source:
+                  inline_string: "%DOWNSTREAM_PEER_URI_SAN%"
+              shared_with_upstream: ONCE
+            - object_key: io.istio.local_principal
+              factory_key: envoy.string
+              format_string:
+                text_format_source:
+                  inline_string: "%DOWNSTREAM_LOCAL_URI_SAN%"
+              shared_with_upstream: ONCE
+      {{ end }}
+      - name: peer_metadata
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/io.istio.http.peer_metadata.Config
+          value:
+            downstream_discovery:
+            - workload_discovery: {}
+            shared_with_upstream: true
+      - name: envoy.filters.http.router
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      http2_protocol_options:
+        allow_connect: true
+      upgrade_configs:
+      - upgrade_type: CONNECT
+  transport_socket:
+{{ if eq .Vars.quic "true" }}
+    name: quic
+    typed_config:
+      "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+      type_url: type.googleapis.com/envoy.extensions.transport_sockets.quic.v3.QuicDownstreamTransport
+      value:
+        downstream_tls_context:
+          common_tls_context:
+            tls_certificate_sds_secret_configs:
+              name: server
+              sds_config:
+                api_config_source:
+                  api_type: GRPC
+                  grpc_services:
+                  - envoy_grpc:
+                      cluster_name: xds_cluster
+                  set_node_on_first_message_only: true
+                  transport_api_version: V3
+                resource_api_version: V3
+            validation_context:
+              trusted_ca: { filename: "testdata/certs/root.cert" }
+#         require_client_certificate: true # XXX: This setting is ignored ATM per @danzh.
+{{ else }}
+    name: tls
+    typed_config:
+      "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+      type_url: envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext
+      value:
+        common_tls_context:
+          tls_certificate_sds_secret_configs:
+            name: server
+            sds_config:
+              api_config_source:
+                api_type: GRPC
+                grpc_services:
+                - envoy_grpc:
+                    cluster_name: xds_cluster
+                set_node_on_first_message_only: true
+                transport_api_version: V3
+              resource_api_version: V3
+          validation_context:
+            trusted_ca: { filename: "testdata/certs/root.cert" }
+        require_client_certificate: true
+{{ end }}

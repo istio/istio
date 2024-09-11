@@ -1,0 +1,24 @@
+- name: mx_inbound{{.N}}
+  config_discovery:
+    config_source:
+      api_config_source:
+        api_type: DELTA_GRPC
+        transport_api_version: V3
+        grpc_services:
+        - envoy_grpc:
+            cluster_name: xds_cluster
+    type_urls:
+    - envoy.extensions.filters.http.wasm.v3.Wasm
+    - io.istio.http.peer_metadata.Config
+- name: stats_inbound{{.N}}
+  config_discovery:
+    config_source:
+      api_config_source:
+        api_type: DELTA_GRPC
+        transport_api_version: V3
+        grpc_services:
+        - envoy_grpc:
+            cluster_name: xds_cluster
+    type_urls:
+    - envoy.extensions.filters.http.wasm.v3.Wasm
+    - stats.PluginConfig

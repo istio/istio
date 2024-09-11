@@ -1,0 +1,10 @@
+name: istio_custom
+type: COUNTER
+metric:
+- counter:
+    value: {{ .Vars.RequestCount }}
+  label:
+  - name: reporter
+    value: proxy
+  - name: source_principal
+    value: malicious

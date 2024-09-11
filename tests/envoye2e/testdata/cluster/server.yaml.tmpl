@@ -1,0 +1,27 @@
+{{- if .Vars.ServerClusterName }}
+name: {{ .Vars.ServerClusterName }}
+{{- else }}
+name: server-outbound-cluster
+metadata:
+  filter_metadata:
+    istio:
+      services:
+        - host: server.default.svc.cluster.local
+          name: server
+          namespace: default
+{{- end }}
+connect_timeout: 5s
+type: STATIC
+load_assignment:
+  {{- if .Vars.ServerClusterName }}
+  cluster_name: {{ .Vars.ServerClusterName }}
+  {{- else }}
+  cluster_name: server-outbound-cluster
+  {{- end }}
+  endpoints:
+  - lb_endpoints:
+    - endpoint:
+        address:
+          socket_address:
+            address: 127.0.0.2
+            port_value: {{ .Ports.ServerPort }}

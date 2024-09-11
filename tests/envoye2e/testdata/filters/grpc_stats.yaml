@@ -1,0 +1,5 @@
+- name: grpc_stats
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig
+    emit_filter_state: true
+
