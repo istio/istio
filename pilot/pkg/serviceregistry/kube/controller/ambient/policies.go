@@ -24,6 +24,7 @@ import (
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
@@ -50,14 +51,13 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 					namespace = n
 				}
 				key := namespace + "/" + target.GetName()
-				kind := target.GetKind()
-				switch kind {
-				case "Gateway":
+				switch target.GetKind() {
+				case gvk.KubernetesGateway.Kind:
 					fetchedWaypoints := krt.Fetch(ctx, waypoints, krt.FilterKey(key))
 					if len(fetchedWaypoints) == 1 {
 						resources = append(resources, fetchedWaypoints[0].ResourceName())
 					}
-				case "Service":
+				case gvk.Service.Kind:
 					fetchedServices := krt.Fetch(ctx, services, krt.FilterKey(key))
 					if len(fetchedServices) == 1 {
 						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServices[0].ObjectMeta)
@@ -65,7 +65,7 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 							resources = append(resources, w.ResourceName())
 						}
 					}
-				case "ServiceEntry":
+				case gvk.ServiceEntry.Kind:
 					fetchedServiceEntries := krt.Fetch(ctx, serviceEntries, krt.FilterKey(key))
 					if len(fetchedServiceEntries) == 1 {
 						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServiceEntries[0].ObjectMeta)
