@@ -337,9 +337,12 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"clusters", "c"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
+			if (len(args) == 1 || (labelSelector != "")) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("cluster requires pod name or --file parameter")
+			} else if len(args) == 1 && (labelSelector != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("name cannot be provided when the label selector is specified")
 			}
 			return nil
 		},
@@ -349,8 +352,13 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 				return err
 			}
 			var configWriter *configdump.ConfigWriter
-			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
+			if len(args) == 1 || (labelSelector != "") {
+				if len(args) == 1 {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, args[0])
+				} else {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, "")
+				}
+				if err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
@@ -383,6 +391,7 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 	clusterConfigCmd.PersistentFlags().StringVar(&direction, "direction", "", "Filter clusters by Direction field")
 	clusterConfigCmd.PersistentFlags().StringVar(&subset, "subset", "", "Filter clusters by substring of Subset field")
 	clusterConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter clusters by Port field")
+	clusterConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	clusterConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
@@ -390,6 +399,8 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 }
 
 func allConfigCmd(ctx cli.Context) *cobra.Command {
+	var podName, podNamespace string
+
 	allConfigCmd := &cobra.Command{
 		Use:   "all [<type>/]<name>[.<namespace>]",
 		Short: "Retrieves all configuration for the Envoy in the specified pod",
@@ -409,9 +420,12 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"a"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
+			if (len(args) == 1 || (labelSelector != "")) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("all requires pod name or --file parameter")
+			} else if len(args) == 1 && (labelSelector != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("name cannot be provided when the label selector is specified")
 			}
 			return nil
 		},
@@ -424,8 +438,12 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 			case jsonOutput, yamlOutput:
 				var dump []byte
 				var err error
-				if len(args) == 1 {
-					podName, podNamespace, err := getPodName(ctx, args[0])
+				if len(args) == 1 || (labelSelector != "") {
+					if len(args) == 1 {
+						podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, args[0])
+					} else {
+						podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, "")
+					}
 					if err != nil {
 						return err
 					}
@@ -448,8 +466,12 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 
 			case summaryOutput:
 				var configWriter *configdump.ConfigWriter
-				if len(args) == 1 {
-					podName, podNamespace, err := getPodName(ctx, args[0])
+				if len(args) == 1 || (labelSelector != "") {
+					if len(args) == 1 {
+						podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, args[0])
+					} else {
+						podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, "")
+					}
 					if err != nil {
 						return err
 					}
@@ -503,6 +525,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 	allConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump file")
 	allConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
+	allConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 
 	// cluster
 	allConfigCmd.PersistentFlags().StringVar(&fqdn, "fqdn", "", "Filter clusters by substring of Service FQDN field")
@@ -544,9 +567,12 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"listeners", "l"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
+			if (len(args) == 1 || (labelSelector != "")) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("listener requires pod name or --file parameter")
+			} else if len(args) == 1 && (labelSelector != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("name cannot be provided when the label selector is specified")
 			}
 			return nil
 		},
@@ -556,8 +582,13 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 				return err
 			}
 			var configWriter *configdump.ConfigWriter
-			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
+			if len(args) == 1 || (labelSelector != "") {
+				if len(args) == 1 {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, args[0])
+				} else {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, "")
+				}
+				if err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
@@ -597,6 +628,7 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 	listenerConfigCmd.PersistentFlags().BoolVar(&waypointProxyConfig, "waypoint", false, "Output waypoint information")
 	// Until stabilized
 	_ = listenerConfigCmd.PersistentFlags().MarkHidden("waypoint")
+	listenerConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	listenerConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
@@ -839,9 +871,12 @@ func routeConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"routes", "r"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
+			if (len(args) == 1 || (labelSelector != "")) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("route requires pod name or --file parameter")
+			} else if len(args) == 1 && (labelSelector != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("name cannot be provided when the label selector is specified")
 			}
 			return nil
 		},
@@ -851,8 +886,13 @@ func routeConfigCmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
+			if len(args) == 1 || (labelSelector != "") {
+				if len(args) == 1 {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, args[0])
+				} else {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, "")
+				}
+				if err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
@@ -881,6 +921,7 @@ func routeConfigCmd(ctx cli.Context) *cobra.Command {
 	routeConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
 	routeConfigCmd.PersistentFlags().StringVar(&routeName, "name", "", "Filter listeners by route name field")
 	routeConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
+	routeConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	routeConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
@@ -914,9 +955,12 @@ func endpointConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"endpoints", "ep"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
+			if (len(args) == 1 || (labelSelector != "")) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("endpoints requires pod name or --file parameter")
+			} else if len(args) == 1 && (labelSelector != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("name cannot be provided when the label selector is specified")
 			}
 			return nil
 		},
@@ -926,8 +970,13 @@ func endpointConfigCmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
+			if len(args) == 1 || (labelSelector != "") {
+				if len(args) == 1 {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, args[0])
+				} else {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, "")
+				}
+				if err != nil {
 					return err
 				}
 				configWriter, err = setupPodClustersWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
@@ -962,6 +1011,7 @@ func endpointConfigCmd(ctx cli.Context) *cobra.Command {
 	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
 	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
 	endpointConfigCmd.PersistentFlags().StringVar(&status, "status", "", "Filter endpoints by status field")
+	endpointConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	endpointConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
@@ -1000,9 +1050,12 @@ func edsConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl proxy-config eds --file envoy-config.json
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
+			if (len(args) == 1 || (labelSelector != "")) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("eds requires pod name or --file parameter")
+			} else if len(args) == 1 && (labelSelector != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("name cannot be provided when the label selector is specified")
 			}
 			return nil
 		},
@@ -1012,8 +1065,13 @@ func edsConfigCmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
+			if len(args) == 1 || (labelSelector != "") {
+				if len(args) == 1 {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, args[0])
+				} else {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, "")
+				}
+				if err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
@@ -1048,6 +1106,7 @@ func edsConfigCmd(ctx cli.Context) *cobra.Command {
 	endpointConfigCmd.PersistentFlags().IntVar(&port, "port", 0, "Filter endpoints by Port field")
 	endpointConfigCmd.PersistentFlags().StringVar(&clusterName, "cluster", "", "Filter endpoints by cluster name field")
 	endpointConfigCmd.PersistentFlags().StringVar(&status, "status", "", "Filter endpoints by status field")
+	endpointConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	endpointConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
@@ -1076,9 +1135,12 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"b"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
+			if (len(args) == 1 || (labelSelector != "")) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("bootstrap requires pod name or --file parameter")
+			} else if len(args) == 1 && (labelSelector != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("name cannot be provided when the label selector is specified")
 			}
 			return nil
 		},
@@ -1088,8 +1150,13 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
+			if len(args) == 1 || (labelSelector != "") {
+				if len(args) == 1 {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, args[0])
+				} else {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, "")
+				}
+				if err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
@@ -1113,6 +1180,7 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 	}
 
 	bootstrapConfigCmd.Flags().StringVarP(&outputFormat, "output", "o", jsonOutput, "Output format: one of json|yaml|short")
+	bootstrapConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	bootstrapConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 
@@ -1134,9 +1202,12 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl proxy-config secret --file envoy-config.json`,
 		Aliases: []string{"secrets", "s"},
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
+			if (len(args) == 1 || (labelSelector != "")) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("secret requires pod name or --file parameter")
+			} else if len(args) == 1 && (labelSelector != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("name cannot be provided when the label selector is specified")
 			}
 			return nil
 		},
@@ -1146,8 +1217,13 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
+			if len(args) == 1 || (labelSelector != "") {
+				if len(args) == 1 {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, args[0])
+				} else {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, "")
+				}
+				if err != nil {
 					return err
 				}
 				cw, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
@@ -1173,6 +1249,7 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
 	}
 
 	secretConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	secretConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	secretConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
 	return secretConfigCmd
@@ -1336,9 +1413,12 @@ func ecdsConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl proxy-config ecds --file envoy-config.json
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if (len(args) == 1) != (configDumpFile == "") {
+			if (len(args) == 1 || (labelSelector != "")) != (configDumpFile == "") {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("ecds requires pod name or --file parameter")
+			} else if len(args) == 1 && (labelSelector != "") {
+				cmd.Println(cmd.UsageString())
+				return fmt.Errorf("name cannot be provided when the label selector is specified")
 			}
 			return nil
 		},
@@ -1348,8 +1428,13 @@ func ecdsConfigCmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(args) == 1 {
-				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
+			if len(args) == 1 || (labelSelector != "") {
+				if len(args) == 1 {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, args[0])
+				} else {
+					podName, podNamespace, err = getPodInfo(ctx, kubeClient, labelSelector, "")
+				}
+				if err != nil {
 					return err
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
@@ -1373,7 +1458,27 @@ func ecdsConfigCmd(ctx cli.Context) *cobra.Command {
 	}
 
 	ecdsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	ecdsConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	ecdsConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "", "Envoy config dump JSON file")
 
 	return ecdsConfigCmd
+}
+
+func getPodInfo(ctx cli.Context, kubeClient kube.CLIClient, labelSelector, pod string) (podName, podNamespace string, err error) {
+	var podNames []string
+	if labelSelector != "" {
+		podNames, podNamespace, err = getPodNameBySelector(ctx, kubeClient, labelSelector)
+		if err != nil {
+			return "", "", err
+		}
+		if len(podNames) > 1 {
+			fmt.Printf("Multiple pods found, use the first one: %s.%s\n\n", podNames[0], podNamespace)
+		}
+		podName = podNames[0]
+	} else {
+		if podName, podNamespace, err = getPodName(ctx, pod); err != nil {
+			return "", "", err
+		}
+	}
+	return podName, podNamespace, nil
 }
