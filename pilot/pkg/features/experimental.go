@@ -197,4 +197,7 @@ var (
 	EnableLocalityWeightedLbConfig = env.Register("ENABLE_LOCALITY_WEIGHTED_LB_CONFIG", false,
 		"If enabled, always set LocalityWeightedLbConfig for a cluster, "+
 			" otherwise only apply it when locality lb is specified by DestinationRule for a service").Get()
+
+	BypassOverloadManagerForStaticListeners = env.Register("BYPASS_OVERLOAD_MANAGER_FOR_STATIC_LISTENERS", true,
+		"If enabled, overload manager will not be applied to static listeners").Get()
 )
