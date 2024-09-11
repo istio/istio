@@ -22,11 +22,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	empty "google.golang.org/protobuf/types/known/emptypb"
 
 	"istio.io/istio/tests/envoye2e/env/grpc_echo"
 )

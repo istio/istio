@@ -26,7 +26,6 @@ import (
 	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	metricspb "go.opentelemetry.io/proto/otlp/metrics/v1"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -63,13 +62,7 @@ func (x *OtelMetrics) Export(ctx context.Context, req *colmetricspb.ExportMetric
 		return &colmetricspb.ExportMetricsServiceResponse{}, nil
 	}
 	for _, rm := range req.ResourceMetrics {
-		if rm.Resource != nil {
-			log.Printf("resource=%s\n", protojson.Format(rm.Resource))
-		}
 		for _, sm := range rm.ScopeMetrics {
-			if sm.Scope != nil {
-				log.Printf("scope=%s\n", protojson.Format(sm.Scope))
-			}
 			for _, m := range sm.Metrics {
 				// Clean up time field in the received metric.
 				if sum := m.GetSum(); sum != nil {

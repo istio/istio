@@ -27,7 +27,6 @@ import (
 	"github.com/golang/protobuf/jsonpb" // nolint: depguard // We need the deprecated module since the jsonpb replacement is not backwards compatible.
 	// nolint: staticcheck
 	legacyproto "github.com/golang/protobuf/proto"
-	yamlv2 "gopkg.in/yaml.v2"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/tests/envoye2e/env"
@@ -208,7 +207,7 @@ func (s *Scenario) Cleanup() {}
 
 func ReadYAML(input string, pb legacyproto.Message) error {
 	var jsonObj interface{}
-	err := yamlv2.Unmarshal([]byte(input), &jsonObj)
+	err := yaml.Unmarshal([]byte(input), &jsonObj)
 	if err != nil {
 		return fmt.Errorf("cannot parse: %v for %q", err, input)
 	}
@@ -221,7 +220,7 @@ func ReadYAML(input string, pb legacyproto.Message) error {
 			jsonObj = in.Index(0).Interface()
 		}
 	}
-	yml, err := yamlv2.Marshal(jsonObj)
+	yml, err := yaml.Marshal(jsonObj)
 	if err != nil {
 		return fmt.Errorf("cannot marshal: %v for %q", err, input)
 	}
