@@ -35,8 +35,6 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 	services krt.Collection[*corev1.Service],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	namespaces krt.Collection[*corev1.Namespace],
-	pods krt.Collection[*corev1.Pod],
-	workloadEntries krt.Collection[*networkingclient.WorkloadEntry],
 ) krt.Collection[model.WaypointPolicyStatus] {
 	return krt.NewCollection(authzPolicies,
 		func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WaypointPolicyStatus {
@@ -51,11 +49,24 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 				if n := target.GetNamespace(); n != "" {
 					namespace = n
 				}
-				name := target.GetName()
+				key := namespace + "/" + target.GetName()
 				kind := target.GetKind()
 				switch kind {
+				case "Gateway":
+					fetchedWaypoints := krt.Fetch(ctx, waypoints, krt.FilterKey(key))
+					if len(fetchedWaypoints) == 1 {
+						resources = append(resources, fetchedWaypoints[0].ResourceName())
+					}
+				case "Service":
+					fetchedServices := krt.Fetch(ctx, services, krt.FilterKey(key))
+					if len(fetchedServices) == 1 {
+						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServices[0].ObjectMeta)
+						if w != nil {
+							resources = append(resources, w.ResourceName())
+						}
+					}
 				case "ServiceEntry":
-					fetchedServiceEntries := krt.Fetch(ctx, serviceEntries, krt.FilterKey(namespace+"/"+name))
+					fetchedServiceEntries := krt.Fetch(ctx, serviceEntries, krt.FilterKey(key))
 					if len(fetchedServiceEntries) == 1 {
 						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServiceEntries[0].ObjectMeta)
 						if w != nil {
@@ -75,7 +86,17 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 					},
 				}
 			}
-			return nil
+			return &model.WaypointPolicyStatus{
+				Source: MakeSource(i),
+				PolicyBindingStatus: model.PolicyBindingStatus{
+					BoundTo: "",
+					Status: &model.StatusMessage{
+						Reason:  "Invalid",
+						Message: "no targetRefs have a waypoint",
+					},
+					Bound: false,
+				},
+			}
 		}, krt.WithName("WaypointPolicyStatuses"))
 }
 

@@ -196,8 +196,37 @@ func New(options Options) Index {
 
 	serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
 	servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
+
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
+
+	WaypointPolicyStatus := WaypointPolicyStatusCollection(
+		AuthzPolicies,
+		Waypoints,
+		Services,
+		ServiceEntries,
+		Namespaces,
+	)
+
+	authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
+
+	if features.EnableAmbientStatus {
+		statusQueue := statusqueue.NewQueue(options.StatusNotifier)
+		statusqueue.Register(statusQueue, "istio-ambient-service", WorkloadServices, func(info model.ServiceInfo) (kclient.Patcher, []string) {
+			// Since we have 1 collection for multiple types, we need to split these out
+			if info.Source.Kind == kind.ServiceEntry {
+				return kclient.ToPatcher(serviceEntriesWriter), getConditions(info.Source.NamespacedName, serviceEntries)
+			}
+			return kclient.ToPatcher(servicesWriter), getConditions(info.Source.NamespacedName, servicesClient)
+		})
+		statusqueue.Register(statusQueue, "istio-ambient-ztunnel-policy", AuthorizationPolicies, func(pol model.WorkloadAuthorization) (kclient.Patcher, []string) {
+			return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, authzPolicies)
+		})
+		statusqueue.Register(statusQueue, "istio-ambient-waypoint-policy", WaypointPolicyStatus, func(pol model.WaypointPolicyStatus) (kclient.Patcher, []string) {
+			return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, authzPolicies)
+		})
+		a.statusQueue = statusQueue
+	}
 
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
 	ServiceInfosByOwningWaypoint := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
@@ -241,36 +270,6 @@ func New(options Options) Index {
 		EndpointSlices,
 		Namespaces,
 	)
-
-	WaypointPolicyStatus := WaypointPolicyStatusCollection(
-		AuthzPolicies,
-		Waypoints,
-		Services,
-		ServiceEntries,
-		Namespaces,
-		Pods,
-		WorkloadEntries,
-	)
-
-	authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
-
-	if features.EnableAmbientStatus {
-		statusQueue := statusqueue.NewQueue(options.StatusNotifier)
-		statusqueue.Register(statusQueue, "istio-ambient-service", WorkloadServices, func(info model.ServiceInfo) (kclient.Patcher, []string) {
-			// Since we have 1 collection for multiple types, we need to split these out
-			if info.Source.Kind == kind.ServiceEntry {
-				return kclient.ToPatcher(serviceEntriesWriter), getConditions(info.Source.NamespacedName, serviceEntries)
-			}
-			return kclient.ToPatcher(servicesWriter), getConditions(info.Source.NamespacedName, servicesClient)
-		})
-		statusqueue.Register(statusQueue, "istio-ambient-ztunnel-policy", AuthorizationPolicies, func(pol model.WorkloadAuthorization) (kclient.Patcher, []string) {
-			return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, authzPolicies)
-		})
-		statusqueue.Register(statusQueue, "istio-ambient-waypoint-policy", WaypointPolicyStatus, func(pol model.WaypointPolicyStatus) (kclient.Patcher, []string) {
-			return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, authzPolicies)
-		})
-		a.statusQueue = statusQueue
-	}
 
 	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, networkAddressFromWorkload)
 	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, func(o model.WorkloadInfo) []string {
