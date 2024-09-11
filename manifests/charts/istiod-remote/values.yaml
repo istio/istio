@@ -69,7 +69,7 @@ _internal_defaults_do_not_set:
 
   # Install the mesh config map, generated from values.yaml.
   # If false, pilot wil use default values (by default) or user-supplied values.
-  configMap: true
+  configMap: false
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
   # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
@@ -147,7 +147,7 @@ _internal_defaults_do_not_set:
     injectionPath: "/inject"
     injectionCABundle: ""
   telemetry:
-    enabled: true
+    enabled: false
     v2:
       # For Null VM case now.
       # This also enables metadata exchange.
@@ -225,7 +225,7 @@ _internal_defaults_do_not_set:
     # If empty, default scope and level will be used as configured in code
     logging:
       level: "default:info"
-    omitSidecarInjectorConfigMap: false
+    omitSidecarInjectorConfigMap: true
     # Configure whether Operator manages webhook configurations. The current behavior
     # of Istiod is to manage its own webhook configurations.
     # When this option is set as true, Istio Operator, instead of webhooks, manages the
@@ -335,7 +335,7 @@ _internal_defaults_do_not_set:
     # Configure a remote cluster data plane controlled by an external istiod.
     # When set to true, istiod is not deployed locally and only a subset of the other
     # discovery charts are enabled.
-    externalIstiod: false
+    externalIstiod: true
     # Configure a remote cluster as the config cluster for an external istiod.
     configCluster: false
     # configValidation enables the validation webhook for Istio configuration.
@@ -453,10 +453,3 @@ _internal_defaults_do_not_set:
     securityContext: {}
     # Set to `type: RuntimeDefault` to use the default profile for templated gateways, if your container runtime supports it
     seccompProfile: {}
-defaults:
-  telemetry:
-    enabled: false
-  global:
-    externalIstiod: true
-    omitSidecarInjectorConfigMap: true
-  configMap: false

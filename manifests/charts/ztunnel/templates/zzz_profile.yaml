@@ -16,7 +16,10 @@ We can then merge the profile onto the defaults, then the user settings onto tha
 Finally, we can set all of that under .Values so the chart behaves without awareness.
 */}}
 {{- if $.Values.defaults}}
-{{ fail "Setting with .default prefix found; remove it. For example, replace `--set defaults.hub=foo` with `--set hub=foo`" }}
+{{ fail (cat
+  "Setting with .default prefix found; remove it. For example, replace `--set defaults.hub=foo` with `--set hub=foo`. Defaults set:\n"
+  ($.Values.defaults | toYaml |nindent 4)
+) }}
 {{- end }}
 {{- $globals := $.Values.global | default dict | deepCopy }}
 {{- $defaults := $.Values._internal_defaults_do_not_set }}
