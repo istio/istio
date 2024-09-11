@@ -66,9 +66,10 @@ func TestTCPMetadataExchange(t *testing.T) {
 						Clusters:  []string{params.LoadTestData("testdata/cluster/tcp_server.yaml.tmpl")},
 						Listeners: []string{params.LoadTestData("testdata/listener/tcp_server.yaml.tmpl")},
 					},
-					&driver.UpdateWorkloadMetadata{Workloads: []driver.WorkloadMetadata{{
-						Address: "127.0.0.1",
-						Metadata: `
+					&driver.UpdateWorkloadMetadata{Workloads: []driver.WorkloadMetadata{
+						{
+							Address: "127.0.0.1",
+							Metadata: `
 namespace: default
 workload_name: productpage-v1
 workload_type: DEPLOYMENT
@@ -76,9 +77,10 @@ canonical_name: productpage-v1
 canonical_revision: version-1
 cluster_id: client-cluster
 uid: //v1/pod/default/productpage
-`}, {
-						Address: "127.0.0.2",
-						Metadata: `
+`,
+						}, {
+							Address: "127.0.0.2",
+							Metadata: `
 namespace: default
 workload_name: ratings-v1
 workload_type: DEPLOYMENT
@@ -86,7 +88,8 @@ canonical_name: ratings
 canonical_revision: version-1
 cluster_id: server-cluster
 uid: //v1/pod/default/ratings
-`},
+`,
+						},
 					}},
 					&driver.Envoy{Bootstrap: params.LoadTestData("testdata/bootstrap/client.yaml.tmpl")},
 					&driver.Envoy{Bootstrap: params.LoadTestData("testdata/bootstrap/server.yaml.tmpl")},
@@ -234,9 +237,10 @@ func TestTCPMetadataNotFoundReporting(t *testing.T) {
 				Clusters:  []string{params.LoadTestData("testdata/cluster/tcp_client_unknown.yaml.tmpl")},
 				Listeners: []string{params.LoadTestData("testdata/listener/tcp_client.yaml.tmpl")},
 			},
-			&driver.UpdateWorkloadMetadata{Workloads: []driver.WorkloadMetadata{{
-				Address: "127.0.0.1",
-				Metadata: `
+			&driver.UpdateWorkloadMetadata{Workloads: []driver.WorkloadMetadata{
+				{
+					Address: "127.0.0.1",
+					Metadata: `
 namespace: default
 workload_name: productpage-v1
 workload_type: DEPLOYMENT
@@ -244,7 +248,8 @@ canonical_name: productpage-v1
 canonical_revision: version-1
 cluster_id: client-cluster
 uid: //v1/pod/default/productpage
-`},
+`,
+				},
 			}},
 			&driver.Envoy{Bootstrap: params.LoadTestData("testdata/bootstrap/client.yaml.tmpl")},
 			&driver.Sleep{Duration: 1 * time.Second},

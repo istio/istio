@@ -114,6 +114,7 @@ func (v *verify) Run(p *Params) error {
 		return fmt.Errorf("timed out waiting for all metrics to match")
 	}
 }
+
 func (v *verify) Cleanup() {
 }
 
