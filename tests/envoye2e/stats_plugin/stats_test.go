@@ -16,7 +16,6 @@ package client
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
@@ -31,18 +30,6 @@ import (
 	"istio.io/istio/tests/envoye2e/driver"
 	"istio.io/istio/tests/envoye2e/env"
 )
-
-type capture struct{}
-
-func (capture) Run(p *driver.Params) error {
-	prev, err := strconv.Atoi(p.Vars["RequestCount"])
-	if err != nil {
-		return err
-	}
-	p.Vars["RequestCount"] = fmt.Sprintf("%d", p.N+prev)
-	return nil
-}
-func (capture) Cleanup() {}
 
 var Runtimes = []struct {
 	WasmRuntime string
@@ -198,6 +185,7 @@ func TestStatsParallel(t *testing.T) {
 			clientListenerTemplate := driver.LoadTestData("testdata/listener/client.yaml.tmpl")
 			serverListenerTemplate := driver.LoadTestData("testdata/listener/server.yaml.tmpl")
 
+			count := 1
 			if err := (&driver.Scenario{
 				Steps: []driver.Step{
 					&driver.XDS{},
@@ -215,7 +203,10 @@ func TestStatsParallel(t *testing.T) {
 									Duration: 9 * time.Second,
 									Step:     driver.Get(params.Ports.ClientPort, "hello, world!"),
 								},
-								capture{},
+								driver.StepFunction(func(p *driver.Params) error {
+									count += p.N
+									return nil
+								}),
 							},
 						},
 						Back: &driver.Repeat{
@@ -238,6 +229,10 @@ func TestStatsParallel(t *testing.T) {
 							},
 						},
 					},
+					driver.StepFunction(func(p *driver.Params) error {
+						p.Vars["RequestCount"] = fmt.Sprintf("%d", count)
+						return nil
+					}),
 					&driver.Stats{AdminPort: params.Ports.ClientAdmin, Matchers: testCase.ClientStats},
 					&driver.Stats{AdminPort: params.Ports.ServerAdmin, Matchers: testCase.ServerStats},
 				},
