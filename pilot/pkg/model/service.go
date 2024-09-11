@@ -992,8 +992,9 @@ func (i ServiceInfo) GetStatusTarget() TypedObject {
 type ConditionType string
 
 const (
-	WaypointBound   ConditionType = "istio.io/WaypointBound"
-	ZtunnelAccepted ConditionType = "ZtunnelAccepted"
+	WaypointBound    ConditionType = "istio.io/WaypointBound"
+	ZtunnelAccepted  ConditionType = "ZtunnelAccepted"
+	WaypointAccepted ConditionType = "WaypointAccepted"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1092,23 +1093,56 @@ func (i WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
 }
 
-type WorkloadAuthorizationBindingScope string
-
-const (
-	NamespaceScope WorkloadAuthorizationBindingScope = "Namespace"
-	WorkloadScope  WorkloadAuthorizationBindingScope = "Workload"
-)
-
-type WorkloadAuthorizationBindingStatus struct {
-	ResourceName string
-	Status       *StatusMessage
-	Bound        bool
+type WaypointPolicyStatus struct {
+	Source TypedObject
+	PolicyBindingStatus
 }
 
-func (i WorkloadAuthorizationBindingStatus) Equals(other WorkloadAuthorizationBindingStatus) bool {
+// impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
+func (i WaypointPolicyStatus) GetStatusTarget() TypedObject {
+	return i.Source
+}
+
+func (i WaypointPolicyStatus) GetConditions() ConditionSet {
+	set := make(ConditionSet, 1)
+
+	if i.Status != nil {
+		set[WaypointAccepted] = &Condition{
+			Reason:  i.Status.Reason,
+			Message: i.Status.Message,
+			Status:  i.Bound,
+		}
+	} else {
+		message := fmt.Sprintf("attached to waypoint, %s", i.BoundTo)
+		set[WaypointAccepted] = &Condition{
+			Reason:  "Accepted",
+			Message: message,
+			Status:  i.Bound,
+		}
+	}
+
+	return set
+}
+
+// end impl StatusWriter
+
+// impl pkg/kube/krt/ResourceNamer
+func (i WaypointPolicyStatus) ResourceName() string {
+	return i.Source.Namespace + "/" + i.Source.Name
+}
+
+// end impl ResourceNamer
+
+type PolicyBindingStatus struct {
+	BoundTo string
+	Status  *StatusMessage
+	Bound   bool
+}
+
+func (i PolicyBindingStatus) Equals(other PolicyBindingStatus) bool {
 	return ptr.Equal(i.Status, other.Status) &&
 		i.Bound == other.Bound &&
-		i.ResourceName == other.ResourceName
+		i.BoundTo == other.BoundTo
 }
 
 type WorkloadAuthorization struct {
@@ -1117,7 +1151,7 @@ type WorkloadAuthorization struct {
 	Authorization *security.Authorization
 
 	Source  TypedObject
-	Binding WorkloadAuthorizationBindingStatus
+	Binding PolicyBindingStatus
 }
 
 // impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter

@@ -18,6 +18,9 @@ package ambient
 import (
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -26,6 +29,55 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/workloadapi/security"
 )
+
+func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
+	waypoints krt.Collection[Waypoint],
+	services krt.Collection[*corev1.Service],
+	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
+	namespaces krt.Collection[*corev1.Namespace],
+	pods krt.Collection[*corev1.Pod],
+	workloadEntries krt.Collection[*networkingclient.WorkloadEntry],
+) krt.Collection[model.WaypointPolicyStatus] {
+	return krt.NewCollection(authzPolicies,
+		func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WaypointPolicyStatus {
+			targetRefs := i.Spec.GetTargetRefs()
+			if len(targetRefs) == 0 {
+				return nil // targetRef is required for binding to waypoint
+			}
+			var resources []string
+
+			for _, target := range targetRefs {
+				namespace := i.GetNamespace()
+				if n := target.GetNamespace(); n != "" {
+					namespace = n
+				}
+				name := target.GetName()
+				kind := target.GetKind()
+				switch kind {
+				case "ServiceEntry":
+					fetchedServiceEntries := krt.Fetch(ctx, serviceEntries, krt.FilterKey(namespace+"/"+name))
+					if len(fetchedServiceEntries) == 1 {
+						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServiceEntries[0].ObjectMeta)
+						if w != nil {
+							resources = append(resources, w.ResourceName())
+						}
+					}
+				}
+			}
+
+			if len(resources) == 1 {
+				return &model.WaypointPolicyStatus{
+					Source: MakeSource(i),
+					PolicyBindingStatus: model.PolicyBindingStatus{
+						BoundTo: resources[0],
+						Status:  &model.StatusMessage{},
+						Bound:   true,
+					},
+				}
+			}
+			return nil
+		}, krt.WithName("WaypointPolicyStatuses"))
+}
 
 func PolicyCollections(
 	authzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
@@ -44,10 +96,10 @@ func PolicyCollections(
 			Authorization: pol,
 			LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels()),
 			Source:        MakeSource(i),
-			Binding: model.WorkloadAuthorizationBindingStatus{
-				ResourceName: string(model.Ztunnel),
-				Status:       status,
-				Bound:        pol != nil,
+			Binding: model.PolicyBindingStatus{
+				BoundTo: string(model.Ztunnel),
+				Status:  status,
+				Bound:   pol != nil,
 			},
 		}
 	}, krt.WithName("AuthzDerivedPolicies"))
