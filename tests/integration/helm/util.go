@@ -29,6 +29,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 
 	networking "istio.io/api/networking/v1alpha3"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
@@ -72,22 +73,6 @@ const (
 	RetryTimeOut = 5 * time.Minute
 	Timeout      = 2 * time.Minute
 
-	defaultValues = `
-global:
-  hub: %s
-  %s
-  variant: %q
-  %s
-revision: "%s"
-`
-	ambientProfileOverride = `
-global:
-  hub: %s
-  %s
-  variant: %q
-  %s
-profile: ambient
-`
 	sampleEnvoyFilter = `
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -186,27 +171,45 @@ var ManifestsChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision string, isAmbient bool) string {
 	workDir := ctx.CreateTmpDirectoryOrFail("helm")
 
+	// Create the default base map string for the values file
+	values := map[string]interface{}{
+		"global": map[string]interface{}{
+			"hub":     hub,
+			"variant": variant,
+		},
+		"revision": revision,
+	}
+
+	globalValues := values["global"].(map[string]interface{})
 	// Only use a tag value if not empty. Not having a tag in values means: Use the tag directly from the chart
 	if tag != "" {
-		tag = "tag: " + tag
+		globalValues["tag"] = tag
 	}
 
-	var platform string
 	// Handle Openshift platform override if set
 	if ctx.Settings().OpenShift {
-		platform = "platform: openshift"
+		globalValues["platform"] = "openshift"
+		// TODO: do FLATTEN_GLOBALS_REPLACEMENT to avoid this set
+		values["platform"] = "openshift"
 	} else {
-		platform = "" // no platform
+		globalValues["platform"] = "" // no platform
 	}
 
-	// TODO why not just use yaml parsing here, this sprintf stuff is fragile.
-	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, platform, revision)
+	// Handle Ambient profile override if set
 	if isAmbient {
-		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag, variant, platform)
+		values["profile"] = "ambient"
+		// Remove revision for ambient profile
+		delete(values, "revision")
+	}
+
+	// Marshal the map to a YAML string
+	overrideValues, err := yaml.Marshal(values)
+	if err != nil {
+		ctx.Fatalf("failed to marshal override values to YAML: %v", err)
 	}
 
 	overrideValuesFile := filepath.Join(workDir, "values.yaml")
-	if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+	if err := os.WriteFile(overrideValuesFile, overrideValues, os.ModePerm); err != nil {
 		ctx.Fatalf("failed to write iop cr file: %v", err)
 	}
 
