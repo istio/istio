@@ -27,6 +27,7 @@ import (
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -1107,6 +1108,95 @@ func TestServiceEntryWorkloads(t *testing.T) {
 					ClusterId:         testC,
 					Services: map[string]*workloadapi.PortList{
 						"ns/b.example.com": {
+							Ports: []*workloadapi.Port{{
+								ServicePort: 80,
+								TargetPort:  80,
+							}},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "static",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{Name: "waypoint", Namespace: "ns"},
+					Address: &workloadapi.GatewayAddress{
+						Destination: &workloadapi.GatewayAddress_Hostname{
+							Hostname: &workloadapi.NamespacedHostname{
+								Namespace: "ns",
+								Hostname:  "waypoint.example.com",
+							},
+						},
+					},
+					TrafficType: constants.AllTraffic,
+				},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"a.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					Resolution: networking.ServiceEntry_STATIC,
+					Endpoints: []*networking.WorkloadEntry{
+						// One is bound to waypoint, other is not
+						{Address: "2.3.4.5"},
+						{Address: "3.4.5.6", Labels: map[string]string{constants.AmbientUseWaypointLabel: "waypoint"}},
+					},
+				},
+			},
+			result: []*workloadapi.Workload{
+				{
+					Uid:               "cluster0/networking.istio.io/ServiceEntry/ns/name/2.3.4.5",
+					Name:              "name",
+					Namespace:         "ns",
+					Addresses:         [][]byte{netip.MustParseAddr("2.3.4.5").AsSlice()},
+					Network:           testNW,
+					CanonicalName:     "name",
+					CanonicalRevision: "latest",
+					WorkloadType:      workloadapi.WorkloadType_POD,
+					WorkloadName:      "name",
+					Status:            workloadapi.WorkloadStatus_HEALTHY,
+					ClusterId:         testC,
+					Services: map[string]*workloadapi.PortList{
+						"ns/a.example.com": {
+							Ports: []*workloadapi.Port{{
+								ServicePort: 80,
+								TargetPort:  80,
+							}},
+						},
+					},
+				},
+				{
+					Uid:               "cluster0/networking.istio.io/ServiceEntry/ns/name/3.4.5.6",
+					Name:              "name",
+					Namespace:         "ns",
+					Addresses:         [][]byte{netip.MustParseAddr("3.4.5.6").AsSlice()},
+					Network:           testNW,
+					CanonicalName:     "name",
+					CanonicalRevision: "latest",
+					WorkloadType:      workloadapi.WorkloadType_POD,
+					WorkloadName:      "name",
+					Status:            workloadapi.WorkloadStatus_HEALTHY,
+					ClusterId:         testC,
+					Waypoint: &workloadapi.GatewayAddress{
+						Destination: &workloadapi.GatewayAddress_Hostname{
+							Hostname: &workloadapi.NamespacedHostname{
+								Namespace: "ns",
+								Hostname:  "waypoint.example.com",
+							},
+						},
+					},
+					Services: map[string]*workloadapi.PortList{
+						"ns/a.example.com": {
 							Ports: []*workloadapi.Port{{
 								ServicePort: 80,
 								TargetPort:  80,
