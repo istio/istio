@@ -20,7 +20,8 @@ package ambient
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -120,61 +121,61 @@ func TestZtunnelConfig(t *testing.T) {
 			}
 
 			// sort the slices to avoid false negative comparison between the raw dump and the parsed dump
-			//
+
 			// sort certificates by identity
-			// slices.SortStableFunc(dumpAll.Certificates, func(a, b *configdump.CertsDump) int {
-			// 	return strings.Compare(a.Identity, b.Identity)
-			// })
-			// slices.SortStableFunc(dumpParsed.Certificates, func(a, b *configdump.CertsDump) int {
-			// 	return strings.Compare(a.Identity, b.Identity)
-			// })
+			slices.SortStableFunc(dumpAll.Certificates, func(a, b *configdump.CertsDump) int {
+				return strings.Compare(a.Identity, b.Identity)
+			})
+			slices.SortStableFunc(dumpParsed.Certificates, func(a, b *configdump.CertsDump) int {
+				return strings.Compare(a.Identity, b.Identity)
+			})
 			// // sort workloads by UID
-			// slices.SortStableFunc(dumpAll.Workloads, func(a, b *configdump.ZtunnelWorkload) int {
-			// 	return strings.Compare(a.UID, b.UID)
-			// })
-			// slices.SortStableFunc(dumpParsed.Workloads, func(a, b *configdump.ZtunnelWorkload) int {
-			// 	return strings.Compare(a.UID, b.UID)
-			// })
+			slices.SortStableFunc(dumpAll.Workloads, func(a, b *configdump.ZtunnelWorkload) int {
+				return strings.Compare(a.UID, b.UID)
+			})
+			slices.SortStableFunc(dumpParsed.Workloads, func(a, b *configdump.ZtunnelWorkload) int {
+				return strings.Compare(a.UID, b.UID)
+			})
 			// // sort services by hostname
-			// slices.SortStableFunc(dumpAll.Services, func(a, b *configdump.ZtunnelService) int {
-			// 	return strings.Compare(a.Hostname, b.Hostname)
-			// })
-			// slices.SortStableFunc(dumpParsed.Services, func(a, b *configdump.ZtunnelService) int {
-			// 	return strings.Compare(a.Hostname, b.Hostname)
-			// })
+			slices.SortStableFunc(dumpAll.Services, func(a, b *configdump.ZtunnelService) int {
+				return strings.Compare(a.Hostname, b.Hostname)
+			})
+			slices.SortStableFunc(dumpParsed.Services, func(a, b *configdump.ZtunnelService) int {
+				return strings.Compare(a.Hostname, b.Hostname)
+			})
 			// // sort policies by name
-			// slices.SortStableFunc(dumpAll.Policies, func(a, b *configdump.ZtunnelPolicy) int {
-			// 	return strings.Compare(a.Name, b.Name)
-			// })
-			// slices.SortStableFunc(dumpParsed.Policies, func(a, b *configdump.ZtunnelPolicy) int {
-			// 	return strings.Compare(a.Name, b.Name)
-			// })
+			slices.SortStableFunc(dumpAll.Policies, func(a, b *configdump.ZtunnelPolicy) int {
+				return strings.Compare(a.Name, b.Name)
+			})
+			slices.SortStableFunc(dumpParsed.Policies, func(a, b *configdump.ZtunnelPolicy) int {
+				return strings.Compare(a.Name, b.Name)
+			})
 
 			// Try this again to see if the flake was related to this sorting function
-			sort.SliceStable(dumpAll.Certificates, func(i, j int) bool {
-				return dumpAll.Certificates[i].Identity < dumpAll.Certificates[j].Identity
-			})
-			sort.SliceStable(dumpParsed.Certificates, func(i, j int) bool {
-				return dumpParsed.Certificates[i].Identity < dumpParsed.Certificates[j].Identity
-			})
-			sort.SliceStable(dumpAll.Workloads, func(i, j int) bool {
-				return dumpAll.Workloads[i].UID < dumpAll.Workloads[j].UID
-			})
-			sort.SliceStable(dumpParsed.Workloads, func(i, j int) bool {
-				return dumpParsed.Workloads[i].UID < dumpParsed.Workloads[j].UID
-			})
-			sort.SliceStable(dumpAll.Services, func(i, j int) bool {
-				return dumpAll.Services[i].Hostname < dumpAll.Services[j].Hostname
-			})
-			sort.SliceStable(dumpParsed.Services, func(i, j int) bool {
-				return dumpParsed.Services[i].Hostname < dumpParsed.Services[j].Hostname
-			})
-			sort.SliceStable(dumpAll.Policies, func(i, j int) bool {
-				return dumpAll.Policies[i].Name < dumpAll.Policies[j].Name
-			})
-			sort.SliceStable(dumpParsed.Policies, func(i, j int) bool {
-				return dumpParsed.Policies[i].Name < dumpParsed.Policies[j].Name
-			})
+			// sort.SliceStable(dumpAll.Certificates, func(i, j int) bool {
+			// 	return dumpAll.Certificates[i].Identity < dumpAll.Certificates[j].Identity
+			// })
+			// sort.SliceStable(dumpParsed.Certificates, func(i, j int) bool {
+			// 	return dumpParsed.Certificates[i].Identity < dumpParsed.Certificates[j].Identity
+			// })
+			// sort.SliceStable(dumpAll.Workloads, func(i, j int) bool {
+			// 	return dumpAll.Workloads[i].UID < dumpAll.Workloads[j].UID
+			// })
+			// sort.SliceStable(dumpParsed.Workloads, func(i, j int) bool {
+			// 	return dumpParsed.Workloads[i].UID < dumpParsed.Workloads[j].UID
+			// })
+			// sort.SliceStable(dumpAll.Services, func(i, j int) bool {
+			// 	return dumpAll.Services[i].Hostname < dumpAll.Services[j].Hostname
+			// })
+			// sort.SliceStable(dumpParsed.Services, func(i, j int) bool {
+			// 	return dumpParsed.Services[i].Hostname < dumpParsed.Services[j].Hostname
+			// })
+			// sort.SliceStable(dumpAll.Policies, func(i, j int) bool {
+			// 	return dumpAll.Policies[i].Name < dumpAll.Policies[j].Name
+			// })
+			// sort.SliceStable(dumpParsed.Policies, func(i, j int) bool {
+			// 	return dumpParsed.Policies[i].Name < dumpParsed.Policies[j].Name
+			// })
 
 			// test that the config dump generated by the zc all command is the same as the config dump
 			// generated by the commands zc svc, zc policies, zc workloads, and zc certs
