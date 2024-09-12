@@ -60,6 +60,18 @@
         "env": {
           "type": "object"
         },
+        "strategy": {
+          "type": "object"
+        },
+        "minReadySeconds": {
+          "type": [ "null", "integer" ]
+        },
+        "terminationGracePeriodSeconds": {
+          "type": [ "null", "integer" ]
+        },
+        "readinessProbe": {
+          "type": [ "null", "object" ]
+        },
         "labels": {
           "type": "object"
         },
