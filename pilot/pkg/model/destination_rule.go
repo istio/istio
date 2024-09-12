@@ -54,7 +54,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 		// `appendSeparately` determines if the incoming destination rule would become a new unique entry in the processedDestRules list.
 		appendSeparately := true
 		for _, mdr := range mdrList {
-			if features.EnableEnhancedDestinationRuleMerge.Get() {
+			if features.EnableEnhancedDestinationRuleMerge {
 				if exportToSet.Equals(mdr.exportTo) {
 					appendSeparately = false
 				} else if len(mdr.exportTo) > 0 && exportToSet.SupersetOf(mdr.exportTo) {

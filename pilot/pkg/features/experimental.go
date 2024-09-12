@@ -201,7 +201,7 @@ var (
 	BypassOverloadManagerForStaticListeners = env.Register("BYPASS_OVERLOAD_MANAGER_FOR_STATIC_LISTENERS", true,
 		"If enabled, overload manager will not be applied to static listeners").Get()
 
-	EnableEnhancedDestinationRuleMerge = env.Register("ENABLE_ENHANCED_DESTINATIONRULE_MERGE", false,
+	EnableEnhancedDestinationRuleMerge = env.Register("ENABLE_ENHANCED_DESTINATIONRULE_MERGE", true,
 		"If enabled, Istio merge destinationrules considering their exportTo fields,"+
-			" they will be kept as independent rules if the exportTos are not equal.")
+			" they will be kept as independent rules if the exportTos are not equal.").Get()
 )
