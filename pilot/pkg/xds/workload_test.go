@@ -111,6 +111,10 @@ func TestWorkloadReconnect(t *testing.T) {
 
 		// Create new pod in the meantime
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
+		// Wait for it to be ready
+		assert.EventuallyEqual(t, func() int {
+			return len(s.KubeRegistry.All())
+		}, 2)
 
 		// Reconnect
 		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
@@ -141,6 +145,10 @@ func TestWorkloadReconnect(t *testing.T) {
 
 		// Create new pod in the meantime
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
+		// Wait for it to be ready
+		assert.EventuallyEqual(t, func() int {
+			return len(s.KubeRegistry.All())
+		}, 2)
 
 		// Reconnect
 		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
