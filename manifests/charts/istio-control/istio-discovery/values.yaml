@@ -60,6 +60,9 @@ defaults:
   # Additional volumes to the istiod pod
   volumes: []
 
+  # Inject initContainers into the istiod pod
+  initContainers: []
+
   nodeSelector: {}
   podAnnotations: {}
   serviceAnnotations: {}

@@ -82,6 +82,10 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+{{- with .Values.initContainers }}
+      initContainers:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+{{- end }}
       containers:
         - name: discovery
 {{- if contains "/" .Values.image }}
