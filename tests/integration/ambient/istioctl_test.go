@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
@@ -37,6 +38,9 @@ import (
 )
 
 func TestZtunnelConfig(t *testing.T) {
+	// Disable Gomega output truncation to debug CI failures
+	format.TruncatedDiff = false
+
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
