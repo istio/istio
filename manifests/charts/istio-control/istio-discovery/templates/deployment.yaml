@@ -116,12 +116,19 @@ spec:
           ports:
           - containerPort: 8080
             protocol: TCP
+            name: http-debug
           - containerPort: 15010
             protocol: TCP
+            name: grpc-xds
+          - containerPort: 15012
+            protocol: TCP
+            name: tls-xds
           - containerPort: 15017
             protocol: TCP
+            name: https-webhooks
           - containerPort: 15014
             protocol: TCP
+            name: http-monitoring
           readinessProbe:
             httpGet:
               path: /ready
