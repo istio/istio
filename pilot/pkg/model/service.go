@@ -1130,7 +1130,7 @@ func (i WaypointPolicyStatus) GetConditions() ConditionSet {
 	for _, c := range i.Conditions {
 		statusConditions = append(statusConditions, Condition{
 			Reason:  c.Status.Reason,
-			Message: c.BoundTo + ": " + c.Status.Message, // TODO: jamming Ancestor at the beginning of the message is not great
+			Message: c.Ancestor + ": " + c.Status.Message, // TODO: jamming Ancestor at the beginning of the message is not great
 			Status:  c.Bound,
 		})
 	}
@@ -1150,15 +1150,15 @@ func (i WaypointPolicyStatus) ResourceName() string {
 // end impl ResourceNamer
 
 type PolicyBindingStatus struct {
-	BoundTo string
-	Status  *StatusMessage
-	Bound   bool
+	Ancestor string
+	Status   *StatusMessage
+	Bound    bool
 }
 
 func (i PolicyBindingStatus) Equals(other PolicyBindingStatus) bool {
 	return ptr.Equal(i.Status, other.Status) &&
 		i.Bound == other.Bound &&
-		i.BoundTo == other.BoundTo
+		i.Ancestor == other.Ancestor
 }
 
 type WorkloadAuthorization struct {

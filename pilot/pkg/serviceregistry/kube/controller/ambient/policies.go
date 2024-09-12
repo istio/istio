@@ -104,8 +104,8 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 						Reason:  reason,
 						Message: message,
 					},
-					BoundTo: target.GetKind() + "." + target.GetGroup() + ":" + key,
-					Bound:   bound,
+					Ancestor: target.GetKind() + "." + target.GetGroup() + ":" + key,
+					Bound:    bound,
 				})
 			}
 
@@ -134,9 +134,9 @@ func PolicyCollections(
 			LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels()),
 			Source:        MakeSource(i),
 			Binding: model.PolicyBindingStatus{
-				BoundTo: string(model.Ztunnel),
-				Status:  status,
-				Bound:   pol != nil,
+				Ancestor: string(model.Ztunnel),
+				Status:   status,
+				Bound:    pol != nil,
 			},
 		}
 	}, krt.WithName("AuthzDerivedPolicies"))
