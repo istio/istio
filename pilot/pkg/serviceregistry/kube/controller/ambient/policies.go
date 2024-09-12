@@ -16,6 +16,7 @@
 package ambient
 
 import (
+	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -43,7 +44,8 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 			if len(targetRefs) == 0 {
 				return nil // targetRef is required for binding to waypoint
 			}
-			var resources []string
+
+			var conditions []model.PolicyBindingStatus
 
 			for _, target := range targetRefs {
 				namespace := i.GetNamespace()
@@ -51,51 +53,65 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 					namespace = n
 				}
 				key := namespace + "/" + target.GetName()
+				message := "not bound"
+				reason := "unknown"
+				bound := false
 				switch target.GetKind() {
 				case gvk.KubernetesGateway.Kind:
 					fetchedWaypoints := krt.Fetch(ctx, waypoints, krt.FilterKey(key))
 					if len(fetchedWaypoints) == 1 {
-						resources = append(resources, fetchedWaypoints[0].ResourceName())
+						bound = true
+						reason = "Accepted"
+						message = fmt.Sprintf("bound to %s", fetchedWaypoints[0].ResourceName())
+					} else {
+						reason = "TargetNotFound"
 					}
 				case gvk.Service.Kind:
 					fetchedServices := krt.Fetch(ctx, services, krt.FilterKey(key))
 					if len(fetchedServices) == 1 {
 						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServices[0].ObjectMeta)
 						if w != nil {
-							resources = append(resources, w.ResourceName())
+							bound = true
+							reason = "Accepted"
+							message = fmt.Sprintf("bound to %s", w.ResourceName())
+						} else {
+							message = fmt.Sprintf("Service %s is not bound to a waypoint", key)
+							reason = "AncestorNotBound"
 						}
+					} else {
+						message = fmt.Sprintf("Service %s was not found", key)
+						reason = "TargetNotFound"
 					}
 				case gvk.ServiceEntry.Kind:
 					fetchedServiceEntries := krt.Fetch(ctx, serviceEntries, krt.FilterKey(key))
 					if len(fetchedServiceEntries) == 1 {
 						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServiceEntries[0].ObjectMeta)
 						if w != nil {
-							resources = append(resources, w.ResourceName())
+							bound = true
+							reason = "Accepted"
+							message = fmt.Sprintf("bound to %s", w.ResourceName())
+						} else {
+							message = fmt.Sprintf("ServiceEntry %s is not bound to a waypoint", key)
+							reason = "AncestorNotBound"
 						}
+					} else {
+						message = fmt.Sprintf("ServiceEntry %s was not found", key)
+						reason = "TargetNotFound"
 					}
 				}
+				conditions = append(conditions, model.PolicyBindingStatus{
+					Status: &model.StatusMessage{
+						Reason:  reason,
+						Message: message,
+					},
+					BoundTo: target.GetKind() + "." + target.GetGroup() + ":" + key,
+					Bound:   bound,
+				})
 			}
 
-			if len(resources) == 1 {
-				return &model.WaypointPolicyStatus{
-					Source: MakeSource(i),
-					PolicyBindingStatus: model.PolicyBindingStatus{
-						BoundTo: resources[0],
-						Status:  &model.StatusMessage{},
-						Bound:   true,
-					},
-				}
-			}
 			return &model.WaypointPolicyStatus{
-				Source: MakeSource(i),
-				PolicyBindingStatus: model.PolicyBindingStatus{
-					BoundTo: "",
-					Status: &model.StatusMessage{
-						Reason:  "Invalid",
-						Message: "no targetRefs have a waypoint",
-					},
-					Bound: false,
-				},
+				Source:     MakeSource(i),
+				Conditions: conditions,
 			}
 		}, krt.WithName("WaypointPolicyStatuses"))
 }

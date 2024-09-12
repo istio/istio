@@ -997,7 +997,7 @@ const (
 	WaypointAccepted ConditionType = "WaypointAccepted"
 )
 
-type ConditionSet = map[ConditionType]*Condition
+type ConditionSet = map[ConditionType][]Condition
 
 type Condition struct {
 	Reason  string
@@ -1006,22 +1006,26 @@ type Condition struct {
 }
 
 func (i ServiceInfo) GetConditions() ConditionSet {
-	set := map[ConditionType]*Condition{
+	set := map[ConditionType][]Condition{
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound: nil,
 	}
 	if i.Waypoint.ResourceName != "" {
-		set[WaypointBound] = &Condition{
-			Status:  true,
-			Reason:  "WaypointAccepted",
-			Message: fmt.Sprintf("Successfully attached to waypoint %v", i.Waypoint.ResourceName),
+		set[WaypointBound] = []Condition{
+			{
+				Status:  true,
+				Reason:  "WaypointAccepted",
+				Message: fmt.Sprintf("Successfully attached to waypoint %v", i.Waypoint.ResourceName),
+			},
 		}
 	} else if i.Waypoint.Error != nil {
-		set[WaypointBound] = &Condition{
-			Status:  false,
-			Reason:  i.Waypoint.Error.Reason,
-			Message: i.Waypoint.Error.Message,
+		set[WaypointBound] = []Condition{
+			{
+				Status:  false,
+				Reason:  i.Waypoint.Error.Reason,
+				Message: i.Waypoint.Error.Message,
+			},
 		}
 	}
 	return set
@@ -1094,8 +1098,8 @@ func (i WorkloadInfo) ResourceName() string {
 }
 
 type WaypointPolicyStatus struct {
-	Source TypedObject
-	PolicyBindingStatus
+	Source     TypedObject
+	Conditions []PolicyBindingStatus
 }
 
 // impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
@@ -1106,20 +1110,32 @@ func (i WaypointPolicyStatus) GetStatusTarget() TypedObject {
 func (i WaypointPolicyStatus) GetConditions() ConditionSet {
 	set := make(ConditionSet, 1)
 
-	if i.Status != nil {
-		set[WaypointAccepted] = &Condition{
-			Reason:  i.Status.Reason,
-			Message: i.Status.Message,
-			Status:  i.Bound,
-		}
-	} else {
-		message := fmt.Sprintf("attached to waypoint, %s", i.BoundTo)
-		set[WaypointAccepted] = &Condition{
-			Reason:  "Accepted",
-			Message: message,
-			Status:  i.Bound,
-		}
+	statusConditions := []Condition{}
+
+	// if len(i.Conditions) > 0 {
+	// 	set[WaypointAccepted] = &Condition{
+	// 		Reason:  i.Status.Reason,
+	// 		Message: i.Status.Message,
+	// 		Status:  i.Bound,
+	// 	}
+	// } else {
+	// 	message := fmt.Sprintf("attached to waypoint, %s", i.BoundTo)
+	// 	set[WaypointAccepted] = []Condition{
+	// 		Reason:  "Accepted",
+	// 		Message: message,
+	// 		Status:  i.Bound,
+	// 	}
+	// }
+
+	for _, c := range i.Conditions {
+		statusConditions = append(statusConditions, Condition{
+			Reason:  c.Status.Reason,
+			Message: c.BoundTo + ": " + c.Status.Message, // TODO: jamming Ancestor at the beginning of the message is not great
+			Status:  c.Bound,
+		})
 	}
+
+	set[WaypointAccepted] = statusConditions
 
 	return set
 }
@@ -1163,17 +1179,21 @@ func (i WorkloadAuthorization) GetConditions() ConditionSet {
 	set := make(ConditionSet, 1)
 
 	if i.Binding.Status != nil {
-		set[ZtunnelAccepted] = &Condition{
-			Reason:  i.Binding.Status.Reason,
-			Message: i.Binding.Status.Message,
-			Status:  i.Binding.Bound,
+		set[ZtunnelAccepted] = []Condition{
+			{
+				Reason:  i.Binding.Status.Reason,
+				Message: i.Binding.Status.Message,
+				Status:  i.Binding.Bound,
+			},
 		}
 	} else {
 		message := "attached to ztunnel"
-		set[ZtunnelAccepted] = &Condition{
-			Reason:  "Accepted",
-			Message: message,
-			Status:  i.Binding.Bound,
+		set[ZtunnelAccepted] = []Condition{
+			{
+				Reason:  "Accepted",
+				Message: message,
+				Status:  i.Binding.Bound,
+			},
 		}
 	}
 
