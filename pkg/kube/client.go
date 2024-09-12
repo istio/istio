@@ -259,8 +259,12 @@ func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object)
 		if !ok {
 			gvr, _ = meta.UnsafeGuessKindToResource(gk.Kubernetes())
 		}
+		if gvr.Group == "core" {
+			gvr.Group = ""
+		}
 		// Run Create() instead of Add(), so we can pass the GVR. Otherwise, Kubernetes guesses, and it guesses wrong for 'Gateways'
-		if err := tracker.Create(gvr, obj, obj.(metav1.ObjectMetaAccessor).GetObjectMeta().GetNamespace()); err != nil {
+		// DeepCopy since it will mutate the managed fields/etc
+		if err := tracker.Create(gvr, obj.DeepCopyObject(), obj.(metav1.ObjectMetaAccessor).GetObjectMeta().GetNamespace()); err != nil {
 			panic(fmt.Sprintf("failed to create: %v", err))
 		}
 	}
