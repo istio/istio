@@ -73,7 +73,7 @@ var (
 		"The trust domain for spiffe certificates").Get()
 
 	secretTTLEnv = env.Register("SECRET_TTL", 24*time.Hour,
-		"The cert lifetime requested by istio agent").Get()
+		"The cert lifetime requested by istio agent (0 to disable)").Get()
 
 	fileDebounceDuration = env.Register("FILE_DEBOUNCE_DURATION", 100*time.Millisecond,
 		"The duration for which the file read operation is delayed once file update is detected").Get()

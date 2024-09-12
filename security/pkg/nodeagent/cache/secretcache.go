@@ -669,29 +669,32 @@ var rotateTime = func(secret security.SecretItem, graceRatio float64, graceRatio
 }
 
 func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
-	delay := rotateTime(item, sc.configOptions.SecretRotationGracePeriodRatio, sc.configOptions.SecretRotationGracePeriodRatioJitter)
-	item.ResourceName = security.WorkloadKeyCertResourceName
 	// In case there are two calls to GenerateSecret at once, we don't want both to be concurrently registered
 	if sc.cache.GetWorkload() != nil {
 		resourceLog(item.ResourceName).Infof("skip scheduling certificate rotation, already scheduled")
 		return
 	}
-	sc.cache.SetWorkload(&item)
-	resourceLog(item.ResourceName).Debugf("scheduled certificate for rotation in %v", delay)
-	certExpirySeconds.ValueFrom(func() float64 { return time.Until(item.ExpireTime).Seconds() }, ResourceName.Value(item.ResourceName))
-	sc.queue.PushDelayed(func() error {
-		// In case `UpdateConfigTrustBundle` called, it will resign workload cert.
-		// Check if this is a stale scheduled rotating task.
-		if cached := sc.cache.GetWorkload(); cached != nil {
-			if cached.CreatedTime == item.CreatedTime {
-				resourceLog(item.ResourceName).Debugf("rotating certificate")
-				// Clear the cache so the next call generates a fresh certificate
-				sc.cache.SetWorkload(nil)
-				sc.OnSecretUpdate(item.ResourceName)
+	sc.OnSecretUpdate(item.ResourceName)
+	if sc.configOptions.SecretTTL > 0 {
+		delay := rotateTime(item, sc.configOptions.SecretRotationGracePeriodRatio, sc.configOptions.SecretRotationGracePeriodRatioJitter)
+		item.ResourceName = security.WorkloadKeyCertResourceName
+		sc.cache.SetWorkload(&item)
+		resourceLog(item.ResourceName).Debugf("scheduled certificate for rotation in %v", delay)
+		certExpirySeconds.ValueFrom(func() float64 { return time.Until(item.ExpireTime).Seconds() }, ResourceName.Value(item.ResourceName))
+		sc.queue.PushDelayed(func() error {
+			// In case `UpdateConfigTrustBundle` called, it will resign workload cert.
+			// Check if this is a stale scheduled rotating task.
+			if cached := sc.cache.GetWorkload(); cached != nil {
+				if cached.CreatedTime == item.CreatedTime {
+					resourceLog(item.ResourceName).Debugf("rotating certificate")
+					// Clear the cache so the next call generates a fresh certificate
+					sc.cache.SetWorkload(nil)
+					sc.GenerateSecret(item.ResourceName)
+				}
 			}
-		}
-		return nil
-	}, delay)
+			return nil
+		}, delay)
+	}
 }
 
 func (sc *SecretManagerClient) handleFileWatch() {

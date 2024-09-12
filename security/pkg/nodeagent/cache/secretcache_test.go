@@ -159,6 +159,35 @@ func TestWorkloadAgentRefreshSecret(t *testing.T) {
 	u.Expect(map[string]int{security.WorkloadKeyCertResourceName: 2, security.RootCertReqResourceName: 1})
 }
 
+func TestWorkloadAgentRefreshSecretAfterSecretTTL(t *testing.T) {
+	cacheLog.SetOutputLevel(log.DebugLevel)
+	secretTTL := 1 * time.Second
+	fakeCACli, err := mock.NewMockCAClient(secretTTL, false)
+	secretRotationGracePeriod := 0.5
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	u := NewUpdateTracker(t)
+	sc := createCache(t, fakeCACli, u.Callback, security.Options{
+		SecretTTL:                            secretTTL,
+		SecretRotationGracePeriodRatio:       secretRotationGracePeriod,
+		SecretRotationGracePeriodRatioJitter: 0.0,
+		WorkloadRSAKeySize:                   2048,
+	})
+
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	if err != nil {
+		t.Fatalf("failed to get secrets: %v", err)
+	}
+
+	// First update will trigger root cert immediately, then workload cert once it expires in 200ms
+	u.Expect(map[string]int{security.WorkloadKeyCertResourceName: 1, security.RootCertReqResourceName: 1})
+
+	time.Sleep(time.Duration((secretRotationGracePeriod)*float64(secretTTL)) + 100*time.Millisecond)
+
+	u.Expect(map[string]int{security.WorkloadKeyCertResourceName: 2, security.RootCertReqResourceName: 1})
+}
+
 // Compare times, with 5s error allowance
 func almostEqual(t1, t2 time.Duration) bool {
 	diff := t1 - t2
