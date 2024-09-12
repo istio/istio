@@ -306,10 +306,6 @@ type ServiceTarget struct {
 	Port    ServiceInstancePort
 }
 
-func (st ServiceTarget) NamespacedName() types.NamespacedName {
-	return st.Service.NamespacedName()
-}
-
 type (
 	ServicePort = *Port
 	// ServiceInstancePort defines a port that has both a port and targetPort (which distinguishes it from model.Port)

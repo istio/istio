@@ -141,8 +141,8 @@ func TestXdsCache(t *testing.T) {
 	t.Run("multiple destinationRules", func(t *testing.T) {
 		c := model.NewXdsCache()
 
-		ep1 := makeEp("1", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}}))
-		ep2 := makeEp("2", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}}))
+		ep1 := makeEp("1", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}}, nil))
+		ep2 := makeEp("2", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}}, nil))
 
 		start := time.Now()
 		c.Add(ep1, &model.PushRequest{Start: start}, any1)
