@@ -169,7 +169,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 				model.IncLookupClusterFailures("zipkin")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
-			return zipkinConfig(hostname, cluster, !provider.Zipkin.GetEnable_64BitTraceId())
+			return zipkinConfig(hostname, cluster, provider.Zipkin.GetPath(), !provider.Zipkin.GetEnable_64BitTraceId())
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 		maxTagLength = provider.Datadog.GetMaxTagLength()
@@ -234,10 +234,13 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	return hcmTracing, useCustomSampler, err
 }
 
-func zipkinConfig(hostname, cluster string, enable128BitTraceID bool) (*anypb.Any, error) {
+func zipkinConfig(hostname, cluster, endpoint string, enable128BitTraceID bool) (*anypb.Any, error) {
+	if endpoint == "" {
+		endpoint = "/api/v2/spans" // envoy deprecated v1 support
+	}
 	zc := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         cluster,
-		CollectorEndpoint:        "/api/v2/spans",                   // envoy deprecated v1 support
+		CollectorEndpoint:        endpoint,
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON, // use v2 JSON for now
 		CollectorHostname:        hostname,                          // http host header
 		TraceId_128Bit:           enable128BitTraceID,               // istio default enable 128 bit trace id

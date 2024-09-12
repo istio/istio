@@ -46,6 +46,7 @@ func TestConfigureTracingExhaustiveness(t *testing.T) {
 func TestConfigureTracing(t *testing.T) {
 	clusterName := "testcluster"
 	authority := "testhost"
+	defaultZipkinEndpoint := "/api/v2/spans"
 
 	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
 		return authority, clusterName, nil
@@ -82,7 +83,7 @@ func TestConfigureTracing(t *testing.T) {
 				},
 			},
 			opts:            fakeOptsWithDefaultProviders(),
-			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, true), 55.5, 256, defaultTracingTags()),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, defaultZipkinEndpoint, true), 55.5, 256, defaultTracingTags()),
 			wantReqIDExtCtx: &requestidextension.UUIDRequestIDExtensionContext{},
 		},
 		{
@@ -110,14 +111,14 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "only telemetry api (with provider)",
 			inSpec:          fakeTracingSpec(fakeZipkin(), 99.999, false, true),
 			opts:            fakeOptsOnlyZipkinTelemetryAPI(),
-			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, true), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, defaultZipkinEndpoint, true), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
 			name:            "zipkin enable 64bit trace id",
 			inSpec:          fakeTracingSpec(fakeZipkinEnable64bitTraceID(), 99.999, false, true),
 			opts:            fakeOptsOnlyZipkinTelemetryAPI(),
-			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, false), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, defaultZipkinEndpoint, false), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
@@ -138,14 +139,14 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "both tracing enabled (with provider)",
 			inSpec:          fakeTracingSpec(fakeZipkin(), 99.999, false, true),
 			opts:            fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
-			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, true), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, defaultZipkinEndpoint, true), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
 			name:   "both tracing disabled (with provider)",
 			inSpec: fakeTracingSpec(fakeZipkin(), 99.999, false, true),
 			opts:   fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
-			want:   fakeTracingConfig(fakeZipkinProvider(clusterName, authority, true), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			want:   fakeTracingConfig(fakeZipkinProvider(clusterName, authority, defaultZipkinEndpoint, true), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
@@ -214,6 +215,14 @@ func TestConfigureTracing(t *testing.T) {
 			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true),
 			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(),
 			want: fakeTracingConfig(fakeOpenTelemetryGrpcWithInitialMetadataProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "only telemetry api (with provider)",
+			inSpec: fakeTracingSpec(fakeZipkinWithEndpoint(), 99.999, false, true),
+			opts:   fakeOptsZipkinTelemetryWithEndpoint(),
+			want: fakeTracingConfig(fakeZipkinProvider(clusterName, authority, "/custom/path/api/v2/spans", true),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
@@ -658,6 +667,34 @@ func fakeOptsOnlyZipkinTelemetryAPI() gatewayListenerOpts {
 	return opts
 }
 
+func fakeOptsZipkinTelemetryWithEndpoint() gatewayListenerOpts {
+	var opts gatewayListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "foo",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Zipkin{
+						Zipkin: &meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider{
+							Service:      "zipkin",
+							Port:         9411,
+							MaxTagLength: 256,
+							Path:         "/custom/path/api/v2/spans",
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
+		},
+	}
+
+	return opts
+}
+
 func fakeZipkin() *meshconfig.MeshConfig_ExtensionProvider {
 	return &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "foo",
@@ -666,6 +703,20 @@ func fakeZipkin() *meshconfig.MeshConfig_ExtensionProvider {
 				Service:      "zipkin",
 				Port:         9411,
 				MaxTagLength: 256,
+			},
+		},
+	}
+}
+
+func fakeZipkinWithEndpoint() *meshconfig.MeshConfig_ExtensionProvider {
+	return &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "foo",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Zipkin{
+			Zipkin: &meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider{
+				Service:      "zipkin",
+				Port:         9411,
+				MaxTagLength: 256,
+				Path:         "/custom/path/api/v2/spans",
 			},
 		},
 	}
@@ -1131,10 +1182,10 @@ var fakeEnvTag = &tracing.CustomTag{
 	},
 }
 
-func fakeZipkinProvider(expectClusterName, expectAuthority string, enableTraceID bool) *tracingcfg.Tracing_Http {
+func fakeZipkinProvider(expectClusterName, expectAuthority, expectEndpoint string, enableTraceID bool) *tracingcfg.Tracing_Http {
 	fakeZipkinProviderConfig := &tracingcfg.ZipkinConfig{
 		CollectorCluster:         expectClusterName,
-		CollectorEndpoint:        "/api/v2/spans",
+		CollectorEndpoint:        expectEndpoint,
 		CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
 		CollectorHostname:        expectAuthority,
 		TraceId_128Bit:           enableTraceID,
