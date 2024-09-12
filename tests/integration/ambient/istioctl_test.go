@@ -39,7 +39,7 @@ import (
 func TestZtunnelConfig(t *testing.T) {
 	// Disable Gomega output truncation to debug CI failures
 	format.TruncatedDiff = false
-
+	format.MaxLength = 0
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
