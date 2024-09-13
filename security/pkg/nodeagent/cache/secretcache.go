@@ -689,7 +689,15 @@ func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 					resourceLog(item.ResourceName).Debugf("rotating certificate")
 					// Clear the cache so the next call generates a fresh certificate
 					sc.cache.SetWorkload(nil)
-					sc.GenerateSecret(item.ResourceName)
+					b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+					_ = b.RetryWithContext(context.TODO(), func() error {
+						_, err := sc.GenerateSecret(item.ResourceName)
+						if err == nil {
+							return nil
+						}
+						resourceLog(item.ResourceName).Warnf("failed to get certificate: %v. retrying it", err)
+						return err
+					})
 				}
 			}
 			return nil
