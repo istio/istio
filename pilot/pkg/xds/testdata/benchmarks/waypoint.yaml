@@ -1,0 +1,69 @@
+# Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: waypoint
+  namespace: default
+  annotations:
+    testing.istio.io/benchmark-use-kube: "true"
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+    - name: mesh
+      port: 15008
+      protocol: HBONE
+status:
+  addresses:
+    - value: example.com
+      type: Hostname
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: waypoint
+  namespace: default
+spec:
+  addresses:
+    - 2.2.2.2
+  hosts:
+  - example.com
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 1.1.1.1
+    labels:
+      security.istio.io/tlsMode: istio
+---
+# Set up .Services number of services.
+{{- range $i := until .Services }}
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: service-{{$i}}
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  addresses:
+  - 240.240.{{div $i 255 }}.{{mod $i 255 }}
+  hosts:
+  - random-{{$i}}.host.example
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 7070
+    name: tcp
+    protocol: TCP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 240.241.{{div $i 255 }}.{{mod $i 255 }}
+    labels:
+      security.istio.io/tlsMode: istio
+---
+{{- end }}

@@ -60,7 +60,7 @@ func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
 
 	fs.On("AddPodToMesh",
 		ctx,
-		pod,
+		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
 	).Return(nil)
@@ -119,7 +119,7 @@ func TestExistingPodAddedWhenDualStack(t *testing.T) {
 
 	fs.On("AddPodToMesh",
 		ctx,
-		pod,
+		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
 	).Return(nil)
@@ -230,7 +230,7 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 
 	fs.On("AddPodToMesh",
 		ctx,
-		pod,
+		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
 	).Return(nil)
@@ -320,7 +320,7 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 
 	fs.On("AddPodToMesh",
 		ctx,
-		pod,
+		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
 	).Return(nil)
@@ -420,7 +420,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 
 	fs.On("AddPodToMesh",
 		ctx,
-		pod,
+		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
 	).Return(nil)
@@ -769,7 +769,7 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 
 	fs.On("AddPodToMesh",
 		ctx,
-		pod,
+		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
 	).Return(nil)

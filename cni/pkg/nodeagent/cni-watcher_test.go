@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -102,7 +103,7 @@ func TestCNIPluginServer(t *testing.T) {
 
 	fs.On("AddPodToMesh",
 		ctx,
-		pod,
+		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		valid.Netns,
 	).Return(nil)
@@ -250,7 +251,7 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 	// This pod should be enmeshed with the CNI ip, even tho the pod status had no ip
 	fs.On("AddPodToMesh",
 		ctx,
-		pod,
+		mock.IsType(pod),
 		[]netip.Addr{netip.MustParseAddr(fakePodIP)},
 		valid.Netns,
 	).Return(nil)
