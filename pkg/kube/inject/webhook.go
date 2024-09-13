@@ -1068,7 +1068,7 @@ func applyOverlayYAML(target *corev1.Pod, overlayYAML []byte) (*corev1.Pod, erro
 	}
 
 	if err := json.Unmarshal(patched, &pod); err != nil {
-		return nil, fmt.Errorf("unmarshal patched pod(%s %s): %v", target.Name, target.Namespace, err)
+		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
 	}
 	return &pod, nil
 }
@@ -1088,7 +1088,7 @@ func applyOverlay(target *corev1.Pod, overlayJSON []byte) (*corev1.Pod, error) {
 	}
 
 	if err := json.Unmarshal(patched, &pod); err != nil {
-		return nil, fmt.Errorf("unmarshal patched pod(%s %s): %v", target.Name, target.Namespace, err)
+		return nil, fmt.Errorf("unmarshal patched pod: %v", err)
 	}
 	return &pod, nil
 }
@@ -1174,7 +1174,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 
 	patchBytes, err := injectPod(params)
 	if err != nil {
-		handleError(fmt.Sprintf("Pod injection failed: %v", err))
+		handleError(fmt.Sprintf("Pod %s/%s injection failed: %v", pod.Namespace, podName, err))
 		return toAdmissionResponse(err)
 	}
 
