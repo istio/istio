@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/test/framework"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
@@ -35,23 +36,22 @@ import (
 
 // TestDefaultInstall tests Istio installation using Helm with default options
 func TestDefaultInstall(t *testing.T) {
-	overrideValuesStr := `
-global:
-  hub: %s
-  tag: %s
-  variant: %q
-  %s
-`
+	values := map[string]interface{}{
+		"global": map[string]interface{}{},
+	}
 	framework.
 		NewTest(t).
-		Run(setupInstallation(overrideValuesStr, false, DefaultNamespaceConfig, ""))
+		Run(setupInstallation(values, false, DefaultNamespaceConfig, ""))
 }
 
 // TestAmbientInstall tests Istio ambient profile installation using Helm
 func TestAmbientInstall(t *testing.T) {
+	valuesAmbient := map[string]interface{}{
+		"profile": "ambient",
+	}
 	framework.
 		NewTest(t).
-		Run(setupInstallation(ambientProfileOverride, true, DefaultNamespaceConfig, ""))
+		Run(setupInstallation(valuesAmbient, true, DefaultNamespaceConfig, ""))
 }
 
 func TestAmbientInstallMultiNamespace(t *testing.T) {
@@ -70,38 +70,31 @@ func TestAmbientInstallMultiNamespace(t *testing.T) {
 		})
 	// Setup our profile override. Ideally we could just add `trustedZtunnelNamespace`, but Istiod cannot currently be deployed
 	// in another namespace without `global.istioNamespace` set.
-	profile := `
-global:
-  istioNamespace: istiod
-  hub: %s
-  %s
-  variant: %q
-  %s
-profile: ambient
-pilot:
-  trustedZtunnelNamespace: ztunnel
-`
+	profileValues := map[string]interface{}{
+		"global": map[string]interface{}{
+			"istioNamespace": "istiod",
+		},
+		"profile": "ambient",
+		"pilot": map[string]interface{}{
+			"trustedZtunnelNamespace": "ztunnel",
+		},
+	}
 	framework.
 		NewTest(t).
-		Run(setupInstallation(profile, true, nsConfig, ""))
+		Run(setupInstallation(profileValues, true, nsConfig, ""))
 }
 
 // TestReleaseChannels tests that non-stable CRDs and fields get blocked
 // by the default ValidatingAdmissionPolicy
 func TestReleaseChannels(t *testing.T) {
-	overrideValuesStr := `
-global:
-  hub: %s
-  tag: %s
-  variant: %q
-  %s
-profile: stable
-`
+	valuesProfileStable := map[string]interface{}{
+		"profile": "stable",
+	}
 
 	framework.
 		NewTest(t).
 		RequireKubernetesMinorVersion(30).
-		Run(setupInstallationWithCustomCheck(overrideValuesStr, false, DefaultNamespaceConfig, func(t framework.TestContext) {
+		Run(setupInstallationWithCustomCheck(valuesProfileStable, false, DefaultNamespaceConfig, func(t framework.TestContext) {
 			// Try to apply an EnvoyFilter (it should be rejected)
 			expectedErrorPrefix := `%s "sample" is forbidden: ValidatingAdmissionPolicy 'stable-channel-default-policy.istio.io' ` +
 				`with binding 'stable-channel-default-policy-binding.istio.io' denied request`
@@ -131,21 +124,16 @@ profile: stable
 // TestRevisionedReleaseChannels tests that non-stable CRDs and fields get blocked
 // by the revisioned ValidatingAdmissionPolicy
 func TestRevisionedReleaseChannels(t *testing.T) {
-	overrideValuesStr := `
-global:
-  hub: %s
-  tag: %s
-  variant: %q
-  %s
-profile: stable
-revision: 1-x
-defaultRevision: ""
-`
+	valuesRevisioneRelease := map[string]interface{}{
+		"profile":         "stable",
+		"revision":        "1-x",
+		"defaultRevision": "",
+	}
 	revision := "1-x"
 	framework.
 		NewTest(t).
 		RequireKubernetesMinorVersion(30).
-		Run(setupInstallationWithCustomCheck(overrideValuesStr, false, DefaultNamespaceConfig, func(t framework.TestContext) {
+		Run(setupInstallationWithCustomCheck(valuesRevisioneRelease, false, DefaultNamespaceConfig, func(t framework.TestContext) {
 			// Try to apply an EnvoyFilter (it should be rejected)
 			expectedErrorPrefix := `%s "sample" is forbidden: ValidatingAdmissionPolicy 'stable-channel-policy-1-x-istio-system.istio.io' ` +
 				`with binding 'stable-channel-policy-binding-1-x-istio-system.istio.io' denied request`
@@ -172,19 +160,19 @@ defaultRevision: ""
 		}, revision))
 }
 
-func setupInstallation(overrideValuesStr string, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
-	return baseSetup(overrideValuesStr, isAmbient, config, func(t framework.TestContext) {
+func setupInstallation(values map[string]interface{}, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
+	return baseSetup(values, isAmbient, config, func(t framework.TestContext) {
 		sanitycheck.RunTrafficTest(t, isAmbient)
 	}, revision)
 }
 
-func setupInstallationWithCustomCheck(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
+func setupInstallationWithCustomCheck(values map[string]interface{}, isAmbient bool, config NamespaceConfig,
 	check func(t framework.TestContext), revision string,
 ) func(t framework.TestContext) {
-	return baseSetup(overrideValuesStr, isAmbient, config, check, revision)
+	return baseSetup(values, isAmbient, config, check, revision)
 }
 
-func baseSetup(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
+func baseSetup(values map[string]interface{}, isAmbient bool, config NamespaceConfig,
 	check func(t framework.TestContext), revision string,
 ) func(t framework.TestContext) {
 	return func(t framework.TestContext) {
@@ -196,24 +184,31 @@ func baseSetup(overrideValuesStr string, isAmbient bool, config NamespaceConfig,
 		h := helm.New(cs.Filename())
 		s := t.Settings()
 
-		// Some templates contain a tag definition, in which we just replace %s it with the tag value,
-		// others just contain a %s placeholder for the whole tag: line
-		tag := s.Image.Tag
-		if !strings.Contains(overrideValuesStr, "tag: ") {
-			tag = "tag: " + tag
+		// Replace the default values with the provided values
+		// Check first if global exists. If not, create it
+		if _, ok := values["global"]; !ok {
+			values["global"] = map[string]interface{}{}
 		}
+		values["global"].(map[string]interface{})["tag"] = s.Image.Tag
+		values["global"].(map[string]interface{})["hub"] = s.Image.Hub
+		values["global"].(map[string]interface{})["variant"] = s.Image.Variant
 
-		var platform string
 		// Handle Openshift platform override if set
 		if t.Settings().OpenShift {
-			platform = "platform: openshift"
+			values["global"].(map[string]interface{})["platform"] = "openshift"
+			// TODO: do FLATTEN_GLOBALS_REPLACEMENT to avoid this set
+			values["platform"] = "openshift"
 		} else {
-			platform = "" // no platform
+			values["global"].(map[string]interface{})["platform"] = ""
 		}
-		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, tag, s.Image.Variant, platform)
+
+		overrideValues, err := yaml.Marshal(values)
+		if err != nil {
+			t.Fatalf("failed to marshal override values to YAML: %v", err)
+		}
 
 		overrideValuesFile := filepath.Join(workDir, "values.yaml")
-		if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+		if err := os.WriteFile(overrideValuesFile, overrideValues, os.ModePerm); err != nil {
 			t.Fatalf("failed to write iop cr file: %v", err)
 		}
 		t.Cleanup(func() {

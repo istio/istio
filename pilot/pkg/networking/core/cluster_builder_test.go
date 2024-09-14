@@ -1867,7 +1867,7 @@ func drWithLabels(lbls labels.Instance) *model.ConsolidatedDestRule {
 				Labels: lbls,
 			}},
 		},
-	})
+	}, nil)
 }
 
 func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {

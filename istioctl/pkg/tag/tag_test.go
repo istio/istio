@@ -264,22 +264,18 @@ func TestRemoveTag(t *testing.T) {
 
 func TestSetTagErrors(t *testing.T) {
 	tcs := []struct {
-		name           string
-		tag            string
-		revision       string
-		webhooksBefore admitv1.MutatingWebhookConfigurationList
-		namespaces     corev1.NamespaceList
-		outputMatches  []string
-		error          string
+		name          string
+		tag           string
+		revision      string
+		webhookBefore *admitv1.MutatingWebhookConfiguration
+		outputMatches []string
+		error         string
 	}{
 		{
-			name:     "TestErrorWhenRevisionWithNameCollision",
-			tag:      "revision",
-			revision: "revision",
-			webhooksBefore: admitv1.MutatingWebhookConfigurationList{
-				Items: []admitv1.MutatingWebhookConfiguration{revisionCanonicalWebhook},
-			},
-			namespaces:    corev1.NamespaceList{},
+			name:          "TestErrorWhenRevisionWithNameCollision",
+			tag:           "revision",
+			revision:      "revision",
+			webhookBefore: &revisionCanonicalWebhook,
 			outputMatches: []string{},
 			error:         "cannot create revision tag \"revision\"",
 		},
@@ -289,7 +285,7 @@ func TestSetTagErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
 
-			client := kube.NewFakeClient(tc.webhooksBefore.DeepCopyObject(), tc.namespaces.DeepCopyObject())
+			client := kube.NewFakeClient(tc.webhookBefore)
 			skipConfirmation = true
 			err := setTag(context.Background(), client, tc.tag, tc.revision, "istio-system", false, &out, nil)
 			if tc.error == "" && err != nil {

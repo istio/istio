@@ -279,8 +279,6 @@ type PushContext struct {
 }
 
 type consolidatedDestRules struct {
-	// Map of dest rule host to the list of namespaces to which this destination rule has been exported to
-	exportTo map[host.Name]sets.Set[visibility.Instance]
 	// Map of dest rule host and the merged destination rules for that host.
 	// Only stores specific non-wildcard destination rules
 	specificDestRules map[host.Name][]*ConsolidatedDestRule
@@ -291,10 +289,22 @@ type consolidatedDestRules struct {
 
 // ConsolidatedDestRule represents a dr and from which it is consolidated.
 type ConsolidatedDestRule struct {
+	// the list of namespaces to which this destination rule has been exported to
+	exportTo sets.Set[visibility.Instance]
 	// rule is merged from the following destinationRules.
 	rule *config.Config
 	// the original dest rules from which above rule is merged.
 	from []types.NamespacedName
+}
+
+// MarshalJSON implements json.Marshaller
+func (l *ConsolidatedDestRule) MarshalJSON() ([]byte, error) {
+	// Json cannot expose unexported fields, so copy the ones we want here
+	return json.MarshalIndent(map[string]any{
+		"exportTo": l.exportTo,
+		"rule":     l.rule,
+		"from":     l.from,
+	}, "", "  ")
 }
 
 type EdsUpdateFn func(shard ShardKey, hostname string, namespace string, entry []*IstioEndpoint)
@@ -1218,14 +1228,14 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 	// 3. if no private/public rule matched in the calling proxy's namespace,
 	// check the target service's namespace for exported rules
 	if svcNs != "" {
-		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.Hostname, proxyNameSpace); out != nil {
+		if out := ps.getExportedDestinationRuleFromNamespace(svcNs, service.Hostname, proxyNameSpace); len(out) > 0 {
 			return out
 		}
 	}
 
 	// 4. if no public/private rule in calling proxy's namespace matched, and no public rule in the
 	// target service's namespace matched, search for any exported destination rule in the config root namespace
-	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.Hostname, proxyNameSpace); out != nil {
+	if out := ps.getExportedDestinationRuleFromNamespace(ps.Mesh.RootNamespace, service.Hostname, proxyNameSpace); len(out) > 0 {
 		return out
 	}
 
@@ -1234,15 +1244,19 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 
 func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*ConsolidatedDestRule {
 	if ps.destinationRuleIndex.exportedByNamespace[owningNamespace] != nil {
-		if specificHostname, drs, ok := MostSpecificHostMatch(hostname,
+		if _, drs, ok := MostSpecificHostMatch(hostname,
 			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].specificDestRules,
 			ps.destinationRuleIndex.exportedByNamespace[owningNamespace].wildcardDestRules,
 		); ok {
-			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
-			exportToSet := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]
-			if exportToSet.IsEmpty() || exportToSet.Contains(visibility.Public) || exportToSet.Contains(visibility.Instance(clientNamespace)) {
-				return drs
+			out := make([]*ConsolidatedDestRule, 0, len(drs))
+			for _, mdr := range drs {
+				// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
+				exportToSet := mdr.exportTo
+				if exportToSet.IsEmpty() || exportToSet.Contains(visibility.Public) || exportToSet.Contains(visibility.Instance(clientNamespace)) {
+					out = append(out, mdr)
+				}
 			}
+			return out
 		}
 	}
 	return nil
@@ -1957,7 +1971,6 @@ func (ps *PushContext) initDestinationRules(env *Environment) {
 
 func newConsolidatedDestRules() *consolidatedDestRules {
 	return &consolidatedDestRules{
-		exportTo:          map[host.Name]sets.Set[visibility.Instance]{},
 		specificDestRules: map[host.Name][]*ConsolidatedDestRule{},
 		wildcardDestRules: map[host.Name][]*ConsolidatedDestRule{},
 	}

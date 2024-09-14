@@ -72,6 +72,8 @@ type ConfigInput struct {
 	SkipType string
 	// ResourceType of proxy to generate configs for. If not set, sidecar is used
 	ProxyType model.NodeType
+	// If true, all objects will be created as Kubernetes objects. Some controllers only support this mode
+	KubernetesClient bool
 }
 
 var testCases = []ConfigInput{
@@ -150,6 +152,15 @@ var testCases = []ConfigInput{
 		Name:      "serviceentry-workloadentry",
 		Services:  100,
 		Instances: 1000,
+	},
+
+	// Ambient
+	{
+		Name:             "waypoint",
+		Services:         100,
+		ProxyType:        model.Waypoint,
+		KubernetesClient: true,
+		SkipType:         v3.RouteType, // no routes for waypoint
 	},
 }
 
@@ -300,6 +311,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 }
 
 func runBenchmark(b *testing.B, tpe string, testCases []ConfigInput) {
+	test.SetForTest(b, &features.EnableAmbient, true)
 	configureBenchmark(b)
 	for _, tt := range testCases {
 		if tt.OnlyRunType != "" && tt.OnlyRunType != tpe {
@@ -326,6 +338,7 @@ func runBenchmark(b *testing.B, tpe string, testCases []ConfigInput) {
 }
 
 func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
+	test.SetForTest(t, &features.EnableAmbient, true)
 	for _, tt := range testCases {
 		if tt.OnlyRunType != "" && tt.OnlyRunType != tpe {
 			// Not applicable for this type
@@ -454,8 +467,8 @@ func getConfigsWithCache(t testing.TB, input ConfigInput) ([]config.Config, stri
 	if err != nil {
 		t.Fatalf("failed to read config: %v", err)
 	}
-	k8sTypes, count := parseKubernetesTypes(inputYAML)
-	if len(badKinds) != count {
+	k8sTypes, count := parseKubernetesTypes(inputYAML, input.KubernetesClient)
+	if !input.KubernetesClient && len(badKinds) != count {
 		t.Fatalf("Got unknown resources: %v", badKinds)
 	}
 	// setup default namespace if not defined
@@ -470,15 +483,11 @@ func getConfigsWithCache(t testing.TB, input ConfigInput) ([]config.Config, stri
 	return configs, k8sTypes
 }
 
-func parseKubernetesTypes(inputs string) (string, int) {
+func parseKubernetesTypes(inputs string, includeAll bool) (string, int) {
 	matches := 0
 	sb := strings.Builder{}
 	for _, text := range strings.Split(inputs, "\n---") {
-		if strings.Contains(text, "kind: Secret") {
-			sb.WriteString(text + "\n---\n")
-			matches++
-		}
-		if strings.Contains(text, "kind: Service\n") {
+		if includeAll || strings.Contains(text, "kind: Secret") || strings.Contains(text, "kind: Service\n") {
 			sb.WriteString(text + "\n---\n")
 			matches++
 		}
@@ -611,7 +620,7 @@ func makeCacheKey(n int) model.XdsCacheEntry {
 			Hostname:   host.Name(ns + "some" + index + ".example.com"),
 			Attributes: model.ServiceAttributes{Namespace: "test" + index},
 		})
-		drs = append(drs, model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: index, Namespace: index}}))
+		drs = append(drs, model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: index, Namespace: index}}, nil))
 	}
 
 	key := &route.Cache{
