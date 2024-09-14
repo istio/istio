@@ -357,9 +357,6 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	efKeys []string,
 	xdsCache model.XdsCache,
 ) ([]*route.VirtualHost, *discovery.Resource, *istio_route.Cache) {
-	var virtualServices []config.Config
-	var services []*model.Service
-
 	// Get the services from the egress listener.  When sniffing is enabled, we send
 	// route name as foo.bar.com:8080 which is going to match against the wildcard
 	// egress listener only. A route with sniffing would not have been generated if there
@@ -372,10 +369,10 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		return nil, nil, nil
 	}
 
-	services = egressListener.Services()
+	services := egressListener.Services()
 	// To maintain correctness, we should only use the virtualservices for
 	// this listener and not all virtual services accessible to this proxy.
-	virtualServices = egressListener.VirtualServices()
+	virtualServices := egressListener.VirtualServices()
 
 	// When generating RDS for ports created via the SidecarScope, we treat ports as HTTP proxy style ports
 	// if ports protocol is HTTP_PROXY.
