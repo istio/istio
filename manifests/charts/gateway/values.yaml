@@ -90,9 +90,6 @@ defaults:
   # Sets the Deployment minReadySeconds value
   minReadySeconds:
   
-  # Sets the per-pod terminationGracePeriodSeconds setting.
-  terminationGracePeriodSeconds:
-  
   # Optionally configure a custom readinessProbe. By default the control plane
   # automatically injects the readinessProbe. If you wish to override that
   # behavior, you may define your own readinessProbe here.
@@ -151,6 +148,7 @@ defaults:
   #
   podDisruptionBudget: {}
 
+  # Sets the per-pod terminationGracePeriodSeconds setting.
   terminationGracePeriodSeconds: 30
 
   # A list of `Volumes` added into the Gateway Pods. See
