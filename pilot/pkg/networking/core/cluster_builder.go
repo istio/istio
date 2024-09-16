@@ -22,6 +22,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
@@ -49,10 +50,7 @@ import (
 
 var maxSecondsValue = int64((math.MaxInt64 - 999999999) / (1000 * 1000 * 1000)) // 9223372035, which is about 292 years.
 
-// passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
-// nolint
-// revive:disable-next-line
-var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOptions{
+var defaultHttpOptions = &http.HttpProtocolOptions{
 	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
 		IdleTimeout: durationpb.New(5 * time.Minute),
 	},
@@ -62,7 +60,12 @@ var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOp
 			Http2ProtocolOptions: http2ProtocolOptions(),
 		},
 	},
-})
+}
+
+// passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
+// nolint
+// revive:disable-next-line
+var passthroughHttpProtocolOptions = protoconv.MessageToAny(defaultHttpOptions)
 
 // clusterWrapper wraps Cluster object along with upstream protocol options.
 type clusterWrapper struct {
@@ -281,6 +284,18 @@ func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 	if features.MetadataExchange {
 		c.Filters = append(c.Filters, xdsfilters.TCPClusterMx)
 	}
+	if c.TypedExtensionProtocolOptions == nil {
+		c.TypedExtensionProtocolOptions = make(map[string]*anypb.Any)
+	}
+	options := http.HttpProtocolOptions{}
+	optionsAny, ok := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
+	if ok {
+		_ = optionsAny.UnmarshalTo(&options)
+	} else {
+		options = *defaultHttpOptions
+	}
+	options.HttpFilters = []*hcm.HttpFilter{xdsfilters.InjectIstioHeadersUpstreamFilter, xdsfilters.UpstreamCodec}
+	c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = protoconv.MessageToAny(&options)
 }
 
 // buildCluster builds the default cluster and also applies global options.
@@ -495,7 +510,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughCluster() *cluster.Cluster {
 			},
 		})
 	}
-	c := cb.buildDefaultPassthroughCluster()
+	c := cb.buildDefaultPassthroughCluster(false)
 	c.Name = util.InboundPassthroughCluster
 	c.Filters = nil
 	c.UpstreamBindConfig = &core.BindConfig{
@@ -523,7 +538,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 
 // generates a cluster that sends traffic to the original destination.
 // This cluster is used to catch all traffic to unknown listener ports
-func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
+func (cb *ClusterBuilder) buildDefaultPassthroughCluster(addMX bool) *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
@@ -535,7 +550,9 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	}
 	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster)
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
-	cb.applyMetadataExchange(cluster)
+	if addMX {
+		cb.applyMetadataExchange(cluster)
+	}
 	return cluster
 }
 

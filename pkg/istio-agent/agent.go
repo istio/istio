@@ -16,6 +16,7 @@ package istioagent
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -318,6 +319,16 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 		a.envoyOpts.ConfigPath = out
 		a.envoyOpts.ConfigCleanup = true
 	}
+
+	// Define "Istio headers" used for peer exchange as environment variables.
+	// TODO: move to Envoy process start.
+	bytes, err := proto.Marshal(node.Metadata.ToStruct())
+	if err != nil {
+		return err
+	}
+	metadata := base64.RawStdEncoding.EncodeToString(bytes)
+	_ = os.Setenv("ISTIO_PEER_METADATA_ID", node.ID)
+	_ = os.Setenv("ISTIO_PEER_METADATA", metadata)
 
 	// Back-fill envoy options from proxy config options
 	a.envoyOpts.BinaryPath = a.proxyConfig.BinaryPath

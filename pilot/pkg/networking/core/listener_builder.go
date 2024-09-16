@@ -436,8 +436,6 @@ func appendMxFilter(httpOpts *httpListenerOpts, filters []*hcm.HttpFilter) []*hc
 		return append(filters, xdsfilters.SidecarInboundMetadataFilter)
 	}
 
-	if httpOpts.skipIstioMXHeaders {
-		return append(filters, xdsfilters.SidecarOutboundMetadataFilterSkipHeaders)
-	}
+	// TODO: Skip Istio headers for Passthrough and "external" clusters when configured.
 	return append(filters, xdsfilters.SidecarOutboundMetadataFilter)
 }
