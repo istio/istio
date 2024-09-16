@@ -1,0 +1,151 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: istio-cni-windows-node
+  namespace: istio-system
+  labels:
+    k8s-app: istio-cni-node
+    release: istio-cni
+    istio.io/rev: 1-23-0
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Cni"
+    app.kubernetes.io/name: istio-cni
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istio-cni"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "0.0.1"
+    helm.sh/chart: cni-0.0.1
+spec:
+  selector:
+    matchLabels:
+      k8s-app: istio-cni-node
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: istio-cni-node
+        sidecar.istio.io/inject: "false"
+        istio.io/dataplane-mode: none
+        app.kubernetes.io/name: istio-cni
+        app.kubernetes.io/managed-by: "Helm"
+        app.kubernetes.io/instance: "istio-cni"
+        app.kubernetes.io/part-of: "istio"
+        app.kubernetes.io/version: "0.0.1"
+        helm.sh/chart: cni-0.0.1
+      annotations:
+        sidecar.istio.io/inject: "false"
+        # Add Prometheus Scrape annotations
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: "15014"
+        prometheus.io/path: '/metrics'
+        # Custom annotations
+    spec:
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/os: windows
+      # Can be configured to allow for excluding istio-cni from being scheduled on specified nodes
+      tolerations:
+        # Make sure istio-cni-node gets scheduled on all nodes.
+        - effect: NoSchedule
+          operator: Exists
+        # Mark the pod as a critical add-on for rescheduling.
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      priorityClassName: system-node-critical
+      serviceAccountName: istio-cni
+      # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
+      # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
+      terminationGracePeriodSeconds: 5
+      containers:
+        # This container installs the Istio CNI binaries
+        # and CNI network config file on each node.
+        - name: install-cni
+          image: "istiolocaltesting.azurecr.io/istio-cni-windows:test"
+          ports:
+          - containerPort: 15014
+            name: metrics
+            protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+          securityContext:
+            windowsOptions:
+              hostProcess: true
+              runAsUserName: "NT AUTHORITY\\SYSTEM"
+          command: ["install-cni"]
+          args:
+            - --log_output_level=info
+          envFrom:
+            - configMapRef:
+                name: istio-cni-config
+          env:
+            - name: REPAIR_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: REPAIR_RUN_AS_DAEMON
+              value: "true"
+            - name: REPAIR_SIDECAR_ANNOTATION
+              value: "sidecar.istio.io/status"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: ZTUNNEL_UDS_ADDRESS
+              value: \\.\pipe\istio-zds
+          volumeMounts:
+            - mountPath: /host/opt/cni/bin
+              name: cni-bin-dir
+            - mountPath: /host/etc/cni/net.d
+              name: cni-net-dir
+            - mountPath: /var/run/istio-cni
+              name: cni-socket-dir
+            - mountPath: /var/run/ztunnel
+              name: cni-ztunnel-sock-dir
+          resources:
+            requests:
+              cpu: 100m
+              memory: 100Mi
+      volumes:
+        # Used to install CNI.
+        - name: cni-bin-dir
+          hostPath:
+            path: C:\k\cni
+        - name: cni-ztunnel-sock-dir
+          hostPath:
+            path: /var/run/ztunnel
+            type: DirectoryOrCreate
+        - name: cni-net-dir
+          hostPath:
+            path: C:\k\cni\config
+        # Used for UDS sockets for logging, ambient eventing
+        - name: cni-socket-dir
+          hostPath:
+            path: /var/run/istio-cni

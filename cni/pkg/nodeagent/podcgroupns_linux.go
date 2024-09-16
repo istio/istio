@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-
 func GetInode(fi fs.FileInfo) (uint64, error) {
 	if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
 		return stat.Ino, nil
@@ -78,9 +77,9 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 			fd:    res.netnsfd,
 			inode: res.inode,
 		}
-		workload := WorkloadInfo{
-			Workload: podToWorkload(pod),
-			Netns:    netns,
+		workload := workloadInfo{
+			workload: podToWorkload(pod),
+			netns:    netns,
 		}
 		podUIDNetns[string(res.uid)] = workload
 

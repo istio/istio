@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    pod: hpc
+  name: hpc
+spec:
+  securityContext:
+    windowsOptions:
+      hostProcess: true
+      runAsUserName: "NT AUTHORITY\\SYSTEM"
+  hostNetwork: true
+  containers:
+    - name: hpc
+      image: tohaagfhl.azurecr.io/hcn_test:v1
+      command:
+        - powershell.exe
+        - -Command
+        - "Start-Sleep 2147483"
+      imagePullPolicy: Always
+  nodeSelector:
+    kubernetes.io/os: windows
+    kubernetes.io/hostname: akswin000000
+  tolerations:
+    - effect: NoSchedule
+      key: node.kubernetes.io/unschedulable
+      operator: Exists
+    - effect: NoSchedule
+      key: node.kubernetes.io/network-unavailable
+      operator: Exists
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists

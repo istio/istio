@@ -25,7 +25,7 @@ type PodToNetns map[string]WorkloadInfo
 
 func (p PodToNetns) Close() {
 	for _, wl := range p {
-		wl.Netns.Close()
+		wl.NetnsCloser().Close()
 	}
 }
 

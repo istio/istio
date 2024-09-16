@@ -63,7 +63,7 @@ func TestZtunnelServerHandleConn(t *testing.T) {
 
 	for uid, info := range cache.pods {
 		add := &zdsapi.AddWorkload{
-			WorkloadInfo: info.Workload,
+			WorkloadInfo: info.Workload(),
 			Uid:          uid,
 		}
 		req := &zdsapi.WorkloadRequest{
@@ -71,7 +71,7 @@ func TestZtunnelServerHandleConn(t *testing.T) {
 				Add: add,
 			},
 		}
-		locFD := int(info.Netns.Fd())
+		locFD := int(info.NetnsCloser().Fd())
 		conn.On("SendMsgAndWaitForAck", req, &locFD).Times(1).Return(respData, nil)
 	}
 
@@ -107,7 +107,7 @@ func TestZtunnelServerHandleConn(t *testing.T) {
 			},
 		}
 		ret := make(chan updateResponse, 1)
-		fdF := int(info.Netns.Fd())
+		fdF := int(info.NetnsCloser().Fd())
 		req := updateRequest{
 			update: r,
 			fd:     &fdF,
@@ -143,7 +143,7 @@ func TestZtunnelServerHandleConnWhenConnDies(t *testing.T) {
 
 	for uid, info := range cache.pods {
 		add := &zdsapi.AddWorkload{
-			WorkloadInfo: info.Workload,
+			WorkloadInfo: info.Workload(),
 			Uid:          uid,
 		}
 		req := &zdsapi.WorkloadRequest{
@@ -151,7 +151,7 @@ func TestZtunnelServerHandleConnWhenConnDies(t *testing.T) {
 				Add: add,
 			},
 		}
-		locFD := int(info.Netns.Fd())
+		locFD := int(info.NetnsCloser().Fd())
 		conn.On("SendMsgAndWaitForAck", req, &locFD).Times(1).Return(respData, nil)
 	}
 
@@ -187,7 +187,7 @@ func TestZtunnelServerHandleConnWhenConnDies(t *testing.T) {
 			},
 		}
 		ret := make(chan updateResponse, 1)
-		fdF := int(info.Netns.Fd())
+		fdF := int(info.NetnsCloser().Fd())
 		req := updateRequest{
 			update: r,
 			fd:     &fdF,
@@ -222,7 +222,7 @@ func TestZtunnelServerHandleConnWhenKeepaliveFails(t *testing.T) {
 
 	for uid, info := range cache.pods {
 		add := &zdsapi.AddWorkload{
-			WorkloadInfo: info.Workload,
+			WorkloadInfo: info.Workload(),
 			Uid:          uid,
 		}
 		req := &zdsapi.WorkloadRequest{
@@ -230,7 +230,7 @@ func TestZtunnelServerHandleConnWhenKeepaliveFails(t *testing.T) {
 				Add: add,
 			},
 		}
-		locFD := int(info.Netns.Fd())
+		locFD := int(info.NetnsCloser().Fd())
 		conn.On("SendMsgAndWaitForAck", req, &locFD).Times(1).Return(respData, nil)
 	}
 
@@ -626,7 +626,7 @@ func TestZtunnelPodKept(t *testing.T) {
 
 	f.Close()
 	pods.pods = map[string]WorkloadInfo{
-		string(pod.UID): {}, // simulate unknown netns
+		string(pod.UID): &workloadInfo{}, // simulate unknown netns
 	}
 
 	fixture := connectWithPods(ctx, pods)
@@ -684,9 +684,9 @@ func fillCacheWithFakePods(cache *fakePodCache, podCount int) func() {
 	for i := 0; i < podCount; i++ {
 		uid, ns, closeFile := podAndNetns()
 		filesToClose = append(filesToClose, closeFile)
-		workload := WorkloadInfo{
-			Workload: podToWorkload(uid),
-			Netns:    ns,
+		workload := workloadInfo{
+			workload: podToWorkload(uid),
+			netns:    ns,
 		}
 		cache.pods[string(uid.UID)] = workload
 	}

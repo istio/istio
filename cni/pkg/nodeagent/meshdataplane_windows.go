@@ -36,63 +36,55 @@ func (s *meshDataplane) Start(ctx context.Context) {
 	s.netServer.Start(ctx)
 }
 
-func (s *meshDataplane) Stop() {
+func (s *meshDataplane) Stop(skipCleanup bool) {
 	log.Info("CNI ambient server terminating, cleaning up node net rules")
 
 	// TODO: Perform whatever cleanup we need to
 
-	s.netServer.Stop()
+	s.netServer.Stop(skipCleanup)
 }
 
 func (s *meshDataplane) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {
 	return s.netServer.ConstructInitialSnapshot(ambientPods)
 }
 
+// TODO: Add doc comment
 func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
-	var retErr error
+	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	err := s.netServer.AddPodToMesh(ctx, pod, podIPs, netNs)
 	if err != nil {
 		log.Errorf("failed to add pod to ztunnel: %v", err)
-		if !errors.Is(err, ErrPartialAdd) {
+		if !errors.Is(err, ErrNonRetryableAdd) {
 			return err
 		}
-		retErr = err
+
+		log.Error("failed to add pod to ztunnel: pod partially added, annotating with pending status")
+		if err := util.AnnotatePartiallyEnrolledPod(s.kubeClient, &pod.ObjectMeta); err != nil {
+			// If we have an error annotating the partial status - that is itself retryable.
+			return err
+		}
+
+		// Otherwise return the original error
+		return err
 	}
+
+	// TODO: Windows-ify this (probably using ebpf)
+	// if _, err := s.addPodToHostNSIpset(pod, podIPs); err != nil {
+	// 	log.Errorf("failed to add pod to ipset, pod will fail healthchecks: %v", err)
+	// 	// Adding pod to ipset should always be an upsert, so should not fail
+	// 	// unless we have a kernel incompatibility - thus it should either
+	// 	// never fail, or isn't usefully retryable.
+	// 	// For now tho, err on the side of being loud in the logs,
+	// 	// since retrying in that case isn't _harmful_ and means all pods will fail anyway.
+	// 	return err
+	// }
 
 	log.Debugf("annotating pod %s", pod.Name)
 	if err := util.AnnotateEnrolledPod(s.kubeClient, &pod.ObjectMeta); err != nil {
 		log.Errorf("failed to annotate pod enrollment: %v", err)
-		retErr = err
 	}
 
-	// TODO: Windows-ify this
-	// ipset is only relevant for pod healthchecks.
-	// therefore, if we had *any* error adding the pod to the mesh
-	// do not add the pod to the ipset, so that it will definitely *not* pass healthchecks,
-	// and the operator can investigate.
-	//
-	// This is also important to avoid ipset sync issues if we add the pod ip to the ipset, but
-	// enrolling fails because ztunnel (or the pod netns, or whatever) isn't ready yet,
-	// and the pod is rescheduled with a new IP. In that case we don't get
-	// a removal event, and so would never clean up the old IP that we eagerly-added.
-	//
-	// TODO one place this *can* fail is
-	// - if a CNI plugin after us in the chain fails (currently, we are explicitly the last in the chain by design)
-	// - the CmdAdd comes back thru here with a new IP
-	// - we will never clean up that old IP that we "lost"
-	// To fix this we probably need to impl CmdDel + manage our own podUID/IP mapping.
-	if retErr == nil {
-		// Handle node healthcheck probe rewrites
-		// _, err = s.addPodToHostNSIpset(pod, podIPs)
-		if err != nil {
-			log.Errorf("failed to add pod to ipset: %s/%s %v", pod.Namespace, pod.Name, err)
-			return err
-		}
-	} else {
-		log.Errorf("pod: %s/%s was not enrolled and is unhealthy: %v", pod.Namespace, pod.Name, retErr)
-	}
-
-	return retErr
+	return nil
 }
 
 func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error {

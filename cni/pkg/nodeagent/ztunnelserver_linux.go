@@ -43,6 +43,46 @@ type updateRequest struct {
 	resp chan updateResponse
 }
 
+func (z *ztunnelServer) accept() (ZtunnelConnection, error) {
+	ul, ok := z.listener.(*net.UnixListener)
+	if !ok {
+		return nil, fmt.Errorf("listener is not a unix listener")
+	}
+	log.Debug("accepting unix conn")
+	conn, err := ul.AcceptUnix()
+	if err != nil {
+		return nil, fmt.Errorf("failed to accept unix: %w", err)
+	}
+	log.Debug("accepted conn")
+	return newZtunnelConnection(conn), nil
+}
+
+func (z *ztunnelServer) handleWorkloadInfo(wl WorkloadInfo, uid string, conn ZtunnelConnection) (*zdsapi.WorkloadResponse, error) {
+	// We don't need there to be any netns field; we can get namespace guid from the zds WorkloadInfo
+	if wl.NetnsCloser() != nil {
+		netns := wl.NetnsCloser()
+		fd := int(netns.Fd())
+		log.Infof("sending pod to ztunnel as part of snapshot")
+		return conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
+			Payload: &zdsapi.WorkloadRequest_Add{
+				Add: &zdsapi.AddWorkload{
+					Uid:          uid,
+					WorkloadInfo: wl.Workload(),
+				},
+			},
+		}, &fd)
+	}
+
+	log.Infof("netns is not available for pod, sending 'keep' to ztunnel")
+	return conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
+		Payload: &zdsapi.WorkloadRequest_Keep{
+			Keep: &zdsapi.KeepWorkload{
+				Uid: uid,
+			},
+		},
+	}, nil)
+}
+
 func (ur updateRequest) Update() *zdsapi.WorkloadRequest {
 	return ur.update
 }
@@ -267,14 +307,4 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 		return fmt.Errorf("got ack error: %s", resp.GetAck().GetError())
 	}
 	return nil
-}
-
-func (z *ztunnelServer) accept() (ZtunnelConnection, error) {
-	log.Debug("accepting unix conn")
-	conn, err := z.listener.AcceptUnix()
-	if err != nil {
-		return nil, fmt.Errorf("failed to accept unix: %w", err)
-	}
-	log.Debug("accepted conn")
-	return newZtunnelConnection(conn), nil
 }
