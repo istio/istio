@@ -223,7 +223,7 @@ func (r *RealDependencies) Run(cmd constants.IptablesCmd, iptVer *IptablesVersio
 
 // Run runs a command and returns stdout
 func (r *RealDependencies) RunWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error) {
-	return r.executeXTablesWithOutput(cmd, iptVer, false, stdin, args...)
+	return r.executeXTablesWithOutput(cmd, iptVer, false, true, stdin, args...)
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
