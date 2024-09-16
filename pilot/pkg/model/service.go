@@ -1112,21 +1112,6 @@ func (i WaypointPolicyStatus) GetConditions() ConditionSet {
 
 	statusConditions := []Condition{}
 
-	// if len(i.Conditions) > 0 {
-	// 	set[WaypointAccepted] = &Condition{
-	// 		Reason:  i.Status.Reason,
-	// 		Message: i.Status.Message,
-	// 		Status:  i.Bound,
-	// 	}
-	// } else {
-	// 	message := fmt.Sprintf("attached to waypoint, %s", i.BoundTo)
-	// 	set[WaypointAccepted] = []Condition{
-	// 		Reason:  "Accepted",
-	// 		Message: message,
-	// 		Status:  i.Bound,
-	// 	}
-	// }
-
 	for _, c := range i.Conditions {
 		statusConditions = append(statusConditions, Condition{
 			Reason:  c.Status.Reason,
