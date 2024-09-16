@@ -243,10 +243,12 @@ func (a *index) podWorkloadBuilder(
 		var appTunnel *workloadapi.ApplicationTunnel
 		var targetWaypoint *Waypoint
 		if instancedWaypoint := fetchWaypointForInstance(ctx, waypoints, p.ObjectMeta); instancedWaypoint != nil {
-			// we're an instance of a waypoint, set inbound tunnel info
-			appTunnel = &workloadapi.ApplicationTunnel{
-				Protocol: instancedWaypoint.DefaultBinding.Protocol,
-				Port:     instancedWaypoint.DefaultBinding.Port,
+			// we're an instance of a waypoint, set inbound tunnel info if needed
+			if db := instancedWaypoint.DefaultBinding; db != nil {
+				appTunnel = &workloadapi.ApplicationTunnel{
+					Protocol: db.Protocol,
+					Port:     db.Port,
+				}
 			}
 		} else if waypoint, err := fetchWaypointForWorkload(ctx, waypoints, namespaces, p.ObjectMeta); err == nil {
 			// there is a workload-attached waypoint, point there with a GatewayAddress
