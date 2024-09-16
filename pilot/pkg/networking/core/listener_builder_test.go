@@ -904,7 +904,6 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 func TestUseRemoteAddressInternalAddressConfig(t *testing.T) {
 	cg := NewConfigGenTest(t, TestOptions{})
 	sidecarProxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})
-	test.SetForTest(t, &features.UseRemoteAddress, true)
 	push := cg.PushContext()
 	cases := []struct {
 		name           string
@@ -963,7 +962,7 @@ func TestUseRemoteAddressInternalAddressConfig(t *testing.T) {
 				authzCustomBuilder: &authz.Builder{},
 				authzBuilder:       &authz.Builder{},
 			}
-			httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{})
+			httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{useRemoteAddress: true})
 			if !reflect.DeepEqual(tt.expectedconfig, httpConnManager.InternalAddressConfig) {
 				t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, httpConnManager.InternalAddressConfig)
 			}
