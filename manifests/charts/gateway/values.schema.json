@@ -66,9 +66,6 @@
         "minReadySeconds": {
           "type": [ "null", "integer" ]
         },
-        "terminationGracePeriodSeconds": {
-          "type": [ "null", "integer" ]
-        },
         "readinessProbe": {
           "type": [ "null", "object" ]
         },
