@@ -191,11 +191,13 @@ func (x *WorkloadInfo) GetServiceAccount() string {
 // Add a workload to the ztunnel. this will be accompanied by ancillary data contianing
 // the workload's netns file descriptor.
 type AddWorkload struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Uid           string                 `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
-	WorkloadInfo  *WorkloadInfo          `protobuf:"bytes,2,opt,name=workload_info,json=workloadInfo,proto3" json:"workload_info,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Uid          string                 `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
+	WorkloadInfo *WorkloadInfo          `protobuf:"bytes,2,opt,name=workload_info,json=workloadInfo,proto3" json:"workload_info,omitempty"`
+	// The namespace guid for the workload. Windows only.
+	WindowsNamespaceGuid string `protobuf:"bytes,3,opt,name=windows_namespace_guid,json=windowsNamespaceGuid,proto3" json:"windows_namespace_guid,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *AddWorkload) Reset() {
@@ -240,6 +242,13 @@ func (x *AddWorkload) GetWorkloadInfo() *WorkloadInfo {
 		return x.WorkloadInfo
 	}
 	return nil
+}
+
+func (x *AddWorkload) GetWindowsNamespaceGuid() string {
+	if x != nil {
+		return x.WindowsNamespaceGuid
+	}
+	return ""
 }
 
 // Keep workload that we can't find in the fd cache. This can only be sent before SnapshotSent is sent

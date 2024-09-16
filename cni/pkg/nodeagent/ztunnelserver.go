@@ -267,33 +267,14 @@ func (z *ztunnelServer) sendSnapshot(_ context.Context, conn ZtunnelConnection) 
 		var resp *zdsapi.WorkloadResponse
 		var err error
 		log := log.WithLabels("uid", uid)
-		if wl.Workload != nil {
+		if wl.Workload() != nil {
 			log = log.WithLabels(
-				"name", wl.Workload.Name,
-				"namespace", wl.Workload.Namespace,
-				"serviceAccount", wl.Workload.ServiceAccount)
+				"name", wl.Workload().Name,
+				"namespace", wl.Workload().Namespace,
+				"serviceAccount", wl.Workload().ServiceAccount)
 		}
-		if wl.Netns != nil {
-			fd := int(wl.Netns.Fd())
-			log.Infof("sending pod to ztunnel as part of snapshot")
-			resp, err = conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
-				Payload: &zdsapi.WorkloadRequest_Add{
-					Add: &zdsapi.AddWorkload{
-						Uid:          uid,
-						WorkloadInfo: wl.Workload,
-					},
-				},
-			}, &fd)
-		} else {
-			log.Infof("netns is not available for pod, sending 'keep' to ztunnel")
-			resp, err = conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
-				Payload: &zdsapi.WorkloadRequest_Keep{
-					Keep: &zdsapi.KeepWorkload{
-						Uid: uid,
-					},
-				},
-			}, nil)
-		}
+		resp, err = z.handleWorkloadInfo(wl, uid, conn)
+
 		if err != nil {
 			return err
 		}

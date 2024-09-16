@@ -17,8 +17,13 @@
 
 package nodeagent
 
-import "istio.io/istio/pkg/kube"
+import (
+	pconstants "istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/pkg/kube"
+)
 
 func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, error) {
-	panic("not implemented")
+	podNsMap := newPodNetnsCache(openNetnsInRoot(pconstants.HostMountsPath))
+	ztunnelServer, err := newZtunnelServer(args.ServerSocket, podNsMap)
+
 }

@@ -42,6 +42,8 @@ message WorkloadInfo {
 message AddWorkload {
   string uid = 1;
   WorkloadInfo workload_info = 2;
+  // The namespace guid for the workload. Windows only.
+  string windows_namespace_guid = 3;
 }
 
 // Keep workload that we can't find in the fd cache. This can only be sent before SnapshotSent is sent

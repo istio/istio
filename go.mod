@@ -7,6 +7,7 @@ require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/Masterminds/sprig/v3 v3.3.0
+	github.com/Microsoft/hcsshim v0.12.9
 	github.com/alecholmes/xfccparser v0.4.0
 	github.com/cbeuw/connutil v0.0.0-20200411215123-966bfaa51ee3
 	github.com/cenkalti/backoff/v4 v4.3.0

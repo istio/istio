@@ -35,6 +35,8 @@ type meshDataplane struct {
 	hostsideProbeIPSet ipset.IPSet
 }
 
+var _ MeshDataplane = &meshDataplane{}
+
 // ConstructInitialSnapshot is always called first, before Start.
 // It takes a "snapshot" of ambient pods that were already running when the server started,
 // and constructs various required "state" (adding the pods to the host-level node ipset,

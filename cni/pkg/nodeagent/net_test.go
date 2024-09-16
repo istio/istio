@@ -168,9 +168,9 @@ func TestServerRemovePod(t *testing.T) {
 	// this is usually called after add. so manually add the pod uid for now
 	fakens := newFakeNs(123)
 	closed := fakens.closed
-	workload := WorkloadInfo{
-		Workload: podToWorkload(pod),
-		Netns:    fakens,
+	workload := workloadInfo{
+		workload: podToWorkload(pod),
+		netns:    fakens,
 	}
 
 	fixture.podNsMap.UpsertPodCacheWithNetns(string(pod.UID), workload)
@@ -211,9 +211,9 @@ func TestServerRemovePodAlwaysRemovesIPSetEntryEvenOnFail(t *testing.T) {
 	// this is usually called after add. so manually add the pod uid for now
 	fakens := newFakeNs(123)
 	closed := fakens.closed
-	workload := WorkloadInfo{
-		Workload: podToWorkload(pod),
-		Netns:    fakens,
+	workload := workloadInfo{
+		workload: podToWorkload(pod),
+		netns:    fakens,
 	}
 	fixture.podNsMap.UpsertPodCacheWithNetns(string(pod.UID), workload)
 	err := netServer.RemovePodFromMesh(ctx, pod, false)
@@ -252,9 +252,9 @@ func TestServerDeletePod(t *testing.T) {
 	// this is usually called after add. so manually add the pod uid for now
 	fakens := newFakeNs(123)
 	closed := fakens.closed
-	workload := WorkloadInfo{
-		Workload: podToWorkload(pod),
-		Netns:    fakens,
+	workload := workloadInfo{
+		workload: podToWorkload(pod),
+		netns:    fakens,
 	}
 	fixture.podNsMap.UpsertPodCacheWithNetns(string(pod.UID), workload)
 	err := netServer.RemovePodFromMesh(ctx, pod, true)

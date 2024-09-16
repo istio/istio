@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"time"
 
 	winio "github.com/Microsoft/go-winio"
@@ -141,4 +142,76 @@ func readProto[T any, PT interface {
 		return nil, 0, err
 	}
 	return respPtr, n, nil
+}
+
+func newZtunnelServer(pipePath string, pods PodNetnsCache) (*ztunnelServer, error) {
+	if pipePath == "" {
+		return nil, fmt.Errorf("addr cannot be empty")
+	}
+
+	// remove potentially existing address
+	// Remove unix socket before use, if one is leftover from previous CNI restart
+	if err := os.Remove(pipePath); err != nil && !os.IsNotExist(err) {
+		// Anything other than "file not found" is an error.
+		return nil, fmt.Errorf("failed to remove %s: %w", pipePath, err)
+	}
+
+	pc := &winio.PipeConfig{
+		SecurityDescriptor: "D:P(A;;GA;;;AU)", // TODO: This is a placeholder, need to revisit
+		InputBufferSize:    1024,
+		OutputBufferSize:   1024,
+		MessageMode:        true,
+	}
+	l, err := winio.ListenPipe(pipePath, pc)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen named pipe: %w", err)
+	}
+
+	return &ztunnelServer{
+		listener: l,
+		conns: &connMgr{
+			connectionSet: map[ZtunnelConnection]struct{}{},
+		},
+		pods: pods,
+	}, nil
+}
+
+func (z *ztunnelServer) accept() (ZtunnelConnection, error) {
+	log.Debug("accepting named pipe conn")
+	conn, err := z.listener.Accept()
+	if err != nil {
+		return nil, fmt.Errorf("failed to accept named pipe conn: %w", err)
+	}
+	log.Debug("accepted conn")
+	return newZtunnelConnection(conn), nil
+}
+
+func (z *ztunnelServer) handleWorkloadInfo(wl WorkloadInfo, uid string, conn ZtunnelConnection) (*zdsapi.WorkloadResponse, error) {
+	if wl.NetnsCloser() != nil {
+		nc, ok := wl.NetnsCloser().(NamespaceCloser)
+		if !ok {
+			return nil, fmt.Errorf("failed to convert to NamespaceCloser")
+		}
+		namespace := nc.Namespace()
+		log.Infof("sending pod to ztunnel as part of snapshot")
+		return conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
+			Payload: &zdsapi.WorkloadRequest_Add{
+				Add: &zdsapi.AddWorkload{
+					Uid:                  uid,
+					WorkloadInfo:         wl.Workload(),
+					WindowsNamespaceGuid: namespace.GUID,
+				},
+			},
+		}, nil)
+	}
+
+	log.Infof("namespace info is not available for pod, sending 'keep' to ztunnel")
+	return conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
+		Payload: &zdsapi.WorkloadRequest_Keep{
+			Keep: &zdsapi.KeepWorkload{
+				Uid: uid,
+			},
+		},
+	}, nil)
 }

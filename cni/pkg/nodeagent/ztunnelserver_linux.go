@@ -55,6 +55,32 @@ func (z *ztunnelServer) accept() (ZtunnelConnection, error) {
 	return newZtunnelConnection(conn), nil
 }
 
+func (z *ztunnelServer) handleWorkloadInfo(wl WorkloadInfo, uid string, conn ZtunnelConnection) (*zdsapi.WorkloadResponse, error) {
+	// We don't need there to be any netns field; we can get namespace guid from the zds WorkloadInfo
+	if wl.NetnsCloser() != nil {
+		netns := wl.NetnsCloser()
+		fd := int(netns.Fd())
+		log.Infof("sending pod to ztunnel as part of snapshot")
+		return conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
+			Payload: &zdsapi.WorkloadRequest_Add{
+				Add: &zdsapi.AddWorkload{
+					Uid:          uid,
+					WorkloadInfo: wl.Workload(),
+				},
+			},
+		}, &fd)
+	}
+
+	log.Infof("netns is not available for pod, sending 'keep' to ztunnel")
+	return conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
+		Payload: &zdsapi.WorkloadRequest_Keep{
+			Keep: &zdsapi.KeepWorkload{
+				Uid: uid,
+			},
+		},
+	}, nil)
+}
+
 func (ur updateRequest) Update() *zdsapi.WorkloadRequest {
 	return ur.update
 }
