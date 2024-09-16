@@ -54,7 +54,7 @@ type netTestFixture struct {
 func getTestFixure(ctx context.Context) netTestFixture {
 	podNsMap := newPodNetnsCache(openNsTestOverride)
 	nlDeps := &fakeIptablesDeps{}
-	iptablesConfigurator, _, _ := iptables.NewIptablesConfigurator(nil, &dependencies.DependenciesStub{}, &dependencies.DependenciesStub{}, nlDeps)
+	iptablesConfigurator, _, _ := iptables.NewIptablesConfigurator(nil, nil, &dependencies.DependenciesStub{}, &dependencies.DependenciesStub{}, nlDeps)
 
 	ztunnelServer := &fakeZtunnel{}
 
