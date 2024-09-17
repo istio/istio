@@ -164,6 +164,7 @@ func (t *configGenTest) dialEcho(addr string) *echo.Client {
 }
 
 func TestTrafficShifting(t *testing.T) {
+	t.Skip("https://github.com/grpc/grpc-go/issues/7592")
 	tt := newConfigGenTest(t, xds.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1
@@ -242,6 +243,7 @@ spec:
 }
 
 func TestMtls(t *testing.T) {
+	t.Skip("https://github.com/grpc/grpc-go/issues/7592")
 	tt := newConfigGenTest(t, xds.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1

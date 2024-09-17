@@ -196,11 +196,15 @@ func convertVirtualService(r configContext) []config.Config {
 func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 	obj config.Config, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *ConfigError) {
-	// TODO: implement rewrite, timeout, corspolicy, retries
+	// TODO: implement rewrite, corspolicy, retries
 	vs := &istio.HTTPRoute{}
-	// Auto-name the route. If upstream defines an explicit name, will use it instead
-	// The position within the route is unique
-	vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format: %s.%s.%d
+	if r.Name != nil {
+		vs.Name = string(*r.Name)
+	} else {
+		// Auto-name the route. If upstream defines an explicit name, will use it instead
+		// The position within the route is unique
+		vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format: %s.%s.%d
+	}
 
 	for _, match := range r.Matches {
 		uri, err := createURIMatch(match)
@@ -306,9 +310,13 @@ func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 ) (*istio.HTTPRoute, *ConfigError) {
 	// TODO: implement rewrite, timeout, mirror, corspolicy, retries
 	vs := &istio.HTTPRoute{}
-	// Auto-name the route. If upstream defines an explicit name, will use it instead
-	// The position within the route is unique
-	vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format:%s.%s.%d
+	if r.Name != nil {
+		vs.Name = string(*r.Name)
+	} else {
+		// Auto-name the route. If upstream defines an explicit name, will use it instead
+		// The position within the route is unique
+		vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format:%s.%s.%d
+	}
 
 	for _, match := range r.Matches {
 		uri, err := createGRPCURIMatch(match)
@@ -1605,7 +1613,13 @@ func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, 
 	if err != nil {
 		return nil, err
 	}
-	return &istio.HTTPMirrorPolicy{Destination: dst}, nil
+	var percent *istio.Percent
+	if f := filter.Fraction; f != nil {
+		percent = &istio.Percent{Value: float64(f.Numerator) / float64(ptr.OrDefault(f.Denominator, int32(100)))}
+	} else if p := filter.Percent; p != nil {
+		percent = &istio.Percent{Value: float64(*p)}
+	}
+	return &istio.HTTPMirrorPolicy{Destination: dst, Percentage: percent}, nil
 }
 
 func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
@@ -1757,16 +1771,16 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch
 func createGRPCHeadersMatch(match k8s.GRPCRouteMatch) (map[string]*istio.StringMatch, *ConfigError) {
 	res := map[string]*istio.StringMatch{}
 	for _, header := range match.Headers {
-		tp := k8s.HeaderMatchExact
+		tp := k8s.GRPCHeaderMatchExact
 		if header.Type != nil {
 			tp = *header.Type
 		}
 		switch tp {
-		case k8s.HeaderMatchExact:
+		case k8s.GRPCHeaderMatchExact:
 			res[string(header.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: header.Value},
 			}
-		case k8s.HeaderMatchRegularExpression:
+		case k8s.GRPCHeaderMatchRegularExpression:
 			res[string(header.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Regex{Regex: header.Value},
 			}

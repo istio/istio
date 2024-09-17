@@ -141,7 +141,8 @@ spec:
   - name: gateway
     namespace: istio-system
   rules:
-  - matches:
+  - name: route1
+    matches:
     - path:
         type: PathPrefix
         value: /prefix-original
@@ -196,11 +197,15 @@ spec:
   - filters:
     - type: RequestMirror
       requestMirror:
+        fraction:
+          numerator: 4
+          denominator: 8
         backendRef:
           name: httpbin-mirror
           port: 80
     - type: RequestMirror
       requestMirror:
+        percent: 80
         backendRef:
           name: httpbin-second
           port: 80
