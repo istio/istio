@@ -50,7 +50,10 @@ import (
 
 var maxSecondsValue = int64((math.MaxInt64 - 999999999) / (1000 * 1000 * 1000)) // 9223372035, which is about 292 years.
 
-var defaultHttpOptions = &http.HttpProtocolOptions{
+// passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
+// nolint
+// revive:disable-next-line
+var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOptions{
 	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
 		IdleTimeout: durationpb.New(5 * time.Minute),
 	},
@@ -60,12 +63,7 @@ var defaultHttpOptions = &http.HttpProtocolOptions{
 			Http2ProtocolOptions: http2ProtocolOptions(),
 		},
 	},
-}
-
-// passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
-// nolint
-// revive:disable-next-line
-var passthroughHttpProtocolOptions = protoconv.MessageToAny(defaultHttpOptions)
+})
 
 // clusterWrapper wraps Cluster object along with upstream protocol options.
 type clusterWrapper struct {
@@ -292,7 +290,10 @@ func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 	if ok {
 		_ = optionsAny.UnmarshalTo(&options)
 	} else {
-		options = *defaultHttpOptions
+		// When an upstream uses an older xDS config for HTTP cluster (e.g. lacks protocol options),
+		// default to using an ALPN-based selection..
+		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_AutoConfig{}
+
 	}
 	options.HttpFilters = []*hcm.HttpFilter{xdsfilters.InjectIstioHeadersUpstreamFilter, xdsfilters.UpstreamCodec}
 	c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = protoconv.MessageToAny(&options)
