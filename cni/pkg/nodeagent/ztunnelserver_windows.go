@@ -26,6 +26,7 @@ import (
 	winio "github.com/Microsoft/go-winio"
 	"google.golang.org/protobuf/proto"
 	"istio.io/istio/pkg/zdsapi"
+	v1 "k8s.io/api/core/v1"
 )
 
 type updateRequest struct {
@@ -214,4 +215,58 @@ func (z *ztunnelServer) handleWorkloadInfo(wl WorkloadInfo, uid string, conn Ztu
 			},
 		},
 	}, nil)
+}
+
+func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) error {
+	namespaceCloser, ok := netns.(NamespaceCloser)
+	if !ok {
+		return fmt.Errorf("failed to convert netns %q to NamespaceCloser", netns)
+	}
+
+	latestConn, err := z.conns.LatestConn()
+	if err != nil {
+		return fmt.Errorf("no ztunnel connection: %w", err)
+	}
+	uid := string(pod.ObjectMeta.UID)
+
+	add := &zdsapi.AddWorkload{
+		WorkloadInfo: podToWorkload(pod),
+		Uid:          uid,
+		WindowsNamespace: &zdsapi.WindowsNamespace{
+			Guid: namespaceCloser.Namespace().GUID,
+			Id:   namespaceCloser.Namespace().ID,
+		},
+	}
+
+	r := &zdsapi.WorkloadRequest{
+		Payload: &zdsapi.WorkloadRequest_Add{
+			Add: add,
+		},
+	}
+	log := log.WithLabels(
+		"uid", add.Uid,
+		"name", add.WorkloadInfo.Name,
+		"namespace", add.WorkloadInfo.Namespace,
+		"serviceAccount", add.WorkloadInfo.ServiceAccount,
+		"namespaceGuid", add.WindowsNamespace.Guid,
+		"namespaceId", add.WindowsNamespace.Id,
+	)
+
+	log.Infof("sending pod add to ztunnel")
+	data, err := proto.Marshal(r)
+	if err != nil {
+		return err
+	}
+
+	resp, err := latestConn.Send(ctx, data, nil)
+	if err != nil {
+		return err
+	}
+
+	if resp.GetAck().GetError() != "" {
+		log.Errorf("failed to add workload: %s", resp.GetAck().GetError())
+		return fmt.Errorf("got ack error: %s", resp.GetAck().GetError())
+	}
+
+	return nil
 }
