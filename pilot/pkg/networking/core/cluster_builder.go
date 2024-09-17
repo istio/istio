@@ -292,8 +292,9 @@ func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 	} else {
 		// When an upstream uses an older xDS config for HTTP cluster (e.g. lacks protocol options),
 		// default to using an ALPN-based selection..
-		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_AutoConfig{}
-
+		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_AutoConfig{
+			AutoConfig: &http.HttpProtocolOptions_AutoHttpConfig{},
+		}
 	}
 	options.HttpFilters = []*hcm.HttpFilter{xdsfilters.InjectIstioHeadersUpstreamFilter, xdsfilters.UpstreamCodec}
 	c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = protoconv.MessageToAny(&options)
