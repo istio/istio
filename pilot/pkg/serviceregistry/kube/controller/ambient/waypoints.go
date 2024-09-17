@@ -51,7 +51,7 @@ type Waypoint struct {
 
 	// DefaultBinding for an inbound zTunnel to use to connect to a Waypoint it captures.
 	// This is applied to the Workloads that are instances of the current Waypoint.
-	DefaultBinding InboundBinding
+	DefaultBinding *InboundBinding
 
 	// TrafficType controls whether Service or Workload can reference this
 	// waypoint. Must be one of "all", "service", "workload".
@@ -67,8 +67,8 @@ type Waypoint struct {
 
 func (w Waypoint) Equals(other Waypoint) bool {
 	return w.Named == other.Named &&
-		w.DefaultBinding == other.DefaultBinding &&
 		w.TrafficType == other.TrafficType &&
+		ptr.Equal(w.DefaultBinding, other.DefaultBinding) &&
 		w.AllowedRoutes.Equals(other.AllowedRoutes) &&
 		slices.Equal(w.ServiceAccounts, other.ServiceAccounts) &&
 		proto.Equal(w.Address, other.Address)
@@ -242,17 +242,17 @@ func (a *index) WaypointsCollection(
 	}, krt.WithName("Waypoints"))
 }
 
-func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayClass) InboundBinding {
+func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayClass) *InboundBinding {
 	annotation, ok := getGatewayOrGatewayClassAnnotation(gateway, gatewayClass)
 	if !ok {
-		return InboundBinding{}
+		return nil
 	}
 
 	// format is either `protocol` or `protocol/port`
 	parts := strings.Split(annotation, "/")
 	if len(parts) == 0 || len(parts) > 2 {
 		log.Warnf("invalid value %q for %s. Must be of the format \"<protocol>\" or \"<protocol>/<port>\".", annotation, constants.AmbientWaypointInboundBinding)
-		return InboundBinding{}
+		return nil
 	}
 
 	// parse protocol
@@ -265,7 +265,7 @@ func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayC
 	default:
 		// Only PROXY is supported for now.
 		log.Warnf("invalid protocol %s for %s. Only NONE or PROXY are supported.", parts[0], constants.AmbientWaypointInboundBinding)
-		return InboundBinding{}
+		return nil
 	}
 
 	// parse port
@@ -278,7 +278,7 @@ func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayC
 		port = uint32(parsed)
 	}
 
-	return InboundBinding{
+	return &InboundBinding{
 		Port:     port,
 		Protocol: protocol,
 	}
