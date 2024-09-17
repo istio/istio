@@ -22,14 +22,11 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/api/annotation"
 	"istio.io/istio/cni/pkg/iptables"
-	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/slices"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -286,39 +283,6 @@ func (s *NetServer) scanProcForPodsAndCache(pods map[types.UID]*corev1.Pod) erro
 		s.currentPodSnapshot.UpsertPodCacheWithNetns(uid, wl)
 	}
 	return nil
-}
-
-func getPodLevelTrafficOverrides(pod *corev1.Pod) iptables.PodLevelOverrides {
-	// If true, the pod will run in 'ingress mode'. This is intended to be used for "ingress" type workloads which handle
-	// non-mesh traffic on inbound, and send to the mesh on outbound.
-	// Basically, this just disables inbound redirection.
-	podCfg := iptables.PodLevelOverrides{IngressMode: false}
-
-	if ingressMode, present := util.CheckBooleanAnnotation(pod, annotation.AmbientBypassInboundCapture.Name); present {
-		podCfg.IngressMode = ingressMode
-	}
-
-	podCfg.DNSProxy = iptables.PodDNSUnset
-
-	if dnsCapture, present := util.CheckBooleanAnnotation(pod, annotation.AmbientDnsCapture.Name); present {
-		if dnsCapture {
-			podCfg.DNSProxy = iptables.PodDNSEnabled
-		} else {
-			podCfg.DNSProxy = iptables.PodDNSDisabled
-		}
-	}
-
-	if virt, hasVirt := pod.Annotations[annotation.IoIstioRerouteVirtualInterfaces.Name]; hasVirt {
-		virtInterfaces := strings.Split(virt, ",")
-		for _, splitVirt := range virtInterfaces {
-			trim := strings.TrimSpace(splitVirt)
-			if trim != "" {
-				podCfg.VirtualInterfaces = append(podCfg.VirtualInterfaces, trim)
-			}
-		}
-	}
-
-	return podCfg
 }
 
 func realDependenciesHost() *dep.RealDependencies {

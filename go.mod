@@ -2,6 +2,8 @@ module istio.io/istio
 
 go 1.23.0
 
+replace github.com/Microsoft/hcsshim => github.com/keithmattix/hcsshim v0.0.0-20250221040421-f09f4cce60b0
+
 require (
 	cloud.google.com/go/compute/metadata v0.6.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
@@ -116,8 +118,11 @@ require (
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	go.opencensus.io v0.24.0 // indirect
+	github.com/opencontainers/runtime-spec v1.2.0
+	k8s.io/cri-api v0.31.1
 )
+
+require go.opencensus.io v0.24.0 // indirect
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
