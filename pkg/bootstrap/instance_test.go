@@ -114,6 +114,9 @@ func TestGolden(t *testing.T) {
 			base: "default",
 		},
 		{
+			base: "explicit_internal_address",
+		},
+		{
 			base: "running",
 			envVars: map[string]string{
 				"ISTIO_META_ISTIO_PROXY_SHA":   "istio-proxy:sha",
