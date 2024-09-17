@@ -114,10 +114,10 @@ func (z *ztunnelUDSConnection) SendDataAndWaitForAck(data []byte, fd *int) (*zds
 	}
 
 	// wait for ack
-	return z.ReadMessage(readWriteDeadline)
+	return z.readMessage(readWriteDeadline)
 }
 
-func (z *ztunnelUDSConnection) ReadMessage(timeout time.Duration) (*zdsapi.WorkloadResponse, error) {
+func (z *ztunnelUDSConnection) readMessage(timeout time.Duration) (*zdsapi.WorkloadResponse, error) {
 	m, _, err := readProto[zdsapi.WorkloadResponse](z.u, timeout, nil)
 	return m, err
 }
@@ -228,11 +228,6 @@ func (z ztunnelUDSConnection) sendDataAndWaitForAck(data []byte, fd *int) (*zdsa
 
 	// wait for ack
 	return z.readMessage(readWriteDeadline)
-}
-
-func (z ztunnelUDSConnection) readMessage(timeout time.Duration) (*zdsapi.WorkloadResponse, error) {
-	m, _, err := readProto[zdsapi.WorkloadResponse](z.u, timeout, nil)
-	return m, err
 }
 
 func newZtunnelServer(addr string, pods PodNetnsCache, keepaliveInterval time.Duration) (*ztunnelServer, error) {

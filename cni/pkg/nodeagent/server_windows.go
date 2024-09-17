@@ -18,12 +18,29 @@
 package nodeagent
 
 import (
-	pconstants "istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/pkg/kube"
 )
 
 func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, error) {
-	podNsMap := newPodNetnsCache(openNetnsInRoot(pconstants.HostMountsPath))
+	podCfg := &iptables.IptablesConfig{
+		RedirectDNS:            args.DNSCapture,
+		EnableIPv6:             args.EnableIPv6,
+		HostProbeSNATAddress:   HostProbeSNATIP,
+		HostProbeV6SNATAddress: HostProbeSNATIPV6,
+		Reconcile:              false, // Windows doesn't support reconcile
+	}
+	podNsMap := newPodNetnsCache(getNamespaceDetailsFromRoot())
 	ztunnelServer, err := newZtunnelServer(args.ServerSocket, podNsMap)
-
+	if err != nil {
+		return nil, err
+	}
+	netServer := newNetServer(ztunnelServer, podNsMap, &iptables.WFPConfigurator{
+		EndpointsFinder: podNsMap,
+		Cfg:             podCfg,
+	}, NewPodNetNsHNSFinder())
+	return &meshDataplane{
+		kubeClient: client.Kube(),
+		netServer:  netServer,
+	}, nil
 }

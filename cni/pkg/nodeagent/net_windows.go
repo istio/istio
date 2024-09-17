@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/netip"
 
+	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/pkg/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,11 +33,25 @@ import (
 type NetServer struct {
 	ztunnelServer      ZtunnelServer
 	currentPodSnapshot *podNetnsCache
+	podIptables        iptables.InPodRouter
+	podNs              PodNetnsFinder
 	// allow overriding for tests
-	netnsRunner func(fdable NetnsFd, toRun func() error) error
+	netnsRunner func(nsable Namespaceable, toRun func() error) error
 }
 
 var _ MeshDataplane = &NetServer{}
+
+const containerdEndpoint = `\\.\\pipe\\containerd-containerd`
+
+func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, podIptables iptables.InPodRouter, podNs PodNetnsFinder) *NetServer {
+	return &NetServer{
+		ztunnelServer:      ztunnelServer,
+		currentPodSnapshot: podNsMap,
+		podNs:              podNs,
+		podIptables:        podIptables,
+		netnsRunner:        NetnsDo,
+	}
+}
 
 func (s *NetServer) Start(ctx context.Context) {
 	log.Debug("starting ztunnel server")
@@ -71,7 +86,19 @@ func (s *NetServer) buildZtunnelSnapshot(ambientPodUIDs map[types.UID]*corev1.Po
 	}
 
 	// TODO: windows-ify
-	return s.scanProcForPodsAndCache(ambientPodUIDs)
+	return s.scanNamespacesForPodsAndCache(ambientPodUIDs)
+}
+
+func (s *NetServer) scanNamespacesForPodsAndCache(pods map[types.UID]*corev1.Pod) error {
+	res, err := s.podNs.FindNetnsForPods(pods)
+	if err != nil {
+		return err
+	}
+
+	for uid, wl := range res {
+		s.currentPodSnapshot.UpsertPodCacheWithNetns(uid, wl)
+	}
+	return nil
 }
 
 // AddPodToMesh adds a pod to mesh by
@@ -99,7 +126,8 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.podIptables.CreateInpodRules(log, &HostProbeSNATIP, &HostProbeSNATIPV6)
+		podCfg := getPodLevelTrafficOverrides(pod)
+		return s.podIptables.CreateInpodRules(log, podCfg)
 	}); err != nil {
 		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
 		return err
@@ -113,9 +141,13 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 
 	log.Debug("notifying subscribed node proxies")
 	if err := s.sendPodToZtunnelAndWaitForAck(ctx, pod, openNetns); err != nil {
-		return NewErrPartialAdd(err)
+		return NewErrNonRetryableAdd(err)
 	}
 	return nil
+}
+
+func (s *NetServer) sendPodToZtunnelAndWaitForAck(ctx context.Context, pod *corev1.Pod, netns NamespaceCloser) error {
+	return s.ztunnelServer.PodAdded(ctx, pod, netns)
 }
 
 // RemovePodFromMesh is called when a pod needs to be removed from the mesh
@@ -137,7 +169,9 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 		if openNetns != nil {
 			// pod is removed from the mesh, but is still running. remove iptables rules
 			log.Debugf("calling DeleteInpodRules")
-			if err := s.netnsRunner(openNetns, func() error { return s.podIptables.DeleteInpodRules() }); err != nil {
+			if err := s.netnsRunner(openNetns, func() error {
+				return s.podIptables.DeleteInpodRules(log)
+			}); err != nil {
 				return fmt.Errorf("failed to delete inpod rules: %w", err)
 			}
 		} else {
@@ -160,4 +194,62 @@ func (p *podNetnsCache) Ensure(uid string) {
 	if _, ok := p.currentPodCache[uid]; !ok {
 		p.currentPodCache[uid] = workloadInfo{}
 	}
+}
+
+func (s *NetServer) getOrOpenNetns(pod *corev1.Pod, netNs string) (NamespaceCloser, error) {
+	if netNs == "" {
+		return s.getNetns(pod)
+	}
+	return s.openNetns(pod, netNs)
+}
+
+// Remove and return the Netns for the given uid
+// No need to return NetnsCloser here it will be closed automatically on GC.
+// (it may be used in parallel by other parts of the code, so we want it to be used only when not used)
+func (p *podNetnsCache) Take(uid string) NamespaceCloser {
+	// lock current pod map
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if ns, ok := p.currentPodCache[uid]; ok {
+		delete(p.currentPodCache, uid)
+		// already in cache
+		return ns.NetnsCloser().(NamespaceCloser)
+	}
+
+	return nil
+}
+
+func (s *NetServer) openNetns(pod *corev1.Pod, netNs string) (NamespaceCloser, error) {
+	return s.currentPodSnapshot.UpsertPodCache(pod, netNs)
+}
+
+func (s *NetServer) getNetns(pod *corev1.Pod) (NamespaceCloser, error) {
+	existingNamespace := s.currentPodSnapshot.Get(string(pod.UID))
+	if existingNamespace != nil {
+		return existingNamespace, nil
+	}
+	log.Debug("pod namespace was not found, trying to find it by enumerating HNS")
+	// this can happen if the pod was dynamically added to the mesh after it was created.
+	// in that case, try finding the netns using procfs.
+	if err := s.rescanPod(pod); err != nil {
+		log.Errorf("error scanning HNS namespaces: error was %s", err)
+		return nil, err
+	}
+	// try again. we can still get here if the pod is in the process of being created.
+	// in this case the CNI will be invoked soon and provide us with the netns.
+	existingNamespace = s.currentPodSnapshot.Get(string(pod.UID))
+	if existingNamespace == nil {
+		return nil, fmt.Errorf("can't find netns for pod, this is ok if this is a newly created pod (%w)", ErrPodNotFound)
+	}
+
+	return existingNamespace, nil
+}
+
+func (s *NetServer) rescanPod(pod *corev1.Pod) error {
+	// this can happen if the pod was dynamically added to the mesh after it was created.
+	// in that case, try finding the netns using procfs.
+	filter := map[types.UID]*corev1.Pod{
+		pod.UID: pod,
+	}
+	return s.scanNamespacesForPodsAndCache(filter)
 }

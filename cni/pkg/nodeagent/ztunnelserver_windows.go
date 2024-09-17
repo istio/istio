@@ -24,27 +24,29 @@ import (
 	"time"
 
 	winio "github.com/Microsoft/go-winio"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 	"istio.io/istio/pkg/zdsapi"
 	v1 "k8s.io/api/core/v1"
 )
 
 type updateRequest struct {
-	update []byte
+	update *zdsapi.WorkloadRequest
 	resp   chan updateResponse
 }
 
 type ztunnelConnection struct {
 	pc      winio.PipeConn
 	updates chan UpdateRequest
+	uuid    uuid.UUID
 }
 
 func newZtunnelConnection(u net.Conn) ZtunnelConnection {
 	npConn := u.(winio.PipeConn)
-	return &ztunnelConnection{pc: npConn, updates: make(chan UpdateRequest, 100)}
+	return &ztunnelConnection{pc: npConn, updates: make(chan UpdateRequest, 100), uuid: uuid.New()}
 }
 
-func (ur updateRequest) Update() []byte {
+func (ur updateRequest) Update() *zdsapi.WorkloadRequest {
 	return ur.update
 }
 
@@ -60,12 +62,32 @@ func (z *ztunnelConnection) Conn() net.Conn {
 	return z.pc
 }
 
-func (z *ztunnelConnection) Updates() chan UpdateRequest {
+func (z *ztunnelConnection) Updates() <-chan UpdateRequest {
 	return z.updates
 }
 
 func (z *ztunnelConnection) Close() {
 	z.pc.Close()
+}
+
+func (z ztunnelConnection) UUID() uuid.UUID {
+	return z.uuid
+}
+
+// do a short read, just to see if the connection to ztunnel is
+// still alive. As ztunnel shouldn't send anything unless we send
+// something first, we expect to get an os.ErrDeadlineExceeded error
+// here if the connection is still alive.
+// note that unlike tcp connections, reading is a good enough test here.
+func (z ztunnelConnection) CheckAlive(timeout time.Duration) error {
+	_, err := z.readMessage(timeout)
+	return err
+}
+
+func (z ztunnelConnection) ReadHello() (*zdsapi.ZdsHello, error) {
+	// get hello message from ztunnel
+	m, _, err := readProto[zdsapi.ZdsHello](z.pc, readWriteDeadline, nil)
+	return m, err
 }
 
 // The ancillary data isn't used in the windows version of this method
@@ -78,7 +100,7 @@ func (z *ztunnelConnection) SendMsgAndWaitForAck(m *zdsapi.WorkloadRequest, _ *i
 	return z.SendDataAndWaitForAck(data, nil)
 }
 
-func (z *ztunnelConnection) Send(ctx context.Context, data []byte, _ *int) (*zdsapi.WorkloadResponse, error) {
+func (z *ztunnelConnection) Send(ctx context.Context, data *zdsapi.WorkloadRequest, _ *int) (*zdsapi.WorkloadResponse, error) {
 	ret := make(chan updateResponse, 1)
 	req := updateRequest{
 		update: data,
@@ -110,10 +132,10 @@ func (z *ztunnelConnection) SendDataAndWaitForAck(data []byte, _ *int) (*zdsapi.
 		return nil, err
 	}
 
-	return z.ReadMessage(5 * time.Second)
+	return z.readMessage(5 * time.Second)
 }
 
-func (z *ztunnelConnection) ReadMessage(timeout time.Duration) (*zdsapi.WorkloadResponse, error) {
+func (z *ztunnelConnection) readMessage(timeout time.Duration) (*zdsapi.WorkloadResponse, error) {
 	m, _, err := readProto[zdsapi.WorkloadResponse](z.pc, timeout, nil)
 	return m, err
 }
@@ -172,7 +194,7 @@ func newZtunnelServer(pipePath string, pods PodNetnsCache) (*ztunnelServer, erro
 	return &ztunnelServer{
 		listener: l,
 		conns: &connMgr{
-			connectionSet: map[ZtunnelConnection]struct{}{},
+			connectionSet: []ZtunnelConnection{},
 		},
 		pods: pods,
 	}, nil
@@ -199,9 +221,12 @@ func (z *ztunnelServer) handleWorkloadInfo(wl WorkloadInfo, uid string, conn Ztu
 		return conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 			Payload: &zdsapi.WorkloadRequest_Add{
 				Add: &zdsapi.AddWorkload{
-					Uid:                  uid,
-					WorkloadInfo:         wl.Workload(),
-					WindowsNamespaceGuid: namespace.GUID,
+					Uid:          uid,
+					WorkloadInfo: wl.Workload(),
+					WindowsNamespace: &zdsapi.WindowsNamespace{
+						Guid: namespace.GUID,
+						Id:   namespace.ID,
+					},
 				},
 			},
 		}, nil)
@@ -253,12 +278,8 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 	)
 
 	log.Infof("sending pod add to ztunnel")
-	data, err := proto.Marshal(r)
-	if err != nil {
-		return err
-	}
 
-	resp, err := latestConn.Send(ctx, data, nil)
+	resp, err := latestConn.Send(ctx, r, nil)
 	if err != nil {
 		return err
 	}
