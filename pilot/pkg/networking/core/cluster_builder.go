@@ -64,12 +64,25 @@ var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOp
 		},
 	},
 })
+var passthroughHttpProtocolOptionsWithMX = protoconv.MessageToAny(&http.HttpProtocolOptions{
+	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+		IdleTimeout: durationpb.New(5 * time.Minute),
+	},
+	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+			Http2ProtocolOptions: http2ProtocolOptions(),
+		},
+	},
+	HttpFilters: []*hcm.HttpFilter{xdsfilters.InjectIstioHeadersUpstreamFilter, xdsfilters.UpstreamCodec},
+})
 
 // clusterWrapper wraps Cluster object along with upstream protocol options.
 type clusterWrapper struct {
 	cluster *cluster.Cluster
 	// httpProtocolOptions stores the HttpProtocolOptions which will be marshaled when build is called.
 	httpProtocolOptions *http.HttpProtocolOptions
+	upstreamHttpFilters []*hcm.HttpFilter
 }
 
 // metadataCerts hosts client certificate related metadata specified in proxy metadata.
@@ -207,6 +220,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	maybeApplyEdsConfig(subsetCluster.cluster)
 
 	cb.applyMetadataExchange(opts.mutable.cluster)
+	subsetCluster.upstreamHttpFilters = []*hcm.HttpFilter{xdsfilters.InjectIstioHeadersUpstreamFilter, xdsfilters.UpstreamCodec}
 
 	// Add the DestinationRule+subsets metadata. Metadata here is generated on a per-cluster
 	// basis in buildCluster, so we can just insert without a copy.
@@ -254,6 +268,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	maybeApplyEdsConfig(mc.cluster)
 
 	cb.applyMetadataExchange(opts.mutable.cluster)
+	mc.upstreamHttpFilters = []*hcm.HttpFilter{xdsfilters.InjectIstioHeadersUpstreamFilter, xdsfilters.UpstreamCodec}
 
 	if service.MeshExternal {
 		im := getOrCreateIstioMetadata(mc.cluster)
@@ -282,22 +297,6 @@ func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 	if features.MetadataExchange {
 		c.Filters = append(c.Filters, xdsfilters.TCPClusterMx)
 	}
-	if c.TypedExtensionProtocolOptions == nil {
-		c.TypedExtensionProtocolOptions = make(map[string]*anypb.Any)
-	}
-	options := http.HttpProtocolOptions{}
-	optionsAny, ok := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
-	if ok {
-		_ = optionsAny.UnmarshalTo(&options)
-	} else {
-		// When an upstream uses an older xDS config for HTTP cluster (e.g. lacks protocol options),
-		// default to using an ALPN-based selection..
-		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_AutoConfig{
-			AutoConfig: &http.HttpProtocolOptions_AutoHttpConfig{},
-		}
-	}
-	options.HttpFilters = []*hcm.HttpFilter{xdsfilters.InjectIstioHeadersUpstreamFilter, xdsfilters.UpstreamCodec}
-	c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = protoconv.MessageToAny(&options)
 }
 
 // buildCluster builds the default cluster and also applies global options.
@@ -550,11 +549,12 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster(addMX bool) *cluster.Cl
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
 	}
+	if addMX {
+		cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = passthroughHttpProtocolOptionsWithMX
+	}
 	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster)
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
-	if addMX {
-		cb.applyMetadataExchange(cluster)
-	}
+	cb.applyMetadataExchange(cluster)
 	return cluster
 }
 
@@ -692,6 +692,7 @@ func (mc *clusterWrapper) build() *cluster.Cluster {
 				},
 			}
 		}
+		mc.httpProtocolOptions.HttpFilters = mc.upstreamHttpFilters
 		mc.cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: protoconv.MessageToAny(mc.httpProtocolOptions),
 		}
