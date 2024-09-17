@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/zdsapi"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // Hold a cache of node local pods with their netns
@@ -53,4 +54,8 @@ func (p *podNetnsCache) ReadCurrentPodSnapshot() map[string]WorkloadInfo {
 	defer p.mu.RUnlock()
 	// snapshot the cache to avoid long locking
 	return maps.Clone(p.currentPodCache)
+}
+
+func (p *podNetnsCache) UpsertPodCache(pod *corev1.Pod, namespace string) {
+
 }
