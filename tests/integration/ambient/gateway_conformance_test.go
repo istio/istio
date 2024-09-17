@@ -92,7 +92,7 @@ func TestGatewayConformance(t *testing.T) {
 
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
-			supported := gateway.SupportedFeatures.Clone().Delete(gwfeatures.SupportMeshConsumerRoute)
+			supported := gateway.SupportedFeatures.Clone().Delete(gwfeatures.MeshConsumerRouteFeature)
 			opts := suite.ConformanceOptions{
 				Client:                   c,
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
@@ -101,7 +101,7 @@ func TestGatewayConformance(t *testing.T) {
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},
-				SupportedFeatures:        supported,
+				SupportedFeatures:        gwfeatures.SetsToNamesSet(supported),
 				SkipTests:                maps.Keys(skippedTests),
 				UsableNetworkAddresses:   []v1.GatewayAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 				UnusableNetworkAddresses: []v1.GatewayAddress{{Value: "foo", Type: &hostnameType}},
