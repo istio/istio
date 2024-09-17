@@ -681,21 +681,22 @@ func (mc *clusterWrapper) build() *cluster.Cluster {
 	if mc == nil {
 		return nil
 	}
-	// Marshall Http Protocol options if they exist.
-	if mc.httpProtocolOptions != nil {
-		// UpstreamProtocolOptions is required field in Envoy. If we have not set this option earlier
-		// we need to set it to default http protocol options.
-		if mc.httpProtocolOptions.UpstreamProtocolOptions == nil {
-			mc.httpProtocolOptions.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
-				ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
-					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
-				},
-			}
+	// Enable HTTP pool if it was implicit before.
+	if mc.httpProtocolOptions == nil {
+		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
+	}
+	// UpstreamProtocolOptions is required field in Envoy. If we have not set this option earlier
+	// we need to set it to default http protocol options.
+	if mc.httpProtocolOptions.UpstreamProtocolOptions == nil {
+		mc.httpProtocolOptions.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
+			},
 		}
-		mc.httpProtocolOptions.HttpFilters = mc.upstreamHttpFilters
-		mc.cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
-			v3.HttpProtocolOptionsType: protoconv.MessageToAny(mc.httpProtocolOptions),
-		}
+	}
+	mc.httpProtocolOptions.HttpFilters = mc.upstreamHttpFilters
+	mc.cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
+		v3.HttpProtocolOptionsType: protoconv.MessageToAny(mc.httpProtocolOptions),
 	}
 	return mc.cluster
 }
