@@ -161,10 +161,14 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 		{"-t", iptablesconstants.MANGLE, "-F", ChainInpodOutput},
 		{"-t", iptablesconstants.NAT, "-F", ChainInpodPrerouting},
 		{"-t", iptablesconstants.NAT, "-F", ChainInpodOutput},
+		{"-t", iptablesconstants.RAW, "-F", ChainInpodPrerouting},
+		{"-t", iptablesconstants.RAW, "-F", ChainInpodOutput},
 		{"-t", iptablesconstants.MANGLE, "-X", ChainInpodPrerouting},
 		{"-t", iptablesconstants.MANGLE, "-X", ChainInpodOutput},
 		{"-t", iptablesconstants.NAT, "-X", ChainInpodPrerouting},
 		{"-t", iptablesconstants.NAT, "-X", ChainInpodOutput},
+		{"-t", iptablesconstants.RAW, "-X", ChainInpodPrerouting},
+		{"-t", iptablesconstants.RAW, "-X", ChainInpodOutput},
 	}
 
 	var delErrs []error
