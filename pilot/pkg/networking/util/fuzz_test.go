@@ -52,13 +52,16 @@ func FuzzShallowCopyPortTrafficPolicy(f *testing.F) {
 func FuzzMergeTrafficPolicy(f *testing.F) {
 	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		copyFrom := fuzz.Struct[*networking.TrafficPolicy](fg)
+		// Merge does not copy port level, so do not handle this
+		checkFrom := copyFrom.DeepCopy()
+		checkFrom.PortLevelSettings = nil
 
 		empty1 := &networking.TrafficPolicy{}
 		copied := mergeTrafficPolicy(empty1, copyFrom, true)
-		assert.Equal(fg.T(), copyFrom, copied)
+		assert.Equal(fg.T(), checkFrom, copied)
 
 		empty2 := &networking.TrafficPolicy{}
 		copied = mergeTrafficPolicy(empty2, copied, true)
-		assert.Equal(fg.T(), copyFrom, copied)
+		assert.Equal(fg.T(), checkFrom, copied)
 	})
 }
