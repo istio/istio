@@ -82,10 +82,11 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
-			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
+			clientOptions := client.Options{
 				Scheme: kube.IstioScheme,
 				Mapper: mapper,
-			})
+			}
+			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), clientOptions)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -95,6 +96,7 @@ func TestGatewayConformance(t *testing.T) {
 			supported := gateway.SupportedFeatures.Clone().Delete(gwfeatures.MeshConsumerRouteFeature)
 			opts := suite.ConformanceOptions{
 				Client:                   c,
+				ClientOptions:            clientOptions,
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
 				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
 				GatewayClassName:         "istio",
