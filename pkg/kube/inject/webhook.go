@@ -1174,7 +1174,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 
 	patchBytes, err := injectPod(params)
 	if err != nil {
-		handleError(fmt.Sprintf("Pod injection failed: %v", err))
+		handleError(fmt.Sprintf("Pod %s/%s injection failed: %v", pod.Namespace, podName, err))
 		return toAdmissionResponse(err)
 	}
 
