@@ -4,21 +4,21 @@ metadata:
   name: istio-cni-windows-node
   namespace: istio-system
   labels:
-    k8s-app: istio-cni-node
-    release: istio-cni
+    k8s-app: istio-cni--windowsnode
+    release: istio-cni-windows
     istio.io/rev: 1-23-0
     install.operator.istio.io/owning-resource: unknown
     operator.istio.io/component: "Cni"
     app.kubernetes.io/name: istio-cni
     app.kubernetes.io/managed-by: "Helm"
-    app.kubernetes.io/instance: "istio-cni"
+    app.kubernetes.io/instance: "istio-cni-windows"
     app.kubernetes.io/part-of: "istio"
     app.kubernetes.io/version: "0.0.1"
-    helm.sh/chart: cni-0.0.1
+    helm.sh/chart: cni-windows-0.0.1
 spec:
   selector:
     matchLabels:
-      k8s-app: istio-cni-node
+      k8s-app: istio-cni-windows-node
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
@@ -26,7 +26,7 @@ spec:
   template:
     metadata:
       labels:
-        k8s-app: istio-cni-node
+        k8s-app: istio-cni-windows-node
         sidecar.istio.io/inject: "false"
         istio.io/dataplane-mode: none
         app.kubernetes.io/name: istio-cni
@@ -65,7 +65,7 @@ spec:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          image: "istiolocaltesting.azurecr.io/istio-cni-windows:test-4"
+          image: "istiolocaltesting.azurecr.io/istio-cni-windows:test-16"
           ports:
           - containerPort: 15014
             name: metrics
@@ -138,14 +138,14 @@ spec:
         # Used to install CNI.
         - name: cni-bin-dir
           hostPath:
-            path: C:\k\cni
+            path: /k/azurecni/bin
         - name: cni-ztunnel-sock-dir
           hostPath:
             path: /var/run/ztunnel
             type: DirectoryOrCreate
         - name: cni-net-dir
           hostPath:
-            path: C:\k\cni\config
+            path: /k/azurecni/netconf
         # Used for UDS sockets for logging, ambient eventing
         - name: cni-socket-dir
           hostPath:
