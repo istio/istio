@@ -76,6 +76,10 @@ spec:
 {{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
           imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
 {{- end }}
+          ports:
+          - containerPort: 15014
+            name: metrics
+            protocol: TCP
           readinessProbe:
             httpGet:
               path: /readyz
