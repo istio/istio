@@ -326,6 +326,13 @@ func constructConfig() (*config.Config, error) {
 		}
 	}
 
+	if mountPoint := os.Getenv("CONTAINER_SANDBOX_MOUNT_POINT"); mountPoint != "" {
+		// We're on windows and containerd < 1.6, so we need to prefix our paths
+		installCfg.CNIBinSourceDir = filepath.Join(mountPoint, installCfg.CNIBinSourceDir)
+		installCfg.CNIBinTargetDirs = []string{filepath.Join(mountPoint, constants.HostCNIBinDir)}
+		installCfg.CNIAgentRunDir = filepath.Join(mountPoint, installCfg.CNIAgentRunDir)
+	}
+
 	repairCfg := config.RepairConfig{
 		Enabled:            viper.GetBool(constants.RepairEnabled),
 		RepairPods:         viper.GetBool(constants.RepairRepairPods),

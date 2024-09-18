@@ -9,5 +9,5 @@ RUN GOOS=windows GOARCH=amd64 go build -o out/x86_64-pc-windows-gnu/istio-cni.ex
 
 FROM ${WINBASE}
 COPY --from=build /go/src/github.com/istio/istio/out/x86_64-pc-windows-gnu/install-cni.exe /install-cni.exe
-COPY --from=build /go/src/github.com/istio/istio/out/x86_64-pc-windows-gnu/istio-cni.exe /istio-cni.exe
+COPY --from=build /go/src/github.com/istio/istio/out/x86_64-pc-windows-gnu/istio-cni.exe /opt/cni/bin/istio-cni.exe
 ENTRYPOINT [ "/install-cni.exe" ]
