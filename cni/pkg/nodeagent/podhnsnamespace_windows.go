@@ -37,8 +37,10 @@ type PodNetNsHNSFinder struct {
 
 var _ PodNetnsFinder = &PodNetNsHNSFinder{}
 
-func NewPodNetNsHNSFinder() *PodNetNsHNSFinder {
-	return &PodNetNsHNSFinder{}
+func NewPodNetNsHNSFinder(crlClient criapi.RuntimeService) *PodNetNsHNSFinder {
+	return &PodNetNsHNSFinder{
+		criClient: crlClient,
+	}
 }
 
 func (p *PodNetNsHNSFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (PodToNetns, error) {
