@@ -637,79 +637,6 @@ spec:
 				})
 			})
 
-			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
-			// that mess with certs, multicluster, etc
-			t.NewSubTest("helm").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
-				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
-				rev := ""
-				if t.Settings().Revisions.Default() != "" {
-					rev = t.Settings().Revisions.Default()
-				}
-				os.WriteFile(d, []byte(fmt.Sprintf(`
-revision: %v
-gateways:
-  istio-ingressgateway:
-    name: custom-gateway-helm
-    injectionTemplate: gateway
-    type: ClusterIP # LoadBalancer is slow and not necessary for this tests
-    autoscaleMax: 1
-    resources:
-      requests:
-        cpu: 10m
-        memory: 40Mi
-    labels:
-      istio: custom-gateway-helm
-`, rev)), 0o644)
-				cs := t.Clusters().Default().(*kubecluster.Cluster)
-				h := helm.New(cs.Filename())
-				// Install ingress gateway chart
-				if err := h.InstallChart("ingress", filepath.Join(env.IstioSrc, "manifests/charts/gateways/istio-ingress"), gatewayNs.Name(),
-					d, helmtest.Timeout); err != nil {
-					t.Fatal(err)
-				}
-				retry.UntilSuccessOrFail(t, func() error {
-					_, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, gatewayNs.Name(), "istio=custom-gateway-helm"))
-					return err
-				}, retry.Timeout(time.Minute*2), retry.Delay(time.Millisecond*500))
-				_ = t.ConfigIstio().YAML(gatewayNs.Name(), fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: app
-spec:
-  selector:
-    istio: custom-gateway-helm
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "*"
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: app
-spec:
-  hosts:
-  - "*"
-  gateways:
-  - app
-  http:
-  - route:
-    - destination:
-        host: %s
-        port:
-          number: 80
-`, apps.A.Config().ClusterLocalFQDN())).Apply(apply.NoCleanup)
-				apps.B[0].CallOrFail(t, echo.CallOptions{
-					Port:    echo.Port{ServicePort: 80},
-					Scheme:  scheme.HTTP,
-					Address: fmt.Sprintf("custom-gateway-helm.%s.svc.cluster.local", gatewayNs.Name()),
-					Check:   check.OK(),
-				})
-			})
 			t.NewSubTest("helm-simple").Run(func(t framework.TestContext) {
 				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
@@ -717,7 +644,7 @@ spec:
 				if t.Settings().Revisions.Default() != "" {
 					rev = t.Settings().Revisions.Default()
 				}
-				os.WriteFile(d, []byte(fmt.Sprintf(`
+				gatewayValues := fmt.Sprintf(`
 revision: %q
 service:
   type: ClusterIP # LoadBalancer is slow and not necessary for this tests
@@ -727,7 +654,11 @@ resources:
   requests:
     cpu: 10m
     memory: 40Mi
-`, rev)), 0o644)
+`, rev)
+				if t.Settings().OpenShift {
+					gatewayValues += "\nplatform: openshift"
+				}
+				os.WriteFile(d, []byte(gatewayValues), 0o644)
 				cs := t.Clusters().Default().(*kubecluster.Cluster)
 				h := helm.New(cs.Filename())
 				// Install ingress gateway chart
