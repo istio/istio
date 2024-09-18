@@ -190,6 +190,10 @@ spec:
           - name: EXTERNAL_ISTIOD
             value: "{{ .Values.global.externalIstiod }}"
 {{- end }}
+{{- if .Values.experimental.caRootCertConfigMap }}
+          - name: PILOT_CA_CERT_CONFIGMAP
+            value: "{{ .Values.experimental.caRootCertConfigMap }}"
+{{- end }}
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
@@ -276,7 +280,11 @@ spec:
           optional: true
       - name: istio-csr-ca-configmap
         configMap:
+  {{- if and (hasKey .Values "experimental") .Values.experimental.caRootCertConfigMap }} 
+          name: {{ .Values.experimental.caRootCertConfigMap }}
+  {{- else }}
           name: istio-ca-root-cert
+  {{- end }}
           defaultMode: 420
           optional: true
   {{- if .Values.jwksResolverExtraRootCA }}

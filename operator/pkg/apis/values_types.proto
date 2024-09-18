@@ -1426,6 +1426,8 @@ message ZeroVPNConfig {
 message ExperimentalConfig {
   // Controls whether the experimental feature is enabled.
   google.protobuf.BoolValue stableValidationPolicy = 1;
+  // Select a custom name for istiod's CA Root Cert ConfigMap.
+  string caRootCertConfigMap = 2;
 }
 
 // IntOrString is a type that can hold an int32 or a string.  When used in
