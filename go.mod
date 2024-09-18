@@ -120,9 +120,13 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/opencontainers/runtime-spec v1.2.0
 	k8s.io/cri-api v0.31.1
+	k8s.io/cri-client v0.31.1
 )
 
-require go.opencensus.io v0.24.0 // indirect
+require (
+	go.opencensus.io v0.24.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.56.0 // indirect
+)
 
 require (
 	dario.cat/mergo v1.0.1 // indirect

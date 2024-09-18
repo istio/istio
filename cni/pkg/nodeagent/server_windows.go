@@ -18,8 +18,21 @@
 package nodeagent
 
 import (
+	"fmt"
+	"time"
+
+	criapi "k8s.io/cri-api/pkg/apis"
+	criclient "k8s.io/cri-client/pkg"
+	"k8s.io/klog/v2"
+
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/pkg/kube"
+)
+
+const endpoint = `npipe://./pipe/containerd-containerd`
+
+var (
+	defaultCriConnectTimeout = 5 * time.Second
 )
 
 func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, error) {
@@ -33,14 +46,24 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 	podNsMap := newPodNetnsCache(getNamespaceDetailsFromRoot())
 	ztunnelServer, err := newZtunnelServer(args.ServerSocket, podNsMap)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
 	}
-	netServer := newNetServer(ztunnelServer, podNsMap, &iptables.WFPConfigurator{
+
+	wfpConfigurator := &iptables.WFPConfigurator{
 		EndpointsFinder: podNsMap,
 		Cfg:             podCfg,
-	}, NewPodNetNsHNSFinder())
+	}
+	criClient, err := newCRIClient()
+	podNetns := NewPodNetNsHNSFinder(criClient)
+	netServer := newNetServer(ztunnelServer, podNsMap, wfpConfigurator, podNetns)
+
 	return &meshDataplane{
 		kubeClient: client.Kube(),
 		netServer:  netServer,
 	}, nil
+}
+
+func newCRIClient() (criapi.RuntimeService, error) {
+	logger := klog.Background()
+	return criclient.NewRemoteRuntimeService(endpoint, defaultCriConnectTimeout, nil, &logger)
 }
