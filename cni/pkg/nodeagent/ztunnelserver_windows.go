@@ -210,6 +210,10 @@ func (z *ztunnelServer) accept() (ZtunnelConnection, error) {
 	return newZtunnelConnection(conn), nil
 }
 
+func (z *ztunnelServer) timeoutError() error {
+	return winio.ErrTimeout
+}
+
 func (z *ztunnelServer) handleWorkloadInfo(wl WorkloadInfo, uid string, conn ZtunnelConnection) (*zdsapi.WorkloadResponse, error) {
 	if wl.NetnsCloser() != nil {
 		nc, ok := wl.NetnsCloser().(NamespaceCloser)

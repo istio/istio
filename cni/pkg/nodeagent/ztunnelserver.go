@@ -181,7 +181,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 	}
 
 	log.WithLabels("version", m.Version).Infof("received hello from ztunnel")
-	log.Debug("sending snapshot to ztunnel")
+	log.Infof("sending snapshot to ztunnel")
 	if err := z.sendSnapshot(ctx, conn); err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 		select {
 		case update, ok := <-conn.Updates():
 			if !ok {
-				log.Debug("update channel closed - returning")
+				log.Infof("update channel closed - returning")
 				return nil
 			}
 			log.Debugf("got update to send to ztunnel")
@@ -215,7 +215,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 					log.Errorf("ztunnel responded with an ack error: ackErr %s", resp.GetAck().GetError())
 				}
 			}
-			log.Debugf("ztunnel acked")
+			log.Infof("ztunnel acked")
 			// Safety: Resp is buffered, so this will not block
 			update.Resp() <- updateResponse{
 				err:  err,
@@ -230,15 +230,15 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 			// note that unlike tcp connections, reading is a good enough test here.
 			err := conn.CheckAlive(time.Second / 100)
 			switch {
-			case !errors.Is(err, os.ErrDeadlineExceeded):
-				log.Debugf("ztunnel keepalive failed: %v", err)
+			case !errors.Is(err, z.timeoutError()):
+				log.Infof("ztunnel keepalive failed: %v", err)
 				if errors.Is(err, io.EOF) {
-					log.Debug("ztunnel EOF")
+					log.Info("ztunnel EOF")
 					return nil
 				}
 				return err
 			case err == nil:
-				log.Warn("ztunnel protocol error, unexpected message")
+				log.Info("ztunnel protocol error, unexpected message")
 				return fmt.Errorf("ztunnel protocol error, unexpected message")
 			default:
 				// we get here if error is deadline exceeded, which means ztunnel is alive.

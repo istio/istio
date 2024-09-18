@@ -55,6 +55,10 @@ func (z *ztunnelServer) accept() (ZtunnelConnection, error) {
 	return newZtunnelConnection(conn), nil
 }
 
+func (z *ztunnelServer) timeoutError() error {
+	return os.ErrDeadlineExceeded
+}
+
 func (z *ztunnelServer) handleWorkloadInfo(wl WorkloadInfo, uid string, conn ZtunnelConnection) (*zdsapi.WorkloadResponse, error) {
 	// We don't need there to be any netns field; we can get namespace guid from the zds WorkloadInfo
 	if wl.NetnsCloser() != nil {

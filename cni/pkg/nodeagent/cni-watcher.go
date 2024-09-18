@@ -152,14 +152,14 @@ func processAddEvent(body []byte) (CNIPluginAddEvent, error) {
 		return msg, err
 	}
 
-	log.Debugf("Deserialized CNI plugin event: %+v", msg)
+	log.Infof("Deserialized CNI plugin event: %+v", msg)
 	return msg, nil
 }
 
 func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPluginAddEvent) error {
 	log := log.WithLabels("cni-event", addCmd)
 
-	log.Debugf("netns: %s", addCmd.Netns)
+	log.Infof("netns: %s", addCmd.Netns)
 
 	// The CNI node plugin should have already checked the pod against the k8s API before forwarding us the event,
 	// but we have to invoke the K8S client anyway, so to be safe we check it again here to make sure we get the same result.
@@ -167,7 +167,7 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 	if err != nil {
 		return err
 	}
-	log.Debugf("Pod: %s in ns: %s is enabled for ambient, adding to mesh.", addCmd.PodName, addCmd.PodNamespace)
+	log.Infof("Pod: %s in ns: %s is enabled for ambient, adding to mesh.", addCmd.PodName, addCmd.PodNamespace)
 
 	var podIps []netip.Addr
 	for _, configuredPodIPs := range addCmd.IPs {
@@ -188,7 +188,7 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 }
 
 func (s *CniPluginServer) getPodWithRetry(log *istiolog.Scope, name, namespace string) (*corev1.Pod, error) {
-	log.Debugf("Checking if pod %s/%s is enabled for ambient", namespace, name)
+	log.Infof("Checking if pod %s/%s is enabled for ambient", namespace, name)
 	const maxStaleRetries = 10
 	const msInterval = 10
 	retries := 0

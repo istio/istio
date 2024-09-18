@@ -327,10 +327,11 @@ func constructConfig() (*config.Config, error) {
 	}
 
 	if mountPoint := os.Getenv("CONTAINER_SANDBOX_MOUNT_POINT"); mountPoint != "" {
-		// We're on windows and containerd < 1.6, so we need to prefix our paths
+		// HostProcess containers have their file systems mounted at C:\hpc which is the mount point.
+		// In order to grab the CNI binary from the container FS, we need to make sure we're
+		// use a relative path and not an absolute path (since an absolute path would be looking
+		// on the host).
 		installCfg.CNIBinSourceDir = filepath.Join(mountPoint, installCfg.CNIBinSourceDir)
-		installCfg.CNIBinTargetDirs = []string{filepath.Join(mountPoint, constants.HostCNIBinDir)}
-		installCfg.CNIAgentRunDir = filepath.Join(mountPoint, installCfg.CNIAgentRunDir)
 	}
 
 	repairCfg := config.RepairConfig{
