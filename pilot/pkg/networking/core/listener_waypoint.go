@@ -206,6 +206,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
 	chains := []*listener.FilterChain{}
+	portProtocols := map[int]protocol.Instance{}
 	for _, svc := range svcs {
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
@@ -246,13 +247,26 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					TCP:  match.ToChain(tcpClusterName),
 					HTTP: match.ToChain(httpClusterName),
 				}))
+				portProtocols[port.Port] = protocol.Unsupported
 			} else if port.Protocol.IsHTTP() {
 				// Otherwise, just insert HTTP/TCP
 				chains = append(chains, httpChain)
 				portMapper.Map[portString] = match.ToChain(httpChain.Name)
+				// TCP and HTTP on the same port, mark it as requiring sniffing
+				if portProtocols[port.Port] == protocol.TCP {
+					portProtocols[port.Port] = protocol.Unsupported
+				} else {
+					portProtocols[port.Port] = protocol.HTTP
+				}
 			} else {
 				chains = append(chains, tcpChain)
 				portMapper.Map[portString] = match.ToChain(tcpChain.Name)
+				// TCP and HTTP on the same port, mark it as requiring sniffing
+				if portProtocols[port.Port] == protocol.HTTP {
+					portProtocols[port.Port] = protocol.Unsupported
+				} else {
+					portProtocols[port.Port] = protocol.TCP
+				}
 			}
 		}
 		if len(portMapper.Map) > 0 {
@@ -326,13 +340,35 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 	}
+	// This may affect the data path due to the server-first protocols triggering a time-out.
+	// Currently, we attempt to exclude ports where we can, but it's not perfect.
+	// https://github.com/envoyproxy/envoy/issues/35958 is likely required for an optimal solution
+	httpInspector := xdsfilters.HTTPInspector
+	// If there are workloads, any port is accepted on them, so we cannot opt out
+	if len(wls) == 0 {
+		// Otherwise, find all the ports that have only TCP or only HTTP
+		nonInspectorPorts := []int{}
+		for p, proto := range portProtocols {
+			if !proto.IsUnsupported() {
+				nonInspectorPorts = append(nonInspectorPorts, p)
+			}
+		}
+		if len(nonInspectorPorts) > 0 {
+			// Sort for stable output, then replace the filter with one disabling the ports.
+			slices.Sort(nonInspectorPorts)
+			httpInspector = &listener.ListenerFilter{
+				Name:           wellknown.HTTPInspector,
+				ConfigType:     httpInspector.ConfigType,
+				FilterDisabled: listenerPredicateExcludePorts(nonInspectorPorts),
+			}
+		}
+	}
 	l := &listener.Listener{
 		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
 			xdsfilters.OriginalDestination,
-			// TODO: This may affect the data path due to the server-first protocols triggering a time-out. Need exception filter.
-			xdsfilters.HTTPInspector,
+			httpInspector,
 		},
 		TrafficDirection: core.TrafficDirection_INBOUND,
 		FilterChains:     chains,
