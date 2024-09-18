@@ -3066,6 +3066,71 @@ func TestZtunnelRestart(t *testing.T) {
 	})
 }
 
+func TestServiceDynamicEnroll(t *testing.T) {
+	const callInterval = 50 * time.Millisecond
+	// TODO(https://github.com/istio/istio/issues/53064) make this 100%
+	successThreshold := 0.5
+
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		dst := apps.Captured
+		generators := []traffic.Generator{}
+		mkGen := func(src echo.Caller) {
+			g := traffic.NewGenerator(t, traffic.Config{
+				Source: src,
+				Options: echo.CallOptions{
+					To:    dst,
+					Count: 1,
+					Check: check.OK(),
+					HTTP:  echo.HTTP{Path: "/"},
+					Port: echo.Port{
+						Name: "http",
+					},
+					Timeout: time.Millisecond * 100,
+					Retry:   echo.Retry{NoRetry: true},
+				},
+				Interval: callInterval,
+			}).Start()
+			generators = append(generators, g)
+		}
+		mkGen(apps.Uncaptured[0])
+		mkGen(apps.Sidecar[0])
+		// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
+		mkGen(apps.WorkloadAddressedWaypoint[0])
+
+		// Unenroll from the mesh
+		for _, p := range dst.WorkloadsOrFail(t) {
+			labelWorkload(t, p, constants.DataplaneModeLabel, constants.DataplaneModeNone)
+		}
+		// Let it run some traffic
+		time.Sleep(time.Millisecond * 500)
+		// Revert back
+		for _, p := range dst.WorkloadsOrFail(t) {
+			labelWorkload(t, p, constants.DataplaneModeLabel, "")
+		}
+		time.Sleep(time.Millisecond * 500)
+
+		for i, gen := range generators {
+			// Stop the traffic generator and get the result.
+			t.NewSubTestf("from-%d", i).Run(func(t framework.TestContext) {
+				gen.Stop().CheckSuccessRate(t, successThreshold)
+			})
+		}
+	})
+}
+
+func labelWorkload(t framework.TestContext, w echo.Workload, k, v string) {
+	patchOpts := metav1.PatchOptions{}
+	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
+	if v == "" {
+		patchData = fmt.Sprintf(`{"metadata":{"labels": {%q: null}}}`, k)
+	}
+	p := t.Clusters().Default().Kube().CoreV1().Pods(apps.Namespace.Name())
+	_, err := p.Patch(context.Background(), w.PodName(), types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func restartZtunnel(t framework.TestContext) {
 	patchOpts := metav1.PatchOptions{}
 	patchData := fmt.Sprintf(`{
