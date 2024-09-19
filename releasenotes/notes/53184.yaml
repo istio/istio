@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+
+# issue is a list of GitHub issues resolved in this note.
+issue: []
+
+docs: []
+
+releaseNotes:
+- |
+  **Fixed** Added the metrics port in the daemonset containers spec of the istio-cni chart.
+
+upgradeNotes: []
+
+securityNotes: []
