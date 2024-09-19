@@ -440,3 +440,31 @@ func testEvictQueueMemoryLeak(t *testing.T, f string) {
 		}
 	}
 }
+
+func BenchmarkCacheGet(t *testing.B) {
+	zeroTime := time.Time{}
+	res := &discovery.Resource{Name: "test"}
+	req := &PushRequest{Start: zeroTime.Add(time.Duration(1))}
+	firstEntry := entry{
+		key:            "key1",
+		dependentTypes: []kind.Kind{kind.Service, kind.DestinationRule},
+		dependentConfigs: []ConfigHash{
+			ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode(),
+			ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(),
+		},
+	}
+
+	c := newTypedXdsCache[uint64]()
+
+	cache := c.(*lruCache[uint64])
+
+	assert.Equal(t, cache.store.Len(), 0)
+	assert.Equal(t, cache.indexLength(), 0)
+
+	// adding the entry populates the indexes
+	c.Add(firstEntry.Key(), firstEntry, req, res)
+
+	for i := 0; i < t.N; i++ {
+		c.Get(firstEntry.Key())
+	}
+}
