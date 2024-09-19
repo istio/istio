@@ -427,23 +427,25 @@ func extractInfrastructureAnnotations(gw gateway.Gateway) map[string]string {
 	return extractInfrastructureMetadata(gw.Spec.Infrastructure, false, gw)
 }
 
-func extractInfrastructureMetadata(gwInfra *gatewayv1.GatewayInfrastructure, isLabel bool, gw gateway.Gateway) map[string]string {
-	var field map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue
-	if gwInfra != nil && isLabel && gwInfra.Labels != nil {
-		field = gwInfra.Labels
-	} else if gwInfra != nil && !isLabel && gwInfra.Annotations != nil {
-		field = gwInfra.Annotations
-	}
-	if field != nil {
-		infra := make(map[string]string, len(field))
-		for k, v := range field {
-			if strings.HasPrefix(string(k), "gateway.networking.k8s.io/") {
-				continue // ignore this prefix to avoid conflicts
-			}
-			infra[string(k)] = string(v)
+func translateInfraMeta[K ~string, V ~string](meta map[K]V) map[string]string {
+	infra := make(map[string]string, len(meta))
+	for k, v := range meta {
+		if strings.HasPrefix(string(k), "gateway.networking.k8s.io/") {
+			continue // ignore this prefix to avoid conflicts
 		}
-		return infra
-	} else if isLabel {
+		infra[string(k)] = string(v)
+	}
+	return infra
+}
+
+func extractInfrastructureMetadata(gwInfra *gatewayv1.GatewayInfrastructure, isLabel bool, gw gateway.Gateway) map[string]string {
+	if gwInfra != nil && isLabel && gwInfra.Labels != nil {
+		return translateInfraMeta(gwInfra.Labels)
+	}
+	if gwInfra != nil && !isLabel && gwInfra.Annotations != nil {
+		return translateInfraMeta(gwInfra.Annotations)
+	}
+	if isLabel {
 		if gw.GetLabels() == nil {
 			return make(map[string]string)
 		}

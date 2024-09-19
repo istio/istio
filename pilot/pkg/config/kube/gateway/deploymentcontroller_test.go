@@ -296,7 +296,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 				Spec: k8s.GatewaySpec{
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
 					Infrastructure: &k8s.GatewayInfrastructure{
-						Labels:      map[k8s.AnnotationKey]k8s.AnnotationValue{"foo": "bar", "gateway.networking.k8s.io/ignore": "true"},
+						Labels:      map[k8s.LabelKey]k8s.LabelValue{"foo": "bar", "gateway.networking.k8s.io/ignore": "true"},
 						Annotations: map[k8s.AnnotationKey]k8s.AnnotationValue{"fizz": "buzz", "gateway.networking.k8s.io/ignore": "true"},
 					},
 				},
@@ -330,8 +330,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 				Spec: k8s.GatewaySpec{
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
 					Infrastructure: &k8s.GatewayInfrastructure{
-						// TODO why are we setting this on gateways?
-						Labels: map[k8s.AnnotationKey]k8s.AnnotationValue{
+						Labels: map[k8s.LabelKey]k8s.LabelValue{
 							constants.DataplaneModeLabel: constants.DataplaneModeAmbient,
 						},
 					},
