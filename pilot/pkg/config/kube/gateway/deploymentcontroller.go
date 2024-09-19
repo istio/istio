@@ -648,7 +648,7 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 			continue
 		}
 		portNums.Insert(int32(l.Port))
-		name := string(l.Name)
+		name := sanitizeListenerNameForPort(string(l.Name))
 		if name == "" {
 			// Should not happen since name is required, but in case an invalid resource gets in...
 			name = fmt.Sprintf("%s-%d", strings.ToLower(string(l.Protocol)), i)
@@ -661,6 +661,17 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 		})
 	}
 	return svcPorts
+}
+
+// ListenerName allows periods and 253 chars.
+// We map this to service port name which does not allow period and only 63 chars.
+func sanitizeListenerNameForPort(s string) string {
+	// In theory, this mapping can result in a duplicate, but probably not likely
+	s = strings.ReplaceAll(s, ".", "-")
+	if len(s) <= 63 {
+		return s
+	}
+	return s[:63]
 }
 
 // UntypedWrapper wraps a typed reader to an untyped one, since Go cannot do it automatically.
