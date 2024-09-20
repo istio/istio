@@ -1,12 +1,10 @@
-# This file is only used for remote `istiod` installs , and does double duty.
-# When installed in the local cluster (via this chart), creates the service that points to the remote istiod
-# When installed in the remote cluster (via `istiod-remote` chart), creates the service that points to the local istiod.
+# This file is only used for remote `istiod` installs.
 {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
 # if the remotePilotAddress is an IP addr
 apiVersion: v1
 kind: Endpoints
 metadata:
-  {{- if .Values.pilot.enabled }}
+  {{- if .Values.global.externalIstiod }}
   name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
   {{- else }}
   name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}

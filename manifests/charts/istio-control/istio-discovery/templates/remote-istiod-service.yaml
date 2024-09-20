@@ -1,15 +1,11 @@
-# This file is only used for remote `istiod` installs, and does double duty.
-# When installed in the local cluster (via this chart), creates the service that points to the remote istiod
-# When installed in the remote cluster (via `istiod-remote` chart), creates the service that points to the local istiod.
+# This file is only used for remote `istiod` installs.
 {{- if .Values.global.remotePilotAddress }}
 apiVersion: v1
 kind: Service
 metadata:
-  {{- if .Values.pilot.enabled }}
-  # when local istiod is enabled, we can't use istiod service name to reach the remote control plane
+  {{- if .Values.global.externalIstiod }}
   name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
   {{- else }}
-  # when local istiod isn't enabled, we can use istiod service name to reach the remote control plane
   name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
   {{- end }}
   namespace: {{ .Release.Namespace }}
