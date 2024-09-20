@@ -65,7 +65,7 @@ spec:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          image: "istiolocaltesting.azurecr.io/istio-cni-windows:test-16"
+          image: "istiolocaltesting.azurecr.io/istio-cni-windows:test-24"
           ports:
           - containerPort: 15014
             name: metrics
@@ -121,11 +121,11 @@ spec:
                   fieldPath: status.podIP
             - name: ZTUNNEL_UDS_ADDRESS
               value: \\.\pipe\istio-zds
+            - name: MOUNTED_CNI_NET_DIR
+              value: C:\k\azurecni\netconf
+            - name: MOUNTED_CNI_BIN_DIR
+              value: C:\k\azurecni\bin
           volumeMounts:
-            - mountPath: /host/opt/cni/bin
-              name: cni-bin-dir
-            - mountPath: /host/etc/cni/net.d
-              name: cni-net-dir
             - mountPath: /var/run/istio-cni
               name: cni-socket-dir
             - mountPath: /var/run/ztunnel

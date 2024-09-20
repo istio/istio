@@ -23,12 +23,13 @@ import (
 	"fmt"
 
 	"github.com/Microsoft/hcsshim/hcn"
-	"github.com/opencontainers/runtime-spec/specs-go"
-	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/util/sets"
+	podsandbox "github.com/containerd/containerd/pkg/cri/sbserver/podsandbox"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	criapi "k8s.io/cri-api/pkg/apis"
+
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type PodNetNsHNSFinder struct {
@@ -84,13 +85,13 @@ func (p *PodNetNsHNSFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (Po
 
 		// We've got the correct sandbox information, now we need to get the namespace
 		// guid
-		var spec specs.Spec
-		err = json.Unmarshal([]byte(resp.Info["runtimeSpec"]), &spec)
+		var sandbox podsandbox.SandboxInfo
+		err = json.Unmarshal([]byte(resp.Info["info"]), &sandbox)
 		if err != nil {
-			log.Warnf("error unmarshalling runtime spec for %s: %v", podUID, err)
+			log.Warnf("error unmarshalling sandbox info for %s: %v. Info was %#v", podUID, err, resp.Info)
 			continue
 		}
-		nsGuid := spec.Windows.Network.NetworkNamespace
+		nsGuid := sandbox.RuntimeSpec.Windows.Network.NetworkNamespace
 		// Ok guid retrieved, but it would be nice to go ahead and get the id
 		// let's talk to HNS and get that
 		ns, err := hcn.GetNamespaceByID(nsGuid)

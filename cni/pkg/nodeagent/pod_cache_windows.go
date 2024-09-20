@@ -101,7 +101,6 @@ func (p *podNetnsCache) UpsertPodCache(pod *corev1.Pod, namespace string) (Names
 // Update the cache with the given Netns. If there is already a Netns for the given uid, we return it, and close the one provided.
 func (p *podNetnsCache) UpsertPodCacheWithNetns(uid string, workload WorkloadInfo) NamespaceCloser {
 	// lock current snapshot pod map
-	// Convert to windows specific implementation
 	workloadNetns := workload.NetnsCloser().(NamespaceCloser)
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -134,7 +133,8 @@ func (p *podNetnsCache) Get(uid string) NamespaceCloser {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if info, f := p.currentPodCache[uid]; f {
-		return info.NetnsCloser().(NamespaceCloser)
+		nc, _ := info.NetnsCloser().(NamespaceCloser)
+		return nc // Don't panic because this could be nil
 	}
 	return nil
 }
@@ -145,6 +145,7 @@ func getNamespaceDetailsFromRoot() func(namespaceGuid string) (NamespaceCloser, 
 		if err != nil {
 			return nil, err
 		}
+		log.Infof("found namespace id %d for guid %s", ns.NamespaceId, namespaceGuid)
 
 		endpointIDs, err := getNamespaceEndpoints(ns.Resources)
 		if err != nil {

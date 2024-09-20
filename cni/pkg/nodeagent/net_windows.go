@@ -228,7 +228,7 @@ func (s *NetServer) getNetns(pod *corev1.Pod) (NamespaceCloser, error) {
 	if existingNamespace != nil {
 		return existingNamespace, nil
 	}
-	log.Debug("pod namespace was not found, trying to find it by enumerating HNS")
+	log.Info("pod namespace was not found, trying to find it by enumerating HNS")
 	// this can happen if the pod was dynamically added to the mesh after it was created.
 	// in that case, try finding the netns using procfs.
 	if err := s.rescanPod(pod); err != nil {
