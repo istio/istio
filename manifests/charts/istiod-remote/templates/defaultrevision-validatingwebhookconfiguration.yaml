@@ -1,5 +1,4 @@
 {{- if .Values.global.configCluster }}
-##
 {{- if not (eq .Values.defaultRevision "") }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
