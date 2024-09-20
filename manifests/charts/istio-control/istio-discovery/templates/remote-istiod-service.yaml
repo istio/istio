@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  {{- if .Values.global.externalIstiod }}
+  {{- if .Values.global.remotePilotAddress }}
   name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
   {{- else }}
   name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
