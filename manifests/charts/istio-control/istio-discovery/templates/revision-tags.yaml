@@ -48,6 +48,10 @@ metadata:
     release: {{ $.Release.Name }}
     app.kubernetes.io/name: "istiod"
     {{- include "istio.labels" $ | nindent 4 }}
+{{- if $.Values.sidecarInjectorWebhookAnnotations }}
+  annotations:
+{{ toYaml $.Values.sidecarInjectorWebhookAnnotations | indent 4 }}
+{{- end }}
 webhooks:
 {{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.namespace.") ) }}
   namespaceSelector:
