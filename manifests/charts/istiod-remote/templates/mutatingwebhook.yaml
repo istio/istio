@@ -52,10 +52,6 @@ metadata:
     release: {{ .Release.Name }}
     app.kubernetes.io/name: "istiod"
     {{- include "istio.labels" . | nindent 4 }}
-{{- if $.Values.sidecarInjectorWebhookAnnotations }}
-  annotations:
-{{ toYaml $.Values.sidecarInjectorWebhookAnnotations | indent 4 }}
-{{- end }}
 webhooks:
 {{- /* Set up the selectors. First section is for revision, rest is for "default" revision */}}
 
