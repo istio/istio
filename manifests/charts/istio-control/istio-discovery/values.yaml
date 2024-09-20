@@ -67,6 +67,7 @@ defaults:
   podAnnotations: {}
   serviceAnnotations: {}
   serviceAccountAnnotations: {}
+  sidecarInjectorWebhookAnnotations: {}
 
   topologySpreadConstraints: []
 
