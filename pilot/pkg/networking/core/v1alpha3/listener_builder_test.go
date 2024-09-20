@@ -929,11 +929,11 @@ func TestUseRemoteAddressInternalAddressConfig(t *testing.T) {
 				CidrRanges: []*core.CidrRange{
 					{
 						AddressPrefix: "192.168.0.0",
-						PrefixLen:     &wrapperspb.UInt32Value{Value: 16},
+						PrefixLen:     &wrappers.UInt32Value{Value: 16},
 					},
 					{
 						AddressPrefix: "172.16.0.0",
-						PrefixLen:     &wrapperspb.UInt32Value{Value: 12},
+						PrefixLen:     &wrappers.UInt32Value{Value: 12},
 					},
 				},
 			},

@@ -1,9 +1,4 @@
 {
-  "application_log_config": {
-    "log_format": {
-        "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
-    }
-  },
   "node": {
     "id": "sidecar~1.2.3.4~foo~bar",
     "cluster": "istio-proxy",
@@ -40,11 +35,7 @@
     "stats_tags": [
       {
         "tag_name": "cluster_name",
-        "regex": "^cluster(\\.(.+);)"
-      },
-      {
-        "tag_name": "http_conn_manager_prefix",
-        "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));\\.)"
+        "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
       },
       {
         "tag_name": "tcp_prefix",
@@ -61,6 +52,10 @@
       {
         "tag_name": "http_conn_manager_listener_prefix",
         "regex": "^listener(?=\\.).*?\\.http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
+      },
+      {
+        "tag_name": "http_conn_manager_prefix",
+        "regex": "^http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
       },
       {
         "tag_name": "listener_address",
@@ -133,7 +128,7 @@
           "suffix": "shadow_denied"
           },
           {
-          "safe_regex": {"regex":"vhost\\..*\\.route\\..*"}
+          "safe_regex": {"regex":"vhost\\.*\\.route\\.*"}
           },
           {
           "prefix": "component"
@@ -175,7 +170,7 @@
       "resource_api_version": "V3"
     },
     "ads_config": {
-      "api_type": "DELTA_GRPC",
+      "api_type": "GRPC",
       "set_node_on_first_message_only": true,
       "transport_api_version": "V3",
       "grpc_services": [
@@ -191,7 +186,6 @@
     "clusters": [
       {
         "name": "prometheus_stats",
-        "alt_stat_name": "prometheus_stats;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -214,7 +208,6 @@
       },
       {
         "name": "agent",
-        "alt_stat_name": "agent;",
         "type": "STATIC",
         "connect_timeout": "0.250s",
         "lb_policy": "ROUND_ROBIN",
@@ -237,7 +230,6 @@
       },
       {
         "name": "sds-grpc",
-        "alt_stat_name": "sds-grpc;",
         "type": "STATIC",
         "typed_extension_protocol_options": {
           "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
@@ -266,7 +258,6 @@
       },
       {
         "name": "xds-grpc",
-        "alt_stat_name": "xds-grpc;",
         "type" : "STATIC",
         "connect_timeout": "1s",
         "lb_policy": "ROUND_ROBIN",
@@ -324,7 +315,6 @@
           "socket_address": {
             "protocol": "TCP",
             "address": "0.0.0.0",
-            
             "port_value": 15090
           }
         },
