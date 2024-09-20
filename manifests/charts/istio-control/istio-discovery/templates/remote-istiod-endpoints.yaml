@@ -1,4 +1,4 @@
-# This file is only used for remote `istiod` installs, and does double duty.
+# This file is only used for remote `istiod` installs , and does double duty.
 # When installed in the local cluster (via this chart), creates the service that points to the remote istiod
 # When installed in the remote cluster (via `istiod-remote` chart), creates the service that points to the local istiod.
 {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}

@@ -1,5 +1,0 @@
-Istio base successfully installed!
-
-To learn more about the release, try:
-  $ helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
-  $ helm get all {{ .Release.Name }} -n {{ .Release.Namespace }}
