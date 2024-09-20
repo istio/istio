@@ -12,7 +12,6 @@ spec:
       multiCluster:
         clusterName: remote0
       network: network2
-      externalIstiod: true
       remotePilotAddress: 169.10.112.88
     istiodRemote:
       injectionURL: https://xxx:15017/inject
