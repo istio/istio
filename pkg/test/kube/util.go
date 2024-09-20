@@ -109,7 +109,11 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]corev1.Pod, error) {
 			msg = e.Error()
 			err = multierror.Append(err, fmt.Errorf("%s/%s: %s", p.Namespace, p.Name, msg))
 		}
-		scopes.Framework.Infof("  [%2d] %45s %15s (%v)", i, p.Name, p.Status.Phase, msg)
+		images := make([]string, 0, len(p.Spec.Containers))
+		for _, c := range p.Spec.Containers {
+			images = append(images, c.Image)
+		}
+		scopes.Framework.Infof("  [%2d] %45s %15s (%v) images: %v", i, p.Name, p.Status.Phase, msg, images)
 	}
 
 	if err != nil {
