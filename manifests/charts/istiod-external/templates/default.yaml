@@ -1,0 +1,56 @@
+{{- if not (eq .Values.defaultRevision "") }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: istiod-default-validator
+  labels:
+    app: istiod
+    release: {{ .Release.Name }}
+    istio: istiod
+    istio.io/rev: {{ .Values.defaultRevision | quote }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
+webhooks:
+  - name: validation.istio.io
+    clientConfig:
+      {{- if .Values.base.validationURL }}
+      url: {{ .Values.base.validationURL }}
+      {{- else }}
+      service:
+        {{- if (eq .Values.defaultRevision "default") }}
+        name: istiod
+        {{- else }}
+        name: istiod-{{ .Values.defaultRevision }}
+        {{- end }}
+        namespace: {{ .Values.global.istioNamespace }}
+        path: "/validate"
+      {{- end }}
+      {{- if .Values.base.validationCABundle }}
+      caBundle: "{{ .Values.base.validationCABundle }}"
+      {{- end }}
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - security.istio.io
+          - networking.istio.io
+          - telemetry.istio.io
+          - extensions.istio.io
+        apiVersions:
+          - "*"
+        resources:
+          - "*"
+
+    {{- if .Values.base.validationCABundle }}
+    # Disable webhook controller in Pilot to stop patching it
+    failurePolicy: Fail
+    {{- else }}
+    # Fail open until the validation webhook is ready. The webhook controller
+    # will update this to `Fail` and patch in the `caBundle` when the webhook
+    # endpoint is ready.
+    failurePolicy: Ignore
+    {{- end }}
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+{{- end }}

@@ -1,0 +1,53 @@
+{{- if and .Values.experimental.stableValidationPolicy (not (eq .Values.defaultRevision "")) }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "stable-channel-default-policy.istio.io"
+  labels:
+    release: {{ .Release.Name }}
+    istio: istiod
+    istio.io/rev: {{ .Values.defaultRevision }}
+    app.kubernetes.io/name: "istiod"
+    {{ include "istio.labels" . | nindent 4 }}
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+        - security.istio.io
+        - networking.istio.io
+        - telemetry.istio.io
+        - extensions.istio.io
+      apiVersions: ["*"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["*"]
+  variables:
+    - name: isEnvoyFilter
+      expression: "object.kind == 'EnvoyFilter'"
+    - name: isWasmPlugin
+      expression: "object.kind == 'WasmPlugin'"
+    - name: isProxyConfig
+      expression: "object.kind == 'ProxyConfig'"
+    - name: isTelemetry
+      expression: "object.kind == 'Telemetry'"
+  validations:
+    - expression: "!variables.isEnvoyFilter"
+    - expression: "!variables.isWasmPlugin"
+    - expression: "!variables.isProxyConfig"
+    - expression: |
+        !(
+          variables.isTelemetry && (
+            (has(object.spec.tracing) ? object.spec.tracing : {}).exists(t, has(t.useRequestIdForTraceSampling)) ||
+            (has(object.spec.metrics) ? object.spec.metrics : {}).exists(m, has(m.reportingInterval)) ||
+            (has(object.spec.accessLogging) ? object.spec.accessLogging : {}).exists(l, has(l.filter))
+          )
+        )
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: "stable-channel-default-policy-binding.istio.io"
+spec:
+  policyName: "stable-channel-default-policy.istio.io"
+  validationActions: [Deny]
+{{- end }}

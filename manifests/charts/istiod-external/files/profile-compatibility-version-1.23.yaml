@@ -1,0 +1,19 @@
+# WARNING: DO NOT EDIT, THIS FILE IS A COPY.
+# The original version of this file is located at /manifests/helm-profiles directory.
+# If you want to make a change in this file, edit the original one and run "make gen".
+
+pilot:
+  env:
+    # 1.24 behavioral changes
+    ENABLE_INBOUND_RETRY_POLICY: "false"
+    EXCLUDE_UNSAFE_503_FROM_DEFAULT_RETRY: "false"
+    PREFER_DESTINATIONRULE_TLS_FOR_EXTERNAL_SERVICES: "false"
+    ENABLE_ENHANCED_DESTINATIONRULE_MERGE: "false"
+    PILOT_UNIFIED_SIDECAR_SCOPE: "false"
+
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      # 1.24 behaviour changes
+      ENABLE_DEFERRED_STATS_CREATION: "false"
+      BYPASS_OVERLOAD_MANAGER_FOR_STATIC_LISTENERS: "false"
