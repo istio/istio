@@ -61,7 +61,6 @@ func (w *WFPConfigurator) CreateInpodRules(logger *istiolog.Scope, podOverrides 
 			FilterTuple: hcn.FiveTuple{
 				RemotePorts: strconv.Itoa(ZtunnelInboundPort),
 				Protocols:   "6",
-				Priority:    1,
 			},
 			InboundExceptions: hcn.ProxyExceptions{
 				IpAddressExceptions: []string{w.Cfg.HostProbeSNATAddress.String(), Localhost},
@@ -81,7 +80,6 @@ func (w *WFPConfigurator) CreateInpodRules(logger *istiolog.Scope, podOverrides 
 		policySetting.InboundProxyPort = strconv.Itoa(ZtunnelInboundPlaintextPort)
 		policySetting.OutboundProxyPort = strconv.Itoa(ZtunnelOutboundPort)
 		policySetting.InboundExceptions.PortExceptions = []string{strconv.Itoa(ZtunnelInboundPort)}
-		policySetting.FilterTuple.Priority = 2
 
 		dataP2, _ := json.Marshal(&policySetting)
 		endpointPolicy2 := hcn.EndpointPolicy{
