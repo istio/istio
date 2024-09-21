@@ -118,7 +118,7 @@ func servicesCmd(ctx cli.Context) *cobra.Command {
 		Example: `  # Retrieve summary about services configuration for a randomly chosen ztunnel.
   istioctl ztunnel-config services
 
-  # Retrieve full certificate dump of workloads for a given Ztunnel instance.
+  # Retrieve full services dump of workloads for a given Ztunnel instance.
   istioctl ztunnel-config services <ztunnel-name[.namespace]> -o json
 `,
 		Aliases: []string{"services", "s", "svc"},
@@ -194,7 +194,7 @@ func allCmd(ctx cli.Context) *cobra.Command {
   istioctl ztunnel-config all
 
   # Retrieve full configuration dump of workloads for a given Ztunnel instance.
-  istioctl ztunnel-config policies <ztunnel-name[.namespace]> -o json
+  istioctl ztunnel-config all <ztunnel-name[.namespace]> -o json
 `,
 		Args: common.validateArgs,
 		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
