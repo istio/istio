@@ -224,6 +224,10 @@ func isProcess(entry fs.DirEntry) bool {
 	return true
 }
 
+func isNotNumber(r rune) bool {
+	return r < '0' || r > '9'
+}
+
 func GetFd(f fs.File) (uintptr, error) {
 	if fdable, ok := f.(interface{ Fd() uintptr }); ok {
 		return fdable.Fd(), nil
@@ -449,4 +453,61 @@ func (p *PodNetnsProcFinder) isHostNetns(foundIno, foundDev uint64) bool {
 		return true
 	}
 	return false
+}
+
+func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (PodToNetns, error) {
+	/*
+		for each process, find its netns inode,
+		if we already seen the inode, skip it
+		if we haven't seen the inode, check the process cgroup and see if we
+		can extract a pod uid from it.
+		if we can, open the netns, and save a map of uid->netns-fd
+	*/
+
+	podUIDNetns := make(PodToNetns)
+	netnsObserved := sets.New[uint64]()
+
+	entries, err := fs.ReadDir(p.proc, ".")
+	if err != nil {
+		return nil, err
+	}
+
+	desiredUIDs := sets.New(maps.Keys(pods)...)
+	for _, entry := range entries {
+		// we can't break here because we need to close all the netns we opened
+		// plus we want to return whatever we can to the user.
+		res, err := p.processEntry(p.proc, netnsObserved, desiredUIDs, entry)
+		if err != nil {
+			log.Debugf("error processing entry: %s %v", entry.Name(), err)
+			continue
+		}
+		if res == nil {
+			continue
+		}
+
+		// Check if we found another procfs entry for this UID already
+		// if we did, and it's older than this one, continue.
+		// Otherwise replace it with the one we just found
+		if existingNetns, exists := podUIDNetns[string(res.uid)]; exists {
+			log.Warnf("found more than one netns for the same pod: %s, will use oldest process netns", res.uid)
+			if existingNetns.NetnsCloser().OwnerProcStarttime() < res.ownerProcStarttime {
+				continue
+			}
+		}
+
+		pod := pods[res.uid]
+		netns := &NetnsWithFd{
+			netns:              res.netns,
+			fd:                 res.netnsfd,
+			inode:              res.inode,
+			ownerProcStarttime: res.ownerProcStarttime,
+		}
+		workload := workloadInfo{
+			workload: podToWorkload(pod),
+			netns:    netns,
+		}
+		podUIDNetns[string(res.uid)] = workload
+
+	}
+	return podUIDNetns, nil
 }

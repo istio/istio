@@ -4,7 +4,7 @@ metadata:
   name: istio-cni-windows-node
   namespace: istio-system
   labels:
-    k8s-app: istio-cni--windowsnode
+    k8s-app: istio-cni-windows-node
     release: istio-cni-windows
     istio.io/rev: 1-23-0
     install.operator.istio.io/owning-resource: unknown
@@ -65,7 +65,7 @@ spec:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          image: "istiolocaltesting.azurecr.io/istio-cni-windows:test-24"
+          image: "istiolocaltesting.azurecr.io/istio-cni-windows:test-39"
           ports:
           - containerPort: 15014
             name: metrics
@@ -119,6 +119,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
             - name: ZTUNNEL_UDS_ADDRESS
               value: \\.\pipe\istio-zds
             - name: MOUNTED_CNI_NET_DIR
@@ -135,17 +139,10 @@ spec:
               cpu: 100m
               memory: 100Mi
       volumes:
-        # Used to install CNI.
-        - name: cni-bin-dir
-          hostPath:
-            path: /k/azurecni/bin
         - name: cni-ztunnel-sock-dir
           hostPath:
             path: /var/run/ztunnel
             type: DirectoryOrCreate
-        - name: cni-net-dir
-          hostPath:
-            path: /k/azurecni/netconf
         # Used for UDS sockets for logging, ambient eventing
         - name: cni-socket-dir
           hostPath:
