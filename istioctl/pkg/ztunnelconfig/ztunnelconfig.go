@@ -287,7 +287,7 @@ func connectionsCmd(ctx cli.Context) *cobra.Command {
   istioctl ztunnel-config connections --node ambient-worker
 
   # Retrieve summary of connections for a given Ztunnel instance.
-  istioctl ztunnel-config workload <ztunnel-name[.namespace]>
+  istioctl ztunnel-config connections <ztunnel-name[.namespace]>
 `,
 		Aliases: []string{"cons"},
 		Args:    common.validateArgs,
