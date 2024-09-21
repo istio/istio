@@ -3276,6 +3276,24 @@ func TestBuildDeltaClusters(t *testing.T) {
 			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster", "outbound|8080||testnew.com"},
 		},
 		{
+			name: "service and destination rule are added",
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "test-desinationrule",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: destRuleWithUpatedHost,
+			}},
+			services: []*model.Service{testService1, testService2},
+			configUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace},
+				model.ConfigKey{Kind: kind.DestinationRule, Name: "test-desinationrule", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters:     []string{"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster", "outbound|8080||testnew.com"},
+		},
+		{
 			name:                 "service is removed",
 			services:             []*model.Service{},
 			configUpdated:        sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "test.com", Namespace: TestServiceNamespace}),
@@ -3504,6 +3522,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 			}
 			assert.Equal(t, removed, tc.removedClusters)
 			assert.Equal(t, xdstest.MapKeys(xdstest.ExtractClusters(clusters)), tc.expectedClusters)
+			assert.Equal(t, len(cg.env.PushContext().GetMetric(model.DuplicatedClusters.Name())), 0)
 		})
 	}
 }

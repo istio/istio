@@ -600,6 +600,14 @@ func (ps *PushContext) AddMetric(metric monitoring.Metric, key string, proxyID, 
 	metricMap[key] = ev
 }
 
+func (ps *PushContext) GetMetric(metric string) map[string]ProxyPushStatus {
+	ps.proxyStatusMutex.Lock()
+	defer ps.proxyStatusMutex.Unlock()
+
+	metricMap, _ := ps.ProxyStatus[metric]
+	return metricMap
+}
+
 var (
 
 	// EndpointNoPod tracks endpoints without an associated pod. This is an error condition, since
