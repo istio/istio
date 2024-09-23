@@ -601,11 +601,9 @@ func (ps *PushContext) AddMetric(metric monitoring.Metric, key string, proxyID, 
 }
 
 func (ps *PushContext) GetMetric(metric string) map[string]ProxyPushStatus {
-	ps.proxyStatusMutex.Lock()
-	defer ps.proxyStatusMutex.Unlock()
-
-	metricMap, _ := ps.ProxyStatus[metric]
-	return metricMap
+	ps.proxyStatusMutex.RLock()
+	defer ps.proxyStatusMutex.RUnlock()
+	return ps.ProxyStatus[metric]
 }
 
 var (
