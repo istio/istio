@@ -107,7 +107,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			servicePortClusters[string(svcHost)][port] = cluster
 		}
 	}
-
+	have := sets.String{}
 	for key := range updates.ConfigsUpdated {
 		// deleted clusters for this config.
 		var deleted []string
@@ -119,7 +119,13 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		case kind.DestinationRule:
 			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
 		}
-		services = append(services, svcs...)
+		// Service and Destination Rule can select the same service. So we need to dedup the services.
+		for _, svc := range svcs {
+			if !have.InsertContains(svc.Hostname.String()) {
+				services = append(services, svc)
+			}
+		}
+
 		deletedClusters.InsertAll(deleted...)
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
