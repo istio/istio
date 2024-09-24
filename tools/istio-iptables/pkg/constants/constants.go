@@ -73,6 +73,7 @@ const (
 	ISTIOTPROXY     = "ISTIO_TPROXY"
 	ISTIOREDIRECT   = "ISTIO_REDIRECT"
 	ISTIOINREDIRECT = "ISTIO_IN_REDIRECT"
+	ISTIODROP       = "ISTIO_DROP"
 )
 
 // Constants used in cobra/viper CLI

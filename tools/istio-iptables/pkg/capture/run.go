@@ -324,7 +324,8 @@ func (cfg *IptablesConfigurator) Run() error {
 	dropInvalid := cfg.cfg.DropInvalid
 	if dropInvalid {
 		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.PREROUTING, constants.MANGLE, "-m", "conntrack", "--ctstate",
-			"INVALID", "-j", constants.DROP)
+			"INVALID", "-j", constants.ISTIODROP)
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIODROP, constants.MANGLE, "-j", constants.DROP)
 	}
 
 	// Create a new chain for to hit tunnel port directly. Envoy will be listening on port acting as VPN tunnel.

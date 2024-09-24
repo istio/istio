@@ -1,7 +1,9 @@
 iptables-save
 ip6tables-save
 * mangle
--A PREROUTING -m conntrack --ctstate INVALID -j DROP
+-N ISTIO_DROP
+-A PREROUTING -m conntrack --ctstate INVALID -j ISTIO_DROP
+-A ISTIO_DROP -j DROP
 COMMIT
 * nat
 -N ISTIO_INBOUND

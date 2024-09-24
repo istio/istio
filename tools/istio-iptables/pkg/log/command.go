@@ -32,8 +32,8 @@ var (
 )
 
 var IDToCommand = map[string]Command{
-	       "JumpInbound":             JumpInbound,
-	       "JumpOutbound":            JumpOutbound,
+	"JumpInbound":  JumpInbound,
+	"JumpOutbound": JumpOutbound,
 
 	"ExcludeInboundPort":      ExcludeInboundPort,
 	"IncludeInboundPort":      IncludeInboundPort,
