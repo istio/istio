@@ -234,6 +234,7 @@ metadata:
     name: default
     uid: null
 spec:
+  ipFamilyPolicy: PreferDualStack
   ports:
   - appProtocol: tcp
     name: status-port
