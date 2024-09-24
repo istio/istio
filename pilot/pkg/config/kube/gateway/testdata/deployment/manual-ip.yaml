@@ -230,6 +230,7 @@ metadata:
     name: default
     uid: null
 spec:
+  ipFamilyPolicy: PreferDualStack
   loadBalancerIP: 1.2.3.4
   ports:
   - appProtocol: tcp
