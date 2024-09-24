@@ -15,7 +15,9 @@
 package proxyconfig
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -261,6 +263,13 @@ func printStatus(c *cobra.Command, kubeClient kube.CLIClient, statsType, podName
 			return err
 		}
 		_, _ = fmt.Fprint(c.OutOrStdout(), string(out))
+	case jsonOutput:
+		var prettyJSON bytes.Buffer
+		err := json.Indent(&prettyJSON, []byte(stats), "", "    ")
+		if err != nil {
+			return err
+		}
+		_, _ = fmt.Fprint(c.OutOrStdout(), prettyJSON.String()+"\n")
 	default:
 		_, _ = fmt.Fprint(c.OutOrStdout(), stats)
 	}
