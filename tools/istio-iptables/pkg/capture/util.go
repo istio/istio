@@ -14,6 +14,15 @@
 
 package capture
 
+import (
+	"strings"
+
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/tools/istio-iptables/pkg/builder"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
+)
+
 func CombineMatchers(values []string, matcher func(value string) []string) []string {
 	matchers := make([][]string, 0, len(values))
 	for _, value := range values {
@@ -28,4 +37,134 @@ func Flatten(lists ...[]string) []string {
 		result = append(result, list...)
 	}
 	return result
+}
+
+// VerifyIptablesState function verifies the current iptables state against the expected state.
+// The current state is considered equal to the expected state if the following three conditions are met:
+//   - Every ISTIO_* chain in the expected state must also exist in the current state.
+//   - Every ISTIO_* chain must have the same number of elements in both the current and expected state.
+//   - Every rule in the expected state (whether it is in an ISTIO or non-ISTIO chain) must also exist in the current state.
+//     The verification is performed by using "iptables -C" on the rule produced by our iptables builder. No comparison of the parsed rules is done.
+//
+// Note: The order of the rules is not checked and is not used to determine the equivalence of the two states.
+// The function returns two boolean values, the first one indicates whether residues exist,
+// and the second one indicates whether differences were found between the current and expected state.
+func VerifyIptablesState(log *istiolog.Scope, ext dep.Dependencies, ruleBuilder *builder.IptablesRuleBuilder,
+	iptVer, ipt6Ver *dep.IptablesVersion,
+) (bool, bool) {
+	// These variables track the status of iptables installation
+	residueExists := false // Flag to indicate if iptables residues from previous executions are found
+	deltaExists := false   // Flag to indicate if a difference is found between expected and current state
+
+check_loop:
+	for _, ipCfg := range []struct {
+		ver        *dep.IptablesVersion
+		expected   string
+		checkRules [][]string
+	}{
+		{iptVer, ruleBuilder.BuildV4Restore(), ruleBuilder.BuildCheckV4()},
+		{ipt6Ver, ruleBuilder.BuildV6Restore(), ruleBuilder.BuildCheckV6()},
+	} {
+		if ipCfg.ver == nil {
+			continue
+		}
+		output, err := ext.RunWithOutput(constants.IPTablesSave, ipCfg.ver, nil)
+		if err == nil {
+			currentState := ruleBuilder.GetStateFromSave(output.String())
+			log.Debugf("Current iptables state: %#v", currentState)
+			for _, value := range currentState {
+				if residueExists {
+					break
+				}
+				residueExists = len(value) != 0
+			}
+			if !residueExists {
+				continue
+			}
+			expectedState := ruleBuilder.GetStateFromSave(ipCfg.expected)
+			log.Debugf("Expected iptables state: %#v", expectedState)
+			for table, chains := range expectedState {
+				_, ok := currentState[table]
+				if !ok {
+					deltaExists = true
+					log.Debugf("Can't find expected table %s in current state", table)
+					break check_loop
+				}
+				for chain, rules := range chains {
+					currentRules, ok := currentState[table][chain]
+					if !ok || (strings.HasPrefix(chain, "ISTIO_") && len(rules) != len(currentRules)) {
+						deltaExists = true
+						log.Debugf("Mismatching number of rules in chain %s between current and expected state", chain)
+						break check_loop
+					}
+				}
+			}
+			for _, cmd := range ipCfg.checkRules {
+				if err := ext.Run(constants.IPTables, ipCfg.ver, nil, cmd...); err != nil {
+					deltaExists = true
+					log.Debugf("iptables check rules failed")
+					break
+				}
+			}
+		}
+
+	}
+
+	if !residueExists {
+		log.Info("Clean-state detected, new iptables are needed")
+		return false, true
+	}
+
+	if deltaExists {
+		log.Warn("Found residues of old iptables rules/chains, reconciliation is needed")
+	} else {
+		log.Warn("Found compatible residues of old iptables rules/chains, reconciliation not needed")
+	}
+
+	return residueExists, deltaExists
+}
+
+func HasIstioLeftovers(state map[string]map[string][]string) map[string]struct{ Chains, Jumps []string } {
+	output := make(map[string]struct{ Chains, Jumps []string })
+	for table, chains := range state {
+		istioChains := []string{}
+		istioJumps := []string{}
+		for chain, rules := range chains {
+			if strings.HasPrefix(chain, "ISTIO_") {
+				istioChains = append(istioChains, chain)
+			}
+			for _, rule := range rules {
+				if isIstioJump(rule) {
+					istioJumps = append(istioJumps, rule)
+				}
+			}
+		}
+		if len(istioChains) != 0 || len(istioJumps) != 0 {
+			output[table] = struct{ Chains, Jumps []string }{
+				Chains: istioChains,
+				Jumps:  istioJumps,
+			}
+		}
+	}
+	return output
+}
+
+// isIstioJump checks if the given rule is a jump to an Istio chain
+func isIstioJump(rule string) bool {
+	// Split the rule into fields
+	fields := strings.Fields(rule)
+	for i, field := range fields {
+		// Check for --jump or -j
+		if field == "--jump" || field == "-j" {
+			// Check if there's a next field (the target)
+			if i+1 < len(fields) {
+				target := fields[i+1]
+				// Remove any surrounding quotes
+				target = strings.Trim(target, "'\"")
+				// Check if the target starts with ISTIO_
+				return strings.HasPrefix(target, "ISTIO_")
+			}
+		}
+	}
+	return false
 }

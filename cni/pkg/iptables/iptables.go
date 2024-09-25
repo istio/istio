@@ -25,6 +25,7 @@ import (
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
+	iptablescapture "istio.io/istio/tools/istio-iptables/pkg/capture"
 	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
@@ -60,6 +61,9 @@ type Config struct {
 	// If true, TPROXY will be used for redirection. Else, REDIRECT will be used.
 	// Currently, this is treated as a feature flag, but may be promoted to a permanent feature if there is a need.
 	TPROXYRedirection bool `json:"TPROXY_REDIRECTION"`
+	Reconcile         bool `json:"RECONCILE"`
+	CleanupOnly       bool `json:"CLEANUP_ONLY"`
+	ForceApply        bool `json:"FORCE_APPLY"`
 }
 
 type IptablesConfigurator struct {
@@ -476,22 +480,58 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 
 func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBuilder *builder.IptablesRuleBuilder) error {
 	var execErrs []error
-
-	if cfg.cfg.RestoreFormat {
-		// Execute iptables-restore
-		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV))
-		// Execute ip6tables-restore
-		if cfg.cfg.EnableIPv6 {
-			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V))
+	guardrails := false
+	defer func() {
+		if guardrails {
+			log.Info("Removing guardrails")
+			guardrailsCleanup := iptablesBuilder.BuildCleanupGuardrails()
+			_ = cfg.executeIptablesCommands(&cfg.iptV, guardrailsCleanup)
+			_ = cfg.executeIptablesCommands(&cfg.ipt6V, guardrailsCleanup)
 		}
-	} else {
-		// Execute iptables commands
-		execErrs = append(execErrs,
-			cfg.executeIptablesCommands(&cfg.iptV, iptablesBuilder.BuildV4()))
-		// Execute ip6tables commands
-		if cfg.cfg.EnableIPv6 {
-			execErrs = append(execErrs,
-				cfg.executeIptablesCommands(&cfg.ipt6V, iptablesBuilder.BuildV6()))
+	}()
+	residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, cfg.ext, iptablesBuilder, &cfg.iptV, &cfg.ipt6V)
+	if residueExists && deltaExists && !cfg.cfg.Reconcile {
+		log.Warn("reconcile is needed but no-reconcile flag is set. Unexpected behavior may occur due to preexisting iptables rules")
+	}
+	// Cleanup Step
+	if (residueExists && deltaExists && cfg.cfg.Reconcile) || cfg.cfg.CleanupOnly {
+		// Apply safety guardrails
+		if !cfg.cfg.CleanupOnly {
+			log.Info("Setting up guardrails")
+			guardrailsCleanup := iptablesBuilder.BuildCleanupGuardrails()
+			guardrailsRules := iptablesBuilder.BuildGuardrails()
+			for _, ver := range []*dep.IptablesVersion{&cfg.iptV, &cfg.ipt6V} {
+				cfg.tryExecuteIptablesCommands(ver, guardrailsCleanup)
+				if err := cfg.executeIptablesCommands(ver, guardrailsRules); err != nil {
+					return err
+				}
+				guardrails = true
+			}
+		}
+		// Remove old iptables
+		log.Info("Performing cleanup of existing iptables")
+		cfg.tryExecuteIptablesCommands(&cfg.iptV, iptablesBuilder.BuildCleanupV4())
+		cfg.tryExecuteIptablesCommands(&cfg.ipt6V, iptablesBuilder.BuildCleanupV6())
+
+		// Remove leftovers from non-matching istio iptables cfg
+	}
+	// Apply Step
+	if (deltaExists || cfg.cfg.ForceApply) && !cfg.cfg.CleanupOnly {
+		log.Info("Applying iptables chains and rules")
+		if cfg.cfg.RestoreFormat {
+			// Execute iptables-restore
+			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV))
+			// Execute ip6tables-restore
+			if cfg.cfg.EnableIPv6 {
+				execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V))
+			}
+		} else {
+			// Execute iptables commands
+			execErrs = append(execErrs, cfg.executeIptablesCommands(&cfg.iptV, iptablesBuilder.BuildV4()))
+			// Execute ip6tables commands
+			if cfg.cfg.EnableIPv6 {
+				execErrs = append(execErrs, cfg.executeIptablesCommands(&cfg.iptV, iptablesBuilder.BuildV6()))
+			}
 		}
 	}
 	return errors.Join(execErrs...)
@@ -515,6 +555,12 @@ func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(
 	log.Infof("Running %s with the following input:\n%v", iptVer.CmdToString(cmd), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
 	return cfg.ext.Run(cmd, iptVer, strings.NewReader(data), "--noflush", "-v")
+}
+
+func (cfg *IptablesConfigurator) tryExecuteIptablesCommands(iptVer *dep.IptablesVersion, commands [][]string) {
+	for _, cmd := range commands {
+		cfg.ext.RunQuietlyAndIgnore(iptablesconstants.IPTables, iptVer, nil, cmd...)
+	}
 }
 
 func (cfg *IptablesConfigurator) addLoopbackRoute() error {
