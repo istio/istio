@@ -509,8 +509,8 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	if redirectDNS {
 		// Jump from OUTPUT chain to ISTIOOUTPUT chain for all UDP traffic
-		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.NAT, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
-		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.OUTPUT, constants.RAW, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
+		cfg.ruleBuilder.AppendRule(iptableslog.JumpOutbound, constants.OUTPUT, constants.NAT, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
+		cfg.ruleBuilder.AppendRule(iptableslog.JumpOutbound, constants.OUTPUT, constants.RAW, "-p", constants.UDP, "-j", constants.ISTIOOUTPUT)
 
 		HandleDNSUDP(
 			AppendOps, cfg.ruleBuilder, cfg.ext, &iptVer, &ipt6Ver,
