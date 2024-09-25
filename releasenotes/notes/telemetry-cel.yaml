@@ -17,8 +17,8 @@ upgradeNotes:
     `filter_state["wasm.istio_responseClass"]` instead of
     `istio_responseClass`. Presence operator can be used for backwards
     compatible expressions in a mixed proxy scenario, e.g.
-    `has(filter_state.downstream_peer) ? filter_state.downstream_peer.namespace :
-    filter_state["wasm.downstream_peer"].namespace` to read the namespace of
-    the peer. The peer metadata uses baggage encoding with the following field
-    attributes: `namespace`, `cluster`, `service`, `revision`, `app`, `version`,
-    `workload`, `type` (e.g. `"deployment"`), and `name` (e.g. `pod-foo-12345`).
+    `has(filter_state.downstream_peer) ? filter_state.downstream_peer.namespace : filter_state["wasm.downstream_peer"].namespace`
+    to read the namespace of the peer. The peer metadata uses baggage encoding
+    with the following field attributes: `namespace`, `cluster`, `service`,
+    `revision`, `app`, `version`, `workload`, `type` (e.g. `"deployment"`), and
+    `name` (e.g. `"pod-foo-12345"`).
