@@ -1493,6 +1493,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		LookupNetworkGateways: func() []model.NetworkGateway {
 			return nil
 		},
+		StatusNotifier: model.NewActiveNotifier(true),
 	})
 	idx.NetworksSynced()
 	cl.RunAndWait(test.NewStop(t))

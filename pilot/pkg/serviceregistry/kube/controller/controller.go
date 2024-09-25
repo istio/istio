@@ -140,6 +140,10 @@ type Options struct {
 	ConfigCluster bool
 
 	CniNamespace string
+
+	// StatusWritingEnabled determines if status writing is enabled. This may be set to `nil`, in which case status
+	// writing will never be enabled
+	StatusWritingEnabled *model.ActiveNotifier
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -284,6 +288,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			XDSUpdater:            options.XDSUpdater,
 			LookupNetwork:         c.Network,
 			LookupNetworkGateways: c.NetworkGateways,
+			StatusNotifier:        options.StatusWritingEnabled,
 		})
 	}
 	c.exports = newServiceExportCache(c)

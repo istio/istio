@@ -105,6 +105,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		MeshServiceController: meshServiceController,
 		ConfigCluster:         opts.ConfigCluster,
 		SystemNamespace:       opts.SystemNamespace,
+		StatusWritingEnabled:  model.NewActiveNotifier(false),
 	}
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)

@@ -120,6 +120,7 @@ type Options struct {
 	XDSUpdater            model.XDSUpdater
 	LookupNetwork         LookupNetwork
 	LookupNetworkGateways LookupNetworkGateways
+	StatusNotifier        *model.ActiveNotifier
 }
 
 func New(options Options) Index {
@@ -200,7 +201,7 @@ func New(options Options) Index {
 	authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
 
 	if features.EnableAmbientStatus {
-		statusQueue := statusqueue.NewQueue()
+		statusQueue := statusqueue.NewQueue(options.StatusNotifier)
 		statusqueue.Register(statusQueue, "istio-ambient-service", WorkloadServices, func(info model.ServiceInfo) (kclient.Patcher, []string) {
 			// Since we have 1 collection for multiple types, we need to split these out
 			if info.Source.Kind == kind.ServiceEntry {

@@ -32,6 +32,16 @@ type StatusQueue struct {
 	// reporters is a mapping of unique controller name -> status information.
 	// Note: this is user facing in the fieldManager!
 	reporters map[string]statusReporter
+
+	// writing keeps track if we are currently writing status. This is set to 'true' when we are currently the leader.
+	// This is awkward in order to plumb through the leader status from the top of the process down to this controller.
+	// We want to meet these requirements:
+	// * When we start leading, we MUST process all existing items (and then any updates of course)
+	// * When we stop leading, we MUST not write status any longer
+	// * When we stop leading, we SHOULD do as little work as possible
+	// To do this, we keep track of an ActiveNotifier which stores the current state (leading or not) and notifies us on changes.
+	// This is wrapped in an atomic.Pointer since we don't have
+	writing *model.ActiveNotifier
 }
 
 // statusItem represents the objects stored on the queue
@@ -41,10 +51,20 @@ type statusItem struct {
 }
 
 // NewQueue builds a new status queue.
-func NewQueue() *StatusQueue {
+func NewQueue(active *model.ActiveNotifier) *StatusQueue {
 	sq := &StatusQueue{
 		reporters: make(map[string]statusReporter),
+		writing:   active,
 	}
+	active.AddHandler(func(active bool) {
+		if active {
+			// If we are set to active, tell all the reporters to re-list the current state
+			// This ensures we process any existing objects when we become the leader.
+			for _, r := range sq.reporters {
+				r.relist()
+			}
+		}
+	})
 	sq.queue = controllers.NewQueue("ambient status",
 		controllers.WithGenericReconciler(sq.reconcile),
 		controllers.WithMaxAttempts(5))
@@ -108,6 +128,7 @@ type StatusWriter interface {
 type statusReporter struct {
 	getObject func(string) (StatusWriter, bool)
 	patcher   func(StatusWriter) (kclient.Patcher, []string)
+	relist    func()
 	start     func()
 }
 
@@ -126,16 +147,30 @@ func Register[T StatusWriter](q *StatusQueue, name string, col krt.Collection[T]
 		patcher: func(writer StatusWriter) (kclient.Patcher, []string) {
 			return getPatcher(writer.(T))
 		},
-		start: func() {
-			col.Register(func(o krt.Event[T]) {
-				ol := o.Latest()
-				key := string(krt.GetKey(ol))
-				log.Debugf("registering key for processing: %s", key)
+		relist: func() {
+			log.Debugf("processing snapshot")
+			for _, obj := range col.List() {
 				q.queue.Add(statusItem{
-					Key:      key,
+					Key:      string(krt.GetKey(obj)),
 					Reporter: name,
 				})
-			})
+			}
+		},
+		start: func() {
+			col.RegisterBatch(func(events []krt.Event[T], initialSync bool) {
+				if !q.writing.Current() {
+					return
+				}
+				for _, o := range events {
+					ol := o.Latest()
+					key := string(krt.GetKey(ol))
+					log.Debugf("registering key for processing: %s", key)
+					q.queue.Add(statusItem{
+						Key:      key,
+						Reporter: name,
+					})
+				}
+			}, true)
 		},
 	}
 	q.reporters[name] = sr
