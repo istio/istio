@@ -536,8 +536,7 @@ func (a *Agent) startFileWatcher(ctx context.Context, filePath string, handler f
 }
 
 func (a *Agent) initLocalDNSServer() (err error) {
-	// we don't need dns server on gateways
-	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
+	if a.cfg.DNSCapture {
 		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr,
 			a.cfg.DNSForwardParallel); err != nil {
 			return err
