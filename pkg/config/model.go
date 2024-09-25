@@ -28,7 +28,6 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
-	"istio.io/istio/pkg/maps"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubetypes "k8s.io/apimachinery/pkg/types"
@@ -36,6 +35,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
 )
