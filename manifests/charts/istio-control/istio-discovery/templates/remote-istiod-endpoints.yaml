@@ -1,5 +1,5 @@
 # This file is only used for remote `istiod` installs.
-{{- if .Values.remoteIstiod }}
+{{- if .Values.istiodRemote.enabled }}
 # if the remotePilotAddress is an IP addr
 {{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
 apiVersion: v1

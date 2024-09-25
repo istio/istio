@@ -3,7 +3,7 @@
 {{- $whv := dict
  "revision" .Values.revision
   "injectionPath" .Values.istiodRemote.injectionPath
-  "injectionURL" .Values.istiodRemote.injectionURL
+  "injectionURL" .Values.istiodRemote.injectionURL #TODO BML this is conditionally set for remote installs, the others are not??
   "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
   "caBundle" .Values.istiodRemote.injectionCABundle
   "namespace" .Release.Namespace }}

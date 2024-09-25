@@ -1,5 +1,5 @@
 # This file is only used for remote `istiod` installs.
-{{- if .Values.remoteIstiod }}
+{{- if .Values.istiodRemote.enabled }}
 apiVersion: v1
 kind: Service
 metadata:

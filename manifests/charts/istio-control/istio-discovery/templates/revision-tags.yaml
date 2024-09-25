@@ -1,12 +1,12 @@
 # Not created if istiod is running remotely
-{{- if not .Values.remoteIstiod }}
+{{- if not .Values.istiodRemote.enabled }}
 # Adapted from istio-discovery/templates/mutatingwebhook.yaml
 # Removed paths for legacy and default selectors since a revision tag
 # is inherently created from a specific revision
 {{- $whv := dict
  "revision" .Values.revision
   "injectionPath" .Values.istiodRemote.injectionPath
-  "injectionURL" .Values.istiodRemote.injectionURL
+  "injectionURL" .Values.istiodRemote.injectionURL #TODO BML this is invalid to set if `istiodRemote.enabled` is false, we should express that.
   "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
   "namespace" .Release.Namespace }}
 {{- define "core" }}
