@@ -58,6 +58,8 @@ spec:
         name: httpbin
         # Same as found in Dockerfile's CMD but using an unprivileged port
         command:
+        - pipenv
+        - run
         - gunicorn
         - -b
         - "[::]:8080"
