@@ -51,9 +51,9 @@ func GetAuthorizationPolicies(env *Environment) *AuthorizationPolicies {
 	policies := env.List(gvk.AuthorizationPolicy, NamespaceAll)
 	sortConfigByCreationTime(policies)
 
-	stats := make(map[string]int)
+	policyCount := make(map[string]int)
 	for _, config := range policies {
-		stats[config.Namespace]++
+		policyCount[config.Namespace]++
 	}
 
 	for _, config := range policies {
@@ -64,7 +64,7 @@ func GetAuthorizationPolicies(env *Environment) *AuthorizationPolicies {
 			Spec:        config.Spec.(*authpb.AuthorizationPolicy),
 		}
 		if _, ok := policy.NamespaceToPolicies[config.Namespace]; !ok {
-			policy.NamespaceToPolicies[config.Namespace] = make([]AuthorizationPolicy, 0, stats[config.Namespace])
+			policy.NamespaceToPolicies[config.Namespace] = make([]AuthorizationPolicy, 0, policyCount[config.Namespace])
 		}
 		policy.NamespaceToPolicies[config.Namespace] = append(policy.NamespaceToPolicies[config.Namespace], authzConfig)
 	}
