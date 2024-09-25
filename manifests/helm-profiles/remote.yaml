@@ -1,0 +1,9 @@
+# The remote profile enables installing istio with a remote control plane. The `base` and `istio-discovery` charts must be deployed with this profile.
+remoteIstiod: true
+configMap: false
+telemetry:
+  enabled: false
+global:
+  # TODO BML maybe collapse some of these
+  externalIstiod: true
+  omitSidecarInjectorConfigMap: true

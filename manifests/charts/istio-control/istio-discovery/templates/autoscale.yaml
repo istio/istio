@@ -1,3 +1,5 @@
+# Not created if istiod is running remotely
+{{- if not .Values.remoteIstiod }}
 {{- if and .Values.autoscaleEnabled .Values.autoscaleMin .Values.autoscaleMax }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -38,4 +40,5 @@ spec:
   behavior: {{ toYaml .Values.autoscaleBehavior | nindent 4 }}
   {{- end }}
 ---
+{{- end }}
 {{- end }}

@@ -1,3 +1,5 @@
+# Created if this is not a remote istiod, OR if it is and is also a config cluster
+{{- if or (and .Values.remoteIstiod .Values.global.configCluster) (not .Values.remoteIstiod) }}
 {{- if .Values.global.configValidation }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -62,4 +64,5 @@ webhooks:
           - "{{ .Values.revision }}"
           {{- end }}
 ---
+{{- end }}
 {{- end }}

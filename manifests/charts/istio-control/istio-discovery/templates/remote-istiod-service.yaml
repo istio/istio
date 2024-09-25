@@ -1,8 +1,9 @@
 # This file is only used for remote `istiod` installs.
-{{- if .Values.global.remotePilotAddress }}
+{{- if .Values.remoteIstiod }}
 apiVersion: v1
 kind: Service
 metadata:
+  # TODO BML remove
   {{- if .Values.global.externalIstiod }}
   name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
   {{- else }}

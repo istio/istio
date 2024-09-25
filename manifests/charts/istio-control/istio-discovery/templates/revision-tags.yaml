@@ -1,3 +1,5 @@
+# Not created if istiod is running remotely
+{{- if not .Values.remoteIstiod }}
 # Adapted from istio-discovery/templates/mutatingwebhook.yaml
 # Removed paths for legacy and default selectors since a revision tag
 # is inherently created from a specific revision
@@ -144,4 +146,5 @@ webhooks:
 
 {{- end }}
 ---
+{{- end }}
 {{- end }}

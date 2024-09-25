@@ -1,3 +1,5 @@
+# Not created if istiod is running remotely
+{{- if not .Values.remoteIstiod }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -287,3 +289,4 @@ spec:
       {{- end }}
 
 ---
+{{- end }}
