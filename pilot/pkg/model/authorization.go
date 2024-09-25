@@ -53,7 +53,7 @@ func GetAuthorizationPolicies(env *Environment) *AuthorizationPolicies {
 
 	stats := make(map[string]int)
 	for _, config := range policies {
-		stats[config.Namespace] += 1
+		stats[config.Namespace]++
 	}
 
 	for _, config := range policies {
