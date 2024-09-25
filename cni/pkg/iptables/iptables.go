@@ -482,15 +482,6 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 	return errors.Join(execErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, args [][]string) error {
-	var iptErrs []error
-	// TODO: pass log all the way through
-	for _, argSet := range args {
-		iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IPTables, iptVer, nil, argSet...))
-	}
-	return errors.Join(iptErrs...)
-}
-
 func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(
 	log *istiolog.Scope,
 	data string,
