@@ -55,11 +55,11 @@ spec:
         metric: REQUEST_COUNT
       tagOverrides:
         response_code:
-          value: "istio_responseClass"
+          value: filter_state["wasm.istio_responseClass"]
         request_operation: 
-          value: istio_operationId
+          value: filter_state["wasm.istio_operationId"]
         grpc_response_status: 
-          value: istio_grpcResponseStatus
+          value: filter_state["wasm.istio_grpcResponseStatus"]
         custom_dimension: 
           value: "'test'"
         source_principal:
