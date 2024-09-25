@@ -22,6 +22,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
@@ -205,11 +206,10 @@ func TestQueueLeaderElection(t *testing.T) {
 	// Signal we lost the leader election
 	notifier.StoreAndNotify(false)
 	// Update should be ignored...
-	clienttest.Wrap(t, svc).CreateOrUpdate(&v1.Service{ObjectMeta: metav1.ObjectMeta{
-		Name:        "conds",
-		Namespace:   "default",
-		Annotations: map[string]string{"conditions": "t2=true"},
-	}})
+	// we use a Patch since the fake client isn't smart enough to not wipe out status
+	svc.Patch("conds", "default", types.MergePatchType,
+		[]byte(`{"metadata":{"annotations":{"conditions":"t2=true"}}}`))
+	expectConditions("conds", map[string]bool{"t1": true})
 	// Adds should be ignored...
 	clienttest.Wrap(t, svc).CreateOrUpdate(&v1.Service{ObjectMeta: metav1.ObjectMeta{
 		Name:        "conds2",

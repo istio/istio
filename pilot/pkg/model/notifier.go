@@ -26,7 +26,8 @@ type ActiveNotifier struct {
 	handlerMutex sync.Mutex
 }
 
-func (n *ActiveNotifier) Current() bool {
+// CurrentlyActive returns whether the state is currently active.
+func (n *ActiveNotifier) CurrentlyActive() bool {
 	return n.state.Load()
 }
 

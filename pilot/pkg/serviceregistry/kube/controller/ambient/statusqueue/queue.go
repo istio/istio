@@ -33,15 +33,14 @@ type StatusQueue struct {
 	// Note: this is user facing in the fieldManager!
 	reporters map[string]statusReporter
 
-	// writing keeps track if we are currently writing status. This is set to 'true' when we are currently the leader.
+	// statusEnabled keeps track if we are currently statusEnabled status. This is set to 'true' when we are currently the leader.
 	// This is awkward in order to plumb through the leader status from the top of the process down to this controller.
 	// We want to meet these requirements:
 	// * When we start leading, we MUST process all existing items (and then any updates of course)
 	// * When we stop leading, we MUST not write status any longer
 	// * When we stop leading, we SHOULD do as little work as possible
 	// To do this, we keep track of an ActiveNotifier which stores the current state (leading or not) and notifies us on changes.
-	// This is wrapped in an atomic.Pointer since we don't have
-	writing *model.ActiveNotifier
+	statusEnabled *model.ActiveNotifier
 }
 
 // statusItem represents the objects stored on the queue
@@ -50,13 +49,13 @@ type statusItem struct {
 	Reporter string
 }
 
-// NewQueue builds a new status queue.
-func NewQueue(active *model.ActiveNotifier) *StatusQueue {
+// NewQueue builds a new status queue. ActiveNotifier must be provided.
+func NewQueue(statusEnabled *model.ActiveNotifier) *StatusQueue {
 	sq := &StatusQueue{
-		reporters: make(map[string]statusReporter),
-		writing:   active,
+		reporters:     make(map[string]statusReporter),
+		statusEnabled: statusEnabled,
 	}
-	active.AddHandler(func(active bool) {
+	statusEnabled.AddHandler(func(active bool) {
 		if active {
 			// If we are set to active, tell all the reporters to re-list the current state
 			// This ensures we process any existing objects when we become the leader.
@@ -158,7 +157,7 @@ func Register[T StatusWriter](q *StatusQueue, name string, col krt.Collection[T]
 		},
 		start: func() {
 			col.RegisterBatch(func(events []krt.Event[T], initialSync bool) {
-				if !q.writing.Current() {
+				if !q.statusEnabled.CurrentlyActive() {
 					return
 				}
 				for _, o := range events {

@@ -189,17 +189,17 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		}
 	}
 	if features.EnableAmbientStatus {
-		active := model.NewActiveNotifier(false)
-		args.RegistryOptions.KubeOptions.StatusWritingEnabled = active
+		statusWritingEnabled := model.NewActiveNotifier(false)
+		args.RegistryOptions.KubeOptions.StatusWritingEnabled = statusWritingEnabled
 		s.addTerminatingStartFunc("ambient status", func(stop <-chan struct{}) error {
 			leaderelection.
 				NewLeaseLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
 				AddRunFunction(func(leaderStop <-chan struct{}) {
-					log.Infof("Starting status writer")
-					active.StoreAndNotify(true)
+					log.Infof("Starting ambient status writer")
+					statusWritingEnabled.StoreAndNotify(true)
 					<-leaderStop
-					active.StoreAndNotify(false)
-					log.Infof("Stopping status writer")
+					statusWritingEnabled.StoreAndNotify(false)
+					log.Infof("Stopping ambient status writer")
 				}).
 				Run(stop)
 			return nil
