@@ -1,13 +1,12 @@
+# This file is only used for remote `istiod` installs.
 {{- if .Values.global.remotePilotAddress }}
 apiVersion: v1
 kind: Service
 metadata:
-  {{- if .Values.enabled }}
-  # when local istiod is enabled, we can't use istiod service name to reach the remote control plane
-  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
-  {{- else }}
-  # when local istiod isn't enabled, we can use istiod service name to reach the remote control plane
+  {{- if .Values.global.externalIstiod }}
   name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
+  {{- else }}
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
   {{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
