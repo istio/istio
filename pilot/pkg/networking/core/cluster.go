@@ -132,7 +132,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
 	// When clusters are rebuilt, we rebuild the subset clusters as well. So, we know what
 	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
-	builtClusters := sets.New[string]()
+	builtClusters := sets.NewWithLength[string](len(clusters))
 	for _, c := range clusters {
 		builtClusters.Insert(c.Name)
 	}
