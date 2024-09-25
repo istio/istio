@@ -579,8 +579,13 @@ func TestIdentity(t *testing.T) {
 			nil,
 		},
 		{
-			// wrong separator /
-			"spiffe://td/ns/ns/foobar/sa/",
+			// Wrong ns separator
+			"spiffe://td/foobar/ns/sa/sa",
+			nil,
+		},
+		{
+			// Wrong sa separator
+			"spiffe://td/ns/ns/foobar/sa",
 			nil,
 		},
 	}
