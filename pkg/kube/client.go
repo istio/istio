@@ -1207,7 +1207,7 @@ func (c *client) buildObject(cfg string, namespace string) (*unstructured.Unstru
 	obj := &unstructured.Unstructured{}
 	_, gvk, err := decUnstructured.Decode([]byte(cfg), nil, obj)
 	if err != nil {
-		return nil, nil, fmt.Errorf("decode: %v", err)
+		return nil, nil, err
 	}
 
 	dc, err := c.DynamicClientFor(*gvk, obj, namespace)
