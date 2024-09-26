@@ -1112,7 +1112,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		pod.ObjectMeta.Namespace = req.Namespace
 	}
 
-	log = log.WithLabels("ns", req.Namespace, "pod", pod.Namespace+"/"+podName)
+	log = log.WithLabels("pod", pod.Namespace+"/"+podName)
 	log.Infof("Process sidecar injection request")
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
