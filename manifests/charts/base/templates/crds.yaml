@@ -1,3 +1,6 @@
+# TODO enableCRDTemplates is now defaulted to true as we
+# want to always self-manage CRD upgrades via plain templates,
+# so we should remove this flag after a few releases
 {{- if .Values.base.enableCRDTemplates }}
 {{- if .Values.base.excludedCRDs }}
 {{- range $crd := .Files.Get "crds/crd-all.gen.yaml"|splitList "\n---\n"}}

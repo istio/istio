@@ -20,8 +20,13 @@ _internal_defaults_do_not_set:
     # Example: `excludedCRDs: ["envoyfilters.networking.istio.io"]`.
     # Note: when installing with `istioctl`, `enableIstioConfigCRDs=false` must also be set.
     excludedCRDs: []
-    # Used for helm2 to add the CRDs to templates.
-    enableCRDTemplates: false
+    # Helm (as of V3) does not support upgrading CRDs, because it is not universally
+    # safe for them to support this.
+    # Istio as a project enforces certain backwards-compat guarantees that allow us
+    # to safely upgrade CRDs in spite of this, so we default to self-managing CRDs
+    # as standard K8S resources in Helm, and disable Helm's CRD management. See also:
+    # https://helm.sh/docs/chart_best_practices/custom_resource_definitions/#method-2-separate-charts
+    enableCRDTemplates: true
 
     # Validation webhook configuration url
     # For example: https://$remotePilotAddress:15017/validate
