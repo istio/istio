@@ -1110,22 +1110,47 @@ func (i WaypointPolicyStatus) GetStatusTarget() TypedObject {
 func (i WaypointPolicyStatus) GetConditions() ConditionSet {
 	set := make(ConditionSet, 1)
 
-	statusConditions := []Condition{}
-
-	for _, c := range i.Conditions {
-		statusConditions = append(statusConditions, Condition{
-			Reason:  c.Status.Reason,
-			Message: c.Ancestor + ": " + c.Status.Message, // TODO: jamming Ancestor at the beginning of the message is not great
-			Status:  c.Bound,
-		})
-	}
-
-	set[WaypointAccepted] = statusConditions
+	set[WaypointAccepted] = []Condition{flattenConditions(i.Conditions)}
 
 	return set
 }
 
 // end impl StatusWriter
+
+// flattenConditions is a work around for the uncertain future of Ancestor in gtwapi which exists at the moment.
+// It is intended to take many conditions which have ancestors and condense them into a single condition so we can
+// retain detail in the codebase to be prepared when a canonical representation is accepted upstream.
+func flattenConditions(conditions []PolicyBindingStatus) Condition {
+	status := false
+	reason := "Invalid"
+	unboundAncestors := []string{}
+	var message string
+	for _, c := range conditions {
+		if c.Bound {
+			// if anything was true we consider the overall bind to be true
+			status = true
+		} else {
+			unboundAncestors = append(unboundAncestors, c.Ancestor)
+		}
+	}
+
+	partial := status && len(unboundAncestors) > 0
+
+	if status {
+		reason = "Accepted"
+	}
+
+	if partial {
+		reason = "PartiallyInvalid"
+		message = fmt.Sprintf("Invalid targetRefs: %s", strings.Join(unboundAncestors, ", "))
+	}
+
+	return Condition{
+		reason,
+		message,
+		status,
+	}
+}
 
 // impl pkg/kube/krt/ResourceNamer
 func (i WaypointPolicyStatus) ResourceName() string {
