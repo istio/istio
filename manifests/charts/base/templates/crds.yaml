@@ -2,15 +2,20 @@
 # want to always self-manage CRD upgrades via plain templates,
 # so we should remove this flag after a few releases
 {{- if .Values.base.enableCRDTemplates }}
-{{- if .Values.base.excludedCRDs }}
-{{- range $crd := .Files.Get "crds/crd-all.gen.yaml"|splitList "\n---\n"}}
+{{- $replacement := include "istio.labels" . | fromYaml}}
+{{- range $crd := .Files.Get "files/crd-all.gen.yaml"|splitList "\n---\n"}}
 {{- $name := (index ($crd |fromYaml) "metadata" "name") }}
 {{- if not (has $name $.Values.base.excludedCRDs)}}
-{{$crd}}
+{{- $asDict := ($crd | fromYaml) }}
+# If we are templating these CRDs, we want to wipe out the "static"/legacy
+# labels and replace them with the standard templated istio ones.
+# This allows the continued use of `kubectl apply -f crd-all.gen.yaml`
+# without any templating+the old labels, if desired.
+{{- $_ := set $asDict.metadata "labels" $replacement }}
+{{$asDict | toYaml }}
 ---
 {{- end }}
 {{- end }}
 {{- else }}
-{{ .Files.Get "crds/crd-all.gen.yaml" }}
-{{- end }}
+{{ .Files.Get "files/crd-all.gen.yaml" }}
 {{- end }}
