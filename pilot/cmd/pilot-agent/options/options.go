@@ -102,6 +102,9 @@ var (
 	// DNSCaptureByAgent is a copy of the env var in the init code.
 	DNSCaptureByAgent = env.Register("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
+	// EnableDNSAtGateway enables DNS server at Gateways.
+	EnableDNSAtGateway = env.Register("ISTIO_META_ENABLE_DNS_SERVER", false,
+		"If set to true, starts the DNS server on :15053. This can be used when we want Gateways to use DNS proxy")
 
 	// DNSCaptureAddr is the address to listen.
 	DNSCaptureAddr = env.Register("DNS_PROXY_ADDR", "localhost:15053",
