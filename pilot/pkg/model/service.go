@@ -376,14 +376,10 @@ func (instance *WorkloadInstance) CmpOpts() []cmp.Option {
 
 // DeepCopy creates a copy of WorkloadInstance.
 func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
-	return &WorkloadInstance{
-		Name:                instance.Name,
-		Namespace:           instance.Namespace,
-		Kind:                instance.Kind,
-		PortMap:             maps.Clone(instance.PortMap),
-		Endpoint:            instance.Endpoint.DeepCopy(),
-		DNSServiceEntryOnly: instance.DNSServiceEntryOnly,
-	}
+	out := *instance
+	out.PortMap = maps.Clone(instance.PortMap)
+	out.Endpoint = instance.Endpoint.DeepCopy()
+	return &out
 }
 
 // WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need.
@@ -749,38 +745,18 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	// nolint: govet
 	out := *s
 
-	if s.Labels != nil {
-		out.Labels = make(map[string]string, len(s.Labels))
-		for k, v := range s.Labels {
-			out.Labels[k] = v
-		}
-	}
-
+	out.Labels = maps.Clone(s.Labels)
 	if s.ExportTo != nil {
 		out.ExportTo = s.ExportTo.Copy()
 	}
 
-	if s.LabelSelectors != nil {
-		out.LabelSelectors = make(map[string]string, len(s.LabelSelectors))
-		for k, v := range s.LabelSelectors {
-			out.LabelSelectors[k] = v
-		}
-	}
-
+	out.LabelSelectors = maps.Clone(s.LabelSelectors)
 	out.ClusterExternalAddresses = s.ClusterExternalAddresses.DeepCopy()
 
 	if s.ClusterExternalPorts != nil {
 		out.ClusterExternalPorts = make(map[cluster.ID]map[uint32]uint32, len(s.ClusterExternalPorts))
 		for k, m := range s.ClusterExternalPorts {
-			if m == nil {
-				out.ClusterExternalPorts[k] = nil
-				continue
-			}
-
-			out.ClusterExternalPorts[k] = make(map[uint32]uint32, len(m))
-			for sp, np := range m {
-				out.ClusterExternalPorts[k][sp] = np
-			}
+			out.ClusterExternalPorts[k] = maps.Clone(m)
 		}
 	}
 
@@ -1515,10 +1491,7 @@ func (s *Service) DeepCopy() *Service {
 		}
 	}
 
-	if s.ServiceAccounts != nil {
-		out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
-		copy(out.ServiceAccounts, s.ServiceAccounts)
-	}
+	out.ServiceAccounts = slices.Clone(s.ServiceAccounts)
 	out.ClusterVIPs = *s.ClusterVIPs.DeepCopy()
 	return &out
 }
