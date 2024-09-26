@@ -218,6 +218,7 @@ spec:
                       gateway.networking.k8s.io/Gateway
                     rule: '[self.group, self.kind] in [[''core'',''Service''], ['''',''Service''],
                       [''gateway.networking.k8s.io'',''Gateway''], [''networking.istio.io'',''ServiceEntry'']]'
+                maxItems: 16
                 type: array
               type:
                 description: |-
@@ -283,6 +284,9 @@ spec:
             required:
             - url
             type: object
+            x-kubernetes-validations:
+            - message: only one of targetRefs or selector can be set
+              rule: (has(self.selector)?1:0)+(has(self.targetRef)?1:0)+(has(self.targetRefs)?1:0)<=1
           status:
             properties:
               conditions:
@@ -6141,6 +6145,7 @@ spec:
                       gateway.networking.k8s.io/Gateway
                     rule: '[self.group, self.kind] in [[''core'',''Service''], ['''',''Service''],
                       [''gateway.networking.k8s.io'',''Gateway''], [''networking.istio.io'',''ServiceEntry'']]'
+                maxItems: 16
                 type: array
               workloadSelector:
                 description: Criteria used to select the specific set of pods/VMs
@@ -6154,6 +6159,9 @@ spec:
                     type: object
                 type: object
             type: object
+            x-kubernetes-validations:
+            - message: only one of targetRefs or workloadSelector can be set
+              rule: (has(self.workloadSelector)?1:0)+(has(self.targetRefs)?1:0)<=1
           status:
             properties:
               conditions:
@@ -14238,8 +14246,12 @@ spec:
                       gateway.networking.k8s.io/Gateway
                     rule: '[self.group, self.kind] in [[''core'',''Service''], ['''',''Service''],
                       [''gateway.networking.k8s.io'',''Gateway''], [''networking.istio.io'',''ServiceEntry'']]'
+                maxItems: 16
                 type: array
             type: object
+            x-kubernetes-validations:
+            - message: only one of targetRefs or selector can be set
+              rule: (has(self.selector)?1:0)+(has(self.targetRef)?1:0)+(has(self.targetRefs)?1:0)<=1
           status:
             properties:
               conditions:
@@ -14587,8 +14599,12 @@ spec:
                       gateway.networking.k8s.io/Gateway
                     rule: '[self.group, self.kind] in [[''core'',''Service''], ['''',''Service''],
                       [''gateway.networking.k8s.io'',''Gateway''], [''networking.istio.io'',''ServiceEntry'']]'
+                maxItems: 16
                 type: array
             type: object
+            x-kubernetes-validations:
+            - message: only one of targetRefs or selector can be set
+              rule: (has(self.selector)?1:0)+(has(self.targetRef)?1:0)+(has(self.targetRefs)?1:0)<=1
           status:
             properties:
               conditions:
@@ -15242,10 +15258,11 @@ spec:
                       gateway.networking.k8s.io/Gateway
                     rule: '[self.group, self.kind] in [[''core'',''Service''], ['''',''Service''],
                       [''gateway.networking.k8s.io'',''Gateway''], [''networking.istio.io'',''ServiceEntry'']]'
+                maxItems: 16
                 type: array
             type: object
             x-kubernetes-validations:
-            - message: only one of targetRefs or workloadSelector can be set
+            - message: only one of targetRefs or selector can be set
               rule: (has(self.selector)?1:0)+(has(self.targetRef)?1:0)+(has(self.targetRefs)?1:0)<=1
           status:
             properties:
@@ -15528,10 +15545,11 @@ spec:
                       gateway.networking.k8s.io/Gateway
                     rule: '[self.group, self.kind] in [[''core'',''Service''], ['''',''Service''],
                       [''gateway.networking.k8s.io'',''Gateway''], [''networking.istio.io'',''ServiceEntry'']]'
+                maxItems: 16
                 type: array
             type: object
             x-kubernetes-validations:
-            - message: only one of targetRefs or workloadSelector can be set
+            - message: only one of targetRefs or selector can be set
               rule: (has(self.selector)?1:0)+(has(self.targetRef)?1:0)+(has(self.targetRefs)?1:0)<=1
           status:
             properties:
@@ -15893,6 +15911,7 @@ spec:
                       gateway.networking.k8s.io/Gateway
                     rule: '[self.group, self.kind] in [[''core'',''Service''], ['''',''Service''],
                       [''gateway.networking.k8s.io'',''Gateway''], [''networking.istio.io'',''ServiceEntry'']]'
+                maxItems: 16
                 type: array
               tracing:
                 description: Optional.
@@ -16004,6 +16023,9 @@ spec:
                   type: object
                 type: array
             type: object
+            x-kubernetes-validations:
+            - message: only one of targetRefs or selector can be set
+              rule: (has(self.selector)?1:0)+(has(self.targetRef)?1:0)+(has(self.targetRefs)?1:0)<=1
           status:
             properties:
               conditions:
@@ -16337,6 +16359,7 @@ spec:
                       gateway.networking.k8s.io/Gateway
                     rule: '[self.group, self.kind] in [[''core'',''Service''], ['''',''Service''],
                       [''gateway.networking.k8s.io'',''Gateway''], [''networking.istio.io'',''ServiceEntry'']]'
+                maxItems: 16
                 type: array
               tracing:
                 description: Optional.
@@ -16448,6 +16471,9 @@ spec:
                   type: object
                 type: array
             type: object
+            x-kubernetes-validations:
+            - message: only one of targetRefs or selector can be set
+              rule: (has(self.selector)?1:0)+(has(self.targetRef)?1:0)+(has(self.targetRefs)?1:0)<=1
           status:
             properties:
               conditions:

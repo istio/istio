@@ -1,7 +1,7 @@
 # Missing cases
 # * Invalid JWKS (not feasible with CEL)
 
-_err: only one of targetRefs or workloadSelector can be set
+_err: only one of targetRefs or selector can be set
 apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
@@ -18,7 +18,7 @@ spec:
     name: foo
     namespace: bar
 ---
-_err: only one of targetRefs or workloadSelector can be set
+_err: only one of targetRefs or selector can be set
 apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
