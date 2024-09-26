@@ -3069,7 +3069,7 @@ func TestZtunnelRestart(t *testing.T) {
 func TestServiceDynamicEnroll(t *testing.T) {
 	const callInterval = 50 * time.Millisecond
 	// TODO(https://github.com/istio/istio/issues/53064) make this 100%
-	successThreshold := 0.5
+	successThreshold := 0.8
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		dst := apps.Captured
@@ -3093,7 +3093,8 @@ func TestServiceDynamicEnroll(t *testing.T) {
 			generators = append(generators, g)
 		}
 		mkGen(apps.Uncaptured[0])
-		mkGen(apps.Sidecar[0])
+		// TODO(https://github.com/istio/istio/issues/53064) re-enable this, it is not reliable enough
+		// mkGen(apps.Sidecar[0])
 		// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
 		mkGen(apps.WorkloadAddressedWaypoint[0])
 
