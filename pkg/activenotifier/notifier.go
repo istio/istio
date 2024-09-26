@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package model
+package activenotifier
 
 import (
 	"sync"
@@ -49,7 +49,7 @@ func (n *ActiveNotifier) StoreAndNotify(b bool) {
 	}
 }
 
-func NewActiveNotifier(initialState bool) *ActiveNotifier {
+func New(initialState bool) *ActiveNotifier {
 	return &ActiveNotifier{
 		state:        atomic.NewBool(initialState),
 		handlers:     nil,

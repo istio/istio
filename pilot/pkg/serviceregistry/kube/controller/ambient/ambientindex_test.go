@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1493,7 +1494,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		LookupNetworkGateways: func() []model.NetworkGateway {
 			return nil
 		},
-		StatusNotifier: model.NewActiveNotifier(true),
+		StatusNotifier: activenotifier.New(true),
 	})
 	idx.NetworksSynced()
 	cl.RunAndWait(test.NewStop(t))

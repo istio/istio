@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
@@ -40,7 +41,7 @@ type StatusQueue struct {
 	// * When we stop leading, we MUST not write status any longer
 	// * When we stop leading, we SHOULD do as little work as possible
 	// To do this, we keep track of an ActiveNotifier which stores the current state (leading or not) and notifies us on changes.
-	statusEnabled *model.ActiveNotifier
+	statusEnabled *activenotifier.ActiveNotifier
 }
 
 // statusItem represents the objects stored on the queue
@@ -50,7 +51,7 @@ type statusItem struct {
 }
 
 // NewQueue builds a new status queue. ActiveNotifier must be provided.
-func NewQueue(statusEnabled *model.ActiveNotifier) *StatusQueue {
+func NewQueue(statusEnabled *activenotifier.ActiveNotifier) *StatusQueue {
 	sq := &StatusQueue{
 		reporters:     make(map[string]statusReporter),
 		statusEnabled: statusEnabled,

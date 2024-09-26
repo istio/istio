@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -143,7 +144,7 @@ type Options struct {
 
 	// StatusWritingEnabled determines if status writing is enabled. This may be set to `nil`, in which case status
 	// writing will never be enabled
-	StatusWritingEnabled *model.ActiveNotifier
+	StatusWritingEnabled *activenotifier.ActiveNotifier
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally

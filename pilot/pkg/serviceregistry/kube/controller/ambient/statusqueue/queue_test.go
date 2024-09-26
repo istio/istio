@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
@@ -56,7 +57,7 @@ func (s serviceStatus) GetConditions() model.ConditionSet {
 }
 
 func TestQueue(t *testing.T) {
-	q := statusqueue.NewQueue(model.NewActiveNotifier(true))
+	q := statusqueue.NewQueue(activenotifier.New(true))
 	c := kube.NewFakeClient()
 	svc := kclient.New[*v1.Service](c)
 	svcs := krt.WrapClient[*v1.Service](svc)
@@ -130,7 +131,7 @@ func TestQueue(t *testing.T) {
 }
 
 func TestQueueLeaderElection(t *testing.T) {
-	notifier := model.NewActiveNotifier(false)
+	notifier := activenotifier.New(false)
 	q := statusqueue.NewQueue(notifier)
 	c := kube.NewFakeClient()
 	svc := kclient.New[*v1.Service](c)
