@@ -376,28 +376,29 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 	// TODO: are either of these string constants intended to vary?
 	// We gets Istio CRD resources with a specific revision.
 	krs := sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...)
-	if remote {
-		krs = krs.Remove(kuberesource.DefaultRemoteClusterExcludedSchemas().All()...)
-	}
-	store := crdclient.NewForSchemas(c, crdclient.Option{
-		Revision:     revision,
-		DomainSuffix: "cluster.local",
-		Identifier:   "analysis-controller",
-		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
-			gvk.ConfigMap: {
-				Namespace:    sa.istioNamespace.String(),
-				ObjectFilter: kubetypes.NewStaticObjectFilter(isIstioConfigMap),
+
+	// FIXME: Multi-cluster istio c r d is not analyzed for now
+	if !remote {
+		store := crdclient.NewForSchemas(c, crdclient.Option{
+			Revision:     revision,
+			DomainSuffix: "cluster.local",
+			Identifier:   "analysis-controller",
+			FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
+				gvk.ConfigMap: {
+					Namespace:    sa.istioNamespace.String(),
+					ObjectFilter: kubetypes.NewStaticObjectFilter(isIstioConfigMap),
+				},
 			},
-		},
-	}, krs)
-	sa.stores = append(sa.stores, store)
+		}, krs)
+		sa.stores = append(sa.stores, store)
+	}
 
 	// We gets service discovery resources without a specific revision.
 	krs = sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas())
 	if remote {
-		krs = krs.Remove(kuberesource.DefaultRemoteClusterExcludedSchemas().All()...)
+		krs = kuberesource.DefaultRemoteClusterK8SSchemas()
 	}
-	store = crdclient.NewForSchemas(c, crdclient.Option{
+	store := crdclient.NewForSchemas(c, crdclient.Option{
 		DomainSuffix: "cluster.local",
 		Identifier:   "analysis-controller",
 		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
