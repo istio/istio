@@ -25,7 +25,7 @@ type BufferPool struct {
 }
 
 func New() *BufferPool {
-	return NewWithCap(0)
+	return NewWithCap(64)
 }
 
 func NewWithCap(n int) *BufferPool {
