@@ -163,6 +163,11 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		return fmt.Errorf("generate config: %v", err)
 	}
 
+	cusTag := vals.GetPathString("spec.tag")
+	if cusTag != "" {
+		tag = cusTag
+	}
+
 	namespace := vals.GetPathString("metadata.namespace")
 	revision := vals.GetPathString("spec.values.revision")
 	profile := ptr.NonEmptyOrDefault(vals.GetPathString("spec.profile"), "default")
