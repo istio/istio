@@ -164,7 +164,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	}
 
 	cusTag := vals.GetPathString("spec.tag")
-	if cusTag != "" {
+	if cusTag != "" && cusTag != "latest" {
 		tag = cusTag
 	}
 
