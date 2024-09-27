@@ -1000,9 +1000,10 @@ const (
 type ConditionSet = map[ConditionType][]Condition
 
 type Condition struct {
-	Reason  string
-	Message string
-	Status  bool
+	ObservedGeneration int
+	Reason             string
+	Message            string
+	Status             bool
 }
 
 func (i ServiceInfo) GetConditions() ConditionSet {
@@ -1125,6 +1126,18 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 	reason := "Invalid"
 	unboundAncestors := []string{}
 	var message string
+
+	// flatten causes a loss of some information and there is only 1 condition so no need to flatten
+	if len(conditions) == 1 {
+		c := conditions[0]
+		return Condition{
+			ObservedGeneration: 1,
+			Reason:             c.Status.Reason,
+			Message:            c.Status.Message,
+			Status:             c.Bound,
+		}
+	}
+
 	for _, c := range conditions {
 		if c.Bound {
 			// if anything was true we consider the overall bind to be true
@@ -1134,18 +1147,22 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 		}
 	}
 
-	partial := status && len(unboundAncestors) > 0
+	someUnbound := len(unboundAncestors) > 0
 
 	if status {
 		reason = "Accepted"
 	}
 
-	if partial {
+	if status && someUnbound {
 		reason = "PartiallyInvalid"
+	}
+
+	if someUnbound {
 		message = fmt.Sprintf("Invalid targetRefs: %s", strings.Join(unboundAncestors, ", "))
 	}
 
 	return Condition{
+		1,
 		reason,
 		message,
 		status,
