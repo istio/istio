@@ -48,17 +48,32 @@ const (
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
 func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string, nsConfig helmtest.NamespaceConfig, isAmbient bool) {
-	execCmd := fmt.Sprintf(
-		"kubectl apply -n %v -f %v",
-		helmtest.IstioNamespace,
-		filepath.Join(helmtest.ManifestsChartPath, helmtest.BaseChart, helmtest.CRDsFolder))
-	_, err := shell.Execute(false, execCmd)
-	if err != nil {
-		ctx.Fatalf("couldn't run kubectl apply on crds folder: %v", err)
+
+	requiredAdoptionLabels := []string{"app.kubernetes.io/managed-by=Helm"}
+	requiredAdoptionAnnos := []string{"meta.helm.sh/release-name=istio-base", "meta.helm.sh/release-namespace=istio-system"}
+
+	// TODO BML this relabeling/reannotating is only required if the previous release is =< 1.23,
+	// and should be dropped once 1.24 is released.
+	for _, labelToAdd := range requiredAdoptionLabels {
+		execCmd := fmt.Sprintf("kubectl label crds -l chart=istio %v", labelToAdd)
+		_, err := shell.Execute(false, execCmd)
+		if err != nil {
+			scopes.Framework.Infof("couldn't relabel CRDs for Helm adoption: %s. Likely not needed for this release", labelToAdd)
+		}
+	}
+
+	// TODO BML this relabeling/reannotating is only required if the previous release is =< 1.23,
+	// and should be dropped once 1.24 is released.
+	for _, annoToAdd := range requiredAdoptionAnnos {
+		execCmd := fmt.Sprintf("kubectl annotate crds -l chart=istio %v", annoToAdd)
+		_, err := shell.Execute(false, execCmd)
+		if err != nil {
+			scopes.Framework.Infof("couldn't reannotate CRDs for Helm adoption: %s. Likely not needed for this release", annoToAdd)
+		}
 	}
 
 	// Upgrade base chart
-	err = h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.BaseChart),
+	err := h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.BaseChart),
 		nsConfig.Get(helmtest.BaseReleaseName), overrideValuesFile, helmtest.Timeout, "--skip-crds")
 	if err != nil {
 		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.BaseReleaseName)
