@@ -47,12 +47,6 @@ func DefaultExcludedSchemas() collection.Schemas {
 	return resultBuilder.Build()
 }
 
-func DefaultRemoteClusterK8SSchemas() collection.Schemas {
-	resultBuilder := collection.NewSchemasBuilder()
-	_ = resultBuilder.Add(collections.Service)
-	return resultBuilder.Build()
-}
-
 // the following code minimally duplicates logic from galley/pkg/config/source/kube/rt/known.go
 // without propagating the many dependencies it comes with.
 
