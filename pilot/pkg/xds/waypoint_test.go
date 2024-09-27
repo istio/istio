@@ -25,12 +25,11 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/wellknown"
 )
 
-func TestWaypoint(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbient, true)
-	test.SetForTest(t, &features.EnableDualStack, true)
-	waypointSvc := `apiVersion: v1
+var (
+	waypointSvc = `apiVersion: v1
 kind: Service
 metadata:
   labels:
@@ -48,7 +47,7 @@ spec:
   selector:
     gateway.networking.k8s.io/gateway-name: waypoint
 `
-	waypointInstance := `apiVersion: networking.istio.io/v1
+	waypointInstance = `apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: waypoint-a
@@ -58,7 +57,7 @@ spec:
   labels:
     gateway.networking.k8s.io/gateway-name: waypoint
 `
-	waypointGateway := `apiVersion: gateway.networking.k8s.io/v1beta1
+	waypointGateway = `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: waypoint
@@ -74,7 +73,7 @@ status:
   - type: Hostname
     value: waypoint.default.svc.cluster.local
 `
-	appServiceEntry := `apiVersion: networking.istio.io/v1
+	appServiceEntry = `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: app
@@ -82,8 +81,7 @@ metadata:
   labels:
     istio.io/use-waypoint: waypoint
 spec:
-  hosts:
-  - app.com
+  hosts: [app.com]
   ports:
   - number: 80
     name: http
@@ -93,7 +91,7 @@ spec:
     labels:
       app: app
 `
-	appWorkloadEntry := `apiVersion: networking.istio.io/v1
+	appWorkloadEntry = `apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: app-a
@@ -105,7 +103,7 @@ metadata:
 spec:
   address: 1.1.1.1
 `
-	appPod := `apiVersion: v1
+	appPod = `apiVersion: v1
 kind: Pod
 metadata:
   name: app-b
@@ -124,7 +122,7 @@ status:
   - ip: 1.1.1.2
   - ip: 2001:20::2
 `
-	appPodNoMesh := `apiVersion: v1
+	appPodNoMesh = `apiVersion: v1
 kind: Pod
 metadata:
   name: app-c
@@ -141,13 +139,89 @@ status:
   - ip: 1.1.1.3
   - ip: 2001:20::3
 `
-	c := joinYaml(
+)
+
+func TestWaypointSniffing(t *testing.T) {
+	// Define two SE with various protocol declarations, we will check how sniffing is enabled.
+
+	appServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: app
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts: [app.com]
+  ports:
+  - number: 80
+    name: http # HTTP, but will have another TCP port overlapping in another service
+    protocol: HTTP
+  - number: 81
+    name: http-only # HTTP
+    protocol: HTTP
+  - number: 90 # Sniffed, on its own
+    name: auto
+    protocol: ""
+`
+	app2ServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: app2
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts: [app2.com]
+  ports:
+  - number: 80
+    name: tcp # conflicts with other HTTP port
+    protocol: TCP
+  - number: 91
+    name: tcp-only # TCP
+    protocol: HTTP
+`
+	d, proxy := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		appServiceEntry, app2ServiceEntry)
+
+	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+	filters := xdstest.ExtractListenerFilters(l)
+	fd := filters[wellknown.HTTPInspector].GetFilterDisabled()
+	hasSniffing := func(port int, expect bool) {
+		t.Helper()
+		assert.Equal(t, xdstest.EvaluateListenerFilterPredicates(fd, port), !expect)
+	}
+	hasSniffing(80, true)  // HTTP and TCP on same port
+	hasSniffing(81, false) // HTTP
+	hasSniffing(91, false) // TCP
+	hasSniffing(90, true)  // Unspecified
+}
+
+func TestWaypoint(t *testing.T) {
+	d, proxy := setupWaypointTest(t,
 		waypointGateway,
 		waypointSvc,
 		appPod, appPodNoMesh,
 		waypointInstance, appWorkloadEntry,
-		appServiceEntry,
-	)
+		appServiceEntry)
+
+	eps := slices.Sort(xdstest.ExtractEndpoints(d.Endpoints(proxy)[0]))
+	assert.Equal(t, eps, []string{
+		// No tunnel, should get dual IPs
+		"1.1.1.3:80,[2001:20::3]:80",
+		"connect_originate;1.1.1.1:80",
+		// Tunnel doesn't support multiple IPs
+		"connect_originate;1.1.1.2:80",
+	})
+}
+
+func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+	test.SetForTest(t, &features.EnableDualStack, true)
+	c := joinYaml(configs...)
 	// Ambient controller needs objects as kube, so apply to both
 	d := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString:           c,
@@ -158,15 +232,7 @@ status:
 		ConfigNamespace: "default",
 		IPAddresses:     []string{"3.0.0.1"}, // match the WE
 	})
-
-	eps := slices.Sort(xdstest.ExtractEndpoints(d.Endpoints(proxy)[0]))
-	assert.Equal(t, eps, []string{
-		// No tunnel, should get dual IPs
-		"1.1.1.3:80,[2001:20::3]:80",
-		"connect_originate;1.1.1.1:80",
-		// Tunnel doesn't support multiple IPs
-		"connect_originate;1.1.1.2:80",
-	})
+	return d, proxy
 }
 
 func joinYaml(s ...string) string {
