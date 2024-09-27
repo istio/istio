@@ -17,12 +17,12 @@ package labels
 import (
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/bytesbufpool"
 )
 
 const (
@@ -139,13 +139,16 @@ func validateTagKey(k string) error {
 	return nil
 }
 
+var bytesBufferPool = bytesbufpool.New()
+
 func (i Instance) String() string {
 	// Ensure stable ordering
 	keys := slices.Sort(maps.Keys(i))
 
-	var buffer strings.Builder
 	// Assume each kv pair is roughly 25 characters. We could be under or over, this is just a guess to optimize
-	buffer.Grow(len(keys) * 25)
+	buffer := bytesBufferPool.GetWithCap(len(keys) * 25)
+	defer bytesBufferPool.Put(buffer)
+
 	first := true
 	for _, k := range keys {
 		v := i[k]
