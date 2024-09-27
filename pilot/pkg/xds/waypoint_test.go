@@ -1,22 +1,27 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package xds_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
-
-	networkingv1 "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -62,7 +67,7 @@ spec:
   gatewayClassName: waypoint
   listeners:
     - name: mesh
-      port: 15009
+      port: 15008
       protocol: HBONE
 status:
   addresses:
@@ -136,16 +141,17 @@ status:
   - ip: 1.1.1.3
   - ip: 2001:20::3
 `
+	c := joinYaml(
+		waypointGateway,
+		waypointSvc,
+		appPod, appPodNoMesh,
+		waypointInstance, appWorkloadEntry,
+		appServiceEntry,
+	)
+	// Ambient controller needs objects as kube, so apply to both
 	d := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		ConfigString: joinYaml(waypointInstance, appServiceEntry, appWorkloadEntry),
-		KubeClientModifier: func(c kube.Client) {
-			// Because we are hitting the ambient controller, we want to create actual objects
-			createString[*gateway.Gateway](t, c, waypointGateway)
-			createString[*corev1.Service](t, c, waypointSvc)
-			createString[*corev1.Pod](t, c, appPod, appPodNoMesh)
-			createString[*networkingv1.WorkloadEntry](t, c, waypointInstance, appWorkloadEntry)
-			createString[*networkingv1.ServiceEntry](t, c, appServiceEntry)
-		},
+		ConfigString:           c,
+		KubernetesObjectString: c,
 	})
 	proxy := d.SetupProxy(&model.Proxy{
 		Type:            model.Waypoint,
@@ -161,26 +167,6 @@ status:
 		// Tunnel doesn't support multiple IPs
 		"connect_originate;1.1.1.2:80",
 	})
-}
-
-func kubernetesObjectFromString(s string) (runtime.Object, error) {
-	decode := kube.IstioCodec.UniversalDeserializer().Decode
-	if len(strings.TrimSpace(s)) == 0 {
-		return nil, fmt.Errorf("empty kubernetes object")
-	}
-	o, _, err := decode([]byte(s), nil, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed deserializing kubernetes object: %v (%v)", err, s)
-	}
-	return o, nil
-}
-
-func createString[T controllers.ComparableObject](t test.Failer, c kube.Client, objs ...string) {
-	for _, s := range objs {
-		obj, err := kubernetesObjectFromString(s)
-		assert.NoError(t, err)
-		clienttest.NewWriter[T](t, c).Create(obj.(T))
-	}
 }
 
 func joinYaml(s ...string) string {
