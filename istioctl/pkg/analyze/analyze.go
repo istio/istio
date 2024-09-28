@@ -332,7 +332,7 @@ func Analyze(ctx cli.Context) *cobra.Command {
 		"The duration to wait before failing")
 	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
-	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "", "default",
+	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "r", "default",
 		"analyze a specific revision deployed.")
 	analysisCmd.PersistentFlags().StringArrayVar(&remoteContexts, "remote-contexts", []string{},
 		`Kubernetes configuration contexts for remote clusters to be used in multi-cluster analysis. Not to be confused with '--context'. `+
