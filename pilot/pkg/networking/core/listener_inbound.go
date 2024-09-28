@@ -819,6 +819,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 				Subject: proto.BoolTrue,
 				Uri:     true,
 				Dns:     true,
+				Cert:    true,
 			},
 			ServerName:                 ph.ServerName,
 			ServerHeaderTransformation: ph.ServerHeaderTransformation,
