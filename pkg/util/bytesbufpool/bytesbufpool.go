@@ -19,15 +19,21 @@ import (
 	"sync"
 )
 
+// BufferPool is a simple wrapper around bytes.Buffer pool, used when buffers need to be
+// allocated repeatedly in a short period of time. It uses sync.Pool to cache allocated but
+// no longer used buffers for later reuse, thus reducing pressure on the garbage collector.
+
 type BufferPool struct {
-	cap  int // the bytes buffer minimum capacity
+	cap  int // the bytes.Buffer minimum capacity
 	pool sync.Pool
 }
 
+// New create a buffer pool.
 func New() *BufferPool {
 	return NewWithCap(64)
 }
 
+// NewWithCap create a buffer pool and specifies the `Get` method returned buffer's minimum capacity.
 func NewWithCap(n int) *BufferPool {
 	return &BufferPool{
 		cap:  n,
@@ -35,10 +41,12 @@ func NewWithCap(n int) *BufferPool {
 	}
 }
 
+// Get a buffer from the pool.
 func (p *BufferPool) Get() *bytes.Buffer {
 	return p.GetWithCap(p.cap)
 }
 
+// GetWithCap get a buffer of a specified the minimum capacity from the pool.
 func (p *BufferPool) GetWithCap(n int) *bytes.Buffer {
 	val := p.pool.Get()
 	if val != nil {
@@ -55,6 +63,7 @@ func (p *BufferPool) GetWithCap(n int) *bytes.Buffer {
 	return bytes.NewBuffer(make([]byte, 0, n))
 }
 
+// Put the buffer back in the pool.
 func (p *BufferPool) Put(buf *bytes.Buffer) {
 	if buf == nil {
 		return
