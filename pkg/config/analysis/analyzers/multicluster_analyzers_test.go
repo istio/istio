@@ -96,7 +96,7 @@ func TestMultiClusterAnalyzers(t *testing.T) {
 }
 
 func setupMultiClusterEnvironmentForCase(tc mcTestCase, cr local.CollectionReporterFn) (*local.IstiodAnalyzer, error) {
-	sa := local.NewIstiodAnalyzer(AllMultiClusterCombined(), "", "istio-system", cr)
+	sa := local.NewIstiodAnalyzer(multicluster.AllMultiClusterCombined(), "", "istio-system", cr)
 
 	// Add the test files to the fake client
 	if err := addStore(sa, "cluster1", tc.cluster1InputFiles); err != nil {

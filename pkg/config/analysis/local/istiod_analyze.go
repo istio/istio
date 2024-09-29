@@ -39,7 +39,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
-	"istio.io/istio/pkg/config/analysis/analyzers"
+	"istio.io/istio/pkg/config/analysis/analyzers/multicluster"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/analysis/scope"
@@ -396,7 +396,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 	// We gets service discovery resources without a specific revision.
 	krs = sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas())
 	if remote {
-		for _, multiAnalyzer := range analyzers.AllMultiCluster() {
+		for _, multiAnalyzer := range multicluster.AllMultiCluster() {
 			krs = kuberesource.ConvertInputsToSchemas(multiAnalyzer.Metadata().Inputs)
 		}
 	}
