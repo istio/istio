@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/analysis/incluster"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -187,6 +188,23 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 				return nil
 			})
 		}
+	}
+	if features.EnableAmbientStatus {
+		statusWritingEnabled := activenotifier.New(false)
+		args.RegistryOptions.KubeOptions.StatusWritingEnabled = statusWritingEnabled
+		s.addTerminatingStartFunc("ambient status", func(stop <-chan struct{}) error {
+			leaderelection.
+				NewLeaseLeaderElection(args.Namespace, args.PodName, leaderelection.StatusController, args.Revision, s.kubeClient).
+				AddRunFunction(func(leaderStop <-chan struct{}) {
+					log.Infof("Starting ambient status writer")
+					statusWritingEnabled.StoreAndNotify(true)
+					<-leaderStop
+					statusWritingEnabled.StoreAndNotify(false)
+					log.Infof("Stopping ambient status writer")
+				}).
+				Run(stop)
+			return nil
+		})
 	}
 	if features.EnableAnalysis {
 		if err := s.initInprocessAnalysisController(args); err != nil {

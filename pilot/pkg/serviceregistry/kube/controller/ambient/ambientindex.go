@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -120,6 +121,7 @@ type Options struct {
 	XDSUpdater            model.XDSUpdater
 	LookupNetwork         LookupNetwork
 	LookupNetworkGateways LookupNetworkGateways
+	StatusNotifier        *activenotifier.ActiveNotifier
 }
 
 func New(options Options) Index {
@@ -200,7 +202,7 @@ func New(options Options) Index {
 	authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
 
 	if features.EnableAmbientStatus {
-		statusQueue := statusqueue.NewQueue()
+		statusQueue := statusqueue.NewQueue(options.StatusNotifier)
 		statusqueue.Register(statusQueue, "istio-ambient-service", WorkloadServices, func(info model.ServiceInfo) (kclient.Patcher, []string) {
 			// Since we have 1 collection for multiple types, we need to split these out
 			if info.Source.Kind == kind.ServiceEntry {
