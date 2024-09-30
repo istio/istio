@@ -221,7 +221,16 @@ const (
 )
 
 func SupportsTunnel(labels map[string]string, tunnelType string) bool {
-	return sets.New(strings.Split(labels[TunnelLabel], ",")...).Contains(tunnelType)
+	tl, f := labels[TunnelLabel]
+	if !f {
+		return false
+	}
+	if tl == tunnelType {
+		// Fast-path the case where we have only one label
+		return true
+	}
+	// Else check everything. Tunnel label is a comma-seperated list.
+	return sets.New(strings.Split(tl, ",")...).Contains(tunnelType)
 }
 
 // Port represents a network port where a service is listening for
