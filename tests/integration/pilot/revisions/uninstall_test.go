@@ -149,7 +149,7 @@ spec:
 
 			// Check if custom webhook is installed
 			validateWebhookExistence := func() {
-				ls := fmt.Sprintf("%s=%s", manifest.IstioComponentLabel, component.IstiodRemoteComponentName)
+				ls := fmt.Sprintf("%s=%s", manifest.IstioComponentLabel, component.PilotComponentName)
 				cs := t.Clusters().Default()
 				objs, _ := getRemainingResourcesCluster(cs, gvr.MutatingWebhookConfiguration, ls)
 				if len(objs) == 0 {
