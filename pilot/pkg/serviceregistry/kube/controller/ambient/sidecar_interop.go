@@ -92,9 +92,9 @@ func RegisterEdsShim(
 		},
 		krt.WithName("ServiceEds"))
 	ServiceEds.RegisterBatch(
-		PushXds(xdsUpdater, func(svc serviceEDS) (model.ConfigKey, bool) {
+		PushXds(xdsUpdater, func(svc serviceEDS) model.ConfigKey {
 			ns, hostname, _ := strings.Cut(svc.ServiceKey, "/")
-			return model.ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: ns}, true
+			return model.ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: ns}
 		}), false)
 }
 

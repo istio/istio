@@ -188,11 +188,11 @@ func New(options Options) Index {
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints)
 	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater,
-		func(i model.WorkloadAuthorization) (model.ConfigKey, bool) {
+		func(i model.WorkloadAuthorization) model.ConfigKey {
 			if i.Authorization == nil {
-				return model.ConfigKey{}, true // nop, filter this out
+				return model.ConfigKey{} // nop, filter this out
 			}
-			return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}, false
+			return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 		}), false)
 
 	serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
@@ -254,8 +254,8 @@ func New(options Options) Index {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Service
 		},
-		PushXds(a.XDSUpdater, func(i model.ServiceInfo) (model.ConfigKey, bool) {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}, false
+		PushXds(a.XDSUpdater, func(i model.ServiceInfo) model.ConfigKey {
+			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
 		})), false)
 
 	Workloads := a.WorkloadsCollection(
@@ -300,8 +300,8 @@ func New(options Options) Index {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
-		PushXds(a.XDSUpdater, func(i model.WorkloadInfo) (model.ConfigKey, bool) {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}, false
+		PushXds(a.XDSUpdater, func(i model.WorkloadInfo) model.ConfigKey {
+			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
 		})), false)
 
 	if features.EnableIngressWaypointRouting {
@@ -553,16 +553,19 @@ type (
 	LookupNetworkGateways func() []model.NetworkGateway
 )
 
-func PushXds[T any](xds model.XDSUpdater, f func(T) (model.ConfigKey, bool)) func(events []krt.Event[T], initialSync bool) {
+func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T], initialSync bool) {
 	return func(events []krt.Event[T], initialSync bool) {
 		cu := sets.New[model.ConfigKey]()
 		for _, e := range events {
 			for _, i := range e.Items() {
-				c, nop := f(i)
-				if !nop {
+				c := f(i)
+				if c != (model.ConfigKey{}) {
 					cu.Insert(c)
 				}
 			}
+		}
+		if len(cu) == 0 {
+			return
 		}
 		xds.ConfigUpdate(&model.PushRequest{
 			Full:           false,
