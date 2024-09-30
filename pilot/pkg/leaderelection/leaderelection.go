@@ -230,6 +230,10 @@ func NewLeaderElectionMulticluster(namespace, name, electionID, revision string,
 	return newLeaderElection(namespace, name, electionID, revision, false, remote, client)
 }
 
+func NewPerRevisionLeaderElectionMulticluster(namespace, name, electionID, revision string, remote bool, client kube.Client) *LeaderElection {
+	return newLeaderElection(namespace, name, electionID, revision, true, remote, client)
+}
+
 func newLeaderElection(namespace, name, electionID, revision string, perRevision bool, remote bool, client kube.Client) *LeaderElection {
 	var watcher revisions.DefaultWatcher
 	if features.EnableLeaderElection {
