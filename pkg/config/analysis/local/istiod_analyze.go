@@ -394,11 +394,12 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 	}
 
 	// We gets service discovery resources without a specific revision.
-	krs = sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas())
 	if remote {
 		for _, multiAnalyzer := range multicluster.AllMultiCluster() {
 			krs = kuberesource.ConvertInputsToSchemas(multiAnalyzer.Metadata().Inputs)
 		}
+	} else {
+		krs = sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas())
 	}
 	store := crdclient.NewForSchemas(c, crdclient.Option{
 		DomainSuffix: "cluster.local",
