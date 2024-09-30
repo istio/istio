@@ -229,7 +229,7 @@ func SupportsTunnel(labels map[string]string, tunnelType string) bool {
 		// Fast-path the case where we have only one label
 		return true
 	}
-	// Else check everything. Tunnel label is a comma-seperated list.
+	// Else check everything. Tunnel label is a comma-separated list.
 	return sets.New(strings.Split(tl, ",")...).Contains(tunnelType)
 }
 
