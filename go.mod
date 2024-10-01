@@ -19,7 +19,7 @@ require (
 	github.com/containernetworking/plugins v1.5.0
 	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/cli v26.1.4+incompatible
+	github.com/docker/cli v26.1.5+incompatible
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240719165848-f888b4f71207
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/fatih/color v1.17.0
@@ -135,7 +135,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
-	github.com/docker/docker v26.1.4+incompatible // indirect
+	github.com/docker/docker v26.1.5+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.0.4 // indirect
