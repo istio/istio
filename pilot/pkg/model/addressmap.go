@@ -57,12 +57,12 @@ func (m *AddressMap) GetAddresses() map[cluster.ID][]string {
 		return nil
 	}
 
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
 	if m.Addresses == nil {
 		return nil
 	}
-
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
 
 	out := make(map[cluster.ID][]string)
 	for k, v := range m.Addresses {
