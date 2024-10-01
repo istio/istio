@@ -534,8 +534,12 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		},
 	}
 
+	// these nolint are to suppress findings regarding copying the mutex contained within our service entry proto fields
+
+	// nolint: govet
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
+			// nolint: govet
 			for _, se := range tc.serviceEntries {
 				_, err := clientSe.Create(&se)
 				assert.NoError(t, err)
