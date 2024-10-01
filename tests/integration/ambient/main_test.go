@@ -192,18 +192,18 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":                             WorkloadAddressedWaypoint,
-						"version":                         "v1",
-						constants.AmbientUseWaypointLabel: "waypoint",
+						"app":                         WorkloadAddressedWaypoint,
+						"version":                     "v1",
+						label.IoIstioUseWaypoint.Name: "waypoint",
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":                             WorkloadAddressedWaypoint,
-						"version":                         "v2",
-						constants.AmbientUseWaypointLabel: "waypoint",
+						"app":                         WorkloadAddressedWaypoint,
+						"version":                     "v2",
+						label.IoIstioUseWaypoint.Name: "waypoint",
 					},
 				},
 			},
@@ -212,7 +212,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:              ServiceAddressedWaypoint,
 			Namespace:            apps.Namespace,
 			Ports:                ports.All(),
-			ServiceLabels:        map[string]string{constants.AmbientUseWaypointLabel: "waypoint"},
+			ServiceLabels:        map[string]string{label.IoIstioUseWaypoint.Name: "waypoint"},
 			ServiceAccount:       true,
 			ServiceWaypointProxy: "waypoint",
 			Subsets: []echo.SubsetConfig{

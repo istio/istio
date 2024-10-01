@@ -181,16 +181,6 @@ const (
 	// Anything else indicates it is not.
 	AmbientRedirectionEnabled = "enabled"
 
-	// AmbientUseWaypointLabel is the label used to specify which waypoint should be used for a given pod, service, etc...
-	// `istio.io/use-waypoint: none` means skipping using any waypoint specified from higher scope, namespace/service, etc...
-	AmbientUseWaypointLabel = "istio.io/use-waypoint"
-	// AmbientUseWaypointNamespaceLabel is a label used to indicate the namespace of the waypoint (referred to by AmbientUseWaypointLabel).
-	// This allows cross-namespace waypoint references. If unset, the same namespace is assumed.
-	AmbientUseWaypointNamespaceLabel = "istio.io/use-waypoint-namespace"
-	// AmbientWaypointForTrafficTypeLabel is the label used to specify which traffic is allowed through the Waypoint.
-	// This label is applied to the Waypoint. Valid traffic types are "service", "workload", "all", and "none".
-	AmbientWaypointForTrafficTypeLabel = "istio.io/waypoint-for"
-
 	// ServiceTraffic indicates that service traffic should go through the intended waypoint.
 	ServiceTraffic = "service"
 	// WorkloadTraffic indicates that workload traffic should go through the intended waypoint.
@@ -199,6 +189,4 @@ const (
 	AllTraffic = "all"
 	// NoTraffic indicates that no traffic should go through the intended waypoint.
 	NoTraffic = "none"
-
-	EnableV2AutoAllocationLabel = "networking.istio.io/enable-autoallocate-ip"
 )

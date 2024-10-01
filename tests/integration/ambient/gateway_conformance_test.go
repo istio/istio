@@ -36,7 +36,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test/env"
@@ -164,7 +163,7 @@ func TestGatewayConformance(t *testing.T) {
 				if labels == nil {
 					labels = make(map[string]string)
 				}
-				labels[constants.AmbientUseWaypointLabel] = "namespace"
+				labels[label.IoIstioUseWaypoint.Name] = "namespace"
 				ns.Labels = labels
 				k.Kube().CoreV1().Namespaces().Update(ctx.Context(), ns, metav1.UpdateOptions{})
 			}

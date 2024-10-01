@@ -181,14 +181,14 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 // if there is no namespace provided in the label the default namespace will be used
 // defaultNamespace avoids the need to infer when object meta from a namespace was given
 func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
-	if labelValue, ok := meta.Labels[constants.AmbientUseWaypointLabel]; ok {
+	if labelValue, ok := meta.Labels[label.IoIstioUseWaypoint.Name]; ok {
 		// NOTE: this means Istio reserves the word "none" in this field with a special meaning
 		//   a waypoint named "none" cannot be used and will be ignored
 		if labelValue == "none" {
 			return nil, true
 		}
 		namespace := defaultNamespace
-		if override, f := meta.Labels[constants.AmbientUseWaypointNamespaceLabel]; f {
+		if override, f := meta.Labels[label.IoIstioUseWaypointNamespace.Name]; f {
 			namespace = override
 		}
 		return &krt.Named{
@@ -230,13 +230,13 @@ func (a *index) WaypointsCollection(
 		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
 		if gatewayClass == nil {
 			log.Warnf("could not find GatewayClass %s for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
-		} else if tt, found := gatewayClass.Labels[constants.AmbientWaypointForTrafficTypeLabel]; found {
+		} else if tt, found := gatewayClass.Labels[label.IoIstioWaypointFor.Name]; found {
 			// Check for a declared traffic type that is allowed to pass through the Waypoint's GatewayClass
 			trafficType = tt
 		}
 
 		// Check for a declared traffic type that is allowed to pass through the Waypoint
-		if tt, found := gateway.Labels[constants.AmbientWaypointForTrafficTypeLabel]; found {
+		if tt, found := gateway.Labels[label.IoIstioWaypointFor.Name]; found {
 			trafficType = tt
 		}
 

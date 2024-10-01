@@ -139,7 +139,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypointLabel: "waypoint-ns",
+				label.IoIstioUseWaypoint.Name: "waypoint-ns",
 			},
 		},
 	})
@@ -214,7 +214,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypointLabel: "none",
+				label.IoIstioUseWaypoint.Name: "none",
 			},
 		},
 	})
