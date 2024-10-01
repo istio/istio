@@ -92,7 +92,7 @@ func ListRevisionDescriptions(client kube.CLIClient) (map[string]*RevisionDescri
 	}
 	for _, hook := range webhooks {
 		rev := renderWithDefault(hook.GetLabels()[label.IoIstioRev.Name], DefaultRevisionName)
-		tagLabel := hook.GetLabels()[IstioTagLabel]
+		tagLabel := hook.GetLabels()[label.IoIstioTag.Name]
 		ri, revPresent := revisions[rev]
 		if revPresent {
 			if tagLabel != "" {

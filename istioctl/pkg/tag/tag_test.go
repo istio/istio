@@ -46,7 +46,7 @@ func TestTagList(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "istio-revision-tag-sample",
 							Labels: map[string]string{
-								IstioTagLabel:                 "sample",
+								label.IoIstioTag.Name:         "sample",
 								label.IoIstioRev.Name:         "sample-revision",
 								"operator.istio.io/component": "Pilot",
 							},
@@ -83,7 +83,7 @@ func TestTagList(t *testing.T) {
 							Name: "istio-revision-test",
 							Labels: map[string]string{
 								label.IoIstioRev.Name: "revision",
-								IstioTagLabel:         "test",
+								label.IoIstioTag.Name: "test",
 							},
 						},
 					},
@@ -151,7 +151,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-sample",
-							Labels: map[string]string{IstioTagLabel: "sample"},
+							Labels: map[string]string{label.IoIstioTag.Name: "sample"},
 						},
 					},
 				},
@@ -170,7 +170,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-wrong",
-							Labels: map[string]string{IstioTagLabel: "wrong"},
+							Labels: map[string]string{label.IoIstioTag.Name: "wrong"},
 						},
 					},
 				},
@@ -180,7 +180,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-wrong",
-							Labels: map[string]string{IstioTagLabel: "wrong"},
+							Labels: map[string]string{label.IoIstioTag.Name: "wrong"},
 						},
 					},
 				},
@@ -198,7 +198,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-match",
-							Labels: map[string]string{IstioTagLabel: "match"},
+							Labels: map[string]string{label.IoIstioTag.Name: "match"},
 						},
 					},
 				},
@@ -208,7 +208,7 @@ func TestRemoveTag(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:   "istio-revision-tag-match",
-							Labels: map[string]string{IstioTagLabel: "match"},
+							Labels: map[string]string{label.IoIstioTag.Name: "match"},
 						},
 					},
 				},
