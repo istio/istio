@@ -69,7 +69,7 @@ func TestQueue(t *testing.T) {
 		}
 		for _, set := range strings.Split(i.Annotations["conditions"], ",") {
 			k, v, _ := strings.Cut(set, "=")
-			conds[model.ConditionType(k)] = &model.Condition{Status: v == "true", Reason: "some reason"}
+			conds[model.ConditionType(k)] = []model.Condition{{Status: v == "true", Reason: "some reason"}}
 		}
 		return &serviceStatus{
 			Target: model.TypedObject{
@@ -142,7 +142,7 @@ func TestQueueLeaderElection(t *testing.T) {
 		}
 		for _, set := range strings.Split(i.Annotations["conditions"], ",") {
 			k, v, _ := strings.Cut(set, "=")
-			conds[model.ConditionType(k)] = &model.Condition{Status: v == "true", Reason: "some reason"}
+			conds[model.ConditionType(k)] = []model.Condition{{Status: v == "true", Reason: "some reason"}}
 		}
 		return &serviceStatus{
 			Target: model.TypedObject{
