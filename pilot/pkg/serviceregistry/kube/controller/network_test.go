@@ -26,6 +26,7 @@ import (
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -364,10 +365,10 @@ func TestAmbientSync(t *testing.T) {
 			Name:      "remote-beta",
 			Namespace: "default",
 			Annotations: map[string]string{
-				"gateway.istio.io/service-account": "eastwest-istio-eastwest",
+				annotation.GatewayServiceAccount.Name: "eastwest-istio-eastwest",
 			},
 			Labels: map[string]string{
-				"topology.istio.io/network": "beta",
+				label.TopologyNetwork.Name: "beta",
 			},
 		},
 		Spec: v1beta1.GatewaySpec{

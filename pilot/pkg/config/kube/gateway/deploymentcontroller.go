@@ -32,6 +32,7 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -346,14 +347,14 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	defaultName := getDefaultName(gw.Name, &gw.Spec, gi.disableNameSuffix)
 
 	serviceType := gi.defaultServiceType
-	if o, f := gw.Annotations[serviceTypeOverride]; f {
+	if o, f := gw.Annotations[annotation.NetworkingServiceType.Name]; f {
 		serviceType = corev1.ServiceType(o)
 	}
 
 	input := TemplateInput{
 		Gateway:        &gw,
-		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
-		ServiceAccount: model.GetOrDefault(gw.Annotations[gatewaySAOverride], defaultName),
+		DeploymentName: model.GetOrDefault(gw.Annotations[annotation.GatewayNameOverride.Name], defaultName),
+		ServiceAccount: model.GetOrDefault(gw.Annotations[annotation.GatewayServiceAccount.Name], defaultName),
 		Ports:          extractServicePorts(gw),
 		ClusterID:      d.clusterID.String(),
 

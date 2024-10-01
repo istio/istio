@@ -31,6 +31,7 @@ import (
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	credentials "istio.io/istio/pilot/pkg/credentials/kube"
@@ -1398,7 +1399,7 @@ func TestExtractGatewayServices(t *testing.T) {
 					Name:      "foo",
 					Namespace: "default",
 					Annotations: map[string]string{
-						gatewayNameOverride: "bar",
+						annotation.GatewayNameOverride.Name: "bar",
 					},
 				},
 			},

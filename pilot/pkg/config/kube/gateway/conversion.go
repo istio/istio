@@ -32,6 +32,7 @@ import (
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/annotation"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -2365,7 +2366,7 @@ func IsManaged(gw *k8s.GatewaySpec) bool {
 
 func extractGatewayServices(r GatewayResources, kgw *k8s.GatewaySpec, obj config.Config, info classInfo) ([]string, *ConfigError) {
 	if IsManaged(kgw) {
-		name := model.GetOrDefault(obj.Annotations[gatewayNameOverride], getDefaultName(obj.Name, kgw, info.disableNameSuffix))
+		name := model.GetOrDefault(obj.Annotations[annotation.GatewayNameOverride.Name], getDefaultName(obj.Name, kgw, info.disableNameSuffix))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, obj.Namespace, r.Domain)}, nil
 	}
 	gatewayServices := []string{}
@@ -2393,12 +2394,12 @@ func extractGatewayServices(r GatewayResources, kgw *k8s.GatewaySpec, obj config
 			Message: fmt.Sprintf("only Hostname is supported, ignoring %v", skippedAddresses),
 		}
 	}
-	if _, f := obj.Annotations[serviceTypeOverride]; f {
+	if _, f := obj.Annotations[annotation.NetworkingServiceType.Name]; f {
 		// Give error but return services, this is a soft failure
 		// Remove entirely in 1.20
 		return gatewayServices, &ConfigError{
 			Reason:  DeprecateFieldUsage,
-			Message: fmt.Sprintf("annotation %v is deprecated, use Spec.Infrastructure.Routeability", serviceTypeOverride),
+			Message: fmt.Sprintf("annotation %v is deprecated, use Spec.Infrastructure.Routeability", annotation.NetworkingServiceType.Name),
 		}
 	}
 	return gatewayServices, nil
