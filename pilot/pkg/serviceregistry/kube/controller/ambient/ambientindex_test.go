@@ -28,6 +28,7 @@ import (
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
 	auth "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
@@ -587,7 +588,7 @@ func TestAmbientIndex_WaypointInboundBinding(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.WaypointGatewayClassName,
 			Annotations: map[string]string{
-				constants.AmbientWaypointInboundBinding: "PROXY/15088",
+				annotation.AmbientWaypointInboundBinding.Name: "PROXY/15088",
 			},
 		},
 	})

@@ -27,6 +27,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
@@ -243,15 +244,15 @@ func (a *index) WaypointsCollection(
 }
 
 func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayClass) *InboundBinding {
-	annotation, ok := getGatewayOrGatewayClassAnnotation(gateway, gatewayClass)
+	ann, ok := getGatewayOrGatewayClassAnnotation(gateway, gatewayClass)
 	if !ok {
 		return nil
 	}
 
 	// format is either `protocol` or `protocol/port`
-	parts := strings.Split(annotation, "/")
+	parts := strings.Split(ann, "/")
 	if len(parts) == 0 || len(parts) > 2 {
-		log.Warnf("invalid value %q for %s. Must be of the format \"<protocol>\" or \"<protocol>/<port>\".", annotation, constants.AmbientWaypointInboundBinding)
+		log.Warnf("invalid value %q for %s. Must be of the format \"<protocol>\" or \"<protocol>/<port>\".", ann, annotation.AmbientWaypointInboundBinding.Name)
 		return nil
 	}
 
@@ -264,7 +265,7 @@ func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayC
 		protocol = workloadapi.ApplicationTunnel_PROXY
 	default:
 		// Only PROXY is supported for now.
-		log.Warnf("invalid protocol %s for %s. Only NONE or PROXY are supported.", parts[0], constants.AmbientWaypointInboundBinding)
+		log.Warnf("invalid protocol %s for %s. Only NONE or PROXY are supported.", parts[0], annotation.AmbientWaypointInboundBinding.Name)
 		return nil
 	}
 
@@ -273,7 +274,7 @@ func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayC
 	if len(parts) == 2 {
 		parsed, err := strconv.ParseUint(parts[1], 10, 32)
 		if err != nil {
-			log.Warnf("invalid port %s for %s.", parts[1], constants.AmbientWaypointInboundBinding)
+			log.Warnf("invalid port %s for %s.", parts[1], annotation.AmbientWaypointInboundBinding.Name)
 		}
 		port = uint32(parsed)
 	}
@@ -286,12 +287,12 @@ func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayC
 
 func getGatewayOrGatewayClassAnnotation(gateway *v1beta1.Gateway, class *v1beta1.GatewayClass) (string, bool) {
 	// Gateway > GatewayClass
-	annotation, ok := gateway.Annotations[constants.AmbientWaypointInboundBinding]
+	an, ok := gateway.Annotations[annotation.AmbientWaypointInboundBinding.Name]
 	if ok {
-		return annotation, true
+		return an, true
 	}
 	if class != nil {
-		annotation, ok := class.Annotations[constants.AmbientWaypointInboundBinding]
+		annotation, ok := class.Annotations[annotation.AmbientWaypointInboundBinding.Name]
 		if ok {
 			return annotation, true
 		}
