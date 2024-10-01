@@ -1000,10 +1000,9 @@ const (
 type ConditionSet = map[ConditionType][]Condition
 
 type Condition struct {
-	ObservedGeneration int
-	Reason             string
-	Message            string
-	Status             bool
+	Reason  string
+	Message string
+	Status  bool
 }
 
 func (i ServiceInfo) GetConditions() ConditionSet {
@@ -1139,10 +1138,9 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 	if len(conditions) == 1 {
 		c := conditions[0]
 		return Condition{
-			ObservedGeneration: 1,
-			Reason:             c.Status.Reason,
-			Message:            c.Status.Message,
-			Status:             c.Bound,
+			Reason:  c.Status.Reason,
+			Message: c.Status.Message,
+			Status:  c.Bound,
 		}
 	}
 
@@ -1170,7 +1168,6 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 	}
 
 	return Condition{
-		1,
 		reason,
 		message,
 		status,
