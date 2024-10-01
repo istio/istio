@@ -24,6 +24,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
@@ -155,7 +156,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		Prefix: "echo",
 		Inject: false,
 		Labels: map[string]string{
-			constants.DataplaneModeLabel: "ambient",
+			label.IoIstioDataplaneMode.Name: "ambient",
 		},
 	})
 	if err != nil {
@@ -258,12 +259,12 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas: 1,
 					Version:  "v1",
-					Labels:   map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
+					Labels:   map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
-					Labels:   map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
+					Labels:   map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone},
 				},
 			},
 		})
@@ -286,16 +287,16 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"sidecar.istio.io/inject":    "true",
-						constants.DataplaneModeLabel: constants.DataplaneModeNone,
+						"sidecar.istio.io/inject":       "true",
+						label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"sidecar.istio.io/inject":    "true",
-						constants.DataplaneModeLabel: constants.DataplaneModeNone,
+						"sidecar.istio.io/inject":       "true",
+						label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 					},
 				},
 			},

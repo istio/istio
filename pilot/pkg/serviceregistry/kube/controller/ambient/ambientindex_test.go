@@ -29,6 +29,7 @@ import (
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	auth "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
@@ -424,15 +425,15 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	// Add a waypoint proxy pod for namespace
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "waypoint-ns",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+			label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-ns",
 		}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
 	// create the waypoint service
 	s.addService(t, "waypoint-ns",
-		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
+		map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
-		[]int32{80}, map[string]string{constants.GatewayNameLabel: "waypoint-ns"}, "10.0.0.2")
+		[]int32{80}, map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-ns"}, "10.0.0.2")
 	s.assertEvent(t,
 		s.podXdsName("waypoint-ns-pod"),
 		s.svcXdsName("waypoint-ns"),
@@ -444,15 +445,15 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	// Add a waypoint proxy pod for sa2
 	s.addPods(t, "127.0.0.250", "waypoint-sa2-pod", "service-account",
 		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "waypoint-sa2",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+			label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-sa2",
 		}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint-sa2-pod"))
 	// create the waypoint service
 	s.addService(t, "waypoint-sa2",
-		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
+		map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
-		[]int32{80}, map[string]string{constants.GatewayNameLabel: "waypoint-sa2"}, "10.0.0.3")
+		[]int32{80}, map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-sa2"}, "10.0.0.3")
 	s.assertEvent(t,
 		s.podXdsName("waypoint-sa2-pod"),
 		s.svcXdsName("waypoint-sa2"),
@@ -498,8 +499,8 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	// Add another waypoint pod, expect no updates for other pods since waypoint address refers to service VIP
 	s.addPods(t, "127.0.0.201", "waypoint2-ns-pod", "namespace-wide",
 		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "namespace-wide",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+			label.IoK8sNetworkingGatewayGatewayName.Name: "namespace-wide",
 		}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-ns-pod"))
 	assert.Equal(t,
@@ -541,7 +542,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 		"waypoint-ns.ns1.svc.company.com")
 
 	s.addPods(t, "127.0.0.201", "waypoint2-sa", "waypoint-sa",
-		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
+		map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
 	// Unrelated SA should not change anything
@@ -596,7 +597,7 @@ func TestAmbientIndex_WaypointInboundBinding(t *testing.T) {
 	// TODO needing this check seems suspicious. We should really wait for up to 2 pod events.
 	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List()) }, 1)
 
-	s.addPods(t, "10.0.0.1", "proxy-sandwich-instance", "", map[string]string{constants.GatewayNameLabel: "proxy-sandwich"}, nil, true, corev1.PodRunning)
+	s.addPods(t, "10.0.0.1", "proxy-sandwich-instance", "", map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "proxy-sandwich"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("proxy-sandwich-instance"))
 	appTunnel := s.lookup(s.podXdsName("proxy-sandwich-instance"))[0].GetWorkload().GetApplicationTunnel()
 	assert.Equal(t, appTunnel, &workloadapi.ApplicationTunnel{
@@ -624,14 +625,14 @@ func setupPolicyTest(t *testing.T, s *ambientTestServer) {
 	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "waypoint-ns",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+			label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-ns",
 		}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
 	s.addPods(t, "127.0.0.201", "waypoint2-sa", "waypoint-sa",
 		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "waypoint-ns",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+			label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-ns",
 		},
 		map[string]string{}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
@@ -646,9 +647,9 @@ func setupPolicyTest(t *testing.T, s *ambientTestServer) {
 	})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addService(t, "waypoint-ns",
-		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
+		map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
-		[]int32{80}, map[string]string{constants.GatewayNameLabel: "waypoint-ns"}, "10.0.0.2")
+		[]int32{80}, map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-ns"}, "10.0.0.2")
 	s.assertUnorderedEvent(t, s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
 }
 

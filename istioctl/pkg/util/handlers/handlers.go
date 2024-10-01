@@ -33,8 +33,8 @@ import (
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
-	"istio.io/istio/pkg/config/constants"
 	kubelib "istio.io/istio/pkg/kube"
 )
 
@@ -165,13 +165,13 @@ func SelectorsForObject(object runtime.Object) (namespace string, selector label
 			return "", nil, fmt.Errorf("gateway is not a managed gateway")
 		}
 		namespace = t.Namespace
-		selector, err = labels.Parse(constants.GatewayNameLabel + "=" + t.Name)
+		selector, err = labels.Parse(label.IoK8sNetworkingGatewayGatewayName.Name + "=" + t.Name)
 	case *gatewayapibeta.Gateway:
 		if !gateway.IsManaged(&t.Spec) {
 			return "", nil, fmt.Errorf("gateway is not a managed gateway")
 		}
 		namespace = t.Namespace
-		selector, err = labels.Parse(constants.GatewayNameLabel + "=" + t.Name)
+		selector, err = labels.Parse(label.IoK8sNetworkingGatewayGatewayName.Name + "=" + t.Name)
 	default:
 		return polymorphichelpers.SelectorsForObject(object)
 	}

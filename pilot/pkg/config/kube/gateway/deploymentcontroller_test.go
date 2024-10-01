@@ -83,7 +83,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		Spec: &istioio_networking_v1beta1.ProxyConfig{
 			Selector: &istio_type_v1beta1.WorkloadSelector{
 				MatchLabels: map[string]string{
-					"gateway.networking.k8s.io/gateway-name": "default",
+					label.IoK8sNetworkingGatewayGatewayName.Name: "default",
 				},
 			},
 			Image: &istioio_networking_v1beta1.ProxyImage{
@@ -313,7 +313,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Namespace: "default",
 					// TODO why are we setting this on gateways?
 					Labels: map[string]string{
-						constants.DataplaneModeLabel: constants.DataplaneModeAmbient,
+						label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
 					},
 				},
 				Spec: k8s.GatewaySpec{
@@ -333,7 +333,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
 					Infrastructure: &k8s.GatewayInfrastructure{
 						Labels: map[k8s.LabelKey]k8s.LabelValue{
-							constants.DataplaneModeLabel: constants.DataplaneModeAmbient,
+							k8s.LabelKey(label.IoIstioDataplaneMode.Name): constants.DataplaneModeAmbient,
 						},
 					},
 				},

@@ -77,7 +77,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		if okInjectionLabel {
 			istioLabels = append(istioLabels, fmt.Sprintf("%s=%s", util.InjectionLabelName, injectionLabel))
 		}
-		for _, l := range []string{RevisionInjectionLabelName, constants.DataplaneModeLabel} {
+		for _, l := range []string{RevisionInjectionLabelName, label.IoIstioDataplaneMode.Name} {
 			if _, ok := r.Metadata.Labels[l]; ok && (!okInjectionLabel || injectionLabel == "enabled") {
 				istioLabels = append(istioLabels, fmt.Sprintf("%s=%s", l, r.Metadata.Labels[l]))
 			}
@@ -87,7 +87,7 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 			c.Report(gvk.Namespace, m)
 		}
 
-		if r.Metadata.Labels[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient {
+		if r.Metadata.Labels[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient {
 			return true
 		}
 

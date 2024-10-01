@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -717,7 +718,7 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 	}
 
 	// Other side is a waypoint proxy.
-	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
+	if al := e.Labels[label.GatewayManaged.Name]; al == constants.ManagedGatewayMeshControllerLabel {
 		return true
 	}
 

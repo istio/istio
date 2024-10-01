@@ -23,6 +23,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -135,7 +136,7 @@ func (s *InformerHandlers) GetActiveAmbientPodSnapshot() []*corev1.Pod {
 func (s *InformerHandlers) enqueueNamespace(o controllers.Object) {
 	namespace := o.GetName()
 	labels := o.GetLabels()
-	matchAmbient := labels[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient
+	matchAmbient := labels[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient
 	if matchAmbient {
 		log.Infof("Namespace %s is enabled in ambient mesh", namespace)
 	} else {
@@ -193,7 +194,7 @@ func getModeLabel(m map[string]string) string {
 	if m == nil {
 		return ""
 	}
-	return m[constants.DataplaneModeLabel]
+	return m[label.IoIstioDataplaneMode.Name]
 }
 
 func (s *InformerHandlers) reconcilePod(input any) error {

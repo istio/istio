@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"istio.io/api/label"
 	"strings"
 	"testing"
 	"time"
@@ -102,7 +103,7 @@ func TestWaypoint(t *testing.T) {
 				Prefix: "waypoint",
 				Inject: false,
 				Labels: map[string]string{
-					constants.DataplaneModeLabel: "ambient",
+					label.IoIstioDataplaneMode.Name: "ambient",
 				},
 			})
 
@@ -205,7 +206,7 @@ func TestWaypoint(t *testing.T) {
 }
 
 func checkWaypointIsReady(t framework.TestContext, ns, name string) error {
-	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, constants.GatewayNameLabel+"="+name)
+	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
 	_, err := kubetest.CheckPodsAreReady(fetch)
 	return err
 }

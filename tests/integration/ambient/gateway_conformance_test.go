@@ -34,6 +34,7 @@ import (
 	gwfeatures "sigs.k8s.io/gateway-api/pkg/features"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -121,7 +122,7 @@ func TestGatewayConformance(t *testing.T) {
 					Contact:      []string{"@istio/maintainers"},
 				},
 				NamespaceLabels: map[string]string{
-					constants.DataplaneModeLabel: "ambient",
+					label.IoIstioDataplaneMode.Name: "ambient",
 				},
 				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 			}
@@ -149,7 +150,7 @@ func TestGatewayConformance(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ns.RemoveLabel(constants.DataplaneModeLabel)
+			ns.RemoveLabel(label.IoIstioDataplaneMode.Name)
 
 			// create a waypoint for mesh conformance
 			meshNS := namespace.Static("gateway-conformance-mesh")

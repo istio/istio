@@ -137,7 +137,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		policies := a.buildWorkloadPolicies(ctx, authorizationPolicies, peerAuths, meshCfg, wle.Labels, wle.Namespace)
 		var waypoint *Waypoint
-		if wle.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
+		if wle.Labels[label.GatewayManaged.Name] != constants.ManagedGatewayMeshControllerLabel {
 			// TODO: report status for workload-attached waypoints
 			waypoint, _ = fetchWaypointForWorkload(ctx, waypoints, namespaces, wle.ObjectMeta)
 		}

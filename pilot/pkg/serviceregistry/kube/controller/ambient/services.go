@@ -21,6 +21,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/model"

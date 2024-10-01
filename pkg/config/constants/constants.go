@@ -154,7 +154,6 @@ const (
 	// testing the validation webhook.
 	AlwaysReject = "internal.istio.io/webhook-always-reject"
 
-	ManagedGatewayLabel               = "gateway.istio.io/managed"
 	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
 	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
 	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
@@ -163,16 +162,11 @@ const (
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
 
-	// GatewayNameLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
-	GatewayNameLabel = "gateway.networking.k8s.io/gateway-name"
-
 	// TODO formalize this API
 	// TODO additional values to represent passthrough and hbone or both
 	ListenerModeOption          = "gateway.istio.io/listener-protocol"
 	ListenerModeAutoPassthrough = "auto-passthrough"
 
-	// DataplaneMode namespace label for determining ambient mesh behavior
-	DataplaneModeLabel = "istio.io/dataplane-mode"
 	// Set by users to indicate that the (namespace|pod) should be captured for ambient
 	DataplaneModeAmbient = "ambient"
 	// Set by users to indicate that the (namespace|pod) should NOT be captured for ambient

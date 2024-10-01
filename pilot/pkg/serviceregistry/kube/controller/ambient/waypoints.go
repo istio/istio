@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
@@ -79,7 +80,7 @@ func (w Waypoint) Equals(other Waypoint) bool {
 // TODO should this also lookup waypoints by workload.addresses + workload.services[].vip?
 // ServiceEntry and WorkloadEntry likely won't have the gateway-name label.
 func fetchWaypointForInstance(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], o metav1.ObjectMeta) *Waypoint {
-	name, namespace := o.GetLabels()[constants.GatewayNameLabel], o.Namespace
+	name, namespace := o.GetLabels()[label.IoK8sNetworkingGatewayGatewayName.Name], o.Namespace
 	if name == "" {
 		return nil
 	}
@@ -143,7 +144,7 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
 ) (*Waypoint, *model.StatusMessage) {
 	// This is a waypoint, so it cannot have a waypoint
-	if o.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+	if o.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 		return nil, nil
 	}
 	w, err := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
@@ -216,7 +217,7 @@ func (a *index) WaypointsCollection(
 		}
 
 		instances := krt.Fetch(ctx, pods, krt.FilterLabel(map[string]string{
-			constants.GatewayNameLabel: gateway.Name,
+			label.IoK8sNetworkingGatewayGatewayName.Name: gateway.Name,
 		}), krt.FilterIndex(podsByNamespace, gateway.Namespace))
 
 		serviceAccounts := slices.Map(instances, func(p *v1.Pod) string {

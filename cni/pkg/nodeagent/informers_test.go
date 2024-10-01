@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -74,7 +75,7 @@ func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -134,7 +135,7 @@ func TestExistingPodAddedWhenDualStack(t *testing.T) {
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -182,7 +183,7 @@ func TestExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -219,7 +220,7 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "test"},
 		// TODO: once we if the add pod bug, re-enable this and remove the patch below
-		//		Labels: map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+		//		Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 
 	}
 
@@ -247,7 +248,7 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-			constants.DataplaneModeLabel, constants.DataplaneModeAmbient)), metav1.PatchOptions{})
+			label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient)), metav1.PatchOptions{})
 	assert.NoError(t, err)
 
 	// wait for an update event
@@ -269,7 +270,7 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 
 	// unlabel the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`,
-		constants.DataplaneModeLabel))
+		label.IoIstioDataplaneMode.Name))
 	_, err = client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -309,7 +310,7 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "test"},
 		// TODO: once we if the add pod bug, re-enable this and remove the patch below
-		//		Labels: map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+		//		Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 
 	}
 
@@ -337,7 +338,7 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-			constants.DataplaneModeLabel, constants.DataplaneModeAmbient)), metav1.PatchOptions{})
+			label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient)), metav1.PatchOptions{})
 	assert.NoError(t, err)
 
 	// wait for an update event
@@ -359,7 +360,7 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 
 	// label the pod for exclusion
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneModeLabel, constants.DataplaneModeNone))
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeNone))
 	_, err = client.Kube().CoreV1().Pods(pod.Namespace).Patch(ctx, pod.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -409,7 +410,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "test"},
 		// TODO: once we if the add pod bug, re-enable this and remove the patch below
-		//		Labels: map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+		//		Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 
 	}
 
@@ -437,7 +438,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-			constants.DataplaneModeLabel, constants.DataplaneModeAmbient)), metav1.PatchOptions{})
+			label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient)), metav1.PatchOptions{})
 	assert.NoError(t, err)
 
 	// wait for an update event
@@ -506,7 +507,7 @@ func TestGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) {
 			Name:      "enrolled-not-redirected",
 			Namespace: "test",
 			UID:       "12345",
-			Labels:    map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+			Labels:    map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: NodeName,
@@ -532,7 +533,7 @@ func TestGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test",
-			Labels: map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 		},
 	}
 
@@ -564,7 +565,7 @@ func TestGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T) {
 			Name:      "enrolled-not-redirected",
 			Namespace: "test",
 			UID:       "12345",
-			Labels:    map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+			Labels:    map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: NodeName,
@@ -578,7 +579,7 @@ func TestGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T) {
 			Name:        "enrolled-but-terminated",
 			Namespace:   "test",
 			UID:         "12345",
-			Labels:      map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+			Labels:      map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 			Annotations: map[string]string{annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled},
 		},
 		Spec: corev1.PodSpec{
@@ -592,7 +593,7 @@ func TestGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test",
-			Labels: map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 		},
 	}
 
@@ -633,7 +634,7 @@ func TestAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test",
-			Labels: map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 		},
 	}
 
@@ -662,7 +663,7 @@ func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 			Name:      "test",
 			Namespace: "test",
 			UID:       "1234",
-			Labels:    map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
+			Labels:    map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: NodeName,
@@ -674,7 +675,7 @@ func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test",
-			Labels: map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 		},
 	}
 
@@ -704,7 +705,7 @@ func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 			Name:      "test",
 			Namespace: "test",
 			UID:       "1234",
-			Labels:    map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
+			Labels:    map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: NodeName,
@@ -716,7 +717,7 @@ func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test",
-			Labels: map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 		},
 	}
 
@@ -758,7 +759,7 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test",
-			Labels: map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
 		},
 	}
 

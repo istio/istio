@@ -57,7 +57,7 @@ func InAmbient(obj metav1.Object) bool {
 		if v, ok := t.GetLabels()[label.IoIstioRev.Name]; ok && v != "" {
 			return false
 		}
-		return t.GetLabels()[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient
+		return t.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient
 	}
 	return false
 }

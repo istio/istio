@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
@@ -428,7 +429,7 @@ func TestPodWorkloads(t *testing.T) {
 					Name:      "waypoint",
 					Namespace: "ns",
 					Labels: map[string]string{
-						constants.GatewayNameLabel: "waypoint",
+						label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint",
 					},
 				},
 				Spec: v1.PodSpec{},

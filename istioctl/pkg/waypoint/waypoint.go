@@ -228,7 +228,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 						"adding the `"+"--overwrite"+"` flag to your apply command.\n", ns)
 					return nil
 				}
-				namespaceIsLabeledAmbient, err := namespaceHasLabelWithValue(kubeClient, ns, constants.DataplaneModeLabel, constants.DataplaneModeAmbient)
+				namespaceIsLabeledAmbient, err := namespaceHasLabelWithValue(kubeClient, ns, label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient)
 				if err != nil {
 					return fmt.Errorf("failed to check if namespace is labeled ambient: %v", err)
 				}

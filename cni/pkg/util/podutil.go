@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 )
 
@@ -43,8 +44,8 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 // PodRedirectionEnabled determines if a pod should or should not be configured
 // to have traffic redirected thru the node proxy.
 func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
-	if !(namespace.GetLabels()[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient ||
-		pod.GetLabels()[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient) {
+	if !(namespace.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient ||
+		pod.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient) {
 		// Neither namespace nor pod has ambient mode enabled
 		return false
 	}
@@ -52,7 +53,7 @@ func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
 		return false
 	}
-	if pod.GetLabels()[constants.DataplaneModeLabel] == constants.DataplaneModeNone {
+	if pod.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeNone {
 		// Pod explicitly asked to not have ambient redirection enabled
 		return false
 	}

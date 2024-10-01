@@ -20,13 +20,13 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -107,7 +107,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			name:              "Gateway targetRef foo namespace",
 			workloadNamespace: "foo",
 			workloadLabels: labels.Instance{
-				constants.GatewayNameLabel: "my-gateway",
+				label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -127,7 +127,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
 							MatchLabels: map[string]string{
-								constants.GatewayNameLabel: "my-gateway",
+								label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
 							},
 						},
 					},
@@ -190,7 +190,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			workloadNamespace: "foo",
 			isWaypoint:        true,
 			workloadLabels: labels.Instance{
-				constants.GatewayNameLabel: "my-gateway",
+				label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -242,7 +242,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			name:              "Gateway targetRef bar namespace",
 			workloadNamespace: "bar",
 			workloadLabels: labels.Instance{
-				constants.GatewayNameLabel: "my-gateway",
+				label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -668,7 +668,7 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 			name:              "Gateway targetRef foo namespace",
 			workloadNamespace: "foo",
 			workloadLabels: labels.Instance{
-				constants.GatewayNameLabel: "my-gateway",
+				label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -721,7 +721,7 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 			workloadNamespace: "foo",
 			isWaypoint:        true,
 			workloadLabels: labels.Instance{
-				constants.GatewayNameLabel: "my-gateway",
+				label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -773,7 +773,7 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 			name:              "Gateway targetRef bar namespace",
 			workloadNamespace: "bar",
 			workloadLabels: labels.Instance{
-				constants.GatewayNameLabel: "my-gateway",
+				label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -1483,7 +1483,7 @@ func createTestConfigs(withMeshPeerAuthn bool) []*config.Config {
 		}),
 		createTestRequestAuthenticationResource("ignored-gateway-selector", "foo", &selectorpb.WorkloadSelector{
 			MatchLabels: map[string]string{
-				constants.GatewayNameLabel: "my-gateway",
+				label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
 			},
 		}, nil),
 		createTestRequestAuthenticationResource("with-targetref", "bar", &selectorpb.WorkloadSelector{
