@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/helm"
@@ -557,4 +558,27 @@ func verifyValidation(ctx framework.TestContext, revision string) {
 		rejected := err != nil
 		return rejected
 	})
+}
+
+// TODO BML this relabeling/reannotating is only required if the previous release is =< 1.23,
+// and should be dropped once 1.24 is released.
+func adoptPre123CRDResourcesIfNeeded() {
+	requiredAdoptionLabels := []string{"app.kubernetes.io/managed-by=Helm"}
+	requiredAdoptionAnnos := []string{"meta.helm.sh/release-name=istio-base", "meta.helm.sh/release-namespace=istio-system"}
+
+	for _, labelToAdd := range requiredAdoptionLabels {
+		execCmd := fmt.Sprintf("kubectl label crds -l chart=istio -l app.kubernetes.io/part-of=istio %v", labelToAdd)
+		_, err := shell.Execute(false, execCmd)
+		if err != nil {
+			scopes.Framework.Infof("couldn't relabel CRDs for Helm adoption: %s. Likely not needed for this release", labelToAdd)
+		}
+	}
+
+	for _, annoToAdd := range requiredAdoptionAnnos {
+		execCmd := fmt.Sprintf("kubectl annotate crds -l -l -l app.kubernetes.io/part-of=istio chart=istio %v", annoToAdd)
+		_, err := shell.Execute(false, execCmd)
+		if err != nil {
+			scopes.Framework.Infof("couldn't reannotate CRDs for Helm adoption: %s. Likely not needed for this release", annoToAdd)
+		}
+	}
 }

@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	helmtest "istio.io/istio/tests/integration/helm"
 	"istio.io/istio/tests/util/sanitycheck"
@@ -44,29 +43,6 @@ const (
 	canaryTag         = "canary"
 	latestRevisionTag = "latest"
 )
-
-// TODO BML this relabeling/reannotating is only required if the previous release is =< 1.23,
-// and should be dropped once 1.24 is released.
-func adoptPre123CRDResourcesIfNeeded() {
-	requiredAdoptionLabels := []string{"app.kubernetes.io/managed-by=Helm"}
-	requiredAdoptionAnnos := []string{"meta.helm.sh/release-name=istio-base", "meta.helm.sh/release-namespace=istio-system"}
-
-	for _, labelToAdd := range requiredAdoptionLabels {
-		execCmd := fmt.Sprintf("kubectl label crds -l chart=istio %v", labelToAdd)
-		_, err := shell.Execute(false, execCmd)
-		if err != nil {
-			scopes.Framework.Infof("couldn't relabel CRDs for Helm adoption: %s. Likely not needed for this release", labelToAdd)
-		}
-	}
-
-	for _, annoToAdd := range requiredAdoptionAnnos {
-		execCmd := fmt.Sprintf("kubectl annotate crds -l chart=istio %v", annoToAdd)
-		_, err := shell.Execute(false, execCmd)
-		if err != nil {
-			scopes.Framework.Infof("couldn't reannotate CRDs for Helm adoption: %s. Likely not needed for this release", annoToAdd)
-		}
-	}
-}
 
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
@@ -179,7 +155,7 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", isAmbient)
 
-		adoptPre123CRDResourcesIfNeeded()
+		helmtest.adoptPre123CRDResourcesIfNeeded()
 
 		upgradeCharts(t, h, overrideValuesFile, nsConfig, isAmbient)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
@@ -219,7 +195,7 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, canaryTag, false)
 
-		adoptPre123CRDResourcesIfNeeded()
+		helmtest.adoptPre123CRDResourcesIfNeeded()
 
 		helmtest.InstallIstioWithRevision(t, cs, h, "", canaryTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
@@ -284,7 +260,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		// helm install istiod-latest ../manifests/charts/istio-control/istio-discovery -f values.yaml
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, latestRevisionTag, false)
 
-		adoptPre123CRDResourcesIfNeeded()
+		helmtest.adoptPre123CRDResourcesIfNeeded()
 
 		helmtest.InstallIstioWithRevision(t, cs, h, "", latestRevisionTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
