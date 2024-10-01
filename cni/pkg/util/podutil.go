@@ -31,13 +31,13 @@ import (
 
 var annotationPatch = []byte(fmt.Sprintf(
 	`{"metadata":{"annotations":{"%s":"%s"}}}`,
-	constants.AmbientRedirection,
+	annotation.AmbientRedirection.Name,
 	constants.AmbientRedirectionEnabled,
 ))
 
 var annotationRemovePatch = []byte(fmt.Sprintf(
 	`{"metadata":{"annotations":{"%s":null}}}`,
-	constants.AmbientRedirection,
+	annotation.AmbientRedirection.Name,
 ))
 
 // PodRedirectionEnabled determines if a pod should or should not be configured
@@ -70,7 +70,7 @@ func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 //
 // If you just want to know if the pod _should be_ configured for traffic redirection, see PodRedirectionEnabled
 func PodRedirectionActive(pod *corev1.Pod) bool {
-	return pod.GetAnnotations()[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
+	return pod.GetAnnotations()[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 }
 
 func podHasSidecar(pod *corev1.Pod) bool {
@@ -100,7 +100,7 @@ func AnnotateEnrolledPod(client kubernetes.Interface, pod *metav1.ObjectMeta) er
 }
 
 func AnnotateUnenrollPod(client kubernetes.Interface, pod *metav1.ObjectMeta) error {
-	if pod.Annotations[constants.AmbientRedirection] != constants.AmbientRedirectionEnabled {
+	if pod.Annotations[annotation.AmbientRedirection.Name] != constants.AmbientRedirectionEnabled {
 		return nil
 	}
 	// TODO: do not overwrite if already none

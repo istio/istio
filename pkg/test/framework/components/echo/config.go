@@ -421,7 +421,7 @@ func (c Config) ZTunnelCaptured() bool {
 		!c.HasSidecar() {
 		return true
 	}
-	return haveSubsets && c.Subsets[0].Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
+	return haveSubsets && c.Subsets[0].Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 }
 
 // DeepCopy creates a clone of IstioEndpoint.

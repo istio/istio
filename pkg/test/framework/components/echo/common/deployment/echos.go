@@ -359,8 +359,8 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{{
 				Labels: map[string]string{
-					label.SidecarInject.Name:     "false",
-					constants.AmbientRedirection: constants.AmbientRedirectionEnabled,
+					label.SidecarInject.Name:           "false",
+					annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled,
 				},
 			}},
 		}

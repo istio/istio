@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -618,7 +619,7 @@ func (a *index) endpointSlicesBuilder(
 }
 
 func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Workload) {
-	if annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
+	if annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled {
 		// Configured for override
 		w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
 	}

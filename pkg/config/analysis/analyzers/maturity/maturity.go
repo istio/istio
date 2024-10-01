@@ -74,7 +74,7 @@ var AlwaysIgnoredAnnotations = map[string]bool{
 	// Delete these related annotations once they are stable.
 	// Ref: https://github.com/istio/api/pull/2695
 	constants.AmbientWaypointForTrafficTypeLabel: true,
-	constants.AmbientRedirection:                 true,
+	annotation.AmbientRedirection.Name:           true,
 }
 
 // Analyze implements analysis.Analyzer

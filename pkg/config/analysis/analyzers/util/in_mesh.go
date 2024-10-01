@@ -18,6 +18,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/constants"
@@ -46,7 +47,7 @@ func PodInAmbientMode(r *resource.Instance) bool {
 		return false
 	}
 
-	return r.Metadata.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
+	return r.Metadata.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 }
 
 // NamespaceInAmbientMode returns true if a Namespace is configured as a ambient namespace.

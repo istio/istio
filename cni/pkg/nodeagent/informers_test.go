@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -519,7 +520,7 @@ func TestGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) {
 			Name:        "redirected-not-enrolled",
 			Namespace:   "test",
 			UID:         "12346",
-			Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionEnabled},
+			Annotations: map[string]string{annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: NodeName,
@@ -578,7 +579,7 @@ func TestGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T) {
 			Namespace:   "test",
 			UID:         "12345",
 			Labels:      map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient},
-			Annotations: map[string]string{constants.AmbientRedirection: constants.AmbientRedirectionEnabled},
+			Annotations: map[string]string{annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled},
 		},
 		Spec: corev1.PodSpec{
 			NodeName: NodeName,
@@ -796,7 +797,7 @@ func assertPodAnnotated(t *testing.T, client kube.Client, pod *corev1.Pod) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if p.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
+		if p.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled {
 			return
 		}
 		time.Sleep(1 * time.Second)
@@ -810,7 +811,7 @@ func assertPodNotAnnotated(t *testing.T, client kube.Client, pod *corev1.Pod) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if p.Annotations[constants.AmbientRedirection] != constants.AmbientRedirectionEnabled {
+		if p.Annotations[annotation.AmbientRedirection.Name] != constants.AmbientRedirectionEnabled {
 			return
 		}
 		time.Sleep(1 * time.Second)

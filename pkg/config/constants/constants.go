@@ -179,7 +179,7 @@ const (
 	DataplaneModeNone = "none"
 
 	// AmbientRedirection specifies whether a pod has ambient redirection (to ztunnel) configured.
-	AmbientRedirection = "ambient.istio.io/redirection"
+	//AmbientRedirection = annotation.AmbientRedirection.Name
 	// AmbientRedirectionEnabled indicates redirection is configured. This is set by the CNI on pods
 	// when it actually has successfully set up pod redirection, rather than by the user.
 	//

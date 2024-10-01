@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -221,8 +222,8 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		if ns == nil {
 			return fmt.Errorf("failed to find namespace %v", ns)
 		}
-		wasAnnotated := oldPod.Annotations != nil && oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
-		isAnnotated := newPod.Annotations != nil && newPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
+		wasAnnotated := oldPod.Annotations != nil && oldPod.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
+		isAnnotated := newPod.Annotations != nil && newPod.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 		shouldBeEnabled := util.PodRedirectionEnabled(ns, newPod)
 		isTerminated := kube.CheckPodTerminal(newPod)
 		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
