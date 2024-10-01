@@ -1103,6 +1103,14 @@ type WaypointPolicyStatus struct {
 	Conditions []PolicyBindingStatus
 }
 
+const (
+	WaypointPolicyReasonAccepted         = "Accepted"
+	WaypointPolicyReasonInvalid          = "Invalid"
+	WaypointPolicyReasonPartiallyInvalid = "PartiallyInvalid"
+	WaypointPolicyReasonAncestorNotBound = "AncestorNotBound"
+	WaypointPolicyReasonTargetNotFound   = "TargetNotFound"
+)
+
 // impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
 func (i WaypointPolicyStatus) GetStatusTarget() TypedObject {
 	return i.Source
@@ -1123,7 +1131,7 @@ func (i WaypointPolicyStatus) GetConditions() ConditionSet {
 // retain detail in the codebase to be prepared when a canonical representation is accepted upstream.
 func flattenConditions(conditions []PolicyBindingStatus) Condition {
 	status := false
-	reason := "Invalid"
+	reason := WaypointPolicyReasonInvalid
 	unboundAncestors := []string{}
 	var message string
 
@@ -1150,11 +1158,11 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 	someUnbound := len(unboundAncestors) > 0
 
 	if status {
-		reason = "Accepted"
+		reason = WaypointPolicyReasonAccepted
 	}
 
 	if status && someUnbound {
-		reason = "PartiallyInvalid"
+		reason = WaypointPolicyReasonPartiallyInvalid
 	}
 
 	if someUnbound {

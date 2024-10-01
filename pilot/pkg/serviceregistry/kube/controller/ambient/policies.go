@@ -61,10 +61,10 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 					fetchedWaypoints := krt.Fetch(ctx, waypoints, krt.FilterKey(key))
 					if len(fetchedWaypoints) == 1 {
 						bound = true
-						reason = "Accepted"
+						reason = model.WaypointPolicyReasonAccepted
 						message = fmt.Sprintf("bound to %s", fetchedWaypoints[0].ResourceName())
 					} else {
-						reason = "TargetNotFound"
+						reason = model.WaypointPolicyReasonTargetNotFound
 					}
 				case gvk.Service.Kind:
 					fetchedServices := krt.Fetch(ctx, services, krt.FilterKey(key))
@@ -72,15 +72,15 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServices[0].ObjectMeta)
 						if w != nil {
 							bound = true
-							reason = "Accepted"
+							reason = model.WaypointPolicyReasonAccepted
 							message = fmt.Sprintf("bound to %s", w.ResourceName())
 						} else {
 							message = fmt.Sprintf("Service %s is not bound to a waypoint", key)
-							reason = "AncestorNotBound"
+							reason = model.WaypointPolicyReasonAncestorNotBound
 						}
 					} else {
 						message = fmt.Sprintf("Service %s was not found", key)
-						reason = "TargetNotFound"
+						reason = model.WaypointPolicyReasonTargetNotFound
 					}
 				case gvk.ServiceEntry.Kind:
 					fetchedServiceEntries := krt.Fetch(ctx, serviceEntries, krt.FilterKey(key))
@@ -88,15 +88,15 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServiceEntries[0].ObjectMeta)
 						if w != nil {
 							bound = true
-							reason = "Accepted"
+							reason = model.WaypointPolicyReasonAccepted
 							message = fmt.Sprintf("bound to %s", w.ResourceName())
 						} else {
 							message = fmt.Sprintf("ServiceEntry %s is not bound to a waypoint", key)
-							reason = "AncestorNotBound"
+							reason = model.WaypointPolicyReasonAncestorNotBound
 						}
 					} else {
 						message = fmt.Sprintf("ServiceEntry %s was not found", key)
-						reason = "TargetNotFound"
+						reason = model.WaypointPolicyReasonTargetNotFound
 					}
 				}
 				targetGroup := target.GetGroup()
