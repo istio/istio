@@ -532,6 +532,298 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				},
 			},
 		},
+		{
+			testName: "single-bind-success-service",
+			services: []v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "working-service",
+						Namespace: testNS,
+					},
+					Spec: v1.ServiceSpec{},
+				},
+			},
+			policy: securityclient.AuthorizationPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "working-service-pol",
+					Namespace: testNS,
+				},
+				Spec: v1beta1.AuthorizationPolicy{
+					TargetRefs: []*apiv1beta1.PolicyTargetReference{
+						{
+							Group: gvk.Service.Group,
+							Kind:  gvk.Service.Kind,
+							Name:  "working-service",
+						},
+					},
+					Rules:  []*v1beta1.Rule{},
+					Action: 0,
+				},
+			},
+			expect: []model.PolicyBindingStatus{
+				{
+					Ancestor: "Service.core:ns1/working-service",
+					Status: &model.StatusMessage{
+						Reason:  "Accepted",
+						Message: "bound to " + testNS + "/waypoint",
+					},
+					Bound: true,
+				},
+			},
+		},
+		{
+			testName: "single-bind-no-waypoint-service",
+			services: []v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "no-waypoint-service",
+						Namespace: testNS,
+						Labels: map[string]string{
+							constants.AmbientUseWaypointLabel: "none",
+						},
+					},
+					Spec: v1.ServiceSpec{},
+				},
+			},
+			policy: securityclient.AuthorizationPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "no-waypoint-service-pol",
+					Namespace: testNS,
+				},
+				Spec: v1beta1.AuthorizationPolicy{
+					TargetRefs: []*apiv1beta1.PolicyTargetReference{
+						{
+							Group: gvk.Service.Group,
+							Kind:  gvk.Service.Kind,
+							Name:  "no-waypoint-service",
+						},
+					},
+					Rules:  []*v1beta1.Rule{},
+					Action: 0,
+				},
+			},
+			expect: []model.PolicyBindingStatus{
+				{
+					Ancestor: "Service.core:ns1/no-waypoint-service",
+					Status: &model.StatusMessage{
+						Reason:  "AncestorNotBound",
+						Message: "Service " + testNS + "/no-waypoint-service is not bound to a waypoint",
+					},
+					Bound: false,
+				},
+			},
+		},
+		{
+			testName: "single-bind-no-service",
+			policy: securityclient.AuthorizationPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "no-service-pol",
+					Namespace: testNS,
+				},
+				Spec: v1beta1.AuthorizationPolicy{
+					TargetRefs: []*apiv1beta1.PolicyTargetReference{
+						{
+							Group: gvk.Service.Group,
+							Kind:  gvk.Service.Kind,
+							Name:  "no-service",
+						},
+					},
+					Rules:  []*v1beta1.Rule{},
+					Action: 0,
+				},
+			},
+			expect: []model.PolicyBindingStatus{
+				{
+					Ancestor: "Service.core:ns1/no-service",
+					Status: &model.StatusMessage{
+						Reason:  "TargetNotFound",
+						Message: "Service " + testNS + "/no-service was not found",
+					},
+					Bound: false,
+				},
+			},
+		},
+		{
+			testName: "single-bind-success-gateway",
+			policy: securityclient.AuthorizationPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "single-gateway-pol",
+					Namespace: testNS,
+				},
+				Spec: v1beta1.AuthorizationPolicy{
+					TargetRefs: []*apiv1beta1.PolicyTargetReference{
+						{
+							Group: gvk.KubernetesGateway.Group,
+							Kind:  gvk.KubernetesGateway.Kind,
+							Name:  "waypoint",
+						},
+					},
+					Rules:  []*v1beta1.Rule{},
+					Action: 0,
+				},
+			},
+			expect: []model.PolicyBindingStatus{
+				{
+					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/waypoint",
+					Status: &model.StatusMessage{
+						Reason:  "Accepted",
+						Message: "bound to " + testNS + "/waypoint",
+					},
+					Bound: true,
+				},
+			},
+		},
+		{
+			testName: "single-bind-no-gateway",
+			policy: securityclient.AuthorizationPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "single-no-gateway-pol",
+					Namespace: testNS,
+				},
+				Spec: v1beta1.AuthorizationPolicy{
+					TargetRefs: []*apiv1beta1.PolicyTargetReference{
+						{
+							Group: gvk.KubernetesGateway.Group,
+							Kind:  gvk.KubernetesGateway.Kind,
+							Name:  "not-a-waypoint",
+						},
+					},
+					Rules:  []*v1beta1.Rule{},
+					Action: 0,
+				},
+			},
+			expect: []model.PolicyBindingStatus{
+				{
+					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/not-a-waypoint",
+					Status: &model.StatusMessage{
+						Reason:  "TargetNotFound",
+						Message: "not bound",
+					},
+					Bound: false,
+				},
+			},
+		},
+		{
+			testName: "multi-bind-partial-all-resources",
+			policy: securityclient.AuthorizationPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "multi-partial-all-pol",
+					Namespace: testNS,
+				},
+				Spec: v1beta1.AuthorizationPolicy{
+					TargetRefs: []*apiv1beta1.PolicyTargetReference{
+						{
+							Group: gvk.ServiceEntry.Group,
+							Kind:  gvk.ServiceEntry.Kind,
+							Name:  "working-se",
+						},
+						{
+							Group: gvk.ServiceEntry.Group,
+							Kind:  gvk.ServiceEntry.Kind,
+							Name:  "no-waypoint-se",
+						},
+						{
+							Group: gvk.ServiceEntry.Group,
+							Kind:  gvk.ServiceEntry.Kind,
+							Name:  "missing-se",
+						},
+						{
+							Group: gvk.Service.Group,
+							Kind:  gvk.Service.Kind,
+							Name:  "working-service",
+						},
+						{
+							Group: gvk.Service.Group,
+							Kind:  gvk.Service.Kind,
+							Name:  "no-waypoint-service",
+						},
+						{
+							Group: gvk.Service.Group,
+							Kind:  gvk.Service.Kind,
+							Name:  "no-service",
+						},
+						{
+							Group: gvk.KubernetesGateway.Group,
+							Kind:  gvk.KubernetesGateway.Kind,
+							Name:  "waypoint",
+						},
+						{
+							Group: gvk.KubernetesGateway.Group,
+							Kind:  gvk.KubernetesGateway.Kind,
+							Name:  "not-a-waypoint",
+						},
+					},
+					Rules:  []*v1beta1.Rule{},
+					Action: 0,
+				},
+			},
+			expect: []model.PolicyBindingStatus{
+				{
+					Ancestor: "ServiceEntry.networking.istio.io:ns1/working-se",
+					Status: &model.StatusMessage{
+						Reason:  "Accepted",
+						Message: "bound to " + testNS + "/waypoint",
+					},
+					Bound: true,
+				},
+				{
+					Ancestor: "ServiceEntry.networking.istio.io:ns1/no-waypoint-se",
+					Status: &model.StatusMessage{
+						Reason:  "AncestorNotBound",
+						Message: gvk.ServiceEntry.Kind + " " + testNS + "/no-waypoint-se is not bound to a waypoint",
+					},
+					Bound: false,
+				},
+				{
+					Ancestor: "ServiceEntry.networking.istio.io:ns1/missing-se",
+					Status: &model.StatusMessage{
+						Reason:  "TargetNotFound",
+						Message: gvk.ServiceEntry.Kind + " " + testNS + "/missing-se was not found",
+					},
+					Bound: false,
+				},
+				{
+					Ancestor: "Service.core:ns1/working-service",
+					Status: &model.StatusMessage{
+						Reason:  "Accepted",
+						Message: "bound to " + testNS + "/waypoint",
+					},
+					Bound: true,
+				},
+				{
+					Ancestor: "Service.core:ns1/no-waypoint-service",
+					Status: &model.StatusMessage{
+						Reason:  "AncestorNotBound",
+						Message: "Service " + testNS + "/no-waypoint-service is not bound to a waypoint",
+					},
+					Bound: false,
+				},
+				{
+					Ancestor: "Service.core:ns1/no-service",
+					Status: &model.StatusMessage{
+						Reason:  "TargetNotFound",
+						Message: "Service " + testNS + "/no-service was not found",
+					},
+					Bound: false,
+				},
+				{
+					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/waypoint",
+					Status: &model.StatusMessage{
+						Reason:  "Accepted",
+						Message: "bound to " + testNS + "/waypoint",
+					},
+					Bound: true,
+				},
+				{
+					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/not-a-waypoint",
+					Status: &model.StatusMessage{
+						Reason:  "TargetNotFound",
+						Message: "not bound",
+					},
+					Bound: false,
+				},
+			},
+		},
 	}
 
 	// these nolint are to suppress findings regarding copying the mutex contained within our service entry proto fields

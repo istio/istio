@@ -99,12 +99,16 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 						reason = "TargetNotFound"
 					}
 				}
+				targetGroup := target.GetGroup()
+				if targetGroup == "" {
+					targetGroup = "core"
+				}
 				conditions = append(conditions, model.PolicyBindingStatus{
 					Status: &model.StatusMessage{
 						Reason:  reason,
 						Message: message,
 					},
-					Ancestor: target.GetKind() + "." + target.GetGroup() + ":" + key,
+					Ancestor: target.GetKind() + "." + targetGroup + ":" + key,
 					Bound:    bound,
 				})
 			}
