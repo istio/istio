@@ -721,6 +721,13 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 		return true
 	}
 
+	// Otherwise supports tunnel
+	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
+	// need to pick the right one based on our support overlap.
+	if e.SupportsTunnel(model.TunnelHTTP) {
+		return true
+	}
+
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
 	// Check all addresses and return true if there is any IP address that supports tunneling when current endpoint has multiple addresses
 	for _, addr := range e.Addresses {
@@ -728,10 +735,8 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 			return true
 		}
 	}
-	// Otherwise supports tunnel
-	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
-	// need to pick the right one based on our support overlap.
-	return e.SupportsTunnel(model.TunnelHTTP)
+
+	return false
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(
