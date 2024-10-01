@@ -1602,6 +1602,9 @@ templates:
               runAsGroup: {{ .ProxyGID | default "1337" }}
               runAsNonRoot: true
             ports:
+            - containerPort: 15020
+              name: metrics
+              protocol: TCP
             - containerPort: 15021
               name: status-port
               protocol: TCP
