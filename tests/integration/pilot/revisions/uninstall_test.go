@@ -170,7 +170,7 @@ spec:
 
 			// Check no resources from the custom file exist
 			checkCPResourcesUninstalled(t, t.Clusters().Default(), allGVKs,
-				fmt.Sprintf("%s=%s", manifest.IstioComponentLabel, component.IstiodRemoteComponentName), true)
+				fmt.Sprintf("%s=%s", manifest.IstioComponentLabel, component.PilotComponentName), true)
 		})
 }
 
