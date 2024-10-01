@@ -562,7 +562,7 @@ func verifyValidation(ctx framework.TestContext, revision string) {
 
 // TODO BML this relabeling/reannotating is only required if the previous release is =< 1.23,
 // and should be dropped once 1.24 is released.
-func adoptPre123CRDResourcesIfNeeded() {
+func AdoptPre123CRDResourcesIfNeeded() {
 	requiredAdoptionLabels := []string{"app.kubernetes.io/managed-by=Helm"}
 	requiredAdoptionAnnos := []string{"meta.helm.sh/release-name=istio-base", "meta.helm.sh/release-namespace=istio-system"}
 

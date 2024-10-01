@@ -38,6 +38,6 @@ func TestMain(m *testing.M) {
 //
 // Needed as other tests do not clean up CRDs and in this suite that can create issues
 func adoptCRDsFromPreviousTests(ctx resource.Context) error {
-	adoptPre123CRDResourcesIfNeeded()
+	AdoptPre123CRDResourcesIfNeeded()
 	return nil
 }
