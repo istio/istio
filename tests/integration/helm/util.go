@@ -575,7 +575,7 @@ func AdoptPre123CRDResourcesIfNeeded() {
 	}
 
 	for _, annoToAdd := range requiredAdoptionAnnos {
-		execCmd := fmt.Sprintf("kubectl annotate crds -l -l -l app.kubernetes.io/part-of=istio chart=istio %v", annoToAdd)
+		execCmd := fmt.Sprintf("kubectl annotate crds -l chart=istio -l app.kubernetes.io/part-of=istio %v", annoToAdd)
 		_, err := shell.Execute(false, execCmd)
 		if err != nil {
 			scopes.Framework.Infof("couldn't reannotate CRDs for Helm adoption: %s. Likely not needed for this release", annoToAdd)
