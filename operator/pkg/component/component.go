@@ -124,7 +124,7 @@ const (
 	CNIComponentName     Name = "Cni"
 	ZtunnelComponentName Name = "Ztunnel"
 
-	// DEPRECATED: istiod remote component
+	// Deprecated: istiod remote component
 	IstiodRemoteComponentName Name = "IstiodRemote"
 
 	IngressComponentName Name = "IngressGateways"
