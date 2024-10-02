@@ -5975,7 +5975,7 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
-		{"ingress tls invalid protocol in IPv4", &networking.Sidecar{
+		{"ingress tls post decrypted protocol in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.SidecarPort{
@@ -5985,12 +5985,14 @@ func TestValidateSidecar(t *testing.T) {
 					},
 					DefaultEndpoint: "127.0.0.1:9999",
 					Tls: &networking.ServerTLSSettings{
-						Mode: networking.ServerTLSSettings_SIMPLE,
+						Mode:              networking.ServerTLSSettings_SIMPLE,
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
 					},
 				},
 			},
-		}, false, false},
-		{"ingress tls invalid protocol in IPv6", &networking.Sidecar{
+		}, true, false},
+		{"ingress tls post decrypted protocol in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.SidecarPort{
@@ -6000,11 +6002,13 @@ func TestValidateSidecar(t *testing.T) {
 					},
 					DefaultEndpoint: "[::1]:9999",
 					Tls: &networking.ServerTLSSettings{
-						Mode: networking.ServerTLSSettings_SIMPLE,
+						Mode:              networking.ServerTLSSettings_SIMPLE,
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
 					},
 				},
 			},
-		}, false, false},
+		}, true, false},
 		{"ingress tls httpRedirect is not supported in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
