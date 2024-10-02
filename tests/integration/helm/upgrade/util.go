@@ -49,7 +49,7 @@ const (
 func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string, nsConfig helmtest.NamespaceConfig, isAmbient bool) {
 	// Upgrade base chart
 	err := h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.BaseChart),
-		nsConfig.Get(helmtest.BaseReleaseName), overrideValuesFile, helmtest.Timeout, "--skip-crds")
+		nsConfig.Get(helmtest.BaseReleaseName), overrideValuesFile, helmtest.Timeout)
 	if err != nil {
 		ctx.Fatalf("failed to upgrade istio %s chart", helmtest.BaseReleaseName)
 	}
