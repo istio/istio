@@ -6152,9 +6152,14 @@ spec:
                 properties:
                   labels:
                     additionalProperties:
+                      maxLength: 63
                       type: string
+                      x-kubernetes-validations:
+                      - message: wildcard is not supported in selector
+                        rule: '!self.contains(''*'')'
                     description: One or more labels that indicate a specific set of
                       pods/VMs on which the configuration should be applied.
+                    maxProperties: 256
                     type: object
                 type: object
             type: object
@@ -7157,7 +7162,9 @@ spec:
               addresses:
                 description: The virtual IP addresses associated with the service.
                 items:
+                  maxLength: 64
                   type: string
+                maxItems: 256
                 type: array
               endpoints:
                 description: One or more endpoints associated with the service.
@@ -7232,6 +7239,11 @@ spec:
                 description: The hosts associated with the ServiceEntry.
                 items:
                   type: string
+                  x-kubernetes-validations:
+                  - message: hostname cannot be wildcard
+                    rule: self != '*'
+                maxItems: 256
+                minItems: 1
                 type: array
               location:
                 description: |-
@@ -7248,14 +7260,19 @@ spec:
                   properties:
                     name:
                       description: Label assigned to the port.
+                      maxLength: 256
                       type: string
                     number:
                       description: A valid non-negative integer port number.
                       maximum: 4294967295
                       minimum: 0
                       type: integer
+                      x-kubernetes-validations:
+                      - message: port must be between 1-65535
+                        rule: 0 < self && self <= 65535
                     protocol:
                       description: The protocol exposed on the port.
+                      maxLength: 256
                       type: string
                     targetPort:
                       description: The port number on the endpoint where the traffic
@@ -7263,11 +7280,21 @@ spec:
                       maximum: 4294967295
                       minimum: 0
                       type: integer
+                      x-kubernetes-validations:
+                      - message: port must be between 1-65535
+                        rule: 0 < self && self <= 65535
                   required:
                   - number
                   - name
                   type: object
+                maxItems: 256
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: port number cannot be duplicated
+                  rule: self.all(l1, self.exists_one(l2, l1.number == l2.number))
               resolution:
                 description: |-
                   Service resolution mode for the hosts.
@@ -7290,14 +7317,32 @@ spec:
                 properties:
                   labels:
                     additionalProperties:
+                      maxLength: 63
                       type: string
+                      x-kubernetes-validations:
+                      - message: wildcard is not supported in selector
+                        rule: '!self.contains(''*'')'
                     description: One or more labels that indicate a specific set of
                       pods/VMs on which the configuration should be applied.
+                    maxProperties: 256
                     type: object
                 type: object
             required:
             - hosts
             type: object
+            x-kubernetes-validations:
+            - message: only one of WorkloadSelector or Endpoints can be set
+              rule: (has(self.workloadSelector)?1:0)+(has(self.endpoints)?1:0)<=1
+            - message: CIDR addresses are allowed only for NONE/STATIC resolution
+                types
+              rule: '!(has(self.addresses) && self.addresses.exists(k, k.contains(''/''))
+                && (self.resolution != ''STATIC'' && self.resolution != ''NONE''))'
+            - message: NONE mode cannot set endpoints
+              rule: '(!has(self.resolution) || self.resolution == ''NONE'') ? !has(self.endpoints)
+                : true'
+            - message: DNS_ROUND_ROBIN mode cannot have multiple endpoints
+              rule: '(has(self.resolution) && self.resolution == ''DNS_ROUND_ROBIN'')
+                ? (!has(self.endpoints) || size(self.endpoints) == 1) : true'
           status:
             properties:
               conditions:
@@ -7369,6 +7414,10 @@ spec:
                 type: array
             type: object
             x-kubernetes-preserve-unknown-fields: true
+        required:
+        - spec
+        - spec
+        - spec
         type: object
     served: true
     storage: false
@@ -7407,7 +7456,9 @@ spec:
               addresses:
                 description: The virtual IP addresses associated with the service.
                 items:
+                  maxLength: 64
                   type: string
+                maxItems: 256
                 type: array
               endpoints:
                 description: One or more endpoints associated with the service.
@@ -7482,6 +7533,11 @@ spec:
                 description: The hosts associated with the ServiceEntry.
                 items:
                   type: string
+                  x-kubernetes-validations:
+                  - message: hostname cannot be wildcard
+                    rule: self != '*'
+                maxItems: 256
+                minItems: 1
                 type: array
               location:
                 description: |-
@@ -7498,14 +7554,19 @@ spec:
                   properties:
                     name:
                       description: Label assigned to the port.
+                      maxLength: 256
                       type: string
                     number:
                       description: A valid non-negative integer port number.
                       maximum: 4294967295
                       minimum: 0
                       type: integer
+                      x-kubernetes-validations:
+                      - message: port must be between 1-65535
+                        rule: 0 < self && self <= 65535
                     protocol:
                       description: The protocol exposed on the port.
+                      maxLength: 256
                       type: string
                     targetPort:
                       description: The port number on the endpoint where the traffic
@@ -7513,11 +7574,21 @@ spec:
                       maximum: 4294967295
                       minimum: 0
                       type: integer
+                      x-kubernetes-validations:
+                      - message: port must be between 1-65535
+                        rule: 0 < self && self <= 65535
                   required:
                   - number
                   - name
                   type: object
+                maxItems: 256
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: port number cannot be duplicated
+                  rule: self.all(l1, self.exists_one(l2, l1.number == l2.number))
               resolution:
                 description: |-
                   Service resolution mode for the hosts.
@@ -7540,14 +7611,32 @@ spec:
                 properties:
                   labels:
                     additionalProperties:
+                      maxLength: 63
                       type: string
+                      x-kubernetes-validations:
+                      - message: wildcard is not supported in selector
+                        rule: '!self.contains(''*'')'
                     description: One or more labels that indicate a specific set of
                       pods/VMs on which the configuration should be applied.
+                    maxProperties: 256
                     type: object
                 type: object
             required:
             - hosts
             type: object
+            x-kubernetes-validations:
+            - message: only one of WorkloadSelector or Endpoints can be set
+              rule: (has(self.workloadSelector)?1:0)+(has(self.endpoints)?1:0)<=1
+            - message: CIDR addresses are allowed only for NONE/STATIC resolution
+                types
+              rule: '!(has(self.addresses) && self.addresses.exists(k, k.contains(''/''))
+                && (self.resolution != ''STATIC'' && self.resolution != ''NONE''))'
+            - message: NONE mode cannot set endpoints
+              rule: '(!has(self.resolution) || self.resolution == ''NONE'') ? !has(self.endpoints)
+                : true'
+            - message: DNS_ROUND_ROBIN mode cannot have multiple endpoints
+              rule: '(has(self.resolution) && self.resolution == ''DNS_ROUND_ROBIN'')
+                ? (!has(self.endpoints) || size(self.endpoints) == 1) : true'
           status:
             properties:
               conditions:
@@ -7619,6 +7708,10 @@ spec:
                 type: array
             type: object
             x-kubernetes-preserve-unknown-fields: true
+        required:
+        - spec
+        - spec
+        - spec
         type: object
     served: true
     storage: false
@@ -7657,7 +7750,9 @@ spec:
               addresses:
                 description: The virtual IP addresses associated with the service.
                 items:
+                  maxLength: 64
                   type: string
+                maxItems: 256
                 type: array
               endpoints:
                 description: One or more endpoints associated with the service.
@@ -7732,6 +7827,11 @@ spec:
                 description: The hosts associated with the ServiceEntry.
                 items:
                   type: string
+                  x-kubernetes-validations:
+                  - message: hostname cannot be wildcard
+                    rule: self != '*'
+                maxItems: 256
+                minItems: 1
                 type: array
               location:
                 description: |-
@@ -7748,14 +7848,19 @@ spec:
                   properties:
                     name:
                       description: Label assigned to the port.
+                      maxLength: 256
                       type: string
                     number:
                       description: A valid non-negative integer port number.
                       maximum: 4294967295
                       minimum: 0
                       type: integer
+                      x-kubernetes-validations:
+                      - message: port must be between 1-65535
+                        rule: 0 < self && self <= 65535
                     protocol:
                       description: The protocol exposed on the port.
+                      maxLength: 256
                       type: string
                     targetPort:
                       description: The port number on the endpoint where the traffic
@@ -7763,11 +7868,21 @@ spec:
                       maximum: 4294967295
                       minimum: 0
                       type: integer
+                      x-kubernetes-validations:
+                      - message: port must be between 1-65535
+                        rule: 0 < self && self <= 65535
                   required:
                   - number
                   - name
                   type: object
+                maxItems: 256
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: port number cannot be duplicated
+                  rule: self.all(l1, self.exists_one(l2, l1.number == l2.number))
               resolution:
                 description: |-
                   Service resolution mode for the hosts.
@@ -7790,14 +7905,32 @@ spec:
                 properties:
                   labels:
                     additionalProperties:
+                      maxLength: 63
                       type: string
+                      x-kubernetes-validations:
+                      - message: wildcard is not supported in selector
+                        rule: '!self.contains(''*'')'
                     description: One or more labels that indicate a specific set of
                       pods/VMs on which the configuration should be applied.
+                    maxProperties: 256
                     type: object
                 type: object
             required:
             - hosts
             type: object
+            x-kubernetes-validations:
+            - message: only one of WorkloadSelector or Endpoints can be set
+              rule: (has(self.workloadSelector)?1:0)+(has(self.endpoints)?1:0)<=1
+            - message: CIDR addresses are allowed only for NONE/STATIC resolution
+                types
+              rule: '!(has(self.addresses) && self.addresses.exists(k, k.contains(''/''))
+                && (self.resolution != ''STATIC'' && self.resolution != ''NONE''))'
+            - message: NONE mode cannot set endpoints
+              rule: '(!has(self.resolution) || self.resolution == ''NONE'') ? !has(self.endpoints)
+                : true'
+            - message: DNS_ROUND_ROBIN mode cannot have multiple endpoints
+              rule: '(has(self.resolution) && self.resolution == ''DNS_ROUND_ROBIN'')
+                ? (!has(self.endpoints) || size(self.endpoints) == 1) : true'
           status:
             properties:
               conditions:
@@ -7869,6 +8002,10 @@ spec:
                 type: array
             type: object
             x-kubernetes-preserve-unknown-fields: true
+        required:
+        - spec
+        - spec
+        - spec
         type: object
     served: true
     storage: true
@@ -8349,9 +8486,14 @@ spec:
                 properties:
                   labels:
                     additionalProperties:
+                      maxLength: 63
                       type: string
+                      x-kubernetes-validations:
+                      - message: wildcard is not supported in selector
+                        rule: '!self.contains(''*'')'
                     description: One or more labels that indicate a specific set of
                       pods/VMs on which the configuration should be applied.
+                    maxProperties: 256
                     type: object
                 type: object
             type: object
@@ -8882,9 +9024,14 @@ spec:
                 properties:
                   labels:
                     additionalProperties:
+                      maxLength: 63
                       type: string
+                      x-kubernetes-validations:
+                      - message: wildcard is not supported in selector
+                        rule: '!self.contains(''*'')'
                     description: One or more labels that indicate a specific set of
                       pods/VMs on which the configuration should be applied.
+                    maxProperties: 256
                     type: object
                 type: object
             type: object
@@ -9415,9 +9562,14 @@ spec:
                 properties:
                   labels:
                     additionalProperties:
+                      maxLength: 63
                       type: string
+                      x-kubernetes-validations:
+                      - message: wildcard is not supported in selector
+                        rule: '!self.contains(''*'')'
                     description: One or more labels that indicate a specific set of
                       pods/VMs on which the configuration should be applied.
+                    maxProperties: 256
                     type: object
                 type: object
             type: object
@@ -13178,10 +13330,12 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    maxProperties: 256
                     type: object
                   labels:
                     additionalProperties:
                       type: string
+                    maxProperties: 256
                     type: object
                 type: object
               probe:
@@ -13210,13 +13364,17 @@ spec:
                       command:
                         description: Command to run.
                         items:
+                          minLength: 1
                           type: string
                         type: array
+                    required:
+                    - command
                     type: object
                   failureThreshold:
                     description: Minimum consecutive failures for the probe to be
                       considered failed after having succeeded.
                     format: int32
+                    minimum: 0
                     type: integer
                   httpGet:
                     description: '`httpGet` is performed to a given endpoint and the
@@ -13231,6 +13389,7 @@ spec:
                         items:
                           properties:
                             name:
+                              pattern: ^[-_A-Za-z0-9]+$
                               type: string
                             value:
                               type: string
@@ -13244,8 +13403,14 @@ spec:
                         maximum: 4294967295
                         minimum: 0
                         type: integer
+                        x-kubernetes-validations:
+                        - message: port must be between 1-65535
+                          rule: 0 < self && self <= 65535
                       scheme:
                         type: string
+                        x-kubernetes-validations:
+                        - message: scheme must be one of [HTTP, HTTPS]
+                          rule: self in ['', 'HTTP', 'HTTPS']
                     required:
                     - port
                     type: object
@@ -13253,15 +13418,18 @@ spec:
                     description: Number of seconds after the container has started
                       before readiness probes are initiated.
                     format: int32
+                    minimum: 0
                     type: integer
                   periodSeconds:
                     description: How often (in seconds) to perform the probe.
                     format: int32
+                    minimum: 0
                     type: integer
                   successThreshold:
                     description: Minimum consecutive successes for the probe to be
                       considered successful after having failed.
                     format: int32
+                    minimum: 0
                     type: integer
                   tcpSocket:
                     description: Health is determined by if the proxy is able to connect.
@@ -13272,12 +13440,16 @@ spec:
                         maximum: 4294967295
                         minimum: 0
                         type: integer
+                        x-kubernetes-validations:
+                        - message: port must be between 1-65535
+                          rule: 0 < self && self <= 65535
                     required:
                     - port
                     type: object
                   timeoutSeconds:
                     description: Number of seconds after which the probe times out.
                     format: int32
+                    minimum: 0
                     type: integer
                 type: object
               template:
@@ -13414,6 +13586,10 @@ spec:
                 type: array
             type: object
             x-kubernetes-preserve-unknown-fields: true
+        required:
+        - spec
+        - spec
+        - spec
         type: object
     served: true
     storage: false
@@ -13442,10 +13618,12 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    maxProperties: 256
                     type: object
                   labels:
                     additionalProperties:
                       type: string
+                    maxProperties: 256
                     type: object
                 type: object
               probe:
@@ -13474,13 +13652,17 @@ spec:
                       command:
                         description: Command to run.
                         items:
+                          minLength: 1
                           type: string
                         type: array
+                    required:
+                    - command
                     type: object
                   failureThreshold:
                     description: Minimum consecutive failures for the probe to be
                       considered failed after having succeeded.
                     format: int32
+                    minimum: 0
                     type: integer
                   httpGet:
                     description: '`httpGet` is performed to a given endpoint and the
@@ -13495,6 +13677,7 @@ spec:
                         items:
                           properties:
                             name:
+                              pattern: ^[-_A-Za-z0-9]+$
                               type: string
                             value:
                               type: string
@@ -13508,8 +13691,14 @@ spec:
                         maximum: 4294967295
                         minimum: 0
                         type: integer
+                        x-kubernetes-validations:
+                        - message: port must be between 1-65535
+                          rule: 0 < self && self <= 65535
                       scheme:
                         type: string
+                        x-kubernetes-validations:
+                        - message: scheme must be one of [HTTP, HTTPS]
+                          rule: self in ['', 'HTTP', 'HTTPS']
                     required:
                     - port
                     type: object
@@ -13517,15 +13706,18 @@ spec:
                     description: Number of seconds after the container has started
                       before readiness probes are initiated.
                     format: int32
+                    minimum: 0
                     type: integer
                   periodSeconds:
                     description: How often (in seconds) to perform the probe.
                     format: int32
+                    minimum: 0
                     type: integer
                   successThreshold:
                     description: Minimum consecutive successes for the probe to be
                       considered successful after having failed.
                     format: int32
+                    minimum: 0
                     type: integer
                   tcpSocket:
                     description: Health is determined by if the proxy is able to connect.
@@ -13536,12 +13728,16 @@ spec:
                         maximum: 4294967295
                         minimum: 0
                         type: integer
+                        x-kubernetes-validations:
+                        - message: port must be between 1-65535
+                          rule: 0 < self && self <= 65535
                     required:
                     - port
                     type: object
                   timeoutSeconds:
                     description: Number of seconds after which the probe times out.
                     format: int32
+                    minimum: 0
                     type: integer
                 type: object
               template:
@@ -13678,6 +13874,10 @@ spec:
                 type: array
             type: object
             x-kubernetes-preserve-unknown-fields: true
+        required:
+        - spec
+        - spec
+        - spec
         type: object
     served: true
     storage: false
@@ -13706,10 +13906,12 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    maxProperties: 256
                     type: object
                   labels:
                     additionalProperties:
                       type: string
+                    maxProperties: 256
                     type: object
                 type: object
               probe:
@@ -13738,13 +13940,17 @@ spec:
                       command:
                         description: Command to run.
                         items:
+                          minLength: 1
                           type: string
                         type: array
+                    required:
+                    - command
                     type: object
                   failureThreshold:
                     description: Minimum consecutive failures for the probe to be
                       considered failed after having succeeded.
                     format: int32
+                    minimum: 0
                     type: integer
                   httpGet:
                     description: '`httpGet` is performed to a given endpoint and the
@@ -13759,6 +13965,7 @@ spec:
                         items:
                           properties:
                             name:
+                              pattern: ^[-_A-Za-z0-9]+$
                               type: string
                             value:
                               type: string
@@ -13772,8 +13979,14 @@ spec:
                         maximum: 4294967295
                         minimum: 0
                         type: integer
+                        x-kubernetes-validations:
+                        - message: port must be between 1-65535
+                          rule: 0 < self && self <= 65535
                       scheme:
                         type: string
+                        x-kubernetes-validations:
+                        - message: scheme must be one of [HTTP, HTTPS]
+                          rule: self in ['', 'HTTP', 'HTTPS']
                     required:
                     - port
                     type: object
@@ -13781,15 +13994,18 @@ spec:
                     description: Number of seconds after the container has started
                       before readiness probes are initiated.
                     format: int32
+                    minimum: 0
                     type: integer
                   periodSeconds:
                     description: How often (in seconds) to perform the probe.
                     format: int32
+                    minimum: 0
                     type: integer
                   successThreshold:
                     description: Minimum consecutive successes for the probe to be
                       considered successful after having failed.
                     format: int32
+                    minimum: 0
                     type: integer
                   tcpSocket:
                     description: Health is determined by if the proxy is able to connect.
@@ -13800,12 +14016,16 @@ spec:
                         maximum: 4294967295
                         minimum: 0
                         type: integer
+                        x-kubernetes-validations:
+                        - message: port must be between 1-65535
+                          rule: 0 < self && self <= 65535
                     required:
                     - port
                     type: object
                   timeoutSeconds:
                     description: Number of seconds after which the probe times out.
                     format: int32
+                    minimum: 0
                     type: integer
                 type: object
               template:
@@ -13942,6 +14162,10 @@ spec:
                 type: array
             type: object
             x-kubernetes-preserve-unknown-fields: true
+        required:
+        - spec
+        - spec
+        - spec
         type: object
     served: true
     storage: true
