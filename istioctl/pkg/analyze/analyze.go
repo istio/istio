@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"sort"
 	"strings"
@@ -29,10 +28,12 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/formatting"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 )
@@ -64,20 +66,21 @@ func (f FileParseError) Error() string {
 }
 
 var (
-	listAnalyzers     bool
-	useKube           bool
-	failureThreshold  = formatting.MessageThreshold{Level: diag.Error} // messages at least this level will generate an error exit code
-	outputThreshold   = formatting.MessageThreshold{Level: diag.Info}  // messages at least this level will be included in the output
-	colorize          bool
-	msgOutputFormat   string
-	meshCfgFile       string
-	selectedNamespace string
-	allNamespaces     bool
-	suppress          []string
-	analysisTimeout   time.Duration
-	recursive         bool
-	ignoreUnknown     bool
-	revisionSpecified string
+	listAnalyzers         bool
+	useKube               bool
+	failureThreshold      = formatting.MessageThreshold{Level: diag.Error} // messages at least this level will generate an error exit code
+	outputThreshold       = formatting.MessageThreshold{Level: diag.Info}  // messages at least this level will be included in the output
+	colorize              bool
+	msgOutputFormat       string
+	meshCfgFile           string
+	selectedNamespace     string
+	allNamespaces         bool
+	suppress              []string
+	analysisTimeout       time.Duration
+	recursive             bool
+	ignoreUnknown         bool
+	revisionSpecified     string
+	remoteClusterContexts []string
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -331,6 +334,9 @@ func Analyze(ctx cli.Context) *cobra.Command {
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
 	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "", "default",
 		"analyze a specific revision deployed.")
+	analysisCmd.PersistentFlags().StringArrayVar(&remoteClusterContexts, "remote-cluster-context", []string{},
+		`Kubernetes configuration contexts for remote clusters to be used in multi-cluster analysis. Not to be confused with '--context'. `+
+			"If unspecified, contexts are read from the remote secrets in the cluster.")
 	return analysisCmd
 }
 
@@ -489,24 +495,70 @@ type Client struct {
 }
 
 func getClients(ctx cli.Context) ([]*Client, error) {
-	defaultClient, err := ctx.CLIClient()
+	if len(remoteClusterContexts) > 0 {
+		return getClientsFromContexts(ctx)
+	}
+	client, err := ctx.CLIClient()
 	if err != nil {
 		return nil, err
 	}
 	clients := []*Client{
 		{
-			client: defaultClient,
+			client: client,
 			remote: false,
 		},
 	}
-	allClients, err := ctx.AllCLIClients()
+	secrets, err := client.Kube().CoreV1().Secrets(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", multicluster.MultiClusterSecretLabel, "true"),
+	})
 	if err != nil {
 		return nil, err
 	}
-	for _, c := range allClients {
-		if reflect.DeepEqual(c.RESTConfig(), defaultClient.RESTConfig()) {
-			continue
+	for _, s := range secrets.Items {
+		for _, cfg := range s.Data {
+			clientConfig, err := clientcmd.NewClientConfigFromBytes(cfg)
+			if err != nil {
+				return nil, err
+			}
+			rawConfig, err := clientConfig.RawConfig()
+			if err != nil {
+				return nil, err
+			}
+			curContext := rawConfig.Contexts[rawConfig.CurrentContext]
+			if curContext == nil {
+				continue
+			}
+			client, err := kube.NewCLIClient(clientConfig,
+				kube.WithRevision(revisionSpecified),
+				kube.WithCluster(cluster.ID(curContext.Cluster)))
+			if err != nil {
+				return nil, err
+			}
+			clients = append(clients, &Client{
+				client: client,
+				remote: true,
+			})
 		}
+	}
+	return clients, nil
+}
+
+func getClientsFromContexts(ctx cli.Context) ([]*Client, error) {
+	client, err := ctx.CLIClient()
+	if err != nil {
+		return nil, err
+	}
+	clients := []*Client{
+		{
+			client: client,
+			remote: false,
+		},
+	}
+	otherClients, err := ctx.CLIClientsForContexts(remoteClusterContexts)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range otherClients {
 		clients = append(clients, &Client{
 			client: c,
 			remote: true,

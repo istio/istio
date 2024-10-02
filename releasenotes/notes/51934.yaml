@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
 - |
-  **Deprecated** the use of remote secrets when running multi-cluster service analyzer. Instead, the cluster contexts in the user-supplied kubeconfig would be used to determine the target clusters for the analyzer.
+  **Added** a new flag `remote-cluster-context` to the `istioctl analyze` command to specify remote cluster contexts during multi-cluster analysis.

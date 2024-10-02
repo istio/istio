@@ -27,8 +27,8 @@ type Origin interface {
 	FieldMap() map[string]int
 	Comparator() string
 
-	// ClusterAPIServerHost returns the API server host of the cluster where the resource is located
-	ClusterAPIServerHost() cluster.ID
+	// ClusterName returns the cluster name where the resource is located
+	ClusterName() cluster.ID
 }
 
 // Reference provides more information about an Origin. This is also source-implementation dependent.

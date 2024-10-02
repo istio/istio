@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/tests/integration/helm"
 )
 
 const (
@@ -462,7 +463,78 @@ func applyFileOrFail(t framework.TestContext, ns, filename string) {
 	})
 }
 
-func TestMultiCluster(t *testing.T) {
+func TestMultiClusterWithSecrets(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			if len(t.Environment().Clusters()) < 2 {
+				t.Skip("skipping test, need at least 2 clusters")
+			}
+
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			// create remote secrets for analysis
+			secrets := map[string]string{}
+			for _, c := range t.Environment().Clusters() {
+				istioCtl := istioctl.NewOrFail(t, istioctl.Config{
+					Cluster: c,
+				})
+				secret, _, err := createRemoteSecret(t, istioCtl, c.Name())
+				g.Expect(err).To(BeNil())
+				secrets[c.Name()] = secret
+			}
+			for ind, c := range t.Environment().Clusters() {
+				// apply remote secret to be used for analysis
+				for sc, secret := range secrets {
+					if c.Name() == sc {
+						continue
+					}
+					err := c.ApplyYAMLFiles(helm.IstioNamespace, secret)
+					g.Expect(err).To(BeNil())
+				}
+
+				svc := fmt.Sprintf(`
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews
+spec:
+  selector:
+    app: reviews
+  type: ClusterIP
+  ports:
+  - name: http-%d
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+`, ind)
+				// apply inconsistent services
+				err := c.ApplyYAMLContents(ns.Name(), svc)
+				g.Expect(err).To(BeNil())
+			}
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true)
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
+		})
+}
+
+func createRemoteSecret(t test.Failer, i istioctl.Instance, cluster string) (string, string, error) {
+	t.Helper()
+
+	args := []string{"create-remote-secret"}
+	args = append(args, "--name", cluster)
+
+	return i.Invoke(args)
+}
+
+func TestMultiClusterWithContexts(t *testing.T) {
 	// nolint: staticcheck
 	framework.
 		NewTest(t).
@@ -497,12 +569,13 @@ spec:
 				// apply inconsistent services
 				err := c.ApplyYAMLContents(ns.Name(), svc)
 				g.Expect(err).To(BeNil())
+
 			}
+
 			mergedConfig := api.NewConfig()
 			mergedKubeconfig, err := os.CreateTemp("", "merged_kubeconfig.yaml")
 			g.Expect(err).To(BeNil(), fmt.Sprintf("Create file for storing merged kubeconfig: %v", err))
 			defer os.Remove(mergedKubeconfig.Name())
-
 			for _, c := range t.Environment().Clusters() {
 				filenamer, ok := c.(istioctl.Filenamer)
 				g.Expect(ok).To(BeTrue(), fmt.Sprintf("Cluster %v does not support fetching kubeconfig", c))
@@ -511,14 +584,22 @@ spec:
 				if mergedConfig.CurrentContext == "" {
 					mergedConfig.CurrentContext = config.CurrentContext
 				}
-				maps.Copy(mergedConfig.Clusters, config.Clusters)
-				maps.Copy(mergedConfig.AuthInfos, config.AuthInfos)
-				maps.Copy(mergedConfig.Contexts, config.Contexts)
+				mergedConfig.Clusters = maps.MergeCopy(mergedConfig.Clusters, config.Clusters)
+				mergedConfig.AuthInfos = maps.MergeCopy(mergedConfig.AuthInfos, config.AuthInfos)
+				mergedConfig.Contexts = maps.MergeCopy(mergedConfig.Contexts, config.Contexts)
 			}
 			err = clientcmd.WriteToFile(*mergedConfig, mergedKubeconfig.Name())
 			g.Expect(err).To(BeNil(), fmt.Sprintf("Write merged kubeconfig to file %q: %v", mergedKubeconfig.Name(), err))
+			ctxArgs := []string{"--kubeconfig", mergedKubeconfig.Name()}
+			for _, ctx := range maps.Keys(mergedConfig.Contexts) {
+				if ctx == mergedConfig.CurrentContext {
+					continue
+				}
+				ctxArgs = append(ctxArgs, "--remote-cluster-context", ctx)
+			}
+
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})
-			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true, "--kubeconfig", mergedKubeconfig.Name())
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true, ctxArgs...)
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
 		})
 }
