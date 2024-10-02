@@ -19,6 +19,7 @@ package helm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -567,23 +568,23 @@ func AdoptPre123CRDResourcesIfNeeded() {
 	requiredAdoptionAnnos := []string{"meta.helm.sh/release-name=istio-base", "meta.helm.sh/release-namespace=istio-system"}
 
 	for _, labelToAdd := range requiredAdoptionLabels {
-		// execCmd := fmt.Sprintf("kubectl label $(kubectl get crds -l chart=istio -o name && kubectl get crds -l app.kubernetes.io/part-of=istio -o name) %v", labelToAdd)
 		// We have wildly inconsistent existing labeling pre-1.24, so have to cover all possible cases.
 		execCmd1 := fmt.Sprintf("kubectl label crds -l chart=istio %v", labelToAdd)
 		execCmd2 := fmt.Sprintf("kubectl label crds -l app.kubernetes.io/part-of=istio %v", labelToAdd)
-		_, err := shell.Execute(false, execCmd1)
-		_, err = shell.Execute(false, execCmd2)
-		if err != nil {
+		_, err1 := shell.Execute(false, execCmd1)
+		_, err2 := shell.Execute(false, execCmd2)
+		if errors.Join(err1, err2) != nil {
 			scopes.Framework.Infof("couldn't relabel CRDs for Helm adoption: %s. Likely not needed for this release", labelToAdd)
 		}
 	}
 
 	for _, annoToAdd := range requiredAdoptionAnnos {
+		// We have wildly inconsistent existing labeling pre-1.24, so have to cover all possible cases.
 		execCmd1 := fmt.Sprintf("kubectl annotate crds -l chart=istio %v", annoToAdd)
 		execCmd2 := fmt.Sprintf("kubectl annotate crds -l app.kubernetes.io/part-of=istio %v", annoToAdd)
-		_, err := shell.Execute(false, execCmd1)
-		_, err = shell.Execute(false, execCmd2)
-		if err != nil {
+		_, err1 := shell.Execute(false, execCmd1)
+		_, err2 := shell.Execute(false, execCmd2)
+		if errors.Join(err1, err2) != nil {
 			scopes.Framework.Infof("couldn't reannotate CRDs for Helm adoption: %s. Likely not needed for this release", annoToAdd)
 		}
 	}
