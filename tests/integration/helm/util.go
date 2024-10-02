@@ -567,7 +567,7 @@ func AdoptPre123CRDResourcesIfNeeded() {
 	requiredAdoptionAnnos := []string{"meta.helm.sh/release-name=istio-base", "meta.helm.sh/release-namespace=istio-system"}
 
 	for _, labelToAdd := range requiredAdoptionLabels {
-		execCmd := fmt.Sprintf("kubectl label crds -l chart=istio -l app.kubernetes.io/part-of=istio %v", labelToAdd)
+		execCmd := fmt.Sprintf("kubectl label $(kubectl get crds -l chart=istio -o name && kubectl get crds -l app.kubernetes.io/part-of=istio -o name) %v", labelToAdd)
 		_, err := shell.Execute(false, execCmd)
 		if err != nil {
 			scopes.Framework.Infof("couldn't relabel CRDs for Helm adoption: %s. Likely not needed for this release", labelToAdd)
@@ -575,7 +575,7 @@ func AdoptPre123CRDResourcesIfNeeded() {
 	}
 
 	for _, annoToAdd := range requiredAdoptionAnnos {
-		execCmd := fmt.Sprintf("kubectl annotate crds -l chart=istio -l app.kubernetes.io/part-of=istio %v", annoToAdd)
+		execCmd := fmt.Sprintf("kubectl annotate $(kubectl get crds -l chart=istio -o name && kubectl get crds -l app.kubernetes.io/part-of=istio -o name) %v", annoToAdd)
 		_, err := shell.Execute(false, execCmd)
 		if err != nil {
 			scopes.Framework.Infof("couldn't reannotate CRDs for Helm adoption: %s. Likely not needed for this release", annoToAdd)
