@@ -52,10 +52,6 @@ func RegisterEdsShim(
 	Services krt.Collection[model.ServiceInfo],
 	ServicesByAddress krt.Index[networkAddress, model.ServiceInfo],
 ) {
-	// When sending information to a workload, we need two bits of information:
-	// * Does it support tunnel? If so, we will need to use HBONE
-	// * Does it have a waypoint? if so, we will need to send to the waypoint
-	// Record both of these.
 	ServiceEds := krt.NewCollection(
 		Services,
 		func(ctx krt.HandlerContext, svc model.ServiceInfo) *serviceEDS {
@@ -107,14 +103,14 @@ func (a *index) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
 		svcs = ptr.ToList(a.services.GetKey(krt.Key[model.ServiceInfo](key)))
 	}
 	for _, s := range svcs {
-		wp := a.waypoints.GetKey(krt.Key[Waypoint](s.Waypoint.ResourceName))
-		if wp == nil {
-			continue
-		}
+		wp := s.Service.GetWaypoint()
 		wi := model.ServiceWaypointInfo{
 			Service: s.Service,
 		}
-		switch addr := wp.GetAddress().GetDestination().(type) {
+		if wp == nil {
+			continue
+		}
+		switch addr := wp.GetDestination().(type) {
 		// Easy case: waypoint is already a hostname. Just return it directly
 		case *workloadapi.GatewayAddress_Hostname:
 			wi.WaypointHostname = addr.Hostname.Hostname
@@ -130,6 +126,7 @@ func (a *index) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
 				// No waypoint found.
 				continue
 			}
+			wi.WaypointHostname = waypoints[0].Hostname
 		}
 		res = append(res, wi)
 	}

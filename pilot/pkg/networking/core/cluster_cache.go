@@ -52,8 +52,6 @@ type clusterCache struct {
 	downstreamAuto bool
 	supportsIPv4   bool
 
-	hasWaypointServices bool
-
 	// dependent configs
 	service         *model.Service
 	destinationRule *model.ConsolidatedDestRule
@@ -87,8 +85,6 @@ func (t *clusterCache) Key() any {
 	h.WriteString(strconv.FormatBool(t.supportsIPv4))
 	h.Write(Separator)
 	h.WriteString(strconv.FormatBool(t.hbone))
-	h.Write(Separator)
-	h.WriteString(strconv.FormatBool(t.hasWaypointServices))
 	h.Write(Separator)
 
 	if t.proxyView != nil {
@@ -191,7 +187,6 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 			service, dr,
 		)
 	}
-	waypointServices := len(cb.req.Push.ServicesWithWaypoint(service.Attributes.Namespace+"/"+string(service.Hostname))) > 0
 	return clusterCache{
 		clusterName:     clusterName,
 		proxyVersion:    cb.proxyVersion.String(),
@@ -210,7 +205,5 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
 		serviceAccounts: cb.req.Push.ServiceAccounts(service.Hostname, service.Attributes.Namespace),
 		endpointBuilder: eb,
-
-		hasWaypointServices: waypointServices,
 	}
 }

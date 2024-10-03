@@ -66,7 +66,7 @@ func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceI
 }
 
 func (c *Controller) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
-	if !features.EnableAmbient || !features.EnableIngressWaypointRouting {
+	if !features.EnableAmbient {
 		return nil
 	}
 	var res []model.ServiceWaypointInfo
