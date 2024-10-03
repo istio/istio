@@ -86,7 +86,7 @@ const (
 	defaultTTLInSeconds = 30
 )
 
-func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool) (*LocalDNSServer, error) {
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool, timeout time.Duration) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
 		proxyNamespace:            proxyNamespace,
 		forwardToUpstreamParallel: forwardToUpstreamParallel,
@@ -165,7 +165,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 	}
 	for _, ipAddr := range addresses {
 		for _, proto := range []string{"udp", "tcp"} {
-			proxy, err := newDNSProxy(proto, ipAddr, h)
+			proxy, err := newDNSProxy(proto, ipAddr, h, timeout)
 			if err != nil {
 				return nil, err
 			}
