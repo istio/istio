@@ -1,4 +1,4 @@
-# Copyright 2019 Istio Authors
+# Copyright Istio Authors
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -13,45 +13,58 @@
 #   limitations under the License.
 
 ##################################################################################################
-# Sleep service
+# curl service
 ##################################################################################################
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: sleep
+  name: curl
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: sleep
+  name: curl
   labels:
-    app: sleep
-    service: sleep
+    app: curl
+    service: curl
 spec:
   ports:
   - port: 80
     name: http
   selector:
-    app: sleep
+    app: curl
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sleep
+  name: curl
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sleep
+      app: curl
   template:
     metadata:
       labels:
-        app: sleep
+        app: curl
+        spiffe.io/spire-managed-identity: "true"
+      # Injects custom sidecar template
+      annotations:
+        inject.istio.io/templates: "sidecar,spire"
     spec:
-      serviceAccountName: vault-citadel-sa
+      terminationGracePeriodSeconds: 0
+      serviceAccountName: curl
       containers:
-      - name: sleep
+      - name: curl
         image: curlimages/curl
         command: ["/bin/sleep", "infinity"]
         imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        securityContext:
+          runAsUser: 1000
+      volumes:
+      - name: tmp
+        emptyDir: {}
 ---

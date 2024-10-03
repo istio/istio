@@ -13,66 +13,54 @@
 #   limitations under the License.
 
 ##################################################################################################
-# Notsleep service - based on the sleep service but has its own identity and affinity rule
+# Curl service
 ##################################################################################################
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: notsleep
+  name: curl
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: notsleep
+  name: curl
   labels:
-    app: notsleep
-    service: notsleep
+    app: curl
+    service: curl
 spec:
   ports:
   - port: 80
     name: http
   selector:
-    app: notsleep
+    app: curl
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: notsleep
+  name: curl
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: notsleep
+      app: curl
   template:
     metadata:
       labels:
-        app: notsleep
+        app: curl
     spec:
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: app
-                  operator: In
-                  values:
-                  - productpage
-              topologyKey: kubernetes.io/hostname 
       terminationGracePeriodSeconds: 0
-      serviceAccountName: notsleep
+      serviceAccountName: curl
       containers:
-      - name: notsleep
+      - name: curl
         image: curlimages/curl
-        command: ["/bin/sleep", "3650d"]
+        command: ["/bin/sleep", "infinity"]
         imagePullPolicy: IfNotPresent
         volumeMounts:
-        - mountPath: /etc/sleep/tls
+        - mountPath: /etc/curl/tls
           name: secret-volume
       volumes:
       - name: secret-volume
         secret:
-          secretName: notsleep-secret
+          secretName: curl-secret
           optional: true
 ---
