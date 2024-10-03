@@ -114,6 +114,9 @@ var (
 	DNSForwardParallel = env.Register("DNS_FORWARD_PARALLEL", false,
 		"If set to true, agent will send parallel DNS queries to all upstream nameservers")
 
+	DNSRandomSelectUpstream = env.Register("DNS_RANDOM_SELECT_UPSTREAM", false,
+		"If set to true, agent will choose which upstream nameserver to forward queries randomly")
+
 	// Ability of istio-agent to retrieve proxyConfig via XDS for dynamic configuration updates
 	enableProxyConfigXdsEnv = env.Register("PROXY_CONFIG_XDS_AGENT", false,
 		"If set to true, agent retrieves dynamic proxy-config updates via xds channel").Get()

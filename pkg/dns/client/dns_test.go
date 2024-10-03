@@ -32,18 +32,23 @@ import (
 )
 
 func TestDNSForwardParallel(t *testing.T) {
-	d := initDNS(t, true)
+	d := initDNS(t, true, false)
 	testDNS(t, d)
 }
 
 func TestDNS(t *testing.T) {
-	d := initDNS(t, false)
+	d := initDNS(t, false, false)
+	testDNS(t, d)
+}
+
+func TestDNSRandomSelectUpstream(t *testing.T) {
+	d := initDNS(t, false, true)
 	testDNS(t, d)
 }
 
 func TestBuildAlternateHosts(t *testing.T) {
 	// Create the server instance without starting it, as it's unnecessary for this test
-	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", false)
+	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -426,7 +431,7 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 //
 // where `input` contains dns queries to run, such as `echo.default. A`
 func BenchmarkDNS(t *testing.B) {
-	s := initDNS(t, false)
+	s := initDNS(t, false, false)
 	t.Run("via-agent-cache-miss", func(b *testing.B) {
 		bench(b, s.dnsProxies[0].Address(), "www.bing.com.")
 	})
@@ -587,9 +592,9 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 	return server.Addr
 }
 
-func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
+func initDNS(t test.Failer, forwardToUpstreamParallel bool, randomSelectUpstream bool) *LocalDNSServer {
 	srv := makeUpstream(t, map[string]string{"www.bing.com.": "1.1.1.1"})
-	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", forwardToUpstreamParallel)
+	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", forwardToUpstreamParallel, randomSelectUpstream)
 	if err != nil {
 		t.Fatal(err)
 	}

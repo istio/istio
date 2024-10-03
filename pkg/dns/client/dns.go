@@ -16,7 +16,9 @@ package client
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"net"
 	"net/netip"
 	"os"
@@ -58,6 +60,7 @@ type LocalDNSServer struct {
 
 	respondBeforeSync         bool
 	forwardToUpstreamParallel bool
+	randomSelectUpstream      bool
 }
 
 // LookupTable is borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
@@ -86,10 +89,11 @@ const (
 	defaultTTLInSeconds = 30
 )
 
-func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool) (*LocalDNSServer, error) {
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool, randomSelectUpstream bool) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
 		proxyNamespace:            proxyNamespace,
 		forwardToUpstreamParallel: forwardToUpstreamParallel,
+		randomSelectUpstream:      randomSelectUpstream,
 	}
 
 	// proxyDomain could contain the namespace making it redundant.
@@ -388,6 +392,17 @@ func (h *LocalDNSServer) Close() {
 	}
 }
 
+func (h *LocalDNSServer) upstreamIterOffset(scope *istiolog.Scope) int {
+	if h.randomSelectUpstream {
+		offset, err := rand.Int(rand.Reader, big.NewInt(int64(len(h.resolvConfServers))))
+		if err != nil {
+			scope.Warnf("failed to select random iteration offset: %v", err)
+		}
+		return int(offset.Int64())
+	}
+	return 0
+}
+
 func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 	if h.forwardToUpstreamParallel {
 		return h.queryUpstreamParallel(upstreamClient, req, scope)
@@ -395,7 +410,9 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 
 	var response *dns.Msg
 
-	for _, upstream := range h.resolvConfServers {
+	offset := h.upstreamIterOffset(scope)
+	for idx := range h.resolvConfServers {
+		upstream := h.resolvConfServers[(idx+offset)%len(h.resolvConfServers)]
 		cResponse, _, err := upstreamClient.Exchange(req, upstream)
 		if err == nil {
 			response = cResponse
@@ -446,7 +463,9 @@ func (h *LocalDNSServer) queryUpstreamParallel(upstreamClient *dns.Client, req *
 		}
 	}
 
-	for _, upstream := range h.resolvConfServers {
+	offset := h.upstreamIterOffset(scope)
+	for idx := range h.resolvConfServers {
+		upstream := h.resolvConfServers[(idx+offset)%len(h.resolvConfServers)]
 		go queryOne(upstream)
 	}
 
