@@ -1,5 +1,5 @@
 # This file is only used for remote `istiod` installs.
-{{- if .Values.global.remotePilotAddress }}
+{{- if .Values.istiodRemote.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -21,7 +21,7 @@ spec:
     targetPort: 15017
     name: tcp-webhook
     protocol: TCP
-  {{- if not (regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress) }}
+  {{- if and .Values.global.remotePilotAddress (not (regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress)) }}
   # if the remotePilotAddress is not an IP addr, we use ExternalName
   type: ExternalName
   externalName: {{ .Values.global.remotePilotAddress }}

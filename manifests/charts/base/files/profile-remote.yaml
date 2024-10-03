@@ -1,0 +1,13 @@
+# WARNING: DO NOT EDIT, THIS FILE IS A COPY.
+# The original version of this file is located at /manifests/helm-profiles directory.
+# If you want to make a change in this file, edit the original one and run "make gen".
+
+# The remote profile enables installing istio with a remote control plane. The `base` and `istio-discovery` charts must be deployed with this profile.
+istiodRemote:
+  enabled: true
+configMap: false
+telemetry:
+  enabled: false
+global:
+  # TODO BML maybe a different profile for a configcluster/revisit this
+  omitSidecarInjectorConfigMap: true

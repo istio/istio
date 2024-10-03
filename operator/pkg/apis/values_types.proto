@@ -958,6 +958,9 @@ message PilotConfig {
   // If set, `istiod` will allow connections from trusted node proxy ztunnels
   // in the provided namespace.
   string trustedZtunnelNamespace = 59;
+
+  // Configuration for the istio-discovery chart when istiod is running in a remote cluster (e.g. "remote control plane").
+  IstiodRemoteConfig istiodRemote = 61;
 }
 
 message PilotTaintControllerConfig {
@@ -1344,6 +1347,8 @@ message IstiodRemoteConfig {
   string injectionPath = 2;
   // injector ca bundle
   string injectionCABundle = 3;
+  // Indicates if this cluster/install should consume a "remote" istiod instance,
+  google.protobuf.BoolValue enabled = 5;
 
 }
 
@@ -1387,7 +1392,9 @@ message Values {
   BaseConfig base = 37;
 
   // Configuration for istiod-remote.
-  IstiodRemoteConfig istiodRemote = 38;
+  // DEPRECATED - istiod-remote chart is removed and replaced with
+  // `istio-discovery --set values.istiodRemote.enabled=true`
+  IstiodRemoteConfig istiodRemote = 38 [deprecated = true];
 
   // Specifies the aliases for the Istio control plane revision. A MutatingWebhookConfiguration
   // is created for each alias.
