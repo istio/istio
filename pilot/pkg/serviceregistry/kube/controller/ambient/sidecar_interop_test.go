@@ -41,7 +41,7 @@ func TestIngressInterop(t *testing.T) {
 	}
 
 	s.addService(t, "svc1",
-		map[string]string{constants.AmbientUseWaypointLabel: "wp-svc"},
+		map[string]string{constants.AmbientUseWaypointLabel: "wp-svc", "istio.io/ingress-use-waypoint": "true"},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.2")
 	s.assertEvent(t, addressUpdate("svc1"))
