@@ -1047,6 +1047,8 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 type WaypointBindingStatus struct {
 	// ResourceName that clients should use when addressing traffic to this Service.
 	ResourceName string
+	// IngressUseWaypoint specifies whether ingress gateways should use the waypoint for this service.
+	IngressUseWaypoint bool
 	// Error represents some error
 	Error *StatusMessage
 }

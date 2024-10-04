@@ -270,8 +270,7 @@ func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
 	s.assertEvent(t, s.podXdsName("pod1"), s.svcXdsName("svc1"))
 
 	s.labelService(t, "svc1", testNS, map[string]string{label.IoIstioUseWaypoint.Name: "test-wp"})
-	// Should get an Address event and ServiceEntry event (for EDS)
-	s.assertEvent(t, s.svcXdsName("svc1"), s.hostnameForService("svc1"))
+	s.assertEvent(t, s.svcXdsName("svc1"))
 	s.assertNoEvent(t)
 
 	// We should now see the waypoint service IP when we look up the annotated svc

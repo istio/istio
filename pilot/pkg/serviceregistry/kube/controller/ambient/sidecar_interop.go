@@ -55,6 +55,11 @@ func RegisterEdsShim(
 	ServiceEds := krt.NewCollection(
 		Services,
 		func(ctx krt.HandlerContext, svc model.ServiceInfo) *serviceEDS {
+			if !svc.Waypoint.IngressUseWaypoint {
+				// Currently, we only need this for ingres -> waypoint usage
+				// If we extend this to sidecars, etc we can drop this.
+				return nil
+			}
 			wp := svc.Service.Waypoint
 			if wp == nil {
 				return nil
