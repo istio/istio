@@ -19,7 +19,7 @@
     },
     "externalIstiod": false,
     "hub": "gcr.io/istio-testing",
-    "imagePullPolicy": "Always",
+    "imagePullPolicy": "",
     "imagePullSecrets": [],
     "istioNamespace": "istio-system",
     "istiod": {
@@ -40,6 +40,10 @@
     "omitSidecarInjectorConfigMap": false,
     "operatorManageWebhooks": false,
     "pilotCertProvider": "istiod",
+    "podDNSSearchNamespaces": [
+      "global",
+      "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
+    ],
     "priorityClassName": "",
     "proxy": {
       "autoInject": "enabled",

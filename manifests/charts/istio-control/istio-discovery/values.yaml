@@ -314,9 +314,6 @@ _internal_defaults_do_not_set:
       # not set, then the global "logLevel" will be used.
       componentLogLevel: "misc:error"
 
-      # If set, newly injected sidecars will have core dumps enabled.
-      enableCoreDump: false
-
       # istio ingress capture allowlist
       # examples:
       #     Redirect only selected ports:            --includeInboundPorts="80,8080"

@@ -19,7 +19,7 @@
     },
     "externalIstiod": false,
     "hub": "gcr.io/istio-testing",
-    "imagePullPolicy": "Always",
+    "imagePullPolicy": "",
     "imagePullSecrets": [],
     "istioNamespace": "istio-system",
     "istiod": {
@@ -48,6 +48,7 @@
       "excludeIPRanges": "",
       "excludeInboundPorts": "",
       "excludeOutboundPorts": "",
+      "holdApplicationUntilProxyStarts": true,
       "image": "proxyv2",
       "includeIPRanges": "*",
       "includeInboundPorts": "*",

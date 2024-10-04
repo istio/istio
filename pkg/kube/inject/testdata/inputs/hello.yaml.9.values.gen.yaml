@@ -19,8 +19,10 @@
     },
     "externalIstiod": false,
     "hub": "gcr.io/istio-testing",
-    "imagePullPolicy": "Always",
-    "imagePullSecrets": [],
+    "imagePullPolicy": "",
+    "imagePullSecrets": [
+      "barSecret"
+    ],
     "istioNamespace": "istio-system",
     "istiod": {
       "enableAnalysis": false
