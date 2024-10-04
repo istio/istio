@@ -416,6 +416,8 @@ func parsePath(key string) []string { return strings.Split(key, ".") }
 // TODO: this could be automatically derived from the value_types.proto?
 var alwaysString = []string{
 	"spec.values.compatibilityVersion",
+	"spec.tag",
+	"spec.values.global.tag",
 	"spec.meshConfig.defaultConfig.proxyMetadata.",
 	"spec.values.meshConfig.defaultConfig.proxyMetadata.",
 	"spec.compatibilityVersion",
