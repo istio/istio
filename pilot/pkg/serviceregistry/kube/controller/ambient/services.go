@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/kubetypes"
@@ -187,20 +186,13 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 	}
 
 	var lb *workloadapi.LoadBalancing
-	if svc.Spec.TrafficDistribution != nil && *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose {
-		lb = &workloadapi.LoadBalancing{
-			// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
-			RoutingPreference: []workloadapi.LoadBalancing_Scope{
-				workloadapi.LoadBalancing_NETWORK,
-				workloadapi.LoadBalancing_REGION,
-				workloadapi.LoadBalancing_ZONE,
-				workloadapi.LoadBalancing_SUBZONE,
-			},
-			Mode: workloadapi.LoadBalancing_FAILOVER,
-		}
+
+	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
+	preferClose := svc.Annotations["experimental.istio.io/traffic-distribution"] == "PreferClose"
+	if svc.Spec.TrafficDistribution != nil {
+		preferClose = *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose
 	}
-	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-		// This is waypoint. Enable locality routing
+	if preferClose {
 		lb = &workloadapi.LoadBalancing{
 			// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
 			RoutingPreference: []workloadapi.LoadBalancing_Scope{
