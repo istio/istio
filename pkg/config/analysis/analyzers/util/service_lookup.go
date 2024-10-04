@@ -95,6 +95,7 @@ func getVisibleNamespacesFromExportToAnno(anno, resourceNamespace string) []stri
 		scopes = append(scopes, ExportToAllNamespaces)
 	} else {
 		for _, ns := range strings.Split(anno, ",") {
+			ns = strings.TrimSpace(ns)
 			if ns == ExportToNamespaceLocal {
 				scopes = append(scopes, resourceNamespace)
 			} else {
