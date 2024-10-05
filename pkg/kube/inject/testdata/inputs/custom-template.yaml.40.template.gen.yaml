@@ -1415,8 +1415,8 @@ templates:
     {{- toYaml .Values.gateways.seccompProfile | nindent 12 }}
     {{- end }}
             volumeMounts:
-            - name: workload-socket
-              mountPath: /var/run/secrets/workload-spiffe-uds
+            - mountPath: /var/run/secrets/workload-spiffe-uds
+              name: workload-socket
             - mountPath: /var/run/secrets/istio
               name: istiod-ca-cert
             - mountPath: /var/lib/istio/data
