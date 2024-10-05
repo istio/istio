@@ -7416,8 +7416,6 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         required:
         - spec
-        - spec
-        - spec
         type: object
     served: true
     storage: false
@@ -7710,8 +7708,6 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         required:
         - spec
-        - spec
-        - spec
         type: object
     served: true
     storage: false
@@ -8003,8 +7999,6 @@ spec:
             type: object
             x-kubernetes-preserve-unknown-fields: true
         required:
-        - spec
-        - spec
         - spec
         type: object
     served: true
@@ -12960,8 +12954,6 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         required:
         - spec
-        - spec
-        - spec
         type: object
     served: true
     storage: false
@@ -13118,8 +13110,6 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         required:
         - spec
-        - spec
-        - spec
         type: object
     served: true
     storage: false
@@ -13275,8 +13265,6 @@ spec:
             type: object
             x-kubernetes-preserve-unknown-fields: true
         required:
-        - spec
-        - spec
         - spec
         type: object
     served: true
@@ -13588,8 +13576,6 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         required:
         - spec
-        - spec
-        - spec
         type: object
     served: true
     storage: false
@@ -13876,8 +13862,6 @@ spec:
             x-kubernetes-preserve-unknown-fields: true
         required:
         - spec
-        - spec
-        - spec
         type: object
     served: true
     storage: false
@@ -14163,8 +14147,6 @@ spec:
             type: object
             x-kubernetes-preserve-unknown-fields: true
         required:
-        - spec
-        - spec
         - spec
         type: object
     served: true
