@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -410,8 +409,8 @@ LDS/:
 			tracker := assert.NewTracker[string](t)
 			handlers := buildHandlers(t, tracker)
 
-			client := NewDeltaWithBackoffPolicy(l.Addr().String(), &DeltaADSConfig{}, nil, handlers...)
-			assert.NoError(t, client.Run(test.NewContext(t)))
+			client := NewDelta(l.Addr().String(), &DeltaADSConfig{}, handlers...)
+			go client.Run(ctx)
 			wantRecv := slices.Flatten(slices.Map(tt.serverResponses, func(e *discovery.DeltaDiscoveryResponse) []string {
 				res := []string{}
 				for _, r := range e.Resources {
@@ -476,6 +475,10 @@ func buildHandlers(t *testing.T, tracker *assert.Tracker[string]) []Option {
 }
 
 type fakeClient struct{}
+
+func (f fakeClient) CloseSend() error {
+	return nil
+}
 
 func (f fakeClient) Send(request *discovery.DeltaDiscoveryRequest) error {
 	return nil
