@@ -1073,7 +1073,7 @@ message ProxyConfig {
   // Enables core dumps for newly injected sidecars.
   //
   // If set, newly injected sidecars will have core dumps enabled.
-  google.protobuf.BoolValue enableCoreDump = 9;
+  google.protobuf.BoolValue enableCoreDump = 9 [deprecated = true];
 
   // Specifies the Istio ingress ports not to capture.
   string excludeInboundPorts = 12;

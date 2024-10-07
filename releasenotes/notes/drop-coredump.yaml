@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Removed** the `sidecar.istio.io/enableCoreDump` annotation. See the sample provided in `samples/proxy-coredump` for more preferred approaches to enable core dumps.

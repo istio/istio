@@ -19,7 +19,7 @@
     },
     "externalIstiod": false,
     "hub": "gcr.io/istio-testing",
-    "imagePullPolicy": "Always",
+    "imagePullPolicy": "",
     "imagePullSecrets": [],
     "istioNamespace": "istio-system",
     "istiod": {
@@ -45,11 +45,11 @@
       "autoInject": "enabled",
       "clusterDomain": "cluster.local",
       "componentLogLevel": "misc:error",
-      "excludeIPRanges": "",
-      "excludeInboundPorts": "",
+      "excludeIPRanges": "10.96.0.2/24,10.96.0.3/24",
+      "excludeInboundPorts": "4,5,6",
       "excludeOutboundPorts": "",
       "image": "proxyv2",
-      "includeIPRanges": "*",
+      "includeIPRanges": "127.0.0.1/24,10.96.0.1/24",
       "includeInboundPorts": "*",
       "includeOutboundPorts": "",
       "logLevel": "warning",
@@ -72,7 +72,7 @@
         "enabled": true,
         "failureThreshold": 600
       },
-      "statusPort": 15020,
+      "statusPort": 0,
       "tracer": "none"
     },
     "proxy_init": {

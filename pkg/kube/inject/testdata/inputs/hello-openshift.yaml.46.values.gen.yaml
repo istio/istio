@@ -19,7 +19,7 @@
     },
     "externalIstiod": false,
     "hub": "gcr.io/istio-testing",
-    "imagePullPolicy": "Always",
+    "imagePullPolicy": "",
     "imagePullSecrets": [],
     "istioNamespace": "istio-system",
     "istiod": {
@@ -109,7 +109,7 @@
   },
   "pilot": {
     "cni": {
-      "enabled": false,
+      "enabled": true,
       "provider": "default"
     }
   },
