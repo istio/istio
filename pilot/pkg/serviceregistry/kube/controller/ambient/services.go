@@ -17,6 +17,7 @@ package ambient
 
 import (
 	"net/netip"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -188,7 +189,7 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 	var lb *workloadapi.LoadBalancing
 
 	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
-	preferClose := svc.Annotations["experimental.istio.io/traffic-distribution"] == "PreferClose"
+	preferClose := strings.EqualFold(svc.Annotations["experimental.istio.io/traffic-distribution"], v1.ServiceTrafficDistributionPreferClose)
 	if svc.Spec.TrafficDistribution != nil {
 		preferClose = *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose
 	}
