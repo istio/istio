@@ -147,6 +147,12 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 		})
 	}
 
+	var lb *workloadapi.LoadBalancing
+	preferClose := strings.EqualFold(svc.Annotations["networking.istio.io/traffic-distribution"], v1.ServiceTrafficDistributionPreferClose)
+	if preferClose {
+		lb = preferCloseLoadBalancer()
+	}
+
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
@@ -166,6 +172,7 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 			Ports:           ports,
 			Waypoint:        w.GetAddress(),
 			SubjectAltNames: svc.Spec.SubjectAltNames,
+			LoadBalancing:   lb,
 		})
 	}
 	return res
@@ -189,21 +196,12 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 	var lb *workloadapi.LoadBalancing
 
 	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
-	preferClose := strings.EqualFold(svc.Annotations["experimental.istio.io/traffic-distribution"], v1.ServiceTrafficDistributionPreferClose)
+	preferClose := strings.EqualFold(svc.Annotations["networking.istio.io/traffic-distribution"], v1.ServiceTrafficDistributionPreferClose)
 	if svc.Spec.TrafficDistribution != nil {
 		preferClose = *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose
 	}
 	if preferClose {
-		lb = &workloadapi.LoadBalancing{
-			// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
-			RoutingPreference: []workloadapi.LoadBalancing_Scope{
-				workloadapi.LoadBalancing_NETWORK,
-				workloadapi.LoadBalancing_REGION,
-				workloadapi.LoadBalancing_ZONE,
-				workloadapi.LoadBalancing_SUBZONE,
-			},
-			Mode: workloadapi.LoadBalancing_FAILOVER,
-		}
+		lb = preferCloseLoadBalancer()
 	}
 	if itp := svc.Spec.InternalTrafficPolicy; itp != nil && *itp == v1.ServiceInternalTrafficPolicyLocal {
 		lb = &workloadapi.LoadBalancing{
@@ -242,6 +240,19 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 		Waypoint:      w.GetAddress(),
 		LoadBalancing: lb,
 		IpFamilies:    ipFamily,
+	}
+}
+
+func preferCloseLoadBalancer() *workloadapi.LoadBalancing {
+	return &workloadapi.LoadBalancing{
+		// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
+		RoutingPreference: []workloadapi.LoadBalancing_Scope{
+			workloadapi.LoadBalancing_NETWORK,
+			workloadapi.LoadBalancing_REGION,
+			workloadapi.LoadBalancing_ZONE,
+			workloadapi.LoadBalancing_SUBZONE,
+		},
+		Mode: workloadapi.LoadBalancing_FAILOVER,
 	}
 }
 

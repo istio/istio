@@ -1445,7 +1445,7 @@ templates:
         {{ toJsonMap (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
       labels:
         {{- toJsonMap
-          (strdict "experimental.istio.io/traffic-distribution" "PreferClose")
+          (strdict "networking.istio.io/traffic-distribution" "PreferClose")
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name

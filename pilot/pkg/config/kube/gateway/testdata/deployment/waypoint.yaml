@@ -224,9 +224,9 @@ kind: Service
 metadata:
   annotations: {}
   labels:
-    experimental.istio.io/traffic-distribution: PreferClose
     gateway.istio.io/managed: istio.io-mesh-controller
     gateway.networking.k8s.io/gateway-name: namespace
+    networking.istio.io/traffic-distribution: PreferClose
     topology.istio.io/network: network-1
   name: namespace
   namespace: default
