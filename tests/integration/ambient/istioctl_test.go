@@ -57,6 +57,10 @@ func TestZtunnelConfig(t *testing.T) {
 			err = json.Unmarshal([]byte(out), &zDumpAll)
 			g.Expect(err).To(BeNil())
 			g.Expect(zDumpAll).To(Not(BeNil()))
+			g.Expect(zDumpAll.Services).To(Not(BeNil()))
+			g.Expect(zDumpAll.Workloads).To(Not(BeNil()))
+			g.Expect(zDumpAll.Policies).To(Not(BeNil()))
+			g.Expect(zDumpAll.Certificates).To(Not(BeNil()))
 
 			var zDump configdump.ZtunnelDump
 			args = []string{
