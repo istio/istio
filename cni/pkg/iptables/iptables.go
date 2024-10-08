@@ -193,9 +193,9 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbeSNAT, hostProbeV6SNAT netip.Addr) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbeSNAT, hostProbeV6SNAT netip.Addr, ingressMode bool) error {
 	// Append our rules here
-	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT)
+	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT, ingressMode)
 
 	if err := cfg.addLoopbackRoute(); err != nil {
 		return err
@@ -214,8 +214,13 @@ func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbe
 	return nil
 }
 
-func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT netip.Addr) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT netip.Addr, ingressMode bool) *builder.IptablesRuleBuilder {
 	redirectDNS := cfg.cfg.RedirectDNS
+	if ingressMode && cfg.cfg.TPROXYRedirection {
+		ingressMode = false
+		// We could support this, but TPROXYRedirection is deprecated and will be removed soon, so we can just test less.
+		log.Warnf("ignoring ingressMode due to TPROXYRedirection being enabled. These are mutually exclusive")
+	}
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodTProxyMask)
@@ -267,31 +272,33 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 
 	// From here on, we should be only inserting rules into our custom chains.
 
-	// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
-	//
-	// DESC: If we have a packet mark, set a connmark.
-	iptablesBuilder.AppendRule(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE, "-m", "mark",
-		"--mark", inpodMark,
-		"-j", "CONNMARK",
-		"--set-xmark", inpodTproxyMark)
+	if !ingressMode {
+		// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
+		//
+		// DESC: If we have a packet mark, set a connmark.
+		iptablesBuilder.AppendRule(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE, "-m", "mark",
+			"--mark", inpodMark,
+			"-j", "CONNMARK",
+			"--set-xmark", inpodTproxyMark)
 
-	// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
-	// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
-	//
-	// We do this so we can exempt this traffic from ztunnel capture/proxy - otherwise both kube-proxy (legit)
-	// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
+		// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
+		// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
+		//
+		// We do this so we can exempt this traffic from ztunnel capture/proxy - otherwise both kube-proxy (legit)
+		// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
 
-	// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
-	// CLI: -t mangle -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
-	//
-	// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
-	iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
-		iptableslog.UndefinedCommand, ChainInpodPrerouting, natOrMangleBasedOnTproxy,
-		"-s", iptablesconstants.IPVersionSpecific,
-		"-p", "tcp",
-		"-m", "tcp",
-		"-j", "ACCEPT",
-	)
+		// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+		// CLI: -t mangle -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+		//
+		// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
+		iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
+			iptableslog.UndefinedCommand, ChainInpodPrerouting, natOrMangleBasedOnTproxy,
+			"-s", iptablesconstants.IPVersionSpecific,
+			"-p", "tcp",
+			"-m", "tcp",
+			"-j", "ACCEPT",
+		)
+	}
 
 	// CLI: -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp -j ACCEPT
 	// CLI: -t NAT -A ISTIO_OUTPUT -d fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp -j ACCEPT
@@ -353,20 +360,22 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 			"--tproxy-mark", inpodTproxyMark,
 		)
 	} else {
-		// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports <INPLAINPORT>
-		//
-		// DESC: Anything that is not bound for localhost and does not have the mark, REDIRECT to ztunnel inbound plaintext port <INPLAINPORT>
-		// Skip 15008, which will go direct without redirect needed.
-		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
-			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
-			"!", "-d", iptablesconstants.IPVersionSpecific,
-			"-p", "tcp",
-			"!", "--dport", fmt.Sprint(ZtunnelInboundPort),
-			"-m", "mark", "!",
-			"--mark", inpodMark,
-			"-j", "REDIRECT",
-			"--to-ports", fmt.Sprint(ZtunnelInboundPlaintextPort),
-		)
+		if !ingressMode {
+			// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports <INPLAINPORT>
+			//
+			// DESC: Anything that is not bound for localhost and does not have the mark, REDIRECT to ztunnel inbound plaintext port <INPLAINPORT>
+			// Skip 15008, which will go direct without redirect needed.
+			iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
+				iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
+				"!", "-d", iptablesconstants.IPVersionSpecific,
+				"-p", "tcp",
+				"!", "--dport", fmt.Sprint(ZtunnelInboundPort),
+				"-m", "mark", "!",
+				"--mark", inpodMark,
+				"-j", "REDIRECT",
+				"--to-ports", fmt.Sprint(ZtunnelInboundPlaintextPort),
+			)
+		}
 	}
 
 	// CLI: -A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
