@@ -15,7 +15,9 @@
 package cmd
 
 import (
+	"context"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -36,11 +38,11 @@ func WaitSignal(stop chan struct{}) {
 }
 
 // WaitSignalFunc awaits for SIGINT or SIGTERM and calls the cancel function
-func WaitSignalFunc(cancel func()) {
+func WaitSignalFunc(cancel context.CancelCauseFunc) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	<-sigs
-	cancel()
+	sig := <-sigs
+	cancel(fmt.Errorf("received signal: %v", sig.String()))
 	_ = log.Sync()
 }
 

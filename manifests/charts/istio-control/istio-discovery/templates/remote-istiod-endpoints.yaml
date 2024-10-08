@@ -1,6 +1,7 @@
 # This file is only used for remote `istiod` installs.
-{{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
+{{- if .Values.istiodRemote.enabled }}
 # if the remotePilotAddress is an IP addr
+{{- if regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress }}
 apiVersion: v1
 kind: Endpoints
 metadata:
@@ -24,4 +25,5 @@ subsets:
     name: tcp-webhook
     protocol: TCP
 ---
+{{- end }}
 {{- end }}

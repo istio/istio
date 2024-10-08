@@ -16,6 +16,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -140,8 +141,8 @@ func newProxyCommand(sds istioagent.SDSServiceFactory) *cobra.Command {
 			}
 			agentOptions := options.NewAgentOptions(&proxyArgs, proxyConfig, sds)
 			agent := istioagent.NewAgent(proxyConfig, agentOptions, secOpts, envoyOptions)
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx, cancel := context.WithCancelCause(context.Background())
+			defer cancel(errors.New("application shutdown"))
 			defer agent.Close()
 
 			// If a status port was provided, start handling status probes.
@@ -204,7 +205,7 @@ func initStatusServer(
 	envoyPrometheusPort int,
 	enableProfiling bool,
 	agent *istioagent.Agent,
-	shutdown context.CancelFunc,
+	shutdown context.CancelCauseFunc,
 ) error {
 	o := options.NewStatusServerOptions(proxyArgs.IsIPv6(), proxyArgs.Type, proxyConfig, agent)
 	o.EnvoyPrometheusPort = envoyPrometheusPort

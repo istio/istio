@@ -86,6 +86,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 		namespaces := strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",")
 		exportTo = sets.NewWithLength[visibility.Instance](len(namespaces))
 		for _, ns := range namespaces {
+			ns = strings.TrimSpace(ns)
 			exportTo.Insert(visibility.Instance(ns))
 		}
 	}

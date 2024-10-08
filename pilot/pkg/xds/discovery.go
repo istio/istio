@@ -34,8 +34,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/envoyfilter"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 )
 
 var periodicRefreshMetrics = 10 * time.Second
@@ -290,6 +292,8 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 	return s.Env.PushContext()
 }
 
+var fullPushLog = istiolog.RegisterScope("fullpush", "logs details about why Istio is triggering a full push")
+
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	if features.EnableUnsafeAssertions {
@@ -305,6 +309,11 @@ func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	}
 	inboundConfigUpdates.Increment()
 	s.InboundUpdates.Inc()
+	if req.Full && fullPushLog.DebugEnabled() {
+		configs := slices.Sort(slices.Map(req.ConfigsUpdated.UnsortedList(), model.ConfigKey.String))
+		reasons := maps.Keys(req.Reason)
+		fullPushLog.Debugf("full push triggered configs=%v reasons=%v", configs, reasons)
+	}
 	s.pushChannel <- req
 }
 

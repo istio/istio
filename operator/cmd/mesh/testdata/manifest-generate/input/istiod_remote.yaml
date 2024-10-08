@@ -8,11 +8,13 @@ spec:
     pilot:
       enabled: true
   values:
+    profile: remote
     global:
       multiCluster:
         clusterName: remote0
       network: network2
       remotePilotAddress: 169.10.112.88
+      omitSidecarInjectorConfigMap: false
     istiodRemote:
       injectionURL: https://xxx:15017/inject
     base:

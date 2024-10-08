@@ -90,7 +90,7 @@ func (p *Probe) isEnvoyReady() error {
 	}
 	select {
 	case <-p.Context.Done():
-		return fmt.Errorf("server is not live, current state is: %s", StateString(Draining))
+		return fmt.Errorf("server is terminated: %v", context.Cause(p.Context))
 	default:
 		return p.checkEnvoyReadiness()
 	}

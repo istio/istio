@@ -221,7 +221,16 @@ const (
 )
 
 func SupportsTunnel(labels map[string]string, tunnelType string) bool {
-	return sets.New(strings.Split(labels[TunnelLabel], ",")...).Contains(tunnelType)
+	tl, f := labels[TunnelLabel]
+	if !f {
+		return false
+	}
+	if tl == tunnelType {
+		// Fast-path the case where we have only one label
+		return true
+	}
+	// Else check everything. Tunnel label is a comma-separated list.
+	return sets.New(strings.Split(tl, ",")...).Contains(tunnelType)
 }
 
 // Port represents a network port where a service is listening for
@@ -983,11 +992,12 @@ func (i ServiceInfo) GetStatusTarget() TypedObject {
 type ConditionType string
 
 const (
-	WaypointBound   ConditionType = "istio.io/WaypointBound"
-	ZtunnelAccepted ConditionType = "ZtunnelAccepted"
+	WaypointBound    ConditionType = "istio.io/WaypointBound"
+	ZtunnelAccepted  ConditionType = "ZtunnelAccepted"
+	WaypointAccepted ConditionType = "WaypointAccepted"
 )
 
-type ConditionSet = map[ConditionType]*Condition
+type ConditionSet = map[ConditionType][]Condition
 
 type Condition struct {
 	Reason  string
@@ -996,22 +1006,26 @@ type Condition struct {
 }
 
 func (i ServiceInfo) GetConditions() ConditionSet {
-	set := map[ConditionType]*Condition{
-		// Write all conditions here, then overide if we want them set.
+	set := map[ConditionType][]Condition{
+		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound: nil,
 	}
 	if i.Waypoint.ResourceName != "" {
-		set[WaypointBound] = &Condition{
-			Status:  true,
-			Reason:  "WaypointAccepted",
-			Message: fmt.Sprintf("Successfully attached to waypoint %v", i.Waypoint.ResourceName),
+		set[WaypointBound] = []Condition{
+			{
+				Status:  true,
+				Reason:  "WaypointAccepted",
+				Message: fmt.Sprintf("Successfully attached to waypoint %v", i.Waypoint.ResourceName),
+			},
 		}
 	} else if i.Waypoint.Error != nil {
-		set[WaypointBound] = &Condition{
-			Status:  false,
-			Reason:  i.Waypoint.Error.Reason,
-			Message: i.Waypoint.Error.Message,
+		set[WaypointBound] = []Condition{
+			{
+				Status:  false,
+				Reason:  i.Waypoint.Error.Reason,
+				Message: i.Waypoint.Error.Message,
+			},
 		}
 	}
 	return set
@@ -1083,23 +1097,100 @@ func (i WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
 }
 
-type WorkloadAuthorizationBindingScope string
-
-const (
-	NamespaceScope WorkloadAuthorizationBindingScope = "Namespace"
-	WorkloadScope  WorkloadAuthorizationBindingScope = "Workload"
-)
-
-type WorkloadAuthorizationBindingStatus struct {
-	ResourceName string
-	Status       *StatusMessage
-	Bound        bool
+type WaypointPolicyStatus struct {
+	Source     TypedObject
+	Conditions []PolicyBindingStatus
 }
 
-func (i WorkloadAuthorizationBindingStatus) Equals(other WorkloadAuthorizationBindingStatus) bool {
+const (
+	WaypointPolicyReasonAccepted         = "Accepted"
+	WaypointPolicyReasonInvalid          = "Invalid"
+	WaypointPolicyReasonPartiallyInvalid = "PartiallyInvalid"
+	WaypointPolicyReasonAncestorNotBound = "AncestorNotBound"
+	WaypointPolicyReasonTargetNotFound   = "TargetNotFound"
+)
+
+// impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
+func (i WaypointPolicyStatus) GetStatusTarget() TypedObject {
+	return i.Source
+}
+
+func (i WaypointPolicyStatus) GetConditions() ConditionSet {
+	set := make(ConditionSet, 1)
+
+	set[WaypointAccepted] = []Condition{flattenConditions(i.Conditions)}
+
+	return set
+}
+
+// end impl StatusWriter
+
+// flattenConditions is a work around for the uncertain future of Ancestor in gtwapi which exists at the moment.
+// It is intended to take many conditions which have ancestors and condense them into a single condition so we can
+// retain detail in the codebase to be prepared when a canonical representation is accepted upstream.
+func flattenConditions(conditions []PolicyBindingStatus) Condition {
+	status := false
+	reason := WaypointPolicyReasonInvalid
+	unboundAncestors := []string{}
+	var message string
+
+	// flatten causes a loss of some information and there is only 1 condition so no need to flatten
+	if len(conditions) == 1 {
+		c := conditions[0]
+		return Condition{
+			Reason:  c.Status.Reason,
+			Message: c.Status.Message,
+			Status:  c.Bound,
+		}
+	}
+
+	for _, c := range conditions {
+		if c.Bound {
+			// if anything was true we consider the overall bind to be true
+			status = true
+		} else {
+			unboundAncestors = append(unboundAncestors, c.Ancestor)
+		}
+	}
+
+	someUnbound := len(unboundAncestors) > 0
+
+	if status {
+		reason = WaypointPolicyReasonAccepted
+	}
+
+	if status && someUnbound {
+		reason = WaypointPolicyReasonPartiallyInvalid
+	}
+
+	if someUnbound {
+		message = fmt.Sprintf("Invalid targetRefs: %s", strings.Join(unboundAncestors, ", "))
+	}
+
+	return Condition{
+		reason,
+		message,
+		status,
+	}
+}
+
+// impl pkg/kube/krt/ResourceNamer
+func (i WaypointPolicyStatus) ResourceName() string {
+	return i.Source.Namespace + "/" + i.Source.Name
+}
+
+// end impl ResourceNamer
+
+type PolicyBindingStatus struct {
+	Ancestor string
+	Status   *StatusMessage
+	Bound    bool
+}
+
+func (i PolicyBindingStatus) Equals(other PolicyBindingStatus) bool {
 	return ptr.Equal(i.Status, other.Status) &&
 		i.Bound == other.Bound &&
-		i.ResourceName == other.ResourceName
+		i.Ancestor == other.Ancestor
 }
 
 type WorkloadAuthorization struct {
@@ -1108,7 +1199,7 @@ type WorkloadAuthorization struct {
 	Authorization *security.Authorization
 
 	Source  TypedObject
-	Binding WorkloadAuthorizationBindingStatus
+	Binding PolicyBindingStatus
 }
 
 // impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
@@ -1120,17 +1211,21 @@ func (i WorkloadAuthorization) GetConditions() ConditionSet {
 	set := make(ConditionSet, 1)
 
 	if i.Binding.Status != nil {
-		set[ZtunnelAccepted] = &Condition{
-			Reason:  i.Binding.Status.Reason,
-			Message: i.Binding.Status.Message,
-			Status:  i.Binding.Bound,
+		set[ZtunnelAccepted] = []Condition{
+			{
+				Reason:  i.Binding.Status.Reason,
+				Message: i.Binding.Status.Message,
+				Status:  i.Binding.Bound,
+			},
 		}
 	} else {
 		message := "attached to ztunnel"
-		set[ZtunnelAccepted] = &Condition{
-			Reason:  "Accepted",
-			Message: message,
-			Status:  i.Binding.Bound,
+		set[ZtunnelAccepted] = []Condition{
+			{
+				Reason:  "Accepted",
+				Message: message,
+				Status:  i.Binding.Bound,
+			},
 		}
 	}
 

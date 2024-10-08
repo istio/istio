@@ -99,6 +99,15 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 					"discovery-selectors": "enabled",
 				},
 			},
+			{
+				MatchExpressions: []*meshconfig.LabelSelectorRequirement{
+					{
+						Key:      "istio-tag",
+						Operator: string(metav1.LabelSelectorOpNotIn),
+						Values:   []string{"istio-canary", "istio-prod"},
+					},
+				},
+			},
 		},
 	})
 	stop := test.NewStop(t)
@@ -116,17 +125,48 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 	expectedData := map[string]string{
 		constants.CACertNamespaceConfigMapDataName: string(caBundle),
 	}
+	testCases := []struct {
+		name         string
+		namespace    string
+		labels       map[string]string
+		expectConfig bool
+	}{
+		{
+			name:         "Namespace with discovery selector enabled",
+			namespace:    "nsA",
+			labels:       map[string]string{"discovery-selectors": "enabled"},
+			expectConfig: true,
+		},
+		{
+			name:         "Namespace with istio-tag not in [istio-canary, istio-prod]",
+			namespace:    "nsC",
+			labels:       map[string]string{"istio-tag": "istio-dev"},
+			expectConfig: true,
+		},
+		{
+			name:         "Namespace with istio-tag in [istio-canary, istio-prod]",
+			namespace:    "nsD",
+			labels:       map[string]string{"istio-tag": "istio-canary"},
+			expectConfig: false,
+		},
+		{
+			name:         "Namespace with both discovery selector enabled and istio-tag not in [istio-canary, istio-prod]",
+			namespace:    "nsE",
+			labels:       map[string]string{"discovery-selectors": "enabled", "istio-tag": "istio-dev"},
+			expectConfig: true,
+		},
+	}
 
-	nsA := "nsA"
-	nsB := "nsB"
-
-	// Create a namespace with discovery selector enabled
-	createNamespace(t, client.Kube(), nsA, map[string]string{"discovery-selectors": "enabled"})
-	// Create a namespace without discovery selector enabled
-	createNamespace(t, client.Kube(), nsB, map[string]string{})
-	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, nsA, expectedData)
-	// config map should not be created for discovery selector disabled namespace
-	expectConfigMapNotExist(t, nc.configmaps, nsB)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			createNamespace(t, client.Kube(), tc.namespace, tc.labels)
+			if tc.expectConfig {
+				expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, tc.namespace, expectedData)
+			} else {
+				expectConfigMapNotExist(t, nc.configmaps, tc.namespace)
+			}
+		})
+	}
 }
 
 func TestNamespaceControllerDiscovery(t *testing.T) {

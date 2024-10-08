@@ -643,7 +643,7 @@ func TestGetAllAddresses(t *testing.T) {
 			expectedExtraAddresses: []string{"10.0.0.16"},
 		},
 		{
-			name: "dual mode, ISTIO_DUAL_STACK enabled, IPv4 and IPv6 addresses, expected to return only IPv4 addresses",
+			name: "dual mode, ISTIO_DUAL_STACK enabled, IPv4 and IPv6 addresses, expected to return all addresses",
 			service: &Service{
 				DefaultAddress: "10.0.0.0",
 				ClusterVIPs: AddressMap{
@@ -658,7 +658,7 @@ func TestGetAllAddresses(t *testing.T) {
 			expectedExtraAddresses: []string{"10.0.0.16", "::ffff:10.0.0.32", "::ffff:10.0.0.48"},
 		},
 		{
-			name: "IPv4 mode, ISTIO_DUAL_STACK disabled, ambient enabled, IPv4 and IPv6 addresses, expected to return all addresses",
+			name: "IPv4 mode, ISTIO_DUAL_STACK disabled, ambient enabled, IPv4 and IPv6 addresses, expected to return only IPv4 addresses",
 			service: &Service{
 				DefaultAddress: "10.0.0.0/28",
 				ClusterVIPs: AddressMap{
@@ -673,7 +673,7 @@ func TestGetAllAddresses(t *testing.T) {
 			expectedExtraAddresses: []string{"10.0.0.16/28"},
 		},
 		{
-			name: "IPv6 mode, ISTIO_DUAL_STACK disabled, ambient enabled, IPv4 and IPv6 addresses, expected to return all addresses",
+			name: "IPv6 mode, ISTIO_DUAL_STACK disabled, ambient enabled, IPv4 and IPv6 addresses, expected to return only IPv6 addresses",
 			service: &Service{
 				DefaultAddress: "10.0.0.0/28",
 				ClusterVIPs: AddressMap{

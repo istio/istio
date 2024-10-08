@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
@@ -105,6 +106,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		MeshServiceController: meshServiceController,
 		ConfigCluster:         opts.ConfigCluster,
 		SystemNamespace:       opts.SystemNamespace,
+		StatusWritingEnabled:  activenotifier.New(false),
 	}
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)

@@ -1420,20 +1420,6 @@ spec:
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
-  name: route
-  namespace:
-spec:
-  host: "{{.Destination}}"
-  subsets:
-  - labels:
-      version: v1
-    name: v1
-  - labels:
-      version: v2
-    name: v2
-apiVersion: networking.istio.io/v1
-kind: DestinationRule
-metadata:
   name: "{{.Host}}"
 spec:
   host: "{{.Host}}"

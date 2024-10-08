@@ -134,7 +134,7 @@ type Options struct {
 	EnableProfiling     bool
 	// PrometheusRegistry to use. Just for testing.
 	PrometheusRegistry prometheus.Gatherer
-	Shutdown           context.CancelFunc
+	Shutdown           context.CancelCauseFunc
 	TriggerDrain       func()
 }
 
@@ -155,7 +155,7 @@ type Server struct {
 	http                  *http.Client
 	enableProfiling       bool
 	registry              prometheus.Gatherer
-	shutdown              context.CancelFunc
+	shutdown              context.CancelCauseFunc
 	drain                 func()
 }
 
@@ -222,10 +222,8 @@ func NewServer(config Options) (*Server, error) {
 		config:                config,
 		enableProfiling:       config.EnableProfiling,
 		registry:              registry,
-		shutdown: func() {
-			config.Shutdown()
-		},
-		drain: config.TriggerDrain,
+		shutdown:              config.Shutdown,
+		drain:                 config.TriggerDrain,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -694,7 +692,7 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 	log.Infof("handling %s, notifying pilot-agent to exit", quitPath)
-	s.shutdown()
+	s.shutdown(fmt.Errorf("%v called", quitPath))
 }
 
 func (s *Server) handleDrain(w http.ResponseWriter, r *http.Request) {

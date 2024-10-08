@@ -116,8 +116,8 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 	}
 
 	for _, efKey := range r.EnvoyFilterKeys {
-		items := strings.Split(efKey, "/")
-		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
+		ns, name, _ := strings.Cut(efKey, "/")
+		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: name, Namespace: ns}.HashCode())
 	}
 	return configs
 }

@@ -120,13 +120,12 @@ func NewNames(hosts []string) Names {
 func NamesForNamespace(hosts []string, namespace string) Names {
 	result := make(Names, 0, len(hosts))
 	for _, host := range hosts {
-		if strings.Contains(host, "/") {
-			parts := strings.Split(host, "/")
-			if parts[0] != namespace && parts[0] != "*" {
+		if ns, name, found := strings.Cut(host, "/"); found {
+			if ns != namespace && ns != "*" {
 				continue
 			}
 			// strip the namespace
-			host = parts[1]
+			host = name
 		}
 		result = append(result, Name(host))
 	}

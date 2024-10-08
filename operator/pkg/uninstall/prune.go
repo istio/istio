@@ -138,6 +138,8 @@ func GetPrunedResources(clt kube.CLIClient, iopName, iopNamespace, revision stri
 				string(component.IngressComponentName),
 				string(component.EgressComponentName),
 				string(component.CNIComponentName),
+				// TODO remove this after 2 releases
+				// nolint: staticcheck
 				string(component.IstiodRemoteComponentName),
 				string(component.ZtunnelComponentName),
 			}

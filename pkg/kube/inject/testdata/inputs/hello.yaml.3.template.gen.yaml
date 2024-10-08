@@ -172,34 +172,6 @@ templates:
           runAsNonRoot: true
         {{- end }}
       {{ end -}}
-      {{- if eq (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
-      - name: enable-core-dump
-        args:
-        - -c
-        - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
-        command:
-          - /bin/sh
-      {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image) }}
-        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image }}"
-      {{- else }}
-        image: "{{ .ProxyImage }}"
-      {{- end }}
-        {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
-        resources:
-      {{ template "resources" . }}
-        securityContext:
-          allowPrivilegeEscalation: true
-          capabilities:
-            add:
-            - SYS_ADMIN
-            drop:
-            - ALL
-          privileged: true
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
-      {{ end }}
       {{ if not $nativeSidecar }}
       containers:
       {{ end }}
@@ -395,7 +367,7 @@ templates:
             drop:
             - ALL
           privileged: true
-          readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
+          readOnlyRootFilesystem: true
           runAsGroup: {{ .ProxyGID | default "1337" }}
           runAsNonRoot: false
           runAsUser: 0
@@ -414,7 +386,7 @@ templates:
             drop:
             - ALL
           privileged: {{ .Values.global.proxy.privileged }}
-          readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
+          readOnlyRootFilesystem: true
           runAsGroup: {{ .ProxyGID | default "1337" }}
           {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
           runAsNonRoot: false
@@ -1267,6 +1239,9 @@ templates:
           containers:
           - name: istio-proxy
             ports:
+            - containerPort: 15020
+              name: metrics
+              protocol: TCP
             - containerPort: 15021
               name: status-port
               protocol: TCP
@@ -1412,8 +1387,8 @@ templates:
     {{- toYaml .Values.gateways.seccompProfile | nindent 12 }}
     {{- end }}
             volumeMounts:
-            - name: workload-socket
-              mountPath: /var/run/secrets/workload-spiffe-uds
+            - mountPath: /var/run/secrets/workload-spiffe-uds
+              name: workload-socket
             - mountPath: /var/run/secrets/istio
               name: istiod-ca-cert
             - mountPath: /var/lib/istio/data
@@ -1603,6 +1578,9 @@ templates:
               runAsGroup: {{ .ProxyGID | default "1337" }}
               runAsNonRoot: true
             ports:
+            - containerPort: 15020
+              name: metrics
+              protocol: TCP
             - containerPort: 15021
               name: status-port
               protocol: TCP
