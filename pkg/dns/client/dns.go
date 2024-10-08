@@ -16,12 +16,11 @@ package client
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
-	"math/big"
 	"net"
 	"net/netip"
 	"os"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -364,13 +363,13 @@ func roundRobin(in []dns.RR) []dns.RR {
 	return out
 }
 
-func roundRobinShuffle(records []dns.RR) {
-	switch l := len(records); l {
+func roundRobinShuffle[T any](entries []T) {
+	switch l := len(entries); l {
 	case 0, 1:
 		break
 	case 2:
 		if dns.Id()%2 == 0 {
-			records[0], records[1] = records[1], records[0]
+			entries[0], entries[1] = entries[1], entries[0]
 		}
 	default:
 		for j := 0; j < l*(int(dns.Id())%4+1); j++ {
@@ -379,7 +378,7 @@ func roundRobinShuffle(records []dns.RR) {
 			if q == p {
 				p = (p + 1) % l
 			}
-			records[q], records[p] = records[p], records[q]
+			entries[q], entries[p] = entries[p], entries[q]
 		}
 	}
 }
@@ -390,24 +389,15 @@ func (h *LocalDNSServer) Close() {
 	}
 }
 
-func (h *LocalDNSServer) upstreamIterOffset(scope *istiolog.Scope) int {
-	offset, err := rand.Int(rand.Reader, big.NewInt(int64(len(h.resolvConfServers))))
-	if err != nil {
-		scope.Warnf("failed to select random iteration offset: %v", err)
-	}
-	return int(offset.Int64())
-}
-
 func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
 	if h.forwardToUpstreamParallel {
 		return h.queryUpstreamParallel(upstreamClient, req, scope)
 	}
 
 	var response *dns.Msg
-
-	offset := h.upstreamIterOffset(scope)
-	for idx := range h.resolvConfServers {
-		upstream := h.resolvConfServers[(idx+offset)%len(h.resolvConfServers)]
+	servers := slices.Clone(h.resolvConfServers)
+	roundRobinShuffle(servers)
+	for _, upstream := range servers {
 		cResponse, _, err := upstreamClient.Exchange(req, upstream)
 		if err == nil {
 			response = cResponse
@@ -458,9 +448,7 @@ func (h *LocalDNSServer) queryUpstreamParallel(upstreamClient *dns.Client, req *
 		}
 	}
 
-	offset := h.upstreamIterOffset(scope)
-	for idx := range h.resolvConfServers {
-		upstream := h.resolvConfServers[(idx+offset)%len(h.resolvConfServers)]
+	for _, upstream := range h.resolvConfServers {
 		go queryOne(upstream)
 	}
 
