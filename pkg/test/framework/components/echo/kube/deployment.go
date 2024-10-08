@@ -430,13 +430,14 @@ func serviceParams(cfg echo.Config) map[string]any {
 		cfg.ServiceLabels[constants.AmbientUseWaypointLabel] = cfg.ServiceWaypointProxy
 	}
 	return map[string]any{
-		"Service":        cfg.Service,
-		"Headless":       cfg.Headless,
-		"ServiceAccount": cfg.ServiceAccount,
-		"ServicePorts":   cfg.Ports.GetServicePorts(),
-		"ServiceLabels":  cfg.ServiceLabels,
-		"IPFamilies":     cfg.IPFamilies,
-		"IPFamilyPolicy": cfg.IPFamilyPolicy,
+		"Service":            cfg.Service,
+		"Headless":           cfg.Headless,
+		"ServiceAccount":     cfg.ServiceAccount,
+		"ServicePorts":       cfg.Ports.GetServicePorts(),
+		"ServiceLabels":      cfg.ServiceLabels,
+		"IPFamilies":         cfg.IPFamilies,
+		"IPFamilyPolicy":     cfg.IPFamilyPolicy,
+		"ServiceAnnotations": cfg.ServiceAnnotations,
 	}
 }
 
