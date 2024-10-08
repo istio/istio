@@ -243,17 +243,15 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 	}
 }
 
-func preferCloseLoadBalancer() *workloadapi.LoadBalancing {
-	return &workloadapi.LoadBalancing{
-		// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
-		RoutingPreference: []workloadapi.LoadBalancing_Scope{
-			workloadapi.LoadBalancing_NETWORK,
-			workloadapi.LoadBalancing_REGION,
-			workloadapi.LoadBalancing_ZONE,
-			workloadapi.LoadBalancing_SUBZONE,
-		},
-		Mode: workloadapi.LoadBalancing_FAILOVER,
-	}
+var preferCloseLoadBalancer = &workloadapi.LoadBalancing{
+	// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
+	RoutingPreference: []workloadapi.LoadBalancing_Scope{
+		workloadapi.LoadBalancing_NETWORK,
+		workloadapi.LoadBalancing_REGION,
+		workloadapi.LoadBalancing_ZONE,
+		workloadapi.LoadBalancing_SUBZONE,
+	},
+	Mode: workloadapi.LoadBalancing_FAILOVER,
 }
 
 func getVIPs(svc *v1.Service) []string {
