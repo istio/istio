@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // iptables tables
@@ -37,13 +38,15 @@ const (
 	POSTROUTING = "POSTROUTING"
 )
 
-var BuiltInChainsMap = map[string]struct{}{
-	INPUT:       {},
-	OUTPUT:      {},
-	FORWARD:     {},
-	PREROUTING:  {},
-	POSTROUTING: {},
-}
+var BuiltInChainsMap = sets.New(
+	INPUT,
+	OUTPUT,
+	FORWARD,
+	PREROUTING,
+	POSTROUTING,
+	ACCEPT,
+	RETURN,
+)
 
 // Constants used for generating iptables commands
 const (
