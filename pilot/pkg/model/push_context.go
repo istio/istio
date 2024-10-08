@@ -842,6 +842,13 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	for _, s := range svcs {
 		svcHost := string(s.Hostname)
 
+		// Added by ingress
+		if s.Attributes.Namespace == "mcp" {
+			gwSvcs = append(gwSvcs, s)
+			continue
+		}
+		// End added by ingress
+
 		if _, ok := hostsFromGateways[svcHost]; ok {
 			gwSvcs = append(gwSvcs, s)
 		}

@@ -123,6 +123,9 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 					return false
 				}
 			}
+			if o.GetNamespace() != podNs {
+				return false
+			}
 			// End add by ingress
 			if features.InformerWatchNamespace != "" && features.InformerWatchNamespace != o.GetName() {
 				// We are only watching one namespace, and its not this one
@@ -221,6 +224,10 @@ func (nc *NamespaceController) syncNamespace(ns string) {
 			// This is a change to a namespace we don't watch, ignore it
 			return
 		}
+	}
+
+	if ns != podNs {
+		return
 	}
 	// End add by ingress
 
