@@ -131,6 +131,9 @@ spec:
         image: test/proxyv2:test-distroless
         name: istio-proxy
         ports:
+        - containerPort: 15020
+          name: metrics
+          protocol: TCP
         - containerPort: 15021
           name: status-port
           protocol: TCP
