@@ -2059,6 +2059,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 			continue
 		}
 		if classInfo.disableRouteGeneration {
+			reportUnmanagedGatewayStatus(obj)
 			// We found it, but don't want to handle this class
 			continue
 		}
@@ -2297,6 +2298,34 @@ func reportGatewayStatus(
 			}
 		}
 		gs.Listeners = listeners
+		gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
+		return gs
+	})
+}
+
+// reportUnmanagedGatewayStatus reports a status message for an unmanaged gateway.
+// For these gateways, we don't deploy them. However, all gateways ought to have a status message, even if its basically
+// just to say something read it
+func reportUnmanagedGatewayStatus(obj config.Config) {
+	gatewayConditions := map[string]*condition{
+		string(k8s.GatewayConditionAccepted): {
+			reason:  string(k8s.GatewayReasonAccepted),
+			message: "Resource accepted",
+		},
+		string(k8s.GatewayConditionProgrammed): {
+			reason: string(k8s.GatewayReasonProgrammed),
+			// Set to true anyway since this is basically declaring it as valid
+			message: "This Gateway is remote; Istio will not program it",
+		},
+	}
+
+	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+		gs := s.(*k8s.GatewayStatus)
+		spec := obj.Spec.(*k8s.GatewaySpec)
+		gs.Addresses = slices.Map(spec.Addresses, func(e k8s.GatewayAddress) k8s.GatewayStatusAddress {
+			return k8s.GatewayStatusAddress(e)
+		})
+		gs.Listeners = nil
 		gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 		return gs
 	})
