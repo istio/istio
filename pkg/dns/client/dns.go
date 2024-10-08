@@ -60,7 +60,6 @@ type LocalDNSServer struct {
 
 	respondBeforeSync         bool
 	forwardToUpstreamParallel bool
-	randomSelectUpstream      bool
 }
 
 // LookupTable is borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
@@ -89,11 +88,10 @@ const (
 	defaultTTLInSeconds = 30
 )
 
-func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool, randomSelectUpstream bool) (*LocalDNSServer, error) {
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
 		proxyNamespace:            proxyNamespace,
 		forwardToUpstreamParallel: forwardToUpstreamParallel,
-		randomSelectUpstream:      randomSelectUpstream,
 	}
 
 	// proxyDomain could contain the namespace making it redundant.
@@ -393,14 +391,11 @@ func (h *LocalDNSServer) Close() {
 }
 
 func (h *LocalDNSServer) upstreamIterOffset(scope *istiolog.Scope) int {
-	if h.randomSelectUpstream {
-		offset, err := rand.Int(rand.Reader, big.NewInt(int64(len(h.resolvConfServers))))
-		if err != nil {
-			scope.Warnf("failed to select random iteration offset: %v", err)
-		}
-		return int(offset.Int64())
+	offset, err := rand.Int(rand.Reader, big.NewInt(int64(len(h.resolvConfServers))))
+	if err != nil {
+		scope.Warnf("failed to select random iteration offset: %v", err)
 	}
-	return 0
+	return int(offset.Int64())
 }
 
 func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
