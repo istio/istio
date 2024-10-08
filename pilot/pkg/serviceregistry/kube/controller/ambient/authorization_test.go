@@ -24,6 +24,7 @@ import (
 	gtwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gtwapiv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1" // TODO: should likely update to v1 but this is the type currently recognized byt kclient
 
+	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	apiv1beta1 "istio.io/api/type/v1beta1"
@@ -262,7 +263,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 	_, err := clientNs.Create(&v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   testNS,
-			Labels: map[string]string{constants.AmbientUseWaypointLabel: "waypoint"},
+			Labels: map[string]string{label.IoIstioUseWaypoint.Name: "waypoint"},
 		},
 	})
 	assert.NoError(t, err)
@@ -333,7 +334,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Name:      "no-waypoint-se",
 						Namespace: testNS,
 						Labels: map[string]string{
-							constants.AmbientUseWaypointLabel: "none",
+							label.IoIstioUseWaypoint.Name: "none",
 						},
 					},
 					Spec: v1alpha3.ServiceEntry{},
@@ -465,7 +466,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Name:      "multi-partial-no-waypoint-se-1",
 						Namespace: testNS,
 						Labels: map[string]string{
-							constants.AmbientUseWaypointLabel: "none",
+							label.IoIstioUseWaypoint.Name: "none",
 						},
 					},
 					Spec: v1alpha3.ServiceEntry{},
@@ -579,7 +580,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Name:      "no-waypoint-service",
 						Namespace: testNS,
 						Labels: map[string]string{
-							constants.AmbientUseWaypointLabel: "none",
+							label.IoIstioUseWaypoint.Name: "none",
 						},
 					},
 					Spec: v1.ServiceSpec{},
