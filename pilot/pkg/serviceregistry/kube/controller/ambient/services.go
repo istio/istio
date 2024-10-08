@@ -150,7 +150,7 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 	var lb *workloadapi.LoadBalancing
 	preferClose := strings.EqualFold(svc.Annotations["networking.istio.io/traffic-distribution"], v1.ServiceTrafficDistributionPreferClose)
 	if preferClose {
-		lb = preferCloseLoadBalancer()
+		lb = preferCloseLoadBalancer
 	}
 
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
@@ -201,7 +201,7 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 		preferClose = *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose
 	}
 	if preferClose {
-		lb = preferCloseLoadBalancer()
+		lb = preferCloseLoadBalancer
 	}
 	if itp := svc.Spec.InternalTrafficPolicy; itp != nil && *itp == v1.ServiceInternalTrafficPolicyLocal {
 		lb = &workloadapi.LoadBalancing{
