@@ -816,11 +816,11 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 			// Append and forward client cert to backend, if configured
 			ForwardClientCertDetails: ph.ForwardedClientCert,
 			SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
-				Subject: &wrappers.BoolValue{Value: ph.SetCurrentCertDetails.Subject == nil || ph.SetCurrentCertDetails.Subject.Value},
-				Uri:     ph.SetCurrentCertDetails.Uri == nil || ph.SetCurrentCertDetails.Uri.Value,
-				Dns:     ph.SetCurrentCertDetails.Dns == nil || ph.SetCurrentCertDetails.Dns.Value,
-				Cert:    ph.SetCurrentCertDetails.Cert != nil && ph.SetCurrentCertDetails.Cert.Value,
-				Chain:   ph.SetCurrentCertDetails.Chain != nil && ph.SetCurrentCertDetails.Chain.Value,
+				Subject: &wrappers.BoolValue{Value: ph.SetCurrentCertDetails.GetSubject() == nil || ph.SetCurrentCertDetails.Subject.Value},
+				Uri:     ph.SetCurrentCertDetails.GetUri() == nil || ph.SetCurrentCertDetails.Uri.Value,
+				Dns:     ph.SetCurrentCertDetails.GetDns() == nil || ph.SetCurrentCertDetails.Dns.Value,
+				Cert:    ph.SetCurrentCertDetails.GetCert() != nil && ph.SetCurrentCertDetails.Cert.Value,
+				Chain:   ph.SetCurrentCertDetails.GetChain() != nil && ph.SetCurrentCertDetails.Chain.Value,
 			},
 			ServerName:                 ph.ServerName,
 			ServerHeaderTransformation: ph.ServerHeaderTransformation,
