@@ -816,10 +816,11 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 			// Append and forward client cert to backend, if configured
 			ForwardClientCertDetails: ph.ForwardedClientCert,
 			SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
-				Subject: proto.BoolTrue,
-				Uri:     true,
-				Dns:     true,
-				Cert:    true,
+				Subject: &wrappers.BoolValue{Value: ph.SetCurrentCertDetails.Subject == nil || ph.SetCurrentCertDetails.Subject.Value},
+				Uri:     ph.SetCurrentCertDetails.Uri == nil || ph.SetCurrentCertDetails.Uri.Value,
+				Dns:     ph.SetCurrentCertDetails.Dns == nil || ph.SetCurrentCertDetails.Dns.Value,
+				Cert:    ph.SetCurrentCertDetails.Cert != nil && ph.SetCurrentCertDetails.Cert.Value,
+				Chain:   ph.SetCurrentCertDetails.Chain != nil && ph.SetCurrentCertDetails.Chain.Value,
 			},
 			ServerName:                 ph.ServerName,
 			ServerHeaderTransformation: ph.ServerHeaderTransformation,
