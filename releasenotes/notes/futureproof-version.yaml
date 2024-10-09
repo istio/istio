@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: []
+releaseNotes:
+  - |
+    **Improved** Istiod's validation webhook to accept versions it does not know about.
+    This ensures that an older Istio can validate resources created by newer CRDs.
+
+
