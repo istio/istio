@@ -46,6 +46,7 @@ var BuiltInChainsMap = sets.New(
 	POSTROUTING,
 	ACCEPT,
 	RETURN,
+	DROP,
 )
 
 // Constants used for generating iptables commands
