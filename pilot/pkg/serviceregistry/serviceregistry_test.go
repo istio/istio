@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
@@ -1354,7 +1355,7 @@ func TestWorkloadInstances(t *testing.T) {
 		if ambient {
 			nodeMeta = &model.NodeMetadata{EnableHBONE: true}
 			pod = pod.DeepCopy()
-			pod.Annotations[constants.AmbientRedirection] = constants.AmbientRedirectionEnabled
+			pod.Annotations[annotation.AmbientRedirection.Name] = constants.AmbientRedirectionEnabled
 		}
 		opts := xds.FakeOptions{MeshConfig: m}
 		t.Run("ambient "+name, func(t *testing.T) {

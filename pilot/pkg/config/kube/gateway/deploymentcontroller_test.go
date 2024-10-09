@@ -33,6 +33,8 @@ import (
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
+	"istio.io/api/label"
 	istioio_networking_v1beta1 "istio.io/api/networking/v1beta1"
 	istio_type_v1beta1 "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
@@ -81,7 +83,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		Spec: &istioio_networking_v1beta1.ProxyConfig{
 			Selector: &istio_type_v1beta1.WorkloadSelector{
 				MatchLabels: map[string]string{
-					"gateway.networking.k8s.io/gateway-name": "default",
+					label.IoK8sNetworkingGatewayGatewayName.Name: "default",
 				},
 			},
 			Image: &istioio_networking_v1beta1.ProxyImage{
@@ -138,7 +140,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
-					Annotations: map[string]string{gatewaySAOverride: "custom-sa"},
+					Annotations: map[string]string{annotation.GatewayServiceAccount.Name: "custom-sa"},
 				},
 				Spec: k8s.GatewaySpec{
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
@@ -153,7 +155,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
-					Annotations: map[string]string{gatewayNameOverride: "default"},
+					Annotations: map[string]string{annotation.GatewayNameOverride.Name: "default"},
 				},
 				Spec: k8s.GatewaySpec{
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
@@ -173,8 +175,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Name:      "default",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"networking.istio.io/service-type": string(corev1.ServiceTypeClusterIP),
-						gatewayNameOverride:                "default",
+						"networking.istio.io/service-type":  string(corev1.ServiceTypeClusterIP),
+						annotation.GatewayNameOverride.Name: "default",
 					},
 				},
 				Spec: k8s.GatewaySpec{
@@ -195,8 +197,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
-					Labels:      map[string]string{"topology.istio.io/network": "network-1"},
-					Annotations: map[string]string{gatewayNameOverride: "default"},
+					Labels:      map[string]string{label.TopologyNetwork.Name: "network-1"},
+					Annotations: map[string]string{annotation.GatewayNameOverride.Name: "default"},
 				},
 				Spec: k8s.GatewaySpec{
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
@@ -217,7 +219,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Name:      "namespace",
 					Namespace: "default",
 					Labels: map[string]string{
-						"topology.istio.io/network": "network-1", // explicitly set network won't be overwritten
+						label.TopologyNetwork.Name: "network-1", // explicitly set network won't be overwritten
 					},
 				},
 				Spec: k8s.GatewaySpec{
@@ -311,7 +313,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Namespace: "default",
 					// TODO why are we setting this on gateways?
 					Labels: map[string]string{
-						constants.DataplaneModeLabel: constants.DataplaneModeAmbient,
+						label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
 					},
 				},
 				Spec: k8s.GatewaySpec{
@@ -331,7 +333,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
 					Infrastructure: &k8s.GatewayInfrastructure{
 						Labels: map[k8s.LabelKey]k8s.LabelValue{
-							constants.DataplaneModeLabel: constants.DataplaneModeAmbient,
+							k8s.LabelKey(label.IoIstioDataplaneMode.Name): constants.DataplaneModeAmbient,
 						},
 					},
 				},

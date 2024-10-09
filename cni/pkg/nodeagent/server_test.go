@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/util/assert"
@@ -74,7 +75,7 @@ func TestMeshDataplaneAddsAnnotationOnAdd(t *testing.T) {
 	pod, err = fakeClientSet.CoreV1().Pods("test").Get(fakeCtx, "test", metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, len(pod.Annotations), 1)
-	assert.Equal(t, pod.Annotations[constants.AmbientRedirection], constants.AmbientRedirectionEnabled)
+	assert.Equal(t, pod.Annotations[annotation.AmbientRedirection.Name], constants.AmbientRedirectionEnabled)
 }
 
 func TestMeshDataplaneAddsAnnotationOnAddWithPartialError(t *testing.T) {
@@ -115,7 +116,7 @@ func TestMeshDataplaneAddsAnnotationOnAddWithPartialError(t *testing.T) {
 	pod, err = fakeClientSet.CoreV1().Pods("test").Get(fakeCtx, "test", metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, len(pod.Annotations), 1)
-	assert.Equal(t, pod.Annotations[constants.AmbientRedirection], constants.AmbientRedirectionEnabled)
+	assert.Equal(t, pod.Annotations[annotation.AmbientRedirection.Name], constants.AmbientRedirectionEnabled)
 }
 
 func TestMeshDataplaneDoesntAnnotateOnAddWithRealError(t *testing.T) {
@@ -216,7 +217,7 @@ func TestMeshDataplaneRemovePodErrorDoesntRemoveAnnotation(t *testing.T) {
 
 	pod, err = fakeClientSet.CoreV1().Pods("test").Get(fakeCtx, "test", metav1.GetOptions{})
 	assert.NoError(t, err)
-	assert.Equal(t, pod.Annotations[constants.AmbientRedirection], constants.AmbientRedirectionEnabled)
+	assert.Equal(t, pod.Annotations[annotation.AmbientRedirection.Name], constants.AmbientRedirectionEnabled)
 }
 
 func TestMeshDataplaneDelPod(t *testing.T) {
@@ -635,7 +636,7 @@ func podWithAnnotation() *corev1.Pod {
 			Namespace: "test",
 			UID:       types.UID("test"),
 			Annotations: map[string]string{
-				constants.AmbientRedirection: constants.AmbientRedirectionEnabled,
+				annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled,
 			},
 		},
 	}

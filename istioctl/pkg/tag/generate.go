@@ -37,7 +37,6 @@ import (
 )
 
 const (
-	IstioTagLabel       = "istio.io/tag"
 	DefaultRevisionName = "default"
 
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"

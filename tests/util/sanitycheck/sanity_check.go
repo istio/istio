@@ -16,7 +16,6 @@ package sanitycheck
 
 import (
 	"istio.io/api/label"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -52,7 +51,7 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 	if ambient {
 		nsConfig.Inject = false
 		nsConfig.Labels = map[string]string{
-			constants.DataplaneModeLabel: "ambient",
+			label.IoIstioDataplaneMode.Name: "ambient",
 		}
 		// not really needed from Istio POV, but the test will add the `istio-proxy` container if we don't tell it not to.
 		subsetConfig = []echo.SubsetConfig{{

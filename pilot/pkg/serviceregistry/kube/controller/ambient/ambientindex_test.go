@@ -28,6 +28,8 @@ import (
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	auth "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
@@ -153,12 +155,12 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 
 			// Label the pod and check that the correct event is produced.
 			s.labelPod(t, "pod1", testNS,
-				map[string]string{"app": "a", constants.AmbientUseWaypointLabel: "test-wp"})
+				map[string]string{"app": "a", label.IoIstioUseWaypoint.Name: "test-wp"})
 			c.podAssertion(s)
 
 			// Label the service and check that the correct event is produced.
 			s.labelService(t, "svc1", testNS,
-				map[string]string{constants.AmbientUseWaypointLabel: "test-wp"})
+				map[string]string{label.IoIstioUseWaypoint.Name: "test-wp"})
 			c.svcAssertion(s)
 
 			// clean up resources
@@ -266,7 +268,7 @@ func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 	s.assertEvent(t, s.podXdsName("pod1"), s.svcXdsName("svc1"))
 
-	s.labelService(t, "svc1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "test-wp"})
+	s.labelService(t, "svc1", testNS, map[string]string{label.IoIstioUseWaypoint.Name: "test-wp"})
 	s.assertEvent(t, s.svcXdsName("svc1"))
 	s.assertNoEvent(t)
 
@@ -358,7 +360,7 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 		"127.0.0.1",
 		"pod1",
 		"sa1",
-		map[string]string{"app": "a", constants.AmbientUseWaypointLabel: "waypoint-sa1"},
+		map[string]string{"app": "a", label.IoIstioUseWaypoint.Name: "waypoint-sa1"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -367,7 +369,7 @@ func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
 		"127.0.0.2",
 		"pod2",
 		"sa2",
-		map[string]string{"app": "b", constants.AmbientUseWaypointLabel: "waypoint-sa2"},
+		map[string]string{"app": "b", label.IoIstioUseWaypoint.Name: "waypoint-sa2"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -390,7 +392,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypointLabel: "waypoint-ns",
+				label.IoIstioUseWaypoint.Name: "waypoint-ns",
 			},
 		},
 	})
@@ -407,7 +409,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 		"127.0.0.4",
 		"pod4",
 		"sa2",
-		map[string]string{"app": "b", constants.AmbientUseWaypointLabel: "waypoint-sa2"},
+		map[string]string{"app": "b", label.IoIstioUseWaypoint.Name: "waypoint-sa2"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -423,15 +425,15 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	// Add a waypoint proxy pod for namespace
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "waypoint-ns",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+			label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-ns",
 		}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
 	// create the waypoint service
 	s.addService(t, "waypoint-ns",
-		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
+		map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
-		[]int32{80}, map[string]string{constants.GatewayNameLabel: "waypoint-ns"}, "10.0.0.2")
+		[]int32{80}, map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-ns"}, "10.0.0.2")
 	s.assertEvent(t,
 		s.podXdsName("waypoint-ns-pod"),
 		s.svcXdsName("waypoint-ns"),
@@ -443,15 +445,15 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	// Add a waypoint proxy pod for sa2
 	s.addPods(t, "127.0.0.250", "waypoint-sa2-pod", "service-account",
 		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "waypoint-sa2",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+			label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-sa2",
 		}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint-sa2-pod"))
 	// create the waypoint service
 	s.addService(t, "waypoint-sa2",
-		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
+		map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
-		[]int32{80}, map[string]string{constants.GatewayNameLabel: "waypoint-sa2"}, "10.0.0.3")
+		[]int32{80}, map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-sa2"}, "10.0.0.3")
 	s.assertEvent(t,
 		s.podXdsName("waypoint-sa2-pod"),
 		s.svcXdsName("waypoint-sa2"),
@@ -497,8 +499,8 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	// Add another waypoint pod, expect no updates for other pods since waypoint address refers to service VIP
 	s.addPods(t, "127.0.0.201", "waypoint2-ns-pod", "namespace-wide",
 		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "namespace-wide",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+			label.IoK8sNetworkingGatewayGatewayName.Name: "namespace-wide",
 		}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-ns-pod"))
 	assert.Equal(t,
@@ -540,7 +542,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 		"waypoint-ns.ns1.svc.company.com")
 
 	s.addPods(t, "127.0.0.201", "waypoint2-sa", "waypoint-sa",
-		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
+		map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
 	// Unrelated SA should not change anything
@@ -587,7 +589,7 @@ func TestAmbientIndex_WaypointInboundBinding(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.WaypointGatewayClassName,
 			Annotations: map[string]string{
-				constants.AmbientWaypointInboundBinding: "PROXY/15088",
+				annotation.AmbientWaypointInboundBinding.Name: "PROXY/15088",
 			},
 		},
 	})
@@ -595,7 +597,8 @@ func TestAmbientIndex_WaypointInboundBinding(t *testing.T) {
 	// TODO needing this check seems suspicious. We should really wait for up to 2 pod events.
 	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List()) }, 1)
 
-	s.addPods(t, "10.0.0.1", "proxy-sandwich-instance", "", map[string]string{constants.GatewayNameLabel: "proxy-sandwich"}, nil, true, corev1.PodRunning)
+	s.addPods(t, "10.0.0.1", "proxy-sandwich-instance", "",
+		map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "proxy-sandwich"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("proxy-sandwich-instance"))
 	appTunnel := s.lookup(s.podXdsName("proxy-sandwich-instance"))[0].GetWorkload().GetApplicationTunnel()
 	assert.Equal(t, appTunnel, &workloadapi.ApplicationTunnel{
@@ -623,14 +626,14 @@ func setupPolicyTest(t *testing.T, s *ambientTestServer) {
 	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "waypoint-ns",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+			label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-ns",
 		}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
 	s.addPods(t, "127.0.0.201", "waypoint2-sa", "waypoint-sa",
 		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "waypoint-ns",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+			label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-ns",
 		},
 		map[string]string{}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
@@ -639,15 +642,15 @@ func setupPolicyTest(t *testing.T, s *ambientTestServer) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypointLabel: "waypoint-ns",
+				label.IoIstioUseWaypoint.Name: "waypoint-ns",
 			},
 		},
 	})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addService(t, "waypoint-ns",
-		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
+		map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
-		[]int32{80}, map[string]string{constants.GatewayNameLabel: "waypoint-ns"}, "10.0.0.2")
+		[]int32{80}, map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint-ns"}, "10.0.0.2")
 	s.assertUnorderedEvent(t, s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
 }
 
@@ -1270,7 +1273,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypointLabel: "waypoint-ns",
+				label.IoIstioUseWaypoint.Name: "waypoint-ns",
 			},
 		},
 	})
@@ -1278,7 +1281,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertWaypointAddressForPod(t, "pod1", "waypoint-ns.ns1.svc.company.com")
 
 	// label pod1 to use a different waypoint than the namespace specifies
-	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "waypoint-sa1"})
+	s.labelPod(t, "pod1", testNS, map[string]string{label.IoIstioUseWaypoint.Name: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that we're using the correct waypoint for pod1
 	s.assertWaypointAddressForPod(t, "pod1", "waypoint-sa1.ns1.svc.company.com")
@@ -1301,7 +1304,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertWaypointAddressForPod(t, "pod1", "")
 
 	// annotate pod2 to use a waypoint
-	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "waypoint-sa1"})
+	s.labelPod(t, "pod1", testNS, map[string]string{label.IoIstioUseWaypoint.Name: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that the correct waypoint was configured
 	s.assertWaypointAddressForPod(t, "pod1", "waypoint-sa1.ns1.svc.company.com")
@@ -1311,7 +1314,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypointLabel: "waypoint-ns",
+				label.IoIstioUseWaypoint.Name: "waypoint-ns",
 			},
 		},
 	})
@@ -1321,12 +1324,12 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertWaypointAddressForPod(t, "pod1", "waypoint-sa1.ns1.svc.company.com")
 
 	// assert local waypoint opt-out works as expected
-	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "none"})
+	s.labelPod(t, "pod1", testNS, map[string]string{label.IoIstioUseWaypoint.Name: "none"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 	// assert that we're using no waypoint
 	s.assertWaypointAddressForPod(t, "pod1", "")
 	// check that the other opt out also works
-	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "~"})
+	s.labelPod(t, "pod1", testNS, map[string]string{label.IoIstioUseWaypoint.Name: "~"})
 	s.assertNoEvent(t)
 	s.assertWaypointAddressForPod(t, "pod1", "")
 }
@@ -1359,7 +1362,7 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: testNS,
 			Labels: map[string]string{
-				constants.AmbientUseWaypointLabel: "waypoint-ns",
+				label.IoIstioUseWaypoint.Name: "waypoint-ns",
 			},
 		},
 	})
@@ -1369,7 +1372,7 @@ func TestWorkloadsForWaypoint(t *testing.T) {
 	// TODO: should this be returned? Or should it be filtered because such a waypoint does not exist
 
 	// Add a service account waypoint to the pod
-	s.labelPod(t, "pod1", testNS, map[string]string{constants.AmbientUseWaypointLabel: "waypoint-sa1"})
+	s.labelPod(t, "pod1", testNS, map[string]string{label.IoIstioUseWaypoint.Name: "waypoint-sa1"})
 	s.assertEvent(t, s.podXdsName("pod1"))
 
 	assertWaypoint(t, "waypoint-sa1.ns1.svc.company.com", s.podXdsName("pod1"))
@@ -1406,7 +1409,7 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 		"127.0.0.3",
 		"pod3",
 		"sa3",
-		map[string]string{"app": "a", constants.AmbientUseWaypointLabel: "waypoint"},
+		map[string]string{"app": "a", label.IoIstioUseWaypoint.Name: "waypoint"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -1415,7 +1418,7 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 		"127.0.0.1",
 		"pod1",
 		"sa1",
-		map[string]string{"app": "a", constants.AmbientUseWaypointLabel: "waypoint"},
+		map[string]string{"app": "a", label.IoIstioUseWaypoint.Name: "waypoint"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -1424,7 +1427,7 @@ func TestWorkloadsForWaypointOrder(t *testing.T) {
 		"127.0.0.2",
 		"pod2",
 		"sa2",
-		map[string]string{"app": "a", constants.AmbientUseWaypointLabel: "waypoint"},
+		map[string]string{"app": "a", label.IoIstioUseWaypoint.Name: "waypoint"},
 		map[string]string{},
 		true,
 		corev1.PodRunning)
@@ -1581,9 +1584,9 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType stri
 	}
 	labels := make(map[string]string, 2)
 	if trafficType != "" && validTrafficTypes.Contains(trafficType) {
-		labels[constants.AmbientWaypointForTrafficTypeLabel] = trafficType
+		labels[label.IoIstioWaypointFor.Name] = trafficType
 	} else {
-		labels[constants.AmbientWaypointForTrafficTypeLabel] = constants.ServiceTraffic
+		labels[label.IoIstioWaypointFor.Name] = constants.ServiceTraffic
 	}
 	gateway.Labels = labels
 

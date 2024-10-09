@@ -20,10 +20,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
@@ -138,7 +138,7 @@ func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 	// If labels/annotations updated, trigger proxy push
 	labelsChanged := !maps.Equal(old.Labels, cur.Labels)
 	// Annotations are only used in endpoints in one case, so just compare that one
-	relevantAnnotationsChanged := old.Annotations[constants.AmbientRedirection] != cur.Annotations[constants.AmbientRedirection]
+	relevantAnnotationsChanged := old.Annotations[annotation.AmbientRedirection.Name] != cur.Annotations[annotation.AmbientRedirection.Name]
 	changed := labelsChanged || relevantAnnotationsChanged
 	if cur.Status.PodIP != "" && changed {
 		pc.proxyUpdates(cur, true)

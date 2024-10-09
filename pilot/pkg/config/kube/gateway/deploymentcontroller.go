@@ -32,6 +32,7 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -346,14 +347,14 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	defaultName := getDefaultName(gw.Name, &gw.Spec, gi.disableNameSuffix)
 
 	serviceType := gi.defaultServiceType
-	if o, f := gw.Annotations[serviceTypeOverride]; f {
+	if o, f := gw.Annotations[annotation.NetworkingServiceType.Name]; f {
 		serviceType = corev1.ServiceType(o)
 	}
 
 	input := TemplateInput{
 		Gateway:        &gw,
-		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
-		ServiceAccount: model.GetOrDefault(gw.Annotations[gatewaySAOverride], defaultName),
+		DeploymentName: model.GetOrDefault(gw.Annotations[annotation.GatewayNameOverride.Name], defaultName),
+		ServiceAccount: model.GetOrDefault(gw.Annotations[annotation.GatewayServiceAccount.Name], defaultName),
 		Ports:          extractServicePorts(gw),
 		ClusterID:      d.clusterID.String(),
 
@@ -365,7 +366,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		CompliancePolicy:          common_features.CompliancePolicy,
 		InfrastructureLabels:      gw.GetLabels(),
 		InfrastructureAnnotations: gw.GetAnnotations(),
-		GatewayNameLabel:          constants.GatewayNameLabel,
+		GatewayNameLabel:          label.IoK8sNetworkingGatewayGatewayName.Name,
 	}
 	// Default to the gateway labels/annotations and overwrite if infrastructure labels/annotations are set
 	input.InfrastructureLabels = extractInfrastructureLabels(gw)
@@ -400,16 +401,16 @@ func (d *DeploymentController) setLabelOverrides(gw gateway.Gateway, input Templ
 	isWaypointGateway := strings.Contains(string(gw.Spec.GatewayClassName), "waypoint")
 
 	var hasAmbientLabel bool
-	if _, ok := gw.Labels[constants.DataplaneModeLabel]; ok {
+	if _, ok := gw.Labels[label.IoIstioDataplaneMode.Name]; ok {
 		hasAmbientLabel = true
 	}
-	if _, ok := input.InfrastructureLabels[constants.DataplaneModeLabel]; ok {
+	if _, ok := input.InfrastructureLabels[label.IoIstioDataplaneMode.Name]; ok {
 		hasAmbientLabel = true
 	}
 	// If no ambient redirection label is set explicitly, explicitly disable.
 	// TODO this sprays ambient annotations/labels all over EVER gateway resource (serviceaccts, services, etc)
 	if features.EnableAmbientWaypoints && !isWaypointGateway && !hasAmbientLabel {
-		input.InfrastructureLabels[constants.DataplaneModeLabel] = constants.DataplaneModeNone
+		input.InfrastructureLabels[label.IoIstioDataplaneMode.Name] = constants.DataplaneModeNone
 	}
 
 	// Default the network label for waypoints if not explicitly set in gateway's labels
@@ -523,7 +524,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
 
-	labelToMatch := map[string]string{constants.GatewayNameLabel: mi.Name}
+	labelToMatch := map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: mi.Name}
 	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
@@ -564,7 +565,7 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 	us := unstructured.Unstructured{Object: data}
 	// set managed-by label
 	clabel := strings.ReplaceAll(controller, "/", "-")
-	err = unstructured.SetNestedField(us.Object, clabel, "metadata", "labels", constants.ManagedGatewayLabel)
+	err = unstructured.SetNestedField(us.Object, clabel, "metadata", "labels", label.GatewayManaged.Name)
 	if err != nil {
 		return err
 	}
@@ -614,7 +615,7 @@ func (d *DeploymentController) canManage(gvr schema.GroupVersionResource, name, 
 		// no object, we can manage it
 		return true, ""
 	}
-	_, managed := obj.GetLabels()[constants.ManagedGatewayLabel]
+	_, managed := obj.GetLabels()[label.GatewayManaged.Name]
 	// If object already exists, we can only manage it if it has the label
 	return managed, obj.GetResourceVersion()
 }

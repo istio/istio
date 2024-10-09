@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
@@ -102,7 +103,7 @@ func TestWaypoint(t *testing.T) {
 				Prefix: "waypoint",
 				Inject: false,
 				Labels: map[string]string{
-					constants.DataplaneModeLabel: "ambient",
+					label.IoIstioDataplaneMode.Name: "ambient",
 				},
 			})
 
@@ -205,7 +206,7 @@ func TestWaypoint(t *testing.T) {
 }
 
 func checkWaypointIsReady(t framework.TestContext, ns, name string) error {
-	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, constants.GatewayNameLabel+"="+name)
+	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
 	_, err := kubetest.CheckPodsAreReady(fetch)
 	return err
 }
@@ -369,7 +370,7 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 				waypoint = fmt.Sprintf("%q", waypoint)
 			}
 			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
-				constants.AmbientUseWaypointLabel, waypoint))
+				label.IoIstioUseWaypoint.Name, waypoint))
 			if service {
 				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
 				return err
