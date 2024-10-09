@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+
+kind: feature
+area: installation
+issue:
+- 53452
+releaseNotes:
+- |
+  **Added** a new annotation `sidecar.istio.io/native-side` to allow users to control native sidecar injection on a per-pod basis. This annotation can be set to `true` or `false` to enable or disable native sidecar injection for a pod. This annotation takes precedence over the global ENABLE_NATIVE_SIDECARS environment variable.
