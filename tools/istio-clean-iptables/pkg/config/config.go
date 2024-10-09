@@ -49,6 +49,8 @@ type Config struct {
 	OwnerGroupsExclude      string   `json:"OUTBOUND_OWNER_GROUPS_EXCLUDE"`
 	InboundInterceptionMode string   `json:"INBOUND_INTERCEPTION_MODE"`
 	InboundTProxyMark       string   `json:"INBOUND_TPROXY_MARK"`
+	OutboundIPRangesInclude string   `json:"OUTBOUND_IPRANGES_INCLUDE"`
+	KubeVirtInterfaces      string   `json:"KUBE_VIRT_INTERFACES"`
 }
 
 func (c *Config) String() string {
@@ -69,6 +71,8 @@ func (c *Config) Print() {
 	fmt.Printf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6)
 	fmt.Printf("OUTBOUND_OWNER_GROUPS_INCLUDE=%s\n", c.OwnerGroupsInclude)
 	fmt.Printf("OUTBOUND_OWNER_GROUPS_EXCLUDE=%s\n", c.OwnerGroupsExclude)
+	fmt.Printf("OUTBOUND_IP_RANGES_INCLUDE=%s\n", c.OutboundIPRangesInclude)
+	fmt.Printf("KUBE_VIRT_INTERFACES=%s\n", c.KubeVirtInterfaces)
 	fmt.Println("")
 }
 
