@@ -13,24 +13,24 @@ Integration tests in Istio are essential for ensuring that various components wo
 - **Location**: `tests/integration/pilot`
 - **Purpose**: Tests related to the Istio Pilot component, which is responsible for configuring the Envoy proxies.
 - **Focus**:
-    - Configuration of Envoy proxies by Pilot.
-    - Communication between Pilot and Envoy proxies.
-    - Validation of service discovery.
-    - Testing of traffic management policies (e.g., routing, retries, timeouts).
-    - Validation of load balancing configurations.
-    - Specific `istioctl proxy-config` commands being tested: `bootstrap`, `cluster`, `endpoint`, `listener`, `route`, `all`.
+  1. Configuration of Envoy proxies by Pilot.
+  1. Communication between Pilot and Envoy proxies.
+  1. Validation of service discovery.
+  1. Testing of traffic management policies (e.g., routing, retries, timeouts).
+  1. Validation of load balancing configurations.
+  1. Specific `istioctl proxy-config` commands being tested: `bootstrap`, `cluster`, `endpoint`, `listener`, `route`, `all`.
 - **Setup**: The main test setup in this folder initializes the Istio control plane and configures the Pilot component.
 
 ### Ambient Integration Tests
 
 - **Location**: `tests/integration/ambient`
 - **Purpose**: Tests related to the Ambient mode, including components like `ztunnel`.
-- **Focus**: 
-    - Configuration and communication of Ambient components.
-    - Interaction between `ztunnel` and Ambient components.
-    - Validation of zero-trust security policies.
-    - Testing of ambient traffic management.
-    - Specific `istioctl ztunnel-config` commands being tested: `all`, `services`, `workloads`, `policies`, `certificates`.
+- **Focus**:
+  1. Configuration and communication of Ambient components.
+  1. Interaction between `ztunnel` and Ambient components.
+  1. Validation of zero-trust security policies.
+  1. Testing of ambient traffic management.
+  1. Specific `istioctl ztunnel-config` commands being tested: `all`, `services`, `workloads`, `policies`, `certificates`.
 - **Setup**: The main test setup in this folder initializes the Istio control plane, `ztunnel`, and other ambient components.
 
 ### Telemetry Integration Tests
@@ -38,11 +38,11 @@ Integration tests in Istio are essential for ensuring that various components wo
 - **Location**: `tests/integration/telemetry`
 - **Purpose**: Tests related to telemetry features, including metrics, logging, and tracing.
 - **Focus**:
-    - Collection and processing of telemetry data.
-    - Interaction between telemetry components and Istio control plane.
-    - Validation of metrics collection and reporting.
-    - Testing of logging configurations and log collection.
-    - Validation of tracing and distributed tracing setups.
+  1. Collection and processing of telemetry data.
+  1. Interaction between telemetry components and Istio control plane.
+  1. Validation of metrics collection and reporting.
+  1. Testing of logging configurations and log collection.
+  1. Validation of tracing and distributed tracing setups.
 - **Setup**: The main test setup in this folder initializes the Istio control plane with telemetry configurations.
 
 ### Helm Integration Tests
@@ -50,11 +50,11 @@ Integration tests in Istio are essential for ensuring that various components wo
 - **Location**: `tests/integration/helm`
 - **Purpose**: Tests related to Helm charts and their deployment.
 - **Focus**:
-    - Deployment of Istio using Helm charts.
-    - Verification of Helm chart configurations.
-    - Testing of Helm chart upgrades and rollbacks.
-    - Validation of custom Helm values and overrides.
-    - Ensuring compatibility with different Kubernetes versions.
+  1. Deployment of Istio using Helm charts.
+  1. Verification of Helm chart configurations.
+  1. Testing of Helm chart upgrades and rollbacks.
+  1. Validation of custom Helm values and overrides.
+  1. Ensuring compatibility with different Kubernetes versions.
 - **Setup**: The main test setup in this folder initializes the Istio control plane using Helm charts.
 
 ### Security Integration Tests
@@ -62,11 +62,11 @@ Integration tests in Istio are essential for ensuring that various components wo
 - **Location**: `tests/integration/security`
 - **Purpose**: Tests related to the security features and components of Istio, such as authentication and authorization mechanisms.
 - **Focus**:
-    - Authentication and authorization mechanisms.
-    - Interaction between security components and Istio control plane.
-    - Validation of mutual TLS (mTLS) configurations.
-    - Testing of JWT token validation and RBAC policies.
-    - Validation of certificate management and rotation.
+  1. Authentication and authorization mechanisms.
+  1. Interaction between security components and Istio control plane.
+  1. Validation of mutual TLS (mTLS) configurations.
+  1. Testing of JWT token validation and RBAC policies.
+  1. Validation of certificate management and rotation.
 - **Setup**: The main test setup in this folder initializes the Istio control plane with security configurations.
 
 ## Adding a New Integration Test
