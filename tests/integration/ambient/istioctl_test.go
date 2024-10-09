@@ -49,7 +49,6 @@ func TestZtunnelConfig(t *testing.T) {
 			}
 
 			args := []string{
-				"--namespace=dummy",
 				"zc", "all", podName, "-o", "json",
 			}
 			var zDumpAll configdump.ZtunnelDump
@@ -64,7 +63,6 @@ func TestZtunnelConfig(t *testing.T) {
 
 			var zDump configdump.ZtunnelDump
 			args = []string{
-				"--namespace=dummy",
 				"zc", "services", podName, "-o", "json",
 			}
 			out, _ = istioCtl.InvokeOrFail(t, args)
@@ -73,7 +71,6 @@ func TestZtunnelConfig(t *testing.T) {
 			g.Expect(zDump.Services).To(Not(BeNil()))
 
 			args = []string{
-				"--namespace=dummy",
 				"zc", "workloads", podName, "-o", "json",
 			}
 			out, _ = istioCtl.InvokeOrFail(t, args)
@@ -82,7 +79,6 @@ func TestZtunnelConfig(t *testing.T) {
 			g.Expect(zDump.Workloads).To(Not(BeNil()))
 
 			args = []string{
-				"--namespace=dummy",
 				"zc", "policies", podName, "-o", "json",
 			}
 			out, _ = istioCtl.InvokeOrFail(t, args)
@@ -91,7 +87,6 @@ func TestZtunnelConfig(t *testing.T) {
 			g.Expect(zDump.Policies).To(Not(BeNil()))
 
 			args = []string{
-				"--namespace=dummy",
 				"zc", "certificates", podName, "-o", "json",
 			}
 			out, _ = istioCtl.InvokeOrFail(t, args)
