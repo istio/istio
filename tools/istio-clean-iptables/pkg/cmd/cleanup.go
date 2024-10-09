@@ -15,6 +15,10 @@
 package cmd
 
 import (
+	"fmt"
+	"net/netip"
+	"os"
+
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	common "istio.io/istio/tools/istio-iptables/pkg/capture"
@@ -35,6 +39,42 @@ type IptablesCleaner struct {
 	cfg   *config.Config
 	iptV  *dep.IptablesVersion
 	ipt6V *dep.IptablesVersion
+}
+
+type NetworkRange struct {
+	IsWildcard    bool
+	CIDRs         []netip.Prefix
+	HasLoopBackIP bool
+}
+
+func separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
+	if cidrList == "*" {
+		return NetworkRange{IsWildcard: true}, NetworkRange{IsWildcard: true}, nil
+	}
+	ipv6Ranges := NetworkRange{}
+	ipv4Ranges := NetworkRange{}
+	for _, ipRange := range types.Split(cidrList) {
+		ipp, err := netip.ParsePrefix(ipRange)
+		if err != nil {
+			_, err = fmt.Fprintf(os.Stderr, "Ignoring error for bug compatibility with istio-iptables: %s\n", err.Error())
+			if err != nil {
+				return ipv4Ranges, ipv6Ranges, err
+			}
+			continue
+		}
+		if ipp.Addr().Is4() {
+			ipv4Ranges.CIDRs = append(ipv4Ranges.CIDRs, ipp)
+			if ipp.Addr().IsLoopback() {
+				ipv4Ranges.HasLoopBackIP = true
+			}
+		} else {
+			ipv6Ranges.CIDRs = append(ipv6Ranges.CIDRs, ipp)
+			if ipp.Addr().IsLoopback() {
+				ipv6Ranges.HasLoopBackIP = true
+			}
+		}
+	}
+	return ipv4Ranges, ipv6Ranges, nil
 }
 
 func NewIptablesCleaner(cfg *config.Config, iptV, ipt6V *dep.IptablesVersion, ext dep.Dependencies) *IptablesCleaner {
@@ -85,6 +125,35 @@ func removeOldChains(cfg *config.Config, ext dep.Dependencies, iptV *dep.Iptable
 	flushAndDeleteChains(ext, iptV, constants.NAT, chains)
 }
 
+func cleanupKubeVirt(cfg *config.Config, ext dep.Dependencies, iptV *dep.IptablesVersion, iptV6 *dep.IptablesVersion) {
+	cleanupFunc := func(iptVer *dep.IptablesVersion, rangeInclude NetworkRange) {
+		if rangeInclude.IsWildcard {
+			// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
+			for _, internalInterface := range types.Split(cfg.KubeVirtInterfaces) {
+				DeleteRule(ext, iptVer, constants.PREROUTING, constants.NAT, "-i", internalInterface, "-j", constants.ISTIOREDIRECT)
+			}
+		} else if len(rangeInclude.CIDRs) > 0 {
+			// User has specified a non-empty list of cidrs to be redirected to Envoy.
+			for _, cidr := range rangeInclude.CIDRs {
+				for _, internalInterface := range types.Split(cfg.KubeVirtInterfaces) {
+					DeleteRule(ext, iptVer, constants.PREROUTING, constants.PREROUTING, constants.NAT, "-i", internalInterface,
+						"-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
+				}
+			}
+		}
+		// cleanup short circuit
+		for _, internalInterface := range types.Split(cfg.KubeVirtInterfaces) {
+			DeleteRule(ext, iptVer, constants.PREROUTING, constants.NAT, "-i", internalInterface, "-j", constants.RETURN)
+		}
+	}
+
+	ipv4RangesInclude, ipv6RangesInclude, err := separateV4V6(cfg.OutboundIPRangesInclude)
+	if err == nil {
+		cleanupFunc(iptV, ipv4RangesInclude)
+		cleanupFunc(iptV6, ipv6RangesInclude)
+	}
+}
+
 // cleanupDNSUDP removes any IPv4/v6 UDP rules.
 // TODO BML drop `HandleDSNUDP` and friends, no real need to tread UDP rules specially
 // or create unique abstractions for them
@@ -105,6 +174,8 @@ func (c *IptablesCleaner) Run() {
 	}()
 
 	// clean v4/v6
+	// cleanup kube-virt-related jumps
+	cleanupKubeVirt(c.cfg, c.ext, c.iptV, c.ipt6V)
 	// Remove chains (run once per v4/v6)
 	removeOldChains(c.cfg, c.ext, c.iptV)
 	removeOldChains(c.cfg, c.ext, c.ipt6V)
