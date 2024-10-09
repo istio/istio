@@ -324,6 +324,34 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			in:   "native-sidecar-opt-in.yaml",
+			want: "native-sidecar-opt-in.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+			},
+		},
+		{
+			in:   "native-sidecar-opt-in.yaml",
+			want: "native-sidecar-opt-in.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "false")
+			},
+		},
+		{
+			in:   "native-sidecar-opt-out.yaml",
+			want: "native-sidecar-opt-out.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+			},
+		},
+		{
+			in:   "native-sidecar-opt-out.yaml",
+			want: "native-sidecar-opt-out.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "false")
+			},
+		},
+		{
 			in:         "custom-template.yaml",
 			want:       "custom-template.yaml.injected",
 			inFilePath: "custom-template.iop.yaml",
