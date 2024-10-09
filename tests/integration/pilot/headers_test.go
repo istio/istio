@@ -152,7 +152,7 @@ proxyHeaders:
   forwardedClientCert: APPEND_FORWARD
   setCurrentClientCertDetails:
     subject: true
-	cert: true
+    cert: true
   server:
     disabled: true
   requestId:
