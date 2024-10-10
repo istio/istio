@@ -215,7 +215,7 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 }
 
 // performRevisionTagsUpgradeFunc returns the provided function necessary to run inside an integration test
-// for upgrade capability with stable label revision upgrades
+// for upgrade capability with stable label revision upgrades lol
 func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestContext) {
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
