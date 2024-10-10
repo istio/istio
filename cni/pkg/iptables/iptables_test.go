@@ -27,21 +27,28 @@ import (
 
 func TestIptables(t *testing.T) {
 	cases := []struct {
-		name   string
-		config func(cfg *Config)
+		name        string
+		config      func(cfg *Config)
+		ingressMode bool
 	}{
 		{
-			"default",
-			func(cfg *Config) {
+			name: "default",
+			config: func(cfg *Config) {
 				cfg.RedirectDNS = true
 			},
 		},
 		{
-			"tproxy",
-			func(cfg *Config) {
+			name: "tproxy",
+			config: func(cfg *Config) {
 				cfg.TPROXYRedirection = true
 				cfg.RedirectDNS = true
 			},
+		},
+		{
+			name: "ingress",
+			config: func(cfg *Config) {
+			},
+			ingressMode: true,
 		},
 	}
 	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
@@ -55,7 +62,7 @@ func TestIptables(t *testing.T) {
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
 				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
-				err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6)
+				err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, tt.ingressMode)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -117,7 +124,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 	tt.config(cfg)
 	ext := &dep.DependenciesStub{}
 	iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
-	err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6)
+	err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +132,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 
 	*ext = dep.DependenciesStub{}
 	// run another time to make sure we are idempotent
-	err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6)
+	err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, false)
 	if err != nil {
 		t.Fatal(err)
 	}
