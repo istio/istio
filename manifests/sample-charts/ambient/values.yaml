@@ -9,6 +9,7 @@ istiod:
 # Overrides for the `ztunnel` dep
 ztunnel:
   profile: ambient
+  resourceName: ztunnel
 
 # Overrides for the `cni` dep
 cni:
