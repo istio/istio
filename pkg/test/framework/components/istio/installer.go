@@ -152,7 +152,7 @@ func (i *installer) Dump(resource.Context) {
 	}
 	for clusterName, manifests := range i.manifests {
 		clusterDir := path.Join(manifestsDir, clusterName)
-		if err := os.Mkdir(manifestsDir, 0o700); err != nil {
+		if err := os.Mkdir(clusterDir, 0o700); err != nil {
 			scopes.Framework.Errorf("Unable to create directory for dumping %s install manifests: %v", clusterName, err)
 		}
 		for i, manifest := range manifests {

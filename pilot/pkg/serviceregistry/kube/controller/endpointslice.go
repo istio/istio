@@ -155,8 +155,8 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 }
 
 // GetProxyServiceTargets returns service instances co-located with a given proxy
-// TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
-// To tackle this, we need a ip2instance map like what we have in service entry.
+// This is only used to find the targets associated with a headless service.
+// For the service with selector, it will use GetProxyServiceTargetsByPod to get the service targets.
 func (esc *endpointSliceController) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {
 	eps := esc.slices.List(proxy.Metadata.Namespace, endpointSliceSelector)
 	var out []model.ServiceTarget

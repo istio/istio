@@ -23,10 +23,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -102,7 +104,7 @@ func TestCNIPluginServer(t *testing.T) {
 
 	fs.On("AddPodToMesh",
 		ctx,
-		pod,
+		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		valid.Netns,
 	).Return(nil)
@@ -116,7 +118,7 @@ func TestCNIPluginServer(t *testing.T) {
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -163,7 +165,7 @@ func TestGetPodWithRetry(t *testing.T) {
 			Name:      "pod-noambient",
 			Namespace: "funkyns",
 			Labels: map[string]string{
-				constants.DataplaneModeLabel: constants.DataplaneModeNone,
+				label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -189,7 +191,7 @@ func TestGetPodWithRetry(t *testing.T) {
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -250,7 +252,7 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 	// This pod should be enmeshed with the CNI ip, even tho the pod status had no ip
 	fs.On("AddPodToMesh",
 		ctx,
-		pod,
+		mock.IsType(pod),
 		[]netip.Addr{netip.MustParseAddr(fakePodIP)},
 		valid.Netns,
 	).Return(nil)
@@ -264,7 +266,7 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)

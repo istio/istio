@@ -15,11 +15,11 @@
 package k8sgateway
 
 import (
+	"istio.io/api/label"
 	typev1beta1 "istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/maps"
@@ -70,7 +70,7 @@ func (w *SelectorAnalyzer) Analyze(context analysis.Context) {
 		selector := spec.GetSelector()
 		for _, pod := range pods[r.Metadata.FullName.Namespace.String()] {
 			if maps.Contains(pod, selector.MatchLabels) {
-				context.Report(gvkType, msg.NewIneffectiveSelector(r, pod[constants.GatewayNameLabel]))
+				context.Report(gvkType, msg.NewIneffectiveSelector(r, pod[label.IoK8sNetworkingGatewayGatewayName.Name]))
 			}
 		}
 	}
@@ -87,7 +87,7 @@ func (w *SelectorAnalyzer) Analyze(context analysis.Context) {
 func gatewayPodsLabelMap(context analysis.Context) map[string][]map[string]string {
 	pods := make(map[string][]map[string]string)
 	context.ForEach(gvk.Pod, func(resource *resource.Instance) bool {
-		if _, ok := resource.Metadata.Labels[constants.GatewayNameLabel]; !ok {
+		if _, ok := resource.Metadata.Labels[label.IoK8sNetworkingGatewayGatewayName.Name]; !ok {
 			return true
 		}
 		ns := resource.Metadata.FullName.Namespace.String()

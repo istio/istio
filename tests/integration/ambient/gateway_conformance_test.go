@@ -34,8 +34,8 @@ import (
 	gwfeatures "sigs.k8s.io/gateway-api/pkg/features"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test/env"
@@ -82,26 +82,28 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
-			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
+			clientOptions := client.Options{
 				Scheme: kube.IstioScheme,
 				Mapper: mapper,
-			})
+			}
+			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), clientOptions)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
-			supported := gateway.SupportedFeatures.Clone().Delete(gwfeatures.SupportMeshConsumerRoute)
+			supported := gateway.SupportedFeatures.Clone().Delete(gwfeatures.MeshConsumerRouteFeature)
 			opts := suite.ConformanceOptions{
 				Client:                   c,
+				ClientOptions:            clientOptions,
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
 				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
 				GatewayClassName:         "istio",
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},
-				SupportedFeatures:        supported,
+				SupportedFeatures:        gwfeatures.SetsToNamesSet(supported),
 				SkipTests:                maps.Keys(skippedTests),
 				UsableNetworkAddresses:   []v1.GatewayAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 				UnusableNetworkAddresses: []v1.GatewayAddress{{Value: "foo", Type: &hostnameType}},
@@ -119,7 +121,7 @@ func TestGatewayConformance(t *testing.T) {
 					Contact:      []string{"@istio/maintainers"},
 				},
 				NamespaceLabels: map[string]string{
-					constants.DataplaneModeLabel: "ambient",
+					label.IoIstioDataplaneMode.Name: "ambient",
 				},
 				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 			}
@@ -147,7 +149,7 @@ func TestGatewayConformance(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ns.RemoveLabel(constants.DataplaneModeLabel)
+			ns.RemoveLabel(label.IoIstioDataplaneMode.Name)
 
 			// create a waypoint for mesh conformance
 			meshNS := namespace.Static("gateway-conformance-mesh")
@@ -161,7 +163,7 @@ func TestGatewayConformance(t *testing.T) {
 				if labels == nil {
 					labels = make(map[string]string)
 				}
-				labels[constants.AmbientUseWaypointLabel] = "namespace"
+				labels[label.IoIstioUseWaypoint.Name] = "namespace"
 				ns.Labels = labels
 				k.Kube().CoreV1().Namespaces().Update(ctx.Context(), ns, metav1.UpdateOptions{})
 			}

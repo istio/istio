@@ -299,7 +299,7 @@ type xdsAddr struct {
 
 func getXdsAddressFromWebhooks(client kube.CLIClient) (*xdsAddr, error) {
 	webhooks, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s,!istio.io/tag", label.IoIstioRev.Name, client.Revision()),
+		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, client.Revision(), label.IoIstioTag.Name),
 	})
 	if err != nil {
 		return nil, err

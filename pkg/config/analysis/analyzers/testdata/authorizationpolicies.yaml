@@ -39,7 +39,7 @@ spec:
         version: v1
     spec:
       containers:
-      - image: docker.io/kennethreitz/httpbin
+      - image: docker.io/mccutchen/go-httpbin:v2.15.0
         imagePullPolicy: IfNotPresent
         name: httpbin
         ports:

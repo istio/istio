@@ -41,7 +41,7 @@ var (
 
 	EnableAmbientStatus = registerAmbient(
 		"AMBIENT_ENABLE_STATUS",
-		false, false,
+		true, false,
 		"If enabled, status messages for ambient mode will be written to resources. "+
 			"Currently, this does not do leader election, so may be unsafe to enable with multiple replicas.")
 

@@ -1,0 +1,23 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Removed** `istiod-remote` chart in favor of `helm install istio-discovery --set profile=remote`.
+upgradeNotes:
+- title: istiod-remote chart replaced with `remote` profile
+  content: |
+    Installing istio clusters with a remote/external control plane via Helm has never
+    been officially documented or stable.
+    This changes how clusters that use a remote istio instance are installed, in preparation for
+    documenting this.
+
+    The `istiod-remote` Helm chart has been merged with the regular `istio-discovery` Helm chart.
+
+    Previously:
+      - `helm install istiod-remote istio/istiod-remote`
+
+    With this change:
+      - `helm install helm install istiod istio/istiod --set profile=remote`
+
+    Note also that as per (#53318), installing `istio-base` chart is now required in both local and remote clusters.

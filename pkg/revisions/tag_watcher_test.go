@@ -72,7 +72,7 @@ func makeTag(revision string, tg string) *admissionregistrationv1.MutatingWebhoo
 			Name: tg,
 			Labels: map[string]string{
 				label.IoIstioRev.Name: revision,
-				"istio.io/tag":        tg,
+				label.IoIstioTag.Name: tg,
 			},
 		},
 	}

@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** Remove non-critical components from `base` chart, and remove `pilot.enabled` from
+    `istiod-remote` and `istio-discovery` charts.

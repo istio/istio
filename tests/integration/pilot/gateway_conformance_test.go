@@ -83,36 +83,36 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
-			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
+			clientOptions := client.Options{
 				Scheme: kube.IstioScheme,
 				Mapper: mapper,
-			})
+			}
+			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), clientOptions)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			supportedFeatures := gateway.SupportedFeatures.Clone().
-				Delete(features.SupportMeshClusterIPMatching) // https://github.com/istio/istio/issues/44702
+				Delete(features.MeshClusterIPMatchingFeature) // https://github.com/istio/istio/issues/44702
 			if ctx.Settings().GatewayConformanceStandardOnly {
-				supportedFeatures = k8ssets.New[features.SupportedFeature]().
-					Insert(features.GatewayExtendedFeatures.UnsortedList()...).
-					Insert(features.ReferenceGrantCoreFeatures.UnsortedList()...).
-					Insert(features.HTTPRouteCoreFeatures.UnsortedList()...).
-					Insert(features.HTTPRouteExtendedFeatures.UnsortedList()...).
-					Insert(features.MeshCoreFeatures.UnsortedList()...).
-					Insert(features.GRPCRouteCoreFeatures.UnsortedList()...)
+				for f := range supportedFeatures {
+					if f.Channel != features.FeatureChannelStandard {
+						supportedFeatures.Delete(f)
+					}
+				}
 			}
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
 			opts := suite.ConformanceOptions{
 				Client:                   c,
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
+				ClientOptions:            clientOptions,
 				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
 				GatewayClassName:         "istio",
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},
-				SupportedFeatures:        supportedFeatures,
+				SupportedFeatures:        features.SetsToNamesSet(supportedFeatures),
 				SkipTests:                maps.Keys(skippedTests),
 				UsableNetworkAddresses:   []v1.GatewayAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 				UnusableNetworkAddresses: []v1.GatewayAddress{{Value: "foo", Type: &hostnameType}},

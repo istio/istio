@@ -17,11 +17,11 @@ package model
 import (
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/ptr"
@@ -77,7 +77,7 @@ func (p WorkloadPolicyMatcher) WithService(service *Service) WorkloadPolicyMatch
 // workloadGatewayName returns the name of the gateway for which a workload is an instance.
 // This is based on the gateway.networking.k8s.io/gateway-name label.
 func workloadGatewayName(l labels.Instance) (string, bool) {
-	gwName, exists := l[constants.GatewayNameLabel]
+	gwName, exists := l[label.IoK8sNetworkingGatewayGatewayName.Name]
 	return gwName, exists
 }
 

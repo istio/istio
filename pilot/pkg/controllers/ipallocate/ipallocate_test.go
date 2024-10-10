@@ -22,13 +22,13 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/features"
 	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvr"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -146,7 +146,7 @@ func TestIPAllocate(t *testing.T) {
 				Name:      "opt-out",
 				Namespace: "boop",
 				Labels: map[string]string{
-					constants.EnableV2AutoAllocationLabel: "false",
+					label.NetworkingEnableAutoallocateIp.Name: "false",
 				},
 			},
 			Spec: v1alpha3.ServiceEntry{

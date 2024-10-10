@@ -1,0 +1,159 @@
+_err: "spec: Required value"
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: no-spec
+---
+_err: "spec.hosts: Required value"
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: missing-host
+spec: {}
+---
+#_err: "TODO"
+#apiVersion: networking.istio.io/v1alpha3
+#kind: ServiceEntry
+#metadata:
+#  name: bad-selector-key
+#spec:
+#  hosts: ["example.com"]
+#  resolution: STATIC
+#  workloadSelector:
+#    labels:
+#      "*": val
+#---
+_err: "wildcard is not supported in selector"
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: bad-selector-value
+spec:
+  hosts: ["example.com"]
+  workloadSelector:
+    labels:
+      "val": "*"
+---
+_err: "only one of WorkloadSelector or Endpoints can be set"
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: selector-and-endpoints
+spec:
+  hosts: ["example.com"]
+  workloadSelector: {}
+  endpoints:
+    - address: "1.2.3.4"
+---
+_err: "hostname cannot be wildcard"
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: bad-host-wildcard
+spec:
+  hosts: ["*"]
+#---
+#_err: "TODO"
+#apiVersion: networking.istio.io/v1alpha3
+#kind: ServiceEntry
+#metadata:
+#  name: bad-host-wildcard-suffix
+#spec:
+#  hosts: ["foo*"]
+#---
+#_err: "TODO"
+#apiVersion: networking.istio.io/v1alpha3
+#kind: ServiceEntry
+#metadata:
+#  name: bad-cidr
+#spec:
+#  hosts: ["example.com"]
+#  addresses: [1.2.3.4/99]
+---
+_err: "CIDR addresses are allowed only for NONE/STATIC resolution types"
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: bad-cidr-resolution
+spec:
+  hosts: ["example.com"]
+  addresses: [1.2.3.4/16]
+  resolution: DNS
+---
+_err: "Duplicate value"
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: duplicate-ports-name
+spec:
+  hosts: ["example.com"]
+  ports:
+    - name: a
+      number: 1
+    - name: a
+      number: 12
+---
+_err: "port number cannot be duplicated"
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: duplicate-ports-number
+spec:
+  hosts: ["example.com"]
+  ports:
+    - name: a
+      number: 1
+    - name: b
+      number: 1
+---
+_err: "port must be between 1-65535"
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: bad-port
+spec:
+  hosts: ["example.com"]
+  ports:
+    - name: a
+      number: 99999
+---
+_err: "port must be between 1-65535"
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: bad-port-target
+spec:
+  hosts: ["example.com"]
+  ports:
+    - name: a
+      number: 1
+      targetPort: 99999
+---
+_err: "NONE mode cannot set endpoints"
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: none-with-endpoints
+spec:
+  hosts: ["example.com"]
+  endpoints:
+    - address: "1.2.3.4"
+  resolution: NONE
+---
+_err: "DNS_ROUND_ROBIN mode cannot have multiple endpoints"
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: dns-rr-with-multiple-endpoints
+spec:
+  hosts: ["example.com"]
+  resolution: DNS_ROUND_ROBIN
+  endpoints:
+    - address: "sub1.example.com"
+    - address: "sub2.example.com"
+# TODO:
+# validate cidr
+# validate port name
+# validate protocol parsing
+# Validation of DNS/DNS_RR endpoints
+# Validate exportTo duplicates (with logic about . and current namespace)

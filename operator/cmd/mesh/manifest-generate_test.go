@@ -382,7 +382,7 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
 
 		g.Expect(objs.kind(gvk.ConfigMap.Kind).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
-		g.Expect(objs.kind(gvk.Service.Kind).nameEquals("istiod")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.Service.Kind).nameEquals("istiod-remote")).Should(Not(BeNil()))
 		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
 
 		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured.Object

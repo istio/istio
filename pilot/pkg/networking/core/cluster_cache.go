@@ -145,8 +145,8 @@ func (t *clusterCache) DependentConfigs() []model.ConfigHash {
 		configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: string(t.service.Hostname), Namespace: t.service.Attributes.Namespace}.HashCode())
 	}
 	for _, efKey := range t.envoyFilterKeys {
-		items := strings.Split(efKey, "/")
-		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
+		ns, name, _ := strings.Cut(efKey, "/")
+		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: name, Namespace: ns}.HashCode())
 	}
 
 	// For now, this matches EndpointBuilder's DependentConfigs. No need to duplicate them.

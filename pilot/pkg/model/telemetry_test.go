@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/envoy/extensions/stats"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/api/type/v1beta1"
@@ -585,8 +586,8 @@ func TestTelemetryFilters(t *testing.T) {
 	waypoint := &Proxy{
 		ConfigNamespace: "default",
 		Type:            Waypoint,
-		Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "waypoint"},
-		Metadata:        &NodeMetadata{Labels: map[string]string{"gateway.networking.k8s.io/gateway-name": "waypoint"}},
+		Labels:          map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint"},
+		Metadata:        &NodeMetadata{Labels: map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint"}},
 	}
 	emptyPrometheus := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{

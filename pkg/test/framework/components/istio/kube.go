@@ -335,7 +335,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
-	if ctx.Clusters().IsMulticluster() {
+	if ctx.Clusters().IsMulticluster() && !cfg.SkipDeployCrossClusterSecrets {
 		// Need to determine if there is a setting to watch cluster secret in config cluster
 		// or in external cluster. The flag is named LOCAL_CLUSTER_SECRET_WATCHER and set as
 		// an environment variable for istiod.

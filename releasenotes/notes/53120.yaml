@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 53120
+releaseNotes:
+- |
+  **Added** Add initContainers to the istio-discovery helm chart

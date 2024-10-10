@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -54,22 +55,52 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	}
 
 	wnsImportedHosts, wnsFound := hostsByNamespace[wildcardNamespace]
-	loopAndAdd := func(vses []config.Config) {
-		for _, c := range vses {
-			configNamespace := c.Namespace
-			// Selection algorithm:
-			// virtualservices have a list of hosts in the API spec
-			// if any host in the list matches one service hostname, select the virtual service
-			// and break out of the loop.
+	var loopAndAdd func(vses []config.Config)
+	if features.UnifiedSidecarScoping {
+		loopAndAdd = func(vses []config.Config) {
+			for _, gwMatch := range []bool{true, false} {
+				for _, c := range vses {
+					gwExact := UseGatewaySemantics(c) && c.Namespace == configNamespace
+					if gwMatch != gwExact {
+						continue
+					}
+					configNamespace := c.Namespace
+					// Selection algorithm:
+					// virtualservices have a list of hosts in the API spec
+					// if any host in the list matches one service hostname, select the virtual service
+					// and break out of the loop.
 
-			// Check if there is an explicit import of form ns/* or ns/host
-			if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-				addVirtualService(c, importedHosts)
+					// Check if there is an explicit import of form ns/* or ns/host
+					if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
+						addVirtualService(c, importedHosts)
+					}
+
+					// Check if there is an import of form */host or */*
+					if wnsFound {
+						addVirtualService(c, wnsImportedHosts)
+					}
+				}
 			}
+		}
+	} else {
+		// Legacy path
+		loopAndAdd = func(vses []config.Config) {
+			for _, c := range vses {
+				configNamespace := c.Namespace
+				// Selection algorithm:
+				// virtualservices have a list of hosts in the API spec
+				// if any host in the list matches one service hostname, select the virtual service
+				// and break out of the loop.
 
-			// Check if there is an import of form */host or */*
-			if wnsFound {
-				addVirtualService(c, wnsImportedHosts)
+				// Check if there is an explicit import of form ns/* or ns/host
+				if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
+					addVirtualService(c, importedHosts)
+				}
+
+				// Check if there is an import of form */host or */*
+				if wnsFound {
+					addVirtualService(c, wnsImportedHosts)
+				}
 			}
 		}
 	}

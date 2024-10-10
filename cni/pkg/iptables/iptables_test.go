@@ -55,7 +55,7 @@ func TestIptables(t *testing.T) {
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
 				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
-				err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, &probeSNATipv4, &probeSNATipv6)
+				err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -117,7 +117,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 	tt.config(cfg)
 	ext := &dep.DependenciesStub{}
 	iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
-	err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, &probeSNATipv4, &probeSNATipv6)
+	err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 
 	*ext = dep.DependenciesStub{}
 	// run another time to make sure we are idempotent
-	err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, &probeSNATipv4, &probeSNATipv6)
+	err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,5 @@ func compareToGolden(t *testing.T, ipv6 bool, name string, actual []string) {
 }
 
 func constructTestConfig() *Config {
-	return &Config{
-		RestoreFormat: false,
-	}
+	return &Config{}
 }

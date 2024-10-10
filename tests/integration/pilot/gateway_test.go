@@ -27,8 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model/kstatus"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -91,7 +91,7 @@ spec:
         image: %s
 `, image)).ApplyOrFail(t)
 	cls := t.Clusters().Default()
-	fetchFn := testKube.NewSinglePodFetch(cls, apps.Namespace.Name(), "gateway.networking.k8s.io/gateway-name=managed-owner")
+	fetchFn := testKube.NewSinglePodFetch(cls, apps.Namespace.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"=managed-owner")
 	if _, err := testKube.WaitUntilPodsAreReady(fetchFn); err != nil {
 		t.Fatal(err)
 	}
@@ -132,13 +132,13 @@ spec:
 	dep, err := t.Clusters().Default().Kube().AppsV1().Deployments(apps.Namespace.Name()).
 		Get(context.Background(), "managed-owner-istio", metav1.GetOptions{})
 	assert.NoError(t, err)
-	assert.Equal(t, dep.Labels[constants.ManagedGatewayLabel], "")
+	assert.Equal(t, dep.Labels[label.GatewayManaged.Name], "")
 	assert.Equal(t, dep.Spec.Template.Spec.Containers[0].Image, image)
 
 	svc, err := t.Clusters().Default().Kube().CoreV1().Services(apps.Namespace.Name()).
 		Get(context.Background(), "managed-owner-istio", metav1.GetOptions{})
 	assert.NoError(t, err)
-	assert.Equal(t, svc.Labels[constants.ManagedGatewayLabel], "")
+	assert.Equal(t, svc.Labels[label.GatewayManaged.Name], "")
 	assert.Equal(t, svc.Spec.Type, corev1.ServiceTypeClusterIP)
 }
 
@@ -428,7 +428,7 @@ spec:
     - name: b
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: GRPCRoute
 metadata:
   name: grpc

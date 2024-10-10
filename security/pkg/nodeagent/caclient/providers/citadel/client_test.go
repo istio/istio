@@ -207,14 +207,21 @@ func TestCitadelClientRotation(t *testing.T) {
 		server.Authenticator.Set("fake", "")
 		checkSign(t, cli, false)
 		checkSign(t, cli, false)
+
+		// Set to only allow cert
 		server.Authenticator.Set("", "istiod.istio-system.svc")
-		checkSign(t, cli, true)
+
+		// Subtle: the client will reconnect *on failure* and then start using the certs. This happens async
+		// We need to set the files up before we fail, so that it always will be ready for the retry
 		if err := file.Copy(filepath.Join(certDir, "cert-chain.pem"), dir, "cert-chain.pem"); err != nil {
 			t.Fatal(err)
 		}
 		if err := file.Copy(filepath.Join(certDir, "key.pem"), dir, "key.pem"); err != nil {
 			t.Fatal(err)
 		}
+		// Now we get our failure...
+		checkSign(t, cli, true)
+		// Retry should load certs and succeed
 		checkSign(t, cli, false)
 	})
 }

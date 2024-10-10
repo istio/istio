@@ -145,6 +145,9 @@ func coalesceVersions(remoteVersion *MeshInfo) *MeshInfo {
 }
 
 func identicalVersions(remoteVersion MeshInfo) bool {
+	if len(remoteVersion) == 0 {
+		return false
+	}
 	exemplar := remoteVersion[0].Info
 	for i := 1; i < len(remoteVersion); i++ {
 		candidate := (remoteVersion)[i].Info

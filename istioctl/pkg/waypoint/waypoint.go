@@ -103,7 +103,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				gw.Labels = map[string]string{}
 			}
 
-			gw.Labels[constants.AmbientWaypointForTrafficTypeLabel] = trafficType
+			gw.Labels[label.IoIstioWaypointFor.Name] = trafficType
 		}
 
 		if revision != "" {
@@ -216,7 +216,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			// NOTE: This is a warning and not an error because the user may not intend to label their namespace as ambient.
 			//
 			// e.g. Users are handling ambient redirection per workload rather than at the namespace level.
-			hasWaypoint, err := namespaceHasLabel(kubeClient, ns, constants.AmbientUseWaypointLabel)
+			hasWaypoint, err := namespaceHasLabel(kubeClient, ns, label.IoIstioUseWaypoint.Name)
 			if err != nil {
 				return err
 			}
@@ -228,7 +228,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 						"adding the `"+"--overwrite"+"` flag to your apply command.\n", ns)
 					return nil
 				}
-				namespaceIsLabeledAmbient, err := namespaceHasLabelWithValue(kubeClient, ns, constants.DataplaneModeLabel, constants.DataplaneModeAmbient)
+				namespaceIsLabeledAmbient, err := namespaceHasLabelWithValue(kubeClient, ns, label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient)
 				if err != nil {
 					return fmt.Errorf("failed to check if namespace is labeled ambient: %v", err)
 				}
@@ -291,7 +291,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					return fmt.Errorf("failed to label namespace with waypoint: %v", err)
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()),
-					constants.AmbientUseWaypointLabel, gw.Name)
+					label.IoIstioUseWaypoint.Name, gw.Name)
 			}
 			return nil
 		},
@@ -507,7 +507,7 @@ func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
 	if nsObj.Labels == nil {
 		nsObj.Labels = map[string]string{}
 	}
-	nsObj.Labels[constants.AmbientUseWaypointLabel] = waypointName
+	nsObj.Labels[label.IoIstioUseWaypoint.Name] = waypointName
 	if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(context.Background(), nsObj, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update namespace %s: %v", ns, err)
 	}

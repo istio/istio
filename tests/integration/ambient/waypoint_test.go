@@ -28,6 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -47,30 +49,49 @@ func TestWaypointStatus(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+			t.NewSubTest("gateway class").Run(func(t framework.TestContext) {
+				client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
 
-			check := func() error {
+				check := func() error {
+					gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
+					if gwc == nil {
+						return fmt.Errorf("failed to find GatewayClass %v", constants.WaypointGatewayClassName)
+					}
+					cond := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted))
+					if cond.Status != metav1.ConditionTrue {
+						return fmt.Errorf("failed to find accepted condition: %+v", cond)
+					}
+					if cond.ObservedGeneration != gwc.Generation {
+						return fmt.Errorf("stale GWC generation: %+v", cond)
+					}
+					return nil
+				}
+				retry.UntilSuccessOrFail(t, check)
+
+				// Wipe out the status
 				gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
-				if gwc == nil {
-					return fmt.Errorf("failed to find GatewayClass %v", constants.WaypointGatewayClassName)
-				}
-				cond := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted))
-				if cond.Status != metav1.ConditionTrue {
-					return fmt.Errorf("failed to find accepted condition: %+v", cond)
-				}
-				if cond.ObservedGeneration != gwc.Generation {
-					return fmt.Errorf("stale GWC generation: %+v", cond)
-				}
-				return nil
-			}
-			retry.UntilSuccessOrFail(t, check)
-
-			// Wipe out the status
-			gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
-			gwc.Status.Conditions = nil
-			client.Update(context.Background(), gwc, metav1.UpdateOptions{})
-			// It should be added back
-			retry.UntilSuccessOrFail(t, check)
+				gwc.Status.Conditions = nil
+				client.Update(context.Background(), gwc, metav1.UpdateOptions{})
+				// It should be added back
+				retry.UntilSuccessOrFail(t, check)
+			})
+			t.NewSubTest("service").Run(func(t framework.TestContext) {
+				retry.UntilSuccessOrFail(t, func() error {
+					wp, err := t.Clusters().Default().Kube().CoreV1().
+						Services(apps.Namespace.Name()).Get(context.Background(), ServiceAddressedWaypoint, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					cond := GetCondition(wp.Status.Conditions, string(model.WaypointBound))
+					if cond == nil {
+						return fmt.Errorf("condition not found on service, had %v", wp.Status.Conditions)
+					}
+					if cond.Status != metav1.ConditionTrue {
+						return fmt.Errorf("cond not true, had %v", wp.Status.Conditions)
+					}
+					return nil
+				})
+			})
 		})
 }
 
@@ -82,7 +103,7 @@ func TestWaypoint(t *testing.T) {
 				Prefix: "waypoint",
 				Inject: false,
 				Labels: map[string]string{
-					constants.DataplaneModeLabel: "ambient",
+					label.IoIstioDataplaneMode.Name: "ambient",
 				},
 			})
 
@@ -185,7 +206,7 @@ func TestWaypoint(t *testing.T) {
 }
 
 func checkWaypointIsReady(t framework.TestContext, ns, name string) error {
-	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, constants.GatewayNameLabel+"="+name)
+	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
 	_, err := kubetest.CheckPodsAreReady(fetch)
 	return err
 }
@@ -349,7 +370,7 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 				waypoint = fmt.Sprintf("%q", waypoint)
 			}
 			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
-				constants.AmbientUseWaypointLabel, waypoint))
+				label.IoIstioUseWaypoint.Name, waypoint))
 			if service {
 				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
 				return err
@@ -604,4 +625,13 @@ spec:
 				},
 			)
 		})
+}
+
+func GetCondition(conditions []metav1.Condition, condition string) *metav1.Condition {
+	for _, cond := range conditions {
+		if cond.Type == condition {
+			return &cond
+		}
+	}
+	return nil
 }
