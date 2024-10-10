@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/analyzers/multicluster"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/analysis/scope"
@@ -376,28 +377,31 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 	// TODO: are either of these string constants intended to vary?
 	// We gets Istio CRD resources with a specific revision.
 	krs := sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...)
-	if remote {
-		krs = krs.Remove(kuberesource.DefaultRemoteClusterExcludedSchemas().All()...)
-	}
-	store := crdclient.NewForSchemas(c, crdclient.Option{
-		Revision:     revision,
-		DomainSuffix: "cluster.local",
-		Identifier:   "analysis-controller",
-		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
-			gvk.ConfigMap: {
-				Namespace:    sa.istioNamespace.String(),
-				ObjectFilter: kubetypes.NewStaticObjectFilter(isIstioConfigMap),
+
+	if !remote {
+		store := crdclient.NewForSchemas(c, crdclient.Option{
+			Revision:     revision,
+			DomainSuffix: "cluster.local",
+			Identifier:   "analysis-controller",
+			FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
+				gvk.ConfigMap: {
+					Namespace:    sa.istioNamespace.String(),
+					ObjectFilter: kubetypes.NewStaticObjectFilter(isIstioConfigMap),
+				},
 			},
-		},
-	}, krs)
-	sa.stores = append(sa.stores, store)
+		}, krs)
+		sa.stores = append(sa.stores, store)
+	}
 
 	// We gets service discovery resources without a specific revision.
-	krs = sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas())
 	if remote {
-		krs = krs.Remove(kuberesource.DefaultRemoteClusterExcludedSchemas().All()...)
+		for _, multiAnalyzer := range multicluster.AllMultiCluster() {
+			krs = kuberesource.ConvertInputsToSchemas(multiAnalyzer.Metadata().Inputs)
+		}
+	} else {
+		krs = sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas())
 	}
-	store = crdclient.NewForSchemas(c, crdclient.Option{
+	store := crdclient.NewForSchemas(c, crdclient.Option{
 		DomainSuffix: "cluster.local",
 		Identifier:   "analysis-controller",
 		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
