@@ -109,11 +109,6 @@ func BlockTestWithPolicy(t framework.TestContext, client, server echo.Instance) 
 						},
 					},
 				},
-				// TargetRefs: []*istiov1beta1.PolicyTargetReference {
-				// 	{
-
-				// 	}
-				// },
 			},
 		},
 		metav1.CreateOptions{},

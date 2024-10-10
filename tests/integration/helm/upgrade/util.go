@@ -184,11 +184,6 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		})
 		s := t.Settings()
 		prevVariant := s.Image.Variant
-		// Istio 1.21 ambient did not support distroless, always use debug.
-		// TODO(https://github.com/istio/istio/issues/50387) remove this, always use s.Image.Variant
-		if isAmbient {
-			prevVariant = "debug"
-		}
 		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", prevVariant, "", isAmbient)
 		// todo tag version is not helm version
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
