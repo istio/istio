@@ -66,16 +66,16 @@ func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analys
 	vs := r.Message.(*v1alpha3.VirtualService)
 
 	// if there's no gateway specified, we're done
-	if len(vs.Gateways) == 0 {
+	if len(vs.GetGateways()) == 0 {
 		return
 	}
 
-	for ruleIndex, http := range vs.Http {
-		for routeIndex, route := range http.Route {
-			if route.Destination.Subset == "" {
+	for ruleIndex, http := range vs.GetHttp() {
+		for routeIndex, route := range http.GetRoute() {
+			if route.GetDestination().GetSubset() == "" {
 				for virtualservice, destinations := range vsDestinations {
 					for _, destination := range destinations {
-						if destination.Host == route.Destination.Host {
+						if destination.GetHost() == route.GetDestination().GetHost() {
 							m := msg.NewIngressRouteRulesNotAffected(r, virtualservice.String(), r.Metadata.FullName.String())
 
 							key := fmt.Sprintf(util.DestinationHost, http.Name, ruleIndex, routeIndex)
@@ -98,13 +98,13 @@ func initVirtualServiceDestinations(ctx analysis.Context) map[resource.FullName]
 
 	ctx.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
 		virtualservice := r.Message.(*v1alpha3.VirtualService)
-		for _, routes := range virtualservice.Http {
-			for _, destinations := range routes.Route {
+		for _, routes := range virtualservice.GetHttp() {
+			for _, destinations := range routes.GetRoute() {
 				// if there's no subset specified, we're done
-				if destinations.Destination.Subset != "" {
-					for _, host := range virtualservice.Hosts {
-						if destinations.Destination.Host == host {
-							virtualservices[r.Metadata.FullName] = append(virtualservices[r.Metadata.FullName], destinations.Destination)
+				if destinations.GetDestination().GetSubset() != "" {
+					for _, host := range virtualservice.GetHosts() {
+						if destinations.GetDestination().GetHost() == host {
+							virtualservices[r.Metadata.FullName] = append(virtualservices[r.Metadata.FullName], destinations.GetDestination())
 						}
 					}
 				}
