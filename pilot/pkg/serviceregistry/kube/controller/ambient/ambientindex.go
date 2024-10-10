@@ -73,18 +73,18 @@ func (n NamespaceHostname) String() string {
 	return n.Namespace + "/" + n.Hostname
 }
 
-type workloadsCollection struct {
+type WorkloadsCollection struct {
 	krt.Collection[model.WorkloadInfo]
 	ByAddress        krt.Index[networkAddress, model.WorkloadInfo]
 	ByServiceKey     krt.Index[string, model.WorkloadInfo]
 	ByOwningWaypoint krt.Index[NamespaceHostname, model.WorkloadInfo]
 }
 
-type waypointsCollection struct {
+type WaypointsCollection struct {
 	krt.Collection[Waypoint]
 }
 
-type servicesCollection struct {
+type ServicesCollection struct {
 	krt.Collection[model.ServiceInfo]
 	ByAddress        krt.Index[networkAddress, model.ServiceInfo]
 	ByOwningWaypoint krt.Index[NamespaceHostname, model.ServiceInfo]
@@ -93,9 +93,9 @@ type servicesCollection struct {
 // index maintains an index of ambient WorkloadInfo objects by various keys.
 // These are intentionally pre-computed based on events such that lookups are efficient.
 type index struct {
-	services  servicesCollection
-	workloads workloadsCollection
-	waypoints waypointsCollection
+	services  ServicesCollection
+	workloads WorkloadsCollection
+	waypoints WaypointsCollection
 
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
 	networkUpdateTrigger  *krt.RecomputeTrigger
@@ -304,18 +304,18 @@ func New(options Options) Index {
 			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}, false
 		})), false)
 
-	a.workloads = workloadsCollection{
+	a.workloads = WorkloadsCollection{
 		Collection:       Workloads,
 		ByAddress:        WorkloadAddressIndex,
 		ByServiceKey:     WorkloadServiceIndex,
 		ByOwningWaypoint: WorkloadWaypointIndex,
 	}
-	a.services = servicesCollection{
+	a.services = ServicesCollection{
 		Collection:       WorkloadServices,
 		ByAddress:        ServiceAddressIndex,
 		ByOwningWaypoint: ServiceInfosByOwningWaypoint,
 	}
-	a.waypoints = waypointsCollection{
+	a.waypoints = WaypointsCollection{
 		Collection: Waypoints,
 	}
 	a.authorizationPolicies = AllPolicies
