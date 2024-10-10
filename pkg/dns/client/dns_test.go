@@ -43,7 +43,7 @@ func TestDNS(t *testing.T) {
 
 func TestBuildAlternateHosts(t *testing.T) {
 	// Create the server instance without starting it, as it's unnecessary for this test
-	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", false)
+	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", false, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -589,7 +589,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 
 func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 	srv := makeUpstream(t, map[string]string{"www.bing.com.": "1.1.1.1"})
-	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", forwardToUpstreamParallel)
+	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", forwardToUpstreamParallel, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
