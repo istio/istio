@@ -15,7 +15,11 @@
 package sanitycheck
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/api/label"
+	"istio.io/api/security/v1beta1"
+	v1 "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -61,10 +65,11 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 	testNs := namespace.NewOrFail(t, nsConfig)
 	deployment.New(t).
 		With(&client, echo.Config{
-			Service:   "client",
-			Namespace: testNs,
-			Ports:     []echo.Port{},
-			Subsets:   subsetConfig,
+			Service:        "client",
+			Namespace:      testNs,
+			Ports:          []echo.Port{},
+			Subsets:        subsetConfig,
+			ServiceAccount: true,
 		}).
 		With(&server, echo.Config{
 			Service:   "server",
@@ -83,6 +88,41 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 	return testNs, client, server
 }
 
+func BlockTestWithPolicy(t framework.TestContext, client, server echo.Instance) {
+	ns := server.Config().Namespace.Name()
+	_, err := server.Config().Cluster.Istio().SecurityV1().AuthorizationPolicies(ns).Create(
+		t.Context(),
+		&v1.AuthorizationPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "block-sanity-test",
+			},
+			Spec: v1beta1.AuthorizationPolicy{
+				Action: v1beta1.AuthorizationPolicy_DENY,
+				Rules: []*v1beta1.Rule{
+					{
+						From: []*v1beta1.Rule_From{
+							{
+								Source: &v1beta1.Source{
+									Principals: []string{client.ServiceAccountName()},
+								},
+							},
+						},
+					},
+				},
+				// TargetRefs: []*istiov1beta1.PolicyTargetReference {
+				// 	{
+
+				// 	}
+				// },
+			},
+		},
+		metav1.CreateOptions{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func RunTrafficTestClientServer(t framework.TestContext, client, server echo.Instance) {
 	_ = client.CallOrFail(t, echo.CallOptions{
 		To:    server,
@@ -91,5 +131,16 @@ func RunTrafficTestClientServer(t framework.TestContext, client, server echo.Ins
 			Name: "http",
 		},
 		Check: check.OK(),
+	})
+}
+
+func RunTrafficTestClientServerExpectFail(t framework.TestContext, client, server echo.Instance) {
+	_ = client.CallOrFail(t, echo.CallOptions{
+		To:    server,
+		Count: 1,
+		Port: echo.Port{
+			Name: "http",
+		},
+		Check: check.Error(),
 	})
 }

@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
@@ -193,7 +194,7 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
-		_, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, "")
+		_, oldClient, oldServer := sanitycheck.SetupTrafficTestAmbient(t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", isAmbient)
@@ -211,11 +212,23 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		}
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
-		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, "")
+		newNS, newClient, newServer := sanitycheck.SetupTrafficTestAmbient(t, "")
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
+
+		// write policy to block sanity Check
+		sanitycheck.BlockTestWithPolicy(t, newClient, newServer)
+
+		// verify sanity check fails
+		sanitycheck.RunTrafficTestClientServerExpectFail(t, newClient, newServer)
+
+		// label pods to remove from mesh
+		newNS.RemoveLabel(constants.DataplaneModeLabel)
+
+		// verify sanity check passes
+		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 	}
 }
 
