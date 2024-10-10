@@ -417,6 +417,17 @@ func TestGenerator(t *testing.T) {
             exact: foo`),
 		},
 		{
+			name:  "requestHeaderGenerator contains",
+			g:     requestHeaderGenerator{},
+			key:   "request.headers[x-foo]",
+			value: "*foo*",
+			want: yamlPrincipal(t, `
+        header:
+          name: x-foo
+          stringMatch:
+            contains: foo`),
+		},
+		{
 			name:  "requestClaimGenerator",
 			g:     requestClaimGenerator{},
 			key:   "request.auth.claims[bar]",
