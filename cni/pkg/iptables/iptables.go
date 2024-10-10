@@ -359,23 +359,21 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 			"--on-port", fmt.Sprintf("%d", ZtunnelInboundPlaintextPort),
 			"--tproxy-mark", inpodTproxyMark,
 		)
-	} else {
-		if !ingressMode {
-			// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports <INPLAINPORT>
-			//
-			// DESC: Anything that is not bound for localhost and does not have the mark, REDIRECT to ztunnel inbound plaintext port <INPLAINPORT>
-			// Skip 15008, which will go direct without redirect needed.
-			iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
-				iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
-				"!", "-d", iptablesconstants.IPVersionSpecific,
-				"-p", "tcp",
-				"!", "--dport", fmt.Sprint(ZtunnelInboundPort),
-				"-m", "mark", "!",
-				"--mark", inpodMark,
-				"-j", "REDIRECT",
-				"--to-ports", fmt.Sprint(ZtunnelInboundPlaintextPort),
-			)
-		}
+	} else if !ingressMode {
+		// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports <INPLAINPORT>
+		//
+		// DESC: Anything that is not bound for localhost and does not have the mark, REDIRECT to ztunnel inbound plaintext port <INPLAINPORT>
+		// Skip 15008, which will go direct without redirect needed.
+		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
+			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
+			"!", "-d", iptablesconstants.IPVersionSpecific,
+			"-p", "tcp",
+			"!", "--dport", fmt.Sprint(ZtunnelInboundPort),
+			"-m", "mark", "!",
+			"--mark", inpodMark,
+			"-j", "REDIRECT",
+			"--to-ports", fmt.Sprint(ZtunnelInboundPlaintextPort),
+		)
 	}
 
 	// CLI: -A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
