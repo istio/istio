@@ -1,7 +1,7 @@
 GEM
   remote: https://rubygems.org/
   specs:
-    webrick (1.8.1)
+    webrick (1.8.2)
 
 PLATFORMS
   aarch64-linux
@@ -12,4 +12,4 @@ DEPENDENCIES
   webrick (~> 1.7)
 
 BUNDLED WITH
-   2.5.10
+   2.5.3
