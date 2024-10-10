@@ -11,3 +11,5 @@ pilot:
     provider: "multus"
 seLinuxOptions:
   type: spc_t
+# Openshift requires privileged pods to run in kube-system
+trustedZtunnelNamespace: "kube-system"
