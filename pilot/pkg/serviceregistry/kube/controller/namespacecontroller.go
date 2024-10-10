@@ -123,7 +123,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 					return false
 				}
 			}
-			if o.GetNamespace() != podNs {
+			if o.GetName() != podNs {
 				return false
 			}
 			// End add by ingress
