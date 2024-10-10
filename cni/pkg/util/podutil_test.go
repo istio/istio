@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -80,8 +81,8 @@ func TestGetPodIPsIfNoPodIPPresent(t *testing.T) {
 
 func TestPodRedirectionEnabled(t *testing.T) {
 	var (
-		ambientEnabledLabel     = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeAmbient}
-		ambientDisabledLabel    = map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone}
+		ambientEnabledLabel     = map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient}
+		ambientDisabledLabel    = map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone}
 		sidecarStatusAnnotation = map[string]string{annotation.SidecarStatus.Name: "test"}
 
 		namespaceWithAmbientEnabledLabel = &corev1.Namespace{

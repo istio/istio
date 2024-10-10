@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -91,6 +92,8 @@ var (
 	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
 	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
+
+	defaultGatewayTransportSocketConnectTimeout = 15 * time.Second
 )
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
@@ -611,6 +614,9 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		chain := &listener.FilterChain{
 			Metadata:        opt.metadata,
 			TransportSocket: buildDownstreamTLSTransportSocket(opt.tlsContext),
+			// Setting this timeout enables the proxy to enhance its resistance against memory exhaustion attacks,
+			// such as slow TLS Handshake attacks.
+			TransportSocketConnectTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout),
 		}
 		if opt.httpOpts == nil {
 			// we are building a network filter chain (no http connection manager) for this filter chain
@@ -1115,6 +1121,9 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		filterChains = append(filterChains, &listener.FilterChain{
 			FilterChainMatch: match,
 			TransportSocket:  transportSocket,
+			// Setting this timeout enables the proxy to enhance its resistance against memory exhaustion attacks,
+			// such as slow TLS Handshake attacks.
+			TransportSocketConnectTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout),
 		})
 	}
 
@@ -1122,11 +1131,10 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 		ListenerFilters:  listenerFilters,
 		FilterChains:     filterChains,
-		// For Gateways, we want no timeout. We should wait indefinitely for the TLS if we are sniffing.
-		// The timeout is useful for sidecars, where we may operate on server first traffic; for gateways if we have listener filters
-		// we know those filters are required.
-		ContinueOnListenerFiltersTimeout: false,
-		ListenerFiltersTimeout:           durationpb.New(0),
+		// No listener filter timeout is set for the gateway here; it will default to 15 seconds in Envoy.
+		// This timeout setting helps prevent memory leaks in Envoy when a TLS inspector filter is present,
+		// by avoiding slow requests that could otherwise lead to such issues.
+		// Note that this timer only takes effect when a listener filter is present.
 	}
 	switch transport {
 	case istionetworking.TransportProtocolTCP:

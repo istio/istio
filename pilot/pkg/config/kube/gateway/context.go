@@ -22,10 +22,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -121,7 +121,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 							port, g, sets.SortedList(hintPort)))
 						foundUnusable = true
 					} else {
-						_, isManaged := svc.Attributes.Labels[constants.ManagedGatewayLabel]
+						_, isManaged := svc.Attributes.Labels[label.GatewayManaged.Name]
 						var portExistsOnService bool
 						for _, p := range svc.Ports {
 							if p.Port == port {

@@ -32,6 +32,7 @@ import (
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/annotation"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -196,11 +197,15 @@ func convertVirtualService(r configContext) []config.Config {
 func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 	obj config.Config, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *ConfigError) {
-	// TODO: implement rewrite, timeout, corspolicy, retries
+	// TODO: implement rewrite, corspolicy, retries
 	vs := &istio.HTTPRoute{}
-	// Auto-name the route. If upstream defines an explicit name, will use it instead
-	// The position within the route is unique
-	vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format: %s.%s.%d
+	if r.Name != nil {
+		vs.Name = string(*r.Name)
+	} else {
+		// Auto-name the route. If upstream defines an explicit name, will use it instead
+		// The position within the route is unique
+		vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format: %s.%s.%d
+	}
 
 	for _, match := range r.Matches {
 		uri, err := createURIMatch(match)
@@ -306,9 +311,13 @@ func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 ) (*istio.HTTPRoute, *ConfigError) {
 	// TODO: implement rewrite, timeout, mirror, corspolicy, retries
 	vs := &istio.HTTPRoute{}
-	// Auto-name the route. If upstream defines an explicit name, will use it instead
-	// The position within the route is unique
-	vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format:%s.%s.%d
+	if r.Name != nil {
+		vs.Name = string(*r.Name)
+	} else {
+		// Auto-name the route. If upstream defines an explicit name, will use it instead
+		// The position within the route is unique
+		vs.Name = obj.Namespace + "." + obj.Name + "." + strconv.Itoa(pos) // format:%s.%s.%d
+	}
 
 	for _, match := range r.Matches {
 		uri, err := createGRPCURIMatch(match)
@@ -1605,7 +1614,13 @@ func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, 
 	if err != nil {
 		return nil, err
 	}
-	return &istio.HTTPMirrorPolicy{Destination: dst}, nil
+	var percent *istio.Percent
+	if f := filter.Fraction; f != nil {
+		percent = &istio.Percent{Value: float64(f.Numerator) / float64(ptr.OrDefault(f.Denominator, int32(100)))}
+	} else if p := filter.Percent; p != nil {
+		percent = &istio.Percent{Value: float64(*p)}
+	}
+	return &istio.HTTPMirrorPolicy{Destination: dst, Percentage: percent}, nil
 }
 
 func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
@@ -1757,16 +1772,16 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch
 func createGRPCHeadersMatch(match k8s.GRPCRouteMatch) (map[string]*istio.StringMatch, *ConfigError) {
 	res := map[string]*istio.StringMatch{}
 	for _, header := range match.Headers {
-		tp := k8s.HeaderMatchExact
+		tp := k8s.GRPCHeaderMatchExact
 		if header.Type != nil {
 			tp = *header.Type
 		}
 		switch tp {
-		case k8s.HeaderMatchExact:
+		case k8s.GRPCHeaderMatchExact:
 			res[string(header.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: header.Value},
 			}
-		case k8s.HeaderMatchRegularExpression:
+		case k8s.GRPCHeaderMatchRegularExpression:
 			res[string(header.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Regex{Regex: header.Value},
 			}
@@ -2045,6 +2060,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 			continue
 		}
 		if classInfo.disableRouteGeneration {
+			reportUnmanagedGatewayStatus(obj)
 			// We found it, but don't want to handle this class
 			continue
 		}
@@ -2288,6 +2304,34 @@ func reportGatewayStatus(
 	})
 }
 
+// reportUnmanagedGatewayStatus reports a status message for an unmanaged gateway.
+// For these gateways, we don't deploy them. However, all gateways ought to have a status message, even if its basically
+// just to say something read it
+func reportUnmanagedGatewayStatus(obj config.Config) {
+	gatewayConditions := map[string]*condition{
+		string(k8s.GatewayConditionAccepted): {
+			reason:  string(k8s.GatewayReasonAccepted),
+			message: "Resource accepted",
+		},
+		string(k8s.GatewayConditionProgrammed): {
+			reason: string(k8s.GatewayReasonProgrammed),
+			// Set to true anyway since this is basically declaring it as valid
+			message: "This Gateway is remote; Istio will not program it",
+		},
+	}
+
+	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+		gs := s.(*k8s.GatewayStatus)
+		spec := obj.Spec.(*k8s.GatewaySpec)
+		gs.Addresses = slices.Map(spec.Addresses, func(e k8s.GatewayAddress) k8s.GatewayStatusAddress {
+			return k8s.GatewayStatusAddress(e)
+		})
+		gs.Listeners = nil
+		gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
+		return gs
+	})
+}
+
 // IsManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
 // This is based on the address field of the spec. If address is set with a Hostname type, it should point to an existing
 // Service that handles the gateway traffic. If it is not set, or refers to only a single IP, we will consider it managed and provision the Service.
@@ -2322,7 +2366,7 @@ func IsManaged(gw *k8s.GatewaySpec) bool {
 
 func extractGatewayServices(r GatewayResources, kgw *k8s.GatewaySpec, obj config.Config, info classInfo) ([]string, *ConfigError) {
 	if IsManaged(kgw) {
-		name := model.GetOrDefault(obj.Annotations[gatewayNameOverride], getDefaultName(obj.Name, kgw, info.disableNameSuffix))
+		name := model.GetOrDefault(obj.Annotations[annotation.GatewayNameOverride.Name], getDefaultName(obj.Name, kgw, info.disableNameSuffix))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, obj.Namespace, r.Domain)}, nil
 	}
 	gatewayServices := []string{}
@@ -2350,12 +2394,12 @@ func extractGatewayServices(r GatewayResources, kgw *k8s.GatewaySpec, obj config
 			Message: fmt.Sprintf("only Hostname is supported, ignoring %v", skippedAddresses),
 		}
 	}
-	if _, f := obj.Annotations[serviceTypeOverride]; f {
+	if _, f := obj.Annotations[annotation.NetworkingServiceType.Name]; f {
 		// Give error but return services, this is a soft failure
 		// Remove entirely in 1.20
 		return gatewayServices, &ConfigError{
 			Reason:  DeprecateFieldUsage,
-			Message: fmt.Sprintf("annotation %v is deprecated, use Spec.Infrastructure.Routeability", serviceTypeOverride),
+			Message: fmt.Sprintf("annotation %v is deprecated, use Spec.Infrastructure.Routeability", annotation.NetworkingServiceType.Name),
 		}
 	}
 	return gatewayServices, nil

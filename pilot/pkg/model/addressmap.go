@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/slices"
 )
 
 // AddressMap provides a thread-safe mapping of addresses for each Kubernetes cluster.
@@ -65,11 +66,7 @@ func (m *AddressMap) GetAddresses() map[cluster.ID][]string {
 
 	out := make(map[cluster.ID][]string)
 	for k, v := range m.Addresses {
-		if v == nil {
-			out[k] = nil
-		} else {
-			out[k] = append([]string{}, v...)
-		}
+		out[k] = slices.Clone(v)
 	}
 	return out
 }

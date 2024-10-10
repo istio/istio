@@ -27,6 +27,8 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
@@ -51,7 +53,7 @@ type Waypoint struct {
 
 	// DefaultBinding for an inbound zTunnel to use to connect to a Waypoint it captures.
 	// This is applied to the Workloads that are instances of the current Waypoint.
-	DefaultBinding InboundBinding
+	DefaultBinding *InboundBinding
 
 	// TrafficType controls whether Service or Workload can reference this
 	// waypoint. Must be one of "all", "service", "workload".
@@ -67,8 +69,8 @@ type Waypoint struct {
 
 func (w Waypoint) Equals(other Waypoint) bool {
 	return w.Named == other.Named &&
-		w.DefaultBinding == other.DefaultBinding &&
 		w.TrafficType == other.TrafficType &&
+		ptr.Equal(w.DefaultBinding, other.DefaultBinding) &&
 		w.AllowedRoutes.Equals(other.AllowedRoutes) &&
 		slices.Equal(w.ServiceAccounts, other.ServiceAccounts) &&
 		proto.Equal(w.Address, other.Address)
@@ -78,7 +80,7 @@ func (w Waypoint) Equals(other Waypoint) bool {
 // TODO should this also lookup waypoints by workload.addresses + workload.services[].vip?
 // ServiceEntry and WorkloadEntry likely won't have the gateway-name label.
 func fetchWaypointForInstance(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint], o metav1.ObjectMeta) *Waypoint {
-	name, namespace := o.GetLabels()[constants.GatewayNameLabel], o.Namespace
+	name, namespace := o.GetLabels()[label.IoK8sNetworkingGatewayGatewayName.Name], o.Namespace
 	if name == "" {
 		return nil
 	}
@@ -142,7 +144,7 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
 ) (*Waypoint, *model.StatusMessage) {
 	// This is a waypoint, so it cannot have a waypoint
-	if o.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+	if o.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 		return nil, nil
 	}
 	w, err := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
@@ -179,14 +181,14 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 // if there is no namespace provided in the label the default namespace will be used
 // defaultNamespace avoids the need to infer when object meta from a namespace was given
 func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
-	if labelValue, ok := meta.Labels[constants.AmbientUseWaypointLabel]; ok {
+	if labelValue, ok := meta.Labels[label.IoIstioUseWaypoint.Name]; ok {
 		// NOTE: this means Istio reserves the word "none" in this field with a special meaning
 		//   a waypoint named "none" cannot be used and will be ignored
 		if labelValue == "none" {
 			return nil, true
 		}
 		namespace := defaultNamespace
-		if override, f := meta.Labels[constants.AmbientUseWaypointNamespaceLabel]; f {
+		if override, f := meta.Labels[label.IoIstioUseWaypointNamespace.Name]; f {
 			namespace = override
 		}
 		return &krt.Named{
@@ -215,7 +217,7 @@ func (a *index) WaypointsCollection(
 		}
 
 		instances := krt.Fetch(ctx, pods, krt.FilterLabel(map[string]string{
-			constants.GatewayNameLabel: gateway.Name,
+			label.IoK8sNetworkingGatewayGatewayName.Name: gateway.Name,
 		}), krt.FilterIndex(podsByNamespace, gateway.Namespace))
 
 		serviceAccounts := slices.Map(instances, func(p *v1.Pod) string {
@@ -228,13 +230,13 @@ func (a *index) WaypointsCollection(
 		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
 		if gatewayClass == nil {
 			log.Warnf("could not find GatewayClass %s for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
-		} else if tt, found := gatewayClass.Labels[constants.AmbientWaypointForTrafficTypeLabel]; found {
+		} else if tt, found := gatewayClass.Labels[label.IoIstioWaypointFor.Name]; found {
 			// Check for a declared traffic type that is allowed to pass through the Waypoint's GatewayClass
 			trafficType = tt
 		}
 
 		// Check for a declared traffic type that is allowed to pass through the Waypoint
-		if tt, found := gateway.Labels[constants.AmbientWaypointForTrafficTypeLabel]; found {
+		if tt, found := gateway.Labels[label.IoIstioWaypointFor.Name]; found {
 			trafficType = tt
 		}
 
@@ -242,17 +244,17 @@ func (a *index) WaypointsCollection(
 	}, krt.WithName("Waypoints"))
 }
 
-func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayClass) InboundBinding {
-	annotation, ok := getGatewayOrGatewayClassAnnotation(gateway, gatewayClass)
+func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayClass) *InboundBinding {
+	ann, ok := getGatewayOrGatewayClassAnnotation(gateway, gatewayClass)
 	if !ok {
-		return InboundBinding{}
+		return nil
 	}
 
 	// format is either `protocol` or `protocol/port`
-	parts := strings.Split(annotation, "/")
+	parts := strings.Split(ann, "/")
 	if len(parts) == 0 || len(parts) > 2 {
-		log.Warnf("invalid value %q for %s. Must be of the format \"<protocol>\" or \"<protocol>/<port>\".", annotation, constants.AmbientWaypointInboundBinding)
-		return InboundBinding{}
+		log.Warnf("invalid value %q for %s. Must be of the format \"<protocol>\" or \"<protocol>/<port>\".", ann, annotation.AmbientWaypointInboundBinding.Name)
+		return nil
 	}
 
 	// parse protocol
@@ -264,8 +266,8 @@ func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayC
 		protocol = workloadapi.ApplicationTunnel_PROXY
 	default:
 		// Only PROXY is supported for now.
-		log.Warnf("invalid protocol %s for %s. Only NONE or PROXY are supported.", parts[0], constants.AmbientWaypointInboundBinding)
-		return InboundBinding{}
+		log.Warnf("invalid protocol %s for %s. Only NONE or PROXY are supported.", parts[0], annotation.AmbientWaypointInboundBinding.Name)
+		return nil
 	}
 
 	// parse port
@@ -273,12 +275,12 @@ func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayC
 	if len(parts) == 2 {
 		parsed, err := strconv.ParseUint(parts[1], 10, 32)
 		if err != nil {
-			log.Warnf("invalid port %s for %s.", parts[1], constants.AmbientWaypointInboundBinding)
+			log.Warnf("invalid port %s for %s.", parts[1], annotation.AmbientWaypointInboundBinding.Name)
 		}
 		port = uint32(parsed)
 	}
 
-	return InboundBinding{
+	return &InboundBinding{
 		Port:     port,
 		Protocol: protocol,
 	}
@@ -286,12 +288,12 @@ func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayC
 
 func getGatewayOrGatewayClassAnnotation(gateway *v1beta1.Gateway, class *v1beta1.GatewayClass) (string, bool) {
 	// Gateway > GatewayClass
-	annotation, ok := gateway.Annotations[constants.AmbientWaypointInboundBinding]
+	an, ok := gateway.Annotations[annotation.AmbientWaypointInboundBinding.Name]
 	if ok {
-		return annotation, true
+		return an, true
 	}
 	if class != nil {
-		annotation, ok := class.Annotations[constants.AmbientWaypointInboundBinding]
+		annotation, ok := class.Annotations[annotation.AmbientWaypointInboundBinding.Name]
 		if ok {
 			return annotation, true
 		}

@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var (
@@ -395,8 +396,8 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 				}
 			} else if c.wantErrStr == "" && err != nil {
 				tt.Fatalf("wanted non-error but got %q", err)
-			} else if diff := cmp.Diff(got, c.want); diff != "" {
-				tt.Errorf("got\n%v\nwant\n%vdiff %v", got, c.want, diff)
+			} else {
+				assert.Equal(t, got, c.want)
 			}
 		})
 	}

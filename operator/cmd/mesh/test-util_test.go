@@ -227,10 +227,7 @@ func mustGetContainerFromDaemonset(g *WithT, objs *ObjectSet, daemonSetName, con
 // mustGetEndpoint returns the endpoint tree with the given name in the deployment with the given name.
 func mustGetEndpoint(g *WithT, objs *ObjectSet, endpointName string) *manifest.Manifest {
 	obj := objs.kind(gvk.Endpoints.Kind).nameEquals(endpointName)
-	if obj == nil {
-		return nil
-	}
-	g.Expect(obj).Should(Not(BeNil()))
+	g.Expect(obj).Should(Not(BeNil()), fmt.Sprintf("Expected to get endpoints %s", endpointName))
 	return obj
 }
 

@@ -161,34 +161,6 @@ spec:
       runAsNonRoot: true
     {{- end }}
   {{ end -}}
-  {{- if eq (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
-  - name: enable-core-dump
-    args:
-    - -c
-    - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
-    command:
-      - /bin/sh
-  {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image) }}
-    image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image }}"
-  {{- else }}
-    image: "{{ .ProxyImage }}"
-  {{- end }}
-    {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
-    resources:
-  {{ template "resources" . }}
-    securityContext:
-      allowPrivilegeEscalation: true
-      capabilities:
-        add:
-        - SYS_ADMIN
-        drop:
-        - ALL
-      privileged: true
-      readOnlyRootFilesystem: false
-      runAsGroup: 0
-      runAsNonRoot: false
-      runAsUser: 0
-  {{ end }}
   {{ if not $nativeSidecar }}
   containers:
   {{ end }}
@@ -384,7 +356,7 @@ spec:
         drop:
         - ALL
       privileged: true
-      readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
+      readOnlyRootFilesystem: true
       runAsGroup: {{ .ProxyGID | default "1337" }}
       runAsNonRoot: false
       runAsUser: 0
@@ -403,7 +375,7 @@ spec:
         drop:
         - ALL
       privileged: {{ .Values.global.proxy.privileged }}
-      readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
+      readOnlyRootFilesystem: true
       runAsGroup: {{ .ProxyGID | default "1337" }}
       {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
       runAsNonRoot: false

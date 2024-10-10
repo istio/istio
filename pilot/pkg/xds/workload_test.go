@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"istio.io/api/annotation"
 	"istio.io/api/security/v1beta1"
 	metav1beta1 "istio.io/api/type/v1beta1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
@@ -111,6 +112,10 @@ func TestWorkloadReconnect(t *testing.T) {
 
 		// Create new pod in the meantime
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
+		// Wait for it to be ready
+		assert.EventuallyEqual(t, func() int {
+			return len(s.KubeRegistry.All())
+		}, 2)
 
 		// Reconnect
 		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
@@ -141,6 +146,10 @@ func TestWorkloadReconnect(t *testing.T) {
 
 		// Create new pod in the meantime
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
+		// Wait for it to be ready
+		assert.EventuallyEqual(t, func() int {
+			return len(s.KubeRegistry.All())
+		}, 2)
 
 		// Reconnect
 		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
@@ -315,7 +324,7 @@ func mkPod(name string, sa string, ip string, node string) *corev1.Pod {
 			Name:      name,
 			Namespace: "default",
 			Annotations: map[string]string{
-				constants.AmbientRedirection: constants.AmbientRedirectionEnabled,
+				annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled,
 			},
 			Labels: map[string]string{
 				"app": sa,

@@ -5,6 +5,21 @@ metadata:
   name: eastwestgateway
   namespace: istio-system
 spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.1.1.1
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: This Gateway is remote; Istio will not program it
+    reason: Programmed
+    status: "True"
+    type: Programmed
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute

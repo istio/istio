@@ -20,11 +20,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -136,7 +138,7 @@ func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 	// If labels/annotations updated, trigger proxy push
 	labelsChanged := !maps.Equal(old.Labels, cur.Labels)
 	// Annotations are only used in endpoints in one case, so just compare that one
-	relevantAnnotationsChanged := old.Annotations[constants.AmbientRedirection] != cur.Annotations[constants.AmbientRedirection]
+	relevantAnnotationsChanged := old.Annotations[annotation.AmbientRedirection.Name] != cur.Annotations[annotation.AmbientRedirection.Name]
 	changed := labelsChanged || relevantAnnotationsChanged
 	if cur.Status.PodIP != "" && changed {
 		pc.proxyUpdates(cur, true)
@@ -194,6 +196,12 @@ func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
 	}
 	// fire instance handles for workload
 	ep := pc.c.NewEndpointBuilder(pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable, model.Healthy)
+	// If pod is dual stack, handle all IPs
+	if features.EnableDualStack && len(pod.Status.PodIPs) > 1 {
+		ep.Addresses = slices.Map(pod.Status.PodIPs, func(e v1.PodIP) string {
+			return e.IP
+		})
+	}
 	workloadInstance := &model.WorkloadInstance{
 		Name:      pod.Name,
 		Namespace: pod.Namespace,

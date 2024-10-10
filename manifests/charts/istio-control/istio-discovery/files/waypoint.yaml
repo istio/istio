@@ -89,6 +89,9 @@ spec:
       containers:
       - name: istio-proxy
         ports:
+        - containerPort: 15020
+          name: metrics
+          protocol: TCP
         - containerPort: 15021
           name: status-port
           protocol: TCP
@@ -234,8 +237,8 @@ spec:
 {{- toYaml .Values.gateways.seccompProfile | nindent 12 }}
 {{- end }}
         volumeMounts:
-        - name: workload-socket
-          mountPath: /var/run/secrets/workload-spiffe-uds
+        - mountPath: /var/run/secrets/workload-spiffe-uds
+          name: workload-socket
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/lib/istio/data
@@ -292,6 +295,7 @@ metadata:
     {{ toJsonMap (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
   labels:
     {{- toJsonMap
+      (strdict "networking.istio.io/traffic-distribution" "PreferClose")
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name

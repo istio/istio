@@ -324,7 +324,8 @@ func (cfg *IptablesConfigurator) Run() error {
 	dropInvalid := cfg.cfg.DropInvalid
 	if dropInvalid {
 		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.PREROUTING, constants.MANGLE, "-m", "conntrack", "--ctstate",
-			"INVALID", "-j", constants.DROP)
+			"INVALID", "-j", constants.ISTIODROP)
+		cfg.ruleBuilder.AppendRule(iptableslog.UndefinedCommand, constants.ISTIODROP, constants.MANGLE, "-j", constants.DROP)
 	}
 
 	// Create a new chain for to hit tunnel port directly. Envoy will be listening on port acting as VPN tunnel.
@@ -882,24 +883,13 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 	// Apply Step
 	if (deltaExists || cfg.cfg.ForceApply) && !cfg.cfg.CleanupOnly {
 		log.Info("Applying iptables chains and rules")
-		if cfg.cfg.RestoreFormat {
-			// Execute iptables-restore
-			if err := cfg.executeIptablesRestoreCommand(iptVer, cfg.ruleBuilder.BuildV4Restore()); err != nil {
-				return err
-			}
-			// Execute ip6tables-restore
-			if err := cfg.executeIptablesRestoreCommand(ipt6Ver, cfg.ruleBuilder.BuildV6Restore()); err != nil {
-				return err
-			}
-		} else {
-			// Execute iptables commands
-			if err := cfg.executeIptablesCommands(iptVer, cfg.ruleBuilder.BuildV4()); err != nil {
-				return err
-			}
-			// Execute ip6tables commands
-			if err := cfg.executeIptablesCommands(ipt6Ver, cfg.ruleBuilder.BuildV6()); err != nil {
-				return err
-			}
+		// Execute iptables-restore
+		if err := cfg.executeIptablesRestoreCommand(iptVer, cfg.ruleBuilder.BuildV4Restore()); err != nil {
+			return err
+		}
+		// Execute ip6tables-restore
+		if err := cfg.executeIptablesRestoreCommand(ipt6Ver, cfg.ruleBuilder.BuildV6Restore()); err != nil {
+			return err
 		}
 	}
 

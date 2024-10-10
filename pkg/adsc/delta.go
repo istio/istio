@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -257,9 +257,14 @@ func newProto(tt string) proto.Message {
 	return t.New().Interface()
 }
 
-func (c *Client) Run(ctx context.Context) error {
-	if err := c.Dial(); err != nil {
-		return fmt.Errorf("dial context: %v", err)
+// Run starts the client. If a backoffPolicy is configured, it will reconnect on error.
+func (c *Client) Run(ctx context.Context) {
+	c.runWithReconnects(ctx)
+}
+
+func (c *Client) runOnce(ctx context.Context) error {
+	if err := c.dial(ctx); err != nil {
+		return fmt.Errorf("dial fail: %v", err)
 	}
 
 	xds := discovery.NewAggregatedDiscoveryServiceClient(c.conn)
@@ -276,12 +281,11 @@ func (c *Client) Run(ctx context.Context) error {
 			return fmt.Errorf("initial watch: %v", err)
 		}
 	}
-	go c.handleRecv()
-	return nil
+	return c.handleRecv()
 }
 
-func (c *Client) Dial() error {
-	conn, err := dialWithConfig(&c.cfg.Config)
+func (c *Client) dial(ctx context.Context) error {
+	conn, err := dialWithConfig(ctx, &c.cfg.Config)
 	if err != nil {
 		return err
 	}
@@ -289,19 +293,25 @@ func (c *Client) Dial() error {
 	return nil
 }
 
-// reconnect will create a new stream
-func (c *Client) reconnect() {
-	if c.closed.Load() {
-		return
+// runWithReconnects will create a new stream and schedule a retry once disconnected
+func (c *Client) runWithReconnects(ctx context.Context) {
+	for {
+		if c.closed.Load() {
+			break
+		}
+		err := c.runOnce(ctx)
+		if c.cfg.BackoffPolicy == nil {
+			log.Warnf("disconnected: %v", err)
+			break
+		}
+		next := c.cfg.BackoffPolicy.NextBackOff()
+		c.log.Warnf("disconnected, retrying in %v: %v", next, err)
+		if !sleep.UntilContext(ctx, next) {
+			c.log.Warnf("context canceled (%v), not retrying again: %v", context.Cause(ctx), err)
+			break
+		}
 	}
-
-	err := c.Run(context.Background())
-	if err != nil {
-		time.AfterFunc(c.cfg.BackoffPolicy.NextBackOff(), c.reconnect)
-	} else if c.cfg.BackoffPolicy != nil {
-		// We connected, so reset the backoff
-		c.cfg.BackoffPolicy.Reset()
-	}
+	c.closed.Store(true)
 }
 
 type Option func(c *Client)
@@ -385,24 +395,25 @@ func initWatch(typeURL string, resourceName string) Option {
 	}
 }
 
-func (c *Client) handleRecv() {
+func (c *Client) handleRecv() error {
+	hasSucceeded := false
 	for {
 		msg, err := c.xdsClient.Recv()
 		if err != nil {
-			c.log.Infof("Connection closed: %v", err)
-			// if 'reconnect' enabled - schedule a new Run
-			if c.cfg.BackoffPolicy != nil {
-				time.AfterFunc(c.cfg.BackoffPolicy.NextBackOff(), c.reconnect)
-			} else {
-				c.Close()
-			}
-			return
+			return err
 		}
 		c.log.WithLabels("type", msg.TypeUrl, "size", len(msg.Resources), "removes", len(msg.RemovedResources)).Infof("received response")
 		if err := c.handleDeltaResponse(msg); err != nil {
 			c.log.WithLabels("type", msg.TypeUrl).Infof("handle response failed: %v", err)
-			c.Close()
-			return
+			if err2 := c.xdsClient.CloseSend(); err2 != nil {
+				return fmt.Errorf("failed to close connection (%v) in response to: %v", err2, err)
+			}
+			return err
+		}
+		if !hasSucceeded && c.cfg.BackoffPolicy != nil {
+			// We succeeded once, so reset
+			hasSucceeded = true
+			c.cfg.BackoffPolicy.Reset()
 		}
 		c.lastReceivedNonce[msg.TypeUrl] = msg.Nonce
 	}
@@ -699,4 +710,5 @@ func isDebugType(typeURL string) bool {
 type DeltaAggregatedResourcesClient interface {
 	Send(*discovery.DeltaDiscoveryRequest) error
 	Recv() (*discovery.DeltaDiscoveryResponse, error)
+	CloseSend() error
 }

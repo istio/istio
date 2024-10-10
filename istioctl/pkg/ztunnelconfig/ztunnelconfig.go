@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -118,7 +119,7 @@ func servicesCmd(ctx cli.Context) *cobra.Command {
 		Example: `  # Retrieve summary about services configuration for a randomly chosen ztunnel.
   istioctl ztunnel-config services
 
-  # Retrieve full certificate dump of workloads for a given Ztunnel instance.
+  # Retrieve full services dump of workloads for a given Ztunnel instance.
   istioctl ztunnel-config services <ztunnel-name[.namespace]> -o json
 `,
 		Aliases: []string{"services", "s", "svc"},
@@ -194,7 +195,7 @@ func allCmd(ctx cli.Context) *cobra.Command {
   istioctl ztunnel-config all
 
   # Retrieve full configuration dump of workloads for a given Ztunnel instance.
-  istioctl ztunnel-config policies <ztunnel-name[.namespace]> -o json
+  istioctl ztunnel-config all <ztunnel-name[.namespace]> -o json
 `,
 		Args: common.validateArgs,
 		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
@@ -287,7 +288,7 @@ func connectionsCmd(ctx cli.Context) *cobra.Command {
   istioctl ztunnel-config connections --node ambient-worker
 
   # Retrieve summary of connections for a given Ztunnel instance.
-  istioctl ztunnel-config workload <ztunnel-name[.namespace]>
+  istioctl ztunnel-config connections <ztunnel-name[.namespace]>
 `,
 		Aliases: []string{"cons"},
 		Args:    common.validateArgs,
@@ -522,7 +523,8 @@ func setupZtunnelLogs(kubeClient kube.CLIClient, param, podName, podNamespace st
 
 // getComponentPodName returns the pod name and namespace of the Istio component
 func getComponentPodName(ctx cli.Context, podflag string) (string, string, error) {
-	return getPodNameWithNamespace(ctx, podflag, ctx.IstioNamespace())
+	// If user passed --namespace, respect it. Else fallback to --istio-namespace (which is typically defaulted, to istio-system).
+	return getPodNameWithNamespace(ctx, podflag, model.GetOrDefault(ctx.Namespace(), ctx.IstioNamespace()))
 }
 
 func getPodNameWithNamespace(ctx cli.Context, podflag, ns string) (string, string, error) {

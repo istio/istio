@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -48,7 +49,7 @@ func InAmbient(obj metav1.Object) bool {
 	}
 	switch t := obj.(type) {
 	case *corev1.Pod:
-		return t.GetAnnotations()[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
+		return t.GetAnnotations()[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 	case *corev1.Namespace:
 		if t.GetLabels()["istio-injection"] == "enabled" {
 			return false
@@ -56,7 +57,7 @@ func InAmbient(obj metav1.Object) bool {
 		if v, ok := t.GetLabels()[label.IoIstioRev.Name]; ok && v != "" {
 			return false
 		}
-		return t.GetLabels()[constants.DataplaneModeLabel] == constants.DataplaneModeAmbient
+		return t.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient
 	}
 	return false
 }

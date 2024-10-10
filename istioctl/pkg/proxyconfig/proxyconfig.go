@@ -15,7 +15,9 @@
 package proxyconfig
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -261,6 +263,13 @@ func printStatus(c *cobra.Command, kubeClient kube.CLIClient, statsType, podName
 			return err
 		}
 		_, _ = fmt.Fprint(c.OutOrStdout(), string(out))
+	case jsonOutput:
+		var prettyJSON bytes.Buffer
+		err := json.Indent(&prettyJSON, []byte(stats), "", "    ")
+		if err != nil {
+			return err
+		}
+		_, _ = fmt.Fprint(c.OutOrStdout(), prettyJSON.String()+"\n")
 	default:
 		_, _ = fmt.Fprint(c.OutOrStdout(), stats)
 	}
@@ -324,6 +333,9 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 		Long:  `Retrieve information about cluster configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about cluster configuration for a given pod from Envoy.
   istioctl proxy-config clusters <pod-name[.namespace]>
+
+  # Retrieve summary about cluster configuration for a pod under a deployment from Envoy.
+  istioctl proxy-config clusters deployment/<deployment-name[.namespace]>
 
   # Retrieve cluster summary for clusters with port 9080.
   istioctl proxy-config clusters <pod-name[.namespace]> --port 9080
@@ -396,6 +408,9 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 		Long:  `Retrieve information about all configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about all configuration for a given pod from Envoy.
   istioctl proxy-config all <pod-name[.namespace]>
+
+  # Retrieve summary about all configuration for a pod under a deployment from Envoy.
+  istioctl proxy-config all deployment/<deployment-name[.namespace]>
 
   # Retrieve full cluster dump as JSON
   istioctl proxy-config all <pod-name[.namespace]> -o json
@@ -531,6 +546,9 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 		Long:  `Retrieve information about listener configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve summary about listener configuration for a given pod from Envoy.
   istioctl proxy-config listeners <pod-name[.namespace]>
+
+  # Retrieve summary about listener configuration a pod under a deployment from Envoy.
+  istioctl proxy-config deployment/<deployment-name[.namespace]>
 
   # Retrieve listener summary for listeners with port 9080.
   istioctl proxy-config listeners <pod-name[.namespace]> --port 9080
@@ -827,6 +845,9 @@ func routeConfigCmd(ctx cli.Context) *cobra.Command {
 		Example: `  # Retrieve summary about route configuration for a given pod from Envoy.
   istioctl proxy-config routes <pod-name[.namespace]>
 
+  # Retrieve summary about route configuration for a pod under a deployment from Envoy.
+  istioctl proxy-config routes deployment/<deployment-name[.namespace]>
+
   # Retrieve route summary for route 9080.
   istioctl proxy-config route <pod-name[.namespace]> --name 9080
 
@@ -896,6 +917,9 @@ func endpointConfigCmd(ctx cli.Context) *cobra.Command {
 		Long:  `Retrieve information about endpoint configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full endpoint configuration for a given pod from Envoy.
   istioctl proxy-config endpoint <pod-name[.namespace]>
+
+  # Retrieve full endpoint configuration for a pod under a deployment from Envoy.
+  istioctl proxy-config endpoint deployment/<deployment-name[.namespace]>
 
   # Retrieve endpoint summary for endpoint with port 9080.
   istioctl proxy-config endpoint <pod-name[.namespace]> --port 9080
@@ -984,6 +1008,9 @@ func edsConfigCmd(ctx cli.Context) *cobra.Command {
 		Example: `  # Retrieve full endpoint configuration for a given pod from Envoy.
   istioctl proxy-config eds <pod-name[.namespace]>
 
+  # Retrieve full endpoint configuration for a pod under a deployment from Envoy.
+  istioctl proxy-config eds deployment/<deployment-name[.namespace]>
+
   # Retrieve endpoint summary for endpoint with port 9080.
   istioctl proxy-config eds <pod-name[.namespace]> --port 9080
 
@@ -1067,6 +1094,9 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 		Example: `  # Retrieve full bootstrap configuration for a given pod from Envoy.
   istioctl proxy-config bootstrap <pod-name[.namespace]>
 
+  # Retrieve full bootstrap configuration for a pod under a deployment from Envoy.
+  istioctl proxy-config bootstrap deployment/<deployment-name[.namespace]>
+
   # Retrieve full bootstrap without using Kubernetes API
   ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
   istioctl proxy-config bootstrap --file envoy-config.json
@@ -1128,6 +1158,9 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
 		Long:  `Retrieve information about secret configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full secret configuration for a given pod from Envoy.
   istioctl proxy-config secret <pod-name[.namespace]>
+
+  # Retrieve full secret configuration for a pod under a deployment from Envoy.
+  istioctl proxy-config secret deployment/<deployment-name[.namespace]>
 
   # Retrieve full bootstrap without using Kubernetes API
   ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json
@@ -1257,7 +1290,7 @@ func ProxyConfig(ctx cli.Context) *cobra.Command {
 		Short: "Retrieve information about proxy configuration from Envoy [kube only]",
 		Long:  `A group of commands used to retrieve information about proxy configuration from the Envoy config dump`,
 		Example: `  # Retrieve information about proxy configuration from an Envoy instance.
-  istioctl proxy-config <clusters|listeners|routes|endpoints|bootstrap|log|secret> <pod-name[.namespace]>`,
+  istioctl proxy-config <clusters|listeners|routes|endpoints|ecds|bootstrap|log|secret> <pod-name[.namespace]>`,
 		Aliases: []string{"pc"},
 	}
 
@@ -1330,6 +1363,9 @@ func ecdsConfigCmd(ctx cli.Context) *cobra.Command {
 		Long:    `Retrieve information about typed extension configuration for the Envoy instance in the specified pod.`,
 		Example: `  # Retrieve full typed extension configuration for a given pod from Envoy.
   istioctl proxy-config ecds <pod-name[.namespace]>
+
+  # Retrieve full typed extension configuration for a pod under a deployment from Envoy.
+  istioctl proxy-config ecds deployment/<deployment-name[.namespace]>
 
   # Retrieve endpoint summary without using Kubernetes API
   ssh <user@hostname> 'curl localhost:15000/config_dump' > envoy-config.json

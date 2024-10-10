@@ -102,11 +102,6 @@ func TestInjection(t *testing.T) {
 			setFlags: []string{"values.global.imagePullPolicy=Never"},
 		},
 		{
-			in:       "enable-core-dump.yaml",
-			want:     "enable-core-dump.yaml.injected",
-			setFlags: []string{"values.global.proxy.enableCoreDump=true"},
-		},
-		{
 			in:   "format-duration.yaml",
 			want: "format-duration.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {

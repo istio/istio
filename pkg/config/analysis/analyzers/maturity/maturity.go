@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -68,13 +67,6 @@ var AlwaysIgnoredAnnotations = map[string]bool{
 
 	// this annotation is added automatically.
 	annotation.IoIstioRev.Name: true,
-
-	// TODO below are ambient related annotations that are not yet known to be stable.
-	// They are added automatically, and should not be alerted on.
-	// Delete these related annotations once they are stable.
-	// Ref: https://github.com/istio/api/pull/2695
-	constants.AmbientWaypointForTrafficTypeLabel: true,
-	constants.AmbientRedirection:                 true,
 }
 
 // Analyze implements analysis.Analyzer

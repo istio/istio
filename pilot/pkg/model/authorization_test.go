@@ -21,12 +21,12 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -118,7 +118,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			selectionOpts: WorkloadPolicyMatcher{
 				WorkloadNamespace: "foo",
 				WorkloadLabels: labels.Instance{
-					constants.GatewayNameLabel: "my-gateway",
+					label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
 				},
 			},
 			configs: []config.Config{
@@ -256,7 +256,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			selectionOpts: WorkloadPolicyMatcher{
 				WorkloadNamespace: "bar",
 				WorkloadLabels: labels.Instance{
-					constants.GatewayNameLabel: "my-gateway",
+					label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway",
 				},
 			},
 			configs: []config.Config{
@@ -316,7 +316,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			selectionOpts: WorkloadPolicyMatcher{
 				WorkloadNamespace: "bar",
 				WorkloadLabels: labels.Instance{
-					constants.GatewayNameLabel: "my-gateway2",
+					label.IoK8sNetworkingGatewayGatewayName.Name: "my-gateway2",
 				},
 			},
 			configs: []config.Config{
@@ -415,7 +415,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				ServiceRegistry:   provider.Kubernetes,
 				WorkloadNamespace: "foo",
 				WorkloadLabels: labels.Instance{
-					constants.GatewayNameLabel: "foo-waypoint",
+					label.IoK8sNetworkingGatewayGatewayName.Name: "foo-waypoint",
 					// labels match in selector policy but ignore them for waypoint
 					"app":     "httpbin",
 					"version": "v1",

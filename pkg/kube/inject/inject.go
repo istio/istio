@@ -194,6 +194,7 @@ func UnmarshalConfig(yml []byte) (Config, error) {
 }
 
 func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata metav1.ObjectMeta) bool { // nolint: lll
+	log := log.WithLabels("pod", metadata.Namespace+"/"+potentialPodName(metadata))
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptables changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This

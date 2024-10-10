@@ -1,3 +1,5 @@
+# Not created if istiod is running remotely
+{{- if not .Values.istiodRemote.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -82,6 +84,10 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
+{{- with .Values.initContainers }}
+      initContainers:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+{{- end }}
       containers:
         - name: discovery
 {{- if contains "/" .Values.image }}
@@ -116,12 +122,19 @@ spec:
           ports:
           - containerPort: 8080
             protocol: TCP
+            name: http-debug
           - containerPort: 15010
             protocol: TCP
+            name: grpc-xds
+          - containerPort: 15012
+            protocol: TCP
+            name: tls-xds
           - containerPort: 15017
             protocol: TCP
+            name: https-webhooks
           - containerPort: 15014
             protocol: TCP
+            name: http-monitoring
           readinessProbe:
             httpGet:
               path: /ready
@@ -276,3 +289,4 @@ spec:
       {{- end }}
 
 ---
+{{- end }}

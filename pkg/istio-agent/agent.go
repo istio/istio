@@ -160,6 +160,8 @@ type AgentOptions struct {
 	ProxyXDSDebugViaAgentPort int
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
 	DNSCapture bool
+	// Enables DNS server at Gateways.
+	DNSAtGateway bool
 	// DNSAddr is the DNS capture address
 	DNSAddr string
 	// DNSForwardParallel indicates whether the agent should send parallel DNS queries to all upstream nameservers.
@@ -536,8 +538,7 @@ func (a *Agent) startFileWatcher(ctx context.Context, filePath string, handler f
 }
 
 func (a *Agent) initLocalDNSServer() (err error) {
-	// we don't need dns server on gateways
-	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
+	if a.isDNSServerEnabled() {
 		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr,
 			a.cfg.DNSForwardParallel); err != nil {
 			return err
@@ -576,13 +577,19 @@ func (a *Agent) generateGRPCBootstrap() error {
 
 // Check is used in to readiness check of agent to ensure DNSServer is ready.
 func (a *Agent) Check() (err error) {
-	// we dont need dns server on gateways
-	if a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy {
+	if a.isDNSServerEnabled() {
 		if !a.localDNSServer.IsReady() {
 			return errors.New("istio DNS capture is turned ON and DNS lookup table is not ready yet")
 		}
 	}
 	return nil
+}
+
+func (a *Agent) isDNSServerEnabled() bool {
+	// Enable DNS capture if the proxy is a sidecar and the feature is enabled.
+	// At Gateways, we generally do not need DNS capture. But in some cases, we may want to use DNS proxy
+	// if we want Envoy to resolve multi-cluster DNS queries.
+	return (a.cfg.DNSCapture && a.cfg.ProxyType == model.SidecarProxy) || a.cfg.DNSAtGateway
 }
 
 // GetDNSTable builds DNS table used in debugging interface.

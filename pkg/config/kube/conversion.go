@@ -57,10 +57,17 @@ func ConvertProtocol(port int32, portName string, proto corev1.Protocol, appProt
 		name = *appProto
 		// Kubernetes has a few AppProtocol specific standard names defined in the Service spec
 		// Handle these only for AppProtocol (name cannot have these values, anyways).
+		// https://github.com/kubernetes/kubernetes/blob/b4140391cf39ea54cd0227e294283bfb5718c22d/staging/src/k8s.io/api/core/v1/generated.proto#L1245-L1248
 		switch name {
 		// "http2 over cleartext", which is also what our HTTP2 port is
 		case "kubernetes.io/h2c":
 			return protocol.HTTP2
+		// WebSocket over cleartext
+		case "kubernetes.io/ws":
+			return protocol.HTTP
+		// WebSocket over TLS
+		case "kubernetes.io/wss":
+			return protocol.HTTPS
 		}
 	}
 

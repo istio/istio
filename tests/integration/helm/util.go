@@ -19,6 +19,7 @@ package helm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,6 +30,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
 
 	networking "istio.io/api/networking/v1alpha3"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
@@ -44,6 +46,7 @@ import (
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -72,22 +75,6 @@ const (
 	RetryTimeOut = 5 * time.Minute
 	Timeout      = 2 * time.Minute
 
-	defaultValues = `
-global:
-  hub: %s
-  %s
-  variant: %q
-  %s
-revision: "%s"
-`
-	ambientProfileOverride = `
-global:
-  hub: %s
-  %s
-  variant: %q
-  %s
-profile: ambient
-`
 	sampleEnvoyFilter = `
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -186,27 +173,45 @@ var ManifestsChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision string, isAmbient bool) string {
 	workDir := ctx.CreateTmpDirectoryOrFail("helm")
 
+	// Create the default base map string for the values file
+	values := map[string]interface{}{
+		"global": map[string]interface{}{
+			"hub":     hub,
+			"variant": variant,
+		},
+		"revision": revision,
+	}
+
+	globalValues := values["global"].(map[string]interface{})
 	// Only use a tag value if not empty. Not having a tag in values means: Use the tag directly from the chart
 	if tag != "" {
-		tag = "tag: " + tag
+		globalValues["tag"] = tag
 	}
 
-	var platform string
 	// Handle Openshift platform override if set
 	if ctx.Settings().OpenShift {
-		platform = "platform: openshift"
+		globalValues["platform"] = "openshift"
+		// TODO: do FLATTEN_GLOBALS_REPLACEMENT to avoid this set
+		values["platform"] = "openshift"
 	} else {
-		platform = "" // no platform
+		globalValues["platform"] = "" // no platform
 	}
 
-	// TODO why not just use yaml parsing here, this sprintf stuff is fragile.
-	overrideValues := fmt.Sprintf(defaultValues, hub, tag, variant, platform, revision)
+	// Handle Ambient profile override if set
 	if isAmbient {
-		overrideValues = fmt.Sprintf(ambientProfileOverride, hub, tag, variant, platform)
+		values["profile"] = "ambient"
+		// Remove revision for ambient profile
+		delete(values, "revision")
+	}
+
+	// Marshal the map to a YAML string
+	overrideValues, err := yaml.Marshal(values)
+	if err != nil {
+		ctx.Fatalf("failed to marshal override values to YAML: %v", err)
 	}
 
 	overrideValuesFile := filepath.Join(workDir, "values.yaml")
-	if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
+	if err := os.WriteFile(overrideValuesFile, overrideValues, os.ModePerm); err != nil {
 		ctx.Fatalf("failed to write iop cr file: %v", err)
 	}
 
@@ -554,4 +559,33 @@ func verifyValidation(ctx framework.TestContext, revision string) {
 		rejected := err != nil
 		return rejected
 	})
+}
+
+// TODO BML this relabeling/reannotating is only required if the previous release is =< 1.23,
+// and should be dropped once 1.24 is released.
+func AdoptPre123CRDResourcesIfNeeded() {
+	requiredAdoptionLabels := []string{"app.kubernetes.io/managed-by=Helm"}
+	requiredAdoptionAnnos := []string{"meta.helm.sh/release-name=istio-base", "meta.helm.sh/release-namespace=istio-system"}
+
+	for _, labelToAdd := range requiredAdoptionLabels {
+		// We have wildly inconsistent existing labeling pre-1.24, so have to cover all possible cases.
+		execCmd1 := fmt.Sprintf("kubectl label crds -l chart=istio %v", labelToAdd)
+		execCmd2 := fmt.Sprintf("kubectl label crds -l app.kubernetes.io/part-of=istio %v", labelToAdd)
+		_, err1 := shell.Execute(false, execCmd1)
+		_, err2 := shell.Execute(false, execCmd2)
+		if errors.Join(err1, err2) != nil {
+			scopes.Framework.Infof("couldn't relabel CRDs for Helm adoption: %s. Likely not needed for this release", labelToAdd)
+		}
+	}
+
+	for _, annoToAdd := range requiredAdoptionAnnos {
+		// We have wildly inconsistent existing labeling pre-1.24, so have to cover all possible cases.
+		execCmd1 := fmt.Sprintf("kubectl annotate crds -l chart=istio %v", annoToAdd)
+		execCmd2 := fmt.Sprintf("kubectl annotate crds -l app.kubernetes.io/part-of=istio %v", annoToAdd)
+		_, err1 := shell.Execute(false, execCmd1)
+		_, err2 := shell.Execute(false, execCmd2)
+		if errors.Join(err1, err2) != nil {
+			scopes.Framework.Infof("couldn't reannotate CRDs for Helm adoption: %s. Likely not needed for this release", annoToAdd)
+		}
+	}
 }

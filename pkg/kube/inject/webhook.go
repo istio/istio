@@ -1094,10 +1094,11 @@ func applyOverlay(target *corev1.Pod, overlayJSON []byte) (*corev1.Pod, error) {
 }
 
 func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.AdmissionResponse {
+	log := log.WithLabels("path", path)
 	req := ar.Request
 	var pod corev1.Pod
 	if err := json.Unmarshal(req.Object.Raw, &pod); err != nil {
-		handleError(fmt.Sprintf("Could not unmarshal raw object: %v %s", err,
+		handleError(log, fmt.Sprintf("Could not unmarshal raw object: %v %s", err,
 			string(req.Object.Raw)))
 		return toAdmissionResponse(err)
 	}
@@ -1110,13 +1111,15 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	if pod.ObjectMeta.Namespace == "" {
 		pod.ObjectMeta.Namespace = req.Namespace
 	}
-	log.Infof("Sidecar injection request for %v/%v", req.Namespace, podName)
+
+	log = log.WithLabels("pod", pod.Namespace+"/"+podName)
+	log.Infof("Process sidecar injection request")
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
 
 	wh.mu.RLock()
 	if !injectRequired(IgnoredNamespaces.UnsortedList(), wh.Config, &pod.Spec, pod.ObjectMeta) {
-		log.Infof("Skipping %s/%s due to policy check", pod.ObjectMeta.Namespace, podName)
+		log.Infof("Skipping due to policy check")
 		totalSkippedInjections.Increment()
 		wh.mu.RUnlock()
 		return &kube.AdmissionResponse{
@@ -1174,7 +1177,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 
 	patchBytes, err := injectPod(params)
 	if err != nil {
-		handleError(fmt.Sprintf("Pod injection failed: %v", err))
+		handleError(log, fmt.Sprintf("Pod injection failed: %v", err))
 		return toAdmissionResponse(err)
 	}
 
@@ -1208,6 +1211,7 @@ func isSidecarUserMatchingAppUser(containers []corev1.Container) bool {
 }
 
 func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
+	log := log.WithLabels("path", r.URL.Path)
 	totalInjections.Increment()
 	t0 := time.Now()
 	defer func() { injectionTime.Record(time.Since(t0).Seconds()) }()
@@ -1221,7 +1225,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(body) == 0 {
-		handleError("no body found")
+		handleError(log, "no body found")
 		http.Error(w, "no body found", http.StatusBadRequest)
 		return
 	}
@@ -1229,7 +1233,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	// verify the content type is accurate
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/json" {
-		handleError(fmt.Sprintf("contentType=%s, expect application/json", contentType))
+		handleError(log, fmt.Sprintf("contentType=%s, expect application/json", contentType))
 		http.Error(w, "invalid Content-Type, want `application/json`", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -1243,13 +1247,13 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 	var obj runtime.Object
 	var ar *kube.AdmissionReview
 	if out, _, err := deserializer.Decode(body, nil, obj); err != nil {
-		handleError(fmt.Sprintf("Could not decode body: %v", err))
+		handleError(log, fmt.Sprintf("Could not decode body: %v", err))
 		reviewResponse = toAdmissionResponse(err)
 	} else {
 		log.Debugf("AdmissionRequest for path=%s\n", path)
 		ar, err = kube.AdmissionReviewKubeToAdapter(out)
 		if err != nil {
-			handleError(fmt.Sprintf("Could not decode object: %v", err))
+			handleError(log, fmt.Sprintf("Could not decode object: %v", err))
 			reviewResponse = toAdmissionResponse(err)
 		} else {
 			reviewResponse = wh.inject(ar, path)
@@ -1338,7 +1342,7 @@ func parseInjectEnvs(path string) map[string]string {
 	return newEnvs
 }
 
-func handleError(message string) {
-	log.Errorf(message)
+func handleError(l *log.Scope, message string) {
+	l.Errorf(message)
 	totalFailedInjections.Increment()
 }

@@ -20,7 +20,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/pkg/config/constants"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -177,7 +177,8 @@ func (t *T) RunViaGatewayIngress(gatewayClass string, testFn ingressTest) {
 			GatewayClass: gatewayClass,
 		}
 		// Build and apply per-destination config
-		gwIngress := istioInstance.CustomIngressFor(ctx.Clusters()[0], gwInstance.ServiceName(), fmt.Sprintf("%s=%s", constants.GatewayNameLabel, gwInstance.Name))
+		gwIngress := istioInstance.CustomIngressFor(ctx.Clusters()[0], gwInstance.ServiceName(),
+			fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, gwInstance.Name))
 		callers := ingress.Instances{gwIngress}.Callers()
 		t.cfg.Context(ctx).BuildFromAndTo(callers, dstInstances.Services()).Apply()
 

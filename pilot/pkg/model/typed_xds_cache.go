@@ -284,6 +284,8 @@ func (l *lruCache[K]) Get(key K) *discovery.Resource {
 
 // get return the cached value if it exists.
 func (l *lruCache[K]) get(key K, token CacheToken) *discovery.Resource {
+	// DON'T try to refactor to use RLock here.
+	// RLock will cause panic because hashicorp LRU cache does not guarantee concurrent safe.
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	cv, ok := l.store.Get(key)

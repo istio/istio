@@ -48,11 +48,11 @@ func translateToPatch(object model.TypedObject, status model.ConditionSet, curre
 
 	needsDelete := false
 
-	for t, v := range status {
+	for t, values := range status {
 		if currentConditions.Contains(string(t)) {
 			needsDelete = true
 		}
-		if v != nil {
+		for _, v := range values {
 			s := string(metav1.ConditionFalse)
 			if v.Status {
 				s = string(metav1.ConditionTrue)
