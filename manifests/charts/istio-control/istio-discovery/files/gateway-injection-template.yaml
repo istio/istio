@@ -1,3 +1,29 @@
+{{- define "resources"  }}
+  {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) }}
+      requests:
+        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU`) -}}
+        cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPU` }}"
+        {{ end }}
+        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory`) -}}
+        memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemory` }}"
+        {{ end }}
+    {{- end }}
+    {{- if or (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) }}
+      limits:
+        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit`) -}}
+        cpu: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyCPULimit` }}"
+        {{ end }}
+        {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit`) -}}
+        memory: "{{ index .ObjectMeta.Annotations `sidecar.istio.io/proxyMemoryLimit` }}"
+        {{ end }}
+    {{- end }}
+  {{- else }}
+    {{- if .Values.global.proxy.resources }}
+      {{ toYaml .Values.global.proxy.resources | indent 6 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
 {{- $containers := list }}
 {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
 metadata:
@@ -49,6 +75,8 @@ spec:
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}
   {{- end }}
+    resources:
+  {{ template "resources" . }}
     securityContext:
       runAsUser: {{ .ProxyUID | default "1337" }}
       runAsGroup: {{ .ProxyGID | default "1337" }}
