@@ -524,7 +524,10 @@ func (a *index) NetworksSynced() {
 
 func (a *index) Run(stop <-chan struct{}) {
 	if a.statusQueue != nil {
-		go a.statusQueue.Run(stop)
+		go func() {
+			kubeclient.WaitForCacheSync("ambient-status-queue", stop, a.HasSynced)
+			a.statusQueue.Run(stop)
+		}()
 	}
 }
 
