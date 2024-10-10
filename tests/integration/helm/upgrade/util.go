@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
@@ -184,6 +183,11 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		})
 		s := t.Settings()
 		prevVariant := s.Image.Variant
+		// Istio 1.21 ambient did not support distroless, always use debug.
+		// TODO(https://github.com/istio/istio/issues/50387) remove this, always use s.Image.Variant
+		if isAmbient {
+			prevVariant = "debug"
+		}
 		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", prevVariant, "", isAmbient)
 		// todo tag version is not helm version
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
@@ -220,7 +224,7 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		sanitycheck.RunTrafficTestClientServerExpectFail(t, newClient, newServer)
 
 		// label pods to remove from mesh
-		newNS.RemoveLabel(constants.DataplaneModeLabel)
+		newNS.RemoveLabel(label.IoIstioDataplaneMode.Name)
 
 		// verify sanity check passes
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
