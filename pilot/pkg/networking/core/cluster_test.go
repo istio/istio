@@ -1636,6 +1636,7 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 	g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
 }
 
+// Deprecated: use TestWarmup
 func TestSlowStartConfig(t *testing.T) {
 	g := NewWithT(t)
 	testcases := []struct {
@@ -1683,6 +1684,7 @@ func TestSlowStartConfig(t *testing.T) {
 	}
 }
 
+// Deprecated: use TestWarmup
 func getSlowStartTrafficPolicy(slowStartEnabled bool, lbType networking.LoadBalancerSettings_SimpleLB) *networking.TrafficPolicy {
 	var warmupDurationSecs *durationpb.Duration
 	if slowStartEnabled {
@@ -1695,6 +1697,112 @@ func getSlowStartTrafficPolicy(slowStartEnabled bool, lbType networking.LoadBala
 			},
 			WarmupDurationSecs: warmupDurationSecs,
 		},
+	}
+}
+
+func TestWarmup(t *testing.T) {
+	warmupConfig := &networking.WarmupConfiguration{
+		Duration:       &durationpb.Duration{Seconds: 60},
+		MinimumPercent: &wrappers.DoubleValue{Value: 2},
+		Aggression:     &wrappers.DoubleValue{Value: 5.5},
+	}
+	g := NewWithT(t)
+	testcases := []struct {
+		name          string
+		lbType        networking.LoadBalancerSettings_SimpleLB
+		warmup        *networking.WarmupConfiguration
+		defaultConfig bool
+	}{
+		{name: "roundrobin", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, warmup: warmupConfig, defaultConfig: false},
+		{name: "leastrequest", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, warmup: warmupConfig, defaultConfig: false},
+		{name: "passthrough", lbType: networking.LoadBalancerSettings_PASSTHROUGH, warmup: warmupConfig, defaultConfig: false},
+		{name: "roundrobin without warmup", lbType: networking.LoadBalancerSettings_ROUND_ROBIN, warmup: nil, defaultConfig: false},
+		{name: "leastrequest without warmup", lbType: networking.LoadBalancerSettings_LEAST_REQUEST, warmup: nil, defaultConfig: false},
+		{name: "empty lb type", warmup: warmupConfig, defaultConfig: false},
+		{
+			name:   "roundrobin with default values",
+			lbType: networking.LoadBalancerSettings_ROUND_ROBIN,
+			warmup: &networking.WarmupConfiguration{
+				Duration: &durationpb.Duration{Seconds: 60},
+			},
+			defaultConfig: true,
+		},
+		{
+			name:   "leastrequest with default values",
+			lbType: networking.LoadBalancerSettings_LEAST_REQUEST,
+			warmup: &networking.WarmupConfiguration{
+				Duration: &durationpb.Duration{Seconds: 60},
+			},
+			defaultConfig: true,
+		},
+		{
+			name: "empty lb type with default values",
+			warmup: &networking.WarmupConfiguration{
+				Duration: &durationpb.Duration{Seconds: 60},
+			},
+			defaultConfig: true,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			clusters := buildTestClusters(clusterTest{
+				t:               t,
+				serviceHostname: test.name,
+				nodeType:        model.SidecarProxy,
+				mesh:            testMesh(),
+				destRule: &networking.DestinationRule{
+					Host: test.name,
+					TrafficPolicy: &networking.TrafficPolicy{
+						LoadBalancer: &networking.LoadBalancerSettings{
+							LbPolicy: &networking.LoadBalancerSettings_Simple{
+								Simple: test.lbType,
+							},
+							Warmup: test.warmup,
+						},
+					},
+				},
+			})
+
+			c := xdstest.ExtractCluster("outbound|8080||"+test.name,
+				clusters)
+
+			if test.warmup == nil {
+				g.Expect(c.GetLbConfig()).To(BeNil())
+			} else {
+				// The warmup configuration only specify the duration window, we expect default values for aggression and minWeightPercent
+				switch test.defaultConfig {
+				case true:
+					switch c.LbPolicy {
+					case cluster.Cluster_ROUND_ROBIN:
+						g.Expect(c.GetRoundRobinLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(60)))
+						g.Expect(c.GetRoundRobinLbConfig().GetSlowStartConfig().GetMinWeightPercent().GetValue()).To(Equal(float64(10)))
+						g.Expect(c.GetRoundRobinLbConfig().GetSlowStartConfig().GetAggression().GetDefaultValue()).To(Equal(float64(1.0)))
+					case cluster.Cluster_LEAST_REQUEST:
+						g.Expect(c.GetLeastRequestLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(60)))
+						g.Expect(c.GetLeastRequestLbConfig().GetSlowStartConfig().GetMinWeightPercent().GetValue()).To(Equal(float64(10)))
+						g.Expect(c.GetLeastRequestLbConfig().GetSlowStartConfig().GetAggression().GetDefaultValue()).To(Equal(float64(1.0)))
+					default:
+						g.Expect(c.GetLbConfig()).To(BeNil())
+					}
+
+				case false:
+					// The warmup configuration provides all parameters
+					switch c.LbPolicy {
+					case cluster.Cluster_ROUND_ROBIN:
+						g.Expect(c.GetRoundRobinLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(60)))
+						g.Expect(c.GetRoundRobinLbConfig().GetSlowStartConfig().GetMinWeightPercent().GetValue()).To(Equal(float64(2)))
+						g.Expect(c.GetRoundRobinLbConfig().GetSlowStartConfig().GetAggression().GetDefaultValue()).To(Equal(float64(5.5)))
+					case cluster.Cluster_LEAST_REQUEST:
+						g.Expect(c.GetLeastRequestLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(60)))
+						g.Expect(c.GetLeastRequestLbConfig().GetSlowStartConfig().GetMinWeightPercent().GetValue()).To(Equal(float64(2)))
+						g.Expect(c.GetLeastRequestLbConfig().GetSlowStartConfig().GetAggression().GetDefaultValue()).To(Equal(float64(5.5)))
+					default:
+						g.Expect(c.GetLbConfig()).To(BeNil())
+					}
+				}
+			}
+		})
 	}
 }
 
