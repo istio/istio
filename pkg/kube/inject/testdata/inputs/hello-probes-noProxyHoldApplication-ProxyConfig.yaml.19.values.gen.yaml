@@ -1,4 +1,7 @@
 {
+  "experimental": {
+    "stableValidationPolicy": false
+  },
   "gateways": {
     "seccompProfile": {},
     "securityContext": {}

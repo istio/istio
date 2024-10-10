@@ -184,7 +184,11 @@ spec:
               audience: istio-ca
       - name: istiod-ca-cert
         configMap:
+{{- if and (hasKey .Values "experimental") .Values.experimental.caRootCertConfigMap }} 
+          name: {{ .Values.experimental.caRootCertConfigMap }}
+{{- else }}
           name: istio-ca-root-cert
+{{- end }}
       - name: cni-ztunnel-sock-dir
         hostPath:
           path: /var/run/ztunnel
