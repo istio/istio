@@ -104,3 +104,10 @@ func TestAmbientInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 		NewTest(t).
 		Run(performInPlaceUpgradeFunc(previousSupportedVersion, true))
 }
+
+// TestAmbientInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with ambient profile for Istio 1.(n-1)
+func TestZtunnelFromPreviousMinorRelease(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(upgradeAllButZtunnel(previousSupportedVersion))
+}
