@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 52558
+releaseNotes:
+- |
+  **Updated** `securityContext.privileged` to false for istio-cni in favor of feature-specific permissions.
+  istio-cni remains a [privileged container as per the Kubernetes Pod Security Standards]
+  (https://kubernetes.io/docs/concepts/security/pod-security-standards/#privileged), since even without this
+  flag it has privileged capabilities, namely CAP_SYS_ADMIN.

@@ -89,15 +89,13 @@ spec:
               path: /readyz
               port: 8000
           securityContext:
-            privileged: true # always requires privilege to be useful (install node plugin, etc)
+            privileged: false
             runAsGroup: 0
             runAsUser: 0
             runAsNonRoot: false
             # Both ambient and sidecar repair mode require elevated node privileges to function.
-            # But we don't need _everything_ in `privileged`, so drop+readd capabilities based on feature.
-            # privileged is redundant with CAP_SYS_ADMIN
-            # since it's redundant, hardcode it to `true`, then manually drop ALL + readd granular
-            # capabilities we actually require
+            # But we don't need _everything_ in `privileged`, so explicitly set it to false and
+            # add capabilities based on feature.
             capabilities:
               drop:
               - ALL
@@ -106,9 +104,12 @@ spec:
               - NET_ADMIN
               # CAP_NET_RAW is required to allow iptables mutation of the `nat` table
               - NET_RAW
+              # CAP_SYS_PTRACE is required for repair mode to describe the pod's network namespace
+              # in ambient and repair mode.
+              - SYS_PTRACE
               # CAP_SYS_ADMIN is required for both ambient and repair, in order to open
-              # network namespaces in `/proc` to obtain descriptors for entering pod netnamespaces.
-              # There does not appear to be a more granular capability for this.
+              # network namespaces in `/proc` to obtain descriptors for entering pod network
+              # namespaces. There does not appear to be a more granular capability for this.
               - SYS_ADMIN
 {{- if .Values.seccompProfile }}
             seccompProfile:
