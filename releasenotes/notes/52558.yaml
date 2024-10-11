@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 52558
+releaseNotes:
+- |
+  **Updated** `securityContext.privileged` to false for istio-cni in favor of feature-specific permissions.
+  istio-cni remains a privileged container since it has privileged capabilities, namely CAP_SYS_ADMIN.
