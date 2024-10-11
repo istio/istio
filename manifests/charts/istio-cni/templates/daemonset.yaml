@@ -97,7 +97,7 @@ spec:
             # But we don't need _everything_ in `privileged`, so explicitly set it to false and
             # add capabilities based on feature.
             capabilities:
-              drop
+              drop:
               - ALL
               add:
               # CAP_NET_ADMIN is required to allow ipset and route table access
