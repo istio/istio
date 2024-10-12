@@ -15,11 +15,7 @@
 package sanitycheck
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"istio.io/api/label"
-	"istio.io/api/security/v1beta1"
-	v1 "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -90,32 +86,44 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 
 func BlockTestWithPolicy(t framework.TestContext, client, server echo.Instance) {
 	ns := server.Config().Namespace.Name()
-	_, err := server.Config().Cluster.Istio().SecurityV1().AuthorizationPolicies(ns).Create(
-		t.Context(),
-		&v1.AuthorizationPolicy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "block-sanity-test",
-			},
-			Spec: v1beta1.AuthorizationPolicy{
-				Action: v1beta1.AuthorizationPolicy_DENY,
-				Rules: []*v1beta1.Rule{
-					{
-						From: []*v1beta1.Rule_From{
-							{
-								Source: &v1beta1.Source{
-									Principals: []string{client.ServiceAccountName()},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		metav1.CreateOptions{},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.ConfigIstio().Eval(ns, map[string]any{"serviceAccount": client.ServiceAccountName()}, `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: block-sanity-test
+spec:
+  action: DENY
+  rules:
+  - from:
+    - source:
+        principals:
+        - {{ .serviceAccount }}`).ApplyOrFail(t)
+	// _, err := server.Config().Cluster.Istio().SecurityV1().AuthorizationPolicies(ns).Create(
+	// 	t.Context(),
+	// 	&v1.AuthorizationPolicy{
+	// 		ObjectMeta: metav1.ObjectMeta{
+	// 			Name: "block-sanity-test",
+	// 		},
+	// 		Spec: v1beta1.AuthorizationPolicy{
+	// 			Action: v1beta1.AuthorizationPolicy_DENY,
+	// 			Rules: []*v1beta1.Rule{
+	// 				{
+	// 					From: []*v1beta1.Rule_From{
+	// 						{
+	// 							Source: &v1beta1.Source{
+	// 								Principals: []string{client.ServiceAccountName()},
+	// 							},
+	// 						},
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	},
+	// 	metav1.CreateOptions{},
+	// )
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 }
 
 func RunTrafficTestClientServer(t framework.TestContext, client, server echo.Instance) {
