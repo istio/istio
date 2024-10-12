@@ -72,6 +72,7 @@ proxyHeaders:
 				"server",
 				"x-forwarded-client-cert",
 				"x-request-id",
+				"x-envoy-attempt-count",
 			)
 
 			allowedClientHeaders := sets.New(
