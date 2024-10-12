@@ -115,6 +115,9 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 	dependencyWaitCh := dependenciesChannels()
 	for _, mf := range manifests {
 		c := mf.Component
+		if c == "Pilot" {
+			fmt.Printf("Pilot\n")
+		}
 		ms := mf.Manifests
 		disabledComponents.Delete(c)
 		wg.Add(1)
