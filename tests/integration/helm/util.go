@@ -274,9 +274,6 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	if version != "" {
 		// Prepend ~ to the version, so that we can refer to the latest patch version of a minor version
 		versionArgs = fmt.Sprintf("--repo %s --version ~%s", t.Settings().HelmRepo, version)
-		if ambientProfile {
-			gatewayOverrideValuesFile = GetValuesOverrides(t, t.Settings().Image.Hub, version, t.Settings().Image.Variant, "", false)
-		}
 	} else {
 		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
 		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
