@@ -98,32 +98,6 @@ spec:
     - source:
         principals:
         - {{ .serviceAccount }}`).ApplyOrFail(t)
-	// _, err := server.Config().Cluster.Istio().SecurityV1().AuthorizationPolicies(ns).Create(
-	// 	t.Context(),
-	// 	&v1.AuthorizationPolicy{
-	// 		ObjectMeta: metav1.ObjectMeta{
-	// 			Name: "block-sanity-test",
-	// 		},
-	// 		Spec: v1beta1.AuthorizationPolicy{
-	// 			Action: v1beta1.AuthorizationPolicy_DENY,
-	// 			Rules: []*v1beta1.Rule{
-	// 				{
-	// 					From: []*v1beta1.Rule_From{
-	// 						{
-	// 							Source: &v1beta1.Source{
-	// 								Principals: []string{client.ServiceAccountName()},
-	// 							},
-	// 						},
-	// 					},
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// 	metav1.CreateOptions{},
-	// )
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
 }
 
 func RunTrafficTestClientServer(t framework.TestContext, client, server echo.Instance) {
