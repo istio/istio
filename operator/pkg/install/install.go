@@ -116,6 +116,9 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 	for _, mf := range manifests {
 		mf := mf
 		c := mf.Component
+		if c == "Pilot" {
+			fmt.Printf("Pilot\n")
+		}
 		ms := mf.Manifests
 		disabledComponents.Delete(c)
 		wg.Add(1)

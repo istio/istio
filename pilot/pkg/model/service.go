@@ -1000,9 +1000,10 @@ const (
 type ConditionSet = map[ConditionType][]Condition
 
 type Condition struct {
-	Reason  string
-	Message string
-	Status  bool
+	ObservedGeneration int
+	Reason             string
+	Message            string
+	Status             bool
 }
 
 func (i ServiceInfo) GetConditions() ConditionSet {
@@ -1039,8 +1040,9 @@ type WaypointBindingStatus struct {
 }
 
 type StatusMessage struct {
-	Reason  string
-	Message string
+	Reason             string
+	Message            string
+	ObservedGeneration int64
 }
 
 func (i ServiceInfo) NamespacedName() types.NamespacedName {
@@ -1138,9 +1140,10 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 	if len(conditions) == 1 {
 		c := conditions[0]
 		return Condition{
-			Reason:  c.Status.Reason,
-			Message: c.Status.Message,
-			Status:  c.Bound,
+			ObservedGeneration: 1,
+			Reason:             c.Status.Reason,
+			Message:            c.Status.Message,
+			Status:             c.Bound,
 		}
 	}
 
@@ -1168,6 +1171,7 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 	}
 
 	return Condition{
+		1,
 		reason,
 		message,
 		status,
