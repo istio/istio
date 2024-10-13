@@ -292,16 +292,18 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			serviceEntries: []networkingclient.ServiceEntry{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "working-se",
-						Namespace: testNS,
+						Name:       "working-se",
+						Namespace:  testNS,
+						Generation: 1,
 					},
 					Spec: v1alpha3.ServiceEntry{},
 				},
 			},
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "working-se-pol",
-					Namespace: testNS,
+					Name:       "working-se-pol",
+					Namespace:  testNS,
+					Generation: 1,
 				},
 				Spec: v1beta1.AuthorizationPolicy{
 					TargetRefs: []*apiv1beta1.PolicyTargetReference{
@@ -322,7 +324,8 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Reason:  model.WaypointPolicyReasonAccepted,
 						Message: "bound to " + testNS + "/waypoint",
 					},
-					Bound: true,
+					Bound:              true,
+					ObservedGeneration: 1,
 				},
 			},
 		},
@@ -336,14 +339,16 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Labels: map[string]string{
 							label.IoIstioUseWaypoint.Name: "none",
 						},
+						Generation: 1,
 					},
 					Spec: v1alpha3.ServiceEntry{},
 				},
 			},
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "no-waypoint-se-pol",
-					Namespace: testNS,
+					Name:       "no-waypoint-se-pol",
+					Namespace:  testNS,
+					Generation: 1,
 				},
 				Spec: v1beta1.AuthorizationPolicy{
 					TargetRefs: []*apiv1beta1.PolicyTargetReference{
@@ -364,7 +369,8 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Reason:  model.WaypointPolicyReasonAncestorNotBound,
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/no-waypoint-se is not bound to a waypoint",
 					},
-					Bound: false,
+					Bound:              false,
+					ObservedGeneration: 1,
 				},
 			},
 		},
@@ -373,8 +379,9 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			serviceEntries: []networkingclient.ServiceEntry{},
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "missing-se-pol",
-					Namespace: testNS,
+					Name:       "missing-se-pol",
+					Namespace:  testNS,
+					Generation: 1,
 				},
 				Spec: v1beta1.AuthorizationPolicy{
 					TargetRefs: []*apiv1beta1.PolicyTargetReference{
@@ -395,7 +402,8 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Reason:  model.WaypointPolicyReasonTargetNotFound,
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/missing-se was not found",
 					},
-					Bound: false,
+					Bound:              false,
+					ObservedGeneration: 1,
 				},
 			},
 		},
@@ -404,23 +412,26 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			serviceEntries: []networkingclient.ServiceEntry{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "multi-working-se-1",
-						Namespace: testNS,
+						Name:       "multi-working-se-1",
+						Namespace:  testNS,
+						Generation: 1,
 					},
 					Spec: v1alpha3.ServiceEntry{},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "multi-working-se-2",
-						Namespace: testNS,
+						Name:       "multi-working-se-2",
+						Namespace:  testNS,
+						Generation: 1,
 					},
 					Spec: v1alpha3.ServiceEntry{},
 				},
 			},
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "multi-working-se-pol",
-					Namespace: testNS,
+					Name:       "multi-working-se-pol",
+					Namespace:  testNS,
+					Generation: 1,
 				},
 				Spec: v1beta1.AuthorizationPolicy{
 					TargetRefs: []*apiv1beta1.PolicyTargetReference{
@@ -447,6 +458,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound: true,
+					ObservedGeneration: 1,
 				},
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/multi-working-se-2",
@@ -455,6 +467,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound: true,
+					ObservedGeneration: 1,
 				},
 			},
 		},
@@ -468,21 +481,24 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Labels: map[string]string{
 							label.IoIstioUseWaypoint.Name: "none",
 						},
+						Generation: 1,
 					},
 					Spec: v1alpha3.ServiceEntry{},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "multi-partial-bound-se-1",
-						Namespace: testNS,
+						Name:       "multi-partial-bound-se-1",
+						Namespace:  testNS,
+						Generation: 1,
 					},
 					Spec: v1alpha3.ServiceEntry{},
 				},
 			},
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "multi-partial-se-pol",
-					Namespace: testNS,
+					Name:       "multi-partial-se-pol",
+					Namespace:  testNS,
+					Generation: 1,
 				},
 				Spec: v1beta1.AuthorizationPolicy{
 					TargetRefs: []*apiv1beta1.PolicyTargetReference{
@@ -514,6 +530,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/multi-partial-no-waypoint-se-1 is not bound to a waypoint",
 					},
 					Bound: false,
+					ObservedGeneration: 1,
 				},
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/multi-partial-bound-se-1",
@@ -522,6 +539,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound: true,
+					ObservedGeneration: 1,
 				},
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/multi-partial-missing-se-1",
@@ -530,6 +548,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/multi-partial-missing-se-1 was not found",
 					},
 					Bound: false,
+					ObservedGeneration: 1,
 				},
 			},
 		},
@@ -538,16 +557,18 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			services: []v1.Service{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "working-service",
-						Namespace: testNS,
+						Name:       "working-service",
+						Namespace:  testNS,
+						Generation: 1,
 					},
 					Spec: v1.ServiceSpec{},
 				},
 			},
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "working-service-pol",
-					Namespace: testNS,
+					Name:       "working-service-pol",
+					Namespace:  testNS,
+					Generation: 1,
 				},
 				Spec: v1beta1.AuthorizationPolicy{
 					TargetRefs: []*apiv1beta1.PolicyTargetReference{
@@ -569,6 +590,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound: true,
+					ObservedGeneration: 1,
 				},
 			},
 		},
@@ -582,14 +604,16 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Labels: map[string]string{
 							label.IoIstioUseWaypoint.Name: "none",
 						},
+						Generation: 1,
 					},
 					Spec: v1.ServiceSpec{},
 				},
 			},
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "no-waypoint-service-pol",
-					Namespace: testNS,
+					Name:       "no-waypoint-service-pol",
+					Namespace:  testNS,
+					Generation: 1,
 				},
 				Spec: v1beta1.AuthorizationPolicy{
 					TargetRefs: []*apiv1beta1.PolicyTargetReference{
@@ -611,6 +635,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "Service " + testNS + "/no-waypoint-service is not bound to a waypoint",
 					},
 					Bound: false,
+					ObservedGeneration: 1,
 				},
 			},
 		},
@@ -618,8 +643,9 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			testName: "single-bind-no-service",
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "no-service-pol",
-					Namespace: testNS,
+					Name:       "no-service-pol",
+					Namespace:  testNS,
+					Generation: 1,
 				},
 				Spec: v1beta1.AuthorizationPolicy{
 					TargetRefs: []*apiv1beta1.PolicyTargetReference{
@@ -641,6 +667,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "Service " + testNS + "/no-service was not found",
 					},
 					Bound: false,
+					ObservedGeneration: 1,
 				},
 			},
 		},
@@ -648,8 +675,9 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			testName: "single-bind-success-gateway",
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "single-gateway-pol",
-					Namespace: testNS,
+					Name:       "single-gateway-pol",
+					Namespace:  testNS,
+					Generation: 1,
 				},
 				Spec: v1beta1.AuthorizationPolicy{
 					TargetRefs: []*apiv1beta1.PolicyTargetReference{
@@ -671,6 +699,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound: true,
+					ObservedGeneration: 1,
 				},
 			},
 		},
@@ -678,8 +707,9 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			testName: "single-bind-no-gateway",
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "single-no-gateway-pol",
-					Namespace: testNS,
+					Name:       "single-no-gateway-pol",
+					Namespace:  testNS,
+					Generation: 1,
 				},
 				Spec: v1beta1.AuthorizationPolicy{
 					TargetRefs: []*apiv1beta1.PolicyTargetReference{
@@ -701,6 +731,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "not bound",
 					},
 					Bound: false,
+					ObservedGeneration: 1,
 				},
 			},
 		},
@@ -708,8 +739,9 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			testName: "multi-bind-partial-all-resources",
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "multi-partial-all-pol",
-					Namespace: testNS,
+					Name:       "multi-partial-all-pol",
+					Namespace:  testNS,
+					Generation: 1,
 				},
 				Spec: v1beta1.AuthorizationPolicy{
 					TargetRefs: []*apiv1beta1.PolicyTargetReference{
@@ -766,6 +798,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound: true,
+					ObservedGeneration: 1,
 				},
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/no-waypoint-se",
@@ -774,6 +807,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/no-waypoint-se is not bound to a waypoint",
 					},
 					Bound: false,
+					ObservedGeneration: 1,
 				},
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/missing-se",
@@ -782,6 +816,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/missing-se was not found",
 					},
 					Bound: false,
+					ObservedGeneration: 1,
 				},
 				{
 					Ancestor: "Service.core:ns1/working-service",
@@ -790,6 +825,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound: true,
+					ObservedGeneration: 1,
 				},
 				{
 					Ancestor: "Service.core:ns1/no-waypoint-service",
@@ -798,6 +834,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "Service " + testNS + "/no-waypoint-service is not bound to a waypoint",
 					},
 					Bound: false,
+					ObservedGeneration: 1,
 				},
 				{
 					Ancestor: "Service.core:ns1/no-service",
@@ -806,6 +843,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "Service " + testNS + "/no-service was not found",
 					},
 					Bound: false,
+					ObservedGeneration: 1,
 				},
 				{
 					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/waypoint",
@@ -814,6 +852,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound: true,
+					ObservedGeneration: 1,
 				},
 				{
 					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/not-a-waypoint",
@@ -822,6 +861,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "not bound",
 					},
 					Bound: false,
+					ObservedGeneration: 1,
 				},
 			},
 		},
