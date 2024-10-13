@@ -371,8 +371,8 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 		boilerplate = httpDenyRuleBoilerplate
 	default:
 		return nil, &model.StatusMessage{
-			Reason:  "UnsupportedValue",
-			Message: fmt.Sprintf("ztunnel does not support the %s action", pol.Action),
+			Reason:             "UnsupportedValue",
+			Message:            fmt.Sprintf("ztunnel does not support the %s action", pol.Action),
 		}
 	}
 	opol := &security.Authorization{
@@ -401,8 +401,8 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 		warnings := slices.Join(", ", sets.SortedList(rulesWithL7)...)
 
 		return opol, &model.StatusMessage{
-			Reason:  "UnsupportedValue",
-			Message: fmt.Sprintf(httpRuleFmt, warnings, boilerplate),
+			Reason:             "UnsupportedValue",
+			Message:            fmt.Sprintf(httpRuleFmt, warnings, boilerplate),
 		}
 	}
 
