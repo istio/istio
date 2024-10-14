@@ -1,0 +1,37 @@
+_err: 'spec.trafficPolicy.loadBalancer.warmup.minimumPercent: Invalid value'
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: bookinfo-ratings
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      warmup:
+        duration: 300s
+        minimumPercent: 150.0
+---
+_err: 'spec.trafficPolicy.loadBalancer.warmup.duration: Required value'
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: bookinfo-ratings
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      warmup:
+        minimumPercent: 5.0
+---
+_err: 'spec.trafficPolicy.loadBalancer.warmup.aggression: Invalid value'
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: bookinfo-ratings
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      warmup:
+        duration: 300s
+        aggression: 0.3
