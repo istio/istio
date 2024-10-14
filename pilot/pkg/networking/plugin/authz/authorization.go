@@ -51,7 +51,6 @@ func NewBuilderForService(actionType ActionType, push *model.PushContext, proxy 
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
 		UseFilterState:  useFilterState,
-		UseExtendedJwt:  proxy.SupportsEnvoyExtendedJwt(),
 	}
 	selectionOpts := model.PolicyMatcherForProxy(proxy).WithService(svc)
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)

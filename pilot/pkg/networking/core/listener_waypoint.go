@@ -612,7 +612,7 @@ func (lb *ListenerBuilder) translateRoute(
 
 	out := &route.Route{
 		Name:     routeName,
-		Match:    istio_route.TranslateRouteMatch(virtualService, match, true),
+		Match:    istio_route.TranslateRouteMatch(virtualService, match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 	authority := ""

@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
-	"istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -202,14 +201,6 @@ func (requestPrincipalGenerator) extendedPermission(_ string, _ []string, _ bool
 	return nil, fmt.Errorf("unimplemented")
 }
 
-func (rpg requestPrincipalGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
-	if forTCP {
-		return nil, fmt.Errorf("%q is HTTP only", key)
-	}
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(m), nil
-}
-
 var matchAny = matcher.StringMatcherRegex(".+")
 
 func (rpg requestPrincipalGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {
@@ -282,14 +273,6 @@ func (requestAudiencesGenerator) extendedPermission(key string, values []string,
 	return requestPrincipalGenerator{}.extendedPermission(key, values, forTCP)
 }
 
-func (rag requestAudiencesGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
-	if forTCP {
-		return nil, fmt.Errorf("%q is HTTP only", key)
-	}
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(m), nil
-}
-
 func (rag requestAudiencesGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
@@ -305,14 +288,6 @@ func (requestPresenterGenerator) permission(key, value string, forTCP bool) (*rb
 
 func (requestPresenterGenerator) extendedPermission(key string, values []string, forTCP bool) (*rbacpb.Permission, error) {
 	return requestPrincipalGenerator{}.extendedPermission(key, values, forTCP)
-}
-
-func (rpg requestPresenterGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
-	if forTCP {
-		return nil, fmt.Errorf("%q is HTTP only", key)
-	}
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(m), nil
 }
 
 func (rpg requestPresenterGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {
@@ -349,21 +324,6 @@ func (requestClaimGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission
 
 func (requestClaimGenerator) extendedPermission(_ string, _ []string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
-}
-
-func (rcg requestClaimGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
-	if forTCP {
-		return nil, fmt.Errorf("%q is HTTP only", key)
-	}
-
-	claims, err := extractNameInNestedBrackets(strings.TrimPrefix(key, attrRequestClaims))
-	if err != nil {
-		return nil, err
-	}
-	// Generate a metadata list matcher for the given path keys and value.
-	// On proxy side, the value should be of list type.
-	m := MetadataMatcherForJWTClaims(claims, matcher.StringMatcher(value), false)
-	return principalMetadata(m), nil
 }
 
 func (rcg requestClaimGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {

@@ -95,12 +95,12 @@ func newPolicyApplier(rootNamespace string,
 	}
 }
 
-func (a policyApplier) JwtFilter(useExtendedJwt, clearRouteCache bool) *hcm.HttpFilter {
+func (a policyApplier) JwtFilter(clearRouteCache bool) *hcm.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
 		return nil
 	}
 
-	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules, a.push, useExtendedJwt, clearRouteCache)
+	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules, a.push, clearRouteCache)
 
 	if filterConfigProto == nil {
 		return nil
@@ -157,30 +157,6 @@ func (a policyApplier) setAuthnFilterForRequestAuthn(config *authn_filter.Filter
 	return config
 }
 
-// AuthNFilter returns the Istio authn filter config:
-// - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
-// - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a policyApplier) AuthNFilter(forSidecar bool) *hcm.HttpFilter {
-	var filterConfigProto *authn_filter.FilterConfig
-
-	// Override the config with request authentication, if applicable.
-	filterConfigProto = a.setAuthnFilterForRequestAuthn(filterConfigProto)
-
-	if filterConfigProto == nil {
-		return nil
-	}
-	// disable clear route cache for sidecars because the JWT claim based routing is only supported on gateways.
-	filterConfigProto.DisableClearRouteCache = forSidecar
-
-	// Note: in previous Istio versions, the authn filter also handled PeerAuthentication, to extract principal.
-	// This has been modified to rely on the TCP filter
-
-	return &hcm.HttpFilter{
-		Name:       filters.AuthnFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
-	}
-}
-
 func (a policyApplier) InboundMTLSSettings(
 	endpointPort uint32,
 	node *model.Proxy,
@@ -215,7 +191,7 @@ func (a policyApplier) InboundMTLSSettings(
 // Each rule is expected corresponding to one JWT issuer (provider).
 // The behavior of the filter should reject all requests with invalid token. On the other hand,
 // if no token provided, the request is allowed.
-func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContext, useExtendedJwt, clearRouteCache bool) *envoy_jwt.JwtAuthentication {
+func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContext, clearRouteCache bool) *envoy_jwt.JwtAuthentication {
 	if len(jwtRules) == 0 {
 		return nil
 	}
@@ -236,14 +212,11 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			Audiences:            jwtRule.Audiences,
 			Forward:              jwtRule.ForwardOriginalToken,
 			ForwardPayloadHeader: jwtRule.OutputPayloadToHeader,
-			PayloadInMetadata:    jwtRule.Issuer,
-		}
-		if useExtendedJwt {
-			provider.PayloadInMetadata = filters.EnvoyJwtFilterPayload
-			provider.NormalizePayloadInMetadata = &envoy_jwt.JwtProvider_NormalizePayload{
+			PayloadInMetadata:    filters.EnvoyJwtFilterPayload,
+			NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
 				SpaceDelimitedClaims: []string{"scope", "permission"},
-			}
-			provider.ClearRouteCache = clearRouteCache
+			},
+			ClearRouteCache: clearRouteCache,
 		}
 
 		for _, claimAndHeader := range jwtRule.OutputClaimToHeaders {
