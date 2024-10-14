@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 48368
+releaseNotes:
+  - |
+    **Fixed** kube-virt-related rules not being removed by istio-clean-iptables tool.
