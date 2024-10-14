@@ -111,6 +111,10 @@ spec:
               # network namespaces in `/proc` to obtain descriptors for entering pod network
               # namespaces. There does not appear to be a more granular capability for this.
               - SYS_ADMIN
+{{- if .Values.seLinuxOptions }}
+            seLinuxOptions:
+{{ toYaml .Values.seLinuxOptions | trim | indent 14 }}
+{{- end }}
 {{- if .Values.seccompProfile }}
             seccompProfile:
 {{ toYaml .Values.seccompProfile | trim | indent 14 }}
