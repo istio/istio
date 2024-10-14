@@ -1374,8 +1374,10 @@ templates:
               timeoutSeconds: 1
             securityContext:
               privileged: false
+            {{- if not (eq .Values.platform "openshift") }}
               runAsGroup: 1337
               runAsUser: 1337
+            {{- end }}
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               runAsNonRoot: true
