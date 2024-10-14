@@ -25,8 +25,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	authn_alpha "istio.io/api/authentication/v1alpha1"
-	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
@@ -109,52 +107,6 @@ func (a policyApplier) JwtFilter(clearRouteCache bool) *hcm.HttpFilter {
 		Name:       authn_model.EnvoyJwtFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
 	}
-}
-
-func defaultAuthnFilter() *authn_filter.FilterConfig {
-	return &authn_filter.FilterConfig{
-		Policy: &authn_alpha.Policy{},
-		// we can always set this field, it's no-op if mTLS is not used.
-		SkipValidateTrustDomain: true,
-	}
-}
-
-func (a policyApplier) setAuthnFilterForRequestAuthn(config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
-	if len(a.processedJwtRules) == 0 {
-		// (beta) RequestAuthentication is not set for workload, do nothing.
-		authnLog.Debug("AuthnFilter: RequestAuthentication (beta policy) not found, keep settings with alpha API")
-		return config
-	}
-
-	if config == nil {
-		config = defaultAuthnFilter()
-	}
-
-	// This is obsoleted and not needed (payload is extracted from metadata). Reset the field to remove
-	// any artifacts from alpha applier.
-	config.JwtOutputPayloadLocations = nil
-	p := config.Policy
-	// Reset origins to use with beta API
-	// nolint: staticcheck
-	p.Origins = []*authn_alpha.OriginAuthenticationMethod{}
-	// Always set to true for beta API, as it doesn't doe rejection on missing token.
-	// nolint: staticcheck
-	p.OriginIsOptional = true
-
-	// Always bind request.auth.principal from JWT origin. In v2 policy, authorization config specifies what principal to
-	// choose from instead, rather than in authn config.
-	// nolint: staticcheck
-	p.PrincipalBinding = authn_alpha.PrincipalBinding_USE_ORIGIN
-	// nolint: staticcheck
-	for _, jwt := range a.processedJwtRules {
-		p.Origins = append(p.Origins, &authn_alpha.OriginAuthenticationMethod{
-			Jwt: &authn_alpha.Jwt{
-				// used for getting the filter data, and all other fields are irrelevant.
-				Issuer: jwt.GetIssuer(),
-			},
-		})
-	}
-	return config
 }
 
 func (a policyApplier) InboundMTLSSettings(

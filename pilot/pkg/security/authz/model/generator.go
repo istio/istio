@@ -193,10 +193,6 @@ func (srcPrincipalGenerator) principal(key, value string, _ bool, useAuthenticat
 
 type requestPrincipalGenerator struct{}
 
-func (requestPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
-	return nil, fmt.Errorf("unimplemented")
-}
-
 func (requestPrincipalGenerator) extendedPermission(_ string, _ []string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
 }
@@ -265,10 +261,6 @@ func (rpg requestPrincipalGenerator) extendedPrincipal(key string, values []stri
 
 type requestAudiencesGenerator struct{}
 
-func (requestAudiencesGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
-	return requestPrincipalGenerator{}.permission(key, value, forTCP)
-}
-
 func (requestAudiencesGenerator) extendedPermission(key string, values []string, forTCP bool) (*rbacpb.Permission, error) {
 	return requestPrincipalGenerator{}.extendedPermission(key, values, forTCP)
 }
@@ -281,10 +273,6 @@ func (rag requestAudiencesGenerator) extendedPrincipal(key string, values []stri
 }
 
 type requestPresenterGenerator struct{}
-
-func (requestPresenterGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
-	return requestPrincipalGenerator{}.permission(key, value, forTCP)
-}
 
 func (requestPresenterGenerator) extendedPermission(key string, values []string, forTCP bool) (*rbacpb.Permission, error) {
 	return requestPrincipalGenerator{}.extendedPermission(key, values, forTCP)
@@ -317,10 +305,6 @@ func (requestHeaderGenerator) principal(key, value string, forTCP bool, _ bool) 
 }
 
 type requestClaimGenerator struct{}
-
-func (requestClaimGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
-	return nil, fmt.Errorf("unimplemented")
-}
 
 func (requestClaimGenerator) extendedPermission(_ string, _ []string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")

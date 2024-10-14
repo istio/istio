@@ -31,7 +31,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
@@ -1297,15 +1296,6 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 			}
 		})
 	}
-}
-
-func humanReadableAuthnFilterDump(filter *hcm.HttpFilter) string {
-	if filter == nil {
-		return "<nil>"
-	}
-	config := &authn_filter.FilterConfig{}
-	filter.GetTypedConfig().UnmarshalTo(config)
-	return spew.Sdump(config)
 }
 
 func TestInboundMTLSSettings(t *testing.T) {
