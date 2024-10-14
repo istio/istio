@@ -10,4 +10,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** For a WasmPlugin of type FAIL_CLOSE, if the wasm image fetch fails, a DENY-ALL RBAC filter will be used.
+  **Fixed** an issue where if a wasm image fetch fails, an allow all RBAC filter is used. Now if `failStrategy` is set to `FAIL_CLOSE`, a DENY-ALL RBAC filter will be used.
