@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -125,9 +126,22 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 		return err
 	}
 
+	// If true, the pod will run in 'ingress mode'. This is intended to be used for "ingress" type workloads which handle
+	// non-mesh traffic on inbound, and send to the mesh on outbound.
+	// Basically, this just disables inbound redirection.
+	// We use the SidecarTrafficExcludeInboundPorts annotation for compatibility (its somewhat widely used) but don't support all values.
+	ingressMode := false
+	if a, f := pod.Annotations["ambient.istio.io/bypassInboundCapture"]; f {
+		var err error
+		ingressMode, err = strconv.ParseBool(a)
+		if err != nil {
+			log.Warnf("annotation ambient.istio.io/bypassInboundCapture=%q found, but only '*' is supported", a)
+		}
+	}
+
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.podIptables.CreateInpodRules(log, HostProbeSNATIP, HostProbeSNATIPV6)
+		return s.podIptables.CreateInpodRules(log, HostProbeSNATIP, HostProbeSNATIPV6, ingressMode)
 	}); err != nil {
 		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
 		return err

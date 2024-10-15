@@ -54,7 +54,7 @@ func TestIptablesCleanRoundTrip(t *testing.T) {
 
 	deps := &dep.RealDependencies{}
 	iptConfigurator, _, _ := NewIptablesConfigurator(cfg, deps, deps, EmptyNlDeps())
-	assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6))
+	assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, false))
 
 	t.Log("starting cleanup")
 	// Cleanup, should work
@@ -63,7 +63,7 @@ func TestIptablesCleanRoundTrip(t *testing.T) {
 
 	t.Log("second run")
 	// Add again, should still work
-	assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6))
+	assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, false))
 }
 
 func validateIptablesClean(t *testing.T) {
