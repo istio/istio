@@ -95,20 +95,42 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.principal
-                    value:
-                      stringMatch:
-                        exact: requestPrincipals1
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.principal
-                    value:
-                      stringMatch:
-                        exact: requestPrincipals2
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
+                          stringMatch:
+                            exact: requestPrincipals1
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
+                          stringMatch:
+                            exact: ""
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
+                          stringMatch:
+                            exact: requestPrincipals2
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
+                          stringMatch:
+                            exact: ""
       ns[foo]-policy[httpbin-7]-rule[0]:
         permissions:
         - andRules:

@@ -73,7 +73,7 @@ type Model struct {
 }
 
 // New returns a model representing a single authorization policy.
-func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
+func New(r *authzpb.Rule) (*Model, error) {
 	m := Model{}
 
 	basePermission := ruleList{}
@@ -90,11 +90,7 @@ func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
 		case k == attrConnSNI:
 			basePermission.appendLast(connSNIGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrEnvoyFilter):
-			if useExtendedJwt {
-				basePermission.appendLastExtended(envoyFilterGenerator{}, k, when.Values, when.NotValues)
-			} else {
-				basePermission.appendLast(envoyFilterGenerator{}, k, when.Values, when.NotValues)
-			}
+			basePermission.appendLastExtended(envoyFilterGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcIP:
 			basePrincipal.appendLast(srcIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRemoteIP:
@@ -104,31 +100,15 @@ func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
 		case k == attrSrcPrincipal:
 			basePrincipal.appendLast(srcPrincipalGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestPrincipal:
-			if useExtendedJwt {
-				basePrincipal.appendLastExtended(requestPrincipalGenerator{}, k, when.Values, when.NotValues)
-			} else {
-				basePrincipal.appendLast(requestPrincipalGenerator{}, k, when.Values, when.NotValues)
-			}
+			basePrincipal.appendLastExtended(requestPrincipalGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestAudiences:
-			if useExtendedJwt {
-				basePrincipal.appendLastExtended(requestAudiencesGenerator{}, k, when.Values, when.NotValues)
-			} else {
-				basePrincipal.appendLast(requestAudiencesGenerator{}, k, when.Values, when.NotValues)
-			}
+			basePrincipal.appendLastExtended(requestAudiencesGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestPresenter:
-			if useExtendedJwt {
-				basePrincipal.appendLastExtended(requestPresenterGenerator{}, k, when.Values, when.NotValues)
-			} else {
-				basePrincipal.appendLast(requestPresenterGenerator{}, k, when.Values, when.NotValues)
-			}
+			basePrincipal.appendLastExtended(requestPresenterGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestHeader):
 			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestClaims):
-			if useExtendedJwt {
-				basePrincipal.appendLastExtended(requestClaimGenerator{}, k, when.Values, when.NotValues)
-			} else {
-				basePrincipal.appendLast(requestClaimGenerator{}, k, when.Values, when.NotValues)
-			}
+			basePrincipal.appendLastExtended(requestClaimGenerator{}, k, when.Values, when.NotValues)
 		default:
 			return nil, fmt.Errorf("unknown attribute %s", when.Key)
 		}
@@ -140,11 +120,7 @@ func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
 			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
-			if useExtendedJwt {
-				merged.insertFrontExtended(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
-			} else {
-				merged.insertFront(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
-			}
+			merged.insertFrontExtended(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
 			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
 		}
 		m.principals = append(m.principals, merged)

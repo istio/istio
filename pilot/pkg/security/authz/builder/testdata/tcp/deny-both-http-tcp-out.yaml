@@ -157,25 +157,21 @@ typedConfig:
                   rules:
                   - requestedServerName:
                       exact: not-exact.com
-            - orRules:
-                rules:
-                - metadata:
-                    filter: envoy.filters.a.b
-                    path:
-                    - key: c
-                    value:
-                      stringMatch:
-                        exact: exact
+            - metadata:
+                filter: envoy.filters.a.b
+                path:
+                - key: c
+                value:
+                  stringMatch:
+                    exact: exact
             - notRule:
-                orRules:
-                  rules:
-                  - metadata:
-                      filter: envoy.filters.a.b
-                      path:
-                      - key: c
-                      value:
-                        stringMatch:
-                          exact: not-exact
+                metadata:
+                  filter: envoy.filters.a.b
+                  path:
+                  - key: c
+                  value:
+                    stringMatch:
+                      exact: not-exact
         principals:
         - andIds:
             ids:

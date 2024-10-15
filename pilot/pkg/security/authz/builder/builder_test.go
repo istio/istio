@@ -256,7 +256,6 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				option := Option{
 					IsCustomBuilder: tc.meshConfig != nil,
-					UseExtendedJwt:  extended,
 				}
 				push := push(t, baseDir+tc.input, tc.meshConfig)
 				proxy := node(tc.version)

@@ -276,22 +276,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(len(routes[0].GetRoute().GetRetryPolicy().RetryHostPredicate)).To(Equal(1))
 	})
 
-	t.Run("for virtual service with exact matching on JWT claims", func(t *testing.T) {
-		g := NewWithT(t)
-		cg := core.NewConfigGenTest(t, core.TestOptions{})
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithExactMatchingOnHeaderForJWTClaims,
-			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
-		xdstest.ValidateRoutes(t, routes)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(len(routes)).To(Equal(1))
-		g.Expect(len(routes[0].GetMatch().GetHeaders())).To(Equal(0))
-		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[0].GetFilter()).To(Equal("istio_authn"))
-		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[0].GetInvert()).To(BeFalse())
-		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[1].GetFilter()).To(Equal("istio_authn"))
-		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[1].GetInvert()).To(BeTrue())
-	})
-
 	t.Run("for virtual service with exact matching on JWT claims with extended", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
@@ -2978,7 +2962,7 @@ func TestInboundHTTPRoute(t *testing.T) {
 			enableRetry: true,
 			expected: &envoyroute.Route{
 				Name:  "default",
-				Match: route.TranslateRouteMatch(config.Config{}, nil, true),
+				Match: route.TranslateRouteMatch(config.Config{}, nil),
 				Action: &envoyroute.Route_Route{
 					Route: &envoyroute.RouteAction{
 						ClusterSpecifier: &envoyroute.RouteAction_Cluster{Cluster: "cluster"},
@@ -3005,7 +2989,7 @@ func TestInboundHTTPRoute(t *testing.T) {
 			enableRetry: false,
 			expected: &envoyroute.Route{
 				Name:  "default",
-				Match: route.TranslateRouteMatch(config.Config{}, nil, true),
+				Match: route.TranslateRouteMatch(config.Config{}, nil),
 				Action: &envoyroute.Route_Route{
 					Route: &envoyroute.RouteAction{
 						ClusterSpecifier: &envoyroute.RouteAction_Cluster{Cluster: "cluster"},
