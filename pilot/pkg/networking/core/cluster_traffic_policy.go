@@ -360,7 +360,6 @@ func setSlowStartConfig(dur *durationpb.Duration) *cluster.Cluster_SlowStartConf
 // setWarmup will set the warmup configuration for LEAST_REQUEST and ROUND_ROBIN if provided in DestinationRule
 // Runtime key is not exposed,the value is fixed
 func setWarmup(warmup *networking.WarmupConfiguration) *cluster.Cluster_SlowStartConfig {
-
 	var aggression, minWeightPercent float64
 
 	// If not specified, aggression defaults to 1.0 ensuring a linear traffic rampup
