@@ -132,6 +132,9 @@ spec:
         image: test/proxyv2:test
         name: istio-proxy
         ports:
+        - containerPort: 15020
+          name: metrics
+          protocol: TCP
         - containerPort: 15021
           name: status-port
           protocol: TCP
@@ -223,6 +226,7 @@ metadata:
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
     gateway.networking.k8s.io/gateway-name: namespace
+    networking.istio.io/traffic-distribution: PreferClose
     topology.istio.io/network: network-1
   name: namespace
   namespace: default

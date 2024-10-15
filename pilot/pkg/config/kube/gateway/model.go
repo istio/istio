@@ -29,9 +29,6 @@ import (
 const (
 	gatewayAliasForAnnotationKey = "gateway.istio.io/alias-for"
 	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
-	gatewayNameOverride          = "gateway.istio.io/name-override"
-	gatewaySAOverride            = "gateway.istio.io/service-account"
-	serviceTypeOverride          = "networking.istio.io/service-type"
 	addressTypeOverride          = "networking.istio.io/address-type"
 )
 

@@ -1,0 +1,127 @@
+{
+  "gateways": {
+    "seccompProfile": {},
+    "securityContext": {}
+  },
+  "global": {
+    "caAddress": "",
+    "caName": "",
+    "certSigners": [],
+    "configCluster": false,
+    "configValidation": true,
+    "defaultPodDisruptionBudget": {
+      "enabled": true
+    },
+    "defaultResources": {
+      "requests": {
+        "cpu": "10m"
+      }
+    },
+    "externalIstiod": false,
+    "hub": "gcr.io/istio-testing",
+    "imagePullPolicy": "",
+    "imagePullSecrets": [],
+    "istioNamespace": "istio-system",
+    "istiod": {
+      "enableAnalysis": false
+    },
+    "logAsJson": false,
+    "logging": {
+      "level": "default:info"
+    },
+    "meshID": "",
+    "meshNetworks": {},
+    "mountMtlsCerts": false,
+    "multiCluster": {
+      "clusterName": "",
+      "enabled": false
+    },
+    "network": "",
+    "omitSidecarInjectorConfigMap": false,
+    "operatorManageWebhooks": false,
+    "pilotCertProvider": "istiod",
+    "priorityClassName": "",
+    "proxy": {
+      "autoInject": "enabled",
+      "clusterDomain": "cluster.local",
+      "componentLogLevel": "misc:error",
+      "excludeIPRanges": "",
+      "excludeInboundPorts": "",
+      "excludeOutboundPorts": "",
+      "image": "proxyv2",
+      "includeIPRanges": "*",
+      "includeInboundPorts": "*",
+      "includeOutboundPorts": "",
+      "logLevel": "warning",
+      "outlierLogPath": "",
+      "privileged": false,
+      "readinessFailureThreshold": 4,
+      "readinessInitialDelaySeconds": 0,
+      "readinessPeriodSeconds": 15,
+      "resources": {
+        "limits": {
+          "cpu": "2000m",
+          "memory": "1024Mi"
+        },
+        "requests": {
+          "cpu": "100m",
+          "memory": "128Mi"
+        }
+      },
+      "startupProbe": {
+        "enabled": true,
+        "failureThreshold": 600
+      },
+      "statusPort": 15020,
+      "tracer": "none"
+    },
+    "proxy_init": {
+      "forceApplyIptables": false,
+      "image": "proxyv2"
+    },
+    "remotePilotAddress": "",
+    "sds": {
+      "token": {
+        "aud": "istio-ca"
+      }
+    },
+    "sts": {
+      "servicePort": 0
+    },
+    "tag": "latest",
+    "variant": "",
+    "waypoint": {
+      "affinity": {},
+      "nodeSelector": {},
+      "resources": {
+        "limits": {
+          "cpu": "2",
+          "memory": "1Gi"
+        },
+        "requests": {
+          "cpu": "100m",
+          "memory": "128Mi"
+        }
+      },
+      "tolerations": [],
+      "topologySpreadConstraints": []
+    }
+  },
+  "pilot": {
+    "cni": {
+      "enabled": true,
+      "provider": "default"
+    }
+  },
+  "revision": "",
+  "sidecarInjectorWebhook": {
+    "alwaysInjectSelector": [],
+    "defaultTemplates": [],
+    "enableNamespacesByDefault": false,
+    "injectedAnnotations": {},
+    "neverInjectSelector": [],
+    "reinvocationPolicy": "Never",
+    "rewriteAppHTTPProbe": true,
+    "templates": {}
+  }
+}

@@ -75,6 +75,20 @@ func TestIptables(t *testing.T) {
 			},
 		},
 		{
+			"ipnets-with-kube-virt-interfaces",
+			func(cfg *config.Config) {
+				cfg.KubeVirtInterfaces = "eth1,eth2"
+				cfg.OutboundIPRangesInclude = "10.0.0.0/8"
+			},
+		},
+		{
+			"kube-virt-interfaces",
+			func(cfg *config.Config) {
+				cfg.KubeVirtInterfaces = "eth1,eth2"
+				cfg.OutboundIPRangesInclude = "*"
+			},
+		},
+		{
 			"inbound-interception-mode",
 			func(cfg *config.Config) {
 				cfg.InboundInterceptionMode = "TPROXY"

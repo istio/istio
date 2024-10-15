@@ -45,7 +45,6 @@
       "autoInject": "enabled",
       "clusterDomain": "cluster.local",
       "componentLogLevel": "misc:error",
-      "enableCoreDump": false,
       "excludeIPRanges": "",
       "excludeInboundPorts": "",
       "excludeOutboundPorts": "",

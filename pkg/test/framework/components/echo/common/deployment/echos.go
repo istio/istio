@@ -243,8 +243,8 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			{
 				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 				Labels: map[string]string{
-					label.SidecarInject.Name:     "false",
-					constants.DataplaneModeLabel: constants.DataplaneModeNone,
+					label.SidecarInject.Name:        "false",
+					label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 				},
 			},
 		},
@@ -257,7 +257,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		Subsets: []echo.SubsetConfig{{
 			Annotations: map[string]string{annotation.SidecarInterceptionMode.Name: "TPROXY"},
 			Labels: map[string]string{
-				constants.DataplaneModeLabel: constants.DataplaneModeNone,
+				label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 			},
 		}},
 		IncludeExtAuthz: c.IncludeExtAuthz,
@@ -359,8 +359,8 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{{
 				Labels: map[string]string{
-					label.SidecarInject.Name:     "false",
-					constants.AmbientRedirection: constants.AmbientRedirectionEnabled,
+					label.SidecarInject.Name:           "false",
+					annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled,
 				},
 			}},
 		}

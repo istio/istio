@@ -295,7 +295,7 @@ func setDefaultConfig(config *Config) Config {
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func (a *ADSC) Dial() error {
-	conn, err := dialWithConfig(&a.cfg.Config)
+	conn, err := dialWithConfig(context.Background(), &a.cfg.Config)
 	if err != nil {
 		return err
 	}
@@ -303,7 +303,7 @@ func (a *ADSC) Dial() error {
 	return nil
 }
 
-func dialWithConfig(config *Config) (*grpc.ClientConn, error) {
+func dialWithConfig(ctx context.Context, config *Config) (*grpc.ClientConn, error) {
 	defaultGrpcDialOptions := defaultGrpcDialOptions()
 	var grpcDialOptions []grpc.DialOption
 	grpcDialOptions = append(grpcDialOptions, defaultGrpcDialOptions...)
@@ -325,7 +325,7 @@ func dialWithConfig(config *Config) (*grpc.ClientConn, error) {
 		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	conn, err := grpc.Dial(config.Address, grpcDialOptions...)
+	conn, err := grpc.DialContext(ctx, config.Address, grpcDialOptions...)
 	if err != nil {
 		return nil, err
 	}

@@ -24,12 +24,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/label"
 	"istio.io/api/meta/v1alpha1"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -55,7 +57,7 @@ type Index interface {
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	SyncAll()
 	NetworksSynced()
-	RunStatus(stop <-chan struct{})
+	Run(stop <-chan struct{})
 	HasSynced() bool
 	model.AmbientIndexes
 }
@@ -120,6 +122,7 @@ type Options struct {
 	XDSUpdater            model.XDSUpdater
 	LookupNetwork         LookupNetwork
 	LookupNetworkGateways LookupNetworkGateways
+	StatusNotifier        *activenotifier.ActiveNotifier
 }
 
 func New(options Options) Index {
@@ -194,13 +197,22 @@ func New(options Options) Index {
 
 	serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
 	servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
+
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
 
+	WaypointPolicyStatus := WaypointPolicyStatusCollection(
+		AuthzPolicies,
+		Waypoints,
+		Services,
+		ServiceEntries,
+		Namespaces,
+	)
+
 	authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
 
-	statusQueue := statusqueue.NewQueue()
 	if features.EnableAmbientStatus {
+		statusQueue := statusqueue.NewQueue(options.StatusNotifier)
 		statusqueue.Register(statusQueue, "istio-ambient-service", WorkloadServices, func(info model.ServiceInfo) (kclient.Patcher, []string) {
 			// Since we have 1 collection for multiple types, we need to split these out
 			if info.Source.Kind == kind.ServiceEntry {
@@ -208,15 +220,19 @@ func New(options Options) Index {
 			}
 			return kclient.ToPatcher(servicesWriter), getConditions(info.Source.NamespacedName, servicesClient)
 		})
-		statusqueue.Register(statusQueue, "istio-ambient-policy", AuthorizationPolicies, func(pol model.WorkloadAuthorization) (kclient.Patcher, []string) {
+		statusqueue.Register(statusQueue, "istio-ambient-ztunnel-policy", AuthorizationPolicies, func(pol model.WorkloadAuthorization) (kclient.Patcher, []string) {
 			return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, authzPolicies)
 		})
+		statusqueue.Register(statusQueue, "istio-ambient-waypoint-policy", WaypointPolicyStatus, func(pol model.WaypointPolicyStatus) (kclient.Patcher, []string) {
+			return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, authzPolicies)
+		})
+		a.statusQueue = statusQueue
 	}
 
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
 	ServiceInfosByOwningWaypoint := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
 		// Filter out waypoint services
-		if s.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+		if s.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
 		waypoint := s.Service.Waypoint
@@ -255,13 +271,14 @@ func New(options Options) Index {
 		EndpointSlices,
 		Namespaces,
 	)
+
 	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, networkAddressFromWorkload)
 	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Services)
 	})
 	WorkloadWaypointIndex := krt.NewIndex(Workloads, func(w model.WorkloadInfo) []NamespaceHostname {
 		// Filter out waypoints.
-		if w.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
 		waypoint := w.Waypoint
@@ -302,7 +319,6 @@ func New(options Options) Index {
 		Collection: Waypoints,
 	}
 	a.authorizationPolicies = AllPolicies
-	a.statusQueue = statusQueue
 
 	return a
 }
@@ -506,8 +522,13 @@ func (a *index) NetworksSynced() {
 	a.networkUpdateTrigger.MarkSynced()
 }
 
-func (a *index) RunStatus(stop <-chan struct{}) {
-	go a.statusQueue.Run(stop)
+func (a *index) Run(stop <-chan struct{}) {
+	if a.statusQueue != nil {
+		go func() {
+			kubeclient.WaitForCacheSync("ambient-status-queue", stop, a.HasSynced)
+			a.statusQueue.Run(stop)
+		}()
+	}
 }
 
 func (a *index) HasSynced() bool {

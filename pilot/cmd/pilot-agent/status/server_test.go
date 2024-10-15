@@ -1442,7 +1442,7 @@ func TestHandleQuit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			shutdown := make(chan struct{})
 			s := NewTestServer(t, Options{
-				Shutdown: func() {
+				Shutdown: func(err error) {
 					close(shutdown)
 				},
 			})

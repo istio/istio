@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"istio.io/api/annotation"
 	"istio.io/api/security/v1beta1"
 	metav1beta1 "istio.io/api/type/v1beta1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
@@ -323,7 +324,7 @@ func mkPod(name string, sa string, ip string, node string) *corev1.Pod {
 			Name:      name,
 			Namespace: "default",
 			Annotations: map[string]string{
-				constants.AmbientRedirection: constants.AmbientRedirectionEnabled,
+				annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled,
 			},
 			Labels: map[string]string{
 				"app": sa,

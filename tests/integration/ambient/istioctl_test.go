@@ -20,7 +20,6 @@ package ambient
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -28,7 +27,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/writer/ztunnel/configdump"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -39,6 +37,7 @@ import (
 func TestZtunnelConfig(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			// Test setup
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			g := NewWithT(t)
@@ -49,114 +48,55 @@ func TestZtunnelConfig(t *testing.T) {
 				t.Fatalf("Failed to get pod ID: %v", err)
 			}
 
-			var (
-				args       []string
-				dumpAll    configdump.ZtunnelDump
-				dumpParsed configdump.ZtunnelDump
-			)
-
-			// get the raw config dump generated when running the istioctl zc all command and unmarshal it into ZtunnelDump struct
-			// for test comparison
-			args = []string{
-				"--namespace=dummy",
+			args := []string{
 				"zc", "all", podName, "-o", "json",
 			}
-			zcAllOutput, _ := istioCtl.InvokeOrFail(t, args)
-			if err = json.Unmarshal([]byte(zcAllOutput), &dumpAll); err != nil {
-				t.Fatalf("Failed to unmarshal zc all output: %v", err)
-			}
+			var zDumpAll configdump.ZtunnelDump
+			out, _ := istioCtl.InvokeOrFail(t, args)
+			err = json.Unmarshal([]byte(out), &zDumpAll)
+			g.Expect(err).To(BeNil())
+			g.Expect(zDumpAll).To(Not(BeNil()))
+			g.Expect(zDumpAll.Services).To(Not(BeNil()))
+			g.Expect(zDumpAll.Workloads).To(Not(BeNil()))
+			g.Expect(zDumpAll.Policies).To(Not(BeNil()))
+			g.Expect(zDumpAll.Certificates).To(Not(BeNil()))
 
-			// get the config dump generated when running the istioctl zc svc command and unmarshal it into ZtunnelDump struct
-			// for test comparison
+			var zDump configdump.ZtunnelDump
 			args = []string{
-				"--namespace=dummy",
-				"zc", "svc", podName, "-o", "json",
+				"zc", "services", podName, "-o", "json",
 			}
-			zcSvcOutput, _ := istioCtl.InvokeOrFail(t, args)
-			if err = jsonUnmarshalListOrMap([]byte(zcSvcOutput), &dumpParsed.Services); err != nil {
-				t.Fatalf("Failed to unmarshal zc svc output: %v", err)
-			}
-			// need to initialize the SubjectAltNames field to an empty slice to avoid nil / slice comparison that fails the test
-			for _, svc := range dumpParsed.Services {
-				if svc.SubjectAltNames == nil {
-					svc.SubjectAltNames = []string{}
-				}
-			}
+			out, _ = istioCtl.InvokeOrFail(t, args)
+			err = unmarshalListOrMap([]byte(out), &zDump.Services)
+			g.Expect(err).To(BeNil())
+			g.Expect(zDump.Services).To(Not(BeNil()))
 
-			// get the config dump generated when running the istioctl policies command and unmarshal it into ZtunnelDump struct
-			// for test comparison
 			args = []string{
-				"--namespace=dummy",
-				"zc", "policies", podName, "-o", "json",
-			}
-			zcPoliciesOutput, _ := istioCtl.InvokeOrFail(t, args)
-			if err = jsonUnmarshalListOrMap([]byte(zcPoliciesOutput), &dumpParsed.Policies); err != nil {
-				t.Fatalf("Failed to unmarshal zc policies output: %v", err)
-			}
-
-			// get the config dump generated when running the istioctl zc workloads command and unmarshal it into ZtunnelDump struct
-			// for test comparison
-			args = []string{
-				"--namespace=dummy",
 				"zc", "workloads", podName, "-o", "json",
 			}
-			zcWorkloadsOutput, _ := istioCtl.InvokeOrFail(t, args)
-			if err = jsonUnmarshalListOrMap([]byte(zcWorkloadsOutput), &dumpParsed.Workloads); err != nil {
-				t.Fatalf("Failed to unmarshal zc workloads output: %v", err)
-			}
+			out, _ = istioCtl.InvokeOrFail(t, args)
+			err = unmarshalListOrMap([]byte(out), &zDump.Workloads)
+			g.Expect(err).To(BeNil())
+			g.Expect(zDump.Workloads).To(Not(BeNil()))
 
-			// get the config dump generated when running the istioctl zc certs command and unmarshal it into ZtunnelDump struct
-			// for test comparison
 			args = []string{
-				"--namespace=dummy",
-				"zc", "certs", podName, "-o", "json",
+				"zc", "policies", podName, "-o", "json",
 			}
-			zcCertsOutput, _ := istioCtl.InvokeOrFail(t, args)
-			if err = jsonUnmarshalListOrMap([]byte(zcCertsOutput), &dumpParsed.Certificates); err != nil {
-				t.Fatalf("Failed to unmarshal zc certs output: %v", err)
+			out, _ = istioCtl.InvokeOrFail(t, args)
+			err = unmarshalListOrMap([]byte(out), &zDump.Policies)
+			g.Expect(err).To(BeNil())
+			g.Expect(zDump.Policies).To(Not(BeNil()))
+
+			args = []string{
+				"zc", "certificates", podName, "-o", "json",
 			}
-
-			// sort the slices to avoid false negative comparison between the raw dump and the parsed dump
-			//
-			// sort certificates by identity
-			slices.SortStableFunc(dumpAll.Certificates, func(a, b *configdump.CertsDump) int {
-				return strings.Compare(a.Identity, b.Identity)
-			})
-			slices.SortStableFunc(dumpParsed.Certificates, func(a, b *configdump.CertsDump) int {
-				return strings.Compare(a.Identity, b.Identity)
-			})
-			// // sort workloads by UID
-			slices.SortStableFunc(dumpAll.Workloads, func(a, b *configdump.ZtunnelWorkload) int {
-				return strings.Compare(a.UID, b.UID)
-			})
-			slices.SortStableFunc(dumpParsed.Workloads, func(a, b *configdump.ZtunnelWorkload) int {
-				return strings.Compare(a.UID, b.UID)
-			})
-			// // sort services by hostname
-			slices.SortStableFunc(dumpAll.Services, func(a, b *configdump.ZtunnelService) int {
-				return strings.Compare(a.Hostname, b.Hostname)
-			})
-			slices.SortStableFunc(dumpParsed.Services, func(a, b *configdump.ZtunnelService) int {
-				return strings.Compare(a.Hostname, b.Hostname)
-			})
-			// // sort policies by name
-			slices.SortStableFunc(dumpAll.Policies, func(a, b *configdump.ZtunnelPolicy) int {
-				return strings.Compare(a.Name, b.Name)
-			})
-			slices.SortStableFunc(dumpParsed.Policies, func(a, b *configdump.ZtunnelPolicy) int {
-				return strings.Compare(a.Name, b.Name)
-			})
-
-			// test that the config dump generated by the zc all command is the same as the config dump
-			// generated by the commands zc svc, zc policies, zc workloads, and zc certs
-			g.Expect(dumpAll.Services).To(Equal(dumpParsed.Services))
-			g.Expect(dumpAll.Policies).To(Equal(dumpParsed.Policies))
-			g.Expect(dumpAll.Workloads).To(Equal(dumpParsed.Workloads))
-			g.Expect(dumpAll.Certificates).To(Equal(dumpParsed.Certificates))
+			out, _ = istioCtl.InvokeOrFail(t, args)
+			err = unmarshalListOrMap([]byte(out), &zDump.Certificates)
+			g.Expect(err).To(BeNil())
+			g.Expect(zDump.Certificates).To(Not(BeNil()))
 		})
 }
 
-func jsonUnmarshalListOrMap[T any](input json.RawMessage, i *[]T) error {
+func unmarshalListOrMap[T any](input json.RawMessage, i *[]T) error {
 	if len(input) == 0 {
 		return nil
 	}

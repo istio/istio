@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -59,7 +60,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
+	testlabel "istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	kubetest "istio.io/istio/pkg/test/kube"
@@ -317,7 +318,7 @@ func TestServerSideLB(t *testing.T) {
 func TestWaypointChanges(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		getGracePeriod := func(want int64) bool {
-			pods, err := kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), constants.GatewayNameLabel+"=waypoint")()
+			pods, err := kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"=waypoint")()
 			assert.NoError(t, err)
 			for _, p := range pods {
 				grace := p.Spec.TerminationGracePeriodSeconds
@@ -352,7 +353,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 			Prefix: "badgateway",
 			Inject: false,
 			Labels: map[string]string{
-				constants.DataplaneModeLabel: "ambient",
+				label.IoIstioDataplaneMode.Name: "ambient",
 			},
 		})
 		if err != nil {
@@ -367,7 +368,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 			"foo",
 		})
 		waypointError := retry.UntilSuccess(func() error {
-			fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"sa")
+			fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"="+"sa")
 			pods, err := fetch()
 			if err != nil {
 				return err
@@ -1291,7 +1292,7 @@ spec:
 
 func TestL7JWT(t *testing.T) {
 	framework.NewTest(t).
-		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
+		Label(testlabel.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
 			applyDrainingWorkaround(t)
 			runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
@@ -1417,20 +1418,6 @@ spec:
         host: "{{.Host}}"
         subset: v1
 ---
-apiVersion: networking.istio.io/v1
-kind: DestinationRule
-metadata:
-  name: route
-  namespace:
-spec:
-  host: "{{.Destination}}"
-  subsets:
-  - labels:
-      version: v1
-    name: v1
-  - labels:
-      version: v2
-    name: v2
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
@@ -3064,6 +3051,72 @@ func TestZtunnelRestart(t *testing.T) {
 		// These we have no way to signal to Envoy (https://github.com/envoyproxy/envoy/issues/34897).
 		sidecar.Stop().CheckSuccessRate(t, sidecarSuccessThreshold)
 	})
+}
+
+func TestServiceDynamicEnroll(t *testing.T) {
+	const callInterval = 50 * time.Millisecond
+	// TODO(https://github.com/istio/istio/issues/53064) make this 100%
+	successThreshold := 0.5
+
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		dst := apps.Captured
+		generators := []traffic.Generator{}
+		mkGen := func(src echo.Caller) {
+			g := traffic.NewGenerator(t, traffic.Config{
+				Source: src,
+				Options: echo.CallOptions{
+					To:    dst,
+					Count: 1,
+					Check: check.OK(),
+					HTTP:  echo.HTTP{Path: "/"},
+					Port: echo.Port{
+						Name: "http",
+					},
+					Timeout: time.Millisecond * 100,
+					Retry:   echo.Retry{NoRetry: true},
+				},
+				Interval: callInterval,
+			}).Start()
+			generators = append(generators, g)
+		}
+		mkGen(apps.Uncaptured[0])
+		// TODO(https://github.com/istio/istio/issues/53064) re-enable this, it is not reliable enough
+		// mkGen(apps.Sidecar[0])
+		// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
+		mkGen(apps.WorkloadAddressedWaypoint[0])
+
+		// Unenroll from the mesh
+		for _, p := range dst.WorkloadsOrFail(t) {
+			labelWorkload(t, p, label.IoIstioDataplaneMode.Name, constants.DataplaneModeNone)
+		}
+		// Let it run some traffic
+		time.Sleep(time.Millisecond * 500)
+		// Revert back
+		for _, p := range dst.WorkloadsOrFail(t) {
+			labelWorkload(t, p, label.IoIstioDataplaneMode.Name, "")
+		}
+		time.Sleep(time.Millisecond * 500)
+
+		for i, gen := range generators {
+			// Stop the traffic generator and get the result.
+			t.NewSubTestf("from-%d", i).Run(func(t framework.TestContext) {
+				gen.Stop().CheckSuccessRate(t, successThreshold)
+			})
+		}
+	})
+}
+
+func labelWorkload(t framework.TestContext, w echo.Workload, k, v string) {
+	patchOpts := metav1.PatchOptions{}
+	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
+	if v == "" {
+		patchData = fmt.Sprintf(`{"metadata":{"labels": {%q: null}}}`, k)
+	}
+	p := t.Clusters().Default().Kube().CoreV1().Pods(apps.Namespace.Name())
+	_, err := p.Patch(context.Background(), w.PodName(), types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func restartZtunnel(t framework.TestContext) {

@@ -51,6 +51,9 @@ spec:
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 27017
+        args:
+        - '--ipv6'
+        - '--bind_ip_all'
         volumeMounts:
         - name: data-db
           mountPath: /data/db

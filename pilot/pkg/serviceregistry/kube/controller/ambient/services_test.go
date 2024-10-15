@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
@@ -333,7 +334,7 @@ func TestServiceEntryServices(t *testing.T) {
 					Name:      "user-opt-out",
 					Namespace: "ns",
 					Labels: map[string]string{
-						constants.EnableV2AutoAllocationLabel: "false",
+						label.NetworkingEnableAutoallocateIp.Name: "false",
 					},
 				},
 				Spec: networking.ServiceEntry{
@@ -667,8 +668,8 @@ func TestServiceServices(t *testing.T) {
 					Name:      "name",
 					Namespace: "ns",
 					Labels: map[string]string{
-						constants.AmbientUseWaypointLabel:          "waypoint",
-						constants.AmbientUseWaypointNamespaceLabel: "waypoint-ns",
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -722,8 +723,8 @@ func TestServiceServices(t *testing.T) {
 					Name:      "name",
 					Namespace: "ns",
 					Labels: map[string]string{
-						constants.AmbientUseWaypointLabel:          "waypoint",
-						constants.AmbientUseWaypointNamespaceLabel: "waypoint-ns",
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
 					},
 				},
 				Spec: v1.ServiceSpec{

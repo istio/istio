@@ -1,3 +1,5 @@
+# Not created if istiod is running remotely
+{{- if not .Values.istiodRemote.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -81,6 +83,10 @@ spec:
       serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
+{{- end }}
+{{- with .Values.initContainers }}
+      initContainers:
+        {{- tpl (toYaml .) $ | nindent 8 }}
 {{- end }}
       containers:
         - name: discovery
@@ -283,3 +289,4 @@ spec:
       {{- end }}
 
 ---
+{{- end }}

@@ -50,7 +50,6 @@ func constructTestConfig() *config.Config {
 		InboundTProxyRouteTable: "133",
 		OwnerGroupsInclude:      constants.OwnerGroupsInclude.DefaultValue,
 		HostIPv4LoopbackCidr:    constants.HostIPv4LoopbackCidr.DefaultValue,
-		RestoreFormat:           false,
 	}
 }
 

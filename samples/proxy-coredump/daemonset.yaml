@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: enable-istio-coredumps
+  namespace: istio-system
+  labels:
+    app: enable-istio-coredumps
+spec:
+  selector:
+    matchLabels:
+      app: enable-istio-coredumps
+  template:
+    metadata:
+      labels:
+        app: enable-istio-coredumps
+    spec:
+      hostNetwork: true
+      # hostPID: true
+      # hostIPC: true
+      initContainers:
+        - name: setsysctls
+          command:
+            - sh
+            - -c
+            - sysctl -w kernel.core_pattern=/var/lib/istio/data/core.proxy && ulimit -c unlimited
+          image: alpine
+          imagePullPolicy: IfNotPresent
+          resources: {}
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: sys
+              mountPath: /sys
+      containers:
+        - name: sleepforever
+          resources:
+            requests:
+              cpu: 1m
+          image: alpine
+          command: ["tail"]
+          args: ["-f", "/dev/null"]
+      volumes:
+        - name: sys
+          hostPath:
+            path: /sys

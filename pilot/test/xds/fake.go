@@ -195,7 +195,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 				gvr.AuthorizationPolicy,
 				gvr.PeerAuthentication,
 				gvr.KubernetesGateway,
-				gvr.KubernetesGateway,
 				gvr.WorkloadEntry,
 				gvr.ServiceEntry,
 			},

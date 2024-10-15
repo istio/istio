@@ -210,7 +210,7 @@ spec:
   - match:
     - uri:
         prefix: /prefix-original
-    name: default.rewrite.0
+    name: route1
     rewrite:
       authority: new.example.com
       uri: /replacement
@@ -238,10 +238,14 @@ spec:
         host: httpbin-mirror.default.svc.domain.suffix
         port:
           number: 80
+      percentage:
+        value: 0.5
     - destination:
         host: httpbin-second.default.svc.domain.suffix
         port:
           number: 80
+      percentage:
+        value: 80
     name: default.mirror.0
     route:
     - destination:

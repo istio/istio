@@ -55,6 +55,10 @@ for including it in the “.0” release. Otherwise, the PRs will not be merged 
     * Behavioral changes should be highly scrutinized, while typo fixes don't require that level of scrutiny.
 * It is preferable that cherry-picks are done by the istio-testing bot.
     * Automated cherry-picks do not need subject-matter experts to approve if discussed in the original PR.
+    * To trigger the bot cherry pick, either;
+        * Apply the correct `cherrypick/release-X.XX` label to the PR, and the bot should pick it up.
+        * Use an explicit PR comment command: `/cherry-pick release-X.XX`
+        * It is strongly preferred to always apply the correct `cherrypick/` label manually to aid search and tracking, even if you use the comment command method.
 * All changes should have an associated GitHub issue and/or a release note.
     * In the event that a bug cannot be automatically backported, the istio-testing bot creates an issue for a failed
     attempt and assigns it to the developer. This issue **is not** sufficient for requesting approval.

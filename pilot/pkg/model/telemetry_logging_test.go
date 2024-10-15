@@ -28,6 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/api/type/v1beta1"
@@ -82,8 +83,8 @@ func TestAccessLogging(t *testing.T) {
 	waypoint := &Proxy{
 		ConfigNamespace: "default",
 		Type:            Waypoint,
-		Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "waypoint"},
-		Metadata:        &NodeMetadata{Labels: map[string]string{"gateway.networking.k8s.io/gateway-name": "waypoint"}},
+		Labels:          map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint"},
+		Metadata:        &NodeMetadata{Labels: map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint"}},
 	}
 	prometheus := &tpb.Telemetry{
 		Metrics: []*tpb.Metrics{

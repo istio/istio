@@ -107,7 +107,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			servicePortClusters[string(svcHost)][port] = cluster
 		}
 	}
-
+	have := sets.String{}
 	for key := range updates.ConfigsUpdated {
 		// deleted clusters for this config.
 		var deleted []string
@@ -119,14 +119,20 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		case kind.DestinationRule:
 			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
 		}
-		services = append(services, svcs...)
+		// Service and Destination Rule can select the same service. So we need to dedup the services.
+		for _, svc := range svcs {
+			if !have.InsertContains(svc.Hostname.String()) {
+				services = append(services, svc)
+			}
+		}
+
 		deletedClusters.InsertAll(deleted...)
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
 	// When clusters are rebuilt, we rebuild the subset clusters as well. So, we know what
 	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
-	builtClusters := sets.New[string]()
+	builtClusters := sets.NewWithLength[string](len(clusters))
 	for _, c := range clusters {
 		builtClusters.Insert(c.Name)
 	}

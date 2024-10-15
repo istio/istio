@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
@@ -42,6 +43,16 @@ import (
 )
 
 func TestPodWorkloads(t *testing.T) {
+	waypointAddr := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{
+				Namespace: "ns",
+				Hostname:  "hostname.example",
+			},
+		},
+		// TODO: look up the HBONE port instead of hardcoding it
+		HboneMtlsPort: 15008,
+	}
 	cases := []struct {
 		name   string
 		inputs []any
@@ -355,6 +366,91 @@ func TestPodWorkloads(t *testing.T) {
 					"istio-system/root-ns",
 					"ns/local-ns",
 				},
+			},
+		},
+		{
+			name: "pod with waypoint",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{
+						Name:      "waypoint",
+						Namespace: "ns",
+					},
+					TrafficType: constants.AllTraffic,
+					Address:     waypointAddr,
+				},
+			},
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						"app":                         "foo",
+						label.IoIstioUseWaypoint.Name: "waypoint",
+					},
+				},
+				Spec: v1.PodSpec{},
+				Status: v1.PodStatus{
+					Phase:      v1.PodRunning,
+					Conditions: podReady,
+					PodIP:      "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/ns/name",
+				Name:              "name",
+				Namespace:         "ns",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "foo",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "name",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
+				Waypoint:          waypointAddr,
+			},
+		},
+		{
+			name: "pod that is a waypoint",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{
+						Name:      "waypoint",
+						Namespace: "ns",
+					},
+					TrafficType: constants.AllTraffic,
+					Address:     waypointAddr,
+				},
+			},
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					// This pod *is* the waypoint
+					Name:      "waypoint",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint",
+					},
+				},
+				Spec: v1.PodSpec{},
+				Status: v1.PodStatus{
+					Phase:      v1.PodRunning,
+					Conditions: podReady,
+					PodIP:      "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/ns/waypoint",
+				Name:              "waypoint",
+				Namespace:         "ns",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "waypoint",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "waypoint",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
 			},
 		},
 		{
@@ -1149,7 +1245,7 @@ func TestServiceEntryWorkloads(t *testing.T) {
 					Endpoints: []*networking.WorkloadEntry{
 						// One is bound to waypoint, other is not
 						{Address: "2.3.4.5"},
-						{Address: "3.4.5.6", Labels: map[string]string{constants.AmbientUseWaypointLabel: "waypoint"}},
+						{Address: "3.4.5.6", Labels: map[string]string{label.IoIstioUseWaypoint.Name: "waypoint"}},
 					},
 				},
 			},

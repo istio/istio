@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -136,7 +137,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		policies := a.buildWorkloadPolicies(ctx, authorizationPolicies, peerAuths, meshCfg, wle.Labels, wle.Namespace)
 		var waypoint *Waypoint
-		if wle.Labels[constants.ManagedGatewayLabel] != constants.ManagedGatewayMeshControllerLabel {
+		if wle.Labels[label.GatewayManaged.Name] != constants.ManagedGatewayMeshControllerLabel {
 			// TODO: report status for workload-attached waypoints
 			waypoint, _ = fetchWaypointForWorkload(ctx, waypoints, namespaces, wle.ObjectMeta)
 		}
@@ -243,10 +244,12 @@ func (a *index) podWorkloadBuilder(
 		var appTunnel *workloadapi.ApplicationTunnel
 		var targetWaypoint *Waypoint
 		if instancedWaypoint := fetchWaypointForInstance(ctx, waypoints, p.ObjectMeta); instancedWaypoint != nil {
-			// we're an instance of a waypoint, set inbound tunnel info
-			appTunnel = &workloadapi.ApplicationTunnel{
-				Protocol: instancedWaypoint.DefaultBinding.Protocol,
-				Port:     instancedWaypoint.DefaultBinding.Port,
+			// we're an instance of a waypoint, set inbound tunnel info if needed
+			if db := instancedWaypoint.DefaultBinding; db != nil {
+				appTunnel = &workloadapi.ApplicationTunnel{
+					Protocol: db.Protocol,
+					Port:     db.Port,
+				}
 			}
 		} else if waypoint, err := fetchWaypointForWorkload(ctx, waypoints, namespaces, p.ObjectMeta); err == nil {
 			// there is a workload-attached waypoint, point there with a GatewayAddress
@@ -616,7 +619,7 @@ func (a *index) endpointSlicesBuilder(
 }
 
 func setTunnelProtocol(labels, annotations map[string]string, w *workloadapi.Workload) {
-	if annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled {
+	if annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled {
 		// Configured for override
 		w.TunnelProtocol = workloadapi.TunnelProtocol_HBONE
 	}

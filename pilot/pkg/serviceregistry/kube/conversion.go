@@ -86,6 +86,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 		namespaces := strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",")
 		exportTo = sets.NewWithLength[visibility.Instance](len(namespaces))
 		for _, ns := range namespaces {
+			ns = strings.TrimSpace(ns)
 			exportTo.Insert(visibility.Instance(ns))
 		}
 	}
@@ -224,5 +225,5 @@ func hasListenerMode(l v1beta1.Listener, mode string) bool {
 }
 
 func GatewaySA(gw *v1beta1.Gateway) string {
-	return model.GetOrDefault(gw.GetAnnotations()["gateway.istio.io/service-account"], fmt.Sprintf("%s-%s", gw.Name, gw.Spec.GatewayClassName))
+	return model.GetOrDefault(gw.GetAnnotations()[annotation.GatewayServiceAccount.Name], fmt.Sprintf("%s-%s", gw.Name, gw.Spec.GatewayClassName))
 }

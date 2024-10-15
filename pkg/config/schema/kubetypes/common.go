@@ -40,6 +40,15 @@ func MustGVRFromType[T runtime.Object]() schema.GroupVersionResource {
 	panic("unknown kind: " + ptr.TypeName[T]())
 }
 
+func GvrFromObject(t runtime.Object) schema.GroupVersionResource {
+	gk := GvkFromObject(t)
+	gr, ok := gvk.ToGVR(gk)
+	if !ok {
+		panic(fmt.Sprintf("unknown GVR for GVK %v", gk))
+	}
+	return gr
+}
+
 func MustGVKFromType[T runtime.Object]() (cfg config.GroupVersionKind) {
 	if gvk, ok := getGvk(ptr.Empty[T]()); ok {
 		return gvk
