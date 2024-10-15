@@ -174,6 +174,9 @@ var (
 	MulticlusterHeadlessEnabled = env.Register("ENABLE_MULTICLUSTER_HEADLESS", true,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 
+	IncludeAllServicesInDNS = env.Register("INCLUDE_ALL_SERVICES_IN_DNS", true,
+		"If true, include all services in the DNS response, even if they are not in the sidecar scope..").Get()
+
 	ResolveHostnameGateways = env.Register("RESOLVE_HOSTNAME_GATEWAYS", true,
 		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
 
