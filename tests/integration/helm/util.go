@@ -274,14 +274,6 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	if version != "" {
 		// Prepend ~ to the version, so that we can refer to the latest patch version of a minor version
 		versionArgs = fmt.Sprintf("--repo %s --version ~%s", t.Settings().HelmRepo, version)
-		// Currently the ambient in-place upgrade tests try an upgrade from previous release which is 1.20,
-		// and many of the profile override values seem to be unrecognized by the gateway installation.
-		// So, this is a workaround until we move to 1.21 where we can use --set profile=ambient for the install/upgrade.
-		// TODO: Remove this once the previous release version for the test becomes 1.21
-		// refer: https://github.com/istio/istio/issues/49242
-		if ambientProfile {
-			gatewayOverrideValuesFile = GetValuesOverrides(t, t.Settings().Image.Hub, version, t.Settings().Image.Variant, "", false)
-		}
 	} else {
 		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
 		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
