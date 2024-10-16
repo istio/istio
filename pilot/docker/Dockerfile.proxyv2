@@ -39,11 +39,11 @@ ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
 ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/pilot-agent /usr/local/bin/pilot-agent
 
-RUN apt-get update && \
-  apt-get install --no-install-recommends -y \
+RUN apt-get update --allow-unauthenticated && \
+  apt-get install --no-install-recommends -y --allow-unauthenticated \
   logrotate \
   cron \
-  && apt-get upgrade -y \
+  && apt-get upgrade -y --allow-unauthenticated \
   && apt-get clean
 
 # Latest releases available at https://github.com/aptible/supercronic/releases
