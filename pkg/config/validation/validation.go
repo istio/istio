@@ -1128,8 +1128,8 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 	}
 
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
-	if settings.WarmupDurationSecs != nil {
-		errs = AppendValidation(errs, agent.ValidateDuration(settings.WarmupDurationSecs))
+	if settings.Warmup != nil {
+		errs = AppendValidation(errs, agent.ValidateDuration(settings.Warmup))
 	}
 	return
 }
