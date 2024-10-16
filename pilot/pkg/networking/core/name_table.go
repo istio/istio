@@ -29,6 +29,6 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 		Node:                        node,
 		Push:                        push,
 		MulticlusterHeadlessEnabled: features.MulticlusterHeadlessEnabled,
-		AllServices:                 features.IncludeAllServicesInDNS,
+		AllServices:                 features.IncludeAllServicesInDNS.Load(),
 	})
 }
