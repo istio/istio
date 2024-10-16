@@ -1,0 +1,35 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: bookinfo-ratings
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      warmup:
+        duration: 300s
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: bookinfo-ratings
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      warmup:
+        duration: 300s
+        minimumPercent: 5.0
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: bookinfo-ratings
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      warmup:
+        duration: 300s
+        minimumPercent: 5.0
+        aggression: 5.0
