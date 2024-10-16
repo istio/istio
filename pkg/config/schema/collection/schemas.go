@@ -163,6 +163,7 @@ func (s Schemas) FindByGroupKind(gvk config.GroupVersionKind) (resource.Schema, 
 	}
 	return nil, false
 }
+
 // FindByGroupVersionResource searches and returns the first schema with the given GVR
 func (s Schemas) FindByGroupVersionResource(gvr schema.GroupVersionResource) (resource.Schema, bool) {
 	for _, rs := range s.byAddOrder {
