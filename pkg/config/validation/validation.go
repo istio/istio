@@ -1128,8 +1128,19 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 	}
 
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
-	if settings.WarmupDurationSecs != nil {
-		errs = AppendValidation(errs, agent.ValidateDuration(settings.WarmupDurationSecs))
+
+	if warm := settings.Warmup; warm != nil {
+		if settings.Warmup.Duration == nil {
+			errs = AppendValidation(errs, fmt.Errorf("duration is required"))
+		} else {
+			errs = AppendValidation(errs, agent.ValidateDuration(settings.Warmup.Duration))
+		}
+		if settings.Warmup.MinimumPercent.GetValue() > 100 {
+			errs = AppendValidation(errs, fmt.Errorf("minimumPercent value should be less than or equal to 100"))
+		}
+		if settings.Warmup.Aggression != nil && settings.Warmup.Aggression.GetValue() < 1 {
+			errs = AppendValidation(errs, fmt.Errorf("aggression should be greater than or equal to 1"))
+		}
 	}
 	return
 }
