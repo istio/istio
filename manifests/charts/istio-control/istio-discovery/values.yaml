@@ -399,9 +399,7 @@ _internal_defaults_do_not_set:
     # If not set explicitly, default to the Istio discovery address.
     caAddress: ""
 
-    # Configure a remote cluster data plane controlled by an external istiod.
-    # When set to true, istiod is not deployed locally and only a subset of the other
-    # discovery charts are enabled.
+    # Enable control of remote clusters.
     externalIstiod: false
 
     # Configure a remote cluster as the config cluster for an external istiod.
