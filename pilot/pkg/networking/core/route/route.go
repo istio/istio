@@ -1388,8 +1388,13 @@ func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 func TranslateRequestMirrorPolicy(dst *networking.Destination, service *model.Service,
 	listenerPort int, mp *core.RuntimeFractionalPercent,
 ) *route.RouteAction_RequestMirrorPolicy {
+	return TranslateRequestMirrorPolicyCluster(GetDestinationCluster(dst, service, listenerPort), mp)
+}
+
+func TranslateRequestMirrorPolicyCluster(cluster string, mp *core.RuntimeFractionalPercent,
+) *route.RouteAction_RequestMirrorPolicy {
 	return &route.RouteAction_RequestMirrorPolicy{
-		Cluster:         GetDestinationCluster(dst, service, listenerPort),
+		Cluster:         cluster,
 		RuntimeFraction: mp,
 		TraceSampled:    &wrapperspb.BoolValue{Value: false},
 	}

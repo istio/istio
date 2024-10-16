@@ -563,14 +563,14 @@ func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, li
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := lb.translateRoute(virtualService, http, nil, listenPort); r != nil {
+			if r := lb.translateWaypointRoute(virtualService, http, nil, listenPort); r != nil {
 				out = append(out, r)
 			}
 			// This is a catchall route, so we can stop processing the rest of the routes.
 			break
 		}
 		for _, match := range http.Match {
-			if r := lb.translateRoute(virtualService, http, match, listenPort); r != nil {
+			if r := lb.translateWaypointRoute(virtualService, http, match, listenPort); r != nil {
 				out = append(out, r)
 				// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 				// As an optimization, we can just stop sending any more routes here.
@@ -591,7 +591,7 @@ func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, li
 	return out, nil
 }
 
-func (lb *ListenerBuilder) translateRoute(
+func (lb *ListenerBuilder) translateWaypointRoute(
 	virtualService config.Config,
 	in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest,
@@ -630,7 +630,7 @@ func (lb *ListenerBuilder) translateRoute(
 	} else if in.DirectResponse != nil {
 		istio_route.ApplyDirectResponse(out, in.DirectResponse)
 	} else {
-		lb.routeDestination(out, in, authority, listenPort)
+		lb.waypointRouteDestination(out, in, authority, listenPort)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -649,7 +649,7 @@ func (lb *ListenerBuilder) translateRoute(
 	return out
 }
 
-func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTTPRoute, authority string, listenerPort int) {
+func (lb *ListenerBuilder) waypointRouteDestination(out *route.Route, in *networking.HTTPRoute, authority string, listenerPort int) {
 	policy := in.Retries
 	if policy == nil {
 		// No VS policy set, use mesh defaults
@@ -684,14 +684,16 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 
 	if in.Mirror != nil {
 		if mp := istio_route.MirrorPercent(in); mp != nil {
+			cluster := lb.getWaypointDestinationCluster(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				istio_route.TranslateRequestMirrorPolicy(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort, mp))
+				istio_route.TranslateRequestMirrorPolicyCluster(cluster, mp))
 		}
 	}
 	for _, mirror := range in.Mirrors {
 		if mp := istio_route.MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
+			cluster := lb.getWaypointDestinationCluster(mirror.Destination, lb.serviceForHostname(host.Name(mirror.Destination.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				istio_route.TranslateRequestMirrorPolicy(mirror.Destination, lb.serviceForHostname(host.Name(mirror.Destination.Host)), listenerPort, mp))
+				istio_route.TranslateRequestMirrorPolicyCluster(cluster, mp))
 		}
 	}
 
@@ -709,7 +711,7 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 			}
 		}
 		hostname := host.Name(dst.GetDestination().GetHost())
-		n := lb.GetDestinationCluster(dst.Destination, lb.serviceForHostname(hostname), listenerPort)
+		n := lb.getWaypointDestinationCluster(dst.Destination, lb.serviceForHostname(hostname), listenerPort)
 		clusterWeight := &route.WeightedCluster_ClusterWeight{
 			Name:   n,
 			Weight: weight,
@@ -756,9 +758,9 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 	}
 }
 
-// GetDestinationCluster generates a cluster name for the route, or error if no cluster
+// getWaypointDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
-func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+func (lb *ListenerBuilder) getWaypointDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
 	dir, port := model.TrafficDirectionInboundVIP, listenerPort
 
 	if destination.GetPort() != nil {
