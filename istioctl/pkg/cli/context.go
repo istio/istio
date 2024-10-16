@@ -52,6 +52,8 @@ type Context interface {
 type instance struct {
 	// clients are cached clients for each revision
 	clients map[string]kube.CLIClient
+	// remoteClients are cached clients for each context with empty revision.
+	remoteClients map[string]kube.CLIClient
 	RootFlags
 }
 
@@ -116,6 +118,9 @@ func (i *instance) CLIClient() (kube.CLIClient, error) {
 }
 
 func (i *instance) CLIClientsForContexts(contexts []string) ([]kube.CLIClient, error) {
+	if i.remoteClients == nil {
+		i.remoteClients = make(map[string]kube.CLIClient)
+	}
 	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(kube.ConfigLoadingRules(*i.kubeconfig), nil).RawConfig()
 	if err != nil {
 		return nil, fmt.Errorf("getting raw kubeconfig from file %q: %v", *i.kubeconfig, err)
@@ -129,11 +134,16 @@ func (i *instance) CLIClientsForContexts(contexts []string) ([]kube.CLIClient, e
 	}
 	var clients []kube.CLIClient
 	for _, contextName := range contexts {
+		if i.remoteClients[contextName] != nil {
+			clients = append(clients, i.remoteClients[contextName])
+			continue
+		}
 		c, err := newKubeClientWithRevision(*i.kubeconfig, contextName, "", impersonateConfig)
 		if err != nil {
 			return nil, fmt.Errorf("creating kube client for context %q: %v", contextName, err)
 		}
 		clients = append(clients, c)
+		i.remoteClients[contextName] = c
 	}
 	return clients, nil
 }

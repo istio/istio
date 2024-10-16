@@ -495,9 +495,6 @@ type Client struct {
 }
 
 func getClients(ctx cli.Context) ([]*Client, error) {
-	if len(remoteClusterContexts) > 0 {
-		return getClientsFromContexts(ctx)
-	}
 	client, err := ctx.CLIClient()
 	if err != nil {
 		return nil, err
@@ -507,6 +504,14 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 			client: client,
 			remote: false,
 		},
+	}
+	if len(remoteClusterContexts) > 0 {
+		remoteClients, err := getClientsFromContexts(ctx)
+		if err != nil {
+			return nil, err
+		}
+		clients = append(clients, remoteClients...)
+		return clients, nil
 	}
 	secrets, err := client.Kube().CoreV1().Secrets(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", multicluster.MultiClusterSecretLabel, "true"),
@@ -544,21 +549,12 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 }
 
 func getClientsFromContexts(ctx cli.Context) ([]*Client, error) {
-	client, err := ctx.CLIClient()
+	var clients []*Client
+	remoteClients, err := ctx.CLIClientsForContexts(remoteClusterContexts)
 	if err != nil {
 		return nil, err
 	}
-	clients := []*Client{
-		{
-			client: client,
-			remote: false,
-		},
-	}
-	otherClients, err := ctx.CLIClientsForContexts(remoteClusterContexts)
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range otherClients {
+	for _, c := range remoteClients {
 		clients = append(clients, &Client{
 			client: c,
 			remote: true,
