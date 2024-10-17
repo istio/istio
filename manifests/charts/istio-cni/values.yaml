@@ -83,6 +83,9 @@ _internal_defaults_do_not_set:
   # Set to `type: RuntimeDefault` to use the default profile if available.
   seccompProfile: {}
 
+  # SELinux options to set in the istio-cni-node pods. You may need to set this to `type: spc_t` for some platforms.
+  seLinuxOptions: {}
+
   resources:
     requests:
       cpu: 100m
