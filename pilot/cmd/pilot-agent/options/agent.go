@@ -63,6 +63,7 @@ func NewAgentOptions(proxy *ProxyArgs, cfg *meshconfig.ProxyConfig, sds istioage
 		DNSCapture:                  DNSCaptureByAgent.Get(),
 		DNSAtGateway:                EnableDNSAtGateway.Get(),
 		DNSForwardParallel:          DNSForwardParallel.Get(),
+		DNSForwardTimeout:           DNSForwardTimeout.Get(),
 		DNSAddr:                     DNSCaptureAddr.Get(),
 		ProxyNamespace:              PodNamespaceVar.Get(),
 		ProxyDomain:                 proxy.DNSDomain,
