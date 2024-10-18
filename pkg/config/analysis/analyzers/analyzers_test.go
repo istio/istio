@@ -1023,7 +1023,7 @@ func TestAnalyzers(t *testing.T) {
 	outer:
 		for _, a := range All() {
 			var isMultiClusterAnalyzer bool
-			for _, mc := range AllMultiCluster() {
+			for _, mc := range multicluster.AllMultiCluster() {
 				if a.Metadata().Name == mc.Metadata().Name {
 					isMultiClusterAnalyzer = true
 					break
