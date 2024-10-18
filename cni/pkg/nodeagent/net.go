@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/pkg/slices"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
@@ -131,11 +132,11 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	// Basically, this just disables inbound redirection.
 	// We use the SidecarTrafficExcludeInboundPorts annotation for compatibility (its somewhat widely used) but don't support all values.
 	ingressMode := false
-	if a, f := pod.Annotations["ambient.istio.io/bypassInboundCapture"]; f {
+	if a, f := pod.Annotations[annotation.AmbientBypassInboundCapture.Name]; f {
 		var err error
 		ingressMode, err = strconv.ParseBool(a)
 		if err != nil {
-			log.Warnf("annotation ambient.istio.io/bypassInboundCapture=%q found, but only '*' is supported", a)
+			log.Warnf("annotation %v=%q found, but only '*' is supported", annotation.AmbientBypassInboundCapture.Name, a)
 		}
 	}
 

@@ -21,6 +21,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	apiannotation "istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
@@ -148,7 +149,7 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 	}
 
 	var lb *workloadapi.LoadBalancing
-	preferClose := strings.EqualFold(svc.Annotations["networking.istio.io/traffic-distribution"], v1.ServiceTrafficDistributionPreferClose)
+	preferClose := strings.EqualFold(svc.Annotations[apiannotation.NetworkingTrafficDistribution.Name], v1.ServiceTrafficDistributionPreferClose)
 	if preferClose {
 		lb = preferCloseLoadBalancer
 	}
@@ -196,7 +197,7 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 	var lb *workloadapi.LoadBalancing
 
 	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
-	preferClose := strings.EqualFold(svc.Annotations["networking.istio.io/traffic-distribution"], v1.ServiceTrafficDistributionPreferClose)
+	preferClose := strings.EqualFold(svc.Annotations[apiannotation.NetworkingTrafficDistribution.Name], v1.ServiceTrafficDistributionPreferClose)
 	if svc.Spec.TrafficDistribution != nil {
 		preferClose = *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose
 	}
