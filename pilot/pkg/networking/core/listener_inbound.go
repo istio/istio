@@ -77,6 +77,11 @@ type inboundChainConfig struct {
 	// different configuration.
 	passthrough bool
 
+	// permissive should be set to true for the port-specific 'permissive' chains, created when
+	// serving Istio-mTLS and mTLS/TLS on the same port. These have a few naming and quirks that require
+	// different configuration.
+	permissive bool
+
 	// bindToPort determines if this chain should form a real listener that actually binds to a real port,
 	// or if it should just be a filter chain part of the 'virtual inbound' listener.
 	bindToPort bool
@@ -100,6 +105,8 @@ func (cc inboundChainConfig) StatPrefix() string {
 	if cc.passthrough {
 		// A bit arbitrary, but for backwards compatibility just use the cluster name
 		statPrefix = cc.clusterName
+	} else if cc.permissive {
+		statPrefix = "inbound_permissive_" + cc.Name(istionetworking.ListenerProtocolHTTP)
 	} else {
 		statPrefix = "inbound_" + cc.Name(istionetworking.ListenerProtocolHTTP)
 	}
@@ -118,8 +125,14 @@ func (cc inboundChainConfig) Name(protocol istionetworking.ListenerProtocol) str
 		}
 		return model.VirtualInboundListenerName
 	}
+
+	name := getListenerName(cc.bind, int(cc.port.TargetPort), istionetworking.TransportProtocolTCP)
+	if cc.permissive {
+		return "permissive_" + name
+	}
+
 	// Everything else derived from bind/port
-	return getListenerName(cc.bind, int(cc.port.TargetPort), istionetworking.TransportProtocolTCP)
+	return name
 }
 
 // ToFilterChainMatch builds the FilterChainMatch for the config
@@ -225,21 +238,36 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 		// to handle mTLS vs plaintext and HTTP vs TCP (depending on protocol and PeerAuthentication).
 		var opts []FilterChainMatchOptions
 		mtls := lb.authnBuilder.ForPort(cc.port.TargetPort)
-		// Chain has explicit user TLS config. This can only apply when the TLS mode is DISABLE to avoid conflicts.
-		if cc.tlsSettings != nil && mtls.Mode == model.MTLSDisable {
+
+		var chains []*listener.FilterChain
+		// Chain has explicit user TLS config. This can only apply when the TLS mode is DISABLE or PERMISSIVE to ensure
+		// security.
+		if cc.tlsSettings != nil && mtls.Mode != model.MTLSStrict {
+			// copy as may be used to build istio mTLS listener
+			cc := cc
+			mtls := mtls
+
 			// Since we are terminating TLS, we need to treat the protocol as if its terminated.
 			// Example: user specifies protocol=HTTPS and user TLS, we will use HTTP
 			cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
+
+			// In permissive mode, both the Istio mTLS filter chains and user TLS filter chains
+			// are built. Set the flag to ensure when constructing them they are uniquely referencable.
+			if mtls.Mode == model.MTLSPermissive {
+				cc.permissive = true
+			}
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
 			opts = getTLSFilterChainMatchOptions(lp)
 			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, lb.push.Mesh, istionetworking.TransportProtocolTCP, false)
 			mtls.HTTP = mtls.TCP
-		} else {
+			chains = append(chains, lb.inboundChainForOpts(cc, mtls, opts)...)
+		}
+
+		if cc.tlsSettings == nil || mtls.Mode != model.MTLSDisable {
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
 			opts = getFilterChainMatchOptions(mtls, lp)
+			chains = append(chains, lb.inboundChainForOpts(cc, mtls, opts)...)
 		}
-		// Build the actual chain
-		chains := lb.inboundChainForOpts(cc, mtls, opts)
 
 		if cc.bindToPort {
 			// If this config is for bindToPort, we want to actually create a real Listener.
