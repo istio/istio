@@ -600,7 +600,10 @@ func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 func configureCustomTags(hcmTracing *hcm.HttpConnectionManager_Tracing,
 	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, node *model.Proxy,
 ) {
-	tags := append(buildServiceTags(node.Metadata, node.Labels), optionalPolicyTags...)
+	var tags []*tracing.CustomTag
+	if features.EnableOptionalTracingTags {
+		tags = append(buildServiceTags(node.Metadata, node.Labels), optionalPolicyTags...)
+	}
 
 	if len(providerTags) == 0 {
 		tags = append(tags, buildCustomTagsFromProxyConfig(proxyCfg.GetTracing().GetCustomTags())...)
