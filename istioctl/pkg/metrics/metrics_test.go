@@ -168,7 +168,7 @@ func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time,
 	return canned, nil, nil
 }
 
-func (client mockPromAPI) TSDB(ctx context.Context) (promv1.TSDBResult, error) {
+func (client mockPromAPI) TSDB(ctx context.Context, opts ...promv1.Option) (promv1.TSDBResult, error) {
 	return promv1.TSDBResult{}, nil
 }
 
@@ -191,7 +191,7 @@ func (client mockPromAPI) WalReplay(ctx context.Context) (promv1.WalReplayStatus
 }
 
 func (client mockPromAPI) Series(ctx context.Context, matches []string,
-	startTime time.Time, endTime time.Time,
+	startTime time.Time, endTime time.Time, opts ...promv1.Option,
 ) ([]prometheus_model.LabelSet, promv1.Warnings, error) {
 	return nil, nil, nil
 }
@@ -220,11 +220,14 @@ func (client mockPromAPI) Metadata(ctx context.Context, metric string, limit str
 	return nil, nil
 }
 
-func (client mockPromAPI) LabelNames(ctx context.Context, matches []string, startTime time.Time, endTime time.Time) ([]string, promv1.Warnings, error) {
+func (client mockPromAPI) LabelNames(
+	ctx context.Context, matches []string, startTime time.Time, endTime time.Time, options ...promv1.Option,
+) ([]string, promv1.Warnings, error) {
 	return nil, nil, nil
 }
 
-func (client mockPromAPI) LabelValues(context.Context, string, []string, time.Time, time.Time) (prometheus_model.LabelValues, promv1.Warnings, error) {
+func (client mockPromAPI) LabelValues(context.Context, string, []string, time.Time, time.Time, ...promv1.Option,
+) (prometheus_model.LabelValues, promv1.Warnings, error) {
 	return nil, nil, nil
 }
 
