@@ -56,12 +56,7 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 	return SetRestDefaults(c), nil
 }
 
-// BuildClientCmd builds a client cmd config from a kubeconfig filepath and context.
-// It overrides the current context with the one provided (empty to use default).
-//
-// This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
-// difference that it loads default configs if not running in-cluster.
-func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.ConfigOverrides)) clientcmd.ClientConfig {
+func ConfigLoadingRules(kubeconfig string) *clientcmd.ClientConfigLoadingRules {
 	if kubeconfig != "" {
 		info, err := os.Stat(kubeconfig)
 		if err != nil || info.Size() == 0 {
@@ -79,6 +74,16 @@ func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.Con
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	loadingRules.DefaultClientConfig = &clientcmd.DefaultClientConfig
 	loadingRules.ExplicitPath = kubeconfig
+	return loadingRules
+}
+
+// BuildClientCmd builds a client cmd config from a kubeconfig filepath and context.
+// It overrides the current context with the one provided (empty to use default).
+//
+// This is a modified version of k8s.io/client-go/tools/clientcmd/BuildConfigFromFlags with the
+// difference that it loads default configs if not running in-cluster.
+func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.ConfigOverrides)) clientcmd.ClientConfig {
+	loadingRules := ConfigLoadingRules(kubeconfig)
 	configOverrides := &clientcmd.ConfigOverrides{
 		ClusterDefaults: clientcmd.ClusterDefaults,
 		CurrentContext:  context,
