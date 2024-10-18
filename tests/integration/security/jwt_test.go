@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
@@ -34,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/common/jwt"
 )
 
@@ -729,6 +731,9 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 								opts := echo.CallOptions{
 									Port: echo.Port{
 										Protocol: protocol.HTTP,
+									},
+									Retry: echo.Retry{
+										Options: []retry.Option{retry.Timeout(1 * time.Minute)},
 									},
 								}
 
