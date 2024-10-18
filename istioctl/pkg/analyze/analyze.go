@@ -66,20 +66,21 @@ func (f FileParseError) Error() string {
 }
 
 var (
-	listAnalyzers     bool
-	useKube           bool
-	failureThreshold  = formatting.MessageThreshold{Level: diag.Error} // messages at least this level will generate an error exit code
-	outputThreshold   = formatting.MessageThreshold{Level: diag.Info}  // messages at least this level will be included in the output
-	colorize          bool
-	msgOutputFormat   string
-	meshCfgFile       string
-	selectedNamespace string
-	allNamespaces     bool
-	suppress          []string
-	analysisTimeout   time.Duration
-	recursive         bool
-	ignoreUnknown     bool
-	revisionSpecified string
+	listAnalyzers         bool
+	useKube               bool
+	failureThreshold      = formatting.MessageThreshold{Level: diag.Error} // messages at least this level will generate an error exit code
+	outputThreshold       = formatting.MessageThreshold{Level: diag.Info}  // messages at least this level will be included in the output
+	colorize              bool
+	msgOutputFormat       string
+	meshCfgFile           string
+	selectedNamespace     string
+	allNamespaces         bool
+	suppress              []string
+	analysisTimeout       time.Duration
+	recursive             bool
+	ignoreUnknown         bool
+	revisionSpecified     string
+	remoteClusterContexts []string
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -333,6 +334,9 @@ func Analyze(ctx cli.Context) *cobra.Command {
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
 	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "", "default",
 		"analyze a specific revision deployed.")
+	analysisCmd.PersistentFlags().StringArrayVar(&remoteClusterContexts, "remote-cluster-context", []string{},
+		`Kubernetes configuration contexts for remote clusters to be used in multi-cluster analysis. Not to be confused with '--context'. `+
+			"If unspecified, contexts are read from the remote secrets in the cluster.")
 	return analysisCmd
 }
 
@@ -501,6 +505,14 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 			remote: false,
 		},
 	}
+	if len(remoteClusterContexts) > 0 {
+		remoteClients, err := getClientsFromContexts(ctx)
+		if err != nil {
+			return nil, err
+		}
+		clients = append(clients, remoteClients...)
+		return clients, nil
+	}
 	secrets, err := client.Kube().CoreV1().Secrets(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", multicluster.MultiClusterSecretLabel, "true"),
 	})
@@ -532,6 +544,21 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 				remote: true,
 			})
 		}
+	}
+	return clients, nil
+}
+
+func getClientsFromContexts(ctx cli.Context) ([]*Client, error) {
+	var clients []*Client
+	remoteClients, err := ctx.CLIClientsForContexts(remoteClusterContexts)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range remoteClients {
+		clients = append(clients, &Client{
+			client: c,
+			remote: true,
+		})
 	}
 	return clients, nil
 }

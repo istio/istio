@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/istioctl/cmd"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -79,10 +80,13 @@ func (c *kubeComponent) WaitForConfig(defaultNamespace string, configs string) e
 
 // Invoke implements Instance
 func (c *kubeComponent) Invoke(args []string) (string, string, error) {
-	cmdArgs := append([]string{
-		"--kubeconfig",
-		c.kubeconfig,
-	}, args...)
+	var cmdArgs []string
+	// Prefer using kubeconfig specified in input args. If not available, fall back
+	// to kubeconfig of client.
+	if !slices.Contains(args, "--kubeconfig") {
+		cmdArgs = []string{"--kubeconfig", c.kubeconfig}
+	}
+	cmdArgs = append(cmdArgs, args...)
 
 	var out bytes.Buffer
 	var err bytes.Buffer
