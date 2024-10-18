@@ -331,7 +331,7 @@ func Analyze(ctx cli.Context) *cobra.Command {
 		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
 	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
-	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "", "default",
+	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "r", "default",
 		"analyze a specific revision deployed.")
 	return analysisCmd
 }
