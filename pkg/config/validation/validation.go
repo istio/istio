@@ -774,10 +774,6 @@ var ValidateSidecar = RegisterValidateFunc("ValidateSidecar",
 				if i.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL || i.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 					errs = AppendValidation(errs, fmt.Errorf("configuration is invalid: cannot set mode to %s in sidecar ingress tls", i.Tls.Mode.String()))
 				}
-				protocol := protocol.Parse(i.Port.Protocol)
-				if !protocol.IsTLS() {
-					errs = AppendValidation(errs, fmt.Errorf("server cannot have TLS settings for non HTTPS/TLS ports"))
-				}
 				errs = AppendValidation(errs, validateTLSOptions(i.Tls))
 			}
 
