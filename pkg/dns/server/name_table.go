@@ -32,6 +32,9 @@ type Config struct {
 	// MulticlusterHeadlessEnabled if true, the DNS name table for a headless service will resolve to
 	// same-network endpoints in any cluster.
 	MulticlusterHeadlessEnabled bool
+
+	// AllServices if true, include all services in the name table, even if they are not in the sidecar scope.
+	AllServices bool
 }
 
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
@@ -41,7 +44,13 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	out := &dnsProto.NameTable{
 		Table: make(map[string]*dnsProto.NameTable_NameInfo),
 	}
-	for _, svc := range cfg.Node.SidecarScope.Services() {
+	var services []*model.Service
+	if cfg.AllServices {
+		services = cfg.Push.GetAllServices()
+	} else {
+		services = cfg.Node.SidecarScope.Services()
+	}
+	for _, svc := range services {
 		var addressList []string
 		hostName := svc.Hostname
 		headless := false
