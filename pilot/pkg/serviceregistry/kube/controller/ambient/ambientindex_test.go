@@ -75,6 +75,7 @@ const (
 func init() {
 	features.EnableAmbientWaypoints = true
 	features.EnableAmbient = true
+	features.EnableIngressWaypointRouting = true
 }
 
 var validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
@@ -1551,6 +1552,10 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 }
 
 func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType string, ready bool) {
+	s.addWaypointSpecificAddress(t, ip, fmt.Sprintf("%s.%s.svc.%s", name, testNS, s.DomainSuffix), name, trafficType, ready)
+}
+
+func (s *ambientTestServer) addWaypointSpecificAddress(t *testing.T, ip, hostname, name, trafficType string, ready bool) {
 	t.Helper()
 
 	fromSame := k8sv1.NamespacesFromSame
@@ -1591,17 +1596,15 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType stri
 	gateway.Labels = labels
 
 	if ready {
+		addr := []k8sv1.GatewayStatusAddress{}
+		if ip != "" {
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.IPAddressType), Value: ip})
+		}
+		if hostname != "" {
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.HostnameAddressType), Value: hostname})
+		}
 		gateway.Status = k8sbeta.GatewayStatus{
-			Addresses: []k8sv1.GatewayStatusAddress{
-				{
-					Type:  ptr.Of(k8sbeta.IPAddressType),
-					Value: ip,
-				},
-				{
-					Type:  ptr.Of(k8sbeta.HostnameAddressType),
-					Value: fmt.Sprintf("%s.%s.svc.%s", name, testNS, s.DomainSuffix),
-				},
-			},
+			Addresses: addr,
 		}
 	}
 	s.grc.CreateOrUpdate(&gateway)

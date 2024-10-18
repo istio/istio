@@ -56,6 +56,9 @@ var (
 		false, false,
 		"If enabled, zTunnel will receive synthetic authorization policies for each workload ALLOW the Waypoint's identity. "+
 			"Unless other ALLOW policies are created, this effectively denies traffic that doesn't go through the waypoint.")
+
+	EnableIngressWaypointRouting = registerAmbient("ENABLE_INGRESS_WAYPOINT_ROUTING", true, false,
+		"If true, Gateways will call service waypoints if the 'istio.io/ingress-use-waypoint' label set on the Service.")
 )
 
 // registerAmbient registers a variable that is allowed only if EnableAmbient is set
