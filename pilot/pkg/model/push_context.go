@@ -2518,3 +2518,9 @@ func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []WorkloadInfo {
 func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
 	return ps.ambientIndex.ServicesForWaypoint(key)
 }
+
+// ServicesWithWaypoint returns all services associated with any waypoint.
+// Key can optionally be provided in the form 'namespace/hostname'. If unset, all are returned
+func (ps *PushContext) ServicesWithWaypoint(key string) []ServiceWaypointInfo {
+	return ps.ambientIndex.ServicesWithWaypoint(key)
+}
