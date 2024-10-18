@@ -112,8 +112,10 @@ spec:
               # namespaces. There does not appear to be a more granular capability for this.
               - SYS_ADMIN
 {{- if .Values.seLinuxOptions }}
+{{ with (merge .Values.seLinuxOptions (dict "type" "spc_t")) }}
             seLinuxOptions:
-{{ toYaml .Values.seLinuxOptions | trim | indent 14 }}
+{{ toYaml . | trim | indent 14 }}
+{{- end }}
 {{- end }}
 {{- if .Values.seccompProfile }}
             seccompProfile:
