@@ -50,3 +50,13 @@ metadata:
   name: partial-wildcard
 spec:
   hosts: ["*x"]
+---
+# Weird case but we allow it
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: none-cidr
+spec:
+  hosts: ["example.com"]
+  addresses:
+  - 1.1.1.1/32
