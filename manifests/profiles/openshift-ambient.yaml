@@ -12,4 +12,7 @@ spec:
     - name: istio-ingressgateway
       enabled: false
   values:
-    profile: openshift-ambient
+    profile: ambient
+    global:
+      platform: openshift
+

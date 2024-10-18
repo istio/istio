@@ -6,4 +6,5 @@ spec:
       enabled: true
       namespace: kube-system
   values:
-    profile: openshift
+    global:
+      platform: openshift
