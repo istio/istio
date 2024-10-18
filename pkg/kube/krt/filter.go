@@ -98,13 +98,18 @@ func FilterIndex[K comparable, I any](idx Index[K, I], k K) FetchOption {
 	}
 }
 
-// FilterSelectsNonEmpty only includes objects that select this label. If the selector is empty, it is not a match.
+// FilterSelectsNonEmpty only includes objects that select this label. If the selector is empty, it is NOT a match.
 func FilterSelectsNonEmpty(lbls map[string]string) FetchOption {
 	return func(h *dependency) {
+		// Need to distinguish empty vs unset. A user may pass in 'lbls' as nil, this doesn't mean they do not want it to filter at all.
+		if lbls == nil {
+			lbls = make(map[string]string)
+		}
 		h.filter.selectsNonEmpty = lbls
 	}
 }
 
+// FilterLabel only includes objects that match the provided labels. If the selector is empty, it IS a match.
 func FilterLabel(lbls map[string]string) FetchOption {
 	return func(h *dependency) {
 		h.filter.labels = lbls
