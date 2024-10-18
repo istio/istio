@@ -102,7 +102,9 @@ func injectorListCommand(ctx cli.Context) *cobra.Command {
 				}
 			}
 
-			hooksList, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
+			hooksList, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
+				LabelSelector: "app=sidecar-injector",
+			})
 			if err != nil {
 				return err
 			}
