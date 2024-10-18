@@ -130,17 +130,21 @@ func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l
 	if err != nil {
 		return err
 	}
-	for _, manifest := range sortManifests(manifests) {
+	for _, manifest := range sortManifestSet(manifests) {
 		l.Print(manifest + YAMLSeparator)
 	}
 	return nil
 }
 
-func sortManifests(raw []manifest.ManifestSet) []string {
+func sortManifestSet(raw []manifest.ManifestSet) []string {
 	all := []manifest.Manifest{}
 	for _, m := range raw {
 		all = append(all, m.Manifests...)
 	}
+	return sortManifests(all)
+}
+
+func sortManifests(all []manifest.Manifest) []string {
 	slices.SortStableFunc(all, func(a, b manifest.Manifest) int {
 		if r := cmp.Compare(objectKindOrdering(a), objectKindOrdering(b)); r != 0 {
 			return r
