@@ -102,23 +102,11 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 		// Only applies to inbound and gateways
 		return nil
 	}
-	if b.proxy.SupportsEnvoyExtendedJwt() {
-		filter := b.applier.JwtFilter(true, b.proxy.Type != model.SidecarProxy)
-		if filter != nil {
-			return []*hcm.HttpFilter{filter}
-		}
-		return nil
+	filter := b.applier.JwtFilter(b.proxy.Type != model.SidecarProxy)
+	if filter != nil {
+		return []*hcm.HttpFilter{filter}
 	}
-	res := []*hcm.HttpFilter{}
-	if filter := b.applier.JwtFilter(false, false); filter != nil {
-		res = append(res, filter)
-	}
-	forSidecar := b.proxy.Type == model.SidecarProxy
-	if filter := b.applier.AuthNFilter(forSidecar); filter != nil {
-		res = append(res, filter)
-	}
-
-	return res
+	return nil
 }
 
 func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {

@@ -32,11 +32,7 @@ type PolicyApplier interface {
 
 	// JwtFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.
-	JwtFilter(useExtendedJwt, clearRouteCache bool) *hcm.HttpFilter
-
-	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
-	// It may return nil, if no authentication is needed.
-	AuthNFilter(forSidecar bool) *hcm.HttpFilter
+	JwtFilter(clearRouteCache bool) *hcm.HttpFilter
 
 	// PortLevelSetting returns port level mTLS settings.
 	PortLevelSetting() map[uint32]model.MutualTLSMode

@@ -364,48 +364,6 @@ func TestGenerator(t *testing.T) {
             exact: spiffe://foo`),
 		},
 		{
-			name:  "requestPrincipalGenerator",
-			g:     requestPrincipalGenerator{},
-			key:   "request.auth.principal",
-			value: "foo",
-			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: request.auth.principal
-          value:
-            stringMatch:
-              exact: foo`),
-		},
-		{
-			name:  "requestAudiencesGenerator",
-			g:     requestAudiencesGenerator{},
-			key:   "request.auth.audiences",
-			value: "foo",
-			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: request.auth.audiences
-          value:
-            stringMatch:
-              exact: foo`),
-		},
-		{
-			name:  "requestPresenterGenerator",
-			g:     requestPresenterGenerator{},
-			key:   "request.auth.presenter",
-			value: "foo",
-			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: request.auth.presenter
-          value:
-            stringMatch:
-              exact: foo`),
-		},
-		{
 			name:  "requestHeaderGenerator",
 			g:     requestHeaderGenerator{},
 			key:   "request.headers[x-foo]",
@@ -415,41 +373,6 @@ func TestGenerator(t *testing.T) {
           name: x-foo
           stringMatch:
             exact: foo`),
-		},
-		{
-			name:  "requestClaimGenerator",
-			g:     requestClaimGenerator{},
-			key:   "request.auth.claims[bar]",
-			value: "foo",
-			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: request.auth.claims
-          - key: bar
-          value:
-            listMatch:
-              oneOf:
-                stringMatch:
-                  exact: foo`),
-		},
-		{
-			name:  "requestNestedClaimsGenerator",
-			g:     requestClaimGenerator{},
-			key:   "request.auth.claims[bar][baz]",
-			value: "foo",
-			want: yamlPrincipal(t, `
-         metadata:
-          filter: istio_authn
-          path:
-          - key: request.auth.claims
-          - key: bar
-          - key: baz
-          value:
-            listMatch:
-              oneOf:
-                stringMatch:
-                  exact: foo`),
 		},
 		{
 			name:  "hostGenerator",

@@ -35,7 +35,7 @@ templates:
         {{- end }}
       {{- end }}
     {{- end }}
-    {{ $nativeSidecar := (eq (env "ENABLE_NATIVE_SIDECARS" "false") "true") }}
+    {{ $nativeSidecar := (or (and (not (isset .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar`)) (eq (env "ENABLE_NATIVE_SIDECARS" "false") "true")) (eq (index .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar`) "true")) }}
     {{- $containers := list }}
     {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
     metadata:
@@ -1374,8 +1374,10 @@ templates:
               timeoutSeconds: 1
             securityContext:
               privileged: false
+            {{- if not (eq .Values.global.platform "openshift") }}
               runAsGroup: 1337
               runAsUser: 1337
+            {{- end }}
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               runAsNonRoot: true
@@ -1819,3 +1821,31 @@ templates:
       {{- end }}
       type: {{ .ServiceType | quote }}
     ---
+  custom: |
+    metadata:
+      annotations:
+        # Disable the built-in transformations. In the future we may want a template-level API
+        prometheus.istio.io/merge-metrics: "false"
+        sidecar.istio.io/rewriteAppHTTPProbers: "false"
+        foo: bar
+    spec:
+      containers:
+      {{- range $index, $container := .Spec.Containers }}
+      - name: {{ $container.Name }}
+        env:
+        - name: SOME_ENV
+          value: "true"
+        - name: SOME_FILE
+          value: /var/lib/data/foo.json
+        volumeMounts:
+        - mountPath: /var/lib/data/foo.json
+          subPath: foo.json
+          name: some-injected-file
+      {{- end}}
+      volumes:
+      - name: some-injected-file
+        downwardAPI:
+          items:
+          - path: foo.json
+            fieldRef:
+              fieldPath: "metadata.annotations['foo']"
