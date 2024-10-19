@@ -77,7 +77,6 @@ var (
 	allNamespaces     bool
 	suppress          []string
 	analysisTimeout   time.Duration
-	recursive         bool
 	ignoreUnknown     bool
 	revisionSpecified string
 	remoteContexts    []string
@@ -99,9 +98,6 @@ func Analyze(ctx cli.Context) *cobra.Command {
 
   # Analyze the current live cluster, simulating the effect of applying additional yaml files
   istioctl analyze a.yaml b.yaml my-app-config/
-
-  # Analyze the current live cluster, simulating the effect of applying a directory of config recursively
-  istioctl analyze --recursive my-istio-config/
 
   # Analyze yaml files without connecting to a live cluster
   istioctl analyze --use-kube=false a.yaml b.yaml my-app-config/
@@ -328,8 +324,6 @@ func Analyze(ctx cli.Context) *cobra.Command {
 			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
 	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
 		"The duration to wait before failing")
-	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
-		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
 	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
 	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "", "default",
@@ -402,12 +396,8 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		if err != nil {
 			return err
 		}
-		// If we encounter a directory, recurse only if the --recursive option
-		// was provided and the directory is not the same as dir.
+
 		if info.IsDir() {
-			if !recursive && dir != path {
-				return filepath.SkipDir
-			}
 			return nil
 		}
 
