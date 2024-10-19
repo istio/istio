@@ -746,6 +746,9 @@ type K8sAttributes struct {
 
 	// ObjectName is the object name of the underlying object. This may differ from the Service.Attributes.Name for legacy semantics.
 	ObjectName string
+
+	// spec.PublishNotReadyAddresses
+	PublishNotReadyAddresses bool
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
