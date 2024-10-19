@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+
+area: security
+
+issue:
+  - https://github.com/istio/istio/issues/53555
+
+releaseNotes:
+- |
+  **Added** parameter `clear_route_cache` to the `envoyExtAuthzGrpc` and `envoyExtAuthzHTTP` extensions. 
+  This parameter directly translates to the `clear_route_cache` parameter on the ExtAuthZ Envoy filter and 
+  allows to force the route recalculation based on the added/removed headers coming from the external authorization service.
