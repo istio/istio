@@ -2,6 +2,7 @@ name: envoy.filters.http.ext_authz
 typedConfig:
   '@type': type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz
   failureModeAllow: true
+  clearRouteCache: true
   filterEnabledMetadata:
     filter: envoy.filters.http.rbac
     path:
