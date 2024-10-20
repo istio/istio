@@ -517,7 +517,12 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 		cfg.tryExecuteIptablesCommands(&cfg.ipt6V, iptablesBuilder.BuildCleanupV6())
 
 		// Remove leftovers from non-matching istio iptables cfg
+		if cfg.cfg.Reconcile {
+			log.Info("Performing cleanup of any unexpected leftovers from previous iptables executions")
+			cfg.CleanupIstioLeftovers(cfg.ext, iptablesBuilder, &cfg.iptV, &cfg.ipt6V)
+		}
 	}
+
 	// Apply Step
 	if (deltaExists || cfg.cfg.ForceApply) && !cfg.cfg.CleanupOnly {
 		log.Info("Applying iptables chains and rules")
@@ -529,6 +534,24 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 		}
 	}
 	return errors.Join(execErrs...)
+}
+
+func (cfg *IptablesConfigurator) CleanupIstioLeftovers(ext dep.Dependencies, ruleBuilder *builder.IptablesRuleBuilder,
+	iptV *dep.IptablesVersion, ipt6V *dep.IptablesVersion,
+) {
+	for _, ipVer := range []*dep.IptablesVersion{iptV, ipt6V} {
+		if ipVer == nil {
+			continue
+		}
+		output, err := ext.RunWithOutput(iptablesconstants.IPTablesSave, ipVer, nil)
+		if err == nil {
+			currentState := ruleBuilder.GetStateFromSave(output.String())
+			leftovers := iptablescapture.HasIstioLeftovers(currentState)
+			if len(leftovers) > 0 {
+				cfg.tryExecuteIptablesCommands(ipVer, builder.BuildCleanupFromState(leftovers))
+			}
+		}
+	}
 }
 
 func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(

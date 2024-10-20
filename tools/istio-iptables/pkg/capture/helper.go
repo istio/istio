@@ -124,8 +124,13 @@ check_loop:
 	return residueExists, deltaExists
 }
 
-func HasIstioLeftovers(state map[string]map[string][]string) map[string]struct{ Chains, Jumps []string } {
-	output := make(map[string]struct{ Chains, Jumps []string })
+// HasIstioLeftovers checks the given iptables state for any chains or rules related to Istio.
+// It scans the provided map of tables, chains, and rules to identify any chains that start with the "ISTIO_" prefix,
+// as well as any rules that involve Istio-specific jumps.
+// The function returns a map where the keys are the tables, and the values are structs containing the leftover
+// "ISTIO_" chains and jump rules for each table. Only tables with Istio-related leftovers are included in the result.
+func HasIstioLeftovers(state map[string]map[string][]string) map[string]struct{ Chains, Rules []string } {
+	output := make(map[string]struct{ Chains, Rules []string })
 	for table, chains := range state {
 		istioChains := []string{}
 		istioJumps := []string{}
@@ -140,9 +145,9 @@ func HasIstioLeftovers(state map[string]map[string][]string) map[string]struct{ 
 			}
 		}
 		if len(istioChains) != 0 || len(istioJumps) != 0 {
-			output[table] = struct{ Chains, Jumps []string }{
+			output[table] = struct{ Chains, Rules []string }{
 				Chains: istioChains,
-				Jumps:  istioJumps,
+				Rules:  istioJumps,
 			}
 		}
 	}
@@ -158,9 +163,7 @@ func isIstioJump(rule string) bool {
 		if field == "--jump" || field == "-j" {
 			// Check if there's a next field (the target)
 			if i+1 < len(fields) {
-				target := fields[i+1]
-				// Remove any surrounding quotes
-				target = strings.Trim(target, "'\"")
+				target := strings.Trim(fields[i+1], "'\"")
 				// Check if the target starts with ISTIO_
 				return strings.HasPrefix(target, "ISTIO_")
 			}
