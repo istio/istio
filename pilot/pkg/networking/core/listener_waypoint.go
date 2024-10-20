@@ -363,6 +363,16 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 	}
+	tlsInspectorNeeded := func() bool {
+		for _, s := range svcs {
+			for _, p := range s.Ports {
+				if p.Protocol.IsTLS() {
+					return true
+				}
+			}
+		}
+		return false
+	}()
 	l := &listener.Listener{
 		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
@@ -385,6 +395,9 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				},
 			},
 		},
+	}
+	if tlsInspectorNeeded {
+		l.ListenerFilters = append(l.ListenerFilters, xdsfilters.TLSInspector)
 	}
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	return l
