@@ -15,13 +15,13 @@
 package istioagent
 
 import (
-	"errors"
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	httprbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	wasmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
@@ -165,7 +164,6 @@ func TestDeltaECDSWasmConversion(t *testing.T) {
 	if !proto.Equal(gotEcdsConfig, wantEcdsConfig) {
 		t.Errorf("xds proxy wasm config conversion got %v want %v", gotEcdsConfig, wantEcdsConfig)
 	}
-	n1 := proxy.ecdsLastNonce
 
 	// reset wasm cache to a NACK cache, and recreate xds server as well to simulate a version bump
 	proxy.wasmCache = &fakeNackCache{}
@@ -189,11 +187,24 @@ func TestDeltaECDSWasmConversion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Wait until nonce was updated, which represents an ACK/NACK has been received.
-	retry.UntilSuccessOrFail(t, func() error {
-		if proxy.ecdsLastNonce.Load() == n1.Load() {
-			return errors.New("last process nonce has not been updated. no ecds ack/nack is received yet")
-		}
-		return nil
-	}, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
+	gotResp, err = downstream.Recv()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(gotResp.Resources) != 1 {
+		t.Errorf("xds proxy ecds wasm conversion number of received resource got %v want 1", len(gotResp.Resources))
+	}
+	if err := gotResp.Resources[0].Resource.UnmarshalTo(gotEcdsConfig); err != nil {
+		t.Fatalf("wasm config conversion output %v failed to unmarshal", gotResp.Resources[0])
+	}
+	httpDenyAll := &httprbac.RBAC{
+		Rules: &rbacv3.RBAC{},
+	}
+	wantEcdsConfig = &core.TypedExtensionConfig{
+		Name:        "extension-config",
+		TypedConfig: protoconv.MessageToAny(httpDenyAll),
+	}
+	if !proto.Equal(gotEcdsConfig, wantEcdsConfig) {
+		t.Errorf("xds proxy wasm config conversion got %v want %v", gotEcdsConfig, wantEcdsConfig)
+	}
 }

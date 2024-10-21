@@ -22,7 +22,10 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	httprbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	networkrbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
@@ -37,24 +40,48 @@ import (
 var (
 	allowHTTPTypedConfig = &anypb.Any{
 		TypeUrl: "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
+		// no rules mean allow all.
 	}
-	allowNetworkTypedConfig = &anypb.Any{
-		TypeUrl: "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC",
-	}
+	denyHTTPTypedConfig, _ = anypb.New(&httprbac.RBAC{
+		// empty rule means deny all.
+		Rules: &rbacv3.RBAC{},
+	})
+
+	allowNetworkTypeConfig, _ = anypb.New(&networkrbac.RBAC{
+		// no rules mean allow all.
+		StatPrefix: "wasm-default-allow",
+	})
+	denyNetworkTypedConfig, _ = anypb.New(&networkrbac.RBAC{
+		// empty rule means deny all.
+		Rules:      &rbacv3.RBAC{},
+		StatPrefix: "wasm-default-deny",
+	})
 )
 
-func createHTTPAllowAllFilter(name string) (*anypb.Any, error) {
+func createHTTPDefaultFilter(name string, failOpen bool) (*anypb.Any, error) {
+	var tc *anypb.Any
+	if failOpen {
+		tc = allowHTTPTypedConfig
+	} else {
+		tc = denyHTTPTypedConfig
+	}
 	ec := &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: allowHTTPTypedConfig,
+		TypedConfig: tc,
 	}
 	return anypb.New(ec)
 }
 
-func createNetworkAllowAllFilter(name string) (*anypb.Any, error) {
+func createNetworkDefaultFilter(name string, failOpen bool) (*anypb.Any, error) {
+	var tc *anypb.Any
+	if failOpen {
+		tc = allowNetworkTypeConfig
+	} else {
+		tc = denyNetworkTypedConfig
+	}
 	ec := &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: allowNetworkTypedConfig,
+		TypedConfig: tc,
 	}
 	return anypb.New(ec)
 }
@@ -96,12 +123,8 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 			if wasmHTTPConfig != nil {
 				newExtensionConfig, err := convertHTTPWasmConfigFromRemoteToLocal(extConfig, wasmHTTPConfig, cache)
 				if err != nil {
-					if !wasmHTTPConfig.GetConfig().GetFailOpen() {
-						convertErrs[i] = err
-						return
-					}
 					// Use NOOP filter because the download failed.
-					newExtensionConfig, err = createHTTPAllowAllFilter(extConfig.GetName())
+					newExtensionConfig, err = createHTTPDefaultFilter(extConfig.GetName(), wasmHTTPConfig.GetConfig().GetFailOpen())
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.
 						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
@@ -113,12 +136,8 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 			} else {
 				newExtensionConfig, err := convertNetworkWasmConfigFromRemoteToLocal(extConfig, wasmNetworkConfig, cache)
 				if err != nil {
-					if !wasmNetworkConfig.GetConfig().GetFailOpen() {
-						convertErrs[i] = err
-						return
-					}
 					// Use NOOP filter because the download failed.
-					newExtensionConfig, err = createNetworkAllowAllFilter(extConfig.GetName())
+					newExtensionConfig, err = createNetworkDefaultFilter(extConfig.GetName(), wasmNetworkConfig.GetConfig().GetFailOpen())
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.
 						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
