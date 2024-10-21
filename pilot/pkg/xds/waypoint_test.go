@@ -218,6 +218,61 @@ func TestWaypoint(t *testing.T) {
 	})
 }
 
+func TestWaypointTLSInspector(t *testing.T) {
+	serviceHTTP := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: app
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts: [app.com]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+`
+	serviceEntryHTTPandTLS := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: app
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts: [app.com]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 443
+    name: https
+    protocol: TLS
+`
+	testCases := []struct {
+		service              string
+		tlsInspectorExpected bool
+	}{
+		{
+			service:              serviceHTTP,
+			tlsInspectorExpected: false,
+		},
+		{
+			service:              serviceEntryHTTPandTLS,
+			tlsInspectorExpected: true,
+		},
+	}
+	for _, tc := range testCases {
+		d, proxy := setupWaypointTest(t, waypointGateway, waypointSvc, waypointInstance, tc.service)
+		l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+		filters := xdstest.ExtractListenerFilters(l)
+		if _, found := filters[wellknown.TLSInspector]; found != tc.tlsInspectorExpected {
+			t.Fatalf("did not find TLS inspector")
+		}
+	}
+}
+
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableDualStack, true)
