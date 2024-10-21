@@ -53,6 +53,8 @@ type revisionCount struct {
 	needsRestart int
 }
 
+var revisionSpecified string
+
 func Cmd(cliContext cli.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "injector",
@@ -102,8 +104,15 @@ func injectorListCommand(ctx cli.Context) *cobra.Command {
 				}
 			}
 
-			hooksList, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
-				LabelSelector: "app=sidecar-injector",
+			var hooksList *admitv1.MutatingWebhookConfigurationList
+			var filerLabels string
+			if revisionSpecified != "" {
+				filerLabels = fmt.Sprintf("app=sidecar-injector, istio.io/rev=%s", revisionSpecified)
+			} else {
+				filerLabels = "app=sidecar-injector"
+			}
+			hooksList, err = client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
+				LabelSelector: filerLabels,
 			})
 			if err != nil {
 				return err
@@ -129,7 +138,7 @@ func injectorListCommand(ctx cli.Context) *cobra.Command {
 			return printHooks(cmd.OutOrStdout(), nsList, hooks, injectedImages)
 		},
 	}
-
+	cmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "r", "", "list specific revision sidecar injector and sidecar versions")
 	return cmd
 }
 
