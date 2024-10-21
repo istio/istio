@@ -218,6 +218,81 @@ func TestWaypoint(t *testing.T) {
 	})
 }
 
+func TestWaypointTLSInspector(t *testing.T) {
+	serviceHTTP := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: app
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts: [app.com]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+`
+	serviceEntryHTTPandTLS := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: app
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts: [app.com]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 443
+    name: https
+    protocol: HTTPS
+  - number: 6443
+    name: tls
+    protocol: TLS
+`
+	testCases := []struct {
+		name                   string
+		service                string
+		tlsInspectorUnexpected bool
+	}{
+		{
+			name:                   "HTTP only",
+			service:                serviceHTTP,
+			tlsInspectorUnexpected: true,
+		},
+		{
+			name:    "HTTP, HTTPS and TLS",
+			service: serviceEntryHTTPandTLS,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			d, proxy := setupWaypointTest(t, waypointGateway, waypointSvc, waypointInstance, tc.service)
+			l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+			filters := xdstest.ExtractListenerFilters(l)
+			f, found := filters[wellknown.TLSInspector]
+
+			if tc.tlsInspectorUnexpected {
+				if found {
+					t.Fatalf("Found unexpected TLS inspector")
+				}
+				return
+			}
+
+			hasTLSInspector := func(port int, expect bool) {
+				t.Helper()
+				assert.Equal(t, xdstest.EvaluateListenerFilterPredicates(f.GetFilterDisabled(), port), !expect)
+			}
+			hasTLSInspector(80, false)
+			hasTLSInspector(443, true)
+			hasTLSInspector(6443, true)
+		})
+	}
+}
+
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableDualStack, true)
