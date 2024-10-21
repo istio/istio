@@ -323,7 +323,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 				c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 			}
 		}
-		c.DnsRefreshRate = cb.req.Push.Mesh.DnsRefreshRate
+		c.DnsRefreshRate = proto.Clone(cb.req.Push.Mesh.DnsRefreshRate).(*durationpb.Duration)
 		c.RespectDnsTtl = true
 		// we want to run all the STATIC parts as well to build the load assignment
 		fallthrough
