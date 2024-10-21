@@ -150,8 +150,9 @@ func ManifestTranslate(kubeClient kube.CLIClient, mgArgs *ManifestTranslateArgs,
 			}
 			commands = append(commands, fmt.Sprintf("kubectl label %s%s %s app.kubernetes.io/managed-by=Helm", gk, ns, m.GetName()))
 		}
-		commands = append(commands, "\n", "# Run the actual Helm install operation", fmt.Sprintf("helm upgrade --install %s --namespace %s -f %s oci://gcr.io/istio-release/charts/%s",
-			name, ns, valuesName, info.Component.ReleaseName))
+		commands = append(commands, "\n", "# Run the actual Helm install operation",
+			fmt.Sprintf("helm upgrade --install %s --namespace %s -f %s oci://gcr.io/istio-release/charts/%s",
+				name, ns, valuesName, info.Component.ReleaseName))
 
 		if err := write(fmt.Sprintf("install-%s.sh", name), strings.Join(commands, "\n")+"\n"); err != nil {
 			return err
