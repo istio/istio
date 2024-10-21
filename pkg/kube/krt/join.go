@@ -79,12 +79,14 @@ func (j *join[T]) name() string { return j.collectionName }
 func (j *join[T]) uid() collectionUID { return j.id }
 
 // nolint: unused // (not true, its to implement an interface)
-func (j *join[I]) dump() {
+func (j *join[I]) dump() CollectionDump {
 	log.Errorf("> BEGIN DUMP (join %v)", j.collectionName)
-	for _, c := range j.collections {
-		c.dump()
-	}
+	//for _, c := range j.collections {
+	//	c.dump()
+	//}
+	// TODO
 	log.Errorf("< END DUMP (join %v)", j.collectionName)
+	return CollectionDump{}
 }
 
 // nolint: unused // (not true)
