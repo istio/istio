@@ -159,24 +159,54 @@ func (h *manyCollection[I, O]) Synced() Syncer {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (h *manyCollection[I, O]) dump() {
+func (h *manyCollection[I, O]) dump() CollectionDump {
 	h.recomputeMu.Lock()
 	defer h.recomputeMu.Unlock()
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.log.Errorf(">>> BEGIN DUMP")
-	for k, deps := range h.objectDependencies {
-		for _, dep := range deps {
-			h.log.Errorf("Dependencies for: %v: %v (%v)", k, dep.collectionName, dep.filter)
+
+	inputs := make(map[string]InputDump, len(h.collectionState.inputs))
+	for k, v := range h.collectionState.mappings {
+		output := make([]string, 0, len(v))
+		for vv := range v {
+			output = append(output, string(vv))
+		}
+		slices.Sort(output)
+		inputs[string(k)] = InputDump{
+			Outputs:      output,
+			Dependencies: nil, // filled later
 		}
 	}
-	for i, os := range h.collectionState.mappings {
-		h.log.Errorf("Input %v -> %v", i, os.UnsortedList())
+	for k, deps := range h.objectDependencies {
+		depss := make([]string, 0, len(deps))
+		for _, dep := range deps {
+			depss = append(depss, fmt.Sprintf("%v with filter %v", dep.collectionName, dep.filter))
+		}
+		slices.Sort(depss)
+		cur := inputs[string(k)]
+		cur.Dependencies = depss
+		inputs[string(k)] = cur
 	}
-	for os, o := range h.collectionState.outputs {
-		h.log.Errorf("Output %v -> %v", os, o)
+	// var xx Key[I]
+	// x := h.objectDependencies[xx][0].
+
+	return CollectionDump{
+		Outputs: eraseMap(h.collectionState.outputs),
+		Inputs:  inputs,
 	}
-	h.log.Errorf("<<< END DUMP")
+	//h.log.Errorf(">>> BEGIN DUMP")
+	//for k, deps := range h.objectDependencies {
+	//	for _, dep := range deps {
+	//		h.log.Errorf("Dependencies for: %v: %v (%v)", k, dep.collectionName, dep.filter)
+	//	}
+	//}
+	//for i, os := range h.collectionState.mappings {
+	//	h.log.Errorf("Input %v -> %v", i, os.UnsortedList())
+	//}
+	//for os, o := range h.collectionState.outputs {
+	//	h.log.Errorf("Output %v -> %v", os, o)
+	//}
+	//h.log.Errorf("<<< END DUMP")
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -424,6 +454,7 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 		synced:        make(chan struct{}),
 		stop:          opts.stop,
 	}
+	RegisterCollectionForDebugging(h)
 	go func() {
 		// Wait for primary dependency to be ready
 		if !c.Synced().WaitUntilSynced(h.stop) {
