@@ -248,28 +248,48 @@ spec:
     protocol: HTTP
   - number: 443
     name: https
+    protocol: HTTPS
+  - number: 6443
+    name: tls
     protocol: TLS
 `
 	testCases := []struct {
-		service              string
-		tlsInspectorExpected bool
+		name                   string
+		service                string
+		tlsInspectorUnexpected bool
 	}{
 		{
-			service:              serviceHTTP,
-			tlsInspectorExpected: false,
+			name:                   "HTTP only",
+			service:                serviceHTTP,
+			tlsInspectorUnexpected: true,
 		},
 		{
-			service:              serviceEntryHTTPandTLS,
-			tlsInspectorExpected: true,
+			name:    "HTTP, HTTPS and TLS",
+			service: serviceEntryHTTPandTLS,
 		},
 	}
 	for _, tc := range testCases {
-		d, proxy := setupWaypointTest(t, waypointGateway, waypointSvc, waypointInstance, tc.service)
-		l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
-		filters := xdstest.ExtractListenerFilters(l)
-		if _, found := filters[wellknown.TLSInspector]; found != tc.tlsInspectorExpected {
-			t.Fatalf("did not find TLS inspector")
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			d, proxy := setupWaypointTest(t, waypointGateway, waypointSvc, waypointInstance, tc.service)
+			l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+			filters := xdstest.ExtractListenerFilters(l)
+			f, found := filters[wellknown.TLSInspector]
+
+			if tc.tlsInspectorUnexpected {
+				if found {
+					t.Fatalf("Found unexpected TLS inspector")
+				}
+				return
+			}
+
+			hasTLSInspector := func(port int, expect bool) {
+				t.Helper()
+				assert.Equal(t, xdstest.EvaluateListenerFilterPredicates(f.GetFilterDisabled(), port), !expect)
+			}
+			hasTLSInspector(80, false)
+			hasTLSInspector(443, true)
+			hasTLSInspector(6443, true)
+		})
 	}
 }
 

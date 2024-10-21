@@ -265,7 +265,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				if portProtocols[port.Port] != "" && portProtocols[port.Port] != protocol.TCP {
 					portProtocols[port.Port] = protocol.Unsupported
 				} else {
-					portProtocols[port.Port] = protocol.TCP
+					portProtocols[port.Port] = port.Protocol
 				}
 			}
 		}
@@ -363,15 +363,22 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 	}
-	tlsInspectorNeeded := func() bool {
-		for _, s := range svcs {
-			for _, p := range s.Ports {
-				if p.Protocol.IsTLS() {
-					return true
-				}
+	tlsInspector := func() *listener.ListenerFilter {
+		nonInspectorPorts := []int{}
+		for p, proto := range portProtocols {
+			if !proto.IsTLS() {
+				nonInspectorPorts = append(nonInspectorPorts, p)
 			}
 		}
-		return false
+		if len(nonInspectorPorts) != len(portProtocols) {
+			slices.Sort(nonInspectorPorts)
+			return &listener.ListenerFilter{
+				Name:           wellknown.TLSInspector,
+				ConfigType:     xdsfilters.TLSInspector.ConfigType,
+				FilterDisabled: listenerPredicateExcludePorts(nonInspectorPorts),
+			}
+		}
+		return nil
 	}()
 	l := &listener.Listener{
 		Name:              MainInternalName,
@@ -396,8 +403,8 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			},
 		},
 	}
-	if tlsInspectorNeeded {
-		l.ListenerFilters = append(l.ListenerFilters, xdsfilters.TLSInspector)
+	if tlsInspector != nil {
+		l.ListenerFilters = append(l.ListenerFilters, tlsInspector)
 	}
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	return l
