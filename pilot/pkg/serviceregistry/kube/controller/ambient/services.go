@@ -66,6 +66,7 @@ func (a *index) serviceServiceBuilder(
 		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
 		if waypoint != nil {
 			waypointStatus.ResourceName = waypoint.ResourceName()
+			waypointStatus.IngressUseWaypoint = s.Labels["istio.io/ingress-use-waypoint"] == "true"
 		}
 		waypointStatus.Error = wperr
 
@@ -110,6 +111,7 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint
 	waypoint := model.WaypointBindingStatus{}
 	if w != nil {
 		waypoint.ResourceName = w.ResourceName()
+		waypoint.IngressUseWaypoint = s.Labels["istio.io/ingress-use-waypoint"] == "true"
 	}
 	if wperr != nil {
 		waypoint.Error = wperr
