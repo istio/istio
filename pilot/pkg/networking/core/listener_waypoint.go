@@ -262,7 +262,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				chains = append(chains, tcpChain)
 				portMapper.Map[portString] = match.ToChain(tcpChain.Name)
 				// TCP and HTTP on the same port, mark it as requiring sniffing
-				if portProtocols[port.Port] != "" && portProtocols[port.Port] != protocol.TCP {
+				if portProtocols[port.Port] != "" && !portProtocols[port.Port].IsTCP() {
 					portProtocols[port.Port] = protocol.Unsupported
 				} else {
 					portProtocols[port.Port] = port.Protocol

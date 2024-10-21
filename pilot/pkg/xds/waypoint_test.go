@@ -200,11 +200,10 @@ spec:
 		t.Helper()
 		assert.Equal(t, xdstest.EvaluateListenerFilterPredicates(fd, port), !expect)
 	}
-	hasSniffing(80, true)  // HTTP and TCP on same port
-	hasSniffing(81, false) // HTTP
-	hasSniffing(91, false) // TCP
-	hasSniffing(90, true)  // Unspecified
-	// This check fails for now
+	hasSniffing(80, true)   // HTTP and TCP on same port
+	hasSniffing(81, false)  // HTTP
+	hasSniffing(91, false)  // TCP
+	hasSniffing(90, true)   // Unspecified
 	hasSniffing(443, false) // TLS and TCP on the same port - HTTP inspector not needed
 }
 
