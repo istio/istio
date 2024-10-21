@@ -4,8 +4,6 @@ auth:
 deployment:
   pod_labels:
     sidecar.istio.io/inject: "false"
-  accessible_namespaces:
-  - '**'
   ingress_enabled: false
   image_pull_policy: IfNotPresent
 login_token:
