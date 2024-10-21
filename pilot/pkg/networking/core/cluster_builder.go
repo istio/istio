@@ -22,6 +22,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
@@ -63,12 +64,25 @@ var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOp
 		},
 	},
 })
+var passthroughHttpProtocolOptionsWithMX = protoconv.MessageToAny(&http.HttpProtocolOptions{
+	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+		IdleTimeout: durationpb.New(5 * time.Minute),
+	},
+	UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+			Http2ProtocolOptions: http2ProtocolOptions(),
+		},
+	},
+	HttpFilters: []*hcm.HttpFilter{xdsfilters.InjectIstioHeadersUpstreamFilter, xdsfilters.UpstreamCodec},
+})
 
 // clusterWrapper wraps Cluster object along with upstream protocol options.
 type clusterWrapper struct {
 	cluster *cluster.Cluster
 	// httpProtocolOptions stores the HttpProtocolOptions which will be marshaled when build is called.
 	httpProtocolOptions *http.HttpProtocolOptions
+	upstreamHttpFilters []*hcm.HttpFilter
 }
 
 // metadataCerts hosts client certificate related metadata specified in proxy metadata.
@@ -206,6 +220,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	maybeApplyEdsConfig(subsetCluster.cluster)
 
 	cb.applyMetadataExchange(opts.mutable.cluster)
+	subsetCluster.upstreamHttpFilters = []*hcm.HttpFilter{xdsfilters.InjectIstioHeadersUpstreamFilter, xdsfilters.UpstreamCodec}
 
 	// Add the DestinationRule+subsets metadata. Metadata here is generated on a per-cluster
 	// basis in buildCluster, so we can just insert without a copy.
@@ -253,6 +268,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	maybeApplyEdsConfig(mc.cluster)
 
 	cb.applyMetadataExchange(opts.mutable.cluster)
+	mc.upstreamHttpFilters = []*hcm.HttpFilter{xdsfilters.InjectIstioHeadersUpstreamFilter, xdsfilters.UpstreamCodec}
 
 	if service.MeshExternal {
 		im := getOrCreateIstioMetadata(mc.cluster)
@@ -495,7 +511,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughCluster() *cluster.Cluster {
 			},
 		})
 	}
-	c := cb.buildDefaultPassthroughCluster()
+	c := cb.buildDefaultPassthroughCluster(false)
 	c.Name = util.InboundPassthroughCluster
 	c.Filters = nil
 	c.UpstreamBindConfig = &core.BindConfig{
@@ -523,7 +539,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 
 // generates a cluster that sends traffic to the original destination.
 // This cluster is used to catch all traffic to unknown listener ports
-func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
+func (cb *ClusterBuilder) buildDefaultPassthroughCluster(addMX bool) *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
@@ -532,6 +548,9 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
+	}
+	if addMX {
+		cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType] = passthroughHttpProtocolOptionsWithMX
 	}
 	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster)
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
@@ -662,20 +681,22 @@ func (mc *clusterWrapper) build() *cluster.Cluster {
 	if mc == nil {
 		return nil
 	}
-	// Marshall Http Protocol options if they exist.
-	if mc.httpProtocolOptions != nil {
-		// UpstreamProtocolOptions is required field in Envoy. If we have not set this option earlier
-		// we need to set it to default http protocol options.
-		if mc.httpProtocolOptions.UpstreamProtocolOptions == nil {
-			mc.httpProtocolOptions.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
-				ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
-					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
-				},
-			}
+	// Enable HTTP pool if it was implicit before.
+	if mc.httpProtocolOptions == nil {
+		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
+	}
+	// UpstreamProtocolOptions is required field in Envoy. If we have not set this option earlier
+	// we need to set it to default http protocol options.
+	if mc.httpProtocolOptions.UpstreamProtocolOptions == nil {
+		mc.httpProtocolOptions.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{},
+			},
 		}
-		mc.cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
-			v3.HttpProtocolOptionsType: protoconv.MessageToAny(mc.httpProtocolOptions),
-		}
+	}
+	mc.httpProtocolOptions.HttpFilters = mc.upstreamHttpFilters
+	mc.cluster.TypedExtensionProtocolOptions = map[string]*anypb.Any{
+		v3.HttpProtocolOptionsType: protoconv.MessageToAny(mc.httpProtocolOptions),
 	}
 	return mc.cluster
 }
