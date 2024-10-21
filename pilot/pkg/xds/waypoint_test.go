@@ -154,6 +154,9 @@ metadata:
 spec:
   hosts: [app.com]
   ports:
+  - number: 443
+    name: https
+    protocol: TLS
   - number: 80
     name: http # HTTP, but will have another TCP port overlapping in another service
     protocol: HTTP
@@ -174,6 +177,9 @@ metadata:
 spec:
   hosts: [app2.com]
   ports:
+  - number: 443
+    name: https
+    protocol: TCP
   - number: 80
     name: tcp # conflicts with other HTTP port
     protocol: TCP
@@ -198,6 +204,8 @@ spec:
 	hasSniffing(81, false) // HTTP
 	hasSniffing(91, false) // TCP
 	hasSniffing(90, true)  // Unspecified
+	// This check fails for now
+	hasSniffing(443, false) // TLS and TCP on the same port - HTTP inspector not needed
 }
 
 func TestWaypoint(t *testing.T) {
