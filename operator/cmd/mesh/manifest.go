@@ -29,19 +29,23 @@ func ManifestCmd(ctx cli.Context) *cobra.Command {
 	}
 
 	mgcArgs := &ManifestGenerateArgs{}
+	mtcArgs := &ManifestTranslateArgs{}
 
 	args := &RootArgs{}
 
 	mgc := ManifestGenerateCmd(ctx, args, mgcArgs)
+	mtc := ManifestTranslateCmd(ctx, mtcArgs)
 	ic := InstallCmd(ctx)
 
 	addFlags(mc, args)
 	addFlags(mgc, args)
 
 	addManifestGenerateFlags(mgc, mgcArgs)
+	addManifestTranslateFlags(mtc, mtcArgs)
 
 	mc.AddCommand(mgc)
 	mc.AddCommand(ic)
+	mc.AddCommand(mtc)
 
 	return mc
 }
