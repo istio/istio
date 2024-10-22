@@ -942,12 +942,12 @@ func TestUseRemoteAddressInternalAddressConfig(t *testing.T) {
 			expectedconfig: &hcm.HttpConnectionManager_InternalAddressConfig{
 				CidrRanges: []*core.CidrRange{
 					{
-						AddressPrefix: "192.168.0.0",
-						PrefixLen:     &wrapperspb.UInt32Value{Value: 16},
-					},
-					{
 						AddressPrefix: "172.16.0.0",
 						PrefixLen:     &wrapperspb.UInt32Value{Value: 12},
+					},
+					{
+						AddressPrefix: "192.168.0.0",
+						PrefixLen:     &wrapperspb.UInt32Value{Value: 16},
 					},
 				},
 			},
