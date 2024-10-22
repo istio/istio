@@ -210,11 +210,20 @@ func ApplyYAMLStrict(yml string, pb proto.Message) error {
 	return ApplyJSONStrict(string(js), pb)
 }
 
+type ComparableMessage interface {
+	comparable
+	proto.Message
+}
+
 // ShallowClone performs a shallow clone of the object. For a deep clone, use Clone.
-func ShallowClone[T proto.Message](src T) T {
+func ShallowClone[T ComparableMessage](src T) T {
+	var empty T
+	if src == empty {
+		return empty
+	}
 	dst := src.ProtoReflect().New().Interface().(T)
 	dm := dst.ProtoReflect()
-	sm := src.ProtoReflect().New()
+	sm := src.ProtoReflect()
 	if dm.Type() != sm.Type() {
 		panic("mismatching type")
 	}
