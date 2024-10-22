@@ -141,8 +141,8 @@ status:
 `
 )
 
-func TestWaypointSniffing(t *testing.T) {
-	// Define two SE with various protocol declarations, we will check how sniffing is enabled.
+func TestWaypointNetworkFilters(t *testing.T) {
+	// Define two SE with various protocol declarations, we will check how sniffing and TLS inspection are enabled.
 
 	appServiceEntry := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -163,6 +163,9 @@ spec:
   - number: 90 # Sniffed, on its own
     name: auto
     protocol: ""
+  - number: 443
+    name: https
+    protocol: TLS
 `
 	app2ServiceEntry := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -180,7 +183,11 @@ spec:
   - number: 91
     name: tcp-only # TCP
     protocol: HTTP
+  - number: 443
+    name: https
+    protocol: TCP
 `
+
 	d, proxy := setupWaypointTest(t,
 		waypointGateway,
 		waypointSvc,
@@ -189,15 +196,28 @@ spec:
 
 	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
 	filters := xdstest.ExtractListenerFilters(l)
-	fd := filters[wellknown.HTTPInspector].GetFilterDisabled()
+
+	httpInspectorDisabled := filters[wellknown.HTTPInspector].GetFilterDisabled()
 	hasSniffing := func(port int, expect bool) {
 		t.Helper()
-		assert.Equal(t, xdstest.EvaluateListenerFilterPredicates(fd, port), !expect)
+		assert.Equal(t, xdstest.EvaluateListenerFilterPredicates(httpInspectorDisabled, port), !expect)
 	}
-	hasSniffing(80, true)  // HTTP and TCP on same port
-	hasSniffing(81, false) // HTTP
-	hasSniffing(91, false) // TCP
-	hasSniffing(90, true)  // Unspecified
+	hasSniffing(80, true)   // HTTP and TCP on same port
+	hasSniffing(81, false)  // HTTP
+	hasSniffing(91, false)  // TCP
+	hasSniffing(90, true)   // Unspecified
+	hasSniffing(443, false) // TLS and TCP on the same port - HTTP inspector not needed
+
+	tlsInspectorDisabled := filters[wellknown.TLSInspector].GetFilterDisabled()
+	hasTLSInspector := func(port int, expect bool) {
+		t.Helper()
+		assert.Equal(t, xdstest.EvaluateListenerFilterPredicates(tlsInspectorDisabled, port), !expect)
+	}
+	hasTLSInspector(80, false)
+	hasTLSInspector(81, false)
+	hasTLSInspector(91, false)
+	hasTLSInspector(90, false)
+	hasTLSInspector(443, true)
 }
 
 func TestWaypoint(t *testing.T) {

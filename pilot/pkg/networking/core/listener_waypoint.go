@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -262,10 +263,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				chains = append(chains, tcpChain)
 				portMapper.Map[portString] = match.ToChain(tcpChain.Name)
 				// TCP and HTTP on the same port, mark it as requiring sniffing
-				if portProtocols[port.Port] != "" && portProtocols[port.Port] != protocol.TCP {
+				if portProtocols[port.Port] != "" && !portProtocols[port.Port].IsTCP() {
 					portProtocols[port.Port] = protocol.Unsupported
 				} else {
-					portProtocols[port.Port] = protocol.TCP
+					portProtocols[port.Port] = port.Protocol
 				}
 			}
 		}
@@ -363,6 +364,29 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 	}
+	tlsInspector := func() *listener.ListenerFilter {
+		tlsPorts := sets.New[int]()
+		nonTLSPorts := sets.New[int]()
+		for _, s := range svcs {
+			for _, p := range s.Ports {
+				if p.Protocol.IsTLS() {
+					tlsPorts.Insert(p.Port)
+				} else {
+					nonTLSPorts.Insert(p.Port)
+				}
+			}
+		}
+		nonInspectorPorts := nonTLSPorts.DeleteAll(tlsPorts.UnsortedList()...).UnsortedList()
+		if len(nonInspectorPorts) > 0 {
+			slices.Sort(nonInspectorPorts)
+			return &listener.ListenerFilter{
+				Name:           wellknown.TLSInspector,
+				ConfigType:     xdsfilters.TLSInspector.ConfigType,
+				FilterDisabled: listenerPredicateExcludePorts(nonInspectorPorts),
+			}
+		}
+		return nil
+	}()
 	l := &listener.Listener{
 		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
@@ -385,6 +409,9 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				},
 			},
 		},
+	}
+	if tlsInspector != nil {
+		l.ListenerFilters = append(l.ListenerFilters, tlsInspector)
 	}
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	return l
