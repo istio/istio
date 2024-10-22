@@ -1405,9 +1405,13 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
 			}
 			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil, "")
+			c := defaultCluster.build() 
 
-			if defaultCluster.build().DnsLookupFamily != tt.expectedFamily {
-				t.Errorf("Unexpected DnsLookupFamily, got: %v, want: %v", defaultCluster.build().DnsLookupFamily, tt.expectedFamily)
+			if c.DnsLookupFamily != tt.expectedFamily {
+				t.Errorf("Unexpected DnsLookupFamily, got: %v, want: %v", c.DnsLookupFamily, tt.expectedFamily)
+			}
+			if c.DnsJitter.AsDuration() <= 0 {
+				t.Errorf("Unexpected DnsJitter, got: %v, want: positive", c.DnsJitter.AsDuration())
 			}
 		})
 	}
