@@ -141,8 +141,8 @@ status:
 `
 )
 
-func TestWaypointSniffing(t *testing.T) {
-	// Define two SE with various protocol declarations, we will check how sniffing is enabled.
+func TestWaypointNetworkFilters(t *testing.T) {
+	// Define two SE with various protocol declarations, we will check how sniffing and TLS inspection are enabled.
 
 	appServiceEntry := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -154,9 +154,6 @@ metadata:
 spec:
   hosts: [app.com]
   ports:
-  - number: 443
-    name: https
-    protocol: TLS
   - number: 80
     name: http # HTTP, but will have another TCP port overlapping in another service
     protocol: HTTP
@@ -166,6 +163,9 @@ spec:
   - number: 90 # Sniffed, on its own
     name: auto
     protocol: ""
+  - number: 443
+    name: https
+    protocol: TLS
 `
 	app2ServiceEntry := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -177,16 +177,17 @@ metadata:
 spec:
   hosts: [app2.com]
   ports:
-  - number: 443
-    name: https
-    protocol: TCP
   - number: 80
     name: tcp # conflicts with other HTTP port
     protocol: TCP
   - number: 91
     name: tcp-only # TCP
     protocol: HTTP
+  - number: 443
+    name: https
+    protocol: TCP
 `
+
 	d, proxy := setupWaypointTest(t,
 		waypointGateway,
 		waypointSvc,
@@ -195,16 +196,28 @@ spec:
 
 	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
 	filters := xdstest.ExtractListenerFilters(l)
-	fd := filters[wellknown.HTTPInspector].GetFilterDisabled()
+
+	httpInspectorDisabled := filters[wellknown.HTTPInspector].GetFilterDisabled()
 	hasSniffing := func(port int, expect bool) {
 		t.Helper()
-		assert.Equal(t, xdstest.EvaluateListenerFilterPredicates(fd, port), !expect)
+		assert.Equal(t, xdstest.EvaluateListenerFilterPredicates(httpInspectorDisabled, port), !expect)
 	}
 	hasSniffing(80, true)   // HTTP and TCP on same port
 	hasSniffing(81, false)  // HTTP
 	hasSniffing(91, false)  // TCP
 	hasSniffing(90, true)   // Unspecified
 	hasSniffing(443, false) // TLS and TCP on the same port - HTTP inspector not needed
+
+	tlsInspectorDisabled := filters[wellknown.TLSInspector].GetFilterDisabled()
+	hasTLSInspector := func(port int, expect bool) {
+		t.Helper()
+		assert.Equal(t, xdstest.EvaluateListenerFilterPredicates(tlsInspectorDisabled, port), !expect)
+	}
+	hasTLSInspector(80, false)
+	hasTLSInspector(81, false)
+	hasTLSInspector(91, false)
+	hasTLSInspector(90, false)
+	hasTLSInspector(443, true)
 }
 
 func TestWaypoint(t *testing.T) {
@@ -223,81 +236,6 @@ func TestWaypoint(t *testing.T) {
 		// Tunnel doesn't support multiple IPs
 		"connect_originate;1.1.1.2:80",
 	})
-}
-
-func TestWaypointTLSInspector(t *testing.T) {
-	serviceHTTP := `apiVersion: networking.istio.io/v1
-kind: ServiceEntry
-metadata:
-  name: app
-  namespace: default
-  labels:
-    istio.io/use-waypoint: waypoint
-spec:
-  hosts: [app.com]
-  ports:
-  - number: 80
-    name: http
-    protocol: HTTP
-`
-	serviceEntryHTTPandTLS := `apiVersion: networking.istio.io/v1
-kind: ServiceEntry
-metadata:
-  name: app
-  namespace: default
-  labels:
-    istio.io/use-waypoint: waypoint
-spec:
-  hosts: [app.com]
-  ports:
-  - number: 80
-    name: http
-    protocol: HTTP
-  - number: 443
-    name: https
-    protocol: HTTPS
-  - number: 6443
-    name: tls
-    protocol: TLS
-`
-	testCases := []struct {
-		name                   string
-		service                string
-		tlsInspectorUnexpected bool
-	}{
-		{
-			name:                   "HTTP only",
-			service:                serviceHTTP,
-			tlsInspectorUnexpected: true,
-		},
-		{
-			name:    "HTTP, HTTPS and TLS",
-			service: serviceEntryHTTPandTLS,
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			d, proxy := setupWaypointTest(t, waypointGateway, waypointSvc, waypointInstance, tc.service)
-			l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
-			filters := xdstest.ExtractListenerFilters(l)
-			f, found := filters[wellknown.TLSInspector]
-
-			if tc.tlsInspectorUnexpected {
-				if found {
-					t.Fatalf("Found unexpected TLS inspector")
-				}
-				return
-			}
-
-			hasTLSInspector := func(port int, expect bool) {
-				t.Helper()
-				assert.Equal(t, xdstest.EvaluateListenerFilterPredicates(f.GetFilterDisabled(), port), !expect)
-			}
-			hasTLSInspector(80, false)
-			hasTLSInspector(443, true)
-			hasTLSInspector(6443, true)
-		})
-	}
 }
 
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {

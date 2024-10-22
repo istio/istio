@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -364,13 +365,19 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		}
 	}
 	tlsInspector := func() *listener.ListenerFilter {
-		nonInspectorPorts := []int{}
-		for p, proto := range portProtocols {
-			if !proto.IsTLS() {
-				nonInspectorPorts = append(nonInspectorPorts, p)
+		tlsPorts := sets.New[int]()
+		nonTLSPorts := sets.New[int]()
+		for _, s := range svcs {
+			for _, p := range s.Ports {
+				if p.Protocol.IsTLS() {
+					tlsPorts.Insert(p.Port)
+				} else {
+					nonTLSPorts.Insert(p.Port)
+				}
 			}
 		}
-		if len(nonInspectorPorts) != len(portProtocols) {
+		nonInspectorPorts := nonTLSPorts.DeleteAll(tlsPorts.UnsortedList()...).UnsortedList()
+		if len(nonInspectorPorts) > 0 {
 			slices.Sort(nonInspectorPorts)
 			return &listener.ListenerFilter{
 				Name:           wellknown.TLSInspector,
