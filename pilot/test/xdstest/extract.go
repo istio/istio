@@ -343,6 +343,9 @@ func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []st
 					internalAddr := addr.GetEnvoyInternalAddress().GetServerListenerName()
 					destinationAddr := lb.GetMetadata().GetFilterMetadata()[util.OriginalDstMetadataKey].GetFields()["local"].GetStringValue()
 					addrString += fmt.Sprintf("%s;%s", internalAddr, destinationAddr)
+					if wp := lb.GetMetadata().GetFilterMetadata()[util.OriginalDstMetadataKey].GetFields()["waypoint"].GetStringValue(); wp != "" {
+						addrString += fmt.Sprintf(";%s", wp)
+					}
 				}
 			}
 			if lb.HealthStatus == core.HealthStatus_HEALTHY {

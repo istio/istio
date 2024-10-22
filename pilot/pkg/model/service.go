@@ -867,6 +867,7 @@ type ServiceDiscovery interface {
 }
 
 type AmbientIndexes interface {
+	ServicesWithWaypoint(key string) []ServiceWaypointInfo
 	AddressInformation(addresses sets.String) ([]AddressInfo, sets.String)
 	AdditionalPodSubscriptions(
 		proxy *Proxy,
@@ -929,6 +930,10 @@ func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
 	return nil
 }
 
+func (u NoopAmbientIndexes) ServicesWithWaypoint(string) []ServiceWaypointInfo {
+	return nil
+}
+
 var _ AmbientIndexes = NoopAmbientIndexes{}
 
 type AddressInfo struct {
@@ -965,6 +970,11 @@ func (i AddressInfo) ResourceName() string {
 		name = serviceResourceName(addr.Service)
 	}
 	return name
+}
+
+type ServiceWaypointInfo struct {
+	Service          *workloadapi.Service
+	WaypointHostname string
 }
 
 type TypedObject struct {
@@ -1037,6 +1047,8 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 type WaypointBindingStatus struct {
 	// ResourceName that clients should use when addressing traffic to this Service.
 	ResourceName string
+	// IngressUseWaypoint specifies whether ingress gateways should use the waypoint for this service.
+	IngressUseWaypoint bool
 	// Error represents some error
 	Error *StatusMessage
 }
