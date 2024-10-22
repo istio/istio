@@ -19,6 +19,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/slices"
@@ -41,7 +42,7 @@ func TestIngressInterop(t *testing.T) {
 	}
 
 	s.addService(t, "svc1",
-		map[string]string{constants.AmbientUseWaypointLabel: "wp-svc", "istio.io/ingress-use-waypoint": "true"},
+		map[string]string{label.IoIstioUseWaypoint.Name: "wp-svc", "istio.io/ingress-use-waypoint": "true"},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.2")
 	s.assertEvent(t, addressUpdate("svc1"))
@@ -67,7 +68,7 @@ func TestIngressInterop(t *testing.T) {
 
 	// now we are going to change to a different waypoint, this will be hostname based
 	s.addService(t, "svc1",
-		map[string]string{constants.AmbientUseWaypointLabel: "wp-svc-host"},
+		map[string]string{label.IoIstioUseWaypoint.Name: "wp-svc-host"},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.2")
 	s.addWaypointSpecificAddress(t, "", "example.com", "wp-svc-host", constants.AllTraffic, true)
