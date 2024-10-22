@@ -39,7 +39,6 @@ func ManifestCmd(ctx cli.Context) *cobra.Command {
 
 	addFlags(mc, args)
 	addFlags(mgc, args)
-	addFlags(mtc, args)
 
 	addManifestGenerateFlags(mgc, mgcArgs)
 	addManifestTranslateFlags(mtc, mtcArgs)
