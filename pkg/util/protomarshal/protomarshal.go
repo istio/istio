@@ -34,7 +34,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 )
 
 var (
@@ -213,9 +212,9 @@ func ApplyYAMLStrict(yml string, pb proto.Message) error {
 
 // ShallowClone performs a shallow clone of the object. For a deep clone, use Clone.
 func ShallowClone[T proto.Message](src T) T {
-	dst := ptr.Empty[T]()
+	dst := src.ProtoReflect().New().Interface().(T)
 	dm := dst.ProtoReflect()
-	sm := src.ProtoReflect()
+	sm := src.ProtoReflect().New()
 	if dm.Type() != sm.Type() {
 		panic("mismatching type")
 	}
