@@ -19,8 +19,6 @@ import (
 	"reflect"
 	"testing"
 
-	"google.golang.org/protobuf/proto"
-
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
@@ -31,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
@@ -54,14 +53,14 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 	}
-	policyWithSelector := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	policyWithSelector := protomarshal.Clone(policy)
 	policyWithSelector.Selector = &selectorpb.WorkloadSelector{
 		MatchLabels: labels.Instance{
 			"app":     "httpbin",
 			"version": "v1",
 		},
 	}
-	policyWithTargetRef := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	policyWithTargetRef := protomarshal.Clone(policy)
 	policyWithTargetRef.TargetRef = &selectorpb.PolicyTargetReference{
 		Group:     gvk.KubernetesGateway.Group,
 		Kind:      gvk.KubernetesGateway.Kind,
@@ -69,7 +68,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		Namespace: "bar",
 	}
 
-	policyWithServiceRef := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	policyWithServiceRef := protomarshal.Clone(policy)
 	policyWithServiceRef.TargetRef = &selectorpb.PolicyTargetReference{
 		Group:     gvk.Service.Group,
 		Kind:      gvk.Service.Kind,
@@ -77,13 +76,13 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		Namespace: "foo",
 	}
 
-	denyPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	denyPolicy := protomarshal.Clone(policy)
 	denyPolicy.Action = authpb.AuthorizationPolicy_DENY
 
-	auditPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	auditPolicy := protomarshal.Clone(policy)
 	auditPolicy.Action = authpb.AuthorizationPolicy_AUDIT
 
-	customPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	customPolicy := protomarshal.Clone(policy)
 	customPolicy.Action = authpb.AuthorizationPolicy_CUSTOM
 
 	cases := []struct {

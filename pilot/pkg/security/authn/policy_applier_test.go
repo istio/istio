@@ -26,7 +26,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -43,6 +42,7 @@ import (
 	protovalue "istio.io/istio/pkg/proto"
 	istiotest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestJwtFilter(t *testing.T) {
@@ -1367,7 +1367,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
-	tlsContextHTTP := proto.Clone(tlsContext).(*tls.DownstreamTlsContext)
+	tlsContextHTTP := protomarshal.Clone(tlsContext)
 	tlsContextHTTP.CommonTlsContext.AlpnProtocols = []string{"h2", "http/1.1"}
 
 	expectedStrict := MTLSSettings{

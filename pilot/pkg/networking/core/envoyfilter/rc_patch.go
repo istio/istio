@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -386,5 +387,5 @@ func routeMatch(httpRoute *route.Route, rp *model.EnvoyFilterConfigPatchWrapper)
 }
 
 func cloneVhostRouteByRouteIndex(virtualHost *route.VirtualHost, routeIndex int) {
-	virtualHost.Routes[routeIndex] = proto.Clone(virtualHost.Routes[routeIndex]).(*route.Route)
+	virtualHost.Routes[routeIndex] = protomarshal.Clone(virtualHost.Routes[routeIndex])
 }

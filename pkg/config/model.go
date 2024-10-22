@@ -294,7 +294,7 @@ func DeepCopy(s any) any {
 	// but also not used by Istio at all.
 	if _, ok := s.(protoreflect.ProtoMessage); ok {
 		if pb, ok := s.(proto.Message); ok {
-			return proto.Clone(pb)
+			return protomarshal.Clone(pb)
 		}
 	}
 

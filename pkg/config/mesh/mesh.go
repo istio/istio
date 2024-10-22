@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"sigs.k8s.io/yaml"
@@ -134,7 +133,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 // ApplyProxyConfig applies the give proxy config yaml to a mesh config object. The passed in mesh config
 // will not be modified.
 func ApplyProxyConfig(yaml string, meshConfig *meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
-	mc := proto.Clone(meshConfig).(*meshconfig.MeshConfig)
+	mc := protomarshal.Clone(meshConfig)
 	pc, err := MergeProxyConfig(yaml, mc.DefaultConfig)
 	if err != nil {
 		return nil, err

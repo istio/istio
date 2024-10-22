@@ -2036,8 +2036,7 @@ func asJSON(data any) string {
 	switch mr := data.(type) {
 	case *networking.HTTPMatchRequest:
 		if mr != nil && mr.Name != "" {
-			cl := &networking.HTTPMatchRequest{}
-			protomarshal.ShallowCopy(cl, mr)
+			cl := protomarshal.ShallowClone(mr)
 			cl.Name = ""
 			data = cl
 		}

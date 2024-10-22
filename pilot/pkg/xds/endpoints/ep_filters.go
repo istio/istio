@@ -19,7 +19,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"google.golang.org/protobuf/proto"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
@@ -80,7 +80,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// result at the maximum value for uint32.
 			weight := b.scaleEndpointLBWeight(lbEp, scaleFactor)
 			if lbEp.GetLoadBalancingWeight().GetValue() != weight {
-				lbEp = proto.Clone(lbEp).(*endpoint.LbEndpoint)
+				lbEp = protomarshal.Clone(lbEp)
 				lbEp.LoadBalancingWeight = &wrappers.UInt32Value{
 					Value: weight,
 				}

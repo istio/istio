@@ -289,7 +289,7 @@ func cleanProxyConfig(msg proto.Message) proto.Message {
 	if !ok || originalProxyConfig == nil {
 		return msg
 	}
-	pc := proto.Clone(originalProxyConfig).(*meshconfig.ProxyConfig)
+	pc := protomarshal.Clone(originalProxyConfig)
 	defaults := mesh.DefaultProxyConfig()
 	if pc.ConfigPath == defaults.ConfigPath {
 		pc.ConfigPath = ""

@@ -20,11 +20,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestValidateFQDN(t *testing.T) {
@@ -238,7 +238,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
-		clone := proto.Clone(config).(*meshconfig.ProxyConfig)
+		clone := protomarshal.Clone(config)
 		fieldSetter(clone)
 		return clone
 	}

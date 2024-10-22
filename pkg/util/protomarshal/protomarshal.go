@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 )
 
 var (
@@ -210,7 +211,9 @@ func ApplyYAMLStrict(yml string, pb proto.Message) error {
 	return ApplyJSONStrict(string(js), pb)
 }
 
-func ShallowCopy(dst, src proto.Message) {
+// ShallowClone performs a shallow clone of the object. For a deep clone, use Clone.
+func ShallowClone[T proto.Message](src T) T {
+	dst := ptr.Empty[T]()
 	dm := dst.ProtoReflect()
 	sm := src.ProtoReflect()
 	if dm.Type() != sm.Type() {
@@ -221,4 +224,10 @@ func ShallowCopy(dst, src proto.Message) {
 		dm.Set(fd, v)
 		return true
 	})
+	return dst
+}
+
+// Clone is a small wrapper that handles the upstream function not returning a typed message
+func Clone[T proto.Message](obj T) T {
+	return proto.Clone(obj).(T)
 }
