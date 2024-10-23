@@ -100,6 +100,9 @@ defaults:
     # of pods at the start of the update.
     rollingMaxUnavailable: 1
 
+    # A `key: value` mapping of environment variables to add to the pod
+    env: {}
+
   # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
   revision: ""
 
@@ -142,6 +145,3 @@ defaults:
       requests:
         cpu: 100m
         memory: 100Mi
-
-  # A `key: value` mapping of environment variables to add to the pod
-  env: {}
