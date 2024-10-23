@@ -1,5 +1,5 @@
 # prepare a distroless source context to copy files from
-FROM cgr.dev/chainguard/static@sha256:e78eb21f59f52446a23f7d45e78805c4f26406a6e9c4b21ec50dfdf07e6bec57 AS distroless_source
+FROM cgr.dev/chainguard/static@sha256:d07036a3beff43183f49bce5b2a0bd945f2ffe6e76f734ebd040059a40d371bc AS distroless_source
 
 # prepare a base dev to modify file contents
 FROM ubuntu:noble AS ubuntu_source
