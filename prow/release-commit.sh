@@ -29,6 +29,7 @@ setup_gcloud_credentials
 export GO111MODULE=on
 
 DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
+HELM_HUB=${HELM_HUB:-gcr.io/istio-testing/charts}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Enable emulation required for cross compiling a few images (VMs)
@@ -106,5 +107,5 @@ release-builder validate --release "${WORK_DIR}/out"
 if [[ -z "${DRY_RUN:-}" ]]; then
   release-builder publish --release "${WORK_DIR}/out" \
     --gcsbucket "${GCS_BUCKET}" --gcsaliases "${TAG},${NEXT_VERSION}-dev,latest" \
-    --dockerhub "${DOCKER_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
+    --dockerhub "${DOCKER_HUB}" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
 fi
