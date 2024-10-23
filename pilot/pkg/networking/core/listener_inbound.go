@@ -105,8 +105,6 @@ func (cc inboundChainConfig) StatPrefix() string {
 	if cc.passthrough {
 		// A bit arbitrary, but for backwards compatibility just use the cluster name
 		statPrefix = cc.clusterName
-	} else if cc.permissive {
-		statPrefix = "inbound_permissive_" + cc.Name(istionetworking.ListenerProtocolHTTP)
 	} else {
 		statPrefix = "inbound_" + cc.Name(istionetworking.ListenerProtocolHTTP)
 	}
