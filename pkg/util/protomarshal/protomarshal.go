@@ -210,7 +210,18 @@ func ApplyYAMLStrict(yml string, pb proto.Message) error {
 	return ApplyJSONStrict(string(js), pb)
 }
 
-func ShallowCopy(dst, src proto.Message) {
+type ComparableMessage interface {
+	comparable
+	proto.Message
+}
+
+// ShallowClone performs a shallow clone of the object. For a deep clone, use Clone.
+func ShallowClone[T ComparableMessage](src T) T {
+	var empty T
+	if src == empty {
+		return empty
+	}
+	dst := src.ProtoReflect().New().Interface().(T)
 	dm := dst.ProtoReflect()
 	sm := src.ProtoReflect()
 	if dm.Type() != sm.Type() {
@@ -221,4 +232,10 @@ func ShallowCopy(dst, src proto.Message) {
 		dm.Set(fd, v)
 		return true
 	})
+	return dst
+}
+
+// Clone is a small wrapper that handles the upstream function not returning a typed message
+func Clone[T proto.Message](obj T) T {
+	return proto.Clone(obj).(T)
 }
