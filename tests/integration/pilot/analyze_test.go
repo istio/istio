@@ -595,7 +595,7 @@ spec:
 				if ctx == mergedConfig.CurrentContext {
 					continue
 				}
-				ctxArgs = append(ctxArgs, "--remote-cluster-context", ctx)
+				ctxArgs = append(ctxArgs, "--remote-contexts", ctx)
 			}
 
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})

@@ -66,21 +66,21 @@ func (f FileParseError) Error() string {
 }
 
 var (
-	listAnalyzers         bool
-	useKube               bool
-	failureThreshold      = formatting.MessageThreshold{Level: diag.Error} // messages at least this level will generate an error exit code
-	outputThreshold       = formatting.MessageThreshold{Level: diag.Info}  // messages at least this level will be included in the output
-	colorize              bool
-	msgOutputFormat       string
-	meshCfgFile           string
-	selectedNamespace     string
-	allNamespaces         bool
-	suppress              []string
-	analysisTimeout       time.Duration
-	recursive             bool
-	ignoreUnknown         bool
-	revisionSpecified     string
-	remoteClusterContexts []string
+	listAnalyzers     bool
+	useKube           bool
+	failureThreshold  = formatting.MessageThreshold{Level: diag.Error} // messages at least this level will generate an error exit code
+	outputThreshold   = formatting.MessageThreshold{Level: diag.Info}  // messages at least this level will be included in the output
+	colorize          bool
+	msgOutputFormat   string
+	meshCfgFile       string
+	selectedNamespace string
+	allNamespaces     bool
+	suppress          []string
+	analysisTimeout   time.Duration
+	recursive         bool
+	ignoreUnknown     bool
+	revisionSpecified string
+	remoteContexts    []string
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -334,7 +334,7 @@ func Analyze(ctx cli.Context) *cobra.Command {
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
 	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "", "default",
 		"analyze a specific revision deployed.")
-	analysisCmd.PersistentFlags().StringArrayVar(&remoteClusterContexts, "remote-cluster-context", []string{},
+	analysisCmd.PersistentFlags().StringArrayVar(&remoteContexts, "remote-contexts", []string{},
 		`Kubernetes configuration contexts for remote clusters to be used in multi-cluster analysis. Not to be confused with '--context'. `+
 			"If unspecified, contexts are read from the remote secrets in the cluster.")
 	return analysisCmd
@@ -505,7 +505,7 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 			remote: false,
 		},
 	}
-	if len(remoteClusterContexts) > 0 {
+	if len(remoteContexts) > 0 {
 		remoteClients, err := getClientsFromContexts(ctx)
 		if err != nil {
 			return nil, err
@@ -550,7 +550,7 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 
 func getClientsFromContexts(ctx cli.Context) ([]*Client, error) {
 	var clients []*Client
-	remoteClients, err := ctx.CLIClientsForContexts(remoteClusterContexts)
+	remoteClients, err := ctx.CLIClientsForContexts(remoteContexts)
 	if err != nil {
 		return nil, err
 	}

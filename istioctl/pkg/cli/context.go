@@ -121,6 +121,7 @@ func (i *instance) CLIClientsForContexts(contexts []string) ([]kube.CLIClient, e
 	if i.remoteClients == nil {
 		i.remoteClients = make(map[string]kube.CLIClient)
 	}
+	// Validate if "all" incoming contexts are present in the kubeconfig. Fail fast if not.
 	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(kube.ConfigLoadingRules(*i.kubeconfig), nil).RawConfig()
 	if err != nil {
 		return nil, fmt.Errorf("getting raw kubeconfig from file %q: %v", *i.kubeconfig, err)
