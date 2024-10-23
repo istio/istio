@@ -142,3 +142,6 @@ defaults:
       requests:
         cpu: 100m
         memory: 100Mi
+
+  # A `key: value` mapping of environment variables to add to the pod
+  env: {}
