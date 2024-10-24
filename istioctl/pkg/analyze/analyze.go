@@ -273,7 +273,11 @@ func Analyze(ctx cli.Context) *cobra.Command {
 						for _, r := range readers {
 							files = append(files, r.Name)
 						}
-						fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", strings.Join(files, "\n"))
+						if len(files) > 1 {
+							fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing:\n  - %s\n", strings.Join(files, "\n  - "))
+						} else {
+							fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", strings.Join(files, "\n"))
+						}
 					} else {
 						fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", analyzeTargetAsString())
 					}
