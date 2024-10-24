@@ -75,7 +75,6 @@ func TestStatsFilter(t *testing.T) {
 			t.ConfigIstio().YAML(ist.Settings().SystemNamespace, PeerAuthenticationConfig).ApplyOrFail(t)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
-				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if err := SendTraffic(cltInstance); err != nil {
@@ -157,7 +156,6 @@ func TestStatsTCPFilter(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
-				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if err := SendTCPTraffic(cltInstance); err != nil {
@@ -211,7 +209,6 @@ func TestStatsGatewayServerTCPFilter(t *testing.T) {
 
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
-				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if _, err := cltInstance.Call(echo.CallOptions{
@@ -509,8 +506,6 @@ func buildGRPCQuery(metric string) (destinationQuery prometheus.Query) {
 
 func SendGRPCTraffic() error {
 	for _, cltInstance := range GetClientInstances() {
-		cltInstance := cltInstance
-
 		_, err := cltInstance.Call(echo.CallOptions{
 			To: GetTarget(),
 			Port: echo.Port{

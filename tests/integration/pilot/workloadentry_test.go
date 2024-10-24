@@ -186,7 +186,6 @@ spec:
 			}
 
 			for _, tc := range testCases {
-				tc := tc
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					for network, networkClusters := range t.Clusters().ByNetwork() {
 						weClusters := t.Clusters().Configs(networkClusters...)
@@ -203,7 +202,6 @@ spec:
 					}
 
 					for _, src := range apps.A.Instances() {
-						src := src
 						// TODO possibly can run parallel
 						t.NewSubTestf("from %s", src.Clusters().Default().Name()).Run(func(t framework.TestContext) {
 							src.CallOrFail(t, echo.CallOptions{

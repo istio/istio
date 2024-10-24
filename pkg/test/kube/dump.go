@@ -91,7 +91,6 @@ func DumpDeployments(ctx resource.Context, workDir, namespace string) {
 			return
 		}
 		for _, deployment := range deps.Items {
-			deployment := deployment
 			errG.Go(func() error {
 				out, err := yaml.Marshal(deployment)
 				if err != nil {
@@ -113,7 +112,6 @@ func DumpWebhooks(ctx resource.Context, workDir string) {
 			return
 		}
 		for _, mwh := range mwhs.Items {
-			mwh := mwh
 			errG.Go(func() error {
 				out, err := yaml.Marshal(mwh)
 				if err != nil {
@@ -128,7 +126,6 @@ func DumpWebhooks(ctx resource.Context, workDir string) {
 			return
 		}
 		for _, vwh := range vwhs.Items {
-			vwh := vwh
 			errG.Go(func() error {
 				out, err := yaml.Marshal(vwh)
 				if err != nil {
@@ -167,7 +164,6 @@ func DumpPods(ctx resource.Context, workDir, namespace string, selectors []strin
 			continue
 		}
 		for _, dump := range dumpers {
-			c, dump := c, dump
 			wg.Add(1)
 			go func() {
 				dump(ctx, c, workDir, namespace, pods.Items...)
@@ -429,7 +425,6 @@ func DumpPodEnvoy(ctx resource.Context, c cluster.Cluster, workDir, namespace st
 	pods = podsOrFetch(c, pods, namespace)
 	g := errgroup.Group{}
 	for _, pod := range pods {
-		pod := pod
 		if !hasEnvoy(pod) {
 			continue
 		}
@@ -627,7 +622,6 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir, endpoint, names
 func DumpPodAgent(ctx resource.Context, c cluster.Cluster, workDir string, _ string, pods ...corev1.Pod) {
 	g := errgroup.Group{}
 	for _, pod := range pods {
-		pod := pod
 		g.Go(func() error {
 			fw, err := newPortForward(c, pod, 15020)
 			if err != nil {

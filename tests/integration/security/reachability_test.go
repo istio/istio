@@ -453,8 +453,6 @@ func TestReachability(t *testing.T) {
 			}
 
 			for _, c := range cases {
-				c := c
-
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 					if c.minIstioVersion != "" {
 						skipMV := !t.Settings().Revisions.AtLeast(resource.IstioVersion(c.minIstioVersion))
@@ -493,8 +491,6 @@ func TestReachability(t *testing.T) {
 					// This is to workaround a known bug (https://github.com/istio/istio/issues/38982) causing
 					// connection resets when sending traffic to multiple ports at once
 					for _, opts := range allOpts {
-						opts := opts
-
 						schemeStr := string(opts.Scheme)
 						if len(schemeStr) == 0 {
 							schemeStr = opts.Port.Name

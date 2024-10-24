@@ -26,7 +26,6 @@ func Build(ctx resource.Context, configs []echo.Config) (echo.Instances, error) 
 
 	g := multierror.Group{}
 	for i, cfg := range configs {
-		i, cfg := i, cfg
 		g.Go(func() (err error) {
 			instances[i], err = newInstance(ctx, cfg)
 			return

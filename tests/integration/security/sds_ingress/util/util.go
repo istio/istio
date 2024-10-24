@@ -150,7 +150,6 @@ func CreateIngressKubeSecretInNamespace(t framework.TestContext, credName string
 		clusters = t.Clusters()
 	}
 	for _, c := range clusters {
-		c := c
 		wg.Go(func() error {
 			secret := createSecret(ingressType, credName, ns, ingressCred, isCompoundAndNotGeneric)
 			_, err := c.Kube().CoreV1().Secrets(ns).Create(context.TODO(), secret, metav1.CreateOptions{})

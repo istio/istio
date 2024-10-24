@@ -362,7 +362,6 @@ func (s *suiteImpl) SetupParallel(fns ...resource.SetupFn) Suite {
 	s.setupFns = append(s.setupFns, func(ctx resource.Context) error {
 		g := multierror.Group{}
 		for _, fn := range fns {
-			fn := fn
 			g.Go(func() error {
 				return fn(ctx)
 			})

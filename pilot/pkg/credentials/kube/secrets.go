@@ -93,7 +93,6 @@ func NewCredentialsController(kc kube.Client, handlers []func(name string, names
 	})
 
 	for _, h := range handlers {
-		h := h
 		// register handler before informer starts
 		secrets.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 			h(o.GetName(), o.GetNamespace())

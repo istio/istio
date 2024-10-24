@@ -16,7 +16,7 @@ linters:
   disable-all: true
   enable:
     - errcheck
-    - exportloopref
+    - copyloopvar
     - depguard
     - gocritic
     - gofumpt

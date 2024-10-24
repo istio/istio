@@ -121,7 +121,6 @@ func (t *T) RunFromClusters(testFn oneClusterOneTest) {
 // fromEachCluster runs test from each cluster without requiring source deployment.
 func (t *T) fromEachCluster(ctx framework.TestContext, testFn perClusterTest) {
 	for _, fromCluster := range t.sources.Clusters() {
-		fromCluster := fromCluster
 		ctx.NewSubTestf("from %s", fromCluster.StableName()).Run(func(ctx framework.TestContext) {
 			testFn(ctx, fromCluster)
 		})
@@ -246,7 +245,6 @@ func (t *T) fromEachDeployment(ctx framework.TestContext, testFn perDeploymentTe
 	includeNS := t.isMultipleNamespaces()
 
 	for _, from := range t.sources.Services() {
-		from := from
 		subtestName := from.Config().Service
 		if includeNS {
 			subtestName += "." + from.Config().Namespace.Prefix()
@@ -263,7 +261,6 @@ func (t *T) toEachDeployment(ctx framework.TestContext, testFn perDeploymentTest
 	includeNS := t.isMultipleNamespaces()
 
 	for _, to := range t.destinations.Services() {
-		to := to
 		subtestName := to.Config().Service
 		if includeNS {
 			subtestName += "." + to.Config().Namespace.Prefix()
@@ -276,7 +273,6 @@ func (t *T) toEachDeployment(ctx framework.TestContext, testFn perDeploymentTest
 
 func (t *T) fromEachWorkloadCluster(ctx framework.TestContext, from echo.Instances, testFn perInstanceTest) {
 	for _, fromInstance := range from {
-		fromInstance := fromInstance
 		if len(ctx.Clusters()) == 1 && len(from) == 1 {
 			testFn(ctx, fromInstance)
 		} else {
@@ -310,8 +306,6 @@ func (t *T) toNDeployments(ctx framework.TestContext, n int, from echo.Instances
 	// combination filters should be run again for individual sources
 	filteredTargets := t.destinations.Services().MatchFQDNs(commonTargets...)
 	for _, svc := range nDestinations(ctx, n, filteredTargets) {
-		svc := svc
-
 		namespacedNames := svc.NamespacedNames()
 		var toNames []string
 		if includeNS {

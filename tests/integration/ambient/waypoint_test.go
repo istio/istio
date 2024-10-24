@@ -325,7 +325,6 @@ spec:
 
 			// ensure HTTP traffic works with all hostname variants
 			for _, src := range apps.All {
-				src := src
 				if !hboneClient(src) {
 					// TODO if we hairpinning, don't skip here
 					continue
@@ -335,7 +334,6 @@ spec:
 						t.Skip("TODO: sidecars don't properly handle use-waypoint")
 					}
 					for _, host := range apps.Captured.Config().HostnameVariants() {
-						host := host
 						t.NewSubTestf("to %s", host).Run(func(t framework.TestContext) {
 							src.CallOrFail(t, echo.CallOptions{
 								To:      apps.Captured,
@@ -396,7 +394,6 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 func TestWaypointDNS(t *testing.T) {
 	runTest := func(t framework.TestContext, c echo.Checker) {
 		for _, src := range apps.All {
-			src := src
 			if !hboneClient(src) {
 				continue
 			}
@@ -459,7 +456,6 @@ func TestWaypointAsEgressGateway(t *testing.T) {
 				t.ConfigIstio().YAML(apps.Namespace.Name(), config).ApplyOrFail(t)
 			}
 			for _, src := range apps.All {
-				src := src
 				if !hboneClient(src) {
 					continue
 				}
