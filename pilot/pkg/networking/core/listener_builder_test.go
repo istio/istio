@@ -17,12 +17,14 @@ package core
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -802,12 +804,62 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 			},
 		},
 		{
-			name: "simulate peer auth permissive",
+			name: "simulate peer auth permissive https",
 			sidecarScope: &model.SidecarScope{
 				Sidecar: &networking.Sidecar{
 					Ingress: []*networking.IstioIngressListener{
 						{
 							Port: &networking.SidecarPort{Name: "https-port", Protocol: "https", Number: 80},
+							Tls: &networking.ServerTLSSettings{
+								Mode:              networking.ServerTLSSettings_SIMPLE,
+								ServerCertificate: "cert.pem",
+								PrivateKey:        "privatekey.pem",
+							},
+						},
+					},
+				},
+			},
+			mtlsMode: model.MTLSPermissive,
+			expectedResult: func(t test.Failer, virtualInbound *listener.Listener) {
+				filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
+				expectIstioMTLS(t, filterChain)
+
+				permissiveFilterChain := xdstest.ExtractFilterChain("permissive_1.1.1.1_80", virtualInbound)
+				expectNonIstioTLS(t, permissiveFilterChain)
+			},
+		},
+		{
+			name: "simulate peer auth permissive tls",
+			sidecarScope: &model.SidecarScope{
+				Sidecar: &networking.Sidecar{
+					Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.SidecarPort{Name: "tls-port", Protocol: "tls", Number: 80},
+							Tls: &networking.ServerTLSSettings{
+								Mode:              networking.ServerTLSSettings_SIMPLE,
+								ServerCertificate: "cert.pem",
+								PrivateKey:        "privatekey.pem",
+							},
+						},
+					},
+				},
+			},
+			mtlsMode: model.MTLSPermissive,
+			expectedResult: func(t test.Failer, virtualInbound *listener.Listener) {
+				filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
+				expectIstioMTLS(t, filterChain)
+
+				permissiveFilterChain := xdstest.ExtractFilterChain("permissive_1.1.1.1_80", virtualInbound)
+				expectNonIstioTLS(t, permissiveFilterChain)
+			},
+		},
+		{
+			name: "simulate peer auth permissive tls + explicit downgraded protocol",
+			sidecarScope: &model.SidecarScope{
+				Sidecar: &networking.Sidecar{
+					Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.SidecarPort{Name: "https-http2-port", Protocol: "HTTP2", Number: 80},
 							Tls: &networking.ServerTLSSettings{
 								Mode:              networking.ServerTLSSettings_SIMPLE,
 								ServerCertificate: "cert.pem",
@@ -841,6 +893,14 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 			test.SetForTest(t, &features.EnableTLSOnSidecarIngress, true)
 			listeners := cg.Listeners(proxy)
 			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
+			// ensure no duplicate filter chains
+			for idx, fc1 := range virtualInbound.FilterChains {
+				if slices.ContainsFunc(virtualInbound.FilterChains[:idx], func(fc2 *listener.FilterChain) bool {
+					return proto.Equal(fc1.FilterChainMatch, fc2.FilterChainMatch)
+				}) {
+					t.Fatal("Duplicate filter chains found!")
+				}
+			}
 			tt.expectedResult(t, virtualInbound)
 		})
 	}
