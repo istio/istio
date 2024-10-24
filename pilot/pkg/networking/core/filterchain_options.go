@@ -15,6 +15,8 @@
 package core
 
 import (
+	"slices"
+
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -105,16 +107,16 @@ var (
 			TLS:                  true,
 		},
 		{
-			// Plain TLS
-			TransportProtocol: xdsfilters.TLSTransportProtocol,
-			Protocol:          networking.ListenerProtocolTCP,
-		},
-		{
 			// Plaintext
 			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 	}
+	inboundPermissiveTCPFilterChainMatchWithMxcOptionsAndPlainTLS = append(slices.Clone(inboundPermissiveTCPFilterChainMatchWithMxcOptions), FilterChainMatchOptions{
+		// Plain TLS
+		TransportProtocol: xdsfilters.TLSTransportProtocol,
+		Protocol:          networking.ListenerProtocolTCP,
+	})
 
 	inboundStrictFilterChainMatchOptions = []FilterChainMatchOptions{
 		{
@@ -183,13 +185,16 @@ func getTLSFilterChainMatchOptions(protocol networking.ListenerProtocol) []Filte
 }
 
 // getFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
-func getFilterChainMatchOptions(settings authn.MTLSSettings, protocol networking.ListenerProtocol) []FilterChainMatchOptions {
+func getFilterChainMatchOptions(settings authn.MTLSSettings, protocol networking.ListenerProtocol, existingPermissiveTls bool) []FilterChainMatchOptions {
 	switch protocol {
 	case networking.ListenerProtocolHTTP:
 		switch settings.Mode {
 		case model.MTLSStrict:
 			return inboundStrictHTTPFilterChainMatchOptions
 		case model.MTLSPermissive:
+			if existingPermissiveTls {
+				return inboundPermissiveHTTPFilterChainMatchWithMxcOptions // http filter chain already doesn't include the filter chain for passthrough TLS
+			}
 			return inboundPermissiveHTTPFilterChainMatchWithMxcOptions
 		default:
 			return inboundPlainTextHTTPFilterChainMatchOptions
@@ -199,6 +204,9 @@ func getFilterChainMatchOptions(settings authn.MTLSSettings, protocol networking
 		case model.MTLSStrict:
 			return inboundStrictFilterChainMatchOptions
 		case model.MTLSPermissive:
+			if existingPermissiveTls {
+				return inboundPermissiveFilterChainMatchWithMxcOptions // should never occur; auto protocol should have been split to TCP and HTTP already
+			}
 			return inboundPermissiveFilterChainMatchWithMxcOptions
 		default:
 			return inboundPlainTextFilterChainMatchOptions
@@ -208,7 +216,10 @@ func getFilterChainMatchOptions(settings authn.MTLSSettings, protocol networking
 		case model.MTLSStrict:
 			return inboundStrictTCPFilterChainMatchOptions
 		case model.MTLSPermissive:
-			return inboundPermissiveTCPFilterChainMatchWithMxcOptions
+			if existingPermissiveTls {
+				return inboundPermissiveTCPFilterChainMatchWithMxcOptions
+			}
+			return inboundPermissiveTCPFilterChainMatchWithMxcOptionsAndPlainTLS
 		default:
 			return inboundPlainTextTCPFilterChainMatchOptions
 		}

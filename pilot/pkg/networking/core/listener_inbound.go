@@ -177,7 +177,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
 		// Internal chain has no mTLS
 		mtls := authn.MTLSSettings{Port: cc.port.TargetPort, Mode: model.MTLSDisable}
-		opts := getFilterChainMatchOptions(mtls, lp)
+		opts := getFilterChainMatchOptions(mtls, lp, false)
 		chains := lb.inboundChainForOpts(cc, mtls, opts)
 		for _, c := range chains {
 			lb.sanitizeFilterChainForHBONE(c)
@@ -263,7 +263,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 
 		if cc.tlsSettings == nil || mtls.Mode != model.MTLSDisable {
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
-			opts = getFilterChainMatchOptions(mtls, lp)
+			opts = getFilterChainMatchOptions(mtls, lp, cc.tlsSettings != nil)
 			chains = append(chains, lb.inboundChainForOpts(cc, mtls, opts)...)
 		}
 
@@ -771,7 +771,7 @@ func buildInboundHBONEPassthroughChain(lb *ListenerBuilder) []*listener.FilterCh
 		hbone:       lb.node.IsWaypointProxy(),
 	}
 
-	opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto)
+	opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto, false)
 	return lb.inboundChainForOpts(cc, mtls, opts)
 }
 
@@ -800,7 +800,7 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 			passthrough: true,
 			hbone:       lb.node.IsWaypointProxy(),
 		}
-		opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto)
+		opts := getFilterChainMatchOptions(mtls, istionetworking.ListenerProtocolAuto, false)
 		filterChains = append(filterChains, lb.inboundChainForOpts(cc, mtls, opts)...)
 	}
 
