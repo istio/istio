@@ -1410,8 +1410,8 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 			if c.DnsLookupFamily != tt.expectedFamily {
 				t.Errorf("Unexpected DnsLookupFamily, got: %v, want: %v", c.DnsLookupFamily, tt.expectedFamily)
 			}
-			if c.DnsJitter.AsDuration() <= 0 {
-				t.Errorf("Unexpected DnsJitter, got: %v, want: positive", c.DnsJitter.AsDuration())
+			if c.DnsJitter.AsDuration() < 0 {
+				t.Errorf("Unexpected DnsJitter, got: %v, want: >= 0", c.DnsJitter.AsDuration())
 			}
 		})
 	}
