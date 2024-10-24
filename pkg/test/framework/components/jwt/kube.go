@@ -119,7 +119,6 @@ func (s *serverImpl) deploy(ctx resource.Context) error {
 	// Wait for the endpoints to be ready.
 	var g multierror.Group
 	for _, c := range ctx.AllClusters() {
-		c := c
 		g.Go(func() error {
 			fetchFn := kube.NewPodFetch(c, s.ns.Name(), "app=jwt-server")
 			_, err := kube.WaitUntilPodsAreReady(fetchFn)

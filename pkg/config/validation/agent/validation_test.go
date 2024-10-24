@@ -65,7 +65,6 @@ func TestValidateFQDN(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateFQDN(tt.fqdn)
 			valid := err == nil
@@ -73,7 +72,6 @@ func TestValidateFQDN(t *testing.T) {
 				t.Errorf("Expected valid=%v, got valid=%v for %v", tt.valid, valid, tt.fqdn)
 			}
 		})
-
 	}
 }
 

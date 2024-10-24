@@ -53,7 +53,6 @@ spec:
 `).ApplyOrFail(t)
 
 			for _, portName := range []string{"grpc", "http", "tcp"} {
-				portName := portName
 				t.NewSubTest(portName).Run(func(t framework.TestContext) {
 					opts := echo.CallOptions{
 						To:    server,

@@ -141,7 +141,6 @@ func runMirrorTest(t *testing.T, options mirrorTestOptions) {
 						ApplyOrFail(t)
 
 					for _, podA := range apps.A {
-						podA := podA
 						t.NewSubTest(fmt.Sprintf("from %s", podA.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
 							for _, proto := range mirrorProtocols {
 								t.NewSubTest(string(proto)).Run(func(t framework.TestContext) {

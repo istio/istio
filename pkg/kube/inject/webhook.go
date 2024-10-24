@@ -264,7 +264,6 @@ const (
 func moveContainer(from, to []corev1.Container, name string) ([]corev1.Container, []corev1.Container) {
 	var container *corev1.Container
 	for i, c := range from {
-		c := c
 		if from[i].Name == name {
 			from = slices.Delete(from, i)
 			container = &c
@@ -281,7 +280,6 @@ func modifyContainers(cl []corev1.Container, name string, modifier ContainerReor
 	containers := []corev1.Container{}
 	var match *corev1.Container
 	for _, c := range cl {
-		c := c
 		if c.Name != name {
 			containers = append(containers, c)
 		} else {

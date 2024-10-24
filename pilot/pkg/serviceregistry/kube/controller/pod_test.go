@@ -95,7 +95,6 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *xdsfake.Updater) {
 
 func cleanup(ki kubernetes.Interface) {
 	for _, n := range []string{"nsa", "nsb"} {
-		n := n
 		pods, err := ki.CoreV1().Pods(n).List(context.TODO(), metav1.ListOptions{})
 		if err == nil {
 			// Make sure the pods don't exist

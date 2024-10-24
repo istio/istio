@@ -272,7 +272,6 @@ func TestController_GetPodLocality(t *testing.T) {
 	for _, tc := range testCases {
 		// If using t.Parallel() you must copy the iteration to a new local variable
 		// https://github.com/golang/go/wiki/CommonMistakes#using-goroutines-on-loop-iterator-variables
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			// Setup kube caches

@@ -282,13 +282,10 @@ func TestMeshNetworking(t *testing.T) {
 	}
 
 	for ingrType, ingressObjects := range ingressServiceScenarios {
-		ingrType, ingressObjects := ingrType, ingressObjects
 		t.Run(string(ingrType), func(t *testing.T) {
 			for name, networkConfig := range meshNetworkConfigs {
-				name, networkConfig := name, networkConfig
 				t.Run(name, func(t *testing.T) {
 					for _, cfg := range trafficConfigs {
-						cfg := cfg
 						t.Run(cfg.Meta.Name, func(t *testing.T) {
 							pod := &workload{
 								kind: Pod,

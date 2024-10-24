@@ -119,7 +119,6 @@ func RunCrane(ctx context.Context, a Args) error {
 	// Finally, construct images and push them
 	dockerStart := time.Now()
 	for _, b := range builds {
-		b := b
 		g.Go(func() error {
 			if err := builder.Build(ctx, b); err != nil {
 				return fmt.Errorf("build %v: %v", b.Name, err)

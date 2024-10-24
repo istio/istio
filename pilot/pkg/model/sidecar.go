@@ -705,7 +705,6 @@ func (sc *SidecarScope) Services() []*Service {
 func (sc *SidecarScope) SetDestinationRulesForTesting(configs []config.Config) {
 	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
 	for _, c := range configs {
-		c := c
 		sc.destinationRulesByNames[types.NamespacedName{Name: c.Name, Namespace: c.Namespace}] = &c
 	}
 }

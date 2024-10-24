@@ -147,7 +147,6 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 			})
 		} else {
 			for i := 0; i < c.NamespaceCount; i++ {
-				i := i
 				g.Go(func() error {
 					ns, err := namespace.New(ctx, namespace.Config{
 						Prefix: fmt.Sprintf("echo%d", i+1),
@@ -501,7 +500,6 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 
 	g := multierror.Group{}
 	for i := 0; i < len(apps.NS); i++ {
-		i := i
 		g.Go(func() error {
 			return apps.NS[i].loadValues(ctx, echos, apps)
 		})

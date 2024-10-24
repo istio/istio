@@ -369,7 +369,6 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			test.SetForTest[bool](t, &features.EnableDualStack, c.enableDualStack)
 			testFn(t, c.service, c.port, c.node, c.want)

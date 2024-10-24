@@ -568,7 +568,6 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bo
 		h.mu.Lock()
 		events := make([]Event[O], 0, len(h.collectionState.outputs))
 		for _, o := range h.collectionState.outputs {
-			o := o
 			events = append(events, Event[O]{
 				New:   &o,
 				Event: controllers.EventAdd,

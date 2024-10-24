@@ -2048,7 +2048,6 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 	namespaceLabelReferences := sets.New[string]()
 	classes := getGatewayClasses(r.GatewayResources)
 	for _, obj := range r.Gateway {
-		obj := obj
 		kgw := obj.Spec.(*k8s.GatewaySpec)
 		controllerName, f := classes[string(kgw.GatewayClassName)]
 		if !f {
@@ -2075,7 +2074,6 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 			continue
 		}
 		for i, l := range kgw.Listeners {
-			i := i
 			namespaceLabelReferences.InsertAll(getNamespaceLabelReferences(l.AllowedRoutes)...)
 			server, programmed := buildListener(r, obj, l, i, controllerName)
 

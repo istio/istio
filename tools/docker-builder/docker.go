@@ -291,7 +291,6 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			if strings.HasSuffix(i, ":latest") { // Allow clobbering of latest - don't verify existence
 				continue
 			}
-			i := i
 			e.Go(func() error {
 				exists, err := image.Exists(i)
 				if err != nil {

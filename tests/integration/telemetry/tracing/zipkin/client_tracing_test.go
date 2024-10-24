@@ -39,7 +39,6 @@ func TestClientTracing(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
-				cluster := cluster
 				t.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
 					retry.UntilSuccessOrFail(ctx, func() error {
 						// Send test traffic with a trace header.
@@ -62,7 +61,6 @@ func TestClientTracing(t *testing.T) {
 						return nil
 					}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
 				})
-
 			}
 		})
 }
