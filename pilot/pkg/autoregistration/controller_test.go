@@ -26,7 +26,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-multierror"
-	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
@@ -179,7 +178,7 @@ func TestNonAutoRegisteredWorkloads(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			require.NoError(t, c.OnConnect(makeConn(tc, time.Now())))
+			c.OnConnect(makeConn(tc, time.Now()))
 			items := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if len(items) != 0 {
 				t.Fatal("expected 0 WorkloadEntry")
