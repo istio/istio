@@ -94,19 +94,6 @@ func ConfigNamesOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.String 
 	return ret
 }
 
-// ConfigNameOfKind extracts config names of the specified kind.
-func ConfigNameOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) sets.String {
-	ret := sets.New[string]()
-
-	for conf := range configs {
-		if conf.Kind == kind {
-			ret.Insert(conf.Name)
-		}
-	}
-
-	return ret
-}
-
 // ConfigStore describes a set of platform agnostic APIs that must be supported
 // by the underlying platform to store and retrieve Istio configuration.
 //
