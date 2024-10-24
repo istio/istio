@@ -184,9 +184,13 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 
 func setupEnvoyClusterStatsConfig(kubeClient kube.CLIClient, podName, podNamespace string, outputFormat string) (string, error) {
 	path := "clusters"
-	if outputFormat == jsonOutput || outputFormat == yamlOutput {
+	switch outputFormat {
+	case "", summaryOutput:
+	case jsonOutput, yamlOutput:
 		// for yaml output we will convert the json to yaml when printed
 		path += "?format=json"
+	default:
+		return "", fmt.Errorf("unable to match a printer suitable for the output format %s, allowed formats are: json,yaml,short", outputFormat)
 	}
 	result, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
@@ -197,12 +201,14 @@ func setupEnvoyClusterStatsConfig(kubeClient kube.CLIClient, podName, podNamespa
 
 func setupEnvoyServerStatsConfig(kubeClient kube.CLIClient, podName, podNamespace string, outputFormat string) (string, error) {
 	path := "stats"
-	if outputFormat == jsonOutput || outputFormat == yamlOutput {
+	switch outputFormat {
+	case "", summaryOutput:
+	case jsonOutput, yamlOutput:
 		// for yaml output we will convert the json to yaml when printed
 		path += "?format=json"
-	} else if outputFormat == prometheusOutput {
+	case prometheusOutput:
 		path += "/prometheus"
-	} else if outputFormat == prometheusMergedOutput {
+	case prometheusMergedOutput:
 		pod, err := kubeClient.Kube().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 		if err != nil {
 			return "", fmt.Errorf("failed to retrieve Pod %s/%s: %v", podNamespace, podName, err)
@@ -214,6 +220,8 @@ func setupEnvoyServerStatsConfig(kubeClient kube.CLIClient, podName, podNamespac
 		}
 		path = promPath
 		port = promPort
+	default:
+		return "", fmt.Errorf("unable to match a printer suitable for the output format %s, allowed formats are: json,yaml,short,prom,prom-merged", outputFormat)
 	}
 
 	result, err := kubeClient.EnvoyDoWithPort(context.Background(), podName, podNamespace, "GET", path, proxyAdminPort)
