@@ -17,14 +17,13 @@ package core
 import (
 	"fmt"
 	"reflect"
-	"slices"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -895,9 +895,9 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
 			// ensure no duplicate filter chains
 			for idx, fc1 := range virtualInbound.FilterChains {
-				if slices.ContainsFunc(virtualInbound.FilterChains[:idx], func(fc2 *listener.FilterChain) bool {
+				if slices.FindFunc(virtualInbound.FilterChains[:idx], func(fc2 *listener.FilterChain) bool {
 					return proto.Equal(fc1.FilterChainMatch, fc2.FilterChainMatch)
-				}) {
+				}) != nil {
 					t.Fatal("Duplicate filter chains found!")
 				}
 			}
