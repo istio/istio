@@ -15,6 +15,7 @@
 package labels_test
 
 import (
+	"fmt"
 	"testing"
 
 	"istio.io/istio/pkg/config/labels"
@@ -202,7 +203,8 @@ func TestInstanceValidate(t *testing.T) {
 func BenchmarkLabelString(b *testing.B) {
 	big := labels.Instance{}
 	for i := 0; i < 50; i++ {
-		big["topology.kubernetes.io/region"] = "some value"
+		key := fmt.Sprintf("topology.kubernetes.io/region-%d", i)
+		big[key] = "some value"
 	}
 	small := labels.Instance{
 		"app": "foo",
