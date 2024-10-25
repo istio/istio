@@ -137,7 +137,7 @@ var (
 
 	EnableIPAutoallocate = env.Register(
 		"PILOT_ENABLE_IP_AUTOALLOCATE",
-		false,
+		true,
 		"If enabled, pilot will start a controller that assigns IP addresses to ServiceEntry which do not have a user-supplied IP. "+
 			"This, when combined with DNS capture allows for tcp routing of traffic sent to the ServiceEntry.").Get()
 
