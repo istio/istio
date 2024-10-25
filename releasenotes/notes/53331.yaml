@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 53331
+releaseNotes:
+- |
+  **Added** Added ObservedGeneration to Ambient status conditions. This field will show the generation of the object that was observed by the controller when the condition was generated.
