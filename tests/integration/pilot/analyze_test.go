@@ -101,7 +101,7 @@ func TestFileOnly(t *testing.T) {
 		})
 }
 
-func TestDirectoryWithoutRecursion(t *testing.T) {
+func TestDirectory(t *testing.T) {
 	// nolint: staticcheck
 	framework.
 		NewTest(t).
@@ -116,33 +116,8 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
-			// Recursive is false, so we should only analyze
-			// testdata/some-dir/missing-gateway.yaml and get a
-			// SchemaValidationError (if we did recurse, we'd get a
-			// UnknownAnnotation as well).
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=false", dirWithConfig)
-			expectMessages(t, g, output, msg.SchemaValidationError)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
-		})
-}
-
-func TestDirectoryWithRecursion(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// Recursive is true, so we should see one error (SchemaValidationError).
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=true", dirWithConfig)
+			// Hardcore recursive to true, so we should see one error (SchemaValidationError).
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, dirWithConfig)
 			expectMessages(t, g, output, msg.SchemaValidationError)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
