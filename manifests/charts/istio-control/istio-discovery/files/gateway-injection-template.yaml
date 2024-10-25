@@ -192,16 +192,16 @@ spec:
     - name: istio-podinfo
       mountPath: /etc/istio/pod
   volumes:
-  - emptyDir: {}
+  - emptyDir:
     name: workload-socket
-  - emptyDir: {}
+  - emptyDir:
     name: credential-socket
   {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
   - name: gke-workload-certificate
     csi:
       driver: workloadcertificates.security.cloud.google.com
   {{- else}}
-  - emptyDir: {}
+  - emptyDir:
     name: workload-certs
   {{- end }}
   # SDS channel between istioagent and Envoy
