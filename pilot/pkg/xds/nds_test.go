@@ -23,12 +23,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/test"
 )
 
 func TestNDS(t *testing.T) {
@@ -112,11 +114,12 @@ func TestGenerate(t *testing.T) {
 	emptyNameTable := model.Resources{&discovery.Resource{Resource: protoconv.MessageToAny(nt)}}
 
 	cases := []struct {
-		name      string
-		proxy     *model.Proxy
-		resources []string
-		request   *model.PushRequest
-		nameTable []*discovery.Resource
+		name        string
+		proxy       *model.Proxy
+		resources   []string
+		request     *model.PushRequest
+		nameTable   []*discovery.Resource
+		allServices bool
 	}{
 		{
 			name:      "partial push with headless endpoint update",
@@ -136,9 +139,20 @@ func TestGenerate(t *testing.T) {
 			request:   &model.PushRequest{},
 			nameTable: nil,
 		},
+		{
+			name:  "all services",
+			proxy: &model.Proxy{Type: model.SidecarProxy},
+			request: &model.PushRequest{
+				Full: true,
+				Push: model.NewPushContext(),
+			},
+			nameTable:   emptyNameTable,
+			allServices: true,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetAtomicBoolForTest(t, features.IncludeAllServicesInDNS, tt.allServices)
 			if tt.proxy.Metadata == nil {
 				tt.proxy.Metadata = &model.NodeMetadata{}
 			}
