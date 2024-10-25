@@ -1,3 +1,5 @@
+iptables-save
+ip6tables-save
 * nat
 -N ISTIO_POSTRT
 -A POSTROUTING -j ISTIO_POSTRT
