@@ -42,6 +42,7 @@ type SecretItem struct {
 	Source      string `json:"source"`
 	Destination string `json:"destination"`
 	State       string `json:"state"`
+	TrustDomain string `json:"trust_domain"`
 	SecretMeta
 }
 
@@ -67,16 +68,18 @@ type SecretItemBuilder interface {
 	Source(string) SecretItemBuilder
 	Destination(string) SecretItemBuilder
 	State(string) SecretItemBuilder
+	TrustDomain(string) SecretItemBuilder
 	Build() (SecretItem, error)
 }
 
 // secretItemBuilder implements SecretItemBuilder, and acts as an intermediate before SecretItem generation
 type secretItemBuilder struct {
-	name   string
-	data   string
-	source string
-	dest   string
-	state  string
+	name        string
+	data        string
+	source      string
+	dest        string
+	state       string
+	trustDomain string
 	SecretMeta
 }
 
@@ -110,6 +113,12 @@ func (s *secretItemBuilder) State(state string) SecretItemBuilder {
 	return s
 }
 
+// TrustDomain sets the trust domain of the secret on the agent or sidecar
+func (s *secretItemBuilder) TrustDomain(trustDomain string) SecretItemBuilder {
+	s.trustDomain = trustDomain
+	return s
+}
+
 // Build takes the set fields from the builder and constructs the actual SecretItem
 // including generating the SecretMeta from the supplied cert data, if present
 func (s *secretItemBuilder) Build() (SecretItem, error) {
@@ -119,6 +128,7 @@ func (s *secretItemBuilder) Build() (SecretItem, error) {
 		Source:      s.source,
 		Destination: s.dest,
 		State:       s.state,
+		TrustDomain: s.trustDomain,
 	}
 
 	var meta SecretMeta
@@ -150,35 +160,37 @@ func GetEnvoySecrets(
 
 	proxySecretItems := make([]SecretItem, 0)
 	for _, warmingSecret := range secretConfigDump.DynamicWarmingSecrets {
-		secret, err := parseDynamicSecret(warmingSecret, "WARMING")
+		secrets, err := parseDynamicSecret(warmingSecret, "WARMING")
 		if err != nil {
 			return nil, fmt.Errorf("failed building warming secret %s: %v",
 				warmingSecret.Name, err)
 		}
-		proxySecretItems = append(proxySecretItems, secret)
+		proxySecretItems = append(proxySecretItems, secrets...)
 	}
 	for _, activeSecret := range secretConfigDump.DynamicActiveSecrets {
-		secret, err := parseDynamicSecret(activeSecret, "ACTIVE")
+		secrets, err := parseDynamicSecret(activeSecret, "ACTIVE")
 		if err != nil {
 			return nil, fmt.Errorf("failed building warming secret %s: %v",
 				activeSecret.Name, err)
 		}
-		if activeSecret.VersionInfo == "uninitialized" {
-			secret.State = "UNINITIALIZED"
+		for _, secret := range secrets {
+			if activeSecret.VersionInfo == "uninitialized" {
+				secret.State = "UNINITIALIZED"
+			}
 		}
-		proxySecretItems = append(proxySecretItems, secret)
+		proxySecretItems = append(proxySecretItems, secrets...)
 	}
 	return proxySecretItems, nil
 }
 
-func parseDynamicSecret(s *envoy_admin.SecretsConfigDump_DynamicSecret, state string) (SecretItem, error) {
+func parseDynamicSecret(s *envoy_admin.SecretsConfigDump_DynamicSecret, state string) ([]SecretItem, error) {
 	builder := NewSecretItemBuilder()
 	builder.Name(s.Name).State(state)
 
 	secretTyped := &auth.Secret{}
 	err := s.GetSecret().UnmarshalTo(secretTyped)
 	if err != nil {
-		return SecretItem{}, err
+		return []SecretItem{}, err
 	}
 
 	certChainSecret := secretTyped.
@@ -196,14 +208,48 @@ func parseDynamicSecret(s *envoy_admin.SecretsConfigDump_DynamicSecret, state st
 		builder.Data(string(certChainSecret))
 	} else if len(caDataSecret) > 0 {
 		builder.Data(string(caDataSecret))
+	} else {
+		trustBundles, err := getTrustBundles(secretTyped)
+		if err != nil {
+			return []SecretItem{}, err
+		}
+		var secretItems []SecretItem
+		for td, tb := range trustBundles {
+			builder := NewSecretItemBuilder()
+			builder.Name(s.Name).State(state)
+			builder.TrustDomain(td)
+			builder.Data(string(tb))
+			secret, err := builder.Build()
+			if err != nil {
+				return []SecretItem{}, err
+			}
+			secretItems = append(secretItems, secret)
+		}
+		return secretItems, nil
 	}
 
 	secret, err := builder.Build()
 	if err != nil {
-		return SecretItem{}, fmt.Errorf("error building secret: %v", err)
+		return []SecretItem{}, fmt.Errorf("error building secret: %v", err)
 	}
 
-	return secret, nil
+	return []SecretItem{secret}, nil
+}
+
+func getTrustBundles(secret *auth.Secret) (map[string][]byte, error) {
+	trustBundles := map[string][]byte{}
+	if customValidator := secret.GetValidationContext().GetCustomValidatorConfig(); customValidator != nil {
+		if customValidator.GetTypedConfig().GetTypeUrl() == "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.SPIFFECertValidatorConfig" {
+			spiffeConfig := &auth.SPIFFECertValidatorConfig{}
+			if err := customValidator.GetTypedConfig().UnmarshalTo(spiffeConfig); err != nil {
+				return nil, fmt.Errorf("error unmarshaling spiffe config: %v", err)
+			}
+			for _, td := range spiffeConfig.GetTrustDomains() {
+				trustBundles[td.GetName()] = td.GetTrustBundle().GetInlineBytes()
+			}
+		}
+	}
+	return trustBundles, nil
 }
 
 func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {

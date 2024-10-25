@@ -79,14 +79,27 @@ func (w *sdsWriter) printSecretItemsTabular(secrets []SecretItem) error {
 		fmt.Fprintln(w.w, "No secret items to show.")
 		return nil
 	}
+	var hasTrustDomains bool
+	for _, secret := range secrets {
+		if secret.TrustDomain != "" {
+			hasTrustDomains = true
+			secretItemColumns = append(secretItemColumns, "TRUST DOMAIN")
+			break
+		}
+	}
 	tw := new(tabwriter.Writer).Init(w.w, 0, 5, 5, ' ', 0)
 	fmt.Fprintln(tw, strings.Join(secretItemColumns, "\t"))
 	for _, s := range secrets {
 		if includeConfigType {
 			s.Name = fmt.Sprintf("secret/%s", s.Name)
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%t\t%s\t%s\t%s\n",
-			s.Name, s.Type, s.State, s.Valid, s.SerialNumber, s.NotAfter, s.NotBefore)
+		if hasTrustDomains {
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%t\t%s\t%s\t%s\t%s\n",
+				s.Name, s.Type, s.State, s.Valid, s.SerialNumber, s.NotAfter, s.NotBefore, s.TrustDomain)
+		} else {
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%t\t%s\t%s\t%s\n",
+				s.Name, s.Type, s.State, s.Valid, s.SerialNumber, s.NotAfter, s.NotBefore)
+		}
 	}
 	return tw.Flush()
 }
