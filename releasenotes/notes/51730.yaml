@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issues:
+  - 46858
+releaseNotes:
+  - |
+    **Fixed** an issue that using Telemetry API causes config size increase.
