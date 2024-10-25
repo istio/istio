@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 )
 
 type informer[I controllers.ComparableObject] struct {
@@ -60,12 +61,12 @@ func (i *informer[I]) Synced() Syncer {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (i *informer[I]) dump() {
-	i.log.Errorf(">>> BEGIN DUMP")
-	for _, obj := range i.inf.List(metav1.NamespaceAll, klabels.Everything()) {
-		i.log.Errorf("%s/%s", obj.GetNamespace(), obj.GetName())
+func (i *informer[I]) dump() CollectionDump {
+	return CollectionDump{
+		Outputs: eraseMap(slices.GroupUnique(i.inf.List(metav1.NamespaceAll, klabels.Everything()), func(t I) Key[I] {
+			return GetKey(t)
+		})),
 	}
-	i.log.Errorf("<<< END DUMP")
 }
 
 func (i *informer[I]) name() string {
@@ -184,6 +185,7 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		close(h.synced)
 		h.log.Infof("%v synced", h.name())
 	}()
+	RegisterCollectionForDebugging(h)
 	return h
 }
 

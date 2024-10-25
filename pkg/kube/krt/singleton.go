@@ -106,8 +106,9 @@ func (d *static[T]) Set(now *T) {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (d *static[T]) dump() {
+func (d *static[T]) dump() CollectionDump {
 	log.Errorf(">>> static[%v]: %+v<<<", ptr.TypeName[T](), d.val.Load())
+	return CollectionDump{}
 }
 
 // nolint: unused // (not true, its to implement an interface)
