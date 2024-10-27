@@ -79,13 +79,15 @@ func (w *sdsWriter) printSecretItemsTabular(secrets []SecretItem) error {
 		fmt.Fprintln(w.w, "No secret items to show.")
 		return nil
 	}
-	var hasTrustDomains bool
+	var hasUnknownTrustDomain bool
 	for _, secret := range secrets {
-		if secret.TrustDomain != "" {
-			hasTrustDomains = true
-			secretItemColumns = append(secretItemColumns, "TRUST DOMAIN")
+		if secret.SecretMeta.TrustDomain == "" {
+			hasUnknownTrustDomain = true
 			break
 		}
+	}
+	if !hasUnknownTrustDomain {
+		secretItemColumns = append(secretItemColumns, "TRUST DOMAIN")
 	}
 	tw := new(tabwriter.Writer).Init(w.w, 0, 5, 5, ' ', 0)
 	fmt.Fprintln(tw, strings.Join(secretItemColumns, "\t"))
@@ -93,9 +95,12 @@ func (w *sdsWriter) printSecretItemsTabular(secrets []SecretItem) error {
 		if includeConfigType {
 			s.Name = fmt.Sprintf("secret/%s", s.Name)
 		}
-		if hasTrustDomains {
+		// If all secrets have a trust domain, we are probably dealing with trust domain federation, so print trust domains.
+		// Otherwise, do not do that, because we do not know how to determine that information from the certificate,
+		// so the output would be confusing.
+		if !hasUnknownTrustDomain {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%t\t%s\t%s\t%s\t%s\n",
-				s.Name, s.Type, s.State, s.Valid, s.SerialNumber, s.NotAfter, s.NotBefore, s.TrustDomain)
+				s.Name, s.Type, s.State, s.Valid, s.SerialNumber, s.NotAfter, s.NotBefore, s.SecretMeta.TrustDomain)
 		} else {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%t\t%s\t%s\t%s\n",
 				s.Name, s.Type, s.State, s.Valid, s.SerialNumber, s.NotAfter, s.NotBefore)

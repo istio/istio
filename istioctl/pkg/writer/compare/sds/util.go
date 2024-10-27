@@ -53,6 +53,7 @@ type SecretMeta struct {
 	NotAfter     string `json:"not_after"`
 	NotBefore    string `json:"not_before"`
 	Type         string `json:"type"`
+	TrustDomain  string `json:"trust_domain"`
 }
 
 // NewSecretItemBuilder returns a new builder to create a secret item
@@ -134,7 +135,7 @@ func (s *secretItemBuilder) Build() (SecretItem, error) {
 	var meta SecretMeta
 	var err error
 	if s.data != "" {
-		meta, err = secretMetaFromCert([]byte(s.data))
+		meta, err = secretMetaFromCert([]byte(s.data), result.TrustDomain)
 		if err != nil {
 			log.Debugf("failed to parse secret resource %s from source %s: %v",
 				s.name, s.source, err)
@@ -220,7 +221,7 @@ func parseDynamicSecret(s *envoy_admin.SecretsConfigDump_DynamicSecret, state st
 	return []SecretItem{secret}, nil
 }
 
-func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {
+func secretMetaFromCert(rawCert []byte, trustDomain string) (SecretMeta, error) {
 	block, _ := pem.Decode(rawCert)
 	if block == nil {
 		return SecretMeta{}, fmt.Errorf("failed to parse certificate PEM")
@@ -235,6 +236,15 @@ func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {
 	} else {
 		certType = "Cert Chain"
 	}
+	// Trust domain is already known for CAs from SPIFFECertValidator that includes this information,
+	// so skip determining this information, because usually it will be not included in the certificate.
+	if trustDomain == "" {
+		for _, uri := range cert.URIs {
+			if uri.Scheme == "spiffe" {
+				trustDomain = uri.Host
+			}
+		}
+	}
 
 	today := time.Now()
 	return SecretMeta{
@@ -243,6 +253,7 @@ func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {
 		NotBefore:    cert.NotBefore.Format(time.RFC3339),
 		Type:         certType,
 		Valid:        today.After(cert.NotBefore) && today.Before(cert.NotAfter),
+		TrustDomain:  trustDomain,
 	}, nil
 }
 
