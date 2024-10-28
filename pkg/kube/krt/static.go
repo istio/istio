@@ -57,6 +57,8 @@ func (s *staticList[T]) DeleteObject(k Key[T]) {
 			Old:   &old,
 			Event: controllers.EventDelete,
 		}})
+	} else {
+		s.mu.Unlock()
 	}
 }
 
@@ -75,6 +77,8 @@ func (s StaticCollection[T]) DeleteObjects(filter func(obj T) bool) {
 	}
 	if len(removed) > 0 {
 		s.runEventsLocked(removed)
+	} else {
+		s.mu.Unlock()
 	}
 }
 
