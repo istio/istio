@@ -404,8 +404,10 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.Lock()
 	delete(c.servicesMap, svc.Hostname)
 	delete(c.nodeSelectorsForServices, svc.Hostname)
+	c.networkManager.Lock()
 	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
 	delete(c.networkGatewaysBySvc, svc.Hostname)
+	c.networkManager.Unlock()
 	c.Unlock()
 
 	if isNetworkGateway {
