@@ -27,7 +27,6 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/controllers/ipallocate"
-	"istio.io/istio/pilot/pkg/features"
 	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config/schema/gvr"
 	kubelib "istio.io/istio/pkg/kube"
@@ -61,7 +60,6 @@ type ipAllocateTestRig struct {
 
 func setupIPAllocateTest(t *testing.T) (*ipallocate.IPAllocator, ipAllocateTestRig) {
 	t.Helper()
-	features.EnableIPAutoallocate = true
 	s := test.NewStop(t)
 	c := kubelib.NewFakeClient()
 	clienttest.MakeCRD(t, c, gvr.ServiceEntry)
