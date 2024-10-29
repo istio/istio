@@ -415,8 +415,6 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8=
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
-github.com/tjons/api v0.0.0-20241022224639-7a6e49ca3102 h1:p0rKANEJjG+NJl8303bZ28X3SbwFLCUyuAfNNOLFt0s=
-github.com/tjons/api v0.0.0-20241022224639-7a6e49ca3102/go.mod h1:MQnRok7RZ20/PE56v0LxmoWH0xVxnCQPNuf9O7PAN1I=
 github.com/vbatts/tar-split v0.11.5 h1:3bHCTIheBm1qFTcgh9oPu+nNBtX+XJIupG/vacinCts=
 github.com/vbatts/tar-split v0.11.5/go.mod h1:yZbwRsSeGjusneWgA781EKej9HF8vme8okylkAeNKLk=
 github.com/vishvananda/netlink v1.3.0 h1:X7l42GfcV4S6E4vHTsw48qbrV+9PVojNfIhZcwQdrZk=
@@ -643,8 +641,6 @@ istio.io/api v1.24.0-alpha.0.0.20241028175955-5ef47d381d4d h1:SvW0eXFzX/11pe/HZF
 istio.io/api v1.24.0-alpha.0.0.20241028175955-5ef47d381d4d/go.mod h1:MQnRok7RZ20/PE56v0LxmoWH0xVxnCQPNuf9O7PAN1I=
 istio.io/client-go v1.24.0-alpha.0.0.20241028180353-8402bc51af81 h1:qDY2Yu7Gc9A2hGzWRhA8OykKNwnN0/ysgQEInaY++0E=
 istio.io/client-go v1.24.0-alpha.0.0.20241028180353-8402bc51af81/go.mod h1:IQ0E1k5gD5IJU/U0l4Ks68NgEBod8izl1FOwPralb7E=
-istio.io/client-go v1.23.0-alpha.0.0.20241002184030-a3dcda532df6 h1:8SPjyDZOc8oGJyDvsdbRWZX+Mhs7HjONBiGEFvmRhaQ=
-istio.io/client-go v1.23.0-alpha.0.0.20241002184030-a3dcda532df6/go.mod h1:k01302c6/1MbQXJ4NNK1ltuVI3aS0XufEqSrN+x6KrA=
 k8s.io/api v0.31.1 h1:Xe1hX/fPW3PXYYv8BlozYqw63ytA92snr96zMW9gWTU=
 k8s.io/api v0.31.1/go.mod h1:sbN1g6eY6XVLeqNsZGLnI5FwVseTrZX7Fv3O26rhAaI=
 k8s.io/apiextensions-apiserver v0.31.1 h1:L+hwULvXx+nvTYX/MKM3kKMZyei+UiSXQWciX/N6E40=
