@@ -71,7 +71,7 @@ func (p Port) Scheme() (scheme.Instance, error) {
 		return scheme.GRPC, nil
 	case protocol.HTTP:
 		return scheme.HTTP, nil
-	case protocol.HTTPS:
+	case protocol.HTTPS, protocol.H2:
 		return scheme.HTTPS, nil
 	case protocol.TCP:
 		return scheme.TCP, nil

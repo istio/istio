@@ -521,7 +521,7 @@ func gatewayRDSRouteName(server *networking.Server, portNumber uint32, cfg confi
 		return "http" + "." + strconv.Itoa(int(portNumber)) + bind // Format: http.%d.%s
 	}
 
-	if p == protocol.HTTPS && !gateway.IsPassThroughServer(server) {
+	if p.IsHTTPS() && !gateway.IsPassThroughServer(server) {
 		return "https" + "." + strconv.Itoa(int(server.Port.Number)) + "." +
 			server.Port.Name + "." + cfg.Name + "." + cfg.Namespace + bind // Format: https.%d.%s.%s.%s.%s
 	}

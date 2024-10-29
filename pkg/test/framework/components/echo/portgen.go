@@ -53,6 +53,7 @@ func newPortGenerator() *portGenerator {
 		next: map[protocol.Instance]int{
 			protocol.HTTP:    httpBase,
 			protocol.HTTPS:   httpsBase,
+			protocol.H2:      httpsBase,
 			protocol.TLS:     httpsBase,
 			protocol.TCP:     tcpBase,
 			protocol.GRPCWeb: grpcBase,

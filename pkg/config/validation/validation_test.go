@@ -350,6 +350,14 @@ func TestValidateServer(t *testing.T) {
 			"must have TLS",
 		},
 		{
+			"no tls on H2",
+			&networking.Server{
+				Hosts: []string{"foo.bar.com"},
+				Port:  &networking.Port{Number: 10000, Name: "https", Protocol: "h2"},
+			},
+			"must have TLS",
+		},
+		{
 			"tls on HTTP",
 			&networking.Server{
 				Hosts: []string{"foo.bar.com"},
@@ -5975,7 +5983,7 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
-		{"ingress tls post decrypted protocol in IPv4", &networking.Sidecar{
+		{"ingress tls invalid protocol in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.SidecarPort{
@@ -5984,15 +5992,11 @@ func TestValidateSidecar(t *testing.T) {
 						Name:     "foo",
 					},
 					DefaultEndpoint: "127.0.0.1:9999",
-					Tls: &networking.ServerTLSSettings{
-						Mode:              networking.ServerTLSSettings_SIMPLE,
-						ServerCertificate: "Captain Jean-Luc Picard",
-						PrivateKey:        "Khan Noonien Singh",
-					},
+					Tls:             &networking.ServerTLSSettings{},
 				},
 			},
-		}, true, false},
-		{"ingress tls post decrypted protocol in IPv6", &networking.Sidecar{
+		}, false, false},
+		{"ingress tls invalid protocol in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.SidecarPort{
@@ -6001,27 +6005,7 @@ func TestValidateSidecar(t *testing.T) {
 						Name:     "foo",
 					},
 					DefaultEndpoint: "[::1]:9999",
-					Tls: &networking.ServerTLSSettings{
-						Mode:              networking.ServerTLSSettings_SIMPLE,
-						ServerCertificate: "Captain Jean-Luc Picard",
-						PrivateKey:        "Khan Noonien Singh",
-					},
-				},
-			},
-		}, true, false},
-		{"ingress tls unknown protocol in IPv4", &networking.Sidecar{
-			Ingress: []*networking.IstioIngressListener{
-				{
-					Port: &networking.SidecarPort{
-						Number: 90,
-						Name:   "foo",
-					},
-					DefaultEndpoint: "127.0.0.1:9999",
-					Tls: &networking.ServerTLSSettings{
-						Mode:              networking.ServerTLSSettings_SIMPLE,
-						ServerCertificate: "Captain Jean-Luc Picard",
-						PrivateKey:        "Khan Noonien Singh",
-					},
+					Tls:             &networking.ServerTLSSettings{},
 				},
 			},
 		}, false, false},

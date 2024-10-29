@@ -4,7 +4,7 @@ area: traffic-management
 issue: []
 releaseNotes:
 - |
-  **Updated** allow specifying the downgraded protocol in the sidecar port definition
+  **Added** added the "h2" sidecar port protocol to allow specifying that the downgraded protocol should be http2
 upgradeNotes: []
 docs: []
 securityNotes: []
