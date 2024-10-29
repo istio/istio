@@ -9,7 +9,6 @@ metadata:
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
     app.kubernetes.io/version: "11.2.2-security-01"
-    app.kubernetes.io/managed-by: Helm
   name: grafana
   namespace: istio-system
 ---
@@ -24,7 +23,6 @@ metadata:
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
     app.kubernetes.io/version: "11.2.2-security-01"
-    app.kubernetes.io/managed-by: Helm
 data:
   
   grafana.ini: |
@@ -91,7 +89,6 @@ metadata:
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
     app.kubernetes.io/version: "11.2.2-security-01"
-    app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
   ports:
@@ -114,7 +111,6 @@ metadata:
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
     app.kubernetes.io/version: "11.2.2-security-01"
-    app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
   revisionHistoryLimit: 10

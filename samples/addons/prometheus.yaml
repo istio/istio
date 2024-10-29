@@ -9,7 +9,6 @@ metadata:
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v2.54.1
     helm.sh/chart: prometheus-25.27.0
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -26,7 +25,6 @@ metadata:
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v2.54.1
     helm.sh/chart: prometheus-25.27.0
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -361,7 +359,6 @@ metadata:
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v2.54.1
     helm.sh/chart: prometheus-25.27.0
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
 rules:
@@ -413,7 +410,6 @@ metadata:
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v2.54.1
     helm.sh/chart: prometheus-25.27.0
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
 subjects:
@@ -435,7 +431,6 @@ metadata:
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v2.54.1
     helm.sh/chart: prometheus-25.27.0
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -462,7 +457,6 @@ metadata:
     app.kubernetes.io/instance: prometheus
     app.kubernetes.io/version: v2.54.1
     helm.sh/chart: prometheus-25.27.0
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
@@ -485,7 +479,6 @@ spec:
         app.kubernetes.io/instance: prometheus
         app.kubernetes.io/version: v2.54.1
         helm.sh/chart: prometheus-25.27.0
-        app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: prometheus
         
         sidecar.istio.io/inject: "false"

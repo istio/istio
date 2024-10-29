@@ -12,7 +12,6 @@ metadata:
     app.kubernetes.io/instance: kiali
     version: "v2.0.0"
     app.kubernetes.io/version: "v2.0.0"
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: "kiali"
 ...
 ---
@@ -29,7 +28,6 @@ metadata:
     app.kubernetes.io/instance: kiali
     version: "v2.0.0"
     app.kubernetes.io/version: "v2.0.0"
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: "kiali"
 data:
   config.yaml: |
@@ -140,7 +138,6 @@ metadata:
     app.kubernetes.io/instance: kiali
     version: "v2.0.0"
     app.kubernetes.io/version: "v2.0.0"
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: "kiali"
 rules:
 - apiGroups: [""]
@@ -254,7 +251,6 @@ metadata:
     app.kubernetes.io/instance: kiali
     version: "v2.0.0"
     app.kubernetes.io/version: "v2.0.0"
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: "kiali"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -279,7 +275,6 @@ metadata:
     app.kubernetes.io/instance: kiali
     version: "v2.0.0"
     app.kubernetes.io/version: "v2.0.0"
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: "kiali"
   annotations:
 spec:
@@ -310,7 +305,6 @@ metadata:
     app.kubernetes.io/instance: kiali
     version: "v2.0.0"
     app.kubernetes.io/version: "v2.0.0"
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: "kiali"
 spec:
   replicas: 1
@@ -333,7 +327,6 @@ spec:
         app.kubernetes.io/instance: kiali
         version: "v2.0.0"
         app.kubernetes.io/version: "v2.0.0"
-        app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: "kiali"
         sidecar.istio.io/inject: "false"
       annotations:

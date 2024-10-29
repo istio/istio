@@ -10,7 +10,6 @@ metadata:
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.2.0"
-    app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
 ---
 # Source: loki/templates/config.yaml
@@ -24,7 +23,6 @@ metadata:
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.2.0"
-    app.kubernetes.io/managed-by: Helm
 data:
   config.yaml: |
     
@@ -112,7 +110,6 @@ metadata:
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.2.0"
-    app.kubernetes.io/managed-by: Helm
 data:
   runtime-config.yaml: |
     {}
@@ -126,7 +123,6 @@ metadata:
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.2.0"
-    app.kubernetes.io/managed-by: Helm
   name: loki-clusterrole
 rules:
 - apiGroups: [""] # "" indicates the core API group
@@ -143,7 +139,6 @@ metadata:
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.2.0"
-    app.kubernetes.io/managed-by: Helm
 subjects:
   - kind: ServiceAccount
     name: loki
@@ -164,7 +159,6 @@ metadata:
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.2.0"
-    app.kubernetes.io/managed-by: Helm
   annotations:
 spec:
   type: ClusterIP
@@ -190,7 +184,6 @@ metadata:
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.2.0"
-    app.kubernetes.io/managed-by: Helm
     variant: headless
     prometheus.io/service-monitor: "false"
   annotations:
@@ -216,7 +209,6 @@ metadata:
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.2.0"
-    app.kubernetes.io/managed-by: Helm
   annotations:
 spec:
   type: ClusterIP
@@ -245,7 +237,6 @@ metadata:
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.2.0"
-    app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: single-binary
     app.kubernetes.io/part-of: memberlist
 spec:
