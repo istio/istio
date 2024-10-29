@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -362,13 +363,13 @@ func roundRobin(in []dns.RR) []dns.RR {
 	return out
 }
 
-func roundRobinShuffle(records []dns.RR) {
-	switch l := len(records); l {
+func roundRobinShuffle[T any](entries []T) {
+	switch l := len(entries); l {
 	case 0, 1:
 		break
 	case 2:
 		if dns.Id()%2 == 0 {
-			records[0], records[1] = records[1], records[0]
+			entries[0], entries[1] = entries[1], entries[0]
 		}
 	default:
 		for j := 0; j < l*(int(dns.Id())%4+1); j++ {
@@ -377,7 +378,7 @@ func roundRobinShuffle(records []dns.RR) {
 			if q == p {
 				p = (p + 1) % l
 			}
-			records[q], records[p] = records[p], records[q]
+			entries[q], entries[p] = entries[p], entries[q]
 		}
 	}
 }
@@ -394,8 +395,9 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 	}
 
 	var response *dns.Msg
-
-	for _, upstream := range h.resolvConfServers {
+	servers := slices.Clone(h.resolvConfServers)
+	roundRobinShuffle(servers)
+	for _, upstream := range servers {
 		cResponse, _, err := upstreamClient.Exchange(req, upstream)
 		if err == nil {
 			response = cResponse
