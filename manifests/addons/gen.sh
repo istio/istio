@@ -31,7 +31,7 @@ GRAFANA_VERSION=${GRAFANA_VERSION:-"8.5.8"}
 
 # Set up kiali
 {
-helm3 template kiali-server \
+helm template kiali-server \
   --namespace istio-system \
   --version 2.0.0 \
   --set deployment.image_version=v2.0 \
@@ -39,15 +39,15 @@ helm3 template kiali-server \
   kiali-server \
   --repo https://kiali.org/helm-charts \
   -f "${WD}/values-kiali.yaml"
-} > "${ADDONS}/kiali.yaml"
+} | yq e 'del(.metadata.labels."app.kubernetes.io/managed-by")' > "${ADDONS}/kiali.yaml"
 
 # Set up prometheus
-helm3 template prometheus prometheus \
+helm template prometheus prometheus \
   --namespace istio-system \
   --version 25.27.0 \
   --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
-  > "${ADDONS}/prometheus.yaml"
+  | yq e 'del(.metadata.labels."app.kubernetes.io/managed-by")' > "${ADDONS}/prometheus.yaml"
 
 function compressDashboard() {
   < "${DASHBOARDS}/$1" jq -c  > "${TMP}/$1"
@@ -64,7 +64,7 @@ function compressDashboard() {
       jsonnet -J vendor -J lib "${file}" > "${dashboard}-dashboard.gen.json"
     done
   )
-  helm3 template grafana grafana \
+  helm template grafana grafana \
     --namespace istio-system \
     --version "${GRAFANA_VERSION}" \
     --repo https://grafana.github.io/helm-charts \
@@ -92,13 +92,13 @@ function compressDashboard() {
     --from-file=istio-service-dashboard.json="${TMP}/istio-service-dashboard.json" \
     --from-file=istio-mesh-dashboard.json="${TMP}/istio-mesh-dashboard.gen.json" \
     --from-file=istio-extension-dashboard.json="${TMP}/istio-extension-dashboard.json"
-} > "${ADDONS}/grafana.yaml"
+} | yq e 'del(.metadata.labels."app.kubernetes.io/managed-by")' > "${ADDONS}/grafana.yaml"
 
 # Set up loki
 {
-  helm3 template loki loki \
+  helm template loki loki \
     --namespace istio-system \
     --version "${LOKI_VERSION}" \
     --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-loki.yaml"
-} > "${ADDONS}/loki.yaml"
+} | yq e 'del(.metadata.labels."app.kubernetes.io/managed-by")' > "${ADDONS}/loki.yaml"

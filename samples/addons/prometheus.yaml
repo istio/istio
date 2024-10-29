@@ -12,8 +12,7 @@ metadata:
     app.kubernetes.io/part-of: prometheus
   name: prometheus
   namespace: istio-system
-  annotations:
-    {}
+  annotations: {}
 ---
 # Source: prometheus/templates/cm.yaml
 apiVersion: v1
@@ -479,8 +478,8 @@ spec:
         app.kubernetes.io/instance: prometheus
         app.kubernetes.io/version: v2.54.1
         helm.sh/chart: prometheus-25.27.0
+        app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: prometheus
-        
         sidecar.istio.io/inject: "false"
     spec:
       enableServiceLinks: true
@@ -513,7 +512,6 @@ spec:
             - name: config-volume
               mountPath: /etc/config
               readOnly: true
-
         - name: prometheus-server
           image: "prom/prometheus:v2.54.1"
           imagePullPolicy: "IfNotPresent"
@@ -559,5 +557,4 @@ spec:
           configMap:
             name: prometheus
         - name: storage-volume
-          emptyDir:
-            {}
+          emptyDir: {}

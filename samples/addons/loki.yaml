@@ -24,8 +24,7 @@ metadata:
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.2.0"
 data:
-  config.yaml: |
-    
+  config.yaml: |2
     auth_enabled: false
     bloom_build:
       builder:
@@ -125,9 +124,9 @@ metadata:
     app.kubernetes.io/version: "3.2.0"
   name: loki-clusterrole
 rules:
-- apiGroups: [""] # "" indicates the core API group
-  resources: ["configmaps", "secrets"]
-  verbs: ["get", "watch", "list"]
+  - apiGroups: [""] # "" indicates the core API group
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "watch", "list"]
 ---
 # Source: loki/templates/backend/clusterrolebinding.yaml
 kind: ClusterRoleBinding
@@ -247,7 +246,6 @@ spec:
       partition: 0
   serviceName: loki-headless
   revisionHistoryLimit: 10
-  
   persistentVolumeClaimRetentionPolicy:
     whenDeleted: Delete
     whenScaled: Delete
@@ -269,7 +267,6 @@ spec:
       serviceAccountName: loki
       automountServiceAccountToken: true
       enableServiceLinks: true
-      
       securityContext:
         fsGroup: 10001
         runAsGroup: 10001
@@ -318,7 +315,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
-              - ALL
+                - ALL
             readOnlyRootFilesystem: true
           readinessProbe:
             httpGet:
@@ -337,15 +334,14 @@ spec:
               mountPath: /var/loki
             - name: sc-rules-volume
               mountPath: "/rules"
-          resources:
-            {}
+          resources: {}
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchLabels:
-                app.kubernetes.io/component: single-binary
-            topologyKey: kubernetes.io/hostname
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/component: single-binary
+              topologyKey: kubernetes.io/hostname
       volumes:
         - name: tmp
           emptyDir: {}

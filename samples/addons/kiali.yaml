@@ -13,7 +13,6 @@ metadata:
     version: "v2.0.0"
     app.kubernetes.io/version: "v2.0.0"
     app.kubernetes.io/part-of: "kiali"
-...
 ---
 # Source: kiali-server/templates/configmap.yaml
 apiVersion: v1
@@ -124,7 +123,6 @@ data:
           port: 9090
       port: 20001
       web_root: /kiali
-...
 ---
 # Source: kiali-server/templates/role.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -140,104 +138,103 @@ metadata:
     app.kubernetes.io/version: "v2.0.0"
     app.kubernetes.io/part-of: "kiali"
 rules:
-- apiGroups: [""]
-  resources:
-  - configmaps
-  - endpoints
-  - pods/log
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups: [""]
-  resources:
-  - namespaces
-  - pods
-  - replicationcontrollers
-  - services
-  verbs:
-  - get
-  - list
-  - watch
-  - patch
-- apiGroups: [""]
-  resources:
-  - pods/portforward
-  verbs:
-  - create
-  - post
-- apiGroups: ["extensions", "apps"]
-  resources:
-  - daemonsets
-  - deployments
-  - replicasets
-  - statefulsets
-  verbs:
-  - get
-  - list
-  - watch
-  - patch
-- apiGroups: ["batch"]
-  resources:
-  - cronjobs
-  - jobs
-  verbs:
-  - get
-  - list
-  - watch
-  - patch
-- apiGroups:
-  - networking.istio.io
-  - security.istio.io
-  - extensions.istio.io
-  - telemetry.istio.io
-  - gateway.networking.k8s.io
-  resources: ["*"]
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - delete
-  - patch
-- apiGroups: ["apps.openshift.io"]
-  resources:
-  - deploymentconfigs
-  verbs:
-  - get
-  - list
-  - watch
-  - patch
-- apiGroups: ["project.openshift.io"]
-  resources:
-  - projects
-  verbs:
-  - get
-- apiGroups: ["route.openshift.io"]
-  resources:
-  - routes
-  verbs:
-  - get
-- apiGroups: ["authentication.k8s.io"]
-  resources:
-  - tokenreviews
-  verbs:
-  - create
-- apiGroups: ["oauth.openshift.io"]
-  resources:
-  - oauthclients
-  resourceNames:
-  - kiali-istio-system
-  verbs:
-  - get
-- apiGroups: ["admissionregistration.k8s.io"]
-  resources:
-  - mutatingwebhookconfigurations
-  verbs:
-  - get
-  - list
-  - watch
-...
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - endpoints
+      - pods/log
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups: [""]
+    resources:
+      - namespaces
+      - pods
+      - replicationcontrollers
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+  - apiGroups: [""]
+    resources:
+      - pods/portforward
+    verbs:
+      - create
+      - post
+  - apiGroups: ["extensions", "apps"]
+    resources:
+      - daemonsets
+      - deployments
+      - replicasets
+      - statefulsets
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+  - apiGroups: ["batch"]
+    resources:
+      - cronjobs
+      - jobs
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+  - apiGroups:
+      - networking.istio.io
+      - security.istio.io
+      - extensions.istio.io
+      - telemetry.istio.io
+      - gateway.networking.k8s.io
+    resources: ["*"]
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
+      - patch
+  - apiGroups: ["apps.openshift.io"]
+    resources:
+      - deploymentconfigs
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+  - apiGroups: ["project.openshift.io"]
+    resources:
+      - projects
+    verbs:
+      - get
+  - apiGroups: ["route.openshift.io"]
+    resources:
+      - routes
+    verbs:
+      - get
+  - apiGroups: ["authentication.k8s.io"]
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  - apiGroups: ["oauth.openshift.io"]
+    resources:
+      - oauthclients
+    resourceNames:
+      - kiali-istio-system
+    verbs:
+      - get
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources:
+      - mutatingwebhookconfigurations
+    verbs:
+      - get
+      - list
+      - watch
 ---
 # Source: kiali-server/templates/rolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -257,10 +254,9 @@ roleRef:
   kind: ClusterRole
   name: kiali
 subjects:
-- kind: ServiceAccount
-  name: kiali
-  namespace: "istio-system"
-...
+  - kind: ServiceAccount
+    name: kiali
+    namespace: "istio-system"
 ---
 # Source: kiali-server/templates/service.yaml
 apiVersion: v1
@@ -279,18 +275,17 @@ metadata:
   annotations:
 spec:
   ports:
-  - name: http
-    appProtocol: http
-    protocol: TCP
-    port: 20001
-  - name: http-metrics
-    appProtocol: http
-    protocol: TCP
-    port: 9090
+    - name: http
+      appProtocol: http
+      protocol: TCP
+      port: 20001
+    - name: http-metrics
+      appProtocol: http
+      protocol: TCP
+      port: 9090
   selector:
     app.kubernetes.io/name: kiali
     app.kubernetes.io/instance: kiali
-...
 ---
 # Source: kiali-server/templates/deployment.yaml
 apiVersion: apps/v1
@@ -327,6 +322,7 @@ spec:
         app.kubernetes.io/instance: kiali
         version: "v2.0.0"
         app.kubernetes.io/version: "v2.0.0"
+        app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: "kiali"
         sidecar.istio.io/inject: "false"
       annotations:
@@ -337,82 +333,81 @@ spec:
     spec:
       serviceAccountName: kiali
       containers:
-      - image: "quay.io/kiali/kiali:v2.0"
-        imagePullPolicy: IfNotPresent
-        name: kiali
-        command:
-        - "/opt/kiali/kiali"
-        - "-config"
-        - "/kiali-configuration/config.yaml"
-        securityContext:
-          allowPrivilegeEscalation: false
-          privileged: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          capabilities:
-            drop:
-            - ALL
-        ports:
-        - name: api-port
-          containerPort: 20001
-        - name: http-metrics
-          containerPort: 9090
-        readinessProbe:
-          httpGet:
-            path: /kiali/healthz
-            port: api-port
-            scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 30
-        livenessProbe:
-          httpGet:
-            path: /kiali/healthz
-            port: api-port
-            scheme: HTTP
-          initialDelaySeconds: 5
-          periodSeconds: 30
-        env:
-        - name: ACTIVE_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: LOG_LEVEL
-          value: "info"
-        - name: LOG_FORMAT
-          value: "text"
-        - name: LOG_TIME_FIELD_FORMAT
-          value: "2006-01-02T15:04:05Z07:00"
-        - name: LOG_SAMPLER_RATE
-          value: "1"
-        volumeMounts:
-        - name: kiali-configuration
-          mountPath: "/kiali-configuration"
-        - name: kiali-cert
-          mountPath: "/kiali-cert"
-        - name: kiali-secret
-          mountPath: "/kiali-secret"
-        - name: kiali-cabundle
-          mountPath: "/kiali-cabundle"
-        resources:
-          limits:
-            memory: 1Gi
-          requests:
-            cpu: 10m
-            memory: 64Mi
-      volumes:
-      - name: kiali-configuration
-        configMap:
+        - image: "quay.io/kiali/kiali:v2.0"
+          imagePullPolicy: IfNotPresent
           name: kiali
-      - name: kiali-cert
-        secret:
-          secretName: istio.kiali-service-account
-          optional: true
-      - name: kiali-secret
-        secret:
-          secretName: kiali
-          optional: true
-      - name: kiali-cabundle
-        configMap:
-          name: kiali-cabundle
-          optional: true
-...
+          command:
+            - "/opt/kiali/kiali"
+            - "-config"
+            - "/kiali-configuration/config.yaml"
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: api-port
+              containerPort: 20001
+            - name: http-metrics
+              containerPort: 9090
+          readinessProbe:
+            httpGet:
+              path: /kiali/healthz
+              port: api-port
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          livenessProbe:
+            httpGet:
+              path: /kiali/healthz
+              port: api-port
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          env:
+            - name: ACTIVE_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: LOG_LEVEL
+              value: "info"
+            - name: LOG_FORMAT
+              value: "text"
+            - name: LOG_TIME_FIELD_FORMAT
+              value: "2006-01-02T15:04:05Z07:00"
+            - name: LOG_SAMPLER_RATE
+              value: "1"
+          volumeMounts:
+            - name: kiali-configuration
+              mountPath: "/kiali-configuration"
+            - name: kiali-cert
+              mountPath: "/kiali-cert"
+            - name: kiali-secret
+              mountPath: "/kiali-secret"
+            - name: kiali-cabundle
+              mountPath: "/kiali-cabundle"
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+      volumes:
+        - name: kiali-configuration
+          configMap:
+            name: kiali
+        - name: kiali-cert
+          secret:
+            secretName: istio.kiali-service-account
+            optional: true
+        - name: kiali-secret
+          secret:
+            secretName: kiali
+            optional: true
+        - name: kiali-cabundle
+          configMap:
+            name: kiali-cabundle
+            optional: true
