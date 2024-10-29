@@ -68,7 +68,7 @@ function compressDashboard() {
     --namespace istio-system \
     --version "${GRAFANA_VERSION}" \
     --repo https://grafana.github.io/helm-charts \
-    -f "${WD}/values-grafana.yaml"
+    -f "${WD}/values-grafana.yaml" | yq e 'del(.metadata.labels."app.kubernetes.io/managed-by")'
 
   # Set up grafana dashboards. Split into 2 and compress to single line json to avoid Kubernetes size limits
   compressDashboard "pilot-dashboard.gen.json"
@@ -92,7 +92,7 @@ function compressDashboard() {
     --from-file=istio-service-dashboard.json="${TMP}/istio-service-dashboard.json" \
     --from-file=istio-mesh-dashboard.json="${TMP}/istio-mesh-dashboard.gen.json" \
     --from-file=istio-extension-dashboard.json="${TMP}/istio-extension-dashboard.json"
-} | yq e 'del(.metadata.labels."app.kubernetes.io/managed-by")' > "${ADDONS}/grafana.yaml"
+} > "${ADDONS}/grafana.yaml"
 
 # Set up loki
 {
