@@ -63,6 +63,7 @@ func translateToPatch(object model.TypedObject, status model.ConditionSet, curre
 				LastTransitionTime: timestamppb.Now(),
 				Reason:             v.Reason,
 				Message:            v.Message,
+				ObservedGeneration: v.ObservedGeneration,
 			})
 		}
 	}

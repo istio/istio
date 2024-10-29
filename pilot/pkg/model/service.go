@@ -1030,7 +1030,7 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 		set[WaypointBound] = []Condition{
 			{
 				Status:  true,
-				Reason:  "WaypointAccepted",
+				Reason:  string(WaypointAccepted),
 				Message: fmt.Sprintf("Successfully attached to waypoint %v", i.Waypoint.ResourceName),
 			},
 		}
@@ -1056,9 +1056,8 @@ type WaypointBindingStatus struct {
 }
 
 type StatusMessage struct {
-	Reason             string
-	Message            string
-	ObservedGeneration int64
+	Reason  string
+	Message string
 }
 
 func (i ServiceInfo) NamespacedName() types.NamespacedName {
@@ -1156,7 +1155,7 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 	if len(conditions) == 1 {
 		c := conditions[0]
 		return Condition{
-			ObservedGeneration: c.Status.ObservedGeneration,
+			ObservedGeneration: c.ObservedGeneration,
 			Reason:             c.Status.Reason,
 			Message:            c.Status.Message,
 			Status:             c.Bound,
@@ -1172,8 +1171,8 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 			unboundAncestors = append(unboundAncestors, c.Ancestor)
 		}
 
-		if c.Status.ObservedGeneration > highestObservedGeneration {
-			highestObservedGeneration = c.Status.ObservedGeneration
+		if c.ObservedGeneration > highestObservedGeneration {
+			highestObservedGeneration = c.ObservedGeneration
 		}
 	}
 
