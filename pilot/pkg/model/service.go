@@ -1014,9 +1014,10 @@ const (
 type ConditionSet = map[ConditionType][]Condition
 
 type Condition struct {
-	Reason  string
-	Message string
-	Status  bool
+	ObservedGeneration int64
+	Reason             string
+	Message            string
+	Status             bool
 }
 
 func (i ServiceInfo) GetConditions() ConditionSet {
@@ -1029,7 +1030,7 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 		set[WaypointBound] = []Condition{
 			{
 				Status:  true,
-				Reason:  "WaypointAccepted",
+				Reason:  string(WaypointAccepted),
 				Message: fmt.Sprintf("Successfully attached to waypoint %v", i.Waypoint.ResourceName),
 			},
 		}
@@ -1154,18 +1155,24 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 	if len(conditions) == 1 {
 		c := conditions[0]
 		return Condition{
-			Reason:  c.Status.Reason,
-			Message: c.Status.Message,
-			Status:  c.Bound,
+			ObservedGeneration: c.ObservedGeneration,
+			Reason:             c.Status.Reason,
+			Message:            c.Status.Message,
+			Status:             c.Bound,
 		}
 	}
 
+	var highestObservedGeneration int64
 	for _, c := range conditions {
 		if c.Bound {
 			// if anything was true we consider the overall bind to be true
 			status = true
 		} else {
 			unboundAncestors = append(unboundAncestors, c.Ancestor)
+		}
+
+		if c.ObservedGeneration > highestObservedGeneration {
+			highestObservedGeneration = c.ObservedGeneration
 		}
 	}
 
@@ -1184,6 +1191,7 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 	}
 
 	return Condition{
+		highestObservedGeneration,
 		reason,
 		message,
 		status,
@@ -1198,15 +1206,17 @@ func (i WaypointPolicyStatus) ResourceName() string {
 // end impl ResourceNamer
 
 type PolicyBindingStatus struct {
-	Ancestor string
-	Status   *StatusMessage
-	Bound    bool
+	ObservedGeneration int64
+	Ancestor           string
+	Status             *StatusMessage
+	Bound              bool
 }
 
 func (i PolicyBindingStatus) Equals(other PolicyBindingStatus) bool {
 	return ptr.Equal(i.Status, other.Status) &&
 		i.Bound == other.Bound &&
-		i.Ancestor == other.Ancestor
+		i.Ancestor == other.Ancestor &&
+		i.ObservedGeneration == other.ObservedGeneration
 }
 
 type WorkloadAuthorization struct {
@@ -1229,18 +1239,20 @@ func (i WorkloadAuthorization) GetConditions() ConditionSet {
 	if i.Binding.Status != nil {
 		set[ZtunnelAccepted] = []Condition{
 			{
-				Reason:  i.Binding.Status.Reason,
-				Message: i.Binding.Status.Message,
-				Status:  i.Binding.Bound,
+				ObservedGeneration: i.Binding.ObservedGeneration,
+				Reason:             i.Binding.Status.Reason,
+				Message:            i.Binding.Status.Message,
+				Status:             i.Binding.Bound,
 			},
 		}
 	} else {
 		message := "attached to ztunnel"
 		set[ZtunnelAccepted] = []Condition{
 			{
-				Reason:  "Accepted",
-				Message: message,
-				Status:  i.Binding.Bound,
+				ObservedGeneration: i.Binding.ObservedGeneration,
+				Reason:             "Accepted",
+				Message:            message,
+				Status:             i.Binding.Bound,
 			},
 		}
 	}

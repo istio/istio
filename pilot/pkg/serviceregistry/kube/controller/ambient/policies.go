@@ -104,6 +104,7 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 					targetGroup = "core"
 				}
 				conditions = append(conditions, model.PolicyBindingStatus{
+					ObservedGeneration: i.GetGeneration(),
 					Status: &model.StatusMessage{
 						Reason:  reason,
 						Message: message,
@@ -138,9 +139,10 @@ func PolicyCollections(
 			LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels()),
 			Source:        MakeSource(i),
 			Binding: model.PolicyBindingStatus{
-				Ancestor: string(model.Ztunnel),
-				Status:   status,
-				Bound:    pol != nil,
+				ObservedGeneration: i.GetGeneration(),
+				Ancestor:           string(model.Ztunnel),
+				Status:             status,
+				Bound:              pol != nil,
 			},
 		}
 	}, krt.WithName("AuthzDerivedPolicies"))
