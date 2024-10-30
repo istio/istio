@@ -90,6 +90,8 @@ func Analyze(ctx cli.Context) *cobra.Command {
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
+		Long: fmt.Sprintf("Analyze Istio configuration and print validation messages.\n"+
+			"For more information about message codes, refer to:\n%s", url.ConfigAnalysis),
 		Example: `  # Analyze the current live cluster
   istioctl analyze
 
