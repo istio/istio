@@ -77,10 +77,10 @@ type inboundChainConfig struct {
 	// different configuration.
 	passthrough bool
 
-	// permissive should be set to true for the port-specific 'permissive' chains, created when
+	// isUserTLS should be set to true for the port-specific 'isUserTLS' chains, created when
 	// serving Istio-mTLS and mTLS/TLS on the same port. These have a few naming and quirks that require
 	// different configuration.
-	permissive bool
+	isUserTLS bool
 
 	// bindToPort determines if this chain should form a real listener that actually binds to a real port,
 	// or if it should just be a filter chain part of the 'virtual inbound' listener.
@@ -125,8 +125,8 @@ func (cc inboundChainConfig) Name(protocol istionetworking.ListenerProtocol) str
 	}
 
 	name := getListenerName(cc.bind, int(cc.port.TargetPort), istionetworking.TransportProtocolTCP)
-	if cc.permissive {
-		return "permissive_" + name
+	if cc.isUserTLS {
+		return "user_tls_" + name
 	}
 
 	// Everything else derived from bind/port
@@ -252,7 +252,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 			// In permissive mode, both the Istio mTLS filter chains and user TLS filter chains
 			// are built. Set the flag to ensure when constructing them they are uniquely referencable.
 			if mtls.Mode == model.MTLSPermissive {
-				cc.permissive = true
+				cc.isUserTLS = true
 			}
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
 			opts = getTLSFilterChainMatchOptions(lp)

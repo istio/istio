@@ -90,13 +90,16 @@ var (
 			Protocol:             networking.ListenerProtocolHTTP,
 			TLS:                  true,
 		},
-		{
+	}
+	inboundPermissiveHTTPFilterChainMatchWithMxcOptionsAndPermissive = append(
+		slices.Clone(inboundPermissiveHTTPFilterChainMatchWithMxcOptions),
+		FilterChainMatchOptions{
 			// Plaintext HTTP
 			Protocol:          networking.ListenerProtocolHTTP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
 		// We do not need to handle other simple TLS or others, as this is explicitly declared as HTTP type.
-	}
+	)
 	inboundPermissiveTCPFilterChainMatchWithMxcOptions = []FilterChainMatchOptions{
 		{
 			// MTLS
@@ -105,14 +108,14 @@ var (
 			Protocol:             networking.ListenerProtocolTCP,
 			TLS:                  true,
 		},
-		{
+	}
+	inboundPermissiveTCPFilterChainMatchWithMxcOptionsAndPermissive = append(
+		slices.Clone(inboundPermissiveTCPFilterChainMatchWithMxcOptions),
+		FilterChainMatchOptions{
 			// Plaintext
 			Protocol:          networking.ListenerProtocolTCP,
 			TransportProtocol: xdsfilters.RawBufferTransportProtocol,
 		},
-	}
-	inboundPermissiveTCPFilterChainMatchWithMxcOptionsAndPlainTLS = append(
-		slices.Clone(inboundPermissiveTCPFilterChainMatchWithMxcOptions),
 		FilterChainMatchOptions{
 			// Plain TLS
 			TransportProtocol: xdsfilters.TLSTransportProtocol,
@@ -187,17 +190,17 @@ func getTLSFilterChainMatchOptions(protocol networking.ListenerProtocol) []Filte
 }
 
 // getFilterChainMatchOptions returns the FilterChainMatchOptions that should be used based on mTLS mode and protocol
-func getFilterChainMatchOptions(settings authn.MTLSSettings, protocol networking.ListenerProtocol, hasExistingTLSChain bool) []FilterChainMatchOptions {
+func getFilterChainMatchOptions(settings authn.MTLSSettings, protocol networking.ListenerProtocol, hasExistingExternalChain bool) []FilterChainMatchOptions {
 	switch protocol {
 	case networking.ListenerProtocolHTTP:
 		switch settings.Mode {
 		case model.MTLSStrict:
 			return inboundStrictHTTPFilterChainMatchOptions
 		case model.MTLSPermissive:
-			if hasExistingTLSChain {
-				return inboundPermissiveHTTPFilterChainMatchWithMxcOptions // http filter chain already doesn't include the filter chain for passthrough TLS
+			if hasExistingExternalChain {
+				return inboundPermissiveHTTPFilterChainMatchWithMxcOptions
 			}
-			return inboundPermissiveHTTPFilterChainMatchWithMxcOptions
+			return inboundPermissiveHTTPFilterChainMatchWithMxcOptionsAndPermissive
 		default:
 			return inboundPlainTextHTTPFilterChainMatchOptions
 		}
@@ -206,9 +209,7 @@ func getFilterChainMatchOptions(settings authn.MTLSSettings, protocol networking
 		case model.MTLSStrict:
 			return inboundStrictFilterChainMatchOptions
 		case model.MTLSPermissive:
-			if hasExistingTLSChain {
-				return inboundPermissiveFilterChainMatchWithMxcOptions // should never occur; auto protocol should have been split to TCP and HTTP already
-			}
+			// handling hasExistingTLSChain should never occur; auto protocol should have been split to TCP and HTTP already
 			return inboundPermissiveFilterChainMatchWithMxcOptions
 		default:
 			return inboundPlainTextFilterChainMatchOptions
@@ -218,10 +219,10 @@ func getFilterChainMatchOptions(settings authn.MTLSSettings, protocol networking
 		case model.MTLSStrict:
 			return inboundStrictTCPFilterChainMatchOptions
 		case model.MTLSPermissive:
-			if hasExistingTLSChain {
+			if hasExistingExternalChain {
 				return inboundPermissiveTCPFilterChainMatchWithMxcOptions
 			}
-			return inboundPermissiveTCPFilterChainMatchWithMxcOptionsAndPlainTLS
+			return inboundPermissiveTCPFilterChainMatchWithMxcOptionsAndPermissive
 		default:
 			return inboundPlainTextTCPFilterChainMatchOptions
 		}

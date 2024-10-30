@@ -824,7 +824,7 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 				filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
 				expectIstioMTLS(t, filterChain)
 
-				permissiveFilterChain := xdstest.ExtractFilterChain("permissive_1.1.1.1_80", virtualInbound)
+				permissiveFilterChain := xdstest.ExtractFilterChain("user_tls_1.1.1.1_80", virtualInbound)
 				expectNonIstioTLS(t, permissiveFilterChain)
 			},
 		},
@@ -849,7 +849,7 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 				filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
 				expectIstioMTLS(t, filterChain)
 
-				permissiveFilterChain := xdstest.ExtractFilterChain("permissive_1.1.1.1_80", virtualInbound)
+				permissiveFilterChain := xdstest.ExtractFilterChain("user_tls_1.1.1.1_80", virtualInbound)
 				expectNonIstioTLS(t, permissiveFilterChain)
 			},
 		},
@@ -874,7 +874,7 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 				filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
 				expectIstioMTLS(t, filterChain)
 
-				permissiveFilterChain := xdstest.ExtractFilterChain("permissive_1.1.1.1_80", virtualInbound)
+				permissiveFilterChain := xdstest.ExtractFilterChain("user_tls_1.1.1.1_80", virtualInbound)
 				expectNonIstioTLS(t, permissiveFilterChain)
 			},
 		},
