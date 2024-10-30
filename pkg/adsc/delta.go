@@ -198,6 +198,11 @@ type Client struct {
 	// initialWatches is the list of resources we are watching on startup
 	initialWatches []resourceKey
 
+	// initialWatches is a list of resources we were initially watching and have not yet received
+	pendingWatches sets.Set[resourceKey]
+	// synced is used to indicate the initial watches have all been seen
+	synced chan struct{}
+
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta
 	sendNodeMeta bool
 
@@ -260,6 +265,11 @@ func newProto(tt string) proto.Message {
 // Run starts the client. If a backoffPolicy is configured, it will reconnect on error.
 func (c *Client) Run(ctx context.Context) {
 	c.runWithReconnects(ctx)
+}
+
+// Synced returns a channel that will close once the client has received all initial watches
+func (c *Client) Synced() <-chan struct{} {
+	return c.synced
 }
 
 func (c *Client) runOnce(ctx context.Context) error {
@@ -328,6 +338,8 @@ func NewDelta(discoveryAddr string, config *DeltaADSConfig, opts ...Option) *Cli
 		handlers:          map[string]HandlerFunc{},
 		tree:              map[resourceKey]resourceNode{},
 		errChan:           make(chan error, 10),
+		synced:            make(chan struct{}),
+		pendingWatches:    sets.New[resourceKey](),
 		lastReceivedNonce: map[string]string{},
 		closed:            atomic.NewBool(false),
 	}
@@ -392,6 +404,7 @@ func initWatch(typeURL string, resourceName string) Option {
 			}
 		}
 		c.initialWatches = append(c.initialWatches, key)
+		c.pendingWatches.Insert(key)
 	}
 }
 
@@ -428,6 +441,11 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		// No need to ack and type check for debug types
 		return nil
 	}
+
+	c.markReceived(resourceKey{
+		Name:    "", // If they did a wildcard sub
+		TypeURL: d.TypeUrl,
+	})
 	for _, r := range d.Resources {
 		if d.TypeUrl != r.Resource.TypeUrl {
 			c.log.Errorf("Invalid response: mismatch of type url: %v vs %v", d.TypeUrl, r.Resource.TypeUrl)
@@ -441,6 +459,7 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 			Name:    r.Name,
 			TypeURL: r.Resource.TypeUrl,
 		}
+		c.markReceived(parentKey)
 		c.establishResource(parentKey)
 		if ctx.nack != nil {
 			rejects = append(rejects, ctx.nack)
@@ -485,6 +504,15 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		c.update(t, sub, unsub, d)
 	}
 	return nil
+}
+
+func (c *Client) markReceived(k resourceKey) {
+	if c.pendingWatches.Contains(k) {
+		c.pendingWatches.Delete(k)
+		if c.pendingWatches.Len() == 0 {
+			close(c.synced)
+		}
+	}
 }
 
 func joinError(rejects []error) error {
