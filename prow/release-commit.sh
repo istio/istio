@@ -67,7 +67,7 @@ ${DEPENDENCIES:-$(cat <<EOD
     auto: deps
   client-go:
     git: https://github.com/istio/client-go
-    branch: master
+    auto: modules
   test-infra:
     git: https://github.com/istio/test-infra
     branch: master
