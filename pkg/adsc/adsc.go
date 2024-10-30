@@ -179,7 +179,6 @@ type ADSC struct {
 	routes map[string]*route.RouteConfiguration
 
 	// All received endpoints, keyed by cluster name
-	// All received endpoints, keyed by cluster name
 	eds map[string]*endpoint.ClusterLoadAssignment
 
 	// Updates includes the type of the last update received from the server.
