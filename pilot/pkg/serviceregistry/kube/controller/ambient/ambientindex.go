@@ -123,6 +123,8 @@ type Options struct {
 	LookupNetwork         LookupNetwork
 	LookupNetworkGateways LookupNetworkGateways
 	StatusNotifier        *activenotifier.ActiveNotifier
+
+	Debugger *krt.DebugHandler
 }
 
 func New(options Options) Index {
@@ -140,8 +142,7 @@ func New(options Options) Index {
 	filter := kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
 	}
-	debugger := &krt.DebugHandler{}
-	withDebug := krt.WithDebugging(debugger)
+	withDebug := krt.WithDebugging(options.Debugger)
 	ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, krt.WithName("ConfigMaps"), withDebug)
 
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,

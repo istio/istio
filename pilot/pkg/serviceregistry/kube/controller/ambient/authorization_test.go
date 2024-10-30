@@ -257,7 +257,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		}
 	})
 
-	wpsCollection := WaypointPolicyStatusCollection(authzPolCol, waypointCol, svcCol, seCol, nsCol, nil)
+	wpsCollection := WaypointPolicyStatusCollection(authzPolCol, waypointCol, svcCol, seCol, nsCol, krt.WithDebugging(&krt.DebugHandler{}))
 	c.RunAndWait(ctx.Done())
 
 	_, err := clientNs.Create(&v1.Namespace{

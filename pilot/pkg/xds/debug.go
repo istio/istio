@@ -1083,7 +1083,7 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) krtz(w http.ResponseWriter, req *http.Request) {
-	writeJSON(w, krt.DebugCollections, req)
+	writeJSON(w, krt.GlobalDebugHandler, req)
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {

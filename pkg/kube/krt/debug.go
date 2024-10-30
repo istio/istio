@@ -2,14 +2,22 @@ package krt
 
 import (
 	"encoding/json"
-
-	"istio.io/istio/pkg/slices"
+	"sync"
 )
 
 // DebugHandler allows attaching a variety of collections to it and then dumping them
-type DebugHandler struct{}
+type DebugHandler struct {
+	debugCollections []DebugCollection
+	mu               sync.RWMutex
+}
 
-var DebugCollections = []DebugCollection{}
+func (p *DebugHandler) MarshalJSON() ([]byte, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return json.Marshal(p.debugCollections)
+}
+
+var GlobalDebugHandler = new(DebugHandler)
 
 type CollectionDump struct {
 	// Map of output key -> output
@@ -35,28 +43,17 @@ func (p DebugCollection) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func RegisterCollectionForDebugging[T any](c Collection[T]) {
-	cc := c.(internalCollection[T])
-	DebugCollections = append(DebugCollections, DebugCollection{
-		name: cc.name(),
-		dump: cc.dump,
-	})
-}
-
+// maybeRegisterCollectionForDebugging registers the collection in the debugger, if one is enabled
 func maybeRegisterCollectionForDebugging[T any](c Collection[T], handler *DebugHandler) {
 	if handler == nil {
 		return
 	}
 	cc := c.(internalCollection[T])
-	DebugCollections = append(DebugCollections, DebugCollection{
+	handler.mu.Lock()
+	defer handler.mu.Unlock()
+	handler.debugCollections = append(handler.debugCollections, DebugCollection{
 		name: cc.name(),
 		dump: cc.dump,
-	})
-}
-
-func eraseSlice[T any](l []T) []any {
-	return slices.Map(l, func(e T) any {
-		return any(e)
 	})
 }
 

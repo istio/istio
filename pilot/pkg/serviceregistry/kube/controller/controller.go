@@ -49,6 +49,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
@@ -290,6 +291,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			LookupNetwork:         c.Network,
 			LookupNetworkGateways: c.NetworkGateways,
 			StatusNotifier:        options.StatusWritingEnabled,
+			Debugger:              krt.GlobalDebugHandler,
 		})
 	}
 	c.exports = newServiceExportCache(c)
