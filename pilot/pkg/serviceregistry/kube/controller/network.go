@@ -155,11 +155,6 @@ func (c *Controller) onNetworkChange() {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
 	c.reloadNetworkGateways()
-	// This is to ensure the ambient workloads are updated dynamically, aligning them with the current network settings.
-	// With this, the pod do not need to restart when the network configuration changes.
-	if c.ambientIndex != nil {
-		c.ambientIndex.SyncAll()
-	}
 }
 
 // reloadMeshNetworks will read the mesh networks configuration to setup
@@ -266,7 +261,6 @@ func (c *Controller) reloadNetworkGateways() {
 	c.RUnlock()
 	if gwsChanged {
 		c.NotifyGatewayHandlers()
-		// TODO ConfigUpdate via gateway handler
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
 	}
 }
