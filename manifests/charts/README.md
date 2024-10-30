@@ -1,5 +1,17 @@
 # Istio Installer
 
+## WARNING: Do not use these charts to install Istio!
+
+If you are looking to install Istio using helm please use the charts found in the Istio helm repository
+documented [here](https://istio.io/latest/docs/setup/install/helm/). If you are seeing image pull
+errors about being unable to pull a container called `image: auto` THIS MEANS YOU.
+
+This directory contains the helm chart _sources_ which are versioned and built and pushed to the helm
+repository with each Istio release. If you want to make changes to Istio helm charts, you're in the
+right place.
+
+---
+
 Note: If making any changes to the charts or values.yaml in this dir, first read [UPDATING-CHARTS.md](UPDATING-CHARTS.md)
 
 Istio installer is a modular, 'a-la-carte' installer for Istio. It is based on a
