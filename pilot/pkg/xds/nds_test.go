@@ -14,6 +14,8 @@
 package xds_test
 
 import (
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/test"
 	"reflect"
 	"testing"
 	"time"
@@ -32,6 +34,9 @@ import (
 )
 
 func TestNDS(t *testing.T) {
+	// The "auto allocate" test only needs a special case for the legacy auto allocation mode, so we disable the new one here
+	// and only test the old one. The new one appears identically to manually-allocated SE from NDS perspective.
+	test.SetForTest(t, &features.EnableIPAutoallocate, false)
 	cases := []struct {
 		name     string
 		meta     model.NodeMetadata
