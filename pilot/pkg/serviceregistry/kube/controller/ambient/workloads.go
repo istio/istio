@@ -64,6 +64,7 @@ func (a *index) WorkloadsCollection(
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	endpointSlices krt.Collection[*discovery.EndpointSlice],
 	namespaces krt.Collection[*v1.Namespace],
+	withDebug krt.CollectionOption,
 ) krt.Collection[model.WorkloadInfo] {
 	WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(workloadServices)
 	EndpointSlicesByIPIndex := endpointSliceAddressIndex(endpointSlices)
@@ -82,20 +83,20 @@ func (a *index) WorkloadsCollection(
 			namespaces,
 			nodes,
 		),
-		krt.WithName("PodWorkloads"),
+		krt.WithName("PodWorkloads"), withDebug,
 	)
 	// Workloads coming from workloadEntries. These are 1:1 with WorkloadEntry.
 	WorkloadEntryWorkloads := krt.NewCollection(
 		workloadEntries,
 		a.workloadEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, workloadServices, WorkloadServicesNamespaceIndex, namespaces),
-		krt.WithName("WorkloadEntryWorkloads"),
+		krt.WithName("WorkloadEntryWorkloads"), withDebug,
 	)
 	// Workloads coming from serviceEntries. These are inlined workloadEntries (under `spec.endpoints`); these serviceEntries will
 	// also be generating `workloadapi.Service` definitions in the `ServicesCollection` logic.
 	ServiceEntryWorkloads := krt.NewManyCollection(
 		serviceEntries,
 		a.serviceEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, namespaces),
-		krt.WithName("ServiceEntryWorkloads"),
+		krt.WithName("ServiceEntryWorkloads"), withDebug,
 	)
 	// Workloads coming from endpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
 	// into the EndpointSlice. This is because Kubernetes has 3 APIs in its model: Service, Pod, and EndpointSlice.
@@ -105,12 +106,12 @@ func (a *index) WorkloadsCollection(
 	EndpointSliceWorkloads := krt.NewManyCollection(
 		endpointSlices,
 		a.endpointSlicesBuilder(meshConfig, workloadServices),
-		krt.WithName("EndpointSliceWorkloads"))
+		krt.WithName("EndpointSliceWorkloads"), withDebug)
 
 	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		return slices.Map(a.LookupNetworkGateways(), convertGateway)
-	}, krt.WithName("NetworkGatewayWorkloads"))
+	}, krt.WithName("NetworkGatewayWorkloads"), withDebug)
 
 	Workloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{
 		PodWorkloads,

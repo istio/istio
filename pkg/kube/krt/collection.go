@@ -180,7 +180,7 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 	for k, deps := range h.objectDependencies {
 		depss := make([]string, 0, len(deps))
 		for _, dep := range deps {
-			depss = append(depss, fmt.Sprintf("%v with filter %v", dep.collectionName, dep.filter))
+			depss = append(depss, dep.collectionName)
 		}
 		slices.Sort(depss)
 		cur := inputs[string(k)]
@@ -191,8 +191,9 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 	// x := h.objectDependencies[xx][0].
 
 	return CollectionDump{
-		Outputs: eraseMap(h.collectionState.outputs),
-		Inputs:  inputs,
+		Outputs:         eraseMap(h.collectionState.outputs),
+		Inputs:          inputs,
+		InputCollection: h.parent.(internalCollection[I]).name(),
 	}
 	//h.log.Errorf(">>> BEGIN DUMP")
 	//for k, deps := range h.objectDependencies {
@@ -404,6 +405,13 @@ func WithStop(stop <-chan struct{}) CollectionOption {
 	}
 }
 
+// WithDebugging enables debugging of the collection
+func WithDebugging(handler *DebugHandler) CollectionOption {
+	return func(c *collectionOptions) {
+		c.debugger = handler
+	}
+}
+
 // NewCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
 // This applies for one-to-one relationships between I and O.
 // For zero-to-one, use NewSingleton. For one-to-many, use NewManyCollection.
@@ -454,7 +462,7 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 		synced:        make(chan struct{}),
 		stop:          opts.stop,
 	}
-	RegisterCollectionForDebugging(h)
+	maybeRegisterCollectionForDebugging(h, opts.debugger)
 	go func() {
 		// Wait for primary dependency to be ready
 		if !c.Synced().WaitUntilSynced(h.stop) {

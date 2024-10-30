@@ -32,11 +32,13 @@ import (
 	"istio.io/istio/pkg/workloadapi/security"
 )
 
-func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
+func WaypointPolicyStatusCollection(
+	authzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
 	waypoints krt.Collection[Waypoint],
 	services krt.Collection[*corev1.Service],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	namespaces krt.Collection[*corev1.Namespace],
+	withDebug krt.CollectionOption,
 ) krt.Collection[model.WaypointPolicyStatus] {
 	return krt.NewCollection(authzPolicies,
 		func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WaypointPolicyStatus {
@@ -118,7 +120,7 @@ func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient
 				Source:     MakeSource(i),
 				Conditions: conditions,
 			}
-		}, krt.WithName("WaypointPolicyStatuses"))
+		}, krt.WithName("WaypointPolicyStatuses"), withDebug)
 }
 
 func PolicyCollections(
@@ -126,6 +128,7 @@ func PolicyCollections(
 	peerAuths krt.Collection[*securityclient.PeerAuthentication],
 	meshConfig krt.Singleton[MeshConfig],
 	waypoints krt.Collection[Waypoint],
+	withDebug krt.CollectionOption,
 ) (krt.Collection[model.WorkloadAuthorization], krt.Collection[model.WorkloadAuthorization]) {
 	AuthzDerivedPolicies := krt.NewCollection(authzPolicies, func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WorkloadAuthorization {
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
@@ -145,7 +148,7 @@ func PolicyCollections(
 				Bound:              pol != nil,
 			},
 		}
-	}, krt.WithName("AuthzDerivedPolicies"))
+	}, krt.WithName("AuthzDerivedPolicies"), withDebug)
 
 	PeerAuthDerivedPolicies := krt.NewCollection(peerAuths, func(ctx krt.HandlerContext, i *securityclient.PeerAuthentication) *model.WorkloadAuthorization {
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
@@ -157,11 +160,11 @@ func PolicyCollections(
 			Authorization: pol,
 			LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels()),
 		}
-	}, krt.WithName("PeerAuthDerivedPolicies"))
+	}, krt.WithName("PeerAuthDerivedPolicies"), withDebug)
 
 	ImplicitWaypointPolicies := krt.NewCollection(waypoints, func(ctx krt.HandlerContext, waypoint Waypoint) *model.WorkloadAuthorization {
 		return implicitWaypointPolicy(ctx, meshConfig, waypoint)
-	}, krt.WithName("DefaultAllowFromWaypointPolicies"))
+	}, krt.WithName("DefaultAllowFromWaypointPolicies"), withDebug)
 
 	DefaultPolicy := krt.NewSingleton[model.WorkloadAuthorization](func(ctx krt.HandlerContext) *model.WorkloadAuthorization {
 		if len(krt.Fetch(ctx, peerAuths)) == 0 {
@@ -195,9 +198,10 @@ func PolicyCollections(
 				},
 			},
 		}
-	}, krt.WithName("DefaultPolicy"))
+	}, krt.WithName("DefaultPolicy"), withDebug)
 
 	// Policies contains all of the policies we will send down to clients
+	// No need to add withDebug on join since it is trivial
 	Policies := krt.JoinCollection([]krt.Collection[model.WorkloadAuthorization]{
 		AuthzDerivedPolicies,
 		PeerAuthDerivedPolicies,

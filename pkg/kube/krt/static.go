@@ -123,7 +123,9 @@ func (s *staticList[T]) uid() collectionUID {
 
 // nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) dump() CollectionDump {
-	return CollectionDump{}
+	return CollectionDump{
+		Outputs: eraseMap(slices.GroupUnique(s.List(), GetKey)),
+	}
 }
 
 // nolint: unused // (not true, its to implement an interface)

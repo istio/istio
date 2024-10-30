@@ -185,7 +185,7 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		close(h.synced)
 		h.log.Infof("%v synced", h.name())
 	}()
-	RegisterCollectionForDebugging(h)
+	maybeRegisterCollectionForDebugging(h, o.debugger)
 	return h
 }
 

@@ -6,17 +6,22 @@ import (
 	"istio.io/istio/pkg/slices"
 )
 
+// DebugHandler allows attaching a variety of collections to it and then dumping them
+type DebugHandler struct{}
+
 var DebugCollections = []DebugCollection{}
 
 type CollectionDump struct {
 	// Map of output key -> output
-	Outputs map[string]any `json:"outputs"`
+	Outputs map[string]any `json:"outputs,omitempty"`
+	// Name of the input collection
+	InputCollection string `json:"inputCollection,omitempty"`
 	// Map of input key -> info
-	Inputs map[string]InputDump `json:"inputs"`
+	Inputs map[string]InputDump `json:"inputs,omitempty"`
 }
 type InputDump struct {
-	Outputs      []string `json:"outputs"`
-	Dependencies []string `json:"dependencies"`
+	Outputs      []string `json:"outputs,omitempty"`
+	Dependencies []string `json:"dependencies,omitempty"`
 }
 type DebugCollection struct {
 	name string
@@ -31,6 +36,17 @@ func (p DebugCollection) MarshalJSON() ([]byte, error) {
 }
 
 func RegisterCollectionForDebugging[T any](c Collection[T]) {
+	cc := c.(internalCollection[T])
+	DebugCollections = append(DebugCollections, DebugCollection{
+		name: cc.name(),
+		dump: cc.dump,
+	})
+}
+
+func maybeRegisterCollectionForDebugging[T any](c Collection[T], handler *DebugHandler) {
+	if handler == nil {
+		return
+	}
 	cc := c.(internalCollection[T])
 	DebugCollections = append(DebugCollections, DebugCollection{
 		name: cc.name(),

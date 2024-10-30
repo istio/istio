@@ -71,6 +71,7 @@ type collectionOptions struct {
 	name         string
 	augmentation func(o any) any
 	stop         <-chan struct{}
+	debugger     *DebugHandler
 }
 
 // dependency is a specific thing that can be depended on
