@@ -244,26 +244,26 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 // extractGatewaysFromService checks if the service is a cross-network gateway
 // and if it is, updates the controller's gateways.
 func (c *Controller) extractGatewaysFromService(svc *model.Service) bool {
-	changed := c.extractGatewaysInner(svc)
+	changed := c.networkManager.extractGatewaysInner(svc)
 	if changed {
 		c.NotifyGatewayHandlers()
 	}
 	return changed
 }
 
-// reloadNetworkGateways performs extractGatewaysFromService for all services registered with the controller.
+// reloadNetworkGateways performs extractGatewaysInner for all services registered with the controller.
 // It is called only by `onNetworkChange`.
 // It iterates over all services, because mesh networks can be set with a service name.
 func (c *Controller) reloadNetworkGateways() {
-	c.Lock()
+	c.RLock()
 	gwsChanged := false
 	for _, svc := range c.servicesMap {
-		if c.extractGatewaysInner(svc) {
+		if c.networkManager.extractGatewaysInner(svc) {
 			gwsChanged = true
 			break
 		}
 	}
-	c.Unlock()
+	c.RUnlock()
 	if gwsChanged {
 		c.NotifyGatewayHandlers()
 		// TODO ConfigUpdate via gateway handler
@@ -271,8 +271,8 @@ func (c *Controller) reloadNetworkGateways() {
 	}
 }
 
-// extractGatewaysInner performs the logic for extractGatewaysFromService without locking the controller.
-// Returns true if any gateways changed.
+// extractGatewaysInner updates the gateway address inferred from the service.
+// Returns true if any gateway address changed.
 func (n *networkManager) extractGatewaysInner(svc *model.Service) bool {
 	n.Lock()
 	defer n.Unlock()
