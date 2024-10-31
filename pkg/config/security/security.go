@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/netip"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -60,6 +61,10 @@ const (
 var (
 	MatchOneTemplate = "{*}"
 	MatchAnyTemplate = "{**}"
+
+	// Valid pchar from https://datatracker.ietf.org/doc/html/rfc3986#appendix-A
+	// pchar = unreserved / pct-encoded / sub-delims / ":" / "@"
+	validLiteral = regexp.MustCompile("^[a-zA-Z0-9-._~%!$&'()+,;:@=]+$")
 )
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
@@ -107,22 +112,40 @@ func CheckEmptyValues(key string, values []string) error {
 
 func CheckValidPathTemplate(key string, paths []string) error {
 	for _, path := range paths {
+		foundMatchAnyTemplate := false
 		containsPathTemplate := ContainsPathTemplate(path)
+		// Strip leading and trailing slashes if they exist
+		path = strings.Trim(path, "/")
 		globs := strings.Split(path, "/")
 		for _, glob := range globs {
-			// If glob is a supported path template, skip the check.
-			if glob == MatchAnyTemplate || glob == MatchOneTemplate {
+			// If glob is a supported path template, skip the check
+			// If glob is {**}, it must be the last operator in the template
+			if glob == MatchOneTemplate && !foundMatchAnyTemplate {
 				continue
+			} else if glob == MatchAnyTemplate && !foundMatchAnyTemplate {
+				foundMatchAnyTemplate = true
+				continue
+			} else if (glob == MatchAnyTemplate || glob == MatchOneTemplate) && foundMatchAnyTemplate { 
+				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
+					"{**} is not the last operator", path, key)
 			}
+
+			// Validate glob is valid string literal
+			// Meets Envoy's valid pchar requirements from https://datatracker.ietf.org/doc/html/rfc3986#appendix-A
+			if !validLiteral.MatchString(glob) {
+				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
+					"Contains segment %s with invalid string literal", path, key, glob)
+			}
+
 			// If glob is not a supported path template and contains `{`, or `}` it is invalid.
 			if strings.ContainsAny(glob, "{}") {
-				return fmt.Errorf("invalid or unsupported path %s, found in %s."+
+				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
 					"Contains '{' or '}' beyond a supported path template", path, key)
 			}
 			// If glob contains `*`, is not a supported path template and
 			// the path contains a supported path template, it is invalid.
 			if strings.Contains(glob, "*") && containsPathTemplate {
-				return fmt.Errorf("invalid or unsupported path %s, found in %s."+
+				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
 					"Contains '*' beyond a supported path template", path, key)
 			}
 		}
