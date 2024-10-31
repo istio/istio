@@ -143,13 +143,6 @@ func CheckValidPathTemplate(key string, paths []string) error {
 				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
 					"Contains segment %s with invalid string literal", path, key, glob)
 			}
-
-			// If glob contains `*`, is not a supported path template and
-			// the path contains a supported path template, it is invalid.
-			if strings.Contains(glob, "*") && containsPathTemplate {
-				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
-					"Contains '*' beyond a supported path template", path, key)
-			}
 		}
 	}
 	return nil
