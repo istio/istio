@@ -2,12 +2,17 @@
 
 ## WARNING: Do not use the files in this directory to install Istio!
 
-This directory contains the helm chart _sources_ which are versioned and built and pushed to the helm
-repository with each Istio release. If you want to make changes to Istio helm charts, you're in the
-right place. If you are just looking to install Istio using helm please use the charts found in the
-Istio helm repository documented [here](https://istio.io/latest/docs/setup/install/helm/). If you are
-seeing image pull errors about being unable to pull a container called `image: auto` this is why.
+This directory contains the helm chart _sources_ which are versioned, built and pushed to following helm
+repositories with each Istio release.  If you want to make changes to Istio helm charts, you're in the
+right place. 
 
+If you want to _install_ Istio with Helm, instead please [follow the Helm installation docs here](https://istio.io/latest/docs/setup/install/helm/). If you are seeing image pull errors about being unable to pull a container called `image: auto`, this is why.
+ 
+Charts in this folder are published to the following Helm repos:
+ - `https://istio-release.storage.googleapis.com/charts` (charts for official release versions) 
+ - `oci://gcr.io/istio-release/charts/` (charts for official release versions and dev build versions)
+ 
+Chart publishing is handled by https://github.com/istio/release-builder
 ---
 
 Note: If making any changes to the charts or values.yaml in this dir, first read [UPDATING-CHARTS.md](UPDATING-CHARTS.md)
