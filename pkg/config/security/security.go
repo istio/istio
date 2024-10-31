@@ -139,7 +139,7 @@ func CheckValidPathTemplate(key string, paths []string) error {
 
 			// Validate glob is valid string literal
 			// Meets Envoy's valid pchar requirements from https://datatracker.ietf.org/doc/html/rfc3986#appendix-A
-			if  containsPathTemplate && !IsValidLiteral(glob) {
+			if containsPathTemplate && !IsValidLiteral(glob) {
 				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
 					"Contains segment %s with invalid string literal", path, key, glob)
 			}
