@@ -416,6 +416,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "route-precedence"},
 		{name: "waypoint"},
 		{name: "isolation"},
+		{name: "backend-lb-policy"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -454,6 +455,7 @@ func TestConvertResources(t *testing.T) {
 			})
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)
 			res := append(output.Gateway, output.VirtualService...)
+			res = append(res, output.DestinationRule...)
 			util.CompareContent(t, marshalYaml(t, res), goldenFile)
 			golden := splitOutput(readConfig(t, goldenFile, validator, tt.validationIgnorer))
 
@@ -464,7 +466,7 @@ func TestConvertResources(t *testing.T) {
 
 			assert.Equal(t, golden, output)
 
-			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.GRPCRoute, kr.TLSRoute, kr.TCPRoute)
+			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.GRPCRoute, kr.TLSRoute, kr.TCPRoute, kr.BackendLBPolicy)
 			goldenStatusFile := fmt.Sprintf("testdata/%s.status.yaml.golden", tt.name)
 			if util.Refresh() {
 				if err := os.WriteFile(goldenStatusFile, outputStatus, 0o644); err != nil {
@@ -1166,6 +1168,8 @@ func splitOutput(configs []config.Config) IstioResources {
 			out.Gateway = append(out.Gateway, c)
 		case gvk.VirtualService:
 			out.VirtualService = append(out.VirtualService, c)
+		case gvk.DestinationRule:
+			out.DestinationRule = append(out.DestinationRule, c)
 		}
 	}
 	return out
@@ -1193,6 +1197,8 @@ func splitInput(t test.Failer, configs []config.Config) GatewayResources {
 			out.ReferenceGrant = append(out.ReferenceGrant, c)
 		case gvk.ServiceEntry:
 			out.ServiceEntry = append(out.ServiceEntry, c)
+		case gvk.BackendLBPolicy:
+			out.BackendLBPolicy = append(out.BackendLBPolicy, c)
 		}
 	}
 	out.Namespaces = map[string]*corev1.Namespace{}
@@ -1255,6 +1261,8 @@ func insertDefaults(cfgs []config.Config) []config.Config {
 			c.Status = kstatus.Wrap(&k8salpha.TCPRouteStatus{})
 		case gvk.TLSRoute:
 			c.Status = kstatus.Wrap(&k8salpha.TLSRouteStatus{})
+		case gvk.BackendLBPolicy:
+			c.Status = kstatus.Wrap(&k8salpha.PolicyStatus{})
 		}
 		res = append(res, c)
 	}

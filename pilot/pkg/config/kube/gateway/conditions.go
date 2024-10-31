@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"fmt"
+	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -172,6 +173,126 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 	return parents
 }
 
+// TODO: Need refactoring to see if we can combine with createRouteStatus
+func createPolicyStatus(parentResults []RouteParentResult, obj config.Config, currentParents []v1alpha2.PolicyAncestorStatus) []v1alpha2.PolicyAncestorStatus {
+	parents := make([]v1alpha2.PolicyAncestorStatus, 0, len(parentResults))
+	// Fill in all the gateways that are already present but not owned by us. This is non-trivial as there may be multiple
+	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
+	// removing gateway references when they are removed), without mangling other Controller's status.
+	for _, r := range currentParents {
+		if r.ControllerName != k8s.GatewayController(features.ManagedGatewayController) {
+			// We don't own this status, so keep it around
+			parents = append(parents, r)
+		}
+	}
+	// Collect all of our unique parent references. There may be multiple when we have a route without section name,
+	// but reference a parent with multiple sections.
+	// While we process these internally for-each sectionName, in the status we are just supposed to report one merged entry
+	seen := map[k8s.ParentReference][]RouteParentResult{}
+	seenReasons := sets.New[ParentErrorReason]()
+	successCount := map[k8s.ParentReference]int{}
+	for _, incoming := range parentResults {
+		// We will append it if it is our first occurrence, or the existing one has an error. This means
+		// if *any* section has no errors, we will declare Admitted
+		if incoming.DeniedReason == nil {
+			successCount[incoming.OriginalReference]++
+		}
+		seen[incoming.OriginalReference] = append(seen[incoming.OriginalReference], incoming)
+		if incoming.DeniedReason != nil {
+			seenReasons.Insert(incoming.DeniedReason.Reason)
+		} else {
+			seenReasons.Insert(ParentNoError)
+		}
+	}
+	reasonRanking := []ParentErrorReason{
+		// No errors is preferred
+		AncestorNoError,
+		AncestorErrorTargetRefConflict,
+		AncestorErrorInvalid,
+		AncestorErrorNotAccepted,
+	}
+	// Next we want to collapse these. We need to report 1 type of error, or none.
+	report := map[k8s.ParentReference]RouteParentResult{}
+	for _, wantReason := range reasonRanking {
+		if !seenReasons.Contains(wantReason) {
+			continue
+		}
+		// We found our highest priority ranking, now we need to collapse this into a single message
+		for k, refs := range seen {
+			for _, ref := range refs {
+				reason := ParentNoError
+				if ref.DeniedReason != nil {
+					reason = ref.DeniedReason.Reason
+				}
+				if wantReason != reason {
+					// Skip this one, it is for a less relevant reason
+					continue
+				}
+				exist, f := report[k]
+				if f {
+					if ref.DeniedReason != nil {
+						if exist.DeniedReason != nil {
+							// join the error
+							exist.DeniedReason.Message += "; " + ref.DeniedReason.Message
+						} else {
+							exist.DeniedReason = ref.DeniedReason
+						}
+					}
+				} else {
+					exist = ref
+				}
+				report[k] = exist
+			}
+		}
+		// Once we find the best reason, do not consider any others
+		break
+	}
+
+	// Now we fill in all the parents we do own
+	for k, gw := range report {
+		msg := "Policy was valid"
+		if successCount[k] > 1 {
+			msg = fmt.Sprintf("Policy was valid, bound to %d parents", successCount[k])
+		}
+		conds := map[string]*condition{
+			string(k8s.RouteConditionAccepted): {
+				reason:  string(k8s.RouteReasonAccepted),
+				message: msg,
+			},
+			string(k8s.RouteConditionResolvedRefs): {
+				reason:  string(k8s.RouteReasonResolvedRefs),
+				message: "All references resolved",
+			},
+		}
+		if gw.DeniedReason != nil {
+			conds[string(k8s.RouteConditionAccepted)].error = &ConfigError{
+				Reason:  ConfigErrorReason(gw.DeniedReason.Reason),
+				Message: gw.DeniedReason.Message,
+			}
+		}
+
+		var currentConditions []metav1.Condition
+		currentStatus := slices.FindFunc(currentParents, func(s v1alpha2.PolicyAncestorStatus) bool {
+			return parentRefString(s.AncestorRef) == parentRefString(gw.OriginalReference) &&
+				s.ControllerName == k8s.GatewayController(features.ManagedGatewayController)
+		})
+		if currentStatus != nil {
+			currentConditions = currentStatus.Conditions
+		}
+		parents = append(parents, v1alpha2.PolicyAncestorStatus{
+			AncestorRef:    gw.OriginalReference,
+			ControllerName: k8s.GatewayController(features.ManagedGatewayController),
+			Conditions:     setConditions(obj.Generation, currentConditions, conds),
+		})
+	}
+	// Ensure output is deterministic.
+	// TODO: will we fight over other controllers doing similar (but not identical) ordering?
+	sort.SliceStable(parents, func(i, j int) bool {
+		return parentRefString(parents[i].AncestorRef) > parentRefString(parents[j].AncestorRef)
+	})
+	return parents
+}
+
 type ParentErrorReason string
 
 const (
@@ -180,6 +301,15 @@ const (
 	ParentErrorNoHostname        = ParentErrorReason(k8s.RouteReasonNoMatchingListenerHostname)
 	ParentErrorParentRefConflict = ParentErrorReason("ParentRefConflict")
 	ParentNoError                = ParentErrorReason("")
+)
+
+type AncestorErrorReason string
+
+const (
+	AncestorErrorNotAccepted       = ParentErrorReason(v1alpha2.PolicyReasonTargetNotFound)
+	AncestorErrorInvalid           = ParentErrorReason(v1alpha2.PolicyReasonInvalid)
+	AncestorErrorTargetRefConflict = ParentErrorReason(v1alpha2.PolicyReasonConflicted)
+	AncestorNoError                = ParentErrorReason("")
 )
 
 type ConfigErrorReason = string

@@ -37,6 +37,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.AuthorizationPolicy, true
 	case *apiistioioapisecurityv1.AuthorizationPolicy:
 		return gvk.AuthorizationPolicy, true
+	case *sigsk8siogatewayapiapisv1alpha2.BackendLBPolicy:
+		return gvk.BackendLBPolicy, true
 	case *k8sioapicertificatesv1.CertificateSigningRequest:
 		return gvk.CertificateSigningRequest, true
 	case *k8sioapicorev1.ConfigMap:

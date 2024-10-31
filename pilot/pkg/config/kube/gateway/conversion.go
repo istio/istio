@@ -83,6 +83,8 @@ func convertResources(r GatewayResources) IstioResources {
 
 	result.VirtualService = convertVirtualService(ctx)
 
+	result.DestinationRule = convertDestinationRule(ctx)
+
 	// Once we have gone through all route computation, we will know how many routes bound to each gateway.
 	// Report this in the status.
 	for _, dm := range gwMap {
@@ -382,6 +384,166 @@ func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 	}
 
 	return vs, nil
+}
+
+func convertDestinationRule(r configContext) []config.Config {
+	var drs []config.Config
+
+	for _, obj := range r.BackendLBPolicy {
+		drs = append(drs, buildBackendLBPolicyDestinationRule(r, obj)...)
+	}
+
+	return drs
+}
+
+func buildBackendLBPolicyDestinationRule(r configContext, obj config.Config) []config.Config {
+	backendLBPolicy, _ := obj.Spec.(*k8salpha.BackendLBPolicySpec)
+	if backendLBPolicy.SessionPersistence == nil {
+		return nil
+	}
+	wrappedStatus, _ := obj.Status.(*kstatus.WrappedStatus)
+	if wrappedStatus.Status == nil {
+		wrappedStatus.Status = &k8salpha.PolicyStatus{}
+	}
+	reportStatus := func(results []RouteParentResult) {
+		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+			rs := s.(*k8salpha.PolicyStatus)
+			rs.Ancestors = createPolicyStatus(results, obj, rs.Ancestors)
+			return rs
+		})
+	}
+
+	var err error
+	var drs []config.Config
+	var ancestorRefs []routeParentReference
+	for _, ref := range backendLBPolicy.TargetRefs {
+		var deniedReason *ParentError
+		namespace := k8s.Namespace(obj.Namespace)
+		parentRef := k8s.ParentReference{
+			Group:     &ref.Group,
+			Kind:      &ref.Kind,
+			Name:      ref.Name,
+			Namespace: &namespace,
+		}
+		ir, _ := toInternalParentReference(parentRef, obj.Namespace)
+		// TODO: Should this be case insensitive?
+		if string(ref.Kind) != gvk.Service.Kind {
+			deniedReason = &ParentError{Reason: AncestorErrorInvalid, Message: fmt.Sprintf("unsupported target ref: %s", ref.Kind)}
+			ancestorRefs = append(ancestorRefs, routeParentReference{
+				InternalName:      string(ref.Name),
+				InternalKind:      ir.Kind,
+				DeniedReason:      deniedReason,
+				OriginalReference: parentRef,
+			})
+			continue
+		}
+		dr := &istio.DestinationRule{
+			Host: fmt.Sprintf("%s.%s.svc.%s", ref.Name, obj.Namespace, r.Domain),
+		}
+		dr.TrafficPolicy = &istio.TrafficPolicy{
+			LoadBalancer: &istio.LoadBalancerSettings{},
+		}
+
+		switch *backendLBPolicy.SessionPersistence.Type {
+		case k8s.CookieBasedSessionPersistence:
+			dr.TrafficPolicy.LoadBalancer.LbPolicy, err = buildCookieBasedConsistentHash(backendLBPolicy)
+
+		case k8s.HeaderBasedSessionPersistence:
+			dr.TrafficPolicy.LoadBalancer.LbPolicy, err = buildHeaderBasedConsistentHash(backendLBPolicy)
+		}
+		if err != nil {
+			deniedReason = &ParentError{Reason: AncestorErrorInvalid, Message: err.Error()}
+		}
+
+		ancestorRefs = append(ancestorRefs, routeParentReference{
+			InternalName:      string(ref.Name),
+			InternalKind:      ir.Kind,
+			Hostname:          dr.Host,
+			DeniedReason:      deniedReason,
+			OriginalReference: parentRef,
+		})
+		if deniedReason != nil {
+			continue
+		}
+		drs = append(drs, config.Config{
+			Meta: config.Meta{
+				CreationTimestamp: obj.CreationTimestamp,
+				GroupVersionKind:  gvk.DestinationRule,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Domain:            r.Domain,
+			},
+			Spec: dr,
+		})
+	}
+	reportStatus(slices.Map(ancestorRefs, func(r routeParentReference) RouteParentResult {
+		res := RouteParentResult{
+			OriginalReference: r.OriginalReference,
+			DeniedReason:      r.DeniedReason,
+		}
+		return res
+	}))
+	return drs
+}
+
+func buildCookieBasedConsistentHash(backendLBPolicy *k8salpha.BackendLBPolicySpec) (*istio.LoadBalancerSettings_ConsistentHash, error) {
+	cookieName := "http-cookie"
+	if backendLBPolicy.SessionPersistence.SessionName != nil {
+		cookieName = *backendLBPolicy.SessionPersistence.SessionName
+	}
+
+	cookieTTL, err := determineCookieTTL(backendLBPolicy)
+
+	return &istio.LoadBalancerSettings_ConsistentHash{
+		ConsistentHash: &istio.LoadBalancerSettings_ConsistentHashLB{
+			HashKey: &istio.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+				HttpCookie: &istio.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+					Name: cookieName,
+					Ttl:  cookieTTL,
+				},
+			},
+		},
+	}, err
+}
+
+func buildHeaderBasedConsistentHash(backendLBPolicy *k8salpha.BackendLBPolicySpec) (*istio.LoadBalancerSettings_ConsistentHash, error) {
+	headerName := ""
+	if backendLBPolicy.SessionPersistence.SessionName != nil {
+		headerName = *backendLBPolicy.SessionPersistence.SessionName
+	}
+	if backendLBPolicy.SessionPersistence.AbsoluteTimeout != nil {
+		return nil, fmt.Errorf("absolute timeout is not supported for header-based session persistence")
+	}
+	return &istio.LoadBalancerSettings_ConsistentHash{
+		ConsistentHash: &istio.LoadBalancerSettings_ConsistentHashLB{
+			HashKey: &istio.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName{
+				HttpHeaderName: headerName,
+			},
+		},
+	}, nil
+}
+
+func determineCookieTTL(backendLBPolicy *k8salpha.BackendLBPolicySpec) (*durationpb.Duration, error) {
+	lifetimeType := k8s.SessionCookieLifetimeType // Default to session cookie
+	if backendLBPolicy.SessionPersistence.CookieConfig != nil {
+		lifetimeType = *backendLBPolicy.SessionPersistence.CookieConfig.LifetimeType
+	}
+
+	switch lifetimeType {
+	case k8s.SessionCookieLifetimeType:
+		if backendLBPolicy.SessionPersistence.AbsoluteTimeout != nil {
+			return nil, fmt.Errorf("absolute timeout is not supported for session cookies")
+		}
+
+		// Force TTL of 0 for HTTP Cookie to be session cookie.
+		return durationpb.New(0), nil
+	case k8s.PermanentCookieLifetimeType:
+		if backendLBPolicy.SessionPersistence.AbsoluteTimeout != nil {
+			cookieTTLDuration, _ := time.ParseDuration(string(*backendLBPolicy.SessionPersistence.AbsoluteTimeout))
+			return durationpb.New(cookieTTLDuration), nil
+		}
+	}
+	return nil, nil
 }
 
 func parentTypes(rpi []routeParentReference) (mesh, gateway bool) {
@@ -2720,6 +2882,11 @@ func (kr GatewayResources) FuzzValidate() bool {
 		}
 	}
 	for _, tr := range kr.TCPRoute {
+		if tr.Spec == nil {
+			return false
+		}
+	}
+	for _, tr := range kr.BackendLBPolicy {
 		if tr.Spec == nil {
 			return false
 		}

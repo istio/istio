@@ -133,6 +133,7 @@ func (c *Controller) Schemas() collection.Schemas {
 	return collection.SchemasFor(
 		collections.VirtualService,
 		collections.Gateway,
+		collections.DestinationRule,
 	)
 }
 
@@ -141,7 +142,7 @@ func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 }
 
 func (c *Controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
-	if typ != gvk.Gateway && typ != gvk.VirtualService {
+	if typ != gvk.Gateway && typ != gvk.VirtualService && typ != gvk.DestinationRule {
 		return nil
 	}
 
@@ -152,6 +153,8 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 		return filterNamespace(c.state.Gateway, namespace)
 	case gvk.VirtualService:
 		return filterNamespace(c.state.VirtualService, namespace)
+	case gvk.DestinationRule:
+		return filterNamespace(c.state.DestinationRule, namespace)
 	default:
 		return nil
 	}
@@ -182,20 +185,22 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	grpcRoute := c.cache.List(gvk.GRPCRoute, metav1.NamespaceAll)
 	tcpRoute := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
 	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
+	backendLBPolicy := c.cache.List(gvk.BackendLBPolicy, metav1.NamespaceAll)
 	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
 	serviceEntry := c.cache.List(gvk.ServiceEntry, metav1.NamespaceAll) // TODO lazy load only referenced SEs?
 
 	input := GatewayResources{
-		GatewayClass:   deepCopyStatus(gatewayClass),
-		Gateway:        deepCopyStatus(gateway),
-		HTTPRoute:      deepCopyStatus(httpRoute),
-		GRPCRoute:      deepCopyStatus(grpcRoute),
-		TCPRoute:       deepCopyStatus(tcpRoute),
-		TLSRoute:       deepCopyStatus(tlsRoute),
-		ReferenceGrant: referenceGrant,
-		ServiceEntry:   serviceEntry,
-		Domain:         c.domain,
-		Context:        NewGatewayContext(ps, c.cluster),
+		GatewayClass:    deepCopyStatus(gatewayClass),
+		Gateway:         deepCopyStatus(gateway),
+		HTTPRoute:       deepCopyStatus(httpRoute),
+		GRPCRoute:       deepCopyStatus(grpcRoute),
+		TCPRoute:        deepCopyStatus(tcpRoute),
+		TLSRoute:        deepCopyStatus(tlsRoute),
+		BackendLBPolicy: deepCopyStatus(backendLBPolicy),
+		ReferenceGrant:  referenceGrant,
+		ServiceEntry:    serviceEntry,
+		Domain:          c.domain,
+		Context:         NewGatewayContext(ps, c.cluster),
 	}
 
 	if !input.hasResources() {
@@ -240,6 +245,7 @@ func (c *Controller) QueueStatusUpdates(r GatewayResources) {
 	c.handleStatusUpdates(r.GRPCRoute)
 	c.handleStatusUpdates(r.TCPRoute)
 	c.handleStatusUpdates(r.TLSRoute)
+	c.handleStatusUpdates(r.BackendLBPolicy)
 }
 
 func (c *Controller) handleStatusUpdates(configs []config.Config) {
@@ -398,5 +404,6 @@ func (kr GatewayResources) hasResources() bool {
 		len(kr.GRPCRoute) > 0 ||
 		len(kr.TCPRoute) > 0 ||
 		len(kr.TLSRoute) > 0 ||
+		len(kr.BackendLBPolicy) > 0 ||
 		len(kr.ReferenceGrant) > 0
 }

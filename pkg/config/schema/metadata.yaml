@@ -288,6 +288,15 @@ resources:
     protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec"
 
+  - kind: "BackendLBPolicy"
+    plural: "backendlbpolicies"
+    group: "gateway.networking.k8s.io"
+    version: "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    proto: "k8s.io.gateway_api.api.v1alpha2.BackendLBPolicySpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    statusProto: "k8s.io.gateway_api.api.v1alpha3.PolicyStatus"
+
   ## Istio resources
   - kind: "VirtualService"
     plural: "virtualservices"

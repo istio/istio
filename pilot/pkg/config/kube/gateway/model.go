@@ -34,14 +34,15 @@ const (
 
 // GatewayResources stores all gateway resources used for our conversion.
 type GatewayResources struct {
-	GatewayClass   []config.Config
-	Gateway        []config.Config
-	HTTPRoute      []config.Config
-	GRPCRoute      []config.Config
-	TCPRoute       []config.Config
-	TLSRoute       []config.Config
-	ReferenceGrant []config.Config
-	ServiceEntry   []config.Config
+	GatewayClass    []config.Config
+	Gateway         []config.Config
+	HTTPRoute       []config.Config
+	GRPCRoute       []config.Config
+	TCPRoute        []config.Config
+	TLSRoute        []config.Config
+	ReferenceGrant  []config.Config
+	ServiceEntry    []config.Config
+	BackendLBPolicy []config.Config
 	// Namespaces stores all namespace in the cluster, keyed by name
 	Namespaces map[string]*corev1.Namespace
 	// Credentials stores all credentials in the cluster
@@ -103,6 +104,8 @@ type IstioResources struct {
 	// determine if a resource update could have impacted any Gateways.
 	// key: referenced resources(e.g. secrets), value: gateway-api resources(e.g. gateways)
 	ResourceReferences map[model.ConfigKey][]model.ConfigKey
+
+	DestinationRule []config.Config
 }
 
 // Reference stores a reference to a namespaced GVK, as used by ReferencePolicy

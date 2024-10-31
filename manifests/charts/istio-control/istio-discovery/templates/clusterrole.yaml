@@ -134,6 +134,7 @@ rules:
     verbs: ["get", "watch", "list"]
   - apiGroups: ["gateway.networking.k8s.io"]
     resources:
+    - backendlbpolies/status
     - backendtlspolicies/status
     - gatewayclasses/status
     - gateways/status
