@@ -65,7 +65,7 @@ spec:
     spec:
       serviceAccountName: httpbin
       containers:
-      - image: docker.io/kong/httpbin
+      - image: docker.io/mccutchen/go-httpbin:v2.15.0
         imagePullPolicy: IfNotPresent
         name: httpbin
         # Same as found in Dockerfile's CMD but using an unprivileged port

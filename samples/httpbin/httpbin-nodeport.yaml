@@ -48,20 +48,8 @@ spec:
         version: v1
     spec:
       containers:
-      - image: docker.io/kong/httpbin
+      - image: docker.io/mccutchen/go-httpbin:v2.15.0
         imagePullPolicy: IfNotPresent
         name: httpbin
-        # Same as found in Dockerfile's CMD but using an unprivileged port
-        command:
-        - gunicorn
-        - -b
-        - 0.0.0.0:8080
-        - httpbin:app
-        - -k
-        - gevent
-        env:
-        # Tells pipenv to use a writable directory instead of $HOME
-        - name: WORKON_HOME
-          value: /tmp
         ports:
         - containerPort: 8080
