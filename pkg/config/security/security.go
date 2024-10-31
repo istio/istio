@@ -130,17 +130,18 @@ func CheckValidPathTemplate(key string, paths []string) error {
 					"{**} is not the last operator", path, key)
 			}
 
+			// If glob is not a supported path template and contains `{`, or `}` it is invalid.
+			// Path is invalid if it contains `{` or `}` beyond a supported path template.
+			if strings.ContainsAny(glob, "{}") {
+				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
+					"Contains '{' or '}' beyond a supported path template", path, key)
+			}
+
 			// Validate glob is valid string literal
 			// Meets Envoy's valid pchar requirements from https://datatracker.ietf.org/doc/html/rfc3986#appendix-A
 			if !IsValidLiteral(glob) && containsPathTemplate {
 				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
 					"Contains segment %s with invalid string literal", path, key, glob)
-			}
-
-			// If glob is not a supported path template and contains `{`, or `}` it is invalid.
-			if strings.ContainsAny(glob, "{}") {
-				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
-					"Contains '{' or '}' beyond a supported path template", path, key)
 			}
 
 			// If glob contains `*`, is not a supported path template and
