@@ -341,6 +341,102 @@ func TestCheckValidPathTemplate(t *testing.T) {
 	}
 }
 
+func TestIsValidLiteral(t *testing.T) {
+	// Valid literals:
+	//   "a-zA-Z0-9-._~" - Unreserved
+	//   "%"             - pct-encoded
+	//   "!$&'()+,;"     - sub-delims excluding *=
+	//   ":@"
+	//   "="             - user included "=" allowed
+	cases := []struct {
+		name     string
+		glob     string
+		expected bool
+	}{
+		{
+			name:     "valid - alphabet chars and nums",
+			glob:     "123abcABC",
+			expected: true,
+		},
+		{
+			name:     "valid - unreserved chars",
+			glob:     "._~-",
+			expected: true,
+		},
+		{
+			name:     "valid - equals",
+			glob:     "a=c",
+			expected: true,
+		},
+		{
+			name:     "valid - mixed chars",
+			glob:     "-._~%20!$&'()+,;:@",
+			expected: true,
+		},
+		{
+			name:     "invalid - mixed chars",
+			glob:     "`~!@#$%^&()-_+;:,<.>'\"\\| ",
+			expected: false,
+		},
+		{
+			name:     "invalid - slash",
+			glob:     "abc/",
+			expected: false,
+		},
+		{
+			name:     "invalid - star with other chars",
+			glob:     "ab*c",
+			expected: false,
+		},
+		{
+			name:     "invalid - star",
+			glob:     "*",
+			expected: false,
+		},
+		{
+			name:     "invalid - double star with other chars",
+			glob:     "ab**c",
+			expected: false,
+		},
+		{
+			name:     "invalid - double star",
+			glob:     "**",
+			expected: false,
+		},
+		{
+			name:     "invalid - question mark",
+			glob:     "?abc",
+			expected: false,
+		},
+		{
+			name:     "invalid - question mark with equals",
+			glob:     "?a=c",
+			expected: false,
+		},
+		{
+			name:     "invalid - left curly brace",
+			glob:     "{abc",
+			expected: false,
+		},
+		{
+			name:     "invalid - right curly brace",
+			glob:     "abc}",
+			expected: false,
+		},
+		{
+			name:     "invalid - curly brace set",
+			glob:     "{abc}",
+			expected: false,
+		},
+	}
+	for _, c := range cases {
+		actual := security.IsValidLiteral(c.glob)
+		if c.expected != actual {
+			t.Fatalf("IsValidLiteral(%s): expected (%v), got (%v)", c.name, c.expected, actual)
+		}
+	}
+}
+
 func TestContainsPathTemplate(t *testing.T) {
 	testCases := []struct {
 		name           string
