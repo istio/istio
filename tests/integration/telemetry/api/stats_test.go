@@ -28,7 +28,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
@@ -294,26 +293,6 @@ func SendTrafficOrFail(t test.Failer, from echo.Instance) {
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
-	})
-}
-
-func SendTrafficOrFailExpectForbidden(t test.Failer, from echo.Instance) {
-	from.CallOrFail(t, echo.CallOptions{
-		To: GetTarget(),
-		Port: echo.Port{
-			Name: "http",
-		},
-		Check: check.Forbidden(protocol.HTTP),
-	})
-	from.CallOrFail(t, echo.CallOptions{
-		To: apps.Naked,
-		Port: echo.Port{
-			Name: "http",
-		},
-		Retry: echo.Retry{
-			NoRetry: true,
-		},
-		Check: check.Forbidden(protocol.HTTP),
 	})
 }
 
