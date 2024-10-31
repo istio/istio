@@ -198,6 +198,10 @@ spec:
         - name: ISTIO_META_MESH_ID
           value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
         {{- end }}
+        {{- with (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}
+        - name: TRUST_DOMAIN
+          value: "{{ . }}"
+        {{- end }}
         {{- if .Values.global.waypoint.resources }}
         resources:
         {{- toYaml .Values.global.waypoint.resources | nindent 10 }}

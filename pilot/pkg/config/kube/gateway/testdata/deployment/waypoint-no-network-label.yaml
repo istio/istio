@@ -129,6 +129,8 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/namespace
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: TRUST_DOMAIN
+          value: cluster.local
         image: test/proxyv2:test
         name: istio-proxy
         ports:
