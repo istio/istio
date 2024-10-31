@@ -1056,6 +1056,14 @@ func TestAuthz_PathTemplating(t *testing.T) {
 							path:  "/store/cart",
 							allow: false,
 						},
+						{
+							path:  "/store/foo/cart",
+							allow: true,
+						},
+						{
+							path:  "/store/foo/bar/cart",
+							allow: true,
+						},
 					}
 
 					for _, c := range cases {
