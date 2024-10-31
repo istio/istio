@@ -7,12 +7,12 @@ repositories with each Istio release.  If you want to make changes to Istio helm
 right place.
 
 If you want to _install_ Istio with Helm, instead please [follow the Helm installation docs here](https://istio.io/latest/docs/setup/install/helm/).
- 
+
 Charts in this folder are published to the following Helm repos:
  - `https://istio-release.storage.googleapis.com/charts` (charts for official release versions)
  - `oci://gcr.io/istio-release/charts/` (charts for official release versions and dev build versions)
- 
-Chart publishing is handled by [release builde](https://github.com/istio/release-builder).
+
+Chart publishing is handled by [release builder](https://github.com/istio/release-builder).
 
 ---
 
