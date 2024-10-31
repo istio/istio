@@ -231,6 +231,10 @@ func TestCheckValidPathTemplate(t *testing.T) {
 			values: []string{"/{*}/foo"},
 		},
 		{
+			name:   "valid path template - matchOneTemplate with trailing slash",
+			values: []string{"/{*}/foo/"},
+		},
+		{
 			name:   "valid path template - matchAnyTemplate",
 			values: []string{"/foo/{**}/bar"},
 		},
@@ -306,6 +310,26 @@ func TestCheckValidPathTemplate(t *testing.T) {
 		{
 			name:      "unsupported path template - matchOneTemplate with unmatched closed curly brace and `*`",
 			values:    []string{"/{*}/foo/temp}/*"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - matchAnyTemplate is not the last operator in the template",
+			values:    []string{"/{**}/foo/temp/{*}/bar"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - simple multiple matchAnyTemplates",
+			values:    []string{"/{**}/{**}"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - multiple matchAnyTemplates",
+			values:    []string{"/{**}/foo/temp/{**}/bar"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - invalid literal in path template",
+			values:    []string{"/{*}/foo/?abc"},
 			wantError: true,
 		},
 	}
