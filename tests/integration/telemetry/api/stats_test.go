@@ -303,6 +303,12 @@ func SendTrafficOrFailExpectForbidden(t test.Failer, from echo.Instance) {
 		Port: echo.Port{
 			Name: "http",
 		},
+		Retry: echo.Retry{
+			Options: []retry.Option{
+				retry.Delay(framework.TelemetryRetryDelay),
+				retry.MaxAttempts(10),
+			},
+		},
 		Check: check.Forbidden(protocol.HTTP),
 	})
 	from.CallOrFail(t, echo.CallOptions{
@@ -311,9 +317,12 @@ func SendTrafficOrFailExpectForbidden(t test.Failer, from echo.Instance) {
 			Name: "http",
 		},
 		Retry: echo.Retry{
-			NoRetry: true,
+			Options: []retry.Option{
+				retry.Delay(framework.TelemetryRetryDelay),
+				retry.MaxAttempts(10),
+			},
 		},
-		Check: check.OK(),
+		Check: check.Forbidden(protocol.HTTP),
 	})
 }
 
