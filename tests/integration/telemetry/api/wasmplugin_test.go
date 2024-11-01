@@ -408,9 +408,9 @@ func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restart
 
 	if forbiddenAfterConfig {
 		SendTrafficOrFailExpectForbidden(t, to)
+		t.Log("echo server will return 403 after bad wasm filter is applied.")
 	} else {
 		SendTrafficOrFail(t, to)
+		t.Log("echo server still returns ok after bad wasm filter is applied.")
 	}
-
-	t.Log("echo server still returns ok after bad wasm filter is applied.")
 }

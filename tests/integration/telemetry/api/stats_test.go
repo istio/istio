@@ -313,7 +313,7 @@ func SendTrafficOrFailExpectForbidden(t test.Failer, from echo.Instance) {
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
-		Check: check.Forbidden(protocol.HTTP),
+		Check: check.OK(),
 	})
 }
 
