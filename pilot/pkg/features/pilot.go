@@ -65,7 +65,7 @@ var (
 	ClusterName = env.Register("CLUSTER_ID", constants.DefaultClusterName,
 		"Defines the cluster and service registry that this Istiod instance belongs to").Get()
 
-	DNSJitterDurationEnv = env.Register("ENVOY_DNS_JITTER_DURATION", 100*time.Millisecond, "Jitter added to periodic DNS resolution").Get()
+	DNSJitterDurationEnv = env.Register("ENVOY_DNS_JITTER_DURATION", 0, "Jitter added to periodic DNS resolution").Get()
 
 	ExternalIstiod = env.Register("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
