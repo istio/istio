@@ -77,6 +77,7 @@ var (
 	allNamespaces     bool
 	suppress          []string
 	analysisTimeout   time.Duration
+	recursive         bool
 	ignoreUnknown     bool
 	revisionSpecified string
 	remoteContexts    []string
@@ -124,6 +125,11 @@ func Analyze(ctx cli.Context) *cobra.Command {
 
 			if listAnalyzers {
 				fmt.Print(AnalyzersAsString(analyzers.All()))
+				return nil
+			}
+
+			if recursive {
+				fmt.Println("The recursive flag has been removed and is hardcoded to true without explicitly specifying it.")
 				return nil
 			}
 
@@ -330,6 +336,8 @@ func Analyze(ctx cli.Context) *cobra.Command {
 			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
 	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
 		"The duration to wait before failing")
+	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
+		"[Removed: The recursive flag has been removed and is hardcoded to true] Process directory arguments recursively.")
 	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
 	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "r", "default",
