@@ -301,8 +301,6 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
-		// 0 disables jitter.
-		c.DnsJitter = durationpb.New(features.DNSJitterDurationEnv)
 		if networkutil.AllIPv4(cb.proxyIPAddresses) {
 			// IPv4 only
 			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
