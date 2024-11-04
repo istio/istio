@@ -1066,6 +1066,7 @@ func fakeInboundOptsOnlySkywalkingTelemetryAPI() gatewayListenerOpts {
 	return opts
 }
 
+// nolint: unparam
 func fakeTracingSpecNoProvider(sampling float64, disableReporting bool, useRequestIDForTraceSampling bool, enableIstiotags bool) *model.TracingConfig {
 	return fakeTracingSpec(nil, sampling, disableReporting, useRequestIDForTraceSampling, enableIstiotags)
 }
