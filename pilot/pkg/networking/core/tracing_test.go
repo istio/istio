@@ -77,10 +77,12 @@ func TestConfigureTracing(t *testing.T) {
 			name: "default providers",
 			inSpec: &model.TracingConfig{
 				ClientSpec: model.TracingSpec{
-					Disabled: true,
+					Disabled:        true,
+					EnableIstioTags: true,
 				},
 				ServerSpec: model.TracingSpec{
-					Provider: fakeZipkin(),
+					Provider:        fakeZipkin(),
+					EnableIstioTags: true,
 				},
 			},
 			opts:            fakeOptsWithDefaultProviders(),
@@ -95,9 +97,16 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:            "only telemetry api (no provider)",
-			inSpec:          fakeTracingSpecNoProvider(99.999, false, true),
+			inSpec:          fakeTracingSpecNoProvider(99.999, false, true, true),
 			opts:            fakeOptsOnlyZipkinTelemetryAPI(),
 			want:            fakeTracingConfigNoProvider(99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:            "only telemetry api (no provider) and disabled istio tags",
+			inSpec:          fakeTracingSpecNoProvider(99.999, false, true, false),
+			opts:            fakeOptsOnlyZipkinTelemetryAPI(),
+			want:            fakeTracingConfigNoProvider(99.999, 0, append([]*tracing.CustomTag{}, fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
@@ -110,7 +119,7 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:   "only telemetry api (with provider)",
-			inSpec: fakeTracingSpec(fakeZipkin(), 99.999, false, true),
+			inSpec: fakeTracingSpec(fakeZipkin(), 99.999, false, true, true),
 			opts:   fakeOptsOnlyZipkinTelemetryAPI(),
 			want: fakeTracingConfig(fakeZipkinProvider(clusterName, authority, DefaultZipkinEndpoint, true),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
@@ -118,7 +127,7 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:   "zipkin enable 64bit trace id",
-			inSpec: fakeTracingSpec(fakeZipkinEnable64bitTraceID(), 99.999, false, true),
+			inSpec: fakeTracingSpec(fakeZipkinEnable64bitTraceID(), 99.999, false, true, true),
 			opts:   fakeOptsOnlyZipkinTelemetryAPI(),
 			want: fakeTracingConfig(fakeZipkinProvider(clusterName, authority, DefaultZipkinEndpoint, false),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
@@ -126,21 +135,21 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:            "both tracing enabled (no provider)",
-			inSpec:          fakeTracingSpecNoProvider(99.999, false, true),
+			inSpec:          fakeTracingSpecNoProvider(99.999, false, true, true),
 			opts:            fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
 			want:            fakeTracingConfigNoProvider(99.999, 13, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
 			name:            "both tracing disabled (no provider)",
-			inSpec:          fakeTracingSpecNoProvider(99.999, false, true),
+			inSpec:          fakeTracingSpecNoProvider(99.999, false, true, true),
 			opts:            fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
 			want:            fakeTracingConfigNoProvider(99.999, 13, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
 			name:   "both tracing enabled (with provider)",
-			inSpec: fakeTracingSpec(fakeZipkin(), 99.999, false, true),
+			inSpec: fakeTracingSpec(fakeZipkin(), 99.999, false, true, true),
 			opts:   fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
 			want: fakeTracingConfig(fakeZipkinProvider(clusterName, authority, DefaultZipkinEndpoint, true),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
@@ -148,7 +157,7 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:   "both tracing disabled (with provider)",
-			inSpec: fakeTracingSpec(fakeZipkin(), 99.999, false, true),
+			inSpec: fakeTracingSpec(fakeZipkin(), 99.999, false, true, true),
 			opts:   fakeOptsMeshAndTelemetryAPI(false /* no enable tracing */),
 			want: fakeTracingConfig(fakeZipkinProvider(clusterName, authority, DefaultZipkinEndpoint, true),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
@@ -157,7 +166,7 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:   "basic config (with datadog provider)",
-			inSpec: fakeTracingSpec(fakeDatadog(), 99.999, false, true),
+			inSpec: fakeTracingSpec(fakeDatadog(), 99.999, false, true, true),
 			opts:   fakeOptsOnlyDatadogTelemetryAPI(),
 			want:   fakeTracingConfig(fakeDatadogProvider("fake-cluster", "testhost", clusterName), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 
@@ -165,14 +174,14 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:            "basic config (with skywalking provider)",
-			inSpec:          fakeTracingSpec(fakeSkywalking(), 99.999, false, false),
+			inSpec:          fakeTracingSpec(fakeSkywalking(), 99.999, false, false, true),
 			opts:            fakeOptsOnlySkywalkingTelemetryAPI(),
 			want:            fakeTracingConfigForSkywalking(fakeSkywalkingProvider(clusterName, authority), 99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &requestidextension.UUIDRequestIDExtensionContext{UseRequestIDForTraceSampling: false},
 		},
 		{
 			name:   "basic config (with opentelemetry provider via grpc)",
-			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpc(), 99.999, false, true),
+			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpc(), 99.999, false, true, true),
 			opts:   fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI(),
 			want:   fakeTracingConfig(fakeOpenTelemetryGrpcProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 
@@ -180,14 +189,14 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:            "basic config (with opentelemetry provider via http)",
-			inSpec:          fakeTracingSpec(fakeOpenTelemetryHTTP(), 99.999, false, true),
+			inSpec:          fakeTracingSpec(fakeOpenTelemetryHTTP(), 99.999, false, true, true),
 			opts:            fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI(),
 			want:            fakeTracingConfig(fakeOpenTelemetryHTTPProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
 		{
 			name:   "basic config (with opentelemetry provider with resource detectors)",
-			inSpec: fakeTracingSpec(fakeOpenTelemetryResourceDetectors(), 99.999, false, true),
+			inSpec: fakeTracingSpec(fakeOpenTelemetryResourceDetectors(), 99.999, false, true, true),
 			opts:   fakeOptsOnlyOpenTelemetryResourceDetectorsTelemetryAPI(),
 			want: fakeTracingConfig(
 				fakeOpenTelemetryResourceDetectorsProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
@@ -210,14 +219,14 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:            "invalid provider",
-			inSpec:          fakeTracingSpec(fakePrometheus(), 99.999, false, true),
+			inSpec:          fakeTracingSpec(fakePrometheus(), 99.999, false, true, true),
 			opts:            fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
 			want:            nil,
 			wantReqIDExtCtx: nil,
 		},
 		{
 			name:   "basic config (with opentelemetry provider via grpc with initial metadata)",
-			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true),
+			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true, true),
 			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(),
 			want: fakeTracingConfig(fakeOpenTelemetryGrpcWithInitialMetadataProvider(clusterName, authority),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
@@ -225,7 +234,7 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:   "only telemetry api (with provider)",
-			inSpec: fakeTracingSpec(fakeZipkinWithEndpoint(), 99.999, false, true),
+			inSpec: fakeTracingSpec(fakeZipkinWithEndpoint(), 99.999, false, true, true),
 			opts:   fakeOptsZipkinTelemetryWithEndpoint(),
 			want: fakeTracingConfig(fakeZipkinProvider(clusterName, authority, "/custom/path/api/v2/spans", true),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
@@ -294,8 +303,8 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 			// Use a different value for RandomSamplingPercentage to ensure it is changed to 100%
 			// when a custom sampler is used for the OTel tracing provider
 			inSpec := &model.TracingConfig{
-				ClientSpec: tracingSpec(httpProvider, 50, false, false),
-				ServerSpec: tracingSpec(httpProvider, 50, false, false),
+				ClientSpec: tracingSpec(httpProvider, 50, false, false, true),
+				ServerSpec: tracingSpec(httpProvider, 50, false, false, true),
 			}
 
 			opts := fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI()
@@ -420,8 +429,8 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 	// Use a different value for RandomSamplingPercentage to ensure it is changed to 100%
 	// when a custom sampler is used for the OTel tracing provider
 	inSpec := &model.TracingConfig{
-		ClientSpec: tracingSpec(httpProvider, 50, false, false),
-		ServerSpec: tracingSpec(httpProvider, 50, false, false),
+		ClientSpec: tracingSpec(httpProvider, 50, false, false, true),
+		ServerSpec: tracingSpec(httpProvider, 50, false, false, true),
 	}
 
 	opts := fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI()
@@ -1057,8 +1066,9 @@ func fakeInboundOptsOnlySkywalkingTelemetryAPI() gatewayListenerOpts {
 	return opts
 }
 
-func fakeTracingSpecNoProvider(sampling float64, disableReporting bool, useRequestIDForTraceSampling bool) *model.TracingConfig {
-	return fakeTracingSpec(nil, sampling, disableReporting, useRequestIDForTraceSampling)
+// nolint: unparam
+func fakeTracingSpecNoProvider(sampling float64, disableReporting bool, useRequestIDForTraceSampling bool, enableIstiotags bool) *model.TracingConfig {
+	return fakeTracingSpec(nil, sampling, disableReporting, useRequestIDForTraceSampling, enableIstiotags)
 }
 
 func fakeTracingSpecNoProviderWithNilCustomTag(sampling float64, disableReporting bool, useRequestIDForTraceSampling bool) *model.TracingConfig {
@@ -1067,10 +1077,11 @@ func fakeTracingSpecNoProviderWithNilCustomTag(sampling float64, disableReportin
 
 func fakeTracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling float64, disableReporting bool,
 	useRequestIDForTraceSampling bool,
+	enableIstioTags bool,
 ) *model.TracingConfig {
 	t := &model.TracingConfig{
-		ClientSpec: tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling),
-		ServerSpec: tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling),
+		ClientSpec: tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling, enableIstioTags),
+		ServerSpec: tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling, enableIstioTags),
 	}
 	return t
 }
@@ -1079,7 +1090,7 @@ func fakeClientOnlyTracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider
 	useRequestIDForTraceSampling bool,
 ) *model.TracingConfig {
 	t := &model.TracingConfig{
-		ClientSpec: tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling),
+		ClientSpec: tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling, true),
 		ServerSpec: model.TracingSpec{
 			Disabled: true,
 		},
@@ -1094,13 +1105,14 @@ func fakeServerOnlyTracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider
 		ClientSpec: model.TracingSpec{
 			Disabled: true,
 		},
-		ServerSpec: tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling),
+		ServerSpec: tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling, true),
 	}
 	return t
 }
 
 func tracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling float64, disableReporting bool,
 	useRequestIDForTraceSampling bool,
+	enableIstioTags bool,
 ) model.TracingSpec {
 	return model.TracingSpec{
 		Provider:                 provider,
@@ -1116,6 +1128,7 @@ func tracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling flo
 			},
 		},
 		UseRequestIDForTraceSampling: useRequestIDForTraceSampling,
+		EnableIstioTags:              enableIstioTags,
 	}
 }
 
@@ -1131,6 +1144,7 @@ func fakeTracingSpecWithNilCustomTag(provider *meshconfig.MeshConfig_ExtensionPr
 				"test": nil,
 			},
 			UseRequestIDForTraceSampling: useRequestIDForTraceSampling,
+			EnableIstioTags:              true,
 		},
 		ServerSpec: model.TracingSpec{
 			Provider:                 provider,
@@ -1140,6 +1154,7 @@ func fakeTracingSpecWithNilCustomTag(provider *meshconfig.MeshConfig_ExtensionPr
 				"test": nil,
 			},
 			UseRequestIDForTraceSampling: useRequestIDForTraceSampling,
+			EnableIstioTags:              true,
 		},
 	}
 	return t

@@ -83,7 +83,7 @@ func configureTracingFromTelemetry(
 		// use the prior configuration bits of sampling and custom tags
 		h.Tracing = &hcm.HttpConnectionManager_Tracing{}
 		configureSampling(h.Tracing, proxyConfigSamplingValue(proxyCfg))
-		configureCustomTags(h.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, proxy)
+		configureCustomTags(nil, h.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, proxy)
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			h.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 		}
@@ -130,7 +130,7 @@ func configureTracingFromTelemetry(
 	}
 
 	configureSampling(h.Tracing, sampling)
-	configureCustomTags(h.Tracing, spec.CustomTags, proxyCfg, proxy)
+	configureCustomTags(&spec, h.Tracing, spec.CustomTags, proxyCfg, proxy)
 
 	// if there is configured max tag length somewhere, fallback to it.
 	if h.GetTracing().GetMaxPathTagLength() == nil && proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
@@ -597,10 +597,22 @@ func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 	return sampling
 }
 
-func configureCustomTags(hcmTracing *hcm.HttpConnectionManager_Tracing,
+func configureCustomTags(spec *model.TracingSpec, hcmTracing *hcm.HttpConnectionManager_Tracing,
 	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, node *model.Proxy,
 ) {
-	tags := append(buildServiceTags(node.Metadata, node.Labels), optionalPolicyTags...)
+	var tags []*tracing.CustomTag
+	if spec == nil {
+		// Fallback to legacy mesh config.
+		enableIstioTags := true
+		if proxyCfg.GetTracing().GetEnableIstioTags() != nil {
+			enableIstioTags = proxyCfg.GetTracing().GetEnableIstioTags().GetValue()
+		}
+		if enableIstioTags {
+			tags = append(buildServiceTags(node.Metadata, node.Labels), optionalPolicyTags...)
+		}
+	} else if spec.EnableIstioTags {
+		tags = append(buildServiceTags(node.Metadata, node.Labels), optionalPolicyTags...)
+	}
 
 	if len(providerTags) == 0 {
 		tags = append(tags, buildCustomTagsFromProxyConfig(proxyCfg.GetTracing().GetCustomTags())...)

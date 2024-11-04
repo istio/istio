@@ -204,6 +204,7 @@ type TracingSpec struct {
 	RandomSamplingPercentage     *float64
 	CustomTags                   map[string]*tpb.Tracing_CustomTag
 	UseRequestIDForTraceSampling bool
+	EnableIstioTags              bool
 }
 
 type LoggingConfig struct {
@@ -296,8 +297,8 @@ func (t *Telemetries) Tracing(proxy *Proxy, svc *Service) *TracingConfig {
 		return nil
 	}
 
-	clientSpec := TracingSpec{UseRequestIDForTraceSampling: true}
-	serverSpec := TracingSpec{UseRequestIDForTraceSampling: true}
+	clientSpec := TracingSpec{UseRequestIDForTraceSampling: true, EnableIstioTags: true}
+	serverSpec := TracingSpec{UseRequestIDForTraceSampling: true, EnableIstioTags: true}
 
 	if hasDefaultProvider {
 		// todo: what do we want to do with more than one default provider?
@@ -351,6 +352,11 @@ func (t *Telemetries) Tracing(proxy *Proxy, svc *Service) *TracingConfig {
 		if m.UseRequestIdForTraceSampling != nil {
 			for _, spec := range specs {
 				spec.UseRequestIDForTraceSampling = m.UseRequestIdForTraceSampling.Value
+			}
+		}
+		if m.EnableIstioTags != nil {
+			for _, spec := range specs {
+				spec.EnableIstioTags = m.EnableIstioTags.Value
 			}
 		}
 	}
