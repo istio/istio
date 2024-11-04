@@ -44,7 +44,7 @@ helm3 template kiali-server \
 # Set up prometheus
 helm3 template prometheus prometheus \
   --namespace istio-system \
-  --version 25.27.0 \
+  --version 25.28.0 \
   --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"
