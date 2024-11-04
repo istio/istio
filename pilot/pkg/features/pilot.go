@@ -109,9 +109,6 @@ var (
 		"If true, pilot will add Istio ALPN filters, required for proper protocol sniffing.",
 	).Get()
 
-	EnableOptionalTracingTags = env.Register("PILOT_ENABLE_OPTIONAL_TRACING_TAGS", true,
-		"If true, pilot will add optional tags to traces, such as the service, cluster details along with policy tags.").Get()
-
 	WorkloadEntryAutoRegistration = env.Register("PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION", true,
 		"Enables auto-registering WorkloadEntries based on associated WorkloadGroups upon XDS connection by the workload.").Get()
 
