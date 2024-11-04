@@ -43,8 +43,8 @@ var (
 		"EnableMongoFilter enables injection of `envoy.filters.network.mongo_proxy` in the filter chain.",
 	).Get()
 
-	// UseRemoteAddress sets useRemoteAddress to true for sidecar outbound listeners so that it picks up the localhost
-	// address of the sender, which is an internal address, so that trusted headers are not sanitized.
+	// UseRemoteAddress sets useRemoteAddress to true for sidecar outbound listeners so that it picks up the IP
+	// address of the sender, which is set as an internal address, so that trusted headers are not sanitized.
 	UseRemoteAddress = env.Register(
 		"PILOT_SIDECAR_USE_REMOTE_ADDRESS",
 		false,

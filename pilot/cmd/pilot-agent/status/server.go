@@ -87,7 +87,7 @@ var (
 var PrometheusScrapingConfig = env.Register("ISTIO_PROMETHEUS_ANNOTATIONS", "", "")
 
 var (
-	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz|startupz)$`)
+	appProberPattern = regexp.MustCompile(`^/(app-health|app-lifecycle)/[^/]+/(livez|readyz|startupz|prestopz|poststartz)$`)
 
 	EnableHTTP2Probing = env.Register("ISTIO_ENABLE_HTTP2_PROBING", true,
 		"If enabled, HTTP2 probes will be enabled for HTTPS probes, following Kubernetes").Get()
@@ -134,7 +134,7 @@ type Options struct {
 	EnableProfiling     bool
 	// PrometheusRegistry to use. Just for testing.
 	PrometheusRegistry prometheus.Gatherer
-	Shutdown           context.CancelFunc
+	Shutdown           context.CancelCauseFunc
 	TriggerDrain       func()
 }
 
@@ -155,7 +155,7 @@ type Server struct {
 	http                  *http.Client
 	enableProfiling       bool
 	registry              prometheus.Gatherer
-	shutdown              context.CancelFunc
+	shutdown              context.CancelCauseFunc
 	drain                 func()
 }
 
@@ -222,10 +222,8 @@ func NewServer(config Options) (*Server, error) {
 		config:                config,
 		enableProfiling:       config.EnableProfiling,
 		registry:              registry,
-		shutdown: func() {
-			config.Shutdown()
-		},
-		drain: config.TriggerDrain,
+		shutdown:              config.Shutdown,
+		drain:                 config.TriggerDrain,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -352,13 +350,15 @@ func validateAppKubeProber(path string, prober *Prober) error {
 
 // FormatProberURL returns a set of HTTP URLs that pilot agent will serve to take over Kubernetes
 // app probers.
-func FormatProberURL(container string) (string, string, string) {
+func FormatProberURL(container string) (string, string, string, string, string) {
 	return fmt.Sprintf("/app-health/%v/readyz", container),
 		fmt.Sprintf("/app-health/%v/livez", container),
-		fmt.Sprintf("/app-health/%v/startupz", container)
+		fmt.Sprintf("/app-health/%v/startupz", container),
+		fmt.Sprintf("/app-lifecycle/%v/prestopz", container),
+		fmt.Sprintf("/app-lifecycle/%v/poststartz", container)
 }
 
-// Run opens a the status port and begins accepting probes.
+// Run opens the status port and begins accepting probes.
 func (s *Server) Run(ctx context.Context) {
 	log.Infof("Opening status port %d", s.statusPort)
 
@@ -374,6 +374,7 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc(drainPath, s.handleDrain)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
+	mux.HandleFunc("/app-lifecycle/", s.handleAppProbe)
 
 	if s.enableProfiling {
 		// Add the handler for pprof.
@@ -694,7 +695,7 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 	log.Infof("handling %s, notifying pilot-agent to exit", quitPath)
-	s.shutdown()
+	s.shutdown(fmt.Errorf("%v called", quitPath))
 }
 
 func (s *Server) handleDrain(w http.ResponseWriter, r *http.Request) {

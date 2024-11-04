@@ -14,3 +14,6 @@ spec:
     egressGateways:
     - name: istio-egressgateway
       enabled: false
+  values:
+    global:
+      externalIstiod: true

@@ -1,6 +1,6 @@
-# "defaults" is a workaround for Helm limitations. Users should NOT set ".defaults" explicitly, but rather directly set the fields internally.
-# For instance, instead of `--set defaults.foo=bar`, just set `--set foo=bar`.
-defaults:
+# "_internal_defaults_do_not_set" is a workaround for Helm limitations. Users should NOT set "._internal_defaults_do_not_set" explicitly, but rather directly set the fields internally.
+# For instance, instead of `--set _internal_defaults_do_not_set.foo=bar``, just set `--set foo=bar`.
+_internal_defaults_do_not_set:
   hub: ""
   tag: ""
   variant: ""
@@ -83,6 +83,9 @@ defaults:
   # Set to `type: RuntimeDefault` to use the default profile if available.
   seccompProfile: {}
 
+  # SELinux options to set in the istio-cni-node pods. You may need to set this to `type: spc_t` for some platforms.
+  seLinuxOptions: {}
+
   resources:
     requests:
       cpu: 100m
@@ -141,3 +144,6 @@ defaults:
       requests:
         cpu: 100m
         memory: 100Mi
+
+  # A `key: value` mapping of environment variables to add to the pod
+  env: {}

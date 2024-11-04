@@ -24,7 +24,7 @@ import (
 // Note this is in addition to the normal event mechanics, so this can only filter things further.
 func BatchedEventFilter[I, O any](cf func(a I) O, handler func(events []Event[I], initialSync bool)) func(o []Event[I], initialSync bool) {
 	return func(events []Event[I], initialSync bool) {
-		ev := slices.FilterInPlace(events, func(e Event[I]) bool {
+		ev := slices.Filter(events, func(e Event[I]) bool {
 			if e.Old != nil && e.New != nil {
 				if equal(cf(*e.Old), cf(*e.New)) {
 					// Equal under conversion, so we can skip

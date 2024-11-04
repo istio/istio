@@ -232,7 +232,6 @@ pathNormalization:
 						FromMatch(match.ServiceName(apps.Ns1.A.NamespacedName())).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							for _, expected := range tt.expectations {
-								expected := expected
 								t.NewSubTest(expected.in).Run(func(t framework.TestContext) {
 									checker := check.URL(expected.out)
 									if expected.out == "400" {

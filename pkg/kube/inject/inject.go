@@ -194,6 +194,7 @@ func UnmarshalConfig(yml []byte) (Config, error) {
 }
 
 func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata metav1.ObjectMeta) bool { // nolint: lll
+	log := log.WithLabels("pod", metadata.Namespace+"/"+potentialPodName(metadata))
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptables changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
@@ -463,7 +464,14 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		// these will be in the `containers` field.
 		// So if we see the proxy container in `containers` in the original pod, and in `initContainers` in the template pod,
 		// move the container.
-		if features.EnableNativeSidecars.Get() &&
+		// The sidecar.istio.io/nativeSidecar annotation takes precedence over the global feature flag.
+		native := features.EnableNativeSidecars.Get()
+		if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "true" {
+			native = true
+		} else if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "false" {
+			native = false
+		}
+		if native &&
 			FindContainer(ProxyContainerName, templatePod.Spec.InitContainers) != nil &&
 			FindContainer(ProxyContainerName, mergedPod.Spec.Containers) != nil {
 			mergedPod = mergedPod.DeepCopy()

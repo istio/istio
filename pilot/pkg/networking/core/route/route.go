@@ -475,7 +475,7 @@ func translateRoute(
 
 	out := &route.Route{
 		Name:     routeName,
-		Match:    TranslateRouteMatch(virtualService, match, node.SupportsEnvoyExtendedJwt()),
+		Match:    TranslateRouteMatch(virtualService, match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 
@@ -1000,7 +1000,7 @@ func TranslateHeadersOperations(headers *networking.Headers) HeadersOperations {
 }
 
 // TranslateRouteMatch translates match condition
-func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest, useExtendedJwt bool) *route.RouteMatch {
+func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
@@ -1008,7 +1008,7 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest, useE
 
 	for name, stringMatch := range in.Headers {
 		// The metadata matcher takes precedence over the header matcher.
-		if metadataMatcher := translateMetadataMatch(name, stringMatch, useExtendedJwt); metadataMatcher != nil {
+		if metadataMatcher := translateMetadataMatch(name, stringMatch); metadataMatcher != nil {
 			out.DynamicMetadata = append(out.DynamicMetadata, metadataMatcher)
 		} else {
 			matcher := translateHeaderMatch(name, stringMatch)
@@ -1017,7 +1017,7 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest, useE
 	}
 
 	for name, stringMatch := range in.WithoutHeaders {
-		if metadataMatcher := translateMetadataMatch(name, stringMatch, useExtendedJwt); metadataMatcher != nil {
+		if metadataMatcher := translateMetadataMatch(name, stringMatch); metadataMatcher != nil {
 			metadataMatcher.Invert = true
 			out.DynamicMetadata = append(out.DynamicMetadata, metadataMatcher)
 		} else {
@@ -1136,12 +1136,12 @@ func canBeConvertedToPresentMatch(in *networking.StringMatch) bool {
 // Examples using `[]` as a separator:
 // - `@request.auth.claims[admin]` matches the claim "admin".
 // - `@request.auth.claims[group][id]` matches the nested claims "group" and "id".
-func translateMetadataMatch(name string, in *networking.StringMatch, useExtendedJwt bool) *matcher.MetadataMatcher {
+func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.MetadataMatcher {
 	rc := jwt.ToRoutingClaim(name)
 	if !rc.Match {
 		return nil
 	}
-	return authz.MetadataMatcherForJWTClaims(rc.Claims, util.ConvertToEnvoyMatch(in), useExtendedJwt)
+	return authz.MetadataMatcherForJWTClaims(rc.Claims, util.ConvertToEnvoyMatch(in))
 }
 
 // translateHeaderMatch translates to HeaderMatcher
@@ -1265,7 +1265,7 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 	}
 	val := &route.Route{
-		Match: TranslateRouteMatch(config.Config{}, nil, true),
+		Match: TranslateRouteMatch(config.Config{}, nil),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
@@ -1388,8 +1388,13 @@ func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 func TranslateRequestMirrorPolicy(dst *networking.Destination, service *model.Service,
 	listenerPort int, mp *core.RuntimeFractionalPercent,
 ) *route.RouteAction_RequestMirrorPolicy {
+	return TranslateRequestMirrorPolicyCluster(GetDestinationCluster(dst, service, listenerPort), mp)
+}
+
+func TranslateRequestMirrorPolicyCluster(cluster string, mp *core.RuntimeFractionalPercent,
+) *route.RouteAction_RequestMirrorPolicy {
 	return &route.RouteAction_RequestMirrorPolicy{
-		Cluster:         GetDestinationCluster(dst, service, listenerPort),
+		Cluster:         cluster,
 		RuntimeFraction: mp,
 		TraceSampled:    &wrapperspb.BoolValue{Value: false},
 	}

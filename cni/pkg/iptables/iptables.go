@@ -53,10 +53,9 @@ const (
 )
 
 type Config struct {
-	RestoreFormat bool `json:"RESTORE_FORMAT"`
-	TraceLogging  bool `json:"IPTABLES_TRACE_LOGGING"`
-	EnableIPv6    bool `json:"ENABLE_INBOUND_IPV6"`
-	RedirectDNS   bool `json:"REDIRECT_DNS"`
+	TraceLogging bool `json:"IPTABLES_TRACE_LOGGING"`
+	EnableIPv6   bool `json:"ENABLE_INBOUND_IPV6"`
+	RedirectDNS  bool `json:"REDIRECT_DNS"`
 	// If true, TPROXY will be used for redirection. Else, REDIRECT will be used.
 	// Currently, this is treated as a feature flag, but may be promoted to a permanent feature if there is a need.
 	TPROXYRedirection bool `json:"TPROXY_REDIRECTION"`
@@ -72,10 +71,9 @@ type IptablesConfigurator struct {
 
 func ipbuildConfig(c *Config) *iptablesconfig.Config {
 	return &iptablesconfig.Config{
-		RestoreFormat: c.RestoreFormat,
-		TraceLogging:  c.TraceLogging,
-		EnableIPv6:    c.EnableIPv6,
-		RedirectDNS:   c.RedirectDNS,
+		TraceLogging: c.TraceLogging,
+		EnableIPv6:   c.EnableIPv6,
+		RedirectDNS:  c.RedirectDNS,
 	}
 }
 
@@ -86,9 +84,7 @@ func NewIptablesConfigurator(
 	nlDeps NetlinkDependencies,
 ) (*IptablesConfigurator, *IptablesConfigurator, error) {
 	if cfg == nil {
-		cfg = &Config{
-			RestoreFormat: true,
-		}
+		cfg = &Config{}
 	}
 
 	configurator := &IptablesConfigurator{
@@ -197,9 +193,9 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbeSNAT, hostProbeV6SNAT *netip.Addr) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbeSNAT, hostProbeV6SNAT netip.Addr, ingressMode bool) error {
 	// Append our rules here
-	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT)
+	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT, ingressMode)
 
 	if err := cfg.addLoopbackRoute(); err != nil {
 		return err
@@ -218,8 +214,13 @@ func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbe
 	return nil
 }
 
-func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT *netip.Addr) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT netip.Addr, ingressMode bool) *builder.IptablesRuleBuilder {
 	redirectDNS := cfg.cfg.RedirectDNS
+	if ingressMode && cfg.cfg.TPROXYRedirection {
+		ingressMode = false
+		// We could support this, but TPROXYRedirection is deprecated and will be removed soon, so we can just test less.
+		log.Warnf("ignoring ingressMode due to TPROXYRedirection being enabled. These are mutually exclusive")
+	}
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodTProxyMask)
@@ -271,31 +272,33 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 
 	// From here on, we should be only inserting rules into our custom chains.
 
-	// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
-	//
-	// DESC: If we have a packet mark, set a connmark.
-	iptablesBuilder.AppendRule(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE, "-m", "mark",
-		"--mark", inpodMark,
-		"-j", "CONNMARK",
-		"--set-xmark", inpodTproxyMark)
+	if !ingressMode {
+		// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
+		//
+		// DESC: If we have a packet mark, set a connmark.
+		iptablesBuilder.AppendRule(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE, "-m", "mark",
+			"--mark", inpodMark,
+			"-j", "CONNMARK",
+			"--set-xmark", inpodTproxyMark)
 
-	// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
-	// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
-	//
-	// We do this so we can exempt this traffic from ztunnel capture/proxy - otherwise both kube-proxy (legit)
-	// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
+		// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
+		// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
+		//
+		// We do this so we can exempt this traffic from ztunnel capture/proxy - otherwise both kube-proxy (legit)
+		// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
 
-	// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
-	// CLI: -t mangle -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
-	//
-	// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
-	iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
-		iptableslog.UndefinedCommand, ChainInpodPrerouting, natOrMangleBasedOnTproxy,
-		"-s", iptablesconstants.IPVersionSpecific,
-		"-p", "tcp",
-		"-m", "tcp",
-		"-j", "ACCEPT",
-	)
+		// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+		// CLI: -t mangle -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+		//
+		// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
+		iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
+			iptableslog.UndefinedCommand, ChainInpodPrerouting, natOrMangleBasedOnTproxy,
+			"-s", iptablesconstants.IPVersionSpecific,
+			"-p", "tcp",
+			"-m", "tcp",
+			"-j", "ACCEPT",
+		)
+	}
 
 	// CLI: -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp -j ACCEPT
 	// CLI: -t NAT -A ISTIO_OUTPUT -d fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp -j ACCEPT
@@ -356,7 +359,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 			"--on-port", fmt.Sprintf("%d", ZtunnelInboundPlaintextPort),
 			"--tproxy-mark", inpodTproxyMark,
 		)
-	} else {
+	} else if !ingressMode {
 		// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports <INPLAINPORT>
 		//
 		// DESC: Anything that is not bound for localhost and does not have the mark, REDIRECT to ztunnel inbound plaintext port <INPLAINPORT>
@@ -477,33 +480,13 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBuilder *builder.IptablesRuleBuilder) error {
 	var execErrs []error
 
-	if cfg.cfg.RestoreFormat {
-		// Execute iptables-restore
-		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV))
-		// Execute ip6tables-restore
-		if cfg.cfg.EnableIPv6 {
-			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V))
-		}
-	} else {
-		// Execute iptables commands
-		execErrs = append(execErrs,
-			cfg.executeIptablesCommands(&cfg.iptV, iptablesBuilder.BuildV4()))
-		// Execute ip6tables commands
-		if cfg.cfg.EnableIPv6 {
-			execErrs = append(execErrs,
-				cfg.executeIptablesCommands(&cfg.ipt6V, iptablesBuilder.BuildV6()))
-		}
+	// Execute iptables-restore
+	execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV))
+	// Execute ip6tables-restore
+	if cfg.cfg.EnableIPv6 {
+		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V))
 	}
 	return errors.Join(execErrs...)
-}
-
-func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, args [][]string) error {
-	var iptErrs []error
-	// TODO: pass log all the way through
-	for _, argSet := range args {
-		iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IPTables, iptVer, nil, argSet...))
-	}
-	return errors.Join(iptErrs...)
 }
 
 func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(

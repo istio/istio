@@ -133,7 +133,6 @@ func TestGetContainerIDFromCGroups(t *testing.T) {
 			expectMsg:         "multiple pod UIDs found in cgroups (11111111-b29f-11e7-9350-020968147796, 22222222-b29f-11e7-9350-020968147796)",
 		},
 	} {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			podUID, containerID, err := getPodUIDAndContainerIDFromCGroups(makeCGroups(tt.cgroupPaths))
 

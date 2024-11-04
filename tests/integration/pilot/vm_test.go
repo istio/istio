@@ -82,7 +82,6 @@ func TestVmOSPost(t *testing.T) {
 			instances := b.BuildOrFail(t)
 
 			for idx, image := range images {
-				idx, image := idx, image
 				t.NewSubTest(image).RunParallel(func(t framework.TestContext) {
 					tc := common.TrafficContext{
 						TestContext: t,

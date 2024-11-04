@@ -474,6 +474,16 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					customizeCall func(opts *echo.CallOptions, to echo.Target)
 				}{
 					{
+						name: "allow healthz",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/healthz"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								Build()
+							opts.Check = check.OK()
+						},
+					},
+					{
 						name: "deny without token",
 						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
 							opts.HTTP.Path = "/"
@@ -559,16 +569,6 @@ func TestIngressRequestAuthentication(t *testing.T) {
 							opts.Check = check.Status(http.StatusForbidden)
 						},
 					},
-					{
-						name: "allow healthz",
-						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
-							opts.HTTP.Path = "/healthz"
-							opts.HTTP.Headers = headers.New().
-								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
-								Build()
-							opts.Check = check.OK()
-						},
-					},
 				}
 
 				newTrafficTest(t, apps.Ns1.All.Instances()).
@@ -613,6 +613,16 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 					name          string
 					customizeCall func(opts *echo.CallOptions, to echo.Target)
 				}{
+					{
+						name: "allow healthz",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/healthz"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								Build()
+							opts.Check = check.OK()
+						},
+					},
 					{
 						name: "deny without token",
 						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
@@ -708,16 +718,6 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 								WithAuthz(jwt.TokenIssuer1).
 								Build()
 							opts.Check = check.Status(http.StatusForbidden)
-						},
-					},
-					{
-						name: "allow healthz",
-						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
-							opts.HTTP.Path = "/healthz"
-							opts.HTTP.Headers = headers.New().
-								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
-								Build()
-							opts.Check = check.OK()
 						},
 					},
 				}

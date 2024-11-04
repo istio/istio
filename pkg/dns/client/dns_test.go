@@ -24,10 +24,10 @@ import (
 
 	"github.com/miekg/dns"
 	"go.uber.org/atomic"
-	"google.golang.org/protobuf/proto"
 
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -94,7 +94,7 @@ func TestBuildAlternateHosts(t *testing.T) {
 	}
 
 	nt := d.NameTable()
-	nt = proto.Clone(nt).(*dnsProto.NameTable)
+	nt = protomarshal.Clone(nt)
 	d.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, _ []string) {
 		for host := range althosts {
 			if _, exists := nt.Table[host]; !exists {

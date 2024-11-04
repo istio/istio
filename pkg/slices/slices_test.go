@@ -391,6 +391,14 @@ func TestFilter(t *testing.T) {
 			},
 			want: []string{"bbb", "ccc"},
 		},
+		{
+			name:     "filter elements",
+			elements: []string{"bbb", "a", "ccc", ""},
+			fn: func(s string) bool {
+				return len(s) > 1
+			},
+			want: []string{"bbb", "ccc"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

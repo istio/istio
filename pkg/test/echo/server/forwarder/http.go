@@ -74,13 +74,13 @@ func (c *httpProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.For
 }
 
 func newHTTP3TransportGetter(cfg *Config) (httpTransportGetter, func()) {
-	newConn := func() *http3.RoundTripper {
-		return &http3.RoundTripper{
+	newConn := func() *http3.Transport {
+		return &http3.Transport{
 			TLSClientConfig: cfg.tlsConfig,
 			QUICConfig:      &quic.Config{},
 		}
 	}
-	closeFn := func(conn *http3.RoundTripper) func() {
+	closeFn := func(conn *http3.Transport) func() {
 		return func() {
 			_ = conn.Close()
 		}

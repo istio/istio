@@ -22,7 +22,6 @@ import (
 	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -35,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -223,7 +223,7 @@ func shouldH2Upgrade(clusterName string, port *model.Port, mesh *meshconfig.Mesh
 }
 
 func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
-	cluster.ConnectTimeout = proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration)
+	cluster.ConnectTimeout = protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout)
 }
 
 func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
@@ -309,7 +309,16 @@ func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
 func applyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
 	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
 
-	if loadbalancer.GetWarmupDurationSecs() != nil {
+	switch {
+	case loadbalancer.GetWarmup() != nil:
+		c.LbConfig = &cluster.Cluster_RoundRobinLbConfig_{
+			RoundRobinLbConfig: &cluster.Cluster_RoundRobinLbConfig{
+				SlowStartConfig: setWarmup(loadbalancer.GetWarmup()),
+			},
+		}
+
+	// Deprecated: uses setWarmup instead
+	case loadbalancer.GetWarmupDurationSecs() != nil:
 		c.LbConfig = &cluster.Cluster_RoundRobinLbConfig_{
 			RoundRobinLbConfig: &cluster.Cluster_RoundRobinLbConfig{
 				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
@@ -322,7 +331,16 @@ func applyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.Lo
 func applyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
 	c.LbPolicy = cluster.Cluster_LEAST_REQUEST
 
-	if loadbalancer.GetWarmupDurationSecs() != nil {
+	switch {
+	case loadbalancer.GetWarmup() != nil:
+		c.LbConfig = &cluster.Cluster_LeastRequestLbConfig_{
+			LeastRequestLbConfig: &cluster.Cluster_LeastRequestLbConfig{
+				SlowStartConfig: setWarmup(loadbalancer.GetWarmup()),
+			},
+		}
+
+	// Deprecated: uses setWarmup instead
+	case loadbalancer.GetWarmupDurationSecs() != nil:
 		c.LbConfig = &cluster.Cluster_LeastRequestLbConfig_{
 			LeastRequestLbConfig: &cluster.Cluster_LeastRequestLbConfig{
 				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
@@ -332,9 +350,36 @@ func applyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.
 }
 
 // setSlowStartConfig will set the warmupDurationSecs for LEAST_REQUEST and ROUND_ROBIN if provided in DestinationRule
+// Deprecated: use setWarmup instead
 func setSlowStartConfig(dur *durationpb.Duration) *cluster.Cluster_SlowStartConfig {
 	return &cluster.Cluster_SlowStartConfig{
 		SlowStartWindow: dur,
+	}
+}
+
+// setWarmup will set the warmup configuration for LEAST_REQUEST and ROUND_ROBIN if provided in DestinationRule
+// Runtime key is not exposed,the value is fixed
+func setWarmup(warmup *networking.WarmupConfiguration) *cluster.Cluster_SlowStartConfig {
+	var aggression, minWeightPercent float64
+
+	// If not specified, aggression defaults to 1.0 ensuring a linear traffic rampup
+	if a := warmup.Aggression; a == nil {
+		aggression = 1
+	} else {
+		aggression = a.GetValue()
+	}
+
+	// If not specified, minWeightPersent default to 10, aligned with envoy default
+	if m := warmup.MinimumPercent; m == nil {
+		minWeightPercent = 10
+	} else {
+		minWeightPercent = m.GetValue()
+	}
+
+	return &cluster.Cluster_SlowStartConfig{
+		SlowStartWindow:  warmup.Duration,
+		Aggression:       &core.RuntimeDouble{DefaultValue: aggression, RuntimeKey: "("},
+		MinWeightPercent: &xdstype.Percent{Value: minWeightPercent},
 	}
 }
 

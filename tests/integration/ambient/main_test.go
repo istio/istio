@@ -24,6 +24,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
@@ -155,7 +156,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		Prefix: "echo",
 		Inject: false,
 		Labels: map[string]string{
-			constants.DataplaneModeLabel: "ambient",
+			label.IoIstioDataplaneMode.Name: "ambient",
 		},
 	})
 	if err != nil {
@@ -191,18 +192,18 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":                             WorkloadAddressedWaypoint,
-						"version":                         "v1",
-						constants.AmbientUseWaypointLabel: "waypoint",
+						"app":                         WorkloadAddressedWaypoint,
+						"version":                     "v1",
+						label.IoIstioUseWaypoint.Name: "waypoint",
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":                             WorkloadAddressedWaypoint,
-						"version":                         "v2",
-						constants.AmbientUseWaypointLabel: "waypoint",
+						"app":                         WorkloadAddressedWaypoint,
+						"version":                     "v2",
+						label.IoIstioUseWaypoint.Name: "waypoint",
 					},
 				},
 			},
@@ -211,7 +212,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:              ServiceAddressedWaypoint,
 			Namespace:            apps.Namespace,
 			Ports:                ports.All(),
-			ServiceLabels:        map[string]string{constants.AmbientUseWaypointLabel: "waypoint"},
+			ServiceLabels:        map[string]string{label.IoIstioUseWaypoint.Name: "waypoint"},
 			ServiceAccount:       true,
 			ServiceWaypointProxy: "waypoint",
 			Subsets: []echo.SubsetConfig{
@@ -258,12 +259,12 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas: 1,
 					Version:  "v1",
-					Labels:   map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
+					Labels:   map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
-					Labels:   map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
+					Labels:   map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone},
 				},
 			},
 		})
@@ -286,16 +287,16 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"sidecar.istio.io/inject":    "true",
-						constants.DataplaneModeLabel: constants.DataplaneModeNone,
+						"sidecar.istio.io/inject":       "true",
+						label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"sidecar.istio.io/inject":    "true",
-						constants.DataplaneModeLabel: constants.DataplaneModeNone,
+						"sidecar.istio.io/inject":       "true",
+						label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 					},
 				},
 			},

@@ -20,11 +20,11 @@ import (
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	apiv1 "istio.io/api/networking/v1"
 	networkingv1 "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 )
 
 const (
@@ -95,7 +95,7 @@ func shouldV2AutoAllocateIPFromPieces(meta v1.ObjectMeta, spec *apiv1.ServiceEnt
 	}
 
 	// check for opt-out by user
-	enabledValue, enabledFound := meta.Labels[constants.EnableV2AutoAllocationLabel]
+	enabledValue, enabledFound := meta.Labels[label.NetworkingEnableAutoallocateIp.Name]
 	if enabledFound && strings.EqualFold(enabledValue, "false") {
 		return false
 	}

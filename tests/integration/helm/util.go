@@ -19,6 +19,7 @@ package helm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -45,6 +46,7 @@ import (
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -272,14 +274,6 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	if version != "" {
 		// Prepend ~ to the version, so that we can refer to the latest patch version of a minor version
 		versionArgs = fmt.Sprintf("--repo %s --version ~%s", t.Settings().HelmRepo, version)
-		// Currently the ambient in-place upgrade tests try an upgrade from previous release which is 1.20,
-		// and many of the profile override values seem to be unrecognized by the gateway installation.
-		// So, this is a workaround until we move to 1.21 where we can use --set profile=ambient for the install/upgrade.
-		// TODO: Remove this once the previous release version for the test becomes 1.21
-		// refer: https://github.com/istio/istio/issues/49242
-		if ambientProfile {
-			gatewayOverrideValuesFile = GetValuesOverrides(t, t.Settings().Image.Hub, version, t.Settings().Image.Variant, "", false)
-		}
 	} else {
 		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
 		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
@@ -557,4 +551,33 @@ func verifyValidation(ctx framework.TestContext, revision string) {
 		rejected := err != nil
 		return rejected
 	})
+}
+
+// TODO BML this relabeling/reannotating is only required if the previous release is =< 1.23,
+// and should be dropped once 1.24 is released.
+func AdoptPre123CRDResourcesIfNeeded() {
+	requiredAdoptionLabels := []string{"app.kubernetes.io/managed-by=Helm"}
+	requiredAdoptionAnnos := []string{"meta.helm.sh/release-name=istio-base", "meta.helm.sh/release-namespace=istio-system"}
+
+	for _, labelToAdd := range requiredAdoptionLabels {
+		// We have wildly inconsistent existing labeling pre-1.24, so have to cover all possible cases.
+		execCmd1 := fmt.Sprintf("kubectl label crds -l chart=istio %v", labelToAdd)
+		execCmd2 := fmt.Sprintf("kubectl label crds -l app.kubernetes.io/part-of=istio %v", labelToAdd)
+		_, err1 := shell.Execute(false, execCmd1)
+		_, err2 := shell.Execute(false, execCmd2)
+		if errors.Join(err1, err2) != nil {
+			scopes.Framework.Infof("couldn't relabel CRDs for Helm adoption: %s. Likely not needed for this release", labelToAdd)
+		}
+	}
+
+	for _, annoToAdd := range requiredAdoptionAnnos {
+		// We have wildly inconsistent existing labeling pre-1.24, so have to cover all possible cases.
+		execCmd1 := fmt.Sprintf("kubectl annotate crds -l chart=istio %v", annoToAdd)
+		execCmd2 := fmt.Sprintf("kubectl annotate crds -l app.kubernetes.io/part-of=istio %v", annoToAdd)
+		_, err1 := shell.Execute(false, execCmd1)
+		_, err2 := shell.Execute(false, execCmd2)
+		if errors.Join(err1, err2) != nil {
+			scopes.Framework.Infof("couldn't reannotate CRDs for Helm adoption: %s. Likely not needed for this release", annoToAdd)
+		}
+	}
 }

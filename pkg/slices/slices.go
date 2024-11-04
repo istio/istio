@@ -154,27 +154,28 @@ func BinarySearch[S ~[]E, E cmp.Ordered](x S, target E) (int, bool) {
 	return slices.BinarySearch(x, target)
 }
 
-// FilterInPlace retains all elements in []E that f(E) returns true for.
+// FilterInPlace retains all elements in []E that keep(E) returns true for.
 // The array is *mutated in place* and returned.
 // Use Filter to avoid mutation
-func FilterInPlace[E any](s []E, f func(E) bool) []E {
-	n := 0
-	for _, val := range s {
-		if f(val) {
-			s[n] = val
-			n++
+func FilterInPlace[E any](s []E, keep func(E) bool) []E {
+	// find the first to filter index
+	i := slices.IndexFunc(s, func(e E) bool {
+		return !keep(e)
+	})
+	if i == -1 {
+		return s
+	}
+
+	// don't start copying elements until we find one to filter
+	for j := i + 1; j < len(s); j++ {
+		if v := s[j]; keep(v) {
+			s[i] = v
+			i++
 		}
 	}
 
-	// If those elements contain pointers you might consider zeroing those elements
-	// so that objects they reference can be garbage collected."
-	var empty E
-	for i := n; i < len(s); i++ {
-		s[i] = empty
-	}
-
-	s = s[:n]
-	return s
+	clear(s[i:]) // zero/nil out the obsolete elements, for GC
+	return s[:i]
 }
 
 // FilterDuplicatesPresorted retains all unique elements in []E.
@@ -252,7 +253,6 @@ func MapFilter[E any, O any](s []E, f func(E) *O) []O {
 func Reference[E any](s []E) []*E {
 	res := make([]*E, 0, len(s))
 	for _, v := range s {
-		v := v
 		res = append(res, &v)
 	}
 	return res

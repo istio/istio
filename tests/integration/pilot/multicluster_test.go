@@ -108,11 +108,9 @@ spec:
 			}
 
 			for _, test := range tests {
-				test := test
 				t.NewSubTest(test.name).Run(func(t framework.TestContext) {
 					test.setup(t)
 					for _, source := range sources {
-						source := source
 						t.NewSubTest(source.Config().Cluster.StableName()).RunParallel(func(t framework.TestContext) {
 							source.CallOrFail(t, echo.CallOptions{
 								To: to,
@@ -135,7 +133,6 @@ spec:
 			// this runs in a separate test context - confirms the cluster local config was cleaned up
 			t.NewSubTest("cross cluster").Run(func(t framework.TestContext) {
 				for _, source := range sources {
-					source := source
 					t.NewSubTest(source.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
 						source.CallOrFail(t, echo.CallOptions{
 							To: to,

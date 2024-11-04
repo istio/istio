@@ -23,9 +23,9 @@ import (
 
 const (
 	// OperatorCodeBaseVersion is the version string from the code base.
-	OperatorCodeBaseVersion = "1.24.0"
+	OperatorCodeBaseVersion = "1.25.0"
 	OperatorEOLYear         = 2025
-	OperatorEOLMonth        = time.July
+	OperatorEOLMonth        = time.October
 )
 
 var (

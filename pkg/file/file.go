@@ -22,6 +22,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+
+	"istio.io/istio/pkg/log"
 )
 
 // AtomicCopy copies file by reading the file then writing atomically into the target directory
@@ -30,12 +32,18 @@ func AtomicCopy(srcFilepath, targetDir, targetFilename string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	var size int64
+	defer func() {
+		tryMarkLargeFileAsNotNeeded(size, in)
+		_ = in.Close()
+	}()
 
 	perm, err := in.Stat()
 	if err != nil {
 		return err
 	}
+
+	size = perm.Size()
 
 	return AtomicWriteReader(filepath.Join(targetDir, targetFilename), in, perm.Mode())
 }
@@ -90,12 +98,14 @@ func AtomicWriteReader(path string, data io.Reader, mode os.FileMode) error {
 		return err
 	}
 
+	n, err := io.Copy(tmpFile, data)
 	if _, err := io.Copy(tmpFile, data); err != nil {
 		if closeErr := tmpFile.Close(); closeErr != nil {
 			err = fmt.Errorf("%s: %w", closeErr.Error(), err)
 		}
 		return err
 	}
+	tryMarkLargeFileAsNotNeeded(n, tmpFile)
 	if err := tmpFile.Close(); err != nil {
 		return err
 	}
@@ -126,4 +136,16 @@ func DirEquals(a, b string) (bool, error) {
 		return false, err
 	}
 	return aa == bb, nil
+}
+
+func tryMarkLargeFileAsNotNeeded(size int64, in *os.File) {
+	// Somewhat arbitrary value to not bother with this on small files
+	const largeFileThreshold = 16 * 1024
+	if size < largeFileThreshold {
+		return
+	}
+	if err := markNotNeeded(in); err != nil {
+		// Error is fine, this is just an optimization anyways. Continue
+		log.Debugf("failed to mark not needed, continuing anyways: %v", err)
+	}
 }

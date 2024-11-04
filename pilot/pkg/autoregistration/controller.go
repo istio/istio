@@ -530,7 +530,6 @@ func (c *Controller) periodicWorkloadEntryCleanup(stopCh <-chan struct{}) {
 		case <-ticker.C:
 			wles := c.store.List(gvk.WorkloadEntry, metav1.NamespaceAll)
 			for _, wle := range wles {
-				wle := wle
 				if c.shouldCleanupEntry(wle) {
 					c.cleanupQueue.Push(func() error {
 						c.cleanupEntry(wle, true)

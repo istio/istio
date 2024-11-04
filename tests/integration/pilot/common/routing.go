@@ -909,7 +909,6 @@ spec:
 		}
 	}
 	for _, split := range splits {
-		split := split
 		t.RunTraffic(TrafficTestCase{
 			name:           fmt.Sprintf("shifting-%d", split[0]),
 			skip:           skipAmbient(t, "https://github.com/istio/istio/issues/44948"),
@@ -1282,9 +1281,6 @@ spec:
 	}
 	for _, c := range t.Apps.A {
 		for _, e := range expects {
-			c := c
-			e := e
-
 			tc.children = append(tc.children, TrafficCall{
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
@@ -1347,9 +1343,6 @@ spec:
 	}
 	for _, c := range t.Apps.A {
 		for _, e := range expects {
-			c := c
-			e := e
-
 			tc.children = append(tc.children, TrafficCall{
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
@@ -1436,9 +1429,6 @@ spec:
 	}
 	for _, c := range t.Apps.A {
 		for _, e := range expects {
-			c := c
-			e := e
-
 			tc.children = append(tc.children, TrafficCall{
 				name: fmt.Sprintf("%s: %s", c.Config().Cluster.StableName(), e.alpn),
 				opts: echo.CallOptions{
@@ -1535,7 +1525,6 @@ func trafficLoopCases(t TrafficContext) {
 	for _, c := range t.Apps.A {
 		for _, d := range t.Apps.B {
 			for _, port := range []int{15001, 15006} {
-				c, d, port := c, d, port
 				t.RunTraffic(TrafficTestCase{
 					name: fmt.Sprint(port),
 					call: c.CallOrFail,
@@ -1577,7 +1566,6 @@ func autoPassthroughCases(t TrafficContext) {
 		var childs []TrafficCall
 		for _, sni := range snis {
 			for _, alpn := range alpns {
-				alpn, sni, mode := alpn, sni, mode
 				al := []string{alpn}
 				if alpn == "" {
 					al = nil
@@ -2150,7 +2138,6 @@ spec:
 
 	for _, port := range []echo.Port{ports.AutoHTTP, ports.HTTP, ports.HTTP2} {
 		for _, h2 := range []bool{true, false} {
-			port, h2 := port, h2
 			protoName := "http1"
 			expectedProto := "HTTP/1.1"
 			if h2 {
@@ -2211,7 +2198,7 @@ spec:
 	}
 
 	for _, proto := range []protocol.Instance{protocol.HTTP, protocol.HTTPS} {
-		proto, secret := proto, ""
+		secret := ""
 		if proto.IsTLS() {
 			secret = ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA)
 		}
@@ -2290,7 +2277,6 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 	}
 
 	for _, d := range destinationSets {
-		d := d
 		if len(d) == 0 {
 			continue
 		}
@@ -2368,7 +2354,6 @@ func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []Traf
 	}
 
 	for _, d := range destinationSets {
-		d := d
 		if len(d) == 0 {
 			continue
 		}
@@ -2649,8 +2634,6 @@ func hostCases(t TrafficContext) {
 //  4. Another service, B', with P' -> T'. There is no conflicts here at all.
 func serviceCases(t TrafficContext) {
 	for _, c := range t.Apps.A {
-		c := c
-
 		// Case 1
 		// Identical to port "http" or service B, just behind another service name
 		svc := fmt.Sprintf(`apiVersion: v1
@@ -2773,7 +2756,6 @@ func externalNameCases(t TrafficContext) {
 		ch := []TrafficCall{}
 		for _, c := range t.Apps.A {
 			for _, port := range []echo.Port{ports.HTTP, ports.AutoHTTP, ports.TCP, ports.HTTPS} {
-				c, port := c, port
 				ch = append(ch, TrafficCall{
 					name: port.Name,
 					call: c.CallOrFail,
@@ -2914,10 +2896,7 @@ func consistentHashCases(t TrafficContext) {
 		t.Skip("multi-network is not supported")
 	}
 	for _, app := range []echo.Instances{t.Apps.A, t.Apps.B} {
-		app := app
 		for _, c := range app {
-			c := c
-
 			// First setup a service selecting a few services. This is needed to ensure we can load balance across many pods.
 			svcName := "consistent-hash"
 			if nw := c.Config().Cluster.NetworkName(); nw != "" {
@@ -3238,7 +3217,6 @@ func protocolSniffingCases(t TrafficContext) {
 
 	// so we can check all clusters are hit
 	for _, call := range protocols {
-		call := call
 		t.RunTraffic(TrafficTestCase{
 			skip: skip{
 				skip:   call.scheme == scheme.TCP,
@@ -3457,8 +3435,6 @@ func instanceIPTests(t TrafficContext) {
 	}
 	for _, ipCase := range ipCases {
 		for _, client := range t.Apps.A {
-			ipCase := ipCase
-			client := client
 			to := t.Apps.B
 			var config string
 			if !ipCase.disableSidecar {
@@ -3616,7 +3592,6 @@ spec:
 			if tt.skipCNI && t.Istio.Settings().EnableCNI {
 				continue
 			}
-			tt, client := tt, client
 			address := "fake.service.local?"
 			if tt.protocol != "" {
 				address += "&protocol=" + tt.protocol
@@ -3664,7 +3639,6 @@ spec:
 	}
 	for _, client := range flatten(t.Apps.VM, t.Apps.A, t.Apps.Tproxy) {
 		for _, tt := range svcCases {
-			tt, client := tt, client
 			aInCluster := match.Cluster(client.Config().Cluster).GetMatches(t.Apps.A)
 			if len(aInCluster) == 0 {
 				// The cluster doesn't contain A, but connects to a cluster containing A
@@ -3776,7 +3750,6 @@ func VMTestCases(vms echo.Instances) func(t TrafficContext) {
 			})
 		}
 		for _, c := range testCases {
-			c := c
 			checker := check.OK()
 			if !match.Headless.Any(c.to) {
 				// headless load-balancing can be inconsistent
@@ -4076,7 +4049,6 @@ func serverFirstTestCases(t TrafficContext) {
 	}
 	for _, client := range from {
 		for _, c := range configs {
-			client, c := client, c
 			t.RunTraffic(TrafficTestCase{
 				name: fmt.Sprintf("%v:%v/%v", c.port, c.dest, c.auth),
 				skip: skip{

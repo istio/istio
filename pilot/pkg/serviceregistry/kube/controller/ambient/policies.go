@@ -16,16 +16,110 @@
 package ambient
 
 import (
+	"fmt"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/workloadapi/security"
 )
+
+func WaypointPolicyStatusCollection(authzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
+	waypoints krt.Collection[Waypoint],
+	services krt.Collection[*corev1.Service],
+	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
+	namespaces krt.Collection[*corev1.Namespace],
+) krt.Collection[model.WaypointPolicyStatus] {
+	return krt.NewCollection(authzPolicies,
+		func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WaypointPolicyStatus {
+			targetRefs := i.Spec.GetTargetRefs()
+			if len(targetRefs) == 0 {
+				return nil // targetRef is required for binding to waypoint
+			}
+
+			var conditions []model.PolicyBindingStatus
+
+			for _, target := range targetRefs {
+				namespace := i.GetNamespace()
+				if n := target.GetNamespace(); n != "" {
+					namespace = n
+				}
+				key := namespace + "/" + target.GetName()
+				message := "not bound"
+				reason := "unknown"
+				bound := false
+				switch target.GetKind() {
+				case gvk.KubernetesGateway.Kind:
+					fetchedWaypoints := krt.Fetch(ctx, waypoints, krt.FilterKey(key))
+					if len(fetchedWaypoints) == 1 {
+						bound = true
+						reason = model.WaypointPolicyReasonAccepted
+						message = fmt.Sprintf("bound to %s", fetchedWaypoints[0].ResourceName())
+					} else {
+						reason = model.WaypointPolicyReasonTargetNotFound
+					}
+				case gvk.Service.Kind:
+					fetchedServices := krt.Fetch(ctx, services, krt.FilterKey(key))
+					if len(fetchedServices) == 1 {
+						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServices[0].ObjectMeta)
+						if w != nil {
+							bound = true
+							reason = model.WaypointPolicyReasonAccepted
+							message = fmt.Sprintf("bound to %s", w.ResourceName())
+						} else {
+							message = fmt.Sprintf("Service %s is not bound to a waypoint", key)
+							reason = model.WaypointPolicyReasonAncestorNotBound
+						}
+					} else {
+						message = fmt.Sprintf("Service %s was not found", key)
+						reason = model.WaypointPolicyReasonTargetNotFound
+					}
+				case gvk.ServiceEntry.Kind:
+					fetchedServiceEntries := krt.Fetch(ctx, serviceEntries, krt.FilterKey(key))
+					if len(fetchedServiceEntries) == 1 {
+						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServiceEntries[0].ObjectMeta)
+						if w != nil {
+							bound = true
+							reason = model.WaypointPolicyReasonAccepted
+							message = fmt.Sprintf("bound to %s", w.ResourceName())
+						} else {
+							message = fmt.Sprintf("ServiceEntry %s is not bound to a waypoint", key)
+							reason = model.WaypointPolicyReasonAncestorNotBound
+						}
+					} else {
+						message = fmt.Sprintf("ServiceEntry %s was not found", key)
+						reason = model.WaypointPolicyReasonTargetNotFound
+					}
+				}
+				targetGroup := target.GetGroup()
+				if targetGroup == "" {
+					targetGroup = "core"
+				}
+				conditions = append(conditions, model.PolicyBindingStatus{
+					ObservedGeneration: i.GetGeneration(),
+					Status: &model.StatusMessage{
+						Reason:  reason,
+						Message: message,
+					},
+					Ancestor: target.GetKind() + "." + targetGroup + ":" + key,
+					Bound:    bound,
+				})
+			}
+
+			return &model.WaypointPolicyStatus{
+				Source:     MakeSource(i),
+				Conditions: conditions,
+			}
+		}, krt.WithName("WaypointPolicyStatuses"))
+}
 
 func PolicyCollections(
 	authzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
@@ -44,10 +138,11 @@ func PolicyCollections(
 			Authorization: pol,
 			LabelSelector: model.NewSelector(i.Spec.GetSelector().GetMatchLabels()),
 			Source:        MakeSource(i),
-			Binding: model.WorkloadAuthorizationBindingStatus{
-				ResourceName: string(model.Ztunnel),
-				Status:       status,
-				Bound:        pol != nil,
+			Binding: model.PolicyBindingStatus{
+				ObservedGeneration: i.GetGeneration(),
+				Ancestor:           string(model.Ztunnel),
+				Status:             status,
+				Bound:              pol != nil,
 			},
 		}
 	}, krt.WithName("AuthzDerivedPolicies"))

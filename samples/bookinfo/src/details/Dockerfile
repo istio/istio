@@ -15,7 +15,7 @@
 FROM ruby:3.3.0-slim
 
 WORKDIR /opt/microservices
-COPY Gemfile /opt/microservices/
+COPY Gemfile Gemfile.lock /opt/microservices/
 RUN bundle install
 
 COPY details.rb /opt/microservices/

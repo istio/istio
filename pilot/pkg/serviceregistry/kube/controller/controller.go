@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -140,6 +141,10 @@ type Options struct {
 	ConfigCluster bool
 
 	CniNamespace string
+
+	// StatusWritingEnabled determines if status writing is enabled. This may be set to `nil`, in which case status
+	// writing will never be enabled
+	StatusWritingEnabled *activenotifier.ActiveNotifier
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -284,6 +289,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			XDSUpdater:            options.XDSUpdater,
 			LookupNetwork:         c.Network,
 			LookupNetworkGateways: c.NetworkGateways,
+			StatusNotifier:        options.StatusWritingEnabled,
 		})
 	}
 	c.exports = newServiceExportCache(c)
@@ -398,10 +404,12 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.Lock()
 	delete(c.servicesMap, svc.Hostname)
 	delete(c.nodeSelectorsForServices, svc.Hostname)
-	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
-	delete(c.networkGatewaysBySvc, svc.Hostname)
 	c.Unlock()
 
+	c.networkManager.Lock()
+	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
+	delete(c.networkGatewaysBySvc, svc.Hostname)
+	c.networkManager.Unlock()
 	if isNetworkGateway {
 		c.NotifyGatewayHandlers()
 		// TODO trigger push via handler
@@ -660,7 +668,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			})
 
 			c.ambientIndex.NetworksSynced()
-			c.ambientIndex.RunStatus(stop)
+			c.ambientIndex.Run(stop)
 		}()
 	}
 

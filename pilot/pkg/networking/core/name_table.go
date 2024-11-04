@@ -25,10 +25,6 @@ import (
 // be used by the agent to resolve DNS. This logic is always active. However, local DNS resolution
 // will only be effective if DNS capture is enabled in the proxy
 func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable {
-	if node.Type != model.SidecarProxy {
-		// DNS resolution is only for sidecars
-		return nil
-	}
 	return dnsServer.BuildNameTable(dnsServer.Config{
 		Node:                        node,
 		Push:                        push,

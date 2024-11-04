@@ -23,6 +23,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/maps"
@@ -117,7 +118,7 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 
 	cls := ctx.Clusters().Default()
 	// Find the Waypoint pod and service, and start forwarding a local port.
-	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", constants.GatewayNameLabel, name))
+	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, name))
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
@@ -172,9 +173,9 @@ func SetWaypointForService(t framework.TestContext, ns namespace.Instance, servi
 		}
 		newLabels := maps.Clone(oldLabels)
 		if waypoint != "" {
-			newLabels[constants.AmbientUseWaypointLabel] = waypoint
+			newLabels[label.IoIstioUseWaypoint.Name] = waypoint
 		} else {
-			delete(newLabels, constants.AmbientUseWaypointLabel)
+			delete(newLabels, label.IoIstioUseWaypoint.Name)
 		}
 
 		doLabel := func(labels map[string]string) error {
@@ -209,7 +210,7 @@ func DeleteWaypoint(t framework.TestContext, ns namespace.Instance, waypoint str
 		waypoint,
 	})
 	waypointError := retry.UntilSuccess(func() error {
-		fetch := testKube.NewPodFetch(t.AllClusters()[0], ns.Name(), constants.GatewayNameLabel+"="+waypoint)
+		fetch := testKube.NewPodFetch(t.AllClusters()[0], ns.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"="+waypoint)
 		pods, err := testKube.CheckPodsAreReady(fetch)
 		if err != nil && !errors.Is(err, testKube.ErrNoPodsFetched) {
 			return fmt.Errorf("cannot fetch pod: %v", err)
@@ -233,7 +234,7 @@ func RemoveWaypointFromService(t framework.TestContext, ns namespace.Instance, s
 			}
 			labels := oldSvc.ObjectMeta.GetLabels()
 			if labels != nil {
-				delete(labels, constants.AmbientUseWaypointLabel)
+				delete(labels, label.IoIstioUseWaypoint.Name)
 				oldSvc.ObjectMeta.SetLabels(labels)
 			}
 			_, err = c.Kube().CoreV1().Services(ns.Name()).Update(t.Context(), oldSvc, metav1.UpdateOptions{})

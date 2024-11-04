@@ -77,9 +77,9 @@ var (
 	allNamespaces     bool
 	suppress          []string
 	analysisTimeout   time.Duration
-	recursive         bool
 	ignoreUnknown     bool
 	revisionSpecified string
+	remoteContexts    []string
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -90,6 +90,8 @@ func Analyze(ctx cli.Context) *cobra.Command {
 	analysisCmd := &cobra.Command{
 		Use:   "analyze <file>...",
 		Short: "Analyze Istio configuration and print validation messages",
+		Long: fmt.Sprintf("Analyze Istio configuration and print validation messages.\n"+
+			"For more information about message codes, refer to:\n%s", url.ConfigAnalysis),
 		Example: `  # Analyze the current live cluster
   istioctl analyze
 
@@ -98,9 +100,6 @@ func Analyze(ctx cli.Context) *cobra.Command {
 
   # Analyze the current live cluster, simulating the effect of applying additional yaml files
   istioctl analyze a.yaml b.yaml my-app-config/
-
-  # Analyze the current live cluster, simulating the effect of applying a directory of config recursively
-  istioctl analyze --recursive my-istio-config/
 
   # Analyze yaml files without connecting to a live cluster
   istioctl analyze --use-kube=false a.yaml b.yaml my-app-config/
@@ -272,7 +271,11 @@ func Analyze(ctx cli.Context) *cobra.Command {
 						for _, r := range readers {
 							files = append(files, r.Name)
 						}
-						fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", strings.Join(files, "\n"))
+						if len(files) > 1 {
+							fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing:\n  - %s\n", strings.Join(files, "\n  - "))
+						} else {
+							fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", strings.Join(files, "\n"))
+						}
 					} else {
 						fmt.Fprintf(cmd.ErrOrStderr(), "\u2714 No validation issues found when analyzing %s.\n", analyzeTargetAsString())
 					}
@@ -327,12 +330,13 @@ func Analyze(ctx cli.Context) *cobra.Command {
 			`You can include the wildcard character '*' to support a partial match (e.g. '--suppress "IST0102=DestinationRule *.default" ).`)
 	analysisCmd.PersistentFlags().DurationVar(&analysisTimeout, "timeout", 30*time.Second,
 		"The duration to wait before failing")
-	analysisCmd.PersistentFlags().BoolVarP(&recursive, "recursive", "R", false,
-		"Process directory arguments recursively. Useful when you want to analyze related manifests organized within the same directory.")
 	analysisCmd.PersistentFlags().BoolVar(&ignoreUnknown, "ignore-unknown", false,
 		"Don't complain about un-parseable input documents, for cases where analyze should run only on k8s compliant inputs.")
 	analysisCmd.PersistentFlags().StringVarP(&revisionSpecified, "revision", "", "default",
 		"analyze a specific revision deployed.")
+	analysisCmd.PersistentFlags().StringArrayVar(&remoteContexts, "remote-contexts", []string{},
+		`Kubernetes configuration contexts for remote clusters to be used in multi-cluster analysis. Not to be confused with '--context'. `+
+			"If unspecified, contexts are read from the remote secrets in the cluster.")
 	return analysisCmd
 }
 
@@ -398,12 +402,8 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		if err != nil {
 			return err
 		}
-		// If we encounter a directory, recurse only if the --recursive option
-		// was provided and the directory is not the same as dir.
+
 		if info.IsDir() {
-			if !recursive && dir != path {
-				return filepath.SkipDir
-			}
 			return nil
 		}
 
@@ -501,6 +501,14 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 			remote: false,
 		},
 	}
+	if len(remoteContexts) > 0 {
+		remoteClients, err := getClientsFromContexts(ctx)
+		if err != nil {
+			return nil, err
+		}
+		clients = append(clients, remoteClients...)
+		return clients, nil
+	}
 	secrets, err := client.Kube().CoreV1().Secrets(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", multicluster.MultiClusterSecretLabel, "true"),
 	})
@@ -532,6 +540,21 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 				remote: true,
 			})
 		}
+	}
+	return clients, nil
+}
+
+func getClientsFromContexts(ctx cli.Context) ([]*Client, error) {
+	var clients []*Client
+	remoteClients, err := ctx.CLIClientsForContexts(remoteContexts)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range remoteClients {
+		clients = append(clients, &Client{
+			client: c,
+			remote: true,
+		})
 	}
 	return clients, nil
 }

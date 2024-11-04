@@ -147,8 +147,8 @@ var (
 		"If this is set to true, istiod will create and manage its default GatewayClasses").Get()
 
 	DeltaXds = env.Register("ISTIO_DELTA_XDS", true,
-		"If enabled, pilot will only send the delta configs as opposed to the state of the world on a "+
-			"Resource Request. This feature uses the delta xds api, but does not currently send the actual deltas.").Get()
+		"If enabled, pilot will only send the delta configs as opposed to the state of the world configuration on a Resource Request. "+
+			"While this feature uses the delta xds api, it may still occasionally send unchanged configurations instead of just the actual deltas.").Get()
 
 	EnableQUICListeners = env.Register("PILOT_ENABLE_QUIC_LISTENERS", false,
 		"If true, QUIC listeners will be generated wherever there are listeners terminating TLS on gateways "+

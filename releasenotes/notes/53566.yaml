@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+
+area: installation
+
+issue:
+  - https://github.com/istio/istio/issues/53558
+
+releaseNotes:
+- |
+  **Added** value `seLinuxOptions` to istio-cni chart. On some platforms (e.g. OpenShift) it is necessary to set 
+  `seLinuxOptions.type` to `spc_t` in order to work around some SELinux constraints related to hostPath volumes. 
+  Without this setting, the istio-cni-nodes pods may fail to start.

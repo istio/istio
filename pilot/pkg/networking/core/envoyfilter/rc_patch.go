@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -283,21 +284,19 @@ func routeConfigurationMatch(patchContext networking.EnvoyFilter_PatchContext, r
 	}
 
 	// This is a gateway. Get all the fields in the gateway's RDS route name
-	routePortNumber, portName, gateway := model.ParseGatewayRDSRouteName(rc.Name)
-	if rMatch.PortNumber != 0 && !anyPortMatches(portMap, routePortNumber, int(rMatch.PortNumber)) {
+	if rMatch.Name != "" && rMatch.Name != rc.Name {
 		return false
 	}
+	routePortNumber, portName, gateway := model.ParseGatewayRDSRouteName(rc.Name)
 	if rMatch.PortName != "" && rMatch.PortName != portName {
 		return false
 	}
 	if rMatch.Gateway != "" && rMatch.Gateway != gateway {
 		return false
 	}
-
-	if rMatch.Name != "" && rMatch.Name != rc.Name {
+	if rMatch.PortNumber != 0 && !anyPortMatches(portMap, routePortNumber, int(rMatch.PortNumber)) {
 		return false
 	}
-
 	return true
 }
 
@@ -388,5 +387,5 @@ func routeMatch(httpRoute *route.Route, rp *model.EnvoyFilterConfigPatchWrapper)
 }
 
 func cloneVhostRouteByRouteIndex(virtualHost *route.VirtualHost, routeIndex int) {
-	virtualHost.Routes[routeIndex] = proto.Clone(virtualHost.Routes[routeIndex]).(*route.Route)
+	virtualHost.Routes[routeIndex] = protomarshal.Clone(virtualHost.Routes[routeIndex])
 }

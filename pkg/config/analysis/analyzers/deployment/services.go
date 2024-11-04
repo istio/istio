@@ -22,6 +22,7 @@ import (
 	core_v1 "k8s.io/api/core/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -71,7 +72,7 @@ func (s *ServiceAssociationAnalyzer) Analyze(c analysis.Context) {
 }
 
 func isWaypointDeployment(r *resource.Instance) bool {
-	return r.Metadata.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel
+	return r.Metadata.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel
 }
 
 // analyzeDeploymentPortProtocol analyzes the specific service mesh deployment

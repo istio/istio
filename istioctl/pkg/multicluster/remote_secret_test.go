@@ -440,7 +440,6 @@ func mustFindObject(t test.Failer, objs []manifest.Manifest, name, kind string) 
 	t.Helper()
 	var obj *manifest.Manifest
 	for _, o := range objs {
-		o := o
 		if o.GetKind() == kind && o.GetName() == name {
 			obj = &o
 			break

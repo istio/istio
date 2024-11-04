@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -198,6 +198,11 @@ type Client struct {
 	// initialWatches is the list of resources we are watching on startup
 	initialWatches []resourceKey
 
+	// initialWatches is a list of resources we were initially watching and have not yet received
+	pendingWatches sets.Set[resourceKey]
+	// synced is used to indicate the initial watches have all been seen
+	synced chan struct{}
+
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta
 	sendNodeMeta bool
 
@@ -257,9 +262,19 @@ func newProto(tt string) proto.Message {
 	return t.New().Interface()
 }
 
-func (c *Client) Run(ctx context.Context) error {
-	if err := c.Dial(); err != nil {
-		return fmt.Errorf("dial context: %v", err)
+// Run starts the client. If a backoffPolicy is configured, it will reconnect on error.
+func (c *Client) Run(ctx context.Context) {
+	c.runWithReconnects(ctx)
+}
+
+// Synced returns a channel that will close once the client has received all initial watches
+func (c *Client) Synced() <-chan struct{} {
+	return c.synced
+}
+
+func (c *Client) runOnce(ctx context.Context) error {
+	if err := c.dial(ctx); err != nil {
+		return fmt.Errorf("dial fail: %v", err)
 	}
 
 	xds := discovery.NewAggregatedDiscoveryServiceClient(c.conn)
@@ -276,12 +291,11 @@ func (c *Client) Run(ctx context.Context) error {
 			return fmt.Errorf("initial watch: %v", err)
 		}
 	}
-	go c.handleRecv()
-	return nil
+	return c.handleRecv()
 }
 
-func (c *Client) Dial() error {
-	conn, err := dialWithConfig(&c.cfg.Config)
+func (c *Client) dial(ctx context.Context) error {
+	conn, err := dialWithConfig(ctx, &c.cfg.Config)
 	if err != nil {
 		return err
 	}
@@ -289,19 +303,25 @@ func (c *Client) Dial() error {
 	return nil
 }
 
-// reconnect will create a new stream
-func (c *Client) reconnect() {
-	if c.closed.Load() {
-		return
+// runWithReconnects will create a new stream and schedule a retry once disconnected
+func (c *Client) runWithReconnects(ctx context.Context) {
+	for {
+		if c.closed.Load() {
+			break
+		}
+		err := c.runOnce(ctx)
+		if c.cfg.BackoffPolicy == nil {
+			log.Warnf("disconnected: %v", err)
+			break
+		}
+		next := c.cfg.BackoffPolicy.NextBackOff()
+		c.log.Warnf("disconnected, retrying in %v: %v", next, err)
+		if !sleep.UntilContext(ctx, next) {
+			c.log.Warnf("context canceled (%v), not retrying again: %v", context.Cause(ctx), err)
+			break
+		}
 	}
-
-	err := c.Run(context.Background())
-	if err != nil {
-		time.AfterFunc(c.cfg.BackoffPolicy.NextBackOff(), c.reconnect)
-	} else if c.cfg.BackoffPolicy != nil {
-		// We connected, so reset the backoff
-		c.cfg.BackoffPolicy.Reset()
-	}
+	c.closed.Store(true)
 }
 
 type Option func(c *Client)
@@ -318,6 +338,8 @@ func NewDelta(discoveryAddr string, config *DeltaADSConfig, opts ...Option) *Cli
 		handlers:          map[string]HandlerFunc{},
 		tree:              map[resourceKey]resourceNode{},
 		errChan:           make(chan error, 10),
+		synced:            make(chan struct{}),
+		pendingWatches:    sets.New[resourceKey](),
 		lastReceivedNonce: map[string]string{},
 		closed:            atomic.NewBool(false),
 	}
@@ -382,27 +404,29 @@ func initWatch(typeURL string, resourceName string) Option {
 			}
 		}
 		c.initialWatches = append(c.initialWatches, key)
+		c.pendingWatches.Insert(key)
 	}
 }
 
-func (c *Client) handleRecv() {
+func (c *Client) handleRecv() error {
+	hasSucceeded := false
 	for {
 		msg, err := c.xdsClient.Recv()
 		if err != nil {
-			c.log.Infof("Connection closed: %v", err)
-			// if 'reconnect' enabled - schedule a new Run
-			if c.cfg.BackoffPolicy != nil {
-				time.AfterFunc(c.cfg.BackoffPolicy.NextBackOff(), c.reconnect)
-			} else {
-				c.Close()
-			}
-			return
+			return err
 		}
 		c.log.WithLabels("type", msg.TypeUrl, "size", len(msg.Resources), "removes", len(msg.RemovedResources)).Infof("received response")
 		if err := c.handleDeltaResponse(msg); err != nil {
 			c.log.WithLabels("type", msg.TypeUrl).Infof("handle response failed: %v", err)
-			c.Close()
-			return
+			if err2 := c.xdsClient.CloseSend(); err2 != nil {
+				return fmt.Errorf("failed to close connection (%v) in response to: %v", err2, err)
+			}
+			return err
+		}
+		if !hasSucceeded && c.cfg.BackoffPolicy != nil {
+			// We succeeded once, so reset
+			hasSucceeded = true
+			c.cfg.BackoffPolicy.Reset()
 		}
 		c.lastReceivedNonce[msg.TypeUrl] = msg.Nonce
 	}
@@ -417,6 +441,11 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		// No need to ack and type check for debug types
 		return nil
 	}
+
+	c.markReceived(resourceKey{
+		Name:    "", // If they did a wildcard sub
+		TypeURL: d.TypeUrl,
+	})
 	for _, r := range d.Resources {
 		if d.TypeUrl != r.Resource.TypeUrl {
 			c.log.Errorf("Invalid response: mismatch of type url: %v vs %v", d.TypeUrl, r.Resource.TypeUrl)
@@ -430,6 +459,7 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 			Name:    r.Name,
 			TypeURL: r.Resource.TypeUrl,
 		}
+		c.markReceived(parentKey)
 		c.establishResource(parentKey)
 		if ctx.nack != nil {
 			rejects = append(rejects, ctx.nack)
@@ -474,6 +504,15 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		c.update(t, sub, unsub, d)
 	}
 	return nil
+}
+
+func (c *Client) markReceived(k resourceKey) {
+	if c.pendingWatches.Contains(k) {
+		c.pendingWatches.Delete(k)
+		if c.pendingWatches.Len() == 0 {
+			close(c.synced)
+		}
+	}
 }
 
 func joinError(rejects []error) error {
@@ -699,4 +738,5 @@ func isDebugType(typeURL string) bool {
 type DeltaAggregatedResourcesClient interface {
 	Send(*discovery.DeltaDiscoveryRequest) error
 	Recv() (*discovery.DeltaDiscoveryResponse, error)
+	CloseSend() error
 }

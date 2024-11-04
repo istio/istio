@@ -103,6 +103,9 @@ spec:
           runAsGroup: {{ .ProxyGID | default "1337" }}
           runAsNonRoot: true
         ports:
+        - containerPort: 15020
+          name: metrics
+          protocol: TCP
         - containerPort: 15021
           name: status-port
           protocol: TCP
@@ -325,6 +328,7 @@ metadata:
     name: {{.Name}}
     uid: {{.UID}}
 spec:
+  ipFamilyPolicy: PreferDualStack
   ports:
   {{- range $key, $val := .Ports }}
   - name: {{ $val.Name | quote }}

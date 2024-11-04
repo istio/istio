@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -206,6 +207,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
 	chains := []*listener.FilterChain{}
+	portProtocols := map[int]protocol.Instance{}
 	for _, svc := range svcs {
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
@@ -246,13 +248,26 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					TCP:  match.ToChain(tcpClusterName),
 					HTTP: match.ToChain(httpClusterName),
 				}))
+				portProtocols[port.Port] = protocol.Unsupported
 			} else if port.Protocol.IsHTTP() {
 				// Otherwise, just insert HTTP/TCP
 				chains = append(chains, httpChain)
 				portMapper.Map[portString] = match.ToChain(httpChain.Name)
+				// TCP and HTTP on the same port, mark it as requiring sniffing
+				if portProtocols[port.Port] != "" && portProtocols[port.Port] != protocol.HTTP {
+					portProtocols[port.Port] = protocol.Unsupported
+				} else {
+					portProtocols[port.Port] = protocol.HTTP
+				}
 			} else {
 				chains = append(chains, tcpChain)
 				portMapper.Map[portString] = match.ToChain(tcpChain.Name)
+				// TCP and HTTP on the same port, mark it as requiring sniffing
+				if portProtocols[port.Port] != "" && !portProtocols[port.Port].IsTCP() {
+					portProtocols[port.Port] = protocol.Unsupported
+				} else {
+					portProtocols[port.Port] = port.Protocol
+				}
 			}
 		}
 		if len(portMapper.Map) > 0 {
@@ -326,13 +341,58 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 	}
+	// This may affect the data path due to the server-first protocols triggering a time-out.
+	// Currently, we attempt to exclude ports where we can, but it's not perfect.
+	// https://github.com/envoyproxy/envoy/issues/35958 is likely required for an optimal solution
+	httpInspector := xdsfilters.HTTPInspector
+	// If there are workloads, any port is accepted on them, so we cannot opt out
+	if len(wls) == 0 {
+		// Otherwise, find all the ports that have only TCP or only HTTP
+		nonInspectorPorts := []int{}
+		for p, proto := range portProtocols {
+			if !proto.IsUnsupported() {
+				nonInspectorPorts = append(nonInspectorPorts, p)
+			}
+		}
+		if len(nonInspectorPorts) > 0 {
+			// Sort for stable output, then replace the filter with one disabling the ports.
+			slices.Sort(nonInspectorPorts)
+			httpInspector = &listener.ListenerFilter{
+				Name:           wellknown.HTTPInspector,
+				ConfigType:     httpInspector.ConfigType,
+				FilterDisabled: listenerPredicateExcludePorts(nonInspectorPorts),
+			}
+		}
+	}
+	tlsInspector := func() *listener.ListenerFilter {
+		tlsPorts := sets.New[int]()
+		nonTLSPorts := sets.New[int]()
+		for _, s := range svcs {
+			for _, p := range s.Ports {
+				if p.Protocol.IsTLS() {
+					tlsPorts.Insert(p.Port)
+				} else {
+					nonTLSPorts.Insert(p.Port)
+				}
+			}
+		}
+		nonInspectorPorts := nonTLSPorts.DeleteAll(tlsPorts.UnsortedList()...).UnsortedList()
+		if len(nonInspectorPorts) > 0 {
+			slices.Sort(nonInspectorPorts)
+			return &listener.ListenerFilter{
+				Name:           wellknown.TLSInspector,
+				ConfigType:     xdsfilters.TLSInspector.ConfigType,
+				FilterDisabled: listenerPredicateExcludePorts(nonInspectorPorts),
+			}
+		}
+		return nil
+	}()
 	l := &listener.Listener{
 		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
 			xdsfilters.OriginalDestination,
-			// TODO: This may affect the data path due to the server-first protocols triggering a time-out. Need exception filter.
-			xdsfilters.HTTPInspector,
+			httpInspector,
 		},
 		TrafficDirection: core.TrafficDirection_INBOUND,
 		FilterChains:     chains,
@@ -349,6 +409,9 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				},
 			},
 		},
+	}
+	if tlsInspector != nil {
+		l.ListenerFilters = append(l.ListenerFilters, tlsInspector)
 	}
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	return l
@@ -527,14 +590,14 @@ func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, li
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := lb.translateRoute(virtualService, http, nil, listenPort); r != nil {
+			if r := lb.translateWaypointRoute(virtualService, http, nil, listenPort); r != nil {
 				out = append(out, r)
 			}
 			// This is a catchall route, so we can stop processing the rest of the routes.
 			break
 		}
 		for _, match := range http.Match {
-			if r := lb.translateRoute(virtualService, http, match, listenPort); r != nil {
+			if r := lb.translateWaypointRoute(virtualService, http, match, listenPort); r != nil {
 				out = append(out, r)
 				// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 				// As an optimization, we can just stop sending any more routes here.
@@ -555,7 +618,7 @@ func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, li
 	return out, nil
 }
 
-func (lb *ListenerBuilder) translateRoute(
+func (lb *ListenerBuilder) translateWaypointRoute(
 	virtualService config.Config,
 	in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest,
@@ -576,7 +639,7 @@ func (lb *ListenerBuilder) translateRoute(
 
 	out := &route.Route{
 		Name:     routeName,
-		Match:    istio_route.TranslateRouteMatch(virtualService, match, true),
+		Match:    istio_route.TranslateRouteMatch(virtualService, match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 	authority := ""
@@ -594,7 +657,7 @@ func (lb *ListenerBuilder) translateRoute(
 	} else if in.DirectResponse != nil {
 		istio_route.ApplyDirectResponse(out, in.DirectResponse)
 	} else {
-		lb.routeDestination(out, in, authority, listenPort)
+		lb.waypointRouteDestination(out, in, authority, listenPort)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -613,7 +676,7 @@ func (lb *ListenerBuilder) translateRoute(
 	return out
 }
 
-func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTTPRoute, authority string, listenerPort int) {
+func (lb *ListenerBuilder) waypointRouteDestination(out *route.Route, in *networking.HTTPRoute, authority string, listenerPort int) {
 	policy := in.Retries
 	if policy == nil {
 		// No VS policy set, use mesh defaults
@@ -648,14 +711,16 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 
 	if in.Mirror != nil {
 		if mp := istio_route.MirrorPercent(in); mp != nil {
+			cluster := lb.getWaypointDestinationCluster(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				istio_route.TranslateRequestMirrorPolicy(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort, mp))
+				istio_route.TranslateRequestMirrorPolicyCluster(cluster, mp))
 		}
 	}
 	for _, mirror := range in.Mirrors {
 		if mp := istio_route.MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
+			cluster := lb.getWaypointDestinationCluster(mirror.Destination, lb.serviceForHostname(host.Name(mirror.Destination.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				istio_route.TranslateRequestMirrorPolicy(mirror.Destination, lb.serviceForHostname(host.Name(mirror.Destination.Host)), listenerPort, mp))
+				istio_route.TranslateRequestMirrorPolicyCluster(cluster, mp))
 		}
 	}
 
@@ -673,7 +738,7 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 			}
 		}
 		hostname := host.Name(dst.GetDestination().GetHost())
-		n := lb.GetDestinationCluster(dst.Destination, lb.serviceForHostname(hostname), listenerPort)
+		n := lb.getWaypointDestinationCluster(dst.Destination, lb.serviceForHostname(hostname), listenerPort)
 		clusterWeight := &route.WeightedCluster_ClusterWeight{
 			Name:   n,
 			Weight: weight,
@@ -720,9 +785,9 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 	}
 }
 
-// GetDestinationCluster generates a cluster name for the route, or error if no cluster
+// getWaypointDestinationCluster generates a cluster name for the route, or error if no cluster
 // can be found. Called by translateRule to determine if
-func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+func (lb *ListenerBuilder) getWaypointDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
 	dir, port := model.TrafficDirectionInboundVIP, listenerPort
 
 	if destination.GetPort() != nil {

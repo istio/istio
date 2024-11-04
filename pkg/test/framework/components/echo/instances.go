@@ -194,7 +194,6 @@ func (i Instances) Append(instances Instances) Instances {
 func (i Instances) Restart() error {
 	g := multierror.Group{}
 	for _, app := range i {
-		app := app
 		g.Go(app.Restart)
 	}
 	return g.Wait().ErrorOrNil()

@@ -19,13 +19,13 @@ import (
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -1104,7 +1104,7 @@ func TestPatchHTTPRoute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			savedSharedVHost := proto.Clone(tt.args.sharedRoutesVHost).(*route.VirtualHost)
+			savedSharedVHost := protomarshal.Clone(tt.args.sharedRoutesVHost)
 			patchHTTPRoute(tt.args.patchContext, tt.args.patches, tt.args.routeConfiguration,
 				tt.args.virtualHost, tt.args.routeIndex, tt.args.routesRemoved, tt.args.portMap, &tt.args.clonedVhostRoutes)
 			if diff := cmp.Diff(tt.want, tt.args.virtualHost, protocmp.Transform()); diff != "" {

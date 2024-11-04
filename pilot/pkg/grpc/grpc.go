@@ -137,5 +137,5 @@ func GRPCErrorType(err error) ErrorType {
 		return ExpectedError
 	}
 
-	return ExpectedError
+	return UnexpectedError
 }

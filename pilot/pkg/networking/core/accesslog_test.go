@@ -98,7 +98,6 @@ func TestListenerAccessLog(t *testing.T) {
 			wantFormat: model.EnvoyTextLogFormat,
 		},
 	} {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			accessLogBuilder.reset()
 			// Update MeshConfig

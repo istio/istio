@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -522,7 +523,8 @@ func setupZtunnelLogs(kubeClient kube.CLIClient, param, podName, podNamespace st
 
 // getComponentPodName returns the pod name and namespace of the Istio component
 func getComponentPodName(ctx cli.Context, podflag string) (string, string, error) {
-	return getPodNameWithNamespace(ctx, podflag, ctx.IstioNamespace())
+	// If user passed --namespace, respect it. Else fallback to --istio-namespace (which is typically defaulted, to istio-system).
+	return getPodNameWithNamespace(ctx, podflag, model.GetOrDefault(ctx.Namespace(), ctx.IstioNamespace()))
 }
 
 func getPodNameWithNamespace(ctx cli.Context, podflag, ns string) (string, string, error) {

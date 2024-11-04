@@ -421,7 +421,10 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	connectionManager.HttpFilters = filters
 	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIDExtensionCtx)
 
-	if features.EnableHCMInternalNetworks && lb.push.Networks != nil {
+	// If UseRemoteAddress is set, we must set the internal address config in preparation for envoy
+	// internal addresses defaulting to empty set. Currently, the internal addresses defaulted to
+	// all private IPs but this will change in the future.
+	if (features.EnableHCMInternalNetworks || httpOpts.useRemoteAddress) && lb.push.Networks != nil {
 		connectionManager.InternalAddressConfig = util.MeshNetworksToEnvoyInternalAddressConfig(lb.push.Networks)
 	}
 	connectionManager.Proxy_100Continue = features.Enable100ContinueHeaders

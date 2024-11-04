@@ -28,12 +28,17 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
@@ -47,30 +52,49 @@ func TestWaypointStatus(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+			t.NewSubTest("gateway class").Run(func(t framework.TestContext) {
+				client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
 
-			check := func() error {
+				check := func() error {
+					gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
+					if gwc == nil {
+						return fmt.Errorf("failed to find GatewayClass %v", constants.WaypointGatewayClassName)
+					}
+					cond := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted))
+					if cond.Status != metav1.ConditionTrue {
+						return fmt.Errorf("failed to find accepted condition: %+v", cond)
+					}
+					if cond.ObservedGeneration != gwc.Generation {
+						return fmt.Errorf("stale GWC generation: %+v", cond)
+					}
+					return nil
+				}
+				retry.UntilSuccessOrFail(t, check)
+
+				// Wipe out the status
 				gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
-				if gwc == nil {
-					return fmt.Errorf("failed to find GatewayClass %v", constants.WaypointGatewayClassName)
-				}
-				cond := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted))
-				if cond.Status != metav1.ConditionTrue {
-					return fmt.Errorf("failed to find accepted condition: %+v", cond)
-				}
-				if cond.ObservedGeneration != gwc.Generation {
-					return fmt.Errorf("stale GWC generation: %+v", cond)
-				}
-				return nil
-			}
-			retry.UntilSuccessOrFail(t, check)
-
-			// Wipe out the status
-			gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
-			gwc.Status.Conditions = nil
-			client.Update(context.Background(), gwc, metav1.UpdateOptions{})
-			// It should be added back
-			retry.UntilSuccessOrFail(t, check)
+				gwc.Status.Conditions = nil
+				client.Update(context.Background(), gwc, metav1.UpdateOptions{})
+				// It should be added back
+				retry.UntilSuccessOrFail(t, check)
+			})
+			t.NewSubTest("service").Run(func(t framework.TestContext) {
+				retry.UntilSuccessOrFail(t, func() error {
+					wp, err := t.Clusters().Default().Kube().CoreV1().
+						Services(apps.Namespace.Name()).Get(context.Background(), ServiceAddressedWaypoint, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					cond := GetCondition(wp.Status.Conditions, string(model.WaypointBound))
+					if cond == nil {
+						return fmt.Errorf("condition not found on service, had %v", wp.Status.Conditions)
+					}
+					if cond.Status != metav1.ConditionTrue {
+						return fmt.Errorf("cond not true, had %v", wp.Status.Conditions)
+					}
+					return nil
+				})
+			})
 		})
 }
 
@@ -82,7 +106,7 @@ func TestWaypoint(t *testing.T) {
 				Prefix: "waypoint",
 				Inject: false,
 				Labels: map[string]string{
-					constants.DataplaneModeLabel: "ambient",
+					label.IoIstioDataplaneMode.Name: "ambient",
 				},
 			})
 
@@ -185,7 +209,7 @@ func TestWaypoint(t *testing.T) {
 }
 
 func checkWaypointIsReady(t framework.TestContext, ns, name string) error {
-	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, constants.GatewayNameLabel+"="+name)
+	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
 	_, err := kubetest.CheckPodsAreReady(fetch)
 	return err
 }
@@ -301,7 +325,6 @@ spec:
 
 			// ensure HTTP traffic works with all hostname variants
 			for _, src := range apps.All {
-				src := src
 				if !hboneClient(src) {
 					// TODO if we hairpinning, don't skip here
 					continue
@@ -311,7 +334,6 @@ spec:
 						t.Skip("TODO: sidecars don't properly handle use-waypoint")
 					}
 					for _, host := range apps.Captured.Config().HostnameVariants() {
-						host := host
 						t.NewSubTestf("to %s", host).Run(func(t framework.TestContext) {
 							src.CallOrFail(t, echo.CallOptions{
 								To:      apps.Captured,
@@ -349,7 +371,7 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 				waypoint = fmt.Sprintf("%q", waypoint)
 			}
 			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
-				constants.AmbientUseWaypointLabel, waypoint))
+				label.IoIstioUseWaypoint.Name, waypoint))
 			if service {
 				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
 				return err
@@ -372,7 +394,6 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 func TestWaypointDNS(t *testing.T) {
 	runTest := func(t framework.TestContext, c echo.Checker) {
 		for _, src := range apps.All {
-			src := src
 			if !hboneClient(src) {
 				continue
 			}
@@ -435,7 +456,6 @@ func TestWaypointAsEgressGateway(t *testing.T) {
 				t.ConfigIstio().YAML(apps.Namespace.Name(), config).ApplyOrFail(t)
 			}
 			for _, src := range apps.All {
-				src := src
 				if !hboneClient(src) {
 					continue
 				}
@@ -604,4 +624,201 @@ spec:
 				},
 			)
 		})
+}
+
+func TestIngressToWaypoint(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		// Apply a deny-all waypoint policy. This allows us to test the traffic traverses the waypoint
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Waypoint": apps.ServiceAddressedWaypoint.Config().ServiceWaypointProxy,
+		}, `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-waypoint
+spec:
+  targetRefs:
+  - kind: Gateway
+    group: gateway.networking.k8s.io
+    name: {{.Waypoint}}
+`).ApplyOrFail(t)
+		t.NewSubTest("sidecar-service").Run(func(t framework.TestContext) {
+			for _, src := range apps.Sidecar {
+				for _, dst := range apps.ServiceAddressedWaypoint {
+					for _, opt := range callOptions {
+						t.NewSubTestf("%v", opt.Scheme).Run(func(t framework.TestContext) {
+							opt = opt.DeepCopy()
+							opt.To = dst
+							// Sidecar does not currently traverse waypoint, so we expect to bypass it and get success
+							opt.Check = check.OK()
+							src.CallOrFail(t, opt)
+						})
+					}
+				}
+			}
+		})
+		t.NewSubTest("sidecar-workload").Run(func(t framework.TestContext) {
+			for _, src := range apps.Sidecar {
+				for _, dst := range apps.WorkloadAddressedWaypoint {
+					for _, dstWl := range dst.WorkloadsOrFail(t) {
+						for _, opt := range callOptions {
+							t.NewSubTestf("%v-%v", opt.Scheme, dstWl.Address()).Run(func(t framework.TestContext) {
+								opt = opt.DeepCopy()
+								opt.Address = dstWl.Address()
+								opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+								// Sidecar does not currently traverse waypoint, so we expect to bypass it and get success
+								opt.Check = check.OK()
+								src.CallOrFail(t, opt)
+							})
+						}
+					}
+				}
+			}
+		})
+		t.NewSubTest("ingress-service").Run(func(t framework.TestContext) {
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": apps.ServiceAddressedWaypoint.ServiceName(),
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+			ingress := istio.DefaultIngressOrFail(t, t)
+			t.NewSubTest("endpoint routing").Run(func(t framework.TestContext) {
+				ingress.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: 80,
+					},
+					Scheme: scheme.HTTP,
+					Check:  check.OK(),
+				})
+			})
+			t.NewSubTest("service routing").Run(func(t framework.TestContext) {
+				SetIngressUseWaypoint(t, apps.ServiceAddressedWaypoint.ServiceName(), apps.ServiceAddressedWaypoint.NamespaceName())
+				ingress.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: 80,
+					},
+					Scheme: scheme.HTTP,
+					Check:  CheckDeny,
+				})
+			})
+		})
+		t.NewSubTest("ingress-workload").Run(func(t framework.TestContext) {
+			t.Skip("not implemented")
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": apps.WorkloadAddressedWaypoint.ServiceName(),
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+			ingress := istio.DefaultIngressOrFail(t, t)
+			t.NewSubTest("endpoint routing").Run(func(t framework.TestContext) {
+				ingress.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: 80,
+					},
+					Scheme: scheme.HTTP,
+					Check:  CheckDeny,
+				})
+			})
+			t.NewSubTest("service routing").Run(func(t framework.TestContext) {
+				// This will be ignored entirely if there is only workload waypoint, so this behaves the same as endpoint routing.
+				SetIngressUseWaypoint(t, apps.WorkloadAddressedWaypoint.ServiceName(), apps.WorkloadAddressedWaypoint.NamespaceName())
+				ingress.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: 80,
+					},
+					Scheme: scheme.HTTP,
+					Check:  CheckDeny,
+				})
+			})
+		})
+	})
+}
+
+func SetIngressUseWaypoint(t framework.TestContext, name, ns string) {
+	for _, c := range t.Clusters() {
+		set := func(service bool) error {
+			var set string
+			if service {
+				set = fmt.Sprintf("%q", "true")
+			} else {
+				set = "null"
+			}
+			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
+				"istio.io/ingress-use-waypoint", set))
+			_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
+			return err
+		}
+
+		if err := set(true); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := set(false); err != nil {
+				scopes.Framework.Errorf("failed resetting service-addressed for %s", name)
+			}
+		})
+	}
+}
+
+func GetCondition(conditions []metav1.Condition, condition string) *metav1.Condition {
+	for _, cond := range conditions {
+		if cond.Type == condition {
+			return &cond
+		}
+	}
+	return nil
 }

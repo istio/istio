@@ -102,10 +102,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			}
 
 			if len(outputMsgs) == 0 {
-				fmt.Println(cmd.ErrOrStderr(), color.New(color.FgGreen).Sprint("✔")+" No issues found when checking the cluster. Istio is safe to install or upgrade!\n"+
-					"  To get started, check out https://istio.io/latest/docs/setup/getting-started/")
+				message := " No issues found when checking the cluster. Istio is safe to install or upgrade!"
+				message += "\n  To get started, check out https://istio.io/latest/docs/setup/getting-started/."
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), color.New(color.FgGreen).Sprint("✔")+message)
 			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), output)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), output)
 			}
 			for _, m := range msgs {
 				if m.Type.Level().IsWorseThanOrEqualTo(diag.Warning) {

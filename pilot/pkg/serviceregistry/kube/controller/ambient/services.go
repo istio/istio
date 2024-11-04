@@ -17,16 +17,17 @@ package ambient
 
 import (
 	"net/netip"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 
+	apiannotation "istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/kubetypes"
@@ -65,6 +66,7 @@ func (a *index) serviceServiceBuilder(
 		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
 		if waypoint != nil {
 			waypointStatus.ResourceName = waypoint.ResourceName()
+			waypointStatus.IngressUseWaypoint = s.Labels["istio.io/ingress-use-waypoint"] == "true"
 		}
 		waypointStatus.Error = wperr
 
@@ -109,6 +111,7 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint
 	waypoint := model.WaypointBindingStatus{}
 	if w != nil {
 		waypoint.ResourceName = w.ResourceName()
+		waypoint.IngressUseWaypoint = s.Labels["istio.io/ingress-use-waypoint"] == "true"
 	}
 	if wperr != nil {
 		waypoint.Error = wperr
@@ -147,6 +150,12 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 		})
 	}
 
+	var lb *workloadapi.LoadBalancing
+	preferClose := strings.EqualFold(svc.Annotations[apiannotation.NetworkingTrafficDistribution.Name], v1.ServiceTrafficDistributionPreferClose)
+	if preferClose {
+		lb = preferCloseLoadBalancer
+	}
+
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
@@ -166,6 +175,7 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 			Ports:           ports,
 			Waypoint:        w.GetAddress(),
 			SubjectAltNames: svc.Spec.SubjectAltNames,
+			LoadBalancing:   lb,
 		})
 	}
 	return res
@@ -187,30 +197,14 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 	}
 
 	var lb *workloadapi.LoadBalancing
-	if svc.Spec.TrafficDistribution != nil && *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose {
-		lb = &workloadapi.LoadBalancing{
-			// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
-			RoutingPreference: []workloadapi.LoadBalancing_Scope{
-				workloadapi.LoadBalancing_NETWORK,
-				workloadapi.LoadBalancing_REGION,
-				workloadapi.LoadBalancing_ZONE,
-				workloadapi.LoadBalancing_SUBZONE,
-			},
-			Mode: workloadapi.LoadBalancing_FAILOVER,
-		}
+
+	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
+	preferClose := strings.EqualFold(svc.Annotations[apiannotation.NetworkingTrafficDistribution.Name], v1.ServiceTrafficDistributionPreferClose)
+	if svc.Spec.TrafficDistribution != nil {
+		preferClose = *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose
 	}
-	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-		// This is waypoint. Enable locality routing
-		lb = &workloadapi.LoadBalancing{
-			// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
-			RoutingPreference: []workloadapi.LoadBalancing_Scope{
-				workloadapi.LoadBalancing_NETWORK,
-				workloadapi.LoadBalancing_REGION,
-				workloadapi.LoadBalancing_ZONE,
-				workloadapi.LoadBalancing_SUBZONE,
-			},
-			Mode: workloadapi.LoadBalancing_FAILOVER,
-		}
+	if preferClose {
+		lb = preferCloseLoadBalancer
 	}
 	if itp := svc.Spec.InternalTrafficPolicy; itp != nil && *itp == v1.ServiceInternalTrafficPolicyLocal {
 		lb = &workloadapi.LoadBalancing{
@@ -250,6 +244,17 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 		LoadBalancing: lb,
 		IpFamilies:    ipFamily,
 	}
+}
+
+var preferCloseLoadBalancer = &workloadapi.LoadBalancing{
+	// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
+	RoutingPreference: []workloadapi.LoadBalancing_Scope{
+		workloadapi.LoadBalancing_NETWORK,
+		workloadapi.LoadBalancing_REGION,
+		workloadapi.LoadBalancing_ZONE,
+		workloadapi.LoadBalancing_SUBZONE,
+	},
+	Mode: workloadapi.LoadBalancing_FAILOVER,
 }
 
 func getVIPs(svc *v1.Service) []string {

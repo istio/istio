@@ -705,7 +705,6 @@ func (sc *SidecarScope) Services() []*Service {
 func (sc *SidecarScope) SetDestinationRulesForTesting(configs []config.Config) {
 	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
 	for _, c := range configs {
-		c := c
 		sc.destinationRulesByNames[types.NamespacedName{Name: c.Name, Namespace: c.Namespace}] = &c
 	}
 }
@@ -847,6 +846,13 @@ func matchingAliasService(importedHosts hostClassification, service *Service) *S
 func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapper) *Service {
 	for _, port := range service.Ports {
 		if port.Port == int(ilw.IstioListener.Port.GetNumber()) {
+			// when there is one port, the port is listener port, we do not need to update the `service`,
+			// so DeepCopy is not needed. Most services may only have one port, this special treatment
+			// allows us to save DeepCopy consumption.
+			if len(service.Ports) == 1 {
+				return service
+			}
+			// when there are multiple ports, construct service with listener port
 			sc := service.DeepCopy()
 			sc.Ports = []*Port{port}
 			return sc

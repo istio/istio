@@ -262,7 +262,6 @@ func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 func (n *kubeNamespace) forEachCluster(fn func(i int, c cluster.Cluster) error) error {
 	errG := multierror.Group{}
 	for i, c := range n.ctx.AllClusters() {
-		i, c := i, c
 		errG.Go(func() error {
 			return fn(i, c)
 		})

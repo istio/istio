@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
@@ -117,7 +118,7 @@ func TestCNIPluginServer(t *testing.T) {
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -164,7 +165,7 @@ func TestGetPodWithRetry(t *testing.T) {
 			Name:      "pod-noambient",
 			Namespace: "funkyns",
 			Labels: map[string]string{
-				constants.DataplaneModeLabel: constants.DataplaneModeNone,
+				label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -190,7 +191,7 @@ func TestGetPodWithRetry(t *testing.T) {
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
@@ -265,7 +266,7 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
-		constants.DataplaneModeLabel, constants.DataplaneModeAmbient))
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)

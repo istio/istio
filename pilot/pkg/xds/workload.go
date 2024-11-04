@@ -45,7 +45,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 	req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	updatedAddresses := model.ConfigNameOfKind(req.ConfigsUpdated, kind.Address)
+	updatedAddresses := model.ConfigNamesOfKind(req.ConfigsUpdated, kind.Address)
 	isReq := req.IsRequest()
 	if len(updatedAddresses) == 0 && len(req.ConfigsUpdated) > 0 {
 		// Nothing changed..

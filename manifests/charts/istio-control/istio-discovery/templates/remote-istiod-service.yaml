@@ -1,0 +1,35 @@
+# This file is only used for remote `istiod` installs.
+{{- if .Values.istiodRemote.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: "istiod"
+    {{ include "istio.labels" . | nindent 4 }}
+spec:
+  ports:
+  - port: 15012
+    name: tcp-istiod
+    protocol: TCP
+  - port: 443
+    targetPort: 15017
+    name: tcp-webhook
+    protocol: TCP
+  {{- if and .Values.global.remotePilotAddress (not (regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress)) }}
+  # if the remotePilotAddress is not an IP addr, we use ExternalName
+  type: ExternalName
+  externalName: {{ .Values.global.remotePilotAddress }}
+  {{- end }}
+{{- if .Values.global.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.global.ipFamilyPolicy }}
+{{- end }}
+{{- if .Values.global.ipFamilies }}
+  ipFamilies:
+{{- range .Values.global.ipFamilies }}
+  - {{ . }}
+{{- end }}
+{{- end }}
+---
+{{- end }}

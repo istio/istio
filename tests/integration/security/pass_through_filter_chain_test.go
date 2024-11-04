@@ -331,7 +331,6 @@ spec:
 			}
 
 			for _, tc := range cases {
-				tc := tc
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					// Create the PeerAuthentication for the test case.
 					config.New(t).
@@ -394,9 +393,8 @@ spec:
 						// TODO(nmittler): Why does passthrough not work?
 						ConditionallyTo(echotest.SameNetwork).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							for _, expect := range tc.expected {
-								expect := expect
-								p := expect.port
+							for _, exp := range tc.expected {
+								p := exp.port
 								opts := echo.CallOptions{
 									// Do not set To, otherwise fillInCallOptions() will
 									// complain with port does not match.
@@ -412,9 +410,9 @@ spec:
 									Count: echo.DefaultCallsPerWorkload() * to.WorkloadsOrFail(t).Len(),
 								}
 
-								allow := allowValue(expect.mtlsSucceeds)
+								allow := allowValue(exp.mtlsSucceeds)
 								if from.Config().IsNaked() {
-									allow = allowValue(expect.plaintextSucceeds)
+									allow = allowValue(exp.plaintextSucceeds)
 								}
 
 								if allow {

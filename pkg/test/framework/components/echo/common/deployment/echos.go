@@ -147,7 +147,6 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 			})
 		} else {
 			for i := 0; i < c.NamespaceCount; i++ {
-				i := i
 				g.Go(func() error {
 					ns, err := namespace.New(ctx, namespace.Config{
 						Prefix: fmt.Sprintf("echo%d", i+1),
@@ -243,8 +242,8 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			{
 				Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 				Labels: map[string]string{
-					label.SidecarInject.Name:     "false",
-					constants.DataplaneModeLabel: constants.DataplaneModeNone,
+					label.SidecarInject.Name:        "false",
+					label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 				},
 			},
 		},
@@ -257,7 +256,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		Subsets: []echo.SubsetConfig{{
 			Annotations: map[string]string{annotation.SidecarInterceptionMode.Name: "TPROXY"},
 			Labels: map[string]string{
-				constants.DataplaneModeLabel: constants.DataplaneModeNone,
+				label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
 			},
 		}},
 		IncludeExtAuthz: c.IncludeExtAuthz,
@@ -359,8 +358,8 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{{
 				Labels: map[string]string{
-					label.SidecarInject.Name:     "false",
-					constants.AmbientRedirection: constants.AmbientRedirectionEnabled,
+					label.SidecarInject.Name:           "false",
+					annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled,
 				},
 			}},
 		}
@@ -501,7 +500,6 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 
 	g := multierror.Group{}
 	for i := 0; i < len(apps.NS); i++ {
-		i := i
 		g.Go(func() error {
 			return apps.NS[i].loadValues(ctx, echos, apps)
 		})

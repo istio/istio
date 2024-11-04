@@ -188,7 +188,6 @@ func (s *serverImpl) deploy(ctx resource.Context) error {
 	// Wait for the endpoints to be ready.
 	var g multierror.Group
 	for _, c := range ctx.Clusters() {
-		c := c
 		g.Go(func() error {
 			_, _, err := kube.WaitUntilServiceEndpointsAreReady(c.Kube(), s.ns.Name(), "ext-authz")
 			return err

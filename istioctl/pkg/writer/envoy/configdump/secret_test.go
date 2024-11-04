@@ -16,6 +16,7 @@ package configdump
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -24,32 +25,40 @@ import (
 )
 
 func TestSDSWriter_ValidCert(t *testing.T) {
-	configDumpFile, err := os.Open("testdata/secret/config_dump.json")
-	if err != nil {
-		t.Errorf("error opening test data file: %v", err)
+	testCases := []struct{ sds string }{
+		{sds: "istio"},
+		{sds: "spire"},
 	}
-	defer configDumpFile.Close()
-	configDump, err := io.ReadAll(configDumpFile)
-	if err != nil {
-		t.Errorf("error reading test data file: %v", err)
-	}
+	for _, tc := range testCases {
+		t.Run(tc.sds, func(t *testing.T) {
+			configDumpFile, err := os.Open(fmt.Sprintf("testdata/secret/%s/config_dump.json", tc.sds))
+			if err != nil {
+				t.Errorf("error opening test data file: %v", err)
+			}
+			defer configDumpFile.Close()
+			configDump, err := io.ReadAll(configDumpFile)
+			if err != nil {
+				t.Errorf("error reading test data file: %v", err)
+			}
 
-	outFile, err := os.Open("testdata/secret/output")
-	if err != nil {
-		t.Errorf("error opening test data output file: %v", err)
-	}
-	defer outFile.Close()
-	expectedOut, err := io.ReadAll(outFile)
-	if err != nil {
-		t.Errorf("error reading test data output file: %v", err)
-	}
+			outFile, err := os.Open(fmt.Sprintf("testdata/secret/%s/output", tc.sds))
+			if err != nil {
+				t.Errorf("error opening test data output file: %v", err)
+			}
+			defer outFile.Close()
+			expectedOut, err := io.ReadAll(outFile)
+			if err != nil {
+				t.Errorf("error reading test data output file: %v", err)
+			}
 
-	gotOut := &bytes.Buffer{}
-	cw := &ConfigWriter{Stdout: gotOut}
-	err = cw.Prime(configDump)
-	assert.NoError(t, err)
-	err = cw.PrintSecretSummary()
-	assert.NoError(t, err)
+			gotOut := &bytes.Buffer{}
+			cw := &ConfigWriter{Stdout: gotOut}
+			err = cw.Prime(configDump)
+			assert.NoError(t, err)
+			err = cw.PrintSecretSummary()
+			assert.NoError(t, err)
 
-	assert.Equal(t, string(expectedOut), gotOut.String())
+			assert.Equal(t, string(expectedOut), gotOut.String())
+		})
+	}
 }

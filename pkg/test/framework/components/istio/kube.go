@@ -302,7 +302,6 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	// Install control plane clusters (can be external or primary).
 	errG := multierror.Group{}
 	for _, c := range ctx.AllClusters().Primaries() {
-		c := c
 		errG.Go(func() error {
 			return i.installControlPlaneCluster(c)
 		})
@@ -322,7 +321,6 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	// Install (non-config) remote clusters.
 	errG = multierror.Group{}
 	for _, c := range ctx.Clusters().Remotes(ctx.Clusters().Configs()...) {
-		c := c
 		errG.Go(func() error {
 			if err := i.installRemoteCluster(c); err != nil {
 				return fmt.Errorf("failed installing remote cluster %s: %v", c.Name(), err)
@@ -335,7 +333,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("%d errors occurred deploying remote clusters: %v", errs.Len(), errs.ErrorOrNil())
 	}
 
-	if ctx.Clusters().IsMulticluster() {
+	if ctx.Clusters().IsMulticluster() && !cfg.SkipDeployCrossClusterSecrets {
 		// Need to determine if there is a setting to watch cluster secret in config cluster
 		// or in external cluster. The flag is named LOCAL_CLUSTER_SECRET_WATCHER and set as
 		// an environment variable for istiod.
@@ -357,7 +355,6 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// Configure gateways for remote clusters.
 	for _, c := range ctx.Clusters().Remotes() {
-		c := c
 		if i.externalControlPlane || cfg.IstiodlessRemotes {
 			// Install ingress and egress gateways
 			// These need to be installed as a separate step for external control planes because config clusters are installed

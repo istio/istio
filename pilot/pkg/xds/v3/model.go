@@ -52,8 +52,3 @@ func GetMetricType(typeURL string) string {
 func GetResourceType(shortType string) string {
 	return model.GetResourceType(shortType)
 }
-
-// IsEnvoyType checks whether the typeURL is a valid Envoy type.
-func IsEnvoyType(typeURL string) bool {
-	return model.IsEnvoyType(typeURL)
-}

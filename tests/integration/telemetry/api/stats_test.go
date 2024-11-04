@@ -28,6 +28,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
@@ -75,7 +76,6 @@ func TestStatsFilter(t *testing.T) {
 			t.ConfigIstio().YAML(ist.Settings().SystemNamespace, PeerAuthenticationConfig).ApplyOrFail(t)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
-				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if err := SendTraffic(cltInstance); err != nil {
@@ -157,7 +157,6 @@ func TestStatsTCPFilter(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
-				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if err := SendTCPTraffic(cltInstance); err != nil {
@@ -211,7 +210,6 @@ func TestStatsGatewayServerTCPFilter(t *testing.T) {
 
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range GetClientInstances() {
-				cltInstance := cltInstance
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if _, err := cltInstance.Call(echo.CallOptions{
@@ -296,6 +294,35 @@ func SendTrafficOrFail(t test.Failer, from echo.Instance) {
 		Retry: echo.Retry{
 			NoRetry: true,
 		},
+	})
+}
+
+func SendTrafficOrFailExpectForbidden(t test.Failer, from echo.Instance) {
+	from.CallOrFail(t, echo.CallOptions{
+		To: GetTarget(),
+		Port: echo.Port{
+			Name: "http",
+		},
+		Retry: echo.Retry{
+			Options: []retry.Option{
+				retry.Delay(framework.TelemetryRetryDelay),
+				retry.MaxAttempts(10),
+			},
+		},
+		Check: check.Forbidden(protocol.HTTP),
+	})
+	from.CallOrFail(t, echo.CallOptions{
+		To: apps.Naked,
+		Port: echo.Port{
+			Name: "http",
+		},
+		Retry: echo.Retry{
+			Options: []retry.Option{
+				retry.Delay(framework.TelemetryRetryDelay),
+				retry.MaxAttempts(10),
+			},
+		},
+		Check: check.Forbidden(protocol.HTTP),
 	})
 }
 
@@ -509,8 +536,6 @@ func buildGRPCQuery(metric string) (destinationQuery prometheus.Query) {
 
 func SendGRPCTraffic() error {
 	for _, cltInstance := range GetClientInstances() {
-		cltInstance := cltInstance
-
 		_, err := cltInstance.Call(echo.CallOptions{
 			To: GetTarget(),
 			Port: echo.Port{

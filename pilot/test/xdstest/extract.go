@@ -16,6 +16,7 @@ package xdstest
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 
@@ -324,17 +325,28 @@ func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []st
 	unhealthy := []string{}
 	for _, ep := range cla.Endpoints {
 		for _, lb := range ep.LbEndpoints {
+			addresses := []*core.Address{lb.GetEndpoint().GetAddress()}
+			for _, aa := range lb.GetEndpoint().GetAdditionalAddresses() {
+				addresses = append(addresses, aa.GetAddress())
+			}
 			var addrString string
-			switch lb.GetEndpoint().GetAddress().Address.(type) {
-			case *core.Address_SocketAddress:
-				addrString = fmt.Sprintf("%s:%d",
-					lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue())
-			case *core.Address_Pipe:
-				addrString = lb.GetEndpoint().Address.GetPipe().Path
-			case *core.Address_EnvoyInternalAddress:
-				internalAddr := lb.GetEndpoint().Address.GetEnvoyInternalAddress().GetServerListenerName()
-				destinationAddr := lb.GetMetadata().GetFilterMetadata()[util.OriginalDstMetadataKey].GetFields()["local"].GetStringValue()
-				addrString = fmt.Sprintf("%s;%s", internalAddr, destinationAddr)
+			for i, addr := range addresses {
+				if i != 0 {
+					addrString += ","
+				}
+				switch addr.Address.(type) {
+				case *core.Address_SocketAddress:
+					addrString += net.JoinHostPort(addr.GetSocketAddress().Address, fmt.Sprint(addr.GetSocketAddress().GetPortValue()))
+				case *core.Address_Pipe:
+					addrString += addr.GetPipe().Path
+				case *core.Address_EnvoyInternalAddress:
+					internalAddr := addr.GetEnvoyInternalAddress().GetServerListenerName()
+					destinationAddr := lb.GetMetadata().GetFilterMetadata()[util.OriginalDstMetadataKey].GetFields()["local"].GetStringValue()
+					addrString += fmt.Sprintf("%s;%s", internalAddr, destinationAddr)
+					if wp := lb.GetMetadata().GetFilterMetadata()[util.OriginalDstMetadataKey].GetFields()["waypoint"].GetStringValue(); wp != "" {
+						addrString += fmt.Sprintf(";%s", wp)
+					}
+				}
 			}
 			if lb.HealthStatus == core.HealthStatus_HEALTHY {
 				healthy = append(healthy, addrString)

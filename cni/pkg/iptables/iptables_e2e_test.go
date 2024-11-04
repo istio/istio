@@ -49,12 +49,12 @@ func TestIptablesCleanRoundTrip(t *testing.T) {
 	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
 	probeSNATipv6 := netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")
 
-	cfg := &Config{RestoreFormat: true}
+	cfg := &Config{}
 	tt.config(cfg)
 
 	deps := &dep.RealDependencies{}
 	iptConfigurator, _, _ := NewIptablesConfigurator(cfg, deps, deps, EmptyNlDeps())
-	assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, &probeSNATipv4, &probeSNATipv6))
+	assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, false))
 
 	t.Log("starting cleanup")
 	// Cleanup, should work
@@ -63,7 +63,7 @@ func TestIptablesCleanRoundTrip(t *testing.T) {
 
 	t.Log("second run")
 	// Add again, should still work
-	assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, &probeSNATipv4, &probeSNATipv6))
+	assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, false))
 }
 
 func validateIptablesClean(t *testing.T) {
@@ -92,25 +92,6 @@ func setup(t *testing.T) {
 		_ = mountns.BindMount(xtables, "/run/xtables.lock")
 	})
 }
-
-//func runIptables(args ...string) error {
-//	c := iptablescmd.GetCommand(log.DefaultOptions())
-//	c.SetArgs(args)
-//	return c.Execute()
-//}
-//
-//func runIptablesClean(args ...string) error {
-//	c := iptablescmd.GetCommand(log.DefaultOptions())
-//	args = append(slices.Clone(args), "--cleanup-only")
-//	c.SetArgs(args)
-//	return c.Execute()
-//}
-//
-//func runIptablesOldClean(args ...string) error {
-//	c := cleancmd.GetCommand(log.DefaultOptions())
-//	c.SetArgs(args)
-//	return c.Execute()
-//}
 
 func iptablesSave(t *testing.T) string {
 	res, err := exec.Command("iptables-save").CombinedOutput()

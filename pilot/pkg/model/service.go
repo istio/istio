@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 	"istio.io/istio/pkg/workloadapi/security"
@@ -221,7 +222,16 @@ const (
 )
 
 func SupportsTunnel(labels map[string]string, tunnelType string) bool {
-	return sets.New(strings.Split(labels[TunnelLabel], ",")...).Contains(tunnelType)
+	tl, f := labels[TunnelLabel]
+	if !f {
+		return false
+	}
+	if tl == tunnelType {
+		// Fast-path the case where we have only one label
+		return true
+	}
+	// Else check everything. Tunnel label is a comma-separated list.
+	return sets.New(strings.Split(tl, ",")...).Contains(tunnelType)
 }
 
 // Port represents a network port where a service is listening for
@@ -376,14 +386,10 @@ func (instance *WorkloadInstance) CmpOpts() []cmp.Option {
 
 // DeepCopy creates a copy of WorkloadInstance.
 func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
-	return &WorkloadInstance{
-		Name:                instance.Name,
-		Namespace:           instance.Namespace,
-		Kind:                instance.Kind,
-		PortMap:             maps.Clone(instance.PortMap),
-		Endpoint:            instance.Endpoint.DeepCopy(),
-		DNSServiceEntryOnly: instance.DNSServiceEntryOnly,
-	}
+	out := *instance
+	out.PortMap = maps.Clone(instance.PortMap)
+	out.Endpoint = instance.Endpoint.DeepCopy()
+	return &out
 }
 
 // WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need.
@@ -741,6 +747,9 @@ type K8sAttributes struct {
 
 	// ObjectName is the object name of the underlying object. This may differ from the Service.Attributes.Name for legacy semantics.
 	ObjectName string
+
+	// spec.PublishNotReadyAddresses
+	PublishNotReadyAddresses bool
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
@@ -749,38 +758,18 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	// nolint: govet
 	out := *s
 
-	if s.Labels != nil {
-		out.Labels = make(map[string]string, len(s.Labels))
-		for k, v := range s.Labels {
-			out.Labels[k] = v
-		}
-	}
-
+	out.Labels = maps.Clone(s.Labels)
 	if s.ExportTo != nil {
 		out.ExportTo = s.ExportTo.Copy()
 	}
 
-	if s.LabelSelectors != nil {
-		out.LabelSelectors = make(map[string]string, len(s.LabelSelectors))
-		for k, v := range s.LabelSelectors {
-			out.LabelSelectors[k] = v
-		}
-	}
-
+	out.LabelSelectors = maps.Clone(s.LabelSelectors)
 	out.ClusterExternalAddresses = s.ClusterExternalAddresses.DeepCopy()
 
 	if s.ClusterExternalPorts != nil {
 		out.ClusterExternalPorts = make(map[cluster.ID]map[uint32]uint32, len(s.ClusterExternalPorts))
 		for k, m := range s.ClusterExternalPorts {
-			if m == nil {
-				out.ClusterExternalPorts[k] = nil
-				continue
-			}
-
-			out.ClusterExternalPorts[k] = make(map[uint32]uint32, len(m))
-			for sp, np := range m {
-				out.ClusterExternalPorts[k][sp] = np
-			}
+			out.ClusterExternalPorts[k] = maps.Clone(m)
 		}
 	}
 
@@ -879,6 +868,7 @@ type ServiceDiscovery interface {
 }
 
 type AmbientIndexes interface {
+	ServicesWithWaypoint(key string) []ServiceWaypointInfo
 	AddressInformation(addresses sets.String) ([]AddressInfo, sets.String)
 	AdditionalPodSubscriptions(
 		proxy *Proxy,
@@ -941,6 +931,10 @@ func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
 	return nil
 }
 
+func (u NoopAmbientIndexes) ServicesWithWaypoint(string) []ServiceWaypointInfo {
+	return nil
+}
+
 var _ AmbientIndexes = NoopAmbientIndexes{}
 
 type AddressInfo struct {
@@ -979,6 +973,11 @@ func (i AddressInfo) ResourceName() string {
 	return name
 }
 
+type ServiceWaypointInfo struct {
+	Service          *workloadapi.Service
+	WaypointHostname string
+}
+
 type TypedObject struct {
 	types.NamespacedName
 	Kind kind.Kind
@@ -1007,35 +1006,41 @@ func (i ServiceInfo) GetStatusTarget() TypedObject {
 type ConditionType string
 
 const (
-	WaypointBound   ConditionType = "istio.io/WaypointBound"
-	ZtunnelAccepted ConditionType = "ZtunnelAccepted"
+	WaypointBound    ConditionType = "istio.io/WaypointBound"
+	ZtunnelAccepted  ConditionType = "ZtunnelAccepted"
+	WaypointAccepted ConditionType = "WaypointAccepted"
 )
 
-type ConditionSet = map[ConditionType]*Condition
+type ConditionSet = map[ConditionType][]Condition
 
 type Condition struct {
-	Reason  string
-	Message string
-	Status  bool
+	ObservedGeneration int64
+	Reason             string
+	Message            string
+	Status             bool
 }
 
 func (i ServiceInfo) GetConditions() ConditionSet {
-	set := map[ConditionType]*Condition{
-		// Write all conditions here, then overide if we want them set.
+	set := map[ConditionType][]Condition{
+		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound: nil,
 	}
 	if i.Waypoint.ResourceName != "" {
-		set[WaypointBound] = &Condition{
-			Status:  true,
-			Reason:  "WaypointAccepted",
-			Message: fmt.Sprintf("Successfully attached to waypoint %v", i.Waypoint.ResourceName),
+		set[WaypointBound] = []Condition{
+			{
+				Status:  true,
+				Reason:  string(WaypointAccepted),
+				Message: fmt.Sprintf("Successfully attached to waypoint %v", i.Waypoint.ResourceName),
+			},
 		}
 	} else if i.Waypoint.Error != nil {
-		set[WaypointBound] = &Condition{
-			Status:  false,
-			Reason:  i.Waypoint.Error.Reason,
-			Message: i.Waypoint.Error.Message,
+		set[WaypointBound] = []Condition{
+			{
+				Status:  false,
+				Reason:  i.Waypoint.Error.Reason,
+				Message: i.Waypoint.Error.Message,
+			},
 		}
 	}
 	return set
@@ -1044,6 +1049,8 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 type WaypointBindingStatus struct {
 	// ResourceName that clients should use when addressing traffic to this Service.
 	ResourceName string
+	// IngressUseWaypoint specifies whether ingress gateways should use the waypoint for this service.
+	IngressUseWaypoint bool
 	// Error represents some error
 	Error *StatusMessage
 }
@@ -1096,7 +1103,7 @@ func workloadResourceName(w *workloadapi.Workload) string {
 
 func (i *WorkloadInfo) Clone() *WorkloadInfo {
 	return &WorkloadInfo{
-		Workload:     proto.Clone(i).(*workloadapi.Workload),
+		Workload:     protomarshal.Clone(i.Workload),
 		Labels:       maps.Clone(i.Labels),
 		Source:       i.Source,
 		CreationTime: i.CreationTime,
@@ -1107,23 +1114,109 @@ func (i WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
 }
 
-type WorkloadAuthorizationBindingScope string
-
-const (
-	NamespaceScope WorkloadAuthorizationBindingScope = "Namespace"
-	WorkloadScope  WorkloadAuthorizationBindingScope = "Workload"
-)
-
-type WorkloadAuthorizationBindingStatus struct {
-	ResourceName string
-	Status       *StatusMessage
-	Bound        bool
+type WaypointPolicyStatus struct {
+	Source     TypedObject
+	Conditions []PolicyBindingStatus
 }
 
-func (i WorkloadAuthorizationBindingStatus) Equals(other WorkloadAuthorizationBindingStatus) bool {
+const (
+	WaypointPolicyReasonAccepted         = "Accepted"
+	WaypointPolicyReasonInvalid          = "Invalid"
+	WaypointPolicyReasonPartiallyInvalid = "PartiallyInvalid"
+	WaypointPolicyReasonAncestorNotBound = "AncestorNotBound"
+	WaypointPolicyReasonTargetNotFound   = "TargetNotFound"
+)
+
+// impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
+func (i WaypointPolicyStatus) GetStatusTarget() TypedObject {
+	return i.Source
+}
+
+func (i WaypointPolicyStatus) GetConditions() ConditionSet {
+	set := make(ConditionSet, 1)
+
+	set[WaypointAccepted] = []Condition{flattenConditions(i.Conditions)}
+
+	return set
+}
+
+// end impl StatusWriter
+
+// flattenConditions is a work around for the uncertain future of Ancestor in gtwapi which exists at the moment.
+// It is intended to take many conditions which have ancestors and condense them into a single condition so we can
+// retain detail in the codebase to be prepared when a canonical representation is accepted upstream.
+func flattenConditions(conditions []PolicyBindingStatus) Condition {
+	status := false
+	reason := WaypointPolicyReasonInvalid
+	unboundAncestors := []string{}
+	var message string
+
+	// flatten causes a loss of some information and there is only 1 condition so no need to flatten
+	if len(conditions) == 1 {
+		c := conditions[0]
+		return Condition{
+			ObservedGeneration: c.ObservedGeneration,
+			Reason:             c.Status.Reason,
+			Message:            c.Status.Message,
+			Status:             c.Bound,
+		}
+	}
+
+	var highestObservedGeneration int64
+	for _, c := range conditions {
+		if c.Bound {
+			// if anything was true we consider the overall bind to be true
+			status = true
+		} else {
+			unboundAncestors = append(unboundAncestors, c.Ancestor)
+		}
+
+		if c.ObservedGeneration > highestObservedGeneration {
+			highestObservedGeneration = c.ObservedGeneration
+		}
+	}
+
+	someUnbound := len(unboundAncestors) > 0
+
+	if status {
+		reason = WaypointPolicyReasonAccepted
+	}
+
+	if status && someUnbound {
+		reason = WaypointPolicyReasonPartiallyInvalid
+	}
+
+	if someUnbound {
+		message = fmt.Sprintf("Invalid targetRefs: %s", strings.Join(unboundAncestors, ", "))
+	}
+
+	return Condition{
+		highestObservedGeneration,
+		reason,
+		message,
+		status,
+	}
+}
+
+// impl pkg/kube/krt/ResourceNamer
+func (i WaypointPolicyStatus) ResourceName() string {
+	return i.Source.Namespace + "/" + i.Source.Name
+}
+
+// end impl ResourceNamer
+
+type PolicyBindingStatus struct {
+	ObservedGeneration int64
+	Ancestor           string
+	Status             *StatusMessage
+	Bound              bool
+}
+
+func (i PolicyBindingStatus) Equals(other PolicyBindingStatus) bool {
 	return ptr.Equal(i.Status, other.Status) &&
 		i.Bound == other.Bound &&
-		i.ResourceName == other.ResourceName
+		i.Ancestor == other.Ancestor &&
+		i.ObservedGeneration == other.ObservedGeneration
 }
 
 type WorkloadAuthorization struct {
@@ -1132,7 +1225,7 @@ type WorkloadAuthorization struct {
 	Authorization *security.Authorization
 
 	Source  TypedObject
-	Binding WorkloadAuthorizationBindingStatus
+	Binding PolicyBindingStatus
 }
 
 // impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
@@ -1144,17 +1237,23 @@ func (i WorkloadAuthorization) GetConditions() ConditionSet {
 	set := make(ConditionSet, 1)
 
 	if i.Binding.Status != nil {
-		set[ZtunnelAccepted] = &Condition{
-			Reason:  i.Binding.Status.Reason,
-			Message: i.Binding.Status.Message,
-			Status:  i.Binding.Bound,
+		set[ZtunnelAccepted] = []Condition{
+			{
+				ObservedGeneration: i.Binding.ObservedGeneration,
+				Reason:             i.Binding.Status.Reason,
+				Message:            i.Binding.Status.Message,
+				Status:             i.Binding.Bound,
+			},
 		}
 	} else {
 		message := "attached to ztunnel"
-		set[ZtunnelAccepted] = &Condition{
-			Reason:  "Accepted",
-			Message: message,
-			Status:  i.Binding.Bound,
+		set[ZtunnelAccepted] = []Condition{
+			{
+				ObservedGeneration: i.Binding.ObservedGeneration,
+				Reason:             "Accepted",
+				Message:            message,
+				Status:             i.Binding.Bound,
+			},
 		}
 	}
 
@@ -1515,10 +1614,7 @@ func (s *Service) DeepCopy() *Service {
 		}
 	}
 
-	if s.ServiceAccounts != nil {
-		out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
-		copy(out.ServiceAccounts, s.ServiceAccounts)
-	}
+	out.ServiceAccounts = slices.Clone(s.ServiceAccounts)
 	out.ClusterVIPs = *s.ClusterVIPs.DeepCopy()
 	return &out
 }

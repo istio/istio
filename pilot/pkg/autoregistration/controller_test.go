@@ -162,7 +162,7 @@ var (
 	}
 )
 
-func TestNonAutoregisteredWorkloads(t *testing.T) {
+func TestNonAutoRegisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
 	c := NewController(store, "", time.Duration(math.MaxInt64))
 	createOrFail(t, store, wgA)
@@ -177,7 +177,6 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	}
 
 	for name, tc := range cases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			c.OnConnect(makeConn(tc, time.Now()))
 			items := store.List(gvk.WorkloadEntry, model.NamespaceAll)

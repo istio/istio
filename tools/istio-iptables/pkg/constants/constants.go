@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // iptables tables
@@ -37,13 +38,16 @@ const (
 	POSTROUTING = "POSTROUTING"
 )
 
-var BuiltInChainsMap = map[string]struct{}{
-	INPUT:       {},
-	OUTPUT:      {},
-	FORWARD:     {},
-	PREROUTING:  {},
-	POSTROUTING: {},
-}
+var BuiltInChainsMap = sets.New(
+	INPUT,
+	OUTPUT,
+	FORWARD,
+	PREROUTING,
+	POSTROUTING,
+	ACCEPT,
+	RETURN,
+	DROP,
+)
 
 // Constants used for generating iptables commands
 const (
@@ -73,6 +77,7 @@ const (
 	ISTIOTPROXY     = "ISTIO_TPROXY"
 	ISTIOREDIRECT   = "ISTIO_REDIRECT"
 	ISTIOINREDIRECT = "ISTIO_IN_REDIRECT"
+	ISTIODROP       = "ISTIO_DROP"
 )
 
 // Constants used in cobra/viper CLI
@@ -95,7 +100,6 @@ const (
 	KubeVirtInterfaces        = "kube-virt-interfaces"
 	DryRun                    = "dry-run"
 	TraceLogging              = "iptables-trace-logging"
-	RestoreFormat             = "restore-format"
 	SkipRuleApply             = "skip-rule-apply"
 	RunValidation             = "run-validation"
 	IptablesProbePort         = "iptables-probe-port"

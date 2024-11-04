@@ -781,6 +781,19 @@ func TestAppProbe(t *testing.T) {
 			statusCode: http.StatusOK,
 		},
 		{
+			name:      "http-prestopz-path",
+			probePath: "app-lifecycle/hello-world/prestopz",
+			config: KubeAppProbers{
+				"/app-lifecycle/hello-world/prestopz": &Prober{
+					HTTPGet: &apimirror.HTTPGetAction{
+						Path: "hello/texas",
+						Port: apimirror.IntOrString{IntVal: int32(appPort)},
+					},
+				},
+			},
+			statusCode: http.StatusOK,
+		},
+		{
 			name:      "http-livez-path",
 			probePath: "app-health/hello-world/livez",
 			config: KubeAppProbers{
@@ -1442,7 +1455,7 @@ func TestHandleQuit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			shutdown := make(chan struct{})
 			s := NewTestServer(t, Options{
-				Shutdown: func() {
+				Shutdown: func(err error) {
 					close(shutdown)
 				},
 			})

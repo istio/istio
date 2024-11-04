@@ -26,13 +26,10 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	authn_alpha "istio.io/api/authentication/v1alpha1"
-	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	"istio.io/api/security/v1beta1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
@@ -45,6 +42,7 @@ import (
 	protovalue "istio.io/istio/pkg/proto"
 	istiotest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestJwtFilter(t *testing.T) {
@@ -134,7 +132,10 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Forward:           false,
-									PayloadInMetadata: "https://secret.foo.com",
+									PayloadInMetadata: "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 							},
 							BypassCorsPreflight: true,
@@ -207,7 +208,10 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Forward:           false,
-									PayloadInMetadata: "mesh cluster",
+									PayloadInMetadata: "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 							},
 							BypassCorsPreflight: true,
@@ -280,7 +284,10 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Forward:           false,
-									PayloadInMetadata: "mesh cluster",
+									PayloadInMetadata: "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 							},
 							BypassCorsPreflight: true,
@@ -348,7 +355,10 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Forward:           false,
-									PayloadInMetadata: "invalid|7443|",
+									PayloadInMetadata: "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 							},
 							BypassCorsPreflight: true,
@@ -421,7 +431,10 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Forward:           false,
-									PayloadInMetadata: "invalid|7443|",
+									PayloadInMetadata: "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 							},
 							BypassCorsPreflight: true,
@@ -545,7 +558,10 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Forward:           false,
-									PayloadInMetadata: "https://secret.bar.com",
+									PayloadInMetadata: "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 								"origins-1": {
 									Issuer: "https://secret.foo.com",
@@ -557,7 +573,10 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Forward:           false,
-									PayloadInMetadata: "https://secret.foo.com",
+									PayloadInMetadata: "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 							},
 							BypassCorsPreflight: true,
@@ -624,7 +643,10 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Forward:           false,
-									PayloadInMetadata: "https://secret.foo.com",
+									PayloadInMetadata: "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 							},
 							BypassCorsPreflight: true,
@@ -691,7 +713,10 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Forward:           false,
-									PayloadInMetadata: "https://secret.foo.com",
+									PayloadInMetadata: "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 							},
 							BypassCorsPreflight: true,
@@ -759,7 +784,10 @@ func TestJwtFilter(t *testing.T) {
 										},
 									},
 									Forward:           true,
-									PayloadInMetadata: "https://secret.foo.com",
+									PayloadInMetadata: "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 							},
 							BypassCorsPreflight: true,
@@ -829,7 +857,10 @@ func TestJwtFilter(t *testing.T) {
 									},
 									Forward:              true,
 									ForwardPayloadHeader: "x-foo",
-									PayloadInMetadata:    "https://secret.foo.com",
+									PayloadInMetadata:    "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 							},
 							BypassCorsPreflight: true,
@@ -905,7 +936,10 @@ func TestJwtFilter(t *testing.T) {
 										{HeaderName: "x-jwt-key1", ClaimName: "value1"},
 										{HeaderName: "x-jwt-key2", ClaimName: "value2"},
 									},
-									PayloadInMetadata: "https://secret.foo.com",
+									PayloadInMetadata: "payload",
+									NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+										SpaceDelimitedClaims: []string{"scope", "permission"},
+									},
 								},
 							},
 							BypassCorsPreflight: true,
@@ -928,7 +962,7 @@ func TestJwtFilter(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			istiotest.SetForTest(t, &features.JwksFetchMode, c.jwksFetchMode)
-			if got := newPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(false, false); !reflect.DeepEqual(c.expected, got) {
+			if got := newPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(false); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -1002,7 +1036,10 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 							},
 						},
 						Forward:           false,
-						PayloadInMetadata: "https://secret.foo.com",
+						PayloadInMetadata: "payload",
+						NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+							SpaceDelimitedClaims: []string{"scope", "permission"},
+						},
 					},
 				},
 				BypassCorsPreflight: true,
@@ -1105,7 +1142,10 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 							},
 						},
 						Forward:           false,
-						PayloadInMetadata: "https://secret.foo.com",
+						PayloadInMetadata: "payload",
+						NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+							SpaceDelimitedClaims: []string{"scope", "permission"},
+						},
 					},
 					"origins-1": {
 						Issuer: "https://secret.bar.com",
@@ -1117,7 +1157,10 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 							},
 						},
 						Forward:           false,
-						PayloadInMetadata: "https://secret.bar.com",
+						PayloadInMetadata: "payload",
+						NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+							SpaceDelimitedClaims: []string{"scope", "permission"},
+						},
 					},
 				},
 				BypassCorsPreflight: true,
@@ -1171,7 +1214,10 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 							},
 						},
 						Forward:           false,
-						PayloadInMetadata: "https://secret.foo.com",
+						PayloadInMetadata: "payload",
+						NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+							SpaceDelimitedClaims: []string{"scope", "permission"},
+						},
 					},
 				},
 				BypassCorsPreflight: true,
@@ -1226,7 +1272,10 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 							},
 						},
 						Forward:           false,
-						PayloadInMetadata: "https://secret.foo.com",
+						PayloadInMetadata: "payload",
+						NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+							SpaceDelimitedClaims: []string{"scope", "permission"},
+						},
 					},
 				},
 				BypassCorsPreflight: true,
@@ -1242,259 +1291,8 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := convertToEnvoyJwtConfig(c.in, push, false, false); !reflect.DeepEqual(c.expected, got) {
-				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
-			}
-		})
-	}
-}
-
-func humanReadableAuthnFilterDump(filter *hcm.HttpFilter) string {
-	if filter == nil {
-		return "<nil>"
-	}
-	config := &authn_filter.FilterConfig{}
-	filter.GetTypedConfig().UnmarshalTo(config)
-	return spew.Sdump(config)
-}
-
-func TestAuthnFilterConfig(t *testing.T) {
-	ms, err := test.StartNewServer()
-	if err != nil {
-		t.Fatal("failed to start a mock server")
-	}
-	jwksURI := ms.URL + "/oauth2/v3/certs"
-
-	cases := []struct {
-		name       string
-		forSidecar bool
-		jwtIn      []*config.Config
-		peerIn     []*config.Config
-		expected   *hcm.HttpFilter
-	}{
-		{
-			name:     "no-policy",
-			expected: nil,
-		},
-		{
-			name: "beta-jwt",
-			jwtIn: []*config.Config{
-				{
-					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWTRule{
-							{
-								Issuer:  "https://secret.foo.com",
-								JwksUri: jwksURI,
-							},
-						},
-					},
-				},
-			},
-			expected: &hcm.HttpFilter{
-				Name: "istio_authn",
-				ConfigType: &hcm.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
-						SkipValidateTrustDomain: true,
-						Policy: &authn_alpha.Policy{
-							Origins: []*authn_alpha.OriginAuthenticationMethod{
-								{
-									Jwt: &authn_alpha.Jwt{
-										Issuer: "https://secret.foo.com",
-									},
-								},
-							},
-							OriginIsOptional: true,
-							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
-						},
-					}),
-				},
-			},
-		},
-		{
-			name:       "beta-jwt-for-sidecar",
-			forSidecar: true,
-			jwtIn: []*config.Config{
-				{
-					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWTRule{
-							{
-								Issuer:  "https://secret.foo.com",
-								JwksUri: jwksURI,
-							},
-						},
-					},
-				},
-			},
-			expected: &hcm.HttpFilter{
-				Name: "istio_authn",
-				ConfigType: &hcm.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
-						SkipValidateTrustDomain: true,
-						DisableClearRouteCache:  true,
-						Policy: &authn_alpha.Policy{
-							Origins: []*authn_alpha.OriginAuthenticationMethod{
-								{
-									Jwt: &authn_alpha.Jwt{
-										Issuer: "https://secret.foo.com",
-									},
-								},
-							},
-							OriginIsOptional: true,
-							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
-						},
-					}),
-				},
-			},
-		},
-		{
-			name: "multi-beta-jwt",
-			jwtIn: []*config.Config{
-				{
-					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWTRule{
-							{
-								Issuer:  "https://secret.bar.com",
-								JwksUri: jwksURI,
-							},
-						},
-					},
-				},
-				{
-					Spec: &v1beta1.RequestAuthentication{},
-				},
-				{
-					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWTRule{
-							{
-								Issuer: "https://secret.foo.com",
-								Jwks:   "jwks-inline-data",
-							},
-						},
-					},
-				},
-			},
-			expected: &hcm.HttpFilter{
-				Name: "istio_authn",
-				ConfigType: &hcm.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
-						SkipValidateTrustDomain: true,
-						Policy: &authn_alpha.Policy{
-							Origins: []*authn_alpha.OriginAuthenticationMethod{
-								{
-									Jwt: &authn_alpha.Jwt{
-										Issuer: "https://secret.bar.com",
-									},
-								},
-								{
-									Jwt: &authn_alpha.Jwt{
-										Issuer: "https://secret.foo.com",
-									},
-								},
-							},
-							OriginIsOptional: true,
-							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
-						},
-					}),
-				},
-			},
-		},
-		{
-			name: "multi-beta-jwt-sort-by-issuer-again",
-			jwtIn: []*config.Config{
-				{
-					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWTRule{
-							{
-								Issuer:  "https://secret.foo.com",
-								JwksUri: jwksURI,
-							},
-						},
-					},
-				},
-				{
-					Spec: &v1beta1.RequestAuthentication{},
-				},
-				{
-					Spec: &v1beta1.RequestAuthentication{
-						JwtRules: []*v1beta1.JWTRule{
-							{
-								Issuer: "https://secret.bar.com",
-								Jwks:   "jwks-inline-data",
-							},
-						},
-					},
-				},
-			},
-			expected: &hcm.HttpFilter{
-				Name: "istio_authn",
-				ConfigType: &hcm.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&authn_filter.FilterConfig{
-						SkipValidateTrustDomain: true,
-						Policy: &authn_alpha.Policy{
-							Origins: []*authn_alpha.OriginAuthenticationMethod{
-								{
-									Jwt: &authn_alpha.Jwt{
-										Issuer: "https://secret.bar.com",
-									},
-								},
-								{
-									Jwt: &authn_alpha.Jwt{
-										Issuer: "https://secret.foo.com",
-									},
-								},
-							},
-							OriginIsOptional: true,
-							PrincipalBinding: authn_alpha.PrincipalBinding_USE_ORIGIN,
-						},
-					}),
-				},
-			},
-		},
-		{
-			name: "beta-mtls",
-			peerIn: []*config.Config{
-				{
-					Spec: &v1beta1.PeerAuthentication{
-						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-						},
-					},
-				},
-			},
-			expected: nil,
-		},
-		{
-			name: "beta-mtls-disable",
-			peerIn: []*config.Config{
-				{
-					Spec: &v1beta1.PeerAuthentication{
-						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-							Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
-						},
-					},
-				},
-			},
-			expected: nil,
-		},
-		{
-			name: "beta-mtls-skip-trust-domain",
-			peerIn: []*config.Config{
-				{
-					Spec: &v1beta1.PeerAuthentication{
-						Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-							Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-						},
-					},
-				},
-			},
-			expected: nil,
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			got := newPolicyApplier("root-namespace", c.jwtIn, c.peerIn, &model.PushContext{}).AuthNFilter(c.forSidecar)
-			if !reflect.DeepEqual(c.expected, got) {
-				t.Errorf("got:\n%v\nwanted:\n%v\n", humanReadableAuthnFilterDump(got), humanReadableAuthnFilterDump(c.expected))
+			if got := convertToEnvoyJwtConfig(c.in, push, false); !reflect.DeepEqual(c.expected, got) {
+				t.Errorf("got:\n%s\nwanted:\n%s\n%s\n", spew.Sdump(got), spew.Sdump(c.expected), cmp.Diff(c.expected, got, protocmp.Transform()))
 			}
 		})
 	}
@@ -1569,7 +1367,7 @@ func TestInboundMTLSSettings(t *testing.T) {
 		},
 		RequireClientCertificate: protovalue.BoolTrue,
 	}
-	tlsContextHTTP := proto.Clone(tlsContext).(*tls.DownstreamTlsContext)
+	tlsContextHTTP := protomarshal.Clone(tlsContext)
 	tlsContextHTTP.CommonTlsContext.AlpnProtocols = []string{"h2", "http/1.1"}
 
 	expectedStrict := MTLSSettings{

@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -225,6 +224,7 @@ func TestDeltaClient(t *testing.T) {
 		serverResponses []*discovery.DeltaDiscoveryResponse
 		expectedRecv    []string
 		expectedTree    string
+		expectSynced    bool
 	}{
 		{
 			desc: "initial request cluster with no secret",
@@ -306,7 +306,8 @@ LDS/:
 `,
 		},
 		{
-			desc: "put things together",
+			desc:         "put things together",
+			expectSynced: true,
 			serverResponses: []*discovery.DeltaDiscoveryResponse{
 				{
 					TypeUrl: v3.ClusterType,
@@ -401,7 +402,7 @@ LDS/:
 					log.Error(err)
 				}
 			}()
-			defer xds.GracefulStop()
+			defer l.Close()
 			if err != nil {
 				t.Errorf("Could not start serving ads server %v", err)
 				return
@@ -410,8 +411,8 @@ LDS/:
 			tracker := assert.NewTracker[string](t)
 			handlers := buildHandlers(t, tracker)
 
-			client := NewDeltaWithBackoffPolicy(l.Addr().String(), &DeltaADSConfig{}, nil, handlers...)
-			assert.NoError(t, client.Run(test.NewContext(t)))
+			client := NewDelta(l.Addr().String(), &DeltaADSConfig{}, handlers...)
+			go client.Run(ctx)
 			wantRecv := slices.Flatten(slices.Map(tt.serverResponses, func(e *discovery.DeltaDiscoveryResponse) []string {
 				res := []string{}
 				for _, r := range e.Resources {
@@ -424,6 +425,9 @@ LDS/:
 			}))
 			tracker.WaitUnordered(wantRecv...)
 			tracker.Empty()
+			if tt.expectSynced {
+				assert.ChannelIsClosed(t, client.synced)
+			}
 			// Close the listener and wait for things to gracefully close down
 			cancel()
 			assert.NoError(t, l.Close())
@@ -476,6 +480,10 @@ func buildHandlers(t *testing.T, tracker *assert.Tracker[string]) []Option {
 }
 
 type fakeClient struct{}
+
+func (f fakeClient) CloseSend() error {
+	return nil
+}
 
 func (f fakeClient) Send(request *discovery.DeltaDiscoveryRequest) error {
 	return nil

@@ -25,7 +25,6 @@ import (
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -294,7 +294,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 		Name:                          ConnectOriginate,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:                proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
+		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),

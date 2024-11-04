@@ -110,7 +110,6 @@ func (ic *injectConfig) UpdateInjectionConfig(t resource.Context, update func(*i
 	mu := sync.RWMutex{}
 
 	for _, c := range ic.ctx.AllClusters() {
-		c := c
 		errG.Go(func() error {
 			cfgMap, err := ic.getConfigMap(c, ic.configMapName())
 			if err != nil {
@@ -166,7 +165,6 @@ func (ic *injectConfig) UpdateInjectionConfig(t resource.Context, update func(*i
 		mu.RLock()
 		defer mu.RUnlock()
 		for cn, mcYAML := range origCfg {
-			cn, mcYAML := cn, mcYAML
 			c := ic.ctx.AllClusters().GetByName(cn)
 			errG.Go(func() error {
 				cfgMap, err := ic.getConfigMap(c, ic.configMapName())
@@ -291,7 +289,6 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 	mu := sync.RWMutex{}
 
 	for _, c := range mc.ctx.AllClusters() {
-		c := c
 		errG.Go(func() error {
 			cfgMapName, err := mc.configMapName()
 			if err != nil {
@@ -356,7 +353,6 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 		mu.RLock()
 		defer mu.RUnlock()
 		for cn, mcYAML := range origCfg {
-			cn, mcYAML := cn, mcYAML
 			c := mc.ctx.AllClusters().GetByName(cn)
 			errG.Go(func() error {
 				cfgMapName, err := mc.configMapName()

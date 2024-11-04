@@ -1128,8 +1128,19 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 	}
 
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
-	if settings.WarmupDurationSecs != nil {
-		errs = AppendValidation(errs, agent.ValidateDuration(settings.WarmupDurationSecs))
+
+	if warm := settings.Warmup; warm != nil {
+		if warm.Duration == nil {
+			errs = AppendValidation(errs, fmt.Errorf("duration is required"))
+		} else {
+			errs = AppendValidation(errs, agent.ValidateDuration(warm.Duration))
+		}
+		if warm.MinimumPercent.GetValue() > 100 {
+			errs = AppendValidation(errs, fmt.Errorf("minimumPercent value should be less than or equal to 100"))
+		}
+		if warm.Aggression != nil && warm.Aggression.GetValue() < 1 {
+			errs = AppendValidation(errs, fmt.Errorf("aggression should be greater than or equal to 1"))
+		}
 	}
 	return
 }
@@ -2025,8 +2036,7 @@ func asJSON(data any) string {
 	switch mr := data.(type) {
 	case *networking.HTTPMatchRequest:
 		if mr != nil && mr.Name != "" {
-			cl := &networking.HTTPMatchRequest{}
-			protomarshal.ShallowCopy(cl, mr)
+			cl := protomarshal.ShallowClone(mr)
 			cl.Name = ""
 			data = cl
 		}

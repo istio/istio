@@ -295,6 +295,7 @@ type ProxyHeaders struct {
 	ServerName                 string
 	ServerHeaderTransformation hcm.HttpConnectionManager_ServerHeaderTransformation
 	ForwardedClientCert        hcm.HttpConnectionManager_ForwardClientCertDetails
+	SetCurrentCertDetails      *meshconfig.ProxyConfig_ProxyHeaders_SetCurrentClientCertDetails
 	IncludeRequestAttemptCount bool
 	GenerateRequestID          *wrappers.BoolValue
 	SuppressDebugHeaders       bool
@@ -348,6 +349,7 @@ func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetwo
 	if ph.MetadataExchangeHeaders != nil && ph.MetadataExchangeHeaders.GetMode() == meshconfig.ProxyConfig_ProxyHeaders_IN_MESH {
 		base.SkipIstioMXHeaders = true
 	}
+	base.SetCurrentCertDetails = ph.SetCurrentClientCertDetails
 	return base
 }
 

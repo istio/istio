@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -59,7 +60,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/label"
+	testlabel "istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	kubetest "istio.io/istio/pkg/test/kube"
@@ -205,7 +206,6 @@ func TestPodIP(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		for _, src := range apps.All {
 			for _, srcWl := range src.WorkloadsOrFail(t) {
-				srcWl := srcWl
 				t.NewSubTestf("from %v %v", src.Config().Service, srcWl.Address()).Run(func(t framework.TestContext) {
 					for _, dst := range apps.All {
 						for _, dstWl := range dst.WorkloadsOrFail(t) {
@@ -317,7 +317,7 @@ func TestServerSideLB(t *testing.T) {
 func TestWaypointChanges(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		getGracePeriod := func(want int64) bool {
-			pods, err := kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), constants.GatewayNameLabel+"=waypoint")()
+			pods, err := kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"=waypoint")()
 			assert.NoError(t, err)
 			for _, p := range pods {
 				grace := p.Spec.TerminationGracePeriodSeconds
@@ -352,7 +352,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 			Prefix: "badgateway",
 			Inject: false,
 			Labels: map[string]string{
-				constants.DataplaneModeLabel: "ambient",
+				label.IoIstioDataplaneMode.Name: "ambient",
 			},
 		})
 		if err != nil {
@@ -367,7 +367,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 			"foo",
 		})
 		waypointError := retry.UntilSuccess(func() error {
-			fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"sa")
+			fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"="+"sa")
 			pods, err := fetch()
 			if err != nil {
 				return err
@@ -1291,7 +1291,7 @@ spec:
 
 func TestL7JWT(t *testing.T) {
 	framework.NewTest(t).
-		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
+		Label(testlabel.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
 			applyDrainingWorkaround(t)
 			runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
@@ -1417,20 +1417,6 @@ spec:
         host: "{{.Host}}"
         subset: v1
 ---
-apiVersion: networking.istio.io/v1
-kind: DestinationRule
-metadata:
-  name: route
-  namespace:
-spec:
-  host: "{{.Destination}}"
-  subsets:
-  - labels:
-      version: v1
-    name: v1
-  - labels:
-      version: v2
-    name: v2
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
@@ -1901,7 +1887,6 @@ spec:
 
 			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
-				tc := tc
 				for i, ip := range ips {
 					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
 						echotest.
@@ -2036,7 +2021,6 @@ spec:
 
 			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
-				tc := tc
 				for i, ip := range ips {
 					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
 						echotest.
@@ -2063,7 +2047,6 @@ spec:
 							})
 					})
 				}
-
 			}
 		})
 }
@@ -2114,7 +2097,6 @@ spec:
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
 			for _, tc := range testCases {
-				tc := tc
 				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
 					echotest.
 						New(t, apps.All).
@@ -2246,13 +2228,10 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 	runTest := func(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
 		svcs := apps.All
 		for _, src := range svcs {
-			src := src
 			t.NewSubTestf("from %v", src.Config().Service).RunParallel(func(t framework.TestContext) {
 				for _, dst := range svcs {
-					dst := dst
 					t.NewSubTestf("to %v", dst.Config().Service).RunParallel(func(t framework.TestContext) {
 						for _, opt := range callOptions {
-							opt := opt
 							t.NewSubTestf("%v", opt.Scheme).RunParallel(func(t framework.TestContext) {
 								opt = opt.DeepCopy()
 								opt.To = dst
@@ -2266,8 +2245,6 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 		}
 	}
 	for _, c := range testCases {
-		// Create a copy to avoid races, as tests are run in parallel
-		c := c
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		t.NewSubTest(testName).Run(func(t framework.TestContext) {
 			// Apply the policy.
@@ -2453,7 +2430,6 @@ func runTestContext(t framework.TestContext, f func(t framework.TestContext, src
 			for _, dst := range svcs {
 				t.NewSubTestf("to %v", dst.Config().Service).Run(func(t framework.TestContext) {
 					for _, opt := range callOptions {
-						src, dst, opt := src, dst, opt
 						t.NewSubTestf("%v", opt.Scheme).Run(func(t framework.TestContext) {
 							opt = opt.DeepCopy()
 							opt.To = dst
@@ -2742,7 +2718,6 @@ func TestMetadataServer(t *testing.T) {
 		}
 		svcs := apps.All
 		for _, src := range svcs {
-			src := src
 			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
 				// curl -H "Metadata-Flavor: Google" 169.254.169.254/computeMetadata/v1/instance/service-accounts/default/identity
 				opts := echo.CallOptions{
@@ -2777,7 +2752,6 @@ func TestAPIServer(t *testing.T) {
 		assert.NoError(t, err)
 
 		for _, src := range svcs {
-			src := src
 			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
 				opts := echo.CallOptions{
 					Address: "kubernetes.default.svc",
@@ -3093,19 +3067,20 @@ func TestServiceDynamicEnroll(t *testing.T) {
 			generators = append(generators, g)
 		}
 		mkGen(apps.Uncaptured[0])
-		mkGen(apps.Sidecar[0])
+		// TODO(https://github.com/istio/istio/issues/53064) re-enable this, it is not reliable enough
+		// mkGen(apps.Sidecar[0])
 		// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
 		mkGen(apps.WorkloadAddressedWaypoint[0])
 
 		// Unenroll from the mesh
 		for _, p := range dst.WorkloadsOrFail(t) {
-			labelWorkload(t, p, constants.DataplaneModeLabel, constants.DataplaneModeNone)
+			labelWorkload(t, p, label.IoIstioDataplaneMode.Name, constants.DataplaneModeNone)
 		}
 		// Let it run some traffic
 		time.Sleep(time.Millisecond * 500)
 		// Revert back
 		for _, p := range dst.WorkloadsOrFail(t) {
-			labelWorkload(t, p, constants.DataplaneModeLabel, "")
+			labelWorkload(t, p, label.IoIstioDataplaneMode.Name, "")
 		}
 		time.Sleep(time.Millisecond * 500)
 

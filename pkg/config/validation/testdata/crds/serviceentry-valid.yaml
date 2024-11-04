@@ -1,0 +1,62 @@
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: full
+  namespace: default
+spec:
+  hosts: ["example.com"]
+  workloadSelector:
+    labels:
+      foo: bar
+  addresses: [1.2.3.4, 001:db8::]
+  exportTo: [foo, .]
+  location: MESH_EXTERNAL
+  ports:
+    - name: foo
+      protocol: HTTP
+      number: 1234
+      targetPort: 2345
+  subjectAltNames: [sa]
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: static-endpoints
+spec:
+  hosts: ["example.com"]
+  endpoints:
+    - address: "sub.example.com"
+  ports:
+    - name: foo
+      protocol: HTTP
+      number: 1234
+      targetPort: 2345
+  resolution: DNS
+---
+# Weird case but we allow it
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: empty-selector
+spec:
+  workloadSelector: {}
+  hosts: ["example.com"]
+---
+# Weird case but we allow it
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: partial-wildcard
+spec:
+  hosts: ["*x"]
+---
+# Weird case but we allow it
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: none-cidr
+spec:
+  hosts: ["example.com"]
+  addresses:
+  - 1.1.1.1/32

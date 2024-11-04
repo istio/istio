@@ -1045,13 +1045,6 @@ func (node *Proxy) DeleteWatchedResource(typeURL string) {
 	delete(node.WatchedResources, typeURL)
 }
 
-// SupportsEnvoyExtendedJwt indicates that the proxy JWT extension is capable of
-// replacing istio_authn filter.
-func (node *Proxy) SupportsEnvoyExtendedJwt() bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&IstioVersion{Major: 1, Minor: 21, Patch: -1}) >= 0
-}
-
 type GatewayController interface {
 	ConfigStoreController
 	// Reconcile updates the internal state of the gateway controller for a given input. This should be

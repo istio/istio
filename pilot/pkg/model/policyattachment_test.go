@@ -19,11 +19,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
@@ -57,12 +57,12 @@ func TestPolicyMatcher(t *testing.T) {
 	}
 	sampleGatewaySelector := &v1beta1.WorkloadSelector{
 		MatchLabels: labels.Instance{
-			constants.GatewayNameLabel: "sample-gateway",
+			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-gateway",
 		},
 	}
 	sampleWaypointSelector := &v1beta1.WorkloadSelector{
 		MatchLabels: labels.Instance{
-			constants.GatewayNameLabel: "sample-waypoint",
+			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-waypoint",
 		},
 	}
 	regularApp := WorkloadPolicyMatcher{
@@ -75,22 +75,22 @@ func TestPolicyMatcher(t *testing.T) {
 	sampleGateway := WorkloadPolicyMatcher{
 		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
-			constants.GatewayNameLabel: "sample-gateway",
+			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-gateway",
 		},
 		IsWaypoint: false,
 	}
 	sampleWaypoint := WorkloadPolicyMatcher{
 		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
-			constants.GatewayNameLabel: "sample-waypoint",
+			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-waypoint",
 		},
 		IsWaypoint: true,
 	}
 	serviceTarget := WorkloadPolicyMatcher{
 		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
-			"app":                      "my-app",
-			constants.GatewayNameLabel: "sample-waypoint",
+			"app": "my-app",
+			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-waypoint",
 		},
 		IsWaypoint:       true,
 		Service:          "sample-svc",
@@ -100,8 +100,8 @@ func TestPolicyMatcher(t *testing.T) {
 	serviceEntryTarget := WorkloadPolicyMatcher{
 		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
-			"app":                      "my-app",
-			constants.GatewayNameLabel: "sample-waypoint",
+			"app": "my-app",
+			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-waypoint",
 		},
 		IsWaypoint:       true,
 		ServiceNamespace: "default",

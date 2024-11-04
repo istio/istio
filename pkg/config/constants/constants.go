@@ -154,7 +154,6 @@ const (
 	// testing the validation webhook.
 	AlwaysReject = "internal.istio.io/webhook-always-reject"
 
-	ManagedGatewayLabel               = "gateway.istio.io/managed"
 	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
 	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
 	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
@@ -163,44 +162,24 @@ const (
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
 
-	// GatewayNameLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
-	GatewayNameLabel = "gateway.networking.k8s.io/gateway-name"
-
 	// TODO formalize this API
 	// TODO additional values to represent passthrough and hbone or both
 	ListenerModeOption          = "gateway.istio.io/listener-protocol"
 	ListenerModeAutoPassthrough = "auto-passthrough"
 
-	// DataplaneMode namespace label for determining ambient mesh behavior
-	DataplaneModeLabel = "istio.io/dataplane-mode"
 	// Set by users to indicate that the (namespace|pod) should be captured for ambient
 	DataplaneModeAmbient = "ambient"
 	// Set by users to indicate that the (namespace|pod) should NOT be captured for ambient
 	DataplaneModeNone = "none"
 
 	// AmbientRedirection specifies whether a pod has ambient redirection (to ztunnel) configured.
-	AmbientRedirection = "ambient.istio.io/redirection"
+	//AmbientRedirection = annotation.AmbientRedirection.Name
 	// AmbientRedirectionEnabled indicates redirection is configured. This is set by the CNI on pods
 	// when it actually has successfully set up pod redirection, rather than by the user.
 	//
 	// The presence of this annotation with this specific value indicates the pod is captured.
 	// Anything else indicates it is not.
 	AmbientRedirectionEnabled = "enabled"
-
-	// AmbientUseWaypointLabel is the label used to specify which waypoint should be used for a given pod, service, etc...
-	// `istio.io/use-waypoint: none` means skipping using any waypoint specified from higher scope, namespace/service, etc...
-	AmbientUseWaypointLabel = "istio.io/use-waypoint"
-	// AmbientUseWaypointNamespaceLabel is a label used to indicate the namespace of the waypoint (referred to by AmbientUseWaypointLabel).
-	// This allows cross-namespace waypoint references. If unset, the same namespace is assumed.
-	AmbientUseWaypointNamespaceLabel = "istio.io/use-waypoint-namespace"
-	// AmbientWaypointForTrafficTypeLabel is the label used to specify which traffic is allowed through the Waypoint.
-	// This label is applied to the Waypoint. Valid traffic types are "service", "workload", "all", and "none".
-	AmbientWaypointForTrafficTypeLabel = "istio.io/waypoint-for"
-
-	// AmbientWaypointInboundBinding has the format `<protocol>` or `<protocol>/<port>`. If the waypoint is
-	// captured by a zTunnel, the zTunnel  will send traffic to the specified port with tunnel information
-	// such as source/destination addresses, identity and HBONE target host using the specified protocol.
-	AmbientWaypointInboundBinding = "ambient.istio.io/waypoint-inbound-binding"
 
 	// ServiceTraffic indicates that service traffic should go through the intended waypoint.
 	ServiceTraffic = "service"
@@ -210,6 +189,4 @@ const (
 	AllTraffic = "all"
 	// NoTraffic indicates that no traffic should go through the intended waypoint.
 	NoTraffic = "none"
-
-	EnableV2AutoAllocationLabel = "networking.istio.io/enable-autoallocate-ip"
 )

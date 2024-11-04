@@ -287,10 +287,8 @@ spec:
 			}
 
 			for _, ingr := range istio.IngressesOrFail(t, t) {
-				ingr := ingr
 				t.NewSubTestf("from %s", ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
 					for _, c := range cases {
-						c := c
 						t.NewSubTest(c.name).Run(func(t framework.TestContext) {
 							if err := t.ConfigIstio().YAML(apps.Namespace.Name(), ingressClassConfig,
 								fmt.Sprintf(ingressConfigTemplate, "ingress", "istio-test", c.path, c.path, c.prefixPath)).
@@ -435,7 +433,6 @@ spec:
 			}
 
 			for _, c := range ingressUpdateCases {
-				c := c
 				updatedIngress := fmt.Sprintf(ingressConfigTemplate, updateIngressName, c.ingressClass, c.path, c.path, c.path)
 				t.ConfigIstio().YAML(apps.Namespace.Name(), updatedIngress).ApplyOrFail(t)
 				t.NewSubTest(c.name).Run(func(t framework.TestContext) {
