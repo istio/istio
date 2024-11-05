@@ -14,8 +14,6 @@
 package xds_test
 
 import (
-	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/test"
 	"reflect"
 	"testing"
 	"time"
@@ -25,12 +23,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/test"
 )
 
 func TestNDS(t *testing.T) {
