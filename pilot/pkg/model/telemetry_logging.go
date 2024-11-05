@@ -182,7 +182,9 @@ func filterStateObjectsToLog(proxy *Proxy) []string {
 	return envoyWasmStateToLog
 }
 
-func tcpGrpcAccessLogFromTelemetry(push *PushContext, proxy *Proxy, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider) *accesslog.AccessLog {
+func tcpGrpcAccessLogFromTelemetry(push *PushContext, proxy *Proxy,
+	prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider,
+) *accesslog.AccessLog {
 	logName := TCPEnvoyAccessLogFriendlyName
 	if prov != nil && prov.LogName != "" {
 		logName = prov.LogName
@@ -342,7 +344,9 @@ func accessLogTextFormatters(text string) []*core.TypedExtensionConfig {
 	return formatters
 }
 
-func httpGrpcAccessLogFromTelemetry(push *PushContext, proxy *Proxy, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) *accesslog.AccessLog {
+func httpGrpcAccessLogFromTelemetry(push *PushContext, proxy *Proxy,
+	prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider,
+) *accesslog.AccessLog {
 	logName := HTTPEnvoyAccessLogFriendlyName
 	if prov != nil && prov.LogName != "" {
 		logName = prov.LogName
@@ -486,7 +490,9 @@ func openTelemetryLog(pushCtx *PushContext, proxy *Proxy,
 	}
 }
 
-func buildOpenTelemetryAccessLogConfig(proxy *Proxy, logName, hostname, clusterName, format string, labels *structpb.Struct) *otelaccesslog.OpenTelemetryAccessLogConfig {
+func buildOpenTelemetryAccessLogConfig(proxy *Proxy,
+	logName, hostname, clusterName, format string, labels *structpb.Struct,
+) *otelaccesslog.OpenTelemetryAccessLogConfig {
 	cfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: logName,
