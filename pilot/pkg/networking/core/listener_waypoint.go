@@ -17,6 +17,7 @@ package core
 import (
 	"fmt"
 	"net/netip"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	envoymatcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -624,6 +626,7 @@ func (lb *ListenerBuilder) translateWaypointRoute(
 	match *networking.HTTPMatchRequest,
 	listenPort int,
 ) *route.Route {
+	gatewaySemantics := model.UseGatewaySemantics(virtualService)
 	// When building routes, it's okay if the target cluster cannot be
 	// resolved Traffic to such clusters will blackhole.
 
@@ -657,7 +660,7 @@ func (lb *ListenerBuilder) translateWaypointRoute(
 	} else if in.DirectResponse != nil {
 		istio_route.ApplyDirectResponse(out, in.DirectResponse)
 	} else {
-		lb.waypointRouteDestination(out, in, authority, listenPort)
+		lb.waypointRouteDestination(out, in, authority, listenPort, gatewaySemantics)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -676,7 +679,13 @@ func (lb *ListenerBuilder) translateWaypointRoute(
 	return out
 }
 
-func (lb *ListenerBuilder) waypointRouteDestination(out *route.Route, in *networking.HTTPRoute, authority string, listenerPort int) {
+func (lb *ListenerBuilder) waypointRouteDestination(
+	out *route.Route,
+	in *networking.HTTPRoute,
+	authority string,
+	listenerPort int,
+	gatewaySemantics bool,
+) {
 	policy := in.Retries
 	if policy == nil {
 		// No VS policy set, use mesh defaults
@@ -698,7 +707,27 @@ func (lb *ListenerBuilder) waypointRouteDestination(out *route.Route, in *networ
 	out.Action = &route.Route_Route{Route: action}
 
 	if in.Rewrite != nil {
-		action.PrefixRewrite = in.Rewrite.GetUri()
+		if regexRewrite := in.Rewrite.GetUriRegexRewrite(); regexRewrite != nil {
+			action.RegexRewrite = &envoymatcher.RegexMatchAndSubstitute{
+				Pattern: &envoymatcher.RegexMatcher{
+					Regex: regexRewrite.Match,
+				},
+				Substitution: regexRewrite.Rewrite,
+			}
+		} else if uri := in.Rewrite.GetUri(); uri != "" {
+			if gatewaySemantics && uri == "/" {
+				// remove the prefix
+				action.RegexRewrite = &envoymatcher.RegexMatchAndSubstitute{
+					Pattern: &envoymatcher.RegexMatcher{
+						Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(out.Match.GetPathSeparatedPrefix())),
+					},
+					// hold `/` in case the entire path is removed
+					Substitution: `/\2`,
+				}
+			} else {
+				action.PrefixRewrite = uri
+			}
+		}
 		if in.Rewrite.GetAuthority() != "" {
 			authority = in.Rewrite.GetAuthority()
 		}
