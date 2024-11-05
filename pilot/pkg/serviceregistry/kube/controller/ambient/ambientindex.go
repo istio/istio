@@ -123,11 +123,13 @@ type Options struct {
 	LookupNetwork         LookupNetwork
 	LookupNetworkGateways LookupNetworkGateways
 	StatusNotifier        *activenotifier.ActiveNotifier
+
+	Debugger *krt.DebugHandler
 }
 
 func New(options Options) Index {
 	a := &index{
-		networkUpdateTrigger: krt.NewRecomputeTrigger(false),
+		networkUpdateTrigger: krt.NewRecomputeTrigger(false, krt.WithName("NetworkTrigger")),
 
 		SystemNamespace:       options.SystemNamespace,
 		DomainSuffix:          options.DomainSuffix,
@@ -140,53 +142,54 @@ func New(options Options) Index {
 	filter := kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
 	}
-	ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, krt.WithName("ConfigMaps"))
+	withDebug := krt.WithDebugging(options.Debugger)
+	ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, krt.WithName("ConfigMaps"), withDebug)
 
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
 		gvr.AuthorizationPolicy, kubetypes.StandardInformer, filter)
-	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, krt.WithName("AuthorizationPolicies"))
+	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, krt.WithName("AuthorizationPolicies"), withDebug)
 
 	peerAuths := kclient.NewDelayedInformer[*securityclient.PeerAuthentication](options.Client,
 		gvr.PeerAuthentication, kubetypes.StandardInformer, filter)
-	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, krt.WithName("PeerAuthentications"))
+	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, krt.WithName("PeerAuthentications"), withDebug)
 
 	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](options.Client,
 		gvr.ServiceEntry, kubetypes.StandardInformer, filter)
-	ServiceEntries := krt.WrapClient[*networkingclient.ServiceEntry](serviceEntries, krt.WithName("ServiceEntries"))
+	ServiceEntries := krt.WrapClient[*networkingclient.ServiceEntry](serviceEntries, krt.WithName("ServiceEntries"), withDebug)
 
 	workloadEntries := kclient.NewDelayedInformer[*networkingclient.WorkloadEntry](options.Client,
 		gvr.WorkloadEntry, kubetypes.StandardInformer, filter)
-	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, krt.WithName("WorkloadEntries"))
+	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, krt.WithName("WorkloadEntries"), withDebug)
 
 	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](options.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
-	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, krt.WithName("Gateways"))
+	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, krt.WithName("Gateways"), withDebug)
 
 	gatewayClassClient := kclient.NewDelayedInformer[*v1beta1.GatewayClass](options.Client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
-	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, krt.WithName("GatewayClasses"))
+	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, krt.WithName("GatewayClasses"), withDebug)
 
 	servicesClient := kclient.NewFiltered[*v1.Service](options.Client, filter)
-	Services := krt.WrapClient[*v1.Service](servicesClient, krt.WithName("Services"))
+	Services := krt.WrapClient[*v1.Service](servicesClient, krt.WithName("Services"), withDebug)
 	Nodes := krt.NewInformerFiltered[*v1.Node](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripNodeUnusedFields,
-	}, krt.WithName("Nodes"))
+	}, krt.WithName("Nodes"), withDebug)
 	Pods := krt.NewInformerFiltered[*v1.Pod](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
-	}, krt.WithName("Pods"))
+	}, krt.WithName("Pods"), withDebug)
 
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
-	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, krt.WithName("Namespaces"))
+	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, krt.WithName("Namespaces"), withDebug)
 
 	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
-	}, krt.WithName("EndpointSlices"))
+	}, krt.WithName("EndpointSlices"), withDebug)
 
-	MeshConfig := MeshConfigCollection(ConfigMaps, options)
-	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods)
+	MeshConfig := MeshConfigCollection(ConfigMaps, options, withDebug)
+	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods, withDebug)
 
 	// AllPolicies includes peer-authentication converted policies
-	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints)
+	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints, withDebug)
 	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater,
 		func(i model.WorkloadAuthorization) model.ConfigKey {
 			if i.Authorization == nil {
@@ -199,7 +202,7 @@ func New(options Options) Index {
 	servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
 
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces)
+	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces, withDebug)
 
 	WaypointPolicyStatus := WaypointPolicyStatusCollection(
 		AuthzPolicies,
@@ -207,6 +210,7 @@ func New(options Options) Index {
 		Services,
 		ServiceEntries,
 		Namespaces,
+		withDebug,
 	)
 
 	authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
@@ -270,6 +274,7 @@ func New(options Options) Index {
 		ServiceEntries,
 		EndpointSlices,
 		Namespaces,
+		withDebug,
 	)
 
 	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, networkAddressFromWorkload)
@@ -311,6 +316,7 @@ func New(options Options) Index {
 			WorkloadServiceIndex,
 			WorkloadServices,
 			ServiceAddressIndex,
+			withDebug,
 		)
 	}
 

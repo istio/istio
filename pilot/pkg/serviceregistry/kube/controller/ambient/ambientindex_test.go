@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -1486,6 +1487,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	} {
 		clienttest.MakeCRD(t, cl, crd)
 	}
+	debugger := &krt.DebugHandler{}
 	idx := New(Options{
 		Client:          cl,
 		SystemNamespace: systemNS,
@@ -1499,19 +1501,12 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 			return nil
 		},
 		StatusNotifier: activenotifier.New(true),
+		Debugger:       debugger,
 	})
 	idx.NetworksSynced()
 	cl.RunAndWait(test.NewStop(t))
 
-	t.Cleanup(func() {
-		if t.Failed() {
-			idx := idx.(*index)
-			krt.Dump(idx.authorizationPolicies)
-			krt.Dump(idx.workloads.Collection)
-			krt.Dump(idx.services.Collection)
-			krt.Dump(idx.waypoints.Collection)
-		}
-	})
+	dumpOnFailure(t, debugger)
 	a := &ambientTestServer{
 		t:         t,
 		clusterID: clusterID,
@@ -1549,6 +1544,15 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	})
 
 	return a
+}
+
+func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
+	t.Cleanup(func() {
+		if t.Failed() {
+			b, _ := yaml.Marshal(debugger)
+			t.Log(string(b))
+		}
+	})
 }
 
 func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType string, ready bool) {

@@ -28,7 +28,7 @@ echo-proto:
 	buf generate --config $(BUF_CONFIG_DIR)/buf.yaml --path pkg/test/echo --output pkg --template $(BUF_CONFIG_DIR)/buf.golang.yaml
 
 workload-proto:
-	buf generate --config $(BUF_CONFIG_DIR)/buf.yaml --path pkg/workloadapi --output pkg --template $(BUF_CONFIG_DIR)/buf.golang.yaml
+	buf generate --config $(BUF_CONFIG_DIR)/buf.yaml --path pkg/workloadapi --output pkg --template $(BUF_CONFIG_DIR)/buf.golang-json.yaml
 
 zds-proto:
 	buf generate --config $(BUF_CONFIG_DIR)/buf.yaml --path pkg/zdsapi --output pkg --template $(BUF_CONFIG_DIR)/buf.golang.yaml

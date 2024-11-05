@@ -159,24 +159,40 @@ func (h *manyCollection[I, O]) Synced() Syncer {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (h *manyCollection[I, O]) dump() {
+func (h *manyCollection[I, O]) dump() CollectionDump {
 	h.recomputeMu.Lock()
 	defer h.recomputeMu.Unlock()
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.log.Errorf(">>> BEGIN DUMP")
-	for k, deps := range h.objectDependencies {
-		for _, dep := range deps {
-			h.log.Errorf("Dependencies for: %v: %v (%v)", k, dep.collectionName, dep.filter)
+
+	inputs := make(map[string]InputDump, len(h.collectionState.inputs))
+	for k, v := range h.collectionState.mappings {
+		output := make([]string, 0, len(v))
+		for vv := range v {
+			output = append(output, string(vv))
+		}
+		slices.Sort(output)
+		inputs[string(k)] = InputDump{
+			Outputs:      output,
+			Dependencies: nil, // filled later
 		}
 	}
-	for i, os := range h.collectionState.mappings {
-		h.log.Errorf("Input %v -> %v", i, os.UnsortedList())
+	for k, deps := range h.objectDependencies {
+		depss := make([]string, 0, len(deps))
+		for _, dep := range deps {
+			depss = append(depss, dep.collectionName)
+		}
+		slices.Sort(depss)
+		cur := inputs[string(k)]
+		cur.Dependencies = depss
+		inputs[string(k)] = cur
 	}
-	for os, o := range h.collectionState.outputs {
-		h.log.Errorf("Output %v -> %v", os, o)
+
+	return CollectionDump{
+		Outputs:         eraseMap(h.collectionState.outputs),
+		Inputs:          inputs,
+		InputCollection: h.parent.(internalCollection[I]).name(),
 	}
-	h.log.Errorf("<<< END DUMP")
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -374,6 +390,13 @@ func WithStop(stop <-chan struct{}) CollectionOption {
 	}
 }
 
+// WithDebugging enables debugging of the collection
+func WithDebugging(handler *DebugHandler) CollectionOption {
+	return func(c *collectionOptions) {
+		c.debugger = handler
+	}
+}
+
 // NewCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
 // This applies for one-to-one relationships between I and O.
 // For zero-to-one, use NewSingleton. For one-to-many, use NewManyCollection.
@@ -424,6 +447,7 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 		synced:        make(chan struct{}),
 		stop:          opts.stop,
 	}
+	maybeRegisterCollectionForDebugging(h, opts.debugger)
 	go func() {
 		// Wait for primary dependency to be ready
 		if !c.Synced().WaitUntilSynced(h.stop) {

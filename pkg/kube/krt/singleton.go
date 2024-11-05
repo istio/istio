@@ -15,11 +15,13 @@
 package krt
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 )
 
 // dummyValue is a placeholder value for use with dummyCollection.
@@ -35,7 +37,7 @@ type StaticSingleton[T any] interface {
 	MarkSynced()
 }
 
-func NewStatic[T any](initial *T, startSynced bool) StaticSingleton[T] {
+func NewStatic[T any](initial *T, startSynced bool, opts ...CollectionOption) StaticSingleton[T] {
 	val := new(atomic.Pointer[T])
 	val.Store(initial)
 	x := &static[T]{
@@ -45,15 +47,22 @@ func NewStatic[T any](initial *T, startSynced bool) StaticSingleton[T] {
 		eventHandlers: &handlers[T]{},
 	}
 	x.synced.Store(startSynced)
+	o := buildCollectionOptions(opts...)
+	if o.name == "" {
+		o.name = fmt.Sprintf("Static[%v]", ptr.TypeName[T]())
+	}
+	x.collectionName = o.name
+	maybeRegisterCollectionForDebugging(x, o.debugger)
 	return collectionAdapter[T]{x}
 }
 
 // static represents a Collection of a single static value. This can be explicitly Set() to override it
 type static[T any] struct {
-	val           *atomic.Pointer[T]
-	synced        *atomic.Bool
-	id            collectionUID
-	eventHandlers *handlers[T]
+	val            *atomic.Pointer[T]
+	synced         *atomic.Bool
+	id             collectionUID
+	eventHandlers  *handlers[T]
+	collectionName string
 }
 
 func (d *static[T]) GetKey(k Key[T]) *T {
@@ -88,7 +97,7 @@ func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExi
 
 func (d *static[T]) Synced() Syncer {
 	return pollSyncer{
-		name: "static",
+		name: d.collectionName,
 		f: func() bool {
 			return d.synced.Load()
 		},
@@ -106,8 +115,12 @@ func (d *static[T]) Set(now *T) {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (d *static[T]) dump() {
-	log.Errorf(">>> static[%v]: %+v<<<", ptr.TypeName[T](), d.val.Load())
+func (d *static[T]) dump() CollectionDump {
+	return CollectionDump{
+		Outputs: map[string]any{
+			"static": d.val.Load(),
+		},
+	}
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -118,7 +131,7 @@ func (d *static[T]) augment(a any) any {
 
 // nolint: unused // (not true, its to implement an interface)
 func (d *static[T]) name() string {
-	return "static"
+	return d.collectionName
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -188,7 +201,10 @@ func NewSingleton[O any](hf TransformationEmpty[O], opts ...CollectionOption) Si
 	// This is an internal construct exclusively for implementing the "Singleton" pattern.
 	// This is so we can represent a singleton (a func() *O) as a collection (a func(I) *O).
 	// dummyCollection just returns a single "I" that is ignored.
-	dummyCollection := NewStatic[dummyValue](&dummyValue{}, true).AsCollection()
+
+	// Disable debugging on the internal static collection, else we end up with duplicates
+	staticOpts := append(slices.Clone(opts), WithDebugging(nil))
+	dummyCollection := NewStatic[dummyValue](&dummyValue{}, true, staticOpts...).AsCollection()
 	col := NewCollection[dummyValue, O](dummyCollection, func(ctx HandlerContext, _ dummyValue) *O {
 		return hf(ctx)
 	}, opts...)
@@ -198,7 +214,9 @@ func NewSingleton[O any](hf TransformationEmpty[O], opts ...CollectionOption) Si
 // NewManyFromNothing is a niche Collection type that doesn't have any input dependencies. This is useful where things
 // only rely on out-of-band data via RecomputeTrigger, for instance.
 func NewManyFromNothing[O any](hf TransformationEmptyToMulti[O], opts ...CollectionOption) Collection[O] {
-	dummyCollection := NewStatic[dummyValue](&dummyValue{}, true).AsCollection()
+	// Disable debugging on the internal static collection, else we end up with duplicates
+	staticOpts := append(slices.Clone(opts), WithDebugging(nil))
+	dummyCollection := NewStatic[dummyValue](&dummyValue{}, true, staticOpts...).AsCollection()
 	col := NewManyCollection[dummyValue, O](dummyCollection, func(ctx HandlerContext, _ dummyValue) []O {
 		return hf(ctx)
 	}, opts...)

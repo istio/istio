@@ -73,7 +73,7 @@ type internalCollection[T any] interface {
 	// Uid is an internal unique ID for this collection. MUST be globally unique
 	uid() collectionUID
 
-	dump()
+	dump() CollectionDump
 
 	// Augment mutates an object for use in various function calls. See WithObjectAugmentation
 	augment(any) any

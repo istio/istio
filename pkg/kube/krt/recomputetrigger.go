@@ -34,8 +34,8 @@ type RecomputeTrigger struct {
 	i *atomic.Int32
 }
 
-func NewRecomputeTrigger(startSynced bool) *RecomputeTrigger {
-	inner := NewStatic[int32](ptr.Of(int32(0)), startSynced)
+func NewRecomputeTrigger(startSynced bool, opts ...CollectionOption) *RecomputeTrigger {
+	inner := NewStatic[int32](ptr.Of(int32(0)), startSynced, opts...)
 	return &RecomputeTrigger{inner: inner, i: atomic.NewInt32(0)}
 }
 
