@@ -187,27 +187,12 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 		cur.Dependencies = depss
 		inputs[string(k)] = cur
 	}
-	// var xx Key[I]
-	// x := h.objectDependencies[xx][0].
 
 	return CollectionDump{
 		Outputs:         eraseMap(h.collectionState.outputs),
 		Inputs:          inputs,
 		InputCollection: h.parent.(internalCollection[I]).name(),
 	}
-	//h.log.Errorf(">>> BEGIN DUMP")
-	//for k, deps := range h.objectDependencies {
-	//	for _, dep := range deps {
-	//		h.log.Errorf("Dependencies for: %v: %v (%v)", k, dep.collectionName, dep.filter)
-	//	}
-	//}
-	//for i, os := range h.collectionState.mappings {
-	//	h.log.Errorf("Input %v -> %v", i, os.UnsortedList())
-	//}
-	//for os, o := range h.collectionState.outputs {
-	//	h.log.Errorf("Output %v -> %v", os, o)
-	//}
-	//h.log.Errorf("<<< END DUMP")
 }
 
 // nolint: unused // (not true, its to implement an interface)

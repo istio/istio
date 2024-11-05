@@ -71,6 +71,7 @@ func maybeRegisterCollectionForDebugging[T any](c Collection[T], handler *DebugH
 	})
 }
 
+// nolint: unused // (not true, not sure why it thinks it is!)
 func eraseMap[T any](l map[Key[T]]T) map[string]any {
 	nm := make(map[string]any, len(l))
 	for k, v := range l {

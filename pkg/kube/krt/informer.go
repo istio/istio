@@ -63,9 +63,7 @@ func (i *informer[I]) Synced() Syncer {
 // nolint: unused // (not true, its to implement an interface)
 func (i *informer[I]) dump() CollectionDump {
 	return CollectionDump{
-		Outputs: eraseMap(slices.GroupUnique(i.inf.List(metav1.NamespaceAll, klabels.Everything()), func(t I) Key[I] {
-			return GetKey(t)
-		})),
+		Outputs: eraseMap(slices.GroupUnique(i.inf.List(metav1.NamespaceAll, klabels.Everything()), GetKey)),
 	}
 }
 
