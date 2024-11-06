@@ -775,13 +775,6 @@ func mergeAllVirtualHosts(vHostPortMap map[int][]*route.VirtualHost) []*route.Vi
 	return virtualHosts
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // getUniqueAndSharedDNSDomain computes the unique and shared DNS suffix from a FQDN service name and
 // the proxy's local domain with namespace. This is especially useful in Kubernetes environments, where
 // a two services can have same name in different namespaces (e.g., foo.ns1.svc.cluster.local,
