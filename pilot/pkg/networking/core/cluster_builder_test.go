@@ -27,6 +27,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/google/go-cmp/cmp"
@@ -1409,6 +1410,18 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 
 			if c.DnsLookupFamily != tt.expectedFamily {
 				t.Errorf("Unexpected DnsLookupFamily, got: %v, want: %v", c.DnsLookupFamily, tt.expectedFamily)
+			}
+
+			if c.TypedDnsResolverConfig.Name != "envoy.network.dns_resolver.cares" {
+				t.Errorf("Unexpected TypedDnsResolverConfig.Name, got: %v, want: envoy.network.dns_resolver.cares", c.TypedDnsResolverConfig.Name)
+			}
+
+			dns_config := new(cares.CaresDnsResolverConfig)
+			if err := c.TypedDnsResolverConfig.TypedConfig.UnmarshalTo(dns_config); err != nil {
+				t.Errorf("Unexpected TypedDnsResolverConfig type, expected cares dns resolver, got: %v", c.TypedDnsResolverConfig.TypedConfig.TypeUrl)
+			}
+			if dns_config.UdpMaxQueries.Value != 0 {
+				t.Errorf("Unexpected UdpMaxQueries, expected default value of: 0, got: %v", dns_config.UdpMaxQueries.Value)
 			}
 		})
 	}

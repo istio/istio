@@ -65,6 +65,13 @@ var (
 	ClusterName = env.Register("CLUSTER_ID", constants.DefaultClusterName,
 		"Defines the cluster and service registry that this Istiod instance belongs to").Get()
 
+	PilotDnsCaresMaxUdpQueries = env.Register("PILOT_DNS_CARES_MAX_UDP_QUERIES", uint32(0),
+		"Sets the `max_udp_queries` option in Envoy for the Cares DNS resolver. "+
+			"Defaults to 0, an unlimited number of connections. "+
+			"See `extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig` in "+
+			"https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/network/dns_resolver/cares/v3/cares_dns_resolver.proto "+
+			"and `ARES_OPT_UDP_MAX_QUERIES` in https://c-ares.org/docs/ares_init.html").Get()
+
 	ExternalIstiod = env.Register("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 
