@@ -109,13 +109,6 @@ func (c *ColoredTableWriter) Flush() {
 	}
 }
 
-func max(x, y int) int {
-	if x < y {
-		return y
-	}
-	return x
-}
-
 func getMaxWidths(output [][]Cell) []int {
 	widths := make([]int, len(output[0]))
 	for _, row := range output {
