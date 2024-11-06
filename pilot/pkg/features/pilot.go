@@ -65,7 +65,7 @@ var (
 	ClusterName = env.Register("CLUSTER_ID", constants.DefaultClusterName,
 		"Defines the cluster and service registry that this Istiod instance belongs to").Get()
 
-	PilotDnsCaresMaxUdpQueries = env.Register("PILOT_DNS_CARES_MAX_UDP_QUERIES", uint32(0),
+	PilotDNSCaresMaxUDPQueries = env.Register("PILOT_DNS_CARES_MAX_UDP_QUERIES", uint32(0),
 		"Sets the `max_udp_queries` option in Envoy for the Cares DNS resolver. "+
 			"Defaults to 0, an unlimited number of connections. "+
 			"See `extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig` in "+

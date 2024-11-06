@@ -302,15 +302,15 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
-		dns_resolver_config, err := anypb.New(&cares.CaresDnsResolverConfig{
-			UdpMaxQueries: &wrappers.UInt32Value{Value: features.PilotDnsCaresMaxUdpQueries},
+		dnsResolverConfig, err := anypb.New(&cares.CaresDnsResolverConfig{
+			UdpMaxQueries: &wrappers.UInt32Value{Value: features.PilotDNSCaresMaxUDPQueries},
 		})
 		if err != nil {
 			log.Warnf("Could not create typed_dns_cluster_config for %s: %s. Using default configuration.", name, err)
 		}
 		c.TypedDnsResolverConfig = &core.TypedExtensionConfig{
 			Name:        "envoy.network.dns_resolver.cares",
-			TypedConfig: dns_resolver_config,
+			TypedConfig: dnsResolverConfig,
 		}
 
 		if networkutil.AllIPv4(cb.proxyIPAddresses) {
