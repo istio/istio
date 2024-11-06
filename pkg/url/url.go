@@ -59,6 +59,9 @@ var (
 	// ReferenceURL is a base URL for reference related docs
 	ReferenceURL = fmt.Sprintf("%s%s", DocsURL, "reference/")
 
+	// ReleaseURL is a base URL for release related docs
+	ReleaseURL = fmt.Sprintf("%s%s", DocsURL, "releases/")
+
 	// IstioOperatorSpec should generate
 	// https://istio.io/v1.7/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec
 	IstioOperatorSpec = fmt.Sprintf("%s%s", ReferenceURL, "config/istio.operator.v1alpha1/#IstioOperatorSpec")
@@ -66,4 +69,8 @@ var (
 	// ConfigAnalysis should generate
 	// https://istio.io/v1.7/docs/reference/config/analysis
 	ConfigAnalysis = fmt.Sprintf("%s%s", ReferenceURL, "config/analysis")
+
+	// SupportedReleases should generate
+	// https://istio.io/v1.22/docs/releases/supported-releases
+	SupportedReleases = fmt.Sprintf("%s%s", ReleaseURL, "supported-releases")
 )

@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/url"
 	pkgVersion "istio.io/istio/pkg/version"
 )
 
@@ -204,52 +205,52 @@ func TestIsK8VersionSupported(t *testing.T) {
 	}{
 		{
 			version: version1_18,
-			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_18.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_18.GitVersion, pkgVersion.Info.Version, MinK8SVersion, url.SupportedReleases),
 			isValid: false,
 		},
 		{
 			version: version1_8,
-			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_8.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_8.GitVersion, pkgVersion.Info.Version, MinK8SVersion, url.SupportedReleases),
 			isValid: false,
 		},
 		{
 			version: version1_17GKE,
-			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_17GKE.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_17GKE.GitVersion, pkgVersion.Info.Version, MinK8SVersion, url.SupportedReleases),
 			isValid: false,
 		},
 		{
 			version: versionInvalid1,
-			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, versionInvalid1.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, versionInvalid1.GitVersion, pkgVersion.Info.Version, MinK8SVersion, url.SupportedReleases),
 			isValid: false,
 		},
 		{
 			version: version1_20,
-			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_20.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_20.GitVersion, pkgVersion.Info.Version, MinK8SVersion, url.SupportedReleases),
 			isValid: false,
 		},
 		{
 			version: version1_22,
-			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_22.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_22.GitVersion, pkgVersion.Info.Version, MinK8SVersion, url.SupportedReleases),
 			isValid: false,
 		},
 		{
 			version: version1_23,
-			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_23.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_23.GitVersion, pkgVersion.Info.Version, MinK8SVersion, url.SupportedReleases),
 			isValid: false,
 		},
 		{
 			version: version1_24,
-			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_24.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_24.GitVersion, pkgVersion.Info.Version, MinK8SVersion, url.SupportedReleases),
 			isValid: false,
 		},
 		{
 			version: version1_25,
-			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_25.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_25.GitVersion, pkgVersion.Info.Version, MinK8SVersion, url.SupportedReleases),
 			isValid: false,
 		},
 		{
 			version: version1_26,
-			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_26.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_26.GitVersion, pkgVersion.Info.Version, MinK8SVersion, url.SupportedReleases),
 			isValid: false,
 		},
 		{

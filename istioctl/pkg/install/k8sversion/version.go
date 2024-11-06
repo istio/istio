@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/url"
 	pkgVersion "istio.io/istio/pkg/version"
 )
 
@@ -31,7 +32,7 @@ const (
 	MinK8SVersion               = 28
 	UnSupportedK8SVersionLogMsg = "\nThe Kubernetes version %s is not supported by Istio %s. The minimum supported Kubernetes version is 1.%d.\n" +
 		"Proceeding with the installation, but you might experience problems. " +
-		"See https://istio.io/latest/docs/releases/supported-releases/ for a list of supported versions.\n"
+		"See %s for a list of supported versions.\n"
 )
 
 // CheckKubernetesVersion checks if this Istio version is supported in the k8s version
@@ -63,7 +64,7 @@ func IsK8VersionSupported(c kube.Client, l clog.Logger) error {
 		return fmt.Errorf("error getting Kubernetes version: %w", err)
 	}
 	if !kube.IsAtLeastVersion(c, MinK8SVersion) {
-		l.LogAndPrintf(UnSupportedK8SVersionLogMsg, serverVersion.GitVersion, pkgVersion.Info.Version, MinK8SVersion)
+		l.LogAndPrintf(UnSupportedK8SVersionLogMsg, serverVersion.GitVersion, pkgVersion.Info.Version, MinK8SVersion, url.SupportedReleases)
 	}
 	return nil
 }
