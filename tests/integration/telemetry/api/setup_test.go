@@ -81,6 +81,12 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	cfg.ControlPlaneValues = `
 meshConfig:
   accessLogFile: "" # disable from install, we will enable via Telemetry layer
+  extensionProviders:
+  - name: filter-state-log
+    envoyFileAccessLog:      
+      path: /dev/stdout
+      logFormat:
+        text: "%FILTER_STATE(upstream_peer)% %FILTER_STATE(downstream_peer)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%\n"
 `
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 	cfg.Values["global.logging.level"] = "xdsproxy:debug,wasm:debug"
