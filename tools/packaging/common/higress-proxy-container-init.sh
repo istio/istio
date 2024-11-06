@@ -1,6 +1,8 @@
 #!/bin/bash
 
 mkdir -p /var/log/proxy
+# Create an empty access log so that the file exists and promtail won't complain.
+touch /var/log/proxy/access.log
 
 mkdir -p /var/lib/istio
 
