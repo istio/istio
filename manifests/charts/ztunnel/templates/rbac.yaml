@@ -7,7 +7,7 @@ imagePullSecrets:
   {{- end }}
   {{- end }}
 metadata:
-  name: ztunnel
+  name: {{ include "ztunnel.release-name" . }}
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/name: ztunnel
@@ -25,10 +25,10 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: ztunnel
+  name: {{ include "ztunnel.release-name" . }}
   labels:
     app: ztunnel
-    release: {{ .Release.Name }}
+    release: {{ include "ztunnel.release-name" . }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     app.kubernetes.io/name: ztunnel
     {{- include "istio.labels" . | nindent 4}}
@@ -48,10 +48,10 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: ztunnel
+  name: {{ include "ztunnel.release-name" . }}
   labels:
     app: ztunnel
-    release: {{ .Release.Name }}
+    release: {{ include "ztunnel.release-name" . }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     app.kubernetes.io/name: ztunnel
     {{- include "istio.labels" . | nindent 4}}
@@ -65,10 +65,10 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: ztunnel
+  name: {{ include "ztunnel.release-name" . }}
 subjects:
 - kind: ServiceAccount
-  name: ztunnel
+  name: {{ include "ztunnel.release-name" . }}
   namespace: {{ .Release.Namespace }}
 {{- end }}
 ---
