@@ -16,9 +16,11 @@ package core_test
 import (
 	"testing"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -256,6 +258,9 @@ spec:
 `
 
 func TestServiceEntryDuplicatedHostname(t *testing.T) {
+	// Only the old IP auto-allocator has this functionality
+	// TODO(https://github.com/istio/istio/issues/53676): implement this in the new one, and test both
+	test.SetForTest(t, &features.EnableIPAutoallocate, false)
 	cases := []simulationTest{
 		{
 			name:   "service entries with reused hosts should have auto allocated the same IP address",

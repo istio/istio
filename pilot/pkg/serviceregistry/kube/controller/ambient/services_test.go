@@ -27,7 +27,6 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
@@ -440,7 +439,6 @@ func TestServiceEntryServices(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			features.EnableIPAutoallocate = true
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest()
 			builder := a.serviceEntryServiceBuilder(

@@ -738,7 +738,6 @@ func makeInstance(cfg *config.Config, addresses []string, port int,
 }
 
 func TestConvertService(t *testing.T) {
-	test.SetForTest(t, &features.EnableIPAutoallocate, true)
 	testConvertServiceBody(t)
 	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
 	testConvertServiceBody(t)

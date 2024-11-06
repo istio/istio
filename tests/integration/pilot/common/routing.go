@@ -3829,8 +3829,8 @@ spec:
 			statusCode: http.StatusOK,
 			from:       t.Apps.A,
 			to:         fakeExternalAddress,
-			protocol:   protocol.HTTPS,
-			port:       443,
+			protocol:   protocol.HTTP,
+			port:       80,
 		},
 		// TC3: Test connectivity to external service from outboundTrafficPolicy=PASS_THROUGH pod.
 		// Traffic should go through without the need for any explicit ServiceEntry

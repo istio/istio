@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 53596
+releaseNotes:
+  - |
+    **Promoted** the `PILOT_ENABLE_IP_AUTOALLOCATE` value to default to `true`.
+    This enables the new iteration of [IP auto-allocation](/docs/ops/configuration/traffic-management/dns-proxy/#address-auto-allocation),
+    fixing long-standing issues around allocation instability, ambient support, and increased visibility.
+    `ServiceEntry` objects without `spec.address` set will now see a new field, `status.addresses`, automatically set.
+    Note these will not be used unless proxies are configured to do DNS proxying, which remains off-by-default.
