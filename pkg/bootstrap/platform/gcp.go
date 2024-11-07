@@ -88,6 +88,7 @@ var (
 	numericProjectIDFn = metadata.NumericProjectID
 	instanceNameFn     = metadata.InstanceName
 	instanceIDFn       = metadata.InstanceID
+	zoneFn             = metadata.ZoneWithContext
 
 	clusterNameFn = func() (string, error) {
 		cn, err := metadata.InstanceAttributeValue("cluster-name")
@@ -272,7 +273,7 @@ func (e *gcpEnv) getPodZone() (string, error) {
 	}
 	ctx, cfn := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cfn()
-	z, err := metadata.ZoneWithContext(ctx)
+	z, err := zoneFn(ctx)
 	if err != nil {
 		return "", err
 	}
