@@ -34,7 +34,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -1358,9 +1357,8 @@ func TestClusterDnsConfig(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.PilotDnsCaresMaxUdpQueries, tt.udpMaxQueries)
 			mesh := testMesh()
-			mesh.CaresDnsResolverUdpMaxQueries = wrapperspb.UInt32(tt.udpMaxQueries)
-
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
 			cb := NewClusterBuilder(cg.SetupProxy(tt.proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
 			service := &model.Service{
