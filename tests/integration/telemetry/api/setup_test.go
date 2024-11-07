@@ -86,7 +86,7 @@ meshConfig:
     envoyFileAccessLog:      
       path: /dev/stdout
       logFormat:
-        text: "%FILTER_STATE(upstream_peer)% %FILTER_STATE(downstream_peer)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%\n"
+        text: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %FILTER_STATE('upstream_peer')% %FILTER_STATE('downstream_peer')%\n"
 `
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 	cfg.Values["global.logging.level"] = "xdsproxy:debug,wasm:debug"
@@ -135,9 +135,6 @@ proxyMetadata:
 		return err
 	}
 
-	if err != nil {
-		return err
-	}
 	for _, c := range ctx.Clusters() {
 		ingr = append(ingr, ist.IngressFor(c))
 	}
