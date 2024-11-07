@@ -86,7 +86,7 @@ meshConfig:
     envoyFileAccessLog:      
       path: /dev/stdout
       logFormat:
-        text: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %FILTER_STATE('upstream_peer')% %FILTER_STATE('downstream_peer')%\n"
+        text: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %FILTER_STATE(upstream_peer)% %FILTER_STATE(downstream_peer)%\n"
 `
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 	cfg.Values["global.logging.level"] = "xdsproxy:debug,wasm:debug"
