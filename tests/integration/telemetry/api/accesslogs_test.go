@@ -110,7 +110,7 @@ defaultProviders:
 		})
 }
 
-func TestFilterStateAccessLog(t *testing.T) {
+func TestAccessLogWithFilterState(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			t.ConfigIstio().File(apps.Namespace.Name(), "./testdata/accesslog/enable-filter-state-log.yaml").ApplyOrFail(t)
