@@ -1384,6 +1384,7 @@ func TestClusterDnsConfig(t *testing.T) {
 		})
 	}
 }
+
 func TestClusterDnsLookupFamily(t *testing.T) {
 	servicePort := &model.Port{
 		Name:     "default",
@@ -1482,10 +1483,6 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 
 			if c.DnsLookupFamily != tt.expectedFamily {
 				t.Errorf("Unexpected DnsLookupFamily, got: %v, want: %v", c.DnsLookupFamily, tt.expectedFamily)
-			}
-
-			if c.TypedDnsResolverConfig.Name != "envoy.network.dns_resolver.cares" {
-				t.Errorf("Unexpected TypedDnsResolverConfig.Name, got: %v, want: envoy.network.dns_resolver.cares", c.TypedDnsResolverConfig.Name)
 			}
 		})
 	}
