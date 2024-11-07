@@ -33,7 +33,7 @@ func TestMerge(t *testing.T) {
 
 	assert.Equal(t, dstListener.ListenerFiltersTimeout, src)
 
-	// src duration not changed after merge
-	assert.Equal(t, src, &durationpb.Duration{Seconds: 123, Nanos: 456})
+	// dst duration not changed after merge
+	assert.Equal(t, dst, &durationpb.Duration{Seconds: 789, Nanos: 999})
 
 }
