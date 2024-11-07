@@ -110,7 +110,7 @@ defaultProviders:
 		})
 }
 
-func TestFilterStateAccessLog(t *testing.T) {
+func TestAccessLogWithFilterState(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			t.ConfigIstio().File(apps.Namespace.Name(), "./testdata/accesslog/enable-filter-state-log.yaml").ApplyOrFail(t)
@@ -127,13 +127,17 @@ func TestFilterStateAccessLog(t *testing.T) {
 					},
 				})
 				lines := logs(t, to, "filter-state-test")
+				if len(lines) == 0 {
+					return errors.New("no logs found")
+				}
 				// if FILTER_STATE is not working, then the log will look like this:
 				// `/filter-state-test - -`
 				target := fmt.Sprintf("/%s - -", "filter-state-test")
 				for _, line := range lines {
+					t.Logf("line: %s", line)
 					if line == target {
-						t.Logf("FILTER_STATE is present in the logs, logs: %s", line)
-						return errors.New("FILTER_STATE is present in the logs")
+						t.Logf("FILTER_STATE is not working, logs: %s", line)
+						return errors.New("FILTER_STATE is not working")
 					}
 				}
 				return nil
