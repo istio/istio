@@ -943,6 +943,19 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(redirectAction.Redirect.ResponseCode).To(Equal(envoyroute.RedirectAction_PERMANENT_REDIRECT))
 	})
 
+	t.Run("for invalid redirect code", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithInvalidRedirect, serviceRegistry,
+			nil, 8080, gatewayNames, route.RouteOptions{})
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+
+		_, ok := routes[0].Action.(*envoyroute.Route_Redirect)
+		g.Expect(ok).To(BeFalse())
+	})
+
 	t.Run("for path prefix redirect", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
@@ -1866,6 +1879,26 @@ var virtualServiceWithRedirect = config.Config{
 					Uri:          "example.org",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithInvalidRedirect = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 317,
 				},
 			},
 		},
