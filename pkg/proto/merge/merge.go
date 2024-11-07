@@ -48,11 +48,7 @@ func MergeFunctionOptionFn(name protoreflect.FullName, function MergeFunction) O
 
 // ReplaceMergeFn instead of merging all subfields one by one, takes src and set it to dest
 var ReplaceMergeFn MergeFunction = func(dst, src protoreflect.Message) protoreflect.Message {
-	protoMsg, ok := dst.Interface().(proto.Message)
-	if !ok {
-		panic("failed to convert protoreflect.Message to proto.Message")
-	}
-
+	protoMsg := dst.Interface()
 	// Clone the proto.Message
 	dst = proto.Clone(protoMsg).ProtoReflect()
 

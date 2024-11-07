@@ -19,6 +19,7 @@ import (
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
+
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -35,5 +36,4 @@ func TestMerge(t *testing.T) {
 
 	// dst duration not changed after merge
 	assert.Equal(t, dst, &durationpb.Duration{Seconds: 789, Nanos: 999})
-
 }
