@@ -4,6 +4,7 @@ go 1.23
 
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
+replace istio.io/api => /home/sj/api
 
 require (
 	cloud.google.com/go/compute/metadata v0.5.2

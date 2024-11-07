@@ -34,6 +34,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -1312,6 +1313,77 @@ func TestBuildDefaultCluster(t *testing.T) {
 	}
 }
 
+func TestClusterDnsConfig(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     8080,
+		Protocol: protocol.HTTP,
+	}
+
+	endpoints := []*endpoint.LocalityLbEndpoints{
+		{
+			Locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			LbEndpoints: []*endpoint.LbEndpoint{},
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: 1,
+			},
+			Priority: 0,
+		},
+	}
+
+	cases := []struct {
+		name          string
+		udpMaxQueries uint32
+		proxy         *model.Proxy
+	}{
+		{
+			name:          "Dual stack proxy",
+			udpMaxQueries: 99,
+			proxy:         &dualStackProxy,
+		},
+		{
+			name:          "IPv4 proxy",
+			udpMaxQueries: 0,
+			proxy:         &dualStackProxy,
+		},
+		{
+			name:          "IPv6 proxy",
+			udpMaxQueries: 1,
+			proxy:         &dualStackProxy,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mesh := testMesh()
+			mesh.CaresDnsResolverUdpMaxQueries = wrapperspb.UInt32(tt.udpMaxQueries)
+
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
+			cb := NewClusterBuilder(cg.SetupProxy(tt.proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+			service := &model.Service{
+				Ports: model.PortList{
+					servicePort,
+				},
+				Hostname:     "host",
+				MeshExternal: false,
+				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
+			}
+			defaultCluster := cb.buildCluster("my-cluster", cluster.Cluster_STRICT_DNS, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil, "")
+			c := defaultCluster.build()
+
+			dnsConfig := new(cares.CaresDnsResolverConfig)
+			if err := c.TypedDnsResolverConfig.TypedConfig.UnmarshalTo(dnsConfig); err != nil {
+				t.Errorf("Unexpected TypedDnsResolverConfig type, expected cares dns resolver, got: %v", c.TypedDnsResolverConfig.TypedConfig.TypeUrl)
+			}
+			if dnsConfig.UdpMaxQueries.Value != tt.udpMaxQueries {
+				t.Errorf("Unexpected UdpMaxQueries, expected : %v, got: %v", tt.udpMaxQueries, dnsConfig.UdpMaxQueries.Value)
+			}
+		})
+	}
+}
 func TestClusterDnsLookupFamily(t *testing.T) {
 	servicePort := &model.Port{
 		Name:     "default",
@@ -1414,14 +1486,6 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 
 			if c.TypedDnsResolverConfig.Name != "envoy.network.dns_resolver.cares" {
 				t.Errorf("Unexpected TypedDnsResolverConfig.Name, got: %v, want: envoy.network.dns_resolver.cares", c.TypedDnsResolverConfig.Name)
-			}
-
-			dnsConfig := new(cares.CaresDnsResolverConfig)
-			if err := c.TypedDnsResolverConfig.TypedConfig.UnmarshalTo(dnsConfig); err != nil {
-				t.Errorf("Unexpected TypedDnsResolverConfig type, expected cares dns resolver, got: %v", c.TypedDnsResolverConfig.TypedConfig.TypeUrl)
-			}
-			if dnsConfig.UdpMaxQueries.Value != 0 {
-				t.Errorf("Unexpected UdpMaxQueries, expected default value of: 0, got: %v", dnsConfig.UdpMaxQueries.Value)
 			}
 		})
 	}

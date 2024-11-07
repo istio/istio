@@ -302,17 +302,6 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
-		dnsResolverConfig, err := anypb.New(&cares.CaresDnsResolverConfig{
-			UdpMaxQueries: &wrappers.UInt32Value{Value: features.PilotDNSCaresMaxUDPQueries},
-		})
-		if err != nil {
-			log.Warnf("Could not create typed_dns_cluster_config for %s: %s. Using default configuration.", name, err)
-		}
-		c.TypedDnsResolverConfig = &core.TypedExtensionConfig{
-			Name:        "envoy.network.dns_resolver.cares",
-			TypedConfig: dnsResolverConfig,
-		}
-
 		if networkutil.AllIPv4(cb.proxyIPAddresses) {
 			// IPv4 only
 			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
@@ -334,6 +323,17 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 				// keep the original logic if Dual Stack is disable
 				c.DnsLookupFamily = cluster.Cluster_V4_ONLY
 			}
+		}
+
+		dnsResolverConfig, err := anypb.New(&cares.CaresDnsResolverConfig{
+			UdpMaxQueries: protomarshal.ShallowClone(cb.req.Push.Mesh.CaresDnsResolverUdpMaxQueries),
+		})
+		if err != nil {
+			log.Warnf("Could not create typed_dns_cluster_config for %s: %s. Using default configuration.", name, err)
+		}
+		c.TypedDnsResolverConfig = &core.TypedExtensionConfig{
+			Name:        "envoy.network.dns_resolver.cares",
+			TypedConfig: dnsResolverConfig,
 		}
 		c.DnsRefreshRate = protomarshal.ShallowClone(cb.req.Push.Mesh.DnsRefreshRate)
 		c.RespectDnsTtl = true
