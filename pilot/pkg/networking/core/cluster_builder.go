@@ -328,10 +328,11 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		})
 		if err != nil {
 			log.Warnf("Could not create typed_dns_cluster_config for %s: %s. Using default configuration.", name, err)
-		}
-		c.TypedDnsResolverConfig = &core.TypedExtensionConfig{
-			Name:        "envoy.network.dns_resolver.cares",
-			TypedConfig: dnsResolverConfig,
+		} else {
+			c.TypedDnsResolverConfig = &core.TypedExtensionConfig{
+				Name:        "envoy.network.dns_resolver.cares",
+				TypedConfig: dnsResolverConfig,
+			}
 		}
 		c.DnsRefreshRate = cb.req.Push.Mesh.DnsRefreshRate
 		c.RespectDnsTtl = true
