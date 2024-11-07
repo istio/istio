@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** merging Duration with a envoyfilter can lead to all listeners associated attributes unexpectedly modified becasue all listeners share a same pointer typed `listener_filters_timeout`.
