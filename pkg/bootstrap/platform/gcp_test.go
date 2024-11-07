@@ -450,3 +450,42 @@ func TestLocality(t *testing.T) {
 		})
 	}
 }
+
+func TestZoneToRegion(t *testing.T) {
+	tests := []struct {
+		zone       string
+		wantRegion string
+		wantErr    bool
+	}{
+		{
+			zone:       "us-central1-f",
+			wantRegion: "us-central1",
+		},
+		{
+			zone:    "us-central1",
+			wantErr: true,
+		},
+		{
+			zone:    "abcd",
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.zone, func(t *testing.T) {
+			got, err := zoneToRegion(tc.zone)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error was not raised")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error was raised")
+				}
+				if got != tc.wantRegion {
+					t.Errorf("unexpected region was returned. (got: %v, want: %v)", got, tc.wantRegion)
+				}
+			}
+		})
+	}
+}

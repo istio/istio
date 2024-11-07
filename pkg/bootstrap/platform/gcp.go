@@ -27,6 +27,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"go.uber.org/atomic"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
@@ -148,6 +149,8 @@ type gcpEnv struct {
 	sync.Mutex
 	metadata     map[string]string
 	fillMetadata lazy.Lazy[bool]
+
+	cachedZone atomic.String
 }
 
 // IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
@@ -249,33 +252,64 @@ func waitForMetadataSuppliers(suppliers []metadataSupplier, md map[string]string
 	return &wg
 }
 
+// Zones are in the form <country_code>-<region_suffix>-<zone_suffix>.
+var zoneRE = regexp.MustCompile(`^([^-]+-[^-]+)-[^-]+$`)
+
 // Converts a GCP zone into a region.
 func zoneToRegion(z string) (string, error) {
-	// Zones are in the form <region>-<zone_suffix>, so capture everything but the suffix.
-	re := regexp.MustCompile("(.*)-.*")
-	m := re.FindStringSubmatch(z)
+	m := zoneRE.FindStringSubmatch(z)
 	if len(m) != 2 {
 		return "", fmt.Errorf("unable to extract region from GCP zone: %s", z)
 	}
 	return m[1], nil
 }
 
+// Returns the zone where the pod is located in.
+func (e *gcpEnv) getPodZone() (string, error) {
+	z := e.cachedZone.Load()
+	if z != "" {
+		return z, nil
+	}
+	ctx, cfn := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cfn()
+	z, err := metadata.ZoneWithContext(ctx)
+	if err != nil {
+		return "", err
+	}
+	e.cachedZone.Store(z)
+	return z, nil
+}
+
+// Return the zone guessed from the cluster location.
+func zoneFromClusterLocation(loc string) string {
+	if zoneRE.MatchString(loc) {
+		return loc
+	}
+	// Fallback to "-unknown" zone suffix if the given location is regional.
+	return loc + "-unknown"
+}
+
 // Locality returns the GCP-specific region and zone.
 func (e *gcpEnv) Locality() *core.Locality {
 	var l core.Locality
-	loc := e.Metadata()[GCPLocation]
-	if loc == "" {
-		log.Warnf("Error fetching GCP zone: %v", loc)
-		return &l
+	z, err := e.getPodZone()
+	if err != nil {
+		loc := e.Metadata()[GCPLocation]
+		if loc == "" {
+			log.Warnf("Error fetching GCP zone: %v", loc)
+			return &l
+		}
+		z = zoneFromClusterLocation(loc)
+		log.Warnf("Error fetching GCP Zone: %v. Fallback to %s created from the cluster location", err, z)
 	}
-	r, err := zoneToRegion(loc)
+	r, err := zoneToRegion(z)
 	if err != nil {
 		log.Warnf("Error fetching GCP region: %v", err)
 		return &l
 	}
 	return &core.Locality{
 		Region:  r,
-		Zone:    loc,
+		Zone:    z,
 		SubZone: "", // GCP has no subzone concept
 	}
 }
