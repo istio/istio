@@ -25,6 +25,10 @@ import (
 
 // Define experimental features here.
 var (
+	EnablePassthroughConnections = env.Register("PILOT_ENABLE_PASSTHROUGH_CONNECTIONS", true,
+		"If enabled, HTTP pooling will be disabled on the passthrough cluster. This means each downstream connection will result in one upstream connection. " +
+		"Without this, there may only be a small number of upstream connections, limiting load balancing.").Get()
+
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
 	FilterGatewayClusterConfig = env.Register("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
 		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
