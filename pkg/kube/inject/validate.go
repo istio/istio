@@ -36,7 +36,6 @@ type annotationValidationFunc func(value string) error
 var (
 	AnnotationValidation = map[string]annotationValidationFunc{
 		annotation.SidecarInterceptionMode.Name:                   validateInterceptionMode,
-		annotation.SidecarEnableCoreDump.Name:                     validateBool,
 		annotation.SidecarStatusPort.Name:                         validateStatusPort,
 		annotation.SidecarStatusReadinessInitialDelaySeconds.Name: validateUInt32,
 		annotation.SidecarStatusReadinessPeriodSeconds.Name:       validateUInt32,
