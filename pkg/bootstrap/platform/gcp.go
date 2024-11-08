@@ -271,10 +271,11 @@ func (e *gcpEnv) getPodZone() (string, error) {
 	if z != "" {
 		return z, nil
 	}
-	ctx, cfn := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cfn := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cfn()
 	z, err := zoneFn(ctx)
 	if err != nil {
+		log.Warnf("Error fetching GCP zone from the metadata server: %v", err)
 		return "", err
 	}
 	e.cachedZone.Store(z)
@@ -297,7 +298,7 @@ func (e *gcpEnv) Locality() *core.Locality {
 	if err != nil {
 		loc := e.Metadata()[GCPLocation]
 		if loc == "" {
-			log.Warnf("Error fetching GCP zone: %v", loc)
+			log.Warnf("Error fetching GCP zone from the GCP location: %s", loc)
 			return &l
 		}
 		z = zoneFromClusterLocation(loc)
