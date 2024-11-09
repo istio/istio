@@ -151,7 +151,7 @@ type gcpEnv struct {
 	metadata     map[string]string
 	fillMetadata lazy.Lazy[bool]
 
-	cachedZone atomic.String
+	cachedZone *atomic.String
 }
 
 // IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
@@ -171,6 +171,7 @@ func NewGCP() Environment {
 		fillMetadata: lazy.New(func() (bool, error) {
 			return shouldFillMetadata(), nil
 		}),
+		cachedZone: atomic.NewString(GCPStaticMetadata[os.Getenv("GCP_ZONE")]),
 	}
 }
 
@@ -271,7 +272,7 @@ func (e *gcpEnv) getPodZone() (string, error) {
 	if z != "" {
 		return z, nil
 	}
-	ctx, cfn := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cfn := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cfn()
 	z, err := zoneFn(ctx)
 	if err != nil {
@@ -282,31 +283,16 @@ func (e *gcpEnv) getPodZone() (string, error) {
 	return z, nil
 }
 
-// Return the zone guessed from the cluster location.
-func zoneFromClusterLocation(loc string) string {
-	if zoneRE.MatchString(loc) {
-		return loc
-	}
-	// Fallback to "-unknown" zone suffix if the given location is regional.
-	return loc + "-unknown"
-}
-
 // Locality returns the GCP-specific region and zone.
 func (e *gcpEnv) Locality() *core.Locality {
 	var l core.Locality
 	z, err := e.getPodZone()
 	if err != nil {
-		loc := e.Metadata()[GCPLocation]
-		if loc == "" {
-			log.Warnf("Error fetching GCP zone from the GCP location: %s", loc)
-			return &l
-		}
-		z = zoneFromClusterLocation(loc)
-		log.Warnf("Error fetching GCP Zone: %v. Fallback to %s created from the cluster location", err, z)
+		return &l
 	}
 	r, err := zoneToRegion(z)
 	if err != nil {
-		log.Warnf("Error fetching GCP region: %v", err)
+		log.Warnf("Error fetching GCP region from zone: %v", z, err)
 		return &l
 	}
 	return &core.Locality{
