@@ -49,12 +49,14 @@ const (
 	GCEInstanceTemplate  = "gcp_gce_instance_template"
 	GCEInstanceCreatedBy = "gcp_gce_instance_created_by"
 	GCPQuotaProject      = "gcp_quota_project"
+	GCPZone              = "gcp_zone"
 )
 
 // GCPStaticMetadata holds the statically defined GCP metadata
 var GCPStaticMetadata = func() map[string]string {
 	gcpm := env.Register("GCP_METADATA", "", "Pipe separated GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
 	quota := env.Register("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
+	zone := env.Register("GCP_ZONE", "", "GCP Zone where the workload is running on.").Get()
 	if len(gcpm) == 0 {
 		return map[string]string{}
 	}
@@ -73,6 +75,10 @@ var GCPStaticMetadata = func() map[string]string {
 
 	if clusterURL, err := constructGKEClusterURL(md); err == nil {
 		md[GCPClusterURL] = clusterURL
+	}
+
+	if zone != "" {
+		md[GCPZone] = zone
 	}
 	return md
 }()
@@ -171,7 +177,7 @@ func NewGCP() Environment {
 		fillMetadata: lazy.New(func() (bool, error) {
 			return shouldFillMetadata(), nil
 		}),
-		cachedZone: atomic.NewString(GCPStaticMetadata[os.Getenv("GCP_ZONE")]),
+		cachedZone: atomic.NewString(GCPStaticMetadata[GCPZone]),
 	}
 }
 
