@@ -27,6 +27,7 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"go.uber.org/atomic"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
@@ -48,12 +49,14 @@ const (
 	GCEInstanceTemplate  = "gcp_gce_instance_template"
 	GCEInstanceCreatedBy = "gcp_gce_instance_created_by"
 	GCPQuotaProject      = "gcp_quota_project"
+	GCPZone              = "gcp_zone"
 )
 
 // GCPStaticMetadata holds the statically defined GCP metadata
 var GCPStaticMetadata = func() map[string]string {
 	gcpm := env.Register("GCP_METADATA", "", "Pipe separated GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
 	quota := env.Register("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
+	zone := env.Register("GCP_ZONE", "", "GCP Zone where the workload is running on.").Get()
 	if len(gcpm) == 0 {
 		return map[string]string{}
 	}
@@ -73,6 +76,10 @@ var GCPStaticMetadata = func() map[string]string {
 	if clusterURL, err := constructGKEClusterURL(md); err == nil {
 		md[GCPClusterURL] = clusterURL
 	}
+
+	if zone != "" {
+		md[GCPZone] = zone
+	}
 	return md
 }()
 
@@ -87,6 +94,7 @@ var (
 	numericProjectIDFn = metadata.NumericProjectID
 	instanceNameFn     = metadata.InstanceName
 	instanceIDFn       = metadata.InstanceID
+	zoneFn             = metadata.ZoneWithContext
 
 	clusterNameFn = func() (string, error) {
 		cn, err := metadata.InstanceAttributeValue("cluster-name")
@@ -148,6 +156,8 @@ type gcpEnv struct {
 	sync.Mutex
 	metadata     map[string]string
 	fillMetadata lazy.Lazy[bool]
+
+	cachedZone *atomic.String
 }
 
 // IsGCP returns whether or not the platform for bootstrapping is Google Cloud Platform.
@@ -167,6 +177,7 @@ func NewGCP() Environment {
 		fillMetadata: lazy.New(func() (bool, error) {
 			return shouldFillMetadata(), nil
 		}),
+		cachedZone: atomic.NewString(GCPStaticMetadata[GCPZone]),
 	}
 }
 
@@ -249,33 +260,50 @@ func waitForMetadataSuppliers(suppliers []metadataSupplier, md map[string]string
 	return &wg
 }
 
+// Zones are in the form <country_code>-<region_suffix>-<zone_suffix>.
+var zoneRE = regexp.MustCompile(`^([^-]+-[^-]+)-[^-]+$`)
+
 // Converts a GCP zone into a region.
 func zoneToRegion(z string) (string, error) {
-	// Zones are in the form <region>-<zone_suffix>, so capture everything but the suffix.
-	re := regexp.MustCompile("(.*)-.*")
-	m := re.FindStringSubmatch(z)
+	m := zoneRE.FindStringSubmatch(z)
 	if len(m) != 2 {
 		return "", fmt.Errorf("unable to extract region from GCP zone: %s", z)
 	}
 	return m[1], nil
 }
 
+// Returns the zone where the pod is located in.
+func (e *gcpEnv) getPodZone() (string, error) {
+	z := e.cachedZone.Load()
+	if z != "" {
+		return z, nil
+	}
+	ctx, cfn := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cfn()
+	z, err := zoneFn(ctx)
+	if err != nil {
+		log.Warnf("Error fetching GCP zone from the metadata server: %v", err)
+		return "", err
+	}
+	e.cachedZone.Store(z)
+	return z, nil
+}
+
 // Locality returns the GCP-specific region and zone.
 func (e *gcpEnv) Locality() *core.Locality {
 	var l core.Locality
-	loc := e.Metadata()[GCPLocation]
-	if loc == "" {
-		log.Warnf("Error fetching GCP zone: %v", loc)
+	z, err := e.getPodZone()
+	if err != nil {
 		return &l
 	}
-	r, err := zoneToRegion(loc)
+	r, err := zoneToRegion(z)
 	if err != nil {
-		log.Warnf("Error fetching GCP region: %v", err)
+		log.Warnf("Error fetching GCP region from zone: %v", z, err)
 		return &l
 	}
 	return &core.Locality{
 		Region:  r,
-		Zone:    loc,
+		Zone:    z,
 		SubZone: "", // GCP has no subzone concept
 	}
 }

@@ -15,6 +15,7 @@
 package platform
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -361,77 +362,36 @@ func TestDefaultPort(t *testing.T) {
 
 func TestLocality(t *testing.T) {
 	tests := []struct {
-		name                string
-		shouldFill          shouldFillFn
-		projectIDFn         metadataFn
-		numericProjectIDFn  metadataFn
-		locationFn          metadataFn
-		clusterNameFn       metadataFn
-		instanceNameFn      metadataFn
-		instanceIDFn        metadataFn
-		instanceTemplateFn  metadataFn
-		instanceCreatedByFn metadataFn
-		env                 map[string]string
-		want                map[string]string
+		name   string
+		zoneFn func(context.Context) (string, error)
+		env    map[string]string
+		want   map[string]string
 	}{
 		{
 			"fill by env variable",
-			func() bool { return true },
-			func() (string, error) { return "pid", nil },
-			func() (string, error) { return "npid", nil },
-			func() (string, error) { return "location", nil },
-			func() (string, error) { return "cluster", nil },
-			func() (string, error) { return "instanceName", nil },
-			func() (string, error) { return "instance", nil },
-			func() (string, error) { return "instanceTemplate", nil },
-			func() (string, error) { return "createdBy", nil },
+			func(context.Context) (string, error) { return "us-east1-ir", nil },
 			map[string]string{
-				GCPProject:       "env_pid",
-				GCPProjectNumber: "env_pn",
-				GCPCluster:       "env_cluster",
-				GCPLocation:      "us-west1-ir",
+				GCPZone: "us-central2-ir",
 			},
-			map[string]string{"Zone": "us-west1-ir", "Region": "us-west1"},
+			map[string]string{"Zone": "us-central2-ir", "Region": "us-central2"},
 		},
 		{
-			"no env variable",
-			func() bool { return true },
-			func() (string, error) { return "pid", nil },
-			func() (string, error) { return "npid", nil },
-			func() (string, error) { return "us-west1-ir", nil },
-			func() (string, error) { return "cluster", nil },
-			func() (string, error) { return "instanceName", nil },
-			func() (string, error) { return "instance", nil },
-			func() (string, error) { return "instanceTemplate", nil },
-			func() (string, error) { return "createdBy", nil },
+			"fill by metadata server",
+			func(context.Context) (string, error) { return "us-east1-ir", nil },
 			map[string]string{},
-			map[string]string{"Zone": "us-west1-ir", "Region": "us-west1"},
+			map[string]string{"Zone": "us-east1-ir", "Region": "us-east1"},
 		},
 		{
-			"empty result",
-			func() bool { return false },
-			func() (string, error) { return "pid", nil },
-			func() (string, error) { return "npid", nil },
-			func() (string, error) { return "us-west1-ir", nil },
-			func() (string, error) { return "cluster", nil },
-			func() (string, error) { return "instanceName", nil },
-			func() (string, error) { return "instance", nil },
-			func() (string, error) { return "instanceTemplate", nil },
-			func() (string, error) { return "createdBy", nil },
-			map[string]string{},
-			map[string]string{},
+			"fill by env variable without compute metadata",
+			func(context.Context) (string, error) { return "", errors.New("error") },
+			map[string]string{
+				GCPZone: "us-central2-ir",
+			},
+			map[string]string{"Zone": "us-central2-ir", "Region": "us-central2"},
 		},
 		{
-			"unable to reach compute metadata",
-			func() bool { return true },
-			func() (string, error) { return "", errors.New("error") },
-			func() (string, error) { return "", errors.New("error") },
-			func() (string, error) { return "", errors.New("error") },
-			func() (string, error) { return "cluster", nil },
-			func() (string, error) { return "instanceName", nil },
-			func() (string, error) { return "instance", nil },
-			func() (string, error) { return "instanceTemplate", nil },
-			func() (string, error) { return "createdBy", nil },
+			"no env variable and unable to reach compute metadata",
+			func(context.Context) (string, error) { return "", errors.New("error") },
 			map[string]string{},
 			map[string]string{},
 		},
@@ -439,14 +399,50 @@ func TestLocality(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetForTest(t, &GCPStaticMetadata, tt.env)
-			shouldFillMetadata, projectIDFn, numericProjectIDFn, clusterLocationFn, clusterNameFn,
-				instanceNameFn, instanceIDFn, instanceTemplateFn, createdByFn = tt.shouldFill, tt.projectIDFn,
-				tt.numericProjectIDFn, tt.locationFn, tt.clusterNameFn, tt.instanceNameFn, tt.instanceIDFn, tt.instanceTemplateFn, tt.instanceCreatedByFn
-
+			zoneFn = tt.zoneFn
 			e := NewGCP()
 			got := e.Locality()
 			assert.Equal(t, got.Zone, tt.want["Zone"])
 			assert.Equal(t, got.Region, tt.want["Region"])
+		})
+	}
+}
+
+func TestZoneToRegion(t *testing.T) {
+	tests := []struct {
+		zone       string
+		wantRegion string
+		wantErr    bool
+	}{
+		{
+			zone:       "us-central1-f",
+			wantRegion: "us-central1",
+		},
+		{
+			zone:    "us-central1",
+			wantErr: true,
+		},
+		{
+			zone:    "abcd",
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.zone, func(t *testing.T) {
+			got, err := zoneToRegion(tc.zone)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("expected error was not raised")
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error was raised")
+				}
+				if got != tc.wantRegion {
+					t.Errorf("unexpected region was returned. (got: %v, want: %v)", got, tc.wantRegion)
+				}
+			}
 		})
 	}
 }
