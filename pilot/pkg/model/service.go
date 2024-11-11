@@ -1006,9 +1006,10 @@ func (i ServiceInfo) GetStatusTarget() TypedObject {
 type ConditionType string
 
 const (
-	WaypointBound    ConditionType = "istio.io/WaypointBound"
-	ZtunnelAccepted  ConditionType = "ZtunnelAccepted"
-	WaypointAccepted ConditionType = "WaypointAccepted"
+	WaypointBound        ConditionType = "istio.io/WaypointBound"
+	IngressUsingWaypoint ConditionType = "istio.io/IngressUseWaypoint"
+	ZtunnelAccepted      ConditionType = "ZtunnelAccepted"
+	WaypointAccepted     ConditionType = "WaypointAccepted"
 )
 
 type ConditionSet = map[ConditionType][]Condition
@@ -1024,8 +1025,11 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 	set := map[ConditionType][]Condition{
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
-		WaypointBound: nil,
+		WaypointBound:        nil,
+		IngressUsingWaypoint: nil,
 	}
+	writeError := true
+
 	if i.Waypoint.ResourceName != "" {
 		set[WaypointBound] = []Condition{
 			{
@@ -1035,6 +1039,8 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 			},
 		}
 	} else if i.Waypoint.Error != nil {
+		// if there is no waypoint name, the error will have to do with the waypoint itself, not
+		// the ingress waypoint label.
 		set[WaypointBound] = []Condition{
 			{
 				Status:  false,
@@ -1042,7 +1048,27 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 				Message: i.Waypoint.Error.Message,
 			},
 		}
+		writeError = false
 	}
+
+	if i.Waypoint.IngressUseWaypoint {
+		set[IngressUsingWaypoint] = []Condition{
+			{
+				Status:  true,
+				Reason:  string(WaypointAccepted),
+				Message: fmt.Sprintf("Successfully attached to waypoint %v. Ingress traffic will traverse the waypoint", i.Waypoint.ResourceName),
+			},
+		}
+	} else if writeError && i.Waypoint.Error != nil {
+		set[IngressUsingWaypoint] = []Condition{
+			{
+				Status:  false,
+				Reason:  i.Waypoint.Error.Reason,
+				Message: i.Waypoint.Error.Message,
+			},
+		}
+	}
+
 	return set
 }
 

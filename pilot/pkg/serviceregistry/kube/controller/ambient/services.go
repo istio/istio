@@ -69,7 +69,24 @@ func (a *index) serviceServiceBuilder(
 		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
 		if waypoint != nil {
 			waypointStatus.ResourceName = waypoint.ResourceName()
-			waypointStatus.IngressUseWaypoint = s.Labels["istio.io/ingress-use-waypoint"] == "true"
+
+			// TODO: add this label to the istio api labels so we have constants to use
+			if val, ok := s.Labels["istio.io/ingress-use-waypoint"]; ok {
+				switch val {
+				case "true":
+					waypointStatus.IngressUseWaypoint = true
+				case "false":
+					// nothing to do for false
+					break
+				default:
+					// if the ingress-use-waypoint label is set and the value is not boolean, return a statusmessage with an error.
+					// this error will only apply to the istio.io/IngressUseWaypoint condition.
+					wperr = &model.StatusMessage{
+						Reason:  "UnsupportedValue",
+						Message: "The label \"istio.io/ingress-use-waypoint\" must be set to a boolean value.",
+					}
+				}
+			}
 		}
 		waypointStatus.Error = wperr
 
