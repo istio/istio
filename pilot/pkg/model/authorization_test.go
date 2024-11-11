@@ -408,10 +408,10 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "waypoint service attached",
 			selectionOpts: WorkloadPolicyMatcher{
-				IsWaypoint:        true,
-				Service:           "foo-svc",
-				ServiceNamespace:  "foo",
-				ServiceRegistry:   provider.Kubernetes,
+				IsWaypoint: true,
+				Services: []ServiceInfoForPolicyMatcher{
+					{Name: "foo-svc", Namespace: "foo", Registry: provider.Kubernetes},
+				},
 				WorkloadNamespace: "foo",
 				WorkloadLabels: labels.Instance{
 					label.IoK8sNetworkingGatewayGatewayName.Name: "foo-waypoint",

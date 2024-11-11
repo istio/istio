@@ -2110,7 +2110,19 @@ func (ps *PushContext) initWasmPlugins(env *Environment) {
 
 // WasmPlugins return the WasmPluginWrappers of a proxy.
 func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*WasmPluginWrapper {
-	return ps.WasmPluginsByListenerInfo(proxy, anyListener, WasmPluginTypeAny)
+	listenerInfo := WasmPluginListenerInfo{}
+	if proxy.IsWaypointProxy() {
+		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
+		for i := range servicesInfo {
+			svc, exist := ps.ServiceIndex.HostnameAndNamespace[host.Name(servicesInfo[i].Hostname)][servicesInfo[i].Namespace]
+			if !exist {
+				log.Warnf("cannot find waypoint service in serviceindex, namespace/hostname: %s/%s", servicesInfo[i].Namespace, servicesInfo[i].Hostname)
+				continue
+			}
+			listenerInfo.AddService(svc)
+		}
+	}
+	return ps.WasmPluginsByListenerInfo(proxy, listenerInfo, WasmPluginTypeAny)
 }
 
 func (ps *PushContext) WasmPluginsByName(proxy *Proxy, names []types.NamespacedName) []*WasmPluginWrapper {
@@ -2149,7 +2161,7 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 		lookupInNamespaces = []string{proxy.ConfigNamespace}
 	}
 
-	selectionOpts := PolicyMatcherForProxy(proxy).WithService(info.Service)
+	selectionOpts := PolicyMatcherForProxy(proxy).WithServices(info.Services)
 	for _, ns := range lookupInNamespaces {
 		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
 			for _, plugin := range wasmPlugins {

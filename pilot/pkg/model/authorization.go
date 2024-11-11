@@ -88,17 +88,20 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 
 	rootNamespace := policy.RootNamespace
 	wlNamespace := selectionOpts.WorkloadNamespace
-	svcNamespace := selectionOpts.ServiceNamespace
-	var lookupInNamespaces []string
+	svcNamespaces := make([]string, 0)
+	for _, svc := range selectionOpts.Services {
+		if svc.Namespace != "" {
+			svcNamespaces = append(svcNamespaces, svc.Namespace)
+		}
+	}
 
-	if svcNamespace != "" {
-		lookupInNamespaces = []string{svcNamespace}
-	} else if wlNamespace != rootNamespace {
-		// Only check the root namespace if the (workload) namespace is not already the root namespace
-		// to avoid double inclusion.
-		lookupInNamespaces = []string{rootNamespace, wlNamespace}
-	} else {
-		lookupInNamespaces = []string{wlNamespace}
+	var lookupInNamespaces []string
+	lookupInNamespaces = append(lookupInNamespaces, svcNamespaces...)
+	if len(svcNamespaces) != len(selectionOpts.Services) {
+		lookupInNamespaces = append(lookupInNamespaces, wlNamespace)
+	}
+	if wlNamespace != rootNamespace {
+		lookupInNamespaces = append(lookupInNamespaces, rootNamespace)
 	}
 
 	for _, ns := range lookupInNamespaces {
