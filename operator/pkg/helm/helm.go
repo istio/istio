@@ -46,7 +46,7 @@ func Render(namespace string, directory string, iop values.Map, kubernetesVersio
 	vals, _ := iop.GetPathMap("spec.values")
 	installPackagePath := iop.GetPathString("spec.installPackagePath")
 	f := manifests.BuiltinOrDir(installPackagePath)
-	path := filepath.Join("charts", directory)
+	path := pathJoin("charts", directory)
 	chrt, err := loadChart(f, path)
 	if err != nil {
 		return nil, nil, fmt.Errorf("load chart: %v", err)
