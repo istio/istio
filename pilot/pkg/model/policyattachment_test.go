@@ -92,10 +92,8 @@ func TestPolicyMatcher(t *testing.T) {
 			"app": "my-app",
 			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-waypoint",
 		},
-		IsWaypoint:       true,
-		Service:          "sample-svc",
-		ServiceNamespace: "default",
-		ServiceRegistry:  provider.Kubernetes,
+		IsWaypoint: true,
+		Services:   []ServiceInfoForPolicyMatcher{{Name: "sample-svc", Namespace: "default", Registry: provider.Kubernetes}},
 	}
 	serviceEntryTarget := WorkloadPolicyMatcher{
 		WorkloadNamespace: "default",
@@ -103,10 +101,8 @@ func TestPolicyMatcher(t *testing.T) {
 			"app": "my-app",
 			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-waypoint",
 		},
-		IsWaypoint:       true,
-		ServiceNamespace: "default",
-		Service:          "sample-svc-entry",
-		ServiceRegistry:  provider.External,
+		IsWaypoint: true,
+		Services:   []ServiceInfoForPolicyMatcher{{Name: "sample-svc-entry", Namespace: "default", Registry: provider.External}},
 	}
 	tests := []struct {
 		name                   string
