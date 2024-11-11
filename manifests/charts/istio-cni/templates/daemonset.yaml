@@ -46,7 +46,10 @@ spec:
 {{ toYaml .Values.podAnnotations | indent 8 }}
         {{- end }}
     spec:
-      {{if .Values.ambient.enabled }}hostNetwork: true{{ end }}
+{{if .Values.ambient.enabled }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+{{ end }}
       nodeSelector:
         kubernetes.io/os: linux
       # Can be configured to allow for excluding istio-cni from being scheduled on specified nodes
