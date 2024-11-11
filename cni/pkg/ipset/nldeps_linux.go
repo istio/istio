@@ -39,7 +39,11 @@ func (m *realDeps) ipsetIPHashCreate(name string, v6 bool) error {
 	} else {
 		family = unix.AF_INET
 	}
-	err := netlink.IpsetCreate(name, "hash:ip", netlink.IpsetCreateOptions{Comments: true, Replace: true, Family: family})
+
+	// Note: `vishvananda/netlink` seems to have a bug where it defaults to revision=1 for `hash:ip,port` but defaults to revision=0 for `hash:ip`
+	// This causes breakages in some cases with Docker-based nodes: https://github.com/istio/istio/issues/53512
+	// Setting `Revision=1` here seems to work correctly in all cases found thus far
+	err := netlink.IpsetCreate(name, "hash:ip", netlink.IpsetCreateOptions{Comments: true, Replace: true, Revision: 1, Family: family})
 	// Note there appears to be a bug in vishvananda/netlink here:
 	// https://github.com/vishvananda/netlink/issues/992
 	//
