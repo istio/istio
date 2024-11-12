@@ -65,7 +65,19 @@ var (
 	ClusterName = env.Register("CLUSTER_ID", constants.DefaultClusterName,
 		"Defines the cluster and service registry that this Istiod instance belongs to").Get()
 
-	PilotDNSCaresMaxUDPQueries = env.Register("PILOT_DNS_CARES_MAX_UDP_QUERIES", uint32(0),
+	// This value defaults to 0 which is interpreted as infinity and causes Envoys to get "stuck" to dead dns pods
+	// (https://github.com/istio/istio/issues/53577).
+	// However, setting this value too high will rate limit the number of DNS requests we can make by using up all
+	// available local udp ports.
+	// Generally, the max dns query rate is
+	//
+	//	(# local dns ports) * (udp_max_queries) / (query duration)
+	//
+	// The longest a query can take should be 5s, the Envoy default timeout.
+	// We underestimate the number of local dns ports to 10,000 (default is ~15,000, but some might be in use).
+	// Setting udp_max_queries to 100 gives us at least 10,000 * 100 / 5 = 200,000 requests / second, which is
+	// hopefully enough for any cluster.
+	PilotDNSCaresMaxUDPQueries = env.Register("PILOT_DNS_CARES_MAX_UDP_QUERIES", uint32(100),
 		"Sets the `max_udp_queries` option in Envoy for the Cares DNS resolver. "+
 			"Defaults to 0, an unlimited number of queries. "+
 			"See `extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig` in "+
