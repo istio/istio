@@ -93,6 +93,10 @@ spec:
             value: {{ $val | quote }}
           {{- end }}
           ports:
+          {{- range $key, $val := .Values.service.ports }}
+          - containerPort: {{ $val.targetPort | default $val.port }}
+            protocol: {{ $val.protocol | default "TCP" }}
+          {{- end }}
           - containerPort: 15090
             protocol: TCP
             name: http-envoy-prom
