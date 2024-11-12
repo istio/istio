@@ -1347,12 +1347,12 @@ func TestClusterDnsConfig(t *testing.T) {
 		{
 			name:          "IPv4 proxy",
 			udpMaxQueries: 0,
-			proxy:         &dualStackProxy,
+			proxy:         getProxy(),
 		},
 		{
 			name:          "IPv6 proxy",
 			udpMaxQueries: 1,
-			proxy:         &dualStackProxy,
+			proxy:         getIPv6Proxy(),
 		},
 	}
 	for _, tt := range cases {
