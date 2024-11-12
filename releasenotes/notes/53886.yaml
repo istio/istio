@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 53578
+releaseNotes:
+  - |
+    **Added** Added a new ambient workload enrollment mode, which is opt-out by default instead of opt-in by default. Enabled with 2 new values in the `istio-cni` chart: `ambient.autoEnroll` and `ambient.autoEnrollExcludeNamespaces`

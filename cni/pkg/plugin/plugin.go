@@ -62,10 +62,12 @@ type Config struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	PluginLogLevel    string   `json:"plugin_log_level"`
-	CNIAgentRunDir    string   `json:"cni_agent_run_dir"`
-	AmbientEnabled    bool     `json:"ambient_enabled"`
-	ExcludeNamespaces []string `json:"exclude_namespaces"`
+	PluginLogLevel                     string   `json:"plugin_log_level"`
+	CNIAgentRunDir                     string   `json:"cni_agent_run_dir"`
+	ExcludeNamespaces                  []string `json:"exclude_namespaces"`
+	AmbientEnabled                     bool     `json:"ambient_enabled"`
+	AmbientAutoEnroll                  bool     `json:"ambient_autoenroll"`
+	AmbientAutoEnrollExcludeNamespaces []string `json:"ambient_autoenroll_exclude_namespaces"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -195,18 +197,11 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 		return nil
 	}
 
-	for _, excludeNs := range conf.ExcludeNamespaces {
-		if podNamespace == excludeNs {
-			log.Infof("pod namespace excluded")
-			return nil
-		}
-	}
-
 	// Begin ambient plugin logic
 	// For ambient pods, this is all the logic we need to run
 	if conf.AmbientEnabled {
 		log.Debugf("istio-cni ambient cmdAdd podName: %s - checking if ambient enabled", podName)
-		podIsAmbient, err := isAmbientPod(kClient, podName, podNamespace)
+		podIsAmbient, err := isAmbientPod(kClient, podName, podNamespace, conf.AmbientAutoEnroll, conf.AmbientAutoEnrollExcludeNamespaces)
 		if err != nil {
 			log.Errorf("istio-cni cmdAdd failed to check ambient: %s", err)
 		}
@@ -230,6 +225,14 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 		log.Debugf("istio-cni ambient cmdAdd podName: %s - not ambient enabled, ignoring", podName)
 	}
 	// End ambient plugin logic
+	// If we have not returned by now, it's not an ambient pod.
+
+	for _, excludeNs := range conf.ExcludeNamespaces {
+		if podNamespace == excludeNs {
+			log.Infof("pod namespace excluded from sidecar redirection")
+			return nil
+		}
+	}
 
 	pi := &PodInfo{}
 	var k8sErr error
@@ -325,7 +328,7 @@ func CmdDelete(args *skel.CmdArgs) (err error) {
 	return nil
 }
 
-func isAmbientPod(client kubernetes.Interface, podName, podNamespace string) (bool, error) {
+func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, isAutoenroll bool, excludeNamespaces []string) (bool, error) {
 	pod, err := client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
@@ -335,5 +338,5 @@ func isAmbientPod(client kubernetes.Interface, podName, podNamespace string) (bo
 		return false, err
 	}
 
-	return util.PodRedirectionEnabled(ns, pod), nil
+	return util.PodRedirectionEnabled(ns, pod, isAutoenroll, excludeNamespaces), nil
 }

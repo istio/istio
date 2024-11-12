@@ -114,9 +114,9 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		},
 	}
 	s.NotReady()
-	s.handlers = setupHandlers(s.ctx, s.kubeClient, s.dataplane, args.SystemNamespace)
+	s.handlers = setupHandlers(s.ctx, s.kubeClient, s.dataplane, args)
 
-	cniServer := startCniPluginServer(ctx, pluginSocket, s.handlers, s.dataplane)
+	cniServer := startCniPluginServer(ctx, pluginSocket, s.handlers, s.dataplane, args)
 	err = cniServer.Start()
 	if err != nil {
 		return nil, fmt.Errorf("error starting cni server: %w", err)

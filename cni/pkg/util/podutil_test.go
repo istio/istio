@@ -92,6 +92,13 @@ func TestPodRedirectionEnabled(t *testing.T) {
 			},
 		}
 
+		namespaceWithAmbientDisabledLabel = &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "test",
+				Labels: ambientDisabledLabel,
+			},
+		}
+
 		unlabelledNamespace = &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
@@ -140,8 +147,10 @@ func TestPodRedirectionEnabled(t *testing.T) {
 	)
 
 	type args struct {
-		namespace *corev1.Namespace
-		pod       *corev1.Pod
+		namespace  *corev1.Namespace
+		pod        *corev1.Pod
+		autoEnroll bool
+		excludeNS  []string
 	}
 	tests := []struct {
 		name string
@@ -204,10 +213,91 @@ func TestPodRedirectionEnabled(t *testing.T) {
 			},
 			want: false,
 		},
+		// autoEnroll
+		{
+			name: "autoEnroll enabled, explicit labels on excluded ns should still win",
+			args: args{
+				namespace:  namespaceWithAmbientEnabledLabel,
+				pod:        unlabelledPod,
+				autoEnroll: true,
+				excludeNS:  []string{namespaceWithAmbientEnabledLabel.Name},
+			},
+			want: true,
+		},
+		{
+			name: "autoEnroll enabled, explicit labels on pod should win even for excluded NS",
+			args: args{
+				namespace:  unlabelledNamespace,
+				pod:        podWithAmbientEnabledLabel,
+				autoEnroll: true,
+				excludeNS:  []string{unlabelledNamespace.Name},
+			},
+			want: true,
+		},
+		{
+			name: "autoEnroll enabled, explicit labels on both should win even for excluded NS",
+			args: args{
+				namespace:  namespaceWithAmbientEnabledLabel,
+				pod:        podWithAmbientEnabledLabel,
+				autoEnroll: true,
+				excludeNS:  []string{namespaceWithAmbientEnabledLabel.Name},
+			},
+			want: true,
+		},
+		{
+			name: "autoEnroll enabled, unabelled pod and NS should enroll pod",
+			args: args{
+				namespace:  unlabelledNamespace,
+				pod:        unlabelledPod,
+				autoEnroll: true,
+				excludeNS:  []string{},
+			},
+			want: true,
+		},
+		{
+			name: "autoEnroll enabled, neither pod or NS labeled, excluded NS should prevent enroll",
+			args: args{
+				namespace:  unlabelledNamespace,
+				pod:        unlabelledPod,
+				autoEnroll: true,
+				excludeNS:  []string{unlabelledNamespace.Name},
+			},
+			want: false,
+		},
+		{
+			name: "autoEnroll should ignore sidecar pods",
+			args: args{
+				namespace:  unlabelledNamespace,
+				pod:        podWithSidecar,
+				autoEnroll: true,
+				excludeNS:  []string{},
+			},
+			want: false,
+		},
+		{
+			name: "autoEnroll should respect pod opt-out label",
+			args: args{
+				namespace:  unlabelledNamespace,
+				pod:        podWithAmbientDisabledLabel,
+				autoEnroll: true,
+				excludeNS:  []string{},
+			},
+			want: false,
+		},
+		{
+			name: "autoEnroll should respect ns opt-out label",
+			args: args{
+				namespace:  namespaceWithAmbientDisabledLabel,
+				pod:        unlabelledPod,
+				autoEnroll: true,
+				excludeNS:  []string{},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := PodRedirectionEnabled(tt.args.namespace, tt.args.pod); got != tt.want {
+			if got := PodRedirectionEnabled(tt.args.namespace, tt.args.pod, tt.args.autoEnroll, tt.args.excludeNS); got != tt.want {
 				t.Errorf("PodRedirectionEnabled() = %v, want %v", got, tt.want)
 			}
 		})

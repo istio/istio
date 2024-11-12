@@ -76,6 +76,8 @@ var mockConfTmpl = `{
         "routes": []
 
     },
+	"ambient_autoenroll": %t,
+	"ambient_autoenroll_exclude_namespaces": ["testExcludedAutoEnrollNS"],
     "plugin_log_level": "debug",
     "cni_agent_run_dir": "%s",
     "ambient_enabled": %t,
@@ -98,8 +100,23 @@ func buildMockConf(ambientEnabled bool) string {
 		"1.0.0",
 		"eth0",
 		testSandboxDirectory,
+		false,
 		"", // unused here
 		ambientEnabled,
+		"mock",
+	)
+}
+
+func buildMockConfAutoEnroll() string {
+	return fmt.Sprintf(
+		mockConfTmpl,
+		"1.0.0",
+		"1.0.0",
+		"eth0",
+		testSandboxDirectory,
+		true,
+		"", // unused here
+		true,
 		"mock",
 	)
 }
@@ -332,7 +349,62 @@ func TestCmdAddPodEnabledNamespaceDisabled(t *testing.T) {
 	assert.Equal(t, wasCalled, true)
 }
 
-func TestCmdAddPodInExcludedNamespace(t *testing.T) {
+func TestCmdAddAutoEnroll(t *testing.T) {
+	serverClose := setupCNIEventClientWithMockServer(false)
+
+	cniConf := buildMockConfAutoEnroll()
+
+	pod, ns := buildFakePodAndNSForClient()
+
+	app := corev1.Container{Name: "app"}
+	pod.Spec.Containers = []corev1.Container{app}
+
+	testDoAddRun(t, cniConf, testNSName, pod, ns)
+
+	wasCalled := serverClose()
+	assert.Equal(t, wasCalled, true)
+}
+
+func TestCmdAddAutoEnrollExcludedNamespace(t *testing.T) {
+	serverClose := setupCNIEventClientWithMockServer(false)
+
+	cniConf := buildMockConfAutoEnroll()
+
+	pod, ns := buildFakePodAndNSForClient()
+	excludedNS := "testExcludedAutoEnrollNS"
+	ns.ObjectMeta.Name = excludedNS
+	pod.ObjectMeta.Namespace = excludedNS
+
+	app := corev1.Container{Name: "app"}
+	pod.Spec.Containers = []corev1.Container{app}
+
+	testDoAddRun(t, cniConf, excludedNS, pod, ns)
+
+	wasCalled := serverClose()
+	assert.Equal(t, wasCalled, false)
+}
+
+func TestCmdAddAutoEnrollExcludedNamespaceButLabeledForInclusion(t *testing.T) {
+	serverClose := setupCNIEventClientWithMockServer(false)
+
+	cniConf := buildMockConfAutoEnroll()
+
+	pod, ns := buildFakePodAndNSForClient()
+	excludedNS := "testExcludedAutoEnrollNS"
+	ns.ObjectMeta.Name = excludedNS
+	pod.ObjectMeta.Namespace = excludedNS
+	pod.ObjectMeta.Labels = map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient}
+
+	app := corev1.Container{Name: "app"}
+	pod.Spec.Containers = []corev1.Container{app}
+
+	testDoAddRun(t, cniConf, excludedNS, pod, ns)
+
+	wasCalled := serverClose()
+	assert.Equal(t, wasCalled, true)
+}
+
+func TestCmdAddAmbientPodInSidecarExcludedNamespaceStillAdds(t *testing.T) {
 	serverClose := setupCNIEventClientWithMockServer(false)
 
 	cniConf := buildMockConf(true)
@@ -342,7 +414,7 @@ func TestCmdAddPodInExcludedNamespace(t *testing.T) {
 
 	app := corev1.Container{Name: "app"}
 	ns.ObjectMeta.Name = excludedNS
-	ns.ObjectMeta.Labels = map[string]string{label.IoIstioDataplaneMode.Name: constants.AmbientRedirectionEnabled}
+	ns.ObjectMeta.Labels = map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient}
 
 	pod.ObjectMeta.Namespace = excludedNS
 	pod.Spec.Containers = []corev1.Container{app}
@@ -350,9 +422,9 @@ func TestCmdAddPodInExcludedNamespace(t *testing.T) {
 	testDoAddRun(t, cniConf, excludedNS, pod, ns)
 
 	wasCalled := serverClose()
-	// If the pod is being added to a namespace that is explicitly excluded by plugin config denylist
-	// it should never be added, even if the namespace has the annotation
-	assert.Equal(t, wasCalled, false)
+	// ExcludeNamespace should apply for sidecar pods, but not ambient pods, which are either opt-in, or have
+	// a separate namespace exclusion list for opt-out (autoenroll).
+	assert.Equal(t, wasCalled, true)
 }
 
 func TestCmdAdd(t *testing.T) {

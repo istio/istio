@@ -111,10 +111,12 @@ func TestCNIPluginServer(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+
+	handlers := setupHandlers(ctx, client, dpServer, args)
 
 	// We are not going to start the server, so the sockpath is irrelevant
-	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)
+	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer, args)
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
@@ -184,10 +186,11 @@ func TestGetPodWithRetry(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, dpServer, args)
 
 	// We are not going to start the server, so the sockpath is irrelevant
-	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)
+	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer, args)
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
@@ -259,10 +262,11 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, dpServer, args)
 
 	// We are not going to start the server, so the sockpath is irrelevant
-	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)
+	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer, args)
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
@@ -270,6 +274,73 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
+
+	client.RunAndWait(ctx.Done())
+
+	payload, _ := json.Marshal(valid)
+
+	// serialize our fake plugin event
+	addEvent, err := processAddEvent(payload)
+	assert.Equal(t, err, nil)
+
+	// Push it thru the handler
+	pluginServer.ReconcileCNIAddEvent(ctx, addEvent)
+
+	waitForMockCalls()
+
+	assertPodAnnotated(t, client, pod)
+	// Assert expected calls actually made
+	fs.AssertExpectations(t)
+}
+
+func TestCNIPluginServerHandlesAutoEnroll(t *testing.T) {
+	fakePodIP := "11.1.1.12"
+	_, addr, _ := net.ParseCIDR(fakePodIP + "/32")
+	valid := CNIPluginAddEvent{
+		Netns:        "/var/netns/foo",
+		PodName:      "pod-bingo",
+		PodNamespace: "funkyns",
+		IPs: []IPConfig{{
+			Address: *addr,
+		}},
+	}
+
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-bingo",
+			Namespace: "funkyns",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+	}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "funkyns"}}
+
+	client := kube.NewFakeClient(ns, pod)
+
+	// We are expecting at most 1 calls to the mock, wait for them
+	wg, waitForMockCalls := NewWaitForNCalls(t, 1)
+	fs := &fakeServer{testWG: wg}
+
+	// This pod should be enmeshed with the CNI ip, even tho the pod status had no ip
+	fs.On("AddPodToMesh",
+		ctx,
+		mock.IsType(pod),
+		[]netip.Addr{netip.MustParseAddr(fakePodIP)},
+		valid.Netns,
+	).Return(nil)
+
+	dpServer := getFakeDP(fs, client.Kube())
+
+	args := AmbientArgs{SystemNamespace: "istio-system", AutoEnroll: true}
+	handlers := setupHandlers(ctx, client, dpServer, args)
+
+	// We are not going to start the server, so the sockpath is irrelevant
+	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer, args)
 
 	client.RunAndWait(ctx.Done())
 

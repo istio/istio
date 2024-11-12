@@ -14,13 +14,15 @@ metadata:
 data:
   CURRENT_AGENT_VERSION: {{ .Values.tag | default .Values.global.tag | quote }}
   AMBIENT_ENABLED: {{ .Values.ambient.enabled | quote }}
+  AMBIENT_AUTOENROLL: {{ .Values.ambient.autoEnroll | default "false" | quote }}
+  AMBIENT_AUTOENROLL_EXCLUDE_NAMESPACES: "{{ range $idx, $ns := .Values.ambient.autoEnrollExcludeNamespaces }}{{ if $idx }},{{ end }}{{ $ns }}{{ end }}"
   AMBIENT_DNS_CAPTURE: {{ .Values.ambient.dnsCapture | default "false" | quote  }}
   AMBIENT_IPV6: {{ .Values.ambient.ipv6 | default "false" | quote }}
   {{- if .Values.cniConfFileName }} # K8S < 1.24 doesn't like empty values
   CNI_CONF_NAME: {{ .Values.cniConfFileName }} # Name of the CNI config file to create. Only override if you know the exact path your CNI requires..
   {{- end }}
   CHAINED_CNI_PLUGIN: {{ .Values.chained | quote }}
-  EXCLUDED_NAMESPACES: "{{ range $idx, $ns := .Values.excludeNamespaces }}{{ if $idx }},{{ end }}{{ $ns }}{{ end }}"
+  EXCLUDE_NAMESPACES: "{{ range $idx, $ns := .Values.excludeNamespaces }}{{ if $idx }},{{ end }}{{ $ns }}{{ end }}"
   REPAIR_ENABLED: {{ .Values.chained | quote }}
   REPAIR_LABEL_PODS: {{ .Values.repair.labelPods | quote }}
   REPAIR_DELETE_PODS: {{ .Values.repair.deletePods | quote }}

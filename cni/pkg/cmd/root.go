@@ -104,6 +104,7 @@ var rootCmd = &cobra.Command{
 					ServerSocket:    cfg.InstallConfig.ZtunnelUDSAddress,
 					DNSCapture:      cfg.InstallConfig.AmbientDNSCapture,
 					EnableIPv6:      cfg.InstallConfig.AmbientIPv6,
+					AutoEnroll:      cfg.InstallConfig.AmbientAutoEnroll,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
@@ -182,6 +183,7 @@ func init() {
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
 	registerStringParameter(constants.ZtunnelUDSAddress, "/var/run/ztunnel/ztunnel.sock", "The UDS server address which ztunnel will connect to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
+	registerBooleanParameter(constants.AmbientAutoEnroll, false, "Whether ambient autoenroll is enabled")
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
@@ -263,9 +265,11 @@ func constructConfig() (*config.Config, error) {
 		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
-		AmbientEnabled:    viper.GetBool(constants.AmbientEnabled),
-		AmbientDNSCapture: viper.GetBool(constants.AmbientDNSCapture),
-		AmbientIPv6:       viper.GetBool(constants.AmbientIPv6),
+		AmbientEnabled:                     viper.GetBool(constants.AmbientEnabled),
+		AmbientDNSCapture:                  viper.GetBool(constants.AmbientDNSCapture),
+		AmbientIPv6:                        viper.GetBool(constants.AmbientIPv6),
+		AmbientAutoEnroll:                  viper.GetBool(constants.AmbientAutoEnroll),
+		AmbientAutoEnrollExcludeNamespaces: viper.GetString(constants.AmbientAutoEnrollExcludeNamespaces),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {

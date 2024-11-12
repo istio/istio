@@ -69,7 +69,8 @@ func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 
@@ -129,7 +130,9 @@ func TestExistingPodAddedWhenDualStack(t *testing.T) {
 	server := getFakeDP(fs, client.Kube())
 
 	fs.Start(ctx)
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 
@@ -177,7 +180,8 @@ func TestExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 
@@ -239,7 +243,8 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 	// wait until pod add was called
@@ -329,7 +334,8 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 	// wait until pod add was called
@@ -429,7 +435,8 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 	// wait until pod add was called
@@ -543,7 +550,8 @@ func TestGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
 	pods := handlers.GetActiveAmbientPodSnapshot()
 
@@ -603,7 +611,8 @@ func TestGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
 	pods := handlers.GetActiveAmbientPodSnapshot()
 
@@ -644,9 +653,10 @@ func TestAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
-	_, err := handlers.GetPodIfAmbient(pod.Name, ns.Name)
+	_, err := handlers.GetPodIfAmbient(pod.Name, ns.Name, args.AutoEnroll, args.ExcludeNamespaces)
 
 	assert.NoError(t, err)
 }
@@ -685,9 +695,10 @@ func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
-	disabledPod, err := handlers.GetPodIfAmbient(pod.Name, ns.Name)
+	disabledPod, err := handlers.GetPodIfAmbient(pod.Name, ns.Name, args.AutoEnroll, args.ExcludeNamespaces)
 
 	assert.NoError(t, err)
 	assert.Equal(t, disabledPod, nil)
@@ -727,9 +738,10 @@ func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
-	disabledPod, err := handlers.GetPodIfAmbient(pod.Name, "what")
+	disabledPod, err := handlers.GetPodIfAmbient(pod.Name, "what", args.AutoEnroll, args.ExcludeNamespaces)
 
 	assert.Error(t, err)
 	assert.Equal(t, disabledPod, nil)
@@ -778,7 +790,8 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	args := AmbientArgs{SystemNamespace: "istio-system"}
+	handlers := setupHandlers(ctx, client, server, args)
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 
@@ -789,6 +802,96 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 	assertPodAnnotated(t, client, pod)
 
 	// check expectations on mocked calls
+	fs.AssertExpectations(t)
+}
+
+func TestExistingPodAddedWhenAutoEnrollTrue(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "test",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+		},
+	}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+
+	client := kube.NewFakeClient(ns, pod)
+
+	// We are expecting at most 1 calls to the mock, wait for them
+	wg, waitForMockCalls := NewWaitForNCalls(t, 1)
+	fs := &fakeServer{testWG: wg}
+
+	fs.On("AddPodToMesh",
+		ctx,
+		mock.IsType(pod),
+		util.GetPodIPsIfPresent(pod),
+		"",
+	).Return(nil)
+
+	server := getFakeDP(fs, client.Kube())
+
+	args := AmbientArgs{SystemNamespace: "istio-system", AutoEnroll: true}
+	handlers := setupHandlers(ctx, client, server, args)
+	client.RunAndWait(ctx.Done())
+	go handlers.Start()
+
+	waitForMockCalls()
+
+	assertPodAnnotated(t, client, pod)
+
+	// Assert expected calls actually made
+	fs.AssertExpectations(t)
+}
+
+func TestExistingPodNotAddedWhenAutoEnrollTrueButNSExcludedFromAutoEnroll(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "test",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+		},
+	}
+
+	mt := monitortest.New(t)
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+
+	client := kube.NewFakeClient(ns, pod)
+
+	fs := &fakeServer{}
+
+	server := getFakeDP(fs, client.Kube())
+
+	args := AmbientArgs{SystemNamespace: "istio-system", AutoEnroll: true, ExcludeNamespaces: []string{ns.Name}}
+	handlers := setupHandlers(ctx, client, server, args)
+	client.RunAndWait(ctx.Done())
+	go handlers.Start()
+
+	// wait until at least one add event happens
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.AtLeast(1))
+
+	assertPodNotAnnotated(t, client, pod)
+
+	// Assert expected calls actually made (i.e. none)
 	fs.AssertExpectations(t)
 }
 
