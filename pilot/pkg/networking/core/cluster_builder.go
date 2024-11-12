@@ -324,7 +324,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 			}
 		}
 		dnsResolverConfig, err := anypb.New(&cares.CaresDnsResolverConfig{
-			UdpMaxQueries: wrappers.UInt32(features.PilotDNSCaresMaxUDPQueries),
+			UdpMaxQueries: wrappers.UInt32(features.PilotDNSCaresUDPMaxQueries),
 		})
 		if err != nil {
 			log.Warnf("Could not create typed_dns_cluster_config for %s: %s. Using default configuration.", name, err)

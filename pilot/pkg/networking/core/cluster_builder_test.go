@@ -1357,7 +1357,7 @@ func TestClusterDnsConfig(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			test.SetForTest(t, &features.PilotDNSCaresMaxUDPQueries, tt.udpMaxQueries)
+			test.SetForTest(t, &features.PilotDNSCaresUDPMaxQueries, tt.udpMaxQueries)
 			mesh := testMesh()
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
 			cb := NewClusterBuilder(cg.SetupProxy(tt.proxy), &model.PushRequest{Push: cg.PushContext()}, nil)

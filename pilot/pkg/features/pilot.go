@@ -77,8 +77,8 @@ var (
 	// We underestimate the number of local dns ports to 10,000 (default is ~15,000, but some might be in use).
 	// Setting udp_max_queries to 100 gives us at least 10,000 * 100 / 5 = 200,000 requests / second, which is
 	// hopefully enough for any cluster.
-	PilotDNSCaresMaxUDPQueries = env.Register("PILOT_DNS_CARES_MAX_UDP_QUERIES", uint32(100),
-		"Sets the `max_udp_queries` option in Envoy for the Cares DNS resolver. "+
+	PilotDNSCaresUDPMaxQueries = env.Register("PILOT_DNS_CARES_UDP_MAX_QUERIES", uint32(100),
+		"Sets the `udp_max_queries` option in Envoy for the Cares DNS resolver. "+
 			"Defaults to 0, an unlimited number of queries. "+
 			"See `extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig` in "+
 			"https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/network/dns_resolver/cares/v3/cares_dns_resolver.proto "+
