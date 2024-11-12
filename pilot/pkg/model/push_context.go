@@ -2119,7 +2119,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 				log.Warnf("cannot find waypoint service in serviceindex, namespace/hostname: %s/%s", servicesInfo[i].Namespace, servicesInfo[i].Hostname)
 				continue
 			}
-			listenerInfo.AddService(svc)
+			listenerInfo = listenerInfo.AddService(svc)
 		}
 	}
 	return ps.WasmPluginsByListenerInfo(proxy, listenerInfo, WasmPluginTypeAny)
