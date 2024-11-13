@@ -64,6 +64,19 @@ var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOp
 	},
 })
 
+var preserveCaseFormatterConfig = &core.Http1ProtocolOptions{
+	HeaderKeyFormat: &core.Http1ProtocolOptions_HeaderKeyFormat{
+		HeaderFormat: &core.Http1ProtocolOptions_HeaderKeyFormat_StatefulFormatter{
+			StatefulFormatter: &core.TypedExtensionConfig{
+				Name: "preserve_case",
+				TypedConfig: &anypb.Any{
+					TypeUrl: "type.googleapis.com/envoy.extensions.http.header_formatters.preserve_case.v3.PreserveCaseFormatterConfig",
+				},
+			},
+		},
+	},
+}
+
 // clusterWrapper wraps Cluster object along with upstream protocol options.
 type clusterWrapper struct {
 	cluster *cluster.Cluster
@@ -84,10 +97,13 @@ type metadataCerts struct {
 // ClusterBuilder interface provides an abstraction for building Envoy Clusters.
 type ClusterBuilder struct {
 	// Proxy related information used to build clusters.
+	// The fields below that influence cluster configuration must be reflected in clusterCache
+	// to ensure accurate differentiation and caching of clusters.
 	serviceTargets     []model.ServiceTarget // Service targets of Proxy.
 	metadataCerts      *metadataCerts        // Client certificates specified in metadata.
 	clusterID          string                // Cluster in which proxy is running.
 	proxyID            string                // Identifier that uniquely identifies a proxy.
+	proxyMetadata      *model.NodeMetadata   // Metadata of the proxy.
 	proxyVersion       *model.IstioVersion   // Version of Proxy.
 	proxyType          model.NodeType        // Indicates whether the proxy is sidecar or gateway.
 	sidecarScope       *model.SidecarScope   // Computed sidecar for the proxy.
@@ -111,6 +127,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 	cb := &ClusterBuilder{
 		serviceTargets:     proxy.ServiceTargets,
 		proxyID:            proxy.ID,
+		proxyMetadata:      proxy.Metadata,
 		proxyType:          proxy.Type,
 		proxyVersion:       model.ParseIstioVersion(proxy.Metadata.IstioVersion),
 		sidecarScope:       proxy.SidecarScope,
@@ -582,9 +599,14 @@ func (cb *ClusterBuilder) setUseDownstreamProtocol(mc *clusterWrapper) {
 		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 	}
 	options := mc.httpProtocolOptions
+	// Inherit the HTTP1.x protocol options from the explicit HTTP1.x config.
+	explicitHTTP1Options := &core.Http1ProtocolOptions{}
+	if opts := options.GetExplicitHttpConfig().GetHttpProtocolOptions(); opts != nil {
+		explicitHTTP1Options = opts
+	}
 	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
 		UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
-			HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+			HttpProtocolOptions:  explicitHTTP1Options,
 			Http2ProtocolOptions: http2ProtocolOptions(),
 		},
 	}
@@ -607,6 +629,26 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 		setH2Options(cluster)
 		return
 	}
+	// Preserve HTTP/1.x traffic header case
+	isExplicitHTTP := port.Protocol.IsHTTP()
+	isAutoProtocol := port.Protocol.IsUnsupported()
+	effectiveProxyConfig := cb.proxyMetadata.ProxyConfigOrDefault(cb.req.Push.Mesh.GetDefaultConfig())
+	preserveHeaderCase := effectiveProxyConfig.GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
+
+	if (isExplicitHTTP || isAutoProtocol) && preserveHeaderCase {
+		// Apply the stateful formatter for HTTP/1.x headers
+		if cluster.httpProtocolOptions == nil {
+			cluster.httpProtocolOptions = &http.HttpProtocolOptions{}
+		}
+		options := cluster.httpProtocolOptions
+		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
+					HttpProtocolOptions: preserveCaseFormatterConfig,
+				},
+			},
+		}
+	}
 
 	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled. Since
 	// protocol detection is disabled for gateway and use_downstream_protocol is used under protocol
@@ -616,7 +658,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	// h2. Clients would then connect with h2, while the upstream may not support it. This is not a
 	// concern for plaintext, but we do not have a way to distinguish https vs http here. If users of
 	// gateway want this behavior, they can configure UseClientProtocol explicitly.
-	if cb.sidecarProxy() && port.Protocol.IsUnsupported() {
+	if cb.sidecarProxy() && isAutoProtocol {
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
