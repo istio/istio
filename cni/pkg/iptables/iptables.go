@@ -144,14 +144,14 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 	deleteCmds := [][]string{
 		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
-		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
-		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
-		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
 	}
 
-	// these sometimes fail due to "Device or resource busy"
+	// these sometimes fail due to "Device or resource busy" or because they are optional given the iptables cfg
 	optionalDeleteCmds := [][]string{
+		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
+		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
+		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		// flush-then-delete our created chains
 		{"-t", iptablesconstants.MANGLE, "-F", ChainInpodPrerouting},
 		{"-t", iptablesconstants.MANGLE, "-F", ChainInpodOutput},
