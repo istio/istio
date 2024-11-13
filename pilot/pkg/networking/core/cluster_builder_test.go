@@ -2218,6 +2218,18 @@ func TestShouldH2Upgrade(t *testing.T) {
 			upgrade: false,
 		},
 		{
+			name:        "mesh upgrade - dr useClientProtocol",
+			clusterName: "bar",
+			port:        &model.Port{Protocol: protocol.HTTP},
+			mesh:        &meshconfig.MeshConfig{H2UpgradePolicy: meshconfig.MeshConfig_UPGRADE},
+			connectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					UseClientProtocol: true,
+				},
+			},
+			upgrade: false,
+		},
+		{
 			name:        "non-http",
 			clusterName: "bar",
 			port:        &model.Port{Protocol: protocol.Unsupported},
