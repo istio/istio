@@ -65,7 +65,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 	}
 
 	// Render each component
-	var allManifests []manifest.ManifestSet
+	allManifests := map[component.Name]manifest.ManifestSet{}
 	var chartWarnings util.Errors
 	for _, comp := range component.AllComponents {
 		specs, err := comp.Get(merged)
@@ -86,10 +86,16 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 			if err != nil {
 				return nil, nil, fmt.Errorf("post processing: %v", err)
 			}
-			allManifests = append(allManifests, manifest.ManifestSet{
-				Component: comp.UserFacingName,
-				Manifests: finalized,
-			})
+			manifests, found := allManifests[comp.UserFacingName]
+			if found {
+				manifests.Manifests = append(manifests.Manifests, finalized...)
+				allManifests[comp.UserFacingName] = manifests
+			} else {
+				allManifests[comp.UserFacingName] = manifest.ManifestSet{
+					Component: comp.UserFacingName,
+					Manifests: finalized,
+				}
+			}
 		}
 	}
 
@@ -99,7 +105,14 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 			logger.LogAndErrorf("%s %v", "❗", w)
 		}
 	}
-	return allManifests, merged, nil
+
+	values := make([]manifest.ManifestSet, 0, len(allManifests))
+
+	for _, v := range allManifests {
+		values = append(values, v)
+	}
+
+	return values, merged, nil
 }
 
 type MigrationResult struct {
