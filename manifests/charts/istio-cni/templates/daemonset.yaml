@@ -92,6 +92,8 @@ spec:
               path: /readyz
               port: 8000
           securityContext:
+            appArmorProfile:
+              type: Unconfined
             privileged: false
             runAsGroup: 0
             runAsUser: 0
@@ -108,8 +110,10 @@ spec:
               # CAP_NET_RAW is required to allow iptables mutation of the `nat` table
               - NET_RAW
               # CAP_SYS_PTRACE is required for repair mode to describe the pod's network namespace
-              # in ambient and repair mode.
+              # in repair mode.
+{{- if .Values.repair.repairPods }}
               - SYS_PTRACE
+{{- end }}
               # CAP_SYS_ADMIN is required for both ambient and repair, in order to open
               # network namespaces in `/proc` to obtain descriptors for entering pod network
               # namespaces. There does not appear to be a more granular capability for this.
