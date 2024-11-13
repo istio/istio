@@ -27,6 +27,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/google/go-cmp/cmp"
@@ -1306,6 +1307,77 @@ func TestBuildDefaultCluster(t *testing.T) {
 
 			if diff := cmp.Diff(defaultCluster.build(), tt.expectedCluster, protocmp.Transform()); diff != "" {
 				t.Errorf("Unexpected default cluster, diff: %v", diff)
+			}
+		})
+	}
+}
+
+func TestClusterDnsConfig(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     8080,
+		Protocol: protocol.HTTP,
+	}
+
+	endpoints := []*endpoint.LocalityLbEndpoints{
+		{
+			Locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			LbEndpoints: []*endpoint.LbEndpoint{},
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: 1,
+			},
+			Priority: 0,
+		},
+	}
+
+	cases := []struct {
+		name          string
+		udpMaxQueries uint32
+		proxy         *model.Proxy
+	}{
+		{
+			name:          "Dual stack proxy",
+			udpMaxQueries: 99,
+			proxy:         &dualStackProxy,
+		},
+		{
+			name:          "IPv4 proxy",
+			udpMaxQueries: 0,
+			proxy:         getProxy(),
+		},
+		{
+			name:          "IPv6 proxy",
+			udpMaxQueries: 1,
+			proxy:         getIPv6Proxy(),
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.PilotDNSCaresUDPMaxQueries, tt.udpMaxQueries)
+			mesh := testMesh()
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
+			cb := NewClusterBuilder(cg.SetupProxy(tt.proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+			service := &model.Service{
+				Ports: model.PortList{
+					servicePort,
+				},
+				Hostname:     "host",
+				MeshExternal: false,
+				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
+			}
+			defaultCluster := cb.buildCluster("my-cluster", cluster.Cluster_STRICT_DNS, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil, "")
+			c := defaultCluster.build()
+
+			dnsConfig := new(cares.CaresDnsResolverConfig)
+			if err := c.TypedDnsResolverConfig.TypedConfig.UnmarshalTo(dnsConfig); err != nil {
+				t.Errorf("Unexpected TypedDnsResolverConfig type, expected cares dns resolver, got: %v", c.TypedDnsResolverConfig.TypedConfig.TypeUrl)
+			}
+			if dnsConfig.UdpMaxQueries.Value != tt.udpMaxQueries {
+				t.Errorf("Unexpected UdpMaxQueries, expected : %v, got: %v", tt.udpMaxQueries, dnsConfig.UdpMaxQueries.Value)
 			}
 		})
 	}

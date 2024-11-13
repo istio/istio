@@ -22,6 +22,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -320,6 +321,17 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 			} else {
 				// keep the original logic if Dual Stack is disable
 				c.DnsLookupFamily = cluster.Cluster_V4_ONLY
+			}
+		}
+		dnsResolverConfig, err := anypb.New(&cares.CaresDnsResolverConfig{
+			UdpMaxQueries: wrappers.UInt32(features.PilotDNSCaresUDPMaxQueries),
+		})
+		if err != nil {
+			log.Warnf("Could not create typed_dns_cluster_config for %s: %s. Using default configuration.", name, err)
+		} else {
+			c.TypedDnsResolverConfig = &core.TypedExtensionConfig{
+				Name:        "envoy.network.dns_resolver.cares",
+				TypedConfig: dnsResolverConfig,
 			}
 		}
 		c.DnsRefreshRate = cb.req.Push.Mesh.DnsRefreshRate
