@@ -246,7 +246,7 @@ func TestFailStrategy(t *testing.T) {
 	cases := []struct {
 		desc string
 		in   *extensions.WasmPlugin
-		out  bool
+		policy  wasmextensions.FailurePolicy
 	}{
 		{
 			desc: "close",
@@ -254,7 +254,7 @@ func TestFailStrategy(t *testing.T) {
 				Url:          "file://fake.wasm",
 				FailStrategy: extensions.FailStrategy_FAIL_CLOSE,
 			},
-			out: false,
+			policy: wasmextensions.FailurePolicy_FAIL_CLOSED,
 		},
 		{
 			desc: "open",
@@ -262,7 +262,7 @@ func TestFailStrategy(t *testing.T) {
 				Url:          "file://fake.wasm",
 				FailStrategy: extensions.FailStrategy_FAIL_OPEN,
 			},
-			out: true,
+			policy: wasmextensions.FailurePolicy_FAIL_OPEN,
 		},
 	}
 	for _, tc := range cases {
@@ -275,8 +275,8 @@ func TestFailStrategy(t *testing.T) {
 			if out == nil {
 				t.Fatal("filter can not be nil")
 			}
-			if got := filter.Config.FailOpen; got != tc.out {
-				t.Errorf("got %t, want %t", got, tc.out)
+			if got := filter.Config.GetFailurePolicy(); got != tc.policy {
+				t.Errorf("got %v, want %v", got, tc.policy)
 			}
 		})
 	}
