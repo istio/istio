@@ -110,6 +110,7 @@ values:
     # Refer to issue #49207 for more context.
     repair:
       enabled: false
+      repairPods: false
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
