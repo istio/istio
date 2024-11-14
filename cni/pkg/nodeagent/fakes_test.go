@@ -17,11 +17,13 @@ package nodeagent
 import (
 	"context"
 	"embed"
+	"errors"
 	"io/fs"
 	"sync/atomic"
 	"syscall"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/cni/pkg/iptables"
 )
@@ -172,4 +174,10 @@ func (r *fakeIptablesDeps) AddLoopbackRoutes(cfg *iptables.IptablesConfig) error
 func (r *fakeIptablesDeps) DelLoopbackRoutes(cfg *iptables.IptablesConfig) error {
 	r.DelLoopbackRoutesCnt.Add(1)
 	return nil
+}
+
+type NoOpPodNetnsProcFinder struct{}
+
+func (p *NoOpPodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (PodToNetns, error) {
+	return make(PodToNetns), errors.New("NoOpPodNetnsProcFinder always returns an error")
 }

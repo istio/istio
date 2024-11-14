@@ -44,32 +44,38 @@ func setupLogging() {
 }
 
 type netTestFixture struct {
-	netServer            *NetServer
-	podNsMap             *podNetnsCache
-	ztunnelServer        *fakeZtunnel
-	iptablesConfigurator *iptables.IptablesConfigurator
-	nlDeps               *fakeIptablesDeps
+	netServer               *NetServer
+	podNsMap                *podNetnsCache
+	ztunnelServer           *fakeZtunnel
+	podIptablesConfigurator *iptables.IptablesConfigurator
+	nlDeps                  *fakeIptablesDeps
 }
 
 func getTestFixure(ctx context.Context) netTestFixture {
+	fakeIptDeps := &dependencies.DependenciesStub{}
+	return getTestFixureWithIptablesConfig(ctx, fakeIptDeps, nil, nil)
+}
+
+// nolint: lll
+func getTestFixureWithIptablesConfig(ctx context.Context, fakeDeps *dependencies.DependenciesStub, hostConfig, podConfig *iptables.IptablesConfig) netTestFixture {
 	podNsMap := newPodNetnsCache(openNsTestOverride)
 	nlDeps := &fakeIptablesDeps{}
-	iptablesConfigurator, _, _ := iptables.NewIptablesConfigurator(nil, nil, &dependencies.DependenciesStub{}, &dependencies.DependenciesStub{}, nlDeps)
+	_, podIptC, _ := iptables.NewIptablesConfigurator(hostConfig, podConfig, fakeDeps, fakeDeps, nlDeps)
 
 	ztunnelServer := &fakeZtunnel{}
 
-	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, NewPodNetnsProcFinder(fakeFs()))
+	netServer := newNetServer(ztunnelServer, podNsMap, podIptC, NewPodNetnsProcFinder(fakeFs()))
 
 	netServer.netnsRunner = func(fdable NetnsFd, toRun func() error) error {
 		return toRun()
 	}
 	netServer.Start(ctx)
 	return netTestFixture{
-		netServer:            netServer,
-		podNsMap:             podNsMap,
-		ztunnelServer:        ztunnelServer,
-		iptablesConfigurator: iptablesConfigurator,
-		nlDeps:               nlDeps,
+		netServer:               netServer,
+		podNsMap:                podNsMap,
+		ztunnelServer:           ztunnelServer,
+		podIptablesConfigurator: podIptC,
+		nlDeps:                  nlDeps,
 	}
 }
 
@@ -360,6 +366,142 @@ func TestConstructInitialSnap(t *testing.T) {
 	if fixture.podNsMap.Get("863b91d4-4b68-4efa-917f-4b560e3e86aa") == nil {
 		t.Fatal("expected pod to be in cache")
 	}
+}
+
+func TestConstructInitialSnapReconcilesPodsIfIptConfiguratorSupportsReconciliation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	setupLogging()
+
+	podCfg := iptables.IptablesConfig{
+		Reconcile: true,
+	}
+
+	fakeDeps := &dependencies.DependenciesStub{}
+
+	fixture := getTestFixureWithIptablesConfig(ctx, fakeDeps, &podCfg, &podCfg)
+	netServer := fixture.netServer
+
+	podMeta := metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+	}
+	pod := &corev1.Pod{ObjectMeta: podMeta}
+
+	err := netServer.ConstructInitialSnapshot([]*corev1.Pod{pod})
+	assert.NoError(t, err)
+
+	// If iptables Reconcile is enabled, we should have executed some iptables rule insertions
+	// on this pod when constructing the snapshot (since it is a faked pod, it had none to start with)
+	assert.Equal(t, (len(fakeDeps.ExecutedAll) != 0), true)
+
+	if fixture.podNsMap.Get("863b91d4-4b68-4efa-917f-4b560e3e86aa") == nil {
+		t.Fatal("expected pod to be in cache")
+	}
+}
+
+func TestConstructInitialSnapDoesNotReconcilePodIfIptablesReconciliationDisabled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	setupLogging()
+
+	podCfg := iptables.IptablesConfig{
+		Reconcile: false,
+	}
+
+	fakeDeps := &dependencies.DependenciesStub{}
+
+	fixture := getTestFixureWithIptablesConfig(ctx, fakeDeps, &podCfg, &podCfg)
+	netServer := fixture.netServer
+
+	podMeta := metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+	}
+	pod := &corev1.Pod{ObjectMeta: podMeta}
+
+	err := netServer.ConstructInitialSnapshot([]*corev1.Pod{pod})
+	assert.NoError(t, err)
+
+	// If iptables reconciliation is 0, pod rules should not have been touched
+	// (since this is a faked pod with 0 rules, it should still have 0 rules)
+	assert.Equal(t, len(fakeDeps.ExecutedAll), 0)
+
+	if fixture.podNsMap.Get("863b91d4-4b68-4efa-917f-4b560e3e86aa") == nil {
+		t.Fatal("expected pod to be in cache")
+	}
+}
+
+func TestReconcilePodReturnsErrorIfNoNetnsFound(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	setupLogging()
+
+	podCfg := iptables.IptablesConfig{
+		Reconcile: true,
+	}
+
+	fakeDeps := &dependencies.DependenciesStub{}
+
+	fixture := getTestFixureWithIptablesConfig(ctx, fakeDeps, &podCfg, &podCfg)
+	netServer := newNetServer(fixture.ztunnelServer, fixture.podNsMap, fixture.podIptablesConfigurator, &NoOpPodNetnsProcFinder{})
+
+	podMeta := metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+	}
+	pod := &corev1.Pod{ObjectMeta: podMeta}
+
+	// make sure the uid was taken from cache
+	fixture.podNsMap.Take(string(pod.UID))
+
+	if fixture.podNsMap.Get("863b91d4-4b68-4efa-917f-4b560e3e86aa") != nil {
+		t.Fatal("expected pod to NOT be in cache")
+	}
+
+	err := netServer.reconcileExistingPod(pod)
+	assert.Error(t, err)
+}
+
+func TestReconcilePodReturnsNoErrorIfPodReconciles(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	setupLogging()
+
+	podCfg := iptables.IptablesConfig{
+		Reconcile: true,
+	}
+
+	fakeDeps := &dependencies.DependenciesStub{}
+
+	fixture := getTestFixureWithIptablesConfig(ctx, fakeDeps, nil, &podCfg)
+	netServer := fixture.netServer
+
+	podMeta := metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+	}
+	pod := &corev1.Pod{ObjectMeta: podMeta}
+
+	// Pod is NOT in cache yet, as we haven't added it.
+	// But faked cache should find it via fakeProc anyway
+	// (depending on tertiary test fake behaviors in tests is bad,
+	// this is another reason why we should use testify/mock
+	// and explicitly define all expectations for the mock in each test)
+	if fixture.podNsMap.Get("863b91d4-4b68-4efa-917f-4b560e3e86aa") != nil {
+		t.Fatal("expected pod to NOT be in cache")
+	}
+
+	err := netServer.reconcileExistingPod(pod)
+	assert.NoError(t, err)
+
+	// If no error, we should have executed some iptables rule insertions
+	// on this pod (since it is a faked pod, it had none to start with)
+	assert.Equal(t, (len(fakeDeps.ExecutedAll) != 0), true)
 }
 
 // for tests that call `runtime.GC()` - we have no control over when the GC is actually scheduled,
