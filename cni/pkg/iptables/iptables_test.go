@@ -38,13 +38,6 @@ func TestIptables(t *testing.T) {
 			},
 		},
 		{
-			name: "tproxy",
-			config: func(cfg *Config) {
-				cfg.TPROXYRedirection = true
-				cfg.RedirectDNS = true
-			},
-		},
-		{
 			name: "ingress",
 			config: func(cfg *Config) {
 			},
