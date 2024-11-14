@@ -58,6 +58,10 @@ type Config struct {
 	RedirectDNS  bool `json:"REDIRECT_DNS"`
 }
 
+type PodLevelOverrides struct {
+	VirtualInterfaces []string
+}
+
 type IptablesConfigurator struct {
 	ext    dep.Dependencies
 	nlDeps NetlinkDependencies
@@ -177,9 +181,9 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbeSNAT, hostProbeV6SNAT netip.Addr, ingressMode bool) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbeSNAT, hostProbeV6SNAT netip.Addr, ingressMode bool, virtualInterfaces []string) error {
 	// Append our rules here
-	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT, ingressMode)
+	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT, ingressMode, virtualInterfaces)
 
 	if err := cfg.addLoopbackRoute(); err != nil {
 		return err
@@ -198,7 +202,7 @@ func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbe
 	return nil
 }
 
-func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT netip.Addr, ingressMode bool) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT netip.Addr, ingressMode bool, virtualInterfaces []string) *builder.IptablesRuleBuilder {
 	redirectDNS := cfg.cfg.RedirectDNS
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
@@ -246,6 +250,39 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 	)
 
 	// From here on, we should be only inserting rules into our custom chains.
+
+	// To keep things manageable, the first rules in the ISTIO_PRERT chain should be short-circuits, like
+	// virtual interface exclusions/redirects:
+	if len(virtualInterfaces) != 0 {
+		for _, virtInterface := range virtualInterfaces {
+			// CLI: -t NAT -A ISTIO_PRERT -i virt0 -p tcp -j REDIRECT --to-ports 15001
+			//
+			// DESC: For any configured virtual interfaces, treat inbound as outbound traffic (useful for kubeVirt, VMs, DinD, etc)
+			// and just shunt it directly to the outbound port of the proxy.
+			// Note that for now this explicitly excludes UDP traffic, as we can't proxy arbitrary UDP stuff,
+			// and this is a difference from the old sidecar `traffic.sidecar.istio.io/kubevirtInterfaces` annotation.
+			iptablesBuilder.AppendRule(
+				iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
+				"-i", fmt.Sprintf(virtInterface),
+				"-p", "tcp",
+				"-j", "REDIRECT",
+				"--to-ports", fmt.Sprint(ZtunnelOutboundPort),
+			)
+			// CLI: -t NAT -A ISTIO_PRERT -i virt0 -p tcp -j RETURN
+			//
+			// DESC: Now that the virtual interface packet has been redirected, just stop processing and jump out of the istio PRERT chain.
+			// Another difference from the sidecar kubevirt rules is that this one RETURNs from the istio chain,
+			// and not the top-level PREROUTING table like the kubevirt rule does.
+			// Returning from the top-level PREROUTING table would skip other people's PRERT rules unconditionally,
+			// which is unsafe (and should not be needed anyway) - if we really find ourselves needing to do that, we should ACCEPT inside our chain instead.
+			iptablesBuilder.AppendRule(
+				iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
+				"-i", fmt.Sprintf(virtInterface),
+				"-p", "tcp",
+				"-j", "RETURN",
+			)
+		}
+	}
 
 	if !ingressMode {
 		// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
