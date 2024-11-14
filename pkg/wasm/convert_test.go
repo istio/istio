@@ -476,7 +476,7 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 					}},
 				},
 			},
-			FailurePolicy: v3.FailurePolicy_FAIL_OPEN,
+			FailOpen: true,
 		},
 	}),
 	"remote-load-allow": buildAnyExtensionConfig("remote-load-fail", &rbac.RBAC{}),

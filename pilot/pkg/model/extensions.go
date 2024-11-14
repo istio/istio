@@ -159,21 +159,14 @@ func (p *WasmPluginWrapper) buildPluginConfig() *wasmextensions.PluginConfig {
 
 	datasource := buildDataSource(u, plugin)
 	resourceName := p.Namespace + "." + p.Name
-	ret := wasmextensions.PluginConfig{
+	// nolint: staticcheck // FailOpen deprecated
+	return &wasmextensions.PluginConfig{
 		Name:          resourceName,
 		RootId:        plugin.PluginName,
 		Configuration: cfg,
 		Vm:            buildVMConfig(datasource, p.ResourceVersion, plugin),
+		FailOpen:      plugin.FailStrategy == extensions.FailStrategy_FAIL_OPEN,
 	}
-
-	switch plugin.GetFailStrategy() {
-	case extensions.FailStrategy_FAIL_OPEN:
-		ret.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
-	case extensions.FailStrategy_FAIL_CLOSE:
-		ret.FailurePolicy = wasmextensions.FailurePolicy_FAIL_CLOSED
-	}
-
-	return &ret
 }
 
 type WasmPluginListenerInfo struct {
