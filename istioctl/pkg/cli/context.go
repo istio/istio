@@ -39,6 +39,8 @@ type Context interface {
 	IstioNamespace() string
 	// AsUser returns the user specified by the user
 	AsUser() string
+	// AsUID returns the user specified by the user
+	AsUID() string
 	// AsGroups returns the group specified by the user
 	AsGroups() []string
 	// NamespaceOrDefault returns the namespace specified by the user, or the default namespace if none was specified
@@ -51,15 +53,14 @@ type instance struct {
 	RootFlags
 }
 
-func newKubeClientWithRevision(kubeconfig, configContext, revision, username string, groups []string) (kube.CLIClient, error) {
+func newKubeClientWithRevision(kubeconfig, configContext, revision string, impersonate rest.ImpersonationConfig) (kube.CLIClient, error) {
 	rc, err := kube.DefaultRestConfig(kubeconfig, configContext, func(config *rest.Config) {
 		// We are running a one-off command locally, so we don't need to worry too much about rate limiting
 		// Bumping this up greatly decreases install time
 		config.QPS = 50
 		config.Burst = 100
 
-		config.Impersonate.UserName = ""
-		config.Impersonate.Groups = nil
+		config.Impersonate = impersonate
 	})
 	if err != nil {
 		return nil, err
@@ -75,6 +76,7 @@ func NewCLIContext(rootFlags *RootFlags) Context {
 			namespace:        ptr.Of[string](""),
 			istioNamespace:   ptr.Of[string](""),
 			as:               ptr.Of[string](""),
+			asUID:            ptr.Of[string](""),
 			asGroups:         ptr.Of([]string{}),
 			defaultNamespace: "",
 		}
@@ -89,7 +91,12 @@ func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 		i.clients = make(map[string]kube.CLIClient)
 	}
 	if i.clients[rev] == nil {
-		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev, *i.as, *i.asGroups)
+		impersonate := rest.ImpersonationConfig{
+			UserName: i.AsUser(),
+			Groups:   i.AsGroups(),
+			UID:      i.AsUID(),
+		}
+		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev, impersonate)
 		if err != nil {
 			return nil, err
 		}
@@ -125,6 +132,11 @@ func (i *instance) NamespaceOrDefault(namespace string) string {
 // AsUser returns the user specified by the user
 func (i *instance) AsUser() string {
 	return *i.as
+}
+
+// AsUID returns the user specified by the user
+func (i *instance) AsUID() string {
+	return *i.asUID
 }
 
 // AsGroups returns the group specified by the user
@@ -203,6 +215,10 @@ func (f *fakeInstance) IstioNamespace() string {
 
 func (f *fakeInstance) AsUser() string {
 	return *f.rootFlags.as
+}
+
+func (f *fakeInstance) AsUID() string {
+	return *f.rootFlags.asUID
 }
 
 func (f *fakeInstance) AsGroups() []string {

@@ -29,6 +29,7 @@ const (
 	FlagNamespace      = "namespace"
 	FlagIstioNamespace = "istioNamespace"
 	FlagAs             = "as"
+	FlagAsUID          = "asUID"
 	FlagAsGroup        = "asGroup"
 )
 
@@ -38,6 +39,7 @@ type RootFlags struct {
 	namespace      *string
 	istioNamespace *string
 	as             *string
+	asUID          *string
 	asGroups       *[]string
 
 	defaultNamespace string
@@ -50,6 +52,7 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		namespace:      ptr.Of[string](""),
 		istioNamespace: ptr.Of[string](""),
 		as:             ptr.Of[string](""),
+		asUID:          ptr.Of[string](""),
 		asGroups:       ptr.Of([]string{}),
 	}
 	flags.StringVarP(r.kubeconfig, FlagKubeConfig, "c", "",
