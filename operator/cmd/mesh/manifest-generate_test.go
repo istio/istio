@@ -817,8 +817,8 @@ func TestLDFlags(t *testing.T) {
 	assert.Equal(t, vals.GetPathString("spec.tag"), version.DockerInfo.Tag)
 }
 
-// TestManifestGenerateStructure makes some basic assertions about the structure of GeneratedManifests internally. This is to ensure that we only generate a single ManifestSet
-// per component-type (in this case ingress gateways)
+// TestManifestGenerateStructure makes some basic assertions about the structure of GeneratedManifests output.
+// This is to ensure that we only generate a single ManifestSet per component-type (in this case ingress gateways).
 // prevent an `istioctl install` regression of https://github.com/istio/istio/issues/53875
 func TestManifestGenerateStructure(t *testing.T) {
 	multiGatewayFile := filepath.Join(testDataDir, "input/gateways.yaml")
