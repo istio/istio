@@ -67,6 +67,7 @@ func NewCLIContext(rootFlags *RootFlags) Context {
 			configContext:    ptr.Of[string](""),
 			namespace:        ptr.Of[string](""),
 			istioNamespace:   ptr.Of[string](""),
+			as:               ptr.Of[string](""),
 			defaultNamespace: "",
 		}
 	}
@@ -174,6 +175,10 @@ func (f *fakeInstance) NamespaceOrDefault(namespace string) string {
 	return handleNamespace(namespace, f.rootFlags.defaultNamespace)
 }
 
+func (f *fakeInstance) As() string {
+	return f.rootFlags.As()
+}
+
 func (f *fakeInstance) Namespace() string {
 	return f.rootFlags.Namespace()
 }
@@ -205,6 +210,7 @@ func NewFakeContext(opts *NewFakeContextOption) Context {
 			configContext:    ptr.Of[string](""),
 			namespace:        &ns,
 			istioNamespace:   &ins,
+			as:               ptr.Of[string](""),
 			defaultNamespace: "",
 		},
 		results: opts.Results,

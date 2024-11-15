@@ -28,6 +28,7 @@ const (
 	FlagContext        = "context"
 	FlagNamespace      = "namespace"
 	FlagIstioNamespace = "istioNamespace"
+	FlagAs             = "as"
 )
 
 type RootFlags struct {
@@ -35,6 +36,7 @@ type RootFlags struct {
 	configContext  *string
 	namespace      *string
 	istioNamespace *string
+	as             *string
 
 	defaultNamespace string
 }
@@ -45,6 +47,7 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		configContext:  ptr.Of[string](""),
 		namespace:      ptr.Of[string](""),
 		istioNamespace: ptr.Of[string](""),
+		as:             ptr.Of[string](""),
 	}
 	flags.StringVarP(r.kubeconfig, FlagKubeConfig, "c", "",
 		"Kubernetes configuration file")
@@ -54,7 +57,13 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		"Kubernetes namespace")
 	flags.StringVarP(r.istioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
 		"Istio system namespace")
+	flags.StringVarP(r.istioNamespace, FlagAs, "", viper.GetString(FlagAs),
+		"Username to impersonate for the operation.")
 	return r
+}
+
+func (r *RootFlags) As() string {
+	return *r.as
 }
 
 // Namespace returns the namespace flag value.
