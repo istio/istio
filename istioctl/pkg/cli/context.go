@@ -47,12 +47,13 @@ type instance struct {
 	RootFlags
 }
 
-func newKubeClientWithRevision(kubeconfig, configContext, revision string) (kube.CLIClient, error) {
+func newKubeClientWithRevision(kubeconfig, configContext, revision string, impersonateConfig *rest.ImpersonationConfig) (kube.CLIClient, error) {
 	rc, err := kube.DefaultRestConfig(kubeconfig, configContext, func(config *rest.Config) {
 		// We are running a one-off command locally, so we don't need to worry too much about rate limiting
 		// Bumping this up greatly decreases install time
 		config.QPS = 50
 		config.Burst = 100
+		config.Impersonate = *impersonateConfig
 	})
 	if err != nil {
 		return nil, err
@@ -79,13 +80,21 @@ func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 	if i.clients == nil {
 		i.clients = make(map[string]kube.CLIClient)
 	}
+
 	if i.clients[rev] == nil {
-		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev)
+		impersonateConfig := rest.ImpersonationConfig{}
+		if len(*i.impersonate) > 0 {
+			impersonateConfig.UserName = *i.impersonate
+			impersonateConfig.UID = *i.impersonateUID
+			impersonateConfig.Groups = *i.impersonateGroup
+		}
+		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev, &impersonateConfig)
 		if err != nil {
 			return nil, err
 		}
 		i.clients[rev] = client
 	}
+
 	return i.clients[rev], nil
 }
 
