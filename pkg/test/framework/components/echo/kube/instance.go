@@ -284,6 +284,13 @@ func (c *instance) UpdateWorkloadLabel(add map[string]string, remove []string) e
 	return nil
 }
 
+func (c *instance) HasSidecar() bool {
+	// Get all workloads for the instance
+	ws, _ := c.Workloads()
+
+	return len(ws) > 0 && ws[0].Sidecar() != nil
+}
+
 func (c *instance) Restart() error {
 	// Wait for all current workloads to become ready and preserve the original count.
 	origWorkloads, err := c.workloadMgr.WaitForReadyWorkloads()

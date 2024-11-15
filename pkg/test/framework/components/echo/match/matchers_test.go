@@ -194,3 +194,7 @@ func (f fakeInstance) UpdateWorkloadLabel(add map[string]string, remove []string
 func (f fakeInstance) Restart() error {
 	panic("implement me")
 }
+
+func (f fakeInstance) HasSidecar() bool {
+	panic("implement me")
+}

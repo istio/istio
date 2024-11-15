@@ -33,6 +33,9 @@ type Instance interface {
 	// Restart restarts the workloads associated with this echo instance
 	Restart() error
 
+	// HasSidecar returns true if the instance has sidecar enabled
+	HasSidecar() bool
+
 	// UpdateWorkloadLabel update pod labels of this echo instance
 	UpdateWorkloadLabel(add map[string]string, remove []string) error
 
