@@ -36,7 +36,8 @@ const (
 	anonymousName = "_anonymous_match_nothing_"
 )
 
-// Matches the policy name in RBAC filter config with format like ns[default]-policy[some-policy]-rule[1] and istio-ext-authz-ns[default]-policy[some-policy]-rule[1].
+// Matches the policy name in RBAC filter config with format like ns[default]-policy[some-policy]-rule[1]
+// and istio-ext-authz-ns[default]-policy[some-policy]-rule[1].
 var re = regexp.MustCompile(`(?:istio-ext-authz-)?ns\[(.+)\]-policy\[(.+)\]-rule\[(.+)\]`)
 
 type filterChain struct {
@@ -129,10 +130,10 @@ func extractName(name string) (string, string) {
 type policyAction string
 
 const (
-	POLICY_ACTION_ALLOW  policyAction = "ALLOW"
-	POLICY_ACTION_DENY   policyAction = "DENY"
-	POLICY_ACTION_LOG    policyAction = "LOG"
-	POLICY_ACTION_CUSTOM policyAction = "CUSTOM"
+	policyActionAllow  policyAction = "ALLOW"
+	policyActionDeny   policyAction = "DENY"
+	policyActionLog    policyAction = "LOG"
+	policyActionCustom policyAction = "CUSTOM"
 )
 
 // Print prints the AuthorizationPolicy in the listener.
@@ -167,7 +168,7 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 				for name := range rbacHTTP.GetShadowRules().GetPolicies() {
 					if strings.HasPrefix(name, "istio-ext-authz-") {
 						nameOfPolicy, indexOfRule := extractName(name)
-						addPolicy(POLICY_ACTION_CUSTOM, nameOfPolicy, indexOfRule)
+						addPolicy(policyActionCustom, nameOfPolicy, indexOfRule)
 					}
 				}
 				if len(rbacHTTP.GetRules().GetPolicies()) == 0 {
@@ -183,7 +184,7 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 				for name := range rbacTCP.GetShadowRules().GetPolicies() {
 					if strings.HasPrefix(name, "istio-ext-authz-") {
 						nameOfPolicy, indexOfRule := extractName(name)
-						addPolicy(POLICY_ACTION_CUSTOM, nameOfPolicy, indexOfRule)
+						addPolicy(policyActionCustom, nameOfPolicy, indexOfRule)
 					}
 				}
 				if len(rbacTCP.GetRules().GetPolicies()) == 0 {
@@ -195,7 +196,7 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 
 	buf := strings.Builder{}
 	buf.WriteString("ACTION\tAuthorizationPolicy\tRULES\n")
-	for _, action := range []policyAction{POLICY_ACTION_DENY, POLICY_ACTION_ALLOW, POLICY_ACTION_LOG, POLICY_ACTION_CUSTOM} {
+	for _, action := range []policyAction{policyActionDeny, policyActionAllow, policyActionLog, policyActionCustom} {
 		if names, ok := actionToPolicy[action]; ok {
 			sortedNames := make([]string, 0, len(names))
 			for name := range names {
