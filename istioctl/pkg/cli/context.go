@@ -84,7 +84,6 @@ func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 		i.clients = make(map[string]kube.CLIClient)
 	}
 	if i.clients[rev] == nil {
-		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev)
 		impersonateConfig := rest.ImpersonationConfig{}
 		if len(*i.impersonate) > 0 {
 			impersonateConfig.UserName = *i.impersonate
