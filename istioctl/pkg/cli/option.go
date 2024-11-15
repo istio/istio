@@ -65,6 +65,8 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		"Istio system namespace")
 	flags.StringVarP(r.as, FlagAs, "", viper.GetString(FlagAs),
 		"User to impersonate for the operation")
+	flags.StringVarP(r.asUID, FlagAsUID, "", viper.GetString(FlagAsUID),
+		"UID to impersonate for the operation")
 	flags.StringSliceVarP(r.asGroups, FlagAsGroup, "", viper.GetStringSlice(FlagAsGroup),
 		"Group(s) to impersonate for the operation")
 	return r
