@@ -38,7 +38,7 @@ type RootFlags struct {
 	namespace      *string
 	istioNamespace *string
 	as             *string
-	asGroup        *string
+	asGroups       *[]string
 
 	defaultNamespace string
 }
@@ -50,7 +50,7 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		namespace:      ptr.Of[string](""),
 		istioNamespace: ptr.Of[string](""),
 		as:             ptr.Of[string](""),
-		asGroup:        ptr.Of[string](""),
+		asGroups:       ptr.Of([]string{}),
 	}
 	flags.StringVarP(r.kubeconfig, FlagKubeConfig, "c", "",
 		"Kubernetes configuration file")
@@ -62,8 +62,8 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		"Istio system namespace")
 	flags.StringVarP(r.as, FlagAs, "", viper.GetString(FlagAs),
 		"User to impersonate for the operation")
-	flags.StringVarP(r.asGroup, FlagAsGroup, "", viper.GetString(FlagAsGroup),
-		"Group to impersonate for the operation")
+	flags.StringSliceVarP(r.asGroups, FlagAsGroup, "", viper.GetStringSlice(FlagAsGroup),
+		"Group(s) to impersonate for the operation")
 	return r
 }
 

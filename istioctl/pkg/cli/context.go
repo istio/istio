@@ -39,8 +39,8 @@ type Context interface {
 	IstioNamespace() string
 	// AsUser returns the user specified by the user
 	AsUser() string
-	// AsGroup returns the group specified by the user
-	AsGroup() string
+	// AsGroups returns the group specified by the user
+	AsGroups() []string
 	// NamespaceOrDefault returns the namespace specified by the user, or the default namespace if none was specified
 	NamespaceOrDefault(namespace string) string
 }
@@ -51,12 +51,15 @@ type instance struct {
 	RootFlags
 }
 
-func newKubeClientWithRevision(kubeconfig, configContext, revision string) (kube.CLIClient, error) {
+func newKubeClientWithRevision(kubeconfig, configContext, revision, username string, groups []string) (kube.CLIClient, error) {
 	rc, err := kube.DefaultRestConfig(kubeconfig, configContext, func(config *rest.Config) {
 		// We are running a one-off command locally, so we don't need to worry too much about rate limiting
 		// Bumping this up greatly decreases install time
 		config.QPS = 50
 		config.Burst = 100
+
+		config.Impersonate.UserName = ""
+		config.Impersonate.Groups = nil
 	})
 	if err != nil {
 		return nil, err
@@ -72,7 +75,7 @@ func NewCLIContext(rootFlags *RootFlags) Context {
 			namespace:        ptr.Of[string](""),
 			istioNamespace:   ptr.Of[string](""),
 			as:               ptr.Of[string](""),
-			asGroup:          ptr.Of[string](""),
+			asGroups:         ptr.Of([]string{}),
 			defaultNamespace: "",
 		}
 	}
@@ -86,11 +89,10 @@ func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 		i.clients = make(map[string]kube.CLIClient)
 	}
 	if i.clients[rev] == nil {
-		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev)
+		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev, *i.as, *i.asGroups)
 		if err != nil {
 			return nil, err
 		}
-		// client.
 		i.clients[rev] = client
 	}
 	return i.clients[rev], nil
@@ -125,9 +127,9 @@ func (i *instance) AsUser() string {
 	return *i.as
 }
 
-// AsGroup returns the group specified by the user
-func (i *instance) AsGroup() string {
-	return *i.asGroup
+// AsGroups returns the group specified by the user
+func (i *instance) AsGroups() []string {
+	return *i.asGroups
 }
 
 // handleNamespace returns the defaultNamespace if the namespace is empty
@@ -199,6 +201,14 @@ func (f *fakeInstance) IstioNamespace() string {
 	return f.rootFlags.IstioNamespace()
 }
 
+func (f *fakeInstance) AsUser() string {
+	return *f.rootFlags.as
+}
+
+func (f *fakeInstance) AsGroups() []string {
+	return *f.rootFlags.asGroups
+}
+
 type NewFakeContextOption struct {
 	Namespace      string
 	IstioNamespace string
@@ -223,6 +233,8 @@ func NewFakeContext(opts *NewFakeContextOption) Context {
 			namespace:        &ns,
 			istioNamespace:   &ins,
 			defaultNamespace: "",
+			as:               ptr.Of[string](""),
+			asGroups:         ptr.Of([]string{}),
 		},
 		results: opts.Results,
 		objects: opts.Objects,
