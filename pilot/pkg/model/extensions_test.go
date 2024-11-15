@@ -275,6 +275,8 @@ func TestFailStrategy(t *testing.T) {
 			if out == nil {
 				t.Fatal("filter can not be nil")
 			}
+
+			// nolint: staticcheck // FailOpen deprecated
 			if got := filter.Config.FailOpen; got != tc.out {
 				t.Errorf("got %t, want %t", got, tc.out)
 			}
