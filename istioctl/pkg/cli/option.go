@@ -39,6 +39,8 @@ type RootFlags struct {
 	defaultNamespace string
 }
 
+// TEST PR
+
 func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 	r := &RootFlags{
 		kubeconfig:     ptr.Of[string](""),
