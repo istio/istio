@@ -28,9 +28,15 @@ const (
 	FlagContext        = "context"
 	FlagNamespace      = "namespace"
 	FlagIstioNamespace = "istioNamespace"
+	FlagAs             = "as"
+	FlagAsUid          = "asUid"
+	FlagAsGroup        = "asGroup"
 )
 
 type RootFlags struct {
+	as             *string
+	asUid          *string
+	asGroup        *[]string
 	kubeconfig     *string
 	configContext  *string
 	namespace      *string
@@ -45,6 +51,9 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		configContext:  ptr.Of[string](""),
 		namespace:      ptr.Of[string](""),
 		istioNamespace: ptr.Of[string](""),
+		as:             ptr.Of[string](""),
+		asUid:          ptr.Of[string](""),
+		asGroup:        nil,
 	}
 	flags.StringVarP(r.kubeconfig, FlagKubeConfig, "c", "",
 		"Kubernetes configuration file")
@@ -54,6 +63,9 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		"Kubernetes namespace")
 	flags.StringVarP(r.istioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
 		"Istio system namespace")
+	flags.StringVarP(r.as, FlagAs, "", "", "Username to impersonate for the operation. User could be a regular user or a service account in a namespace.")
+	flags.StringSliceVarP(r.asGroup, FlagAsGroup, "", nil, "Group to impersonate for the operation, this flag can be repeated to specify multiple groups.")
+	flags.StringVarP(r.asUid, FlagAsUid, "", "", "UID to impersonate for the operation.")
 	return r
 }
 
