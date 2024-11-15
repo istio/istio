@@ -37,6 +37,10 @@ type Context interface {
 	Namespace() string
 	// IstioNamespace returns the Istio namespace specified by the user
 	IstioNamespace() string
+	// AsUser returns the user specified by the user
+	AsUser() string
+	// AsGroup returns the group specified by the user
+	AsGroup() string
 	// NamespaceOrDefault returns the namespace specified by the user, or the default namespace if none was specified
 	NamespaceOrDefault(namespace string) string
 }
@@ -67,6 +71,8 @@ func NewCLIContext(rootFlags *RootFlags) Context {
 			configContext:    ptr.Of[string](""),
 			namespace:        ptr.Of[string](""),
 			istioNamespace:   ptr.Of[string](""),
+			as:               ptr.Of[string](""),
+			asGroup:          ptr.Of[string](""),
 			defaultNamespace: "",
 		}
 	}
@@ -84,6 +90,7 @@ func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 		if err != nil {
 			return nil, err
 		}
+		// client.
 		i.clients[rev] = client
 	}
 	return i.clients[rev], nil
@@ -111,6 +118,16 @@ func (i *instance) InferPodsFromTypedResource(name, namespace string) ([]string,
 
 func (i *instance) NamespaceOrDefault(namespace string) string {
 	return handleNamespace(namespace, i.DefaultNamespace())
+}
+
+// AsUser returns the user specified by the user
+func (i *instance) AsUser() string {
+	return *i.as
+}
+
+// AsGroup returns the group specified by the user
+func (i *instance) AsGroup() string {
+	return *i.asGroup
 }
 
 // handleNamespace returns the defaultNamespace if the namespace is empty
