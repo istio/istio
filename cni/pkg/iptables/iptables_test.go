@@ -25,7 +25,7 @@ import (
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
-func TestIptables(t *testing.T) {
+func TestIptablesPodOverrides(t *testing.T) {
 	cases := []struct {
 		name         string
 		config       func(cfg *IptablesConfig)
@@ -36,12 +36,30 @@ func TestIptables(t *testing.T) {
 			config: func(cfg *IptablesConfig) {
 				cfg.RedirectDNS = true
 			},
+			podOverrides: PodLevelOverrides{},
 		},
 		{
 			name: "ingress",
 			config: func(cfg *IptablesConfig) {
 			},
 			podOverrides: PodLevelOverrides{IngressMode: true},
+		},
+		{
+			name: "virtual_interfaces",
+			config: func(cfg *IptablesConfig) {
+			},
+			podOverrides: PodLevelOverrides{
+				VirtualInterfaces: []string{"fake1s0f0", "fake1s0f1"},
+			},
+		},
+		{
+			name: "ingress_and_virtual_interfaces",
+			config: func(cfg *IptablesConfig) {
+			},
+			podOverrides: PodLevelOverrides{
+				IngressMode: true,
+				VirtualInterfaces: []string{"fake1s0f0", "fake1s0f1"},
+			},
 		},
 	}
 
