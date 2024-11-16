@@ -52,25 +52,32 @@ const (
 	ProbeIPSet                  = "istio-inpod-probes"
 )
 
-type Config struct {
-	TraceLogging bool `json:"IPTABLES_TRACE_LOGGING"`
-	EnableIPv6   bool `json:"ENABLE_INBOUND_IPV6"`
-	RedirectDNS  bool `json:"REDIRECT_DNS"`
+// "global"/per-instance IptablesConfig
+type IptablesConfig struct {
+	TraceLogging           bool       `json:"IPTABLES_TRACE_LOGGING"`
+	EnableIPv6             bool       `json:"ENABLE_INBOUND_IPV6"`
+	RedirectDNS            bool       `json:"REDIRECT_DNS"`
+	HostProbeSNATAddress   netip.Addr `json:"HOST_PROBE_SNAT_ADDRESS"`
+	HostProbeV6SNATAddress netip.Addr `json:"HOST_PROBE_V6_SNAT_ADDRESS"`
 }
 
+// For inpod rules, any runtime/dynamic pod-level
+// config overrides that may need to be taken into account
+// when injecting pod rules
 type PodLevelOverrides struct {
 	VirtualInterfaces []string
+	IngressMode       bool
 }
 
 type IptablesConfigurator struct {
 	ext    dep.Dependencies
 	nlDeps NetlinkDependencies
-	cfg    *Config
+	cfg    *IptablesConfig
 	iptV   dep.IptablesVersion
 	ipt6V  dep.IptablesVersion
 }
 
-func ipbuildConfig(c *Config) *iptablesconfig.Config {
+func ipbuildConfig(c *IptablesConfig) *iptablesconfig.Config {
 	return &iptablesconfig.Config{
 		TraceLogging: c.TraceLogging,
 		EnableIPv6:   c.EnableIPv6,
@@ -79,13 +86,13 @@ func ipbuildConfig(c *Config) *iptablesconfig.Config {
 }
 
 func NewIptablesConfigurator(
-	cfg *Config,
+	cfg *IptablesConfig,
 	hostDeps dep.Dependencies,
 	podDeps dep.Dependencies,
 	nlDeps NetlinkDependencies,
 ) (*IptablesConfigurator, *IptablesConfigurator, error) {
 	if cfg == nil {
-		cfg = &Config{}
+		cfg = &IptablesConfig{}
 	}
 
 	configurator := &IptablesConfigurator{
@@ -181,9 +188,9 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbeSNAT, hostProbeV6SNAT netip.Addr, ingressMode bool, virtualInterfaces []string) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides PodLevelOverrides) error {
 	// Append our rules here
-	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT, ingressMode, virtualInterfaces)
+	builder := cfg.appendInpodRules(podOverrides)
 
 	if err := cfg.addLoopbackRoute(); err != nil {
 		return err
@@ -202,7 +209,7 @@ func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbe
 	return nil
 }
 
-func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT netip.Addr, ingressMode bool, virtualInterfaces []string) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) appendInpodRules(podOverrides PodLevelOverrides) *builder.IptablesRuleBuilder {
 	redirectDNS := cfg.cfg.RedirectDNS
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
@@ -253,8 +260,8 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 
 	// To keep things manageable, the first rules in the ISTIO_PRERT chain should be short-circuits, like
 	// virtual interface exclusions/redirects:
-	if len(virtualInterfaces) != 0 {
-		for _, virtInterface := range virtualInterfaces {
+	if len(podOverrides.VirtualInterfaces) != 0 {
+		for _, virtInterface := range podOverrides.VirtualInterfaces {
 			// CLI: -t NAT -A ISTIO_PRERT -i virt0 -p tcp -j REDIRECT --to-ports 15001
 			//
 			// DESC: For any configured virtual interfaces, treat inbound as outbound traffic (useful for kubeVirt, VMs, DinD, etc)
@@ -284,7 +291,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		}
 	}
 
-	if !ingressMode {
+	if !podOverrides.IngressMode {
 		// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
 		//
 		// DESC: If we have a packet mark, set a connmark.
@@ -303,7 +310,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		// CLI: -t mangle -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
 		//
 		// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
-		iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
+		iptablesBuilder.AppendVersionedRule(cfg.cfg.HostProbeSNATAddress.String(), cfg.cfg.HostProbeV6SNATAddress.String(),
 			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
 			"-s", iptablesconstants.IPVersionSpecific,
 			"-p", "tcp",
@@ -317,7 +324,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 	//
 	// DESC: Anything coming BACK from the pod healthcheck port with a dest of our SNAT-ed hostside IP
 	// we also short-circuit.
-	iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
+	iptablesBuilder.AppendVersionedRule(cfg.cfg.HostProbeSNATAddress.String(), cfg.cfg.HostProbeV6SNATAddress.String(),
 		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
 		"-d", iptablesconstants.IPVersionSpecific,
 		"-p", "tcp",
@@ -325,7 +332,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		"-j", "ACCEPT",
 	)
 
-	if !ingressMode {
+	if !podOverrides.IngressMode {
 		// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports <INPLAINPORT>
 		//
 		// DESC: Anything that is not bound for localhost and does not have the mark, REDIRECT to ztunnel inbound plaintext port <INPLAINPORT>
@@ -489,9 +496,9 @@ func (cfg *IptablesConfigurator) delInpodMarkIPRule() error {
 // via the nodeIP
 // - kubelet (node-local healthchecks, which we do not capture)
 // - kube-proxy (fowarded/proxied traffic from LoadBalancer-backed services, potentially with public IPs, which we must capture)
-func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks(hostSNATIP, hostSNATIPV6 *netip.Addr) error {
+func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks() error {
 	// Append our rules here
-	builder := cfg.appendHostRules(hostSNATIP, hostSNATIPV6)
+	builder := cfg.appendHostRules()
 
 	log.Info("Adding host netnamespace iptables rules")
 
@@ -533,7 +540,7 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	}
 }
 
-func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP, hostSNATIPV6 *netip.Addr) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) appendHostRules() *builder.IptablesRuleBuilder {
 	log.Info("configuring host-level iptables rules (healthchecks, etc)")
 
 	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
@@ -570,7 +577,7 @@ func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP, hostSNATIPV6 *netip
 		"--match-set", fmt.Sprintf(ipset.V4Name, ProbeIPSet),
 		"dst",
 		"-j", "SNAT",
-		"--to-source", hostSNATIP.String(),
+		"--to-source", cfg.cfg.HostProbeSNATAddress.String(),
 	)
 
 	// For V6 we have to use a different set and a different SNAT IP
@@ -584,7 +591,7 @@ func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP, hostSNATIPV6 *netip
 			"--match-set", fmt.Sprintf(ipset.V6Name, ProbeIPSet),
 			"dst",
 			"-j", "SNAT",
-			"--to-source", hostSNATIPV6.String(),
+			"--to-source", cfg.cfg.HostProbeV6SNATAddress.String(),
 		)
 	}
 

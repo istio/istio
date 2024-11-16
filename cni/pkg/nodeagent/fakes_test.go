@@ -154,22 +154,22 @@ type fakeIptablesDeps struct {
 
 var _ iptables.NetlinkDependencies = &fakeIptablesDeps{}
 
-func (r *fakeIptablesDeps) AddInpodMarkIPRule(cfg *iptables.Config) error {
+func (r *fakeIptablesDeps) AddInpodMarkIPRule(cfg *iptables.IptablesConfig) error {
 	r.AddInpodMarkIPRuleCnt.Add(1)
 	return nil
 }
 
-func (r *fakeIptablesDeps) DelInpodMarkIPRule(cfg *iptables.Config) error {
+func (r *fakeIptablesDeps) DelInpodMarkIPRule(cfg *iptables.IptablesConfig) error {
 	r.DelInpodMarkIPRuleCnt.Add(1)
 	return nil
 }
 
-func (r *fakeIptablesDeps) AddLoopbackRoutes(cfg *iptables.Config) error {
+func (r *fakeIptablesDeps) AddLoopbackRoutes(cfg *iptables.IptablesConfig) error {
 	r.AddLoopbackRoutesCnt.Add(1)
 	return r.AddRouteErr
 }
 
-func (r *fakeIptablesDeps) DelLoopbackRoutes(cfg *iptables.Config) error {
+func (r *fakeIptablesDeps) DelLoopbackRoutes(cfg *iptables.IptablesConfig) error {
 	r.DelLoopbackRoutesCnt.Add(1)
 	return nil
 }

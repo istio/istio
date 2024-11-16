@@ -130,11 +130,10 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	// If true, the pod will run in 'ingress mode'. This is intended to be used for "ingress" type workloads which handle
 	// non-mesh traffic on inbound, and send to the mesh on outbound.
 	// Basically, this just disables inbound redirection.
-	// We use the SidecarTrafficExcludeInboundPorts annotation for compatibility (its somewhat widely used) but don't support all values.
-	ingressMode := false
+	podCfg := iptables.PodLevelOverrides{IngressMode: false}
 	if a, f := pod.Annotations[annotation.AmbientBypassInboundCapture.Name]; f {
 		var err error
-		ingressMode, err = strconv.ParseBool(a)
+		podCfg.IngressMode, err = strconv.ParseBool(a)
 		if err != nil {
 			log.Warnf("annotation %v=%q found, but only '*' is supported", annotation.AmbientBypassInboundCapture.Name, a)
 		}
@@ -142,7 +141,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.podIptables.CreateInpodRules(log, HostProbeSNATIP, HostProbeSNATIPV6, ingressMode)
+		return s.podIptables.CreateInpodRules(log, podCfg)
 	}); err != nil {
 		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
 		return err
