@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: [52877]
+releaseNotes:
+- |
+  **Added** new istiod environment variable `PILOT_DNS_JITTER_DURATION` that sets jitter for periodic DNS resolution.
+  See `dns_jitter` in `https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/cluster.proto`.
+

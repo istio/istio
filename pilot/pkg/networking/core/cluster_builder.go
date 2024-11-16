@@ -334,6 +334,8 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 				TypedConfig: dnsResolverConfig,
 			}
 		}
+		// 0 disables jitter.
+		c.DnsJitter = durationpb.New(features.PilotDNSJitterDurationEnv)
 		c.DnsRefreshRate = cb.req.Push.Mesh.DnsRefreshRate
 		c.RespectDnsTtl = true
 		// we want to run all the STATIC parts as well to build the load assignment
