@@ -121,7 +121,7 @@ spec:
         - name: LOG_LEVEL
           value: debug
         - name: DISABLE_STATS
-          value: "true"
+          value: "false"
         - name: REDIS_SOCKET_TYPE
           value: tcp
         - name: REDIS_URL
