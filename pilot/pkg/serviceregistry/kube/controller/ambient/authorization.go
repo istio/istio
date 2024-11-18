@@ -221,7 +221,7 @@ func effectivePeerAuthenticationKeys(rootNamespace string, isEffectiveStringPoli
 	return sets.SortedList(res)
 }
 
-// convertPeerAuthentication converts a PeerAuthentication to an L4 authorization policy (i.e. security.Authorization) iff
+// convertPeerAuthentication converts a PeerAuthentication to an L4 authorization policy (i.e. security.Authorization) iff (if and only if)
 // 1. the PeerAuthentication has a workload selector
 // 2. The PeerAuthentication is NOT in the root namespace
 // 3. There is a portLevelMtls policy (technically implied by 1)
