@@ -270,7 +270,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(podOverrides PodLevelOverrides
 			// and this is a difference from the old sidecar `traffic.sidecar.istio.io/kubevirtInterfaces` annotation.
 			iptablesBuilder.AppendRule(
 				iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
-				"-i", fmt.Sprintf(virtInterface),
+				"-i", fmt.Sprint(virtInterface),
 				"-p", "tcp",
 				"-j", "REDIRECT",
 				"--to-ports", fmt.Sprint(ZtunnelOutboundPort),
@@ -284,7 +284,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(podOverrides PodLevelOverrides
 			// which is unsafe (and should not be needed anyway) - if we really find ourselves needing to do that, we should ACCEPT inside our chain instead.
 			iptablesBuilder.AppendRule(
 				iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
-				"-i", fmt.Sprintf(virtInterface),
+				"-i", fmt.Sprint(virtInterface),
 				"-p", "tcp",
 				"-j", "RETURN",
 			)
