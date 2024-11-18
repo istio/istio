@@ -10,11 +10,6 @@ _internal_defaults_do_not_set:
 
     # Used to locate istiod.
     istioNamespace: istio-system
-
-    # Platform where Istio is deployed. Possible values are: "openshift", "gcp".
-    # An empty value means it is a vanilla Kubernetes distribution, therefore no special
-    # treatment will be considered.
-    platform: ""
   base:
     # A list of CRDs to exclude. Requires `enableCRDTemplates` to be true.
     # Example: `excludedCRDs: ["envoyfilters.networking.istio.io"]`.
