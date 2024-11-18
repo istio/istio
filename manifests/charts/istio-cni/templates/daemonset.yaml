@@ -109,11 +109,9 @@ spec:
               - NET_ADMIN
               # CAP_NET_RAW is required to allow iptables mutation of the `nat` table
               - NET_RAW
-              # CAP_SYS_PTRACE is required for repair mode to describe the pod's network namespace
-              # in repair mode.
-{{- if .Values.repair.repairPods }}
+              # CAP_SYS_PTRACE is required for repair and ambient mode to describe
+              $ the pod's network namespace.
               - SYS_PTRACE
-{{- end }}
               # CAP_SYS_ADMIN is required for both ambient and repair, in order to open
               # network namespaces in `/proc` to obtain descriptors for entering pod network
               # namespaces. There does not appear to be a more granular capability for this.
