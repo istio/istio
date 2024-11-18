@@ -194,7 +194,7 @@ func (s *NetServer) scanProcForPodsAndCache(pods map[types.UID]*corev1.Pod) erro
 	return nil
 }
 
-func getPodLevelTrafficOverrides(pod *corev1.Pod) iptables.PodLevelOverrides{
+func getPodLevelTrafficOverrides(pod *corev1.Pod) iptables.PodLevelOverrides {
 	// If true, the pod will run in 'ingress mode'. This is intended to be used for "ingress" type workloads which handle
 	// non-mesh traffic on inbound, and send to the mesh on outbound.
 	// Basically, this just disables inbound redirection.
