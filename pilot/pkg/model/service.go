@@ -896,7 +896,7 @@ type WaypointKey struct {
 func WaypointKeyForProxy(node *Proxy) WaypointKey {
 	key := WaypointKey{
 		Namespace: node.ConfigNamespace,
-		Network: node.Metadata.Network.String(),
+		Network:   node.Metadata.Network.String(),
 	}
 	for _, svct := range node.ServiceTargets {
 		key.Hostnames = append(key.Hostnames, svct.Service.Hostname.String())
