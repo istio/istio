@@ -7,5 +7,4 @@ releaseNotes:
   AppArmor profiles which block certain privileged pod capabilities. Previously, AppArmor
   (when enabled) was bypassed for the istio-cni-node DaemonSet since privileged was set to true
   in the SecurityContext. This change ensures that the AppArmor profile is set to unconfined
-  for the istio-cni-node DaemonSet. The CAP_SYS_PTRACE capability is now conditionally added
-  based on the value of `.Values.repair.repairPods`.
+  for the istio-cni-node DaemonSet.
