@@ -57,7 +57,7 @@ func TestIptablesPodOverrides(t *testing.T) {
 			config: func(cfg *IptablesConfig) {
 			},
 			podOverrides: PodLevelOverrides{
-				IngressMode: true,
+				IngressMode:       true,
 				VirtualInterfaces: []string{"fake1s0f0", "fake1s0f1"},
 			},
 		},

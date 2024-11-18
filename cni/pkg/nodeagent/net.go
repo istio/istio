@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -127,17 +128,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 		return err
 	}
 
-	// If true, the pod will run in 'ingress mode'. This is intended to be used for "ingress" type workloads which handle
-	// non-mesh traffic on inbound, and send to the mesh on outbound.
-	// Basically, this just disables inbound redirection.
-	podCfg := iptables.PodLevelOverrides{IngressMode: false}
-	if a, f := pod.Annotations[annotation.AmbientBypassInboundCapture.Name]; f {
-		var err error
-		podCfg.IngressMode, err = strconv.ParseBool(a)
-		if err != nil {
-			log.Warnf("annotation %v=%q found, but only '*' is supported", annotation.AmbientBypassInboundCapture.Name, a)
-		}
-	}
+	podCfg := getPodLevelTrafficOverrides(pod)
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
@@ -201,6 +192,33 @@ func (s *NetServer) scanProcForPodsAndCache(pods map[types.UID]*corev1.Pod) erro
 		s.currentPodSnapshot.UpsertPodCacheWithNetns(uid, wl)
 	}
 	return nil
+}
+
+func getPodLevelTrafficOverrides(pod *corev1.Pod) iptables.PodLevelOverrides{
+	// If true, the pod will run in 'ingress mode'. This is intended to be used for "ingress" type workloads which handle
+	// non-mesh traffic on inbound, and send to the mesh on outbound.
+	// Basically, this just disables inbound redirection.
+	podCfg := iptables.PodLevelOverrides{IngressMode: false}
+	if a, f := pod.Annotations[annotation.AmbientBypassInboundCapture.Name]; f {
+		var err error
+		podCfg.IngressMode, err = strconv.ParseBool(a)
+		if err != nil {
+			log.Warnf("annotation %v=%q found, but only '*' is supported", annotation.AmbientBypassInboundCapture.Name, a)
+		}
+	}
+
+	// TODO BML replace	string with https://github.com/istio/api/pull/3362
+	if virt, hasVirt := pod.Annotations["ambient.istio.io/reroute-virtual-interfaces"]; hasVirt {
+		virtInterfaces := strings.Split(virt, ",")
+		for _, splitVirt := range virtInterfaces {
+			trim := strings.TrimSpace(splitVirt)
+			if trim != "" {
+				podCfg.VirtualInterfaces = append(podCfg.VirtualInterfaces, trim)
+			}
+		}
+	}
+
+	return podCfg
 }
 
 func realDependenciesHost() *dep.RealDependencies {
