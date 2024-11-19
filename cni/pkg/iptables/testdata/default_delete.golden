@@ -1,0 +1,18 @@
+iptables -t mangle -D PREROUTING -j ISTIO_PRERT
+iptables -t mangle -D OUTPUT -j ISTIO_OUTPUT
+iptables -t nat -D PREROUTING -j ISTIO_PRERT
+iptables -t nat -D OUTPUT -j ISTIO_OUTPUT
+iptables -t raw -D PREROUTING -j ISTIO_PRERT
+iptables -t raw -D OUTPUT -j ISTIO_OUTPUT
+iptables -t mangle -F ISTIO_PRERT
+iptables -t mangle -F ISTIO_OUTPUT
+iptables -t nat -F ISTIO_PRERT
+iptables -t nat -F ISTIO_OUTPUT
+iptables -t raw -F ISTIO_PRERT
+iptables -t raw -F ISTIO_OUTPUT
+iptables -t mangle -X ISTIO_PRERT
+iptables -t mangle -X ISTIO_OUTPUT
+iptables -t nat -X ISTIO_PRERT
+iptables -t nat -X ISTIO_OUTPUT
+iptables -t raw -X ISTIO_PRERT
+iptables -t raw -X ISTIO_OUTPUT

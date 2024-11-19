@@ -133,6 +133,28 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 	compareToGolden(t, false, tt.name, ext.ExecutedAll)
 }
 
+func TestIpTablesDelete(t *testing.T) {
+	tt := struct {
+		name   string
+		config func(cfg *Config)
+	}{
+		"default_delete",
+		func(cfg *Config) {
+		},
+	}
+
+	cfg := constructTestConfig()
+	tt.config(cfg)
+	ext := &dep.DependenciesStub{}
+	iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
+	err := iptConfigurator.DeleteInpodRules()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	compareToGolden(t, false, tt.name, ext.ExecutedAll)
+}
+
 func ipstr(ipv6 bool) string {
 	if ipv6 {
 		return "ipv6"

@@ -175,7 +175,12 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range deleteCmds {
-			delErrs = append(delErrs, cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...))
+			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
+			if err != nil && strings.Contains(err.Error(), "No chain/target/match by that name") { 
+				log.Warnf("ignoring error deleting nonexistent iptables rule: %v", err)
+			} else {
+				delErrs = append(delErrs, err)
+			}
 		}
 
 		for _, cmd := range optionalDeleteCmds {
@@ -423,10 +428,20 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 	var execErrs []error
 
 	// Execute iptables-restore
-	execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV))
+	err := cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV)
+	if err != nil && strings.Contains(err.Error(), "Chain already exists") {
+		log.Warnf("ingoring restore command failure since chain already exists: %v", err)
+	} else {
+		execErrs = append(execErrs, err)
+	}
 	// Execute ip6tables-restore
 	if cfg.cfg.EnableIPv6 {
-		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V))
+		err := cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V)
+		if err != nil && strings.Contains(err.Error(), "Chain already exists") {
+			log.Warnf("ingoring restore command failure since chain already exists: %v", err)
+		} else {
+			execErrs = append(execErrs, err)
+		}
 	}
 	return errors.Join(execErrs...)
 }
