@@ -84,6 +84,8 @@ var (
 			"https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/network/dns_resolver/cares/v3/cares_dns_resolver.proto "+
 			"and `ARES_OPT_UDP_MAX_QUERIES` in https://c-ares.org/docs/ares_init.html").Get()
 
+	PilotDNSJitterDurationEnv = env.Register("PILOT_DNS_JITTER_DURATION", 100*time.Millisecond, "Jitter added to periodic DNS resolution").Get()
+
 	ExternalIstiod = env.Register("EXTERNAL_ISTIOD", false,
 		"If this is set to true, one Istiod will control remote clusters including CA.").Get()
 

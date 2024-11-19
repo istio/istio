@@ -124,6 +124,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 				newExtensionConfig, err := convertHTTPWasmConfigFromRemoteToLocal(extConfig, wasmHTTPConfig, cache)
 				if err != nil {
 					// Use NOOP filter because the download failed.
+					// nolint: staticcheck // FailOpen deprecated
 					newExtensionConfig, err = createHTTPDefaultFilter(extConfig.GetName(), wasmHTTPConfig.GetConfig().GetFailOpen())
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.
@@ -137,6 +138,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 				newExtensionConfig, err := convertNetworkWasmConfigFromRemoteToLocal(extConfig, wasmNetworkConfig, cache)
 				if err != nil {
 					// Use NOOP filter because the download failed.
+					// nolint: staticcheck // FailOpen deprecated
 					newExtensionConfig, err = createNetworkDefaultFilter(extConfig.GetName(), wasmNetworkConfig.GetConfig().GetFailOpen())
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.

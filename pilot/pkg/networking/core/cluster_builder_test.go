@@ -1337,27 +1337,32 @@ func TestClusterDnsConfig(t *testing.T) {
 	cases := []struct {
 		name          string
 		udpMaxQueries uint32
+		dnsJitter     time.Duration
 		proxy         *model.Proxy
 	}{
 		{
 			name:          "Dual stack proxy",
 			udpMaxQueries: 99,
+			dnsJitter:     0 * time.Millisecond,
 			proxy:         &dualStackProxy,
 		},
 		{
 			name:          "IPv4 proxy",
 			udpMaxQueries: 0,
+			dnsJitter:     1 * time.Millisecond,
 			proxy:         getProxy(),
 		},
 		{
 			name:          "IPv6 proxy",
 			udpMaxQueries: 1,
+			dnsJitter:     5 * time.Millisecond,
 			proxy:         getIPv6Proxy(),
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetForTest(t, &features.PilotDNSCaresUDPMaxQueries, tt.udpMaxQueries)
+			test.SetForTest(t, &features.PilotDNSJitterDurationEnv, tt.dnsJitter)
 			mesh := testMesh()
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
 			cb := NewClusterBuilder(cg.SetupProxy(tt.proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
@@ -1378,6 +1383,9 @@ func TestClusterDnsConfig(t *testing.T) {
 			}
 			if dnsConfig.UdpMaxQueries.Value != tt.udpMaxQueries {
 				t.Errorf("Unexpected UdpMaxQueries, expected : %v, got: %v", tt.udpMaxQueries, dnsConfig.UdpMaxQueries.Value)
+			}
+			if c.DnsJitter.AsDuration() != tt.dnsJitter {
+				t.Errorf("Unexpected dnsJitter, expected : %v, got: %v", tt.dnsJitter, c.DnsJitter.AsDuration())
 			}
 		})
 	}

@@ -218,10 +218,10 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	wh.MultiCast = mc
 	sidecarConfig, valuesConfig, err := p.Watcher.Get()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get initial configuration: %v", err)
 	}
 	if err := wh.updateConfig(sidecarConfig, valuesConfig); err != nil {
-		log.Errorf("failed to process webhook config: %v", err)
+		return nil, fmt.Errorf("failed to process webhook config: %v", err)
 	}
 
 	p.Mux.HandleFunc("/inject", wh.serveInject)
@@ -247,7 +247,7 @@ func (wh *Webhook) updateConfig(sidecarConfig *Config, valuesConfig string) erro
 	wh.Config = sidecarConfig
 	vc, err := NewValuesConfig(valuesConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create new values config: %v", err)
 	}
 	wh.valuesConfig = vc
 	return nil

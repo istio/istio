@@ -159,6 +159,7 @@ func (p *WasmPluginWrapper) buildPluginConfig() *wasmextensions.PluginConfig {
 
 	datasource := buildDataSource(u, plugin)
 	resourceName := p.Namespace + "." + p.Name
+	// nolint: staticcheck // FailOpen deprecated
 	return &wasmextensions.PluginConfig{
 		Name:          resourceName,
 		RootId:        plugin.PluginName,
