@@ -69,6 +69,9 @@ func TestQueue(t *testing.T) {
 		}
 		for _, set := range strings.Split(i.Annotations["conditions"], ",") {
 			k, v, _ := strings.Cut(set, "=")
+			if k == "" {
+				continue
+			}
 			conds[model.ConditionType(k)] = []model.Condition{{Status: v == "true", Reason: "some reason"}}
 		}
 		return &serviceStatus{
@@ -114,7 +117,7 @@ func TestQueue(t *testing.T) {
 				}
 			}
 			if len(have) > 0 {
-				return fmt.Errorf("unexpected conditions, wanted %v, got %v", maps.Keys(conds), allHave)
+				return fmt.Errorf("unexpected conditions, wanted %v, got %v/%v", maps.Keys(conds), allHave, have)
 			}
 			return nil
 		})
