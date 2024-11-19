@@ -428,20 +428,10 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 	var execErrs []error
 
 	// Execute iptables-restore
-	err := cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV)
-	if err != nil && strings.Contains(err.Error(), "Chain already exists") {
-		log.Warnf("ingoring restore command failure since chain already exists: %v", err)
-	} else {
-		execErrs = append(execErrs, err)
-	}
+	execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV))
 	// Execute ip6tables-restore
 	if cfg.cfg.EnableIPv6 {
-		err := cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V)
-		if err != nil && strings.Contains(err.Error(), "Chain already exists") {
-			log.Warnf("ingoring restore command failure since chain already exists: %v", err)
-		} else {
-			execErrs = append(execErrs, err)
-		}
+		execErrs = append(execErrs, execErrscfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V))
 	}
 	return errors.Join(execErrs...)
 }
