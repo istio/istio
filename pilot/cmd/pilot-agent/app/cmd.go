@@ -80,7 +80,6 @@ func NewRootCommand(sds istioagent.SDSServiceFactory) *cobra.Command {
 	rootCmd.AddCommand(waitCmd)
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(iptables.GetCommand(loggingOptions))
-	rootCmd.AddCommand(cleaniptables.GetCommand(loggingOptions))
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, collateral.Metadata{
 		Title:   "Istio Pilot Agent",
