@@ -628,7 +628,7 @@ func (lb *ListenerBuilder) translateWaypointRoute(
 ) *route.Route {
 	gatewaySemantics := model.UseGatewaySemantics(virtualService)
 	// When building routes, it's okay if the target cluster cannot be
-	// resolved Traffic to such clusters will blackhole.
+	// resolved. Traffic to such clusters will blackhole.
 
 	// Match by the destination port specified in the match condition
 	if match != nil && match.Port != 0 && match.Port != uint32(listenPort) {
@@ -701,9 +701,15 @@ func (lb *ListenerBuilder) waypointRouteDestination(
 		action.Timeout = in.Timeout
 	}
 	// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+	// TODO: check and see if the replacement has been fixed.
 	// nolint: staticcheck
 	action.MaxGrpcTimeout = action.Timeout
 
+	if gatewaySemantics {
+		// return 500 for invalid backends
+		// https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L204
+		action.ClusterNotFoundResponseCode = route.RouteAction_INTERNAL_SERVER_ERROR
+	}
 	out.Action = &route.Route_Route{Route: action}
 
 	if in.Rewrite != nil {
@@ -814,9 +820,13 @@ func (lb *ListenerBuilder) waypointRouteDestination(
 	}
 }
 
-// getWaypointDestinationCluster generates a cluster name for the route, or error if no cluster
-// can be found. Called by translateRule to determine if
+// getWaypointDestinationCluster generates a cluster name for the route. If the destination is invalid
+// or cannot be found, "UnknownService" is returned.
 func (lb *ListenerBuilder) getWaypointDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+	if len(destination.GetHost()) == 0 {
+		// only happens when the gateway-api BackendRef is invalid
+		return "UnknownService"
+	}
 	dir, port := model.TrafficDirectionInboundVIP, listenerPort
 
 	if destination.GetPort() != nil {
@@ -851,10 +861,14 @@ func (lb *ListenerBuilder) getWaypointDestinationCluster(destination *networking
 
 // portToSubset helps translate a port to the waypoint subset to use
 func portToSubset(service *model.Service, port int, destination *networking.Destination) string {
-	p, ok := service.Ports.GetByPort(port)
+	var p *model.Port
+	var ok bool
+	if service != nil {
+		p, ok = service.Ports.GetByPort(port)
+	}
 	if !ok {
 		// Port is unknown.
-		if destination.Subset != "" {
+		if destination != nil && destination.Subset != "" {
 			return "http/" + destination.Subset
 		}
 		return "http"
