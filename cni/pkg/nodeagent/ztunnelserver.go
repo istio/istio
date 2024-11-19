@@ -327,6 +327,7 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 	if err != nil {
 		return err
 	}
+	log.Debug("sent pod add to ztunnel")
 
 	if resp.GetAck().GetError() != "" {
 		log.Errorf("failed to add workload: %s", resp.GetAck().GetError())
