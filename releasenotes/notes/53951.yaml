@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** errors being raised during cleanup of iptables of Ambient workloads with either tproxy or ingressMode enabled.
