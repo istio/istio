@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
-	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
 	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
 )
