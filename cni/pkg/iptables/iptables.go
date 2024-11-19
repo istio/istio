@@ -179,10 +179,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 		}
 
 		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
-			if err != nil {
-				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
-			}
+			cfg.ext.RunQuietlyAndIgnore(iptablesconstants.IPTables, &iptVer, nil, cmd...)
 		}
 	}
 	return errors.Join(delErrs...)
