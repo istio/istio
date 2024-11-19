@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: [53883]
+releaseNotes:
+  - |
+    **Fixed** an issue when upgrading waypoint proxies from Istio 1.23.x to Istio 1.24.x.

@@ -75,9 +75,10 @@ func (n NamespaceHostname) String() string {
 
 type workloadsCollection struct {
 	krt.Collection[model.WorkloadInfo]
-	ByAddress        krt.Index[networkAddress, model.WorkloadInfo]
-	ByServiceKey     krt.Index[string, model.WorkloadInfo]
-	ByOwningWaypoint krt.Index[NamespaceHostname, model.WorkloadInfo]
+	ByAddress                krt.Index[networkAddress, model.WorkloadInfo]
+	ByServiceKey             krt.Index[string, model.WorkloadInfo]
+	ByOwningWaypointHostname krt.Index[NamespaceHostname, model.WorkloadInfo]
+	ByOwningWaypointIP       krt.Index[networkAddress, model.WorkloadInfo]
 }
 
 type waypointsCollection struct {
@@ -86,8 +87,9 @@ type waypointsCollection struct {
 
 type servicesCollection struct {
 	krt.Collection[model.ServiceInfo]
-	ByAddress        krt.Index[networkAddress, model.ServiceInfo]
-	ByOwningWaypoint krt.Index[NamespaceHostname, model.ServiceInfo]
+	ByAddress                krt.Index[networkAddress, model.ServiceInfo]
+	ByOwningWaypointHostname krt.Index[NamespaceHostname, model.ServiceInfo]
+	ByOwningWaypointIP       krt.Index[networkAddress, model.ServiceInfo]
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -234,7 +236,7 @@ func New(options Options) Index {
 	}
 
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
-	ServiceInfosByOwningWaypoint := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
+	ServiceInfosByOwningWaypointHostname := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
 		// Filter out waypoint services
 		if s.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -252,6 +254,27 @@ func New(options Options) Index {
 			Namespace: waypointAddress.Namespace,
 			Hostname:  waypointAddress.Hostname,
 		}}
+	})
+	ServiceInfosByOwningWaypointIP := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []networkAddress {
+		// Filter out waypoint services
+		if s.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		waypoint := s.Service.Waypoint
+		if waypoint == nil {
+			return nil
+		}
+		waypointAddress := waypoint.GetAddress()
+		if waypointAddress == nil {
+			return nil
+		}
+		netip, _ := netip.AddrFromSlice(waypointAddress.Address)
+		netaddr := networkAddress{
+			network: waypointAddress.Network,
+			ip:      netip.String(),
+		}
+
+		return []networkAddress{netaddr}
 	})
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *workloadapi.Service {
@@ -281,7 +304,7 @@ func New(options Options) Index {
 	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Services)
 	})
-	WorkloadWaypointIndex := krt.NewIndex(Workloads, func(w model.WorkloadInfo) []NamespaceHostname {
+	WorkloadWaypointIndexHostname := krt.NewIndex(Workloads, func(w model.WorkloadInfo) []NamespaceHostname {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -299,6 +322,28 @@ func New(options Options) Index {
 			Namespace: waypointAddress.Namespace,
 			Hostname:  waypointAddress.Hostname,
 		}}
+	})
+	WorkloadWaypointIndexIP := krt.NewIndex(Workloads, func(w model.WorkloadInfo) []networkAddress {
+		// Filter out waypoints.
+		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		waypoint := w.Waypoint
+		if waypoint == nil {
+			return nil
+		}
+
+		waypointAddress := waypoint.GetAddress()
+		if waypointAddress == nil {
+			return nil
+		}
+		netip, _ := netip.AddrFromSlice(waypointAddress.Address)
+		netaddr := networkAddress{
+			network: waypointAddress.Network,
+			ip:      netip.String(),
+		}
+
+		return []networkAddress{netaddr}
 	})
 	Workloads.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.WorkloadInfo) *workloadapi.Workload {
@@ -321,15 +366,17 @@ func New(options Options) Index {
 	}
 
 	a.workloads = workloadsCollection{
-		Collection:       Workloads,
-		ByAddress:        WorkloadAddressIndex,
-		ByServiceKey:     WorkloadServiceIndex,
-		ByOwningWaypoint: WorkloadWaypointIndex,
+		Collection:               Workloads,
+		ByAddress:                WorkloadAddressIndex,
+		ByServiceKey:             WorkloadServiceIndex,
+		ByOwningWaypointHostname: WorkloadWaypointIndexHostname,
+		ByOwningWaypointIP:       WorkloadWaypointIndexIP,
 	}
 	a.services = servicesCollection{
-		Collection:       WorkloadServices,
-		ByAddress:        ServiceAddressIndex,
-		ByOwningWaypoint: ServiceInfosByOwningWaypoint,
+		Collection:               WorkloadServices,
+		ByAddress:                ServiceAddressIndex,
+		ByOwningWaypointHostname: ServiceInfosByOwningWaypointHostname,
+		ByOwningWaypointIP:       ServiceInfosByOwningWaypointIP,
 	}
 	a.waypoints = waypointsCollection{
 		Collection: Waypoints,
@@ -468,26 +515,60 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 }
 
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
-	var out []model.ServiceInfo
+	out := map[string]model.ServiceInfo{}
 	for _, host := range key.Hostnames {
-		out = append(out, a.services.ByOwningWaypoint.Lookup(NamespaceHostname{
+		for _, res := range a.services.ByOwningWaypointHostname.Lookup(NamespaceHostname{
 			Namespace: key.Namespace,
 			Hostname:  host,
-		})...)
+		}) {
+			name := res.ResourceName()
+			if _, f := out[name]; !f {
+				out[name] = res
+			}
+		}
 	}
-	return out
+
+	for _, addr := range key.Addresses {
+		for _, res := range a.services.ByOwningWaypointIP.Lookup(networkAddress{
+			network: key.Network,
+			ip:      addr,
+		}) {
+			name := res.ResourceName()
+			if _, f := out[name]; !f {
+				out[name] = res
+			}
+		}
+	}
+	// Response is unsorted; it is up to the caller to sort
+	return maps.Values(out)
 }
 
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
-	var out []model.WorkloadInfo
+	out := map[string]model.WorkloadInfo{}
 	for _, host := range key.Hostnames {
-		out = append(out, a.workloads.ByOwningWaypoint.Lookup(NamespaceHostname{
+		for _, res := range a.workloads.ByOwningWaypointHostname.Lookup(NamespaceHostname{
 			Namespace: key.Namespace,
 			Hostname:  host,
-		})...)
+		}) {
+			name := res.ResourceName()
+			if _, f := out[name]; !f {
+				out[name] = res
+			}
+		}
 	}
-	out = model.SortWorkloadsByCreationTime(out)
-	return out
+
+	for _, addr := range key.Addresses {
+		for _, res := range a.workloads.ByOwningWaypointIP.Lookup(networkAddress{
+			network: key.Network,
+			ip:      addr,
+		}) {
+			name := res.ResourceName()
+			if _, f := out[name]; !f {
+				out[name] = res
+			}
+		}
+	}
+	return model.SortWorkloadsByCreationTime(maps.Values(out))
 }
 
 func (a *index) AdditionalPodSubscriptions(

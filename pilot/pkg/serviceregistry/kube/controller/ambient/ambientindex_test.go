@@ -609,6 +609,79 @@ func TestAmbientIndex_WaypointInboundBinding(t *testing.T) {
 	})
 }
 
+func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
+	wpKey := model.WaypointKey{
+		Namespace: testNS,
+		Hostnames: []string{fmt.Sprintf("%s.%s.svc.company.com", "wp", testNS)},
+		Addresses: []string{"10.0.0.1"},
+		Network:   testNW,
+	}
+	t.Run("hostname", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW)
+		s.addService(t, "svc1",
+			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
+		s.addService(t, "wp",
+			map[string]string{},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		svc1Host := ptr.ToList(s.services.GetKey(krt.Key[model.ServiceInfo](fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1")))))
+		assert.Equal(t, len(svc1Host), 1)
+		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+			return s.ServicesForWaypoint(wpKey)
+		}, svc1Host)
+	})
+	t.Run("ip", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW)
+
+		s.addService(t, "svc1",
+			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		s.addWaypointSpecificAddress(t, "10.0.0.1", "", "wp", constants.AllTraffic, true)
+		s.addService(t, "wp",
+			map[string]string{},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		svc1Host := ptr.ToList(s.services.GetKey(krt.Key[model.ServiceInfo](fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1")))))
+		assert.Equal(t, len(svc1Host), 1)
+		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+			return s.ServicesForWaypoint(wpKey)
+		}, svc1Host)
+	})
+	t.Run("mixed", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW)
+		s.addService(t, "svc1",
+			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		s.addWaypointSpecificAddress(t, "10.0.0.1", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
+		s.addService(t, "wp",
+			map[string]string{},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		svc1Host := ptr.ToList(s.services.GetKey(krt.Key[model.ServiceInfo](fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1")))))
+		assert.Equal(t, len(svc1Host), 1)
+		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+			return s.ServicesForWaypoint(wpKey)
+		}, svc1Host)
+	})
+}
+
 // define constants for the different types of XDS events which occur during policy unit tests
 const (
 	xdsConvertedPeerAuthSelector       = "converted_peer_authentication_selector"
