@@ -228,7 +228,7 @@ type Group struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Rules are OR-ed (e.g. ANY rule can match)
+	// Rules are AND-ed
 	// This is a generic form of the authz policy's to, from and when
 	Rules []*Rules `protobuf:"bytes,1,rep,name=rules,proto3" json:"rules,omitempty"`
 }
