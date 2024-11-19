@@ -274,6 +274,9 @@ func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, i
 		}
 
 		log.Errorf("Command error output: %v", stderrStr)
+	} else if err != nil && ignoreErrors {
+		// Log ignored errors for debugging purposes
+		log.Debugf("Ignoring iptables command error: %v", err)
 	}
 
 	return stdout, err
