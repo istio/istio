@@ -85,7 +85,7 @@ func getCommonTestCases() []struct {
 		{
 			"tproxy",
 			func(cfg *config.Config) {
-				cfg.InboundInterceptionMode = constants.TPROXY
+				cfg.InboundInterceptionMode = "TPROXY"
 				cfg.InboundPortsInclude = "*"
 				cfg.OutboundIPRangesExclude = "1.1.0.0/16"
 				cfg.OutboundIPRangesInclude = "9.9.0.0/16"
@@ -185,14 +185,14 @@ func getCommonTestCases() []struct {
 			"inbound-ports-tproxy",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "32000,31000"
-				cfg.InboundInterceptionMode = constants.TPROXY
+				cfg.InboundInterceptionMode = "TPROXY"
 			},
 		},
 		{
 			"inbound-ports-wildcard-tproxy",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "*"
-				cfg.InboundInterceptionMode = constants.TPROXY
+				cfg.InboundInterceptionMode = "TPROXY"
 			},
 		},
 		{

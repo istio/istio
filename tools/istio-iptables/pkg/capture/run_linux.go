@@ -23,14 +23,13 @@ import (
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 // configureTProxyRoutes configures ip firewall rules to enable TPROXY support.
 // See https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/original_src_filter
 func configureTProxyRoutes(cfg *config.Config) error {
 	if cfg.InboundPortsInclude != "" {
-		if cfg.InboundInterceptionMode == constants.TPROXY {
+		if cfg.InboundInterceptionMode == "TPROXY" {
 			link, err := netlink.LinkByName("lo")
 			if err != nil {
 				return fmt.Errorf("failed to find 'lo' link: %v", err)
