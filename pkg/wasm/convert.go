@@ -96,18 +96,8 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 
 			newExtensionConfig, err := convertWasmConfigFromRemoteToLocal(extConfig, wasmConfig, cache)
 			if err != nil {
-				if !wasmConfig.GetConfig().GetFailOpen() {
-					convertErrs[i] = err
-					return
-				}
-				// Use NOOP filter because the download failed.
-				newExtensionConfig, err = createAllowAllFilter(extConfig.GetName())
-				if err != nil {
-					// If the fallback is failing, send the Nack regardless of fail_open.
-					err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
-					convertErrs[i] = err
-					return
-				}
+				convertErrs[i] = err
+				return
 			}
 
 			resources[i] = newExtensionConfig
