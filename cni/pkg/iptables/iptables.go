@@ -176,7 +176,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range deleteCmds {
 			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
-			if err != nil && strings.Contains(err.Error(), "No chain/target/match by that name") { 
+			if err != nil && strings.Contains(err.Error(), "No chain/target/match by that name") {
 				log.Warnf("ignoring error deleting nonexistent iptables rule: %v", err)
 			} else {
 				delErrs = append(delErrs, err)
