@@ -816,7 +816,6 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 		secretsAny,
 		extensionsAny,
 	)
-
 	configDump := &admin.ConfigDump{
 		Configs: configs,
 	}
