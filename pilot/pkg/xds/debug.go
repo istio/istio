@@ -704,9 +704,6 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 		v3.SecretType,
 		v3.EndpointType,
 		v3.ExtensionConfigurationType,
-		v3.WorkloadType,
-		v3.AddressType,
-		v3.WorkloadAuthorizationType,
 	})
 
 	dynamicActiveClusters := make([]*admin.ClustersConfigDump_DynamicCluster, 0)
@@ -722,7 +719,6 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 	if err != nil {
 		return nil, err
 	}
-	delete(dump, v3.ClusterType)
 
 	dynamicActiveListeners := make([]*admin.ListenersConfigDump_DynamicListener, 0)
 	for _, listener := range dump[v3.ListenerType] {
@@ -741,7 +737,6 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 	if err != nil {
 		return nil, err
 	}
-	delete(dump, v3.ListenerType)
 
 	dynamicRouteConfig := make([]*admin.RoutesConfigDump_DynamicRouteConfig, 0)
 	for _, route := range dump[v3.RouteType] {
@@ -756,7 +751,6 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 	if err != nil {
 		return nil, err
 	}
-	delete(dump, v3.RouteType)
 
 	dynamicSecretsConfig := make([]*admin.SecretsConfigDump_DynamicSecret, 0)
 	for _, secret := range dump[v3.SecretType] {
@@ -771,7 +765,6 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 	if err != nil {
 		return nil, err
 	}
-	delete(dump, v3.SecretType)
 
 	extensionsConfig := make([]*admin.EcdsConfigDump_EcdsFilterConfig, 0)
 	for _, ext := range dump[v3.ExtensionConfigurationType] {
@@ -786,7 +779,6 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 	if err != nil {
 		return nil, err
 	}
-	delete(dump, v3.ExtensionConfigurationType)
 
 	var endpointsAny *anypb.Any
 	// EDS is disabled by default for compatibility with Envoy config_dump interface
@@ -805,7 +797,6 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 			return nil, err
 		}
 	}
-	delete(dump, v3.EndpointType)
 
 	bootstrapAny := protoconv.MessageToAny(&admin.BootstrapConfigDump{})
 	scopedRoutesAny := protoconv.MessageToAny(&admin.ScopedRoutesConfigDump{})
@@ -825,13 +816,6 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 		secretsAny,
 		extensionsAny,
 	)
-
-	// Add the rest of the resources, e.g. Workload, Address, WorkloadAuthorization
-	for _, t := range dump {
-		for _, r := range t {
-			configs = append(configs, r.Resource)
-		}
-	}
 
 	configDump := &admin.ConfigDump{
 		Configs: configs,
