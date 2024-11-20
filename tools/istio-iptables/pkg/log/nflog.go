@@ -96,7 +96,7 @@ func ReadNFLOGSocket(ctx context.Context) {
 			"outDev", outDev,
 			"src", src,
 			"dst", dst,
-		).Infof("istio traffic rule added")
+		).Infof("istio rule")
 		return 0
 	}
 
