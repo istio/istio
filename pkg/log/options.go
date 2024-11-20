@@ -187,7 +187,7 @@ func convertScopedLevel(sl string) (string, Level, error) {
 
 	level, ok := stringToLevel[l]
 	if !ok {
-		return "", NoneLevel, fmt.Errorf("invalid output level '%s'", sl)
+		return "", NoneLevel, fmt.Errorf("invalid output level '%s'", l)
 	}
 
 	return s, level, nil
