@@ -1377,3 +1377,68 @@ func defaultInstallPackageDir() string {
 	}
 	return filepath.Join(wd, "../../../manifests/")
 }
+
+func TestNewWebhookConfigParsingError(t *testing.T) {
+	// Create a watcher that returns valid sidecarConfig but invalid valuesConfig
+	faultyWatcher := &FaultyWatcher{
+		sidecarConfig: &Config{},
+		valuesConfig:  "invalid: values: config",
+	}
+
+	whParams := WebhookParameters{
+		Watcher: faultyWatcher,
+		Port:    0,
+		Env:     &model.Environment{},
+		Mux:     http.NewServeMux(),
+	}
+
+	_, err := NewWebhook(whParams)
+	if err == nil || !strings.Contains(err.Error(), "failed to process webhook config") {
+		t.Fatalf("Expected error when creating webhook with faulty valuesConfig, but got: %v", err)
+	}
+}
+
+// FaultyWatcher is a mock Watcher that returns predefined sidecarConfig and valuesConfig
+type FaultyWatcher struct {
+	sidecarConfig *Config
+	valuesConfig  string
+}
+
+func (fw *FaultyWatcher) Run(stop <-chan struct{}) {}
+
+func (fw *FaultyWatcher) Get() (*Config, string, error) {
+	return fw.sidecarConfig, fw.valuesConfig, nil
+}
+
+func (fw *FaultyWatcher) SetHandler(handler func(*Config, string) error) {}
+
+func TestNewWebhookConfigParsingSuccess(t *testing.T) {
+	// Create a watcher that returns valid sidecarConfig and valid valuesConfig
+	validValuesConfig := `
+global:
+  proxy:
+    image: proxyv2
+`
+	faultyWatcher := &FaultyWatcher{
+		sidecarConfig: &Config{},
+		valuesConfig:  validValuesConfig,
+	}
+
+	whParams := WebhookParameters{
+		Watcher: faultyWatcher,
+		Port:    0,
+		Env: &model.Environment{
+			Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+		},
+		Mux: http.NewServeMux(),
+	}
+
+	wh, err := NewWebhook(whParams)
+	if err != nil {
+		t.Fatalf("Expected no error when creating webhook with valid valuesConfig, but got: %v", err)
+	}
+
+	if wh.valuesConfig.raw != validValuesConfig {
+		t.Fatalf("Expected valuesConfig to be set correctly, but got: %v", wh.valuesConfig.raw)
+	}
+}
