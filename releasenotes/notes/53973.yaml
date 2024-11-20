@@ -1,8 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
 area: istioctl
-issue:
-  - 52413
 releaseNotes:
   - |
     **Fixed** istioctl analyze report IST0145 error when using the same host with different ports and multiple gateways.
