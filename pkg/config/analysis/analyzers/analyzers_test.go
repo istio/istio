@@ -144,7 +144,7 @@ var testGrid = []testCase{
 		name:       "externalControlPlaneValidWebhooks",
 		inputFiles: []string{"testdata/externalcontrolplane-valid-urls.yaml"},
 		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
-		expected:   []message{
+		expected: []message{
 			// no messages, this test case verifies no false positives
 		},
 	},
@@ -152,7 +152,7 @@ var testGrid = []testCase{
 		name:       "externalControlPlaneValidWebhooks",
 		inputFiles: []string{"testdata/externalcontrolplane-valid-urls-custom-ns.yaml"},
 		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
-		expected:   []message{
+		expected: []message{
 			// no messages, this test case verifies no false positives
 		},
 	},
@@ -176,7 +176,7 @@ var testGrid = []testCase{
 		name:       "gatewayCorrectPort",
 		inputFiles: []string{"testdata/gateway-correct-port.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
-		expected:   []message{
+		expected: []message{
 			// no messages, this test case verifies no false positives
 		},
 	},
@@ -184,7 +184,7 @@ var testGrid = []testCase{
 		name:       "gatewayCustomIngressGateway",
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
-		expected:   []message{
+		expected: []message{
 			// no messages, this test case verifies no false positives
 		},
 	},
@@ -208,7 +208,7 @@ var testGrid = []testCase{
 		name:       "gatewayCustomIngressGatewayTranslation",
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-translation.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
-		expected:   []message{
+		expected: []message{
 			// no messages, this test case verifies no false positives
 		},
 	},
@@ -251,10 +251,10 @@ var testGrid = []testCase{
 		},
 	},
 	{
-		name:       "two gateways with no conflict",
-		inputFiles: []string{"testdata/conflicting-gateways-wildcard.yaml"},
+		name:       "gateways with no conflict",
+		inputFiles: []string{"testdata/conflicting-gateways-no-conflict.yaml"},
 		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
-		expected:   []message{
+		expected: []message{
 			// no messages, this test case verifies no false positives
 		},
 	},
@@ -838,7 +838,7 @@ var testGrid = []testCase{
 		name:       "ExternalNameServiceTypeValidPortName",
 		inputFiles: []string{"testdata/correct-port-name-external-name-service-type.yaml"},
 		analyzer:   &service.PortNameAnalyzer{},
-		expected:   []message{
+		expected: []message{
 			// Test no messages are received for correct port name
 		},
 	},
@@ -863,7 +863,7 @@ var testGrid = []testCase{
 		name:       "EnvoyFilterUsesAbsoluteOperation",
 		inputFiles: []string{"testdata/absolute-envoy-filter-operation.yaml"},
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
-		expected:   []message{
+		expected: []message{
 			// Test no messages are received for absolute operation usage
 		},
 	},
