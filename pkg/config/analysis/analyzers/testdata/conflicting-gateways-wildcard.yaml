@@ -1,0 +1,51 @@
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: foo
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - foo.example.com
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+    tls:
+      httpsRedirect: true
+  - hosts:
+      - foo.example.com
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      credentialName: foo-credential
+      mode: SIMPLE
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: bar
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+      - '*.bar.example.com'
+    port:
+      name: http
+      number: 80
+      protocol: HTTP
+    tls:
+      httpsRedirect: true
+  - hosts:
+      - '*.bar.example.com'
+    port:
+      name: https
+      number: 443
+      protocol: HTTPS
+    tls:
+      credentialName: bar-credential
+      mode: SIMPLE
