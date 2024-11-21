@@ -14,7 +14,7 @@ spec:
   template:
     metadata:
       annotations:
-        istio.io/reroute-virtual-interfaces: net0ps2
+        istio.io/reroute-virtual-interfaces: net1ps5,net2qr9
         istio.io/rev: default
         kubectl.kubernetes.io/default-container: hello
         kubectl.kubernetes.io/default-logs-container: hello
@@ -119,12 +119,11 @@ spec:
           name: http-envoy-prom
           protocol: TCP
         readinessProbe:
-          failureThreshold: 300
+          failureThreshold: 4
           httpGet:
             path: /healthz/ready
             port: 15021
-          initialDelaySeconds: 100
-          periodSeconds: 200
+          periodSeconds: 15
           timeoutSeconds: 3
         resources:
           limits:
@@ -185,9 +184,9 @@ spec:
         - -b
         - '*'
         - -d
-        - 15090,15021,123
+        - 15090,15021,15020
         - -k
-        - net0ps2
+        - net1ps5,net2qr9
         - --log_output_level=default:info
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-init

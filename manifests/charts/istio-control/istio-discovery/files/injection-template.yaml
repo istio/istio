@@ -115,6 +115,10 @@ spec:
     - "-k"
     - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
     {{ end -}}
+    {{ if (isset .ObjectMeta.Annotations `istio.io/reroute-virtual-interfaces`) -}}
+    - "-k"
+    - "{{ index .ObjectMeta.Annotations `istio.io/reroute-virtual-interfaces` }}"
+    {{ end -}}
      {{ if (isset .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInterfaces`) -}}
     - "-c"
     - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInterfaces` }}"

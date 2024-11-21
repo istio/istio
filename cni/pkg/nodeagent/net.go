@@ -207,8 +207,7 @@ func getPodLevelTrafficOverrides(pod *corev1.Pod) iptables.PodLevelOverrides {
 		}
 	}
 
-	// TODO BML replace	string with https://github.com/istio/api/pull/3362
-	if virt, hasVirt := pod.Annotations["istio.io/reroute-virtual-interfaces"]; hasVirt {
+	if virt, hasVirt := pod.Annotations[annotation.IoIstioRerouteVirtualInterfaces.Name]; hasVirt {
 		virtInterfaces := strings.Split(virt, ",")
 		for _, splitVirt := range virtInterfaces {
 			trim := strings.TrimSpace(splitVirt)
