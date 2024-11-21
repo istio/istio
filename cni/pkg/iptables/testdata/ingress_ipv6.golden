@@ -1,3 +1,5 @@
+iptables-save
+ip6tables-save
 * mangle
 -N ISTIO_OUTPUT
 -N ISTIO_PRERT

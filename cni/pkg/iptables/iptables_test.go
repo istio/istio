@@ -26,24 +26,7 @@ import (
 )
 
 func TestIptables(t *testing.T) {
-	cases := []struct {
-		name        string
-		config      func(cfg *Config)
-		ingressMode bool
-	}{
-		{
-			name: "default",
-			config: func(cfg *Config) {
-				cfg.RedirectDNS = true
-			},
-		},
-		{
-			name: "ingress",
-			config: func(cfg *Config) {
-			},
-			ingressMode: true,
-		},
-	}
+	cases := GetCommonInPodTestCases()
 	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
 	probeSNATipv6 := netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")
 
@@ -54,7 +37,7 @@ func TestIptables(t *testing.T) {
 				cfg.EnableIPv6 = ipv6
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
-				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
+				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
 				err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, tt.ingressMode)
 				if err != nil {
 					t.Fatal(err)
@@ -67,16 +50,7 @@ func TestIptables(t *testing.T) {
 }
 
 func TestIptablesHostRules(t *testing.T) {
-	cases := []struct {
-		name   string
-		config func(cfg *Config)
-	}{
-		{
-			"hostprobe",
-			func(cfg *Config) {
-			},
-		},
-	}
+	cases := GetCommonHostTestCases()
 	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
 	probeSNATipv6 := netip.MustParseAddr("fd16:9254:7127:1337:ffff:ffff:ffff:ffff")
 
@@ -87,8 +61,8 @@ func TestIptablesHostRules(t *testing.T) {
 				cfg.EnableIPv6 = ipv6
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
-				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
-				err := iptConfigurator.CreateHostRulesForHealthChecks(&probeSNATipv4, &probeSNATipv6)
+				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
+				err := iptConfigurator.CreateHostRulesForHealthChecks(probeSNATipv4, probeSNATipv6)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -100,37 +74,31 @@ func TestIptablesHostRules(t *testing.T) {
 }
 
 func TestInvokedTwiceIsIdempotent(t *testing.T) {
-	tt := struct {
-		name   string
-		config func(cfg *Config)
-	}{
-		"default",
-		func(cfg *Config) {
-			cfg.RedirectDNS = true
-		},
-	}
+	tests := GetCommonInPodTestCases()
 
 	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
 	probeSNATipv6 := netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &Config{}
+			tt.config(cfg)
+			ext := &dep.DependenciesStub{}
+			iptConfigurator, _, _ := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
+			err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, tt.ingressMode)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareToGolden(t, false, tt.name, ext.ExecutedAll)
 
-	cfg := constructTestConfig()
-	tt.config(cfg)
-	ext := &dep.DependenciesStub{}
-	iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
-	err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, false)
-	if err != nil {
-		t.Fatal(err)
+			*ext = dep.DependenciesStub{}
+			// run another time to make sure we are idempotent
+			err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, tt.ingressMode)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareToGolden(t, false, tt.name, ext.ExecutedAll)
+		})
 	}
-	compareToGolden(t, false, tt.name, ext.ExecutedAll)
-
-	*ext = dep.DependenciesStub{}
-	// run another time to make sure we are idempotent
-	err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, probeSNATipv4, probeSNATipv6, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	compareToGolden(t, false, tt.name, ext.ExecutedAll)
 }
 
 func ipstr(ipv6 bool) string {

@@ -40,15 +40,13 @@ import (
 var log = scopes.CNIAgent
 
 type MeshDataplane interface {
-	// called first, (even before Start()).
-	ConstructInitialSnapshot(ambientPods []*corev1.Pod) error
+	// MUST be called first, (even before Start()).
+	ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) error
 	Start(ctx context.Context)
+	Stop()
 
-	//	IsPodInMesh(ctx context.Context, pod *metav1.ObjectMeta, netNs string) (bool, error)
 	AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error
 	RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error
-
-	Stop()
 }
 
 type Server struct {
@@ -69,13 +67,19 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing kube client: %w", err)
 	}
 
-	cfg := &iptables.Config{
+	hostCfg := &iptables.Config{
 		RedirectDNS: args.DNSCapture,
 		EnableIPv6:  args.EnableIPv6,
 	}
 
+	podCfg := &iptables.Config{
+		RedirectDNS: args.DNSCapture,
+		EnableIPv6:  args.EnableIPv6,
+		Reconcile:   args.ReconcilePodRulesOnStartup,
+	}
+
 	log.Debug("creating ipsets in the node netns")
-	set, err := createHostsideProbeIpset(cfg.EnableIPv6)
+	set, err := createHostsideProbeIpset(hostCfg.EnableIPv6)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing hostside probe ipset: %w", err)
 	}
@@ -86,15 +90,15 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
 	}
 
-	hostIptables, podIptables, err := iptables.NewIptablesConfigurator(cfg, realDependenciesHost(), realDependenciesInpod(), iptables.RealNlDeps())
+	hostIptables, podIptables, err := iptables.NewIptablesConfigurator(hostCfg, podCfg, realDependenciesHost(), realDependenciesInpod(), iptables.RealNlDeps())
 	if err != nil {
 		return nil, fmt.Errorf("error configuring iptables: %w", err)
 	}
 
 	// Create hostprobe rules now, in the host netns
-	hostIptables.DeleteHostRules()
+	hostIptables.DeleteHostRules(HostProbeSNATIP, HostProbeSNATIPV6)
 
-	if err := hostIptables.CreateHostRulesForHealthChecks(&HostProbeSNATIP, &HostProbeSNATIPV6); err != nil {
+	if err := hostIptables.CreateHostRulesForHealthChecks(HostProbeSNATIP, HostProbeSNATIPV6); err != nil {
 		return nil, fmt.Errorf("error initializing the host rules for health checks: %w", err)
 	}
 
@@ -134,39 +138,6 @@ func (s *Server) NotReady() {
 	s.isReady.Store(false)
 }
 
-// buildKubeClient creates the kube client
-func buildKubeClient(kubeConfig string) (kube.Client, error) {
-	// Used by validation
-	kubeRestConfig, err := kube.DefaultRestConfig(kubeConfig, "", func(config *rest.Config) {
-		config.QPS = 80
-		config.Burst = 160
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed creating kube config: %v", err)
-	}
-
-	client, err := kube.NewClient(kube.NewClientConfigForRestConfig(kubeRestConfig), "")
-	if err != nil {
-		return nil, fmt.Errorf("failed creating kube client: %v", err)
-	}
-
-	return client, nil
-}
-
-// createHostsideProbeIpset creates an ipset. This is designed to be called from the host netns.
-// Note that if the ipset already exist by name, Create will not return an error.
-//
-// We will unconditionally flush our set before use here, so it shouldn't matter.
-func createHostsideProbeIpset(isV6 bool) (ipset.IPSet, error) {
-	linDeps := ipset.RealNlDeps()
-	probeSet, err := ipset.NewIPSet(iptables.ProbeIPSet, isV6, linDeps)
-	if err != nil {
-		return probeSet, err
-	}
-	probeSet.Flush()
-	return probeSet, nil
-}
-
 func (s *Server) Start() {
 	log.Info("CNI ambient server starting")
 	s.kubeClient.RunAndWait(s.ctx.Done())
@@ -195,15 +166,31 @@ type meshDataplane struct {
 	hostsideProbeIPSet ipset.IPSet
 }
 
+// ConstructInitialSnapshot is always called first, before Start.
+// It takes a "snapshot" of ambient pods that were already running when the server started,
+// and constructs various required "state" (adding the pods to the host-level node ipset,
+// building the state of the world snapshot send to connecting ztunnels)
+func (s *meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) error {
+	if err := s.syncHostIPSets(existingAmbientPods); err != nil {
+		log.Errorf("failed to sync host IPset: %v", err)
+		return err
+	}
+
+	return s.netServer.ConstructInitialSnapshot(existingAmbientPods)
+}
+
+// Start starts the netserver.
+// ConstructInitialSnapshot should always be invoked before this function.
 func (s *meshDataplane) Start(ctx context.Context) {
 	s.netServer.Start(ctx)
 }
 
+// Stop stops the netserver.
 func (s *meshDataplane) Stop() {
 	log.Info("CNI ambient server terminating, cleaning up node net rules")
 
 	log.Debug("removing host iptables rules")
-	s.hostIptables.DeleteHostRules()
+	s.hostIptables.DeleteHostRules(HostProbeSNATIP, HostProbeSNATIPV6)
 
 	log.Debug("destroying host ipset")
 	s.hostsideProbeIPSet.Flush()
@@ -212,15 +199,6 @@ func (s *meshDataplane) Stop() {
 	}
 
 	s.netServer.Stop()
-}
-
-func (s *meshDataplane) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {
-	if err := s.syncHostIPSets(ambientPods); err != nil {
-		log.Errorf("failed to sync host IPset: %v", err)
-		return err
-	}
-
-	return s.netServer.ConstructInitialSnapshot(ambientPods)
 }
 
 func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
@@ -303,6 +281,20 @@ func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, 
 	return errors.Join(errs...)
 }
 
+// createHostsideProbeIpset creates an ipset. This is designed to be called from the host netns.
+// Note that if the ipset already exist by name, Create will not return an error.
+//
+// We will unconditionally flush our set before use here, so it shouldn't matter.
+func createHostsideProbeIpset(isV6 bool) (ipset.IPSet, error) {
+	linDeps := ipset.RealNlDeps()
+	probeSet, err := ipset.NewIPSet(iptables.ProbeIPSet, isV6, linDeps)
+	if err != nil {
+		return probeSet, err
+	}
+	probeSet.Flush()
+	return probeSet, nil
+}
+
 // syncHostIPSets is called after the host node ipset has been created (or found + flushed)
 // during initial snapshot creation, it will insert every snapshotted pod's IP into the set.
 //
@@ -368,18 +360,6 @@ func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr
 	return addedIps, errors.Join(ipsetAddrErrs...)
 }
 
-func removePodFromHostNSIpset(pod *corev1.Pod, hostsideProbeSet *ipset.IPSet) error {
-	podIPs := util.GetPodIPsIfPresent(pod)
-	for _, pip := range podIPs {
-		if err := hostsideProbeSet.ClearEntriesWithIP(pip); err != nil {
-			return err
-		}
-		log.Debugf("removed pod name %s with UID %s from host ipset %s by ip %s", pod.Name, pod.UID, hostsideProbeSet.Prefix, pip)
-	}
-
-	return nil
-}
-
 func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPSet) error {
 	actualIPSetContents, err := hostsideProbeSet.ListEntriesByIP()
 	if err != nil {
@@ -396,4 +376,35 @@ func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPSet
 		log.Debugf("removed stale ip %s from host ipset %s", staleIP, hostsideProbeSet.Prefix)
 	}
 	return nil
+}
+
+func removePodFromHostNSIpset(pod *corev1.Pod, hostsideProbeSet *ipset.IPSet) error {
+	podIPs := util.GetPodIPsIfPresent(pod)
+	for _, pip := range podIPs {
+		if err := hostsideProbeSet.ClearEntriesWithIP(pip); err != nil {
+			return err
+		}
+		log.Debugf("removed pod name %s with UID %s from host ipset %s by ip %s", pod.Name, pod.UID, hostsideProbeSet.Prefix, pip)
+	}
+
+	return nil
+}
+
+// buildKubeClient creates the kube client
+func buildKubeClient(kubeConfig string) (kube.Client, error) {
+	// Used by validation
+	kubeRestConfig, err := kube.DefaultRestConfig(kubeConfig, "", func(config *rest.Config) {
+		config.QPS = 80
+		config.Burst = 160
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed creating kube config: %v", err)
+	}
+
+	client, err := kube.NewClient(kube.NewClientConfigForRestConfig(kubeRestConfig), "")
+	if err != nil {
+		return nil, fmt.Errorf("failed creating kube client: %v", err)
+	}
+
+	return client, nil
 }

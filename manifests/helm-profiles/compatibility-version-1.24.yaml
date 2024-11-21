@@ -2,3 +2,8 @@ pilot:
   env:
     # 1.24 behavioral changes
     PILOT_ENABLE_IP_AUTOALLOCATE: "false"
+
+# Not present in 1.23, defaults to `true` in 1.25+
+cni:
+  ambient:
+    reconcileIptablesOnStartup: false
