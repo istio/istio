@@ -97,7 +97,7 @@ const (
 	InboundTunnelPort         = "inbound-tunnel-port"
 	ProxyUID                  = "proxy-uid"
 	ProxyGID                  = "proxy-gid"
-	KubeVirtInterfaces        = "kube-virt-interfaces"
+	RerouteVirtualInterfaces  = "kube-virt-interfaces"
 	DryRun                    = "dry-run"
 	TraceLogging              = "iptables-trace-logging"
 	SkipRuleApply             = "skip-rule-apply"

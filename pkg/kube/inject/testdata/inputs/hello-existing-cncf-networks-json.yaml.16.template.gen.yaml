@@ -72,6 +72,7 @@ templates:
         traffic.sidecar.istio.io/excludeOutboundPorts: "{{ annotation .ObjectMeta `traffic.sidecar.istio.io/excludeOutboundPorts` .Values.global.proxy.excludeOutboundPorts }}",
         {{- end }}
         {{ with index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}traffic.sidecar.istio.io/kubevirtInterfaces: "{{.}}",{{ end }}
+        {{ with index .ObjectMeta.Annotations `istio.io/reroute-virtual-interfaces` }}istio.io/reroute-virtual-interfaces: "{{.}}",{{ end }}
         {{ with index .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInterfaces` }}traffic.sidecar.istio.io/excludeInterfaces: "{{.}}",{{ end }}
     {{- end }}
       }
@@ -1831,31 +1832,3 @@ templates:
       {{- end }}
       type: {{ .ServiceType | quote }}
     ---
-  custom: |
-    metadata:
-      annotations:
-        # Disable the built-in transformations. In the future we may want a template-level API
-        prometheus.istio.io/merge-metrics: "false"
-        sidecar.istio.io/rewriteAppHTTPProbers: "false"
-        foo: bar
-    spec:
-      containers:
-      {{- range $index, $container := .Spec.Containers }}
-      - name: {{ $container.Name }}
-        env:
-        - name: SOME_ENV
-          value: "true"
-        - name: SOME_FILE
-          value: /var/lib/data/foo.json
-        volumeMounts:
-        - mountPath: /var/lib/data/foo.json
-          subPath: foo.json
-          name: some-injected-file
-      {{- end}}
-      volumes:
-      - name: some-injected-file
-        downwardAPI:
-          items:
-          - path: foo.json
-            fieldRef:
-              fieldPath: "metadata.annotations['foo']"

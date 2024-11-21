@@ -5,4 +5,5 @@ issue:
 - 49829
 releaseNotes:
 - |
-    **Added** `ambient.istio.io/reroute-virtual-interfaces` annotation, a comma separated list of virtual interfaces whose inbound traffic will be unconditionally treated as outbound. This allows workloads using virtualized networking (kubeVirt, VMs, docker-in-docker, etc) to function correctly with ambient mesh traffic capture.
+    **Added** `istio.io/reroute-virtual-interfaces` annotation, a comma separated list of virtual interfaces whose inbound traffic will be unconditionally treated as outbound. This allows workloads using virtualized networking (kubeVirt, VMs, docker-in-docker, etc) to function correctly with both sidecar and ambient mesh traffic capture.
+    **Deprecated** `traffic.sidecar.istio.io/kubevirtInterfaces`, in favor of `istio.io/reroute-virtual-interfaces`

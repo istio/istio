@@ -40,10 +40,6 @@
     "omitSidecarInjectorConfigMap": false,
     "operatorManageWebhooks": false,
     "pilotCertProvider": "istiod",
-    "podDNSSearchNamespaces": [
-      "global",
-      "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
-    ],
     "priorityClassName": "",
     "proxy": {
       "autoInject": "enabled",
@@ -113,8 +109,8 @@
   },
   "pilot": {
     "cni": {
-      "enabled": false,
-      "provider": "default"
+      "enabled": true,
+      "provider": "multus"
     }
   },
   "revision": "",

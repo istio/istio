@@ -108,7 +108,7 @@ func getCommonTestCases() []struct {
 			"ipv6-virt-interfaces",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
-				cfg.KubeVirtInterfaces = "eth0,eth1"
+				cfg.RerouteVirtualInterfaces = "eth0,eth1"
 				cfg.EnableIPv6 = true
 			},
 		},
@@ -117,7 +117,7 @@ func getCommonTestCases() []struct {
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
 				cfg.InboundPortsExclude = "6000,7000,"
-				cfg.KubeVirtInterfaces = "eth0,eth1"
+				cfg.RerouteVirtualInterfaces = "eth0,eth1"
 				cfg.OutboundIPRangesExclude = "2001:db8::/32"
 				cfg.OutboundIPRangesInclude = "2001:db8::/32"
 				cfg.EnableIPv6 = true
@@ -128,7 +128,7 @@ func getCommonTestCases() []struct {
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "4000,5000"
 				cfg.InboundPortsExclude = "6000,7000"
-				cfg.KubeVirtInterfaces = "eth0,eth1"
+				cfg.RerouteVirtualInterfaces = "eth0,eth1"
 				cfg.ProxyGID = "1,2"
 				cfg.ProxyUID = "3,4"
 				cfg.EnableIPv6 = true
@@ -151,7 +151,7 @@ func getCommonTestCases() []struct {
 		{
 			"kube-virt-interfaces",
 			func(cfg *config.Config) {
-				cfg.KubeVirtInterfaces = "eth1,eth2"
+				cfg.RerouteVirtualInterfaces = "eth1,eth2"
 				cfg.OutboundIPRangesInclude = "*"
 			},
 		},
@@ -164,7 +164,7 @@ func getCommonTestCases() []struct {
 		{
 			"ipnets-with-kube-virt-interfaces",
 			func(cfg *config.Config) {
-				cfg.KubeVirtInterfaces = "eth1,eth2"
+				cfg.RerouteVirtualInterfaces = "eth1,eth2"
 				cfg.OutboundIPRangesInclude = "10.0.0.0/8"
 			},
 		},

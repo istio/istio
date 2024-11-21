@@ -92,9 +92,9 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 		"Comma separated list of outbound ports to be excluded from redirection to Envoy.",
 		&cfg.OutboundPortsExclude)
 
-	flag.BindEnv(fs, constants.KubeVirtInterfaces, "k",
+	flag.BindEnv(fs, constants.RerouteVirtualInterfaces, "k",
 		"Comma separated list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound.",
-		&cfg.KubeVirtInterfaces)
+		&cfg.RerouteVirtualInterfaces)
 
 	flag.BindEnv(fs, constants.InboundTProxyMark, "t", "", &cfg.InboundTProxyMark)
 
