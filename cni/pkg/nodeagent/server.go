@@ -69,13 +69,19 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing kube client: %w", err)
 	}
 
-	cfg := &iptables.Config{
+	hostCfg := &iptables.Config{
 		RedirectDNS: args.DNSCapture,
 		EnableIPv6:  args.EnableIPv6,
 	}
 
+	podCfg := &iptables.Config{
+		RedirectDNS: args.DNSCapture,
+		EnableIPv6:  args.EnableIPv6,
+		Reconcile:   args.ReconcilePodRulesOnStartup,
+	}
+
 	log.Debug("creating ipsets in the node netns")
-	set, err := createHostsideProbeIpset(cfg.EnableIPv6)
+	set, err := createHostsideProbeIpset(hostCfg.EnableIPv6)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing hostside probe ipset: %w", err)
 	}
@@ -86,15 +92,15 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
 	}
 
-	hostIptables, podIptables, err := iptables.NewIptablesConfigurator(cfg, realDependenciesHost(), realDependenciesInpod(), iptables.RealNlDeps())
+	hostIptables, podIptables, err := iptables.NewIptablesConfigurator(hostCfg, podCfg, realDependenciesHost(), realDependenciesInpod(), iptables.RealNlDeps())
 	if err != nil {
 		return nil, fmt.Errorf("error configuring iptables: %w", err)
 	}
 
 	// Create hostprobe rules now, in the host netns
-	hostIptables.DeleteHostRules()
+	hostIptables.DeleteHostRules(HostProbeSNATIP, HostProbeSNATIPV6)
 
-	if err := hostIptables.CreateHostRulesForHealthChecks(&HostProbeSNATIP, &HostProbeSNATIPV6); err != nil {
+	if err := hostIptables.CreateHostRulesForHealthChecks(HostProbeSNATIP, HostProbeSNATIPV6); err != nil {
 		return nil, fmt.Errorf("error initializing the host rules for health checks: %w", err)
 	}
 
@@ -203,7 +209,7 @@ func (s *meshDataplane) Stop() {
 	log.Info("CNI ambient server terminating, cleaning up node net rules")
 
 	log.Debug("removing host iptables rules")
-	s.hostIptables.DeleteHostRules()
+	s.hostIptables.DeleteHostRules(HostProbeSNATIP, HostProbeSNATIPV6)
 
 	log.Debug("destroying host ipset")
 	s.hostsideProbeIPSet.Flush()

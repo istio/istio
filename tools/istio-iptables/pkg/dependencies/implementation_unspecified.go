@@ -33,12 +33,12 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reade
 }
 
 func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
-	_, err := r.executeXTablesWithOutput(cmd, iptVer, ignoreErrors, stdin, args...)
+	_, err := r.executeXTablesWithOutput(cmd, iptVer, ignoreErrors, false, stdin, args...)
 	return err
 }
 
 func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion,
-	ignoreErrors bool, stdin io.ReadSeeker, args ...string,
+	ignoreErrors bool, silenceOutput bool, stdin io.ReadSeeker, args ...string,
 ) (*bytes.Buffer, error) {
 	return nil, ErrNotImplemented
 }
