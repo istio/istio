@@ -332,13 +332,12 @@ func (cfg *IptablesConfigurator) Run() error {
 	// Jump to the ISTIOOUTPUT chain from OUTPUT chain for all traffic
 	// NOTE: udp traffic will be optionally shunted (or no-op'd) within the ISTIOOUTPUT chain, we don't need a conditional jump here.
 	cfg.ruleBuilder.AppendRule("OUTPUT", "nat", "-j", constants.ISTIOOUTPUT)
+
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
-	//
-	// TODO BML: these should apply to UDP too
 	if cfg.cfg.OutboundPortsExclude != "" {
 		for _, port := range split(cfg.cfg.OutboundPortsExclude) {
-			cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-p", "tcp",
-				"--dport", port, "-j", "RETURN")
+			cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-p", "tcp", "--dport", port, "-j", "RETURN")
+			cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-p", "udp", "--dport", port, "-j", "RETURN")
 		}
 	}
 
