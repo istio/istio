@@ -132,24 +132,21 @@ func (cfg *IptablesConfigurator) DeleteInpodRules() error {
 	var inpodErrs []error
 
 	log.Debug("Deleting iptables rules")
-
-	inpodErrs = append(inpodErrs, cfg.executeDeleteCommands(), cfg.delInpodMarkIPRule(), cfg.delLoopbackRoute())
+	cfg.executeDeleteCommands()
+	inpodErrs = append(inpodErrs, cfg.delInpodMarkIPRule(), cfg.delLoopbackRoute())
 	return errors.Join(inpodErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeDeleteCommands() error {
+func (cfg *IptablesConfigurator) executeDeleteCommands() {
 	deleteCmds := [][]string{
 		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
 		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
-	}
-
-	// these sometimes fail due to "Device or resource busy" or because they are optional given the iptables cfg
-	optionalDeleteCmds := [][]string{
 		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
 		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		// flush-then-delete our created chains
+		// these sometimes fail due to "Device or resource busy" or because they are optional given the iptables cfg
 		{"-t", iptablesconstants.MANGLE, "-F", ChainInpodPrerouting},
 		{"-t", iptablesconstants.MANGLE, "-F", ChainInpodOutput},
 		{"-t", iptablesconstants.NAT, "-F", ChainInpodPrerouting},
@@ -164,8 +161,6 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 		{"-t", iptablesconstants.RAW, "-X", ChainInpodOutput},
 	}
 
-	var delErrs []error
-
 	iptablesVariant := []dep.IptablesVersion{}
 	iptablesVariant = append(iptablesVariant, cfg.iptV)
 
@@ -175,14 +170,9 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range deleteCmds {
-			delErrs = append(delErrs, cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...))
-		}
-
-		for _, cmd := range optionalDeleteCmds {
 			cfg.ext.RunQuietlyAndIgnore(iptablesconstants.IPTables, &iptVer, nil, cmd...)
 		}
 	}
-	return errors.Join(delErrs...)
 }
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
