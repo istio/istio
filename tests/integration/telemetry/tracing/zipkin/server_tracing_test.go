@@ -44,8 +44,13 @@ func TestServerTracing(t *testing.T) {
 						if err != nil {
 							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
 						}
+						hostDomain := ""
+						if t.Settings().OpenShift {
+							ingressAddr, _ := tracing.GetIngressInstance().HTTPAddresses()
+							hostDomain = ingressAddr[0]
+						}
 						traces, err := tracing.GetZipkinInstance().QueryTraces(300,
-							fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "")
+							fmt.Sprintf("server.%s.svc.cluster.local:80/*", appNsInst.Name()), "", hostDomain)
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
 						}
