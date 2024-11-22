@@ -40,10 +40,6 @@
     "omitSidecarInjectorConfigMap": false,
     "operatorManageWebhooks": false,
     "pilotCertProvider": "istiod",
-    "podDNSSearchNamespaces": [
-      "global",
-      "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
-    ],
     "priorityClassName": "",
     "proxy": {
       "autoInject": "enabled",
@@ -59,9 +55,9 @@
       "logLevel": "warning",
       "outlierLogPath": "",
       "privileged": false,
-      "readinessFailureThreshold": 4,
-      "readinessInitialDelaySeconds": 0,
-      "readinessPeriodSeconds": 15,
+      "readinessFailureThreshold": 300,
+      "readinessInitialDelaySeconds": 100,
+      "readinessPeriodSeconds": 200,
       "resources": {
         "limits": {
           "cpu": "2000m",
@@ -76,7 +72,7 @@
         "enabled": true,
         "failureThreshold": 600
       },
-      "statusPort": 15020,
+      "statusPort": 123,
       "tracer": "none"
     },
     "proxy_init": {

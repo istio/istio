@@ -15,10 +15,10 @@
 package iptables
 
 type NetlinkDependencies interface {
-	AddInpodMarkIPRule(cfg *Config) error
-	DelInpodMarkIPRule(cfg *Config) error
-	AddLoopbackRoutes(cfg *Config) error
-	DelLoopbackRoutes(cfg *Config) error
+	AddInpodMarkIPRule(cfg *IptablesConfig) error
+	DelInpodMarkIPRule(cfg *IptablesConfig) error
+	AddLoopbackRoutes(cfg *IptablesConfig) error
+	DelLoopbackRoutes(cfg *IptablesConfig) error
 }
 
 func RealNlDeps() NetlinkDependencies {
@@ -27,19 +27,19 @@ func RealNlDeps() NetlinkDependencies {
 
 type realDeps struct{}
 
-func (r *realDeps) AddInpodMarkIPRule(cfg *Config) error {
+func (r *realDeps) AddInpodMarkIPRule(cfg *IptablesConfig) error {
 	return AddInpodMarkIPRule(cfg)
 }
 
-func (r *realDeps) DelInpodMarkIPRule(cfg *Config) error {
+func (r *realDeps) DelInpodMarkIPRule(cfg *IptablesConfig) error {
 	return DelInpodMarkIPRule(cfg)
 }
 
-func (r *realDeps) AddLoopbackRoutes(cfg *Config) error {
+func (r *realDeps) AddLoopbackRoutes(cfg *IptablesConfig) error {
 	return AddLoopbackRoutes(cfg)
 }
 
-func (r *realDeps) DelLoopbackRoutes(cfg *Config) error {
+func (r *realDeps) DelLoopbackRoutes(cfg *IptablesConfig) error {
 	return DelLoopbackRoutes(cfg)
 }
 
@@ -49,18 +49,18 @@ func EmptyNlDeps() NetlinkDependencies {
 	return &emptyDeps{}
 }
 
-func (r *emptyDeps) AddInpodMarkIPRule(cfg *Config) error {
+func (r *emptyDeps) AddInpodMarkIPRule(cfg *IptablesConfig) error {
 	return nil
 }
 
-func (r *emptyDeps) DelInpodMarkIPRule(cfg *Config) error {
+func (r *emptyDeps) DelInpodMarkIPRule(cfg *IptablesConfig) error {
 	return nil
 }
 
-func (r *emptyDeps) AddLoopbackRoutes(cfg *Config) error {
+func (r *emptyDeps) AddLoopbackRoutes(cfg *IptablesConfig) error {
 	return nil
 }
 
-func (r *emptyDeps) DelLoopbackRoutes(cfg *Config) error {
+func (r *emptyDeps) DelLoopbackRoutes(cfg *IptablesConfig) error {
 	return nil
 }

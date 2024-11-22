@@ -68,7 +68,7 @@ The annotation based control is currently only supported in 'sidecar' mode. See 
 - includeInboudPorts, excludeInboundPorts
 - includeOutboutPorts, excludeOutboundPorts
 - excludeInterfaces
-- kubevirtInterfaces
+- kubevirtInterfaces (deprecated), reroute-virtual-interfaces
 - ISTIO_META_DNS_CAPTURE env variable on the proxy - enables dns redirect
 - INVALID_DROP env var on proxy - changes behavior from reset to drop in iptables
 - auto excluded inbound ports: 15020, 15021, 15090

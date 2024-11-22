@@ -55,41 +55,43 @@ var (
 	sidecarInterceptModeKey = annotation.SidecarInterceptionMode.Name
 	sidecarPortListKey      = annotation.SidecarStatusPort.Name
 
-	kubevirtInterfacesKey = annotation.SidecarTrafficKubevirtInterfaces.Name
+	kubevirtInterfacesKey    = annotation.SidecarTrafficKubevirtInterfaces.Name
+	rerouteVirtInterfacesKey = annotation.IoIstioRerouteVirtualInterfaces.Name
 
 	annotationRegistry = map[string]*annotationParam{
-		"inject":               {injectAnnotationKey, "", alwaysValidFunc},
-		"status":               {sidecarStatusKey, "", alwaysValidFunc},
-		"redirectMode":         {sidecarInterceptModeKey, defaultRedirectMode, validateInterceptionMode},
-		"ports":                {sidecarPortListKey, "", validatePortList},
-		"includeIPCidrs":       {includeIPCidrsKey, defaultRedirectIPCidr, validateCIDRListWithWildcard},
-		"excludeIPCidrs":       {excludeIPCidrsKey, defaultRedirectExcludeIPCidr, validateCIDRList},
-		"excludeInboundPorts":  {excludeInboundPortsKey, defaultRedirectExcludePort, validatePortListWithWildcard},
-		"includeInboundPorts":  {includeInboundPortsKey, defaultIncludeInboundPorts, validatePortListWithWildcard},
-		"excludeOutboundPorts": {excludeOutboundPortsKey, defaultRedirectExcludePort, validatePortListWithWildcard},
-		"includeOutboundPorts": {includeOutboundPortsKey, defaultIncludeOutboundPorts, validatePortListWithWildcard},
-		"kubevirtInterfaces":   {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
-		"excludeInterfaces":    {excludeInterfacesKey, defaultExcludeInterfaces, alwaysValidFunc},
+		"inject":                     {injectAnnotationKey, "", alwaysValidFunc},
+		"status":                     {sidecarStatusKey, "", alwaysValidFunc},
+		"redirectMode":               {sidecarInterceptModeKey, defaultRedirectMode, validateInterceptionMode},
+		"ports":                      {sidecarPortListKey, "", validatePortList},
+		"includeIPCidrs":             {includeIPCidrsKey, defaultRedirectIPCidr, validateCIDRListWithWildcard},
+		"excludeIPCidrs":             {excludeIPCidrsKey, defaultRedirectExcludeIPCidr, validateCIDRList},
+		"excludeInboundPorts":        {excludeInboundPortsKey, defaultRedirectExcludePort, validatePortListWithWildcard},
+		"includeInboundPorts":        {includeInboundPortsKey, defaultIncludeInboundPorts, validatePortListWithWildcard},
+		"excludeOutboundPorts":       {excludeOutboundPortsKey, defaultRedirectExcludePort, validatePortListWithWildcard},
+		"includeOutboundPorts":       {includeOutboundPortsKey, defaultIncludeOutboundPorts, validatePortListWithWildcard},
+		"kubevirtInterfaces":         {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc}, // DEPRECATED
+		"reroute-virtual-interfaces": {rerouteVirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
+		"excludeInterfaces":          {excludeInterfacesKey, defaultExcludeInterfaces, alwaysValidFunc},
 	}
 )
 
 // Redirect -- the istio-cni redirect object
 type Redirect struct {
-	targetPort           string
-	redirectMode         string
-	noRedirectUID        string
-	noRedirectGID        string
-	includeIPCidrs       string
-	excludeIPCidrs       string
-	excludeInboundPorts  string
-	excludeOutboundPorts string
-	includeInboundPorts  string
-	includeOutboundPorts string
-	kubevirtInterfaces   string
-	excludeInterfaces    string
-	dnsRedirect          bool
-	dualStack            bool
-	invalidDrop          bool
+	targetPort               string
+	redirectMode             string
+	noRedirectUID            string
+	noRedirectGID            string
+	includeIPCidrs           string
+	excludeIPCidrs           string
+	excludeInboundPorts      string
+	excludeOutboundPorts     string
+	includeInboundPorts      string
+	includeOutboundPorts     string
+	rerouteVirtualInterfaces string
+	excludeInterfaces        string
+	dnsRedirect              bool
+	dualStack                bool
+	invalidDrop              bool
 }
 
 type annotationValidationFunc func(value string) error
@@ -273,10 +275,17 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"excludeInterfaces", isFound, valErr)
 	}
-	isFound, redir.kubevirtInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", pi.Annotations)
+	// kubeVirtInterfaces is deprecated, so check it first, but prefer`reroute-virtual-interfaces`
+	// if both are defined.
+	isFound, redir.rerouteVirtualInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", pi.Annotations)
 	if valErr != nil {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"kubevirtInterfaces", isFound, valErr)
+	}
+	isFound, redir.rerouteVirtualInterfaces, valErr = getAnnotationOrDefault("reroute-virtual-interfaces", pi.Annotations)
+	if valErr != nil {
+		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
+			"reroute-virtual-interfaces", isFound, valErr)
 	}
 	if v, found := pi.ProxyEnvironments["ISTIO_META_DNS_CAPTURE"]; found {
 		// parse and set the bool value of dnsRedirect

@@ -200,14 +200,14 @@ func (cfg *IptablesConfigurator) handleOutboundIncludeRules(
 	if rangeInclude.IsWildcard {
 		// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
 		appendRule(iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT, "-j", constants.ISTIOREDIRECT)
-		for _, internalInterface := range split(cfg.cfg.KubeVirtInterfaces) {
+		for _, internalInterface := range split(cfg.cfg.RerouteVirtualInterfaces) {
 			insert(iptableslog.KubevirtCommand,
 				constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.ISTIOREDIRECT)
 		}
 	} else if len(rangeInclude.CIDRs) > 0 {
 		// User has specified a non-empty list of cidrs to be redirected to Envoy.
 		for _, cidr := range rangeInclude.CIDRs {
-			for _, internalInterface := range split(cfg.cfg.KubeVirtInterfaces) {
+			for _, internalInterface := range split(cfg.cfg.RerouteVirtualInterfaces) {
 				insert(iptableslog.KubevirtCommand, constants.PREROUTING, constants.NAT, 1, "-i", internalInterface,
 					"-d", cidr.String(), "-j", constants.ISTIOREDIRECT)
 			}
@@ -218,7 +218,7 @@ func (cfg *IptablesConfigurator) handleOutboundIncludeRules(
 }
 
 func (cfg *IptablesConfigurator) shortCircuitKubeInternalInterface() {
-	for _, internalInterface := range split(cfg.cfg.KubeVirtInterfaces) {
+	for _, internalInterface := range split(cfg.cfg.RerouteVirtualInterfaces) {
 		cfg.ruleBuilder.InsertRule(iptableslog.KubevirtCommand, constants.PREROUTING, constants.NAT, 1, "-i", internalInterface, "-j", constants.RETURN)
 	}
 }

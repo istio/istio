@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/ptr"
 )
 
-func AddInpodMarkIPRule(cfg *Config) error {
+func AddInpodMarkIPRule(cfg *IptablesConfig) error {
 	err := forEachInpodMarkIPRule(cfg, netlink.RuleAdd)
 	if errors.Is(err, unix.EEXIST) {
 		log.Debugf("Ignoring exists error adding inpod mark ip rule: %v", err)
@@ -36,11 +36,11 @@ func AddInpodMarkIPRule(cfg *Config) error {
 	return err
 }
 
-func DelInpodMarkIPRule(cfg *Config) error {
+func DelInpodMarkIPRule(cfg *IptablesConfig) error {
 	return forEachInpodMarkIPRule(cfg, netlink.RuleDel)
 }
 
-func forEachInpodMarkIPRule(cfg *Config, f func(*netlink.Rule) error) error {
+func forEachInpodMarkIPRule(cfg *IptablesConfig, f func(*netlink.Rule) error) error {
 	var rules []*netlink.Rule
 	families := []int{unix.AF_INET}
 	if cfg.EnableIPv6 {
@@ -73,11 +73,11 @@ func forEachInpodMarkIPRule(cfg *Config, f func(*netlink.Rule) error) error {
 	return nil
 }
 
-func AddLoopbackRoutes(cfg *Config) error {
+func AddLoopbackRoutes(cfg *IptablesConfig) error {
 	return forEachLoopbackRoute(cfg, "add", netlink.RouteReplace)
 }
 
-func DelLoopbackRoutes(cfg *Config) error {
+func DelLoopbackRoutes(cfg *IptablesConfig) error {
 	return forEachLoopbackRoute(cfg, "remove", netlink.RouteDel)
 }
 
@@ -91,7 +91,7 @@ func ReadSysctl(key string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
-func forEachLoopbackRoute(cfg *Config, operation string, f func(*netlink.Route) error) error {
+func forEachLoopbackRoute(cfg *IptablesConfig, operation string, f func(*netlink.Route) error) error {
 	loopbackLink, err := netlink.LinkByName("lo")
 	if err != nil {
 		return fmt.Errorf("failed to find 'lo' link: %v", err)
