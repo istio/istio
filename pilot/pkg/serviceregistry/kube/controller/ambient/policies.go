@@ -42,7 +42,7 @@ func WaypointPolicyStatusCollection(
 ) krt.Collection[model.WaypointPolicyStatus] {
 	return krt.NewCollection(authzPolicies,
 		func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WaypointPolicyStatus {
-			targetRefs := i.Spec.GetTargetRefs()
+			targetRefs := model.GetTargetRefs(&i.Spec)
 			if len(targetRefs) == 0 {
 				return nil // targetRef is required for binding to waypoint
 			}

@@ -330,6 +330,46 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			},
 		},
 		{
+			testName: "single-bind-success-serviceentry-targetRef",
+			serviceEntries: []networkingclient.ServiceEntry{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "working-se-tr",
+						Namespace:  testNS,
+						Generation: 1,
+					},
+					Spec: v1alpha3.ServiceEntry{},
+				},
+			},
+			policy: securityclient.AuthorizationPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "working-se-pol-tr",
+					Namespace:  testNS,
+					Generation: 1,
+				},
+				Spec: v1beta1.AuthorizationPolicy{
+					TargetRef: &apiv1beta1.PolicyTargetReference{
+						Group: gvk.ServiceEntry.Group,
+						Kind:  gvk.ServiceEntry.Kind,
+						Name:  "working-se-tr",
+					},
+					Rules:  []*v1beta1.Rule{},
+					Action: 0,
+				},
+			},
+			expect: []model.PolicyBindingStatus{
+				{
+					Ancestor: "ServiceEntry.networking.istio.io:ns1/working-se-tr",
+					Status: &model.StatusMessage{
+						Reason:  model.WaypointPolicyReasonAccepted,
+						Message: "bound to " + testNS + "/waypoint",
+					},
+					Bound:              true,
+					ObservedGeneration: 1,
+				},
+			},
+		},
+		{
 			testName: "single-bind-no-waypoint-serviceentry",
 			serviceEntries: []networkingclient.ServiceEntry{
 				{
@@ -595,6 +635,46 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			},
 		},
 		{
+			testName: "single-bind-success-service-targetRef",
+			services: []v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "working-service-tr",
+						Namespace:  testNS,
+						Generation: 1,
+					},
+					Spec: v1.ServiceSpec{},
+				},
+			},
+			policy: securityclient.AuthorizationPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "working-service-pol-tr",
+					Namespace:  testNS,
+					Generation: 1,
+				},
+				Spec: v1beta1.AuthorizationPolicy{
+					TargetRef: &apiv1beta1.PolicyTargetReference{
+						Group: gvk.Service.Group,
+						Kind:  gvk.Service.Kind,
+						Name:  "working-service-tr",
+					},
+					Rules:  []*v1beta1.Rule{},
+					Action: 0,
+				},
+			},
+			expect: []model.PolicyBindingStatus{
+				{
+					Ancestor: "Service.core:ns1/working-service-tr",
+					Status: &model.StatusMessage{
+						Reason:  model.WaypointPolicyReasonAccepted,
+						Message: "bound to " + testNS + "/waypoint",
+					},
+					Bound:              true,
+					ObservedGeneration: 1,
+				},
+			},
+		},
+		{
 			testName: "single-bind-no-waypoint-service",
 			services: []v1.Service{
 				{
@@ -676,6 +756,38 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			policy: securityclient.AuthorizationPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:       "single-gateway-pol",
+					Namespace:  testNS,
+					Generation: 1,
+				},
+				Spec: v1beta1.AuthorizationPolicy{
+					TargetRefs: []*apiv1beta1.PolicyTargetReference{
+						{
+							Group: gvk.KubernetesGateway.Group,
+							Kind:  gvk.KubernetesGateway.Kind,
+							Name:  "waypoint",
+						},
+					},
+					Rules:  []*v1beta1.Rule{},
+					Action: 0,
+				},
+			},
+			expect: []model.PolicyBindingStatus{
+				{
+					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/waypoint",
+					Status: &model.StatusMessage{
+						Reason:  model.WaypointPolicyReasonAccepted,
+						Message: "bound to " + testNS + "/waypoint",
+					},
+					Bound:              true,
+					ObservedGeneration: 1,
+				},
+			},
+		},
+		{
+			testName: "single-bind-success-gateway-targetRef",
+			policy: securityclient.AuthorizationPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "single-gateway-pol-tr",
 					Namespace:  testNS,
 					Generation: 1,
 				},
