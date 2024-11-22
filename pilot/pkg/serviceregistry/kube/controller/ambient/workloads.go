@@ -912,7 +912,7 @@ func (t TargetRef) String() string {
 
 // endpointSliceAddressIndex builds an index from IP Address
 func endpointSliceAddressIndex(EndpointSlices krt.Collection[*discovery.EndpointSlice]) krt.Index[TargetRef, *discovery.EndpointSlice] {
-	return krt.NewIndex(EndpointSlices, func(es *discovery.EndpointSlice) []TargetRef {
+	extract := func(es *discovery.EndpointSlice) []TargetRef {
 		if es.AddressType == discovery.AddressTypeFQDN {
 			// Currently we do not support FQDN.
 			return nil
@@ -937,5 +937,33 @@ func endpointSliceAddressIndex(EndpointSlices krt.Collection[*discovery.Endpoint
 			res = append(res, tr)
 		}
 		return res
-	})
+	}
+	// Specialized hasKey to optimize hot path -- Pods change frequently, and an EndpointSlice can have 100s of pods, so
+	// generating the full list of TargetRef's in each can be expensive.
+	hasKey := func(es *discovery.EndpointSlice, k TargetRef) bool {
+		if es.AddressType == discovery.AddressTypeFQDN {
+			// Currently we do not support FQDN.
+			return false
+		}
+		_, f := es.Labels[discovery.LabelServiceName]
+		if !f {
+			// Not for a service; we don't care about it.
+			return false
+		}
+		for _, ep := range es.Endpoints {
+			if ep.TargetRef == nil || ep.TargetRef.Kind != gvk.Pod.Kind {
+				// We only want pods here
+				continue
+			}
+
+			if k.Kind == ep.TargetRef.Kind &&
+				k.Namespace == ep.TargetRef.Namespace &&
+				k.Name == ep.TargetRef.Name &&
+				k.UID == ep.TargetRef.UID {
+				return true
+			}
+		}
+		return false
+	}
+	return krt.NewIndexWithHasKey(EndpointSlices, extract, hasKey)
 }
