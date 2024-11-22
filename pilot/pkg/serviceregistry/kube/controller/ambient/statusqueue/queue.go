@@ -138,7 +138,7 @@ type statusReporter struct {
 func Register[T StatusWriter](q *StatusQueue, name string, col krt.Collection[T], getPatcher func(T) (kclient.Patcher, []string)) {
 	sr := statusReporter{
 		getObject: func(s string) (StatusWriter, bool) {
-			if o := col.GetKey(krt.Key[T](s)); o != nil {
+			if o := col.GetKey(s); o != nil {
 				return *o, true
 			}
 			return nil, false

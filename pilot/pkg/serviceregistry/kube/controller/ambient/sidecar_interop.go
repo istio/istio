@@ -106,7 +106,7 @@ func (a *index) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
 	if key == "" {
 		svcs = a.services.List()
 	} else {
-		svcs = ptr.ToList(a.services.GetKey(krt.Key[model.ServiceInfo](key)))
+		svcs = ptr.ToList(a.services.GetKey(key))
 	}
 	for _, s := range svcs {
 		wp := s.Service.GetWaypoint()

@@ -631,7 +631,7 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-		svc1Host := ptr.ToList(s.services.GetKey(krt.Key[model.ServiceInfo](fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1")))))
+		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
 		assert.Equal(t, len(svc1Host), 1)
 		assert.EventuallyEqual(t, func() []model.ServiceInfo {
 			return s.ServicesForWaypoint(wpKey)
@@ -653,7 +653,7 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-		svc1Host := ptr.ToList(s.services.GetKey(krt.Key[model.ServiceInfo](fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1")))))
+		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
 		assert.Equal(t, len(svc1Host), 1)
 		assert.EventuallyEqual(t, func() []model.ServiceInfo {
 			return s.ServicesForWaypoint(wpKey)
@@ -674,7 +674,7 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
-		svc1Host := ptr.ToList(s.services.GetKey(krt.Key[model.ServiceInfo](fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1")))))
+		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
 		assert.Equal(t, len(svc1Host), 1)
 		assert.EventuallyEqual(t, func() []model.ServiceInfo {
 			return s.ServicesForWaypoint(wpKey)
@@ -1160,7 +1160,7 @@ func TestDefaultAllowWaypointPolicy(t *testing.T) {
 
 	t.Run("policy with service accounts", func(t *testing.T) {
 		assert.EventuallyEqual(t, func() []string {
-			waypointPolicy := s.authorizationPolicies.GetKey(krt.Key[model.WorkloadAuthorization](policyName))
+			waypointPolicy := s.authorizationPolicies.GetKey(policyName)
 			if waypointPolicy == nil {
 				return nil
 			}
