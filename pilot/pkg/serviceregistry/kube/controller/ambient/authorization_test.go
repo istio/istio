@@ -362,7 +362,6 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
-					ObservedGeneration: 1,
 				},
 			},
 		},
