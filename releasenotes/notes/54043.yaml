@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 54022
+releaseNotes:
+- |
+  **Added** support `--network` parameter for `istioctl experimental workload group create`.
+
