@@ -436,7 +436,7 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 
 func (a *index) lookupService(key string) *model.ServiceInfo {
 	// 1. namespace/hostname format
-	s := a.services.GetKey(string(krt.Key[model.ServiceInfo](key)))
+	s := a.services.GetKey(key)
 	if s != nil {
 		return s
 	}
