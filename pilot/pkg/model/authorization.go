@@ -96,12 +96,12 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 	}
 
 	var lookupInNamespaces []string
-	lookupInNamespaces = append(lookupInNamespaces, svcNamespaces...)
-	if len(svcNamespaces) != len(selectionOpts.Services) {
-		lookupInNamespaces = append(lookupInNamespaces, wlNamespace)
-	}
-	if wlNamespace != rootNamespace {
-		lookupInNamespaces = append(lookupInNamespaces, rootNamespace)
+	if len(svcNamespaces) > 0 {
+		lookupInNamespaces = svcNamespaces
+	} else if wlNamespace != rootNamespace {
+		lookupInNamespaces = []string{rootNamespace, wlNamespace}
+	} else {
+		lookupInNamespaces = []string{wlNamespace}
 	}
 
 	for _, ns := range lookupInNamespaces {
