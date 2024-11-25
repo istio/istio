@@ -89,16 +89,10 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	opts := make([]option.Instance, 0)
 
 	discHost := strings.Split(cfg.Metadata.ProxyConfig.DiscoveryAddress, ":")[0]
-
-	xdsType := "GRPC"
-	if features.DeltaXds {
-		xdsType = "DELTA_GRPC"
-	}
-
+	xdsType := "DELTA_GRPC"
 	// Waypoint overrides
 	metadataDiscovery := cfg.Metadata.MetadataDiscovery
 	if strings.HasPrefix(cfg.ID, "waypoint~") {
-		xdsType = "DELTA_GRPC"
 		metadataDiscovery = true
 	}
 
