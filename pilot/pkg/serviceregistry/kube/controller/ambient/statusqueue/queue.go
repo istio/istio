@@ -151,7 +151,7 @@ func Register[T StatusWriter](q *StatusQueue, name string, col krt.Collection[T]
 			log.Debugf("processing snapshot")
 			for _, obj := range col.List() {
 				q.queue.Add(statusItem{
-					Key:      string(krt.GetKey(obj)),
+					Key:      krt.GetKey(obj),
 					Reporter: name,
 				})
 			}
@@ -163,7 +163,7 @@ func Register[T StatusWriter](q *StatusQueue, name string, col krt.Collection[T]
 				}
 				for _, o := range events {
 					ol := o.Latest()
-					key := string(krt.GetKey(ol))
+					key := krt.GetKey(ol)
 					log.Debugf("registering key for processing: %s", key)
 					q.queue.Add(statusItem{
 						Key:      key,
