@@ -276,7 +276,10 @@ func (c *Client) runOnce(ctx context.Context) error {
 	if err := c.dial(ctx); err != nil {
 		return fmt.Errorf("dial fail: %v", err)
 	}
+	defer c.conn.Close()
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	xds := discovery.NewAggregatedDiscoveryServiceClient(c.conn)
 	xdsClient, err := xds.DeltaAggregatedResources(ctx, grpc.MaxCallRecvMsgSize(math.MaxInt32))
 	if err != nil {
@@ -295,6 +298,9 @@ func (c *Client) runOnce(ctx context.Context) error {
 }
 
 func (c *Client) dial(ctx context.Context) error {
+	if c.conn != nil {
+		_ = c.conn.Close()
+	}
 	conn, err := dialWithConfig(ctx, &c.cfg.Config)
 	if err != nil {
 		return err
