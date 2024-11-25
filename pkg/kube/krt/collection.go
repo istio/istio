@@ -71,6 +71,7 @@ type manyCollection[I, O any] struct {
 	augmentation func(a any) any
 	synced       chan struct{}
 	stop         <-chan struct{}
+	metrics      *metrics
 }
 
 type collectionIndex[I, O any] struct {
@@ -227,6 +228,8 @@ func (h *manyCollection[I, O]) index(extract func(o O) []string) kclient.RawInde
 // This is called either when I directly changes, or if a secondary dependency changed. In this case, we compute which I's depended
 // on the secondary dependency, and call onPrimaryInputEvent with them
 func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I], lock bool) {
+	source := h.parent.(internalCollection[I]).name()
+	h.metrics.RecordEvent(source, len(items))
 	if lock {
 		h.recomputeMu.Lock()
 		defer h.recomputeMu.Unlock()
@@ -248,12 +251,12 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I], lock bool) 
 		}
 		items[idx] = ev
 	}
-	h.onPrimaryInputEventLocked(items)
+	h.onPrimaryInputEventLocked(source, items)
 }
 
 // onPrimaryInputEventLocked takes a list of I's that changed and reruns the handler over them.
 // This should be called with recomputeMu acquired.
-func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
+func (h *manyCollection[I, O]) onPrimaryInputEventLocked(source string, items []Event[I]) {
 	var events []Event[O]
 	recomputedResults := make([]map[Key[O]]O, len(items))
 	for idx, a := range items {
@@ -351,7 +354,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		return
 	}
 	handlers := h.eventHandlers.Get()
-
+	h.metrics.RecordDownstream(source, len(events))
 	if h.log.DebugEnabled() {
 		h.log.WithLabels("events", len(events), "handlers", len(handlers)).Debugf("calling handlers")
 	}
@@ -446,6 +449,7 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 		augmentation:  opts.augmentation,
 		synced:        make(chan struct{}),
 		stop:          opts.stop,
+		metrics:       newMetrics(opts.name),
 	}
 	maybeRegisterCollectionForDebugging(h, opts.debugger)
 	go func() {
@@ -483,7 +487,8 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 
 // Handler is called when a dependency changes. We will take as inputs the item that changed.
 // Then we find all of our own values (I) that changed and onPrimaryInputEvent() them
-func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUID, events []Event[any]) {
+func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUID, sourceCollectionName string, events []Event[any]) {
+	h.metrics.RecordEvent(sourceCollectionName, len(events))
 	h.recomputeMu.Lock()
 	defer h.recomputeMu.Unlock()
 	// A secondary dependency changed...
@@ -533,7 +538,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 			})
 		}
 	}
-	h.onPrimaryInputEventLocked(toRun)
+	h.onPrimaryInputEventLocked(sourceCollectionName, toRun)
 }
 
 func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []*dependency, sourceCollection collectionUID, ev Event[any]) bool {
@@ -653,7 +658,7 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(
 		i.log.WithLabels("collection", d.collectionName).Debugf("register new dependency")
 		syncer.WaitUntilSynced(i.stop)
 		register(func(o []Event[any], initialSync bool) {
-			i.onSecondaryDependencyEvent(d.id, o)
+			i.onSecondaryDependencyEvent(d.id, d.collectionName, o)
 		})
 	}
 }
