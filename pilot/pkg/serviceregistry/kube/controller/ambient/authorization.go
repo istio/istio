@@ -110,9 +110,7 @@ func convertedSelectorPeerAuthentications(rootNamespace string, configs []*secur
 
 	// Process in mesh, namespace, workload order to resolve inheritance (UNSET)
 	if meshCfg != nil {
-		if !isMtlsModeUnset(meshCfg.Spec.Mtls) {
-			isEffectiveStrictPolicy = isMtlsModeStrict(meshCfg.Spec.Mtls)
-		}
+		isEffectiveStrictPolicy = isMtlsModeStrict(meshCfg.Spec.Mtls)
 	}
 
 	if namespaceCfg != nil {
@@ -127,12 +125,10 @@ func convertedSelectorPeerAuthentications(rootNamespace string, configs []*secur
 
 	workloadSpec := &workloadCfg.Spec
 
-	// Regardless of if we have port-level overrides, if the workload policy is STRICT, then we need to reference our static STRICT policy
 	if isMtlsModeStrict(workloadSpec.Mtls) {
 		isEffectiveStrictPolicy = true
 	}
 
-	// Regardless of if we have port-level overrides, if the workload policy is PERMISSIVE or DISABLE, then we shouldn't send our static STRICT policy
 	if isMtlsModePermissive(workloadSpec.Mtls) || isMtlsModeDisable(workloadSpec.Mtls) {
 		isEffectiveStrictPolicy = false
 	}
@@ -192,6 +188,8 @@ func convertedSelectorPeerAuthentications(rootNamespace string, configs []*secur
 						Kind:      kind.PeerAuthentication,
 						Namespace: workloadCfg.Namespace,
 					})
+					// We DON'T want to send the static STRICT policy since the merged form of this policy will include the default STRICT mode
+					isEffectiveStrictPolicy = false
 				}
 			} else {
 				// Permissive mesh or namespace policy
