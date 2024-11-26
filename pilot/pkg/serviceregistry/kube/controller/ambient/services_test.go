@@ -910,5 +910,4 @@ func TestServiceConditions(t *testing.T) {
 			assert.Equal(t, res.GetConditions(), tt.conditions)
 		})
 	}
-
 }
