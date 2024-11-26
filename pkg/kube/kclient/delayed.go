@@ -47,12 +47,12 @@ type delayedHandler struct {
 }
 
 type delayedHandlerRegistration struct {
-	hasSynced *atomic.Pointer[cache.ResourceEventHandlerRegistration]
+	hasSynced *atomic.Pointer[func() bool]
 }
 
 func (r delayedHandlerRegistration) HasSynced() bool {
 	if s := r.hasSynced.Load(); s != nil {
-		return (*s).HasSynced()
+		return (*s)()
 	}
 	return false
 }
@@ -109,7 +109,8 @@ func (s *delayedClient[T]) AddEventHandler(h cache.ResourceEventHandler) cache.R
 	s.hm.Lock()
 	defer s.hm.Unlock()
 
-	hasSynced := delayedHandlerRegistration{hasSynced: new(atomic.Pointer[cache.ResourceEventHandlerRegistration])}
+	hasSynced := delayedHandlerRegistration{hasSynced: new(atomic.Pointer[func() bool])}
+	hasSynced.hasSynced.Store(ptr.Of(s.delayed.HasSynced))
 	s.handlers = append(s.handlers, delayedHandler{
 		ResourceEventHandler: h,
 		hasSynced:            hasSynced,
@@ -164,7 +165,8 @@ func (s *delayedClient[T]) set(inf Informer[T]) {
 		s.hm.Lock()
 		defer s.hm.Unlock()
 		for _, h := range s.handlers {
-			inf.AddEventHandler(h)
+			reg := inf.AddEventHandler(h)
+			h.hasSynced.hasSynced.Store(ptr.Of(reg.HasSynced))
 		}
 		s.handlers = nil
 		for _, i := range s.indexers {

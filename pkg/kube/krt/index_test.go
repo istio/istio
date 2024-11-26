@@ -32,13 +32,14 @@ import (
 )
 
 func TestIndex(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := KrtOptions{stop}
 	c := kube.NewFakeClient()
 	kpc := kclient.New[*corev1.Pod](c)
 	pc := clienttest.Wrap(t, kpc)
-	pods := krt.WrapClient[*corev1.Pod](kpc)
-	stop := test.NewStop(t)
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
 	c.RunAndWait(stop)
-	SimplePods := SimplePodCollection(pods)
+	SimplePods := SimplePodCollection(pods, opts)
 	tt := assert.NewTracker[string](t)
 	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
 		return []string{o.IP}
@@ -89,13 +90,14 @@ func TestIndex(t *testing.T) {
 }
 
 func TestIndexCollection(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := KrtOptions{stop}
 	c := kube.NewFakeClient()
 	kpc := kclient.New[*corev1.Pod](c)
 	pc := clienttest.Wrap(t, kpc)
-	pods := krt.WrapClient[*corev1.Pod](kpc)
-	stop := test.NewStop(t)
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
 	c.RunAndWait(stop)
-	SimplePods := SimplePodCollection(pods)
+	SimplePods := SimplePodCollection(pods, opts)
 	tt := assert.NewTracker[string](t)
 	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
 		return []string{o.IP}
@@ -104,7 +106,7 @@ func TestIndexCollection(t *testing.T) {
 		pods := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "1.2.3.5"))
 		names := slices.Sort(slices.Map(pods, SimplePod.ResourceName))
 		return ptr.Of(strings.Join(names, ","))
-	})
+	}, opts.WithName("Collection")...)
 	Collection.AsCollection().Synced().WaitUntilSynced(stop)
 	fetchSorted := func(ip string) []SimplePod {
 		return slices.SortBy(IPIndex.Lookup(ip), func(t SimplePod) string {

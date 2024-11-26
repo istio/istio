@@ -32,7 +32,7 @@ func TestRecomputeTrigger(t *testing.T) {
 	col2 := krt.NewCollection(col1, func(ctx krt.HandlerContext, i string) *string {
 		rt.MarkDependant(ctx)
 		return ptr.Of(response.Load())
-	})
+	}, krt.WithStop(test.NewStop(t)))
 
 	assert.Equal(t, col2.Synced().HasSynced(), false)
 	rt.MarkSynced()

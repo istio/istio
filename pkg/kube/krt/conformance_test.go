@@ -1,3 +1,17 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package krt_test
 
 import (
@@ -78,7 +92,7 @@ func TestConformance(t *testing.T) {
 		t.Skip()
 		fc := kube.NewFakeClient()
 		kc := kclient.New[*corev1.ConfigMap](fc)
-		col := krt.WrapClient(kc)
+		col := krt.WrapClient(kc, krt.WithStop(test.NewStop(t)))
 		rig := &informerRig{
 			Collection: col,
 			client:     kc,
@@ -87,15 +101,15 @@ func TestConformance(t *testing.T) {
 		runConformance[*corev1.ConfigMap](t, rig)
 	})
 	t.Run("static list", func(t *testing.T) {
-		col := krt.NewStaticCollection[Named](nil)
+		col := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)))
 		rig := &staticRig{
 			StaticCollection: col,
 		}
 		runConformance[Named](t, rig)
 	})
 	t.Run("join", func(t *testing.T) {
-		col1 := krt.NewStaticCollection[Named](nil)
-		col2 := krt.NewStaticCollection[Named](nil)
+		col1 := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)))
+		col2 := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)))
 		j := krt.JoinCollection[Named]([]krt.Collection[Named]{col1, col2})
 		rig := &joinRig{
 			Collection: j,
@@ -104,14 +118,14 @@ func TestConformance(t *testing.T) {
 		runConformance[Named](t, rig)
 	})
 	t.Run("manyCollection", func(t *testing.T) {
-		namespaces := krt.NewStaticCollection[string](nil)
-		names := krt.NewStaticCollection[string](nil)
+		namespaces := krt.NewStaticCollection[string](nil, krt.WithStop(test.NewStop(t)))
+		names := krt.NewStaticCollection[string](nil, krt.WithStop(test.NewStop(t)))
 		col := krt.NewManyCollection(namespaces, func(ctx krt.HandlerContext, ns string) []Named {
 			names := krt.Fetch[string](ctx, names)
 			return slices.Map(names, func(e string) Named {
 				return Named{Namespace: ns, Name: e}
 			})
-		})
+		}, krt.WithStop(test.NewStop(t)))
 		rig := &manyRig{
 			Collection: col,
 			namespaces: namespaces,

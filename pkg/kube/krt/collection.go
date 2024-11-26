@@ -47,7 +47,7 @@ type manyCollection[I, O any] struct {
 	log *istiolog.Scope
 	// blockNewEvents is held anytime events are being computed. The intent is to ensure we can appropriately onboard new handlers
 	// with initial state (where we need to send them the initial state + any new state).
-	blockNewEvents  sync.Mutex
+	blockNewEvents sync.Mutex
 	// This can be acquired with blockNewEvents held, but only with strict ordering (mu inside blockNewEvents)
 	// mu protects all items grouped below.
 	// This is acquired for reads and writes of data.

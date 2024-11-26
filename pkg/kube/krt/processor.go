@@ -34,11 +34,9 @@ type handlerSet[O any] struct {
 
 func (o *handlerSet[O]) Insert(f func(o []Event[O], initialSync bool), parentSynced Syncer, initialEvents []Event[O], stopCh <-chan struct{}) Syncer {
 	o.mu.Lock()
-	l := newProcessListener(f, parentSynced)
+	l := newProcessListener(f, parentSynced, stopCh)
 	o.handlers = append(o.handlers, l)
-	o.wg.Start(func() {
-		l.run(stopCh)
-	})
+	o.wg.Start(l.run)
 	o.wg.Start(l.pop)
 	o.mu.Unlock()
 	l.send(initialEvents, true)
@@ -81,6 +79,7 @@ func (o *handlerSet[O]) Synced() Syncer {
 type processorListener[O any] struct {
 	nextCh chan any
 	addCh  chan eventSet[O]
+	stop   <-chan struct{}
 
 	handler func(o []Event[O], initialSync bool)
 
@@ -97,11 +96,13 @@ type processorListener[O any] struct {
 func newProcessListener[O any](
 	handler func(o []Event[O], initialSync bool),
 	upstreamSyncer Syncer,
+	stop <-chan struct{},
 ) *processorListener[O] {
 	bufferSize := 1024
 	ret := &processorListener[O]{
 		nextCh:               make(chan any),
 		addCh:                make(chan eventSet[O]),
+		stop:                 stop,
 		handler:              handler,
 		syncTracker:          &countingTracker{upstreamHasSynced: upstreamSyncer, synced: make(chan struct{})},
 		pendingNotifications: *buffer.NewRingGrowing(bufferSize),
@@ -126,7 +127,11 @@ func (p *processorListener[O]) send(event []Event[O], isInInitialList bool) {
 		// Otherwise, mark how many items we have left to process
 		p.syncTracker.Start(len(event))
 	}
-	p.addCh <- eventSet[O]{event: event, isInInitialList: isInInitialList}
+	select {
+	case <-p.stop:
+		return
+	case p.addCh <- eventSet[O]{event: event, isInInitialList: isInInitialList}:
+	}
 }
 
 func (p *processorListener[O]) pop() {
@@ -137,6 +142,8 @@ func (p *processorListener[O]) pop() {
 	var notification any
 	for {
 		select {
+		case <-p.stop:
+			return
 		case nextCh <- notification:
 			// Notification dispatched
 			var ok bool
@@ -159,11 +166,10 @@ func (p *processorListener[O]) pop() {
 	}
 }
 
-func (p *processorListener[O]) run(stopCh <-chan struct{}) {
+func (p *processorListener[O]) run() {
 	for {
 		select {
-		case <-stopCh:
-			close(p.addCh)
+		case <-p.stop:
 			return
 		case nextr, ok := <-p.nextCh:
 			if !ok {
