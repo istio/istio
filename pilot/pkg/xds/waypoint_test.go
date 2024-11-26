@@ -235,7 +235,7 @@ func TestWaypointEndpoints(t *testing.T) {
 		waypointInstance, appWorkloadEntry,
 		appServiceEntry)
 
-	eps := slices.Sort(xdstest.ExtractEndpoints(d.Endpoints(proxy)[0]))
+	eps := slices.Sort(xdstest.ExtractEndpoints(d.Endpoints(proxy)[1]))
 	assert.Equal(t, eps, []string{
 		// No tunnel, should get dual IPs
 		"1.1.1.3:80,[2001:20::3]:80",
@@ -290,8 +290,10 @@ spec:
 		telemetry)
 
 	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
-	app := xdstest.ExtractHTTPConnectionManager(t, xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l))
-	notApp := xdstest.ExtractHTTPConnectionManager(t, xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l))
+	app := xdstest.ExtractHTTPConnectionManager(t,
+		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l))
+	notApp := xdstest.ExtractHTTPConnectionManager(t,
+		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l))
 
 	// The selected service should get all 3 types
 	assert.Equal(t, app.AccessLog != nil, true)
