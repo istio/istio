@@ -1260,15 +1260,88 @@ func TestRBACConvert(t *testing.T) {
 					},
 					Spec: *((pol[0].Spec).(*auth.AuthorizationPolicy)), //nolint: govet
 				})
-			case gvk.PeerAuthentication:
-				o = convertPeerAuthentication(systemNS, &clientsecurityv1beta1.PeerAuthentication{
-					TypeMeta: metav1.TypeMeta{},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      pol[0].Name,
-						Namespace: pol[0].Namespace,
-					},
-					Spec: *((pol[0].Spec).(*auth.PeerAuthentication)), //nolint: govet
-				})
+			case gvk.PeerAuthentication: // we assume all crds in the same file are of the same type
+				var rootCfg, nsCfg, workloadCfg *config.Config
+				if len(pol) > 1 {
+					for _, p := range pol {
+						switch p.Namespace {
+						case systemNS:
+							if p.Spec.(*auth.PeerAuthentication).GetSelector() != nil {
+								t.Fatalf("unexpected selector in mesh-level policy %v", p)
+							}
+							if rootCfg == nil || p.GetCreationTimestamp().Before(rootCfg.GetCreationTimestamp()) {
+								rootCfg = ptr.Of(p)
+							}
+						default:
+							spec := p.Spec.(*auth.PeerAuthentication)
+							if spec.GetSelector() != nil && workloadCfg != nil && workloadCfg.Spec.(*auth.PeerAuthentication).GetSelector() != nil {
+								t.Fatalf("multiple workload-level policies %v and %v", p, workloadCfg)
+							}
+
+							if spec.GetSelector() != nil {
+								// Workload policy
+								workloadCfg = ptr.Of(p)
+							} else if nsCfg == nil || p.GetCreationTimestamp().Before(nsCfg.GetCreationTimestamp()) {
+								// Namespace policy
+								nsCfg = ptr.Of(p)
+							}
+						}
+					}
+				}
+
+				// Simple case
+				if len(pol) == 1 {
+					o = convertPeerAuthentication(systemNS, &clientsecurityv1beta1.PeerAuthentication{
+						TypeMeta: metav1.TypeMeta{},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      pol[0].Name,
+							Namespace: pol[0].Namespace,
+						},
+						Spec: *((pol[0].Spec).(*auth.PeerAuthentication)), //nolint: govet
+					}, nil, nil)
+				} else {
+					var workloadPA, nsPA, rootPA *clientsecurityv1beta1.PeerAuthentication
+					if workloadCfg != nil {
+						workloadPA = &clientsecurityv1beta1.PeerAuthentication{
+							TypeMeta: metav1.TypeMeta{},
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      workloadCfg.Name,
+								Namespace: workloadCfg.Namespace,
+							},
+							Spec: *((workloadCfg.Spec).(*auth.PeerAuthentication)), //nolint: govet
+						}
+					}
+					if nsCfg != nil {
+						nsPA = &clientsecurityv1beta1.PeerAuthentication{
+							TypeMeta: metav1.TypeMeta{},
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      nsCfg.Name,
+								Namespace: nsCfg.Namespace,
+							},
+							Spec: *((nsCfg.Spec).(*auth.PeerAuthentication)), //nolint: govet
+						}
+					}
+
+					if rootCfg != nil {
+						rootPA = &clientsecurityv1beta1.PeerAuthentication{
+							TypeMeta: metav1.TypeMeta{},
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      rootCfg.Name,
+								Namespace: rootCfg.Namespace,
+							},
+							Spec: *((rootCfg.Spec).(*auth.PeerAuthentication)), //nolint: govet
+						}
+					}
+
+					if workloadPA == nil {
+						// We have a namespace policy and a root policy; send the NS policy as the workload policy
+						// It won't get far anyway since this convert function returns nil for non-workload policies
+						workloadPA = nsPA
+						nsPA = nil
+					}
+
+					o = convertPeerAuthentication(systemNS, workloadPA, nsPA, rootPA)
+				}
 			default:
 				t.Fatalf("unknown kind %v", pol[0].GroupVersionKind)
 			}

@@ -188,13 +188,7 @@ func PolicyCollections(
 		case 1:
 			nsPol = nsPols[0]
 		default:
-			// Find the oldest policy and let that win
-			for _, p := range nsPols {
-				if nsPol == nil || p.CreationTimestamp.Before(&nsPol.CreationTimestamp) {
-					// Found older policy. Replace
-					nsPol = p
-				}
-			}
+			nsPol = getOldestPeerAuthn(nsPols)
 		}
 
 		switch len(rootPols) {
@@ -203,13 +197,9 @@ func PolicyCollections(
 		case 1:
 			rootPol = rootPols[0]
 		default:
-			// Find the oldest policy and let that win
-			for _, p := range rootPols {
-				if rootPol == nil || p.CreationTimestamp.Before(&rootPol.CreationTimestamp) {
-					// Found older policy. Replace
-					rootPol = p
-				}
+			rootPol = getOldestPeerAuthn(rootPols)
 		}
+
 		pol := convertPeerAuthentication(meshCfg.GetRootNamespace(), i, nsPol, rootPol)
 		if pol == nil {
 			return nil

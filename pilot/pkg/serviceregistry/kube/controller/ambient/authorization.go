@@ -62,6 +62,16 @@ func (a *index) Policies(requested sets.Set[model.ConfigKey]) []model.WorkloadAu
 	return res
 }
 
+func getOldestPeerAuthn(policies []*securityclient.PeerAuthentication) *securityclient.PeerAuthentication {
+	var oldest *securityclient.PeerAuthentication
+	for _, pol := range policies {
+		if oldest == nil || pol.CreationTimestamp.Before(&oldest.CreationTimestamp) {
+			oldest = pol
+		}
+	}
+	return oldest
+}
+
 // convertedSelectorPeerAuthentications returns a list of keys corresponding to one or both of:
 // [static STRICT policy, port-level STRICT policy] based on the effective PeerAuthentication policy
 // TODO: If the workload peerauthn has a mode UNSET and a parent-level strict policy, merge and don't attach
@@ -225,20 +235,19 @@ func effectivePeerAuthenticationKeys(rootNamespace string, isEffectiveStringPoli
 
 // convertPeerAuthentication converts a PeerAuthentication to an L4 authorization policy (i.e. security.Authorization)
 // taking into account the top level policies (and merging if necessary)
-func convertPeerAuthentication(rootNamespace string, workloadCfg, nsCfg, rootCfg *securityclient.PeerAuthentication) *security.Authorization {
-	pa := &workloadCfg.Spec
+func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securityclient.PeerAuthentication) *security.Authorization {
+	pa := &cfg.Spec
 
 	mode := pa.GetMtls().GetMode()
 
 	scope := security.Scope_WORKLOAD_SELECTOR
 	// violates case #1, #2, or #3
-	if workloadCfg.Namespace == rootNamespace || pa.Selector == nil || len(pa.PortLevelMtls) == 0 {
-		log.Debugf("skipping PeerAuthentication %s/%s for ambient since it isn't a workload policy with port level mTLS", workloadCfg.Namespace, workloadCfg.Name)
+	if cfg.Namespace == rootNamespace || pa.Selector == nil || len(pa.PortLevelMtls) == 0 {
+		log.Debugf("skipping PeerAuthentication %s/%s for ambient since it isn't a workload policy with port level mTLS", cfg.Namespace, cfg.Name)
 		return nil
 	}
 
 	action := security.Action_DENY
-	var isUnset bool
 	var rules []*security.Rules
 
 	if mode == v1beta1.PeerAuthentication_MutualTLS_STRICT {
@@ -275,32 +284,24 @@ func convertPeerAuthentication(rootNamespace string, workloadCfg, nsCfg, rootCfg
 					},
 				},
 			})
-		case portMtlsMode == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE:
+		case portMtlsMode == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE, portMtlsMode == v1beta1.PeerAuthentication_MutualTLS_DISABLE:
 			// Check top-level mode
 			if mode == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE || mode == v1beta1.PeerAuthentication_MutualTLS_DISABLE {
 				// we don't care; log and continue
 				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s",
-					port, portMtlsMode, workloadCfg.Namespace, workloadCfg.Name, mode)
+					port, portMtlsMode, cfg.Namespace, cfg.Name, mode)
 				continue
 			}
-			foundNonStrictPortmTLS = true
 
-			// If the top level policy is STRICT, we need to add a rule for the port that exempts it from the deny policy
-			rules = append(rules, &security.Rules{
-				Matches: []*security.Match{
-					{
-						NotDestinationPorts: []uint32{port}, // if the incoming connection does not match this port, deny (notice there's no principals requirement)
-					},
-				},
-			})
-		case portMtlsMode == v1beta1.PeerAuthentication_MutualTLS_DISABLE:
-			// Check top-level mode
-			if mode == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE || mode == v1beta1.PeerAuthentication_MutualTLS_DISABLE {
+			if mode == v1beta1.PeerAuthentication_MutualTLS_UNSET && ((nsCfg != nil && !isMtlsModeStrict(nsCfg.Spec.Mtls)) ||
+				(nsCfg == nil && rootCfg != nil && !isMtlsModeStrict(rootCfg.Spec.Mtls)) ||
+				(nsCfg == nil && rootCfg == nil)) {
 				// we don't care; log and continue
-				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s",
-					port, portMtlsMode, workloadCfg.Namespace, workloadCfg.Name, mode)
+				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since it's not STRICT and the effective policy is not STRICT",
+					port, portMtlsMode, cfg.Namespace, cfg.Name)
 				continue
 			}
+
 			foundNonStrictPortmTLS = true
 
 			// If the top level policy is STRICT, we need to add a rule for the port that exempts it from the deny policy
@@ -312,7 +313,7 @@ func convertPeerAuthentication(rootNamespace string, workloadCfg, nsCfg, rootCfg
 				},
 			})
 		default:
-			log.Debugf("skipping port %s for PeerAuthentication %s/%s for ambient since it is %s", port, workloadCfg.Namespace, workloadCfg.Name, portMtlsMode)
+			log.Debugf("skipping port %s for PeerAuthentication %s/%s for ambient since it is %s", port, cfg.Namespace, cfg.Name, portMtlsMode)
 			continue
 		}
 	}
@@ -329,20 +330,39 @@ func convertPeerAuthentication(rootNamespace string, workloadCfg, nsCfg, rootCfg
 
 	opol := &security.Authorization{
 		Name: model.GetAmbientPolicyConfigName(model.ConfigKey{
-			Name:      workloadCfg.Name,
+			Name:      cfg.Name,
 			Kind:      kind.PeerAuthentication,
-			Namespace: workloadCfg.Namespace,
+			Namespace: cfg.Namespace,
 		}),
-		Namespace: workloadCfg.Namespace,
+		Namespace: cfg.Namespace,
 		Scope:     scope,
 		Action:    action,
 		Groups:    []*security.Group{{Rules: rules}},
 	}
 
+	// We only need to merge if the effective policy is STRICT, the workload policy's mode is unstrict, and we have a non-strict port level policy
+	var shouldMergeStrict bool
+	// Merge if there's a STRICT root policy and the namespace policy is nil, UNSET or STRICT
+	if rootCfg != nil && isMtlsModeStrict(rootCfg.Spec.Mtls) && (nsCfg == nil || isMtlsModeUnset(nsCfg.Spec.Mtls) || isMtlsModeStrict(nsCfg.Spec.Mtls)) {
+		shouldMergeStrict = true
+	} else if nsCfg != nil && isMtlsModeStrict(nsCfg.Spec.Mtls) { // Merge if there's a STRICT namespace policy
+		shouldMergeStrict = true
+	}
+
 	// If the effective policy (namespace or mesh) is STRICT and we have a non-strict port level policy,
 	// we need to merge that strictness into the workload policy so that the static strict policy
-	if mode == v1beta1.PeerAuthentication_MutualTLS_UNSET && foundNonStrictPortmTLS {
-		opol.Groups[0].Rules
+	if shouldMergeStrict && foundNonStrictPortmTLS {
+		opol.Groups[0].Rules = append(opol.Groups[0].Rules, &security.Rules{
+			Matches: []*security.Match{
+				{
+					NotPrincipals: []*security.StringMatch{
+						{
+							MatchType: &security.StringMatch_Presence{},
+						},
+					},
+				},
+			},
+		})
 	}
 
 	return opol
