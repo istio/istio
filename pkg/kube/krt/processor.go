@@ -27,51 +27,20 @@ import (
 
 // handlerSet tracks a set of handlers. Handlers can be added at any time.
 type handlerSet[O any] struct {
-	mu               sync.RWMutex
-	handlers         []*processorListener[O]
-	listenersStarted bool
-	wg               wait.Group
+	mu       sync.RWMutex
+	handlers []*processorListener[O]
+	wg       wait.Group
 }
 
-func (o *handlerSet[O]) Run(stopCh <-chan struct{}) {
-	func() {
-		o.mu.Lock()
-		defer o.mu.Unlock()
-		for _, listener := range o.handlers {
-			o.wg.Start(listener.run)
-			o.wg.Start(listener.pop)
-		}
-		o.listenersStarted = true
-	}()
-	<-stopCh
-
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	for _, listener := range o.handlers {
-		close(listener.addCh) // Tell .pop() to stop. .pop() will tell .run() to stop
-	}
-
-	// Wipe out list of listeners since they are now closed
-	// (processorListener cannot be re-used)
-	o.handlers = nil
-
-	// Reset to false since no listeners are running
-	o.listenersStarted = false
-
-	o.wg.Wait() // Wait for all .pop() and .run() to stop
-}
-
-func (o *handlerSet[O]) Insert(f func(o []Event[O], initialSync bool), parentSynced Syncer, initialEvents []Event[O]) Syncer {
+func (o *handlerSet[O]) Insert(f func(o []Event[O], initialSync bool), parentSynced Syncer, initialEvents []Event[O], stopCh <-chan struct{}) Syncer {
 	o.mu.Lock()
 	l := newProcessListener(f, parentSynced)
-
 	o.handlers = append(o.handlers, l)
-	if o.listenersStarted {
-		o.wg.Start(l.run)
-		o.wg.Start(l.pop)
-	}
+	o.wg.Start(func() {
+		l.run(stopCh)
+	})
+	o.wg.Start(l.pop)
 	o.mu.Unlock()
-	log.Debugf("send initial events (%d)", len(initialEvents))
 	l.send(initialEvents, true)
 	return l.Synced()
 }
@@ -190,12 +159,22 @@ func (p *processorListener[O]) pop() {
 	}
 }
 
-func (p *processorListener[O]) run() {
-	for nextr := range p.nextCh {
-		next := nextr.(eventSet[O])
-		p.handler(next.event, next.isInInitialList)
-		if next.isInInitialList {
-			p.syncTracker.Finished(len(next.event))
+func (p *processorListener[O]) run(stopCh <-chan struct{}) {
+	log.Errorf("howardjohn: RUN")
+	for {
+		select {
+		case <-stopCh:
+			close(p.addCh)
+			return
+		case nextr, ok := <-p.nextCh:
+			if !ok {
+				return
+			}
+			next := nextr.(eventSet[O])
+			p.handler(next.event, next.isInInitialList)
+			if next.isInInitialList {
+				p.syncTracker.Finished(len(next.event))
+			}
 		}
 	}
 }

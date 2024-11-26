@@ -450,8 +450,6 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 	// After this, we can run our queue.
 	// The queue will process the initial state and mark ourselves as synced (from the NewWithSync callback)
 	go h.runQueue()
-	// Run the goroutines to process handler notifications
-	go h.eventHandlers.Run(h.stop)
 
 	return h
 }
@@ -579,7 +577,7 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) Syncer {
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bool), runExistingState bool) Syncer {
 	if !runExistingState {
 		// If we don't to run the initial state this is simple, we just register the handler.
-		return h.eventHandlers.Insert(f, h.Synced(), nil)
+		return h.eventHandlers.Insert(f, h.Synced(), nil, h.stop)
 	}
 	// We need to run the initial state, but we don't want to get duplicate events.
 	// We should get "ADD initialObject1, ADD initialObjectN, UPDATE someLaterUpdate" without mixing the initial ADDs
@@ -597,7 +595,7 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bo
 	}
 	h.mu.Unlock()
 	// Send out all the initial objects to the handler. We will then unlock the new events so it gets the future updates.
-	return h.eventHandlers.Insert(f, h.Synced(), events)
+	return h.eventHandlers.Insert(f, h.Synced(), events, h.stop)
 }
 
 func (h *manyCollection[I, O]) name() string {

@@ -107,7 +107,11 @@ func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runE
 			f([]Event[I]{o}, initialSync)
 		}))
 	}
-	return i.Synced()
+	return pollSyncer{
+		name: fmt.Sprintf("%v handler", i.name()),
+		// TODO
+		f: i.inf.HasSynced,
+	}
 }
 
 // nolint: unused // (not true)

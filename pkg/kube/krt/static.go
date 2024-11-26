@@ -15,11 +15,13 @@
 package krt
 
 import (
+	"fmt"
 	"sync"
 
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -28,43 +30,56 @@ type StaticCollection[T any] struct {
 }
 
 type staticList[T any] struct {
-	mu       sync.RWMutex
-	vals     map[string]T
-	handlers []func(o []Event[T], initialSync bool)
-	id       collectionUID
+	mu             sync.RWMutex
+	vals           map[string]T
+	eventHandlers  *handlerSet[T]
+	id             collectionUID
+	stop           <-chan struct{}
+	collectionName string
 }
 
-func NewStaticCollection[T any](vals []T) StaticCollection[T] {
+func NewStaticCollection[T any](vals []T, opts ...CollectionOption) StaticCollection[T] {
+	o := buildCollectionOptions(opts...)
+	if o.name == "" {
+		o.name = fmt.Sprintf("Static[%v]", ptr.TypeName[T]())
+	}
+
 	res := make(map[string]T, len(vals))
 	for _, v := range vals {
 		res[GetKey(v)] = v
 	}
+
+	sl := &staticList[T]{
+		eventHandlers:  &handlerSet[T]{},
+		vals:           res,
+		id:             nextUID(),
+		stop:           o.stop,
+		collectionName: o.name,
+	}
+
 	return StaticCollection[T]{
-		staticList: &staticList[T]{
-			vals: res,
-			id:   nextUID(),
-		},
+		staticList: sl,
 	}
 }
 
 // DeleteObject deletes an object from the collection.
 func (s *staticList[T]) DeleteObject(k string) {
-	s.mu.Lock() // Unlocked in runEventLocked
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	old, f := s.vals[k]
 	if f {
 		delete(s.vals, k)
-		s.runEventsLocked([]Event[T]{{
+		s.eventHandlers.Distribute([]Event[T]{{
 			Old:   &old,
 			Event: controllers.EventDelete,
-		}})
-	} else {
-		s.mu.Unlock()
+		}}, false)
 	}
 }
 
 // DeleteObjects deletes all objects matching the provided filter
 func (s StaticCollection[T]) DeleteObjects(filter func(obj T) bool) {
-	s.mu.Lock() // Unlocked in runEventLocked
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var removed []Event[T]
 	for k, v := range s.vals {
 		if filter(v) {
@@ -76,29 +91,28 @@ func (s StaticCollection[T]) DeleteObjects(filter func(obj T) bool) {
 		}
 	}
 	if len(removed) > 0 {
-		s.runEventsLocked(removed)
-	} else {
-		s.mu.Unlock()
+		s.eventHandlers.Distribute(removed, false)
 	}
 }
 
 // UpdateObject adds or updates an object into the collection.
 func (s *staticList[T]) UpdateObject(obj T) {
-	s.mu.Lock() // Unlocked in runEventLocked
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	k := GetKey(obj)
 	old, f := s.vals[k]
 	s.vals[k] = obj
 	if f {
-		s.runEventsLocked([]Event[T]{{
+		s.eventHandlers.Distribute([]Event[T]{{
 			Old:   &old,
 			New:   &obj,
 			Event: controllers.EventUpdate,
-		}})
+		}}, false)
 	} else {
-		s.runEventsLocked([]Event[T]{{
+		s.eventHandlers.Distribute([]Event[T]{{
 			New:   &obj,
 			Event: controllers.EventAdd,
-		}})
+		}}, false)
 	}
 }
 
@@ -113,7 +127,7 @@ func (s *staticList[T]) GetKey(k string) *T {
 
 // nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) name() string {
-	return "staticList"
+	return s.collectionName
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -131,15 +145,6 @@ func (s *staticList[T]) dump() CollectionDump {
 // nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) augment(a any) any {
 	return a
-}
-
-// runEventLocked sends an event to all handlers. This must be called locked, and will unlock the mutex
-func (s *staticList[T]) runEventsLocked(ev []Event[T]) {
-	handlers := slices.Clone(s.handlers)
-	s.mu.Unlock()
-	for _, h := range handlers {
-		h(ev, false)
-	}
 }
 
 // nolint: unused // (not true)
@@ -187,25 +192,17 @@ func (s *staticList[T]) Synced() Syncer {
 
 func (s *staticList[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer {
 	s.mu.Lock()
-	s.handlers = append(s.handlers, f)
-	var objs []T
+	defer s.mu.Unlock()
+	var objs []Event[T]
 	if runExistingState {
-		objs = maps.Values(s.vals)
-	}
-	s.mu.Unlock()
-
-	if runExistingState {
-		// Run handler out of the lock
-		f(slices.Map(objs, func(e T) Event[T] {
-			return Event[T]{
-				New:   &e,
+		for _, v := range s.vals {
+			objs = append(objs, Event[T]{
+				New:   &v,
 				Event: controllers.EventAdd,
-			}
-		}), true)
+			})
+		}
 	}
-
-	// We are always synced in the static collection since the initial state must be provided upfront
-	return alwaysSynced{}
+	return s.eventHandlers.Insert(f, s.Synced(), objs, s.stop)
 }
 
 var _ internalCollection[any] = &staticList[any]{}

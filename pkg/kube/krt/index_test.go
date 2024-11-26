@@ -32,6 +32,11 @@ import (
 )
 
 func TestIndex(t *testing.T) {
+	//t.Cleanup(func() {
+	//	buf := make([]byte, 2<<20)
+	//	buf = buf[:runtime.Stack(buf, true)]
+	//	fmt.Println(string(buf))
+	//})
 	c := kube.NewFakeClient()
 	kpc := kclient.New[*corev1.Pod](c)
 	pc := clienttest.Wrap(t, kpc)
