@@ -1018,5 +1018,5 @@ type TestWaypointPolicyStatusCollectionTestCase struct {
 }
 
 func getStatus[T any](col krt.Collection[T], name, namespace string) *T {
-	return col.GetKey(krt.Key[T](namespace + "/" + name))
+	return col.GetKey(namespace + "/" + name)
 }

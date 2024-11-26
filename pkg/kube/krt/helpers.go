@@ -28,9 +28,13 @@ import (
 	"istio.io/istio/pkg/ptr"
 )
 
+func getTypedKey[O any](a O) Key[O] {
+	return Key[O](GetKey(a))
+}
+
 // GetKey returns the key for the provided object.
 // If there is none, this will panic.
-func GetKey[O any](a O) Key[O] {
+func GetKey[O any](a O) string {
 	if k, ok := tryGetKey[O](a); ok {
 		return k
 	}
@@ -40,7 +44,7 @@ func GetKey[O any](a O) Key[O] {
 	ao, ok := any(&a).(controllers.Object)
 	if ok {
 		k, _ := cache.MetaNamespaceKeyFunc(ao)
-		return Key[O](k)
+		return k
 	}
 	panic(fmt.Sprintf("Cannot get Key, got %T", a))
 }
@@ -70,7 +74,7 @@ func (n Named) GetNamespace() string {
 
 // GetApplyConfigKey returns the key for the ApplyConfig.
 // If there is none, this will return nil.
-func GetApplyConfigKey[O any](a O) *Key[O] {
+func GetApplyConfigKey[O any](a O) *string {
 	// Reflection is expensive; short circuit here
 	if !strings.HasSuffix(ptr.TypeName[O](), "ApplyConfiguration") {
 		return nil
@@ -90,9 +94,9 @@ func GetApplyConfigKey[O any](a O) *Key[O] {
 	}
 	meta := specField.Interface().(*acmetav1.ObjectMetaApplyConfiguration)
 	if meta.Namespace != nil && len(*meta.Namespace) > 0 {
-		return ptr.Of(Key[O](*meta.Namespace + "/" + *meta.Name))
+		return ptr.Of(*meta.Namespace + "/" + *meta.Name)
 	}
-	return ptr.Of(Key[O](*meta.Name))
+	return meta.Name
 }
 
 // keyFunc is the internal API key function that returns "namespace"/"name" or

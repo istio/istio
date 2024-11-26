@@ -407,7 +407,7 @@ func getConditions[T controllers.ComparableObject](name types.NamespacedName, i 
 // Lookup finds all addresses associated with a given key. Many different key formats are supported; see inline comments.
 func (a *index) Lookup(key string) []model.AddressInfo {
 	// 1. Workload UID
-	if w := a.workloads.GetKey(krt.Key[model.WorkloadInfo](key)); w != nil {
+	if w := a.workloads.GetKey(key); w != nil {
 		return []model.AddressInfo{workloadToAddressInfo(w.Workload)}
 	}
 
@@ -436,7 +436,7 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 
 func (a *index) lookupService(key string) *model.ServiceInfo {
 	// 1. namespace/hostname format
-	s := a.services.GetKey(krt.Key[model.ServiceInfo](key))
+	s := a.services.GetKey(key)
 	if s != nil {
 		return s
 	}

@@ -63,7 +63,7 @@ func (i *informer[I]) Synced() Syncer {
 // nolint: unused // (not true, its to implement an interface)
 func (i *informer[I]) dump() CollectionDump {
 	return CollectionDump{
-		Outputs: eraseMap(slices.GroupUnique(i.inf.List(metav1.NamespaceAll, klabels.Everything()), GetKey)),
+		Outputs: eraseMap(slices.GroupUnique(i.inf.List(metav1.NamespaceAll, klabels.Everything()), getTypedKey)),
 	}
 }
 
@@ -81,13 +81,13 @@ func (i *informer[I]) List() []I {
 	return res
 }
 
-func (i *informer[I]) GetKey(k Key[I]) *I {
+func (i *informer[I]) GetKey(k string) *I {
 	// ns, n := splitKeyFunc(string(k))
 	// Internal optimization: we know kclient will eventually lookup "ns/name"
 	// We also have a key in this format.
 	// Rather than split and rejoin it later, just pass it as the name
 	// This is depending on "unstable" implementation details, but we own both libraries and tests would catch any issues.
-	if got := i.inf.Get(string(k), ""); !controllers.IsNil(got) {
+	if got := i.inf.Get(k, ""); !controllers.IsNil(got) {
 		return &got
 	}
 	return nil

@@ -29,13 +29,13 @@ type StaticCollection[T any] struct {
 
 type staticList[T any] struct {
 	mu       sync.RWMutex
-	vals     map[Key[T]]T
+	vals     map[string]T
 	handlers []func(o []Event[T], initialSync bool)
 	id       collectionUID
 }
 
 func NewStaticCollection[T any](vals []T) StaticCollection[T] {
-	res := map[Key[T]]T{}
+	res := make(map[string]T, len(vals))
 	for _, v := range vals {
 		res[GetKey(v)] = v
 	}
@@ -48,7 +48,7 @@ func NewStaticCollection[T any](vals []T) StaticCollection[T] {
 }
 
 // DeleteObject deletes an object from the collection.
-func (s *staticList[T]) DeleteObject(k Key[T]) {
+func (s *staticList[T]) DeleteObject(k string) {
 	s.mu.Lock() // Unlocked in runEventLocked
 	old, f := s.vals[k]
 	if f {
@@ -102,7 +102,7 @@ func (s *staticList[T]) UpdateObject(obj T) {
 	}
 }
 
-func (s *staticList[T]) GetKey(k Key[T]) *T {
+func (s *staticList[T]) GetKey(k string) *T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if o, f := s.vals[k]; f {
@@ -124,7 +124,7 @@ func (s *staticList[T]) uid() collectionUID {
 // nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) dump() CollectionDump {
 	return CollectionDump{
-		Outputs: eraseMap(slices.GroupUnique(s.List(), GetKey)),
+		Outputs: eraseMap(slices.GroupUnique(s.List(), getTypedKey)),
 	}
 }
 

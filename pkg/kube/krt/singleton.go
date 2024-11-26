@@ -65,7 +65,7 @@ type static[T any] struct {
 	collectionName string
 }
 
-func (d *static[T]) GetKey(k Key[T]) *T {
+func (d *static[T]) GetKey(k string) *T {
 	return d.val.Load()
 }
 
