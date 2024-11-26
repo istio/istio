@@ -1028,6 +1028,8 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 		WaypointBound:        nil,
 		IngressUsingWaypoint: nil,
 	}
+	// since multiple conditions can be written here, ensure that we only write the error
+	// on the first condition since that is where it is relevant.
 	writeError := true
 
 	if i.Waypoint.ResourceName != "" {
