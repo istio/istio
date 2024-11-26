@@ -160,7 +160,6 @@ func (p *processorListener[O]) pop() {
 }
 
 func (p *processorListener[O]) run(stopCh <-chan struct{}) {
-	log.Errorf("howardjohn: RUN")
 	for {
 		select {
 		case <-stopCh:

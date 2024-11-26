@@ -45,10 +45,12 @@ type manyCollection[I, O any] struct {
 
 	// log is a logger for the collection, with additional labels already added to identify it.
 	log *istiolog.Scope
+	// blockNewEvents is held anytime events are being computed. The intent is to ensure we can appropriately onboard new handlers
+	// with initial state (where we need to send them the initial state + any new state).
+	blockNewEvents  sync.Mutex
+	// This can be acquired with blockNewEvents held, but only with strict ordering (mu inside blockNewEvents)
 	// mu protects all items grouped below.
 	// This is acquired for reads and writes of data.
-	// This can be acquired with recomputeMu held, but only with strict ordering (mu inside recomputeMu)
-	blockNewEvents  sync.Mutex
 	mu              sync.Mutex
 	collectionState multiIndex[I, O]
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
@@ -227,7 +229,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 	h.blockNewEvents.Lock()
 	defer h.blockNewEvents.Unlock()
 	// Between the events being enqueued and now, the input may have changed. Update with latest info.
-	// Note we now have the recomputeMu so this is safe; any futures calls will do the same so always have up-to-date information.
+	// Note we now have the `blockNewEvents` lock so this is safe; any futures calls will do the same so always have up-to-date information.
 	for idx, ev := range items {
 		iKey := GetKey(ev.Latest())
 		iObj := h.parent.GetKey(iKey)
