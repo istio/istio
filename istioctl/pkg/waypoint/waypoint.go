@@ -470,6 +470,9 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 			return err
 		}
 		for _, gw := range waypoints.Items {
+			if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
+				continue
+			}
 			names = append(names, gw.Name)
 		}
 	}
