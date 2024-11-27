@@ -5,11 +5,10 @@ kind: ServiceAccount
 automountServiceAccountToken: false
 metadata:
   labels:
-    helm.sh/chart: grafana-8.5.8
+    helm.sh/chart: grafana-8.6.3
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.2.2-security-01"
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "11.3.1"
   name: grafana
   namespace: istio-system
 ---
@@ -20,11 +19,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-8.5.8
+    helm.sh/chart: grafana-8.6.3
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.2.2-security-01"
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "11.3.1"
 data:
   
   grafana.ini: |
@@ -87,11 +85,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-8.5.8
+    helm.sh/chart: grafana-8.6.3
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.2.2-security-01"
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "11.3.1"
 spec:
   type: ClusterIP
   ports:
@@ -110,11 +107,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-8.5.8
+    helm.sh/chart: grafana-8.6.3
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.2.2-security-01"
-    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/version: "11.3.1"
 spec:
   replicas: 1
   revisionHistoryLimit: 10
@@ -127,8 +123,10 @@ spec:
   template:
     metadata:
       labels:
+        helm.sh/chart: grafana-8.6.3
         app.kubernetes.io/name: grafana
         app.kubernetes.io/instance: grafana
+        app.kubernetes.io/version: "11.3.1"
         sidecar.istio.io/inject: "false"
       annotations:
         checksum/config: 68c00ea91b7ba5c04efc55555ef2307f52aaf738b04e9665e91bb756c8f32b22
@@ -141,7 +139,7 @@ spec:
       enableServiceLinks: true
       containers:
         - name: grafana
-          image: "docker.io/grafana/grafana:11.2.2-security-01"
+          image: "docker.io/grafana/grafana:11.3.1"
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

@@ -6,10 +6,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.18.0
+    helm.sh/chart: loki-6.21.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.2.0"
+    app.kubernetes.io/version: "3.3.0"
     app.kubernetes.io/managed-by: Helm
 automountServiceAccountToken: true
 ---
@@ -20,10 +20,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.18.0
+    helm.sh/chart: loki-6.21.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.2.0"
+    app.kubernetes.io/version: "3.3.0"
     app.kubernetes.io/managed-by: Helm
 data:
   config.yaml: |
@@ -108,10 +108,10 @@ metadata:
   name: loki-runtime
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.18.0
+    helm.sh/chart: loki-6.21.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.2.0"
+    app.kubernetes.io/version: "3.3.0"
     app.kubernetes.io/managed-by: Helm
 data:
   runtime-config.yaml: |
@@ -122,10 +122,10 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   labels:
-    helm.sh/chart: loki-6.18.0
+    helm.sh/chart: loki-6.21.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.2.0"
+    app.kubernetes.io/version: "3.3.0"
     app.kubernetes.io/managed-by: Helm
   name: loki-clusterrole
 rules:
@@ -139,10 +139,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: loki-clusterrolebinding
   labels:
-    helm.sh/chart: loki-6.18.0
+    helm.sh/chart: loki-6.21.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.2.0"
+    app.kubernetes.io/version: "3.3.0"
     app.kubernetes.io/managed-by: Helm
 subjects:
   - kind: ServiceAccount
@@ -160,10 +160,10 @@ metadata:
   name: loki-memberlist
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.18.0
+    helm.sh/chart: loki-6.21.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.2.0"
+    app.kubernetes.io/version: "3.3.0"
     app.kubernetes.io/managed-by: Helm
   annotations:
 spec:
@@ -186,10 +186,10 @@ metadata:
   name: loki-headless
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.18.0
+    helm.sh/chart: loki-6.21.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.2.0"
+    app.kubernetes.io/version: "3.3.0"
     app.kubernetes.io/managed-by: Helm
     variant: headless
     prometheus.io/service-monitor: "false"
@@ -212,10 +212,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.18.0
+    helm.sh/chart: loki-6.21.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.2.0"
+    app.kubernetes.io/version: "3.3.0"
     app.kubernetes.io/managed-by: Helm
   annotations:
 spec:
@@ -241,10 +241,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.18.0
+    helm.sh/chart: loki-6.21.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.2.0"
+    app.kubernetes.io/version: "3.3.0"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/component: single-binary
     app.kubernetes.io/part-of: memberlist
@@ -268,7 +268,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 33763d92c95bb565c019078f0419bddedd9febff7743044c8a329dfe84d4d218
+        checksum/config: e25f574a77ad76a215950a4119e2a6459d00d4129f2e10f80d28789545da3722
       labels:
         app.kubernetes.io/name: loki
         app.kubernetes.io/instance: loki
@@ -287,7 +287,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: loki-sc-rules
-          image: "kiwigrid/k8s-sidecar:1.27.5"
+          image: "kiwigrid/k8s-sidecar:1.28.0"
           imagePullPolicy: IfNotPresent
           env:
             - name: METHOD
@@ -308,7 +308,7 @@ spec:
             - name: sc-rules-volume
               mountPath: "/rules"
         - name: loki
-          image: docker.io/grafana/loki:3.2.0
+          image: docker.io/grafana/loki:3.3.0
           imagePullPolicy: IfNotPresent
           args:
             - -config.file=/etc/loki/config/config.yaml
