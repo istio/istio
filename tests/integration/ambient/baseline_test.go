@@ -822,15 +822,50 @@ spec:
     matchLabels:
       app: "{{ .Destination }}"
   portLevelMtls:
-    81:
+    80:
       mode: PERMISSIVE
         `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
-				opt.Port.ServicePort = 80
 				// Should pass for all workloads, in or out of mesh, targeting this port
 				src.CallOrFail(t, opt)
 			})
+
+			t.NewSubTest("global-permissive-strict-workload-ports").Run(func(t framework.TestContext) {
+				t.ConfigIstio().YAML(i.Settings().SystemNamespace, `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: global-strict
+spec:
+  mtls:
+    mode: PERMISSIVE
+        `).ApplyOrFail(t)
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: local-port-override
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  portLevelMtls:
+    80:
+      mode: STRICT
+        `).ApplyOrFail(t)
+				opt = opt.DeepCopy()
+				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
+					// Expect deny if the dest is in the mesh (enforcing mTLS) but src is not (not sending mTLS)
+					opt.Check = CheckDeny
+				}
+				src.CallOrFail(t, opt)
+			})
 		})
+
 	})
 }
 
