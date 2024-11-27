@@ -1810,7 +1810,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			}
 
 			verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-			verifyListenerFilters(t, listeners[0].ListenerFilters)
+			verifyHTTPListenerFilters(t, listeners[0].ListenerFilters)
 
 			if listeners[0].ListenerFiltersTimeout.GetSeconds() != 5 {
 				t.Fatalf("expected timeout 5s, found  ListenerFiltersTimeout %v",
@@ -1836,7 +1836,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			http := getHTTPFilterChain(t, listeners[0])
 
 			verifyHTTPFilterChainMatch(t, http)
-			verifyListenerFilters(t, listeners[0].ListenerFilters)
+			verifyHTTPListenerFilters(t, listeners[0].ListenerFilters)
 
 			if listeners[0].ListenerFiltersTimeout == nil {
 				t.Fatalf("expected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
@@ -2104,6 +2104,16 @@ func verifyListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
 	}
 }
 
+func verifyHTTPListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
+	t.Helper()
+	if len(lfilters) != 1 {
+		t.Fatalf("expected %d listener filter, found %d", 1, len(lfilters))
+	}
+	if lfilters[0].Name != wellknown.HTTPInspector {
+		t.Fatalf("expected listener filters not found, got %v", lfilters)
+	}
+}
+
 func verifyHTTPFilterChainMatch(t *testing.T, fc *listener.FilterChain) {
 	t.Helper()
 	if fc.FilterChainMatch.TransportProtocol != xdsfilters.RawBufferTransportProtocol {
@@ -2208,7 +2218,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 		}
 
 		verifyHTTPFilterChainMatch(t, l.FilterChains[0])
-		verifyListenerFilters(t, l.ListenerFilters)
+		verifyHTTPListenerFilters(t, l.ListenerFilters)
 
 		if l := findListenerByPort(listeners, 3306); !isMysqlListener(l) {
 			t.Fatalf("expected MySQL listener on port 3306, found %v", l)
@@ -2231,7 +2241,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 		}
 
 		verifyHTTPFilterChainMatch(t, l.FilterChains[0])
-		verifyListenerFilters(t, l.ListenerFilters)
+		verifyHTTPListenerFilters(t, l.ListenerFilters)
 	}
 }
 
@@ -2761,7 +2771,7 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 
 	verifyHTTPFilterChainMatch(t, l.FilterChains[0])
 	verifyPassThroughTCPFilterChain(t, l.DefaultFilterChain)
-	verifyListenerFilters(t, l.ListenerFilters)
+	verifyHTTPListenerFilters(t, l.ListenerFilters)
 }
 
 func verifyPassThroughTCPFilterChain(t *testing.T, fc *listener.FilterChain) {
