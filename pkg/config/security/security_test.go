@@ -140,6 +140,15 @@ func TestValidateCondition(t *testing.T) {
 			values: []string{"value"},
 		},
 		{
+			key:       "source.serviceAccount",
+			values:    []string{"bad"},
+			wantError: true,
+		},
+		{
+			key:    "source.serviceAccount",
+			values: []string{"ns/sa"},
+		},
+		{
 			key:    "request.auth.principal",
 			values: []string{"value"},
 		},
