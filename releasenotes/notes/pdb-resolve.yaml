@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 54087
+releaseNotes:
+  - |
+    **Fixed** an issue preventing the PodDisruptionBudget `maxUnavailable` field from being customizable. 
