@@ -306,6 +306,48 @@ spec:
 	assert.Equal(t, notApp.Tracing.Provider == nil, true)
 }
 
+func TestWaypointRequestAuth(t *testing.T) {
+	// jwks from https://datatracker.ietf.org/doc/html/rfc7517#appendix-A.1
+	requestAuthn := `apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: jwt-on-waypoint
+  namespace: default
+spec:
+  targetRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: app
+  jwtRules:
+  - issuer: "example.ietf.org"
+    jwks: |
+          {"keys":
+            [
+              {"kty":"EC",
+              "crv":"P-256",
+              "x":"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
+              "y":"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM",
+              "use":"enc",
+              "kid":"1"},
+
+              {"kty":"RSA",
+              "n": "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
+              "e":"AQAB",
+              "alg":"RS256",
+              "kid":"2011-04-29"}
+            ]
+          }`
+	d, proxy := setupWaypointTest(t,
+		waypointGateway, waypointSvc, waypointInstance,
+		appServiceEntry, requestAuthn)
+
+	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+	app := xdstest.ExtractHTTPConnectionManager(t,
+		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l))
+
+	assert.Equal(t, sets.New(slices.Map(app.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), true)
+}
+
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableDualStack, true)
