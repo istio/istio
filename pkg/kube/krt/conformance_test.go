@@ -15,8 +15,11 @@
 package krt_test
 
 import (
+	"fmt"
+	"math/rand"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,7 +92,6 @@ func (r *manyRig) CreateObject(key string) {
 // collection types can handle some type with this key.
 func TestConformance(t *testing.T) {
 	t.Run("informer", func(t *testing.T) {
-		t.Skip()
 		fc := kube.NewFakeClient()
 		kc := kclient.New[*corev1.ConfigMap](fc)
 		col := krt.WrapClient(kc, krt.WithStop(test.NewStop(t)))
@@ -186,4 +188,30 @@ func runConformance[T any](t *testing.T, collection Rig[T]) {
 	endHandlerSynced := collection.Register(TrackerHandler[T](endHandler))
 	assert.Equal(t, endHandlerSynced.WaitUntilSynced(stop), true)
 	endHandler.WaitUnordered("add/a/b", "add/a/c", "add/a/d")
+
+	// Now, we want to test some race conditions.
+	// We will trigger a bunch of ADD operations, and register a handler sometime in-between
+	// The handler should not get any duplicates or missed events.
+	keys := []string{}
+	for n := range 20 {
+		keys = append(keys, fmt.Sprintf("a/%v", n))
+	}
+	raceHandler := assert.NewTracker[string](t)
+	go func() {
+		for _, k := range keys {
+			collection.CreateObject(k)
+		}
+	}()
+	// Introduce some small jitter to help ensure we don't always just register first
+	// nolint: gosec // just for testing
+	time.Sleep(time.Microsecond * time.Duration(rand.Int31n(100)))
+	raceHandlerSynced := collection.Register(TrackerHandler[T](raceHandler))
+	assert.Equal(t, raceHandlerSynced.WaitUntilSynced(stop), true)
+	want := []string{"add/a/b", "add/a/c", "add/a/d"}
+	for _, k := range keys {
+		want = append(want, fmt.Sprintf("add/%v", k))
+	}
+	// We should get every event exactly one time
+	raceHandler.WaitUnordered(want...)
+	raceHandler.Empty()
 }
