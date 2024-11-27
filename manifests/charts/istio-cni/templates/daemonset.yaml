@@ -120,6 +120,11 @@ spec:
               # network namespaces in `/proc` to obtain descriptors for entering pod network
               # namespaces. There does not appear to be a more granular capability for this.
               - SYS_ADMIN
+              # While we run as a 'root' (UID/GID 0), since we drop all capabilities we lose
+              # the typical ability to read/write to folders owned by others.
+              # This can cause problems if the hostPath mounts we use, which we require write access into,
+              # are owned by non-root. DAC_OVERRIDE bypasses these and gives us write access into any folder.
+              - DAC_OVERRIDE
 {{- if .Values.seLinuxOptions }}
 {{ with (merge .Values.seLinuxOptions (dict "type" "spc_t")) }}
             seLinuxOptions:
