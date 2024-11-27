@@ -86,7 +86,7 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 
 func BlockTestWithPolicy(t framework.TestContext, client, server echo.Instance) {
 	ns := server.Config().Namespace.Name()
-	t.ConfigIstio().Eval(ns, map[string]any{"serviceAccount": client.ServiceAccountName()}, `
+	t.ConfigIstio().Eval(ns, map[string]any{"serviceAccount": client.SpiffeIdentity()}, `
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:

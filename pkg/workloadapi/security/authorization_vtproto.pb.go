@@ -293,6 +293,40 @@ func (this *Match) EqualVT(that *Match) bool {
 			return false
 		}
 	}
+	if len(this.ServiceAccounts) != len(that.ServiceAccounts) {
+		return false
+	}
+	for i, vx := range this.ServiceAccounts {
+		vy := that.ServiceAccounts[i]
+		if p, q := vx, vy; p != q {
+			if p == nil {
+				p = &ServiceAccountMatch{}
+			}
+			if q == nil {
+				q = &ServiceAccountMatch{}
+			}
+			if !p.EqualVT(q) {
+				return false
+			}
+		}
+	}
+	if len(this.NotServiceAccounts) != len(that.NotServiceAccounts) {
+		return false
+	}
+	for i, vx := range this.NotServiceAccounts {
+		vy := that.NotServiceAccounts[i]
+		if p, q := vx, vy; p != q {
+			if p == nil {
+				p = &ServiceAccountMatch{}
+			}
+			if q == nil {
+				q = &ServiceAccountMatch{}
+			}
+			if !p.EqualVT(q) {
+				return false
+			}
+		}
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -320,6 +354,28 @@ func (this *Address) EqualVT(that *Address) bool {
 
 func (this *Address) EqualMessageVT(thatMsg proto.Message) bool {
 	that, ok := thatMsg.(*Address)
+	if !ok {
+		return false
+	}
+	return this.EqualVT(that)
+}
+func (this *ServiceAccountMatch) EqualVT(that *ServiceAccountMatch) bool {
+	if this == that {
+		return true
+	} else if this == nil || that == nil {
+		return false
+	}
+	if this.Namespace != that.Namespace {
+		return false
+	}
+	if this.ServiceAccount != that.ServiceAccount {
+		return false
+	}
+	return string(this.unknownFields) == string(that.unknownFields)
+}
+
+func (this *ServiceAccountMatch) EqualMessageVT(thatMsg proto.Message) bool {
+	that, ok := thatMsg.(*ServiceAccountMatch)
 	if !ok {
 		return false
 	}
@@ -618,6 +674,30 @@ func (m *Match) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.NotServiceAccounts) > 0 {
+		for iNdEx := len(m.NotServiceAccounts) - 1; iNdEx >= 0; iNdEx-- {
+			size, err := m.NotServiceAccounts[iNdEx].MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0x62
+		}
+	}
+	if len(m.ServiceAccounts) > 0 {
+		for iNdEx := len(m.ServiceAccounts) - 1; iNdEx >= 0; iNdEx-- {
+			size, err := m.ServiceAccounts[iNdEx].MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0x5a
+		}
+	}
 	if len(m.NotDestinationPorts) > 0 {
 		var pksize2 int
 		for _, num := range m.NotDestinationPorts {
@@ -796,6 +876,53 @@ func (m *Address) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.Address)
 		copy(dAtA[i:], m.Address)
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Address)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ServiceAccountMatch) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ServiceAccountMatch) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *ServiceAccountMatch) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.ServiceAccount) > 0 {
+		i -= len(m.ServiceAccount)
+		copy(dAtA[i:], m.ServiceAccount)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.ServiceAccount)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Namespace) > 0 {
+		i -= len(m.Namespace)
+		copy(dAtA[i:], m.Namespace)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Namespace)))
 		i--
 		dAtA[i] = 0xa
 	}
@@ -1058,6 +1185,18 @@ func (m *Match) SizeVT() (n int) {
 		}
 		n += 1 + protohelpers.SizeOfVarint(uint64(l)) + l
 	}
+	if len(m.ServiceAccounts) > 0 {
+		for _, e := range m.ServiceAccounts {
+			l = e.SizeVT()
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if len(m.NotServiceAccounts) > 0 {
+		for _, e := range m.NotServiceAccounts {
+			l = e.SizeVT()
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -1074,6 +1213,24 @@ func (m *Address) SizeVT() (n int) {
 	}
 	if m.Length != 0 {
 		n += 1 + protohelpers.SizeOfVarint(uint64(m.Length))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *ServiceAccountMatch) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Namespace)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.ServiceAccount)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

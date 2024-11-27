@@ -55,8 +55,8 @@ type Configurable interface {
 	// Short form for Config().NamespacedName().
 	NamespacedName() NamespacedName
 
-	// ServiceAccountName returns the service account string for this service.
-	ServiceAccountName() string
+	// SpiffeIdentity returns the spiffe identity for this service (without the spiffe:// prefix)
+	SpiffeIdentity() string
 
 	// ClusterLocalFQDN returns the fully qualified domain name for cluster-local host.
 	ClusterLocalFQDN() string
@@ -225,8 +225,8 @@ func (c Config) AccountName() string {
 	return "default"
 }
 
-// ServiceAccountName returns the service account name for this service.
-func (c Config) ServiceAccountName() string {
+// SpiffeIdentity returns the service account name for this service.
+func (c Config) SpiffeIdentity() string {
 	return "cluster.local/ns/" + c.NamespaceName() + "/sa/" + c.Service
 }
 
