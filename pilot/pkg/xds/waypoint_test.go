@@ -308,6 +308,7 @@ spec:
 
 func TestWaypointRequestAuth(t *testing.T) {
 	// jwks from https://datatracker.ietf.org/doc/html/rfc7517#appendix-A.1
+	// nolint: lll
 	requestAuthn := `apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
