@@ -949,10 +949,10 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}
 	})
 	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), xdsConvertedPeerAuthSelector) // Matching pods receive an event
-	// The policy should still be added since the effective policy is STRICT
+	// There should be no static strict policy because the permissive override should have the strict part in-line
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
-		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName), fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
+		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
 			Kind:      kind.PeerAuthentication,
 			Name:      selectorPolicyName,
 			Namespace: "ns1",

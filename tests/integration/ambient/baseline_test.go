@@ -769,7 +769,8 @@ spec:
 				src.CallOrFail(t, opt)
 			})
 			// general workload peerauth == STRICT, but we have a port-specific allowlist that is PERMISSIVE,
-			// so anything hitting that port should not be rejected
+			// so anything hitting that port should not be rejected.
+			// NOTE: Using port 80 since that's what
 			t.NewSubTest("strict-permissive-ports").Run(func(t framework.TestContext) {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
@@ -787,7 +788,7 @@ spec:
   mtls:
     mode: STRICT
   portLevelMtls:
-    8080:
+    80:
       mode: PERMISSIVE
 				`).ApplyOrFail(t)
 				opt = opt.DeepCopy()
@@ -820,10 +821,11 @@ spec:
     matchLabels:
       app: "{{ .Destination }}"
   portLevelMtls:
-    8080:
+    81:
       mode: PERMISSIVE
         `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
+				opt.Port.ServicePort = 80
 				// Should pass for all workloads, in or out of mesh, targeting this port
 				src.CallOrFail(t, opt)
 			})
