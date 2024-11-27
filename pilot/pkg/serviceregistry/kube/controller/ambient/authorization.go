@@ -73,9 +73,7 @@ func getOldestPeerAuthn(policies []*securityclient.PeerAuthentication) *security
 }
 
 // convertedSelectorPeerAuthentications returns a list of keys corresponding to one or both of:
-// [static STRICT policy, port-level STRICT policy] based on the effective PeerAuthentication policy
-// TODO: If the workload peerauthn has a mode UNSET and a parent-level strict policy, merge and don't attach
-// the static STRICT policy
+// [static STRICT policy, port-level (potentially merged) STRICT policy] based on the effective PeerAuthentication policy
 func convertedSelectorPeerAuthentications(rootNamespace string, configs []*securityclient.PeerAuthentication) []string {
 	var meshCfg, namespaceCfg, workloadCfg *securityclient.PeerAuthentication
 	for _, cfg := range configs {
