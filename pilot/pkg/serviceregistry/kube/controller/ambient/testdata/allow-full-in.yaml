@@ -11,6 +11,10 @@ spec:
         notPrincipals: [ "not-principal", "not-principal-prefix-*", "*-suffix-not-principal", "*" ]
   - from:
     - source:
+        serviceAccounts: [ "ns/sa" ]
+        notServiceAccounts: [ "ns/sa-not" ]
+  - from:
+    - source:
         requestPrincipals: [ "requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*" ]
         notRequestPrincipals: [ "not-requestPrincipals", "not-requestPrincipals-prefix-*", "*-suffix-not-requestPrincipals", "*" ]
   - from:
