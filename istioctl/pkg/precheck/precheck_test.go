@@ -15,14 +15,11 @@
 package precheck
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/rest/fake"
 	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
@@ -30,7 +27,6 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/config/analysis/diag"
-	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -67,13 +63,6 @@ func Test_checkFromVersion(t *testing.T) {
 			expectedOutput: nil,
 			expectedError:  fmt.Errorf("minor version is not a number: X"),
 		},
-		// TODO: add more test cases
-		// minor <= 21 and checkPilot failing
-		// minor <= 20 and checkDestinationRuleTLS failing
-		// minor <= 20 and checkExternalNameAlias failing
-		// minor <= 20 and checkVirtualServiceHostMatching failing
-		// minor <= 21 and checkPassthroughTargetPorts failing
-		// minor <= 21 and checkTracing failing
 	}
 
 	for _, c := range cases {
@@ -92,31 +81,6 @@ func Test_checkFromVersion(t *testing.T) {
 			}
 		})
 	}
-}
-
-func Test_checkTracing(t *testing.T) {
-	cli := kube.NewFakeClient()
-	messages := diag.Messages{}
-
-	zipkinSvc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "zipkin",
-			Namespace: "istio-system",
-		},
-	}
-	cli.Kube().CoreV1().Services("istio-system").Create(context.Background(), zipkinSvc, metav1.CreateOptions{})
-
-	err := checkTracing(cli, &messages)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(messages))
-
-	expectedOutput := msg.NewUpdateIncompatibility(ObjectToInstance(zipkinSvc),
-		"meshConfig.defaultConfig.tracer", "1.21",
-		"tracing is no longer by default enabled to send to 'zipkin.istio-system.svc'; "+
-			"follow https://istio.io/latest/docs/tasks/observability/distributed-tracing/telemetry-api/",
-		"1.21")
-
-	assert.Equal(t, expectedOutput, messages[0])
 }
 
 func init() {
