@@ -26,6 +26,7 @@ import (
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/test"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -46,6 +47,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 		name                   string
 		workloadNamespace      string
 		workloadLabels         labels.Instance
+		WithService            *Service
 		wantRequestAuthn       []*config.Config
 		wantPeerAuthn          []*config.Config
 		wantNamespaceMutualTLS MutualTLSMode
@@ -581,11 +583,108 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			},
 			wantNamespaceMutualTLS: MTLSStrict,
 		},
+		{
+			name:              "Service targetRef bar namespace",
+			workloadNamespace: "bar",
+			workloadLabels: labels.Instance{
+				label.IoK8sNetworkingGatewayGatewayName.Name: "my-waypoint",
+			},
+			isWaypoint: true,
+			WithService: &Service{
+				Attributes: ServiceAttributes{
+					ServiceRegistry: provider.Kubernetes,
+					Name:            "target-service-bar",
+					Namespace:       "bar",
+				},
+			},
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "with-targetref-service",
+						Namespace:        "bar",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.Service.Group,
+							Kind:  gvk.Service.Kind,
+							Name:  "target-service-bar",
+						},
+					},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSPermissive,
+		},
+		{
+			name:              "Service targetRef cross namespace",
+			workloadNamespace: "gateway",
+			workloadLabels: labels.Instance{
+				label.IoK8sNetworkingGatewayGatewayName.Name: "my-waypoint",
+			},
+			isWaypoint: true,
+			WithService: &Service{
+				Attributes: ServiceAttributes{
+					ServiceRegistry: provider.Kubernetes,
+					Name:            "target-service-bar",
+					Namespace:       "bar",
+				},
+			},
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "with-targetref-service",
+						Namespace:        "bar",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.Service.Group,
+							Kind:  gvk.Service.Kind,
+							Name:  "target-service-bar",
+						},
+					},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSPermissive,
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
+			if tc.WithService != nil {
+				matcher = matcher.WithService(tc.WithService)
+			}
 			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
 			}
@@ -1495,6 +1594,12 @@ func createTestConfigs(withMeshPeerAuthn bool) []*config.Config {
 			Kind:  gvk.KubernetesGateway.Kind,
 			Name:  "my-gateway",
 		}),
+		createTestRequestAuthenticationResource("with-targetref-service", "bar", nil,
+			&selectorpb.PolicyTargetReference{
+				Group: gvk.Service.Group,
+				Kind:  gvk.Service.Kind,
+				Name:  "target-service-bar",
+			}),
 		createTestPeerAuthenticationResource("global-peer-with-selector", rootNamespace, baseTimestamp, &selectorpb.WorkloadSelector{
 			MatchLabels: map[string]string{
 				"app":     "httpbin",
