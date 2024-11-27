@@ -789,7 +789,7 @@ spec:
   mtls:
     mode: STRICT
   portLevelMtls:
-    80:
+    18080:
       mode: PERMISSIVE
 				`).ApplyOrFail(t)
 				opt = opt.DeepCopy()
@@ -822,7 +822,7 @@ spec:
     matchLabels:
       app: "{{ .Destination }}"
   portLevelMtls:
-    80:
+    18080:
       mode: PERMISSIVE
         `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
@@ -854,7 +854,7 @@ spec:
     matchLabels:
       app: "{{ .Destination }}"
   portLevelMtls:
-    80:
+    18080:
       mode: STRICT
         `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
