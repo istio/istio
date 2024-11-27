@@ -831,7 +831,6 @@ func TestServiceConditions(t *testing.T) {
 				label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
 			}),
 			conditions: map[model.ConditionType][]model.Condition{
-				model.IngressUsingWaypoint: nil,
 				model.WaypointBound: {
 					{
 						Status:  true,
@@ -857,13 +856,6 @@ func TestServiceConditions(t *testing.T) {
 					{
 						Status:  true,
 						Reason:  string(model.WaypointAccepted),
-						Message: "Successfully attached to waypoint waypoint-ns/waypoint",
-					},
-				},
-				model.IngressUsingWaypoint: {
-					{
-						Status:  true,
-						Reason:  string(model.WaypointAccepted),
 						Message: "Successfully attached to waypoint waypoint-ns/waypoint. Ingress traffic will traverse the waypoint",
 					},
 				},
@@ -885,14 +877,7 @@ func TestServiceConditions(t *testing.T) {
 					{
 						Status:  true,
 						Reason:  string(model.WaypointAccepted),
-						Message: "Successfully attached to waypoint waypoint-ns/waypoint",
-					},
-				},
-				model.IngressUsingWaypoint: {
-					{
-						Status:  false,
-						Reason:  "UnsupportedValue",
-						Message: "The label \"istio.io/ingress-use-waypoint\" must be set to a boolean value.",
+						Message: "Successfully attached to waypoint waypoint-ns/waypoint. Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.",
 					},
 				},
 			},

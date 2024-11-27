@@ -1006,10 +1006,9 @@ func (i ServiceInfo) GetStatusTarget() TypedObject {
 type ConditionType string
 
 const (
-	WaypointBound        ConditionType = "istio.io/WaypointBound"
-	IngressUsingWaypoint ConditionType = "istio.io/IngressUseWaypoint"
-	ZtunnelAccepted      ConditionType = "ZtunnelAccepted"
-	WaypointAccepted     ConditionType = "WaypointAccepted"
+	WaypointBound    ConditionType = "istio.io/WaypointBound"
+	ZtunnelAccepted  ConditionType = "ZtunnelAccepted"
+	WaypointAccepted ConditionType = "WaypointAccepted"
 )
 
 type ConditionSet = map[ConditionType][]Condition
@@ -1025,44 +1024,29 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 	set := map[ConditionType][]Condition{
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
-		WaypointBound:        nil,
-		IngressUsingWaypoint: nil,
+		WaypointBound: nil,
 	}
-	// since multiple conditions can be written here, ensure that we only write the error
-	// on the first condition since that is where it is relevant.
-	writeError := true
 
 	if i.Waypoint.ResourceName != "" {
+		buildMsg := strings.Builder{}
+		buildMsg.WriteString("Successfully attached to waypoint ")
+		buildMsg.WriteString(i.Waypoint.ResourceName)
+
+		if i.Waypoint.IngressUseWaypoint {
+			buildMsg.WriteString(". Ingress traffic will traverse the waypoint")
+		} else if i.Waypoint.IngressLabelPresent {
+			buildMsg.WriteString(". Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.")
+		}
+
 		set[WaypointBound] = []Condition{
 			{
 				Status:  true,
 				Reason:  string(WaypointAccepted),
-				Message: fmt.Sprintf("Successfully attached to waypoint %v", i.Waypoint.ResourceName),
+				Message: buildMsg.String(),
 			},
 		}
 	} else if i.Waypoint.Error != nil {
-		// if there is no waypoint name, the error will have to do with the waypoint itself, not
-		// the ingress waypoint label.
 		set[WaypointBound] = []Condition{
-			{
-				Status:  false,
-				Reason:  i.Waypoint.Error.Reason,
-				Message: i.Waypoint.Error.Message,
-			},
-		}
-		writeError = false
-	}
-
-	if i.Waypoint.IngressUseWaypoint {
-		set[IngressUsingWaypoint] = []Condition{
-			{
-				Status:  true,
-				Reason:  string(WaypointAccepted),
-				Message: fmt.Sprintf("Successfully attached to waypoint %v. Ingress traffic will traverse the waypoint", i.Waypoint.ResourceName),
-			},
-		}
-	} else if writeError && i.Waypoint.Error != nil {
-		set[IngressUsingWaypoint] = []Condition{
 			{
 				Status:  false,
 				Reason:  i.Waypoint.Error.Reason,
@@ -1079,6 +1063,8 @@ type WaypointBindingStatus struct {
 	ResourceName string
 	// IngressUseWaypoint specifies whether ingress gateways should use the waypoint for this service.
 	IngressUseWaypoint bool
+	// IngressLabelPresent specifies whether the istio.io/ingress-use-waypoint label is set on the service.
+	IngressLabelPresent bool
 	// Error represents some error
 	Error *StatusMessage
 }
