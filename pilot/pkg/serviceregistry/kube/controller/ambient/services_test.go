@@ -875,9 +875,10 @@ func TestServiceConditions(t *testing.T) {
 			conditions: map[model.ConditionType][]model.Condition{
 				model.WaypointBound: {
 					{
-						Status:  true,
-						Reason:  string(model.WaypointAccepted),
-						Message: "Successfully attached to waypoint waypoint-ns/waypoint. Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.",
+						Status: true,
+						Reason: string(model.WaypointAccepted),
+						Message: "Successfully attached to waypoint waypoint-ns/waypoint. " +
+							"Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.",
 					},
 				},
 			},
