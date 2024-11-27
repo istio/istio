@@ -2093,17 +2093,6 @@ func testInboundListenerConfigWithoutService(t *testing.T, proxy *model.Proxy) {
 	verifyFilterChainMatch(t, l)
 }
 
-func verifyListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
-	t.Helper()
-	if len(lfilters) != 2 {
-		t.Fatalf("expected %d listener filter, found %d", 2, len(lfilters))
-	}
-	if lfilters[0].Name != wellknown.TLSInspector ||
-		lfilters[1].Name != wellknown.HTTPInspector {
-		t.Fatalf("expected listener filters not found, got %v", lfilters)
-	}
-}
-
 func verifyHTTPListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
 	t.Helper()
 	if len(lfilters) != 1 {
