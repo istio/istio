@@ -518,7 +518,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istiod, Service:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector,ServiceAccount:*:istio-reader-service-account",
+			diffSelect: "Deployment:*:istiod, Service:*:istiod,PodDisruptionBudget:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector,ServiceAccount:*:istio-reader-service-account",
 			fileSelect: []string{
 				"templates/deployment.yaml", "templates/mutatingwebhook.yaml",
 				"templates/service.yaml", "templates/reader-serviceaccount.yaml",
