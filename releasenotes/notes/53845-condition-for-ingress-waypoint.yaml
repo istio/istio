@@ -3,4 +3,4 @@ kind: feature
 area: installation
 releaseNotes:
   - |
-    **Added** a new condition type, "istio.io/IngressUseWaypoint" to represent a service binding to a waypoint proxy for ingress.
+    **Added** new messages to the WaypointBound condition to represent a service binding to a waypoint proxy for ingress.
