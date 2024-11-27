@@ -761,3 +761,139 @@ func TestServiceServices(t *testing.T) {
 		})
 	}
 }
+
+func TestServiceConditions(t *testing.T) {
+	waypointAddr := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{
+				Namespace: "ns",
+				Hostname:  "hostname.example",
+			},
+		},
+		// TODO: look up the HBONE port instead of hardcoding it
+		HboneMtlsPort: 15008,
+	}
+
+	waypoint := Waypoint{
+		Named: krt.Named{
+			Name:      "waypoint",
+			Namespace: "waypoint-ns",
+		},
+		TrafficType: constants.AllTraffic,
+		Address:     waypointAddr,
+		AllowedRoutes: WaypointSelector{
+			FromNamespaces: gatewayv1.NamespacesFromSelector,
+			Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+		},
+	}
+
+	ns := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName: "ns",
+			},
+		},
+	}
+
+	makeServiceWithLabels := func(labels map[string]string) *v1.Service {
+		return &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "name",
+				Namespace: "ns",
+				Labels:    labels,
+			},
+			Spec: v1.ServiceSpec{
+				ClusterIP: "1.2.3.4",
+				Ports: []v1.ServicePort{{
+					Port: 80,
+					Name: "http",
+				}},
+			},
+		}
+	}
+
+	cases := []struct {
+		name       string
+		inputs     []any
+		svc        *v1.Service
+		result     *workloadapi.Service
+		conditions model.ConditionSet
+	}{
+		{
+			name: "service bound to waypoint",
+			inputs: []any{
+				waypoint,
+				ns,
+			},
+			svc: makeServiceWithLabels(map[string]string{
+				label.IoIstioUseWaypoint.Name:          "waypoint",
+				label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
+			}),
+			conditions: map[model.ConditionType][]model.Condition{
+				model.WaypointBound: {
+					{
+						Status:  true,
+						Reason:  string(model.WaypointAccepted),
+						Message: "Successfully attached to waypoint waypoint-ns/waypoint",
+					},
+				},
+			},
+		},
+		{
+			name: "service bound to waypoint and using waypoint for ingress",
+			inputs: []any{
+				waypoint,
+				ns,
+			},
+			svc: makeServiceWithLabels(map[string]string{
+				label.IoIstioUseWaypoint.Name:          "waypoint",
+				label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
+				"istio.io/ingress-use-waypoint":        "true",
+			}),
+			conditions: map[model.ConditionType][]model.Condition{
+				model.WaypointBound: {
+					{
+						Status:  true,
+						Reason:  string(model.WaypointAccepted),
+						Message: "Successfully attached to waypoint waypoint-ns/waypoint. Ingress traffic will traverse the waypoint",
+					},
+				},
+			},
+		},
+		{
+			name: "service bound to waypoint and ingress label is malformed",
+			inputs: []any{
+				waypoint,
+				ns,
+			},
+			svc: makeServiceWithLabels(map[string]string{
+				label.IoIstioUseWaypoint.Name:          "waypoint",
+				label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
+				"istio.io/ingress-use-waypoint":        "eurt",
+			}),
+			conditions: map[model.ConditionType][]model.Condition{
+				model.WaypointBound: {
+					{
+						Status: true,
+						Reason: string(model.WaypointAccepted),
+						Message: "Successfully attached to waypoint waypoint-ns/waypoint. " +
+							"Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := krttest.NewMock(t, tt.inputs)
+			a := newAmbientUnitTest()
+			builder := a.serviceServiceBuilder(
+				krttest.GetMockCollection[Waypoint](mock),
+				krttest.GetMockCollection[*v1.Namespace](mock),
+			)
+			res := builder(krt.TestingDummyContext{}, tt.svc)
+			assert.Equal(t, res.GetConditions(), tt.conditions)
+		})
+	}
+}

@@ -1045,12 +1045,23 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound: nil,
 	}
+
 	if i.Waypoint.ResourceName != "" {
+		buildMsg := strings.Builder{}
+		buildMsg.WriteString("Successfully attached to waypoint ")
+		buildMsg.WriteString(i.Waypoint.ResourceName)
+
+		if i.Waypoint.IngressUseWaypoint {
+			buildMsg.WriteString(". Ingress traffic will traverse the waypoint")
+		} else if i.Waypoint.IngressLabelPresent {
+			buildMsg.WriteString(". Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.")
+		}
+
 		set[WaypointBound] = []Condition{
 			{
 				Status:  true,
 				Reason:  string(WaypointAccepted),
-				Message: fmt.Sprintf("Successfully attached to waypoint %v", i.Waypoint.ResourceName),
+				Message: buildMsg.String(),
 			},
 		}
 	} else if i.Waypoint.Error != nil {
@@ -1062,6 +1073,7 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 			},
 		}
 	}
+
 	return set
 }
 
@@ -1070,6 +1082,8 @@ type WaypointBindingStatus struct {
 	ResourceName string
 	// IngressUseWaypoint specifies whether ingress gateways should use the waypoint for this service.
 	IngressUseWaypoint bool
+	// IngressLabelPresent specifies whether the istio.io/ingress-use-waypoint label is set on the service.
+	IngressLabelPresent bool
 	// Error represents some error
 	Error *StatusMessage
 }
