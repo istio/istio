@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/workloadapi/security"
@@ -150,9 +151,59 @@ func PolicyCollections(
 		}
 	}, krt.WithName("AuthzDerivedPolicies"), withDebug)
 
+	PeerAuthByNamespace := krt.NewIndex(peerAuths, func(p *securityclient.PeerAuthentication) []string {
+		if p.Spec.GetSelector() == nil {
+			return []string{p.GetNamespace()}
+		}
+		return nil
+	})
+
+	// Our derived PeerAuthentication policies are the effective (i.e. potentially merged) set of policies we will send down to ztunnel
+	// A policy is sent iff (if and only if):
+	// 1. the PeerAuthentication has a workload selector
+	// 2. The PeerAuthentication is NOT in the root namespace
+	// 3. There is a portLevelMtls policy (technically implied by 1)
+	// 4. If the top-level mode is PERMISSIVE or DISABLE, there is at least one portLevelMtls policy with mode STRICT
+	//
+	// STRICT policies that don't have portLevelMtls will be
+	// handled when the Workload xDS resource is pushed (a static STRICT-equivalent policy will always be pushed)
+	//
+	// As a corollary, if the effective top-level policy is STRICT, the workload policy.mode is UNSET
+	// and the portLevelMtls policy.mode is STRICT, we will merge the portLevelMtls policy with our static strict policy
+	// (which basically just looks like setting the workload policy.mode to STRICT). This is because our precedence order for policy
+	// requires that traffic matching *any* DENY policy is blocked, so attaching 2 polciies (the static strict policy + an exception)
+	// does not work (the traffic will be blocked despite the exception)
 	PeerAuthDerivedPolicies := krt.NewCollection(peerAuths, func(ctx krt.HandlerContext, i *securityclient.PeerAuthentication) *model.WorkloadAuthorization {
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
-		pol := convertPeerAuthentication(meshCfg.GetRootNamespace(), i)
+		// violates case #1, #2, or #3
+		if i.Namespace == meshCfg.GetRootNamespace() || i.Spec.GetSelector() == nil || len(i.Spec.PortLevelMtls) == 0 {
+			log.Debugf("skipping PeerAuthentication %s/%s for ambient since it isn't a workload policy with port level mTLS", i.Namespace, i.Name)
+			return nil
+		}
+
+		var nsPol, rootPol *securityclient.PeerAuthentication
+		nsPols := PeerAuthByNamespace.Lookup(i.GetNamespace())
+		rootPols := PeerAuthByNamespace.Lookup(meshCfg.GetRootNamespace())
+
+		switch len(nsPols) {
+		case 0:
+			nsPol = nil
+		case 1:
+			nsPol = nsPols[0]
+		default:
+			nsPol = getOldestPeerAuthn(nsPols)
+		}
+
+		switch len(rootPols) {
+		case 0:
+			rootPol = nil
+		case 1:
+			rootPol = rootPols[0]
+		default:
+			rootPol = getOldestPeerAuthn(rootPols)
+		}
+
+		pol := convertPeerAuthentication(meshCfg.GetRootNamespace(), i, nsPol, rootPol)
 		if pol == nil {
 			return nil
 		}
