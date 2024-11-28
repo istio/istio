@@ -404,22 +404,22 @@ func updateShardServiceAccount(shards *EndpointShards, serviceName string) bool 
 	return false
 }
 
-// EndpointIndexUpdater is an updater that will keep an EndpointIndex in sync. This is intended for tests only.
-type EndpointIndexUpdater struct {
+// TestEndpointIndexUpdater is an updater that will keep an EndpointIndex in sync. This is intended for tests only.
+type TestEndpointIndexUpdater struct {
 	Index *EndpointIndex
 	// Optional; if set, we will trigger ConfigUpdates in response to EDS updates as appropriate
 	ConfigUpdateFunc func(req *PushRequest)
 }
 
-var _ XDSUpdater = &EndpointIndexUpdater{}
+var _ XDSUpdater = &TestEndpointIndexUpdater{}
 
-func NewEndpointIndexUpdater(ei *EndpointIndex) *EndpointIndexUpdater {
-	return &EndpointIndexUpdater{Index: ei}
+func NewEndpointIndexUpdater(ei *EndpointIndex) *TestEndpointIndexUpdater {
+	return &TestEndpointIndexUpdater{Index: ei}
 }
 
-func (f *EndpointIndexUpdater) ConfigUpdate(*PushRequest) {}
+func (f *TestEndpointIndexUpdater) ConfigUpdate(*PushRequest) {}
 
-func (f *EndpointIndexUpdater) EDSUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
+func (f *TestEndpointIndexUpdater) EDSUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
 	pushType := f.Index.UpdateServiceEndpoints(shard, serviceName, namespace, eps)
 	if f.ConfigUpdateFunc != nil && (pushType == IncrementalPush || pushType == FullPush) {
 		// Trigger a push
@@ -431,18 +431,18 @@ func (f *EndpointIndexUpdater) EDSUpdate(shard ShardKey, serviceName string, nam
 	}
 }
 
-func (f *EndpointIndexUpdater) EDSCacheUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
+func (f *TestEndpointIndexUpdater) EDSCacheUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
 	f.Index.UpdateServiceEndpoints(shard, serviceName, namespace, eps)
 }
 
-func (f *EndpointIndexUpdater) SvcUpdate(shard ShardKey, hostname string, namespace string, event Event) {
+func (f *TestEndpointIndexUpdater) SvcUpdate(shard ShardKey, hostname string, namespace string, event Event) {
 	if event == EventDelete {
 		f.Index.DeleteServiceShard(shard, hostname, namespace, false)
 	}
 }
 
-func (f *EndpointIndexUpdater) ProxyUpdate(_ cluster.ID, _ string) {}
+func (f *TestEndpointIndexUpdater) ProxyUpdate(_ cluster.ID, _ string) {}
 
-func (f *EndpointIndexUpdater) RemoveShard(shardKey ShardKey) {
+func (f *TestEndpointIndexUpdater) RemoveShard(shardKey ShardKey) {
 	f.Index.DeleteShard(shardKey)
 }
