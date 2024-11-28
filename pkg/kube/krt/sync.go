@@ -32,7 +32,7 @@ type channelSyncer struct {
 }
 
 func (c channelSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
-	return waitForCacheSync(c.name, stop, c.synced)
+	return kube.WaitForCacheSync(c.name, stop, c.HasSynced)
 }
 
 func (c channelSyncer) HasSynced() bool {
