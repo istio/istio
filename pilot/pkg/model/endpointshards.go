@@ -289,7 +289,7 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	ep, created := e.GetOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
-		log.Infof("Full push, new service %s/%s", namespace, hostname)
+		log.Infof("Full push from endpoints, new service %s/%s", namespace, hostname)
 		pushType = FullPush
 	}
 

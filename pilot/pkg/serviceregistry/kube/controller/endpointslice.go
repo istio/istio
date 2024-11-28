@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -96,31 +98,28 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	// Update internal endpoint cache no matter what kind of service, even headless service.
 	// As for gateways, the cluster discovery type is `EDS` for headless service.
 	namespacedName := getServiceNamespacedName(ep)
-	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
+	log.Infof("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
 	if event == model.EventDelete {
 		esc.deleteEndpointSlice(ep)
 	} else {
 		esc.updateEndpointSlice(ep)
 	}
-	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
-	// Trigger EDS push for all hostnames.
-	esc.pushEDS(hostnames, namespacedName.Namespace)
 
 	name := serviceNameForEndpointSlice(esLabels)
 	namespace := ep.GetNamespace()
 	svc := esc.c.services.Get(name, namespace)
-	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone || svc.Spec.Type == corev1.ServiceTypeExternalName {
+	if !serviceNeedsPush(svc) {
 		return
 	}
+	log.Infof("triggering EDS push for %s %s in namespace %s", name, event, namespace)
+
+	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
+	// Trigger EDS push for all hostnames.
+	esc.pushEDS(hostnames, namespacedName.Namespace)
 
 	configs := []types.NamespacedName{}
 	pureHTTP := true
 	for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
-		// skip push if it is not exported
-		if modelSvc.Attributes.ExportTo.Contains(visibility.None) {
-			continue
-		}
-
 		configs = append(configs, types.NamespacedName{Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
 
 		for _, p := range modelSvc.Ports {
@@ -152,6 +151,27 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 			Reason:         model.NewReasonStats(model.HeadlessEndpointUpdate),
 		})
 	}
+}
+
+func serviceNeedsPush(svc *corev1.Service) bool {
+	if svc == nil {
+		return false
+	}
+	if svc.Spec.ClusterIP != corev1.ClusterIPNone || svc.Spec.Type == corev1.ServiceTypeExternalName {
+		return false
+	}
+	if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
+		namespaces := strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",")
+		exportTo := sets.NewWithLength[visibility.Instance](len(namespaces))
+		for _, ns := range namespaces {
+			ns = strings.TrimSpace(ns)
+			exportTo.Insert(visibility.Instance(ns))
+		}
+		if exportTo.Contains(visibility.None) {
+			return false
+		}
+	}
+	return true
 }
 
 // GetProxyServiceTargets returns service instances co-located with a given proxy
