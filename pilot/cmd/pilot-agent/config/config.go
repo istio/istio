@@ -25,6 +25,7 @@ import (
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/util/network"
+	alibootstrap "istio.io/istio/pkg/ali/bootstrap"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation"
@@ -72,7 +73,15 @@ func ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv string,
 	if concurrency != 0 {
 		log.Warnf("legacy --concurrency=%d flag detected; prefer to use ProxyConfig", concurrency)
 		proxyConfig.Concurrency = wrapperspb.Int32(int32(concurrency))
+	} else {
+		// Added by ingress
+		// If concurrency is unset, we will automatically set this based on CPU requests/limits.
+		if byResources := alibootstrap.DetermineConcurrencyOption(); byResources != nil {
+			proxyConfig.Concurrency = byResources
+		}
+		// End added by ingress
 	}
+
 	if x, ok := proxyConfig.GetClusterName().(*meshconfig.ProxyConfig_ServiceCluster); ok {
 		if x.ServiceCluster == "" {
 			proxyConfig.ClusterName = &meshconfig.ProxyConfig_ServiceCluster{ServiceCluster: serviceCluster}
