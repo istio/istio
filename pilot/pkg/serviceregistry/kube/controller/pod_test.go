@@ -238,7 +238,7 @@ func TestPodCacheEvents(t *testing.T) {
 	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 
 	ns := "default"
-	podCache := c.podsyes
+	podCache := c.pods
 
 	handled := 0
 	podCache.c.handlers.AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event) {
