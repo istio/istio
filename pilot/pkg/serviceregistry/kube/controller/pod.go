@@ -140,16 +140,11 @@ func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 	// Annotations are only used in endpoints in one case, so just compare that one
 	relevantAnnotationsChanged := old.Annotations[annotation.AmbientRedirection.Name] != cur.Annotations[annotation.AmbientRedirection.Name]
 	changed := labelsChanged || relevantAnnotationsChanged
-	if cur.Status.PodIP != "" && changed {
-		pc.proxyUpdates(cur, true)
-	}
-
-	// always continue calling pc.onEvent
-	return false
+	return changed
 }
 
 // onEvent updates the IP-based index (pc.podsByIP).
-func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
+func (pc *PodCache) onEvent(old, pod *v1.Pod, ev model.Event) error {
 	ip := pod.Status.PodIP
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.
@@ -161,7 +156,7 @@ func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
 	switch ev {
 	case model.EventAdd:
 		if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
-			pc.addPod(pod, ip, key)
+			pc.addPod(pod, ip, key, false)
 		} else {
 			return nil
 		}
@@ -173,7 +168,8 @@ func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
 			}
 			ev = model.EventDelete
 		} else if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
-			pc.addPod(pod, ip, key)
+			labelUpdated := pc.labelFilter(old, pod)
+			pc.addPod(pod, ip, key, labelUpdated)
 		} else {
 			return nil
 		}
@@ -240,11 +236,14 @@ func (pc *PodCache) deleteIP(ip string, podKey types.NamespacedName) bool {
 	return false
 }
 
-func (pc *PodCache) addPod(pod *v1.Pod, ip string, key types.NamespacedName) {
+func (pc *PodCache) addPod(pod *v1.Pod, ip string, key types.NamespacedName, labelUpdated bool) {
 	pc.Lock()
 	// if the pod has been cached, return
 	if pc.podsByIP[ip].Contains(key) {
 		pc.Unlock()
+		if labelUpdated {
+			pc.proxyUpdates(pod, true)
+		}
 		return
 	}
 	if current, f := pc.IPByPods[key]; f {
@@ -263,8 +262,7 @@ func (pc *PodCache) addPod(pod *v1.Pod, ip string, key types.NamespacedName) {
 	}
 	pc.Unlock()
 
-	const isPodUpdate = false
-	pc.proxyUpdates(pod, isPodUpdate)
+	pc.proxyUpdates(pod, false)
 }
 
 // queueEndpointEventOnPodArrival registers this endpoint and queues endpoint event
