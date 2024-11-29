@@ -72,7 +72,7 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 ) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
-	s.Env.EndpointIndex.UpdateServiceEndpoints(shard, serviceName, namespace, istioEndpoints)
+	s.Env.EndpointIndex.UpdateServiceEndpointsCache(shard, serviceName, namespace, istioEndpoints)
 }
 
 func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {

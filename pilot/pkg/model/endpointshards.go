@@ -274,13 +274,40 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	namespace string,
 	istioEndpoints []*IstioEndpoint,
 ) PushType {
+	return e.updateServiceEndpointsInternal(shard, hostname, namespace, istioEndpoints, true)
+}
+
+// UpdateServiceEndpointsCache updates EndpointShards data by clusterID, hostname, IstioEndpoints.
+// It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
+// it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
+func (e *EndpointIndex) UpdateServiceEndpointsCache(
+	shard ShardKey,
+	hostname string,
+	namespace string,
+	istioEndpoints []*IstioEndpoint,
+) PushType {
+	return e.updateServiceEndpointsInternal(shard, hostname, namespace, istioEndpoints, false)
+}
+
+// UpdateServiceEndpoints updates EndpointShards data by clusterID, hostname, IstioEndpoints.
+// It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
+// it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
+func (e *EndpointIndex) updateServiceEndpointsInternal(
+	shard ShardKey,
+	hostname string,
+	namespace string,
+	istioEndpoints []*IstioEndpoint,
+	logPushDecisions bool,
+) PushType {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not delete the keys from EndpointIndex map - that will trigger
 		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
 		// flip flopping between 1 and 0.
 		e.DeleteServiceShard(shard, hostname, namespace, true)
-		log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
+		if logPushDecisions {
+			log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
+		}
 		return IncrementalPush
 	}
 
@@ -289,7 +316,9 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	ep, created := e.GetOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
-		log.Infof("Full push, new service %s/%s", namespace, hostname)
+		if logPushDecisions {
+			log.Infof("Full push, new service %s/%s", namespace, hostname)
+		}
 		pushType = FullPush
 	}
 
@@ -299,7 +328,9 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	newIstioEndpoints, needPush := endpointUpdateRequiresPush(oldIstioEndpoints, istioEndpoints)
 
 	if pushType != FullPush && !needPush {
-		log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
+		if logPushDecisions {
+			log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
+		}
 		pushType = NoPush
 	}
 
@@ -311,7 +342,9 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	// For existing endpoints, we need to do full push if service accounts change.
 	if saUpdated && pushType != FullPush {
 		// Avoid extra logging if already a full push
-		log.Infof("Full push, service accounts changed, %v", hostname)
+		if logPushDecisions {
+			log.Infof("Full push, service accounts changed, %v", hostname)
+		}
 		pushType = FullPush
 	}
 
@@ -432,7 +465,7 @@ func (f *EndpointIndexUpdater) EDSUpdate(shard ShardKey, serviceName string, nam
 }
 
 func (f *EndpointIndexUpdater) EDSCacheUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
-	f.Index.UpdateServiceEndpoints(shard, serviceName, namespace, eps)
+	f.Index.UpdateServiceEndpointsCache(shard, serviceName, namespace, eps)
 }
 
 func (f *EndpointIndexUpdater) SvcUpdate(shard ShardKey, hostname string, namespace string, event Event) {
