@@ -49,7 +49,8 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 ) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
-	pushType := s.Env.EndpointIndex.UpdateServiceEndpoints(shard, serviceName, namespace, istioEndpoints)
+	pushType, delayedLogger := s.Env.EndpointIndex.UpdateServiceEndpoints(shard, serviceName, namespace, istioEndpoints)
+	delayedLogger.Flush()
 	if pushType == model.IncrementalPush || pushType == model.FullPush {
 		// Trigger a push
 		s.ConfigUpdate(&model.PushRequest{
@@ -72,7 +73,7 @@ func (s *DiscoveryServer) EDSCacheUpdate(shard model.ShardKey, serviceName strin
 ) {
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
-	s.Env.EndpointIndex.UpdateServiceEndpointsCache(shard, serviceName, namespace, istioEndpoints)
+	s.Env.EndpointIndex.UpdateServiceEndpoints(shard, serviceName, namespace, istioEndpoints)
 }
 
 func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {

@@ -265,6 +265,20 @@ const (
 	FullPush
 )
 
+type DelayedLogger struct {
+	logFuncs []func()
+}
+
+func (d *DelayedLogger) add(f func()) {
+	d.logFuncs = append(d.logFuncs, f)
+}
+
+func (d *DelayedLogger) Flush() {
+	for _, f := range d.logFuncs {
+		f()
+	}
+}
+
 // UpdateServiceEndpoints updates EndpointShards data by clusterID, hostname, IstioEndpoints.
 // It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
 // it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
@@ -273,42 +287,18 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	hostname string,
 	namespace string,
 	istioEndpoints []*IstioEndpoint,
-) PushType {
-	return e.updateServiceEndpointsInternal(shard, hostname, namespace, istioEndpoints, true)
-}
-
-// UpdateServiceEndpointsCache updates EndpointShards data by clusterID, hostname, IstioEndpoints.
-// It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
-// it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
-func (e *EndpointIndex) UpdateServiceEndpointsCache(
-	shard ShardKey,
-	hostname string,
-	namespace string,
-	istioEndpoints []*IstioEndpoint,
-) PushType {
-	return e.updateServiceEndpointsInternal(shard, hostname, namespace, istioEndpoints, false)
-}
-
-// UpdateServiceEndpoints updates EndpointShards data by clusterID, hostname, IstioEndpoints.
-// It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
-// it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
-func (e *EndpointIndex) updateServiceEndpointsInternal(
-	shard ShardKey,
-	hostname string,
-	namespace string,
-	istioEndpoints []*IstioEndpoint,
-	logPushDecisions bool,
-) PushType {
+) (PushType, DelayedLogger) {
+	var delayedLogger DelayedLogger
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not delete the keys from EndpointIndex map - that will trigger
 		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
 		// flip flopping between 1 and 0.
 		e.DeleteServiceShard(shard, hostname, namespace, true)
-		if logPushDecisions {
+		delayedLogger.add(func() {
 			log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
-		}
-		return IncrementalPush
+		})
+		return IncrementalPush, delayedLogger
 	}
 
 	pushType := IncrementalPush
@@ -316,9 +306,9 @@ func (e *EndpointIndex) updateServiceEndpointsInternal(
 	ep, created := e.GetOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
-		if logPushDecisions {
+		delayedLogger.add(func() {
 			log.Infof("Full push, new service %s/%s", namespace, hostname)
-		}
+		})
 		pushType = FullPush
 	}
 
@@ -328,9 +318,9 @@ func (e *EndpointIndex) updateServiceEndpointsInternal(
 	newIstioEndpoints, needPush := endpointUpdateRequiresPush(oldIstioEndpoints, istioEndpoints)
 
 	if pushType != FullPush && !needPush {
-		if logPushDecisions {
+		delayedLogger.add(func() {
 			log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
-		}
+		})
 		pushType = NoPush
 	}
 
@@ -342,9 +332,9 @@ func (e *EndpointIndex) updateServiceEndpointsInternal(
 	// For existing endpoints, we need to do full push if service accounts change.
 	if saUpdated && pushType != FullPush {
 		// Avoid extra logging if already a full push
-		if logPushDecisions {
+		delayedLogger.add(func() {
 			log.Infof("Full push, service accounts changed, %v", hostname)
-		}
+		})
 		pushType = FullPush
 	}
 
@@ -357,7 +347,7 @@ func (e *EndpointIndex) updateServiceEndpointsInternal(
 	// would clear it shortly after anyways.
 	e.clearCacheForService(hostname, namespace)
 
-	return pushType
+	return pushType, delayedLogger
 }
 
 // endpointUpdateRequiresPush determines if an endpoint update is required.
