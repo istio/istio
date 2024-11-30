@@ -261,7 +261,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
 
-	registerHandlers[*v1.Service](c, c.services, "Services", c.onServiceEvent, nil)
+	registerHandlers[*v1.Service](c, c.services, "Services", c.onServiceEvent, serviceFilter)
 
 	c.endpoints = newEndpointSliceController(c)
 
@@ -587,17 +587,18 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 	informer.AddEventHandler(
 		controllers.EventHandler[T]{
 			AddFunc: func(obj T) {
+				if filter != nil && filter(ptr.Empty[T](), obj) {
+					return
+				}
 				adds.Increment()
 				c.queue.Push(func() error {
 					return wrappedHandler(ptr.Empty[T](), obj, model.EventAdd)
 				})
 			},
 			UpdateFunc: func(old, cur T) {
-				if filter != nil {
-					if filter(old, cur) {
-						updatesames.Increment()
-						return
-					}
+				if filter != nil && filter(old, cur) {
+					updatesames.Increment()
+					return
 				}
 				updates.Increment()
 				c.queue.Push(func() error {
@@ -605,6 +606,9 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 				})
 			},
 			DeleteFunc: func(obj T) {
+				if filter != nil && filter(ptr.Empty[T](), obj) {
+					return
+				}
 				deletes.Increment()
 				c.queue.Push(func() error {
 					return handler(ptr.Empty[T](), obj, model.EventDelete)
