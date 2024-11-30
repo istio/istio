@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -1201,14 +1200,6 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 }
 
 func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Service) bool {
-	if preConv == nil {
-		return !currConv.Attributes.ExportTo.Contains(visibility.None)
-	}
-	// if service are not exported, no need to push
-	if preConv.Attributes.ExportTo.Contains(visibility.None) &&
-		currConv.Attributes.ExportTo.Contains(visibility.None) {
-		return false
-	}
 	// Check if there are any changes we care about by comparing `model.Service`s
 	if !preConv.Equals(currConv) {
 		return true
