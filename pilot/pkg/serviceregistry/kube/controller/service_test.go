@@ -17,10 +17,10 @@ package controller
 import (
 	"testing"
 
-	"istio.io/api/annotation"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
