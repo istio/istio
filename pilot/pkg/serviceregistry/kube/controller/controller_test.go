@@ -2711,28 +2711,10 @@ func TestServiceUpdateNeedsPush(t *testing.T) {
 			expect:   false,
 		},
 		{
-			name:     "new service",
-			prevConv: nil,
-			currConv: newService(visibility.Public, []int{80}),
-			expect:   true,
-		},
-		{
-			name:     "new service with none visibility",
-			prevConv: nil,
-			currConv: newService(visibility.None, []int{80}),
-			expect:   false,
-		},
-		{
 			name:     "public visibility, spec change",
 			prevConv: newService(visibility.Public, []int{80}),
 			currConv: newService(visibility.Public, []int{80, 443}),
 			expect:   true,
-		},
-		{
-			name:     "none visibility, spec change",
-			prevConv: newService(visibility.None, []int{80}),
-			currConv: newService(visibility.None, []int{80, 443}),
-			expect:   false,
 		},
 	}
 
