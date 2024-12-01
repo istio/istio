@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/util/protomarshal"
 	"math"
 	"time"
 
@@ -336,7 +337,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		}
 		// 0 disables jitter.
 		c.DnsJitter = durationpb.New(features.PilotDNSJitterDurationEnv)
-		c.DnsRefreshRate = cb.req.Push.Mesh.DnsRefreshRate
+		c.DnsRefreshRate = protomarshal.Clone(cb.req.Push.Mesh.DnsRefreshRate)
 		c.RespectDnsTtl = true
 		// we want to run all the STATIC parts as well to build the load assignment
 		fallthrough
@@ -525,7 +526,7 @@ func (cb *ClusterBuilder) buildBlackHoleCluster() *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 util.BlackHoleCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
+		ConnectTimeout:       protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
 		LbPolicy:             cluster.Cluster_ROUND_ROBIN,
 	}
 	c.AltStatName = util.DelimitedStatsPrefix(util.BlackHoleCluster)
@@ -538,7 +539,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 	cluster := &cluster.Cluster{
 		Name:                 util.PassthroughCluster,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
+		ConnectTimeout:       protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
@@ -745,7 +746,7 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 	c := &cluster.Cluster{
 		Name:                 security.SDSExternalClusterName,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-		ConnectTimeout:       cb.req.Push.Mesh.ConnectTimeout,
+		ConnectTimeout:       protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
 			ClusterName: security.SDSExternalClusterName,
 			Endpoints: []*endpoint.LocalityLbEndpoints{

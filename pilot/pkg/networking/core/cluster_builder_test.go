@@ -3754,3 +3754,111 @@ func TestInsecureSkipVerify(t *testing.T) {
 		})
 	}
 }
+
+func TestClusterConnectTimeout(t *testing.T) {
+	proxy := &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			Raw: map[string]any{
+				security.CredentialMetaDataName: "true",
+			},
+		},
+	}
+	cases := []struct {
+		name string
+	}{
+		{
+			name: "externalSDSCluster",
+		},
+		{
+			name: "defaultPassthroughCluster",
+		},
+		{
+			name: "blackHoleCluster",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{})
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+			cb.req.Push.Mesh.ConnectTimeout = durationpb.New(10 * time.Second)
+			cluster := &cluster.Cluster{}
+			//switch case based on name
+			switch tt.name {
+			case "externalSDSCluster":
+				cluster = cb.buildExternalSDSCluster(security.CredentialNameSocketPath)
+			case "defaultPassthroughCluster":
+				cluster = cb.buildDefaultPassthroughCluster()
+			case "blackHoleCluster":
+				cluster = cb.buildBlackHoleCluster()
+			}
+			*cluster.ConnectTimeout = *durationpb.New(5 * time.Second)
+			if cb.req.Push.Mesh.ConnectTimeout.Seconds != 10 {
+				t.Errorf("Expected ExternalSDSCluster ConnectTimeout to be 10s, but got %v", cb.req.Push.Mesh.ConnectTimeout)
+			}
+		})
+	}
+}
+
+func TestDnsRefreshRate(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     8080,
+		Protocol: protocol.HTTP,
+	}
+
+	endpoints := []*endpoint.LocalityLbEndpoints{
+		{
+			Locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			LbEndpoints: []*endpoint.LbEndpoint{},
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: 1,
+			},
+			Priority: 0,
+		},
+	}
+
+	cases := []struct {
+		name           string
+		clusterName    string
+		discovery      cluster.Cluster_DiscoveryType
+		proxy          *model.Proxy
+		dualStack      bool
+		expectedFamily cluster.Cluster_DnsLookupFamily
+	}{
+		{
+			name:        "dnsRefreshRate",
+			clusterName: "foo",
+			discovery:   cluster.Cluster_STRICT_DNS,
+			proxy:       getProxy(),
+			dualStack:   false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableDualStack, tt.dualStack)
+			mesh := testMesh()
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
+			cb := NewClusterBuilder(cg.SetupProxy(tt.proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+			cb.req.Push.Mesh.DnsRefreshRate = durationpb.New(10 * time.Second)
+			service := &model.Service{
+				Ports: model.PortList{
+					servicePort,
+				},
+				Hostname:     "host",
+				MeshExternal: false,
+				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
+			}
+			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil, "")
+			c := defaultCluster.build()
+
+			*c.DnsRefreshRate = *durationpb.New(5 * time.Second)
+			if cb.req.Push.Mesh.DnsRefreshRate.Seconds != 10 {
+				t.Errorf("Expected DnsRefreshRate to be 10s, but got %v", cb.req.Push.Mesh.DnsRefreshRate)
+			}
+		})
+	}
+}
