@@ -331,15 +331,38 @@ spec:
               "kid":"1"}
             ]
           }`
+	notSelectedAppServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: not-app
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts: [not-app.com]
+  addresses: [2.3.4.5]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  workloadSelector:
+    labels:
+      app: app`
 	d, proxy := setupWaypointTest(t,
 		waypointGateway, waypointSvc, waypointInstance,
-		appServiceEntry, requestAuthn)
+		appServiceEntry, notSelectedAppServiceEntry, requestAuthn)
 
 	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+
 	app := xdstest.ExtractHTTPConnectionManager(t,
 		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l))
-
 	assert.Equal(t, sets.New(slices.Map(app.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), true)
+
+	// assert not-app.com has not gotten config from the req authn
+	notApp := xdstest.ExtractHTTPConnectionManager(t,
+		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l))
+	assert.Equal(t, sets.New(slices.Map(notApp.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), false)
 }
 
 func TestCrossNamespaceWaypointRequestAuth(t *testing.T) {
@@ -433,16 +456,40 @@ spec:
   workloadSelector:
     labels:
       app: app`
+	notSelectedAppServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: not-app
+  namespace: app
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+spec:
+  hosts: [not-app.com]
+  addresses: [2.3.4.5]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  workloadSelector:
+    labels:
+      app: app`
 
 	d, proxy := setupWaypointTest(t,
 		waypointGateway, waypointSvc, waypointInstance,
-		appServiceEntry, requestAuthn)
+		appServiceEntry, notSelectedAppServiceEntry, requestAuthn)
 
 	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+
 	app := xdstest.ExtractHTTPConnectionManager(t,
 		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l))
-
 	assert.Equal(t, sets.New(slices.Map(app.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), true)
+
+	// assert not-app.com has not gotten config from the req authn
+	notApp := xdstest.ExtractHTTPConnectionManager(t,
+		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l))
+	assert.Equal(t, sets.New(slices.Map(notApp.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), false)
 }
 
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
