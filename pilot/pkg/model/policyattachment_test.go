@@ -304,6 +304,32 @@ func TestPolicyMatcher(t *testing.T) {
 			enableSelectorPolicies: false,
 			expected:               false,
 		},
+		{
+			name:      "gateway attached policy with service",
+			selection: serviceTarget,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{waypointTargetRef},
+			},
+			enableSelectorPolicies: false,
+			expected:               true,
+		},
+		{
+			name: "gateway attached policy with cross-namespace service",
+			selection: func() WorkloadPolicyMatcher {
+				base := serviceTarget
+				// Waypoint is in 'waypoint'
+				base.WorkloadNamespace = "waypoint"
+				// Policy and service are in default
+				base.ServiceNamespace = "default"
+				return base
+			}(),
+			// Policy points to a waypoint.. but its in the wrong namespace
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{waypointTargetRef},
+			},
+			enableSelectorPolicies: false,
+			expected:               false,
+		},
 	}
 
 	for _, tt := range tests {

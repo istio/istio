@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	pkgtest "istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const (
@@ -685,15 +686,9 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			if tc.WithService != nil {
 				matcher = matcher.WithService(tc.WithService)
 			}
-			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
-				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
-			}
-			if got := policies.GetPeerAuthenticationsForWorkload(matcher); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
-				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
-			}
-			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
-				t.Fatalf("want %s\n, but got %s\n", tc.wantNamespaceMutualTLS, got)
-			}
+			assert.Equal(t, policies.GetJwtPoliciesForWorkload(matcher), tc.wantRequestAuthn)
+			assert.Equal(t, policies.GetPeerAuthenticationsForWorkload(matcher), tc.wantPeerAuthn)
+			assert.Equal(t, policies.GetNamespaceMutualTLSMode(tc.workloadNamespace), tc.wantNamespaceMutualTLS)
 		})
 	}
 }
@@ -1200,15 +1195,9 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
-			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
-				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
-			}
-			if got := policies.GetPeerAuthenticationsForWorkload(matcher); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
-				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
-			}
-			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
-				t.Fatalf("want %s\n, but got %s\n", tc.wantNamespaceMutualTLS, got)
-			}
+			assert.Equal(t, policies.GetJwtPoliciesForWorkload(matcher), tc.wantRequestAuthn)
+			assert.Equal(t, policies.GetPeerAuthenticationsForWorkload(matcher), tc.wantPeerAuthn)
+			assert.Equal(t, policies.GetNamespaceMutualTLSMode(tc.workloadNamespace), tc.wantNamespaceMutualTLS)
 		})
 	}
 }
