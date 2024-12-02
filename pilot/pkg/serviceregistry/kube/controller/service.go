@@ -25,11 +25,7 @@ import (
 func serviceFilter(old, cur *v1.Service) bool {
 	// service add or delete event
 	if old == nil {
-		if cur.Annotations[annotation.NetworkingExportTo.Name] == "~" {
-			return true
-		}
-
-		return false
+		return cur.Annotations[annotation.NetworkingExportTo.Name] == "~"
 	}
 
 	// service update, but both with exportTo = `~`
