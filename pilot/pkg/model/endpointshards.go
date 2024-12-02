@@ -273,6 +273,7 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	hostname string,
 	namespace string,
 	istioEndpoints []*IstioEndpoint,
+	logPushType bool,
 ) PushType {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
@@ -280,7 +281,11 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
 		// flip flopping between 1 and 0.
 		e.DeleteServiceShard(shard, hostname, namespace, true)
-		log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
+		if logPushType {
+			log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
+		} else {
+			log.Infof("Cache Update, Service %s at shard %v has no endpoints", hostname, shard)
+		}
 		return IncrementalPush
 	}
 
@@ -289,7 +294,11 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	ep, created := e.GetOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
-		log.Infof("Full push, new service %s/%s", namespace, hostname)
+		if logPushType {
+			log.Infof("Full push, new service %s/%s", namespace, hostname)
+		} else {
+			log.Infof("Cache Update, new service %s/%s", namespace, hostname)
+		}
 		pushType = FullPush
 	}
 
@@ -311,7 +320,11 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	// For existing endpoints, we need to do full push if service accounts change.
 	if saUpdated && pushType != FullPush {
 		// Avoid extra logging if already a full push
-		log.Infof("Full push, service accounts changed, %v", hostname)
+		if logPushType {
+			log.Infof("Full push, service accounts changed, %v", hostname)
+		} else {
+			log.Infof("Cache Update, service accounts changed, %v", hostname)
+		}
 		pushType = FullPush
 	}
 

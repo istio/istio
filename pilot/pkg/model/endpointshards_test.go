@@ -180,7 +180,7 @@ func TestUpdateServiceEndpoints(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			endpoints.UpdateServiceEndpoints(tc.shardKey, tc.hostname, tc.namespace, tc.endpoints)
+			endpoints.UpdateServiceEndpoints(tc.shardKey, tc.hostname, tc.namespace, tc.endpoints, true)
 			eps, _ := endpoints.ShardsForService(tc.hostname, tc.namespace)
 			assert.Equal(t, len(eps.Shards[tc.shardKey]), tc.expect)
 		})
