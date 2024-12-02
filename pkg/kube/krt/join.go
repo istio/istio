@@ -30,7 +30,7 @@ type join[T any] struct {
 	synced         <-chan struct{}
 }
 
-func (j *join[T]) GetKey(k Key[T]) *T {
+func (j *join[T]) GetKey(k string) *T {
 	for _, c := range j.collections {
 		if r := c.GetKey(k); r != nil {
 			return r
@@ -41,7 +41,7 @@ func (j *join[T]) GetKey(k Key[T]) *T {
 
 func (j *join[T]) List() []T {
 	res := []T{}
-	found := sets.New[Key[T]]()
+	found := sets.New[string]()
 	for _, c := range j.collections {
 		for _, i := range c.List() {
 			key := GetKey(i)

@@ -262,10 +262,10 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 			continue
 		}
 		i := a.Latest()
-		iKey := GetKey(i)
+		iKey := getTypedKey(i)
 
 		ctx := &collectionDependencyTracker[I, O]{h, nil, iKey}
-		results := slices.GroupUnique(h.transformation(ctx, i), GetKey[O])
+		results := slices.GroupUnique(h.transformation(ctx, i), getTypedKey[O])
 		recomputedResults[idx] = results
 		// Update the I -> Dependency mapping
 		h.objectDependencies[iKey] = ctx.d
@@ -275,7 +275,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	h.mu.Lock()
 	for idx, a := range items {
 		i := a.Latest()
-		iKey := GetKey(i)
+		iKey := getTypedKey(i)
 		if a.Event == controllers.EventDelete {
 			for oKey := range h.collectionState.mappings[iKey] {
 				oldRes, f := h.collectionState.outputs[oKey]
@@ -507,7 +507,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 	// While we could just do that manually, to re-use code, we will convert these into Event[I] and use the same logic as
 	// we would if the input itself changed.
 	for i := range changedInputKeys {
-		iObj := h.parent.GetKey(i)
+		iObj := h.parent.GetKey(string(i))
 		if iObj == nil {
 			// Object no longer found means it has been deleted.
 			h.log.Debugf("parent deletion %v", i)
@@ -561,10 +561,10 @@ func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []*depend
 func (h *manyCollection[I, O]) _internalHandler() {
 }
 
-func (h *manyCollection[I, O]) GetKey(k Key[O]) (res *O) {
+func (h *manyCollection[I, O]) GetKey(k string) (res *O) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	rf, f := h.collectionState.outputs[k]
+	rf, f := h.collectionState.outputs[Key[O](k)]
 	if f {
 		return &rf
 	}

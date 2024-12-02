@@ -1810,7 +1810,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			}
 
 			verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-			verifyListenerFilters(t, listeners[0].ListenerFilters)
+			verifyHTTPListenerFilters(t, listeners[0].ListenerFilters)
 
 			if listeners[0].ListenerFiltersTimeout.GetSeconds() != 5 {
 				t.Fatalf("expected timeout 5s, found  ListenerFiltersTimeout %v",
@@ -1836,7 +1836,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			http := getHTTPFilterChain(t, listeners[0])
 
 			verifyHTTPFilterChainMatch(t, http)
-			verifyListenerFilters(t, listeners[0].ListenerFilters)
+			verifyHTTPListenerFilters(t, listeners[0].ListenerFilters)
 
 			if listeners[0].ListenerFiltersTimeout == nil {
 				t.Fatalf("expected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
@@ -2093,13 +2093,12 @@ func testInboundListenerConfigWithoutService(t *testing.T, proxy *model.Proxy) {
 	verifyFilterChainMatch(t, l)
 }
 
-func verifyListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
+func verifyHTTPListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
 	t.Helper()
-	if len(lfilters) != 2 {
-		t.Fatalf("expected %d listener filter, found %d", 2, len(lfilters))
+	if len(lfilters) != 1 {
+		t.Fatalf("expected %d listener filter, found %d", 1, len(lfilters))
 	}
-	if lfilters[0].Name != wellknown.TLSInspector ||
-		lfilters[1].Name != wellknown.HTTPInspector {
+	if lfilters[0].Name != wellknown.HTTPInspector {
 		t.Fatalf("expected listener filters not found, got %v", lfilters)
 	}
 }
@@ -2208,7 +2207,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 		}
 
 		verifyHTTPFilterChainMatch(t, l.FilterChains[0])
-		verifyListenerFilters(t, l.ListenerFilters)
+		verifyHTTPListenerFilters(t, l.ListenerFilters)
 
 		if l := findListenerByPort(listeners, 3306); !isMysqlListener(l) {
 			t.Fatalf("expected MySQL listener on port 3306, found %v", l)
@@ -2231,7 +2230,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 		}
 
 		verifyHTTPFilterChainMatch(t, l.FilterChains[0])
-		verifyListenerFilters(t, l.ListenerFilters)
+		verifyHTTPListenerFilters(t, l.ListenerFilters)
 	}
 }
 
@@ -2340,15 +2339,16 @@ func TestHttpProxyListener(t *testing.T) {
 	m.ProxyHttpPort = 15007
 	listeners := buildListeners(t, TestOptions{MeshConfig: m}, nil)
 	httpProxy := xdstest.ExtractListener("127.0.0.1_15007", listeners)
-	t.Log(xdstest.Dump(t, httpProxy))
 	f := httpProxy.FilterChains[0].Filters[0]
 	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
 
 	if httpProxy.Address.GetSocketAddress().GetPortValue() != 15007 {
+		t.Log(xdstest.Dump(t, httpProxy))
 		t.Fatalf("expected http proxy is not listening on %d, but on port %d", 15007,
 			httpProxy.Address.GetSocketAddress().GetPortValue())
 	}
 	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
+		t.Log(xdstest.Dump(t, httpProxy))
 		t.Fatalf("expected http proxy stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
 	}
 }
@@ -2761,7 +2761,7 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 
 	verifyHTTPFilterChainMatch(t, l.FilterChains[0])
 	verifyPassThroughTCPFilterChain(t, l.DefaultFilterChain)
-	verifyListenerFilters(t, l.ListenerFilters)
+	verifyHTTPListenerFilters(t, l.ListenerFilters)
 }
 
 func verifyPassThroughTCPFilterChain(t *testing.T, fc *listener.FilterChain) {

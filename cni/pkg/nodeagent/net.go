@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -127,22 +128,11 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 		return err
 	}
 
-	// If true, the pod will run in 'ingress mode'. This is intended to be used for "ingress" type workloads which handle
-	// non-mesh traffic on inbound, and send to the mesh on outbound.
-	// Basically, this just disables inbound redirection.
-	// We use the SidecarTrafficExcludeInboundPorts annotation for compatibility (its somewhat widely used) but don't support all values.
-	ingressMode := false
-	if a, f := pod.Annotations[annotation.AmbientBypassInboundCapture.Name]; f {
-		var err error
-		ingressMode, err = strconv.ParseBool(a)
-		if err != nil {
-			log.Warnf("annotation %v=%q found, but only '*' is supported", annotation.AmbientBypassInboundCapture.Name, a)
-		}
-	}
+	podCfg := getPodLevelTrafficOverrides(pod)
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.podIptables.CreateInpodRules(log, HostProbeSNATIP, HostProbeSNATIPV6, ingressMode)
+		return s.podIptables.CreateInpodRules(log, podCfg)
 	}); err != nil {
 		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
 		return err
@@ -202,6 +192,32 @@ func (s *NetServer) scanProcForPodsAndCache(pods map[types.UID]*corev1.Pod) erro
 		s.currentPodSnapshot.UpsertPodCacheWithNetns(uid, wl)
 	}
 	return nil
+}
+
+func getPodLevelTrafficOverrides(pod *corev1.Pod) iptables.PodLevelOverrides {
+	// If true, the pod will run in 'ingress mode'. This is intended to be used for "ingress" type workloads which handle
+	// non-mesh traffic on inbound, and send to the mesh on outbound.
+	// Basically, this just disables inbound redirection.
+	podCfg := iptables.PodLevelOverrides{IngressMode: false}
+	if a, f := pod.Annotations[annotation.AmbientBypassInboundCapture.Name]; f {
+		var err error
+		podCfg.IngressMode, err = strconv.ParseBool(a)
+		if err != nil {
+			log.Warnf("annotation %v=%q found, but only '*' is supported", annotation.AmbientBypassInboundCapture.Name, a)
+		}
+	}
+
+	if virt, hasVirt := pod.Annotations[annotation.IoIstioRerouteVirtualInterfaces.Name]; hasVirt {
+		virtInterfaces := strings.Split(virt, ",")
+		for _, splitVirt := range virtInterfaces {
+			trim := strings.TrimSpace(splitVirt)
+			if trim != "" {
+				podCfg.VirtualInterfaces = append(podCfg.VirtualInterfaces, trim)
+			}
+		}
+	}
+
+	return podCfg
 }
 
 func realDependenciesHost() *dep.RealDependencies {

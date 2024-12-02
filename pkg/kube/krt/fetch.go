@@ -59,7 +59,7 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 		// If they fetch a set of keys, directly Get these. Usually this is a single resource.
 		list = make([]T, 0, d.filter.keys.Len())
 		for _, k := range d.filter.keys.List() {
-			if i := c.GetKey(Key[T](k)); i != nil {
+			if i := c.GetKey(k); i != nil {
 				list = append(list, *i)
 			}
 		}

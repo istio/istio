@@ -93,23 +93,23 @@ type registerDependency interface {
 }
 
 // tryGetKey returns the Key for an object. If not possible, returns false
-func tryGetKey[O any](a O) (Key[O], bool) {
+func tryGetKey[O any](a O) (string, bool) {
 	as, ok := any(a).(string)
 	if ok {
-		return Key[O](as), true
+		return as, true
 	}
 	ao, ok := any(a).(controllers.Object)
 	if ok {
 		k, _ := cache.MetaNamespaceKeyFunc(ao)
-		return Key[O](k), true
+		return k, true
 	}
 	ac, ok := any(a).(config.Config)
 	if ok {
-		return Key[O](keyFunc(ac.Name, ac.Namespace)), true
+		return keyFunc(ac.Name, ac.Namespace), true
 	}
 	arn, ok := any(a).(ResourceNamer)
 	if ok {
-		return Key[O](arn.ResourceName()), true
+		return arn.ResourceName(), true
 	}
 	ack := GetApplyConfigKey(a)
 	if ack != nil {

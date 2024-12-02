@@ -37,7 +37,7 @@ message Authorization {
 }
 
 message Group {
-  // Rules are OR-ed (e.g. ANY rule can match)
+  // Rules are AND-ed
   // This is a generic form of the authz policy's to, from and when
   repeated Rules rules = 1;
 }

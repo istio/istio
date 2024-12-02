@@ -31,6 +31,11 @@ import (
 	"istio.io/istio/operator/pkg/values"
 )
 
+type patchContext struct {
+	Patch       string
+	PostProcess func([]byte) ([]byte, error)
+}
+
 // postProcess applies any manifest manipulation to be done after Helm chart rendering.
 func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manifests []manifest.Manifest, vals values.Map) ([]manifest.Manifest, error) {
 	if spec.Kubernetes == nil {
@@ -38,8 +43,9 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 		return manifests, nil
 	}
 	type Patch struct {
-		Kind, Name string
-		Patch      string
+		Kind, Name  string
+		Patch       string
+		PostProcess func([]byte) ([]byte, error)
 	}
 	rn := comp.ResourceName
 	if spec.Name != "" {
@@ -67,10 +73,15 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 			Name:  rn,
 			Patch: fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q, "imagePullPolicy": %%s}]}}}}`, comp.ContainerName),
 		},
-		"nodeSelector":        {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"nodeSelector":%s}}}}`},
-		"podDisruptionBudget": {Kind: "PodDisruptionBudget", Name: rn, Patch: `{"spec":%s}`},
-		"podAnnotations":      {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"metadata":{"annotations":%s}}}}`},
-		"priorityClassName":   {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"priorityClassName":%s}}}}`},
+		"nodeSelector": {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"nodeSelector":%s}}}}`},
+		"podDisruptionBudget": {
+			Kind:        "PodDisruptionBudget",
+			Name:        rn,
+			Patch:       `{"spec":%s}`,
+			PostProcess: postProcessPodDisruptionBudget,
+		},
+		"podAnnotations":    {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"metadata":{"annotations":%s}}}}`},
+		"priorityClassName": {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"priorityClassName":%s}}}}`},
 		"readinessProbe": {
 			Kind:  rt,
 			Name:  rn,
@@ -89,7 +100,7 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 		"securityContext":    {Kind: rt, Name: rn, Patch: `{"spec":{"template":{"spec":{"securityContext":%s}}}}`},
 	}
 	// needPatching builds a map of manifest index -> patch. This ensures we only do the full round-tripping once per object.
-	needPatching := map[int][]string{}
+	needPatching := map[int][]patchContext{}
 	for field, k := range patches {
 		if field == "service" && comp.IsGateway() {
 			// Hack: https://github.com/kubernetes/kubernetes/issues/103544 means strategy merge is ~broken for service ports.
@@ -111,7 +122,7 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 		// Find which manifests need the patch
 		for idx, m := range manifests {
 			if k.Kind == m.GetKind() && k.Name == m.GetName() {
-				needPatching[idx] = append(needPatching[idx], patch)
+				needPatching[idx] = append(needPatching[idx], patchContext{Patch: patch, PostProcess: k.PostProcess})
 			}
 		}
 	}
@@ -131,9 +142,15 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 
 		// Apply all the patches
 		for _, patch := range patches {
-			newBytes, err := strategicpatch.StrategicMergePatch(baseJSON, []byte(patch), typed)
+			newBytes, err := strategicpatch.StrategicMergePatch(baseJSON, []byte(patch.Patch), typed)
 			if err != nil {
 				return nil, fmt.Errorf("patch: %v", err)
+			}
+			if patch.PostProcess != nil {
+				newBytes, err = patch.PostProcess(newBytes)
+				if err != nil {
+					return nil, fmt.Errorf("patch post process: %v", err)
+				}
 			}
 			baseJSON = newBytes
 		}
@@ -166,6 +183,24 @@ func postProcess(comp component.Component, spec apis.GatewayComponentSpec, manif
 	}
 
 	return manifests, nil
+}
+
+// PDB does not allow both minAvailable and maxUnavailable to be set on the same object, but the strategic merge patch
+// configuration does not account for this. Since Istio defaults `minAvailable`, this would otherwise prevent users from
+// setting maxUnavailable.
+func postProcessPodDisruptionBudget(bytes []byte) ([]byte, error) {
+	v, err := values.MapFromJSON(bytes)
+	if err != nil {
+		return nil, err
+	}
+	_, hasMax := v.GetPath("spec.maxUnavailable")
+	_, hasMin := v.GetPath("spec.minAvailable")
+	if hasMax && hasMin {
+		if err := v.SetPath("spec.minAvailable", nil); err != nil {
+			return nil, err
+		}
+	}
+	return []byte(v.JSON()), nil
 }
 
 // applyPatches applies the given patches against the given object. It returns the resulting patched YAML if successful,

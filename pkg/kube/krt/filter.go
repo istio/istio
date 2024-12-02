@@ -131,9 +131,9 @@ func (f *filter) Matches(object any, forList bool) bool {
 	if !forList {
 		// First, lookup directly by key. This is cheap
 		// an empty set will match none
-		if !f.keys.IsNil() && !f.keys.Contains(string(GetKey[any](object))) {
+		if !f.keys.IsNil() && !f.keys.Contains(GetKey[any](object)) {
 			if log.DebugEnabled() {
-				log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
+				log.Debugf("no match key: %q vs %q", f.keys, GetKey[any](object))
 			}
 			return false
 		}

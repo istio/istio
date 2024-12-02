@@ -361,7 +361,7 @@ func (cl *Client) addCRD(name string) {
 
 	var namespaceFilter kubetypes.DynamicObjectFilter
 	if !s.IsClusterScoped() {
-		namespaceFilter = kube.FilterIfEnhancedFilteringEnabled(cl.client)
+		namespaceFilter = cl.client.ObjectFilter()
 	}
 	filter := kubetypes.Filter{
 		ObjectFilter:    composeFilters(namespaceFilter, cl.inRevision, extraFilter),

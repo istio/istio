@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+issue:
+  - https://github.com/istio/istio/issues/53357
+
+releaseNotes:
+- |
+  **Fixed** Injection config errors were being silenced (i.e. logged and not returned) when the sidecar injector was unable to process the sidecar config. This change will now propagate the error to the user instead of continuing to process a faulty config.

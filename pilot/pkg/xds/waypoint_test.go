@@ -18,13 +18,19 @@ import (
 	"strings"
 	"testing"
 
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+
+	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -82,6 +88,7 @@ metadata:
     istio.io/use-waypoint: waypoint
 spec:
   hosts: [app.com]
+  addresses: [1.2.3.4]
   ports:
   - number: 80
     name: http
@@ -220,7 +227,7 @@ spec:
 	hasTLSInspector(443, true)
 }
 
-func TestWaypoint(t *testing.T) {
+func TestWaypointEndpoints(t *testing.T) {
 	d, proxy := setupWaypointTest(t,
 		waypointGateway,
 		waypointSvc,
@@ -228,7 +235,7 @@ func TestWaypoint(t *testing.T) {
 		waypointInstance, appWorkloadEntry,
 		appServiceEntry)
 
-	eps := slices.Sort(xdstest.ExtractEndpoints(d.Endpoints(proxy)[0]))
+	eps := slices.Sort(xdstest.ExtractEndpoints(d.Endpoints(proxy)[1]))
 	assert.Equal(t, eps, []string{
 		// No tunnel, should get dual IPs
 		"1.1.1.3:80,[2001:20::3]:80",
@@ -238,18 +245,89 @@ func TestWaypoint(t *testing.T) {
 	})
 }
 
+func TestWaypointTelemetry(t *testing.T) {
+	telemetry := `apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: logs
+  namespace: default
+spec:
+  targetRefs:
+  - kind: ServiceEntry
+    name: app
+    group: networking.istio.io
+  accessLogging:
+  - providers:
+    - name: envoy
+  metrics:
+  - providers:
+    - name: prometheus
+  tracing:
+  - providers:
+    - name: otel
+`
+	notSelectedAppServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: not-app
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts: [not-app.com]
+  addresses: [2.3.4.5]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  workloadSelector:
+    labels:
+      app: app`
+	d, proxy := setupWaypointTest(t,
+		waypointGateway, waypointSvc, waypointInstance,
+		appServiceEntry, notSelectedAppServiceEntry,
+		telemetry)
+
+	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+	app := xdstest.ExtractHTTPConnectionManager(t,
+		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l))
+	notApp := xdstest.ExtractHTTPConnectionManager(t,
+		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l))
+
+	// The selected service should get all 3 types
+	assert.Equal(t, app.AccessLog != nil, true)
+	assert.Equal(t, sets.New(slices.Map(app.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("istio.stats"), true)
+	assert.Equal(t, app.Tracing.Provider != nil, true)
+
+	// Unselected service should get none
+	assert.Equal(t, notApp.AccessLog == nil, true)
+	assert.Equal(t, sets.New(slices.Map(notApp.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("istio.stats"), false)
+	assert.Equal(t, notApp.Tracing.Provider == nil, true)
+}
+
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableDualStack, true)
 	c := joinYaml(configs...)
+	mc := mesh.DefaultMeshConfig()
+	mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "otel",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+			// Pointing to the waypoint is silly, we just need some valid service to point to and it exists
+			Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{Service: "waypoint.default.svc.cluster.local", Port: 15008},
+		},
+	})
 	// Ambient controller needs objects as kube, so apply to both
 	d := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString:           c,
 		KubernetesObjectString: c,
+		MeshConfig:             mc,
 	})
 	proxy := d.SetupProxy(&model.Proxy{
 		Type:            model.Waypoint,
 		ConfigNamespace: "default",
+		Labels:          map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint"},
 		IPAddresses:     []string{"3.0.0.1"}, // match the WE
 	})
 	return d, proxy

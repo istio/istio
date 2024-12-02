@@ -4256,6 +4256,214 @@
               }
              },
              {
+              "name": "envoy.filters.http.rbac",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
+               "shadow_rules": {
+                "action": "DENY",
+                "policies": {
+                 "istio-ext-authz-ns[default]-policy[ext-authz]-rule[0]": {
+                  "permissions": [
+                   {
+                    "and_rules": {
+                     "rules": [
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "header": {
+                           "name": ":method",
+                           "exact_match": "GET"
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "url_path": {
+                           "path": {
+                            "prefix": "/info"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   },
+                   {
+                    "and_rules": {
+                     "rules": [
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "header": {
+                           "name": ":method",
+                           "exact_match": "POST"
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "url_path": {
+                           "path": {
+                            "exact": "/data"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ],
+                  "principals": [
+                   {
+                    "and_ids": {
+                     "ids": [
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "filter_state": {
+                           "key": "io.istio.peer_principal",
+                           "string_match": {
+                            "exact": "spiffe://cluster.local/ns/default/sa/sleep"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "metadata": {
+                           "filter": "istio_authn",
+                           "path": [
+                            {
+                             "key": "request.auth.claims"
+                            },
+                            {
+                             "key": "iss"
+                            }
+                           ],
+                           "value": {
+                            "list_match": {
+                             "one_of": {
+                              "string_match": {
+                               "exact": "https://accounts.google.com"
+                              }
+                             }
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   },
+                   {
+                    "and_ids": {
+                     "ids": [
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "filter_state": {
+                           "key": "io.istio.peer_principal",
+                           "string_match": {
+                            "safe_regex": {
+                             "regex": ".*/ns/test/.*"
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "metadata": {
+                           "filter": "istio_authn",
+                           "path": [
+                            {
+                             "key": "request.auth.claims"
+                            },
+                            {
+                             "key": "iss"
+                            }
+                           ],
+                           "value": {
+                            "list_match": {
+                             "one_of": {
+                              "string_match": {
+                               "exact": "https://accounts.google.com"
+                              }
+                             }
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               "shadow_rules_stat_prefix": "istio_ext_authz_"
+              }
+             },
+             {
+              "name": "envoy.filters.http.ext_authz",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+               "grpc_service": {
+                "envoy_grpc": {
+                 "cluster_name": "outbound|9191||sample-ext-authz-grpc",
+                 "authority": "sample-ext-authz-grpc.local"
+                },
+                "timeout": "600s"
+               },
+               "with_request_body": {
+                "max_request_bytes": 8000
+               },
+               "transport_api_version": "V3",
+               "filter_enabled_metadata": {
+                "filter": "envoy.filters.http.rbac",
+                "path": [
+                 {
+                  "key": "istio_ext_authz_shadow_effective_policy_id"
+                 }
+                ],
+                "value": {
+                 "string_match": {
+                  "prefix": "istio-ext-authz"
+                 }
+                }
+               }
+              }
+             },
+             {
               "name": "envoy.filters.http.grpc_stats",
               "typed_config": {
                "@type": "type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig",
@@ -4751,6 +4959,214 @@
                 }
                },
                "shadow_rules_stat_prefix": "istio_dry_run_allow_"
+              }
+             },
+             {
+              "name": "envoy.filters.http.rbac",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
+               "shadow_rules": {
+                "action": "DENY",
+                "policies": {
+                 "istio-ext-authz-ns[default]-policy[ext-authz]-rule[0]": {
+                  "permissions": [
+                   {
+                    "and_rules": {
+                     "rules": [
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "header": {
+                           "name": ":method",
+                           "exact_match": "GET"
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "url_path": {
+                           "path": {
+                            "prefix": "/info"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   },
+                   {
+                    "and_rules": {
+                     "rules": [
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "header": {
+                           "name": ":method",
+                           "exact_match": "POST"
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "url_path": {
+                           "path": {
+                            "exact": "/data"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ],
+                  "principals": [
+                   {
+                    "and_ids": {
+                     "ids": [
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "filter_state": {
+                           "key": "io.istio.peer_principal",
+                           "string_match": {
+                            "exact": "spiffe://cluster.local/ns/default/sa/sleep"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "metadata": {
+                           "filter": "istio_authn",
+                           "path": [
+                            {
+                             "key": "request.auth.claims"
+                            },
+                            {
+                             "key": "iss"
+                            }
+                           ],
+                           "value": {
+                            "list_match": {
+                             "one_of": {
+                              "string_match": {
+                               "exact": "https://accounts.google.com"
+                              }
+                             }
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   },
+                   {
+                    "and_ids": {
+                     "ids": [
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "filter_state": {
+                           "key": "io.istio.peer_principal",
+                           "string_match": {
+                            "safe_regex": {
+                             "regex": ".*/ns/test/.*"
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "metadata": {
+                           "filter": "istio_authn",
+                           "path": [
+                            {
+                             "key": "request.auth.claims"
+                            },
+                            {
+                             "key": "iss"
+                            }
+                           ],
+                           "value": {
+                            "list_match": {
+                             "one_of": {
+                              "string_match": {
+                               "exact": "https://accounts.google.com"
+                              }
+                             }
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               "shadow_rules_stat_prefix": "istio_ext_authz_"
+              }
+             },
+             {
+              "name": "envoy.filters.http.ext_authz",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+               "grpc_service": {
+                "envoy_grpc": {
+                 "cluster_name": "outbound|9191||sample-ext-authz-grpc",
+                 "authority": "sample-ext-authz-grpc.local"
+                },
+                "timeout": "600s"
+               },
+               "with_request_body": {
+                "max_request_bytes": 8000
+               },
+               "transport_api_version": "V3",
+               "filter_enabled_metadata": {
+                "filter": "envoy.filters.http.rbac",
+                "path": [
+                 {
+                  "key": "istio_ext_authz_shadow_effective_policy_id"
+                 }
+                ],
+                "value": {
+                 "string_match": {
+                  "prefix": "istio-ext-authz"
+                 }
+                }
+               }
               }
              },
              {
@@ -5411,6 +5827,214 @@
               }
              },
              {
+              "name": "envoy.filters.http.rbac",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
+               "shadow_rules": {
+                "action": "DENY",
+                "policies": {
+                 "istio-ext-authz-ns[default]-policy[ext-authz]-rule[0]": {
+                  "permissions": [
+                   {
+                    "and_rules": {
+                     "rules": [
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "header": {
+                           "name": ":method",
+                           "exact_match": "GET"
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "url_path": {
+                           "path": {
+                            "prefix": "/info"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   },
+                   {
+                    "and_rules": {
+                     "rules": [
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "header": {
+                           "name": ":method",
+                           "exact_match": "POST"
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "url_path": {
+                           "path": {
+                            "exact": "/data"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ],
+                  "principals": [
+                   {
+                    "and_ids": {
+                     "ids": [
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "filter_state": {
+                           "key": "io.istio.peer_principal",
+                           "string_match": {
+                            "exact": "spiffe://cluster.local/ns/default/sa/sleep"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "metadata": {
+                           "filter": "istio_authn",
+                           "path": [
+                            {
+                             "key": "request.auth.claims"
+                            },
+                            {
+                             "key": "iss"
+                            }
+                           ],
+                           "value": {
+                            "list_match": {
+                             "one_of": {
+                              "string_match": {
+                               "exact": "https://accounts.google.com"
+                              }
+                             }
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   },
+                   {
+                    "and_ids": {
+                     "ids": [
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "filter_state": {
+                           "key": "io.istio.peer_principal",
+                           "string_match": {
+                            "safe_regex": {
+                             "regex": ".*/ns/test/.*"
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "metadata": {
+                           "filter": "istio_authn",
+                           "path": [
+                            {
+                             "key": "request.auth.claims"
+                            },
+                            {
+                             "key": "iss"
+                            }
+                           ],
+                           "value": {
+                            "list_match": {
+                             "one_of": {
+                              "string_match": {
+                               "exact": "https://accounts.google.com"
+                              }
+                             }
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               "shadow_rules_stat_prefix": "istio_ext_authz_"
+              }
+             },
+             {
+              "name": "envoy.filters.http.ext_authz",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+               "grpc_service": {
+                "envoy_grpc": {
+                 "cluster_name": "outbound|9191||sample-ext-authz-grpc",
+                 "authority": "sample-ext-authz-grpc.local"
+                },
+                "timeout": "600s"
+               },
+               "with_request_body": {
+                "max_request_bytes": 8000
+               },
+               "transport_api_version": "V3",
+               "filter_enabled_metadata": {
+                "filter": "envoy.filters.http.rbac",
+                "path": [
+                 {
+                  "key": "istio_ext_authz_shadow_effective_policy_id"
+                 }
+                ],
+                "value": {
+                 "string_match": {
+                  "prefix": "istio-ext-authz"
+                 }
+                }
+               }
+              }
+             },
+             {
               "name": "envoy.filters.http.grpc_stats",
               "typed_config": {
                "@type": "type.googleapis.com/envoy.extensions.filters.http.grpc_stats.v3.FilterConfig",
@@ -5897,6 +6521,214 @@
                 }
                },
                "shadow_rules_stat_prefix": "istio_dry_run_allow_"
+              }
+             },
+             {
+              "name": "envoy.filters.http.rbac",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
+               "shadow_rules": {
+                "action": "DENY",
+                "policies": {
+                 "istio-ext-authz-ns[default]-policy[ext-authz]-rule[0]": {
+                  "permissions": [
+                   {
+                    "and_rules": {
+                     "rules": [
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "header": {
+                           "name": ":method",
+                           "exact_match": "GET"
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "url_path": {
+                           "path": {
+                            "prefix": "/info"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   },
+                   {
+                    "and_rules": {
+                     "rules": [
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "header": {
+                           "name": ":method",
+                           "exact_match": "POST"
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "url_path": {
+                           "path": {
+                            "exact": "/data"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ],
+                  "principals": [
+                   {
+                    "and_ids": {
+                     "ids": [
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "filter_state": {
+                           "key": "io.istio.peer_principal",
+                           "string_match": {
+                            "exact": "spiffe://cluster.local/ns/default/sa/sleep"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "metadata": {
+                           "filter": "istio_authn",
+                           "path": [
+                            {
+                             "key": "request.auth.claims"
+                            },
+                            {
+                             "key": "iss"
+                            }
+                           ],
+                           "value": {
+                            "list_match": {
+                             "one_of": {
+                              "string_match": {
+                               "exact": "https://accounts.google.com"
+                              }
+                             }
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   },
+                   {
+                    "and_ids": {
+                     "ids": [
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "filter_state": {
+                           "key": "io.istio.peer_principal",
+                           "string_match": {
+                            "safe_regex": {
+                             "regex": ".*/ns/test/.*"
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "metadata": {
+                           "filter": "istio_authn",
+                           "path": [
+                            {
+                             "key": "request.auth.claims"
+                            },
+                            {
+                             "key": "iss"
+                            }
+                           ],
+                           "value": {
+                            "list_match": {
+                             "one_of": {
+                              "string_match": {
+                               "exact": "https://accounts.google.com"
+                              }
+                             }
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               "shadow_rules_stat_prefix": "istio_ext_authz_"
+              }
+             },
+             {
+              "name": "envoy.filters.http.ext_authz",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+               "grpc_service": {
+                "envoy_grpc": {
+                 "cluster_name": "outbound|9191||sample-ext-authz-grpc",
+                 "authority": "sample-ext-authz-grpc.local"
+                },
+                "timeout": "600s"
+               },
+               "with_request_body": {
+                "max_request_bytes": 8000
+               },
+               "transport_api_version": "V3",
+               "filter_enabled_metadata": {
+                "filter": "envoy.filters.http.rbac",
+                "path": [
+                 {
+                  "key": "istio_ext_authz_shadow_effective_policy_id"
+                 }
+                ],
+                "value": {
+                 "string_match": {
+                  "prefix": "istio-ext-authz"
+                 }
+                }
+               }
               }
              },
              {
@@ -6523,6 +7355,214 @@
                 }
                },
                "shadow_rules_stat_prefix": "istio_dry_run_allow_"
+              }
+             },
+             {
+              "name": "envoy.filters.http.rbac",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
+               "shadow_rules": {
+                "action": "DENY",
+                "policies": {
+                 "istio-ext-authz-ns[default]-policy[ext-authz]-rule[0]": {
+                  "permissions": [
+                   {
+                    "and_rules": {
+                     "rules": [
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "header": {
+                           "name": ":method",
+                           "exact_match": "GET"
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "url_path": {
+                           "path": {
+                            "prefix": "/info"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   },
+                   {
+                    "and_rules": {
+                     "rules": [
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "header": {
+                           "name": ":method",
+                           "exact_match": "POST"
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_rules": {
+                        "rules": [
+                         {
+                          "url_path": {
+                           "path": {
+                            "exact": "/data"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ],
+                  "principals": [
+                   {
+                    "and_ids": {
+                     "ids": [
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "filter_state": {
+                           "key": "io.istio.peer_principal",
+                           "string_match": {
+                            "exact": "spiffe://cluster.local/ns/default/sa/sleep"
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "metadata": {
+                           "filter": "istio_authn",
+                           "path": [
+                            {
+                             "key": "request.auth.claims"
+                            },
+                            {
+                             "key": "iss"
+                            }
+                           ],
+                           "value": {
+                            "list_match": {
+                             "one_of": {
+                              "string_match": {
+                               "exact": "https://accounts.google.com"
+                              }
+                             }
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   },
+                   {
+                    "and_ids": {
+                     "ids": [
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "filter_state": {
+                           "key": "io.istio.peer_principal",
+                           "string_match": {
+                            "safe_regex": {
+                             "regex": ".*/ns/test/.*"
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      },
+                      {
+                       "or_ids": {
+                        "ids": [
+                         {
+                          "metadata": {
+                           "filter": "istio_authn",
+                           "path": [
+                            {
+                             "key": "request.auth.claims"
+                            },
+                            {
+                             "key": "iss"
+                            }
+                           ],
+                           "value": {
+                            "list_match": {
+                             "one_of": {
+                              "string_match": {
+                               "exact": "https://accounts.google.com"
+                              }
+                             }
+                            }
+                           }
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               "shadow_rules_stat_prefix": "istio_ext_authz_"
+              }
+             },
+             {
+              "name": "envoy.filters.http.ext_authz",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+               "grpc_service": {
+                "envoy_grpc": {
+                 "cluster_name": "outbound|9191||sample-ext-authz-grpc",
+                 "authority": "sample-ext-authz-grpc.local"
+                },
+                "timeout": "600s"
+               },
+               "with_request_body": {
+                "max_request_bytes": 8000
+               },
+               "transport_api_version": "V3",
+               "filter_enabled_metadata": {
+                "filter": "envoy.filters.http.rbac",
+                "path": [
+                 {
+                  "key": "istio_ext_authz_shadow_effective_policy_id"
+                 }
+                ],
+                "value": {
+                 "string_match": {
+                  "prefix": "istio-ext-authz"
+                 }
+                }
+               }
               }
              },
              {

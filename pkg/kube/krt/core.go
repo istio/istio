@@ -26,7 +26,7 @@ var log = istiolog.RegisterScope("krt", "")
 // directly. Most importantly, consumers can subscribe to events when objects change.
 type Collection[T any] interface {
 	// GetKey returns an object by its key, if present. Otherwise, nil is returned.
-	GetKey(k Key[T]) *T
+	GetKey(k string) *T
 
 	// List returns all objects in the collection.
 	// Order of the list is undefined.

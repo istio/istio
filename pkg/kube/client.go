@@ -81,7 +81,6 @@ import (
 	clienttelemetryalpha "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -1323,12 +1322,4 @@ func FindIstiodMonitoringPort(pod *v1.Pod) int {
 		}
 	}
 	return 15014
-}
-
-// FilterIfEnhancedFilteringEnabled returns the namespace filter if EnhancedResourceScoping is enabled, otherwise a NOP filter.
-func FilterIfEnhancedFilteringEnabled(k Client) kubetypes.DynamicObjectFilter {
-	if features.EnableEnhancedResourceScoping {
-		return k.ObjectFilter()
-	}
-	return nil
 }

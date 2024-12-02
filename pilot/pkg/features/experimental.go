@@ -160,10 +160,6 @@ var (
 	EnableHCMInternalNetworks = env.Register("ENABLE_HCM_INTERNAL_NETWORKS", false,
 		"If enable, endpoints defined in mesh networks will be configured as internal addresses in Http Connection Manager").Get()
 
-	EnableEnhancedResourceScoping = env.Register("ENABLE_ENHANCED_RESOURCE_SCOPING", true,
-		"If enabled, meshConfig.discoverySelectors will limit the CustomResource configurations(like Gateway,VirtualService,DestinationRule,Ingress, etc)"+
-			"that can be processed by pilot. This will also restrict the root-ca certificate distribution.").Get()
-
 	EnableLeaderElection = env.Register("ENABLE_LEADER_ELECTION", true,
 		"If enabled (default), starts a leader election client and gains leadership before executing controllers. "+
 			"If false, it assumes that only one instance of istiod is running and skips leader election.").Get()
@@ -180,9 +176,6 @@ var (
 	// This is used in injection templates, it is not unused.
 	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
 		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
-
-	PassthroughTargetPort = env.Register("ENABLE_RESOLUTION_NONE_TARGET_PORT", true,
-		"If enabled, targetPort will be supported for resolution=NONE ServiceEntry").Get()
 
 	Enable100ContinueHeaders = env.Register("ENABLE_100_CONTINUE_HEADERS", true,
 		"If enabled, istiod will proxy 100-continue headers as is").Get()

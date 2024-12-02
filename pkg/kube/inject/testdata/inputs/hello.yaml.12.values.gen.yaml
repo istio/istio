@@ -31,7 +31,7 @@
     },
     "meshID": "",
     "meshNetworks": {},
-    "mountMtlsCerts": true,
+    "mountMtlsCerts": false,
     "multiCluster": {
       "clusterName": "",
       "enabled": false
@@ -40,6 +40,10 @@
     "omitSidecarInjectorConfigMap": false,
     "operatorManageWebhooks": false,
     "pilotCertProvider": "istiod",
+    "podDNSSearchNamespaces": [
+      "global",
+      "{{ valueOrDefault .DeploymentMeta.Namespace \"default\" }}.global"
+    ],
     "priorityClassName": "",
     "proxy": {
       "autoInject": "enabled",

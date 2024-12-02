@@ -31,7 +31,7 @@
     },
     "meshID": "",
     "meshNetworks": {},
-    "mountMtlsCerts": false,
+    "mountMtlsCerts": true,
     "multiCluster": {
       "clusterName": "",
       "enabled": false
@@ -109,8 +109,8 @@
   },
   "pilot": {
     "cni": {
-      "enabled": true,
-      "provider": "multus"
+      "enabled": false,
+      "provider": "default"
     }
   },
   "revision": "",

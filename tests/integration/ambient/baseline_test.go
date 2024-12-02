@@ -768,8 +768,9 @@ spec:
 				}
 				src.CallOrFail(t, opt)
 			})
-			// globally peerauth == STRICT, but we have a port-specific allowlist that is PERMISSIVE,
-			// so anything hitting that port should not be rejected
+			// general workload peerauth == STRICT, but we have a port-specific allowlist that is PERMISSIVE,
+			// so anything hitting that port should not be rejected.
+			// NOTE: Using port 80 since that's what
 			t.NewSubTest("strict-permissive-ports").Run(func(t framework.TestContext) {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
@@ -787,11 +788,79 @@ spec:
   mtls:
     mode: STRICT
   portLevelMtls:
-    8080:
+    18080:
       mode: PERMISSIVE
 				`).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				// Should pass for all workloads, in or out of mesh, targeting this port
+				src.CallOrFail(t, opt)
+			})
+
+			// global peer auth is strict, but we have a permissive port-level rule
+			t.NewSubTest("global-strict-permissive-workload-ports").Run(func(t framework.TestContext) {
+				t.ConfigIstio().YAML(i.Settings().SystemNamespace, `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: global-strict
+spec:
+  mtls:
+    mode: STRICT
+        `).ApplyOrFail(t)
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: local-port-override
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  portLevelMtls:
+    18080:
+      mode: PERMISSIVE
+        `).ApplyOrFail(t)
+				opt = opt.DeepCopy()
+				// Should pass for all workloads, in or out of mesh, targeting this port
+				src.CallOrFail(t, opt)
+			})
+
+			t.NewSubTest("global-permissive-strict-workload-ports").Run(func(t framework.TestContext) {
+				t.ConfigIstio().YAML(i.Settings().SystemNamespace, `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: global-strict
+spec:
+  mtls:
+    mode: PERMISSIVE
+        `).ApplyOrFail(t)
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: local-port-override
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  portLevelMtls:
+    18080:
+      mode: STRICT
+        `).ApplyOrFail(t)
+				opt = opt.DeepCopy()
+				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
+					// Expect deny if the dest is in the mesh (enforcing mTLS) but src is not (not sending mTLS)
+					opt.Check = CheckDeny
+				}
 				src.CallOrFail(t, opt)
 			})
 		})
@@ -2535,7 +2604,7 @@ spec:
     - match:
         metric: REQUEST_COUNT
       tagOverrides:
-        custom_dimension: 
+        custom_dimension:
           value: "'test'"
         source_principal:
           operation: REMOVE
@@ -3146,6 +3215,45 @@ func daemonsetsetComplete(ds *appsv1.DaemonSet) bool {
 	return ds.Status.UpdatedNumberScheduled == ds.Status.DesiredNumberScheduled &&
 		ds.Status.NumberReady == ds.Status.DesiredNumberScheduled &&
 		ds.Status.ObservedGeneration >= ds.Generation
+}
+
+func TestWaypointWithInvalidBackend(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			// We should expect a 500 error since the backend is invalid.
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: add-header
+spec:
+  parentRefs:
+  - name: sidecar
+    kind: Service
+    group: ""
+    port: 80
+  rules:
+  - filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: greeting
+          value: "hello world!"
+    backendRefs:
+    - name: invalid
+      port: 80
+`).
+				ApplyOrFail(t)
+			SetWaypoint(t, Sidecar, "waypoint")
+			client := apps.Captured
+			client[0].CallOrFail(t, echo.CallOptions{
+				To:   apps.Sidecar,
+				Port: ports.HTTP,
+				Check: check.And(
+					check.Status(500),
+				),
+			})
+		})
 }
 
 func TestWaypointWithSidecarBackend(t *testing.T) {

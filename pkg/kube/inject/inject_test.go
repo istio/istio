@@ -142,6 +142,17 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
+			in:   "reroute-virtual-interfaces.yaml",
+			want: "reroute-virtual-interfaces.yaml.injected",
+			setFlags: []string{
+				`values.global.proxy.statusPort=123`,
+				`values.global.proxy.readinessInitialDelaySeconds=100`,
+				`values.global.proxy.readinessPeriodSeconds=200`,
+				`values.global.proxy.readinessFailureThreshold=300`,
+			},
+		},
+		{
 			// Verifies that global.imagePullSecrets are applied properly
 			in:         "hello.yaml",
 			want:       "hello-image-secrets-in-values.yaml.injected",

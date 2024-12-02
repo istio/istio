@@ -600,7 +600,13 @@ func (s *DiscoveryServer) getResourceTypes(req *http.Request) []string {
 
 		resourceTypes := sets.New[string]()
 		for _, t := range ts {
-			resourceTypes.Insert(v3.GetResourceType(t))
+			rType := v3.GetResourceType(t)
+			resourceTypes.Insert(rType)
+			// special case for AddressType, include WorkloadType as well
+			// because they shared same short type name `WDS`
+			if rType == v3.AddressType {
+				resourceTypes.Insert(v3.WorkloadType)
+			}
 		}
 
 		return resourceTypes.UnsortedList()

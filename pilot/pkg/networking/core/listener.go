@@ -585,15 +585,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		}
 	}
 
-	// We add a TLS inspector when http inspector is needed for outbound only. This
-	// is because if we ever set ALPN in the match without
-	// transport_protocol=raw_buffer, Envoy will automatically inject a tls
-	// inspector: https://github.com/envoyproxy/envoy/issues/13601. This leads to
-	// excessive logging and loss of control over the config. For inbound this is not
-	// needed, since we are explicitly setting transport protocol in every single
-	// match. We can do this for outbound as well, at which point this could be
-	// removed, but have not yet
-	if needTLSInspector || needHTTPInspector {
+	if needTLSInspector {
 		l.ListenerFilters = append(l.ListenerFilters, xdsfilters.TLSInspector)
 	}
 
