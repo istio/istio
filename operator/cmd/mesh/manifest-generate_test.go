@@ -517,7 +517,8 @@ func TestManifestGeneratePilot(t *testing.T) {
 			fileSelect: []string{"templates/deployment.yaml", "templates/autoscale.yaml"},
 		},
 		{
-			desc:       "pilot_override_kubernetes",
+			desc: "pilot_override_kubernetes",
+			// nolint: lll
 			diffSelect: "Deployment:*:istiod, Service:*:istiod,PodDisruptionBudget:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector,ServiceAccount:*:istio-reader-service-account",
 			fileSelect: []string{
 				"templates/deployment.yaml", "templates/mutatingwebhook.yaml",
