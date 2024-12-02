@@ -265,20 +265,6 @@ const (
 	FullPush
 )
 
-type DelayedLogger struct {
-	logFuncs []func()
-}
-
-func (d *DelayedLogger) add(f func()) {
-	d.logFuncs = append(d.logFuncs, f)
-}
-
-func (d *DelayedLogger) Flush() {
-	for _, f := range d.logFuncs {
-		f()
-	}
-}
-
 // UpdateServiceEndpoints updates EndpointShards data by clusterID, hostname, IstioEndpoints.
 // It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
 // it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
@@ -287,18 +273,20 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	hostname string,
 	namespace string,
 	istioEndpoints []*IstioEndpoint,
-) (PushType, DelayedLogger) {
-	var delayedLogger DelayedLogger
+	logPushType bool,
+) PushType {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
 		// but we should not delete the keys from EndpointIndex map - that will trigger
 		// unnecessary full push which can become a real problem if a pod is in crashloop and thus endpoints
 		// flip flopping between 1 and 0.
 		e.DeleteServiceShard(shard, hostname, namespace, true)
-		delayedLogger.add(func() {
+		if logPushType {
 			log.Infof("Incremental push, service %s at shard %v has no endpoints", hostname, shard)
-		})
-		return IncrementalPush, delayedLogger
+		} else {
+			log.Infof("Cache Update, Service %s at shard %v has no endpoints", hostname, shard)
+		}
+		return IncrementalPush
 	}
 
 	pushType := IncrementalPush
@@ -306,9 +294,11 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	ep, created := e.GetOrCreateEndpointShard(hostname, namespace)
 	// If we create a new endpoint shard, that means we have not seen the service earlier. We should do a full push.
 	if created {
-		delayedLogger.add(func() {
+		if logPushType {
 			log.Infof("Full push, new service %s/%s", namespace, hostname)
-		})
+		} else {
+			log.Infof("Cache Update, new service %s/%s", namespace, hostname)
+		}
 		pushType = FullPush
 	}
 
@@ -318,9 +308,7 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	newIstioEndpoints, needPush := endpointUpdateRequiresPush(oldIstioEndpoints, istioEndpoints)
 
 	if pushType != FullPush && !needPush {
-		delayedLogger.add(func() {
-			log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
-		})
+		log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
 		pushType = NoPush
 	}
 
@@ -332,9 +320,11 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	// For existing endpoints, we need to do full push if service accounts change.
 	if saUpdated && pushType != FullPush {
 		// Avoid extra logging if already a full push
-		delayedLogger.add(func() {
+		if logPushType {
 			log.Infof("Full push, service accounts changed, %v", hostname)
-		})
+		} else {
+			log.Infof("Cache Update, service accounts changed, %v", hostname)
+		}
 		pushType = FullPush
 	}
 
@@ -347,7 +337,7 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	// would clear it shortly after anyways.
 	e.clearCacheForService(hostname, namespace)
 
-	return pushType, delayedLogger
+	return pushType
 }
 
 // endpointUpdateRequiresPush determines if an endpoint update is required.
