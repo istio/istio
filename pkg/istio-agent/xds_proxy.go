@@ -438,7 +438,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				}
 				return
 			}
-
+			proxyLog.Debugf("xds proxy forward request to istio success, request: %+v", req)
 			// forward to istiod
 			con.sendRequest(req)
 			if !initialRequestsSent.Load() && req.TypeUrl == v3.ListenerType {
@@ -501,7 +501,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 		select {
 		case resp := <-con.responsesChan:
 			// TODO: separate upstream response handling from requests sending, which are both time costly
-			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
+			proxyLog.Debugf("response for type url %s, response: %+v", resp.TypeUrl, resp)
 			metrics.XdsProxyResponses.Increment()
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {
@@ -608,6 +608,7 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 
 		return
 	}
+	proxyLog.Debugf("xds proxy forward resposne to envoy success, response: %+v", resp)
 }
 
 func (p *XdsProxy) close() {
