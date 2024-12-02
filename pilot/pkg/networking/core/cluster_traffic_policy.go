@@ -197,6 +197,12 @@ func shouldH2Upgrade(clusterName string, port *model.Port, mesh *meshconfig.Mesh
 	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
 	if connectionPool != nil && connectionPool.Http != nil {
 		override := connectionPool.Http.H2UpgradePolicy
+		// If useClientProtocol is set, do not upgrade
+		if connectionPool.Http.UseClientProtocol {
+			log.Debugf("Not upgrading cluster because useClientProtocol is set: %v (%v %v)",
+				clusterName, mesh.H2UpgradePolicy, override)
+			return false
+		}
 		// If user wants an upgrade at destination rule/port level that means he is sure that
 		// it is a Http port - upgrade in such case. This is useful incase protocol sniffing is
 		// enabled and user wants to upgrade/preserve http protocol from client.
