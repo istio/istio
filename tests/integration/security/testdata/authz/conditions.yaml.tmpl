@@ -81,13 +81,13 @@ spec:
         paths: [ "/source-principal" ]
     when:
     - key: source.principal
-      values: [ "{{ .Allowed.ServiceAccountName }}" ]
+      values: [ "{{ .Allowed.SpiffeIdentity }}" ]
   - to:
       - operation:
           paths: [ "/source-principal-notValues" ]
     when:
       - key: source.principal
-        notValues: [ "{{ .Denied.ServiceAccountName }}" ]
+        notValues: [ "{{ .Denied.SpiffeIdentity }}" ]
 ---
 
 apiVersion: security.istio.io/v1
