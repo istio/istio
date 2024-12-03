@@ -248,6 +248,10 @@ func newLeaderElection(namespace, name, electionID, revision string, perRevision
 	if features.EnableLeaderElection {
 		watcher = revisions.NewDefaultWatcher(client, revision)
 	}
+	// Default revision for consistency. Note that on Kubernetes, there is ~always a revision set.
+	if revision == "" {
+		revision = "default"
+	}
 	if name == "" {
 		hn, _ := os.Hostname()
 		name = fmt.Sprintf("unknown-%s", hn)
