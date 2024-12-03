@@ -154,10 +154,12 @@ func (c *Controller) onNetworkChange() {
 	if err := c.endpoints.initializeNamespace(metav1.NamespaceAll, true); err != nil {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
-	if c.reloadNetworkGateways() {
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
+	c.reloadNetworkGateways()
+	// This is to ensure the ambient workloads are updated dynamically, aligning them with the current network settings.
+	// With this, the pod do not need to restart when the network configuration changes.
+	if c.ambientIndex != nil {
+		c.ambientIndex.SyncAll()
 	}
-	c.NotifyGatewayHandlers()
 }
 
 // reloadMeshNetworks will read the mesh networks configuration to setup
@@ -249,20 +251,24 @@ func (c *Controller) extractGatewaysFromService(svc *model.Service) bool {
 	return changed
 }
 
-// reloadNetworkGateways performs extractGatewaysFromService for all services registered with the controller.
-// It returns whether there is a gateway changed.
+// reloadNetworkGateways performs extractGatewaysInner for all services registered with the controller.
 // It is called only by `onNetworkChange`.
 // It iterates over all services, because mesh networks can be set with a service name.
-func (c *Controller) reloadNetworkGateways() bool {
-	c.Lock()
-	defer c.Unlock()
-	gwChanged := false
+func (c *Controller) reloadNetworkGateways() {
+	c.RLock()
+	gwsChanged := false
 	for _, svc := range c.servicesMap {
-		if c.extractGatewaysInner(svc) {
-			gwChanged = true
+		if c.networkManager.extractGatewaysInner(svc) {
+			gwsChanged = true
+			break
 		}
 	}
-	return gwChanged
+	c.RUnlock()
+	if gwsChanged {
+		c.NotifyGatewayHandlers()
+		// TODO ConfigUpdate via gateway handler
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
+	}
 }
 
 // extractGatewaysInner updates the gateway address inferred from the service.
