@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** GKE platform profile for ambient mode. When installing on GKE, use `--set global.platform=gke` (Helm) or `--set values.global.platform=gke` (istioctl) to apply GKE-specific value overrides. This replaces the previous GKE autodetection based on K8S version used in the `istio-cni` chart.
