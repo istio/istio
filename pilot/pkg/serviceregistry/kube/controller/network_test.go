@@ -58,7 +58,7 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 		t.Fatal("did not expect any gateways yet")
 	}
 
-	notifyCh := make(chan struct{}, 1)
+	notifyCh := make(chan struct{}, 10)
 	var (
 		gwMu sync.Mutex
 		gws  []model.NetworkGateway
@@ -80,10 +80,14 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 	})
 	expectGateways := func(t *testing.T, expectedGws int) {
 		// wait for a notification
-		assert.ChannelHasItem(t, notifyCh)
-		if n := len(getGws()); n != expectedGws {
-			t.Errorf("expected %d gateways but got %d", expectedGws, n)
+		// We may get up to 3 since we are creating 2 services, though sometimes it is collapsed into a single event depending no timing
+		for range 3 {
+			assert.ChannelHasItem(t, notifyCh)
+			if n := len(getGws()); n == expectedGws {
+				return
+			}
 		}
+		t.Errorf("expected %d gateways but got %v", expectedGws, getGws())
 	}
 
 	t.Run("add meshnetworks", func(t *testing.T) {
