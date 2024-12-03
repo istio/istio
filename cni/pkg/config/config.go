@@ -79,6 +79,12 @@ type InstallConfig struct {
 
 	// Whether ipv6 is enabled for ambient capture
 	AmbientIPv6 bool
+
+	// Whether ambient is opt-in by default, or opt-out by default. See also `AmbientAutoEnrollExcludeNamespaces`
+	AmbientAutoEnroll bool
+
+	// Comma-separated list of K8S namespaces that ambient autoenroll should ignore
+	AmbientAutoEnrollExcludeNamespaces string
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -141,6 +147,8 @@ func (c InstallConfig) String() string {
 	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")
 	b.WriteString("AmbientDNSCapture: " + fmt.Sprint(c.AmbientDNSCapture) + "\n")
 	b.WriteString("AmbientIPv6: " + fmt.Sprint(c.AmbientIPv6) + "\n")
+	b.WriteString("AmbientAutoEnroll: " + fmt.Sprint(c.AmbientAutoEnroll) + "\n")
+	b.WriteString("AmbientAutoEnrollExcludeNamespaces: " + fmt.Sprint(c.AmbientAutoEnrollExcludeNamespaces) + "\n")
 
 	return b.String()
 }

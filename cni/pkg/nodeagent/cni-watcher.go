@@ -57,11 +57,13 @@ type CniPluginServer struct {
 
 	sockAddress string
 	ctx         context.Context
+	args        AmbientArgs
 }
 
 func startCniPluginServer(ctx context.Context, pluginSocket string,
 	handlers K8sHandlers,
 	dataplane MeshDataplane,
+	args AmbientArgs,
 ) *CniPluginServer {
 	ctx, cancel := context.WithCancel(ctx)
 	mux := http.NewServeMux()
@@ -74,6 +76,7 @@ func startCniPluginServer(ctx context.Context, pluginSocket string,
 		cniListenServerCancel: cancel,
 		sockAddress:           pluginSocket,
 		ctx:                   ctx,
+		args:                  args,
 	}
 
 	mux.HandleFunc(pconstants.CNIAddEventPath, s.handleAddEvent)
@@ -188,7 +191,8 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 }
 
 func (s *CniPluginServer) getPodWithRetry(log *istiolog.Scope, name, namespace string) (*corev1.Pod, error) {
-	log.Debugf("Checking if pod %s/%s is enabled for ambient", namespace, name)
+	log.Debugf("Checking if pod %s/%s is enabled for ambient, autoEnroll: %t, excludeNamespaces: %+q",
+		namespace, name, s.args.AutoEnroll, s.args.ExcludeNamespaces)
 	const maxStaleRetries = 10
 	const msInterval = 10
 	retries := 0
@@ -198,7 +202,8 @@ func (s *CniPluginServer) getPodWithRetry(log *istiolog.Scope, name, namespace s
 	// The plugin already consulted the k8s API - but on this end handler caches may be stale, so retry a few times if we get no pod.
 	// if err is returned, we couldn't find the pod
 	// if nil is returned, we found it but ambient is not enabled
-	for ambientPod, err = s.handlers.GetPodIfAmbient(name, namespace); (err != nil) && (retries < maxStaleRetries); retries++ {
+	// nolint: lll
+	for ambientPod, err = s.handlers.GetPodIfAmbient(name, namespace, s.args.AutoEnroll, s.args.ExcludeNamespaces); (err != nil) && (retries < maxStaleRetries); retries++ {
 		log.Warnf("got an event for pod %s in namespace %s not found in current pod cache, retry %d of %d",
 			name, namespace, retries, maxStaleRetries)
 		if !sleep.UntilContext(s.ctx, time.Duration(msInterval)*time.Millisecond) {

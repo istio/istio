@@ -41,23 +41,23 @@ var (
 )
 
 type K8sHandlers interface {
-	GetPodIfAmbient(podName, podNamespace string) (*corev1.Pod, error)
+	GetPodIfAmbient(podName, podNamespace string, autoEnroll bool, excludeNamespaces []string) (*corev1.Pod, error)
 	GetActiveAmbientPodSnapshot() []*corev1.Pod
 	Start()
 }
 
 type InformerHandlers struct {
-	ctx             context.Context
-	dataplane       MeshDataplane
-	systemNamespace string
+	ctx       context.Context
+	dataplane MeshDataplane
+	args      AmbientArgs
 
 	queue      controllers.Queue
 	pods       kclient.Client[*corev1.Pod]
 	namespaces kclient.Client[*corev1.Namespace]
 }
 
-func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDataplane, systemNamespace string) *InformerHandlers {
-	s := &InformerHandlers{ctx: ctx, dataplane: dataplane, systemNamespace: systemNamespace}
+func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDataplane, args AmbientArgs) *InformerHandlers {
+	s := &InformerHandlers{ctx: ctx, dataplane: dataplane, args: args}
 	s.queue = controllers.NewQueue("ambient",
 		controllers.WithGenericReconciler(s.reconcile),
 		controllers.WithMaxAttempts(5),
@@ -68,7 +68,12 @@ func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDa
 		s.queue.Add(o)
 	}))
 
-	// Namespaces could be anything though, so we watch all of those
+	// Namespaces could be anything though, so we watch all of those.
+	//
+	// ALSO - note that while we have an `AmbientAutoEnrollExcludeNamespaces` denylist for
+	// autoenrolling pods, if that feature is enabled, we cannot use that to filter watches.
+	// This is because there is always the possibility that we need to unenroll active pods
+	// in "excluded" namespaces that previously were not excluded, but now are.
 	//
 	// NOTE that we are requeueing namespaces here explicitly to work around
 	// test flakes with the fake kube client in `pkg/kube/client.go` -
@@ -88,7 +93,7 @@ func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDa
 // * An error if the pod cannot be found
 // * nil if the pod is found, but does not have ambient enabled
 // * the pod, if it is found and ambient is enabled
-func (s *InformerHandlers) GetPodIfAmbient(podName, podNamespace string) (*corev1.Pod, error) {
+func (s *InformerHandlers) GetPodIfAmbient(podName, podNamespace string, autoEnroll bool, excludeNamespaces []string) (*corev1.Pod, error) {
 	ns := s.namespaces.Get(podNamespace, "")
 	if ns == nil {
 		return nil, fmt.Errorf("failed to find namespace %v", ns)
@@ -97,7 +102,7 @@ func (s *InformerHandlers) GetPodIfAmbient(podName, podNamespace string) (*corev
 	if pod == nil {
 		return nil, fmt.Errorf("failed to find pod %v", ns)
 	}
-	if util.PodRedirectionEnabled(ns, pod) {
+	if util.PodRedirectionEnabled(ns, pod, autoEnroll, excludeNamespaces) {
 		return pod, nil
 	}
 	return nil, nil
@@ -122,7 +127,7 @@ func (s *InformerHandlers) GetActiveAmbientPodSnapshot() []*corev1.Pod {
 
 		// Exclude ztunnels, and terminated daemonset pods
 		// from the snapshot.
-		if !util.IsZtunnelPod(s.systemNamespace, pod) &&
+		if !util.IsZtunnelPod(s.args.SystemNamespace, pod) &&
 			!kube.CheckPodTerminal(pod) &&
 			util.PodRedirectionActive(pod) {
 			pods = append(pods, pod)
@@ -146,7 +151,7 @@ func (s *InformerHandlers) enqueueNamespace(o controllers.Object) {
 		// ztunnel pods are never "added to/removed from the mesh", so do not fire
 		// spurious events for them to avoid triggering extra
 		// ztunnel node reconciliation checks.
-		if !util.IsZtunnelPod(s.systemNamespace, pod) {
+		if !util.IsZtunnelPod(s.args.SystemNamespace, pod) {
 			log.Debugf("Enqueuing pod %s/%s", pod.Namespace, pod.Name)
 			s.queue.Add(controllers.Event{
 				New:   pod,
@@ -225,7 +230,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		}
 		wasAnnotated := oldPod.Annotations != nil && oldPod.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
 		isAnnotated := newPod.Annotations != nil && newPod.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
-		shouldBeEnabled := util.PodRedirectionEnabled(ns, newPod)
+		shouldBeEnabled := util.PodRedirectionEnabled(ns, newPod, s.args.AutoEnroll, s.args.ExcludeNamespaces)
 		isTerminated := kube.CheckPodTerminal(newPod)
 		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
 		changeNeeded := (isAnnotated != shouldBeEnabled) && !isTerminated

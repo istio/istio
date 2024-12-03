@@ -25,7 +25,8 @@ _internal_defaults_do_not_set:
   # documentation for the appropriate path.
   cniNetnsDir: # Defaults to '/var/run/netns', in minikube/docker/others can be '/var/run/docker/netns'.
 
-
+  # Namespaces that will be excluded from sidecar CNI capture.
+  # Ignored/unused in ambient mode.
   excludeNamespaces:
     - kube-system
 
@@ -53,7 +54,16 @@ _internal_defaults_do_not_set:
     dnsCapture: false
     # If enabled, and ambient is enabled, enables ipv6 support
     ipv6: true
-
+    # If enabled, and ambient is enabled, will switch from default opt-in, to default opt-out.
+    # This will auto-enroll pods in *all* namespaces if no dataplane labels are present on either pod or namespace.
+    # Pods in `autoEnrollExcludeNamespaces` will not be autoenrolled.
+    # Explicit pod and namespace enrollment labels will still be respected in this mode.
+    autoEnroll: false
+    # Namespaces where pods will never be autoenrolled, if `autoEnroll` is true. Note that this only a denylist for autoenrollment, and not for ambient capture generally.
+    # These namespaces (and the pods in them) can still be enrolled/excluded via dataplane label, if needed.
+    autoEnrollExcludeNamespaces:
+      - kube-system
+      - istio-system
 
   repair:
     enabled: true

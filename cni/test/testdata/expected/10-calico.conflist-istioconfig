@@ -25,6 +25,10 @@
       "type": "portmap"
     },
     {
+      "ambient_autoenroll": false,
+      "ambient_autoenroll_exclude_namespaces": [
+        ""
+      ],
       "ambient_enabled": false,
       "cni_agent_run_dir": "/tmp",
       "dns": {},

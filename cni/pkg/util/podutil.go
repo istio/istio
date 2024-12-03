@@ -28,6 +28,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/log"
 )
 
 var annotationPatch = []byte(fmt.Sprintf(
@@ -43,25 +44,58 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 
 // PodRedirectionEnabled determines if a pod should or should not be configured
 // to have traffic redirected thru the node proxy.
-func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
-	if !(namespace.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient ||
-		pod.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient) {
-		// Neither namespace nor pod has ambient mode enabled
+//
+// NOTE that this is NOT checking if a pod WAS enabled previously, for that see PodRedirectionActive.
+// This is just checking if it SHOULD be enabled under current state.
+func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod, autoEnrollEnabled bool, excludeNamespaces []string) bool {
+	// Check for user opt-out - do the namespace and/or pod have the explicit opt-out labels?
+	hasExplicitOptOut := (namespace.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeNone ||
+		pod.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeNone)
+
+	// Check for user opt-in - do the namespace and/or pod have the explicit opt-in labels?
+	hasExplicitOptIn := (namespace.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient ||
+		pod.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient)
+
+	// Always unconditionally respect explicit opt-out (pod or namespace) if present.
+	if hasExplicitOptOut {
+		// Pod or namespace explicitly asked to not have ambient redirection enabled
 		return false
 	}
+
+	// If no autoenroll and no explicit opt-in, pod should be ignored.
+	if !autoEnrollEnabled && !hasExplicitOptIn {
+		return false
+	}
+
+	// If autoenroll enabled and pod does NOT have an explicit opt-in, see
+	// if it's in our list of excluded namespaces.
+	//
+	// This is designed to allow people to always explicitly opt-in pods with labels,
+	// even if they are in a namespace we have been told not to autoenroll.
+	// Basically, explicit labels always win, even for autoenroll-ignored namespaces.
+	if autoEnrollEnabled && !hasExplicitOptIn {
+		// If pod in our autoenroll excluded namespace list (shared with the CNI plugin), it can never be enabled.
+		for _, ns := range excludeNamespaces {
+			if ns == namespace.Name {
+				log.Debugf("excluding %s/%s from autoenroll due to excluded namespace: %s", namespace.Name, pod.Name, ns)
+				return false
+			}
+		}
+	}
+
+	// If we get here, pod is either auto-enrollable OR has an explicit opt-in.
+
+	// Ztunnel and sidecar for a single pod is currently not supported; opt out.
 	if podHasSidecar(pod) {
-		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
 		return false
 	}
-	if pod.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeNone {
-		// Pod explicitly asked to not have ambient redirection enabled
-		return false
-	}
+
+	// Host network pods cannot be captured, as we require inserting rules into the pod network namespace.
+	// If we were to allow them, we would be writing these rules into the host network namespace, effectively breaking the host.
 	if pod.Spec.HostNetwork {
-		// Host network pods cannot be captured, as we require inserting rules into the pod network namespace.
-		// If we were to allow them, we would be writing these rules into the host network namespace, effectively breaking the host.
 		return false
 	}
+
 	return true
 }
 
