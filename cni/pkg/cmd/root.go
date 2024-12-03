@@ -90,6 +90,10 @@ var rootCmd = &cobra.Command{
 		// TODO nodeagent watch server should affect this too, and drop atomic flag
 		installDaemonReady, watchServerReady := nodeagent.StartHealthServer()
 
+		installer := install.NewInstaller(&cfg.InstallConfig, installDaemonReady)
+
+		var cleanupDefer func()
+
 		if cfg.InstallConfig.AmbientEnabled {
 			// Start ambient controller
 
@@ -110,17 +114,55 @@ var rootCmd = &cobra.Command{
 			}
 
 			ambientAgent.Start()
-			defer ambientAgent.Stop()
+			// Ambient watch server IS enabled - on shutdown
+			// we need to check and see if this is an upgrade.
+			//
+			// if it is, we do NOT remove the plugin, and do
+			// NOT do ambient watch server cleanup
+			cleanupDefer = func() {
+				upgrade := ambientAgent.ShouldStopForUpgrade("istio-cni", nodeagent.PodNamespace)
+				log.Infof("Ambient node agent shutting down - is upgrade shutdown? %t", upgrade)
+				// if we are doing an "upgrade shutdown", then
+				// we do NOT want to remove/cleanup the CNI plugin.
+				//
+				// This is important - we want it to remain in place to "stall"
+				// new ambient-enabled pods while our replacement spins up.
+				if !upgrade {
+					if cleanErr := installer.Cleanup(); cleanErr != nil {
+						if err != nil {
+							err = fmt.Errorf("%s: %w", cleanErr.Error(), err)
+						} else {
+							err = cleanErr
+						}
+					}
+				}
+				ambientAgent.Stop(upgrade)
+			}
 
 			log.Info("Ambient node agent started, starting installer...")
 
 		} else {
 			// Ambient not enabled, so this readiness flag is no-op'd
 			watchServerReady.Store(true)
+
+			// Ambient watch server not enabled - on shutdown
+			// we just need to remove CNI plugin.
+			cleanupDefer = func() {
+				log.Infof("CNI node agent shutting down")
+				if cleanErr := installer.Cleanup(); cleanErr != nil {
+					if err != nil {
+						err = fmt.Errorf("%s: %w", cleanErr.Error(), err)
+					} else {
+						err = cleanErr
+					}
+				}
+			}
 		}
 
-		installer := install.NewInstaller(&cfg.InstallConfig, installDaemonReady)
+		defer cleanupDefer()
 
+		// TODO Note that during an "upgrade shutdown" in ambient mode,
+		// repair will (necessarily) be unavailable.
 		repair.StartRepair(ctx, cfg.RepairConfig)
 
 		log.Info("initialization complete, watching node CNI dir")
@@ -133,14 +175,6 @@ var rootCmd = &cobra.Command{
 				err = nil
 			} else {
 				log.Errorf("installer failed: %v", err)
-			}
-		}
-
-		if cleanErr := installer.Cleanup(); cleanErr != nil {
-			if err != nil {
-				err = fmt.Errorf("%s: %w", cleanErr.Error(), err)
-			} else {
-				err = cleanErr
 			}
 		}
 
