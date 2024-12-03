@@ -306,6 +306,192 @@ spec:
 	assert.Equal(t, notApp.Tracing.Provider == nil, true)
 }
 
+func TestWaypointRequestAuth(t *testing.T) {
+	// jwks mostly from https://datatracker.ietf.org/doc/html/rfc7517#appendix-A.1
+	requestAuthn := `apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: jwt-on-waypoint
+  namespace: default
+spec:
+  targetRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: app
+  jwtRules:
+  - issuer: "example.ietf.org"
+    jwks: |
+          {"keys":
+            [
+              {"kty":"EC",
+              "crv":"P-256",
+              "x":"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
+              "y":"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM",
+              "use":"enc",
+              "kid":"1"}
+            ]
+          }`
+	notSelectedAppServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: not-app
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts: [not-app.com]
+  addresses: [2.3.4.5]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  workloadSelector:
+    labels:
+      app: app`
+	d, proxy := setupWaypointTest(t,
+		waypointGateway, waypointSvc, waypointInstance,
+		appServiceEntry, notSelectedAppServiceEntry, requestAuthn)
+
+	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+
+	app := xdstest.ExtractHTTPConnectionManager(t,
+		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l))
+	assert.Equal(t, sets.New(slices.Map(app.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), true)
+
+	// assert not-app.com has not gotten config from the req authn
+	notApp := xdstest.ExtractHTTPConnectionManager(t,
+		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l))
+	assert.Equal(t, sets.New(slices.Map(notApp.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), false)
+}
+
+func TestCrossNamespaceWaypointRequestAuth(t *testing.T) {
+	// jwks mostly from https://datatracker.ietf.org/doc/html/rfc7517#appendix-A.1
+	requestAuthn := `apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: jwt-on-waypoint
+  namespace: app
+spec:
+  targetRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: app
+  jwtRules:
+  - issuer: "example.ietf.org"
+    jwks: |
+          {"keys":
+            [
+              {"kty":"EC",
+              "crv":"P-256",
+              "x":"MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
+              "y":"4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM",
+              "use":"enc",
+              "kid":"1"}
+            ]
+          }`
+	waypointSvc := `apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-name: waypoint
+    istio.io/gateway-name: waypoint
+  name: waypoint
+  namespace: default
+spec:
+  clusterIP: 3.0.0.0
+  ports:
+  - appProtocol: hbone
+    name: mesh
+    port: 15008
+  selector:
+    gateway.networking.k8s.io/gateway-name: waypoint`
+
+	waypointInstance := `apiVersion: networking.istio.io/v1
+kind: WorkloadEntry
+metadata:
+  name: waypoint-a
+  namespace: default
+spec:
+  address: 3.0.0.1
+  labels:
+    gateway.networking.k8s.io/gateway-name: waypoint`
+
+	waypointGateway := `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: waypoint
+  namespace: default
+spec:
+  gatewayClassName: waypoint
+  listeners:
+    - name: mesh
+      port: 15008
+      protocol: HBONE
+      allowedRoutes:
+        namespaces:
+          from: All
+status:
+  addresses:
+  - type: Hostname
+    value: waypoint.default.svc.cluster.local`
+
+	appServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: app
+  namespace: app 
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+spec:
+  hosts: [app.com]
+  addresses: [1.2.3.4]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  workloadSelector:
+    labels:
+      app: app`
+	notSelectedAppServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: not-app
+  namespace: app
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+spec:
+  hosts: [not-app.com]
+  addresses: [2.3.4.5]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  workloadSelector:
+    labels:
+      app: app`
+
+	d, proxy := setupWaypointTest(t,
+		waypointGateway, waypointSvc, waypointInstance,
+		appServiceEntry, notSelectedAppServiceEntry, requestAuthn)
+
+	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+
+	app := xdstest.ExtractHTTPConnectionManager(t,
+		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l))
+	assert.Equal(t, sets.New(slices.Map(app.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), true)
+
+	// assert not-app.com has not gotten config from the req authn
+	notApp := xdstest.ExtractHTTPConnectionManager(t,
+		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l))
+	assert.Equal(t, sets.New(slices.Map(notApp.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), false)
+}
+
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableDualStack, true)
