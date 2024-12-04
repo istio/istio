@@ -16,15 +16,13 @@ _internal_defaults_do_not_set:
   # Example
   # cniConfFileName: 10-calico.conflist
 
-  # CNI bin and conf dir override settings
-  # defaults:
-  cniBinDir: "" # Auto-detected based on version; defaults to /opt/cni/bin.
+  # CNI-and-platform specific path defaults.
+  # These may need to be set to platform-specific values, consult
+  # overrides for your platform in `manifests/helm-profiles/platform-*.yaml`
+  cniBinDir: /opt/cni/bin
   cniConfDir: /etc/cni/net.d
   cniConfFileName: ""
-  # This directory must exist on the node, if it does not, consult your container runtime
-  # documentation for the appropriate path.
-  cniNetnsDir: # Defaults to '/var/run/netns', in minikube/docker/others can be '/var/run/docker/netns'.
-
+  cniNetnsDir: "/var/run/netns"
 
   excludeNamespaces:
     - kube-system
