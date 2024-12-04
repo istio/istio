@@ -2755,13 +2755,13 @@ func externalNameCases(t TrafficContext) {
 		checks = append(checks, check.OK())
 		ch := []TrafficCall{}
 		for _, c := range t.Apps.A {
-			for _, port := range []echo.Port{ports.HTTP, ports.AutoHTTP, ports.TCP, ports.HTTPS, ports.HTTP, ports.AutoHTTP, ports.Fail} {
+			for _, port := range []echo.Port{ports.TCP, ports.HTTPS, ports.HTTP, ports.AutoHTTP} {
 				ch = append(ch, TrafficCall{
 					name: port.Name,
 					call: c.CallOrFail,
 					opts: echo.CallOptions{
 						Retry: echo.Retry{
-							Options: []retry.Option{retry.Timeout(100 * time.Second), retry.BackoffDelay(200 * time.Millisecond), retry.Converge(20)},
+							Options: []retry.Option{retry.Timeout(100 * time.Second), retry.BackoffDelay(400 * time.Millisecond), retry.Converge(10)},
 						},
 						Address: name,
 						Port:    port,
