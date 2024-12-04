@@ -64,7 +64,7 @@ case "${LOCAL_ARCH}" in
 esac
 
 if [ "${ISTIO_VERSION}" = "" ] ; then
-  printf "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.0.4"
+  printf "Unable to get latest Istio version. Set ISTIO_VERSION env var and re-run. For example: export ISTIO_VERSION=1.24.1"
   exit 1;
 fi
 
@@ -124,14 +124,11 @@ else
 fi
 
 printf ""
-printf "\nIstio %s Download Complete!\n" "$ISTIO_VERSION"
+printf "\nIstio %s download complete!\n" "$ISTIO_VERSION"
 printf "\n"
-printf "Istio has been successfully downloaded into the %s folder on your system.\n" "$NAME"
+printf "The Istio release archive has been downloaded to the %s directory.\n" "$NAME"
 printf "\n"
 BINDIR="$(cd "$NAME/bin" && pwd)"
-printf "Next Steps:\n"
-printf "See https://istio.io/latest/docs/setup/install/ to add Istio to your Kubernetes cluster.\n"
-printf "\n"
 printf "To configure the istioctl client tool for your workstation,\n"
 printf "add the %s directory to your environment path variable with:\n" "$BINDIR"
 printf "\t export PATH=\"\$PATH:%s\"\n" "$BINDIR"
@@ -139,4 +136,9 @@ printf "\n"
 printf "Begin the Istio pre-installation check by running:\n"
 printf "\t istioctl x precheck \n"
 printf "\n"
-printf "Need more information? Visit https://istio.io/latest/docs/setup/install/ \n"
+printf "Try Istio in ambient mode\n\thttps://istio.io/latest/docs/ambient/getting-started/\n"
+printf "Try Istio in sidecar mode\n\thttps://istio.io/latest/docs/setup/getting-started/\n"
+printf "Install guides for ambient mode\n\thttps://istio.io/latest/docs/ambient/install/\n"
+printf "Install guides for sidecar mode\n\thttps://istio.io/latest/docs/setup/install/\n"
+printf "\n"
+printf "Need more information? Visit https://istio.io/latest/docs/ \n"
