@@ -588,7 +588,7 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bo
 			Event: controllers.EventAdd,
 		})
 	}
-	h.mu.Unlock()
+
 	// Send out all the initial objects to the handler. We will then unlock the new events so it gets the future updates.
 	return h.eventHandlers.Insert(f, h.Synced(), events, h.stop)
 }
