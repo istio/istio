@@ -162,8 +162,6 @@ var rootCmd = &cobra.Command{
 				}
 			}()
 		}
-
-
 		// TODO Note that during an "upgrade shutdown" in ambient mode,
 		// repair will (necessarily) be unavailable.
 		repair.StartRepair(ctx, cfg.RepairConfig)
