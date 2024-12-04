@@ -120,14 +120,20 @@ var rootCmd = &cobra.Command{
 			// if it is, we do NOT remove the plugin, and do
 			// NOT do ambient watch server cleanup
 			cleanupDefer = func() {
-				upgrade := ambientAgent.ShouldStopForUpgrade("istio-cni", nodeagent.PodNamespace)
-				log.Infof("Ambient node agent shutting down - is upgrade shutdown? %t", upgrade)
+				var isUpgrade bool
+				if cfg.InstallConfig.AmbientDisableSafeUpgrade {
+					log.Info("Ambient node agent safe upgrade explicitly disabled via env")
+					isUpgrade = false
+				} else {
+					isUpgrade = ambientAgent.ShouldStopForUpgrade("istio-cni", nodeagent.PodNamespace)
+				}
+				log.Infof("Ambient node agent shutting down - is upgrade shutdown? %t", isUpgrade)
 				// if we are doing an "upgrade shutdown", then
 				// we do NOT want to remove/cleanup the CNI plugin.
 				//
 				// This is important - we want it to remain in place to "stall"
 				// new ambient-enabled pods while our replacement spins up.
-				if !upgrade {
+				if !isUpgrade {
 					if cleanErr := installer.Cleanup(); cleanErr != nil {
 						if err != nil {
 							err = fmt.Errorf("%s: %w", cleanErr.Error(), err)
@@ -136,7 +142,7 @@ var rootCmd = &cobra.Command{
 						}
 					}
 				}
-				ambientAgent.Stop(upgrade)
+				ambientAgent.Stop(isUpgrade)
 			}
 
 			log.Info("Ambient node agent started, starting installer...")
@@ -297,9 +303,10 @@ func constructConfig() (*config.Config, error) {
 		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
-		AmbientEnabled:    viper.GetBool(constants.AmbientEnabled),
-		AmbientDNSCapture: viper.GetBool(constants.AmbientDNSCapture),
-		AmbientIPv6:       viper.GetBool(constants.AmbientIPv6),
+		AmbientEnabled:            viper.GetBool(constants.AmbientEnabled),
+		AmbientDNSCapture:         viper.GetBool(constants.AmbientDNSCapture),
+		AmbientIPv6:               viper.GetBool(constants.AmbientIPv6),
+		AmbientDisableSafeUpgrade: viper.GetBool(constants.AmbientDisableSafeUpgrade),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {
