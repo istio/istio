@@ -444,7 +444,7 @@ resources:
     plural: "telemetries"
     group: "telemetry.istio.io"
     version: "v1"
-    versionAliases: 
+    versionAliases:
     - "v1alpha1"
     proto: "istio.telemetry.v1alpha1.Telemetry"
     protoPackage: "istio.io/api/telemetry/v1alpha1"

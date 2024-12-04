@@ -264,7 +264,7 @@ func New[T controllers.ComparableObject](c kube.Client) Client[T] {
 // Use with caution.
 func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) Client[T] {
 	gvr := types.MustToGVR[T](types.MustGVKFromType[T]())
-	inf := kubeclient.GetInformerFiltered[T](c, ToOpts(c, gvr, filter))
+	inf := kubeclient.GetInformerFiltered[T](c, ToOpts(c, gvr, filter), gvr)
 	return &fullClient[T]{
 		writeClient: writeClient[T]{client: c},
 		Informer:    newInformerClient[T](gvr, inf, filter),
