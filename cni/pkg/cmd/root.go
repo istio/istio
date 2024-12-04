@@ -92,8 +92,6 @@ var rootCmd = &cobra.Command{
 
 		installer := install.NewInstaller(&cfg.InstallConfig, installDaemonReady)
 
-		var cleanupDefer func()
-
 		if cfg.InstallConfig.AmbientEnabled {
 			// Start ambient controller
 
@@ -119,7 +117,7 @@ var rootCmd = &cobra.Command{
 			//
 			// if it is, we do NOT remove the plugin, and do
 			// NOT do ambient watch server cleanup
-			cleanupDefer = func() {
+			defer func() {
 				var isUpgrade bool
 				if cfg.InstallConfig.AmbientDisableSafeUpgrade {
 					log.Info("Ambient node agent safe upgrade explicitly disabled via env")
@@ -143,7 +141,7 @@ var rootCmd = &cobra.Command{
 					}
 				}
 				ambientAgent.Stop(isUpgrade)
-			}
+			}()
 
 			log.Info("Ambient node agent started, starting installer...")
 
@@ -153,7 +151,7 @@ var rootCmd = &cobra.Command{
 
 			// Ambient watch server not enabled - on shutdown
 			// we just need to remove CNI plugin.
-			cleanupDefer = func() {
+			defer func() {
 				log.Infof("CNI node agent shutting down")
 				if cleanErr := installer.Cleanup(); cleanErr != nil {
 					if err != nil {
@@ -162,10 +160,9 @@ var rootCmd = &cobra.Command{
 						err = cleanErr
 					}
 				}
-			}
+			}()
 		}
 
-		defer cleanupDefer()
 
 		// TODO Note that during an "upgrade shutdown" in ambient mode,
 		// repair will (necessarily) be unavailable.
