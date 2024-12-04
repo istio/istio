@@ -45,9 +45,6 @@ type manyCollection[I, O any] struct {
 
 	// log is a logger for the collection, with additional labels already added to identify it.
 	log *istiolog.Scope
-	// blockNewEvents is held anytime events are being computed. The intent is to ensure we can appropriately onboard new handlers
-	// with initial state (where we need to send them the initial state + any new state).
-	blockNewEvents sync.Mutex
 	// This can be acquired with blockNewEvents held, but only with strict ordering (mu inside blockNewEvents)
 	// mu protects all items grouped below.
 	// This is acquired for reads and writes of data.
@@ -226,8 +223,6 @@ func (h *manyCollection[I, O]) index(extract func(o O) []string) kclient.RawInde
 // This is called either when I directly changes, or if a secondary dependency changed. In this case, we compute which I's depended
 // on the secondary dependency, and call onPrimaryInputEvent with them
 func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
-	h.blockNewEvents.Lock()
-	defer h.blockNewEvents.Unlock()
 	// Between the events being enqueued and now, the input may have changed. Update with latest info.
 	// Note we now have the `blockNewEvents` lock so this is safe; any futures calls will do the same so always have up-to-date information.
 	for idx, ev := range items {
@@ -270,6 +265,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 
 	// Now acquire the full lock. Note we still have recomputeMu held!
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	for idx, a := range items {
 		i := a.Latest()
 		iKey := getTypedKey(i)
@@ -341,7 +337,6 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 			}
 		}
 	}
-	h.mu.Unlock()
 
 	// Short circuit if we have nothing to do
 	if len(events) == 0 {
@@ -479,8 +474,6 @@ func (h *manyCollection[I, O]) runQueue() {
 // Handler is called when a dependency changes. We will take as inputs the item that changed.
 // Then we find all of our own values (I) that changed and onPrimaryInputEvent() them
 func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUID, events []Event[any]) {
-	h.blockNewEvents.Lock()
-	defer h.blockNewEvents.Unlock()
 	// A secondary dependency changed...
 	// Got an event. Now we need to find out who depends on it..
 	changedInputKeys := sets.Set[Key[I]]{}
@@ -584,10 +577,10 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bo
 	// We need to run the initial state, but we don't want to get duplicate events.
 	// We should get "ADD initialObject1, ADD initialObjectN, UPDATE someLaterUpdate" without mixing the initial ADDs
 	// To do this we block any new event processing
-	h.blockNewEvents.Lock()
-	defer h.blockNewEvents.Unlock()
 	// Get initial state
 	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	events := make([]Event[O], 0, len(h.collectionState.outputs))
 	for _, o := range h.collectionState.outputs {
 		events = append(events, Event[O]{
