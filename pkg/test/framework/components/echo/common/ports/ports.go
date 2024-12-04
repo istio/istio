@@ -30,6 +30,7 @@ var (
 	AutoTCP          = echo.Port{Name: "auto-tcp", Protocol: protocol.TCP, ServicePort: 9092, WorkloadPort: 19091}
 	AutoTCPServer    = echo.Port{Name: "auto-tcp-server", Protocol: protocol.TCP, ServicePort: 9093, WorkloadPort: 16061, ServerFirst: true}
 	AutoHTTP         = echo.Port{Name: "auto-http", Protocol: protocol.HTTP, ServicePort: 81, WorkloadPort: 18081}
+	Fail             = echo.Port{Name: "fail", Protocol: protocol.HTTP, ServicePort: 909, WorkloadPort: 18}
 	AutoGRPC         = echo.Port{Name: "auto-grpc", Protocol: protocol.GRPC, ServicePort: 7071, WorkloadPort: 17071}
 	AutoHTTPS        = echo.Port{Name: "auto-https", Protocol: protocol.HTTPS, ServicePort: 9443, WorkloadPort: 19443, TLS: true}
 	HTTPInstance     = echo.Port{Name: "http-instance", Protocol: protocol.HTTP, ServicePort: 82, WorkloadPort: 18082, InstanceIP: true}
