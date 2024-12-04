@@ -215,6 +215,8 @@ func TestTrafficWithCNIUpgrade(t *testing.T) {
 			waitForStalledPodOrFail(t, c, ns)
 
 			t.Log("Redeploy CNI")
+			// The only thing left is the raw DS with no backing pods, so just delete it
+			deleteCNIDaemonset(t, c)
 			// Now bring back the original CNI Daemonset, which should recreate backing pods
 			deployCNIDaemonset(t, c, origCNIDaemonSet)
 
@@ -263,6 +265,27 @@ func scaleCNIDaemonsetToZeroPods(ctx framework.TestContext, c cluster.Cluster) {
 		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
 		Patch(context.Background(), "istio-cni-node", types.StrategicMergePatchType, []byte(patchData), metav1.PatchOptions{}); err != nil {
 		ctx.Fatalf("failed to patch CNI Daemonset %v", err)
+	}
+
+	// Wait until the CNI Daemonset pod cannot be fetched anymore
+	retry.UntilSuccessOrFail(ctx, func() error {
+		scopes.Framework.Infof("Checking if CNI Daemonset pods are deleted...")
+		pods, err := c.PodsForSelector(context.TODO(), i.Settings().SystemNamespace, "k8s-app=istio-cni-node")
+		if err != nil {
+			return err
+		}
+		if len(pods.Items) > 0 {
+			return errors.New("CNI Daemonset pod still exists after deletion")
+		}
+		return nil
+	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+}
+
+func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
+	if err := c.(istioKube.CLIClient).
+		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
+		Delete(context.Background(), "istio-cni-node", metav1.DeleteOptions{}); err != nil {
+		ctx.Fatalf("failed to delete CNI Daemonset %v", err)
 	}
 
 	// Wait until the CNI Daemonset pod cannot be fetched anymore
