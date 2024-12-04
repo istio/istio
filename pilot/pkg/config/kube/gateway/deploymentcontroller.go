@@ -576,7 +576,7 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 
 	canManage, resourceVersion := d.canManage(gvr, us.GetName(), us.GetNamespace())
 	if !canManage {
-		log.Infof("skipping %v/%v/%v, already managed", gvr, us.GetName(), us.GetNamespace())
+		log.Debugf("skipping %v/%v/%v, already managed", gvr, us.GetName(), us.GetNamespace())
 		return nil
 	}
 	// Ensure our canManage assertion is not stale
@@ -595,7 +595,7 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("applying %v", string(j))
+	log.Debugf("applying %v", string(j))
 	if err := d.patcher(gvr, us.GetName(), us.GetNamespace(), j); err != nil {
 		return fmt.Errorf("patch %v/%v/%v: %v", us.GroupVersionKind(), us.GetNamespace(), us.GetName(), err)
 	}
