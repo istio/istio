@@ -94,13 +94,13 @@ func detectCniIncompatibility(client kube.Client, cniEnabled bool, ztunnelEnable
 	calico, err := client.Dynamic().Resource(calicoResource).Get(context.Background(), "default", metav1.GetOptions{})
 	if err == nil {
 		bpfConnectTimeLoadBalancing, found, _ := unstructured.NestedString(calico.Object, "spec", "bpfConnectTimeLoadBalancing")
-		if found && ztunnelEnabled && bpfConnectTimeLoadBalancing != "Disabled" {
+		if found && bpfConnectTimeLoadBalancing != "Disabled" {
 			// Need to disable Calico connect-time load balancing since it send traffic directly to the backend pod IP
 			// nolint: lll
 			errs = util.AppendErr(errs, fmt.Errorf("detected Calico CNI with 'bpfConnectTimeLoadBalancing=%s'; this must be set to 'bpfConnectTimeLoadBalancing=Disabled' in the Calico configuration", bpfConnectTimeLoadBalancing))
 		}
 		bpfConnectTimeLoadBalancingEnabled, found, _ := unstructured.NestedBool(calico.Object, "spec", "bpfConnectTimeLoadBalancingEnabled")
-		if found && ztunnelEnabled && bpfConnectTimeLoadBalancingEnabled {
+		if found && bpfConnectTimeLoadBalancingEnabled {
 			// Same behavior as BpfconnectTimeLoadBalancing
 			// nolint: lll
 			errs = util.AppendErr(errs, fmt.Errorf("detected Calico CNI with 'bpfConnectTimeLoadBalancingEnabled=true'; this must be set to 'bpfConnectTimeLoadBalancingEnabled=false' in the Calico configuration"))

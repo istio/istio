@@ -376,12 +376,6 @@ func TestDetectCniIncompatibility(t *testing.T) {
 	}{
 		{
 			desc: "Calico bpfConnectTimeLoadBalancing TCP",
-			ioYamlStr: `
-spec:
-  components:
-    ztunnel:
-      enabled: true
-`,
 			calicoConfig: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "projectcalico.org/v3",
@@ -399,12 +393,6 @@ spec:
 		},
 		{
 			desc: "Calico bpfConnectTimeLoadBalancingEnabled true",
-			ioYamlStr: `
-spec:
-  components:
-    ztunnel:
-      enabled: true
-`,
 			calicoConfig: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "projectcalico.org/v3",
