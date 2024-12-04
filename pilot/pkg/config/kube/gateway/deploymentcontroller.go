@@ -573,19 +573,29 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 	if err != nil {
 		return err
 	}
-	j, err := json.Marshal(us.Object)
-	if err != nil {
-		return err
-	}
+
 	canManage, resourceVersion := d.canManage(gvr, us.GetName(), us.GetNamespace())
 	if !canManage {
-		log.Debugf("skipping %v/%v/%v, already managed", gvr, us.GetName(), us.GetNamespace())
+		log.Infof("skipping %v/%v/%v, already managed", gvr, us.GetName(), us.GetNamespace())
 		return nil
 	}
 	// Ensure our canManage assertion is not stale
 	us.SetResourceVersion(resourceVersion)
 
-	log.Debugf("applying %v", string(j))
+	// Because in 1.24 we removed old label "istio.io/gateway-name", in order to not mutate the deployment.spec.Selector during upgrade.
+	// we always use the old `selector` value
+	if gvr.Resource == "deployments" {
+		deployment := d.deployments.Get(us.GetName(), us.GetNamespace())
+		if deployment != nil && deployment.Spec.Selector.MatchLabels["istio.io/gateway-name"] != "" {
+			us.Object["spec"].(map[string]any)["selector"] = deployment.Spec.Selector
+		}
+	}
+
+	j, err := json.Marshal(us.Object)
+	if err != nil {
+		return err
+	}
+	log.Infof("applying %v", string(j))
 	if err := d.patcher(gvr, us.GetName(), us.GetNamespace(), j); err != nil {
 		return fmt.Errorf("patch %v/%v/%v: %v", us.GroupVersionKind(), us.GetNamespace(), us.GetName(), err)
 	}
