@@ -200,7 +200,7 @@ func (s *Server) ShouldStopForUpgrade(selfName, selfNamespace string) bool {
 		return true
 	}
 
-	// If the CM is gone, it's definitely not an upgrade, so carry on like normal.
+	// If the DS is gone, it's definitely not an upgrade, so carry on like normal.
 	log.Infof("parent DS %s is gone or marked for deletion, this is not an upgrade, shutting down normally %s", dsName, err)
 	return false
 }
