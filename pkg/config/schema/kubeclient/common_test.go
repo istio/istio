@@ -29,9 +29,10 @@ import (
 )
 
 func TestCustomRegistration(t *testing.T) {
+	gvr := v1.SchemeGroupVersion.WithResource("networkpolicies")
+	gvk := v1.SchemeGroupVersion.WithKind("NetworkPolicy")
 	Register[*v1.NetworkPolicy](
-		v1.SchemeGroupVersion.WithResource("networkpolicies"),
-		v1.SchemeGroupVersion.WithKind("NetworkPolicy"),
+		gvr, gvk,
 		func(c ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error) {
 			return c.Kube().NetworkingV1().NetworkPolicies(namespace).List(context.Background(), o)
 		},
@@ -39,12 +40,11 @@ func TestCustomRegistration(t *testing.T) {
 			return c.Kube().NetworkingV1().NetworkPolicies(namespace).Watch(context.Background(), o)
 		},
 	)
-
 	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "funkyns"}}
 
 	client := kube.NewFakeClient(ns)
 
-	inf := GetInformerFiltered[*v1.NetworkPolicy](client, ktypes.InformerOptions{})
+	inf := GetInformerFiltered[*v1.NetworkPolicy](client, ktypes.InformerOptions{}, gvr)
 	if inf.Informer == nil {
 		t.Errorf("Expected valid informer, got empty")
 	}

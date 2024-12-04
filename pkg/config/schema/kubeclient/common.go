@@ -63,7 +63,14 @@ type ClientGetter interface {
 	Informers() informerfactory.InformerFactory
 }
 
-func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerOptions) informerfactory.StartableInformer {
+// GetInformerFiltered attempts to use type information to setup the informer
+// based on registered types. If no registered type is found, this will
+// fallback to the same behavior as GetInformerFilteredFromGVR.
+func GetInformerFiltered[T runtime.Object](
+	c ClientGetter,
+	opts ktypes.InformerOptions,
+	gvr schema.GroupVersionResource,
+) informerfactory.StartableInformer {
 	reg := typemap.Get[TypeRegistration[T]](registerTypes)
 	if reg != nil {
 		// This is registered type
@@ -79,9 +86,13 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 			return inf
 		})
 	}
-	return GetInformerFilteredFromGVR(c, opts, kubetypes.MustGVRFromType[T]())
+	return GetInformerFilteredFromGVR(c, opts, gvr)
 }
 
+// GetInformerFilteredFromGVR will build an informer for the given GVR. When
+// using ktypes.StandardInformer as the InformerType, the clients are selected
+// from a statically defined list. Use GetInformerFiltered[T] for dynamically
+// registered types.
 func GetInformerFilteredFromGVR(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) informerfactory.StartableInformer {
 	switch opts.InformerType {
 	case ktypes.DynamicInformer:
