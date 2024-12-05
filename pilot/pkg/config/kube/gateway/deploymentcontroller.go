@@ -588,6 +588,7 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 		deployment := d.deployments.Get(us.GetName(), us.GetNamespace())
 		if deployment != nil && deployment.Spec.Selector.MatchLabels["istio.io/gateway-name"] != "" {
 			us.Object["spec"].(map[string]any)["selector"] = deployment.Spec.Selector
+			us.Object["spec"].(map[string]any)["template"].(map[string]any)["metadata"].(map[string]any)["labels"] = deployment.Spec.Template.Labels
 		}
 	}
 

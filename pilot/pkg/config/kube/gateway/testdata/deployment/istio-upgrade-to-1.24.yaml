@@ -51,6 +51,7 @@ spec:
         gateway.istio.io/managed: istio.io-mesh-controller
         gateway.networking.k8s.io/gateway-name: test-upgrade
         istio.io/dataplane-mode: none
+        istio.io/gateway-name: test-upgrade
         service.istio.io/canonical-name: test-upgrade
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"

@@ -88,6 +88,20 @@ func TestConfigureIstioGateway(t *testing.T) {
 					"istio.io/gateway-name":                  "test-upgrade",
 				},
 			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"gateway.istio.io/managed":               "istio.io-mesh-controller",
+						"gateway.networking.k8s.io/gateway-name": "test-upgrade",
+						"istio.io/gateway-name":                  "test-upgrade",
+						"istio.io/dataplane-mode":                "none",
+						"service.istio.io/canonical-name":        "test-upgrade",
+						"service.istio.io/canonical-revision":    "latest",
+						"sidecar.istio.io/inject":                "false",
+						"topology.istio.io/network":              "network-1",
+					},
+				},
+			},
 		},
 	}
 
