@@ -25,6 +25,7 @@ import (
 
 	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -48,7 +49,7 @@ type MeshDataplane interface {
 	AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error
 	RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error
 
-	Stop()
+	Stop(skipCleanup bool)
 }
 
 type Server struct {
@@ -185,9 +186,23 @@ func (s *Server) Start() {
 	s.handlers.Start()
 }
 
-func (s *Server) Stop() {
+func (s *Server) Stop(skipCleanup bool) {
 	s.cniServerStopFunc()
-	s.dataplane.Stop()
+	s.dataplane.Stop(skipCleanup)
+}
+
+func (s *Server) ShouldStopForUpgrade(selfName, selfNamespace string) bool {
+	dsName := fmt.Sprintf("%s-node", selfName)
+	cniDS, err := s.kubeClient.Kube().AppsV1().DaemonSets(selfNamespace).Get(context.Background(), dsName, metav1.GetOptions{})
+	log.Debugf("Daemonset %s has deletion timestamp?: %+v", dsName, cniDS.DeletionTimestamp)
+	if err == nil && cniDS != nil && cniDS.DeletionTimestamp == nil {
+		log.Infof("terminating, but parent DS %s is still present, this is an upgrade, leaving plugin in place", dsName)
+		return true
+	}
+
+	// If the DS is gone, it's definitely not an upgrade, so carry on like normal.
+	log.Infof("parent DS %s is gone or marked for deletion, this is not an upgrade, shutting down normally %s", dsName, err)
+	return false
 }
 
 type meshDataplane struct {
@@ -201,19 +216,24 @@ func (s *meshDataplane) Start(ctx context.Context) {
 	s.netServer.Start(ctx)
 }
 
-func (s *meshDataplane) Stop() {
-	log.Info("CNI ambient server terminating, cleaning up node net rules")
+func (s *meshDataplane) Stop(skipCleanup bool) {
+	// Remove host rules (or not) that allow pod healthchecks to work.
+	// These are not critical but if they are not in place pods that have
+	// already been captured will eventually start to fail kubelet healthchecks.
+	if !skipCleanup {
+		log.Info("CNI ambient server terminating, cleaning up node net rules")
 
-	log.Debug("removing host iptables rules")
-	s.hostIptables.DeleteHostRules()
+		log.Debug("removing host iptables rules")
+		s.hostIptables.DeleteHostRules()
 
-	log.Debug("destroying host ipset")
-	s.hostsideProbeIPSet.Flush()
-	if err := s.hostsideProbeIPSet.DestroySet(); err != nil {
-		log.Warnf("could not destroy host ipset on shutdown")
+		log.Debug("destroying host ipset")
+		s.hostsideProbeIPSet.Flush()
+		if err := s.hostsideProbeIPSet.DestroySet(); err != nil {
+			log.Warnf("could not destroy host ipset on shutdown")
+		}
 	}
 
-	s.netServer.Stop()
+	s.netServer.Stop(skipCleanup)
 }
 
 func (s *meshDataplane) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {

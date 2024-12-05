@@ -666,7 +666,7 @@ func (f *fakeServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isD
 func (f *fakeServer) Start(ctx context.Context) {
 }
 
-func (f *fakeServer) Stop() {
+func (f *fakeServer) Stop(_ bool) {
 }
 
 func (f *fakeServer) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {

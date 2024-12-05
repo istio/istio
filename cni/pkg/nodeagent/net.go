@@ -58,7 +58,7 @@ func (s *NetServer) Start(ctx context.Context) {
 	go s.ztunnelServer.Run(ctx)
 }
 
-func (s *NetServer) Stop() {
+func (s *NetServer) Stop(_ bool) {
 	log.Debug("stopping ztunnel server")
 	s.ztunnelServer.Close()
 }

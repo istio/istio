@@ -73,4 +73,8 @@ rules:
   {{- /* pods/status is less privileged than the full pod, and either can label. So use the lower pods/status */}}
   resources: ["pods/status"]
   verbs: ["patch", "update"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets"]
+  resourceNames: ["{{ template "name" . }}-node"]
+  verbs: ["get"]
 {{- end }}
