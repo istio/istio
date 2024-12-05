@@ -74,6 +74,11 @@ type collectionOptions struct {
 	debugger     *DebugHandler
 }
 
+type indexedDependency struct {
+	id  collectionUID
+	key string
+}
+
 // dependency is a specific thing that can be depended on
 type dependency struct {
 	id             collectionUID
