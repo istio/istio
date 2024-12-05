@@ -112,6 +112,14 @@ type index struct {
 	Network LookupNetwork
 	// LookupNetworkGateways provides a function to lookup all the known network gateways in the system.
 	LookupNetworkGateways LookupNetworkGateways
+	Flags                 FeatureFlags
+
+	stop chan struct{}
+}
+
+type FeatureFlags struct {
+	DefaultAllowFromWaypoint              bool
+	EnableK8SServiceSelectWorkloadEntries bool
 }
 
 type Options struct {
@@ -125,8 +133,20 @@ type Options struct {
 	LookupNetwork         LookupNetwork
 	LookupNetworkGateways LookupNetworkGateways
 	StatusNotifier        *activenotifier.ActiveNotifier
+	Flags                 FeatureFlags
 
 	Debugger *krt.DebugHandler
+}
+
+// KrtOptions is a small wrapper around KRT options to make it easy to provide a common set of options to all collections
+// without excessive duplication.
+type KrtOptions struct {
+	stop     chan struct{}
+	debugger *krt.DebugHandler
+}
+
+func (k KrtOptions) WithName(n string) []krt.CollectionOption {
+	return []krt.CollectionOption{krt.WithDebugging(k.debugger), krt.WithStop(k.stop), krt.WithName(n)}
 }
 
 func New(options Options) Index {
@@ -139,59 +159,64 @@ func New(options Options) Index {
 		XDSUpdater:            options.XDSUpdater,
 		Network:               options.LookupNetwork,
 		LookupNetworkGateways: options.LookupNetworkGateways,
+		Flags:                 options.Flags,
+		stop:                  make(chan struct{}),
 	}
 
 	filter := kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
 	}
-	withDebug := krt.WithDebugging(options.Debugger)
-	ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, krt.WithName("ConfigMaps"), withDebug)
+	opts := KrtOptions{
+		stop:     a.stop,
+		debugger: options.Debugger,
+	}
+	ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, opts.WithName("ConfigMaps")...)
 
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
 		gvr.AuthorizationPolicy, kubetypes.StandardInformer, filter)
-	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, krt.WithName("AuthorizationPolicies"), withDebug)
+	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, opts.WithName("AuthorizationPolicies")...)
 
 	peerAuths := kclient.NewDelayedInformer[*securityclient.PeerAuthentication](options.Client,
 		gvr.PeerAuthentication, kubetypes.StandardInformer, filter)
-	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, krt.WithName("PeerAuthentications"), withDebug)
+	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, opts.WithName("PeerAuthentications")...)
 
 	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](options.Client,
 		gvr.ServiceEntry, kubetypes.StandardInformer, filter)
-	ServiceEntries := krt.WrapClient[*networkingclient.ServiceEntry](serviceEntries, krt.WithName("ServiceEntries"), withDebug)
+	ServiceEntries := krt.WrapClient[*networkingclient.ServiceEntry](serviceEntries, opts.WithName("ServiceEntries")...)
 
 	workloadEntries := kclient.NewDelayedInformer[*networkingclient.WorkloadEntry](options.Client,
 		gvr.WorkloadEntry, kubetypes.StandardInformer, filter)
-	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, krt.WithName("WorkloadEntries"), withDebug)
+	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, opts.WithName("WorkloadEntries")...)
 
 	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](options.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
-	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, krt.WithName("Gateways"), withDebug)
+	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, opts.WithName("Gateways")...)
 
 	gatewayClassClient := kclient.NewDelayedInformer[*v1beta1.GatewayClass](options.Client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
-	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, krt.WithName("GatewayClasses"), withDebug)
+	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, opts.WithName("GatewayClasses")...)
 
 	servicesClient := kclient.NewFiltered[*v1.Service](options.Client, filter)
-	Services := krt.WrapClient[*v1.Service](servicesClient, krt.WithName("Services"), withDebug)
+	Services := krt.WrapClient[*v1.Service](servicesClient, opts.WithName("Services")...)
 	Nodes := krt.NewInformerFiltered[*v1.Node](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripNodeUnusedFields,
-	}, krt.WithName("Nodes"), withDebug)
+	}, opts.WithName("Nodes")...)
 	Pods := krt.NewInformerFiltered[*v1.Pod](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
-	}, krt.WithName("Pods"), withDebug)
+	}, opts.WithName("Pods")...)
 
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
-	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, krt.WithName("Namespaces"), withDebug)
+	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, opts.WithName("Namespaces")...)
 
 	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
-	}, krt.WithName("EndpointSlices"), withDebug)
+	}, opts.WithName("EndpointSlices")...)
 
-	MeshConfig := MeshConfigCollection(ConfigMaps, options, withDebug)
-	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods, withDebug)
+	MeshConfig := MeshConfigCollection(ConfigMaps, options, opts)
+	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods, opts)
 
 	// AllPolicies includes peer-authentication converted policies
-	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints, withDebug)
+	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints, opts, a.Flags)
 	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater,
 		func(i model.WorkloadAuthorization) model.ConfigKey {
 			if i.Authorization == nil {
@@ -204,7 +229,7 @@ func New(options Options) Index {
 	servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
 
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces, withDebug)
+	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces, opts)
 
 	WaypointPolicyStatus := WaypointPolicyStatusCollection(
 		AuthzPolicies,
@@ -212,7 +237,7 @@ func New(options Options) Index {
 		Services,
 		ServiceEntries,
 		Namespaces,
-		withDebug,
+		opts,
 	)
 
 	authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
@@ -297,7 +322,7 @@ func New(options Options) Index {
 		ServiceEntries,
 		EndpointSlices,
 		Namespaces,
-		withDebug,
+		opts,
 	)
 
 	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, networkAddressFromWorkload)
@@ -361,7 +386,7 @@ func New(options Options) Index {
 			WorkloadServiceIndex,
 			WorkloadServices,
 			ServiceAddressIndex,
-			withDebug,
+			opts,
 		)
 	}
 
@@ -626,6 +651,8 @@ func (a *index) Run(stop <-chan struct{}) {
 			a.statusQueue.Run(stop)
 		}()
 	}
+	<-stop
+	close(a.stop)
 }
 
 func (a *index) HasSynced() bool {

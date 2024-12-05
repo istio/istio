@@ -51,7 +51,7 @@ func RegisterEdsShim(
 	WorkloadsByServiceKey krt.Index[string, model.WorkloadInfo],
 	Services krt.Collection[model.ServiceInfo],
 	ServicesByAddress krt.Index[networkAddress, model.ServiceInfo],
-	withDebug krt.CollectionOption,
+	opts KrtOptions,
 ) {
 	ServiceEds := krt.NewCollection(
 		Services,
@@ -92,7 +92,7 @@ func RegisterEdsShim(
 				}),
 			}
 		},
-		krt.WithName("ServiceEds"), withDebug)
+		opts.WithName("ServiceEds")...)
 	ServiceEds.RegisterBatch(
 		PushXds(xdsUpdater, func(svc serviceEDS) model.ConfigKey {
 			ns, hostname, _ := strings.Cut(svc.ServiceKey, "/")
