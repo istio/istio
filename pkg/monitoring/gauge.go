@@ -48,8 +48,6 @@ func newGauge(o options) *gauge {
 
 func (f *gauge) Record(value float64) {
 	f.runRecordHook(value)
-	assertProviderSet()
-	log.Errorf("howardjohn: record guage %T %v", meter(), f.name)
 	f.g.Record(context.Background(), value, f.precomputedRecordOption...)
 }
 

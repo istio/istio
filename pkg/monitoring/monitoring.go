@@ -15,7 +15,6 @@
 package monitoring
 
 import (
-	"go.uber.org/atomic"
 	"net/http"
 	"sync"
 
@@ -44,18 +43,9 @@ func init() {
 	otel.SetLogger(log.NewLogrAdapter(monitoringLogger))
 }
 
-var globalMeterProviderSet = atomic.NewBool(false)
-
-func assertProviderSet() {
-	if !globalMeterProviderSet.Load() {
-		panic("!!")
-	}
-}
-
 // RegisterPrometheusExporter sets the global metrics handler to the provided Prometheus registerer and gatherer.
 // Returned is an HTTP handler that can be used to read metrics from.
 func RegisterPrometheusExporter(reg prometheus.Registerer, gatherer prometheus.Gatherer) (http.Handler, error) {
-	log.Errorf("howardjohn: REGISTER EXPORTER")
 	if reg == nil {
 		reg = prometheus.DefaultRegisterer
 	}
@@ -79,7 +69,6 @@ func RegisterPrometheusExporter(reg prometheus.Registerer, gatherer prometheus.G
 	opts = append(opts, knownMetrics.toHistogramViews()...)
 	mp := metric.NewMeterProvider(opts...)
 	otel.SetMeterProvider(mp)
-	globalMeterProviderSet.Store(true)
 	handler := promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{})
 	return handler, nil
 }
@@ -202,7 +191,6 @@ func NewSum(name, description string, opts ...Options) Metric {
 // NewGauge creates a new Gauge Metric. That means that data collected by the new
 // Metric will export only the last recorded value.
 func NewGauge(name, description string, opts ...Options) Metric {
-	log.Errorf("howardjohn: NEW GAUGE %v", name)
 	knownMetrics.register(MetricDefinition{
 		Name:        name,
 		Type:        "LastValue",
