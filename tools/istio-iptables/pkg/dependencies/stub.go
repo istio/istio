@@ -19,11 +19,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"istio.io/istio/pkg/log"
 	"os"
 	"strings"
 
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
