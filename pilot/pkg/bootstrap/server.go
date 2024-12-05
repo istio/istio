@@ -20,7 +20,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"istio.io/istio/pkg/monitoring"
 	"net"
 	"net/http"
 	"os"
@@ -74,6 +73,7 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
@@ -231,7 +231,6 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	})
 	e.ServiceDiscovery = ac
 
-	log.Errorf("howardjohn: REGISTER")
 	exporter, err := monitoring.RegisterPrometheusExporter(nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not set up prometheus exporter: %v", err)
