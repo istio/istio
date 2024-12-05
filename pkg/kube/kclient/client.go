@@ -176,7 +176,13 @@ func (n *informerClient[T]) ShutdownHandlers() {
 	}
 }
 
-func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
+type neverReady struct{}
+
+func (a neverReady) HasSynced() bool {
+	return false
+}
+
+func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) cache.ResourceEventHandlerRegistration {
 	fh := cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
 			if n.filter == nil {
@@ -195,9 +201,10 @@ func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 	reg, err := n.informer.AddEventHandler(fh)
 	if err != nil {
 		// Should only happen if its already stopped. We should exit early.
-		return
+		return neverReady{}
 	}
 	n.registeredHandlers = append(n.registeredHandlers, handlerRegistration{registration: reg, handler: h})
+	return reg
 }
 
 func (n *informerClient[T]) HasSynced() bool {
@@ -213,6 +220,10 @@ func (n *informerClient[T]) HasSynced() bool {
 		}
 	}
 	return true
+}
+
+func (n *informerClient[T]) HasSyncedIgnoringHandlers() bool {
+	return n.informer.HasSynced()
 }
 
 func (n *informerClient[T]) List(namespace string, selector klabels.Selector) []T {

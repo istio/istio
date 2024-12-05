@@ -36,9 +36,25 @@ type delayedClient[T controllers.ComparableObject] struct {
 	delayed kubetypes.DelayedFilter
 
 	hm       sync.Mutex
-	handlers []cache.ResourceEventHandler
+	handlers []delayedHandler
 	indexers []delayedIndex[T]
 	started  <-chan struct{}
+}
+
+type delayedHandler struct {
+	cache.ResourceEventHandler
+	hasSynced delayedHandlerRegistration
+}
+
+type delayedHandlerRegistration struct {
+	hasSynced *atomic.Pointer[func() bool]
+}
+
+func (r delayedHandlerRegistration) HasSynced() bool {
+	if s := r.hasSynced.Load(); s != nil {
+		return (*s)()
+	}
+	return false
 }
 
 type delayedIndex[T any] struct {
@@ -86,19 +102,35 @@ func (s *delayedClient[T]) ListUnfiltered(namespace string, selector klabels.Sel
 	return nil
 }
 
-func (s *delayedClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
+func (s *delayedClient[T]) AddEventHandler(h cache.ResourceEventHandler) cache.ResourceEventHandlerRegistration {
 	if c := s.inf.Load(); c != nil {
-		(*c).AddEventHandler(h)
-	} else {
-		s.hm.Lock()
-		defer s.hm.Unlock()
-		s.handlers = append(s.handlers, h)
+		return (*c).AddEventHandler(h)
 	}
+	s.hm.Lock()
+	defer s.hm.Unlock()
+
+	hasSynced := delayedHandlerRegistration{hasSynced: new(atomic.Pointer[func() bool])}
+	hasSynced.hasSynced.Store(ptr.Of(s.delayed.HasSynced))
+	s.handlers = append(s.handlers, delayedHandler{
+		ResourceEventHandler: h,
+		hasSynced:            hasSynced,
+	})
+	return hasSynced
 }
 
 func (s *delayedClient[T]) HasSynced() bool {
 	if c := s.inf.Load(); c != nil {
 		return (*c).HasSynced()
+	}
+	// If we haven't loaded the informer yet, we want to check if the delayed filter is synced.
+	// This ensures that at startup, we only return HasSynced=true if we are sure the CRD is not ready.
+	hs := s.delayed.HasSynced()
+	return hs
+}
+
+func (s *delayedClient[T]) HasSyncedIgnoringHandlers() bool {
+	if c := s.inf.Load(); c != nil {
+		return (*c).HasSyncedIgnoringHandlers()
 	}
 	// If we haven't loaded the informer yet, we want to check if the delayed filter is synced.
 	// This ensures that at startup, we only return HasSynced=true if we are sure the CRD is not ready.
@@ -133,7 +165,8 @@ func (s *delayedClient[T]) set(inf Informer[T]) {
 		s.hm.Lock()
 		defer s.hm.Unlock()
 		for _, h := range s.handlers {
-			inf.AddEventHandler(h)
+			reg := inf.AddEventHandler(h)
+			h.hasSynced.hasSynced.Store(ptr.Of(reg.HasSynced))
 		}
 		s.handlers = nil
 		for _, i := range s.indexers {

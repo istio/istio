@@ -24,6 +24,7 @@ type Syncer interface {
 var (
 	_ Syncer = channelSyncer{}
 	_ Syncer = pollSyncer{}
+	_ Syncer = multiSyncer{}
 )
 
 type channelSyncer struct {
