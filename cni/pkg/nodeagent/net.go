@@ -223,14 +223,14 @@ func getPodLevelTrafficOverrides(pod *corev1.Pod) iptables.PodLevelOverrides {
 func realDependenciesHost() *dep.RealDependencies {
 	return &dep.RealDependencies{
 		UsePodScopedXtablesLock: false,
-		NetworkNamespace:         "",
+		NetworkNamespace:        "",
 	}
 }
 
 func realDependenciesInpod(useScopedLocks bool) *dep.RealDependencies {
 	return &dep.RealDependencies{
 		UsePodScopedXtablesLock: useScopedLocks,
-		NetworkNamespace:         "",
+		NetworkNamespace:        "",
 	}
 }
 
