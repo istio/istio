@@ -358,7 +358,7 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 	setup(t)
 	commonCases := getCommonTestCases()
 	ext := &dep.RealDependencies{
-		HostFilesystemPodNetwork: false,
+		UsePodScopedXtablesLock: false,
 		NetworkNamespace:         "",
 	}
 	iptVer, err := ext.DetectIptablesVersion(false)
@@ -437,7 +437,7 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 	setup(t)
 	commonCases := getCommonTestCases()
 	ext := &dep.RealDependencies{
-		HostFilesystemPodNetwork: false,
+		UsePodScopedXtablesLock: false,
 		NetworkNamespace:         "",
 	}
 	iptVer, err := ext.DetectIptablesVersion(false)
