@@ -203,7 +203,7 @@ func ProgramIptables(cfg *config.Config) error {
 	} else {
 		ext = &dep.RealDependencies{
 			UsePodScopedXtablesLock: cfg.HostFilesystemPodNetwork,
-			NetworkNamespace:         cfg.NetworkNamespace,
+			NetworkNamespace:        cfg.NetworkNamespace,
 		}
 	}
 
