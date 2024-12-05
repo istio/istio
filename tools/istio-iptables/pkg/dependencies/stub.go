@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"istio.io/istio/pkg/log"
 	"os"
 	"strings"
 
@@ -36,19 +37,19 @@ type DependenciesStub struct {
 	ExecutedAll      []string
 }
 
-func (s *DependenciesStub) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
+func (s *DependenciesStub) Run(logger *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
 	s.execute(false /*quietly*/, cmd, iptVer, stdin, args...)
 	_ = s.writeAllToDryRunPath()
 	return nil
 }
 
-func (s *DependenciesStub) RunWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error) {
+func (s *DependenciesStub) RunWithOutput(ogger *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error) {
 	s.execute(false /*quietly*/, cmd, iptVer, stdin, args...)
 	_ = s.writeAllToDryRunPath()
 	return &bytes.Buffer{}, nil
 }
 
-func (s *DependenciesStub) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
+func (s *DependenciesStub) RunQuietlyAndIgnore(logger *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
 	s.execute(true /*quietly*/, cmd, iptVer, stdin, args...)
 	_ = s.writeAllToDryRunPath()
 }

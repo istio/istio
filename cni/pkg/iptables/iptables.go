@@ -139,16 +139,16 @@ func NewIptablesConfigurator(
 	return configurator, inPodConfigurator, nil
 }
 
-func (cfg *IptablesConfigurator) DeleteInpodRules() error {
+func (cfg *IptablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
 	var inpodErrs []error
 
-	log.Debug("Deleting iptables rules")
-	cfg.executeDeleteCommands()
+	log.Debug("deleting iptables rules")
+	cfg.executeDeleteCommands(log)
 	inpodErrs = append(inpodErrs, cfg.delInpodMarkIPRule(), cfg.delLoopbackRoute())
 	return errors.Join(inpodErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeDeleteCommands() {
+func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 	deleteCmds := [][]string{
 		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
 		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
@@ -181,7 +181,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() {
 
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range deleteCmds {
-			cfg.ext.RunQuietlyAndIgnore(iptablesconstants.IPTables, &iptVer, nil, cmd...)
+			cfg.ext.RunQuietlyAndIgnore(log, iptablesconstants.IPTables, &iptVer, nil, cmd...)
 		}
 	}
 }
@@ -470,7 +470,7 @@ func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(
 	cmd := iptablesconstants.IPTablesRestore
 	log.Infof("Running %s with the following input:\n%v", iptVer.CmdToString(cmd), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(cmd, iptVer, strings.NewReader(data), "--noflush", "-v")
+	return cfg.ext.Run(log, cmd, iptVer, strings.NewReader(data), "--noflush", "-v")
 }
 
 func (cfg *IptablesConfigurator) addLoopbackRoute() error {
@@ -535,7 +535,7 @@ func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range optionalDeleteCmds {
 			// Ignore errors, as it is expected to fail in cases where the node is already cleaned up.
-			cfg.ext.RunQuietlyAndIgnore(iptablesconstants.IPTables, &iptVer, nil, cmd...)
+			cfg.ext.RunQuietlyAndIgnore(log.WithLabels("component", "host"), iptablesconstants.IPTables, &iptVer, nil, cmd...)
 		}
 	}
 }
