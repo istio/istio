@@ -302,7 +302,7 @@ func NewDelayedInformer[T controllers.ComparableObject](
 	inf := func() informerfactory.StartableInformer {
 		opts := ToOpts(c, gvr, filter)
 		opts.InformerType = informerType
-		return kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
+		return kubeclient.GetInformerFiltered[T](c, opts, gvr)
 	}
 	return newDelayedInformer[T](gvr, inf, delay, filter)
 }
