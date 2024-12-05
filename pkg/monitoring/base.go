@@ -16,7 +16,6 @@ package monitoring
 
 import (
 	"go.opentelemetry.io/otel/attribute"
-	"istio.io/istio/pkg/log"
 
 	"istio.io/istio/pkg/slices"
 )
@@ -33,7 +32,6 @@ func (f baseMetric) Name() string {
 }
 
 func (f baseMetric) Increment() {
-	log.Errorf("howardjohn: %T", meter())
 	f.rest.Record(1)
 }
 

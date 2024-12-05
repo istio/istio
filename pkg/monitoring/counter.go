@@ -48,7 +48,6 @@ func newCounter(o options) *counter {
 
 func (f *counter) Record(value float64) {
 	f.runRecordHook(value)
-	assertProviderSet()
 	f.c.Add(context.Background(), value, f.precomputedAddOption...)
 }
 

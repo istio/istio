@@ -48,7 +48,6 @@ func newDistribution(o options) *distribution {
 
 func (f *distribution) Record(value float64) {
 	f.runRecordHook(value)
-	assertProviderSet()
 	f.d.Record(context.Background(), value, f.precomputedRecordOption...)
 }
 
