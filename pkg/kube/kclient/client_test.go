@@ -234,10 +234,9 @@ func TestDelayedClientWithRegisteredType(t *testing.T) {
 	kube.WaitForCacheSync("sync test", ctx.Done(), inf.HasSynced)
 
 	items := inf.List("test-ns", klabels.Everything())
-	if len(items) <= 0 {
+	if len(items) == 0 {
 		t.Fatalf("expected > 0 items, got %d", len(items))
 	}
-
 	if items[0].Name != "fake-item" {
 		t.Fatalf("expected item name 'fake-item', got '%s'", items[0].Name)
 	}
