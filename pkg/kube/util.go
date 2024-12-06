@@ -214,8 +214,6 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 func CheckPodTerminal(pod *corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodSucceeded
 }
-
-
 // CheckPodRunning returns true if the pod's phase is Running || Succeeded.
 func CheckPodRunning(pod *corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded
