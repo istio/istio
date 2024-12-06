@@ -63,6 +63,11 @@ func (m *MockedIpsetDeps) clearEntriesWithIP(name string, ip netip.Addr) error {
 	return args.Error(0)
 }
 
+func (m *MockedIpsetDeps) clearEntriesWithIPAndComment(name string, ip netip.Addr, comment string) (string, error) {
+	args := m.Called(name, ip, comment)
+	return args.Get(0).(string), args.Error(1)
+}
+
 func (m *MockedIpsetDeps) listEntriesByIP(name string) ([]netip.Addr, error) {
 	args := m.Called(name)
 	return args.Get(0).([]netip.Addr), args.Error(1)

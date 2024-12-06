@@ -121,6 +121,36 @@ func (m *realDeps) clearEntriesWithComment(name, comment string) error {
 	return nil
 }
 
+// clearEntriesWithIPAndComment takes an IP and a comment string and deletes any ipset entries where
+// both match the entry.
+//
+// Returns a non-nil error if listing or deletion fails.
+// For the first matching IP found in the list, *only* removes the entry if *both* the IP and comment match.
+// If the IP matches but the comment does not, returns the actual comment found to the caller, and does not
+// remove any entries.
+//
+// Otherwise, returns an empty string.
+func (m *realDeps) clearEntriesWithIPAndComment(name string, ip netip.Addr, comment string) (string, error) {
+	delIP := net.IP(ip.AsSlice())
+	res, err := netlink.IpsetList(name)
+	if err != nil {
+		return "", fmt.Errorf("failed to list ipset %s: %w", name, err)
+	}
+	for _, entry := range res.Entries {
+		if entry.IP.Equal(delIP) {
+			if entry.Comment == comment {
+				err := netlink.IpsetDel(name, &entry)
+				if err != nil {
+					return "", fmt.Errorf("failed to delete IP %s from ipset %s: %w", entry.IP, name, err)
+				}
+			} else {
+				return entry.Comment, nil
+			}
+		}
+	}
+	return "", nil
+}
+
 func (m *realDeps) clearEntriesWithIP(name string, ip netip.Addr) error {
 	delIP := net.IP(ip.AsSlice())
 	res, err := netlink.IpsetList(name)
