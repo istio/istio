@@ -18,20 +18,13 @@
 package cni
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
-	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	common_deploy "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -240,16 +233,19 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 			volPatch := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"volumes":[{"name":"cni-net-dir","hostPath":{"path": "%s", "type": ""}}]}}}}`, "/etc/cni/nope.d"))
 
 			t.Log("Patching the CNI Daemonset")
-			_ = patchCNIDaemonSet(t, c, volPatch)
+			_ = util.PatchCNIDaemonSet(t, c, i.Settings().SystemNamespace, volPatch)
 
-			rolloutCmd := fmt.Sprintf("kubectl rollout restart daemonset/%s -n %s", "istio-cni-node", i.Settings().SystemNamespace)
+			// Why not use `rollout restart` here? It waits for each node's pod to go healthy,
+			// so if we intentionally break the DS, we'll never finish breaking all the nodes.
+			// So, delete all the pods at once by label
+			restartDSPodsCmd := fmt.Sprintf("kubectl delete pods -l k8s-app=istio-cni-node -n %s", i.Settings().SystemNamespace)
 
 			retry.UntilSuccessOrFail(t, func() error {
-				t.Log("Rollout restart CNI daemonset to get a fixed instance")
+				t.Log("Restart CNI daemonset pods to get broken instances on every node")
 				// depending on timing it can actually take little bit for the patch to be applied and
 				// to get all pods to enter a broken state break - so rely on the retry delay to sort that for us
-				if _, err := shell.Execute(true, rolloutCmd); err != nil {
-					t.Fatalf("failed to rollout restart deployments %v", err)
+				if _, err := shell.Execute(true, restartDSPodsCmd); err != nil {
+					t.Fatalf("failed to restart daemonset pods %v", err)
 				}
 
 				time.Sleep(1 * time.Second)
@@ -272,18 +268,18 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 			fixedVolPatch := []byte(fmt.Sprintf(`{"spec":{"template":{"spec":{"volumes":[{"name":"cni-net-dir","hostPath":{"path": "%s", "type": ""}}]}}}}`, "/etc/cni/net.d"))
 
 			t.Log("Re-patching the CNI Daemonset")
-			_ = patchCNIDaemonSet(t, c, fixedVolPatch)
+			_ = util.PatchCNIDaemonSet(t, c, i.Settings().SystemNamespace, fixedVolPatch)
 
 			// Need to sleep a bit to make sure this takes,
-			// and also to avoid `rollout restart`-ing too fast, which can give an error like
+			// and also to avoid `restart`-ing too fast, which can give an error like
 			// `if restart has already been triggered within the past second, please wait before attempting to trigger another`
 			time.Sleep(1 * time.Second)
 
-			// Rollout restart CNI pods so they get the fixed config.
+			// Restart CNI pods so they get the fixed config.
 			// to _fix_ the pods we should only have to do this *once*
-			t.Log("Rollout restart CNI daemonset to get a fixed instance")
-			if _, err := shell.Execute(true, rolloutCmd); err != nil {
-				t.Fatalf("failed to rollout restart deployments %v", err)
+			t.Log("Restart CNI daemonset to get a fixed instance on every node")
+			if _, err := shell.Execute(true, restartDSPodsCmd); err != nil {
+				t.Fatalf("failed to restart daemonset %v", err)
 			}
 
 			retry.UntilSuccessOrFail(t, func() error {
@@ -295,17 +291,4 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 				return fmt.Errorf("still waiting for CNI pods to heal")
 			}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 		})
-}
-
-func patchCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster, patch []byte) *appsv1.DaemonSet {
-	cniDaemonSet, err := c.(istioKube.CLIClient).
-		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
-		Patch(context.Background(), "istio-cni-node", types.StrategicMergePatchType, patch, metav1.PatchOptions{})
-	if err != nil {
-		ctx.Fatalf("failed to patch CNI Daemonset %v from ns %s", err, i.Settings().SystemNamespace)
-	}
-	if cniDaemonSet == nil {
-		ctx.Fatal("cannot find CNI Daemonset")
-	}
-	return cniDaemonSet
 }

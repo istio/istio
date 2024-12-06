@@ -118,11 +118,7 @@ func ScaleCNIDaemonsetToZeroPods(ctx framework.TestContext, c cluster.Cluster, s
 			}
 		}`
 
-	if _, err := c.(istioKube.CLIClient).
-		Kube().AppsV1().DaemonSets(systemNamespace).
-		Patch(context.Background(), "istio-cni-node", types.StrategicMergePatchType, []byte(patchData), metav1.PatchOptions{}); err != nil {
-		ctx.Fatalf("failed to patch CNI Daemonset %v", err)
-	}
+	PatchCNIDaemonSet(ctx, c, systemNamespace, []byte(patchData))
 
 	// Wait until the CNI Daemonset pod cannot be fetched anymore
 	retry.UntilSuccessOrFail(ctx, func() error {
@@ -170,4 +166,17 @@ func WaitForStalledPodOrFail(t framework.TestContext, cluster cluster.Cluster, n
 		}
 		return fmt.Errorf("cannot find any pod with wanted failure status")
 	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
+}
+
+func PatchCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster, systemNamespace string, patch []byte) *appsv1.DaemonSet {
+	cniDaemonSet, err := c.(istioKube.CLIClient).
+		Kube().AppsV1().DaemonSets(systemNamespace).
+		Patch(context.Background(), "istio-cni-node", types.StrategicMergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		ctx.Fatalf("failed to patch CNI Daemonset %v from ns %s", err, systemNamespace)
+	}
+	if cniDaemonSet == nil {
+		ctx.Fatal("cannot find CNI Daemonset")
+	}
+	return cniDaemonSet
 }
