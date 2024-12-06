@@ -3535,6 +3535,8 @@ spec:
 
 	for _, client := range flatten(t.Apps.VM, t.Apps.A, t.Apps.Tproxy) {
 		v4, v6 := getSupportedIPFamilies(t, client)
+		log := scopes.Framework.WithLabels("client", client.ServiceName())
+
 		var expectedIPv4, expectedIPv6 []string
 		if v4 && v6 {
 			expectedIPv4 = ipv4
@@ -3546,6 +3548,7 @@ spec:
 			expectedIPv4 = ipv4[:1]
 			expectedIPv6 = ipv6
 		}
+		log.Infof("%v/%v: %v/%v", v4, v6, expectedIPv4, expectedIPv6)
 		// If a client is deployed in a remote cluster, which is not a config cluster, i.e. Istio resources
 		// are not created in that cluster, it will resolve only the default address, because the ServiceEntry
 		// created in this test is internally assigned to the config cluster, so function GetAllAddressesForProxy(remote),
@@ -3635,6 +3638,7 @@ spec:
 			if tt.expected == nil {
 				checker = check.Error()
 			}
+			log.Infof("%v: %v", address, tt.expected)
 			t.RunTraffic(TrafficTestCase{
 				name:   fmt.Sprintf("%s/%s", client.Config().Service, tt.name),
 				config: makeSE(tt.ips...),
