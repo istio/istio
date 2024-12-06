@@ -18,22 +18,12 @@
 package cniupgrade
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"strings"
 	"testing"
-	"time"
-
-	appsv1 "k8s.io/api/apps/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
-	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	common_deploy "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -45,7 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
-	"istio.io/istio/pkg/test/util/retry"
+	util "istio.io/istio/tests/integration/ambient"
 	"istio.io/istio/tests/integration/pilot/common"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
@@ -196,10 +186,10 @@ func TestTrafficWithCNIUpgrade(t *testing.T) {
 			// This is tricky to orchestrate in a test flow as by-design DSes don't scale to 0.
 			// But, we can hack the DS selector to mimic this.
 			t.Log("Updating CNI Daemonset")
-			origCNIDaemonSet := getCNIDaemonSet(t, c)
+			origCNIDaemonSet := util.GetCNIDaemonSet(t, c, i.Settings().SystemNamespace)
 
 			// Leave the DS in place, but cause all its backing pods to terminate.
-			scaleCNIDaemonsetToZeroPods(t, c)
+			util.ScaleCNIDaemonsetToZeroPods(t, c, i.Settings().SystemNamespace)
 
 			// Rollout restart app instances in the echo namespace, and wait for a broken instance.
 			// Because the CNI daemonset was not marked for deleting when the CNI daemonset pods shut down,
@@ -212,13 +202,13 @@ func TestTrafficWithCNIUpgrade(t *testing.T) {
 			}
 
 			// Since the CNI plugin is in place but no agent is there, pods should stall infinitely
-			waitForStalledPodOrFail(t, c, ns)
+			util.WaitForStalledPodOrFail(t, c, ns)
 
 			t.Log("Redeploy CNI")
 			// The only thing left is the raw DS with no backing pods, so just delete it
-			deleteCNIDaemonset(t, c)
+			util.DeleteCNIDaemonset(t, c, i.Settings().SystemNamespace)
 			// Now bring back the original CNI Daemonset, which should recreate backing pods
-			deployCNIDaemonset(t, c, origCNIDaemonSet)
+			util.DeployCNIDaemonset(t, c, origCNIDaemonSet)
 
 			// Rollout restart app instances in the echo namespace, which should schedule now
 			// that the CNI daemonset is back
@@ -230,124 +220,4 @@ func TestTrafficWithCNIUpgrade(t *testing.T) {
 			// Everyone should be happy
 			common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
 		})
-}
-
-func getCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster) *appsv1.DaemonSet {
-	cniDaemonSet, err := c.(istioKube.CLIClient).
-		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
-		Get(context.Background(), "istio-cni-node", metav1.GetOptions{})
-	if err != nil {
-		ctx.Fatalf("failed to get CNI Daemonset %v from ns %s", err, i.Settings().SystemNamespace)
-	}
-	if cniDaemonSet == nil {
-		ctx.Fatal("cannot find CNI Daemonset")
-	}
-	return cniDaemonSet
-}
-
-// scaleCNIDaemonsetToZeroPods patches the DS with a non-existing node selector.
-// This will cause the DS to "scale down" to 0 pods, while leaving the
-// actual DS resource in-place for our test (important for CNI upgrade flow test)
-func scaleCNIDaemonsetToZeroPods(ctx framework.TestContext, c cluster.Cluster) {
-	patchData := `{
-			"spec": {
-				"template": {
-					"spec": {
-						"nodeSelector": {
-							"non-existing": "true"
-						}
-					}
-				}
-			}
-		}`
-
-	if _, err := c.(istioKube.CLIClient).
-		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
-		Patch(context.Background(), "istio-cni-node", types.StrategicMergePatchType, []byte(patchData), metav1.PatchOptions{}); err != nil {
-		ctx.Fatalf("failed to patch CNI Daemonset %v", err)
-	}
-
-	// Wait until the CNI Daemonset pod cannot be fetched anymore
-	retry.UntilSuccessOrFail(ctx, func() error {
-		scopes.Framework.Infof("Checking if CNI Daemonset pods are deleted...")
-		pods, err := c.PodsForSelector(context.TODO(), i.Settings().SystemNamespace, "k8s-app=istio-cni-node")
-		if err != nil {
-			return err
-		}
-		if len(pods.Items) > 0 {
-			return errors.New("CNI Daemonset pod still exists after deletion")
-		}
-		return nil
-	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
-}
-
-func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
-	if err := c.(istioKube.CLIClient).
-		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
-		Delete(context.Background(), "istio-cni-node", metav1.DeleteOptions{}); err != nil {
-		ctx.Fatalf("failed to delete CNI Daemonset %v", err)
-	}
-
-	// Wait until the CNI Daemonset pod cannot be fetched anymore
-	retry.UntilSuccessOrFail(ctx, func() error {
-		scopes.Framework.Infof("Checking if CNI Daemonset pods are deleted...")
-		pods, err := c.PodsForSelector(context.TODO(), i.Settings().SystemNamespace, "k8s-app=istio-cni-node")
-		if err != nil {
-			return err
-		}
-		if len(pods.Items) > 0 {
-			return errors.New("CNI Daemonset pod still exists after deletion")
-		}
-		return nil
-	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
-}
-
-func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonSet *appsv1.DaemonSet) {
-	deployDaemonSet := appsv1.DaemonSet{}
-	deployDaemonSet.Spec = cniDaemonSet.Spec
-	deployDaemonSet.ObjectMeta = metav1.ObjectMeta{
-		Name:        cniDaemonSet.ObjectMeta.Name,
-		Namespace:   cniDaemonSet.ObjectMeta.Namespace,
-		Labels:      cniDaemonSet.ObjectMeta.Labels,
-		Annotations: cniDaemonSet.ObjectMeta.Annotations,
-	}
-	_, err := c.(istioKube.CLIClient).Kube().AppsV1().DaemonSets(cniDaemonSet.ObjectMeta.Namespace).
-		Create(context.Background(), &deployDaemonSet, metav1.CreateOptions{})
-	if err != nil {
-		ctx.Fatalf("failed to deploy CNI Daemonset %v", err)
-	}
-}
-
-func waitForStalledPodOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {
-	retry.UntilSuccessOrFail(t, func() error {
-		pods, err := cluster.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		if len(pods.Items) == 0 {
-			return fmt.Errorf("still waiting the pod in namespace %v to start", ns.Name())
-		}
-		// Verify that every pod is in broken state due to CNI plugin failure.
-		for _, p := range pods.Items {
-			for _, cState := range p.Status.ContainerStatuses {
-				waiting := cState.State.Waiting
-
-				scopes.Framework.Infof("checking pod status for stall")
-				if waiting != nil && waiting.Reason == "ContainerCreating" {
-					scopes.Framework.Infof("checking pod events")
-					events, err := cluster.Kube().CoreV1().Events(ns.Name()).List(context.TODO(), metav1.ListOptions{})
-					if err != nil {
-						return err
-					}
-					for _, ev := range events.Items {
-						if ev.InvolvedObject.Name == p.Name && strings.Contains(ev.Message, "Failed to create pod sandbox") {
-							return nil
-						}
-					}
-				}
-
-			}
-		}
-		return fmt.Errorf("cannot find any pod with wanted failure status")
-	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 }

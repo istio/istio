@@ -19,7 +19,6 @@ package cni
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -46,6 +45,7 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
+	util "istio.io/istio/tests/integration/ambient"
 	"istio.io/istio/tests/integration/pilot/common"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
@@ -192,7 +192,7 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 			c := t.Clusters().Default()
 			t.Log("Getting current daemonset")
 			// mostly a correctness check - to make sure it's actually there
-			origDS := getCNIDaemonSet(t, c)
+			origDS := util.GetCNIDaemonSet(t, c, i.Settings().SystemNamespace)
 
 			ns := apps.SingleNamespaceView().EchoNamespace.Namespace
 			fetchFn := testKube.NewPodFetch(c, ns.Name())
@@ -203,14 +203,14 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 
 			t.Log("Deleting current daemonset")
 			// Delete JUST the daemonset - ztunnel + workloads remain in place
-			deleteCNIDaemonset(t, c)
+			util.DeleteCNIDaemonset(t, c, i.Settings().SystemNamespace)
 
 			// Our echo instances have already been deployed/configured by the CNI,
 			// so the CNI being removed should not disrupt them.
 			common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
 
 			// put it back
-			deployCNIDaemonset(t, c, origDS)
+			util.DeployCNIDaemonset(t, c, origDS)
 		})
 }
 
@@ -228,7 +228,7 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 			// I don't think we have a good way to solve this ATM so doing stuff like this is as
 			// good as it gets, short of creating an entirely new suite for every possibly-cluster-destructive op.
 			retry.UntilSuccessOrFail(t, func() error {
-				ensureCNIDS := getCNIDaemonSet(t, c)
+				ensureCNIDS := util.GetCNIDaemonSet(t, c, i.Settings().SystemNamespace)
 				if ensureCNIDS.Status.NumberReady == ensureCNIDS.Status.DesiredNumberScheduled {
 					return nil
 				}
@@ -254,7 +254,7 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 
 				time.Sleep(1 * time.Second)
 
-				brokenCNIDS := getCNIDaemonSet(t, c)
+				brokenCNIDS := util.GetCNIDaemonSet(t, c, i.Settings().SystemNamespace)
 				t.Log("Checking for broken DS")
 				if brokenCNIDS.Status.NumberReady == 0 {
 					return nil
@@ -287,7 +287,7 @@ func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 			}
 
 			retry.UntilSuccessOrFail(t, func() error {
-				fixedCNIDaemonSet := getCNIDaemonSet(t, c)
+				fixedCNIDaemonSet := util.GetCNIDaemonSet(t, c, i.Settings().SystemNamespace)
 				t.Log("Checking for happy DS")
 				if fixedCNIDaemonSet.Status.NumberReady == fixedCNIDaemonSet.Status.DesiredNumberScheduled {
 					return nil
@@ -308,54 +308,4 @@ func patchCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster, patch []byt
 		ctx.Fatal("cannot find CNI Daemonset")
 	}
 	return cniDaemonSet
-}
-
-func getCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster) *appsv1.DaemonSet {
-	cniDaemonSet, err := c.(istioKube.CLIClient).
-		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
-		Get(context.Background(), "istio-cni-node", metav1.GetOptions{})
-	if err != nil {
-		ctx.Fatalf("failed to get CNI Daemonset %v from ns %s", err, i.Settings().SystemNamespace)
-	}
-	if cniDaemonSet == nil {
-		ctx.Fatal("cannot find CNI Daemonset")
-	}
-	return cniDaemonSet
-}
-
-func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
-	if err := c.(istioKube.CLIClient).
-		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
-		Delete(context.Background(), "istio-cni-node", metav1.DeleteOptions{}); err != nil {
-		ctx.Fatalf("failed to delete CNI Daemonset %v", err)
-	}
-
-	// Wait until the CNI Daemonset pod cannot be fetched anymore
-	retry.UntilSuccessOrFail(ctx, func() error {
-		scopes.Framework.Infof("Checking if CNI Daemonset pods are deleted...")
-		pods, err := c.PodsForSelector(context.TODO(), i.Settings().SystemNamespace, "k8s-app=istio-cni-node")
-		if err != nil {
-			return err
-		}
-		if len(pods.Items) > 0 {
-			return errors.New("CNI Daemonset pod still exists after deletion")
-		}
-		return nil
-	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
-}
-
-func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonSet *appsv1.DaemonSet) {
-	deployDaemonSet := appsv1.DaemonSet{}
-	deployDaemonSet.Spec = cniDaemonSet.Spec
-	deployDaemonSet.ObjectMeta = metav1.ObjectMeta{
-		Name:        cniDaemonSet.ObjectMeta.Name,
-		Namespace:   cniDaemonSet.ObjectMeta.Namespace,
-		Labels:      cniDaemonSet.ObjectMeta.Labels,
-		Annotations: cniDaemonSet.ObjectMeta.Annotations,
-	}
-	_, err := c.(istioKube.CLIClient).Kube().AppsV1().DaemonSets(cniDaemonSet.ObjectMeta.Namespace).
-		Create(context.Background(), &deployDaemonSet, metav1.CreateOptions{})
-	if err != nil {
-		ctx.Fatalf("failed to deploy CNI Daemonset %v", err)
-	}
 }
