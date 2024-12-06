@@ -53,7 +53,7 @@ var (
 	)
 )
 
-func addMonitor(exporter http.Handler, mux *http.ServeMux) error {
+func addMonitor(exporter http.Handler, mux *http.ServeMux) {
 	mux.Handle(metricsPath, metricsMiddleware(exporter))
 
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
@@ -61,8 +61,6 @@ func addMonitor(exporter http.Handler, mux *http.ServeMux) error {
 			log.Errorf("Unable to write version string: %v", err)
 		}
 	})
-
-	return nil
 }
 
 func metricsMiddleware(handler http.Handler) http.Handler {
@@ -94,9 +92,7 @@ func startMonitor(exporter http.Handler, addr string, mux *http.ServeMux) (*moni
 	// for pilot. a full design / implementation of self-monitoring and reporting
 	// is coming. that design will include proper coverage of statusz/healthz type
 	// functionality, in addition to how pilot reports its own metrics.
-	if err := addMonitor(exporter, mux); err != nil {
-		return nil, fmt.Errorf("could not establish self-monitoring: %v", err)
-	}
+	addMonitor(exporter, mux)
 	if addr != "" {
 		m.monitoringServer = &http.Server{
 			Addr:        listener.Addr().String(),
