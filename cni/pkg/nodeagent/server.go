@@ -45,6 +45,7 @@ type MeshDataplane interface {
 	ConstructInitialSnapshot(ambientPods []*corev1.Pod) error
 	Start(ctx context.Context)
 
+	//	IsPodInMesh(ctx context.Context, pod *metav1.ObjectMeta, netNs string) (bool, error)
 	AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error
 	RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error
 
@@ -245,6 +246,11 @@ func (s *meshDataplane) ConstructInitialSnapshot(ambientPods []*corev1.Pod) erro
 }
 
 func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
+	// Ordering is important in this func:
+	//
+	// - Inject rules and add to ztunnel FIRST
+	// - Annotate IF rule injection doesn't fail.
+	// - Add pod IP to ipset IF none of the above has failed, as a last step	
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	var retErr error
 	err := s.netServer.AddPodToMesh(ctx, pod, podIPs, netNs)
@@ -359,19 +365,19 @@ func (s *meshDataplane) syncHostIPSets(ambientPods []*corev1.Pod) error {
 //
 // Dupe IPs should be considered an IPAM error and should never happen.
 func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr) ([]netip.Addr, error) {
-	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	// Add the pod UID as an ipset entry comment, so we can (more) easily find and delete
 	// all relevant entries for a pod later.
 	podUID := string(pod.ObjectMeta.UID)
 	ipProto := uint8(unix.IPPROTO_TCP)
-
+	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name, "podUID", podUID, "ipset", s.hostsideProbeIPSet.Prefix)
+	
 	var ipsetAddrErrs []error
 	var addedIps []netip.Addr
 
 	// For each pod IP
 	for _, pip := range podIPs {
 		// Add to host ipset
-		log.Debugf("adding pod probe to ipset %s with ip %s", s.hostsideProbeIPSet.Prefix, pip)
+		log.Debugf("adding probe ip %s to set", pip)
 		// Add IP/port combo to set. Note that we set Replace to false here - we _did_ previously
 		// set it to true, but in theory that could mask weird scenarios where K8S triggers events out of order ->
 		// an add(sameIPreused) then delete(originalIP).
@@ -382,8 +388,8 @@ func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr
 		// a pod by an IP we already have in the set (which will give an error, which we want).
 		if err := s.hostsideProbeIPSet.AddIP(pip, ipProto, podUID, false); err != nil {
 			ipsetAddrErrs = append(ipsetAddrErrs, err)
-			log.Errorf("failed adding pod to ipset %s with ip %s: %v",
-				s.hostsideProbeIPSet.Prefix, pip, err)
+			log.Errorf("failed adding ip %s to set, error was %s",
+				pod.Name, &s.hostsideProbeIPSet.Prefix, pip, podUID, err)
 		} else {
 			addedIps = append(addedIps, pip)
 		}

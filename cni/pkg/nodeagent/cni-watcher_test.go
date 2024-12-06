@@ -211,7 +211,7 @@ func TestGetPodWithRetry(t *testing.T) {
 	t.Run("pod out of ambient", func(t *testing.T) {
 		p, err := pluginServer.getPodWithRetry(log, podOutOfAmbient.Name, pod.Namespace)
 		assert.Error(t, err)
-		assert.Equal(t, true, strings.Contains(err.Error(), "unexpectedly not enrolled in ambient"))
+		assert.Equal(t, true, strings.Contains(err.Error(), "unexpectedly not eligible for ambient enrollment"))
 		assert.Equal(t, p, nil)
 	})
 }

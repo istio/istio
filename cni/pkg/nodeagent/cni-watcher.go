@@ -198,7 +198,7 @@ func (s *CniPluginServer) getPodWithRetry(log *istiolog.Scope, name, namespace s
 	// The plugin already consulted the k8s API - but on this end handler caches may be stale, so retry a few times if we get no pod.
 	// if err is returned, we couldn't find the pod
 	// if nil is returned, we found it but ambient is not enabled
-	for ambientPod, err = s.handlers.GetPodIfAmbient(name, namespace); (err != nil) && (retries < maxStaleRetries); retries++ {
+	for ambientPod, err = s.handlers.GetPodIfAmbientEnabled(name, namespace); (err != nil) && (retries < maxStaleRetries); retries++ {
 		log.Warnf("got an event for pod %s in namespace %s not found in current pod cache, retry %d of %d",
 			name, namespace, retries, maxStaleRetries)
 		if !sleep.UntilContext(s.ctx, time.Duration(msInterval)*time.Millisecond) {
@@ -209,9 +209,10 @@ func (s *CniPluginServer) getPodWithRetry(log *istiolog.Scope, name, namespace s
 		return nil, fmt.Errorf("failed to get pod %s/%s: %v", namespace, name, err)
 	}
 
-	// This shouldn't happen - we only trigger this when a pod is added to ambient.
+	// This shouldn't happen - the CNI plugin should only invoke us when a pod starts up that already meets
+	// ambient eligibility requirements.
 	if ambientPod == nil {
-		return nil, fmt.Errorf("pod %s/%s is unexpectedly not enrolled in ambient", namespace, name)
+		return nil, fmt.Errorf("pod %s/%s is unexpectedly not eligible for ambient enrollment", namespace, name)
 	}
 	return ambientPod, nil
 }
