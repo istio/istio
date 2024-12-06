@@ -291,7 +291,7 @@ func (cfg *IptablesConfigurator) Run() error {
 		// Best effort since we don't know if the commands exist
 		_ = cfg.ext.Run(log.WithLabels(), constants.IPTablesSave, &iptVer, nil)
 		if cfg.cfg.EnableIPv6 {
-			_ = cfg.ext.Run(log.WithLabels(),constants.IPTablesSave, &ipt6Ver, nil)
+			_ = cfg.ext.Run(log.WithLabels(), constants.IPTablesSave, &ipt6Ver, nil)
 		}
 	}()
 
@@ -586,7 +586,7 @@ func (f UDPRuleApplier) RunV6(args ...string) {
 	case DeleteOps:
 		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
 		deleteArgs = append(deleteArgs, args...)
-		f.ext.RunQuietlyAndIgnore(log.WithLabels(),constants.IPTables, f.ipt6V, nil, deleteArgs...)
+		f.ext.RunQuietlyAndIgnore(log.WithLabels(), constants.IPTables, f.ipt6V, nil, deleteArgs...)
 	}
 }
 

@@ -17,8 +17,9 @@ package dependencies
 import (
 	"bytes"
 	"io"
-	istiolog "istio.io/istio/pkg/log"
 
+
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
