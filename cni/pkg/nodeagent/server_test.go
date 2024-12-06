@@ -475,6 +475,7 @@ func TestMeshDataplaneRemovePodIPFromHostNSIPSetsIgnoresEntriesWithMismatchedUID
 	assert.NoError(t, err)
 	fakeIPSetDeps.AssertExpectations(t)
 }
+
 func TestMeshDataplaneSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 	pod := buildConvincingPod(false)
 
