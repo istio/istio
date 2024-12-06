@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 )
@@ -604,11 +603,6 @@ func makeService(hostname host.Name, configName, configNamespace string, address
 			K8sAttributes:   model.K8sAttributes{ObjectName: configName},
 		},
 	}
-	if !slices.Equal(addresses, []string{constants.UnspecifiedIP}) {
-		svc.ClusterVIPs = model.AddressMap{
-			Addresses: map[cluster.ID][]string{"": addresses},
-		}
-	}
 
 	if autoV4 != "" {
 		svc.AutoAllocatedIPv4Address = autoV4
@@ -860,7 +854,11 @@ func testConvertServiceBody(t *testing.T) {
 			services: []*model.Service{
 				makeService("tcp1.com", "multiAddrInternal", "multiAddrInternal", []string{"1.1.1.0/16", "2.2.2.0/16"}, "", "",
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+				makeService("tcp1.com", "multiAddrInternal", "multiAddrInternal", []string{"2.2.2.0/16", "1.1.1.0/16"}, "", "",
+					map[string]int{"tcp-444": 444}, false, model.Passthrough),
 				makeService("tcp2.com", "multiAddrInternal", "multiAddrInternal", []string{"1.1.1.0/16", "2.2.2.0/16"}, "", "",
+					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+				makeService("tcp2.com", "multiAddrInternal", "multiAddrInternal", []string{"2.2.2.0/16", "1.1.1.0/16"}, "", "",
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
 			},
 		},
