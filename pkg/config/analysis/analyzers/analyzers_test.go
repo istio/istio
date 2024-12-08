@@ -251,6 +251,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gateways with no conflict",
+		inputFiles: []string{"testdata/conflicting-gateways-no-conflict.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
 		name:       "conflicting gateways detect by sub selector",
 		inputFiles: []string{"testdata/conflicting-gateways-subSelector.yaml"},
 		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
