@@ -56,7 +56,7 @@ func TestIptablesCleanRoundTrip(t *testing.T) {
 
 	t.Log("starting cleanup")
 	// Cleanup, should work
-	assert.NoError(t, iptConfigurator.DeleteInpodRules())
+	assert.NoError(t, iptConfigurator.DeleteInpodRules(log))
 	validateIptablesClean(t)
 
 	t.Log("second run")
