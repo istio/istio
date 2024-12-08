@@ -435,16 +435,16 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs)
 
 			result := authzPolicies.ListAuthorizationPolicies(tc.selectionOpts)
-			if !reflect.DeepEqual(tc.wantAllow, result.Allow) {
+			if !reflect.DeepEqual(sortAPByNamespaceAndName(tc.wantAllow), sortAPByNamespaceAndName(result.Allow)) {
 				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, result.Allow)
 			}
-			if !reflect.DeepEqual(tc.wantDeny, result.Deny) {
+			if !reflect.DeepEqual(sortAPByNamespaceAndName(tc.wantDeny), sortAPByNamespaceAndName(result.Deny)) {
 				t.Errorf("wantDeny:%v\n but got: %v\n", tc.wantDeny, result.Deny)
 			}
-			if !reflect.DeepEqual(tc.wantAudit, result.Audit) {
+			if !reflect.DeepEqual(sortAPByNamespaceAndName(tc.wantAudit), sortAPByNamespaceAndName(result.Audit)) {
 				t.Errorf("wantAudit:%v\n but got: %v\n", tc.wantAudit, result.Audit)
 			}
-			if !reflect.DeepEqual(tc.wantCustom, result.Custom) {
+			if !reflect.DeepEqual(sortAPByNamespaceAndName(tc.wantCustom), sortAPByNamespaceAndName(result.Custom)) {
 				t.Errorf("wantCustom:%v\n but got: %v\n", tc.wantCustom, result.Custom)
 			}
 		})

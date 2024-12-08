@@ -686,8 +686,8 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			if tc.WithService != nil {
 				matcher = matcher.WithService(tc.WithService)
 			}
-			assert.Equal(t, policies.GetJwtPoliciesForWorkload(matcher), tc.wantRequestAuthn)
-			assert.Equal(t, policies.GetPeerAuthenticationsForWorkload(matcher), tc.wantPeerAuthn)
+			assert.Equal(t, sortConfigByNamespaceAndName(policies.GetJwtPoliciesForWorkload(matcher)), sortConfigByNamespaceAndName(tc.wantRequestAuthn))
+			assert.Equal(t, sortConfigByNamespaceAndName(policies.GetPeerAuthenticationsForWorkload(matcher)), sortConfigByNamespaceAndName(tc.wantPeerAuthn))
 			assert.Equal(t, policies.GetNamespaceMutualTLSMode(tc.workloadNamespace), tc.wantNamespaceMutualTLS)
 		})
 	}
@@ -1195,8 +1195,8 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
-			assert.Equal(t, policies.GetJwtPoliciesForWorkload(matcher), tc.wantRequestAuthn)
-			assert.Equal(t, policies.GetPeerAuthenticationsForWorkload(matcher), tc.wantPeerAuthn)
+			assert.Equal(t, sortConfigByNamespaceAndName(policies.GetJwtPoliciesForWorkload(matcher)), sortConfigByNamespaceAndName(tc.wantRequestAuthn))
+			assert.Equal(t, sortConfigByNamespaceAndName(policies.GetPeerAuthenticationsForWorkload(matcher)), sortConfigByNamespaceAndName(tc.wantPeerAuthn))
 			assert.Equal(t, policies.GetNamespaceMutualTLSMode(tc.workloadNamespace), tc.wantNamespaceMutualTLS)
 		})
 	}
@@ -1483,7 +1483,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
-			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(sortConfigByNamespaceAndName(tc.wantRequestAuthn), sortConfigByNamespaceAndName(got)) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
 			}
 		})

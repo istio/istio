@@ -2153,25 +2153,15 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 		return nil
 	}
 
-	var lookupInNamespaces []string
 	matchedPlugins := make(map[extensions.PluginPhase][]*WasmPluginWrapper)
-
-	if len(info.Services) > 0 {
-		svcNamespace := sets.New[string]()
-		for i := range info.Services {
-			svcNamespace.Insert(info.Services[i].NamespacedName().Namespace)
-		}
-		lookupInNamespaces = svcNamespace.UnsortedList()
-	} else if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
-		// Only check the root namespace if the (workload) namespace is not already the root namespace
-		// to avoid double inclusion.
-		lookupInNamespaces = []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
-	} else {
-		lookupInNamespaces = []string{proxy.ConfigNamespace}
+	lookupInNamespaces := sets.New[string]()
+	lookupInNamespaces.Insert(ps.Mesh.RootNamespace)
+	lookupInNamespaces.Insert(proxy.ConfigNamespace)
+	for i := range info.Services {
+		lookupInNamespaces.Insert(info.Services[i].NamespacedName().Namespace)
 	}
-
 	selectionOpts := PolicyMatcherForProxy(proxy).WithServices(info.Services)
-	for _, ns := range lookupInNamespaces {
+	for _, ns := range lookupInNamespaces.UnsortedList() {
 		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
 			for _, plugin := range wasmPlugins {
 				if plugin.MatchListener(selectionOpts, info) && plugin.MatchType(pluginType) {

@@ -15,10 +15,13 @@
 package model
 
 import (
+	"strings"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -94,23 +97,14 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 		panic("ListAuthorizationPolicies expects at most 1 service in WorkloadPolicyMatcher")
 	}
 
-	rootNamespace := policy.RootNamespace
-	wlNamespace := selectionOpts.WorkloadNamespace
-
-	var lookupInNamespaces []string
-	if len(selectionOpts.Services) > 0 {
-		svcNamespaces := sets.New[string]()
-		for _, svc := range selectionOpts.Services {
-			svcNamespaces.Insert(svc.Namespace)
-		}
-		lookupInNamespaces = svcNamespaces.UnsortedList()
-	} else if wlNamespace != rootNamespace {
-		lookupInNamespaces = []string{rootNamespace, wlNamespace}
-	} else {
-		lookupInNamespaces = []string{wlNamespace}
+	lookupInNamespaces := sets.New[string]()
+	lookupInNamespaces.Insert(policy.RootNamespace)
+	lookupInNamespaces.Insert(selectionOpts.WorkloadNamespace)
+	for _, svc := range selectionOpts.Services {
+		lookupInNamespaces.Insert(svc.Namespace)
 	}
 
-	for _, ns := range lookupInNamespaces {
+	for _, ns := range lookupInNamespaces.UnsortedList() {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 
@@ -140,4 +134,16 @@ func updateAuthorizationPoliciesResult(configs AuthorizationPoliciesResult, conf
 			config.Namespace, config.Name, config.Spec.GetAction())
 	}
 	return configs
+}
+
+// sort AuthorizationPolicies in ascending order by namespace and name
+func sortAPByNamespaceAndName(policies []AuthorizationPolicy) []AuthorizationPolicy {
+	slices.SortFunc(policies, func(a, b AuthorizationPolicy) int {
+		nsResult := strings.Compare(a.Namespace, b.Namespace)
+		if nsResult != 0 {
+			return nsResult
+		}
+		return strings.Compare(a.Name, b.Name)
+	})
+	return policies
 }
