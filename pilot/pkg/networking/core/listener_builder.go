@@ -22,6 +22,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -310,6 +311,24 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	} else {
 		connectionManager.CodecType = hcm.HttpConnectionManager_AUTO
 	}
+
+	// Preserve HTTP/1.x traffic header case
+	if lb.push.ProxyConfigs.EffectiveProxyConfig(lb.node.Metadata, lb.push.Mesh).GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue() {
+		// This value only affects HTTP/1.x traffic
+		connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
+			HeaderKeyFormat: &core.Http1ProtocolOptions_HeaderKeyFormat{
+				HeaderFormat: &core.Http1ProtocolOptions_HeaderKeyFormat_StatefulFormatter{
+					StatefulFormatter: &core.TypedExtensionConfig{
+						Name: "preserve_case",
+						TypedConfig: &anypb.Any{
+							TypeUrl: "type.googleapis.com/envoy.extensions.http.header_formatters.preserve_case.v3.PreserveCaseFormatterConfig",
+						},
+					},
+				},
+			},
+		}
+	}
+
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.StatPrefix = httpOpts.statPrefix
 
