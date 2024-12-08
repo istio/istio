@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/hash"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -315,6 +316,18 @@ func sortConfigByCreationTime(configs []config.Config) []config.Config {
 			return r == -1
 		}
 		return cmp.Compare(configs[i].Namespace, configs[j].Namespace) == -1
+	})
+	return configs
+}
+
+// sortConfigByNamespaceAndName sorts the list of config objects in ascending order by their namespace and name
+func sortConfigByNamespaceAndName(configs []*config.Config) []*config.Config {
+	slices.SortFunc(configs, func(a, b *config.Config) int {
+		nsResult := strings.Compare(a.Namespace, b.Namespace)
+		if nsResult != 0 {
+			return nsResult
+		}
+		return strings.Compare(a.Name, b.Name)
 	})
 	return configs
 }

@@ -15,10 +15,14 @@
 package model
 
 import (
+	"strings"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type AuthorizationPolicy struct {
@@ -86,22 +90,21 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 		return configs
 	}
 
-	rootNamespace := policy.RootNamespace
-	wlNamespace := selectionOpts.WorkloadNamespace
-	svcNamespace := selectionOpts.ServiceNamespace
-	var lookupInNamespaces []string
-
-	if svcNamespace != "" {
-		lookupInNamespaces = []string{svcNamespace}
-	} else if wlNamespace != rootNamespace {
-		// Only check the root namespace if the (workload) namespace is not already the root namespace
-		// to avoid double inclusion.
-		lookupInNamespaces = []string{rootNamespace, wlNamespace}
-	} else {
-		lookupInNamespaces = []string{wlNamespace}
+	if len(selectionOpts.Services) > 1 {
+		// Currently, listing multiple services is unnecessary.
+		// To simplify, this function allows at most one service.
+		// The restriction can be lifted if future needs arise.
+		panic("ListAuthorizationPolicies expects at most 1 service in WorkloadPolicyMatcher")
 	}
 
-	for _, ns := range lookupInNamespaces {
+	lookupInNamespaces := sets.New[string]()
+	lookupInNamespaces.Insert(policy.RootNamespace)
+	lookupInNamespaces.Insert(selectionOpts.WorkloadNamespace)
+	for _, svc := range selectionOpts.Services {
+		lookupInNamespaces.Insert(svc.Namespace)
+	}
+
+	for _, ns := range lookupInNamespaces.UnsortedList() {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 
@@ -131,4 +134,16 @@ func updateAuthorizationPoliciesResult(configs AuthorizationPoliciesResult, conf
 			config.Namespace, config.Name, config.Spec.GetAction())
 	}
 	return configs
+}
+
+// sort AuthorizationPolicies in ascending order by namespace and name
+func sortAPByNamespaceAndName(policies []AuthorizationPolicy) []AuthorizationPolicy {
+	slices.SortFunc(policies, func(a, b AuthorizationPolicy) int {
+		nsResult := strings.Compare(a.Namespace, b.Namespace)
+		if nsResult != 0 {
+			return nsResult
+		}
+		return strings.Compare(a.Name, b.Name)
+	})
+	return policies
 }
