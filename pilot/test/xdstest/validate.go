@@ -32,7 +32,13 @@ import (
 func ValidateListeners(t testing.TB, ls []*listener.Listener) {
 	t.Helper()
 	found := sets.New[string]()
+	foundAddresses := sets.New[string]()
 	for _, l := range ls {
+		for _, addr := range ExtractListenerAddresses(l) {
+			if foundAddresses.InsertContains(addr) {
+				t.Errorf("found duplicate address %s", addr)
+			}
+		}
 		if found.InsertContains(l.Name) {
 			t.Errorf("duplicate listener name %v", l.Name)
 		}
