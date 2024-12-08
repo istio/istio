@@ -19,6 +19,7 @@ import (
 
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type AuthorizationPolicy struct {
@@ -86,18 +87,23 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 		return configs
 	}
 
-	rootNamespace := policy.RootNamespace
-	wlNamespace := selectionOpts.WorkloadNamespace
-	svcNamespaces := make([]string, 0)
-	for _, svc := range selectionOpts.Services {
-		if svc.Namespace != "" {
-			svcNamespaces = append(svcNamespaces, svc.Namespace)
-		}
+	if len(selectionOpts.Services) > 1 {
+		// Currently, listing multiple services is unnecessary.
+		// To simplify, this function allows at most one service.
+		// The restriction can be lifted if future needs arise.
+		panic("ListAuthorizationPolicies expects at most 1 service in WorkloadPolicyMatcher")
 	}
 
+	rootNamespace := policy.RootNamespace
+	wlNamespace := selectionOpts.WorkloadNamespace
+
 	var lookupInNamespaces []string
-	if len(svcNamespaces) > 0 {
-		lookupInNamespaces = svcNamespaces
+	if len(selectionOpts.Services) > 0 {
+		svcNamespaces := sets.New[string]()
+		for _, svc := range selectionOpts.Services {
+			svcNamespaces.Insert(svc.Namespace)
+		}
+		lookupInNamespaces = svcNamespaces.UnsortedList()
 	} else if wlNamespace != rootNamespace {
 		lookupInNamespaces = []string{rootNamespace, wlNamespace}
 	} else {

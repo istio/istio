@@ -177,7 +177,7 @@ type WasmPluginListenerInfo struct {
 	Services []*Service
 }
 
-func (listenerInfo WasmPluginListenerInfo) AddService(service *Service) WasmPluginListenerInfo {
+func (listenerInfo WasmPluginListenerInfo) WithService(service *Service) WasmPluginListenerInfo {
 	if service == nil {
 		return listenerInfo
 	}

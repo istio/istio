@@ -2109,6 +2109,9 @@ func (ps *PushContext) initWasmPlugins(env *Environment) {
 }
 
 // WasmPlugins return the WasmPluginWrappers of a proxy.
+// For most proxy types, we include only the root namespace and same-namespace objects.
+// However, waypoints allow cross-namespace access based on attached Service objects.
+// In this case, include all referenced services in the selection criteria
 func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*WasmPluginWrapper {
 	listenerInfo := WasmPluginListenerInfo{}
 	if proxy.IsWaypointProxy() {
@@ -2119,7 +2122,7 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 				log.Warnf("cannot find waypoint service in serviceindex, namespace/hostname: %s/%s", servicesInfo[i].Namespace, servicesInfo[i].Hostname)
 				continue
 			}
-			listenerInfo = listenerInfo.AddService(svc)
+			listenerInfo = listenerInfo.WithService(svc)
 		}
 	}
 	return ps.WasmPluginsByListenerInfo(proxy, listenerInfo, WasmPluginTypeAny)
@@ -2153,7 +2156,13 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 	var lookupInNamespaces []string
 	matchedPlugins := make(map[extensions.PluginPhase][]*WasmPluginWrapper)
 
-	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
+	if len(info.Services) > 0 {
+		svcNamespace := sets.New[string]()
+		for i := range info.Services {
+			svcNamespace.Insert(info.Services[i].NamespacedName().Namespace)
+		}
+		lookupInNamespaces = svcNamespace.UnsortedList()
+	} else if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		// Only check the root namespace if the (workload) namespace is not already the root namespace
 		// to avoid double inclusion.
 		lookupInNamespaces = []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}

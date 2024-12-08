@@ -468,7 +468,7 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	// TODO: consider dedicated listener class for waypoint filters
 	cls := istionetworking.ListenerClassSidecarInbound
 	wasm := lb.push.WasmPluginsByListenerInfo(lb.node,
-		model.WasmPluginListenerInfo{Class: cls}.AddService(svc),
+		model.WasmPluginListenerInfo{Class: cls}.WithService(svc),
 		model.WasmPluginTypeHTTP,
 	)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
