@@ -24,6 +24,7 @@ import (
 type Index[K comparable, O any] interface {
 	Lookup(k K) []O
 	objectHasKey(obj O, k K) bool
+	extractKeys(o O) []K
 }
 
 // NewNamespaceIndex is a small helper to index a collection by namespace
@@ -61,6 +62,11 @@ func (i index[K, O]) objectHasKey(obj O, k K) bool {
 		}
 	}
 	return false
+}
+
+// nolint: unused // (not true)
+func (i index[K, O]) extractKeys(o O) []K {
+	return i.extract(o)
 }
 
 // Lookup finds all objects matching a given key

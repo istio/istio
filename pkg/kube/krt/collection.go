@@ -28,6 +28,105 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+type dependencyState[I any] struct {
+	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
+	// These are keyed by the internal uid() function on collections.
+	// Note this does not include `parent`, which is the *primary* dependency declared outside of transformation functions.
+	collectionDependencies sets.Set[collectionUID]
+	// Stores a map of I -> secondary dependencies (added via Fetch)
+	objectDependencies           map[Key[I]][]*dependency
+	indexedDependencies          map[indexedDependency]sets.Set[Key[I]]
+	indexedDependenciesExtractor map[collectionUID]objectKeyExtractor
+}
+
+func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
+	// Update the I -> Dependency mapping
+	i.objectDependencies[key] = deps
+	for _, d := range deps {
+		if depKey, extractor, ok := d.filter.reverseIndexKey(); ok {
+			k := indexedDependency{
+				id:  d.id,
+				key: depKey,
+			}
+			sets.InsertOrNew(i.indexedDependencies, k, key)
+			i.indexedDependenciesExtractor[d.id] = extractor
+		}
+	}
+}
+
+func (i dependencyState[I]) delete(key Key[I]) {
+	old, f := i.objectDependencies[key]
+	if !f {
+		return
+	}
+	delete(i.objectDependencies, key)
+	for _, d := range old {
+		if depKey, _, ok := d.filter.reverseIndexKey(); ok {
+			k := indexedDependency{
+				id:  d.id,
+				key: depKey,
+			}
+			sets.DeleteCleanupLast(i.indexedDependencies, k, key)
+		}
+	}
+}
+
+func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, events []Event[any]) sets.Set[Key[I]] {
+	changedInputKeys := sets.Set[Key[I]]{}
+	// Check old and new
+	for _, ev := range events {
+		// We have a possibly dependant object changed. For each input object, see if it depends on the object.
+		// Naively, we can look through every item in this collection and check if it matches the filter. However, this is
+		// inefficient, especially when the dependency changes frequently and the collection is large.
+		// Where possible, we utilize the reverse-indexing to get the precise list of potentially changed objects.
+		if extractor, f := i.indexedDependenciesExtractor[sourceCollection]; f {
+			// We have a reverse index
+			for _, item := range ev.Items() {
+				// Find all the reverse index keys for this object. For each key we will find impacted input objects.
+				keys := extractor(item)
+				for _, key := range keys {
+					for iKey := range i.indexedDependencies[indexedDependency{id: sourceCollection, key: key}] {
+						if changedInputKeys.Contains(iKey) {
+							// We may have already found this item, skip it
+							continue
+						}
+						dependencies := i.objectDependencies[iKey]
+						if changed := objectChanged(dependencies, sourceCollection, ev, true); changed {
+							changedInputKeys.Insert(iKey)
+						}
+					}
+				}
+			}
+		} else {
+			for iKey, dependencies := range i.objectDependencies {
+				if changed := objectChanged(dependencies, sourceCollection, ev, false); changed {
+					changedInputKeys.Insert(iKey)
+				}
+			}
+		}
+	}
+	return changedInputKeys
+}
+
+func objectChanged(dependencies []*dependency, sourceCollection collectionUID, ev Event[any], preFiltered bool) bool {
+	for _, dep := range dependencies {
+		id := dep.id
+		if id != sourceCollection {
+			continue
+		}
+		// For each input, we will check if it depends on this event.
+		// We use Items() to check both the old and new object; we will recompute if either matched
+		for _, item := range ev.Items() {
+			match := dep.filter.Matches(item, preFiltered)
+			if match {
+				// Its a match! Return now. We don't need to check all dependencies, since we just need to find if any of them changed
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // manyCollection builds a mapping from I->O.
 // This can be built from transformation functions of I->*O or I->[]O; both are implemented by this same struct.
 // Locking used here is somewhat complex. We use two locks, mu and recomputeMu.
@@ -50,12 +149,8 @@ type manyCollection[I, O any] struct {
 	// This is acquired for reads and writes of data.
 	mu              sync.Mutex
 	collectionState multiIndex[I, O]
-	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
-	// These are keyed by the internal uid() function on collections.
-	// Note this does not include `parent`, which is the *primary* dependency declared outside of transformation functions.
-	collectionDependencies sets.Set[collectionUID]
-	// Stores a map of I -> secondary dependencies (added via Fetch)
-	objectDependencies map[Key[I]][]*dependency
+	dependencyState dependencyState[I]
+
 	// internal indexes
 	indexes []collectionIndex[I, O]
 
@@ -173,7 +268,7 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 			Dependencies: nil, // filled later
 		}
 	}
-	for k, deps := range h.objectDependencies {
+	for k, deps := range h.dependencyState.objectDependencies {
 		depss := make([]string, 0, len(deps))
 		for _, dep := range deps {
 			depss = append(depss, dep.collectionName)
@@ -259,8 +354,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		ctx := &collectionDependencyTracker[I, O]{h, nil, iKey}
 		results := slices.GroupUnique(h.transformation(ctx, i), getTypedKey[O])
 		recomputedResults[idx] = results
-		// Update the I -> Dependency mapping
-		h.objectDependencies[iKey] = ctx.d
+		h.dependencyState.update(iKey, ctx.d)
 	}
 
 	// Now acquire the full lock. Note we still have recomputeMu held!
@@ -291,7 +385,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 			}
 			delete(h.collectionState.mappings, iKey)
 			delete(h.collectionState.inputs, iKey)
-			delete(h.objectDependencies, iKey)
+			h.dependencyState.delete(iKey)
 		} else {
 			results := recomputedResults[idx]
 			newKeys := sets.New(maps.Keys(results)...)
@@ -418,13 +512,17 @@ func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O], opts collectionOptions) Collection[O] {
 	c := cc.(internalCollection[I])
 	h := &manyCollection[I, O]{
-		transformation:         hf,
-		collectionName:         opts.name,
-		id:                     nextUID(),
-		log:                    log.WithLabels("owner", opts.name),
-		parent:                 c,
-		collectionDependencies: sets.New[collectionUID](),
-		objectDependencies:     map[Key[I]][]*dependency{},
+		transformation: hf,
+		collectionName: opts.name,
+		id:             nextUID(),
+		log:            log.WithLabels("owner", opts.name),
+		parent:         c,
+		dependencyState: dependencyState[I]{
+			collectionDependencies:       sets.New[collectionUID](),
+			objectDependencies:           map[Key[I]][]*dependency{},
+			indexedDependencies:          map[indexedDependency]sets.Set[Key[I]]{},
+			indexedDependenciesExtractor: map[collectionUID]func(o any) []string{},
+		},
 		collectionState: multiIndex[I, O]{
 			inputs:   map[Key[I]]I{},
 			outputs:  map[Key[O]]O{},
@@ -476,18 +574,7 @@ func (h *manyCollection[I, O]) runQueue() {
 func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection collectionUID, events []Event[any]) {
 	// A secondary dependency changed...
 	// Got an event. Now we need to find out who depends on it..
-	changedInputKeys := sets.Set[Key[I]]{}
-	// Check old and new
-	for _, ev := range events {
-		// We have a possibly dependant object changed. For each input object, see if it depends on the object.
-		// This can be by name or the entire type.
-		// objectRelations stores each input key to dependency specification.
-		for iKey, dependencies := range h.objectDependencies {
-			if changed := h.objectChanged(iKey, dependencies, sourceCollection, ev); changed {
-				changedInputKeys.Insert(iKey)
-			}
-		}
-	}
+	changedInputKeys := h.dependencyState.changedInputKeys(sourceCollection, events)
 	h.log.Debugf("event size %v, impacts %v objects", len(events), len(changedInputKeys))
 
 	toRun := make([]Event[I], 0, len(changedInputKeys))
@@ -522,28 +609,6 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 		}
 	}
 	h.onPrimaryInputEventLocked(toRun)
-}
-
-func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []*dependency, sourceCollection collectionUID, ev Event[any]) bool {
-	for _, dep := range dependencies {
-		id := dep.id
-		if id != sourceCollection {
-			continue
-		}
-		// For each input, we will check if it depends on this event.
-		// We use Items() to check both the old and new object; we will recompute if either matched
-		for _, item := range ev.Items() {
-			match := dep.filter.Matches(item, false)
-			if h.log.DebugEnabled() {
-				h.log.WithLabels("item", iKey, "match", match).Debugf("dependency change for collection %T", sourceCollection)
-			}
-			if match {
-				// Its a match! Return now. We don't need to check all dependencies, since we just need to find if any of them changed
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func (h *manyCollection[I, O]) _internalHandler() {
@@ -629,7 +694,7 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(
 	i.d = append(i.d, d)
 
 	// For any new collections we depend on, start watching them if its the first time we have watched them.
-	if !i.collectionDependencies.InsertContains(d.id) {
+	if !i.dependencyState.collectionDependencies.InsertContains(d.id) {
 		i.log.WithLabels("collection", d.collectionName).Debugf("register new dependency")
 		syncer.WaitUntilSynced(i.stop)
 		register(func(o []Event[any], initialSync bool) {
