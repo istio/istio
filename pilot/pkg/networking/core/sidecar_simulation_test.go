@@ -1551,31 +1551,33 @@ spec:
 ---
 `, protocol)
 	}
-	expectedTLSContext := func(filterChain *listener.FilterChain) error {
-		tlsContext := &tls.DownstreamTlsContext{}
-		ts := filterChain.GetTransportSocket().GetTypedConfig()
-		if ts == nil {
-			return fmt.Errorf("expected transport socket for chain %v", filterChain.GetName())
+	expectedTLSContext := func(requireClientCertificate bool) func(filterChain *listener.FilterChain) error {
+		return func(filterChain *listener.FilterChain) error {
+			tlsContext := &tls.DownstreamTlsContext{}
+			ts := filterChain.GetTransportSocket().GetTypedConfig()
+			if ts == nil {
+				return fmt.Errorf("expected transport socket for chain %v", filterChain.GetName())
+			}
+			if err := ts.UnmarshalTo(tlsContext); err != nil {
+				return err
+			}
+			commonTLSContext := tlsContext.CommonTlsContext
+			if len(commonTLSContext.TlsCertificateSdsSecretConfigs) == 0 {
+				return fmt.Errorf("expected tls certificates")
+			}
+			if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "file-cert:httpbin.pem~httpbinkey.pem" {
+				return fmt.Errorf("expected certificate httpbin.pem, actual %s", commonTLSContext.TlsCertificates[0].CertificateChain.String())
+			}
+			if tlsContext.RequireClientCertificate.Value != requireClientCertificate {
+				return fmt.Errorf("expected RequireClientCertificate to be %t", requireClientCertificate)
+			}
+			return nil
 		}
-		if err := ts.UnmarshalTo(tlsContext); err != nil {
-			return err
-		}
-		commonTLSContext := tlsContext.CommonTlsContext
-		if len(commonTLSContext.TlsCertificateSdsSecretConfigs) == 0 {
-			return fmt.Errorf("expected tls certificates")
-		}
-		if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "file-cert:httpbin.pem~httpbinkey.pem" {
-			return fmt.Errorf("expected certificate httpbin.pem, actual %s", commonTLSContext.TlsCertificates[0].CertificateChain.String())
-		}
-		if tlsContext.RequireClientCertificate.Value {
-			return fmt.Errorf("expected RequireClientCertificate to be false")
-		}
-		return nil
 	}
 
 	mkCall := func(port int, protocol simulation.Protocol,
 		tls simulation.TLSMode, validations []simulation.CustomFilterChainValidation,
-		mTLSSecretConfigName string,
+		mTLSSecretConfigName string, alpn string,
 	) simulation.Call {
 		return simulation.Call{
 			Protocol:                  protocol,
@@ -1584,6 +1586,7 @@ spec:
 			TLS:                       tls,
 			CustomListenerValidations: validations,
 			MtlsSecretConfigName:      mTLSSecretConfigName,
+			Alpn:                      alpn,
 		}
 	}
 	cases := []struct {
@@ -1596,8 +1599,15 @@ spec:
 			config: peerAuthConfig("DISABLE") + sidecarSimple("HTTPS"),
 			calls: []simulation.Expect{
 				{
-					Name: "http over tls",
-					Call: mkCall(9080, simulation.HTTP, simulation.TLS, []simulation.CustomFilterChainValidation{expectedTLSContext}, ""),
+					Name: "http over user tls",
+					Call: mkCall(
+						9080,
+						simulation.HTTP,
+						simulation.TLS,
+						[]simulation.CustomFilterChainValidation{expectedTLSContext(false)},
+						"file-cert:httpbin.pem~httpbinkey.pem",
+						"h2",
+					),
 					Result: simulation.Result{
 						FilterChainMatched: "1.1.1.1_9080",
 						ClusterMatched:     "inbound|9080||",
@@ -1608,16 +1618,68 @@ spec:
 				},
 				{
 					Name: "plaintext",
-					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, ""),
+					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, "", ""),
 					Result: simulation.Result{
 						Error: simulation.ErrNoFilterChain,
 					},
 				},
 				{
-					Name: "http over mTLS",
-					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Name: "http over user mTLS",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem", "h2"),
 					Result: simulation.Result{
 						Error: simulation.ErrMTLSError,
+					},
+				},
+				{
+					Name: "http over mTLS",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "", ""),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar http over TLS simple mode with peer auth on port permissive",
+			config: peerAuthConfig("PERMISSIVE") + sidecarSimple("HTTPS"),
+			calls: []simulation.Expect{
+				{
+					Name: "http over user tls",
+					Call: mkCall(
+						9080,
+						simulation.HTTP,
+						simulation.TLS,
+						[]simulation.CustomFilterChainValidation{expectedTLSContext(false)},
+						"file-cert:httpbin.pem~httpbinkey.pem",
+						"h2",
+					),
+					Result: simulation.Result{
+						FilterChainMatched: "user_tls_1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, "", ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "http over user mTLS",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem", "h2"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+				{
+					Name: "http over mtls",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "", ""),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
 					},
 				},
 			},
@@ -1627,8 +1689,15 @@ spec:
 			config: peerAuthConfig("DISABLE") + sidecarSimple("TLS"),
 			calls: []simulation.Expect{
 				{
-					Name: "tcp over tls",
-					Call: mkCall(9080, simulation.TCP, simulation.TLS, []simulation.CustomFilterChainValidation{expectedTLSContext}, ""),
+					Name: "tcp over user tls",
+					Call: mkCall(
+						9080,
+						simulation.TCP,
+						simulation.TLS,
+						[]simulation.CustomFilterChainValidation{expectedTLSContext(false)},
+						"file-cert:httpbin.pem~httpbinkey.pem",
+						"foobar",
+					),
 					Result: simulation.Result{
 						FilterChainMatched: "1.1.1.1_9080",
 						ClusterMatched:     "inbound|9080||",
@@ -1637,16 +1706,68 @@ spec:
 				},
 				{
 					Name: "plaintext",
-					Call: mkCall(9080, simulation.TCP, simulation.Plaintext, nil, ""),
+					Call: mkCall(9080, simulation.TCP, simulation.Plaintext, nil, "", ""),
 					Result: simulation.Result{
 						Error: simulation.ErrNoFilterChain,
 					},
 				},
 				{
-					Name: "tcp over mTLS",
-					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Name: "tcp over user mTLS",
+					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem", "foobar"),
 					Result: simulation.Result{
 						Error: simulation.ErrMTLSError,
+					},
+				},
+				{
+					Name: "tcp over mTLS",
+					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "", ""),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar TCP over TLS simple mode with peer auth on port permissive",
+			config: peerAuthConfig("PERMISSIVE") + sidecarSimple("TLS"),
+			calls: []simulation.Expect{
+				{
+					Name: "tcp over tls",
+					Call: mkCall(
+						9080,
+						simulation.TCP,
+						simulation.TLS,
+						[]simulation.CustomFilterChainValidation{expectedTLSContext(false)},
+						"file-cert:httpbin.pem~httpbinkey.pem",
+						"foobar",
+					),
+					Result: simulation.Result{
+						FilterChainMatched: "user_tls_1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.TCP, simulation.Plaintext, nil, "", ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "tcp over user mTLS",
+					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem", "foobar"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+				{
+					Name: "tcp over mtls",
+					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "", ""),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
 					},
 				},
 			},
@@ -1656,8 +1777,15 @@ spec:
 			config: peerAuthConfig("DISABLE") + sidecarMutual("HTTPS"),
 			calls: []simulation.Expect{
 				{
-					Name: "http over mtls",
-					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Name: "http over user mtls",
+					Call: mkCall(
+						9080,
+						simulation.HTTP,
+						simulation.MTLS,
+						[]simulation.CustomFilterChainValidation{expectedTLSContext(true)},
+						"file-cert:httpbin.pem~httpbinkey.pem",
+						"h2",
+					),
 					Result: simulation.Result{
 						FilterChainMatched: "1.1.1.1_9080",
 						ClusterMatched:     "inbound|9080||",
@@ -1666,16 +1794,68 @@ spec:
 				},
 				{
 					Name: "plaintext",
-					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, ""),
+					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, "", ""),
 					Result: simulation.Result{
 						Error: simulation.ErrNoFilterChain,
 					},
 				},
 				{
-					Name: "http over tls",
-					Call: mkCall(9080, simulation.HTTP, simulation.TLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Name: "http over user tls",
+					Call: mkCall(9080, simulation.HTTP, simulation.TLS, nil, "file-cert:httpbin.pem~httpbinkey.pem", "h2"),
 					Result: simulation.Result{
 						Error: simulation.ErrMTLSError,
+					},
+				},
+				{
+					Name: "http over mtls",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "", ""),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar http over mTLS mutual mode mode with peer auth on port permissive",
+			config: peerAuthConfig("PERMISSIVE") + sidecarMutual("HTTPS"),
+			calls: []simulation.Expect{
+				{
+					Name: "http over user mtls",
+					Call: mkCall(
+						9080,
+						simulation.HTTP,
+						simulation.MTLS,
+						[]simulation.CustomFilterChainValidation{expectedTLSContext(true)},
+						"file-cert:httpbin.pem~httpbinkey.pem",
+						"h2",
+					),
+					Result: simulation.Result{
+						FilterChainMatched: "user_tls_1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "http over tls",
+					Call: mkCall(9080, simulation.HTTP, simulation.TLS, nil, "file-cert:httpbin.pem~httpbinkey.pem", "h2"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, "", ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "http over mtls",
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "", ""),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
 					},
 				},
 			},
@@ -1685,8 +1865,15 @@ spec:
 			config: peerAuthConfig("DISABLE") + sidecarMutual("TLS"),
 			calls: []simulation.Expect{
 				{
-					Name: "tcp over mtls",
-					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Name: "tcp over user mtls",
+					Call: mkCall(
+						9080,
+						simulation.TCP,
+						simulation.MTLS,
+						[]simulation.CustomFilterChainValidation{expectedTLSContext(true)},
+						"file-cert:httpbin.pem~httpbinkey.pem",
+						"foobar",
+					),
 					Result: simulation.Result{
 						FilterChainMatched: "1.1.1.1_9080",
 						ClusterMatched:     "inbound|9080||",
@@ -1694,17 +1881,69 @@ spec:
 					},
 				},
 				{
+					Name: "tcp over user tls",
+					Call: mkCall(9080, simulation.TCP, simulation.TLS, nil, "file-cert:httpbin.pem~httpbinkey.pem", "foobar"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+				{
 					Name: "plaintext",
-					Call: mkCall(9080, simulation.TCP, simulation.Plaintext, nil, ""),
+					Call: mkCall(9080, simulation.TCP, simulation.Plaintext, nil, "", ""),
 					Result: simulation.Result{
 						Error: simulation.ErrNoFilterChain,
 					},
 				},
 				{
-					Name: "http over tls",
-					Call: mkCall(9080, simulation.TCP, simulation.TLS, nil, "file-cert:httpbin.pem~httpbinkey.pem"),
+					Name: "tcp over mtls",
+					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "", ""),
 					Result: simulation.Result{
 						Error: simulation.ErrMTLSError,
+					},
+				},
+			},
+		},
+		{
+			name:   "sidecar tcp over mTLS mutual mode mode with peer auth on port permissive",
+			config: peerAuthConfig("PERMISSIVE") + sidecarMutual("TLS"),
+			calls: []simulation.Expect{
+				{
+					Name: "tcp over user mtls",
+					Call: mkCall(
+						9080,
+						simulation.TCP,
+						simulation.MTLS,
+						[]simulation.CustomFilterChainValidation{expectedTLSContext(true)},
+						"file-cert:httpbin.pem~httpbinkey.pem",
+						"foobar",
+					),
+					Result: simulation.Result{
+						FilterChainMatched: "user_tls_1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
+					},
+				},
+				{
+					Name: "tcp over user tls",
+					Call: mkCall(9080, simulation.TCP, simulation.TLS, nil, "file-cert:httpbin.pem~httpbinkey.pem", "foobar"),
+					Result: simulation.Result{
+						Error: simulation.ErrMTLSError,
+					},
+				},
+				{
+					Name: "plaintext",
+					Call: mkCall(9080, simulation.TCP, simulation.Plaintext, nil, "", ""),
+					Result: simulation.Result{
+						Error: simulation.ErrNoFilterChain,
+					},
+				},
+				{
+					Name: "tcp over mtls",
+					Call: mkCall(9080, simulation.TCP, simulation.MTLS, nil, "", ""),
+					Result: simulation.Result{
+						FilterChainMatched: "1.1.1.1_9080",
+						ClusterMatched:     "inbound|9080||",
+						ListenerMatched:    "virtualInbound",
 					},
 				},
 			},
@@ -1715,21 +1954,21 @@ spec:
 			calls: []simulation.Expect{
 				{
 					Name: "http over tls",
-					Call: mkCall(9080, simulation.HTTP, simulation.TLS, nil, ""),
+					Call: mkCall(9080, simulation.HTTP, simulation.TLS, nil, "", "foobar"),
 					Result: simulation.Result{
 						Error: simulation.ErrMTLSError,
 					},
 				},
 				{
 					Name: "plaintext",
-					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, ""),
+					Call: mkCall(9080, simulation.HTTP, simulation.Plaintext, nil, "", ""),
 					Result: simulation.Result{
 						Error: simulation.ErrNoFilterChain,
 					},
 				},
 				{
 					Name: "http over mtls",
-					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, ""),
+					Call: mkCall(9080, simulation.HTTP, simulation.MTLS, nil, "", ""),
 					Result: simulation.Result{
 						FilterChainMatched: "1.1.1.1_9080",
 						ClusterMatched:     "inbound|9080||",
