@@ -117,7 +117,7 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 
 	var filters []*listener.Filter
 	wasm := lb.push.WasmPluginsByListenerInfo(
-		lb.node, model.WasmPluginListenerInfo{Port: port, Class: class}.AddService(policySvc),
+		lb.node, model.WasmPluginListenerInfo{Port: port, Class: class}.WithService(policySvc),
 		model.WasmPluginTypeNetwork,
 	)
 

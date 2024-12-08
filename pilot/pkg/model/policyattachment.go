@@ -80,6 +80,11 @@ func (p WorkloadPolicyMatcher) WithService(service *Service) WorkloadPolicyMatch
 	return p
 }
 
+// WithServices marks multiple services as part of the selection criteria. This is used when we want to
+// find **all** policies attached to a specific proxy instance, rather than scoped to a specific service.
+// This is useful when using ECDS, for example, where we might have:
+// * Each unique service creates a listener, and applies a policy selected by `WithService` pointing to ECDS
+// * All policies are found, by `WithServices`, and returned in ECDS.
 func (p WorkloadPolicyMatcher) WithServices(services []*Service) WorkloadPolicyMatcher {
 	for _, svc := range services {
 		p = p.WithService(svc)
@@ -138,10 +143,10 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 
 		// Service attached
 		if p.IsWaypoint && matchesGroupKind(targetRef, gvk.Service) {
-			for i := range p.Services {
-				if target == p.Services[i].Name &&
-					policyName.Namespace == p.Services[i].Namespace &&
-					p.Services[i].Registry == provider.Kubernetes {
+			for _, svc := range p.Services {
+				if target == svc.Name &&
+					policyName.Namespace == svc.Namespace &&
+					svc.Registry == provider.Kubernetes {
 					return true
 				}
 			}
@@ -149,10 +154,10 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 
 		// ServiceEntry attached
 		if p.IsWaypoint && matchesGroupKind(targetRef, gvk.ServiceEntry) {
-			for i := range p.Services {
-				if target == p.Services[i].Name &&
-					policyName.Namespace == p.Services[i].Namespace &&
-					p.Services[i].Registry == provider.External {
+			for _, svc := range p.Services {
+				if target == svc.Name &&
+					policyName.Namespace == svc.Namespace &&
+					svc.Registry == provider.External {
 					return true
 				}
 			}
