@@ -39,6 +39,7 @@ type NetlinkIpsetDeps interface {
 	deleteIP(name string, ip netip.Addr, ipProto uint8) error
 	flush(name string) error
 	clearEntriesWithComment(name string, comment string) error
+	clearEntriesWithIPAndComment(name string, ip netip.Addr, comment string) (string, error)
 	clearEntriesWithIP(name string, ip netip.Addr) error
 	listEntriesByIP(name string) ([]netip.Addr, error)
 }
@@ -127,6 +128,15 @@ func (m *IPSet) ClearEntriesWithIP(ip netip.Addr) error {
 		return m.Deps.clearEntriesWithIP(m.V6Name, ipToClear)
 	}
 	return m.Deps.clearEntriesWithIP(m.V4Name, ipToClear)
+}
+
+func (m *IPSet) ClearEntriesWithIPAndComment(ip netip.Addr, comment string) (string, error) {
+	ipToClear := ip.Unmap()
+
+	if ipToClear.Is6() {
+		return m.Deps.clearEntriesWithIPAndComment(m.V6Name, ipToClear, comment)
+	}
+	return m.Deps.clearEntriesWithIPAndComment(m.V4Name, ipToClear, comment)
 }
 
 func (m *IPSet) ListEntriesByIP() ([]netip.Addr, error) {
