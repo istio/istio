@@ -104,10 +104,10 @@ func (s *InformerHandlers) GetPodIfAmbientEnabled(podName, podNamespace string) 
 	return nil, nil
 }
 
-// GetPodIfAmbientEnabled looks up a pod. It returns:
+// GetPodIfAmbientActive looks up a pod. It returns:
 // * An error if the pod cannot be found
-// * nil if the pod is found, but is not currently eligible for ambient enrollment
-// * the pod, if it is found and is currently eligible for ambient enrollment
+// * nil if the pod is found, but is not enrolled in ambient (e.g. has been annotated)
+// * the pod, if it is found and is enrolled in ambient (e.g. has been annotated)
 func (s *InformerHandlers) GetPodIfAmbientActive(podName, podNamespace string) (bool, error) {
 	ns := s.namespaces.Get(podNamespace, "")
 	if ns == nil {
@@ -247,7 +247,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		if ns == nil {
 			return fmt.Errorf("failed to find namespace %v", ns)
 		}
-		isAnnotated := newPod.Annotations != nil && newPod.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
+		isAnnotated := util.PodRedirectionActive(newPod)
 		shouldBeEnabled := util.PodRedirectionEnabled(ns, newPod)
 		isTerminated := kube.CheckPodTerminal(newPod)
 		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
