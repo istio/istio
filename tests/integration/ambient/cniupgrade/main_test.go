@@ -212,9 +212,17 @@ func TestTrafficWithCNIUpgrade(t *testing.T) {
 
 			// Rollout restart app instances in the echo namespace, which should schedule now
 			// that the CNI daemonset is back
+			// NOTE - technically we don't need to forcibly restart the app pods, they will
+			// (eventually) reschedule naturally now that the node agent is back.
+			// Doing an explicit rollout restart is typically just faster and also helps keep tests reliable.
 			t.Log("Rollout restart echo instance to get a fixed instance")
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
+			}
+			rolloutStatusCmd := fmt.Sprintf("kubectl rollout status deployment -n %s", ns.Name())
+			t.Log("wait for rollouts to finish")
+			if _, err := shell.Execute(true, rolloutStatusCmd); err != nil {
+				t.Fatalf("failed to rollout status deployments %v", err)
 			}
 
 			// Everyone should be happy
