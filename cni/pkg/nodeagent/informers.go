@@ -295,7 +295,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// So we do a few checks to make sure the pod hasn't already been handled by the CNI plugin
 		// (which should always win over the informer), and actually has an IP.
 
-		// To things have to be true/asserted before the informer can enroll a pod:
+		// Two things have to be true/asserted before the informer can enroll a pod:
 		// - The informer cannot assume the CNI plugin has handled a starting pod.
 		//   It could have been "stuck" in a starting state before the plugin was put in place.
 		//   Or, we could get unlucky with namespace labeling timing, and we could get an informer
