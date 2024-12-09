@@ -215,11 +215,6 @@ func CheckPodTerminal(pod *corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodSucceeded
 }
 
-// CheckPodRunning returns true if the pod's phase is Running || Succeeded.
-func CheckPodRunning(pod *corev1.Pod) bool {
-	return pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded
-}
-
 // CheckPodReadyOrComplete returns nil if the given pod and all of its containers are ready or terminated
 // successfully.
 func CheckPodReadyOrComplete(pod *corev1.Pod) error {
