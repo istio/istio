@@ -89,6 +89,7 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
 	}
 
+	// nolint: lll
 	hostIptables, podIptables, err := iptables.NewIptablesConfigurator(cfg, realDependenciesHost(), realDependenciesInpod(UseScopedIptablesLegacyLocking), iptables.RealNlDeps())
 	if err != nil {
 		return nil, fmt.Errorf("error configuring iptables: %w", err)
