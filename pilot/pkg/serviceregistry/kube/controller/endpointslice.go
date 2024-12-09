@@ -102,10 +102,14 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	} else {
 		esc.updateEndpointSlice(ep)
 	}
+
 	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
 	// Trigger EDS push for all hostnames.
 	esc.pushEDS(hostnames, namespacedName.Namespace)
 
+	// Now check if we need to do a full push for the service.
+	// If the service is headless, we need to do a full push if service exposes TCP ports
+	// to create IP based listeners. For pure HTTP headless services, we only need to push NDS.
 	name := serviceNameForEndpointSlice(esLabels)
 	namespace := ep.GetNamespace()
 	svc := esc.c.services.Get(name, namespace)
@@ -113,39 +117,33 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 		return
 	}
 
-	configs := []types.NamespacedName{}
-	pureHTTP := true
+	configsUpdated := sets.New[model.ConfigKey]()
+	supportsOnlyHTTP := true
 	for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
 		// skip push if it is not exported
 		if modelSvc.Attributes.ExportTo.Contains(visibility.None) {
 			continue
 		}
 
-		configs = append(configs, types.NamespacedName{Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
-
 		for _, p := range modelSvc.Ports {
 			if !p.Protocol.IsHTTP() {
-				pureHTTP = false
+				supportsOnlyHTTP = false
 				break
 			}
 		}
-	}
-
-	configsUpdated := sets.New[model.ConfigKey]()
-	for _, config := range configs {
-		if !pureHTTP {
-			configsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: config.Name, Namespace: config.Namespace})
-		} else {
+		if supportsOnlyHTTP {
 			// pure HTTP headless services should not need a full push since they do not
 			// require a Listener based on IP: https://github.com/istio/istio/issues/48207
-			configsUpdated.Insert(model.ConfigKey{Kind: kind.DNSName, Name: config.Name, Namespace: config.Namespace})
+			configsUpdated.Insert(model.ConfigKey{Kind: kind.DNSName, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
+		} else {
+			configsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
 		}
 	}
 
 	if len(configsUpdated) > 0 {
-		// For headless services, trigger a full push.
-		// If EnableHeadlessService is true and svc ports are not pure HTTP, we need to regenerate listeners per endpoint.
-		// Otherwise we only need to push NDS, but still need to set full but we skip all other xDS except NDS during the push.
+		// For headless services, trigger a full push to regenerate listeners per endpoint.
+		// Otherwise we only need to push NDS, but still need to set Full as true but we skip
+		// all other xDS except NDS during the push.
 		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: configsUpdated,
