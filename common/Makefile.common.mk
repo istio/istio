@@ -108,7 +108,7 @@ update-common:
 	fi
 	@cp -a $(TMP)/common-files/files/* $(TMP)/common-files/files/.devcontainer $(TMP)/common-files/files/.gitattributes $(shell pwd)
 	@rm -fr $(TMP)/common-files
-	@if [ "$(AUTOMATOR_REPO)" != "proxy" ]; then\
+	@if [ "$(AUTOMATOR_REPO)" == "proxy" ]; then\
 		sed -i -e 's/build-tools:/build-tools-proxy:/g' .devcontainer/devcontainer.json;\
 	fi
 	@$(or $(COMMONFILES_POSTPROCESS), true)
