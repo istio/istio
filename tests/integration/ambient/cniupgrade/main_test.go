@@ -210,14 +210,8 @@ func TestTrafficWithCNIUpgrade(t *testing.T) {
 			// Now bring back the original CNI Daemonset, which should recreate backing pods
 			util.DeployCNIDaemonset(t, c, origCNIDaemonSet)
 
-			// Rollout restart app instances in the echo namespace, which should schedule now
-			// that the CNI daemonset is back
-			t.Log("Rollout restart echo instance to get a fixed instance")
-			if _, err := shell.Execute(true, rolloutCmd); err != nil {
-				t.Fatalf("failed to rollout restart deployments %v", err)
-			}
-
-			// Everyone should be happy
+			// Everyone should be happy - app pods should be able to schedule/start once the CNI daemonset is back
+			// and the test cases below should wait for healthy instances implicity.
 			common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
 		})
 }
