@@ -44,23 +44,44 @@ func NewIndex[K comparable, O any](
 			return toString(e)
 		})
 	})
+	hasKey := func(o O, k K) bool {
+		for _, got := range extract(o) {
+			if got == k {
+				return true
+			}
+		}
+		return false
+	}
+	return index[K, O]{idx, extract, hasKey}
+}
 
-	return index[K, O]{idx, extract}
+// NewIndexWithHasKey creates an index with a specialized HasKey implementation.
+// The HasKey function is responsible for determining whether a given object contains a specified key or not.
+// When using NewIndex, this is automatically handled by calling the extract() function and seeing if the result contains the key.
+// However, in cases where there are many keys for a given object this can be expensive.
+func NewIndexWithHasKey[K comparable, O any](
+	c Collection[O],
+	extract func(o O) []K,
+	hasKey func(obj O, k K) bool,
+) Index[K, O] {
+	idx := c.(internalCollection[O]).index(func(o O) []string {
+		return slices.Map(extract(o), func(e K) string {
+			return toString(e)
+		})
+	})
+
+	return index[K, O]{idx, extract, hasKey}
 }
 
 type index[K comparable, O any] struct {
 	kclient.RawIndexer
 	extract func(o O) []K
+	hasKey  func(o O, k K) bool
 }
 
 // nolint: unused // (not true)
 func (i index[K, O]) objectHasKey(obj O, k K) bool {
-	for _, got := range i.extract(obj) {
-		if got == k {
-			return true
-		}
-	}
-	return false
+	return i.hasKey(obj, k)
 }
 
 // Lookup finds all objects matching a given key
