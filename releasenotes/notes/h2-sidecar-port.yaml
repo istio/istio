@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: []
+releaseNotes:
+- |
+  **Added** added the "h2" sidecar port protocol to allow specifying that the downgraded protocol should be http2
+upgradeNotes: []
+docs: []
+securityNotes: []

@@ -39,6 +39,8 @@ const (
 	HTTP2 Instance = "HTTP2"
 	// HTTPS declares that the port carries HTTPS traffic.
 	HTTPS Instance = "HTTPS"
+	// H2 declares that the port carries HTTP2 over TLS traffic.
+	H2 Instance = "H2"
 	// TCP declares the port uses TCP.
 	// This is the default protocol for a service port.
 	TCP Instance = "TCP"
@@ -80,6 +82,8 @@ func Parse(s string) Instance {
 		return HTTP2
 	case "https":
 		return HTTPS
+	case "h2":
+		return H2
 	case "tls":
 		return TLS
 	case "mongo":
@@ -121,7 +125,7 @@ func (i Instance) IsHTTP() bool {
 // IsTCP is true for protocols that use TCP as transport protocol
 func (i Instance) IsTCP() bool {
 	switch i {
-	case TCP, HTTPS, TLS, Mongo, Redis, MySQL:
+	case TCP, HTTPS, H2, TLS, Mongo, Redis, MySQL:
 		return true
 	default:
 		return false
@@ -131,7 +135,7 @@ func (i Instance) IsTCP() bool {
 // IsTLS is true for protocols on top of TLS (e.g. HTTPS)
 func (i Instance) IsTLS() bool {
 	switch i {
-	case HTTPS, TLS:
+	case HTTPS, H2, TLS:
 		return true
 	default:
 		return false
@@ -141,7 +145,7 @@ func (i Instance) IsTLS() bool {
 // IsHTTPS is true if protocol is HTTPS
 func (i Instance) IsHTTPS() bool {
 	switch i {
-	case HTTPS:
+	case HTTPS, H2:
 		return true
 	default:
 		return false
@@ -167,6 +171,8 @@ func (i Instance) AfterTLSTermination() Instance {
 	switch i {
 	case HTTPS:
 		return HTTP
+	case H2:
+		return HTTP2
 	case TLS:
 		return TCP
 	default:
