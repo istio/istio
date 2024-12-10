@@ -274,7 +274,9 @@ type ForwardEchoRequest struct {
 	// Valid values: "tcp4", "tcp6".
 	ForceIpFamily string `protobuf:"bytes,26,opt,name=force_ip_family,json=forceIpFamily,proto3" json:"force_ip_family,omitempty"`
 	// HBONE communication settings. If provided, requests will be tunnelled.
-	Hbone                *HBONE            `protobuf:"bytes,24,opt,name=hbone,proto3" json:"hbone,omitempty"`
+	Hbone *HBONE `protobuf:"bytes,24,opt,name=hbone,proto3" json:"hbone,omitempty"`
+	// S
+	DoubleHbone          []*HBONE          `protobuf:"bytes,27,rep,name=double_hbone,json=doubleHbone,proto3" json:"double_hbone,omitempty"`
 	ProxyProtocolVersion ProxyProtoVersion `protobuf:"varint,25,opt,name=proxyProtocolVersion,proto3,enum=proto.ProxyProtoVersion" json:"proxyProtocolVersion,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
@@ -481,6 +483,13 @@ func (x *ForwardEchoRequest) GetForceIpFamily() string {
 func (x *ForwardEchoRequest) GetHbone() *HBONE {
 	if x != nil {
 		return x.Hbone
+	}
+	return nil
+}
+
+func (x *ForwardEchoRequest) GetDoubleHbone() []*HBONE {
+	if x != nil {
+		return x.DoubleHbone
 	}
 	return nil
 }
@@ -708,7 +717,7 @@ var file_test_echo_proto_echo_proto_rawDesc = string([]byte{
 	0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x22, 0x30, 0x0a, 0x06, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72,
 	0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b,
 	0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28,
-	0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x93, 0x07, 0x0a, 0x12, 0x46, 0x6f, 0x72,
+	0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0xc4, 0x07, 0x0a, 0x12, 0x46, 0x6f, 0x72,
 	0x77, 0x61, 0x72, 0x64, 0x45, 0x63, 0x68, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
 	0x14, 0x0a, 0x05, 0x63, 0x6f, 0x75, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x05,
 	0x63, 0x6f, 0x75, 0x6e, 0x74, 0x12, 0x10, 0x0a, 0x03, 0x71, 0x70, 0x73, 0x18, 0x02, 0x20, 0x01,
@@ -834,17 +843,18 @@ var file_test_echo_proto_echo_proto_depIdxs = []int32{
 	6, // 1: proto.ForwardEchoRequest.alpn:type_name -> proto.Alpn
 	8, // 2: proto.ForwardEchoRequest.expectedResponse:type_name -> google.protobuf.StringValue
 	5, // 3: proto.ForwardEchoRequest.hbone:type_name -> proto.HBONE
-	0, // 4: proto.ForwardEchoRequest.proxyProtocolVersion:type_name -> proto.ProxyProtoVersion
-	3, // 5: proto.HBONE.headers:type_name -> proto.Header
-	1, // 6: proto.EchoTestService.Echo:input_type -> proto.EchoRequest
-	4, // 7: proto.EchoTestService.ForwardEcho:input_type -> proto.ForwardEchoRequest
-	2, // 8: proto.EchoTestService.Echo:output_type -> proto.EchoResponse
-	7, // 9: proto.EchoTestService.ForwardEcho:output_type -> proto.ForwardEchoResponse
-	8, // [8:10] is the sub-list for method output_type
-	6, // [6:8] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	5, // 4: proto.ForwardEchoRequest.double_hbone:type_name -> proto.HBONE
+	0, // 5: proto.ForwardEchoRequest.proxyProtocolVersion:type_name -> proto.ProxyProtoVersion
+	3, // 6: proto.HBONE.headers:type_name -> proto.Header
+	1, // 7: proto.EchoTestService.Echo:input_type -> proto.EchoRequest
+	4, // 8: proto.EchoTestService.ForwardEcho:input_type -> proto.ForwardEchoRequest
+	2, // 9: proto.EchoTestService.Echo:output_type -> proto.EchoResponse
+	7, // 10: proto.EchoTestService.ForwardEcho:output_type -> proto.ForwardEchoResponse
+	9, // [9:11] is the sub-list for method output_type
+	7, // [7:9] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_test_echo_proto_echo_proto_init() }
