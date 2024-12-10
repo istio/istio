@@ -16,10 +16,10 @@ package main
 
 import (
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -37,11 +37,6 @@ var (
 	scheme           = flag.String("scheme", "https", "scheme of the URL to the image registry")
 	regexForManifest = regexp.MustCompile(`(?P<Prefix>/v\d+)?/(?P<ImageName>.+)/manifests/(?P<Tag>[^:]*)$`)
 	regexForLayer    = regexp.MustCompile(`/layer/v1/(?P<ImageName>[^:]+):(?P<Tag>[^:]+)`)
-)
-
-const (
-	User   = "user"
-	Passwd = "passwd"
 )
 
 type Handler struct {
@@ -115,6 +110,14 @@ func (h *Handler) getFirstLayerURL(imageName string, tag string) (string, error)
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	insecureClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, // nolint: gosec // test only code
+			},
+		},
+	}
+
 	switch p := r.URL.Path; {
 	case p == "/ready":
 		w.WriteHeader(http.StatusOK)
@@ -160,21 +163,45 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, rurl, http.StatusMovedPermanently)
 	case !strings.Contains(p, "/v2/") || !strings.Contains(p, "/blobs/"):
 		// only requires authentication for getting manifests, not blobs
-		encoded := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%v:%v", User, Passwd)))
 		authHdr := r.Header.Get("Authorization")
-		wantHdr := fmt.Sprintf("Basic %s", encoded)
-		if authHdr != wantHdr {
+		if authHdr == "" {
 			log.Infof("Unauthorized: " + r.URL.Path)
-			log.Infof("Got header %q want header %q", authHdr, wantHdr)
+			log.Infof("Got empty header: %q", authHdr)
 			w.Header().Set("WWW-Authenticate", "Basic")
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
 		fallthrough
 	default:
-		rurl := fmt.Sprintf("%s://%v%v", *scheme, *registry, h.convertTag(r.URL.Path))
-		log.Infof("Get %q, send redirect to %q", r.URL, rurl)
-		http.Redirect(w, r, rurl, http.StatusMovedPermanently)
+		targetURL := fmt.Sprintf("%s://%v%v", *scheme, *registry, h.convertTag(r.URL.Path))
+		req, err := http.NewRequest(http.MethodGet, targetURL, nil)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error creating request: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Forward headers from the original request
+		req.Header = r.Header.Clone()
+
+		resp, err := insecureClient.Do(req)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error performing request: %v", err), http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		// Forward the response to the client
+		for key, values := range resp.Header {
+			for _, value := range values {
+				w.Header().Add(key, value)
+			}
+		}
+		w.WriteHeader(resp.StatusCode)
+		if _, err := io.Copy(w, resp.Body); err != nil {
+			log.Errorf("Error writing response: %v", err)
+		}
+
+		log.Infof("Get %q, forwarded to %q with status %d", r.URL, targetURL, resp.StatusCode)
 	}
 }
 
