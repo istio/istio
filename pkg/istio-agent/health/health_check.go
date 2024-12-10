@@ -95,6 +95,8 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Pro
 		prober = &TCPProber{Config: healthCheckMethod.TcpSocket}
 	case *v1alpha3.ReadinessProbe_Exec:
 		prober = &ExecProber{Config: healthCheckMethod.Exec}
+	case *v1alpha3.ReadinessProbe_Grpc:
+		prober = NewGRPCProber(healthCheckMethod.Grpc)
 	default:
 		prober = nil
 	}

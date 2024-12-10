@@ -25,6 +25,12 @@ import (
 	"strconv"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	grpc_status "google.golang.org/grpc/status"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -52,6 +58,63 @@ const (
 
 func (p *ProbeResult) IsHealthy() bool {
 	return *p == Healthy
+}
+
+type GRPCProber struct {
+	Config *v1alpha3.GrpcHealthCheckConfig
+}
+
+var _ Prober = &GRPCProber{}
+
+func NewGRPCProber(cfg *v1alpha3.GrpcHealthCheckConfig) *GRPCProber {
+	return &GRPCProber{
+		Config: cfg,
+	}
+}
+
+func (g *GRPCProber) Probe(timeout time.Duration) (ProbeResult, error) {
+	if g.Config == nil {
+		return Unknown, fmt.Errorf("grpc health check config is nil")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, net.JoinHostPort("localhost", fmt.Sprintf("%d", g.Config.Port)),
+		grpc.WithBlock(),
+		grpc.WithUserAgent("istio-probe/1.0"),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			return status.ProbeDialer().DialContext(ctx, "tcp", addr)
+		}),
+	)
+	if err != nil {
+		return Unhealthy, fmt.Errorf("failed to connect health check grpc service on port %d: %v", g.Config.Port, err)
+	}
+	defer conn.Close()
+	client := grpc_health_v1.NewHealthClient(conn)
+	req := &grpc_health_v1.HealthCheckRequest{
+		Service: g.Config.Service,
+	}
+	resp, err := client.Check(ctx, req)
+	if err != nil {
+		if stat, ok := grpc_status.FromError(err); ok {
+			switch stat.Code() {
+			case codes.Unimplemented:
+				return Unhealthy, fmt.Errorf("service on port %d doesn't implement the grpc health protocol grpc.health.v1.Health: %v", g.Config.Port, err)
+			case codes.DeadlineExceeded:
+				return Unhealthy, fmt.Errorf("health rpc probe timed out after %v: %v", timeout, err)
+			default:
+				return Unhealthy, fmt.Errorf("health rpc probe failed with status %v: %v", stat.Code(), err)
+			}
+		} else {
+			return Unhealthy, fmt.Errorf("health rpc probe failed: %v", err)
+		}
+	}
+	switch resp.GetStatus() {
+	case grpc_health_v1.HealthCheckResponse_SERVING:
+		return Healthy, nil
+	default:
+		return Unhealthy, nil
+	}
 }
 
 type HTTPProber struct {
