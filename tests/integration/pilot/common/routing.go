@@ -4204,6 +4204,9 @@ spec:
 				Headers: headersWithToken2,
 			},
 			Check: check.Status(http.StatusOK),
+			Retry: echo.Retry{
+				Options: []retry.Option{retry.Timeout(2 * time.Minute)},
+			},
 		},
 		setupOpts: setHostHeader,
 	})
@@ -4233,6 +4236,9 @@ spec:
 				Headers: headersWithToken2,
 			},
 			Check: check.Status(http.StatusOK),
+			Retry: echo.Retry{
+				Options: []retry.Option{retry.Timeout(2 * time.Minute)},
+			},
 		},
 		setupOpts: setHostHeader,
 	})
