@@ -202,8 +202,8 @@ func ProgramIptables(cfg *config.Config) error {
 		ext = &dep.DependenciesStub{}
 	} else {
 		ext = &dep.RealDependencies{
-			HostFilesystemPodNetwork: cfg.HostFilesystemPodNetwork,
-			NetworkNamespace:         cfg.NetworkNamespace,
+			UsePodScopedXtablesLock: cfg.HostFilesystemPodNetwork,
+			NetworkNamespace:        cfg.NetworkNamespace,
 		}
 	}
 

@@ -54,8 +54,11 @@ var exittypeToString = map[XTablesExittype]string{
 
 // RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct {
-	NetworkNamespace         string
-	HostFilesystemPodNetwork bool
+	NetworkNamespace string
+	// Should generally be set to true anytime we are "jumping" from a shared iptables
+	// context (the node, an agent container) into a pod to do iptables stuff,
+	// as it's faster and reduces contention for legacy iptables versions that use file-based locking.
+	UsePodScopedXtablesLock bool
 }
 
 const iptablesVersionPattern = `v([0-9]+(\.[0-9]+)+)`
