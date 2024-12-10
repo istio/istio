@@ -53,15 +53,7 @@ var (
 	)
 )
 
-func init() {
-	pilotVersion.With(versionTag.Value(version.Info.String())).Record(1)
-}
-
-func addMonitor(mux *http.ServeMux) error {
-	exporter, err := monitoring.RegisterPrometheusExporter(nil, nil)
-	if err != nil {
-		return fmt.Errorf("could not set up prometheus exporter: %v", err)
-	}
+func addMonitor(exporter http.Handler, mux *http.ServeMux) {
 	mux.Handle(metricsPath, metricsMiddleware(exporter))
 
 	mux.HandleFunc(versionPath, func(out http.ResponseWriter, req *http.Request) {
@@ -69,8 +61,6 @@ func addMonitor(mux *http.ServeMux) error {
 			log.Errorf("Unable to write version string: %v", err)
 		}
 	})
-
-	return nil
 }
 
 func metricsMiddleware(handler http.Handler) http.Handler {
@@ -86,7 +76,7 @@ func metricsMiddleware(handler http.Handler) http.Handler {
 
 // Deprecated: we shouldn't have 2 http ports. Will be removed after code using
 // this port is removed.
-func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
+func startMonitor(exporter http.Handler, addr string, mux *http.ServeMux) (*monitor, error) {
 	m := &monitor{}
 
 	// get the network stuff setup
@@ -102,9 +92,7 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 	// for pilot. a full design / implementation of self-monitoring and reporting
 	// is coming. that design will include proper coverage of statusz/healthz type
 	// functionality, in addition to how pilot reports its own metrics.
-	if err := addMonitor(mux); err != nil {
-		return nil, fmt.Errorf("could not establish self-monitoring: %v", err)
-	}
+	addMonitor(exporter, mux)
 	if addr != "" {
 		m.monitoringServer = &http.Server{
 			Addr:        listener.Addr().String(),
@@ -115,6 +103,7 @@ func startMonitor(addr string, mux *http.ServeMux) (*monitor, error) {
 	}
 
 	version.Info.RecordComponentBuildTag("pilot")
+	pilotVersion.With(versionTag.Value(version.Info.String())).Record(1)
 
 	if addr != "" {
 		go func() {
@@ -135,7 +124,7 @@ func (m *monitor) Close() error {
 // initMonitor initializes the configuration for the pilot monitoring server.
 func (s *Server) initMonitor(addr string) error { // nolint: unparam
 	s.addStartFunc("monitoring", func(stop <-chan struct{}) error {
-		monitor, err := startMonitor(addr, s.monitoringMux)
+		monitor, err := startMonitor(s.metricsExporter, addr, s.monitoringMux)
 		if err != nil {
 			return err
 		}
