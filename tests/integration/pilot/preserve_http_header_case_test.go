@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alecthomas/assert/v2"
+	"github.com/stretchr/testify/assert"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
@@ -71,12 +71,12 @@ func TestPreserveHTTPHeaderCase(t *testing.T) {
 			})
 			// Step 4: Configure Stateful Formatter
 			meshConfig := `
-			values:
-			  meshConfig:
-				defaultConfig:
-				  proxyHeaders:
-					preserveHttp1HeaderCase: true
-			`
+values:
+meshConfig:
+  defaultConfig:
+    proxyHeaders:
+      preserveHttp1HeaderCase: true
+`
 			ctx.ConfigIstio().YAML("istio-system", meshConfig).ApplyOrFail(ctx)
 
 			// Step 5: Send HTTP/1.x Traffic and Validate Headers
