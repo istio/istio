@@ -205,15 +205,21 @@ func (wp *WorkerPool) maybeAddWorker() {
 				// Check that generation matches
 				if strconv.FormatInt(cfg.Generation, 10) == target.Generation {
 					x, err := GetOGProvider(cfg.Status)
-					if err == nil {
-						// Not all controllers user generation, so we can ignore errors
-						x.SetObservedGeneration(cfg.Generation)
+					// If this is nil, it means we were unable to cast the status to the expected type. So skip it.
+					//
+					// Note: This is a temporary fix for 1.23 nil panic errors. This logic is no longer relevant in future releases
+					// and status is handled more gracefully.
+					if x != nil {
+						if err == nil {
+							// Not all controllers user generation, so we can ignore errors
+							x.SetObservedGeneration(cfg.Generation)
+						}
+						for c, i := range perControllerWork {
+							// TODO: this does not guarantee controller order.  perhaps it should?
+							x = c.fn(x, i)
+						}
+						wp.write(cfg, x)
 					}
-					for c, i := range perControllerWork {
-						// TODO: this does not guarantee controller order.  perhaps it should?
-						x = c.fn(x, i)
-					}
-					wp.write(cfg, x)
 				}
 			}
 			wp.lock.Lock()
