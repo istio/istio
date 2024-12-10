@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 51768
+releaseNotes:
+- |
+  **Updated** allow specifying the inbound server tls settings when peer authentication is set to permissive
+upgradeNotes: []
+docs:
+- '[Design] https://docs.google.com/document/d/13ciYV5H85rOc_EH1LcuoVyCFxFu_n4SpNq1luvHmRmA/edit?usp=sharing'
+securityNotes: []

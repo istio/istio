@@ -23,6 +23,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -716,6 +718,24 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 				commonTLSContext.TlsCertificates[0].CertificateChain.String())
 		}
 	}
+	expectNonIstioTLS := func(t test.Failer, filterChain *listener.FilterChain) {
+		tlsContext := &tls.DownstreamTlsContext{}
+		if err := filterChain.GetTransportSocket().GetTypedConfig().UnmarshalTo(tlsContext); err != nil {
+			t.Fatal(err)
+		}
+		commonTLSContext := tlsContext.CommonTlsContext
+		if len(commonTLSContext.TlsCertificateSdsSecretConfigs) == 0 {
+			t.Fatal("expected tls certificates")
+		}
+		if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "file-cert:cert.pem~privatekey.pem" {
+			t.Fatalf("expected certificate httpbin.pem, actual %s",
+				commonTLSContext.TlsCertificates[0].CertificateChain.String())
+		}
+		if tlsContext.RequireClientCertificate.Value {
+			t.Fatal("expected RequireClientCertificate to be false")
+		}
+	}
+
 	instances := make([]*model.ServiceInstance, 0, len(services))
 	for _, s := range services {
 		var addrs []string
@@ -737,7 +757,7 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 		name           string
 		sidecarScope   *model.SidecarScope
 		mtlsMode       model.MutualTLSMode
-		expectedResult func(t test.Failer, filterChain *listener.FilterChain)
+		expectedResult func(t test.Failer, virtualInbound *listener.Listener)
 	}{
 		{
 			name: "simulate peer auth disabled on port 80",
@@ -756,22 +776,9 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 				},
 			},
 			mtlsMode: model.MTLSDisable,
-			expectedResult: func(t test.Failer, filterChain *listener.FilterChain) {
-				tlsContext := &tls.DownstreamTlsContext{}
-				if err := filterChain.GetTransportSocket().GetTypedConfig().UnmarshalTo(tlsContext); err != nil {
-					t.Fatal(err)
-				}
-				commonTLSContext := tlsContext.CommonTlsContext
-				if len(commonTLSContext.TlsCertificateSdsSecretConfigs) == 0 {
-					t.Fatal("expected tls certificates")
-				}
-				if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "file-cert:cert.pem~privatekey.pem" {
-					t.Fatalf("expected certificate httpbin.pem, actual %s",
-						commonTLSContext.TlsCertificates[0].CertificateChain.String())
-				}
-				if tlsContext.RequireClientCertificate.Value {
-					t.Fatal("expected RequireClientCertificate to be false")
-				}
+			expectedResult: func(t test.Failer, virtualInbound *listener.Listener) {
+				filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
+				expectNonIstioTLS(t, filterChain)
 			},
 		},
 		{
@@ -790,11 +797,14 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 					},
 				},
 			},
-			mtlsMode:       model.MTLSStrict,
-			expectedResult: expectIstioMTLS,
+			mtlsMode: model.MTLSStrict,
+			expectedResult: func(t test.Failer, virtualInbound *listener.Listener) {
+				filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
+				expectIstioMTLS(t, filterChain)
+			},
 		},
 		{
-			name: "simulate peer auth permissive",
+			name: "simulate peer auth permissive https",
 			sidecarScope: &model.SidecarScope{
 				Sidecar: &networking.Sidecar{
 					Ingress: []*networking.IstioIngressListener{
@@ -809,8 +819,64 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 					},
 				},
 			},
-			mtlsMode:       model.MTLSPermissive,
-			expectedResult: expectIstioMTLS,
+			mtlsMode: model.MTLSPermissive,
+			expectedResult: func(t test.Failer, virtualInbound *listener.Listener) {
+				filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
+				expectIstioMTLS(t, filterChain)
+
+				permissiveFilterChain := xdstest.ExtractFilterChain("user_tls_1.1.1.1_80", virtualInbound)
+				expectNonIstioTLS(t, permissiveFilterChain)
+			},
+		},
+		{
+			name: "simulate peer auth permissive tls",
+			sidecarScope: &model.SidecarScope{
+				Sidecar: &networking.Sidecar{
+					Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.SidecarPort{Name: "tls-port", Protocol: "tls", Number: 80},
+							Tls: &networking.ServerTLSSettings{
+								Mode:              networking.ServerTLSSettings_SIMPLE,
+								ServerCertificate: "cert.pem",
+								PrivateKey:        "privatekey.pem",
+							},
+						},
+					},
+				},
+			},
+			mtlsMode: model.MTLSPermissive,
+			expectedResult: func(t test.Failer, virtualInbound *listener.Listener) {
+				filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
+				expectIstioMTLS(t, filterChain)
+
+				permissiveFilterChain := xdstest.ExtractFilterChain("user_tls_1.1.1.1_80", virtualInbound)
+				expectNonIstioTLS(t, permissiveFilterChain)
+			},
+		},
+		{
+			name: "simulate peer auth permissive tls + explicit downgraded protocol",
+			sidecarScope: &model.SidecarScope{
+				Sidecar: &networking.Sidecar{
+					Ingress: []*networking.IstioIngressListener{
+						{
+							Port: &networking.SidecarPort{Name: "https-http2-port", Protocol: "HTTP2", Number: 80},
+							Tls: &networking.ServerTLSSettings{
+								Mode:              networking.ServerTLSSettings_SIMPLE,
+								ServerCertificate: "cert.pem",
+								PrivateKey:        "privatekey.pem",
+							},
+						},
+					},
+				},
+			},
+			mtlsMode: model.MTLSPermissive,
+			expectedResult: func(t test.Failer, virtualInbound *listener.Listener) {
+				filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
+				expectIstioMTLS(t, filterChain)
+
+				permissiveFilterChain := xdstest.ExtractFilterChain("user_tls_1.1.1.1_80", virtualInbound)
+				expectNonIstioTLS(t, permissiveFilterChain)
+			},
 		},
 	}
 	for _, tt := range cases {
@@ -827,8 +893,15 @@ func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
 			test.SetForTest(t, &features.EnableTLSOnSidecarIngress, true)
 			listeners := cg.Listeners(proxy)
 			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
-			filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
-			tt.expectedResult(t, filterChain)
+			// ensure no duplicate filter chains
+			for idx, fc1 := range virtualInbound.FilterChains {
+				if slices.FindFunc(virtualInbound.FilterChains[:idx], func(fc2 *listener.FilterChain) bool {
+					return proto.Equal(fc1.FilterChainMatch, fc2.FilterChainMatch)
+				}) != nil {
+					t.Fatal("Duplicate filter chains found!")
+				}
+			}
+			tt.expectedResult(t, virtualInbound)
 		})
 	}
 }
