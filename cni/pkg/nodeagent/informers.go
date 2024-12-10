@@ -41,7 +41,6 @@ var (
 
 type K8sHandlers interface {
 	GetPodIfAmbientEnabled(podName, podNamespace string) (*corev1.Pod, error)
-	GetPodIfAmbientActive(podName, podNamespace string) (bool, error)
 	GetActiveAmbientPodSnapshot() []*corev1.Pod
 	Start()
 }
@@ -101,25 +100,6 @@ func (s *InformerHandlers) GetPodIfAmbientEnabled(podName, podNamespace string) 
 		return pod, nil
 	}
 	return nil, nil
-}
-
-// GetPodIfAmbientActive looks up a pod. It returns:
-// * An error if the pod cannot be found
-// * nil if the pod is found, but is not enrolled in ambient (e.g. has been annotated)
-// * the pod, if it is found and is enrolled in ambient (e.g. has been annotated)
-func (s *InformerHandlers) GetPodIfAmbientActive(podName, podNamespace string) (bool, error) {
-	ns := s.namespaces.Get(podNamespace, "")
-	if ns == nil {
-		return false, fmt.Errorf("failed to find namespace %v", ns)
-	}
-	pod := s.pods.Get(podName, podNamespace)
-	if pod == nil {
-		return false, fmt.Errorf("failed to find pod %v", pod)
-	}
-	if util.PodRedirectionActive(pod) {
-		return true, nil
-	}
-	return false, nil
 }
 
 func (s *InformerHandlers) Start() {
