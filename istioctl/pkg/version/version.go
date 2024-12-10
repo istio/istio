@@ -203,6 +203,9 @@ func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptio
 func xdsProxyVersionWrapper(xdsResponse **discovery.DiscoveryResponse) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
 		pi := []istioVersion.ProxyInfo{}
+		if *xdsResponse == nil {
+			return nil, fmt.Errorf("invalid xdsResponse")
+		}
 		for _, resource := range (*xdsResponse).Resources {
 			switch resource.TypeUrl {
 			case "type.googleapis.com/envoy.config.core.v3.Node":
