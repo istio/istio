@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 52847
+releaseNotes:
+  - |
+    **Fixed** an issue causing configuration to be rejected when there is a partial overlap between IP addresses across multiple services.
+    For example, a Service with `[IP-A]` and one with `[IP-B, IP-A]`.
