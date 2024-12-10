@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -646,7 +647,7 @@ func TestAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
-	_, err := handlers.GetPodIfAmbient(pod.Name, ns.Name)
+	_, err := handlers.GetPodIfAmbientEnabled(pod.Name, ns.Name)
 
 	assert.NoError(t, err)
 }
@@ -687,7 +688,7 @@ func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
-	disabledPod, err := handlers.GetPodIfAmbient(pod.Name, ns.Name)
+	disabledPod, err := handlers.GetPodIfAmbientEnabled(pod.Name, ns.Name)
 
 	assert.NoError(t, err)
 	assert.Equal(t, disabledPod, nil)
@@ -729,7 +730,7 @@ func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
-	disabledPod, err := handlers.GetPodIfAmbient(pod.Name, "what")
+	disabledPod, err := handlers.GetPodIfAmbientEnabled(pod.Name, "what")
 
 	assert.Error(t, err)
 	assert.Equal(t, disabledPod, nil)
@@ -789,6 +790,69 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 	assertPodAnnotated(t, client, pod)
 
 	// check expectations on mocked calls
+	fs.AssertExpectations(t)
+}
+
+// Double-adds are something we want to guard against - this is because unlike
+// Remove operations, there are 2 sources of Adds (potentially) - the CNI plugin
+// and the informer. This test is designed to simulate the case where the informer
+// gets a stale event for a pod that has already been Added by the CNI plugin.
+func TestPendingPodSkippedIfAlreadyLabeledAndEventStale(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test",
+			Namespace:   "test",
+			Annotations: map[string]string{annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+			Phase: corev1.PodPending,
+		},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
+		},
+	}
+
+	client := kube.NewFakeClient(ns, pod)
+
+	fs := &fakeServer{}
+
+	server := getFakeDP(fs, client.Kube())
+
+	handlers := setupHandlers(ctx, client, server, "istio-system")
+	client.RunAndWait(ctx.Done())
+	go handlers.Start()
+
+	// We've started the informer with a Pending pod that has an
+	// annotation indicating it was already enrolled
+
+	// Now, force thru a stale pod event that lacks that annotation
+	fakePod := pod.DeepCopy()
+	fakePod.ObjectMeta.Annotations = map[string]string{}
+
+	fakeEvent := controllers.Event{
+		Event: controllers.EventUpdate,
+		Old:   fakePod,
+		New:   fakePod,
+	}
+	handlers.reconcile(fakeEvent)
+
+	// Pod should still be annotated
+	assertPodAnnotated(t, client, pod)
+
+	// None of our remove or add mocks should have been called
 	fs.AssertExpectations(t)
 }
 

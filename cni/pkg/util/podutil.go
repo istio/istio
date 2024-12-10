@@ -71,7 +71,10 @@ func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 //
 // If you just want to know if the pod _should be_ configured for traffic redirection, see PodRedirectionEnabled
 func PodRedirectionActive(pod *corev1.Pod) bool {
-	return pod.GetAnnotations()[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
+	if pod != nil {
+		return pod.GetAnnotations()[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
+	}
+	return false
 }
 
 func podHasSidecar(pod *corev1.Pod) bool {
