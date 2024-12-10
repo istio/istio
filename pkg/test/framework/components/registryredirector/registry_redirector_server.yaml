@@ -40,7 +40,7 @@ spec:
         app: registry-redirector
     spec:
       containers:
-      - image: {{ or .Image "gcr.io/istio-testing/fake-registry:1.4"}}
+      - image: {{ or .Image "gcr.io/istio-testing/fake-registry:1.5"}}
         name: registry-redirector
         {{- if .TargetRegistry }}
         args: ["--registry", {{ .TargetRegistry }}, "--scheme", {{ or .Scheme "https" }}]

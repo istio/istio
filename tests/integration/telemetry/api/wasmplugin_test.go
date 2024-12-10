@@ -37,7 +37,6 @@ import (
 )
 
 const (
-	imageName      = "istio-testing/wasm/header-injector"
 	injectedHeader = "x-resp-injection"
 	wasmConfigFile = "testdata/wasm-filter.yaml"
 )
@@ -54,10 +53,17 @@ type wasmTestConfigs struct {
 
 var generation = 0
 
+func getImageName(t framework.TestContext) string {
+	if t.Settings().OpenShift {
+		return "istio-system/header-injector"
+	}
+	return "istio-testing/wasm/header-injector"
+}
+
 func mapTagToVersionOrFail(t framework.TestContext, tag, version string) {
 	t.Helper()
 	if err := registry.SetupTagMap(map[string]string{
-		imageName + ":" + tag: version,
+		getImageName(t) + ":" + tag: version,
 	}); err != nil {
 		t.Fatalf("failed to setup the tag map: %v", err)
 	}
@@ -73,7 +79,7 @@ func applyAndTestCustomWasmConfigWithOCI(ctx framework.TestContext, c wasmTestCo
 			generation++
 		}()
 		mapTagToVersionOrFail(t, c.tag, c.upstreamVersion)
-		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), imageName, c.tag)
+		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), getImageName(t), c.tag)
 		if err := installWasmExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", generation), path); err != nil {
 			t.Fatalf("failed to install WasmPlugin: %v", err)
 		}
@@ -251,7 +257,7 @@ func applyAndTestCustomWasmConfigWithHTTP(ctx framework.TestContext, c wasmTestC
 		mapTagToVersionOrFail(t, c.tag, c.upstreamVersion)
 		// registry-redirector will redirect to the gzipped tarball of the first layer with this request.
 		// The gzipped tarball should have a wasm module.
-		wasmModuleURL := fmt.Sprintf("http://%v/layer/v1/%v:%v", registry.Address(), imageName, c.tag)
+		wasmModuleURL := fmt.Sprintf("http://%v/layer/v1/%v:%v", registry.Address(), getImageName(t), c.tag)
 		t.Logf("Trying to get a wasm file from %v", wasmModuleURL)
 		if err := installWasmExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", generation), path); err != nil {
 			t.Fatalf("failed to install WasmPlugin: %v", err)

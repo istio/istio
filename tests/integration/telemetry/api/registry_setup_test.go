@@ -28,16 +28,25 @@ import (
 var registry registryredirector.Instance
 
 const (
-	// Same user name and password as specified at pkg/test/fakes/imageregistry
-	registryUser   = "user"
-	registryPasswd = "passwd"
+	// The password is a token that taken from the created service account
+	registryUser = "user"
 )
 
 func testRegistrySetup(ctx resource.Context) (err error) {
+	var targetRegistry, scheme string
+
+	if ctx.Settings().OpenShift {
+		targetRegistry = "image-registry.openshift-image-registry.svc:5000"
+		scheme = "https"
+	} else {
+		targetRegistry = "kind-registry:5000"
+		scheme = "http"
+	}
+
 	registry, err = registryredirector.New(ctx, registryredirector.Config{
 		Cluster:        ctx.AllClusters().Default(),
-		TargetRegistry: "kind-registry:5000",
-		Scheme:         "http",
+		TargetRegistry: targetRegistry,
+		Scheme:         scheme,
 	})
 	if err != nil {
 		return

@@ -18,9 +18,14 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"testing"
+	"time"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/echo/common"
@@ -144,13 +149,63 @@ proxyMetadata:
 		return
 	}
 
-	args := map[string]any{
-		"DockerConfigJson": base64.StdEncoding.EncodeToString(
-			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),
+	var args map[string]any
+	files := []string{
+		"testdata/service-account.yaml",
+		"testdata/cluster-role-binding.yaml",
+		"testdata/service-account-secret.yaml",
 	}
+
+	for _, file := range files {
+		args = map[string]any{}
+		if file == "testdata/cluster-role-binding.yaml" {
+			args["AppNamespace"] = apps.Namespace.Name()
+		}
+		if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, file).
+			Apply(apply.CleanupConditionally); err != nil {
+			return err
+		}
+	}
+
+	token, err := getServiceAccountToken(ctx, apps.Namespace.Name(), "reg-sa")
+	if err != nil {
+		return fmt.Errorf("failed to fetch service account token: %v", err)
+	}
+
+	args = map[string]any{
+		"DockerConfigJson": base64.StdEncoding.EncodeToString(
+			[]byte(createDockerCredential(registryUser, token, registry.Address()))),
+	}
+
 	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/registry-secret.yaml").
 		Apply(apply.CleanupConditionally); err != nil {
 		return err
 	}
+
 	return nil
+}
+
+// Function to fetch the service account secret token. When running the kind, the time between service account,
+// service secret and between fetching the secret token very small and the token could not be pupulated yet.
+// In that case, retrying again with small waiting time.
+func getServiceAccountToken(ctx resource.Context, namespace, serviceAccountName string) (string, error) {
+	client := ctx.Clusters().Default().Kube().CoreV1()
+
+	for retry := 0; retry < 3; retry++ {
+		secrets, err := client.Secrets(namespace).List(context.TODO(), metav1.ListOptions{
+			FieldSelector: fmt.Sprintf("type=%s", v1.SecretTypeServiceAccountToken),
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to list secrets: %v", err)
+		}
+		for _, secret := range secrets.Items {
+			if secret.Annotations[v1.ServiceAccountNameKey] == serviceAccountName {
+				if token, ok := secret.Data["token"]; ok {
+					return string(token), nil
+				}
+			}
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return "", fmt.Errorf("no token found for service account %s in namespace %s", serviceAccountName, namespace)
 }
