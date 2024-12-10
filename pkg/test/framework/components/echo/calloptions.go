@@ -178,6 +178,9 @@ type CallOptions struct {
 	// HBONE settings.
 	HBONE HBONE
 
+	// DoubleHBONE settings
+	DoubleHBONE HBONE
+
 	// Message to be sent.
 	Message string
 
