@@ -282,7 +282,14 @@ func (r *RealDependencies) executeXTablesWithOutput(log *log.Scope, cmd constant
 	return stdout, err
 }
 
-func (r *RealDependencies) executeXTables(logger *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
+func (r *RealDependencies) executeXTables(
+	logger *log.Scope,
+	cmd constants.IptablesCmd,
+	iptVer *IptablesVersion,
+	ignoreErrors bool,
+	stdin io.ReadSeeker,
+	args ...string,
+) error {
 	_, err := r.executeXTablesWithOutput(logger, cmd, iptVer, ignoreErrors, stdin, args...)
 	return err
 }

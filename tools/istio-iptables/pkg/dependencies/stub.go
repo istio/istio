@@ -43,13 +43,25 @@ func (s *DependenciesStub) Run(logger *log.Scope, cmd constants.IptablesCmd, ipt
 	return nil
 }
 
-func (s *DependenciesStub) RunWithOutput(ogger *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error) {
+func (s *DependenciesStub) RunWithOutput(
+	ogger *log.Scope,
+	cmd constants.IptablesCmd,
+	iptVer *IptablesVersion,
+	stdin io.ReadSeeker,
+	args ...string,
+) (*bytes.Buffer, error) {
 	s.execute(false /*quietly*/, cmd, iptVer, stdin, args...)
 	_ = s.writeAllToDryRunPath()
 	return &bytes.Buffer{}, nil
 }
 
-func (s *DependenciesStub) RunQuietlyAndIgnore(logger *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
+func (s *DependenciesStub) RunQuietlyAndIgnore(
+	logger *log.Scope,
+	cmd constants.IptablesCmd,
+	iptVer *IptablesVersion,
+	stdin io.ReadSeeker,
+	args ...string,
+) {
 	s.execute(true /*quietly*/, cmd, iptVer, stdin, args...)
 	_ = s.writeAllToDryRunPath()
 }
