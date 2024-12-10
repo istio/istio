@@ -174,7 +174,15 @@ type WasmPluginListenerInfo struct {
 	Class istionetworking.ListenerClass
 
 	// Service that WasmPlugins can attach to via targetRefs (optional)
-	Service *Service
+	Services []*Service
+}
+
+func (listenerInfo WasmPluginListenerInfo) WithService(service *Service) WasmPluginListenerInfo {
+	if service == nil {
+		return listenerInfo
+	}
+	listenerInfo.Services = append(listenerInfo.Services, service)
+	return listenerInfo
 }
 
 // If anyListener is used as a listener info,
