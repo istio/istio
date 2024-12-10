@@ -19,7 +19,7 @@ package helm
 import "strings"
 
 func pathJoin(elem ...string) string {
-	elems := make([]string, len(elem))
+	elems := make([]string, 0, len(elem))
 	elems = append(elems, elem...)
 	return strings.Join(elems, "/")
 }
