@@ -99,7 +99,12 @@ func (c *Config) fillDefaults() error {
 	if err != nil {
 		return err
 	}
-	c.hboneClientConfig, err = getHBONEClientConfig(c.Request.Hbone)
+
+	hboneSettings := c.Request.Hbone
+	if c.Request.DoubleHbone != nil {
+		hboneSettings = c.Request.DoubleHbone
+	}
+	c.hboneClientConfig, err = getHBONEClientConfig(hboneSettings)
 	if err != nil {
 		return err
 	}
@@ -322,7 +327,11 @@ func newTLSConfig(c *Config) (*tls.Config, error) {
 func newHBONETLSConfig(c *Config) (*tls.Config, error) {
 	r := c.Request.Hbone
 	if r == nil {
-		return nil, nil
+		// Check and see if there's double hbone config
+		r = c.Request.DoubleHbone
+		if r == nil {
+			return nil, nil
+		}
 	}
 	tlsConfig := &tls.Config{
 		GetClientCertificate: c.hboneClientConfig,

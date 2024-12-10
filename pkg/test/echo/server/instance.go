@@ -286,6 +286,7 @@ func (s *Instance) validate() error {
 		case protocol.HTTP2:
 		case protocol.GRPC:
 		case protocol.HBONE:
+		case protocol.DoubleHBONE:
 		default:
 			return fmt.Errorf("protocol %v not currently supported", port.Protocol)
 		}
