@@ -16,10 +16,25 @@
 
 package helm
 
-import "strings"
+import (
+	"testing"
 
-func pathJoin(elem ...string) string {
-	elems := make([]string, 0, len(elem))
-	elems = append(elems, elem...)
-	return strings.Join(elems, "/")
+	"github.com/stretchr/testify/require"
+)
+
+func TestPathJoin(t *testing.T) {
+	cases := []struct {
+		input    []string
+		expected string
+	}{
+		{
+			input:    []string{"a", "b", "c"},
+			expected: "a/b/c",
+		},
+	}
+
+	for _, c := range cases {
+		actual := pathJoin(c.input...)
+		require.Equal(t, c.expected, actual)
+	}
 }
