@@ -179,96 +179,9 @@ func (rb *IptablesRuleBuilder) buildRules(rules []Rule) [][]string {
 	return output
 }
 
-// undoRules generates the minimal set of rules that are necessary to undo the changes made by the input rules.
-// The function transforms -A/--append and -I/--insert flags into -D/--delete flags while preserving the
-// structure of other parameters.
-// Non-jump rules in ISTIO_* chains are skipped as these chains will be flushed, but jump rules are retained to ensure proper reversal.
-// Note: This function does not support converting rules with -D/--delete flags back to -A/-I flags.
-func undoRules(rules []Rule) []Rule {
-	output := make([]Rule, 0)
-	for _, r := range rules {
-		var modifiedParams []string
-		skip := false
-		insertIndex := -1
-		for i, element := range r.params {
-			// insert index of a previous -I flag must be skipped
-			if insertIndex >= 0 && i == insertIndex+2 {
-				continue
-			}
-			if element == "-A" || element == "--append" {
-				// -A/--append is transformed to -D
-				modifiedParams = append(modifiedParams, "-D")
-			} else if element == "-I" || element == "--insert" {
-				// -I/--insert is transformed to -D, insert index at i+2 must be skipped
-				insertIndex = i
-				modifiedParams = append(modifiedParams, "-D")
-			} else {
-				// Every other flag/value is kept as it is
-				modifiedParams = append(modifiedParams, element)
-			}
-
-			if ((element == "-A" || element == "--append") || (element == "-I" || element == "--insert")) &&
-				i < len(r.params)-1 && strings.HasPrefix(r.params[i+1], "ISTIO_") {
-				// Ignore every non-jump rule in ISTIO_* chains as we will flush the chain anyway
-				skip = true
-			} else if (element == "-j" || element == "--jump") && i < len(r.params)-1 && strings.HasPrefix(r.params[i+1], "ISTIO_") {
-				// Override previous skip if this is a jump-rule
-				skip = false
-			}
-		}
-		if skip {
-			continue
-		}
-
-		output = append(output, Rule{
-			chain:  r.chain,
-			table:  r.table,
-			params: modifiedParams,
-		})
-	}
-	log.Debugf("Generated undo-rules: %+v", output)
-	return output
-}
-
-// checkRules generates a set of iptables rules that are used to verify the existence of the input rules.
-// The function transforms -A/--append and -I/--insert flags into -C/--check flags while preserving the
-// structure of other parameters.
-// The transformation allows for checking whether the corresponding rules are already present in the iptables configuration.
-func checkRules(rules []Rule) []Rule {
-	output := make([]Rule, 0)
-	for _, r := range rules {
-		var modifiedParams []string
-		insertIndex := -1
-		for i, element := range r.params {
-			// insert index of a previous -I flag must be skipped
-			if insertIndex >= 0 && i == insertIndex+2 {
-				continue
-			}
-			if element == "-A" || element == "--append" {
-				// -A/--append is transformed to -D
-				modifiedParams = append(modifiedParams, "-C")
-			} else if element == "-I" || element == "--insert" {
-				// -I/--insert is transformed to -D, insert index at i+2 must be skipped
-				insertIndex = i
-				modifiedParams = append(modifiedParams, "-C")
-			} else {
-				// Every other flag/value is kept as it is
-				modifiedParams = append(modifiedParams, element)
-			}
-		}
-		output = append(output, Rule{
-			chain:  r.chain,
-			table:  r.table,
-			params: modifiedParams,
-		})
-	}
-	log.Debugf("Generated check-rules: %+v", output)
-	return output
-}
-
 func (rb *IptablesRuleBuilder) buildCheckRules(rules []Rule) [][]string {
 	output := make([][]string, 0)
-	checkRules := checkRules(rules)
+	checkRules := CheckRules(rules)
 	for _, r := range checkRules {
 		cmd := append([]string{"-t", r.table}, r.params...)
 		output = append(output, cmd)
@@ -283,7 +196,7 @@ func (rb *IptablesRuleBuilder) buildCleanupRules(rules []Rule) [][]string {
 	}
 
 	output := make([][]string, 0)
-	reversedRules := undoRules(newRules)
+	reversedRules := UndoRules(newRules)
 	for _, r := range reversedRules {
 		cmd := append([]string{"-t", r.table}, r.params...)
 		output = append(output, cmd)
@@ -352,7 +265,7 @@ func (rb *IptablesRuleBuilder) BuildGuardrails() [][]string {
 }
 
 func (rb *IptablesRuleBuilder) BuildCleanupGuardrails() [][]string {
-	rules := undoRules(rb.buildGuardrails())
+	rules := UndoRules(rb.buildGuardrails())
 	output := make([][]string, 0)
 	for _, r := range rules {
 		cmd := append([]string{"-t", r.table}, r.params...)
@@ -462,9 +375,16 @@ func (rb *IptablesRuleBuilder) GetStateFromSave(data string) map[string]map[stri
 
 		rule := strings.Split(line, " ")
 		ruleChain := ""
+		toAdd := false
 		for i, item := range rule {
 			if (item == "--append" || item == "-A" || item == "--insert" || item == "-I") && i+1 < len(rule) {
-				ruleChain = rule[i+1]
+				toAdd = true
+				ruleChain = strings.Trim(rule[i+1], "'\"")
+			} else if (item == "--new" || item == "-N") && i+1 < len(rule) {
+				target := strings.Trim(rule[i+1], "'\"")
+				if strings.HasPrefix(target, "ISTIO") {
+					ruleChain = target
+				}
 			}
 		}
 		if ruleChain == "" {
@@ -474,7 +394,9 @@ func (rb *IptablesRuleBuilder) GetStateFromSave(data string) map[string]map[stri
 		if !ok {
 			result[table][ruleChain] = []string{}
 		}
-		result[table][ruleChain] = append(result[table][ruleChain], line)
+		if toAdd {
+			result[table][ruleChain] = append(result[table][ruleChain], line)
+		}
 	}
 	return result
 }

@@ -204,7 +204,7 @@ func mount(src, dst string) error {
 }
 
 func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion,
-	ignoreErrors bool, stdin io.ReadSeeker, args ...string,
+	ignoreErrors bool, silenceOutput bool, stdin io.ReadSeeker, args ...string,
 ) (*bytes.Buffer, error) {
 	mode := "without lock"
 	stdout := &bytes.Buffer{}
@@ -261,7 +261,11 @@ func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, i
 	c.Stdin = stdin
 	err := run(c)
 	if len(stdout.String()) != 0 {
-		log.Infof("Command output: \n%v", stdout.String())
+		if !silenceOutput {
+			log.Infof("Command output: \n%v", stdout.String())
+		} else {
+			log.Debugf("Command output: \n%v", stdout.String())
+		}
 	}
 
 	// TODO Check naming and redirection logic
@@ -283,6 +287,6 @@ func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, i
 }
 
 func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
-	_, err := r.executeXTablesWithOutput(cmd, iptVer, ignoreErrors, stdin, args...)
+	_, err := r.executeXTablesWithOutput(cmd, iptVer, ignoreErrors, false, stdin, args...)
 	return err
 }

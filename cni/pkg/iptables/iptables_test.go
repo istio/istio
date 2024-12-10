@@ -26,42 +26,7 @@ import (
 )
 
 func TestIptablesPodOverrides(t *testing.T) {
-	cases := []struct {
-		name         string
-		config       func(cfg *IptablesConfig)
-		podOverrides PodLevelOverrides
-	}{
-		{
-			name: "default",
-			config: func(cfg *IptablesConfig) {
-				cfg.RedirectDNS = true
-			},
-			podOverrides: PodLevelOverrides{},
-		},
-		{
-			name: "ingress",
-			config: func(cfg *IptablesConfig) {
-			},
-			podOverrides: PodLevelOverrides{IngressMode: true},
-		},
-		{
-			name: "virtual_interfaces",
-			config: func(cfg *IptablesConfig) {
-			},
-			podOverrides: PodLevelOverrides{
-				VirtualInterfaces: []string{"fake1s0f0", "fake1s0f1"},
-			},
-		},
-		{
-			name: "ingress_and_virtual_interfaces",
-			config: func(cfg *IptablesConfig) {
-			},
-			podOverrides: PodLevelOverrides{
-				IngressMode:       true,
-				VirtualInterfaces: []string{"fake1s0f0", "fake1s0f1"},
-			},
-		},
-	}
+	cases := GetCommonInPodTestCases()
 
 	for _, tt := range cases {
 		for _, ipv6 := range []bool{false, true} {
@@ -70,7 +35,7 @@ func TestIptablesPodOverrides(t *testing.T) {
 				cfg.EnableIPv6 = ipv6
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
-				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
+				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
 				err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides)
 				if err != nil {
 					t.Fatal(err)
@@ -83,16 +48,7 @@ func TestIptablesPodOverrides(t *testing.T) {
 }
 
 func TestIptablesHostRules(t *testing.T) {
-	cases := []struct {
-		name   string
-		config func(cfg *IptablesConfig)
-	}{
-		{
-			"hostprobe",
-			func(cfg *IptablesConfig) {
-			},
-		},
-	}
+	cases := GetCommonHostTestCases()
 
 	for _, tt := range cases {
 		for _, ipv6 := range []bool{false, true} {
@@ -103,7 +59,7 @@ func TestIptablesHostRules(t *testing.T) {
 				cfg.HostProbeV6SNATAddress = netip.MustParseAddr("fd16:9254:7127:1337:ffff:ffff:ffff:ffff")
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
-				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
+				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
 				err := iptConfigurator.CreateHostRulesForHealthChecks()
 				if err != nil {
 					t.Fatal(err)
@@ -116,36 +72,29 @@ func TestIptablesHostRules(t *testing.T) {
 }
 
 func TestInvokedTwiceIsIdempotent(t *testing.T) {
-	tt := struct {
-		name         string
-		config       func(cfg *IptablesConfig)
-		podOverrides PodLevelOverrides
-	}{
-		"default",
-		func(cfg *IptablesConfig) {
-			cfg.RedirectDNS = true
-		},
-		PodLevelOverrides{},
-	}
+	tests := GetCommonInPodTestCases()
 
-	cfg := constructTestConfig()
-	tt.config(cfg)
-	ext := &dep.DependenciesStub{}
-	iptConfigurator, _, _ := NewIptablesConfigurator(cfg, ext, ext, EmptyNlDeps())
-	err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides)
-	if err != nil {
-		t.Fatal(err)
-	}
-	compareToGolden(t, false, tt.name, ext.ExecutedAll)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := constructTestConfig()
+			tt.config(cfg)
+			ext := &dep.DependenciesStub{}
+			iptConfigurator, _, _ := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
+			err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareToGolden(t, false, tt.name, ext.ExecutedAll)
 
-	*ext = dep.DependenciesStub{}
-	// run another time to make sure we are idempotent
-	err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides)
-	if err != nil {
-		t.Fatal(err)
+			*ext = dep.DependenciesStub{}
+			// run another time to make sure we are idempotent
+			err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compareToGolden(t, false, tt.name, ext.ExecutedAll)
+		})
 	}
-
-	compareToGolden(t, false, tt.name, ext.ExecutedAll)
 }
 
 func ipstr(ipv6 bool) string {
