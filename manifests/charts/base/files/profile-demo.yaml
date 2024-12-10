@@ -21,6 +21,10 @@ meshConfig:
       opentelemetry:
         port: 4317
         service: opentelemetry-collector.observability.svc.cluster.local
+    - name: jaeger
+      opentelemetry:
+        port: 4317
+        service: jaeger-collector.istio-system.svc.cluster.local        
 
 cni:
   resources:
