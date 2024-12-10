@@ -1,0 +1,10 @@
+ambient:
+  enabled: false
+
+# Overrides for the `ztunnel` dep (not enabled by default)
+ztunnel:
+  resourceName: ztunnel
+
+# Overrides for the `cni` dep (enabled by default)
+cni-agent:
+  enabled: true
