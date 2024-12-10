@@ -45,7 +45,6 @@ type MeshDataplane interface {
 	ConstructInitialSnapshot(ambientPods []*corev1.Pod) error
 	Start(ctx context.Context)
 
-	//	IsPodInMesh(ctx context.Context, pod *metav1.ObjectMeta, netNs string) (bool, error)
 	AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error
 	RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error
 
@@ -246,6 +245,7 @@ func (s *meshDataplane) ConstructInitialSnapshot(ambientPods []*corev1.Pod) erro
 }
 
 func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
+	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	var retErr error
 	err := s.netServer.AddPodToMesh(ctx, pod, podIPs, netNs)
 	if err != nil {
@@ -256,7 +256,7 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 		retErr = err
 	}
 
-	log.Debugf("annotating pod %s", pod.Name)
+	log.Debugf("annotating pod")
 	if err := util.AnnotateEnrolledPod(s.kubeClient, &pod.ObjectMeta); err != nil {
 		log.Errorf("failed to annotate pod enrollment: %v", err)
 		retErr = err
@@ -281,11 +281,11 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 		// Handle node healthcheck probe rewrites
 		_, err = s.addPodToHostNSIpset(pod, podIPs)
 		if err != nil {
-			log.Errorf("failed to add pod to ipset: %s/%s %v", pod.Namespace, pod.Name, err)
+			log.Errorf("failed to add pod to ipset: %v", err)
 			return err
 		}
 	} else {
-		log.Errorf("pod: %s/%s was not enrolled and is unhealthy: %v", pod.Namespace, pod.Name, retErr)
+		log.Errorf("pod was not enrolled and is unhealthy: %v", retErr)
 	}
 
 	return retErr
@@ -293,6 +293,7 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 
 func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
+	log.WithLabels("deleted", isDelete).Info("removing pod from mesh")
 
 	// Aggregate errors together, so that if part of the removal fails we still proceed with other steps.
 	var errs []error
@@ -358,6 +359,7 @@ func (s *meshDataplane) syncHostIPSets(ambientPods []*corev1.Pod) error {
 //
 // Dupe IPs should be considered an IPAM error and should never happen.
 func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr) ([]netip.Addr, error) {
+	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	// Add the pod UID as an ipset entry comment, so we can (more) easily find and delete
 	// all relevant entries for a pod later.
 	podUID := string(pod.ObjectMeta.UID)
@@ -369,7 +371,7 @@ func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr
 	// For each pod IP
 	for _, pip := range podIPs {
 		// Add to host ipset
-		log.Debugf("adding pod %s probe to ipset %s with ip %s", pod.Name, s.hostsideProbeIPSet.Prefix, pip)
+		log.Debugf("adding pod probe to ipset %s with ip %s", s.hostsideProbeIPSet.Prefix, pip)
 		// Add IP/port combo to set. Note that we set Replace to false here - we _did_ previously
 		// set it to true, but in theory that could mask weird scenarios where K8S triggers events out of order ->
 		// an add(sameIPreused) then delete(originalIP).
@@ -380,8 +382,8 @@ func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr
 		// a pod by an IP we already have in the set (which will give an error, which we want).
 		if err := s.hostsideProbeIPSet.AddIP(pip, ipProto, podUID, false); err != nil {
 			ipsetAddrErrs = append(ipsetAddrErrs, err)
-			log.Errorf("failed adding pod %s to ipset %s with ip %s, error was %s",
-				pod.Name, &s.hostsideProbeIPSet.Prefix, pip, err)
+			log.Errorf("failed adding pod to ipset %s with ip %s: %v",
+				s.hostsideProbeIPSet.Prefix, pip, err)
 		} else {
 			addedIps = append(addedIps, pip)
 		}
