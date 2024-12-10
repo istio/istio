@@ -1,0 +1,15 @@
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  creationTimestamp: null
+  name: lb-policy
+  namespace: default
+spec:
+  host: echo-service.default.svc.domain.suffix
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: foo
+          ttl: 3600s
+---

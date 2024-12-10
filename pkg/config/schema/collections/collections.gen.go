@@ -52,6 +52,21 @@ var (
 		ValidateProto: validation.ValidateAuthorizationPolicy,
 	}.MustBuild()
 
+	BackendLBPolicy = resource.Builder{
+		Identifier: "BackendLBPolicy",
+		Group:      "gateway.networking.k8s.io",
+		Kind:       "BackendLBPolicy",
+		Plural:     "backendlbpolicies",
+		Version:    "v1alpha2",
+		Proto:      "k8s.io.gateway_api.api.v1alpha2.BackendLBPolicySpec", StatusProto: "k8s.io.gateway_api.api.v1alpha3.PolicyStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.BackendLBPolicySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.PolicyStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	CertificateSigningRequest = resource.Builder{
 		Identifier: "CertificateSigningRequest",
 		Group:      "certificates.k8s.io",
@@ -740,6 +755,7 @@ var (
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
+		MustAdd(BackendLBPolicy).
 		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
@@ -786,6 +802,7 @@ var (
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
+		MustAdd(BackendLBPolicy).
 		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
@@ -836,6 +853,7 @@ var (
 	// pilotGatewayAPI contains only collections used by Pilot, including the full Gateway API.
 	pilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(AuthorizationPolicy).
+			MustAdd(BackendLBPolicy).
 			MustAdd(DestinationRule).
 			MustAdd(EnvoyFilter).
 			MustAdd(GRPCRoute).
