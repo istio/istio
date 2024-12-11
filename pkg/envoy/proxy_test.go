@@ -15,6 +15,7 @@
 package envoy
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
@@ -71,12 +72,31 @@ func TestEnvoyArgs(t *testing.T) {
 	}
 }
 
-func TestReadToJSON(t *testing.T) {
+func TestReadToJSONIPv4(t *testing.T) {
+	err := os.Setenv("HOST_IP", "169.254.169.254")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 	got, err := readBootstrapToJSON("testdata/bootstrap.yaml")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	want := `{"key":"value"}`
+	want := `{"ip":"[169.254.169.254]:8126","ip2":"169.254.169.254:8126","key":"value"}`
+	if got != want {
+		t.Errorf("readBootstrapToJSON() => got:\n%v,\nwant:\n%v", got, want)
+	}
+}
+
+func TestReadToJSONIPv6(t *testing.T) {
+	err := os.Setenv("HOST_IP", "dead::beef")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	got, err := readBootstrapToJSON("testdata/bootstrap.yaml")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	want := `{"ip":"[dead::beef]:8126","ip2":"[dead::beef]:8126","key":"value"}`
 	if got != want {
 		t.Errorf("readBootstrapToJSON() => got:\n%v,\nwant:\n%v", got, want)
 	}
