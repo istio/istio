@@ -33,7 +33,6 @@ func NewDoubleDialer(outerCfg Config, innerTLSConfig *tls.Config) Dialer {
 	var outerTransport *http2.Transport
 
 	if outerCfg.TLS != nil {
-		log.Infof("outer TLS: %#v", outerCfg.TLS)
 		outerTransport = &http2.Transport{
 			TLSClientConfig: outerCfg.TLS,
 		}
@@ -129,6 +128,8 @@ func (d *doubleDialer) proxyTo(conn io.ReadWriteCloser, req Config, address stri
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)
+	// NOTE: We don't close the connection here because that will affect the outer connection from the HBONE client.
+	// Instead, we close the conn further down once we've finished proxying.
 	go func() {
 		// handle upstream (inner hbone server) <-- downstream (app)
 		copyBuffered(ipw, conn, log.WithLabels("name", "body to pipe"))
