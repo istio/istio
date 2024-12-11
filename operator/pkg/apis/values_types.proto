@@ -381,7 +381,10 @@ message EgressGatewayConfig {
   // are PreferDualStack, RequireDualStack, and SingleStack.
   // More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
   string ipFamilyPolicy = 30;
-  // Next available 31.
+
+  // Select a custom name for istiod's CA Root Cert ConfigMap.
+  string caRootCertConfigMap = 31;
+  // Next available 32.
 }
 
 // Configuration for gateways.
@@ -754,7 +757,11 @@ message IngressGatewayConfig {
   // are PreferDualStack, RequireDualStack, and SingleStack.
   // More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
   string ipFamilyPolicy = 49;
-  // Next available 50.
+
+  // Select a custom name for istiod's CA Root Cert ConfigMap.
+  string caRootCertConfigMap = 50;
+
+  // Next available 51.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
@@ -961,6 +968,9 @@ message PilotConfig {
 
   // Configuration for the istio-discovery chart when istiod is running in a remote cluster (e.g. "remote control plane").
   IstiodRemoteConfig istiodRemote = 61;
+
+  // Select a custom name for istiod's CA Root Cert ConfigMap.
+  string caRootCertConfigMap = 62;
 }
 
 message PilotTaintControllerConfig {
