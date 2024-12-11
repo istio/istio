@@ -15,6 +15,9 @@
 syntax = "proto3";
 
 package istio.workload;
+
+import "google/protobuf/any.proto";
+
 option go_package="pkg/workloadapi";
 
 // Address represents a unique address.
@@ -82,6 +85,9 @@ message Service {
 
   // IP families provides configuration about the IP families this service supports.
   IPFamilies ip_families = 9;
+
+  // Extension provides a mechanism to attach arbitrary additional configuration to an object.
+  repeated Extension extensions = 10;
 }
 
 enum IPFamilies {
@@ -258,6 +264,9 @@ message Workload {
 
   NetworkMode network_mode = 25;
 
+  // Extension provides a mechanism to attach arbitrary additional configuration to an object.
+  repeated Extension extensions = 26;
+
   // Reservations for deleted fields.
   reserved 15;
 }
@@ -354,4 +363,14 @@ message NamespacedHostname {
   string namespace = 1;
   // hostname (ex: gateway.example.com)
   string hostname = 2;
+}
+
+// Extension provides a mechanism to attach arbitrary additional configuration to an object.
+message Extension {
+  // name provides an opaque name for the extension.
+  // This may have semantic meaning or used for debugging.
+  // This should be unique amongst all extensions attached to an item.
+  string name = 1;
+  // config provides some opaque configuration.
+  google.protobuf.Any config = 2;
 }
