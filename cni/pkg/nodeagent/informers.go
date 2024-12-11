@@ -242,7 +242,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		changeNeeded := (isAnnotated != shouldBeEnabled) && !isTerminated
 
 		// nolint: lll
-		log.Debugf("pod update: annotation=%v->%v shouldBeEnabled=%v changeNeeded=%v isTerminated=%v, oldPod=%+v, newPod=%+v",
+		log.Debugf("pod update: annotation=%v shouldBeEnabled=%v changeNeeded=%v isTerminated=%v, oldPod=%+v, newPod=%+v",
 			isAnnotated, shouldBeEnabled, changeNeeded, isTerminated, oldPod.ObjectMeta, newPod.ObjectMeta)
 
 		// If it was a job pod that (a) we captured and (b) just terminated (successfully or otherwise)
@@ -302,9 +302,13 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		}
 	case controllers.EventDelete:
 		// If the pod was annotated (by informer or plugin) remove pod from mesh.
-		if util.PodRedirectionActive(newPod) {
+		// NOTE that unlike the other event handling cases (ADD/UPDATE), for DELETE
+		// we *do not* want to check the cache for the pod - because it (probably)
+		// won't be there anymore. So for this case *alone*, we check the most recent
+		// pod information from the triggering event.
+		if util.PodRedirectionActive(pod) {
 			log.Debugf("pod is deleted and was captured, removing from ztunnel")
-			err := s.dataplane.RemovePodFromMesh(s.ctx, newPod, true)
+			err := s.dataplane.RemovePodFromMesh(s.ctx, pod, true)
 			if err != nil {
 				log.Warnf("DelPodFromMesh returned: %v", err)
 			}

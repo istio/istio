@@ -45,7 +45,6 @@ type MeshDataplane interface {
 	ConstructInitialSnapshot(ambientPods []*corev1.Pod) error
 	Start(ctx context.Context)
 
-	//	IsPodInMesh(ctx context.Context, pod *metav1.ObjectMeta, netNs string) (bool, error)
 	AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error
 	RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error
 
@@ -250,7 +249,7 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 	//
 	// - Inject rules and add to ztunnel FIRST
 	// - Annotate IF rule injection doesn't fail.
-	// - Add pod IP to ipset IF none of the above has failed, as a last step	
+	// - Add pod IP to ipset IF none of the above has failed, as a last step
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	var retErr error
 	err := s.netServer.AddPodToMesh(ctx, pod, podIPs, netNs)
@@ -370,7 +369,7 @@ func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr
 	podUID := string(pod.ObjectMeta.UID)
 	ipProto := uint8(unix.IPPROTO_TCP)
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name, "podUID", podUID, "ipset", s.hostsideProbeIPSet.Prefix)
-	
+
 	var ipsetAddrErrs []error
 	var addedIps []netip.Addr
 
