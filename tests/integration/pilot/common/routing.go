@@ -3540,19 +3540,6 @@ spec:
 		expectedIPv4 := ipv4
 		expectedIPv6 := ipv6
 		log.Infof("v4=%v v6=%v wantv4=%v wantv6=%v", v4, v6, expectedIPv4, expectedIPv6)
-		// If a client is deployed in a remote cluster, which is not a config cluster, i.e. Istio resources
-		// are not created in that cluster, it will resolve only the default address, because the ServiceEntry
-		// created in this test is internally assigned to the config cluster, so function GetAllAddressesForProxy(remote),
-		// will only return the default address for that service.
-		remotes := client.Clusters().Remotes()
-		if len(remotes) > 0 && len(remotes.Configs()) == 0 {
-			if v4 {
-				expectedIPv4 = []string{"1.2.3.4"}
-			}
-			if v6 {
-				expectedIPv6 = []string{"1234:1234:1234::1234:1234:1234"}
-			}
-		}
 		cases := []struct {
 			name     string
 			ips      []string
