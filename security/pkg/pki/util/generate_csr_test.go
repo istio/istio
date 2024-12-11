@@ -45,6 +45,12 @@ func TestGenCSR(t *testing.T) {
 				ECSigAlg: EcdsaSigAlg,
 			},
 		},
+		"GenCSR without org": {
+			csrOptions: CertOptions{
+				Host:     "test_ca.com",
+				ECSigAlg: EcdsaSigAlg,
+			},
+		},
 		"GenCSR with EC errors due to invalid signature algorithm": {
 			csrOptions: CertOptions{
 				Host:     "test_ca.com",
@@ -79,8 +85,16 @@ func TestGenCSR(t *testing.T) {
 		if err = csr.CheckSignature(); err != nil {
 			t.Errorf("%s: csr signature is invalid", id)
 		}
-		if csr.Subject.Organization[0] != "MyOrg" {
-			t.Errorf("%s: csr subject does not match", id)
+		if tc.csrOptions.Org != "" {
+			if len(csr.Subject.Organization) != 1 {
+				t.Errorf("%s: csr subject does not contain exactly one organization", id)
+			}
+
+			if csr.Subject.Organization[0] != "MyOrg" {
+				t.Errorf("%s: csr subject does not match", id)
+			}
+		} else if csr.Subject.Organization != nil {
+			t.Errorf("%s: csr subject organization should be unset", id)
 		}
 		if !strings.HasSuffix(string(csr.Extensions[0].Value), "test_ca.com") {
 			t.Errorf("%s: csr host does not match", id)
