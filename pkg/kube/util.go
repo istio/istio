@@ -209,7 +209,7 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 	return config
 }
 
-// CheckPodTermina returns true if the pod's phase is terminal (succeeded || failed)
+// CheckPodTerminal returns true if the pod's phase is terminal (succeeded || failed)
 // usually used to filter cron jobs.
 func CheckPodTerminal(pod *corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodSucceeded
