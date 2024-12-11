@@ -3511,17 +3511,11 @@ spec:
 
 	for _, client := range flatten(t.Apps.VM, t.Apps.A, t.Apps.Tproxy) {
 		v4, v6 := getSupportedIPFamilies(t, client)
-		var expectedIPv4, expectedIPv6 []string
-		if v4 && v6 {
-			expectedIPv4 = ipv4
-			expectedIPv6 = ipv6
-		} else if v4 {
-			expectedIPv4 = ipv4
-			expectedIPv6 = ipv6[:1]
-		} else {
-			expectedIPv4 = ipv4[:1]
-			expectedIPv6 = ipv6
-		}
+		log := scopes.Framework.WithLabels("client", client.ServiceName())
+
+		expectedIPv4 := ipv4
+		expectedIPv6 := ipv6
+		log.Infof("v4=%v v6=%v wantv4=%v wantv6=%v", v4, v6, expectedIPv4, expectedIPv6)
 		// If a client is deployed in a remote cluster, which is not a config cluster, i.e. Istio resources
 		// are not created in that cluster, it will resolve only the default address, because the ServiceEntry
 		// created in this test is internally assigned to the config cluster, so function GetAllAddressesForProxy(remote),
@@ -3600,8 +3594,11 @@ spec:
 				address += "&server=" + tt.server
 			}
 			var checker echo.Checker = func(result echo.CallResult, _ error) error {
+				if len(result.Responses) == 0 {
+					return fmt.Errorf("no responses")
+				}
 				for _, r := range result.Responses {
-					if !reflect.DeepEqual(r.Body(), tt.expected) {
+					if !sets.New(r.Body()...).Equals(sets.New(tt.expected...)) {
 						return fmt.Errorf("unexpected dns response: wanted %v, got %v", tt.expected, r.Body())
 					}
 				}
