@@ -156,8 +156,6 @@ func (e *envoy) args(fname string, overrideFname string) []string {
 	return startupArgs
 }
 
-var HostIP = os.Getenv("HOST_IP")
-
 // readBootstrapToJSON reads a config file, in YAML or JSON, and returns JSON string
 func readBootstrapToJSON(fname string) (string, error) {
 	b, err := os.ReadFile(fname)
@@ -167,7 +165,15 @@ func readBootstrapToJSON(fname string) (string, error) {
 
 	// Replace host with HOST_IP env var if it is "$(HOST_IP)".
 	// This is to support some tracer setting (Datadog, Zipkin), where "$(HOST_IP)" is used for address.
-	b = bytes.ReplaceAll(b, []byte("$(HOST_IP)"), []byte(HostIP))
+	HostIPEnv := os.Getenv("HOST_IP")
+
+	if strings.Contains(HostIPEnv, ":") { // For IPv6, address needs to be of form `[ff06::c3]:8126`
+		HostIPEnv = "[" + HostIPEnv + "]"
+		// Avoid adding extra [] where users add them explicitly
+		b = bytes.ReplaceAll(b, []byte("[$(HOST_IP)]"), []byte(HostIPEnv))
+	}
+	b = bytes.ReplaceAll(b, []byte("$(HOST_IP)"), []byte(HostIPEnv))
+
 	converted, err := yaml.YAMLToJSON(b)
 	if err != nil {
 		return "", fmt.Errorf("failed to convert to JSON: %s, %v", fname, err)
