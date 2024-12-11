@@ -100,7 +100,11 @@ func handleDoubleConnect(w http.ResponseWriter, r *http.Request, tlsConfig *tls.
 		}
 	}()
 
-	defer innerServer.Shutdown(ctx)
+	defer func() {
+		if innerServer.Shutdown(ctx) != nil {
+			log.Errorf("failed to shutdown inner server: %v", err)
+		}
+	}()
 	log.Info("Started inner HBONE server and piping data to it")
 
 	clientConn, err := dialer.Dial("", "")
