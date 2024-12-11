@@ -593,7 +593,7 @@ func TestNameTable(t *testing.T) {
 			expectedNameTable: &dnsProto.NameTable{
 				Table: map[string]*dnsProto.NameTable_NameInfo{
 					serviceWithVIP1.Hostname.String(): {
-						Ips:      []string{serviceWithVIP1.DefaultAddress},
+						Ips:      []string{serviceWithVIP1.DefaultAddress, serviceWithVIP2.DefaultAddress},
 						Registry: provider.External.String(),
 					},
 				},
