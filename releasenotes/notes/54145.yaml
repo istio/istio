@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 54145
+releaseNotes:
+- |
+  **Fixed** failed to patch managed gateway/waypoint deployment during upgrade to 1.24.
