@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
@@ -69,6 +70,7 @@ type ClusterNodeAuthorizer struct {
 	trustedNodeAccounts sets.Set[types.NamespacedName]
 	pods                kclient.Client[*v1.Pod]
 	nodeIndex           kclient.Index[SaNode, *v1.Pod]
+	getObjectFilter     func() kubetypes.DynamicObjectFilter
 }
 
 func NewClusterNodeAuthorizer(client kube.Client, trustedNodeAccounts sets.Set[types.NamespacedName]) *ClusterNodeAuthorizer {
@@ -96,6 +98,7 @@ func NewClusterNodeAuthorizer(client kube.Client, trustedNodeAccounts sets.Set[t
 		pods:                pods,
 		nodeIndex:           index,
 		trustedNodeAccounts: trustedNodeAccounts,
+		getObjectFilter:     client.ObjectFilter,
 	}
 }
 
@@ -146,11 +149,14 @@ func (na *ClusterNodeAuthorizer) authenticateImpersonation(caller security.Kuber
 	// TODO: this is currently single cluster; we will need to take the cluster of the proxy into account
 	// to support multi-cluster properly.
 	res := na.nodeIndex.Lookup(k)
+	filter := na.getObjectFilter()
+	for _, pod := range res {
+		if filter == nil || filter.Filter(pod) {
+			serverCaLog.Debugf("Node caller %v impersonated %v", caller, requestedIdentityString)
+			return nil
+		}
+	}
 	// We don't care what pods are part of the index, only that there is at least one. If there is one,
 	// it is appropriate for the caller to request this identity.
-	if len(res) == 0 {
-		return fmt.Errorf("no instances of %q found on node %q", k.ServiceAccount, k.Node)
-	}
-	serverCaLog.Debugf("Node caller %v impersonated %v", caller, requestedIdentityString)
-	return nil
+	return fmt.Errorf("no instances of %q found on node %q", k.ServiceAccount, k.Node)
 }

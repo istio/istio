@@ -48,6 +48,7 @@ type IPAllocator struct {
 	index              kclient.Index[netip.Addr, *networkingv1.ServiceEntry]
 	stopChan           <-chan struct{}
 	queue              controllers.Queue
+	getObjectFilter    func() kubetypes.DynamicObjectFilter
 
 	// This controller is not safe for concurency but it exists outside the critical path performing important but minimal functionality in a single thread.
 	// If we want the multi-thread this controller we must add locking around accessing the allocators which would otherwise be racy
@@ -121,6 +122,7 @@ func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 		serviceEntryWriter: writer,
 		index:              index,
 		stopChan:           stop,
+		getObjectFilter:    c.ObjectFilter,
 		// MustParsePrefix is OK because these are const. If we allow user configuration we must not use this function.
 		v4allocator: newPrefixUse(netip.MustParsePrefix(IPV4Prefix)),
 		v6allocator: newPrefixUse(netip.MustParsePrefix(IPV6Prefix)),
@@ -219,7 +221,11 @@ func (c *IPAllocator) resolveConflict(conflict conflictDetectedEvent) error {
 	var serviceentries, autoConflicts, userConflicts []*networkingv1.ServiceEntry
 
 	for _, conflictingAddress := range conflict.getAddresses() {
-		serviceentries = append(serviceentries, c.index.Lookup(conflictingAddress)...)
+		for _, potentialentries := range c.index.Lookup(conflictingAddress) {
+			if c.getObjectFilter() == nil || c.getObjectFilter().Filter(potentialentries) {
+				serviceentries = append(serviceentries, potentialentries)
+			}
+		}
 	}
 	for _, serviceentry := range serviceentries {
 		auto, user := allAddresses(serviceentry)
