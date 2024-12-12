@@ -108,7 +108,7 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	name := serviceNameForEndpointSlice(esLabels)
 	namespace := ep.GetNamespace()
 	svc := esc.c.services.Get(name, namespace)
-	if !serviceNeedsPush(svc) {
+	if svc != nil && !serviceNeedsPush(svc) {
 		return
 	}
 	log.Infof("triggering EDS push for %s %s in namespace %s", name, event, namespace)
@@ -158,9 +158,6 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 }
 
 func serviceNeedsPush(svc *corev1.Service) bool {
-	if svc == nil {
-		return false
-	}
 	if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
 		namespaces := strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",")
 		exportTo := sets.NewWithLength[visibility.Instance](len(namespaces))
