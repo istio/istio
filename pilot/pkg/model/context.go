@@ -523,7 +523,7 @@ func compareVersion(ov, nv int) int {
 	return 1
 }
 
-func (node *Proxy) VersionGreaterAndEqual(inv *IstioVersion) bool {
+func (node *Proxy) VersionGreaterOrEqual(inv *IstioVersion) bool {
 	if inv == nil {
 		return true
 	}
