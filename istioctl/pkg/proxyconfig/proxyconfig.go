@@ -107,6 +107,14 @@ const (
 	edsPath = "?include_eds=true"
 	// secretPath get secrets info
 	secretPath = "?mask=dynamic_active_secrets"
+	// clusterPath get cluster info
+	clusterPath = "?mask=dynamic_active_clusters,static_clusters"
+	// listenerPath get listener info
+	listenerPath = "?mask=dynamic_listeners,static_listeners"
+	// routePath get route info
+	routePath = "?mask=dynamic_route_configs,static_route_configs"
+	// bootstrapPath get bootstrap info
+	bootstrapPath = "?mask=bootstrap"
 )
 
 var levelToString = map[Level]string{
@@ -377,7 +385,7 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, "", c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, clusterPath, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -590,7 +598,7 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, "", c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, listenerPath, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -888,7 +896,7 @@ func routeConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, "", c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, routePath, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -1134,7 +1142,7 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, "", c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, bootstrapPath, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
