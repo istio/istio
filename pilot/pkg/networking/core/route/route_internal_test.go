@@ -165,13 +165,7 @@ func TestIsCatchAllRoute(t *testing.T) {
 }
 
 func TestTranslateCORSPolicyForwardNotMatchingPreflights(t *testing.T) {
-	node := &model.Proxy{
-		IstioVersion: &model.IstioVersion{
-			Major: 1,
-			Minor: 23,
-			Patch: 0,
-		},
-	}
+	node := &model.Proxy{}
 	corsPolicy := &networking.CorsPolicy{
 		AllowOrigins: []*networking.StringMatch{
 			{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
@@ -206,13 +200,7 @@ func TestTranslateCORSPolicyForwardNotMatchingPreflights(t *testing.T) {
 }
 
 func TestTranslateCORSPolicy(t *testing.T) {
-	node := &model.Proxy{
-		IstioVersion: &model.IstioVersion{
-			Major: 1,
-			Minor: 21,
-			Patch: 0,
-		},
-	}
+	node := &model.Proxy{}
 	corsPolicy := &networking.CorsPolicy{
 		AllowOrigins: []*networking.StringMatch{
 			{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
@@ -232,6 +220,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 				},
 			},
 		},
+		ForwardNotMatchingPreflights: wrapperspb.Bool(true),
 		FilterEnabled: &core.RuntimeFractionalPercent{
 			DefaultValue: &xdstype.FractionalPercent{
 				Numerator:   100,
