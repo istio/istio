@@ -255,6 +255,7 @@ func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, i
 		if needLock {
 			c = exec.Command(cmdBin, args...)
 			log.Debugf("running with lock")
+			mode = "with global lock"
 		} else {
 			// No locking supported/needed, just run as is. Nothing special
 			c = exec.Command(cmdBin, args...)
