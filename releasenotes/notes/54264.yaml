@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Improved** Both `platform` and `profile` Helm values overrides now equivalently support
+  global or local override forms, e.g.
+    - `--set global.platform=foo`
+    - `--set platform=foo`
+    - `--set global.profile=bar`
+    - `--set profile=bar`

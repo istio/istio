@@ -289,9 +289,9 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		_ = cfg.ext.Run(constants.IPTablesSave, &iptVer, nil)
+		_ = cfg.ext.Run(log.WithLabels(), constants.IPTablesSave, &iptVer, nil)
 		if cfg.cfg.EnableIPv6 {
-			_ = cfg.ext.Run(constants.IPTablesSave, &ipt6Ver, nil)
+			_ = cfg.ext.Run(log.WithLabels(), constants.IPTablesSave, &ipt6Ver, nil)
 		}
 	}()
 
@@ -575,7 +575,7 @@ func (f UDPRuleApplier) RunV4(args ...string) {
 	case DeleteOps:
 		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
 		deleteArgs = append(deleteArgs, args...)
-		f.ext.RunQuietlyAndIgnore(constants.IPTables, f.iptV, nil, deleteArgs...)
+		f.ext.RunQuietlyAndIgnore(log.WithLabels(), constants.IPTables, f.iptV, nil, deleteArgs...)
 	}
 }
 
@@ -586,7 +586,7 @@ func (f UDPRuleApplier) RunV6(args ...string) {
 	case DeleteOps:
 		deleteArgs := []string{"-t", f.table, opsToString[f.ops], f.chain}
 		deleteArgs = append(deleteArgs, args...)
-		f.ext.RunQuietlyAndIgnore(constants.IPTables, f.ipt6V, nil, deleteArgs...)
+		f.ext.RunQuietlyAndIgnore(log.WithLabels(), constants.IPTables, f.ipt6V, nil, deleteArgs...)
 	}
 }
 
@@ -746,7 +746,7 @@ func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter config.Interce
 
 func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, commands [][]string) error {
 	for _, cmd := range commands {
-		if err := cfg.ext.Run(constants.IPTables, iptVer, nil, cmd...); err != nil {
+		if err := cfg.ext.Run(log.WithLabels(), constants.IPTables, iptVer, nil, cmd...); err != nil {
 			return err
 		}
 	}
@@ -755,14 +755,14 @@ func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVer
 
 func (cfg *IptablesConfigurator) tryExecuteIptablesCommands(iptVer *dep.IptablesVersion, commands [][]string) {
 	for _, cmd := range commands {
-		cfg.ext.RunQuietlyAndIgnore(constants.IPTables, iptVer, nil, cmd...)
+		cfg.ext.RunQuietlyAndIgnore(log.WithLabels(), constants.IPTables, iptVer, nil, cmd...)
 	}
 }
 
 func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptVer *dep.IptablesVersion, data string) error {
 	log.Infof("Running iptables restore with: %s and the following input:\n%v", iptVer.CmdToString(constants.IPTablesRestore), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(constants.IPTablesRestore, iptVer, strings.NewReader(data), "--noflush")
+	return cfg.ext.Run(log.WithLabels(), constants.IPTablesRestore, iptVer, strings.NewReader(data), "--noflush")
 }
 
 // VerifyIptablesState function verifies the current iptables state against the expected state.
@@ -789,7 +789,7 @@ check_loop:
 		{iptVer, cfg.ruleBuilder.BuildV4Restore(), cfg.ruleBuilder.BuildCheckV4()},
 		{ipt6Ver, cfg.ruleBuilder.BuildV6Restore(), cfg.ruleBuilder.BuildCheckV6()},
 	} {
-		output, err := cfg.ext.RunWithOutput(constants.IPTablesSave, ipCfg.ver, nil)
+		output, err := cfg.ext.RunWithOutput(log.WithLabels(), constants.IPTablesSave, ipCfg.ver, nil)
 		if err == nil {
 			currentState := cfg.ruleBuilder.GetStateFromSave(output.String())
 			log.Debugf("Current iptables state: %#v", currentState)

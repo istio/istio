@@ -1,10 +1,13 @@
 # This manifest installs the Istio install-cni container, as well
 # as the Istio CNI plugin and config on
 # each master and worker node in a Kubernetes cluster.
-{{- $defaultBinDir :=
+#
+# $detectedBinDir exists to support a GKE-specific platform override,
+# and is deprecated in favor of using the explicit `gke` platform profile.
+{{- $detectedBinDir :=
     (.Capabilities.KubeVersion.GitVersion | contains "-gke") | ternary
       "/home/kubernetes/bin"
-      "/opt/cni/bin"
+      .Values.cniBinDir
 }}
 kind: DaemonSet
 apiVersion: apps/v1
@@ -120,6 +123,11 @@ spec:
               # network namespaces in `/proc` to obtain descriptors for entering pod network
               # namespaces. There does not appear to be a more granular capability for this.
               - SYS_ADMIN
+              # While we run as a 'root' (UID/GID 0), since we drop all capabilities we lose
+              # the typical ability to read/write to folders owned by others.
+              # This can cause problems if the hostPath mounts we use, which we require write access into,
+              # are owned by non-root. DAC_OVERRIDE bypasses these and gives us write access into any folder.
+              - DAC_OVERRIDE
 {{- if .Values.seLinuxOptions }}
 {{ with (merge .Values.seLinuxOptions (dict "type" "spc_t")) }}
             seLinuxOptions:
@@ -200,7 +208,7 @@ spec:
         # Used to install CNI.
         - name: cni-bin-dir
           hostPath:
-            path: {{ .Values.cniBinDir | default $defaultBinDir }}
+            path: {{ $detectedBinDir }}
         {{- if or .Values.repair.repairPods .Values.ambient.enabled }}
         - name: cni-host-procfs
           hostPath:
@@ -215,14 +223,14 @@ spec:
         {{- end }}
         - name: cni-net-dir
           hostPath:
-            path: {{ default "/etc/cni/net.d" .Values.cniConfDir }}
+            path: {{ .Values.cniConfDir }}
         # Used for UDS sockets for logging, ambient eventing
         - name: cni-socket-dir
           hostPath:
             path: /var/run/istio-cni
         - name: cni-netns-dir
           hostPath:
-            path: {{ .Values.cniNetnsDir | default "/var/run/netns" }}
+            path: {{ .Values.cniNetnsDir }}
             type: DirectoryOrCreate # DirectoryOrCreate instead of Directory for the following reason - CNI may not bind mount this until a non-hostnetwork pod is scheduled on the node,
             # and we don't want to block CNI agent pod creation on waiting for the first non-hostnetwork pod.
             # Once the CNI does mount this, it will get populated and we're good.

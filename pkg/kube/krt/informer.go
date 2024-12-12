@@ -102,15 +102,15 @@ func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runE
 	// Informer doesn't expose a way to do that. However, due to the runtime model of informers, this isn't a dealbreaker;
 	// the handlers are all called async, so we don't end up with the same deadlocks we would have in the other collection types.
 	// While this is quite kludgy, this is an internal interface so its not too bad.
-	if !i.eventHandlers.Insert(f) {
-		i.inf.AddEventHandler(informerEventHandler[I](func(o Event[I], initialSync bool) {
-			f([]Event[I]{o}, initialSync)
-		}))
-	}
-	return pollSyncer{
+	synced := i.inf.AddEventHandler(informerEventHandler[I](func(o Event[I], initialSync bool) {
+		f([]Event[I]{o}, initialSync)
+	}))
+	base := i.Synced()
+	handler := pollSyncer{
 		name: fmt.Sprintf("%v handler", i.name()),
-		f:    i.inf.HasSynced,
+		f:    synced.HasSynced,
 	}
+	return multiSyncer{syncers: []Syncer{base, handler}}
 }
 
 // nolint: unused // (not true)
@@ -151,7 +151,7 @@ func informerEventHandler[I controllers.ComparableObject](handler func(o Event[I
 func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...CollectionOption) Collection[I] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
-		o.name = fmt.Sprintf("NewInformer[%v]", ptr.TypeName[I]())
+		o.name = fmt.Sprintf("Informer[%v]", ptr.TypeName[I]())
 	}
 	h := &informer[I]{
 		inf:            c,
@@ -164,24 +164,15 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 	}
 
 	go func() {
-		// First, wait for the informer to populate
-		if !kube.WaitForCacheSync(o.name, o.stop, c.HasSynced) {
-			return
-		}
-		// Now, take all our handlers we have built up and register them...
-		handlers := h.eventHandlers.MarkInitialized()
-		for _, h := range handlers {
-			c.AddEventHandler(informerEventHandler[I](func(o Event[I], initialSync bool) {
-				h([]Event[I]{o}, initialSync)
-			}))
-		}
-		// Now wait for handlers to sync
-		if !kube.WaitForCacheSync(o.name+" handlers", o.stop, c.HasSynced) {
-			c.ShutdownHandlers()
+		defer c.ShutdownHandlers()
+		// First, wait for the informer to populate. We ignore handlers which have their own syncing
+		if !kube.WaitForCacheSync(o.name, o.stop, c.HasSyncedIgnoringHandlers) {
 			return
 		}
 		close(h.synced)
 		h.log.Infof("%v synced", h.name())
+
+		<-o.stop
 	}()
 	maybeRegisterCollectionForDebugging(h, o.debugger)
 	return h

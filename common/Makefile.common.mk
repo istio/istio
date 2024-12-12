@@ -106,13 +106,11 @@ update-common:
 	@if [ "$(CONTRIB_OVERRIDE)" != "CONTRIBUTING.md" ]; then\
 		rm $(TMP)/common-files/files/CONTRIBUTING.md;\
 	fi
-# istio/istio.io uses the  Creative Commons Attribution 4.0 license. Don't update LICENSE with the common Apache license.
-	@LICENSE_OVERRIDE=$(shell grep -l "Creative Commons Attribution 4.0 International Public License" LICENSE)
-	@if [ "$(LICENSE_OVERRIDE)" != "LICENSE" ]; then\
-		rm $(TMP)/common-files/files/LICENSE;\
-	fi
 	@cp -a $(TMP)/common-files/files/* $(TMP)/common-files/files/.devcontainer $(TMP)/common-files/files/.gitattributes $(shell pwd)
 	@rm -fr $(TMP)/common-files
+	@if [ "$(AUTOMATOR_REPO)" == "proxy" ]; then\
+		sed -i -e 's/build-tools:/build-tools-proxy:/g' .devcontainer/devcontainer.json;\
+	fi
 	@$(or $(COMMONFILES_POSTPROCESS), true)
 
 check-clean-repo:

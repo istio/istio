@@ -58,7 +58,7 @@ func (s *NetServer) Start(ctx context.Context) {
 	go s.ztunnelServer.Run(ctx)
 }
 
-func (s *NetServer) Stop() {
+func (s *NetServer) Stop(_ bool) {
 	log.Debug("stopping ztunnel server")
 	s.ztunnelServer.Close()
 }
@@ -255,7 +255,7 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 		if openNetns != nil {
 			// pod is removed from the mesh, but is still running. remove iptables rules
 			log.Debugf("calling DeleteInpodRules")
-			if err := s.netnsRunner(openNetns, func() error { return s.podIptables.DeleteInpodRules() }); err != nil {
+			if err := s.netnsRunner(openNetns, func() error { return s.podIptables.DeleteInpodRules(log) }); err != nil {
 				return fmt.Errorf("failed to delete inpod rules: %w", err)
 			}
 		} else {

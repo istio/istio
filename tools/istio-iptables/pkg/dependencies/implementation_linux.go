@@ -203,7 +203,7 @@ func mount(src, dst string) error {
 	return syscall.Mount(src, dst, "", syscall.MS_BIND|syscall.MS_RDONLY, "")
 }
 
-func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion,
+func (r *RealDependencies) executeXTablesWithOutput(log *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion,
 	ignoreErrors bool, stdin io.ReadSeeker, args ...string,
 ) (*bytes.Buffer, error) {
 	mode := "without lock"
@@ -282,7 +282,14 @@ func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, i
 	return stdout, err
 }
 
-func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
-	_, err := r.executeXTablesWithOutput(cmd, iptVer, ignoreErrors, stdin, args...)
+func (r *RealDependencies) executeXTables(
+	logger *log.Scope,
+	cmd constants.IptablesCmd,
+	iptVer *IptablesVersion,
+	ignoreErrors bool,
+	stdin io.ReadSeeker,
+	args ...string,
+) error {
+	_, err := r.executeXTablesWithOutput(logger, cmd, iptVer, ignoreErrors, stdin, args...)
 	return err
 }

@@ -596,14 +596,15 @@ func TestAmbientIndex_WaypointInboundBinding(t *testing.T) {
 		},
 	})
 	s.addWaypoint(t, "1.2.3.4", "proxy-sandwich", constants.AllTraffic, true)
-	// TODO needing this check seems suspicious. We should really wait for up to 2 pod events.
 	assert.EventuallyEqual(t, func() int { return len(s.waypoints.List()) }, 1)
 
 	s.addPods(t, "10.0.0.1", "proxy-sandwich-instance", "",
 		map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "proxy-sandwich"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("proxy-sandwich-instance"))
-	appTunnel := s.lookup(s.podXdsName("proxy-sandwich-instance"))[0].GetWorkload().GetApplicationTunnel()
-	assert.Equal(t, appTunnel, &workloadapi.ApplicationTunnel{
+	// We may get 1 or 2 events, depending on ordering, so wait.
+	assert.EventuallyEqual(t, func() *workloadapi.ApplicationTunnel {
+		return s.lookup(s.podXdsName("proxy-sandwich-instance"))[0].GetWorkload().GetApplicationTunnel()
+	}, &workloadapi.ApplicationTunnel{
 		Protocol: workloadapi.ApplicationTunnel_PROXY,
 		Port:     15088,
 	})
@@ -1153,9 +1154,11 @@ func TestAmbientIndex_Policy(t *testing.T) {
 func TestDefaultAllowWaypointPolicy(t *testing.T) {
 	// while the Waypoint is in testNS, the policies live in the Pods' namespaces
 	policyName := "ns1/istio_allow_waypoint_" + testNS + "_" + "waypoint-ns"
-	test.SetForTest(t, &features.DefaultAllowFromWaypoint, true)
 
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServerWithFlags(t, testC, testNW, FeatureFlags{
+		DefaultAllowFromWaypoint:              true,
+		EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
+	})
 	setupPolicyTest(t, s)
 
 	t.Run("policy with service accounts", func(t *testing.T) {
@@ -1619,6 +1622,13 @@ type ambientTestServer struct {
 }
 
 func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.ID) *ambientTestServer {
+	return newAmbientTestServerWithFlags(t, clusterID, networkID, FeatureFlags{
+		DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+		EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
+	})
+}
+
+func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID network.ID, flags FeatureFlags) *ambientTestServer {
 	up := xdsfake.NewFakeXDS()
 	up.SplitEvents = true
 	cl := kubeclient.NewFakeClient()
@@ -1648,6 +1658,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		},
 		StatusNotifier: activenotifier.New(true),
 		Debugger:       debugger,
+		Flags:          flags,
 	})
 	idx.NetworksSynced()
 	cl.RunAndWait(test.NewStop(t))

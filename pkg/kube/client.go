@@ -1323,8 +1323,3 @@ func FindIstiodMonitoringPort(pod *v1.Pod) int {
 	}
 	return 15014
 }
-
-// FilterIfEnhancedFilteringEnabled returns the namespace filter .
-func FilterIfEnhancedFilteringEnabled(k Client) kubetypes.DynamicObjectFilter {
-	return k.ObjectFilter()
-}

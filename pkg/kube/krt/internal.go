@@ -74,6 +74,11 @@ type collectionOptions struct {
 	debugger     *DebugHandler
 }
 
+type indexedDependency struct {
+	id  collectionUID
+	key string
+}
+
 // dependency is a specific thing that can be depended on
 type dependency struct {
 	id             collectionUID
@@ -88,7 +93,7 @@ type erasedEventHandler = func(o []Event[any], initialSync bool)
 // This is called from Fetch to Collections, generally.
 type registerDependency interface {
 	// Registers a dependency, returning true if it is finalized
-	registerDependency(*dependency, Syncer, func(f erasedEventHandler))
+	registerDependency(*dependency, Syncer, func(f erasedEventHandler) Syncer)
 	name() string
 }
 

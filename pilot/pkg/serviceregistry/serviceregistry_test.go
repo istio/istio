@@ -1681,7 +1681,7 @@ func expectServiceEndpointsFromIndex(t *testing.T, ei *model.EndpointIndex, svc 
 // nolint: unparam
 func expectServiceEndpoints(t *testing.T, fx *xdsfake.Updater, svc *model.Service, port int, expected []EndpointResponse) {
 	t.Helper()
-	expectServiceEndpointsFromIndex(t, fx.Delegate.(*model.EndpointIndexUpdater).Index, svc, port, expected)
+	expectServiceEndpointsFromIndex(t, fx.Delegate.(*model.FakeEndpointIndexUpdater).Index, svc, port, expected)
 }
 
 func setPodReady(pod *v1.Pod) {

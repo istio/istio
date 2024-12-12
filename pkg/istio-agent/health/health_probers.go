@@ -25,6 +25,12 @@ import (
 	"strconv"
 	"time"
 
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health/grpc_health_v1"
+	grpc_status "google.golang.org/grpc/status"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
@@ -54,14 +60,74 @@ func (p *ProbeResult) IsHealthy() bool {
 	return *p == Healthy
 }
 
+type GRPCProber struct {
+	Config      *v1alpha3.GrpcHealthCheckConfig
+	DefaultHost string
+}
+
+var _ Prober = &GRPCProber{}
+
+func NewGRPCProber(cfg *v1alpha3.GrpcHealthCheckConfig, defaultHost string) *GRPCProber {
+	return &GRPCProber{
+		Config:      cfg,
+		DefaultHost: defaultHost,
+	}
+}
+
+func (g *GRPCProber) Probe(timeout time.Duration) (ProbeResult, error) {
+	if g.Config == nil {
+		return Unknown, fmt.Errorf("grpc health check config is nil")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, net.JoinHostPort(g.DefaultHost, fmt.Sprintf("%d", g.Config.Port)),
+		grpc.WithBlock(),
+		grpc.WithUserAgent("istio-probe/1.0"),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			return status.ProbeDialer().DialContext(ctx, "tcp", addr)
+		}),
+	)
+	if err != nil {
+		return Unhealthy, fmt.Errorf("failed to connect health check grpc service on port %d: %v", g.Config.Port, err)
+	}
+	defer conn.Close()
+	client := grpc_health_v1.NewHealthClient(conn)
+	req := &grpc_health_v1.HealthCheckRequest{
+		Service: g.Config.Service,
+	}
+	resp, err := client.Check(ctx, req)
+	if err != nil {
+		if stat, ok := grpc_status.FromError(err); ok {
+			switch stat.Code() {
+			case codes.Unimplemented:
+				return Unhealthy, fmt.Errorf("service on port %d doesn't implement the grpc health protocol grpc.health.v1.Health: %v", g.Config.Port, err)
+			case codes.DeadlineExceeded:
+				return Unhealthy, fmt.Errorf("health rpc probe timed out after %v: %v", timeout, err)
+			default:
+				return Unhealthy, fmt.Errorf("health rpc probe failed with status %v: %v", stat.Code(), err)
+			}
+		} else {
+			return Unhealthy, fmt.Errorf("health rpc probe failed: %v", err)
+		}
+	}
+	switch resp.GetStatus() {
+	case grpc_health_v1.HealthCheckResponse_SERVING:
+		return Healthy, nil
+	default:
+		return Unhealthy, nil
+	}
+}
+
 type HTTPProber struct {
-	Config    *v1alpha3.HTTPHealthCheckConfig
-	Transport *http.Transport
+	Config      *v1alpha3.HTTPHealthCheckConfig
+	Transport   *http.Transport
+	DefaultHost string
 }
 
 var _ Prober = &HTTPProber{}
 
-func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig, ipv6 bool) *HTTPProber {
+func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig, defaultHost string, ipv6 bool) *HTTPProber {
 	h := new(HTTPProber)
 	h.Config = cfg
 
@@ -85,6 +151,7 @@ func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig, ipv6 bool) *HTTPProber {
 		d.LocalAddr = status.UpstreamLocalAddressIPv6
 	}
 	h.Transport.DialContext = d.DialContext
+	h.DefaultHost = defaultHost
 	return h
 }
 
@@ -109,7 +176,11 @@ func (h *HTTPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 		}
 	}
 	targetURL.Scheme = h.Config.Scheme
-	targetURL.Host = net.JoinHostPort(h.Config.Host, strconv.Itoa(int(h.Config.Port)))
+	if h.Config.Host == "" {
+		targetURL.Host = net.JoinHostPort(h.DefaultHost, strconv.Itoa(int(h.Config.Port)))
+	} else {
+		targetURL.Host = net.JoinHostPort(h.Config.Host, strconv.Itoa(int(h.Config.Port)))
+	}
 	if err != nil {
 		healthCheckLog.Errorf("unable to parse url: %v", err)
 		return Unknown, err
@@ -145,7 +216,15 @@ func (h *HTTPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 }
 
 type TCPProber struct {
-	Config *v1alpha3.TCPHealthCheckConfig
+	Config      *v1alpha3.TCPHealthCheckConfig
+	DefaultHost string
+}
+
+func NewTCPProber(cfg *v1alpha3.TCPHealthCheckConfig, host string) *TCPProber {
+	return &TCPProber{
+		Config:      cfg,
+		DefaultHost: host,
+	}
 }
 
 var _ Prober = &TCPProber{}
@@ -154,7 +233,12 @@ func (t *TCPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 	// if we cant connect, count as fail
 	d := status.ProbeDialer()
 	d.Timeout = timeout
-	hostPort := net.JoinHostPort(t.Config.Host, strconv.Itoa(int(t.Config.Port)))
+	var hostPort string
+	if t.Config.Host == "" {
+		hostPort = net.JoinHostPort(t.DefaultHost, strconv.Itoa(int(t.Config.Port)))
+	} else {
+		hostPort = net.JoinHostPort(t.Config.Host, strconv.Itoa(int(t.Config.Port)))
+	}
 	conn, err := d.Dial("tcp", hostPort)
 	if err != nil {
 		return Unhealthy, err
