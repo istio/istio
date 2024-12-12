@@ -117,6 +117,10 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	// Trigger EDS push for all hostnames.
 	esc.pushEDS(hostnames, namespacedName.Namespace)
 
+	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone || svc.Spec.Type == corev1.ServiceTypeExternalName {
+		return
+	}
+
 	configs := []types.NamespacedName{}
 	pureHTTP := true
 	for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
@@ -155,9 +159,6 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 
 func serviceNeedsPush(svc *corev1.Service) bool {
 	if svc == nil {
-		return false
-	}
-	if svc.Spec.ClusterIP != corev1.ClusterIPNone || svc.Spec.Type == corev1.ServiceTypeExternalName {
 		return false
 	}
 	if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
