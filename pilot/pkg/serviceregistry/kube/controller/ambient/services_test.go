@@ -503,6 +503,21 @@ func TestServiceServices(t *testing.T) {
 			},
 		},
 		{
+			name:   "external name",
+			inputs: []any{},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: v1.ServiceSpec{
+					Type:         v1.ServiceTypeExternalName,
+					ExternalName: "example.com",
+				},
+			},
+			result: nil,
+		},
+		{
 			name:   "target ports",
 			inputs: []any{},
 			svc: &v1.Service{
@@ -759,7 +774,11 @@ func TestServiceServices(t *testing.T) {
 				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
 			res := builder(krt.TestingDummyContext{}, tt.svc)
-			assert.Equal(t, res.Service, tt.result)
+			if res == nil {
+				assert.Equal(t, nil, tt.result)
+			} else {
+				assert.Equal(t, res.Service, tt.result)
+			}
 		})
 	}
 }
