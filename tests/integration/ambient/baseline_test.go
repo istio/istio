@@ -770,7 +770,7 @@ spec:
 			})
 			// general workload peerauth == STRICT, but we have a port-specific allowlist that is PERMISSIVE,
 			// so anything hitting that port should not be rejected.
-			// NOTE: Using port 80 since that's what
+			// NOTE: Using port 18080 since that's the http port for the echo deployment
 			t.NewSubTest("strict-permissive-ports").Run(func(t framework.TestContext) {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
@@ -823,6 +823,8 @@ spec:
   portLevelMtls:
     18080:
       mode: PERMISSIVE
+    19090:
+      mode: STRICT
         `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				// Should pass for all workloads, in or out of mesh, targeting this port
@@ -841,7 +843,6 @@ spec:
         `).ApplyOrFail(t)
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
-					"Source":      src.Config().Service,
 					"Namespace":   apps.Namespace.Name(),
 				}, `
 apiVersion: security.istio.io/v1
@@ -855,6 +856,9 @@ spec:
   portLevelMtls:
     18080:
       mode: STRICT
+    19090:
+      mode: STRICT
+
         `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
