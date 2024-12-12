@@ -62,7 +62,7 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 	p.index = kclient.CreateStringIndex(p.webhooks,
 		func(o *admissionregistrationv1.MutatingWebhookConfiguration) []string {
 			rev := o.GetLabels()[label.IoIstioRev.Name]
-			if rev == "" {
+			if rev == "" || !isTagWebhook(o) {
 				return nil
 			}
 			return []string{rev}
