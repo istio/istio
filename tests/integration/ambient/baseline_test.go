@@ -823,6 +823,8 @@ spec:
   portLevelMtls:
     18080:
       mode: PERMISSIVE
+    19090:
+      mode: STRICT
         `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				// Should pass for all workloads, in or out of mesh, targeting this port
@@ -854,14 +856,15 @@ spec:
   portLevelMtls:
     18080:
       mode: STRICT
+    19090:
+      mode: STRICT
+
         `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
 					// Expect deny if the dest is in the mesh (enforcing mTLS) but src is not (not sending mTLS)
 					opt.Check = CheckDeny
 				}
-				echo.DefaultCallRetryOptions()
-				opt.Retry = echo.Retry{Options: []retry.Option{retry.MaxAttempts(15)}}
 				src.CallOrFail(t, opt)
 			})
 		})
