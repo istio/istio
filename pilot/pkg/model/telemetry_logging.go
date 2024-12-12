@@ -175,7 +175,7 @@ func telemetryAccessLog(push *PushContext, proxy *Proxy, fp *meshconfig.MeshConf
 }
 
 func filterStateObjectsToLog(proxy *Proxy) []string {
-	if proxy.VersionGreaterAndEqual(&IstioVersion{Major: 1, Minor: 24, Patch: 0}) {
+	if proxy.VersionGreaterOrEqual(&IstioVersion{Major: 1, Minor: 24, Patch: 0}) {
 		return envoyStateToLog
 	}
 
