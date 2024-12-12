@@ -133,7 +133,8 @@ var (
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
 			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
 
-	EnableAlphaGatewayAPI = env.Register("PILOT_ENABLE_ALPHA_GATEWAY_API", false,
+	EnableAlphaGatewayAPIName = "PILOT_ENABLE_ALPHA_GATEWAY_API"
+	EnableAlphaGatewayAPI     = env.Register(EnableAlphaGatewayAPIName, false,
 		"If this is set to true, support for alpha APIs in the Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
 			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
 
