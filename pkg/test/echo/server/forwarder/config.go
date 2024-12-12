@@ -101,7 +101,7 @@ func (c *Config) fillDefaults() error {
 	}
 
 	hboneSettings := c.Request.Hbone
-	if c.Request.DoubleHbone != nil {
+	if c.Request.DoubleHbone.GetAddress() != "" {
 		hboneSettings = c.Request.DoubleHbone
 	}
 	c.hboneClientConfig, err = getHBONEClientConfig(hboneSettings)

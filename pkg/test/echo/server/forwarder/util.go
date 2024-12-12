@@ -66,7 +66,6 @@ var _ hbone.Dialer = SpecificVersionDialer{}
 func newDialer(cfg *Config) hbone.Dialer {
 	// Double HBONE takes higher precedence than single HBONE
 	if cfg.Request.DoubleHbone.GetAddress() != "" {
-		log.Infof("TLS config: %#v", cfg.hboneTLSConfig)
 		return hbone.NewDoubleDialer(hbone.Config{
 			ProxyAddress: cfg.Request.DoubleHbone.GetAddress(),
 			Headers:      cfg.hboneHeaders,
