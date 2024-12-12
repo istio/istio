@@ -1093,6 +1093,10 @@ type StatusMessage struct {
 	Message string
 }
 
+func (i WaypointBindingStatus) Equals(other WaypointBindingStatus) bool {
+	return i.ResourceName == other.ResourceName && i.IngressUseWaypoint == other.IngressUseWaypoint && ptr.Equal(i.Error, other.Error)
+}
+
 func (i ServiceInfo) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: i.Name, Namespace: i.Namespace}
 }
@@ -1102,7 +1106,7 @@ func (i ServiceInfo) Equals(other ServiceInfo) bool {
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
 		i.Source == other.Source &&
-		i.Waypoint == other.Waypoint
+		i.Waypoint.Equals(other.Waypoint)
 }
 
 func (i ServiceInfo) ResourceName() string {
