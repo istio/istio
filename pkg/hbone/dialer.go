@@ -52,7 +52,7 @@ type Dialer interface {
 func NewDialer(cfg Config) Dialer {
 	var transport *http2.Transport
 
-	if cfg.TLS != nil && !cfg.TLS.InsecureSkipVerify {
+	if cfg.TLS != nil {
 		transport = &http2.Transport{
 			TLSClientConfig: cfg.TLS,
 		}
@@ -102,7 +102,7 @@ func (d *dialer) proxyTo(conn io.ReadWriteCloser, req Config, address string) er
 	t0 := time.Now()
 
 	url := "http://" + req.ProxyAddress
-	if req.TLS != nil && !req.TLS.InsecureSkipVerify {
+	if req.TLS != nil {
 		url = "https://" + req.ProxyAddress
 	}
 	// Setup a pipe. We could just pass `conn` to `http.NewRequest`, but this has a few issues:
