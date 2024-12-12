@@ -283,7 +283,7 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for another 3 update events for unabel, total of 6
+	// wait for another 3 update events for unlabel, total of 6
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(6))
 
 	waitForMockCalls()
