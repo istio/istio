@@ -104,10 +104,6 @@ func AnnotateEnrolledPod(client kubernetes.Interface, pod *metav1.ObjectMeta) er
 }
 
 func AnnotateUnenrollPod(client kubernetes.Interface, pod *metav1.ObjectMeta) error {
-	if pod.Annotations[annotation.AmbientRedirection.Name] != constants.AmbientRedirectionEnabled {
-		return nil
-	}
-	// TODO: do not overwrite if already none
 	_, err := client.CoreV1().
 		Pods(pod.Namespace).
 		Patch(

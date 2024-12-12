@@ -426,7 +426,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Return(nil)
+	).Once().Return(nil)
 
 	server := getFakeDP(fs, client.Kube())
 
@@ -434,7 +434,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 	// wait until pod add was called
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(1))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.AtLeast(1))
 
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
@@ -467,7 +467,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 
 	// wait for an update events
 	// total 3 update at before unlabel point: 1. init ns reconcile 2. ns label reconcile 3. pod status update
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(4))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(3))
 
 	waitForMockCalls()
 
@@ -488,7 +488,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	assert.NoError(t, err)
 
 	// wait for an update events
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(5))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(4))
 
 	assertPodAnnotated(t, client, pod)
 
