@@ -473,8 +473,8 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 		types.MergePatchType, phasePatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for an update event
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(4))
+	// wait for 2 more update events (status change + un-annotate)
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(5))
 
 	waitForMockCalls()
 
@@ -494,8 +494,8 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 		types.MergePatchType, phaseRunPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for an update event
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(5))
+	// wait for 2 more update events (status change (again) + re-annotate)
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(7))
 
 	assertPodAnnotated(t, client, pod)
 
