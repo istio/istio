@@ -208,6 +208,9 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
+	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{
+		Map: make(map[string]*matcher.Matcher_OnMatch),
+	}
 	chains := []*listener.FilterChain{}
 	portProtocols := map[int]protocol.Instance{}
 	for _, svc := range svcs {
@@ -217,6 +220,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				continue
 			}
 			portString := strconv.Itoa(port.Port)
+			authorityKey := fmt.Sprintf("%s:%d", svc.Hostname, port.Port)
 			tcpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port)
 			cc := inboundChainConfig{
 				clusterName:   tcpClusterName,
@@ -246,15 +250,18 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			if port.Protocol.IsUnsupported() {
 				// If we need to sniff, insert two chains and the protocol detector
 				chains = append(chains, tcpChain, httpChain)
-				portMapper.Map[portString] = match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
+				protocolMatcher := match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
 					TCP:  match.ToChain(tcpClusterName),
 					HTTP: match.ToChain(httpClusterName),
 				}))
+				portMapper.Map[portString] = protocolMatcher
+				svcHostnameMap.Map[authorityKey] = protocolMatcher
 				portProtocols[port.Port] = protocol.Unsupported
 			} else if port.Protocol.IsHTTP() {
 				// Otherwise, just insert HTTP/TCP
 				chains = append(chains, httpChain)
 				portMapper.Map[portString] = match.ToChain(httpChain.Name)
+				svcHostnameMap.Map[authorityKey] = match.ToChain(httpChain.Name)
 				// TCP and HTTP on the same port, mark it as requiring sniffing
 				if portProtocols[port.Port] != "" && portProtocols[port.Port] != protocol.HTTP {
 					portProtocols[port.Port] = protocol.Unsupported
@@ -264,6 +271,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			} else {
 				chains = append(chains, tcpChain)
 				portMapper.Map[portString] = match.ToChain(tcpChain.Name)
+				svcHostnameMap.Map[authorityKey] = match.ToChain(tcpChain.Name)
 				// TCP and HTTP on the same port, mark it as requiring sniffing
 				if portProtocols[port.Port] != "" && !portProtocols[port.Port].IsTCP() {
 					portProtocols[port.Port] = protocol.Unsupported
@@ -316,6 +324,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				lb.buildWaypointInboundHTTPFilters(nil, cc)...),
 			Name: "direct-http",
 		}
+
 		chains = append(chains, tcpChain, httpChain)
 		if len(wls) > 0 {
 			// Workload IP filtering happens here.
@@ -389,6 +398,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		}
 		return nil
 	}()
+
 	l := &listener.Listener{
 		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
@@ -406,6 +416,20 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 						CustomMatch: &xds.TypedExtensionConfig{
 							Name:        "ip",
 							TypedConfig: protoconv.MessageToAny(ipMatcher),
+						},
+					},
+				},
+			},
+			OnNoMatch: &matcher.Matcher_OnMatch{
+				OnMatch: &matcher.Matcher_OnMatch_Matcher{
+					Matcher: &matcher.Matcher{
+						MatcherType: &matcher.Matcher_MatcherTree_{
+							MatcherTree: &matcher.Matcher_MatcherTree{
+								Input: match.AuthorityFilterStateInput,
+								TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
+									ExactMatchMap: svcHostnameMap,
+								},
+							},
 						},
 					},
 				},
