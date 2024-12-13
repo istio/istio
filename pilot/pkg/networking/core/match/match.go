@@ -51,10 +51,10 @@ var (
 		Name:        "transport-protocol",
 		TypedConfig: protoconv.MessageToAny(&network.TransportProtocolInput{}),
 	}
-	OrignalDstFilterStateInput = &xds.TypedExtensionConfig{
-		Name: "original-dst-filter-state",
+	AuthorityFilterStateInput = &xds.TypedExtensionConfig{
+		Name: "authority-filter-state",
 		TypedConfig: protoconv.MessageToAny(&network.FilterStateInput{
-			Key: filters.OriginalDstFilterStateKey,
+			Key: filters.AuthorityFilterStateKey,
 		}),
 	}
 )

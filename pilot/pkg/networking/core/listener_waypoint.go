@@ -425,7 +425,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					Matcher: &matcher.Matcher{
 						MatcherType: &matcher.Matcher_MatcherTree_{
 							MatcherTree: &matcher.Matcher_MatcherTree{
-								Input: match.OrignalDstFilterStateInput,
+								Input: match.AuthorityFilterStateInput,
 								TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
 									ExactMatchMap: svcHostnameMap,
 								},

@@ -60,9 +60,14 @@ const (
 	// EnvoyJwtFilterPayload is the struct field for the payload in dynamic metadata in Envoy JWT filter.
 	EnvoyJwtFilterPayload = "payload"
 
-	// OriginalDstFilterStateKey is the filter state key where we store the :authority. This has traditionally been an
+	// OriginalDstFilterStateKey is a filter state key where we store the :authority. This has traditionally been an
 	// IP address, but it can also be a hostname if the incoming CONNECT tunnel was sent via double-HBONE.
+	// It will fail if the value is not a valid IP address.
 	OriginalDstFilterStateKey = "envoy.filters.listener.original_dst.local_ip"
+
+	// Authority Key is another filter state key where we store :authority. Because this is not a
+	// well-known filter state key, we can store non-IP address :authorities in here
+	AuthorityFilterStateKey = "io.istio.connect_authority"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -307,6 +312,23 @@ var (
 								},
 							},
 						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: AuthorityFilterStateKey,
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%REQ(:AUTHORITY)%",
+										},
+									},
+								},
+							},
+						},
+						FactoryKey:         "envoy.string",
 						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
 					}, {
 						Key: &sfsvalue.FilterStateValue_ObjectKey{
