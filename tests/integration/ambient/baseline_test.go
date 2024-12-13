@@ -2890,6 +2890,14 @@ func TestDirect(t *testing.T) {
 				HBONE:   hbsvc,
 				Check:   check.OK(),
 			})
+			run("VIP destination, FQDN authority", echo.CallOptions{
+				To:      apps.ServiceAddressedWaypoint,
+				Count:   1,
+				Address: apps.ServiceAddressedWaypoint.ClusterLocalFQDN(),
+				Port:    echo.Port{Name: ports.HTTP.Name},
+				HBONE:   hbsvc,
+				Check:   check.OK(),
+			})
 			run("VIP destination, unknown port", echo.CallOptions{
 				To:      apps.ServiceAddressedWaypoint,
 				Count:   1,

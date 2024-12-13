@@ -420,21 +420,24 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					},
 				},
 			},
-			OnNoMatch: &matcher.Matcher_OnMatch{
-				OnMatch: &matcher.Matcher_OnMatch_Matcher{
-					Matcher: &matcher.Matcher{
-						MatcherType: &matcher.Matcher_MatcherTree_{
-							MatcherTree: &matcher.Matcher_MatcherTree{
-								Input: match.AuthorityFilterStateInput,
-								TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
-									ExactMatchMap: svcHostnameMap,
-								},
+		},
+	}
+
+	if len(svcHostnameMap.Map) > 0 {
+		l.FilterChainMatcher.OnNoMatch = &matcher.Matcher_OnMatch{
+			OnMatch: &matcher.Matcher_OnMatch_Matcher{
+				Matcher: &matcher.Matcher{
+					MatcherType: &matcher.Matcher_MatcherTree_{
+						MatcherTree: &matcher.Matcher_MatcherTree{
+							Input: match.AuthorityFilterStateInput,
+							TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
+								ExactMatchMap: svcHostnameMap,
 							},
 						},
 					},
 				},
 			},
-		},
+		}
 	}
 	if tlsInspector != nil {
 		l.ListenerFilters = append(l.ListenerFilters, tlsInspector)
