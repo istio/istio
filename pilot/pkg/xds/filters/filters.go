@@ -59,6 +59,10 @@ const (
 
 	// EnvoyJwtFilterPayload is the struct field for the payload in dynamic metadata in Envoy JWT filter.
 	EnvoyJwtFilterPayload = "payload"
+
+	// OriginalDstFilterStateKey is the filter state key where we store the :authority. This has traditionally been an
+	// IP address, but it can also be a hostname if the incoming CONNECT tunnel was sent via double-HBONE.
+	OriginalDstFilterStateKey = "envoy.filters.listener.original_dst.local_ip"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -290,7 +294,7 @@ var (
 				OnRequestHeaders: []*sfsvalue.FilterStateValue{
 					{
 						Key: &sfsvalue.FilterStateValue_ObjectKey{
-							ObjectKey: "envoy.filters.listener.original_dst.local_ip",
+							ObjectKey: OriginalDstFilterStateKey,
 						},
 						Value: &sfsvalue.FilterStateValue_FormatString{
 							FormatString: &core.SubstitutionFormatString{
@@ -366,7 +370,7 @@ var (
 			TypedConfig: protoconv.MessageToAny(&sfsnetwork.Config{
 				OnNewConnection: []*sfsvalue.FilterStateValue{{
 					Key: &sfsvalue.FilterStateValue_ObjectKey{
-						ObjectKey: "envoy.filters.listener.original_dst.local_ip",
+						ObjectKey: OriginalDstFilterStateKey,
 					},
 					Value: &sfsvalue.FilterStateValue_FormatString{
 						FormatString: &core.SubstitutionFormatString{
