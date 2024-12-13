@@ -112,7 +112,7 @@ check_loop:
 				}
 			}
 			for _, cmd := range ipCfg.checkRules {
-				if err := ext.Run(constants.IPTables, ipCfg.ver, nil, cmd...); err != nil {
+				if err := ext.Run(log, constants.IPTables, ipCfg.ver, nil, cmd...); err != nil {
 					deltaExists = true
 					log.Debugf("iptables check rules failed")
 					break

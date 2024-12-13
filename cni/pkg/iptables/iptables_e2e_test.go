@@ -30,7 +30,6 @@ import (
 
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/scopes"
-	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/util/assert"
 	iptablescapture "istio.io/istio/tools/istio-iptables/pkg/capture"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
@@ -59,12 +58,11 @@ func TestIdempotentEquivalentInPodRerun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Can't detect iptables version: %v", err)
 	}
-
 	ipt6Ver, err := ext.DetectIptablesVersion(true)
 	if err != nil {
 		t.Fatalf("Can't detect ip6tables version")
 	}
-	scope := istiolog.FindScope(istiolog.DefaultScopeName)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
@@ -78,26 +76,26 @@ func TestIdempotentEquivalentInPodRerun(t *testing.T) {
 			}
 			defer func() {
 				assert.NoError(t, iptConfigurator.DeleteInpodRules(log))
-				residueExists, deltaExists := iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+				residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 				assert.Equal(t, residueExists, false)
 				assert.Equal(t, deltaExists, true)
 			}()
 			assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
-			residueExists, deltaExists := iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 
 			t.Log("Starting cleanup")
 			// Cleanup, should work
 			assert.NoError(t, iptConfigurator.DeleteInpodRules(log))
-			residueExists, deltaExists = iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, false)
 			assert.Equal(t, deltaExists, true)
 
 			t.Log("Second run")
 			// Apply should work again
 			assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
-			residueExists, deltaExists = iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 
@@ -120,12 +118,11 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Can't detect iptables version: %v", err)
 	}
-
 	ipt6Ver, err := ext.DetectIptablesVersion(true)
 	if err != nil {
 		t.Fatalf("Can't detect ip6tables version")
 	}
-	scope := istiolog.FindScope(istiolog.DefaultScopeName)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
@@ -139,8 +136,8 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 			}
 
 			defer func() {
-				assert.NoError(t, iptConfigurator.DeleteInpodRules())
-				residueExists, deltaExists := iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+				assert.NoError(t, iptConfigurator.DeleteInpodRules(log))
+				residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 				assert.Equal(t, residueExists, true)
 				assert.Equal(t, deltaExists, true)
 				// Remove additional rule
@@ -150,13 +147,13 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 				if err := cmd.Run(); err != nil {
 					t.Errorf("iptables cmd (%s %s) failed: %s", cmd.Path, cmd.Args, stderr.String())
 				}
-				residueExists, deltaExists = iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+				residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 				assert.Equal(t, residueExists, false)
 				assert.Equal(t, deltaExists, true)
 			}()
 
 			assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
-			residueExists, deltaExists := iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 
@@ -183,7 +180,7 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 			}
 
 			// Apply required after tempering with ISTIO chains
-			residueExists, deltaExists = iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, true)
 
@@ -194,7 +191,7 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 			// Creating new inpod rules should succeed if reconciliation is enabled
 			cfg.Reconcile = true
 			assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
-			residueExists, deltaExists = iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 
@@ -211,7 +208,7 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 			}
 
 			// No delta after tempering with non-ISTIO chains
-			residueExists, deltaExists = iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 		})
@@ -231,12 +228,11 @@ func TestIptablesHostCleanRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Can't detect iptables version: %v", err)
 	}
-
 	ipt6Ver, err := ext.DetectIptablesVersion(true)
 	if err != nil {
 		t.Fatalf("Can't detect ip6tables version")
 	}
-	scope := istiolog.FindScope(istiolog.DefaultScopeName)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
@@ -258,26 +254,26 @@ func TestIptablesHostCleanRoundTrip(t *testing.T) {
 			}
 			defer func() {
 				iptConfigurator.DeleteHostRules()
-				residueExists, deltaExists := iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+				residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 				assert.Equal(t, residueExists, false)
 				assert.Equal(t, deltaExists, true)
 			}()
 
 			assert.NoError(t, iptConfigurator.CreateHostRulesForHealthChecks())
-			residueExists, deltaExists := iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 
 			// Round-trip deletion and recreation to test clean-up and re-setup
 			t.Log("Starting cleanup")
 			iptConfigurator.DeleteHostRules()
-			residueExists, deltaExists = iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, false)
 			assert.Equal(t, deltaExists, true)
 
 			t.Log("Second run")
 			assert.NoError(t, iptConfigurator.CreateHostRulesForHealthChecks())
-			residueExists, deltaExists = iptablescapture.VerifyIptablesState(scope, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 

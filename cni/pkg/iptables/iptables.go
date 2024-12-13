@@ -468,8 +468,8 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 		if guardrails {
 			log.Info("Removing guardrails")
 			guardrailsCleanup := iptablesBuilder.BuildCleanupGuardrails()
-			_ = cfg.executeIptablesCommands(&cfg.iptV, guardrailsCleanup)
-			_ = cfg.executeIptablesCommands(&cfg.ipt6V, guardrailsCleanup)
+			_ = cfg.executeIptablesCommands(log, &cfg.iptV, guardrailsCleanup)
+			_ = cfg.executeIptablesCommands(log, &cfg.ipt6V, guardrailsCleanup)
 		}
 	}()
 	residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, cfg.ext, iptablesBuilder, &cfg.iptV, &cfg.ipt6V)
@@ -484,8 +484,8 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 			guardrailsCleanup := iptablesBuilder.BuildCleanupGuardrails()
 			guardrailsRules := iptablesBuilder.BuildGuardrails()
 			for _, ver := range []*dep.IptablesVersion{&cfg.iptV, &cfg.ipt6V} {
-				cfg.tryExecuteIptablesCommands(ver, guardrailsCleanup)
-				if err := cfg.executeIptablesCommands(ver, guardrailsRules); err != nil {
+				cfg.tryExecuteIptablesCommands(log, ver, guardrailsCleanup)
+				if err := cfg.executeIptablesCommands(log, ver, guardrailsRules); err != nil {
 					return err
 				}
 				guardrails = true
@@ -493,8 +493,8 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 		}
 		// Remove old iptables
 		log.Info("Performing cleanup of existing iptables")
-		cfg.tryExecuteIptablesCommands(&cfg.iptV, iptablesBuilder.BuildCleanupV4())
-		cfg.tryExecuteIptablesCommands(&cfg.ipt6V, iptablesBuilder.BuildCleanupV6())
+		cfg.tryExecuteIptablesCommands(log, &cfg.iptV, iptablesBuilder.BuildCleanupV4())
+		cfg.tryExecuteIptablesCommands(log, &cfg.ipt6V, iptablesBuilder.BuildCleanupV6())
 
 		// Remove leftovers from non-matching istio iptables cfg
 		if cfg.cfg.Reconcile {
@@ -523,14 +523,14 @@ func (cfg *IptablesConfigurator) cleanupIstioLeftovers(log *istiolog.Scope, ext 
 		if ipVer == nil {
 			continue
 		}
-		output, err := ext.RunWithOutput(iptablesconstants.IPTablesSave, ipVer, nil)
+		output, err := ext.RunWithOutput(log, iptablesconstants.IPTablesSave, ipVer, nil)
 		if err == nil {
 			currentState := ruleBuilder.GetStateFromSave(output.String())
 			leftovers := iptablescapture.HasIstioLeftovers(currentState)
 			if len(leftovers) > 0 {
 				log.Infof("Detected Istio iptables artifacts from a previous execution; initiating a second cleanup pass.")
 				log.Debugf("Istio iptables artifacts identified for cleanup: %+v", leftovers)
-				cfg.tryExecuteIptablesCommands(ipVer, builder.BuildCleanupFromState(leftovers))
+				cfg.tryExecuteIptablesCommands(log, ipVer, builder.BuildCleanupFromState(leftovers))
 			}
 		}
 	}
@@ -547,18 +547,18 @@ func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(
 	return cfg.ext.Run(log, cmd, iptVer, strings.NewReader(data), "--noflush", "-v")
 }
 
-func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, args [][]string) error {
+func (cfg *IptablesConfigurator) executeIptablesCommands(log *istiolog.Scope, iptVer *dep.IptablesVersion, args [][]string) error {
 	var iptErrs []error
 	// TODO: pass log all the way through
 	for _, argSet := range args {
-		iptErrs = append(iptErrs, cfg.ext.Run(iptablesconstants.IPTables, iptVer, nil, argSet...))
+		iptErrs = append(iptErrs, cfg.ext.Run(log, iptablesconstants.IPTables, iptVer, nil, argSet...))
 	}
 	return errors.Join(iptErrs...)
 }
 
-func (cfg *IptablesConfigurator) tryExecuteIptablesCommands(iptVer *dep.IptablesVersion, commands [][]string) {
+func (cfg *IptablesConfigurator) tryExecuteIptablesCommands(log *istiolog.Scope, iptVer *dep.IptablesVersion, commands [][]string) {
 	for _, cmd := range commands {
-		cfg.ext.RunQuietlyAndIgnore(iptablesconstants.IPTables, iptVer, nil, cmd...)
+		cfg.ext.RunQuietlyAndIgnore(log, iptablesconstants.IPTables, iptVer, nil, cmd...)
 	}
 }
 
