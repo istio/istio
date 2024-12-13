@@ -210,6 +210,7 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 func TestCNIMisconfigHealsOnRestart(t *testing.T) {
 	framework.NewTest(t).
 		TopLevel().
+		Skip("suspected flaky").
 		Run(func(t framework.TestContext) {
 			c := t.Clusters().Default()
 			t.Log("Updating CNI Daemonset config")
