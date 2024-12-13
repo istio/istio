@@ -69,6 +69,7 @@ func handleDoubleConnect(w http.ResponseWriter, r *http.Request, tlsConfig *tls.
 	// Send headers back immediately so we can start getting the body
 	w.(http.Flusher).Flush()
 
+	// TODO: Remove this check; this is Istio specific context
 	host, _, err := net.SplitHostPort(r.Host)
 	if err != nil {
 		log.Errorf("invalid host header: %v", r.Host)
