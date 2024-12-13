@@ -440,7 +440,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	go handlers.Start()
 
 	// Wait for a pod add event (initial informer bootup)
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.AtLeast(1))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
 
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
@@ -451,7 +451,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	// wait for all update events to settle
 	// total 3: 1. init ns reconcile 2. ns label reconcile 3. pod reconcile
 	// for all that tho, we should only get 1 ADD, as enforced by mock
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(3))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(4))
 
 	// wait for the pod to be annotated
 	// after Pod annotated, another update event will be triggered.
@@ -474,7 +474,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	assert.NoError(t, err)
 
 	// wait for 2 more update events (status change + un-annotate)
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(5))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(6))
 
 	waitForMockCalls()
 
@@ -495,7 +495,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	assert.NoError(t, err)
 
 	// wait for 2 more update events (status change (again) + re-annotate)
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(7))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(8))
 
 	assertPodAnnotated(t, client, pod)
 
