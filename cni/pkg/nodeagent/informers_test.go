@@ -372,7 +372,7 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for an update events
+	// wait for update events
 	// Expecting 2 - 1. pod unlabel (us) 2. pod un-annotate (informer)
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(6))
 
