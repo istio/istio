@@ -12,18 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kclient
+package kclient_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
+	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -40,9 +45,9 @@ func (s SaNode) String() string {
 
 func TestIndex(t *testing.T) {
 	c := kube.NewFakeClient()
-	pods := New[*corev1.Pod](c)
+	pods := kclient.New[*corev1.Pod](c)
 	c.RunAndWait(test.NewStop(t))
-	index := CreateIndex[SaNode, *corev1.Pod](pods, func(pod *corev1.Pod) []SaNode {
+	index := kclient.CreateIndex[SaNode, *corev1.Pod](pods, func(pod *corev1.Pod) []SaNode {
 		if len(pod.Spec.NodeName) == 0 {
 			return nil
 		}
@@ -149,4 +154,91 @@ func TestIndex(t *testing.T) {
 	assertIndex(keyNew)
 	assertIndex(k1)
 	assertIndex(k2)
+}
+
+func TestIndexFilters(t *testing.T) {
+	c := kube.NewFakeClient()
+
+	currentAllowedNamespace := atomic.NewString("a")
+	filter := kubetypes.NewStaticObjectFilter(func(obj any) bool {
+		return controllers.ExtractObject(obj).GetNamespace() == currentAllowedNamespace.Load()
+	})
+	pods := kclient.NewFiltered[*corev1.Pod](c, kubetypes.Filter{
+		ObjectFilter: filter,
+	})
+	pc := clienttest.NewWriter[*corev1.Pod](t, c)
+	c.RunAndWait(test.NewStop(t))
+	index := kclient.CreateStringIndex[*corev1.Pod](pods, func(pod *corev1.Pod) []string {
+		if pod.Status.PodIP == "" {
+			return nil
+		}
+		return []string{pod.Status.PodIP}
+	})
+
+	// Initial state should be empty
+	assert.Equal(t, index.Lookup("1.1.1.1"), nil)
+
+	assertIndex := func(k string, pods ...*corev1.Pod) {
+		t.Helper()
+		assert.EventuallyEqual(t, func() []*corev1.Pod { return index.Lookup(k) }, pods, retry.Timeout(time.Second*5))
+	}
+
+	// Add a pod matching the filter, we should see it.
+	podA1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod",
+			Namespace: "a",
+		},
+		Status: corev1.PodStatus{PodIP: "1.1.1.1"},
+	}
+	pc.CreateOrUpdateStatus(podA1)
+	assertIndex("1.1.1.1", podA1)
+
+	podA2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod2",
+			Namespace: "a",
+		},
+		Status: corev1.PodStatus{PodIP: "2.2.2.2"},
+	}
+	pc.CreateOrUpdateStatus(podA2)
+	assertIndex("1.1.1.1", podA1)
+	assertIndex("2.2.2.2", podA2)
+
+	// Create a pod not matching the filter with overlapping IP
+	podB1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod",
+			Namespace: "b",
+		},
+		Status: corev1.PodStatus{PodIP: "1.1.1.1"},
+	}
+	pc.CreateOrUpdateStatus(podB1)
+	assertIndex("1.1.1.1", podA1)
+	assertIndex("2.2.2.2", podA2)
+
+	// Another pod, not matching filter with distinct IP
+	podB2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod2",
+			Namespace: "b",
+		},
+		Status: corev1.PodStatus{PodIP: "3.3.3.3"},
+	}
+	pc.CreateOrUpdateStatus(podB2)
+	assertIndex("1.1.1.1", podA1)
+	assertIndex("2.2.2.2", podA2)
+	assertIndex("3.3.3.3")
+
+	// Switch the filter
+	currentAllowedNamespace.Store("b")
+	assertIndex("1.1.1.1", podB1)
+	assertIndex("2.2.2.2")
+	assertIndex("3.3.3.3", podB2)
+
+	// Switch the filter again
+	currentAllowedNamespace.Store("c")
+	assertIndex("1.1.1.1")
+	assertIndex("2.2.2.2")
+	assertIndex("3.3.3.3")
 }
