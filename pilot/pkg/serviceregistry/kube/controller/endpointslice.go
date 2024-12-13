@@ -157,13 +157,11 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 func serviceNeedsPush(svc *corev1.Service) bool {
 	if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
 		namespaces := strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",")
-		exportTo := sets.NewWithLength[visibility.Instance](len(namespaces))
 		for _, ns := range namespaces {
 			ns = strings.TrimSpace(ns)
-			exportTo.Insert(visibility.Instance(ns))
-		}
-		if exportTo.Contains(visibility.None) {
-			return false
+			if ns == string(visibility.None) {
+				return false
+			}
 		}
 	}
 	return true
