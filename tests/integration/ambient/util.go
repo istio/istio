@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -60,12 +59,12 @@ func DeployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonS
 
 	// Wait for the DS backing pods to ready up
 	retry.UntilSuccessOrFail(ctx, func() error {
-		label := "k8s-app=istio-cni-node"
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(c, cniDaemonSet.ObjectMeta.Namespace, label)); err != nil {
-			return fmt.Errorf("%s pod is not ready: %v", label, err)
+		ensureCNIDS := GetCNIDaemonSet(ctx, c, cniDaemonSet.ObjectMeta.Namespace)
+		if ensureCNIDS.Status.NumberReady == ensureCNIDS.Status.DesiredNumberScheduled {
+			return nil
 		}
-		return nil
-	}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
+		return fmt.Errorf("still waiting for CNI pods to become ready before proceeding")
+	}, retry.Delay(RetryDelay), retry.Timeout(RetryTimeOut))
 }
 
 func DeleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, systemNamespace string) {
@@ -75,7 +74,7 @@ func DeleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, systemName
 		ctx.Fatalf("failed to delete CNI Daemonset %v", err)
 	}
 
-	// Wait until the CNI Daemonset pod cannot be fetched anymore
+	// Wait until the CNI Daemonset pods cannot be fetched anymore
 	retry.UntilSuccessOrFail(ctx, func() error {
 		scopes.Framework.Infof("Checking if CNI Daemonset pods are deleted...")
 		pods, err := c.PodsForSelector(context.TODO(), systemNamespace, "k8s-app=istio-cni-node")

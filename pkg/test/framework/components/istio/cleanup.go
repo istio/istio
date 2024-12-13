@@ -95,9 +95,9 @@ func (i *istioImpl) Dump(ctx resource.Context) {
 			return nil
 		})
 	}
-	// Dump istio-cni.
+	// Dump kube-system as well.
 	g.Go(func() error {
-		kube2.DumpPods(ctx, d, "kube-system", []string{"k8s-app=istio-cni-node"})
+		kube2.DumpPods(ctx, d, "kube-system", []string{})
 		return nil
 	})
 }

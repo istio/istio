@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -123,6 +124,9 @@ var rootCmd = &cobra.Command{
 					log.Info("Ambient node agent safe upgrade explicitly disabled via env")
 					isUpgrade = false
 				} else {
+					// TODO seeing if this resolves test flakes - this should not be necessary
+					// but trying this to ensure the kclient in ShouldStopForUpgrade doesn't get stale info.
+					time.Sleep(time.Second)
 					isUpgrade = ambientAgent.ShouldStopForUpgrade("istio-cni", nodeagent.PodNamespace)
 				}
 				log.Infof("Ambient node agent shutting down - is upgrade shutdown? %t", isUpgrade)
