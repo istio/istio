@@ -222,17 +222,15 @@ func getPodLevelTrafficOverrides(pod *corev1.Pod) iptables.PodLevelOverrides {
 
 func realDependenciesHost() *dep.RealDependencies {
 	return &dep.RealDependencies{
-		// We are in the host FS *and* the Host network
-		HostFilesystemPodNetwork: false,
-		NetworkNamespace:         "",
+		UsePodScopedXtablesLock: false,
+		NetworkNamespace:        "",
 	}
 }
 
-func realDependenciesInpod() *dep.RealDependencies {
+func realDependenciesInpod(useScopedLocks bool) *dep.RealDependencies {
 	return &dep.RealDependencies{
-		// We are running the host FS, but the pod network -- setup rules differently (locking, etc)
-		HostFilesystemPodNetwork: true,
-		NetworkNamespace:         "",
+		UsePodScopedXtablesLock: useScopedLocks,
+		NetworkNamespace:        "",
 	}
 }
 

@@ -2459,15 +2459,13 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 		ok = false
 	}
 	hostnames := buildHostnameMatch(obj.Namespace, r.GatewayResources, l)
-	server := &istio.Server{
-		Port: &istio.Port{
-			// Name is required. We only have one server per Gateway, so we can just name them all the same
-			Name:     "default",
-			Number:   uint32(l.Port),
-			Protocol: listenerProtocolToIstio(l.Protocol),
-		},
-		Hosts: hostnames,
-		Tls:   tls,
+	protocol, perr := listenerProtocolToIstio(controllerName, l.Protocol)
+	if perr != nil {
+		listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+			Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
+			Message: perr.Error(),
+		}
+		ok = false
 	}
 	if controllerName == constants.ManagedGatewayMeshController {
 		if unexpectedWaypointListener(l) {
@@ -2477,14 +2475,53 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 			}
 		}
 	}
+	server := &istio.Server{
+		Port: &istio.Port{
+			// Name is required. We only have one server per Gateway, so we can just name them all the same
+			Name:     "default",
+			Number:   uint32(l.Port),
+			Protocol: protocol,
+		},
+		Hosts: hostnames,
+		Tls:   tls,
+	}
 
 	reportListenerCondition(listenerIndex, l, obj, listenerConditions)
 	return server, ok
 }
 
-func listenerProtocolToIstio(protocol k8s.ProtocolType) string {
-	// Currently, all gateway-api protocols are valid Istio protocols.
-	return string(protocol)
+var supportedProtocols = sets.New(
+	k8s.HTTPProtocolType,
+	k8s.HTTPSProtocolType,
+	k8s.TLSProtocolType,
+	k8s.TCPProtocolType,
+	k8s.ProtocolType(protocol.HBONE))
+
+func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (string, error) {
+	switch p {
+	// Standard protocol types
+	case k8s.HTTPProtocolType:
+		return string(p), nil
+	case k8s.HTTPSProtocolType:
+		return string(p), nil
+	case k8s.TLSProtocolType, k8s.TCPProtocolType:
+		if !features.EnableAlphaGatewayAPI {
+			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
+		}
+		return string(p), nil
+	// Our own custom types
+	case k8s.ProtocolType(protocol.HBONE):
+		if name != constants.ManagedGatewayMeshController {
+			return "", fmt.Errorf("protocol %q is only supported for waypoint proxies", p)
+		}
+		return string(p), nil
+	}
+	up := k8s.ProtocolType(strings.ToUpper(string(p)))
+	if supportedProtocols.Contains(up) {
+		return "", fmt.Errorf("protocol %q is unsupported. hint: %q (uppercase) may be supported", p, up)
+	}
+	// Note: the k8s.UDPProtocolType is explicitly left to hit this path
+	return "", fmt.Errorf("protocol %q is unsupported", p)
 }
 
 func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, isAutoPassthrough bool) (*istio.ServerTLSSettings, *ConfigError) {

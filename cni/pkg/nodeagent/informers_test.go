@@ -66,7 +66,7 @@ func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Return(nil)
+	).Once().Return(nil)
 
 	server := getFakeDP(fs, client.Kube())
 
@@ -125,7 +125,7 @@ func TestExistingPodAddedWhenDualStack(t *testing.T) {
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Return(nil)
+	).Once().Return(nil)
 
 	server := getFakeDP(fs, client.Kube())
 
@@ -182,6 +182,9 @@ func TestExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 
+	// wait until at least one add event happens
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.AtLeast(1))
+
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
 		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
@@ -189,8 +192,9 @@ func TestExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait until at least one add event happens
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.AtLeast(1))
+	// wait for all update events to settle
+	// total 3: 1. init ns reconcile 2. ns label reconcile 3. pod reconcile
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(3))
 
 	assertPodNotAnnotated(t, client, pod)
 
@@ -236,15 +240,16 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Return(nil)
+	).Once().Return(nil)
 
 	server := getFakeDP(fs, client.Kube())
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
+
 	// wait until pod add was called
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(1))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.AtLeast(1))
 
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
@@ -252,8 +257,10 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 			label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient)), metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for an update event
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(2))
+	// wait for all update events to settle
+	// total 3: 1. init ns reconcile 2. ns label reconcile 3. pod reconcile
+	// for all that tho, we should only get 1 ADD, as enforced by mock
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(3))
 
 	// wait for the pod to be annotated
 	// after Pod annotated, another update event will be triggered.
@@ -276,9 +283,8 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for another two update events
-	// total 3 update at before unlabel point: 1. init ns reconcile 2. ns label reconcile 3. pod annotation update
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(5))
+	// wait for another 3 update events for unlabel, total of 6
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(6))
 
 	waitForMockCalls()
 
@@ -310,9 +316,6 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 	}
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "test"},
-		// TODO: once we if the add pod bug, re-enable this and remove the patch below
-		//		Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
-
 	}
 
 	client := kube.NewFakeClient(ns, pod)
@@ -326,7 +329,7 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Return(nil)
+	).Once().Return(nil)
 
 	server := getFakeDP(fs, client.Kube())
 
@@ -334,7 +337,7 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 	// wait until pod add was called
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(1))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.AtLeast(1))
 
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
@@ -342,8 +345,10 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 			label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient)), metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for an update event
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(2))
+	// wait for all update events to settle
+	// total 3: 1. init ns reconcile 2. ns label reconcile 3. pod reconcile
+	// for all that tho, we should only get 1 ADD, as enforced by mock
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(3))
 
 	// wait for the pod to be annotated
 	// after Pod annotated, another update event will be triggered.
@@ -426,15 +431,16 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Return(nil)
+	).Once().Return(nil)
 
 	server := getFakeDP(fs, client.Kube())
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
-	// wait until pod add was called
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(1))
+
+	// Wait for a pod add event (initial informer bootup)
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.AtLeast(1))
 
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
@@ -442,8 +448,10 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 			label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient)), metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for an update event
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(2))
+	// wait for all update events to settle
+	// total 3: 1. init ns reconcile 2. ns label reconcile 3. pod reconcile
+	// for all that tho, we should only get 1 ADD, as enforced by mock
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(3))
 
 	// wait for the pod to be annotated
 	// after Pod annotated, another update event will be triggered.
@@ -465,8 +473,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 		types.MergePatchType, phasePatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for an update events
-	// total 3 update at before unlabel point: 1. init ns reconcile 2. ns label reconcile 3. pod status update
+	// wait for an update event
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(4))
 
 	waitForMockCalls()
@@ -478,7 +485,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 		mock.Anything,
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Return(nil)
+	).Once().Return(nil)
 
 	// Now bring it back
 	// Patch the pod back to a running status
@@ -487,7 +494,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 		types.MergePatchType, phaseRunPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for an update events
+	// wait for an update event
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(5))
 
 	assertPodAnnotated(t, client, pod)
@@ -775,7 +782,7 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Return(nil)
+	).Once().Return(nil)
 
 	server := getFakeDP(fs, client.Kube())
 
