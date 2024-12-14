@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/slices"
 )
 
 // MutualTLSMode is the mutual TLS mode specified by authentication policy.
@@ -231,13 +231,11 @@ func getConfigsForWorkload(rootNamespace string, configsByNamespace map[string][
 	workloadLabels := selectionOpts.WorkloadLabels
 	namespace := selectionOpts.WorkloadNamespace
 	configs := make([]*config.Config, 0)
-	lookupInNamespaces := sets.New[string]()
-	lookupInNamespaces.Insert(namespace)
-	lookupInNamespaces.Insert(rootNamespace)
+	lookupInNamespaces := []string{namespace, rootNamespace}
 	for _, svc := range selectionOpts.Services {
-		lookupInNamespaces.Insert(svc.Namespace)
+		lookupInNamespaces = append(lookupInNamespaces, svc.Namespace)
 	}
-	for _, ns := range lookupInNamespaces.UnsortedList() {
+	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
 		if nsConfig, ok := configsByNamespace[ns]; ok {
 			for idx := range nsConfig {
 				cfg := &nsConfig[idx]

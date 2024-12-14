@@ -2154,14 +2154,12 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 	}
 
 	matchedPlugins := make(map[extensions.PluginPhase][]*WasmPluginWrapper)
-	lookupInNamespaces := sets.New[string]()
-	lookupInNamespaces.Insert(ps.Mesh.RootNamespace)
-	lookupInNamespaces.Insert(proxy.ConfigNamespace)
+	lookupInNamespaces := []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
 	for i := range info.Services {
-		lookupInNamespaces.Insert(info.Services[i].NamespacedName().Namespace)
+		lookupInNamespaces = append(lookupInNamespaces, info.Services[i].NamespacedName().Namespace)
 	}
 	selectionOpts := PolicyMatcherForProxy(proxy).WithServices(info.Services)
-	for _, ns := range lookupInNamespaces.UnsortedList() {
+	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
 		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
 			for _, plugin := range wasmPlugins {
 				if plugin.MatchListener(selectionOpts, info) && plugin.MatchType(pluginType) {
