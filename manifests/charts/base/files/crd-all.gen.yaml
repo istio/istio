@@ -671,9 +671,7 @@ spec:
                                     type: object
                                   type: array
                                 enabled:
-                                  description: enable locality load balancing, this
-                                    is DestinationRule-level and will override mesh
-                                    wide settings in entirety.
+                                  description: Enable locality load balancing.
                                   nullable: true
                                   type: boolean
                                 failover:
@@ -791,7 +789,7 @@ spec:
                             minHealthPercent:
                               description: Outlier detection will be enabled as long
                                 as the associated load balancing pool has at least
-                                min_health_percent hosts in healthy mode.
+                                `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
                             splitExternalLocalOriginErrors:
@@ -1043,9 +1041,7 @@ spec:
                                           type: object
                                         type: array
                                       enabled:
-                                        description: enable locality load balancing,
-                                          this is DestinationRule-level and will override
-                                          mesh wide settings in entirety.
+                                        description: Enable locality load balancing.
                                         nullable: true
                                         type: boolean
                                       failover:
@@ -1167,7 +1163,7 @@ spec:
                                   minHealthPercent:
                                     description: Outlier detection will be enabled
                                       as long as the associated load balancing pool
-                                      has at least min_health_percent hosts in healthy
+                                      has at least `minHealthPercent` hosts in healthy
                                       mode.
                                     format: int32
                                     type: integer
@@ -1564,8 +1560,7 @@ spec:
                               type: object
                             type: array
                           enabled:
-                            description: enable locality load balancing, this is DestinationRule-level
-                              and will override mesh wide settings in entirety.
+                            description: Enable locality load balancing.
                             nullable: true
                             type: boolean
                           failover:
@@ -1679,7 +1674,7 @@ spec:
                         type: integer
                       minHealthPercent:
                         description: Outlier detection will be enabled as long as
-                          the associated load balancing pool has at least min_health_percent
+                          the associated load balancing pool has at least `minHealthPercent`
                           hosts in healthy mode.
                         format: int32
                         type: integer
@@ -1926,9 +1921,7 @@ spec:
                                     type: object
                                   type: array
                                 enabled:
-                                  description: enable locality load balancing, this
-                                    is DestinationRule-level and will override mesh
-                                    wide settings in entirety.
+                                  description: Enable locality load balancing.
                                   nullable: true
                                   type: boolean
                                 failover:
@@ -2046,7 +2039,7 @@ spec:
                             minHealthPercent:
                               description: Outlier detection will be enabled as long
                                 as the associated load balancing pool has at least
-                                min_health_percent hosts in healthy mode.
+                                `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
                             splitExternalLocalOriginErrors:
@@ -2588,9 +2581,7 @@ spec:
                                     type: object
                                   type: array
                                 enabled:
-                                  description: enable locality load balancing, this
-                                    is DestinationRule-level and will override mesh
-                                    wide settings in entirety.
+                                  description: Enable locality load balancing.
                                   nullable: true
                                   type: boolean
                                 failover:
@@ -2708,7 +2699,7 @@ spec:
                             minHealthPercent:
                               description: Outlier detection will be enabled as long
                                 as the associated load balancing pool has at least
-                                min_health_percent hosts in healthy mode.
+                                `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
                             splitExternalLocalOriginErrors:
@@ -2960,9 +2951,7 @@ spec:
                                           type: object
                                         type: array
                                       enabled:
-                                        description: enable locality load balancing,
-                                          this is DestinationRule-level and will override
-                                          mesh wide settings in entirety.
+                                        description: Enable locality load balancing.
                                         nullable: true
                                         type: boolean
                                       failover:
@@ -3084,7 +3073,7 @@ spec:
                                   minHealthPercent:
                                     description: Outlier detection will be enabled
                                       as long as the associated load balancing pool
-                                      has at least min_health_percent hosts in healthy
+                                      has at least `minHealthPercent` hosts in healthy
                                       mode.
                                     format: int32
                                     type: integer
@@ -3481,8 +3470,7 @@ spec:
                               type: object
                             type: array
                           enabled:
-                            description: enable locality load balancing, this is DestinationRule-level
-                              and will override mesh wide settings in entirety.
+                            description: Enable locality load balancing.
                             nullable: true
                             type: boolean
                           failover:
@@ -3596,7 +3584,7 @@ spec:
                         type: integer
                       minHealthPercent:
                         description: Outlier detection will be enabled as long as
-                          the associated load balancing pool has at least min_health_percent
+                          the associated load balancing pool has at least `minHealthPercent`
                           hosts in healthy mode.
                         format: int32
                         type: integer
@@ -3843,9 +3831,7 @@ spec:
                                     type: object
                                   type: array
                                 enabled:
-                                  description: enable locality load balancing, this
-                                    is DestinationRule-level and will override mesh
-                                    wide settings in entirety.
+                                  description: Enable locality load balancing.
                                   nullable: true
                                   type: boolean
                                 failover:
@@ -3963,7 +3949,7 @@ spec:
                             minHealthPercent:
                               description: Outlier detection will be enabled as long
                                 as the associated load balancing pool has at least
-                                min_health_percent hosts in healthy mode.
+                                `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
                             splitExternalLocalOriginErrors:
@@ -4505,9 +4491,7 @@ spec:
                                     type: object
                                   type: array
                                 enabled:
-                                  description: enable locality load balancing, this
-                                    is DestinationRule-level and will override mesh
-                                    wide settings in entirety.
+                                  description: Enable locality load balancing.
                                   nullable: true
                                   type: boolean
                                 failover:
@@ -4625,7 +4609,7 @@ spec:
                             minHealthPercent:
                               description: Outlier detection will be enabled as long
                                 as the associated load balancing pool has at least
-                                min_health_percent hosts in healthy mode.
+                                `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
                             splitExternalLocalOriginErrors:
@@ -4877,9 +4861,7 @@ spec:
                                           type: object
                                         type: array
                                       enabled:
-                                        description: enable locality load balancing,
-                                          this is DestinationRule-level and will override
-                                          mesh wide settings in entirety.
+                                        description: Enable locality load balancing.
                                         nullable: true
                                         type: boolean
                                       failover:
@@ -5001,7 +4983,7 @@ spec:
                                   minHealthPercent:
                                     description: Outlier detection will be enabled
                                       as long as the associated load balancing pool
-                                      has at least min_health_percent hosts in healthy
+                                      has at least `minHealthPercent` hosts in healthy
                                       mode.
                                     format: int32
                                     type: integer
@@ -5398,8 +5380,7 @@ spec:
                               type: object
                             type: array
                           enabled:
-                            description: enable locality load balancing, this is DestinationRule-level
-                              and will override mesh wide settings in entirety.
+                            description: Enable locality load balancing.
                             nullable: true
                             type: boolean
                           failover:
@@ -5513,7 +5494,7 @@ spec:
                         type: integer
                       minHealthPercent:
                         description: Outlier detection will be enabled as long as
-                          the associated load balancing pool has at least min_health_percent
+                          the associated load balancing pool has at least `minHealthPercent`
                           hosts in healthy mode.
                         format: int32
                         type: integer
@@ -5760,9 +5741,7 @@ spec:
                                     type: object
                                   type: array
                                 enabled:
-                                  description: enable locality load balancing, this
-                                    is DestinationRule-level and will override mesh
-                                    wide settings in entirety.
+                                  description: Enable locality load balancing.
                                   nullable: true
                                   type: boolean
                                 failover:
@@ -5880,7 +5859,7 @@ spec:
                             minHealthPercent:
                               description: Outlier detection will be enabled as long
                                 as the associated load balancing pool has at least
-                                min_health_percent hosts in healthy mode.
+                                `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
                             splitExternalLocalOriginErrors:
@@ -6309,7 +6288,7 @@ spec:
                               additionalProperties:
                                 type: string
                               description: Match on the node metadata supplied by
-                                a proxy when connecting to Istio Pilot.
+                                a proxy when connecting to istiod.
                               type: object
                             proxyVersion:
                               description: A regular expression in golang regex format
