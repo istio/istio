@@ -432,7 +432,7 @@ const (
 	httpRuleFmt string = "ztunnel does not support HTTP rules (%s require HTTP parsing), in ambient mode you must use waypoint proxy to enforce HTTP rules. %s"
 
 	httpDenyRuleBoilerplate  string = "Deny rules with HTTP attributes will be enforced without their HTTP components. This is more restrictive than intended."
-	httpAllowRuleBoilerplate string = "Allow rules with HTTP attributes will be empty and never match. This is more restrictive than requested."
+	httpAllowRuleBoilerplate string = "Allow rules with HTTP attributes will be omitted and therefore never match. This is more restrictive than requested."
 )
 
 func httpOperations(op *v1beta1.Operation) []string {
