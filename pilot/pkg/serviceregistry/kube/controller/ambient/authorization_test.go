@@ -198,10 +198,10 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 			},
 			expectStatusMessage: &model.StatusMessage{
 				Reason: "UnsupportedValue",
-				Message: "ztunnel does not support HTTP attributes (methods, request.auth.presenter, requestPrincipals field(s) required HTTP parsing)." +
-					" In ambient mode you must use a waypoint proxy to enforce HTTP rules." +
-					" Within an ALLOW policy, rules matching HTTP attributes are omitted." +
-					" This will be more restrictive than requested.",
+				Message: "ztunnel does not support HTTP attributes (found: methods, request.auth.presenter, requestPrincipals). " +
+					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
+					"Within an ALLOW policy, rules matching HTTP attributes are omitted. " +
+					"This will be more restrictive than requested.",
 			},
 		},
 	}
