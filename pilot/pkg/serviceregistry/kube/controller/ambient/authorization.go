@@ -410,10 +410,10 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 }
 
 const (
-	httpRuleFmt string = "ztunnel does not support HTTP rules (%s require HTTP parsing), in ambient mode you must use waypoint proxy to enforce HTTP rules. %s"
+	httpRuleFmt string = "ztunnel does not support HTTP attributes (%s field required HTTP parsing). In ambient mode you must use a waypoint proxy to enforce HTTP rules. %s"
 
-	httpDenyRuleBoilerplate  string = "Deny rules with HTTP attributes will be enforced without their HTTP components. This is more restrictive than intended."
-	httpAllowRuleBoilerplate string = "Allow rules with HTTP attributes will be omitted and therefore never match. This is more restrictive than requested."
+	httpDenyRuleBoilerplate  string = "DENY policy with HTTP attributes is enforced without the HTTP rules. This will be more restrictive than intended."
+	httpAllowRuleBoilerplate string = "Within an ALLOW policy, rules matching HTTP attributes are omitted. This will be more restrictive than requested."
 )
 
 func httpOperations(op *v1beta1.Operation) []string {
