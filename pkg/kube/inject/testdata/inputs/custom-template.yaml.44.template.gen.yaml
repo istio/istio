@@ -309,9 +309,9 @@ templates:
         - name: ISTIO_META_NETWORK
           value: "{{ .Values.global.network }}"
         {{- end }}
-        {{- if .DeploymentMeta.Name }}
+        {{- with (index .ObjectMeta.Labels `service.istio.io/workload-name` | default .DeploymentMeta.Name) }}
         - name: ISTIO_META_WORKLOAD_NAME
-          value: "{{ .DeploymentMeta.Name }}"
+          value: "{{ . }}"
         {{ end }}
         {{- if and .TypeMeta.APIVersion .DeploymentMeta.Name }}
         - name: ISTIO_META_OWNER

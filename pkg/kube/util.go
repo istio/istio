@@ -256,6 +256,19 @@ func CheckPodReady(pod *corev1.Pod) error {
 	}
 }
 
+// GetWorkloadMetaFromPod heuristically derives workload name and type metadata from the pod spec.
+// This respects the workload-name override; to just use heuristics only use GetDeployMetaFromPod.
+func GetWorkloadMetaFromPod(pod *corev1.Pod) (types.NamespacedName, metav1.TypeMeta) {
+	name, meta := GetDeployMetaFromPod(pod)
+	if pod == nil {
+		return name, meta
+	}
+	if wn, f := pod.Labels["service.istio.io/workload-name"]; f {
+		name.Name = wn
+	}
+	return name, meta
+}
+
 // GetDeployMetaFromPod heuristically derives deployment metadata from the pod spec.
 func GetDeployMetaFromPod(pod *corev1.Pod) (types.NamespacedName, metav1.TypeMeta) {
 	if pod == nil {

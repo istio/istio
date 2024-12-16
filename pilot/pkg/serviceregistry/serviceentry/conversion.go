@@ -475,7 +475,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 	if locality == "" && len(we.Labels[model.LocalityLabel]) > 0 {
 		locality = model.GetLocalityLabel(we.Labels[model.LocalityLabel])
 	}
-	labels := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
+	lbls := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Addresses: []string{addr},
@@ -489,8 +489,8 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 			Namespace: cfg.Namespace,
 			// Workload entry config name is used as workload name, which will appear in metric label.
 			// After VM auto registry is introduced, workload group annotation should be used for workload name.
-			WorkloadName:   cfg.Name,
-			Labels:         labels,
+			WorkloadName:   labels.WorkloadNameFromWorkloadEntry(cfg.Name, cfg.Annotations, cfg.Labels),
+			Labels:         lbls,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},

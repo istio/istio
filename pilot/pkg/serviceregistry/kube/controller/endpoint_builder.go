@@ -66,7 +66,7 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 		ip = pod.Status.PodIP
 		node = pod.Spec.NodeName
 	}
-	dm, _ := kubeUtil.GetDeployMetaFromPod(pod)
+	dm, _ := kubeUtil.GetWorkloadMetaFromPod(pod)
 	out := &EndpointBuilder{
 		controller:     c,
 		serviceAccount: sa,

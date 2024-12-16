@@ -179,7 +179,8 @@ func (a *index) workloadEntryWorkloadBuilder(
 			log.Warnf("skipping workload entry %s/%s; DNS Address resolution is not yet implemented", wle.Namespace, wle.Name)
 		} // Else it is an empty address with network set, this is ok
 
-		w.WorkloadName, w.WorkloadType = wle.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
+		w.WorkloadName = kubelabels.WorkloadNameFromWorkloadEntry(wle.Name, wle.Annotations, wle.Labels)
+		w.WorkloadType = workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(wle.Labels, w.WorkloadName)
 
 		setTunnelProtocol(wle.Labels, wle.Annotations, w)
@@ -714,7 +715,7 @@ func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, ser
 }
 
 func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
-	objMeta, typeMeta := kubeutil.GetDeployMetaFromPod(pod)
+	objMeta, typeMeta := kubeutil.GetWorkloadMetaFromPod(pod)
 	switch typeMeta.Kind {
 	case "Deployment":
 		return objMeta.Name, workloadapi.WorkloadType_DEPLOYMENT
