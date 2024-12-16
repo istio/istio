@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"testing"
 
+	"k8s.io/client-go/tools/clientcmd"
+
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework"
@@ -150,4 +152,16 @@ proxyMetadata:
 		return err
 	}
 	return nil
+}
+
+// The function validates if the cluster is a "Kind" cluster,
+// By looking into a context name. Expects "kind-" prefix.
+// That is required by some tests for specific actions on "Kind".
+func IsKindCluster() (bool, error) {
+	config, err := clientcmd.LoadFromFile(clientcmd.RecommendedHomeFile)
+	if err != nil {
+		return false, err
+	}
+	currentContext := config.CurrentContext
+	return currentContext == "kind-kind" || len(currentContext) > 5 && currentContext[:5] == "kind-", nil
 }
