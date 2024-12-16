@@ -32,7 +32,7 @@ set -x
 ####################################################################
 
 # DEFAULT_KIND_IMAGE is used to set the Kubernetes version for KinD unless overridden in params to setup_kind_cluster(s)
-DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.28.4"
+DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.30.0"
 
 # the default kind cluster should be ipv4 if not otherwise specified
 IP_FAMILY="${IP_FAMILY:-ipv4}"
@@ -195,7 +195,7 @@ function setup_kind_cluster() {
   kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- 2>/dev/null || true
 
   # Determine what CNI to install
-  case "${KUBERNETES_CNI:-}" in 
+  case "${KUBERNETES_CNI:-}" in
 
     "calico")
       echo "Installing Calico CNI"
