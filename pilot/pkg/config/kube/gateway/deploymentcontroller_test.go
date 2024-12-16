@@ -79,6 +79,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 			Namespace: "default",
 			Labels: map[string]string{
 				"gateway.istio.io/managed": "istio.io-mesh-controller",
+				"istio.io/gateway-name":    "test-upgrade",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
