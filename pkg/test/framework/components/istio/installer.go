@@ -142,7 +142,7 @@ func (i *installer) Close(c cluster.Cluster) error {
 	if len(manifests) > 0 {
 		return i.ctx.ConfigKube(c).YAML("", removeCRDsSlice(manifests)).Delete()
 	}
-	scopes.Framework.Infof("Deleting yaml on cluster %s: %+v", c.Name(), manifests)
+	scopes.Framework.Debugf("Deleting yaml on cluster %s: %+v", c.Name(), manifests)
 	return nil
 }
 
