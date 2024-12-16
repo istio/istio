@@ -182,8 +182,9 @@ func TestExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 
-	// wait until all add events settle
+	// wait until all add + update events settle for initial startup
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(1))
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
@@ -248,8 +249,9 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 
-	// wait until pod add events settle
+	// wait until all add + update events settle for initial startup
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(1))
 
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
@@ -337,8 +339,9 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 
-	// wait until pod add events settle
+	// wait until all add + update events settle for initial startup
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(1))
 
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
@@ -440,8 +443,9 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 
-	// Wait for a pod add event (initial informer bootup)
+	// wait until all add + update events settle for initial startup
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(1))
 
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
@@ -792,8 +796,10 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 	go handlers.Start()
 
 	waitForMockCalls()
-	// wait until pod add events settle
+
+	// wait until all add + update events settle for initial startup
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(2))
 
 	assertPodAnnotated(t, client, pod)
 
