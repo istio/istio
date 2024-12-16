@@ -40,6 +40,19 @@ func copyBinaries(srcDir string, targetDirs []string) (sets.String, error) {
 		srcFilepath := filepath.Join(srcDir, filename)
 
 		for _, targetDir := range targetDirs {
+
+			// remove previous tmp file if some exist before creating a new one
+			// the only possible returned error is [ErrBadPattern], when pattern is malformed. Can be ignored in this case
+			matches, _ := filepath.Glob(filepath.Join(targetDir, filename) + ".tmp.*")
+			if len(matches) > 0 {
+				installLog.Infof("Target folder %s contains one or more temporary files with a %s name. The temp files will be deleted.", targetDir, filename)
+				for _, file := range matches {
+					if err := os.Remove(file); err != nil {
+						installLog.Warnf("Failed to delete tmp file %s from previous run: %s", file, err)
+					}
+				}
+			}
+
 			if err := file.AtomicCopy(srcFilepath, targetDir, filename); err != nil {
 				installLog.Errorf("failed file copy of %s to %s: %s", srcFilepath, targetDir, err.Error())
 				return copiedFilenames, err
