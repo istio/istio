@@ -21,11 +21,9 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
 )
 
@@ -95,32 +93,6 @@ type registerDependency interface {
 	// Registers a dependency, returning true if it is finalized
 	registerDependency(*dependency, Syncer, func(f erasedEventHandler) Syncer)
 	name() string
-}
-
-// tryGetKey returns the Key for an object. If not possible, returns false
-func tryGetKey[O any](a O) (string, bool) {
-	as, ok := any(a).(string)
-	if ok {
-		return as, true
-	}
-	ao, ok := any(a).(controllers.Object)
-	if ok {
-		k, _ := cache.MetaNamespaceKeyFunc(ao)
-		return k, true
-	}
-	ac, ok := any(a).(config.Config)
-	if ok {
-		return keyFunc(ac.Name, ac.Namespace), true
-	}
-	arn, ok := any(a).(ResourceNamer)
-	if ok {
-		return arn.ResourceName(), true
-	}
-	ack := GetApplyConfigKey(a)
-	if ack != nil {
-		return *ack, true
-	}
-	return "", false
 }
 
 // getLabels returns the labels for an object, if possible.
