@@ -500,6 +500,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		// check all hostname in vHostDedupMap and if is not exist with HttpsRedirect set to true
 		// create VirtualHost to redirect
 		for _, hostname := range server.Hosts {
+			hostname = strings.ToLower(hostname)
 			if !server.GetTls().GetHttpsRedirect() {
 				continue
 			}
