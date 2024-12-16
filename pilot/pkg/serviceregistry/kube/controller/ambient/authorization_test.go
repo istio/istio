@@ -199,7 +199,7 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 			expectStatusMessage: &model.StatusMessage{
 				Reason: "UnsupportedValue",
 				Message: "ztunnel does not support HTTP rules (methods, request.auth.presenter, requestPrincipals require HTTP parsing), in ambient" +
-					" mode you must use waypoint proxy to enforce HTTP rules. Allow rules with HTTP attributes will be empty and never match." +
+					" mode you must use waypoint proxy to enforce HTTP rules. Allow rules with HTTP attributes will be omitted and therefore never match." +
 					" This is more restrictive than requested.",
 			},
 		},
