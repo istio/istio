@@ -429,7 +429,7 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 }
 
 const (
-	httpRuleFmt string = "ztunnel does not support HTTP attributes (%s field(s) required HTTP parsing)." +
+	httpRuleFmt string = "ztunnel does not support HTTP attributes (found: %s)." +
 		" In ambient mode you must use a waypoint proxy to enforce HTTP rules. %s"
 
 	httpDenyRuleBoilerplate string = "DENY policy with HTTP attributes is enforced without the HTTP rules." +
