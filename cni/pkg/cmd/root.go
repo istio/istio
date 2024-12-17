@@ -98,7 +98,7 @@ var rootCmd = &cobra.Command{
 			if r := recover(); r != nil {
 				fmt.Printf("CNI node agent panicked: %s, doing emergency failsafe cleanup\n", r)
 				if cleanErr := installer.Cleanup(); cleanErr != nil {
-					fmt.Printf(cleanErr.Error())
+					fmt.Println(cleanErr.Error())
 				}
 			}
 		}()
@@ -144,7 +144,7 @@ var rootCmd = &cobra.Command{
 				// new ambient-enabled pods while our replacement spins up.
 				if !isUpgrade {
 					if cleanErr := installer.Cleanup(); cleanErr != nil {
-						fmt.Printf(cleanErr.Error())
+						fmt.Println(cleanErr.Error())
 					}
 				}
 				ambientAgent.Stop(isUpgrade)
@@ -161,7 +161,7 @@ var rootCmd = &cobra.Command{
 			defer func() {
 				log.Infof("CNI node agent shutting down")
 				if cleanErr := installer.Cleanup(); cleanErr != nil {
-					fmt.Printf(cleanErr.Error())
+					fmt.Println(cleanErr.Error())
 				}
 			}()
 		}

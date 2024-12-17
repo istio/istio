@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
-	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
@@ -146,7 +145,7 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 		cleanErr := retry.UntilSuccess(func() error {
 			label := "app.kubernetes.io/part-of=istio"
 
-			fetchFunc := kubetest.NewPodFetch(c, i.cfg.SystemNamespace, label)
+			fetchFunc := kube2.NewPodFetch(c, i.cfg.SystemNamespace, label)
 
 			fetched, e := fetchFunc()
 			if e != nil {
@@ -155,11 +154,10 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 
 			if len(fetched) == 0 {
 				return nil
-			} else {
-				res := fmt.Sprintf("Still waiting for %d pods to terminate in %s ", len(fetched), i.cfg.SystemNamespace)
-				scopes.Framework.Infof(res)
-				return errors.New(res)
 			}
+			res := fmt.Sprintf("Still waiting for %d pods to terminate in %s ", len(fetched), i.cfg.SystemNamespace)
+			scopes.Framework.Infof(res)
+			return errors.New(res)
 		}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
 
 		err = multierror.Append(err, cleanErr)
