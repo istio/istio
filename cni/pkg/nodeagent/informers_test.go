@@ -731,7 +731,6 @@ func TestInformerExistingPodAddedWhenItPreExists(t *testing.T) {
 func TestInformerPendingPodSkippedIfAlreadyLabeledAndEventStale(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
-	mt := monitortest.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -760,11 +759,7 @@ func TestInformerPendingPodSkippedIfAlreadyLabeledAndEventStale(t *testing.T) {
 
 	fs := &fakeServer{}
 
-	server := getFakeDP(fs, client.Kube())
-
-	handlers := setupHandlers(ctx, client, server, "istio-system")
-	client.RunAndWait(ctx.Done())
-	go handlers.Start()
+	handlers, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 
 	// We've started the informer with a Pending pod that has an
 	// annotation indicating it was already enrolled
