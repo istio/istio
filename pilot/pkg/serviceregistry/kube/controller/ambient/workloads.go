@@ -110,7 +110,7 @@ func (a *index) WorkloadsCollection(
 
 	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		return slices.Map(a.LookupNetworkGateways(), convertGateway)
+		return slices.Map(a.LookupAllNetworkGateway(), convertGateway)
 	}, opts.WithName("NetworkGatewayWorkloads")...)
 
 	Workloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{
@@ -859,16 +859,8 @@ func convertGateway(gw model.NetworkGateway) model.WorkloadInfo {
 	return model.WorkloadInfo{Workload: wl}
 }
 
-func (a *index) getNetworkGateway(id string) []model.NetworkGateway {
-	gtws := a.LookupNetworkGateways()
-	slices.FilterInPlace(gtws, func(gateway model.NetworkGateway) bool {
-		return gateway.Network == network.ID(id)
-	})
-	return gtws
-}
-
-func (a *index) getNetworkGatewayAddress(network string) *workloadapi.GatewayAddress {
-	if networks := a.getNetworkGateway(network); len(networks) > 0 {
+func (a *index) getNetworkGatewayAddress(n string) *workloadapi.GatewayAddress {
+	if networks := a.LookupNetworkGateway(network.ID(n)); len(networks) > 0 {
 		// Currently only support one, so find the first one that is valid
 		for _, net := range networks {
 			if net.HBONEPort == 0 {
