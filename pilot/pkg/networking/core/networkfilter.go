@@ -116,11 +116,10 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	}
 
 	var filters []*listener.Filter
-	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
-		Port:    port,
-		Class:   class,
-		Service: policySvc,
-	}, model.WasmPluginTypeNetwork)
+	wasm := lb.push.WasmPluginsByListenerInfo(
+		lb.node, model.WasmPluginListenerInfo{Port: port, Class: class}.WithService(policySvc),
+		model.WasmPluginTypeNetwork,
+	)
 
 	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066
 	if features.MetadataExchange && includeMx {

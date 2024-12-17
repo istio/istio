@@ -230,20 +230,12 @@ func GetAmbientPolicyConfigName(key ConfigKey) string {
 func getConfigsForWorkload(rootNamespace string, configsByNamespace map[string][]config.Config, selectionOpts WorkloadPolicyMatcher) []*config.Config {
 	workloadLabels := selectionOpts.WorkloadLabels
 	namespace := selectionOpts.WorkloadNamespace
-	serviceNamespace := selectionOpts.ServiceNamespace
 	configs := make([]*config.Config, 0)
-	var lookupInNamespaces []string
-	if namespace != rootNamespace {
-		// Only check the root namespace if the (workload) namespace is not already the root namespace
-		// to avoid double inclusion.
-		lookupInNamespaces = []string{namespace, rootNamespace}
-	} else {
-		lookupInNamespaces = []string{namespace}
+	lookupInNamespaces := []string{namespace, rootNamespace}
+	for _, svc := range selectionOpts.Services {
+		lookupInNamespaces = append(lookupInNamespaces, svc.Namespace)
 	}
-	if serviceNamespace != "" && !slices.Contains(lookupInNamespaces, serviceNamespace) {
-		lookupInNamespaces = append(lookupInNamespaces, serviceNamespace)
-	}
-	for _, ns := range lookupInNamespaces {
+	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
 		if nsConfig, ok := configsByNamespace[ns]; ok {
 			for idx := range nsConfig {
 				cfg := &nsConfig[idx]

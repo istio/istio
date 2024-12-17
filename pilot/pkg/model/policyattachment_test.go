@@ -92,10 +92,8 @@ func TestPolicyMatcher(t *testing.T) {
 			"app": "my-app",
 			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-waypoint",
 		},
-		IsWaypoint:       true,
-		Service:          "sample-svc",
-		ServiceNamespace: "default",
-		ServiceRegistry:  provider.Kubernetes,
+		IsWaypoint: true,
+		Services:   []ServiceInfoForPolicyMatcher{{Name: "sample-svc", Namespace: "default", Registry: provider.Kubernetes}},
 	}
 	serviceEntryTarget := WorkloadPolicyMatcher{
 		WorkloadNamespace: "default",
@@ -103,10 +101,8 @@ func TestPolicyMatcher(t *testing.T) {
 			"app": "my-app",
 			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-waypoint",
 		},
-		IsWaypoint:       true,
-		ServiceNamespace: "default",
-		Service:          "sample-svc-entry",
-		ServiceRegistry:  provider.External,
+		IsWaypoint: true,
+		Services:   []ServiceInfoForPolicyMatcher{{Name: "sample-svc-entry", Namespace: "default", Registry: provider.External}},
 	}
 	tests := []struct {
 		name                   string
@@ -314,13 +310,27 @@ func TestPolicyMatcher(t *testing.T) {
 			expected:               true,
 		},
 		{
+			name: "gateway attached policy with multi-service",
+			// selection: serviceTarget,
+			selection: func() WorkloadPolicyMatcher {
+				base := serviceTarget
+				base.Services = append(base.Services, ServiceInfoForPolicyMatcher{Name: "sample-svc-1", Namespace: "default", Registry: provider.Kubernetes})
+				return base
+			}(),
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{waypointTargetRef},
+			},
+			enableSelectorPolicies: false,
+			expected:               true,
+		},
+		{
 			name: "gateway attached policy with cross-namespace service",
 			selection: func() WorkloadPolicyMatcher {
 				base := serviceTarget
 				// Waypoint is in 'waypoint'
 				base.WorkloadNamespace = "waypoint"
 				// Policy and service are in default
-				base.ServiceNamespace = "default"
+				base.Services = []ServiceInfoForPolicyMatcher{{Name: "sample-svc", Namespace: "default", Registry: provider.Kubernetes}}
 				return base
 			}(),
 			// Policy points to a waypoint.. but its in the wrong namespace

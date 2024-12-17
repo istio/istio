@@ -178,6 +178,18 @@ func FilterInPlace[E any](s []E, keep func(E) bool) []E {
 	return s[:i]
 }
 
+func FilterDuplicates[E comparable](s []E) []E {
+	seen := make(map[E]struct{})
+	result := make([]E, 0)
+	for _, item := range s {
+		if _, ok := seen[item]; !ok {
+			result = append(result, item)
+			seen[item] = struct{}{}
+		}
+	}
+	return result
+}
+
 // FilterDuplicatesPresorted retains all unique elements in []E.
 // The slices MUST be pre-sorted.
 func FilterDuplicatesPresorted[E comparable](s []E) []E {

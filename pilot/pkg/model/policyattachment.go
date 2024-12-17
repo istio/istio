@@ -42,9 +42,13 @@ type WorkloadPolicyMatcher struct {
 	WorkloadNamespace string
 	WorkloadLabels    labels.Instance
 	IsWaypoint        bool
-	Service           string
-	ServiceNamespace  string
-	ServiceRegistry   provider.ID
+	Services          []ServiceInfoForPolicyMatcher
+}
+
+type ServiceInfoForPolicyMatcher struct {
+	Name      string
+	Namespace string
+	Registry  provider.ID
 }
 
 func PolicyMatcherFor(workloadNamespace string, labels labels.Instance, isWaypoint bool) WorkloadPolicyMatcher {
@@ -68,9 +72,23 @@ func (p WorkloadPolicyMatcher) WithService(service *Service) WorkloadPolicyMatch
 		return p
 	}
 
-	p.Service = ptr.NonEmptyOrDefault(service.Attributes.ObjectName, service.Attributes.Name)
-	p.ServiceNamespace = service.Attributes.Namespace
-	p.ServiceRegistry = service.Attributes.ServiceRegistry
+	p.Services = append(p.Services, ServiceInfoForPolicyMatcher{
+		Name:      ptr.NonEmptyOrDefault(service.Attributes.ObjectName, service.Attributes.Name),
+		Namespace: service.Attributes.Namespace,
+		Registry:  service.Attributes.ServiceRegistry,
+	})
+	return p
+}
+
+// WithServices marks multiple services as part of the selection criteria. This is used when we want to
+// find **all** policies attached to a specific proxy instance, rather than scoped to a specific service.
+// This is useful when using ECDS, for example, where we might have:
+// * Each unique service creates a listener, and applies a policy selected by `WithService` pointing to ECDS
+// * All policies are found, by `WithServices`, and returned in ECDS.
+func (p WorkloadPolicyMatcher) WithServices(services []*Service) WorkloadPolicyMatcher {
+	for _, svc := range services {
+		p = p.WithService(svc)
+	}
 	return p
 }
 
@@ -124,21 +142,25 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 		target := targetRef.GetName()
 
 		// Service attached
-		if p.IsWaypoint &&
-			matchesGroupKind(targetRef, gvk.Service) &&
-			target == p.Service &&
-			policyName.Namespace == p.ServiceNamespace &&
-			p.ServiceRegistry == provider.Kubernetes {
-			return true
+		if p.IsWaypoint && matchesGroupKind(targetRef, gvk.Service) {
+			for _, svc := range p.Services {
+				if target == svc.Name &&
+					policyName.Namespace == svc.Namespace &&
+					svc.Registry == provider.Kubernetes {
+					return true
+				}
+			}
 		}
 
 		// ServiceEntry attached
-		if p.IsWaypoint &&
-			matchesGroupKind(targetRef, gvk.ServiceEntry) &&
-			target == p.Service &&
-			policyName.Namespace == p.ServiceNamespace &&
-			p.ServiceRegistry == provider.External {
-			return true
+		if p.IsWaypoint && matchesGroupKind(targetRef, gvk.ServiceEntry) {
+			for _, svc := range p.Services {
+				if target == svc.Name &&
+					policyName.Namespace == svc.Namespace &&
+					svc.Registry == provider.External {
+					return true
+				}
+			}
 		}
 
 		// Namespace does not match

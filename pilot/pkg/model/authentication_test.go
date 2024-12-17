@@ -1483,7 +1483,8 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			matcher := PolicyMatcherFor(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint)
-			if got := policies.GetJwtPoliciesForWorkload(matcher); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+			got := policies.GetJwtPoliciesForWorkload(matcher)
+			if !reflect.DeepEqual(tc.wantRequestAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
 			}
 		})
