@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -72,6 +73,39 @@ func TestConfigureIstioGateway(t *testing.T) {
 			ControllerName: k8s.GatewayController(features.ManagedGatewayController),
 		},
 	}
+	upgradeDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-upgrade",
+			Namespace: "default",
+			Labels: map[string]string{
+				"gateway.istio.io/managed": "istio.io-mesh-controller",
+				"istio.io/gateway-name":    "test-upgrade",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"gateway.networking.k8s.io/gateway-name": "test-upgrade",
+					"istio.io/gateway-name":                  "test-upgrade",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"gateway.istio.io/managed":               "istio.io-mesh-controller",
+						"gateway.networking.k8s.io/gateway-name": "test-upgrade",
+						"istio.io/gateway-name":                  "test-upgrade",
+						"istio.io/dataplane-mode":                "none",
+						"service.istio.io/canonical-name":        "test-upgrade",
+						"service.istio.io/canonical-revision":    "latest",
+						"sidecar.istio.io/inject":                "false",
+						"topology.istio.io/network":              "network-1",
+					},
+				},
+			},
+		},
+	}
+
 	defaultObjects := []runtime.Object{defaultNamespace}
 	store := model.NewFakeStore()
 	if _, err := store.Create(config.Config{
@@ -340,6 +374,28 @@ func TestConfigureIstioGateway(t *testing.T) {
 			},
 			objects: defaultObjects,
 		},
+		{
+			name: "istio-upgrade-to-1.24",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-upgrade",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.WaypointGatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "mesh",
+						Port:     k8s.PortNumber(15008),
+						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  network: network-1`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -349,6 +405,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 			client.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: "28"}
 			kclient.NewWriteClient[*k8sbeta.GatewayClass](client).Create(customClass)
 			kclient.NewWriteClient[*k8sbeta.Gateway](client).Create(tt.gw.DeepCopy())
+			kclient.NewWriteClient[*appsv1.Deployment](client).Create(upgradeDeployment)
 			stop := test.NewStop(t)
 			env := model.NewEnvironment()
 			env.PushContext().ProxyConfigs = tt.pcs
