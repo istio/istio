@@ -127,6 +127,17 @@ func (this *NamespacedHostname) UnmarshalJSON(b []byte) error {
 	return WorkloadUnmarshaler.Unmarshal(bytes.NewReader(b), this)
 }
 
+// MarshalJSON is a custom marshaler for Extension
+func (this *Extension) MarshalJSON() ([]byte, error) {
+	str, err := WorkloadMarshaler.MarshalToString(this)
+	return []byte(str), err
+}
+
+// UnmarshalJSON is a custom unmarshaler for Extension
+func (this *Extension) UnmarshalJSON(b []byte) error {
+	return WorkloadUnmarshaler.Unmarshal(bytes.NewReader(b), this)
+}
+
 var (
 	WorkloadMarshaler   = &jsonpb.Marshaler{}
 	WorkloadUnmarshaler = &jsonpb.Unmarshaler{AllowUnknownFields: true}
