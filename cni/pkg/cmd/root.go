@@ -92,6 +92,17 @@ var rootCmd = &cobra.Command{
 
 		installer := install.NewInstaller(&cfg.InstallConfig, installDaemonReady)
 
+		// Before starting anything below, set up a failsafe defer func that will try
+		// to cleanup the node plugin ONLY IF anything (including other defer funcs) panic.
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("CNI node agent panicked: %s, doing emergency failsafe cleanup", r)
+				if cleanErr := installer.Cleanup(); cleanErr != nil {
+					fmt.Printf(cleanErr.Error())
+				}
+			}
+		}()
+
 		if cfg.InstallConfig.AmbientEnabled {
 			// Start ambient controller
 
@@ -133,11 +144,7 @@ var rootCmd = &cobra.Command{
 				// new ambient-enabled pods while our replacement spins up.
 				if !isUpgrade {
 					if cleanErr := installer.Cleanup(); cleanErr != nil {
-						if err != nil {
-							err = fmt.Errorf("%s: %w", cleanErr.Error(), err)
-						} else {
-							err = cleanErr
-						}
+						fmt.Printf(cleanErr.Error())
 					}
 				}
 				ambientAgent.Stop(isUpgrade)
@@ -154,11 +161,7 @@ var rootCmd = &cobra.Command{
 			defer func() {
 				log.Infof("CNI node agent shutting down")
 				if cleanErr := installer.Cleanup(); cleanErr != nil {
-					if err != nil {
-						err = fmt.Errorf("%s: %w", cleanErr.Error(), err)
-					} else {
-						err = cleanErr
-					}
+					fmt.Printf(cleanErr.Error())
 				}
 			}()
 		}
