@@ -585,7 +585,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	includeEds := req.URL.Query().Get("include_eds") == "true"
+	includeEds := req.URL.Query().Has("include_eds")
 	dump, err := s.connectionConfigDump(con, includeEds)
 	if err != nil {
 		handleHTTPError(w, err)
