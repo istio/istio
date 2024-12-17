@@ -112,6 +112,29 @@ func (i *istioImpl) Dump(ctx resource.Context) {
 
 func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 	scopes.Framework.Infof("clean up cluster %s", c.Name())
+
+	// Tail `istio-cni` termination/shutdown logs, if any such pods present
+	// in the system namespace
+	label := "k8s-app=istio-cni-node"
+
+	fetchFunc := kube2.NewPodFetch(c, i.cfg.SystemNamespace, label)
+
+	fetched, e := fetchFunc()
+	if e != nil {
+		scopes.Framework.Infof("Failed retrieving pods: %v", e)
+	}
+
+	if len(fetched) != 0 {
+		workDir, err := i.ctx.CreateTmpDirectory("istio-state")
+		if err != nil {
+			scopes.Framework.Errorf("Unable to create directory for dumping istio-cni termlogs: %v", err)
+			return
+		}
+		for _, pod := range fetched {
+			go kube2.DumpTerminationLogs(context.Background(), c, workDir, pod, "install-cni")
+		}
+	}
+
 	errG.Go(func() (err error) {
 		if e := i.installer.Close(c); e != nil {
 			err = multierror.Append(err, e)
