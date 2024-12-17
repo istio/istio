@@ -414,7 +414,7 @@ const (
 		"In ambient mode you must use a waypoint proxy to enforce HTTP rules. %s"
 
 	httpDenyRuleBoilerplate string = "DENY policy with HTTP attributes is enforced without the HTTP rules. " +
-		"This will be more restrictive than intended."
+		"This will be more restrictive than requested."
 	httpAllowRuleBoilerplate string = "Within an ALLOW policy, rules matching HTTP attributes are omitted. " +
 		"This will be more restrictive than requested."
 )
