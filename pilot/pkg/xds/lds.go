@@ -63,6 +63,10 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 }
 
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
+	if proxy.Type == model.Ztunnel {
+		// Not supported for ztunnel
+		return false
+	}
 	if req == nil {
 		return true
 	}

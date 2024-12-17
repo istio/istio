@@ -108,7 +108,11 @@ var skippedEdsConfigs = sets.New(
 	kind.GRPCRoute,
 )
 
-func edsNeedsPush(updates model.XdsUpdates) bool {
+func edsNeedsPush(updates model.XdsUpdates, proxy *model.Proxy) bool {
+	if proxy.Type == model.Ztunnel {
+		// Not supported for ztunnel
+		return false
+	}
 	// If none set, we will always push
 	if len(updates) == 0 {
 		return true
@@ -122,7 +126,7 @@ func edsNeedsPush(updates model.XdsUpdates) bool {
 }
 
 func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !edsNeedsPush(req.ConfigsUpdated) {
+	if !edsNeedsPush(req.ConfigsUpdated, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	resources, logDetails := eds.buildEndpoints(proxy, req, w)
@@ -132,7 +136,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, 
 func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	if !edsNeedsPush(req.ConfigsUpdated) {
+	if !edsNeedsPush(req.ConfigsUpdated, proxy) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	if !shouldUseDeltaEds(req) {

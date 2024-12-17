@@ -38,7 +38,11 @@ type EcdsGenerator struct {
 
 var _ model.XdsResourceGenerator = &EcdsGenerator{}
 
-func ecdsNeedsPush(req *model.PushRequest) bool {
+func ecdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	if proxy.Type == model.Ztunnel {
+		// Not supported for ztunnel
+		return false
+	}
 	if req == nil {
 		return true
 	}
@@ -80,7 +84,7 @@ func onlyReferencedConfigsUpdated(req *model.PushRequest) bool {
 
 // Generate returns ECDS resources for a given proxy.
 func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !ecdsNeedsPush(req) {
+	if !ecdsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 

@@ -64,6 +64,10 @@ var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 }()
 
 func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	if proxy.Type == model.Ztunnel {
+		// Not supported for ztunnel
+		return false
+	}
 	if req == nil {
 		return true
 	}
