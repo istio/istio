@@ -138,15 +138,23 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 			c.expected[labelutil.LabelHostname] = "fake"
 
 			loc := pkgmodel.ConvertLocality(c.ctl.locality)
-			fc := kube.NewFakeClient(&v1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "fake", Labels: map[string]string{
-					NodeRegionLabelGA:          loc.Region,
-					NodeZoneLabel:              loc.Zone,
-					label.TopologySubzone.Name: loc.SubZone,
-				}},
-				Spec:   v1.NodeSpec{},
-				Status: v1.NodeStatus{},
-			})
+			fc := kube.NewFakeClient(
+				&v1.Node{
+					ObjectMeta: metav1.ObjectMeta{Name: "fake", Labels: map[string]string{
+						NodeRegionLabelGA:          loc.Region,
+						NodeZoneLabel:              loc.Zone,
+						label.TopologySubzone.Name: loc.SubZone,
+					}},
+				},
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "istio-system",
+						Labels: map[string]string{
+							label.TopologyNetwork.Name: string(c.ctl.network),
+						},
+					},
+				},
+			)
 			nodes := kclient.New[*v1.Node](fc)
 			fc.RunAndWait(test.NewStop(t))
 			cc := &Controller{
@@ -154,7 +162,6 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 				meshWatcher: mesh.NewFixedWatcher(mesh.DefaultMeshConfig()),
 				networkManager: &networkManager{
 					clusterID: c.ctl.cluster,
-					network:   c.ctl.network,
 				},
 				opts: Options{ClusterID: c.ctl.cluster},
 			}
@@ -266,15 +273,23 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			loc := pkgmodel.ConvertLocality(c.ctl.locality)
-			fc := kube.NewFakeClient(&v1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "fake", Labels: map[string]string{
-					NodeRegionLabelGA:          loc.Region,
-					NodeZoneLabel:              loc.Zone,
-					label.TopologySubzone.Name: loc.SubZone,
-				}},
-				Spec:   v1.NodeSpec{},
-				Status: v1.NodeStatus{},
-			})
+			fc := kube.NewFakeClient(
+				&v1.Node{
+					ObjectMeta: metav1.ObjectMeta{Name: "fake", Labels: map[string]string{
+						NodeRegionLabelGA:          loc.Region,
+						NodeZoneLabel:              loc.Zone,
+						label.TopologySubzone.Name: loc.SubZone,
+					}},
+				},
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "istio-system",
+						Labels: map[string]string{
+							label.TopologyNetwork.Name: string(c.ctl.network),
+						},
+					},
+				},
+			)
 			nodes := kclient.New[*v1.Node](fc)
 			fc.RunAndWait(test.NewStop(t))
 			cc := &Controller{
@@ -282,7 +297,6 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 				meshWatcher: mesh.NewFixedWatcher(mesh.DefaultMeshConfig()),
 				networkManager: &networkManager{
 					clusterID: c.ctl.cluster,
-					network:   c.ctl.network,
 				},
 				opts: Options{ClusterID: c.ctl.cluster},
 			}

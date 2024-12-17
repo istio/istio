@@ -272,9 +272,6 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 		t.Helper()
 		retry.UntilSuccessOrFail(t, func() error {
 			t.Helper()
-			if c.networkFromSystemNamespace().String() != network {
-				return fmt.Errorf("no network system notify")
-			}
 			podNames := sets.New[string]("pod1", "pod2")
 			svcNames := sets.New[string]("svc1")
 			addresses := c.ambientIndex.All()
@@ -337,21 +334,6 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 		createOrUpdateNamespace(t, s, systemNS, "nw2")
 		tracker.WaitOrdered(systemNS)
 		expectNetwork(t, s, "nw2")
-	})
-
-	t.Run("manually change namespace network to nw3, and update meshNetworks", func(t *testing.T) {
-		s.setNetworkFromNamespace(&corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: systemNS,
-				Labels: map[string]string{
-					label.TopologyNetwork.Name: "nw3",
-				},
-			},
-		})
-		createOrUpdateNamespace(t, s, systemNS, "nw3")
-		tracker.WaitOrdered(systemNS)
-		addMeshNetworksFromRegistryGateway(t, s, s.meshNetworksWatcher)
-		expectNetwork(t, s, "nw3")
 	})
 }
 
