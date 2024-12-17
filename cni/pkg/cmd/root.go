@@ -96,7 +96,7 @@ var rootCmd = &cobra.Command{
 		// to cleanup the node plugin ONLY IF anything (including other defer funcs) panic.
 		defer func() {
 			if r := recover(); r != nil {
-				fmt.Println("CNI node agent panicked: %s, doing emergency failsafe cleanup", r)
+				fmt.Printf("CNI node agent panicked: %s, doing emergency failsafe cleanup\n", r)
 				if cleanErr := installer.Cleanup(); cleanErr != nil {
 					fmt.Printf(cleanErr.Error())
 				}
