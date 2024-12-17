@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
+func TestInformerExistingPodAddedWhenNsLabeled(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -54,12 +54,8 @@ func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
 		},
 	}
 	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
-
 	client := kube.NewFakeClient(ns, pod)
-
-	// We are expecting at most 1 calls to the mock, wait for them
-	wg, waitForMockCalls := NewWaitForNCalls(t, 1)
-	fs := &fakeServer{testWG: wg}
+	fs := &fakeServer{}
 
 	fs.On("AddPodToMesh",
 		ctx,
@@ -68,11 +64,7 @@ func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
 		"",
 	).Once().Return(nil)
 
-	server := getFakeDP(fs, client.Kube())
-
-	handlers := setupHandlers(ctx, client, server, "istio-system")
-	client.RunAndWait(ctx.Done())
-	go handlers.Start()
+	_, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
@@ -81,7 +73,7 @@ func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	waitForMockCalls()
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(4))
 
 	assertPodAnnotated(t, client, pod)
 
@@ -89,7 +81,7 @@ func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
 	fs.AssertExpectations(t)
 }
 
-func TestExistingPodAddedWhenDualStack(t *testing.T) {
+func TestInformerExistingPodAddedWhenDualStack(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -115,10 +107,7 @@ func TestExistingPodAddedWhenDualStack(t *testing.T) {
 
 	client := kube.NewFakeClient(ns, pod)
 
-	// We are expecting at most 1 calls to the mock, wait for them
-	wg, waitForMockCalls := NewWaitForNCalls(t, 1)
-
-	fs := &fakeServer{testWG: wg}
+	fs := &fakeServer{}
 
 	fs.On("AddPodToMesh",
 		ctx,
@@ -127,12 +116,7 @@ func TestExistingPodAddedWhenDualStack(t *testing.T) {
 		"",
 	).Once().Return(nil)
 
-	server := getFakeDP(fs, client.Kube())
-
-	fs.Start(ctx)
-	handlers := setupHandlers(ctx, client, server, "istio-system")
-	client.RunAndWait(ctx.Done())
-	go handlers.Start()
+	_, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
@@ -141,7 +125,7 @@ func TestExistingPodAddedWhenDualStack(t *testing.T) {
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	waitForMockCalls()
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(4))
 
 	assertPodAnnotated(t, client, pod)
 
@@ -149,13 +133,11 @@ func TestExistingPodAddedWhenDualStack(t *testing.T) {
 	fs.AssertExpectations(t)
 }
 
-func TestExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
+func TestInformerExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	mt := monitortest.New(t)
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -176,15 +158,7 @@ func TestExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
 
 	fs := &fakeServer{}
 
-	server := getFakeDP(fs, client.Kube())
-
-	handlers := setupHandlers(ctx, client, server, "istio-system")
-	client.RunAndWait(ctx.Done())
-	go handlers.Start()
-
-	// wait until all add + update events settle for initial startup
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(1))
+	_, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 
 	// label the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
@@ -203,9 +177,8 @@ func TestExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
 	fs.AssertExpectations(t)
 }
 
-func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
+func TestInformerExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 	setupLogging()
-	mt := monitortest.New(t)
 	NodeName = "testnode"
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -232,9 +205,7 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 
 	client := kube.NewFakeClient(ns, pod)
 
-	// We are expecting at most 2 calls to the mock, wait for them
-	wg, waitForMockCalls := NewWaitForNCalls(t, 2)
-	fs := &fakeServer{testWG: wg}
+	fs := &fakeServer{}
 
 	fs.On("AddPodToMesh",
 		ctx,
@@ -243,15 +214,7 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 		"",
 	).Once().Return(nil)
 
-	server := getFakeDP(fs, client.Kube())
-
-	handlers := setupHandlers(ctx, client, server, "istio-system")
-	client.RunAndWait(ctx.Done())
-	go handlers.Start()
-
-	// wait until all add + update events settle for initial startup
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(1))
+	_, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
@@ -288,17 +251,14 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 	// wait for another 3 update events for unlabel, total of 7
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(7))
 
-	waitForMockCalls()
-
 	assertPodNotAnnotated(t, client, pod)
 
 	// Assert expected calls actually made
 	fs.AssertExpectations(t)
 }
 
-func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
+func TestInformerExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 	setupLogging()
-	mt := monitortest.New(t)
 	NodeName = "testnode"
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -322,9 +282,7 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 
 	client := kube.NewFakeClient(ns, pod)
 
-	// We are expecting at most 2 calls to the mock, wait for them
-	wg, waitForMockCalls := NewWaitForNCalls(t, 2)
-	fs := &fakeServer{testWG: wg}
+	fs := &fakeServer{}
 
 	fs.On("AddPodToMesh",
 		ctx,
@@ -333,15 +291,7 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 		"",
 	).Once().Return(nil)
 
-	server := getFakeDP(fs, client.Kube())
-
-	handlers := setupHandlers(ctx, client, server, "istio-system")
-	client.RunAndWait(ctx.Done())
-	go handlers.Start()
-
-	// wait until all add + update events settle for initial startup
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(1))
+	_, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
@@ -379,8 +329,6 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 	// Expecting 2 - 1. pod unlabel (us) 2. pod un-annotate (informer)
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(6))
 
-	waitForMockCalls()
-
 	assertPodNotAnnotated(t, client, pod)
 
 	// patch a test label to emulate a POD update event
@@ -397,9 +345,8 @@ func TestExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 	fs.AssertExpectations(t)
 }
 
-func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
+func TestInformerJobPodRemovedWhenPodTerminates(t *testing.T) {
 	setupLogging()
-	mt := monitortest.New(t)
 	NodeName = "testnode"
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -426,9 +373,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 
 	client := kube.NewFakeClient(ns, pod)
 
-	// We are expecting at most 2 calls to the mock, wait for them
-	wg, waitForMockCalls := NewWaitForNCalls(t, 2)
-	fs := &fakeServer{testWG: wg}
+	fs := &fakeServer{}
 
 	fs.On("AddPodToMesh",
 		ctx,
@@ -437,15 +382,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 		"",
 	).Once().Return(nil)
 
-	server := getFakeDP(fs, client.Kube())
-
-	handlers := setupHandlers(ctx, client, server, "istio-system")
-	client.RunAndWait(ctx.Done())
-	go handlers.Start()
-
-	// wait until all add + update events settle for initial startup
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(1))
+	_, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 
 	log.Debug("labeling namespace")
 	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
@@ -481,8 +418,6 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	// wait for 2 more update events (status change + un-annotate)
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(6))
 
-	waitForMockCalls()
-
 	assertPodNotAnnotated(t, client, pod)
 
 	fs.On("AddPodToMesh",
@@ -508,7 +443,7 @@ func TestJobPodRemovedWhenPodTerminates(t *testing.T) {
 	fs.AssertExpectations(t)
 }
 
-func TestGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) {
+func TestInformerGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
 
@@ -566,7 +501,7 @@ func TestGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) {
 	assert.Equal(t, pods[0], redirectedNotEnrolled)
 }
 
-func TestGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T) {
+func TestInformerGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
 
@@ -624,7 +559,7 @@ func TestGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T) {
 	assert.Equal(t, len(pods), 0)
 }
 
-func TestAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
+func TestInformerAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
 
@@ -664,7 +599,7 @@ func TestAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
+func TestInformerAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
 
@@ -694,19 +629,16 @@ func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 
 	client := kube.NewFakeClient(ns, pod)
 	fs := &fakeServer{}
-	fs.Start(ctx)
 
-	server := getFakeDP(fs, client.Kube())
+	handlers, _ := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
-	client.RunAndWait(ctx.Done())
 	disabledPod, err := handlers.GetPodIfAmbientEnabled(pod.Name, ns.Name)
 
 	assert.NoError(t, err)
 	assert.Equal(t, disabledPod, nil)
 }
 
-func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
+func TestInformerAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
 
@@ -748,12 +680,9 @@ func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 	assert.Equal(t, disabledPod, nil)
 }
 
-func TestExistingPodAddedWhenItPreExists(t *testing.T) {
+func TestInformerExistingPodAddedWhenItPreExists(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
-
-	mt := monitortest.New(t)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -778,9 +707,7 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 
 	client := kube.NewFakeClient(ns, pod)
 
-	// We are expecting at most 1 calls to the mock, wait for them
-	wg, waitForMockCalls := NewWaitForNCalls(t, 1)
-	fs := &fakeServer{testWG: wg}
+	fs := &fakeServer{}
 
 	fs.On("AddPodToMesh",
 		ctx,
@@ -789,17 +716,7 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 		"",
 	).Once().Return(nil)
 
-	server := getFakeDP(fs, client.Kube())
-
-	handlers := setupHandlers(ctx, client, server, "istio-system")
-	client.RunAndWait(ctx.Done())
-	go handlers.Start()
-
-	waitForMockCalls()
-
-	// wait until all add + update events settle for initial startup
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(2))
+	_, _ = populateClientAndWaitForInformer(ctx, t, client, fs, 2, 2)
 
 	assertPodAnnotated(t, client, pod)
 
@@ -811,10 +728,9 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 // Remove operations, there are 2 sources of Adds (potentially) - the CNI plugin
 // and the informer. This test is designed to simulate the case where the informer
 // gets a stale event for a pod that has already been Added by the CNI plugin.
-func TestPendingPodSkippedIfAlreadyLabeledAndEventStale(t *testing.T) {
+func TestInformerPendingPodSkippedIfAlreadyLabeledAndEventStale(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -843,11 +759,7 @@ func TestPendingPodSkippedIfAlreadyLabeledAndEventStale(t *testing.T) {
 
 	fs := &fakeServer{}
 
-	server := getFakeDP(fs, client.Kube())
-
-	handlers := setupHandlers(ctx, client, server, "istio-system")
-	client.RunAndWait(ctx.Done())
-	go handlers.Start()
+	handlers, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 
 	// We've started the informer with a Pending pod that has an
 	// annotation indicating it was already enrolled
@@ -862,6 +774,8 @@ func TestPendingPodSkippedIfAlreadyLabeledAndEventStale(t *testing.T) {
 		New:   fakePod,
 	}
 	handlers.reconcile(fakeEvent)
+
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(2))
 
 	// Pod should still be annotated
 	assertPodAnnotated(t, client, pod)
@@ -896,4 +810,20 @@ func assertPodNotAnnotated(t *testing.T, client kube.Client, pod *corev1.Pod) {
 		time.Sleep(1 * time.Second)
 	}
 	t.Fatal("Pod annotated")
+}
+
+// nolint: lll, unparam
+func populateClientAndWaitForInformer(ctx context.Context, t *testing.T, client kube.Client, fs *fakeServer, expectAddEvents, expectUpdateEvents int) (*InformerHandlers, *monitortest.MetricsTest) {
+	mt := monitortest.New(t)
+
+	server := getFakeDP(fs, client.Kube())
+
+	handlers := setupHandlers(ctx, client, server, "istio-system")
+	client.RunAndWait(ctx.Done())
+	go handlers.Start()
+
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(float64(expectAddEvents)))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(float64(expectUpdateEvents)))
+
+	return handlers, mt
 }
