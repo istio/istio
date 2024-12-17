@@ -27,6 +27,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -1501,6 +1502,10 @@ func newAmbientUnitTest() *index {
 		DomainSuffix:         "domain.suffix",
 		Network: func(endpointIP string, labels labels.Instance) network.ID {
 			return testNW
+		},
+		Flags: FeatureFlags{
+			DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+			EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 		},
 		LookupNetworkGateways: func() []model.NetworkGateway {
 			return []model.NetworkGateway{

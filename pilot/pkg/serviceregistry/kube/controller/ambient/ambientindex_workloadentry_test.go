@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -346,8 +345,10 @@ func TestAmbientIndex_InlinedWorkloadEntries(t *testing.T) {
 }
 
 func TestAmbientIndex_WorkloadEntries_DisableK8SServiceSelectWorkloadEntries(t *testing.T) {
-	test.SetForTest(t, &features.EnableK8SServiceSelectWorkloadEntries, false)
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServerWithFlags(t, testC, testNW, FeatureFlags{
+		DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+		EnableK8SServiceSelectWorkloadEntries: false,
+	})
 
 	s.addWorkloadEntries(t, "127.0.0.1", "name1", "sa1", map[string]string{"app": "a"})
 	s.assertEvent(t, s.wleXdsName("name1"))
