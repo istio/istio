@@ -18,6 +18,7 @@ package labels
 
 import (
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/model"
 )
 
@@ -41,7 +42,7 @@ func WorkloadNameFromWorkloadEntry(name string, annos map[string]string, labels 
 	if arg, f := annos[annotation.IoIstioAutoRegistrationGroup.Name]; f {
 		return arg
 	}
-	if wn, f := labels["service.istio.io/workload-name"]; f {
+	if wn, f := labels[label.ServiceWorkloadName.Name]; f {
 		return wn
 	}
 	return name

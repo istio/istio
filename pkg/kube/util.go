@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
@@ -263,7 +264,7 @@ func GetWorkloadMetaFromPod(pod *corev1.Pod) (types.NamespacedName, metav1.TypeM
 	if pod == nil {
 		return name, meta
 	}
-	if wn, f := pod.Labels["service.istio.io/workload-name"]; f {
+	if wn, f := pod.Labels[label.ServiceWorkloadName.Name]; f {
 		name.Name = wn
 	}
 	return name, meta
