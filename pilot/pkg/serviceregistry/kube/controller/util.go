@@ -136,17 +136,6 @@ func getNodeSelectorsForService(svc *v1.Service) labels.Instance {
 	return nil
 }
 
-func nodeEquals(a, b kubernetesNode) bool {
-	return a.address == b.address && a.labels.Equals(b.labels)
-}
-
-func isNodePortGatewayService(svc *v1.Service) bool {
-	if svc == nil {
-		return false
-	}
-	_, ok := svc.Annotations[annotation.TrafficNodeSelector.Name]
-	return ok && svc.Spec.Type == v1.ServiceTypeNodePort
-}
 
 // Get the pod key of the proxy which can be used to get pod from the informer cache
 func podKeyByProxy(proxy *model.Proxy) types.NamespacedName {

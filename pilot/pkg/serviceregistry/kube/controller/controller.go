@@ -148,7 +148,7 @@ type Options struct {
 	StatusWritingEnabled *activenotifier.ActiveNotifier
 }
 
-// kubernetesNode represents a kubernetes node that is reachable externally
+// nodeAddresses represents a kubernetes node that is reachable externally
 type kubernetesNode struct {
 	address string
 	labels  labels.Instance
@@ -202,11 +202,6 @@ type Controller struct {
 	// nodeSelectorsForServices stores hostname => label selectors that can be used to
 	// refine the set of node port IPs for a service.
 	nodeSelectorsForServices map[host.Name]labels.Instance
-	// map of node name and its address+labels - this is the only thing we need from nodes
-	// for vm to k8s or cross cluster. When node port services select specific nodes by labels,
-	// we run through the label selectors here to pick only ones that we need.
-	// Only nodes with ExternalIP addresses are included in this map !
-	nodeInfoMap map[string]kubernetesNode
 	// index over workload instances from workload entries
 	workloadInstancesIndex workloadinstances.Index
 
@@ -225,6 +220,7 @@ type Controller struct {
 	networksHandlerRegistration *mesh.WatcherHandlerRegistration
 }
 
+
 // NewController creates a new Kubernetes controller
 // Created by bootstrap and multicluster (see multicluster.Controller).
 func NewController(kubeClient kubelib.Client, options Options) *Controller {
@@ -234,7 +230,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		queue:                    queue.NewQueueWithID(1*time.Second, string(options.ClusterID)),
 		servicesMap:              make(map[host.Name]*model.Service),
 		nodeSelectorsForServices: make(map[host.Name]labels.Instance),
-		nodeInfoMap:              make(map[string]kubernetesNode),
 		workloadInstancesIndex:   workloadinstances.NewIndex(),
 		initialSyncTimedout:      atomic.NewBool(false),
 
@@ -244,30 +239,14 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.namespaces = kclient.NewFiltered[*v1.Namespace](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
 
-	if c.opts.SystemNamespace != "" {
-		registerHandlers[*v1.Namespace](
-			c,
-			c.namespaces,
-			"Namespaces",
-			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
-				if cur.Name == c.opts.SystemNamespace {
-					return c.onSystemNamespaceEvent(old, cur, event)
-				}
-				return nil
-			},
-			nil,
-		)
-	}
-
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
 
 	registerHandlers[*v1.Service](c, c.services, "Services", c.onServiceEvent, nil)
 
 	c.endpoints = newEndpointSliceController(c)
 
-	// This is for getting the node IPs of a selected set of nodes
+	// This is for getting the locality information
 	c.nodes = kclient.NewFiltered[*v1.Node](kubeClient, kclient.Filter{ObjectTransform: kubelib.StripNodeUnusedFields})
-	registerHandlers[*v1.Node](c, c.nodes, "Nodes", c.onNodeEvent, nil)
 
 	c.podsClient = kclient.NewFiltered[*v1.Pod](kubeClient, kclient.Filter{
 		ObjectFilter:    kubeClient.ObjectFilter(),
@@ -298,20 +277,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.imports = newServiceImportCache(c)
 
 	c.meshWatcher = options.MeshWatcher
-	if c.opts.MeshNetworksWatcher != nil {
-		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
-			c.reloadMeshNetworks()
-			c.onNetworkChange()
-		})
-		c.reloadMeshNetworks()
-	}
-	if c.ambientIndex != nil {
-		c.networkManager.NetworkGatewaysHandler.AppendNetworkGatewayHandler(func() {
-			// This is to ensure the ambient workloads are updated dynamically, aligning them with the current network settings.
-			// With this, the pod do not need to restart when the network configuration changes.
-			c.ambientIndex.SyncAll()
-		})
-	}
 	return c
 }
 
@@ -351,25 +316,6 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 	return maps.Values(outMap)
 }
 
-func (c *Controller) Network(endpointIP string, labels labels.Instance) network.ID {
-	// 1. check the pod/workloadEntry label
-	if nw := labels[label.TopologyNetwork.Name]; nw != "" {
-		return network.ID(nw)
-	}
-
-	// 2. check the system namespace labels
-	if nw := c.networkFromSystemNamespace(); nw != "" {
-		return nw
-	}
-
-	// 3. check the meshNetworks config
-	if nw := c.networkFromMeshNetworks(endpointIP); nw != "" {
-		return nw
-	}
-
-	return ""
-}
-
 func (c *Controller) Cleanup() error {
 	if err := queue.WaitForClose(c.queue, 30*time.Second); err != nil {
 		log.Warnf("queue for removed kube registry %q may not be done processing: %v", c.Cluster(), err)
@@ -407,17 +353,6 @@ func (c *Controller) deleteService(svc *model.Service) {
 	delete(c.servicesMap, svc.Hostname)
 	delete(c.nodeSelectorsForServices, svc.Hostname)
 	c.Unlock()
-
-	c.networkManager.Lock()
-	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
-	delete(c.networkGatewaysBySvc, svc.Hostname)
-	c.networkManager.Unlock()
-	if isNetworkGateway {
-		c.NotifyGatewayHandlers()
-		// TODO trigger push via handler
-		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
-	}
 
 	shard := model.ShardKeyFromRegistry(c)
 	event := model.EventDelete
@@ -463,32 +398,10 @@ func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
 }
 
 func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
-	needsFullPush := false
-	// First, process nodePort gateway service, whose externalIPs specified
-	// and loadbalancer gateway service
-	if currConv.Attributes.ClusterExternalAddresses.Len() > 0 {
-		needsFullPush = c.extractGatewaysFromService(currConv)
-	} else if isNodePortGatewayService(curr) {
-		// We need to know which services are using node selectors because during node events,
-		// we have to update all the node port services accordingly.
-		nodeSelector := getNodeSelectorsForService(curr)
-		c.Lock()
-		// only add when it is nodePort gateway service
-		c.nodeSelectorsForServices[currConv.Hostname] = nodeSelector
-		c.Unlock()
-		needsFullPush = c.updateServiceNodePortAddresses(currConv)
-	}
-
 	c.Lock()
 	prevConv := c.servicesMap[currConv.Hostname]
 	c.servicesMap[currConv.Hostname] = currConv
 	c.Unlock()
-	// This full push needed to update all endpoints, even though we do a full push on service add/update
-	// as that full push is only triggered for the specific service.
-	if needsFullPush {
-		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
-	}
 
 	shard := model.ShardKeyFromRegistry(c)
 	ns := currConv.Attributes.Namespace
@@ -518,46 +431,6 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 		endpoints = append(endpoints, fep...)
 	}
 	return endpoints
-}
-
-func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
-	var updatedNeeded bool
-	if event == model.EventDelete {
-		updatedNeeded = true
-		c.Lock()
-		delete(c.nodeInfoMap, node.Name)
-		c.Unlock()
-	} else {
-		k8sNode := kubernetesNode{labels: node.Labels}
-		for _, address := range node.Status.Addresses {
-			if address.Type == v1.NodeExternalIP && address.Address != "" {
-				k8sNode.address = address.Address
-				break
-			}
-		}
-		if k8sNode.address == "" {
-			return nil
-		}
-
-		c.Lock()
-		// check if the node exists as this add event could be due to controller resync
-		// if the stored object changes, then fire an update event. Otherwise, ignore this event.
-		currentNode, exists := c.nodeInfoMap[node.Name]
-		if !exists || !nodeEquals(currentNode, k8sNode) {
-			c.nodeInfoMap[node.Name] = k8sNode
-			updatedNeeded = true
-		}
-		c.Unlock()
-	}
-
-	// update all related services
-	if updatedNeeded && c.updateServiceNodePortAddresses() {
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:   true,
-			Reason: model.NewReasonStats(model.ServiceUpdate),
-		})
-	}
-	return nil
 }
 
 // FilterOutFunc func for filtering out objects during update callback
@@ -969,18 +842,6 @@ func (c *Controller) workloadInstanceHandler(si *model.WorkloadInstance, event m
 	c.endpoints.pushEDS(matchedHostnames, si.Namespace)
 }
 
-func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event) error {
-	if ev == model.EventDelete {
-		return nil
-	}
-	if c.setNetworkFromNamespace(ns) {
-		// network changed, rarely happen
-		// refresh pods/endpoints/services
-		c.onNetworkChange()
-	}
-	return nil
-}
-
 // isControllerForProxy should be used for proxies assumed to be in the kube cluster for this controller. Workload Entries
 // may not necessarily pass this check, but we still want to allow kube services to select workload instances.
 func (c *Controller) isControllerForProxy(proxy *model.Proxy) bool {
@@ -1129,7 +990,11 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 		if len(locality) == 0 && len(nodeName) == 0 {
 			return pod.Labels
 		}
-		return labelutil.AugmentLabels(pod.Labels, c.clusterID, locality, nodeName, c.network)
+		network := proxy.Metadata.Network
+		if network == "" {
+			network = c.Network(proxy.IPAddresses[0], pod.Labels)
+		}
+		return labelutil.AugmentLabels(pod.Labels, c.clusterID, locality, nodeName, network)
 	}
 	return nil
 }

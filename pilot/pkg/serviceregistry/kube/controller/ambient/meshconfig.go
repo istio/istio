@@ -17,6 +17,7 @@ package ambient
 
 import (
 	"google.golang.org/protobuf/proto"
+	"istio.io/istio/pkg/ptr"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -55,6 +56,7 @@ func MeshConfigCollection(configMaps krt.Collection[*v1.ConfigMap], options Opti
 				n, err := mesh.ApplyMeshConfig(meshConfigMapData(c), meshCfg)
 				if err != nil {
 					log.Error(err)
+					// TODO: retain last good configuration
 					continue
 				}
 				meshCfg = n
@@ -70,6 +72,51 @@ func meshConfigMapData(cm *v1.ConfigMap) string {
 	}
 
 	cfgYaml, exists := cm.Data["mesh"]
+	if !exists {
+		return ""
+	}
+
+	return cfgYaml
+}
+
+
+type MeshNetworks struct {
+	*meshapi.MeshNetworks
+}
+
+func (m MeshNetworks) ResourceName() string { return "MeshNetworks" }
+
+func (m MeshNetworks) Equals(other MeshNetworks) bool { return proto.Equal(m.MeshNetworks, other.MeshNetworks) }
+
+func MeshNetworksCollection(configMaps krt.Collection[*v1.ConfigMap], options Options, opts KrtOptions) krt.Singleton[MeshNetworks] {
+	cmName := "istio"
+	if options.Revision != "" && options.Revision != "default" {
+		cmName = cmName + "-" + options.Revision
+	}
+	return krt.NewSingleton[MeshNetworks](
+		func(ctx krt.HandlerContext) *MeshNetworks {
+			cm := ptr.Flatten(krt.FetchOne(ctx, configMaps,
+				krt.FilterObjectName(types.NamespacedName{Name: cmName, Namespace: options.SystemNamespace})))
+			if cm != nil {
+				mn, err := mesh.ParseMeshNetworks(meshNetworksMapData(cm))
+				if err != nil {
+					log.Errorf("failed to read meshNetworks config from ConfigMap: %v", err)
+					// TODO: retain last good configuration
+					return &MeshNetworks{ptr.Of(mesh.EmptyMeshNetworks())}
+				}
+				return &MeshNetworks{mn}
+			}
+			return &MeshNetworks{ptr.Of(mesh.EmptyMeshNetworks())}
+		}, opts.WithName("MeshNetworks")...,
+	)
+}
+
+func meshNetworksMapData(cm *v1.ConfigMap) string {
+	if cm == nil {
+		return ""
+	}
+
+	cfgYaml, exists := cm.Data["meshNetworks"]
 	if !exists {
 		return ""
 	}
