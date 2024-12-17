@@ -113,9 +113,10 @@ type index struct {
 	XDSUpdater      model.XDSUpdater
 	// Network provides a way to lookup which network a given workload is running on
 	Network LookupNetwork
-	// LookupNetworkGatewaysRaw provides a function to lookup all the known network gateways in the system.
-	LookupNetworkGatewaysRaw LookupNetworkGateways
-	Flags                    FeatureFlags
+	// LookupNetworkGatewaysExpensive provides a function to lookup all the known network gateways in the system.
+	// This is generally called infrequently and cached in networkGateways.
+	LookupNetworkGatewaysExpensive LookupNetworkGateways
+	Flags                          FeatureFlags
 
 	stop chan struct{}
 }
@@ -157,14 +158,14 @@ func New(options Options) Index {
 		networkUpdateTrigger: krt.NewRecomputeTrigger(false, krt.WithName("NetworkTrigger")),
 		networkGateways:      new(atomic.Pointer[map[network.ID][]model.NetworkGateway]),
 
-		SystemNamespace:          options.SystemNamespace,
-		DomainSuffix:             options.DomainSuffix,
-		ClusterID:                options.ClusterID,
-		XDSUpdater:               options.XDSUpdater,
-		Network:                  options.LookupNetwork,
-		LookupNetworkGatewaysRaw: options.LookupNetworkGateways,
-		Flags:                    options.Flags,
-		stop:                     make(chan struct{}),
+		SystemNamespace:                options.SystemNamespace,
+		DomainSuffix:                   options.DomainSuffix,
+		ClusterID:                      options.ClusterID,
+		XDSUpdater:                     options.XDSUpdater,
+		Network:                        options.LookupNetwork,
+		LookupNetworkGatewaysExpensive: options.LookupNetworkGateways,
+		Flags:                          options.Flags,
+		stop:                           make(chan struct{}),
 	}
 
 	filter := kclient.Filter{
@@ -642,7 +643,7 @@ func (a *index) AdditionalPodSubscriptions(
 
 func (a *index) SyncAll() {
 	// Reload NetworkGateways, which is expensive to compute each time
-	raw := a.LookupNetworkGatewaysRaw()
+	raw := a.LookupNetworkGatewaysExpensive()
 	grouped := slices.Group(raw, func(t model.NetworkGateway) network.ID {
 		return t.Network
 	})
@@ -659,7 +660,7 @@ func (a *index) LookupNetworkGateway(id network.ID) []model.NetworkGateway {
 }
 
 func (a *index) LookupAllNetworkGateway() []model.NetworkGateway {
-	// Since computing the
+	// Since computing the network set is expensive we cache it. Look it up now
 	n := a.networkGateways.Load()
 	if n == nil {
 		return nil

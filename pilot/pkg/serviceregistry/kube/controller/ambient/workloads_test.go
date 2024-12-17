@@ -1593,7 +1593,7 @@ func newAmbientUnitTest() *index {
 			DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 			EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 		},
-		LookupNetworkGatewaysRaw: func() []model.NetworkGateway {
+		LookupNetworkGatewaysExpensive: func() []model.NetworkGateway {
 			return []model.NetworkGateway{
 				{
 					Network:   "remote-network",
