@@ -1319,7 +1319,7 @@ func BuildDefaultHTTPOutboundRoute(clusterName string, operation string, mesh *m
 func translatePercentToFractionalPercent(p *networking.Percent) *xdstype.FractionalPercent {
 	return &xdstype.FractionalPercent{
 		Numerator:   uint32(p.Value * 10000),
-		Denominator: xdstype.FractionalPercent_MILLION,
+		Denominator: xdstype.FractionalPercent_HUNDRED,
 	}
 }
 
