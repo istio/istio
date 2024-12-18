@@ -41,7 +41,11 @@ var skippedRdsConfigs = sets.New[kind.Kind](
 	kind.DNSName,
 )
 
-func rdsNeedsPush(req *model.PushRequest) bool {
+func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	if proxy.Type == model.Ztunnel {
+		// Not supported for ztunnel
+		return false
+	}
 	if req == nil {
 		return true
 	}
@@ -62,7 +66,7 @@ func rdsNeedsPush(req *model.PushRequest) bool {
 }
 
 func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !rdsNeedsPush(req) {
+	if !rdsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	resources, logDetails := c.ConfigGenerator.BuildHTTPRoutes(proxy, req, w.ResourceNames)

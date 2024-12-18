@@ -60,7 +60,11 @@ var skippedNdsConfigs = sets.New(
 	kind.GRPCRoute,
 )
 
-func ndsNeedsPush(req *model.PushRequest) bool {
+func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	if proxy.Type == model.Ztunnel {
+		// Not supported for ztunnel
+		return false
+	}
 	if req == nil {
 		return true
 	}
@@ -85,7 +89,7 @@ func headlessEndpointsUpdated(req *model.PushRequest) bool {
 }
 
 func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !ndsNeedsPush(req) {
+	if !ndsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	nt := n.ConfigGenerator.BuildNameTable(proxy, req.Push)
