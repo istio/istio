@@ -876,8 +876,7 @@ func TestInformerStillHandlesDeleteEventIfPodNotActuallyPresentAnymore(t *testin
 
 	handlers, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 1, 0)
 
-	// Now, force thru a stale pod update event that would normally trigger add/remove
-	// in the informer if the pod existed
+	// Now, force thru a pod delete
 	fakePodNew := fakePod.DeepCopy()
 	fakePodNew.ObjectMeta.Annotations = map[string]string{}
 	// We've started the informer, but there is no pod in the cluster.
