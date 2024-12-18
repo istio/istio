@@ -227,9 +227,9 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 
 	case controllers.EventUpdate:
 		// if the pod we get an Update event for no longer actually exists in the cluster,
-		// we shoud just skip handling the update event - we (probably) will get a Delete event.
+		// we should just skip handling the update event - we (probably) will get a Delete event.
 		if currentPod == nil {
-			log.Warnf("update event - pod no longer exists")
+			log.Warnf("update event skipped - pod no longer exists")
 			return nil
 		}
 		// NOTE that we *do not* consult the old pod state here, and that is intentional,

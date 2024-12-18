@@ -923,7 +923,7 @@ func assertPodNotAnnotated(t *testing.T, client kube.Client, pod *corev1.Pod) {
 	t.Fatal("Pod annotated")
 }
 
-// nolint: lll, unparam
+// nolint: lll
 func populateClientAndWaitForInformer(ctx context.Context, t *testing.T, client kube.Client, fs *fakeServer, expectAddEvents, expectUpdateEvents int) (*InformerHandlers, *monitortest.MetricsTest) {
 	mt := monitortest.New(t)
 
@@ -932,7 +932,6 @@ func populateClientAndWaitForInformer(ctx context.Context, t *testing.T, client 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
-
 
 	// Unfortunately mt asserts cannot assert on 0 events (which makes a certain amount of sense)
 	if expectAddEvents > 0 {
