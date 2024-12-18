@@ -16,6 +16,7 @@ package ambient
 
 import (
 	"net/netip"
+	"sync/atomic"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
@@ -1580,8 +1581,9 @@ func kubernetesAPIServerEndpoint(ip string) *discovery.EndpointSlice {
 }
 
 func newAmbientUnitTest() *index {
-	return &index{
+	idx := &index{
 		networkUpdateTrigger: krt.NewRecomputeTrigger(true),
+		networkGateways:      new(atomic.Pointer[map[network.ID][]model.NetworkGateway]),
 		ClusterID:            testC,
 		DomainSuffix:         "domain.suffix",
 		Network: func(endpointIP string, labels labels.Instance) network.ID {
@@ -1591,7 +1593,7 @@ func newAmbientUnitTest() *index {
 			DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 			EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 		},
-		LookupNetworkGateways: func() []model.NetworkGateway {
+		LookupNetworkGatewaysExpensive: func() []model.NetworkGateway {
 			return []model.NetworkGateway{
 				{
 					Network:   "remote-network",
@@ -1618,6 +1620,8 @@ func newAmbientUnitTest() *index {
 			}
 		},
 	}
+	idx.SyncAll()
+	return idx
 }
 
 var podReady = []v1.PodCondition{
