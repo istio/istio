@@ -24,6 +24,7 @@ import (
 	acmetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
 )
@@ -35,16 +36,26 @@ func getTypedKey[O any](a O) Key[O] {
 // GetKey returns the key for the provided object.
 // If there is none, this will panic.
 func GetKey[O any](a O) string {
-	if k, ok := tryGetKey[O](a); ok {
-		return k
+	as, ok := any(a).(string)
+	if ok {
+		return as
 	}
-
-	// Kubernetes types are pointers, which means our types would be double pointers
-	// Allow flattening
-	ao, ok := any(&a).(controllers.Object)
+	ao, ok := any(a).(controllers.Object)
 	if ok {
 		k, _ := cache.MetaNamespaceKeyFunc(ao)
 		return k
+	}
+	ac, ok := any(a).(config.Config)
+	if ok {
+		return keyFunc(ac.Name, ac.Namespace)
+	}
+	arn, ok := any(a).(ResourceNamer)
+	if ok {
+		return arn.ResourceName()
+	}
+	ack := GetApplyConfigKey(a)
+	if ack != nil {
+		return *ack
 	}
 	panic(fmt.Sprintf("Cannot get Key, got %T", a))
 }

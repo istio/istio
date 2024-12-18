@@ -84,7 +84,7 @@ func (n *NodeUntainter) setup(stop <-chan struct{}) {
 	nodes := krt.WrapClient[*v1.Node](n.nodesClient)
 	pods := krt.WrapClient[*v1.Pod](n.podsClient)
 
-	readyCniPods := krt.NewCollection(pods, func(ctx krt.HandlerContext, p *v1.Pod) *v1.Pod {
+	readyCniPods := krt.NewCollection(pods, func(ctx krt.HandlerContext, p *v1.Pod) **v1.Pod {
 		log.Debugf("cniPods event: %s", p.Name)
 		if p.Namespace != n.ourNs {
 			return nil
@@ -96,12 +96,12 @@ func (n *NodeUntainter) setup(stop <-chan struct{}) {
 			return nil
 		}
 		log.Debugf("pod %s on node %s ready!", p.Name, p.Spec.NodeName)
-		return p
+		return &p
 	}, krt.WithStop(stop))
 
 	// these are all the nodes that have a ready cni pod. if the cni pod is ready,
 	// it means we are ok scheduling pods to it.
-	readyCniNodes := krt.NewCollection(readyCniPods, func(ctx krt.HandlerContext, p v1.Pod) *v1.Node {
+	readyCniNodes := krt.NewCollection(readyCniPods, func(ctx krt.HandlerContext, p *v1.Pod) **v1.Node {
 		pnode := krt.FetchOne(ctx, nodes, krt.FilterKey(p.Spec.NodeName))
 		if pnode == nil {
 			return nil
@@ -110,7 +110,7 @@ func (n *NodeUntainter) setup(stop <-chan struct{}) {
 		if !hasTaint(node) {
 			return nil
 		}
-		return node
+		return &node
 	}, krt.WithStop(stop))
 
 	n.queue = controllers.NewQueue("untaint nodes",
@@ -118,13 +118,13 @@ func (n *NodeUntainter) setup(stop <-chan struct{}) {
 		controllers.WithMaxAttempts(5))
 
 	// remove the taints from readyCniNodes
-	readyCniNodes.Register(func(o krt.Event[v1.Node]) {
+	readyCniNodes.Register(func(o krt.Event[*v1.Node]) {
 		if o.Event == controllers.EventDelete {
 			return
 		}
 		if o.New != nil {
-			log.Debugf("adding node to queue event: %s", o.New.Name)
-			n.queue.AddObject(o.New)
+			log.Debugf("adding node to queue event: %s", (*o.New).Name)
+			n.queue.AddObject(*o.New)
 		}
 	})
 }
