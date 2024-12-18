@@ -1,14 +1,15 @@
 apiVersion: v2
-name: controlplane
-description: Helm umbrella chart for Istio controlplane components
+name: dataplane
+description: Helm umbrella chart for Istio dataplane components
 type: application
 version: 1.0.0
 appVersion: 1.0.0
 kubeVersion: ">= 1.23.0-0"
 keywords:
-  - istiod
+  - istio-cni
+  - ztunnel
   - istio
-  - controlplane
+  - dataplane
   - mesh
 sources:
   - https://github.com/istio/istio
@@ -16,9 +17,11 @@ icon: https://istio.io/latest/favicons/android-192x192.png
 
 # These will be stamped out to real versions during release publish
 dependencies:
-  - name: base
+  - name: cni
     version: 1.0.0
-    repository: "file://../../charts/base"
-  - name: istiod
+    repository: "file://../istio-cni"
+    condition: cni-agent.enabled
+  - name: ztunnel
     version: 1.0.0
-    repository: "file://../../charts/istio-control/istio-discovery"
+    repository: "file://../ztunnel"
+    condition: ambient.enabled
