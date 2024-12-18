@@ -210,10 +210,6 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		return fmt.Errorf("failed to find namespace %v", ns)
 	}
 
-	// The pod data in the event may be stale, and we always want to operate on the most recent
-	// instance of the pod data in the former cache, so fetch it here.
-	currentPod := s.pods.Get(latestEventPod.Name, ns.Name)
-
 	switch event.Event {
 	case controllers.EventAdd:
 		// pod was added to our cache
@@ -226,13 +222,17 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// and the initial enqueueNamespace, and new pods will be handled by the CNI.
 
 	case controllers.EventUpdate:
+		// The pod data in the event may be stale, and we always want to operate on the most recent
+		// instance of the pod data in the former cache, so fetch it here.
+		currentPod := s.pods.Get(latestEventPod.Name, ns.Name)
+
 		// if the pod we get an Update event for no longer actually exists in the cluster,
 		// we should just skip handling the update event - we (probably) will get a Delete event.
 		if currentPod == nil {
 			log.Warnf("update event skipped - pod no longer exists")
 			return nil
 		}
-		// NOTE that we *do not* consult the old pod state here, and that is intentional,
+		// NOTE that we *do not* consult the old pod state for `update` events, and that is intentional,
 		// with 2 exceptions:
 		// 1. Logging (so the change event diff is more obvious)
 		// 2. To work around a potential k8s pod removal bug
