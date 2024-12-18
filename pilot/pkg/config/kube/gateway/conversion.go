@@ -1616,7 +1616,7 @@ func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, 
 	}
 	var percent *istio.Percent
 	if f := filter.Fraction; f != nil {
-		percent = &istio.Percent{Value: float64(f.Numerator) / float64(ptr.OrDefault(f.Denominator, int32(100)))}
+		percent = &istio.Percent{Value: (100 * float64(f.Numerator)) / float64(ptr.OrDefault(f.Denominator, int32(100)))}
 	} else if p := filter.Percent; p != nil {
 		percent = &istio.Percent{Value: float64(*p)}
 	}
