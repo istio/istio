@@ -92,17 +92,6 @@ var rootCmd = &cobra.Command{
 
 		installer := install.NewInstaller(&cfg.InstallConfig, installDaemonReady)
 
-		// Before starting anything below, set up a failsafe defer func that will try
-		// to cleanup the node plugin ONLY IF anything (including other defer funcs) panic.
-		defer func() {
-			if r := recover(); r != nil {
-				fmt.Printf("CNI node agent panicked: %s, doing emergency failsafe cleanup\n", r)
-				if cleanErr := installer.Cleanup(); cleanErr != nil {
-					fmt.Println(cleanErr.Error())
-				}
-			}
-		}()
-
 		if cfg.InstallConfig.AmbientEnabled {
 			// Start ambient controller
 
