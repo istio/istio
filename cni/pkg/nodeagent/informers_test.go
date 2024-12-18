@@ -890,7 +890,6 @@ func TestInformerStillHandlesDeleteEventIfPodNotActuallyPresentAnymore(t *testin
 
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "delete"}, monitortest.Exactly(1))
 
-	// None of our remove or add mocks should have been called
 	fs.AssertExpectations(t)
 }
 
