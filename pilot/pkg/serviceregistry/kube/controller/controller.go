@@ -292,6 +292,10 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			LookupNetworkGateways: c.NetworkGateways,
 			StatusNotifier:        options.StatusWritingEnabled,
 			Debugger:              krt.GlobalDebugHandler,
+			Flags: ambient.FeatureFlags{
+				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
+			},
 		})
 	}
 	c.exports = newServiceExportCache(c)
