@@ -111,7 +111,6 @@ var rootCmd = &cobra.Command{
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
 			}
 
-			ambientAgent.Start()
 			// Ambient watch server IS enabled - on shutdown
 			// we need to check and see if this is an upgrade.
 			//
@@ -138,6 +137,8 @@ var rootCmd = &cobra.Command{
 				}
 				ambientAgent.Stop(isUpgrade)
 			}()
+
+			ambientAgent.Start()
 
 			log.Info("Ambient node agent started, starting installer...")
 
