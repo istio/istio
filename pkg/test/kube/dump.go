@@ -637,3 +637,18 @@ func DumpPodAgent(ctx resource.Context, c cluster.Cluster, workDir string, _ str
 		scopes.Framework.Errorf("failed to dump ndsz: %v", err)
 	}
 }
+
+// Will capture pod logs until target pod/container terminates, and then will write them to file.
+// Generally should be run in a goroutine while deletion happens
+func DumpTerminationLogs(ctx context.Context, c cluster.Cluster, workDir string, pod corev1.Pod, containerName string) {
+	fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.termination.log", containerName))
+	l, err := c.PodLogsFollow(ctx, pod.Name, pod.Namespace, containerName)
+	if err != nil && len(l) == 0 {
+		scopes.Framework.Warnf("Unable to capture termination logs for cluster/pod/container: %s/%s/%s/%s: %v",
+			c.Name(), pod.Namespace, pod.Name, containerName, err)
+	}
+	if err = os.WriteFile(fname, []byte(l), os.ModePerm); err != nil {
+		scopes.Framework.Warnf("Unable to write termination logs for cluster/pod/container: %s/%s/%s/%s: %v",
+			c.Name(), pod.Namespace, pod.Name, containerName, err)
+	}
+}

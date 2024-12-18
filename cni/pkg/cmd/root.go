@@ -111,7 +111,6 @@ var rootCmd = &cobra.Command{
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
 			}
 
-			ambientAgent.Start()
 			// Ambient watch server IS enabled - on shutdown
 			// we need to check and see if this is an upgrade.
 			//
@@ -133,15 +132,13 @@ var rootCmd = &cobra.Command{
 				// new ambient-enabled pods while our replacement spins up.
 				if !isUpgrade {
 					if cleanErr := installer.Cleanup(); cleanErr != nil {
-						if err != nil {
-							err = fmt.Errorf("%s: %w", cleanErr.Error(), err)
-						} else {
-							err = cleanErr
-						}
+						log.Error(cleanErr.Error())
 					}
 				}
 				ambientAgent.Stop(isUpgrade)
 			}()
+
+			ambientAgent.Start()
 
 			log.Info("Ambient node agent started, starting installer...")
 
@@ -154,11 +151,7 @@ var rootCmd = &cobra.Command{
 			defer func() {
 				log.Infof("CNI node agent shutting down")
 				if cleanErr := installer.Cleanup(); cleanErr != nil {
-					if err != nil {
-						err = fmt.Errorf("%s: %w", cleanErr.Error(), err)
-					} else {
-						err = cleanErr
-					}
+					log.Error(cleanErr.Error())
 				}
 			}()
 		}

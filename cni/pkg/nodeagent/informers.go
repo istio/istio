@@ -201,22 +201,14 @@ func getModeLabel(m map[string]string) string {
 
 func (s *InformerHandlers) reconcilePod(input any) error {
 	event := input.(controllers.Event)
-	pod := event.Latest().(*corev1.Pod)
-	if pod == nil {
-		log.Warnf("pod update event skipped: got stale event for pod that no longer exists")
-		return nil
-	}
+	latestEventPod := event.Latest().(*corev1.Pod)
 
-	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
+	log := log.WithLabels("ns", latestEventPod.Namespace, "name", latestEventPod.Name)
 
-	ns := s.namespaces.Get(pod.Namespace, "")
+	ns := s.namespaces.Get(latestEventPod.Namespace, "")
 	if ns == nil {
 		return fmt.Errorf("failed to find namespace %v", ns)
 	}
-
-	// The pod data in the event may be stale, and we always want to operate on the most recent
-	// instance of the pod data in the former cache, so fetch it here.
-	newPod := s.pods.Get(pod.Name, ns.Name)
 
 	switch event.Event {
 	case controllers.EventAdd:
@@ -230,20 +222,30 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// and the initial enqueueNamespace, and new pods will be handled by the CNI.
 
 	case controllers.EventUpdate:
-		// NOTE that we *do not* consult the old pod state here, and that is intentional,
+		// The pod data in the event may be stale, and we always want to operate on the most recent
+		// instance of the pod data in the former cache, so fetch it here.
+		currentPod := s.pods.Get(latestEventPod.Name, ns.Name)
+
+		// if the pod we get an Update event for no longer actually exists in the cluster,
+		// we should just skip handling the update event - we (probably) will get a Delete event.
+		if currentPod == nil {
+			log.Warnf("update event skipped - pod no longer exists")
+			return nil
+		}
+		// NOTE that we *do not* consult the old pod state for `update` events, and that is intentional,
 		// with 2 exceptions:
 		// 1. Logging (so the change event diff is more obvious)
 		// 2. To work around a potential k8s pod removal bug
 		oldPod := event.Old.(*corev1.Pod)
-		isAnnotated := util.PodRedirectionActive(newPod)
-		shouldBeEnabled := util.PodRedirectionEnabled(ns, newPod)
-		isTerminated := kube.CheckPodTerminal(newPod)
+		isAnnotated := util.PodRedirectionActive(currentPod)
+		shouldBeEnabled := util.PodRedirectionEnabled(ns, currentPod)
+		isTerminated := kube.CheckPodTerminal(currentPod)
 		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
 		changeNeeded := (isAnnotated != shouldBeEnabled) && !isTerminated
 
 		// nolint: lll
 		log.Debugf("pod update: annotation=%v shouldBeEnabled=%v changeNeeded=%v isTerminated=%v, oldPod=%+v, newPod=%+v",
-			isAnnotated, shouldBeEnabled, changeNeeded, isTerminated, oldPod.ObjectMeta, newPod.ObjectMeta)
+			isAnnotated, shouldBeEnabled, changeNeeded, isTerminated, oldPod.ObjectMeta, currentPod.ObjectMeta)
 
 		// If it was a job pod that (a) we captured and (b) just terminated (successfully or otherwise)
 		// remove it (the pod process is gone, but kube will keep the Pods around in
@@ -271,7 +273,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// Pod is not terminated, and has changed in a way we care about - so reconcile
 		if !shouldBeEnabled {
 			log.Debugf("removing pod from mesh: no longer should be enabled")
-			err := s.dataplane.RemovePodFromMesh(s.ctx, newPod, false)
+			err := s.dataplane.RemovePodFromMesh(s.ctx, currentPod, false)
 			log.Debugf("RemovePodFromMesh returned: %v", err)
 			return err
 			// we ignore errors here as we don't want this event to be retried by the queue.
@@ -289,14 +291,14 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		//
 		// If we get to this point and have a pod that really and truly has no IP in either of those,
 		// it's not routable at this point and something is wrong/we should discard this event.
-		podIPs := util.GetPodIPsIfPresent(newPod)
+		podIPs := util.GetPodIPsIfPresent(currentPod)
 		if len(podIPs) == 0 {
 			log.Debugf("pod update event skipped: no IP assigned yet")
 			return nil
 		}
 
 		log.Debugf("pod is now enrolled, adding to mesh")
-		err := s.dataplane.AddPodToMesh(s.ctx, newPod, podIPs, "")
+		err := s.dataplane.AddPodToMesh(s.ctx, currentPod, podIPs, "")
 		if err != nil {
 			log.Warnf("AddPodToMesh returned: %v", err)
 		}
@@ -306,9 +308,9 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// we *do not* want to check the cache for the pod - because it (probably)
 		// won't be there anymore. So for this case *alone*, we check the most recent
 		// pod information from the triggering event.
-		if util.PodRedirectionActive(pod) {
+		if util.PodRedirectionActive(latestEventPod) {
 			log.Debugf("pod is deleted and was captured, removing from ztunnel")
-			err := s.dataplane.RemovePodFromMesh(s.ctx, pod, true)
+			err := s.dataplane.RemovePodFromMesh(s.ctx, latestEventPod, true)
 			if err != nil {
 				log.Warnf("DelPodFromMesh returned: %v", err)
 			}

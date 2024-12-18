@@ -191,6 +191,9 @@ type CLIClient interface {
 	// PodLogs retrieves the logs for the given pod.
 	PodLogs(ctx context.Context, podName string, podNamespace string, container string, previousLog bool) (string, error)
 
+	// PodLogsFollow retrieves the logs for the given pod, following until the pod log stream is interrupted
+	PodLogsFollow(ctx context.Context, podName string, podNamespace string, container string) (string, error)
+
 	// NewPortForwarder creates a new PortForwarder configured for the given pod. If localPort=0, a port will be
 	// dynamically selected. If localAddress is empty, "localhost" is used.
 	NewPortForwarder(podName string, ns string, localAddress string, localPort int, podPort int) (PortForwarder, error)
@@ -786,6 +789,26 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 	opts := &v1.PodLogOptions{
 		Container: container,
 		Previous:  previousLog,
+	}
+	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer closeQuietly(res)
+
+	builder := &strings.Builder{}
+	if _, err = io.Copy(builder, res); err != nil {
+		return "", err
+	}
+
+	return builder.String(), nil
+}
+
+func (c *client) PodLogsFollow(ctx context.Context, podName, podNamespace, container string) (string, error) {
+	opts := &v1.PodLogOptions{
+		Container: container,
+		Previous:  false,
+		Follow:    true,
 	}
 	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {

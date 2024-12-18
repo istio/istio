@@ -784,6 +784,115 @@ func TestInformerPendingPodSkippedIfAlreadyLabeledAndEventStale(t *testing.T) {
 	fs.AssertExpectations(t)
 }
 
+func TestInformerSkipsUpdateEventIfPodNotActuallyPresentAnymore(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	fakePod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test",
+			Namespace:   "test",
+			Annotations: map[string]string{annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+			Phase: corev1.PodPending,
+		},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
+		},
+	}
+
+	client := kube.NewFakeClient(ns)
+
+	fs := &fakeServer{}
+
+	handlers, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 1, 0)
+
+	// Now, force thru a stale pod update event that would normally trigger add/remove
+	// in the informer if the pod existed
+	fakePodNew := fakePod.DeepCopy()
+	fakePodNew.ObjectMeta.Annotations = map[string]string{}
+	// We've started the informer, but there is no pod in the cluster.
+	// Now force thru a "stale" event for an enrolled pod no longer in the cluster.
+	fakeEvent := controllers.Event{
+		Event: controllers.EventUpdate,
+		Old:   fakePod,
+		New:   fakePodNew,
+	}
+	handlers.reconcile(fakeEvent)
+
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(1))
+
+	// None of our remove or add mocks should have been called
+	fs.AssertExpectations(t)
+}
+
+func TestInformerStillHandlesDeleteEventIfPodNotActuallyPresentAnymore(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	fakePod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test",
+			Namespace:   "test",
+			Annotations: map[string]string{annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+			Phase: corev1.PodPending,
+		},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
+		},
+	}
+
+	client := kube.NewFakeClient(ns)
+
+	fs := &fakeServer{}
+
+	// Pod deletion event should trigger one RemovePodFromMesh, even if the pod doesn't exist anymore
+	fs.On("RemovePodFromMesh",
+		ctx,
+		mock.Anything,
+		true,
+	).Once().Return(nil)
+
+	handlers, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 1, 0)
+
+	// Now, force thru a pod delete
+	fakePodNew := fakePod.DeepCopy()
+	fakePodNew.ObjectMeta.Annotations = map[string]string{}
+	// We've started the informer, but there is no pod in the cluster.
+	// Now force thru a "stale" event for an enrolled pod no longer in the cluster.
+	fakeEvent := controllers.Event{
+		Event: controllers.EventDelete,
+		Old:   fakePod,
+		New:   nil,
+	}
+	handlers.reconcile(fakeEvent)
+
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "delete"}, monitortest.Exactly(1))
+
+	fs.AssertExpectations(t)
+}
+
 func assertPodAnnotated(t *testing.T, client kube.Client, pod *corev1.Pod) {
 	for i := 0; i < 5; i++ {
 		p, err := client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
@@ -812,7 +921,7 @@ func assertPodNotAnnotated(t *testing.T, client kube.Client, pod *corev1.Pod) {
 	t.Fatal("Pod annotated")
 }
 
-// nolint: lll, unparam
+// nolint: lll
 func populateClientAndWaitForInformer(ctx context.Context, t *testing.T, client kube.Client, fs *fakeServer, expectAddEvents, expectUpdateEvents int) (*InformerHandlers, *monitortest.MetricsTest) {
 	mt := monitortest.New(t)
 
@@ -822,8 +931,13 @@ func populateClientAndWaitForInformer(ctx context.Context, t *testing.T, client 
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
 
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(float64(expectAddEvents)))
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(float64(expectUpdateEvents)))
+	// Unfortunately mt asserts cannot assert on 0 events (which makes a certain amount of sense)
+	if expectAddEvents > 0 {
+		mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(float64(expectAddEvents)))
+	}
+	if expectUpdateEvents > 0 {
+		mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(float64(expectUpdateEvents)))
+	}
 
 	return handlers, mt
 }
