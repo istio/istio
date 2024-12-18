@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 49638
+releaseNotes:
+  - |
+    **Fixed** a bug with mixed cases Hosts in Gateway and TLS redirect results in stale RDS.

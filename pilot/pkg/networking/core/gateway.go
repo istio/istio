@@ -503,6 +503,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			if !server.GetTls().GetHttpsRedirect() {
 				continue
 			}
+			hostname = strings.ToLower(hostname)
 			if vHost, exists := vHostDedupMap[host.Name(hostname)]; exists {
 				vHost.RequireTls = route.VirtualHost_ALL
 				continue
