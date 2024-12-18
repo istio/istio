@@ -20,6 +20,7 @@ package api
 import (
 	"encoding/base64"
 	"fmt"
+	"os"
 	"testing"
 
 	"k8s.io/client-go/tools/clientcmd"
@@ -158,8 +159,16 @@ proxyMetadata:
 // By looking into a context name. Expects "kind-" prefix.
 // That is required by some tests for specific actions on "Kind".
 func IsKindCluster() (bool, error) {
-	config, err := clientcmd.LoadFromFile(clientcmd.RecommendedHomeFile)
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if kubeconfig == "" {
+		kubeconfig = clientcmd.RecommendedHomeFile
+	}
+
+	config, err := clientcmd.LoadFromFile(kubeconfig)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return false, fmt.Errorf("kubeconfig file not found: %s", kubeconfig)
+		}
 		return false, err
 	}
 	currentContext := config.CurrentContext
