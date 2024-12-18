@@ -16,7 +16,11 @@
 // from Kubernetes resources.
 package labels
 
-import "istio.io/istio/pkg/model"
+import (
+	"istio.io/api/annotation"
+	"istio.io/api/label"
+	"istio.io/istio/pkg/model"
+)
 
 var (
 	// These are the labels that are checked for canonical service name and revision.
@@ -32,6 +36,17 @@ var (
 		"version",
 	}
 )
+
+// WorkloadNameFromWorkloadEntry derives the workload name from a WorkloadEntry
+func WorkloadNameFromWorkloadEntry(name string, annos map[string]string, labels map[string]string) string {
+	if arg, f := annos[annotation.IoIstioAutoRegistrationGroup.Name]; f {
+		return arg
+	}
+	if wn, f := labels[label.ServiceWorkloadName.Name]; f {
+		return wn
+	}
+	return name
+}
 
 // CanonicalService returns the values of the following labels from the supplied map:
 // - service.istio.io/canonical-name

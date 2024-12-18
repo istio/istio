@@ -25,6 +25,7 @@ spec:
         security.istio.io/tlsMode: istio
         service.istio.io/canonical-name: test-service-name
         service.istio.io/canonical-revision: latest
+        service.istio.io/workload-name: test-workload-name
         tier: backend
         track: stable
     spec:
@@ -102,7 +103,7 @@ spec:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
-          value: hello
+          value: test-workload-name
         - name: ISTIO_META_OWNER
           value: kubernetes://apis/v1/namespaces/default/deploymentconfigs/hello
         - name: ISTIO_META_MESH_ID

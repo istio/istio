@@ -11,6 +11,7 @@ spec:
         tier: backend
         track: stable
         service.istio.io/canonical-name: test-service-name
+        service.istio.io/workload-name: test-workload-name
     spec:
       containers:
         - name: hello

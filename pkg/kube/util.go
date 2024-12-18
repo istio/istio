@@ -34,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
@@ -254,6 +255,19 @@ func CheckPodReady(pod *corev1.Pod) error {
 	default:
 		return fmt.Errorf("%s", pod.Status.Phase)
 	}
+}
+
+// GetWorkloadMetaFromPod heuristically derives workload name and type metadata from the pod spec.
+// This respects the workload-name override; to just use heuristics only use GetDeployMetaFromPod.
+func GetWorkloadMetaFromPod(pod *corev1.Pod) (types.NamespacedName, metav1.TypeMeta) {
+	name, meta := GetDeployMetaFromPod(pod)
+	if pod == nil {
+		return name, meta
+	}
+	if wn, f := pod.Labels[label.ServiceWorkloadName.Name]; f {
+		name.Name = wn
+	}
+	return name, meta
 }
 
 // GetDeployMetaFromPod heuristically derives deployment metadata from the pod spec.
