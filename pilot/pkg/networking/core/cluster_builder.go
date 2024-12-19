@@ -84,10 +84,13 @@ type metadataCerts struct {
 // ClusterBuilder interface provides an abstraction for building Envoy Clusters.
 type ClusterBuilder struct {
 	// Proxy related information used to build clusters.
+	// The fields below that influence cluster configuration must be reflected in clusterCache
+	// to ensure accurate differentiation and caching of clusters.
 	serviceTargets     []model.ServiceTarget // Service targets of Proxy.
 	metadataCerts      *metadataCerts        // Client certificates specified in metadata.
 	clusterID          string                // Cluster in which proxy is running.
 	proxyID            string                // Identifier that uniquely identifies a proxy.
+	proxyMetadata      *model.NodeMetadata   // Metadata of the proxy.
 	proxyVersion       *model.IstioVersion   // Version of Proxy.
 	proxyType          model.NodeType        // Indicates whether the proxy is sidecar or gateway.
 	sidecarScope       *model.SidecarScope   // Computed sidecar for the proxy.
@@ -111,6 +114,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 	cb := &ClusterBuilder{
 		serviceTargets:     proxy.ServiceTargets,
 		proxyID:            proxy.ID,
+		proxyMetadata:      proxy.Metadata,
 		proxyType:          proxy.Type,
 		proxyVersion:       model.ParseIstioVersion(proxy.Metadata.IstioVersion),
 		sidecarScope:       proxy.SidecarScope,
@@ -606,6 +610,35 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	if port.Protocol.IsHTTP2() {
 		setH2Options(cluster)
 		return
+	}
+
+	// Preserve HTTP/1.x traffic header case
+	effectiveProxyConfig := cb.proxyMetadata.ProxyConfigOrDefault(cb.req.Push.Mesh.GetDefaultConfig())
+	preserveHeaderCase := effectiveProxyConfig.GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
+
+	isExplicitHTTP := port.Protocol.IsHTTP()
+	isAutoProtocol := port.Protocol.IsUnsupported()
+
+	if (isExplicitHTTP || isAutoProtocol) && preserveHeaderCase {
+		// Apply the stateful formatter for HTTP/1.x headers
+		cluster.httpProtocolOptions.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
+					HttpProtocolOptions: &core.Http1ProtocolOptions{
+						HeaderKeyFormat: &core.Http1ProtocolOptions_HeaderKeyFormat{
+							HeaderFormat: &core.Http1ProtocolOptions_HeaderKeyFormat_StatefulFormatter{
+								StatefulFormatter: &core.TypedExtensionConfig{
+									Name: "preserve_case",
+									TypedConfig: &anypb.Any{
+										TypeUrl: "type.googleapis.com/envoy.extensions.http.header_formatters.preserve_case.v3.PreserveCaseFormatterConfig",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
 	}
 
 	// Add use_downstream_protocol for sidecar proxy only if protocol sniffing is enabled. Since
