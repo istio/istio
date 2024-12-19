@@ -1,0 +1,36 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** `dataplane` and `controlplane` charts. These are Helm wrapper charts that
+  group the existing individial Istio Helm charts, for easier install and upgrade, while still allowing
+  Istio dataplane and controlplane upgrades to be managed separately.
+
+upgradeNotes:
+  - title: Using the `dataplane` and `controlplane` charts for new Istio installs
+    content: |
+      To install sidecar (without CNI agent):
+
+      > $ helm install istio-controlplane istio/controlplane -n istio-system --create-namespace --set global.platform=(your-platform) --set global.profile=(your-profile)
+
+      To install sidecar (with CNI agent for sidecar repair/init container replacement):
+
+      > $ helm install istio-controlplane istio/controlplane -n istio-system --create-namespace --set global.platform=(your-platform) --set global.profile=(your-profile)
+
+      > $ helm install istio-dataplane istio/dataplane -n istio-system --create-namespace --set global.platform=(your-platform) --set global.profile=(your-profile) --set cni-agent.enabled=true
+
+      To install ambient:
+
+      > $ helm install istio-controlplane istio/controlplane -n istio-system --create-namespace --set global.platform=(your-platform) --set global.profile=ambient
+
+      > $ helm install istio-dataplane istio/dataplane -n istio-system --create-namespace --set global.platform=(your-platform) --set global.profile=ambient --set ambient.enabled=true
+
+      (This is cumbersome, and is tracked by https://github.com/istio/istio/issues/54401)
+
+      To upgrade any of the above:
+      > $ helm upgrade <istio-controlplane || istio-dataplane>
+
+  - title: Upgrading existing `Helm` or `istioctl` Istio installs with the `dataplane` and `controlplane` charts
+    content: |
+      Using the `dataplane` or `controlplane` wrapper charts to upgrade or migrate an existing Istio install that used individual Helm charts, or `istioctl` is not supported - you must upgrade with the same installation mechanism you originally used.
