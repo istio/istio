@@ -180,6 +180,35 @@ func (srcNamespaceGenerator) principal(_, value string, _ bool, useAuthenticated
 	return principalAuthenticated(m, useAuthenticated), nil
 }
 
+type srcServiceAccountGenerator struct{}
+
+func (srcServiceAccountGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (srcServiceAccountGenerator) principal(_, value string, _ bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+	regex, err := serviceAccountRegex(value)
+	if err != nil {
+		return nil, err
+	}
+	m := matcher.StringMatcherRegex(regex)
+	return principalAuthenticated(m, useAuthenticated), nil
+}
+
+func serviceAccountRegex(value string) (string, error) {
+	ns, sa, ok := strings.Cut(value, "/")
+	if !ok {
+		return "", fmt.Errorf("invalid value: %v", value)
+	}
+	// Format should follow...
+	// 'spiffe://' then a trust domain + arbitrary k/v pairs
+	// '/ns/<namespace>/'
+	// optional arbitrary k/v pairs
+	// '/sa/<serviceAccount>'
+	// Either end of string OR / + arbitrary k/v pairs (the / ensures we do not match <service account>-some-junk)
+	return fmt.Sprintf("spiffe://.+/ns/%s/(.+/|)sa/%s(/.+)?", ns, sa), nil
+}
+
 type srcPrincipalGenerator struct{}
 
 func (srcPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
