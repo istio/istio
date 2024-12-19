@@ -120,6 +120,9 @@ spec:
         {{- if .Values.global.logAsJson }}
         - --log_as_json
         {{- end }}
+        {{- if .Values.global.proxy.outlierLogPath }}
+        - --outlierLogPath={{ .Values.global.proxy.outlierLogPath }}
+        {{- end}}
         env:
         - name: ISTIO_META_SERVICE_ACCOUNT
           valueFrom:
