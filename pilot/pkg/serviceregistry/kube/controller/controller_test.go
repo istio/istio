@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -2427,6 +2428,47 @@ func TestUpdateEdsCacheOnServiceUpdate(t *testing.T) {
 	updateService(controller, svc, t)
 	// update eds cache if `K8S_SELECT_WORKLOAD_ENTRIES` is enabled
 	fx.WaitOrFail(t, "eds cache")
+}
+
+func TestVisibilityNoneService(t *testing.T) {
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+	serviceHandler := func(_, curr *model.Service, _ model.Event) {
+		pushReq := &model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
+			Reason:         model.NewReasonStats(model.ServiceUpdate),
+		}
+		fx.ConfigUpdate(pushReq)
+	}
+	controller.Controller.AppendServiceHandler(serviceHandler)
+
+	// Create an initial pod with a service with None visibility, and endpoint.
+	pod1 := generatePod([]string{"172.0.1.1"}, "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pod2 := generatePod([]string{"172.0.1.2"}, "pod2", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
+	pods := []*corev1.Pod{pod1, pod2}
+	nodes := []*corev1.Node{
+		generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}),
+	}
+	addNodes(t, controller, nodes...)
+	addPods(t, controller, fx, pods...)
+	createServiceWait(controller, "svc1", "nsA", []string{"10.0.0.1"}, nil, map[string]string{annotation.NetworkingExportTo.Name: "~"},
+		[]int32{8080}, map[string]string{"app": "prod-app"}, t)
+
+	pod1Ips := []string{"172.0.1.1"}
+	portNames := []string{"tcp-port"}
+	createEndpoints(t, controller, "svc1", "nsA", portNames, pod1Ips, nil, nil)
+	// We should not get any events - service should be ignored.
+	fx.AssertEmpty(t, 0)
+
+	// update service and remove exportTo annotation.
+	svc := getService(controller, "svc1", "nsA", t)
+	svc.Annotations = map[string]string{}
+	updateService(controller, svc, t)
+	fx.WaitOrFail(t, "eds cache")
+	fx.WaitOrFail(t, "service")
+	host := string(kube.ServiceHostname("svc1", "nsA", controller.opts.DomainSuffix))
+	// We should see a full push.
+	fx.MatchOrFail(t, xdsfake.Event{Type: "xds full", ID: host})
 }
 
 func TestDiscoverySelector(t *testing.T) {
