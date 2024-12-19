@@ -16,8 +16,10 @@ package core
 
 import (
 	"fmt"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"reflect"
 	"testing"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -982,5 +984,23 @@ func TestAdditionalAddressesForIPv6(t *testing.T) {
 	}
 	if vo.AdditionalAddresses == nil || len(vo.AdditionalAddresses) != 1 {
 		t.Fatal("expected additional ipv4 bind addresse")
+	}
+}
+
+func TestBuildInboundListenerListenerFilterTimeout(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{})
+	sidecarProxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})
+	push := cg.PushContext()
+	push.Mesh.ProtocolDetectionTimeout = durationpb.New(10 * time.Second)
+	lb := &ListenerBuilder{
+		push:               push,
+		node:               sidecarProxy,
+		authzCustomBuilder: &authz.Builder{},
+		authzBuilder:       &authz.Builder{},
+	}
+	listener := lb.buildInboundListener("test", []string{"test.com"}, 80, false, nil)
+	*listener.ListenerFiltersTimeout = *durationpb.New(5 * time.Second)
+	if push.Mesh.ProtocolDetectionTimeout.GetSeconds() != 10 {
+		t.Fatalf("expected mesh protocol detection timeout to be 10s, got %v", push.Mesh.ProtocolDetectionTimeout)
 	}
 }
