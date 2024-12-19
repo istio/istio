@@ -239,7 +239,7 @@ spec:
         port:
           number: 80
       percentage:
-        value: 0.5
+        value: 50
     - destination:
         host: httpbin-second.default.svc.domain.suffix
         port:
