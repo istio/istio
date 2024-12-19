@@ -20,7 +20,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
@@ -76,13 +75,9 @@ type Multicluster struct {
 	// options to use when creating kube controllers
 	opts Options
 
-	// client for reading remote-secrets to initialize multicluster registries
-	client kubernetes.Interface
-	s      server.Instance
+	s server.Instance
 
 	serviceEntryController *serviceentry.Controller
-	configController       model.ConfigStoreController
-	XDSUpdater             model.XDSUpdater
 
 	clusterLocal model.ClusterLocalProvider
 
@@ -90,19 +85,14 @@ type Multicluster struct {
 	caBundleWatcher   *keycertbundle.Watcher
 	revision          string
 
-	// secretNamespace where we get cluster-access secrets
-	secretNamespace string
-	component       *multicluster.Component[*kubeController]
+	component *multicluster.Component[*kubeController]
 }
 
 // NewMulticluster initializes data structure to store multicluster information
 func NewMulticluster(
 	serverID string,
-	kc kubernetes.Interface,
-	secretNamespace string,
 	opts Options,
 	serviceEntryController *serviceentry.Controller,
-	configController model.ConfigStoreController,
 	caBundleWatcher *keycertbundle.Watcher,
 	revision string,
 	startNsController bool,
@@ -114,14 +104,10 @@ func NewMulticluster(
 		serverID:               serverID,
 		opts:                   opts,
 		serviceEntryController: serviceEntryController,
-		configController:       configController,
 		startNsController:      startNsController,
 		caBundleWatcher:        caBundleWatcher,
 		revision:               revision,
-		XDSUpdater:             opts.XDSUpdater,
 		clusterLocal:           clusterLocal,
-		secretNamespace:        secretNamespace,
-		client:                 kc,
 		s:                      s,
 	}
 	mc.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster) *kubeController {
