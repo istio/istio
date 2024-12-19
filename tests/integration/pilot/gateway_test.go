@@ -203,9 +203,9 @@ spec:
 			from  echo.Instances
 			host  string
 		}{
-			// apps.D hosts a dual-stack service,
+			// apps.D hosts an ipv4 service,
 			// apps.E hosts an ipv6 only service and
-			// apps.B hosts an ipv4 only service
+			// apps.B hosts a dual-stack service service
 			{
 				check: check.OK(),
 				from:  apps.D,
