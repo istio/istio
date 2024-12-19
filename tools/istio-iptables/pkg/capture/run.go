@@ -765,85 +765,6 @@ func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptVer *dep.Iptab
 	return cfg.ext.Run(log.WithLabels(), constants.IPTablesRestore, iptVer, strings.NewReader(data), "--noflush")
 }
 
-// VerifyIptablesState function verifies the current iptables state against the expected state.
-// The current state is considered equal to the expected state if the following three conditions are met:
-//   - Every ISTIO_* chain in the expected state must also exist in the current state.
-//   - Every ISTIO_* chain must have the same number of elements in both the current and expected state.
-//   - Every rule in the expected state (whether it is in an ISTIO or non-ISTIO chain) must also exist in the current state.
-//     The verification is performed by using "iptables -C" on the rule produced by our iptables builder. No comparison of the parsed rules is done.
-//
-// Note: The order of the rules is not checked and is not used to determine the equivalence of the two states.
-// The function returns two boolean values, the first one indicates whether residues exist,
-// and the second one indicates whether differences were found between the current and expected state.
-func (cfg *IptablesConfigurator) VerifyIptablesState(iptVer, ipt6Ver *dep.IptablesVersion) (bool, bool) {
-	// These variables track the status of iptables installation
-	residueExists := false // Flag to indicate if iptables residues from previous executions are found
-	deltaExists := false   // Flag to indicate if a difference is found between expected and current state
-
-check_loop:
-	for _, ipCfg := range []struct {
-		ver        *dep.IptablesVersion
-		expected   string
-		checkRules [][]string
-	}{
-		{iptVer, cfg.ruleBuilder.BuildV4Restore(), cfg.ruleBuilder.BuildCheckV4()},
-		{ipt6Ver, cfg.ruleBuilder.BuildV6Restore(), cfg.ruleBuilder.BuildCheckV6()},
-	} {
-		output, err := cfg.ext.RunWithOutput(log.WithLabels(), constants.IPTablesSave, ipCfg.ver, nil)
-		if err == nil {
-			currentState := cfg.ruleBuilder.GetStateFromSave(output.String())
-			log.Debugf("Current iptables state: %#v", currentState)
-			for _, value := range currentState {
-				if residueExists {
-					break
-				}
-				residueExists = len(value) != 0
-			}
-			if !residueExists {
-				continue
-			}
-			expectedState := cfg.ruleBuilder.GetStateFromSave(ipCfg.expected)
-			log.Debugf("Expected iptables state: %#v", expectedState)
-			for table, chains := range expectedState {
-				_, ok := currentState[table]
-				if !ok {
-					deltaExists = true
-					log.Debugf("Can't find expected table %s in current state", table)
-					break check_loop
-				}
-				for chain, rules := range chains {
-					currentRules, ok := currentState[table][chain]
-					if !ok || (strings.HasPrefix(chain, "ISTIO_") && len(rules) != len(currentRules)) {
-						deltaExists = true
-						log.Debugf("Mismatching number of rules in chain %s between current and expected state", chain)
-						break check_loop
-					}
-				}
-			}
-			err = cfg.executeIptablesCommands(ipCfg.ver, ipCfg.checkRules)
-			if err != nil {
-				deltaExists = true
-				log.Debugf("iptables check rules failed")
-				break
-			}
-		}
-
-	}
-
-	if !residueExists {
-		log.Info("Clean-state detected, new iptables are needed")
-		return false, true
-	}
-
-	if deltaExists {
-		log.Warn("Found residues of old iptables rules/chains, reconciliation is needed")
-	} else {
-		log.Warn("Found compatible residues of old iptables rules/chains, reconciliation not needed")
-	}
-
-	return residueExists, deltaExists
-}
-
 func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVersion) error {
 	guardrails := false
 	defer func() {
@@ -855,9 +776,9 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 		}
 	}()
 
-	residueExists, deltaExists := cfg.VerifyIptablesState(iptVer, ipt6Ver)
+	residueExists, deltaExists := VerifyIptablesState(log.WithLabels(), cfg.ext, cfg.ruleBuilder, iptVer, ipt6Ver)
 	if residueExists && deltaExists && !cfg.cfg.Reconcile {
-		log.Warn("reconcile is needed but no-reconcile flag is set. Unexpected behavior may occur due to preexisting iptables rules")
+		log.Info("reconcile is recommended but no-reconcile flag is set. Unexpected behavior may occur due to preexisting iptables rules")
 	}
 	// Cleanup Step
 	if (residueExists && deltaExists && cfg.cfg.Reconcile) || cfg.cfg.CleanupOnly {

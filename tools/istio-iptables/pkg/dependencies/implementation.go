@@ -238,7 +238,7 @@ func (r *RealDependencies) RunWithOutput(
 	stdin io.ReadSeeker,
 	args ...string,
 ) (*bytes.Buffer, error) {
-	return r.executeXTablesWithOutput(logger, cmd, iptVer, false, stdin, args...)
+	return r.executeXTablesWithOutput(logger, cmd, iptVer, false, true, stdin, args...)
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors

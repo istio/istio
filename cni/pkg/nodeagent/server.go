@@ -69,15 +69,23 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing kube client: %w", err)
 	}
 
-	cfg := &iptables.IptablesConfig{
+	hostCfg := &iptables.IptablesConfig{
 		RedirectDNS:            args.DNSCapture,
 		EnableIPv6:             args.EnableIPv6,
 		HostProbeSNATAddress:   HostProbeSNATIP,
 		HostProbeV6SNATAddress: HostProbeSNATIPV6,
 	}
 
+	podCfg := &iptables.IptablesConfig{
+		RedirectDNS:            args.DNSCapture,
+		EnableIPv6:             args.EnableIPv6,
+		HostProbeSNATAddress:   HostProbeSNATIP,
+		HostProbeV6SNATAddress: HostProbeSNATIPV6,
+		Reconcile:              args.ReconcilePodRulesOnStartup,
+	}
+
 	log.Debug("creating ipsets in the node netns")
-	set, err := createHostsideProbeIpset(cfg.EnableIPv6)
+	set, err := createHostsideProbeIpset(hostCfg.EnableIPv6)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing hostside probe ipset: %w", err)
 	}
@@ -88,8 +96,13 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
 	}
 
-	// nolint: lll
-	hostIptables, podIptables, err := iptables.NewIptablesConfigurator(cfg, realDependenciesHost(), realDependenciesInpod(UseScopedIptablesLegacyLocking), iptables.RealNlDeps())
+	hostIptables, podIptables, err := iptables.NewIptablesConfigurator(
+		hostCfg,
+		podCfg,
+		realDependenciesHost(),
+		realDependenciesInpod(UseScopedIptablesLegacyLocking),
+		iptables.RealNlDeps(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error configuring iptables: %w", err)
 	}

@@ -33,6 +33,7 @@ import (
 	"github.com/howardjohn/unshare-go/userns"
 
 	testutil "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -370,7 +371,7 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Can't detect ip6tables version")
 	}
-
+	scope := log.FindScope(log.DefaultScopeName)
 	for _, tt := range commonCases {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
@@ -391,7 +392,7 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 				cfg.Reconcile = false
 				iptConfigurator := NewIptablesConfigurator(cfg, ext)
 				assert.NoError(t, iptConfigurator.Run())
-				residueExists, deltaExists := iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+				residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
 				assert.Equal(t, residueExists, false)
 				assert.Equal(t, deltaExists, true)
 			}()
@@ -400,7 +401,7 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 			cfg.Reconcile = false
 			iptConfigurator := NewIptablesConfigurator(cfg, ext)
 			assert.NoError(t, iptConfigurator.Run())
-			residueExists, deltaExists := iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+			residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 
@@ -449,7 +450,7 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Can't detect ip6tables version")
 	}
-
+	scope := log.FindScope(log.DefaultScopeName)
 	for _, tt := range commonCases {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
@@ -471,7 +472,7 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 				cfg.Reconcile = false
 				iptConfigurator := NewIptablesConfigurator(cfg, ext)
 				assert.NoError(t, iptConfigurator.Run())
-				residueExists, deltaExists := iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+				residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
 				assert.Equal(t, residueExists, true) // residue found due to extra OUTPUT rule
 				assert.Equal(t, deltaExists, true)
 				// Remove additional rule
@@ -481,7 +482,7 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 				if err := cmd.Run(); err != nil {
 					t.Errorf("iptables cmd (%s %s) failed: %s", cmd.Path, cmd.Args, stderr.String())
 				}
-				residueExists, deltaExists = iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+				residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
 				assert.Equal(t, residueExists, false)
 				assert.Equal(t, deltaExists, true)
 			}()
@@ -489,7 +490,7 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 			// First Pass
 			iptConfigurator := NewIptablesConfigurator(cfg, ext)
 			assert.NoError(t, iptConfigurator.Run())
-			residueExists, deltaExists := iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+			residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 
@@ -502,7 +503,7 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 			}
 
 			// Apply not required after tainting non-ISTIO chains with extra rules
-			residueExists, deltaExists = iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+			residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 
@@ -514,7 +515,7 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 			}
 
 			// Apply required after tainting ISTIO chains
-			residueExists, deltaExists = iptConfigurator.VerifyIptablesState(&iptVer, &ipt6Ver)
+			residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, true)
 
