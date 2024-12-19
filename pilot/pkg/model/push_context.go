@@ -1378,6 +1378,9 @@ func (ps *PushContext) updateContext(
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
 			gatewayChanged = true
+		case kind.BackendLBPolicy:
+			gatewayAPIChanged = true
+			destinationRulesChanged = true
 		case kind.Telemetry:
 			telemetryChanged = true
 		case kind.ProxyConfig:
