@@ -77,7 +77,7 @@ spec:
             allowPrivilegeEscalation: false
             privileged: false
             readOnlyRootFilesystem: true
-            {{- if not (eq .Values.platform "openshift") }}
+            {{- if not (eq (.Values.platform | default "") "openshift") }}
             runAsUser: 1337
             runAsGroup: 1337
             {{- end }}
