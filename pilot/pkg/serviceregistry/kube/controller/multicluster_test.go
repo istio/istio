@@ -95,12 +95,12 @@ func Test_KubeSecretController(t *testing.T) {
 	stop := test.NewStop(t)
 	s := server.New()
 	mcc := initController(clientset, testSecretNameSpace, stop)
-	mc := NewMulticluster("pilot-abc-123", clientset.Kube(), testSecretNameSpace, Options{
+	mc := NewMulticluster("pilot-abc-123", Options{
 		ClusterID:             "cluster-1",
 		DomainSuffix:          DomainSuffix,
 		MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		MeshServiceController: mockserviceController,
-	}, nil, nil, nil, "default", false, nil, s, mcc)
+	}, nil, nil, "default", false, nil, s, mcc)
 	assert.NoError(t, mcc.Run(stop))
 	go mockserviceController.Run(stop)
 	clientset.RunAndWait(stop)
@@ -138,12 +138,12 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	s := server.New()
 	certWatcher := keycertbundle.NewWatcher()
 	mcc := initController(clientset, testSecretNameSpace, stop)
-	mc := NewMulticluster("pilot-abc-123", clientset.Kube(), testSecretNameSpace, Options{
+	mc := NewMulticluster("pilot-abc-123", Options{
 		ClusterID:             "cluster-1",
 		DomainSuffix:          DomainSuffix,
 		MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		MeshServiceController: mockserviceController,
-	}, nil, nil, certWatcher, "default", false, nil, s, mcc)
+	}, nil, certWatcher, "default", false, nil, s, mcc)
 	assert.NoError(t, mcc.Run(stop))
 	go mockserviceController.Run(stop)
 	clientset.RunAndWait(stop)
