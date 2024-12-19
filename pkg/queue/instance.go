@@ -58,14 +58,22 @@ type queueImpl struct {
 	closed    chan struct{}
 	closeOnce *sync.Once
 	// initialSync indicates the queue has initially "synced".
-	initialSync *atomic.Bool
-	id          string
-	metrics     *queueMetrics
+	initialSync  *atomic.Bool
+	id           string
+	metrics      *queueMetrics
+	syncCallback func()
 }
 
 // NewQueue instantiates a queue with a processing function
 func NewQueue(errorDelay time.Duration) Instance {
 	return NewQueueWithID(errorDelay, rand.String(10))
+}
+
+// NewQueue instantiates a queue with a processing function
+func NewWithSync(f func(), name string) Instance {
+	q := NewQueueWithID(time.Second, name)
+	q.(*queueImpl).syncCallback = f
+	return q
 }
 
 func NewQueueWithID(errorDelay time.Duration, name string) Instance {
@@ -164,6 +172,9 @@ func (q *queueImpl) Run(stop <-chan struct{}) {
 
 	q.Push(func() error {
 		q.initialSync.Store(true)
+		if q.syncCallback != nil {
+			q.syncCallback()
+		}
 		return nil
 	})
 	for q.processNextItem() {

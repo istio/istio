@@ -48,6 +48,11 @@ type EventStream[T any] interface {
 	// called. Typically, usage of Register is done internally in krt via composition of Collections with Transformations
 	// (NewCollection, NewManyCollection, NewSingleton); however, at boundaries of the system (connecting to something not
 	// using krt), registering directly is expected.
+	// Handlers have the following semantics:
+	// * On each event, all handlers are called.
+	// * Each handler has its own unbounded event queue. Slow handlers will cause this queue to accumulate, but will not block
+	//   other handlers.
+	// * Events will be sent in order, and will not be dropped or deduplicated.
 	Register(f func(o Event[T])) Syncer
 
 	// Synced returns a Syncer which can be used to determine if the collection has synced. Once its synced, all dependencies have

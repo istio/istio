@@ -15,25 +15,50 @@
 package krt
 
 import (
+	"fmt"
+	"sync"
+
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 )
 
-type staticList[T any] struct {
-	vals map[Key[T]]T
-	id   collectionUID
+type StaticCollection[T any] struct {
+	*staticList[T]
 }
 
-func NewStaticCollection[T any](vals []T) Collection[T] {
-	res := map[Key[T]]T{}
+type staticList[T any] struct {
+	mu             sync.RWMutex
+	vals           map[Key[T]]T
+	eventHandlers  *handlerSet[T]
+	id             collectionUID
+	stop           <-chan struct{}
+	collectionName string
+}
+
+func NewStaticCollection[T any](vals []T, opts ...CollectionOption) StaticCollection[T] {
+	o := buildCollectionOptions(opts...)
+	if o.name == "" {
+		o.name = fmt.Sprintf("Static[%v]", ptr.TypeName[T]())
+	}
+
+	res := make(map[Key[T]]T, len(vals))
 	for _, v := range vals {
 		res[GetKey(v)] = v
 	}
-	return &staticList[T]{
-		vals: res,
-		id:   nextUID(),
+
+	sl := &staticList[T]{
+		eventHandlers:  &handlerSet[T]{},
+		vals:           res,
+		id:             nextUID(),
+		stop:           o.stop,
+		collectionName: o.name,
+	}
+
+	return StaticCollection[T]{
+		staticList: sl,
 	}
 }
 
@@ -46,7 +71,7 @@ func (s *staticList[T]) GetKey(k Key[T]) *T {
 
 // nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) name() string {
-	return "staticList"
+	return s.collectionName
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -102,15 +127,19 @@ func (s *staticList[T]) Synced() Syncer {
 }
 
 func (s *staticList[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var objs []Event[T]
 	if runExistingState {
-		f(slices.Map(s.List(), func(e T) Event[T] {
-			return Event[T]{
-				New:   &e,
+		for _, v := range s.vals {
+			v := v
+			objs = append(objs, Event[T]{
+				New:   &v,
 				Event: controllers.EventAdd,
-			}
-		}), true)
+			})
+		}
 	}
-	return alwaysSynced{}
+	return s.eventHandlers.Insert(f, s.Synced(), objs, s.stop)
 }
 
 var _ internalCollection[any] = &staticList[any]{}

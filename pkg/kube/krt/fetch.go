@@ -42,13 +42,13 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 		o(d)
 	}
 	// Important: register before we List(), so we cannot miss any events
-	h.registerDependency(d, c.Synced(), func(f erasedEventHandler) {
+	h.registerDependency(d, c.Synced(), func(f erasedEventHandler) Syncer {
 		ff := func(o []Event[T], initialSync bool) {
 			f(slices.Map(o, castEvent[T, any]), initialSync)
 		}
 		// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
 		// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
-		c.RegisterBatch(ff, false)
+		return c.RegisterBatch(ff, false)
 	})
 
 	// Now we can do the real fetching
