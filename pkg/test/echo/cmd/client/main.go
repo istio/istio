@@ -65,6 +65,7 @@ var (
 
 	hboneAddress            string
 	hboneHeaders            []string
+	doubleHboneAddress      string
 	hboneClientCert         string
 	hboneClientKey          string
 	hboneCaFile             string
@@ -162,6 +163,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&serverName, "server-name", "", serverName, "server name to set")
 
 	rootCmd.PersistentFlags().StringVar(&hboneAddress, "hbone", "", "address to send HBONE request to")
+	rootCmd.PersistentFlags().StringVar(&doubleHboneAddress, "double-hbone", "", "address to send double HBONE request to")
 	rootCmd.PersistentFlags().StringSliceVarP(&hboneHeaders, "hbone-header", "M", hboneHeaders,
 		"A list of http headers for HBONE connection (use Host for authority) - 'name: value', following curl syntax")
 	rootCmd.PersistentFlags().StringVar(&hboneCaFile, "hbone-ca", "", "CA root cert file used for the HBONE request")
@@ -226,6 +228,28 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 			}
 
 			request.Hbone.Headers = append(request.Hbone.Headers, &proto.Header{
+				Key:   parts[0],
+				Value: strings.Trim(parts[1], " "),
+			})
+		}
+	}
+
+	if len(doubleHboneAddress) > 0 {
+		request.DoubleHbone = &proto.HBONE{
+			Address:            doubleHboneAddress,
+			CertFile:           hboneClientCert,
+			KeyFile:            hboneClientKey,
+			CaCertFile:         hboneCaFile,
+			InsecureSkipVerify: hboneInsecureSkipVerify,
+		}
+		for _, header := range hboneHeaders {
+			parts := strings.SplitN(header, ":", 2)
+			// require name:value format
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid header format: %q (want name:value)", header)
+			}
+
+			request.DoubleHbone.Headers = append(request.Hbone.Headers, &proto.Header{
 				Key:   parts[0],
 				Value: strings.Trim(parts[1], " "),
 			})
