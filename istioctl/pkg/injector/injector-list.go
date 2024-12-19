@@ -249,6 +249,9 @@ func getMatchingNamespaces(hook *admitv1.MutatingWebhookConfiguration, namespace
 	retval := make([]corev1.Namespace, 0, len(namespaces))
 	seen := sets.String{}
 	for _, webhook := range hook.Webhooks {
+		if webhook.Name != "rev.namespace.sidecar-injector.istio.io" && webhook.Name != "namespace.sidecar-injector.istio.io" {
+			continue
+		}
 		nsSelector, err := metav1.LabelSelectorAsSelector(webhook.NamespaceSelector)
 		if err != nil {
 			return retval
