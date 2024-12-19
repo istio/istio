@@ -22,18 +22,15 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/fuzz"
-	"istio.io/istio/pkg/network"
 )
 
 func FuzzKubeController(f *testing.F) {
 	fuzz.Fuzz(f, func(fg fuzz.Helper) {
-		networkID := network.ID("fakeNetwork")
 		fco := fuzz.Struct[FakeControllerOptions](fg)
 		fco.SkipRun = true
 		// Overlapping CRDs would fail, just remove them
 		fco.CRDs = nil
 		controller, _ := NewFakeControllerWithOptions(fg.T(), fco)
-		controller.network = networkID
 
 		p := fuzz.Struct[*corev1.Pod](fg)
 		controller.pods.onEvent(nil, p, model.EventAdd)
