@@ -319,6 +319,17 @@ func TestProxyK8sHostnameLabel(t *testing.T) {
 	}
 }
 
+func setSystemNetwork(t test.Failer, c *FakeController, net network.ID) {
+	clienttest.NewWriter[*corev1.Namespace](t, c.client).Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: c.opts.SystemNamespace,
+			Labels: map[string]string{
+				label.TopologyNetwork.Name: string(net),
+			},
+		},
+	})
+}
+
 func TestGetProxyServiceTargets(t *testing.T) {
 	clusterID := cluster.ID("fakeCluster")
 	networkID := network.ID("fakeNetwork")
@@ -326,7 +337,7 @@ func TestGetProxyServiceTargets(t *testing.T) {
 		ClusterID: clusterID,
 	})
 	// add a network ID to test endpoints include topology.istio.io/network label
-	controller.network = networkID
+	setSystemNetwork(t, controller, networkID)
 
 	p := generatePod([]string{"128.0.0.1"}, "pod1", "nsa", "foo", "node1", map[string]string{"app": "test-app"}, map[string]string{})
 	addPods(t, controller, fx, p)
