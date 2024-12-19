@@ -162,7 +162,7 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 			Key:      key,
 		},
 	}
-	if l.perRevision {
+	if l.perRevision || l.useLeaseLock {
 		lock = &k8sresourcelock.LeaseLock{
 			LeaseMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
 			Client:    l.client.CoordinationV1(),
