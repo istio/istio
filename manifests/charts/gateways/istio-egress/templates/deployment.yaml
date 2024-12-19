@@ -57,7 +57,7 @@ spec:
     spec:
 {{- if not $gateway.runAsRoot }}
       securityContext:
-{{- if not (eq (coalesce .Values.platform .Values.global.platform) "openshift") }}
+{{- if not (eq ((coalesce .Values.platform .Values.global.platform) | default "") "openshift") }}
         runAsUser: 1337
         runAsGroup: 1337
 {{- end }}
