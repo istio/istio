@@ -110,7 +110,14 @@ if [ -f /proc/cpuinfo ]; then
 fi
 
 # Default IP family of the cluster is IPv4
-export IP_FAMILY="${IP_FAMILY:-ipv4}"
+KIND_IP_FAMILY="ipv4"
+export IP_FAMILIES="${IP_FAMILIES:-IPv4}"
+if [[ "$IP_FAMILIES" == "IPv6" ]]; then
+   KIND_IP_FAMILY="ipv6"
+elif [[ "$IP_FAMILIES" =~ "IPv6" ]] && [[ "$IP_FAMILIES" =~ "IPv4" ]]; then
+   KIND_IP_FAMILY="dual"
+fi
+export KIND_IP_FAMILY
 
 # LoadBalancer in Kind is supported using metallb
 export TEST_ENV=kind-metallb
@@ -149,7 +156,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     trace "setup kind cluster" setup_kind_cluster_retry "istio-testing" "${NODE_IMAGE}" "${KIND_CONFIG}"
   else
     trace "load cluster topology" load_cluster_topology "${CLUSTER_TOPOLOGY_CONFIG_FILE}"
-    trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${IP_FAMILY}"
+    trace "setup kind clusters" setup_kind_clusters "${NODE_IMAGE}" "${KIND_IP_FAMILY}"
 
     TOPOLOGY_JSON=$(cat "${CLUSTER_TOPOLOGY_CONFIG_FILE}")
     for i in $(seq 0 $((${#CLUSTER_NAMES[@]} - 1))); do
@@ -178,7 +185,7 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   crane copy gcr.io/istio-testing/wasm/header-injector:0.0.2 localhost:5000/istio-testing/wasm/header-injector:0.0.2
 
   # Make "kind-registry" resolvable in IPv6 cluster
-  if [[ "$IP_FAMILY" == "ipv6" ]]; then
+  if [[ "$KIND_IP_FAMILY" == "ipv6" ]]; then
     kind_registry_ip=$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{if eq $k "kind"}}{{.GlobalIPv6Address}}{{end}}{{end}}' kind-registry)
     coredns_config=$(kubectl get -oyaml -n=kube-system configmap/coredns)
     echo "Current CoreDNS config:"
