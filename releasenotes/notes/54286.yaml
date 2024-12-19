@@ -24,9 +24,7 @@ upgradeNotes:
 
       > $ helm install istio-controlplane istio/controlplane -n istio-system --create-namespace --set global.platform=(your-platform) --set global.profile=ambient
 
-      > $ helm install istio-dataplane istio/dataplane -n istio-system --create-namespace --set global.platform=(your-platform) --set global.profile=ambient --set ambient.enabled=true
-
-      (This is cumbersome, and is tracked by https://github.com/istio/istio/issues/54401)
+      > $ helm install istio-dataplane istio/dataplane -n istio-system --create-namespace --set global.platform=(your-platform) --set global.profile=ambient
 
       To upgrade any of the above:
       > $ helm upgrade <istio-controlplane || istio-dataplane>
