@@ -243,6 +243,18 @@ func TestCreateCertificate(t *testing.T) {
 			certChain: []string{"cert", "cert_chain", "root_cert"},
 			code:      codes.OK,
 		},
+		"Successful signing w/ multi-cert chain": {
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
+			ca: &mockca.FakeCA{
+				SignedCert: []byte("cert"),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil,
+					[]byte("cert_chain1-----END CERTIFICATE-----\ncert_chain2-----END CERTIFICATE-----\n"),
+					[]byte("root_cert"),
+				),
+			},
+			certChain: []string{"cert", "cert_chain1-----END CERTIFICATE-----\n", "cert_chain2-----END CERTIFICATE-----\n", "root_cert"},
+			code:      codes.OK,
+		},
 	}
 
 	p := &peer.Peer{Addr: &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}, AuthInfo: credentials.TLSInfo{}}
