@@ -29,7 +29,6 @@ import (
 	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
-	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
 )
 
 var log = scopes.CNIAgent
@@ -162,10 +161,10 @@ func (cfg *IptablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
 func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 	deleteCmds := [][]string{
 		{"-t", "mangle", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
-		{"-t", "mangle", "-D", OUTPUT", "-j", ChainInpodOutput},
-		{"-t", "nat" "-D", OUTPUT", "-j", ChainInpodOutput},
+		{"-t", "mangle", "-D", "OUTPUT", "-j", ChainInpodOutput},
+		{"-t", "nat", "-D", "OUTPUT", "-j", ChainInpodOutput},
 		{"-t", "raw", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
-		{"-t", "raw", "-D", OUTPUT", "-j", ChainInpodOutput},
+		{"-t", "raw", "-D", "OUTPUT", "-j", ChainInpodOutput},
 		{"-t", "nat", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
 		// flush-then-delete our created chains
 		// these sometimes fail due to "Device or resource busy" or because they are optional given the iptables cfg
