@@ -26,8 +26,8 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/cni/pkg/iptables"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/cni/pkg/util"
+	"istio.io/istio/pkg/slices"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
