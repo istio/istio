@@ -1030,7 +1030,7 @@ const (
 	WaypointAccepted ConditionType = "WaypointAccepted"
 )
 
-type ConditionSet = map[ConditionType][]Condition
+type ConditionSet = map[ConditionType]*Condition
 
 type Condition struct {
 	ObservedGeneration int64
@@ -1039,8 +1039,15 @@ type Condition struct {
 	Status             bool
 }
 
+func (c *Condition) Equals(v *Condition) bool {
+	return c.ObservedGeneration == v.ObservedGeneration &&
+		c.Reason == v.Reason &&
+		c.Message == v.Message &&
+		c.Status == v.Status
+}
+
 func (i ServiceInfo) GetConditions() ConditionSet {
-	set := map[ConditionType][]Condition{
+	set := ConditionSet{
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound: nil,
@@ -1057,20 +1064,16 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 			buildMsg.WriteString(". Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.")
 		}
 
-		set[WaypointBound] = []Condition{
-			{
-				Status:  true,
-				Reason:  string(WaypointAccepted),
-				Message: buildMsg.String(),
-			},
+		set[WaypointBound] = &Condition{
+			Status:  true,
+			Reason:  string(WaypointAccepted),
+			Message: buildMsg.String(),
 		}
 	} else if i.Waypoint.Error != nil {
-		set[WaypointBound] = []Condition{
-			{
-				Status:  false,
-				Reason:  i.Waypoint.Error.Reason,
-				Message: i.Waypoint.Error.Message,
-			},
+		set[WaypointBound] = &Condition{
+			Status:  false,
+			Reason:  i.Waypoint.Error.Reason,
+			Message: i.Waypoint.Error.Message,
 		}
 	}
 
@@ -1172,7 +1175,7 @@ func (i WaypointPolicyStatus) GetStatusTarget() TypedObject {
 func (i WaypointPolicyStatus) GetConditions() ConditionSet {
 	set := make(ConditionSet, 1)
 
-	set[WaypointAccepted] = []Condition{flattenConditions(i.Conditions)}
+	set[WaypointAccepted] = flattenConditions(i.Conditions)
 
 	return set
 }
@@ -1182,7 +1185,7 @@ func (i WaypointPolicyStatus) GetConditions() ConditionSet {
 // flattenConditions is a work around for the uncertain future of Ancestor in gtwapi which exists at the moment.
 // It is intended to take many conditions which have ancestors and condense them into a single condition so we can
 // retain detail in the codebase to be prepared when a canonical representation is accepted upstream.
-func flattenConditions(conditions []PolicyBindingStatus) Condition {
+func flattenConditions(conditions []PolicyBindingStatus) *Condition {
 	status := false
 	reason := WaypointPolicyReasonInvalid
 	unboundAncestors := []string{}
@@ -1191,7 +1194,7 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 	// flatten causes a loss of some information and there is only 1 condition so no need to flatten
 	if len(conditions) == 1 {
 		c := conditions[0]
-		return Condition{
+		return &Condition{
 			ObservedGeneration: c.ObservedGeneration,
 			Reason:             c.Status.Reason,
 			Message:            c.Status.Message,
@@ -1227,7 +1230,7 @@ func flattenConditions(conditions []PolicyBindingStatus) Condition {
 		message = fmt.Sprintf("Invalid targetRefs: %s", strings.Join(unboundAncestors, ", "))
 	}
 
-	return Condition{
+	return &Condition{
 		highestObservedGeneration,
 		reason,
 		message,
@@ -1274,23 +1277,19 @@ func (i WorkloadAuthorization) GetConditions() ConditionSet {
 	set := make(ConditionSet, 1)
 
 	if i.Binding.Status != nil {
-		set[ZtunnelAccepted] = []Condition{
-			{
-				ObservedGeneration: i.Binding.ObservedGeneration,
-				Reason:             i.Binding.Status.Reason,
-				Message:            i.Binding.Status.Message,
-				Status:             i.Binding.Bound,
-			},
+		set[ZtunnelAccepted] = &Condition{
+			ObservedGeneration: i.Binding.ObservedGeneration,
+			Reason:             i.Binding.Status.Reason,
+			Message:            i.Binding.Status.Message,
+			Status:             i.Binding.Bound,
 		}
 	} else {
 		message := "attached to ztunnel"
-		set[ZtunnelAccepted] = []Condition{
-			{
-				ObservedGeneration: i.Binding.ObservedGeneration,
-				Reason:             "Accepted",
-				Message:            message,
-				Status:             i.Binding.Bound,
-			},
+		set[ZtunnelAccepted] = &Condition{
+			ObservedGeneration: i.Binding.ObservedGeneration,
+			Reason:             "Accepted",
+			Message:            message,
+			Status:             i.Binding.Bound,
 		}
 	}
 

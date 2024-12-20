@@ -72,7 +72,7 @@ func TestQueue(t *testing.T) {
 			if k == "" {
 				continue
 			}
-			conds[model.ConditionType(k)] = []model.Condition{{Status: v == "true", Reason: "some reason"}}
+			conds[model.ConditionType(k)] = &model.Condition{Status: v == "true", Reason: "some reason"}
 		}
 		return &serviceStatus{
 			Target: model.TypedObject{
@@ -82,7 +82,7 @@ func TestQueue(t *testing.T) {
 			Conditions: conds,
 		}
 	})
-	statusqueue.Register(q, "services", col, func(status serviceStatus) (kclient.Patcher, []string) {
+	statusqueue.Register(q, "services", col, func(status serviceStatus) (kclient.Patcher, map[string]model.Condition) {
 		return kclient.ToPatcher(svc), nil
 	})
 	clienttest.Wrap(t, svc).Create(&v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "none", Namespace: "default"}})
@@ -145,7 +145,7 @@ func TestQueueLeaderElection(t *testing.T) {
 		}
 		for _, set := range strings.Split(i.Annotations["conditions"], ",") {
 			k, v, _ := strings.Cut(set, "=")
-			conds[model.ConditionType(k)] = []model.Condition{{Status: v == "true", Reason: "some reason"}}
+			conds[model.ConditionType(k)] = &model.Condition{Status: v == "true", Reason: "some reason"}
 		}
 		return &serviceStatus{
 			Target: model.TypedObject{
@@ -155,7 +155,7 @@ func TestQueueLeaderElection(t *testing.T) {
 			Conditions: conds,
 		}
 	})
-	statusqueue.Register(q, "services", col, func(status serviceStatus) (kclient.Patcher, []string) {
+	statusqueue.Register(q, "services", col, func(status serviceStatus) (kclient.Patcher, map[string]model.Condition) {
 		return kclient.ToPatcher(svc), nil
 	})
 	clienttest.Wrap(t, svc).Create(&v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "none", Namespace: "default"}})
