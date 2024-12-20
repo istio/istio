@@ -442,6 +442,19 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	cfg.handleCaptureByOwnerGroup(ownerGroupsFilter)
 
+	if redirectDNS {
+		// Uniquely for DNS (at this time) we need a jump in "raw:OUTPUT", so this jump is conditional on that setting.
+		// And, unlike nat/OUTPUT, we have no shared rules, so no need to do a 2-level jump at this time
+		cfg.ruleBuilder.AppendRule("OUTPUT", "raw", "-j", constants.ISTIOOUTPUTDNS)
+
+		cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-j", constants.ISTIOOUTPUTDNS)
+
+		SetupDNSRedir(
+			cfg.ruleBuilder, cfg.cfg.ProxyUID, cfg.cfg.ProxyGID,
+			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS,
+			ownerGroupsFilter)
+	}
+
 	// Skip redirection for Envoy-aware applications and
 	// container-to-container traffic both of which explicitly use
 	// localhost.
@@ -459,19 +472,6 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	cfg.handleOutboundIncludeRules(ipv4RangesInclude, cfg.ruleBuilder.AppendRuleV4, cfg.ruleBuilder.InsertRuleV4)
 	cfg.handleOutboundIncludeRules(ipv6RangesInclude, cfg.ruleBuilder.AppendRuleV6, cfg.ruleBuilder.InsertRuleV6)
-
-	if redirectDNS {
-		// Uniquely for DNS (at this time) we need a jump in "raw:OUTPUT", so this jump is conditional on that setting.
-		// And, unlike nat/OUTPUT, we have no shared rules, so no need to do a 2-level jump at this time
-		cfg.ruleBuilder.AppendRule("OUTPUT", "raw", "-j", constants.ISTIOOUTPUTDNS)
-
-		cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-j", constants.ISTIOOUTPUTDNS)
-
-		SetupDNSRedir(
-			cfg.ruleBuilder, cfg.cfg.ProxyUID, cfg.cfg.ProxyGID,
-			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS,
-			ownerGroupsFilter)
-	}
 
 	if cfg.cfg.InboundInterceptionMode == "TPROXY" {
 		// save packet mark set by envoy.filters.listener.original_src as connection mark

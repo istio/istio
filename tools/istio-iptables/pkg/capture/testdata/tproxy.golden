@@ -40,14 +40,14 @@ COMMIT
 -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
 -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
 -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
--A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
--A ISTIO_OUTPUT -d 1.1.0.0/16 -j RETURN
--A ISTIO_OUTPUT -d 9.9.0.0/16 -j ISTIO_REDIRECT
 -A ISTIO_OUTPUT -j ISTIO_OUTPUT_DNS
 -A ISTIO_OUTPUT_DNS -p tcp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-ports 15053
 -A ISTIO_OUTPUT_DNS -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
 -A ISTIO_OUTPUT_DNS -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
 -A ISTIO_OUTPUT_DNS -p udp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-port 15053
+-A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
+-A ISTIO_OUTPUT -d 1.1.0.0/16 -j RETURN
+-A ISTIO_OUTPUT -d 9.9.0.0/16 -j ISTIO_REDIRECT
 COMMIT
 * raw
 -N ISTIO_OUTPUT_DNS
@@ -101,10 +101,10 @@ COMMIT
 -A ISTIO_OUTPUT -o lo ! -d ::1/128 -p tcp ! --dport 15008 -m owner --gid-owner 1337 -j ISTIO_IN_REDIRECT
 -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 1337 -j RETURN
 -A ISTIO_OUTPUT -m owner --gid-owner 1337 -j RETURN
--A ISTIO_OUTPUT -d ::1/128 -j RETURN
 -A ISTIO_OUTPUT -j ISTIO_OUTPUT_DNS
 -A ISTIO_OUTPUT_DNS -p udp --dport 53 -m owner --uid-owner 1337 -j RETURN
 -A ISTIO_OUTPUT_DNS -p udp --dport 53 -m owner --gid-owner 1337 -j RETURN
+-A ISTIO_OUTPUT -d ::1/128 -j RETURN
 COMMIT
 * raw
 -N ISTIO_OUTPUT_DNS
