@@ -36,16 +36,7 @@ const (
 	AppendOps Ops = iota
 	// DeleteOps performs delete operations of rules
 	DeleteOps
-
-	// In TPROXY mode, mark the packet from envoy outbound to app by podIP,
-	// this is to prevent it being intercepted to envoy inbound listener.
-	outboundMark = "1338"
 )
-
-var opsToString = map[Ops]string{
-	AppendOps: "-A",
-	DeleteOps: "-D",
-}
 
 type IptablesConfigurator struct {
 	ruleBuilder *builder.IptablesRuleBuilder
