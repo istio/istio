@@ -507,6 +507,7 @@ func (cb *ClusterBuilder) buildInboundPassthroughCluster() *cluster.Cluster {
 		})
 	}
 	c := cb.buildDefaultPassthroughCluster()
+	c.ConnectionPoolPerDownstreamConnection = false
 	c.Name = util.InboundPassthroughCluster
 	c.Filters = nil
 	c.UpstreamBindConfig = &core.BindConfig{
@@ -543,6 +544,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		TypedExtensionProtocolOptions: map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
 		},
+		ConnectionPoolPerDownstreamConnection: features.EnablePassthroughConnections,
 	}
 	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster)
 	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
