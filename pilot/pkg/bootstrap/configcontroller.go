@@ -15,7 +15,15 @@
 package bootstrap
 
 import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"fmt"
+	"google.golang.org/grpc/credentials"
+	"istio.io/api/networking/v1alpha3"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/url"
 
 	"google.golang.org/grpc"
@@ -244,6 +252,10 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			s.ConfigStores = append(s.ConfigStores, configController)
 			log.Infof("Started File configSource %s", configSource.Address)
 		case XDS:
+			transportCredentials, err := s.getTransportCredentials(args, configSource.TlsSettings)
+			if err != nil {
+				return fmt.Errorf("failed to read transport credentials from config: %v", err)
+			}
 			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.ADSConfig{
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
 				Config: adsc.Config{
@@ -257,11 +269,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 					}.ToStruct(),
 					GrpcOpts: []grpc.DialOption{
 						args.KeepaliveOptions.ConvertToClientOption(),
-						// Because we use the custom grpc options for adsc, here we should
-						// explicitly set transport credentials.
-						// TODO: maybe we should use the tls settings within ConfigSource
-						// to secure the connection between istiod and remote xds server.
-						grpc.WithTransportCredentials(insecure.NewCredentials()),
+						grpc.WithTransportCredentials(transportCredentials),
 					},
 				},
 			})
@@ -342,4 +350,102 @@ func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configCont
 	})
 
 	return nil
+}
+
+// getTransportCredentials attempts to create credentials.TransportCredentials from ClientTLSSettings in mesh config
+// TODO: Use credentials in tlsSettings for MUTUAL_TLS/ISTIO_MUTUAL_TLS instead of insecure credentials
+func (s *Server) getTransportCredentials(args *PilotArgs, tlsSettings *v1alpha3.ClientTLSSettings) (credentials.TransportCredentials, error) {
+	switch tlsSettings.GetMode() {
+	case v1alpha3.ClientTLSSettings_SIMPLE:
+		if len(tlsSettings.GetCredentialName()) > 0 {
+			if len(tlsSettings.GetCaCertificates()) > 0 || len(tlsSettings.GetCaCrl()) > 0 {
+				return nil, fmt.Errorf("only one of caCertificates and caCrl or credentialName can be specified")
+			}
+			values, err := s.getValuesFromSecret(tlsSettings.GetCredentialName(), args.Namespace)
+			if err != nil {
+				return nil, err
+			}
+			tlsSettings.CaCertificates = values["cacert"]
+			tlsSettings.CaCrl = values["crl"]
+		}
+		if len(tlsSettings.GetCaCertificates()) == 0 {
+			return nil, fmt.Errorf("caCertificate required for SIMPLE tls mode")
+		}
+		certPool, err := s.getCertPool(tlsSettings.GetCaCertificates())
+		if err != nil {
+			return nil, err
+		}
+		return credentials.NewTLS(&tls.Config{
+			ServerName:         tlsSettings.GetSni(),
+			InsecureSkipVerify: tlsSettings.GetInsecureSkipVerify().GetValue(),
+			RootCAs:            certPool,
+			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+				for _, chain := range verifiedChains {
+					for _, cert := range chain {
+						return s.verifyPeerCert(cert, tlsSettings.GetCaCrl(), tlsSettings.GetSubjectAltNames())
+					}
+				}
+				return nil
+			},
+		}), nil
+	default:
+		return insecure.NewCredentials(), nil
+	}
+}
+
+// getCertPool creates a cert pool with given caCerts
+func (s *Server) getCertPool(caCerts string) (*x509.CertPool, error) {
+	certPool := x509.NewCertPool()
+	if len(caCerts) > 0 && !certPool.AppendCertsFromPEM([]byte(caCerts)) {
+		return nil, fmt.Errorf("failed to add server certificate to pool")
+	}
+	return certPool, nil
+}
+
+// verifyPeerCert verifies validity of a x509.Certificate based on provided CRL and SANs
+func (s *Server) verifyPeerCert(cert *x509.Certificate, caCrl string, sans []string) error {
+	if len(caCrl) > 0 {
+		crlBlock, _ := pem.Decode([]byte(caCrl))
+		crl, err := x509.ParseRevocationList(crlBlock.Bytes)
+		if err != nil {
+			return fmt.Errorf("failed to parse crl: %v", err)
+		}
+		for _, revokedCert := range crl.RevokedCertificateEntries {
+			if cert.SerialNumber.Cmp(revokedCert.SerialNumber) == 0 {
+				return fmt.Errorf("certificate is revoked")
+			}
+		}
+	}
+	if len(sans) > 0 {
+		for _, ext := range cert.Extensions {
+			found := false
+			for _, san := range sans {
+				if string(ext.Value) == san {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("invalid san: %v not found", ext.Value)
+			}
+		}
+	}
+	return nil
+}
+
+// getValuesFromSecret fetches a map of keys and values from a secret with name in namespace
+func (s *Server) getValuesFromSecret(name, namespace string) (map[string]string, error) {
+	secret, err := s.kubeClient.Kube().CoreV1().Secrets(namespace).Get(context.Background(), name, v1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get credential with name %v: %v", name, err)
+	}
+	vals := make(map[string]string)
+	for secretKey, encodedValue := range secret.Data {
+		decodedValue, err := base64.StdEncoding.DecodeString(string(encodedValue))
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode value for key %v: %v", "cacert", err)
+		}
+		vals[secretKey] = string(decodedValue)
+	}
+	return vals, nil
 }
