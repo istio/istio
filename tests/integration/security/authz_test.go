@@ -110,6 +110,76 @@ func TestAuthz_Principal(t *testing.T) {
 		})
 }
 
+func TestAuthz_ServiceAccount(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			allowed := apps.Ns1.A
+			denied := apps.Ns2.A
+
+			from := allowed.Append(denied)
+			fromMatch := match.AnyServiceName(from.NamespacedNames())
+			toMatch := match.Not(fromMatch)
+			to := toMatch.GetServiceMatches(apps.Ns1.All)
+			fromAndTo := to.Instances().Append(from)
+
+			config.New(t).
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
+				Source(config.File("testdata/authz/allow-serviceaccount.yaml.tmpl").WithParams(
+					param.Params{
+						"Allowed": allowed,
+					})).
+				BuildAll(nil, to).
+				Apply()
+
+			newTrafficTest(t, fromAndTo).
+				FromMatch(fromMatch).
+				ToMatch(toMatch).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+					allow := allowValue(from.NamespacedName() == allowed.NamespacedName())
+
+					cases := []struct {
+						ports []echo.Port
+						path  string
+						allow allowValue
+					}{
+						{
+							ports: []echo.Port{ports.GRPC, ports.TCP},
+							allow: allow,
+						},
+						{
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/allow",
+							allow: allow,
+						},
+						{
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/allow?param=value",
+							allow: allow,
+						},
+						{
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/deny",
+							allow: false,
+						},
+						{
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/deny?param=value",
+							allow: false,
+						},
+					}
+
+					for _, c := range cases {
+						newAuthzTest().
+							From(from).
+							To(to).
+							Allow(c.allow).
+							Path(c.path).
+							BuildAndRunForPorts(t, c.ports...)
+					}
+				})
+		})
+}
+
 func TestAuthz_DenyPrincipal(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {

@@ -29,7 +29,7 @@ spec:
             hosts: [ "{{ .Allowed.ServiceName }}-{{ .Allowed.NamespaceName }}-only.com" ]
       from:
         - source:
-            principals: [ "{{ .Allowed.ServiceAccountName }}" ]
+            principals: [ "{{ .Allowed.SpiffeIdentity }}" ]
     - to: # checks workload can call 443 over istio mutual with JWT
         - operation:
             hosts: [ "jwt-only.com" ]
@@ -42,7 +42,7 @@ spec:
       from:
         - source:
             requestPrincipals: [ "test-issuer-1@istio.io/sub-1" ]
-            principals: [ "{{ .Allowed.ServiceAccountName }}" ]
+            principals: [ "{{ .Allowed.SpiffeIdentity }}" ]
 ---
 # The following policy redirects the request through egress gateway.
 

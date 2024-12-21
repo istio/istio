@@ -192,8 +192,8 @@ func (c *instance) NamespaceName() string {
 	return c.cfg.NamespaceName()
 }
 
-func (c *instance) ServiceAccountName() string {
-	return c.cfg.ServiceAccountName()
+func (c *instance) SpiffeIdentity() string {
+	return c.cfg.SpiffeIdentity()
 }
 
 func (c *instance) ClusterLocalFQDN() string {
