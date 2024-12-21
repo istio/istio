@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue:
+- 54301
+- 54300
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Fixed** incorrect interaction between discoverySelectors and node authorization.
+  **Fixed** incorrect interaction between discoverySelectors and ServiceEntry IP Allocation.
