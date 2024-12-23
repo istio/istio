@@ -194,6 +194,9 @@ type CLIClient interface {
 	// PodLogsFollow retrieves the logs for the given pod, following until the pod log stream is interrupted
 	PodLogsFollow(ctx context.Context, podName string, podNamespace string, container string) (string, error)
 
+	// ServicesForSelector finds services matching selector.
+	ServicesForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.ServiceList, error)
+
 	// NewPortForwarder creates a new PortForwarder configured for the given pod. If localPort=0, a port will be
 	// dynamically selected. If localAddress is empty, "localhost" is used.
 	NewPortForwarder(podName string, ns string, localAddress string, localPort int, podPort int) (PortForwarder, error)
@@ -1022,6 +1025,12 @@ func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort in
 
 func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.PodList, error) {
 	return c.kube.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: strings.Join(labelSelectors, ","),
+	})
+}
+
+func (c *client) ServicesForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.ServiceList, error) {
+	return c.kube.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: strings.Join(labelSelectors, ","),
 	})
 }
