@@ -979,7 +979,7 @@ func (node *Proxy) Clusters() []string {
 	defer node.RUnlock()
 	wr := node.WatchedResources[v3.EndpointType]
 	if wr != nil {
-		return wr.ResourceNames
+		return wr.ResourceNames.UnsortedList()
 	}
 	return nil
 }
@@ -988,7 +988,7 @@ func (node *Proxy) NewWatchedResource(typeURL string, names []string) {
 	node.Lock()
 	defer node.Unlock()
 
-	node.WatchedResources[typeURL] = &WatchedResource{TypeUrl: typeURL, ResourceNames: names}
+	node.WatchedResources[typeURL] = &WatchedResource{TypeUrl: typeURL, ResourceNames: sets.New(names...)}
 	// For all EDS requests that we have already responded with in the same stream let us
 	// force the response. It is important to respond to those requests for Envoy to finish
 	// warming of those resources(Clusters).

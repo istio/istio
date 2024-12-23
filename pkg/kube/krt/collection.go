@@ -343,6 +343,8 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	var events []Event[O]
 	recomputedResults := make([]map[Key[O]]O, len(items))
+
+	pendingDepStateUpdates := make(map[Key[I]]*collectionDependencyTracker[I, O], len(items))
 	for idx, a := range items {
 		if a.Event == controllers.EventDelete {
 			// handled below, with full lock...
@@ -354,7 +356,8 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		ctx := &collectionDependencyTracker[I, O]{h, nil, iKey}
 		results := slices.GroupUnique(h.transformation(ctx, i), getTypedKey[O])
 		recomputedResults[idx] = results
-		h.dependencyState.update(iKey, ctx.d)
+		// Store new dependency state, to insert in the next loop under the lock
+		pendingDepStateUpdates[iKey] = ctx
 	}
 
 	// Now acquire the full lock. Note we still have recomputeMu held!
@@ -387,6 +390,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 			delete(h.collectionState.inputs, iKey)
 			h.dependencyState.delete(iKey)
 		} else {
+			h.dependencyState.update(iKey, pendingDepStateUpdates[iKey].d)
 			results := recomputedResults[idx]
 			newKeys := sets.New(maps.Keys(results)...)
 			oldKeys := h.collectionState.mappings[iKey]

@@ -493,7 +493,6 @@ spec:
 }
 
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
-	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableDualStack, true)
 	c := joinYaml(configs...)
 	mc := mesh.DefaultMeshConfig()
