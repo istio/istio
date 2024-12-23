@@ -292,7 +292,7 @@ type NodeMetadata struct {
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
 	// EnableHBONE, if set, will enable generation of HBONE listener config.
-	// Note: this only impacts sidecars; ztunnel and waypoint proxy unconditionally use HBONE.
+	// Note: this only impacts sidecars and gateways; ztunnel and waypoint proxy unconditionally use HBONE.
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
 
 	// DisableHBONESend, will disable sending HBONE.
