@@ -386,6 +386,8 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 }
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
+	proxy.Lock()
+	defer proxy.Unlock()
 	var shouldResetGateway, shouldResetSidecarScope bool
 	// 1. If request == nil(initiation phase) or request.ConfigsUpdated == nil(global push), set proxy serviceTargets.
 	// 2. otherwise only set when svc update, this is for the case that a service may select the proxy
