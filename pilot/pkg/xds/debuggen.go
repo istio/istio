@@ -143,7 +143,7 @@ func validateProxyAuthentication(proxy *model.Proxy, w *model.WatchedResource) e
 }
 
 func parseAndValidateDebugRequest(proxy *model.Proxy, w *model.WatchedResource, dg *DebugGen) (string, error) {
-	resourceName := w.ResourceNames[0]
+	resourceName := w.ResourceNames.UnsortedList()[0]
 	u, _ := url.Parse(resourceName)
 	debugType := u.Path
 	identity := proxy.VerifiedIdentity

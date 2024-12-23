@@ -123,7 +123,7 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 		}
 	}
 
-	ec := e.ConfigGenerator.BuildExtensionConfiguration(proxy, req.Push, w.ResourceNames, secrets)
+	ec := e.ConfigGenerator.BuildExtensionConfiguration(proxy, req.Push, w.ResourceNames.UnsortedList(), secrets)
 
 	if ec == nil {
 		return nil, model.DefaultXdsLogDetails, nil
@@ -164,13 +164,12 @@ func (e *EcdsGenerator) SetCredController(creds credscontroller.MulticlusterCont
 	e.secretController = creds
 }
 
-func referencedSecrets(proxy *model.Proxy, push *model.PushContext, resourceNames []string) []SecretResource {
+func referencedSecrets(proxy *model.Proxy, push *model.PushContext, watched sets.String) []SecretResource {
 	// The requirement for the Wasm pull secret:
 	// * Wasm pull secrets must be of type `kubernetes.io/dockerconfigjson`.
 	// * Secret are referenced by a WasmPlugin which applies to this proxy.
 	// TODO: we get the WasmPlugins here to get the secrets reference in order to decide whether ECDS push is needed,
 	//       and we will get it again at extension config build. Avoid getting it twice if this becomes a problem.
-	watched := sets.New(resourceNames...)
 	wasmPlugins := push.WasmPlugins(proxy)
 	referencedSecrets := sets.String{}
 	for _, wps := range wasmPlugins {

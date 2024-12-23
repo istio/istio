@@ -253,6 +253,7 @@ func TestWorkload(t *testing.T) {
 		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod4")
 	})
 	t.Run("wildcard", func(t *testing.T) {
+		log.FindScope("delta").SetOutputLevel(log.DebugLevel)
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
