@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/lazy"
 	istioversion "istio.io/istio/pkg/version"
@@ -186,4 +187,53 @@ func ResourceSize(r model.Resources) int {
 		size += len(r.Resource.Value)
 	}
 	return size
+}
+
+func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy, typeURL string,
+	checkConfigUpdateFunc func(req *model.PushRequest, proxy *model.Proxy) bool,
+) bool {
+	if proxy.Type == model.Ztunnel {
+		// Not supported for ztunnel
+		return false
+	}
+	if req == nil {
+		return true
+	}
+	// Special handling for wildcard type URLs - CDS and LDS.
+	if xds.IsWildcardTypeURL(typeURL) {
+		if proxy.Type == model.Waypoint {
+			if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
+				// Waynpoint proxies needs to be pushed for LDS and CDS on kind.Address changes.
+
+				// Waypoint proxies have a matcher against pod IPs in them. Historically, any LDS change would do a full
+				// push, recomputing push context. Doing that on every IP change doesn't scale, so we need these to remain
+				// incremental pushes.
+				// This allows waypoints only to push LDS on incremental pushes to Address type which would otherwise be skipped.
+
+				// Waypoints need CDS updates on kind.Address changes
+				// after implementing use-waypoint which decouples waypoint creation, wl pod creation
+				// user specifying waypoint use. Without this we're not getting correct waypoint config
+				// in a timely manner
+				return true
+			}
+		}
+	}
+
+	if supportsFullPushOnly(typeURL) && !req.Full {
+		// This is only applicable for NDS as generally handles full push.
+		// We only allow partial pushes, when headless endpoints change.
+		return headlessEndpointsUpdated(req)
+	}
+
+	// If none set, we will always push
+	if len(req.ConfigsUpdated) == 0 {
+		return true
+	}
+	// We can not defnitively say if we need to push or not based on generic checks, so we will push based
+	// on the specific typeURL checks.
+	return checkConfigUpdateFunc(req, proxy)
+}
+
+func supportsFullPushOnly(typeURL string) bool {
+	return xds.IsWildcardTypeURL(typeURL) || typeURL == v3.RouteType
 }

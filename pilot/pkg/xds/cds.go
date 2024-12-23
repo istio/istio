@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/jwt"
+	xds_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -64,64 +65,34 @@ var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 }()
 
 func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	if proxy.Type == model.Ztunnel {
-		// Not supported for ztunnel
-		return false
-	}
-	if req == nil {
-		return true
-	}
-	switch proxy.Type {
-	case model.Waypoint:
-		if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
-			// TODO: this logic is identical to that used in LDS, consider refactor into a common function
-			// taken directly from LDS... waypoints need CDS updates on kind.Address changes
-			// after implementing use-waypoint which decouples waypoint creation, wl pod creation
-			// user specifying waypoint use. Without this we're not getting correct waypoint config
-			// in a timely manner
-			return true
-		}
-		// Otherwise, only handle full pushes (skip endpoint-only updates)
-		if !req.Full {
-			return false
-		}
-	default:
-		if !req.Full {
-			// CDS only handles full push
-			return false
-		}
-	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
-	}
-
-	checkGateway := false
-	for config := range req.ConfigsUpdated {
-		if proxy.Type == model.Router {
-			if features.FilterGatewayClusterConfig {
-				if _, f := pushCdsGatewayConfig[config.Kind]; f {
-					return true
+	return xdsNeedsPush(req, proxy, xds_model.ClusterType, func(req *model.PushRequest, proxy *model.Proxy) bool {
+		checkGateway := false
+		for config := range req.ConfigsUpdated {
+			if proxy.Type == model.Router {
+				if features.FilterGatewayClusterConfig {
+					if _, f := pushCdsGatewayConfig[config.Kind]; f {
+						return true
+					}
+				}
+				if config.Kind == kind.Gateway {
+					// Do the check outside of the loop since its slow; just trigger we need it
+					checkGateway = true
 				}
 			}
-			if config.Kind == kind.Gateway {
-				// Do the check outside of the loop since its slow; just trigger we need it
-				checkGateway = true
+
+			if _, f := skippedCdsConfigs[config.Kind]; !f {
+				return true
 			}
 		}
-
-		if _, f := skippedCdsConfigs[config.Kind]; !f {
-			return true
+		if checkGateway {
+			autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
+			autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
+			if autoPassthroughModeChanged || autoPassthroughHostsChanged {
+				return true
+			}
 		}
-	}
-	if checkGateway {
-		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
-		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
-		if autoPassthroughModeChanged || autoPassthroughHostsChanged {
-			return true
-		}
-	}
-	return false
+		return false
+	})
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

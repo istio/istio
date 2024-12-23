@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	xds_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -39,29 +40,20 @@ type EcdsGenerator struct {
 var _ model.XdsResourceGenerator = &EcdsGenerator{}
 
 func ecdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	if proxy.Type == model.Ztunnel {
-		// Not supported for ztunnel
-		return false
-	}
-	if req == nil {
-		return true
-	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
-	}
-	// Only push if config updates is triggered by EnvoyFilter, WasmPlugin, or Secret.
-	for config := range req.ConfigsUpdated {
-		switch config.Kind {
-		case kind.EnvoyFilter:
-			return true
-		case kind.WasmPlugin:
-			return true
-		case kind.Secret:
-			return true
+	return xdsNeedsPush(req, proxy, xds_model.ExtensionConfigurationType, func(req *model.PushRequest, proxy *model.Proxy) bool {
+		// Only push if config updates is triggered by EnvoyFilter, WasmPlugin, or Secret.
+		for config := range req.ConfigsUpdated {
+			switch config.Kind {
+			case kind.EnvoyFilter:
+				return true
+			case kind.WasmPlugin:
+				return true
+			case kind.Secret:
+				return true
+			}
 		}
-	}
-	return false
+		return false
+	})
 }
 
 // onlyReferencedConfigsUpdated indicates whether the PushRequest

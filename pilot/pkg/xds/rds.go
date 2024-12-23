@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
+	xds_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -42,27 +43,14 @@ var skippedRdsConfigs = sets.New[kind.Kind](
 )
 
 func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	if proxy.Type == model.Ztunnel {
-		// Not supported for ztunnel
-		return false
-	}
-	if req == nil {
-		return true
-	}
-	if !req.Full {
-		// RDS only handles full push
-		return false
-	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
-	}
-	for config := range req.ConfigsUpdated {
-		if !skippedRdsConfigs.Contains(config.Kind) {
-			return true
+	return xdsNeedsPush(req, proxy, xds_model.RouteType, func(req *model.PushRequest, proxy *model.Proxy) bool {
+		for config := range req.ConfigsUpdated {
+			if !skippedRdsConfigs.Contains(config.Kind) {
+				return true
+			}
 		}
-	}
-	return false
+		return false
+	})
 }
 
 func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
