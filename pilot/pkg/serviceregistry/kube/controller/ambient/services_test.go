@@ -849,13 +849,11 @@ func TestServiceConditions(t *testing.T) {
 				label.IoIstioUseWaypoint.Name:          "waypoint",
 				label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
 			}),
-			conditions: map[model.ConditionType][]model.Condition{
+			conditions: map[model.ConditionType]*model.Condition{
 				model.WaypointBound: {
-					{
-						Status:  true,
-						Reason:  string(model.WaypointAccepted),
-						Message: "Successfully attached to waypoint waypoint-ns/waypoint",
-					},
+					Status:  true,
+					Reason:  string(model.WaypointAccepted),
+					Message: "Successfully attached to waypoint waypoint-ns/waypoint",
 				},
 			},
 		},
@@ -870,13 +868,11 @@ func TestServiceConditions(t *testing.T) {
 				label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
 				"istio.io/ingress-use-waypoint":        "true",
 			}),
-			conditions: map[model.ConditionType][]model.Condition{
+			conditions: map[model.ConditionType]*model.Condition{
 				model.WaypointBound: {
-					{
-						Status:  true,
-						Reason:  string(model.WaypointAccepted),
-						Message: "Successfully attached to waypoint waypoint-ns/waypoint. Ingress traffic will traverse the waypoint",
-					},
+					Status:  true,
+					Reason:  string(model.WaypointAccepted),
+					Message: "Successfully attached to waypoint waypoint-ns/waypoint. Ingress traffic will traverse the waypoint",
 				},
 			},
 		},
@@ -891,14 +887,12 @@ func TestServiceConditions(t *testing.T) {
 				label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
 				"istio.io/ingress-use-waypoint":        "eurt",
 			}),
-			conditions: map[model.ConditionType][]model.Condition{
+			conditions: map[model.ConditionType]*model.Condition{
 				model.WaypointBound: {
-					{
-						Status: true,
-						Reason: string(model.WaypointAccepted),
-						Message: "Successfully attached to waypoint waypoint-ns/waypoint. " +
-							"Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.",
-					},
+					Status: true,
+					Reason: string(model.WaypointAccepted),
+					Message: "Successfully attached to waypoint waypoint-ns/waypoint. " +
+						"Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.",
 				},
 			},
 		},
