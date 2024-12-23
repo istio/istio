@@ -329,7 +329,7 @@ func TestGenerateSDS(t *testing.T) {
 
 			gen := s.Discovery.Generators[v3.SecretType]
 			tt.request.Start = time.Now()
-			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: tt.resources}, tt.request)
+			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: sets.New(tt.resources...)}, tt.request)
 			raw := xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 
 			got := map[string]Expected{}
@@ -375,14 +375,14 @@ func TestCaching(t *testing.T) {
 		ConfigNamespace:  "other-namespace",
 	}
 
-	secrets, _, _ := gen.Generate(s.SetupProxy(istiosystem), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ := gen.Generate(s.SetupProxy(istiosystem), &model.WatchedResource{ResourceNames: sets.New("kubernetes://generic")}, fullPush)
 	raw := xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	if len(raw) != 1 {
 		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
 	}
 
 	// We should not get secret returned, even though we are asking for the same one
-	secrets, _, _ = gen.Generate(s.SetupProxy(otherNamespace), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ = gen.Generate(s.SetupProxy(otherNamespace), &model.WatchedResource{ResourceNames: sets.New("kubernetes://generic")}, fullPush)
 	raw = xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	if len(raw) != 0 {
 		t.Fatalf("failed to get expected secrets for unauthorized proxy: %v", raw)
@@ -423,7 +423,7 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	})
 	gen := s.Discovery.Generators[v3.SecretType]
 	fullPush := &model.PushRequest{Full: true, Start: time.Now()}
-	secrets, _, _ := gen.Generate(s.SetupProxy(rawProxy), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ := gen.Generate(s.SetupProxy(rawProxy), &model.WatchedResource{ResourceNames: sets.New("kubernetes://generic")}, fullPush)
 	raw := xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	for _, scrt := range raw {
 		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {
@@ -432,7 +432,7 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	}
 
 	// add private key provider in proxy-config
-	secrets, _, _ = gen.Generate(s.SetupProxy(pkpProxy), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ = gen.Generate(s.SetupProxy(pkpProxy), &model.WatchedResource{ResourceNames: sets.New("kubernetes://generic")}, fullPush)
 	raw = xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	for _, scrt := range raw {
 		privateKeyProvider := scrt.GetTlsCertificate().GetPrivateKeyProvider()
@@ -445,7 +445,7 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	}
 
 	// erase private key provider in proxy-config
-	secrets, _, _ = gen.Generate(s.SetupProxy(rawProxy), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ = gen.Generate(s.SetupProxy(rawProxy), &model.WatchedResource{ResourceNames: sets.New("kubernetes://generic")}, fullPush)
 	raw = xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	for _, scrt := range raw {
 		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {

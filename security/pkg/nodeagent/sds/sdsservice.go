@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/xds"
 )
 
@@ -213,7 +214,7 @@ func (w *Watch) GetWatchedResource(string) *xds.WatchedResource {
 func (w *Watch) NewWatchedResource(typeURL string, names []string) {
 	w.Lock()
 	defer w.Unlock()
-	w.watch = &xds.WatchedResource{TypeUrl: typeURL, ResourceNames: names}
+	w.watch = &xds.WatchedResource{TypeUrl: typeURL, ResourceNames: sets.New(names...)}
 }
 
 func (w *Watch) UpdateWatchedResource(_ string, f func(*xds.WatchedResource) *xds.WatchedResource) {
@@ -231,11 +232,7 @@ func (w *Watch) requested(secretName string) bool {
 	w.Lock()
 	defer w.Unlock()
 	if w.watch != nil {
-		for _, res := range w.watch.ResourceNames {
-			if res == secretName {
-				return true
-			}
-		}
+		return w.watch.ResourceNames.Contains(secretName)
 	}
 	return false
 }

@@ -20,6 +20,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type TestProxy struct {
@@ -35,7 +36,7 @@ func (p *TestProxy) GetWatchedResource(url string) *WatchedResource {
 }
 
 func (p *TestProxy) NewWatchedResource(url string, names []string) {
-	p.WatchedResources[url] = &WatchedResource{ResourceNames: names}
+	p.WatchedResources[url] = &WatchedResource{ResourceNames: sets.New(names...)}
 }
 
 func (p *TestProxy) UpdateWatchedResource(url string, f func(*WatchedResource) *WatchedResource) {
@@ -86,7 +87,7 @@ func TestShouldRespond(t *testing.T) {
 					model.EndpointType: {
 						NonceSent:     "nonce",
 						AlwaysRespond: true,
-						ResourceNames: []string{"my-resource"},
+						ResourceNames: sets.New("my-resource"),
 					},
 				},
 			},
@@ -132,7 +133,7 @@ func TestShouldRespond(t *testing.T) {
 				WatchedResources: map[string]*WatchedResource{
 					model.EndpointType: {
 						NonceSent:     "nonce",
-						ResourceNames: []string{"cluster1"},
+						ResourceNames: sets.New("cluster1"),
 					},
 				},
 			},
@@ -150,7 +151,7 @@ func TestShouldRespond(t *testing.T) {
 				WatchedResources: map[string]*WatchedResource{
 					model.EndpointType: {
 						NonceSent:     "nonce",
-						ResourceNames: []string{"cluster2", "cluster1"},
+						ResourceNames: sets.New("cluster2", "cluster1"),
 					},
 				},
 			},
@@ -168,7 +169,7 @@ func TestShouldRespond(t *testing.T) {
 				WatchedResources: map[string]*WatchedResource{
 					model.EndpointType: {
 						NonceSent:     "nonce",
-						ResourceNames: []string{"cluster2", "cluster1"},
+						ResourceNames: sets.New("cluster2", "cluster1"),
 					},
 				},
 			},

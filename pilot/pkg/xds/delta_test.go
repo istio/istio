@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
@@ -80,7 +79,7 @@ func TestDeltaCDS(t *testing.T) {
 		assert.Equal(t, sets.New(got...), sets.New(names...).Merge(base))
 	}
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	spamDebugEndpointsToDetectRace(t, s)
+	spamDebugEndpointsToDetectRace(s)
 	addTestClientEndpoints(s.MemRegistry)
 	s.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 	s.MemRegistry.SetEndpoints(edsIncSvc, "",
@@ -331,8 +330,11 @@ func TestDeltaReconnectRequests(t *testing.T) {
 	}
 }
 
+func init() {
+	features.EnableAmbient = true
+}
+
 func TestDeltaWDS(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbient, true)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	wlA := &model.WorkloadInfo{
 		Workload: &workloadapi.Workload{

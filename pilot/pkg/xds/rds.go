@@ -69,6 +69,6 @@ func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req
 	if !rdsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	resources, logDetails := c.ConfigGenerator.BuildHTTPRoutes(proxy, req, w.ResourceNames)
+	resources, logDetails := c.ConfigGenerator.BuildHTTPRoutes(proxy, req, w.ResourceNames.UnsortedList())
 	return resources, logDetails, nil
 }

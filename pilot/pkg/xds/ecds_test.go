@@ -286,7 +286,7 @@ func TestECDSGenerate(t *testing.T) {
 			tt.request.Push = s.PushContext()
 			tt.request.Push.Mesh.RootNamespace = "istio-system"
 			resources, _, _ := gen.Generate(s.SetupProxy(proxy),
-				&model.WatchedResource{ResourceNames: tt.watchedResources}, tt.request)
+				&model.WatchedResource{ResourceNames: sets.New(tt.watchedResources...)}, tt.request)
 			gotExtensions := sets.String{}
 			gotSecrets := sets.String{}
 			for _, res := range resources {
