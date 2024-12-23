@@ -703,6 +703,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		untypedMeta[security.CredentialMetaDataName] = "true"
 	}
 
+	meta.MetadataDiscovery = model.StringBool(meta.EnableHBONE)
+
 	return &model.Node{
 		ID:          options.ID,
 		Metadata:    meta,
