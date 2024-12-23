@@ -80,6 +80,7 @@ func TestDeltaCDS(t *testing.T) {
 		assert.Equal(t, sets.New(got...), sets.New(names...).Merge(base))
 	}
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	spamDebugEndpointsToDetectRace(t, s)
 	addTestClientEndpoints(s.MemRegistry)
 	s.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 	s.MemRegistry.SetEndpoints(edsIncSvc, "",

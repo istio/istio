@@ -16,6 +16,10 @@ package xds_test
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -173,6 +177,7 @@ func TestWorkload(t *testing.T) {
 			DebounceTime: time.Millisecond * 25,
 		})
 		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		spamDebugEndpointsToDetectRace(t, s)
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe:   []string{"*"},
@@ -250,6 +255,7 @@ func TestWorkload(t *testing.T) {
 			DebounceTime: time.Millisecond * 25,
 		})
 		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		spamDebugEndpointsToDetectRace(t, s)
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe: []string{"*"},
@@ -279,6 +285,32 @@ func TestWorkload(t *testing.T) {
 		createService(s, "svc1", "default", map[string]string{"app": "not-sa"})
 		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
 	})
+}
+
+// Historically, the debug interface has been a common source of race conditions in the discovery server
+// spamDebugEndpointsToDetectRace hits all the endpoints, attempting to trigger any latent race conditions.
+func spamDebugEndpointsToDetectRace(t *testing.T, s *xds.FakeDiscoveryServer) {
+	go func() {
+		for range 10 {
+			for _, url := range s.Discovery.DebugEndpoints() {
+				// Drop mutating URLs
+				if strings.Contains(url, "push=true") {
+					continue
+				}
+				if strings.Contains(url, "clear=true") {
+					continue
+				}
+				req, err := http.NewRequest(http.MethodGet, url+"?proxyID=test", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				rr := httptest.NewRecorder()
+				h, _ := s.DiscoveryDebug.Handler(req)
+				h.ServeHTTP(rr, req)
+				_, _ = io.Copy(io.Discard, rr.Body)
+			}
+		}
+	}()
 }
 
 func deletePod(s *xds.FakeDiscoveryServer, name string) {

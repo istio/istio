@@ -137,6 +137,8 @@ func (e WorkloadGenerator) GenerateDeltas(
 		removed = subs.Difference(have).Difference(haveAliases).Merge(removed)
 	}
 
+	proxy.Lock()
+	defer proxy.Unlock()
 	if !w.Wildcard {
 		// For on-demand, we may have requested a VIP but gotten Pod IPs back. We need to update
 		// the internal book-keeping to subscribe to the Pods, so that we push updates to those Pods.

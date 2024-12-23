@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -113,14 +114,15 @@ type FakeOptions struct {
 
 type FakeDiscoveryServer struct {
 	*core.ConfigGenTest
-	t            test.Failer
-	Discovery    *xds.DiscoveryServer
-	Listener     net.Listener
-	BufListener  *bufconn.Listener
-	kubeClient   kubelib.Client
-	KubeRegistry *kube.FakeController
-	XdsUpdater   model.XDSUpdater
-	MemRegistry  *memregistry.ServiceDiscovery
+	t              test.Failer
+	Discovery      *xds.DiscoveryServer
+	DiscoveryDebug *http.ServeMux
+	Listener       net.Listener
+	BufListener    *bufconn.Listener
+	kubeClient     kubelib.Client
+	KubeRegistry   *kube.FakeController
+	XdsUpdater     model.XDSUpdater
+	MemRegistry    *memregistry.ServiceDiscovery
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -256,6 +258,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*xds.EcdsGenerator).SetCredController(creds)
 
+	debugMux := s.InitDebug(http.NewServeMux(), false, func() map[string]string {
+		return nil
+	})
+
 	memRegistry := cg.MemRegistry
 	memRegistry.XdsUpdater = s
 
@@ -343,15 +349,16 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	bufListener, _ := listener.(*bufconn.Listener)
 	fake := &FakeDiscoveryServer{
-		t:             t,
-		Discovery:     s,
-		Listener:      listener,
-		BufListener:   bufListener,
-		ConfigGenTest: cg,
-		kubeClient:    defaultKubeClient,
-		KubeRegistry:  defaultKubeController,
-		XdsUpdater:    xdsUpdater,
-		MemRegistry:   memRegistry,
+		t:              t,
+		Discovery:      s,
+		DiscoveryDebug: debugMux,
+		Listener:       listener,
+		BufListener:    bufListener,
+		ConfigGenTest:  cg,
+		kubeClient:     defaultKubeClient,
+		KubeRegistry:   defaultKubeController,
+		XdsUpdater:     xdsUpdater,
+		MemRegistry:    memRegistry,
 	}
 
 	return fake
