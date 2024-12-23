@@ -45,6 +45,11 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+func init() {
+	// Most tests need this, and setting it per-test can trigger races from tests still executing after completion
+	features.EnableAmbient = true
+}
+
 func buildExpect(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
 	return func(resp *discovery.DeltaDiscoveryResponse, names ...string) {
 		t.Helper()
@@ -94,7 +99,6 @@ func buildExpectAddedAndRemoved(t *testing.T) func(resp *discovery.DeltaDiscover
 }
 
 func TestWorkloadReconnect(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbient, true)
 	t.Run("ondemand", func(t *testing.T) {
 		expect := buildExpect(t)
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
@@ -169,7 +173,6 @@ func TestWorkloadReconnect(t *testing.T) {
 }
 
 func TestWorkload(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbient, true)
 	t.Run("ondemand", func(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
@@ -290,9 +293,16 @@ func TestWorkload(t *testing.T) {
 // Historically, the debug interface has been a common source of race conditions in the discovery server
 // spamDebugEndpointsToDetectRace hits all the endpoints, attempting to trigger any latent race conditions.
 func spamDebugEndpointsToDetectRace(t *testing.T, s *xds.FakeDiscoveryServer) {
+	stop := test.NewStop(t)
 	go func() {
 		for range 10 {
 			for _, url := range s.Discovery.DebugEndpoints() {
+				select {
+				case <-stop:
+					// Test is over, stop early
+					return
+				default:
+				}
 				// Drop mutating URLs
 				if strings.Contains(url, "push=true") {
 					continue
@@ -416,7 +426,6 @@ func createService(s *xds.FakeDiscoveryServer, name, namespace string, selector 
 }
 
 func TestWorkloadAuthorizationPolicy(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbient, true)
 	expect := buildExpect(t)
 	expectRemoved := buildExpectExpectRemoved(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
@@ -444,7 +453,6 @@ func TestWorkloadAuthorizationPolicy(t *testing.T) {
 }
 
 func TestWorkloadPeerAuthentication(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbient, true)
 	expect := buildExpect(t)
 	expectAddedAndRemoved := buildExpectAddedAndRemoved(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
@@ -489,7 +497,6 @@ func TestWorkloadPeerAuthentication(t *testing.T) {
 
 // Regression tests for NOP PeerAuthentication triggering a removal
 func TestPeerAuthenticationUpdate(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbient, true)
 	expectAddedAndRemoved := buildExpectAddedAndRemoved(t)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectDeltaADS().WithType(v3.WorkloadAuthorizationType).WithTimeout(time.Second * 10).WithNodeType(model.Ztunnel)
