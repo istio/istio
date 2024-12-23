@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -295,29 +296,35 @@ func TestWorkload(t *testing.T) {
 func spamDebugEndpointsToDetectRace(t *testing.T, s *xds.FakeDiscoveryServer) {
 	stop := test.NewStop(t)
 	go func() {
-		for range 10 {
-			for _, url := range s.Discovery.DebugEndpoints() {
-				select {
-				case <-stop:
-					// Test is over, stop early
-					return
-				default:
+		for _, proxySpecific := range []bool{true, false} {
+			for range 10 {
+				for _, url := range s.Discovery.DebugEndpoints() {
+					select {
+					case <-stop:
+						// Test is over, stop early
+						return
+					default:
+					}
+					// Drop mutating URLs
+					if strings.Contains(url, "push=true") {
+						continue
+					}
+					if strings.Contains(url, "clear=true") {
+						continue
+					}
+					if proxySpecific {
+						url += "?proxyID=test"
+					}
+					req, err := http.NewRequest(http.MethodGet, url, nil)
+					if err != nil {
+						panic(err.Error())
+					}
+					log.Debugf("calling %v..", req.URL)
+					rr := httptest.NewRecorder()
+					h, _ := s.DiscoveryDebug.Handler(req)
+					h.ServeHTTP(rr, req)
+					_, _ = io.Copy(io.Discard, rr.Body)
 				}
-				// Drop mutating URLs
-				if strings.Contains(url, "push=true") {
-					continue
-				}
-				if strings.Contains(url, "clear=true") {
-					continue
-				}
-				req, err := http.NewRequest(http.MethodGet, url+"?proxyID=test", nil)
-				if err != nil {
-					t.Fatal(err)
-				}
-				rr := httptest.NewRecorder()
-				h, _ := s.DiscoveryDebug.Handler(req)
-				h.ServeHTTP(rr, req)
-				_, _ = io.Copy(io.Discard, rr.Body)
 			}
 		}
 	}()
