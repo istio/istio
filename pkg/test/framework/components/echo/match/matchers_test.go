@@ -143,8 +143,8 @@ func (f fakeInstance) NamespaceName() string {
 	return f.Config().NamespaceName()
 }
 
-func (f fakeInstance) ServiceAccountName() string {
-	return f.Config().ServiceAccountName()
+func (f fakeInstance) SpiffeIdentity() string {
+	return f.Config().SpiffeIdentity()
 }
 
 func (f fakeInstance) ClusterLocalFQDN() string {

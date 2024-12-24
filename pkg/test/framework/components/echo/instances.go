@@ -37,8 +37,8 @@ func (i Instances) NamespaceName() string {
 	return i.Config().NamespaceName()
 }
 
-func (i Instances) ServiceAccountName() string {
-	return i.Config().ServiceAccountName()
+func (i Instances) SpiffeIdentity() string {
+	return i.Config().SpiffeIdentity()
 }
 
 func (i Instances) ClusterLocalFQDN() string {
