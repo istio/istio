@@ -66,7 +66,7 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
-	if waypointNeedsPush(req) {
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
 		return true
 	}
 	if !req.Full {
