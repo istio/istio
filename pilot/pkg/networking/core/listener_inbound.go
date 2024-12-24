@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/util/protomarshal"
 	"sort"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -312,7 +313,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	l.FilterChains = chains
 	l.ListenerFilters = populateListenerFilters(lb.node, l, bindToPort)
-	l.ListenerFiltersTimeout = lb.push.Mesh.GetProtocolDetectionTimeout()
+	l.ListenerFiltersTimeout = protomarshal.Clone(lb.push.Mesh.GetProtocolDetectionTimeout())
 	return l
 }
 
