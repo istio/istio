@@ -95,150 +95,150 @@ func TestGolden(t *testing.T) {
 		compliancePolicy              string
 		enableDefferedClusterCreation bool
 	}{
-		// {
-		// 	base: "xdsproxy",
-		// },
-		// {
-		// 	base: "auth",
-		// },
-		// {
-		// 	base:         "authsds",
-		// 	sdsUDSPath:   "udspath",
-		// 	sdsTokenPath: "/var/run/secrets/tokens/istio-token",
-		// },
-		// {
-		// 	base: "default",
-		// },
+		{
+			base: "xdsproxy",
+		},
+		{
+			base: "auth",
+		},
+		{
+			base:         "authsds",
+			sdsUDSPath:   "udspath",
+			sdsTokenPath: "/var/run/secrets/tokens/istio-token",
+		},
+		{
+			base: "default",
+		},
 		{
 			base: "ambient",
 			envVars: map[string]string{
 				"ISTIO_META_ENABLE_HBONE": "true", // This is our indication that this proxy is in an ambient installation
 			},
 		},
-		// {
-		// 	base: "explicit_internal_address",
-		// },
-		// {
-		// 	base: "legacy_stats_tags_regex",
-		// 	envVars: map[string]string{
-		// 		"ENABLE_DELIMITED_STATS_TAG_REGEX": "false",
-		// 	},
-		// },
-		// {
-		// 	base: "running",
-		// 	envVars: map[string]string{
-		// 		"ISTIO_META_ISTIO_PROXY_SHA":   "istio-proxy:sha",
-		// 		"ISTIO_META_INTERCEPTION_MODE": "REDIRECT",
-		// 		"ISTIO_META_ISTIO_VERSION":     "release-3.1",
-		// 		"ISTIO_META_POD_NAME":          "svc-0-0-0-6944fb884d-4pgx8",
-		// 		"POD_NAME":                     "svc-0-0-0-6944fb884d-4pgx8",
-		// 		"POD_NAMESPACE":                "test",
-		// 		"INSTANCE_IP":                  "10.10.10.1",
-		// 		"ISTIO_METAJSON_LABELS":        `{"version": "v1alpha1", "app": "test", "istio-locality":"regionA.zoneB.sub_zoneC"}`,
-		// 	},
-		// 	annotations: map[string]string{
-		// 		"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
-		// 	},
-		// 	checkLocality: true,
-		// },
-		// {
-		// 	base: "runningsds",
-		// 	envVars: map[string]string{
-		// 		"ISTIO_META_ISTIO_PROXY_SHA":   "istio-proxy:sha",
-		// 		"ISTIO_META_INTERCEPTION_MODE": "REDIRECT",
-		// 		"ISTIO_META_ISTIO_VERSION":     "release-3.1",
-		// 		"ISTIO_META_POD_NAME":          "svc-0-0-0-6944fb884d-4pgx8",
-		// 		"POD_NAME":                     "svc-0-0-0-6944fb884d-4pgx8",
-		// 		"POD_NAMESPACE":                "test",
-		// 		"INSTANCE_IP":                  "10.10.10.1",
-		// 		"ISTIO_METAJSON_LABELS":        `{"version": "v1alpha1", "app": "test", "istio-locality":"regionA.zoneB.sub_zoneC"}`,
-		// 	},
-		// 	annotations: map[string]string{
-		// 		"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
-		// 	},
-		// 	sdsUDSPath:    "udspath",
-		// 	sdsTokenPath:  "/var/run/secrets/tokens/istio-token",
-		// 	checkLocality: true,
-		// },
-		// {
-		// 	base:                       "tracing_lightstep",
-		// 	expectLightstepAccessToken: true,
-		// },
-		// {
-		// 	base: "tracing_zipkin",
-		// },
-		// {
-		// 	base: "tracing_datadog",
-		// },
-		// {
-		// 	base: "metrics_no_statsd",
-		// },
-		// {
-		// 	base: "tracing_opencensusagent",
-		// },
-		// {
-		// 	base: "tracing_none",
-		// },
-		// {
-		// 	// Specify zipkin/statsd address, similar with the default config in v1 tests
-		// 	base: "all",
-		// },
-		// {
-		// 	base:                          "deferred_cluster_creation",
-		// 	enableDefferedClusterCreation: true,
-		// },
-		// {
-		// 	base: "stats_inclusion",
-		// 	annotations: map[string]string{
-		// 		"sidecar.istio.io/statsInclusionPrefixes": "prefix1,prefix2,http.{pod_ip}_",
-		// 		"sidecar.istio.io/statsInclusionSuffixes": "suffix1,suffix2" + "," + upstreamStatsSuffixes + "," + downstreamStatsSuffixes,
-		// 		"sidecar.istio.io/statsInclusionRegexps":  "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
-		// 		"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
-		// 		"sidecar.istio.io/statsHistogramBuckets":  `{"istio":[1,5,10,50,100,500,1000,5000,10000],"envoy":[1,5,10,25,50,100,250,500,1000,2500,5000,10000]}`,
-		// 	},
-		// 	stats: stats{
-		// 		prefixes: "prefix1,prefix2,http.10.3.3.3_,http.10.4.4.4_,http.10.5.5.5_,http.10.6.6.6_",
-		// 		suffixes: "suffix1,suffix2," + upstreamStatsSuffixes + "," + downstreamStatsSuffixes,
-		// 		regexps:  "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
-		// 	},
-		// },
-		// {
-		// 	base: "tracing_tls",
-		// },
-		// {
-		// 	base: "tracing_tls_custom_sni",
-		// },
-		// {
-		// 	base:             "lrs",
-		// 	compliancePolicy: "fips-140-2",
-		// 	envVars: map[string]string{
-		// 		"ISTIO_META_LOAD_STATS_CONFIG_JSON": `{"api_type": "GRPC", "transport_api_version": "V3"}`,
-		// 	},
-		// },
-		// {
-		// 	base: "stats_compression_gzip",
-		// 	annotations: map[string]string{
-		// 		"sidecar.istio.io/statsCompression": "gzip",
-		// 	},
-		// },
-		// {
-		// 	base: "stats_compression_brotli",
-		// 	annotations: map[string]string{
-		// 		"sidecar.istio.io/statsCompression": "brotli",
-		// 	},
-		// },
-		// {
-		// 	base: "stats_compression_zstd",
-		// 	annotations: map[string]string{
-		// 		"sidecar.istio.io/statsCompression": "zstd",
-		// 	},
-		// },
-		// {
-		// 	base: "stats_compression_unknown",
-		// 	annotations: map[string]string{
-		// 		"sidecar.istio.io/statsCompression": "unknown",
-		// 	},
-		// },
+		{
+			base: "explicit_internal_address",
+		},
+		{
+			base: "legacy_stats_tags_regex",
+			envVars: map[string]string{
+				"ENABLE_DELIMITED_STATS_TAG_REGEX": "false",
+			},
+		},
+		{
+			base: "running",
+			envVars: map[string]string{
+				"ISTIO_META_ISTIO_PROXY_SHA":   "istio-proxy:sha",
+				"ISTIO_META_INTERCEPTION_MODE": "REDIRECT",
+				"ISTIO_META_ISTIO_VERSION":     "release-3.1",
+				"ISTIO_META_POD_NAME":          "svc-0-0-0-6944fb884d-4pgx8",
+				"POD_NAME":                     "svc-0-0-0-6944fb884d-4pgx8",
+				"POD_NAMESPACE":                "test",
+				"INSTANCE_IP":                  "10.10.10.1",
+				"ISTIO_METAJSON_LABELS":        `{"version": "v1alpha1", "app": "test", "istio-locality":"regionA.zoneB.sub_zoneC"}`,
+			},
+			annotations: map[string]string{
+				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
+			},
+			checkLocality: true,
+		},
+		{
+			base: "runningsds",
+			envVars: map[string]string{
+				"ISTIO_META_ISTIO_PROXY_SHA":   "istio-proxy:sha",
+				"ISTIO_META_INTERCEPTION_MODE": "REDIRECT",
+				"ISTIO_META_ISTIO_VERSION":     "release-3.1",
+				"ISTIO_META_POD_NAME":          "svc-0-0-0-6944fb884d-4pgx8",
+				"POD_NAME":                     "svc-0-0-0-6944fb884d-4pgx8",
+				"POD_NAMESPACE":                "test",
+				"INSTANCE_IP":                  "10.10.10.1",
+				"ISTIO_METAJSON_LABELS":        `{"version": "v1alpha1", "app": "test", "istio-locality":"regionA.zoneB.sub_zoneC"}`,
+			},
+			annotations: map[string]string{
+				"istio.io/insecurepath": "{\"paths\":[\"/metrics\",\"/live\"]}",
+			},
+			sdsUDSPath:    "udspath",
+			sdsTokenPath:  "/var/run/secrets/tokens/istio-token",
+			checkLocality: true,
+		},
+		{
+			base:                       "tracing_lightstep",
+			expectLightstepAccessToken: true,
+		},
+		{
+			base: "tracing_zipkin",
+		},
+		{
+			base: "tracing_datadog",
+		},
+		{
+			base: "metrics_no_statsd",
+		},
+		{
+			base: "tracing_opencensusagent",
+		},
+		{
+			base: "tracing_none",
+		},
+		{
+			// Specify zipkin/statsd address, similar with the default config in v1 tests
+			base: "all",
+		},
+		{
+			base:                          "deferred_cluster_creation",
+			enableDefferedClusterCreation: true,
+		},
+		{
+			base: "stats_inclusion",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsInclusionPrefixes": "prefix1,prefix2,http.{pod_ip}_",
+				"sidecar.istio.io/statsInclusionSuffixes": "suffix1,suffix2" + "," + upstreamStatsSuffixes + "," + downstreamStatsSuffixes,
+				"sidecar.istio.io/statsInclusionRegexps":  "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
+				"sidecar.istio.io/extraStatTags":          "dlp_status,dlp_error",
+				"sidecar.istio.io/statsHistogramBuckets":  `{"istio":[1,5,10,50,100,500,1000,5000,10000],"envoy":[1,5,10,25,50,100,250,500,1000,2500,5000,10000]}`,
+			},
+			stats: stats{
+				prefixes: "prefix1,prefix2,http.10.3.3.3_,http.10.4.4.4_,http.10.5.5.5_,http.10.6.6.6_",
+				suffixes: "suffix1,suffix2," + upstreamStatsSuffixes + "," + downstreamStatsSuffixes,
+				regexps:  "http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time",
+			},
+		},
+		{
+			base: "tracing_tls",
+		},
+		{
+			base: "tracing_tls_custom_sni",
+		},
+		{
+			base:             "lrs",
+			compliancePolicy: "fips-140-2",
+			envVars: map[string]string{
+				"ISTIO_META_LOAD_STATS_CONFIG_JSON": `{"api_type": "GRPC", "transport_api_version": "V3"}`,
+			},
+		},
+		{
+			base: "stats_compression_gzip",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsCompression": "gzip",
+			},
+		},
+		{
+			base: "stats_compression_brotli",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsCompression": "brotli",
+			},
+		},
+		{
+			base: "stats_compression_zstd",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsCompression": "zstd",
+			},
+		},
+		{
+			base: "stats_compression_unknown",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsCompression": "unknown",
+			},
+		},
 	}
 
 	test.SetForTest(t, &version.Info.Version, "binary-1.0")
