@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
-	xds_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -64,14 +63,15 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 }
 
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
-	return xdsNeedsPush(req, proxy, xds_model.ListenerType, func(req *model.PushRequest, proxy *model.Proxy) bool {
-		for config := range req.ConfigsUpdated {
-			if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
-				return true
-			}
+	if res, ok := xdsNeedsPush(req, proxy, shouldPushIncremental(req, proxy)); ok {
+		return res
+	}
+	for config := range req.ConfigsUpdated {
+		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
+			return true
 		}
-		return false
-	})
+	}
+	return false
 }
 
 func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

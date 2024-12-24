@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/jwt"
-	xds_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -65,34 +64,36 @@ var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 }()
 
 func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	return xdsNeedsPush(req, proxy, xds_model.ClusterType, func(req *model.PushRequest, proxy *model.Proxy) bool {
-		checkGateway := false
-		for config := range req.ConfigsUpdated {
-			if proxy.Type == model.Router {
-				if features.FilterGatewayClusterConfig {
-					if _, f := pushCdsGatewayConfig[config.Kind]; f {
-						return true
-					}
-				}
-				if config.Kind == kind.Gateway {
-					// Do the check outside of the loop since its slow; just trigger we need it
-					checkGateway = true
-				}
-			}
+	if res, ok := xdsNeedsPush(req, proxy, shouldPushIncremental(req, proxy)); ok {
+		return res
+	}
 
-			if _, f := skippedCdsConfigs[config.Kind]; !f {
-				return true
+	checkGateway := false
+	for config := range req.ConfigsUpdated {
+		if proxy.Type == model.Router {
+			if features.FilterGatewayClusterConfig {
+				if _, f := pushCdsGatewayConfig[config.Kind]; f {
+					return true
+				}
+			}
+			if config.Kind == kind.Gateway {
+				// Do the check outside of the loop since its slow; just trigger we need it
+				checkGateway = true
 			}
 		}
-		if checkGateway {
-			autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
-			autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
-			if autoPassthroughModeChanged || autoPassthroughHostsChanged {
-				return true
-			}
+
+		if _, f := skippedCdsConfigs[config.Kind]; !f {
+			return true
 		}
-		return false
-	})
+	}
+	if checkGateway {
+		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
+		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
+		if autoPassthroughModeChanged || autoPassthroughHostsChanged {
+			return true
+		}
+	}
+	return false
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

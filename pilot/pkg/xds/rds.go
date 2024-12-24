@@ -18,7 +18,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
-	xds_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -43,14 +42,15 @@ var skippedRdsConfigs = sets.New[kind.Kind](
 )
 
 func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	return xdsNeedsPush(req, proxy, xds_model.RouteType, func(req *model.PushRequest, proxy *model.Proxy) bool {
-		for config := range req.ConfigsUpdated {
-			if !skippedRdsConfigs.Contains(config.Kind) {
-				return true
-			}
+	if res, ok := xdsNeedsPush(req, proxy, false); ok {
+		return res
+	}
+	for config := range req.ConfigsUpdated {
+		if !skippedRdsConfigs.Contains(config.Kind) {
+			return true
 		}
-		return false
-	})
+	}
+	return false
 }
 
 func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

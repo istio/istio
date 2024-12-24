@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
-	xds_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -40,20 +39,21 @@ type EcdsGenerator struct {
 var _ model.XdsResourceGenerator = &EcdsGenerator{}
 
 func ecdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	return xdsNeedsPush(req, proxy, xds_model.ExtensionConfigurationType, func(req *model.PushRequest, proxy *model.Proxy) bool {
-		// Only push if config updates is triggered by EnvoyFilter, WasmPlugin, or Secret.
-		for config := range req.ConfigsUpdated {
-			switch config.Kind {
-			case kind.EnvoyFilter:
-				return true
-			case kind.WasmPlugin:
-				return true
-			case kind.Secret:
-				return true
-			}
+	if res, ok := xdsNeedsPush(req, proxy, true); ok {
+		return res
+	}
+	// Only push if config updates is triggered by EnvoyFilter, WasmPlugin, or Secret.
+	for config := range req.ConfigsUpdated {
+		switch config.Kind {
+		case kind.EnvoyFilter:
+			return true
+		case kind.WasmPlugin:
+			return true
+		case kind.Secret:
+			return true
 		}
-		return false
-	})
+	}
+	return false
 }
 
 // onlyReferencedConfigsUpdated indicates whether the PushRequest

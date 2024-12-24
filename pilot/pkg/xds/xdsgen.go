@@ -189,51 +189,44 @@ func ResourceSize(r model.Resources) int {
 	return size
 }
 
-func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy, typeURL string,
-	checkConfigUpdateFunc func(req *model.PushRequest, proxy *model.Proxy) bool,
-) bool {
+// xdsNeedsPush checks for the common cases whether we need to push or not.
+func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy, allowIncrementalPush bool) (bool, bool) {
 	if proxy.Type == model.Ztunnel {
 		// Not supported for ztunnel
-		return false
+		return false, true
 	}
 	if req == nil {
-		return true
+		return true, true
 	}
-	// Special handling for wildcard type URLs - CDS and LDS.
-	if xds.IsWildcardTypeURL(typeURL) {
-		if proxy.Type == model.Waypoint {
-			if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
-				// Waynpoint proxies needs to be pushed for LDS and CDS on kind.Address changes.
-
-				// Waypoint proxies have a matcher against pod IPs in them. Historically, any LDS change would do a full
-				// push, recomputing push context. Doing that on every IP change doesn't scale, so we need these to remain
-				// incremental pushes.
-				// This allows waypoints only to push LDS on incremental pushes to Address type which would otherwise be skipped.
-
-				// Waypoints need CDS updates on kind.Address changes
-				// after implementing use-waypoint which decouples waypoint creation, wl pod creation
-				// user specifying waypoint use. Without this we're not getting correct waypoint config
-				// in a timely manner
-				return true
-			}
-		}
+	if !req.Full {
+		return allowIncrementalPush, true
 	}
-
-	if supportsFullPushOnly(typeURL) && !req.Full {
-		// This is only applicable for NDS as generally handles full push.
-		// We only allow partial pushes, when headless endpoints change.
-		return headlessEndpointsUpdated(req)
-	}
-
 	// If none set, we will always push
 	if len(req.ConfigsUpdated) == 0 {
-		return true
+		return true, true
 	}
-	// We can not defnitively say if we need to push or not based on generic checks, so we will push based
+
+	// We can not definitively say if we need to push or not based on generic checks, so we will push based
 	// on the specific typeURL checks.
-	return checkConfigUpdateFunc(req, proxy)
+	return false, false
 }
 
-func supportsFullPushOnly(typeURL string) bool {
-	return xds.IsWildcardTypeURL(typeURL) || typeURL == v3.RouteType
+// shouldPushIncremental checks if an incremental push is needed for CDS and LDS which normally do a full push.
+func shouldPushIncremental(req *model.PushRequest, proxy *model.Proxy) bool {
+	if proxy.Type == model.Waypoint {
+		if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
+			// Waypoint proxies needs to be pushed for LDS and CDS on kind.Address changes.
+			// Waypoint proxies have a matcher against pod IPs in them. Historically, any LDS change would do a full
+			// push, recomputing push context. Doing that on every IP change doesn't scale, so we need these to remain
+			// incremental pushes.
+			// This allows waypoints only to push LDS on incremental pushes to Address type which would otherwise be skipped.
+
+			// Waypoints need CDS updates on kind.Address changes
+			// after implementing use-waypoint which decouples waypoint creation, wl pod creation
+			// user specifying waypoint use. Without this we're not getting correct waypoint config
+			// in a timely manner
+			return true
+		}
+	}
+	return req.Full
 }

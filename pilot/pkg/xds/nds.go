@@ -21,7 +21,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
-	xds_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -62,22 +61,15 @@ var skippedNdsConfigs = sets.New(
 )
 
 func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	return xdsNeedsPush(req, proxy, xds_model.NameTableType, func(req *model.PushRequest, proxy *model.Proxy) bool {
-		if !req.Full {
-			// NDS generally handles full push. We only allow partial pushes, when headless endpoints change.
-			return headlessEndpointsUpdated(req)
-		}
-		// If none set, we will always push
-		if len(req.ConfigsUpdated) == 0 {
+	if res, ok := xdsNeedsPush(req, proxy, headlessEndpointsUpdated(req)); ok {
+		return res
+	}
+	for config := range req.ConfigsUpdated {
+		if _, f := skippedNdsConfigs[config.Kind]; !f {
 			return true
 		}
-		for config := range req.ConfigsUpdated {
-			if _, f := skippedNdsConfigs[config.Kind]; !f {
-				return true
-			}
-		}
-		return false
-	})
+	}
+	return false
 }
 
 func headlessEndpointsUpdated(req *model.PushRequest) bool {

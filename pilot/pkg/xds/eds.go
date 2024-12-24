@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pkg/config/schema/kind"
-	xds_model "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -110,14 +109,15 @@ var skippedEdsConfigs = sets.New(
 )
 
 func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	return xdsNeedsPush(req, proxy, xds_model.EndpointType, func(req *model.PushRequest, proxy *model.Proxy) bool {
-		for config := range req.ConfigsUpdated {
-			if !skippedEdsConfigs.Contains(config.Kind) {
-				return true
-			}
+	if res, ok := xdsNeedsPush(req, proxy, true); ok {
+		return res
+	}
+	for config := range req.ConfigsUpdated {
+		if !skippedEdsConfigs.Contains(config.Kind) {
+			return true
 		}
-		return false
-	})
+	}
+	return false
 }
 
 func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
