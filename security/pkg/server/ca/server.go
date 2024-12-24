@@ -16,6 +16,7 @@ package ca
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -140,11 +141,20 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	if len(rootCertBytes) != 0 {
 		respCertChain = append(respCertChain, string(rootCertBytes))
 	}
-	response := &pb.IstioCertificateResponse{
-		CertChain: respCertChain,
+
+	// expanded `respCertChain` since each element might be a concatenated multi-cert PEM
+	// the expanded structure (one cert per `string` in `certChain`) is specifically expected by `ztunnel`
+	response := &pb.IstioCertificateResponse{}
+	for _, pem := range respCertChain {
+		for _, cert := range strings.SplitAfter(pem, "-----END CERTIFICATE-----\n") {
+			if cert != "" { // SplitAfter returns a trailing empty string if the input ends with the separator
+				response.CertChain = append(response.CertChain, cert)
+			}
+		}
 	}
+	serverCaLog.Debugf("Responding with cert chain, %q", response.CertChain)
 	s.monitoring.Success.Increment()
-	serverCaLog.Debugf("CSR successfully signed, sans %v.", caller.Identities)
+	serverCaLog.Debugf("CSR successfully signed, sans %v.", sans)
 	return response, nil
 }
 
