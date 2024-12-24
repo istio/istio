@@ -273,8 +273,8 @@ func TestEds(t *testing.T) {
 	t.Run("TCPEndpoints", func(t *testing.T) {
 		testTCPEndpoints("127.0.0.1", adscConn, t)
 	})
-	t.Run("edsz", func(t *testing.T) {
-		testEdsz(t, s, "test-1.default")
+	t.Run("config_dump", func(t *testing.T) {
+		testConfigDump(t, s, "test-1.default")
 	})
 	t.Run("LocalityPrioritizedEndpoints", func(t *testing.T) {
 		testLocalityPrioritizedEndpoints(adscConn, adscConn2, t)
@@ -1340,18 +1340,18 @@ func addUnhealthyCluster(s *xdsfake.FakeDiscoveryServer) {
 // TODO: use this in integration tests.
 // TODO: refine the output
 // TODO: dump the ServiceInstances as well
-func testEdsz(t *testing.T, s *xdsfake.FakeDiscoveryServer, proxyID string) {
-	req, err := http.NewRequest(http.MethodGet, "/debug/edsz?proxyID="+proxyID, nil)
+func testConfigDump(t *testing.T, s *xdsfake.FakeDiscoveryServer, proxyID string) {
+	req, err := http.NewRequest(http.MethodGet, "/debug/config_dump?include_eds=true&proxyID="+proxyID, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	rr := httptest.NewRecorder()
-	debug := http.HandlerFunc(s.Discovery.Edsz)
+	debug := http.HandlerFunc(s.Discovery.ConfigDump)
 	debug.ServeHTTP(rr, req)
 
 	data, err := io.ReadAll(rr.Body)
 	if err != nil {
-		t.Fatal("Failed to read /edsz")
+		t.Fatal("Failed to read /config_dump")
 	}
 	statusStr := string(data)
 

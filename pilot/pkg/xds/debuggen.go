@@ -32,8 +32,6 @@ import (
 
 var activeNamespaceDebuggers = map[string]struct{}{
 	"config_dump": {},
-	"ndsz":        {},
-	"edsz":        {},
 }
 
 // DebugGen is a Generator for istio debug info
