@@ -61,20 +61,11 @@ var skippedNdsConfigs = sets.New(
 )
 
 func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	if proxy.Type == model.Ztunnel {
-		// Not supported for ztunnel
-		return false
-	}
-	if req == nil {
-		return true
+	if res, ok := xdsNeedsPush(req, proxy); ok {
+		return res
 	}
 	if !req.Full {
-		// NDS generally handles full push. We only allow partial pushes, when headless endpoints change.
-		return headlessEndpointsUpdated(req)
-	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
+		return false
 	}
 	for config := range req.ConfigsUpdated {
 		if _, f := skippedNdsConfigs[config.Kind]; !f {
@@ -82,10 +73,6 @@ func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		}
 	}
 	return false
-}
-
-func headlessEndpointsUpdated(req *model.PushRequest) bool {
-	return req.Reason.Has(model.HeadlessEndpointUpdate)
 }
 
 func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
