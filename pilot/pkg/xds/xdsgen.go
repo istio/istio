@@ -190,7 +190,7 @@ func ResourceSize(r model.Resources) int {
 }
 
 // xdsNeedsPush checks for the common cases whether we need to push or not.
-func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (bool, bool) {
+func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (needsPush, definitive bool) {
 	if proxy.Type == model.Ztunnel {
 		// Not supported for ztunnel
 		return false, true
