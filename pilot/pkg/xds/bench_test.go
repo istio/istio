@@ -338,7 +338,6 @@ func runBenchmark(b *testing.B, tpe string, testCases []ConfigInput) {
 }
 
 func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
-	test.SetForTest(t, &features.EnableAmbient, true)
 	for _, tt := range testCases {
 		if tt.OnlyRunType != "" && tt.OnlyRunType != tpe {
 			// Not applicable for this type
