@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
@@ -86,6 +87,97 @@ func TestWaypointStatus(t *testing.T) {
 						return err
 					}
 					cond := GetCondition(wp.Status.Conditions, string(model.WaypointBound))
+					if cond == nil {
+						return fmt.Errorf("condition not found on service, had %v", wp.Status.Conditions)
+					}
+					if cond.Status != metav1.ConditionTrue {
+						return fmt.Errorf("cond not true, had %v", wp.Status.Conditions)
+					}
+					return nil
+				})
+			})
+			t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
+				retry.UntilSuccessOrFail(t, func() error {
+					wp, err := t.Clusters().Default().GatewayAPI().GatewayV1beta1().
+						Gateways(apps.Namespace.Name()).Get(context.Background(), "waypoint", metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					cond := GetCondition(wp.Status.Conditions, string(k8s.GatewayConditionProgrammed))
+					if cond == nil {
+						return fmt.Errorf("condition not found on service, had %v", wp.Status.Conditions)
+					}
+					if cond.Status != metav1.ConditionTrue {
+						return fmt.Errorf("cond not true, had %v", wp.Status.Conditions)
+					}
+					cond = GetCondition(wp.Status.Conditions, string(k8s.GatewayConditionAccepted))
+					if cond == nil {
+						return fmt.Errorf("condition not found on service, had %v", wp.Status.Conditions)
+					}
+					if cond.Status != metav1.ConditionTrue {
+						return fmt.Errorf("cond not true, had %v", wp.Status.Conditions)
+					}
+					return nil
+				})
+			})
+			t.NewSubTest("waypoint-tagged").Run(func(t framework.TestContext) {
+				revs := t.Settings().Revisions
+				// _, err := ambient.NewWaypointProxyRevisioned(t, apps.Namespace, "waypoint-tagged", revs.Default())
+				// if err != nil {
+				// 	t.Fatal(err)
+				// }
+
+				// create tag foo pointing at the revision we're testing
+				ik, err := istioctl.New(t, istioctl.Config{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				_, _, err = ik.Invoke([]string{
+					"tag",
+					"set",
+					"foo",
+					"--revision",
+					revs.Default(),
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				gw := &v1beta1.Gateway{
+					ObjectMeta: metav1.ObjectMeta{Name: "waypoint-tagged", Namespace: apps.Namespace.Name(),
+						Labels:      map[string]string{"istio.io/rev": "foo"},
+						Annotations: map[string]string{"istio.io/waypoint-for": "none"},
+					},
+					Spec: v1beta1.GatewaySpec{
+						GatewayClassName: constants.WaypointGatewayClassName,
+						Listeners: []v1beta1.Listener{{
+							Port:     15008,
+							Name:     "mesh",
+							Protocol: "HBONE",
+						}},
+					},
+				}
+				_, err = t.Clusters().Default().GatewayAPI().GatewayV1beta1().
+					Gateways(apps.Namespace.Name()).Create(context.Background(), gw, metav1.CreateOptions{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				time.Sleep(5 * time.Second)
+				retry.UntilSuccessOrFail(t, func() error {
+
+					wp, err := t.Clusters().Default().GatewayAPI().GatewayV1beta1().
+						Gateways(apps.Namespace.Name()).Get(context.Background(), "waypoint-tagged", metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					cond := GetCondition(wp.Status.Conditions, string(k8s.GatewayConditionProgrammed))
+					if cond == nil {
+						return fmt.Errorf("condition not found on service, had %v", wp.Status.Conditions)
+					}
+					if cond.Status != metav1.ConditionTrue {
+						return fmt.Errorf("cond not true, had %v", wp.Status.Conditions)
+					}
+					cond = GetCondition(wp.Status.Conditions, string(k8s.GatewayConditionAccepted))
 					if cond == nil {
 						return fmt.Errorf("condition not found on service, had %v", wp.Status.Conditions)
 					}

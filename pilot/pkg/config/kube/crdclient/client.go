@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/queue"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -69,6 +70,8 @@ type Client struct {
 
 	// revision for this control plane instance. We will only read configs that match this revision.
 	revision string
+
+	tagWatcher revisions.TagWatcher
 
 	// kinds keeps track of all cache handlers for known types
 	kinds   map[config.GroupVersionKind]kclient.Untyped
@@ -112,11 +115,13 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		name := fmt.Sprintf("%s.%s", s.Plural(), s.Group())
 		schemasByCRDName[name] = s
 	}
+	revisions.NewTagWatcher(client, opts.Revision)
 	out := &Client{
 		domainSuffix:     opts.DomainSuffix,
 		schemas:          schemas,
 		schemasByCRDName: schemasByCRDName,
 		revision:         opts.Revision,
+		tagWatcher:       revisions.NewTagWatcher(client, opts.Revision),
 		queue:            queue.NewQueue(1 * time.Second),
 		started:          atomic.NewBool(false),
 		kinds:            map[config.GroupVersionKind]kclient.Untyped{},
@@ -144,6 +149,10 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	if cl.started.Swap(true) {
 		// was already started by other thread
 		return
+	}
+
+	if cl.tagWatcher != nil {
+		go cl.tagWatcher.Run(stop)
 	}
 
 	t0 := time.Now()
@@ -448,7 +457,7 @@ func (cl *Client) inRevision(obj any) bool {
 	if object == nil {
 		return false
 	}
-	return config.LabelsInRevision(object.GetLabels(), cl.revision)
+	return config.LabelsInRevisionOrTags(object.GetLabels(), cl.revision, cl.tagWatcher.GetMyTags())
 }
 
 func (cl *Client) onEvent(resourceGVK config.GroupVersionKind, old controllers.Object, curr controllers.Object, event model.Event) {
