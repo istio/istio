@@ -114,7 +114,7 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	if svc != nil && !serviceNeedsPush(svc) {
 		return
 	}
-	log.Infof("triggering EDS push for %s %s in namespace %s", name, event, namespace)
+	log.Debugf("triggering EDS push for %s %s in namespace %s", name, event, namespace)
 
 	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
 	// Trigger EDS push for all hostnames.
