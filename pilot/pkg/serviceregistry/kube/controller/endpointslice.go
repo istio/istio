@@ -143,9 +143,6 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	}
 
 	if len(configsUpdated) > 0 {
-		// For headless services, trigger a full push to regenerate listeners per endpoint.
-		// Otherwise we only need to push NDS, but still need to set Full as true but we skip
-		// all other xDS except NDS during the push.
 		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: configsUpdated,

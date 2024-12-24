@@ -64,10 +64,15 @@ var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 }()
 
 func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	if res, ok := xdsNeedsPush(req, proxy, shouldPushIncremental(req, proxy)); ok {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
-
+	if waypointNeedsPush(req) {
+		return true
+	}
+	if !req.Full {
+		return false
+	}
 	checkGateway := false
 	for config := range req.ConfigsUpdated {
 		if proxy.Type == model.Router {

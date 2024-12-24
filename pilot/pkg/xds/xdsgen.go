@@ -190,16 +190,13 @@ func ResourceSize(r model.Resources) int {
 }
 
 // xdsNeedsPush checks for the common cases whether we need to push or not.
-func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy, allowIncrementalPush bool) (bool, bool) {
+func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (bool, bool) {
 	if proxy.Type == model.Ztunnel {
 		// Not supported for ztunnel
 		return false, true
 	}
 	if req == nil {
 		return true, true
-	}
-	if !req.Full {
-		return allowIncrementalPush, true
 	}
 	// If none set, we will always push
 	if len(req.ConfigsUpdated) == 0 {
@@ -211,22 +208,17 @@ func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy, allowIncrementalPu
 	return false, false
 }
 
-// shouldPushIncremental checks if an incremental push is needed for CDS and LDS which normally do a full push.
-func shouldPushIncremental(req *model.PushRequest, proxy *model.Proxy) bool {
-	if proxy.Type == model.Waypoint {
-		if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
-			// Waypoint proxies needs to be pushed for LDS and CDS on kind.Address changes.
-			// Waypoint proxies have a matcher against pod IPs in them. Historically, any LDS change would do a full
-			// push, recomputing push context. Doing that on every IP change doesn't scale, so we need these to remain
-			// incremental pushes.
-			// This allows waypoints only to push LDS on incremental pushes to Address type which would otherwise be skipped.
+// waypointNeedsPush checks if an incremental push is needed for CDS and LDS which normally do a full push.
+func waypointNeedsPush(req *model.PushRequest) bool {
+	// Waypoint proxies needs to be pushed for LDS and CDS on kind.Address changes.
+	// Waypoint proxies have a matcher against pod IPs in them. Historically, any LDS change would do a full
+	// push, recomputing push context. Doing that on every IP change doesn't scale, so we need these to remain
+	// incremental pushes.
+	// This allows waypoints only to push LDS on incremental pushes to Address type which would otherwise be skipped.
 
-			// Waypoints need CDS updates on kind.Address changes
-			// after implementing use-waypoint which decouples waypoint creation, wl pod creation
-			// user specifying waypoint use. Without this we're not getting correct waypoint config
-			// in a timely manner
-			return true
-		}
-	}
-	return req.Full
+	// Waypoints need CDS updates on kind.Address changes
+	// after implementing use-waypoint which decouples waypoint creation, wl pod creation
+	// user specifying waypoint use. Without this we're not getting correct waypoint config
+	// in a timely manner
+	return model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address)
 }

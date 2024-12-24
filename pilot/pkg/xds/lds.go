@@ -63,8 +63,14 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 }
 
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
-	if res, ok := xdsNeedsPush(req, proxy, shouldPushIncremental(req, proxy)); ok {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
+	}
+	if waypointNeedsPush(req) {
+		return true
+	}
+	if !req.Full {
+		return false
 	}
 	for config := range req.ConfigsUpdated {
 		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {

@@ -109,7 +109,7 @@ var skippedEdsConfigs = sets.New(
 )
 
 func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	if res, ok := xdsNeedsPush(req, proxy, true); ok {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
 	for config := range req.ConfigsUpdated {
