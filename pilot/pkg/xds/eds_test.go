@@ -1346,8 +1346,7 @@ func testEdsz(t *testing.T, s *xdsfake.FakeDiscoveryServer, proxyID string) {
 		t.Fatal(err)
 	}
 	rr := httptest.NewRecorder()
-	debug := http.HandlerFunc(s.Discovery.Edsz)
-	debug.ServeHTTP(rr, req)
+	s.DiscoveryDebug.ServeHTTP(rr, req)
 
 	data, err := io.ReadAll(rr.Body)
 	if err != nil {

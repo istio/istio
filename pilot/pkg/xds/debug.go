@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -188,9 +187,9 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 		s.addDebugHandler(mux, internalMux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.forceDisconnect)
 	}
 
-	s.addDebugHandler(mux, internalMux, "/debug/ecdsz", "Status and debug interface for ECDS", s.ecdsz)
-	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
-	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.ndsz)
+	s.addDebugHandler(mux, internalMux, "/debug/ecdsz", "Status and debug interface for ECDS", s.typedConfigDumpHandler("ecds"))
+	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.typedConfigDumpHandler("eds"))
+	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.typedConfigDumpHandler("nds"))
 	s.addDebugHandler(mux, internalMux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
 	s.addDebugHandler(mux, internalMux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
 
@@ -533,24 +532,13 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, adsClients, req)
 }
 
-// ecdsz implements a status and debug interface for ECDS.
-// It is mapped to /debug/ecdsz
-func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
-	if s.handlePushRequest(w, req) {
-		return
+func (s *DiscoveryServer) typedConfigDumpHandler(typ string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		q.Set("types", typ)
+		r.URL.RawQuery = q.Encode()
+		s.ConfigDump(w, r)
 	}
-	proxyID, con := s.getDebugConnection(req)
-	if con == nil {
-		s.errorHandler(w, proxyID, con)
-		return
-	}
-
-	dump := s.getConfigDumpByResourceType(con, nil, []string{v3.ExtensionConfigurationType})
-	if len(dump[v3.ExtensionConfigurationType]) == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	writeJSON(w, dump[v3.ExtensionConfigurationType], req)
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
@@ -932,57 +920,6 @@ func (s *DiscoveryServer) list(w http.ResponseWriter, req *http.Request) {
 	}
 	sort.Strings(cmdNames)
 	writeJSON(w, cmdNames, req)
-}
-
-// ndsz implements a status and debug interface for NDS.
-// It is mapped to /debug/ndsz on the monitor port (15014).
-func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
-	if s.handlePushRequest(w, req) {
-		return
-	}
-	proxyID, con := s.getDebugConnection(req)
-	if con == nil {
-		s.errorHandler(w, proxyID, con)
-		return
-	}
-	if !con.proxy.Metadata.DNSCapture {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("DNS capture is not enabled in the proxy\n"))
-		return
-	}
-
-	if s.Generators[v3.NameTableType] != nil {
-		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, &model.PushRequest{
-			Push: con.proxy.LastPushContext,
-			Full: true,
-		})
-		if len(nds) == 0 {
-			return
-		}
-		writeJSON(w, nds[0], req)
-	}
-}
-
-// Edsz implements a status and debug interface for EDS.
-// It is mapped to /debug/edsz on the monitor port (15014).
-func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
-	if s.handlePushRequest(w, req) {
-		return
-	}
-
-	proxyID, con := s.getDebugConnection(req)
-	if con == nil {
-		s.errorHandler(w, proxyID, con)
-		return
-	}
-
-	clusters := con.Clusters()
-	eps := make([]jsonMarshalProto, 0, len(clusters))
-	for _, clusterName := range clusters {
-		builder := endpoints.NewEndpointBuilder(clusterName, con.proxy, con.proxy.LastPushContext)
-		eps = append(eps, jsonMarshalProto{builder.BuildClusterLoadAssignment(s.Env.EndpointIndex)})
-	}
-	writeJSON(w, eps, req)
 }
 
 func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Request) {
