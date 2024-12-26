@@ -21,6 +21,10 @@
 BUILD_WITH_CONTAINER ?= 1
 CONTAINER_OPTIONS = --mount type=bind,source=/tmp,destination=/tmp --net=host
 
+# Coverage threshold for overcover
+COVERAGE_THRESH_PCT ?= 50
+OVERCOVER_BIN ?= $(shell which overcover || echo "")
+
 export COMMONFILES_POSTPROCESS = tools/commonfiles-postprocess.sh
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
@@ -36,3 +40,13 @@ endif
 .PHONY: istioctl-install
 istioctl-install: istioctl-install-container
 	cp out/$(TARGET_OS)_$(TARGET_ARCH)/istioctl ${GOPATH}/bin
+
+.PHONY: coverage
+coverage:
+	go test ./cni/... -coverprofile=coverage.out || true
+	@if [ -z "$(OVERCOVER_BIN)" ]; then \
+		echo "Overcover is not installed. Installing..."; \
+		go install github.com/klmitch/overcover@latest; \
+	fi
+	overcover --coverprofile=coverage.out ./cni/... --threshold $(COVERAGE_THRESH_PCT)
+	@echo "Coverage report generated: coverage.out"
