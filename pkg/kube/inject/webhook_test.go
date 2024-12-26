@@ -54,7 +54,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/util/file"
 )
 
 const yamlSeparator = "\n---"
@@ -581,28 +580,6 @@ func objectToPod(t testing.TB, obj runtime.Object) *corev1.Pod {
 	}
 	t.Fatalf("unknown type: %T", obj)
 	return nil
-}
-
-func readInjectionSettings(t testing.TB, fname string) (*Config, ValuesConfig, *meshconfig.MeshConfig) {
-	values := file.AsStringOrFail(t, filepath.Join("testdata", "inputs", fname+".values.gen.yaml"))
-	template := file.AsBytesOrFail(t, filepath.Join("testdata", "inputs", fname+".template.gen.yaml"))
-	meshc := file.AsStringOrFail(t, filepath.Join("testdata", "inputs", fname+".mesh.gen.yaml"))
-
-	vc, err := NewValuesConfig(values)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cfg, err := UnmarshalConfig(template)
-	if err != nil {
-		t.Fatalf("failed to unmarshal injectionConfig: %v", err)
-	}
-	meshConfig, err := mesh.ApplyMeshConfig(meshc, mesh.DefaultMeshConfig())
-	if err != nil {
-		t.Fatalf("failed to unmarshal meshconfig: %v", err)
-	}
-
-	return &cfg, vc, meshConfig
 }
 
 // loadInjectionSettings will render the charts using the operator, with given yaml overrides.
