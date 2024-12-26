@@ -26,10 +26,15 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
+	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoymatcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	googleproto "google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -213,7 +218,52 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 	}
 	chains := []*listener.FilterChain{}
 	portProtocols := map[int]protocol.Instance{}
+	getOrigDstSfs := func(ipAndPort string, isHttp bool) *listener.Filter {
+		celTemplate := `%%CEL('%s' in filter_state ? filter_state['%s']: r'%s')%%`
+		celEval := fmt.Sprintf(celTemplate, xdsfilters.OriginalDstFilterStateKey, xdsfilters.OriginalDstFilterStateKey, ipAndPort)
+		filterStateValue := &sfsvalue.FilterStateValue{
+			Key: &sfsvalue.FilterStateValue_ObjectKey{
+				ObjectKey: "envoy.network.transport_socket.original_dst_address",
+			},
+			Value: &sfsvalue.FilterStateValue_FormatString{
+				FormatString: &core.SubstitutionFormatString{
+					Formatters: []*core.TypedExtensionConfig{
+						{
+							Name:        "envoy.formatter.cel",
+							TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
+						},
+					},
+					Format: &core.SubstitutionFormatString_TextFormatSource{
+						TextFormatSource: &core.DataSource{
+							Specifier: &core.DataSource_InlineString{
+								// If we have a valid original destination in filter state, use it. Else,
+								// fall back to the original destination address.
+								InlineString: celEval,
+							},
+						},
+					},
+				},
+			},
+		}
+		var msg googleproto.Message
+		if isHttp {
+			msg = &sfs.Config{
+				OnRequestHeaders: []*sfsvalue.FilterStateValue{filterStateValue},
+			}
+		} else {
+			msg = &sfsnetwork.Config{
+				OnNewConnection: []*sfsvalue.FilterStateValue{filterStateValue},
+			}
+		}
+		return &listener.Filter{
+			Name: "set_dst_address",
+			ConfigType: &listener.Filter_TypedConfig{
+				TypedConfig: protoconv.MessageToAny(msg),
+			},
+		}
+	}
 	for _, svc := range svcs {
+		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
@@ -222,6 +272,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			portString := strconv.Itoa(port.Port)
 			authorityKey := fmt.Sprintf("%s:%d", svc.Hostname, port.Port)
 			tcpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port)
+
 			cc := inboundChainConfig{
 				clusterName:   tcpClusterName,
 				policyService: svc,
@@ -237,15 +288,30 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					KubernetesServiceName:      svc.Attributes.Name,
 				},
 			}
-			tcpChain := &listener.FilterChain{
-				Filters: lb.buildInboundNetworkFilters(cc),
-				Name:    cc.clusterName,
-			}
+			var tcpChain, httpChain *listener.FilterChain
+			origDst := svc.GetAddressForProxy(lb.node) + ":" + portString
 			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
-			cc.clusterName = httpClusterName
-			httpChain := &listener.FilterChain{
-				Filters: lb.buildWaypointInboundHTTPFilters(svc, cc),
-				Name:    cc.clusterName,
+			if len(svcAddresses) > 0 {
+				setOrigDstForCluster := []*listener.Filter{getOrigDstSfs(origDst, false)}
+				tcpChain = &listener.FilterChain{
+					Filters: append(setOrigDstForCluster, lb.buildInboundNetworkFilters(cc)...),
+					Name:    cc.clusterName,
+				}
+				cc.clusterName = httpClusterName
+				httpChain = &listener.FilterChain{
+					Filters: append(setOrigDstForCluster, lb.buildWaypointInboundHTTPFilters(svc, cc)...),
+					Name:    cc.clusterName,
+				}
+			} else {
+				tcpChain = &listener.FilterChain{
+					Filters: lb.buildInboundNetworkFilters(cc),
+					Name:    cc.clusterName,
+				}
+				cc.clusterName = httpClusterName
+				httpChain = &listener.FilterChain{
+					Filters: lb.buildWaypointInboundHTTPFilters(svc, cc),
+					Name:    cc.clusterName,
+				}
 			}
 			if port.Protocol.IsUnsupported() {
 				// If we need to sniff, insert two chains and the protocol detector
@@ -281,7 +347,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 		if len(portMapper.Map) > 0 {
-			ranges := slices.Map(svc.GetAllAddressesForProxy(lb.node), func(vip string) *xds.CidrRange {
+			ranges := slices.Map(svcAddresses, func(vip string) *xds.CidrRange {
 				cidr := util.ConvertAddressToCidr(vip)
 				return &xds.CidrRange{
 					AddressPrefix: cidr.AddressPrefix,
