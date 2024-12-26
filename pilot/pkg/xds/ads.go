@@ -503,9 +503,9 @@ var PushOrder = []string{
 	v3.ListenerType,
 	v3.RouteType,
 	v3.SecretType,
+	v3.WorkloadAuthorizationType,
 	v3.AddressType,
 	v3.WorkloadType,
-	v3.WorkloadAuthorizationType,
 }
 
 // KnownOrderedTypeUrls has typeUrls for which we know the order of push.
