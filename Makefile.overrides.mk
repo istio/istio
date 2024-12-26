@@ -43,7 +43,7 @@ istioctl-install: istioctl-install-container
 
 .PHONY: coverage
 coverage:
-	go test ./cni/... -coverprofile=coverage.out || true
+	go test ./... -coverprofile=coverage.out || true
 	@if [ -z "$(OVERCOVER_BIN)" ]; then \
 		echo "Overcover is not installed. Installing..."; \
 		go install github.com/klmitch/overcover@latest; \
