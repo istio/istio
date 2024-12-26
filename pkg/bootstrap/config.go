@@ -703,7 +703,11 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		untypedMeta[security.CredentialMetaDataName] = "true"
 	}
 
-	meta.MetadataDiscovery = model.StringBool(meta.EnableHBONE)
+	if !meta.MetadataDiscovery {
+		// If it's disabled, set it if ambient is enabled
+		meta.MetadataDiscovery = meta.EnableHBONE
+		log.Debugf("metadata discovery is disabled, setting it to %s based on if ambient HBONE is enabled", meta.MetadataDiscovery)
+	}
 
 	return &model.Node{
 		ID:          options.ID,
