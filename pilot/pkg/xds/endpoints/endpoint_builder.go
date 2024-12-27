@@ -15,22 +15,19 @@
 package endpoints
 
 import (
-	"fmt"
 	"math"
 	"net"
 	"sort"
 	"strconv"
 	"strings"
 
-	selectorpb "istio.io/api/type/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/selection"
+	"istio.io/istio/pkg/kube/namespace"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	k8slabels "k8s.io/apimachinery/pkg/labels"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
@@ -79,7 +76,7 @@ type EndpointBuilder struct {
 	// These fields are provided for convenience only
 	subsetName    string
 	subsetLabels  labels.Instance
-	labelSelector k8slabels.Selector
+	labelSelector klabels.Selector
 	hostname      host.Name
 	port          int
 	push          *model.PushContext
@@ -330,7 +327,7 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	if b == nil {
 		return nil
 	}
-	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels, b.labelSelector)
 	// don't use the pre-computed endpoints for CDS to preserve previous behavior
 	// CDS is always toServiceWaypoint=false. We do not yet support calling waypoints for CDS (DNS type)
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
@@ -845,6 +842,33 @@ func getSubSetLabels(dr *v1alpha3.DestinationRule, subsetName string) labels.Ins
 	return nil
 }
 
+func getLabelSelector(dr *v1alpha3.DestinationRule, subsetName string) klabels.Selector {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	if dr == nil {
+		return nil
+	}
+
+	for _, subset := range dr.Subsets {
+		if subset.Name == subsetName {
+			if subset.GetSelector() == nil {
+				return nil
+			}
+			selector, err := namespace.LabelSelectorSelectorPbAsSelector(subset.GetSelector())
+			if err != nil {
+				log.Warnf("could not parse label selector for subset %s: %s", subsetName, err)
+				return nil
+			}
+			return selector
+		}
+	}
+
+	return nil
+}
+
 // For services that have a waypoint, we want to send to the waypoints rather than the service endpoints.
 // Lookup the
 func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) ([]*model.IstioEndpoint, bool) {
@@ -893,78 +917,18 @@ func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.Endpoint
 			return false
 		}
 		// filter out endpoints that don't match the subset
-		if !b.subsetLabels.SubsetOf(ep.Labels) {
+		if b.subsetLabels != nil {
+			// filter out endpoints that don't match the subset
+			if !b.subsetLabels.SubsetOf(ep.Labels) {
+				return false
+			}
+			return true
+		}
+
+		if b.labelSelector != nil && !b.labelSelector.Matches(ep.Labels) {
 			return false
 		}
 		return true
 	})
 	return svcEps, true
-}
-
-// from pkg/kube/namespace/filter.go
-func labelSelectorAsSelector(ps *selectorpb.LabelSelector) (k8slabels.Selector, error) {
-	if ps == nil {
-		return k8slabels.Nothing(), nil
-	}
-	if len(ps.MatchLabels)+len(ps.MatchExpressions) == 0 {
-		return k8slabels.Everything(), nil
-	}
-	requirements := make([]k8slabels.Requirement, 0, len(ps.MatchLabels)+len(ps.MatchExpressions))
-	for k, v := range ps.MatchLabels {
-		r, err := k8slabels.NewRequirement(k, selection.Equals, []string{v})
-		if err != nil {
-			return nil, err
-		}
-		requirements = append(requirements, *r)
-	}
-	for _, expr := range ps.MatchExpressions {
-		var op selection.Operator
-		switch metav1.LabelSelectorOperator(expr.Operator) {
-		case metav1.LabelSelectorOpIn:
-			op = selection.In
-		case metav1.LabelSelectorOpNotIn:
-			op = selection.NotIn
-		case metav1.LabelSelectorOpExists:
-			op = selection.Exists
-		case metav1.LabelSelectorOpDoesNotExist:
-			op = selection.DoesNotExist
-		default:
-			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
-		}
-		r, err := k8slabels.NewRequirement(expr.Key, op, append([]string(nil), expr.Values...))
-		if err != nil {
-			return nil, err
-		}
-		requirements = append(requirements, *r)
-	}
-	selector := k8slabels.NewSelector()
-	selector = selector.Add(requirements...)
-	return selector, nil
-}
-
-func getLabelSelector(dr *v1alpha3.DestinationRule, subsetName string) k8slabels.Selector {
-	// empty subset
-	if subsetName == "" {
-		return nil
-	}
-
-	if dr == nil {
-		return nil
-	}
-
-	for _, subset := range dr.Subsets {
-		if subset.Name == subsetName {
-			if subset.GetSelector() == nil {
-				return nil
-			}
-			selector, err := labelSelectorAsSelector(subset.GetSelector())
-			if err != nil {
-				log.Warnf("could not parse label selector for subset %s: %s", subsetName, err)
-				return nil
-			}
-			return selector
-		}
-	}
-
-	return nil
 }

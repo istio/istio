@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync"
 
+	selectorpb "istio.io/api/type/v1beta1"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -150,6 +152,47 @@ func extractObjectNamespace(obj any) (string, bool) {
 }
 
 func LabelSelectorAsSelector(ps *meshapi.LabelSelector) (labels.Selector, error) {
+	if ps == nil {
+		return labels.Nothing(), nil
+	}
+	if len(ps.MatchLabels)+len(ps.MatchExpressions) == 0 {
+		return labels.Everything(), nil
+	}
+	requirements := make([]labels.Requirement, 0, len(ps.MatchLabels)+len(ps.MatchExpressions))
+	for k, v := range ps.MatchLabels {
+		r, err := labels.NewRequirement(k, selection.Equals, []string{v})
+		if err != nil {
+			return nil, err
+		}
+		requirements = append(requirements, *r)
+	}
+	for _, expr := range ps.MatchExpressions {
+		var op selection.Operator
+		switch metav1.LabelSelectorOperator(expr.Operator) {
+		case metav1.LabelSelectorOpIn:
+			op = selection.In
+		case metav1.LabelSelectorOpNotIn:
+			op = selection.NotIn
+		case metav1.LabelSelectorOpExists:
+			op = selection.Exists
+		case metav1.LabelSelectorOpDoesNotExist:
+			op = selection.DoesNotExist
+		default:
+			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
+		}
+		r, err := labels.NewRequirement(expr.Key, op, append([]string(nil), expr.Values...))
+		if err != nil {
+			return nil, err
+		}
+		requirements = append(requirements, *r)
+	}
+	selector := labels.NewSelector()
+	selector = selector.Add(requirements...)
+	return selector, nil
+}
+
+// same as above, pre-merge of the LabelSelector proto
+func LabelSelectorSelectorPbAsSelector(ps *selectorpb.LabelSelector) (labels.Selector, error) {
 	if ps == nil {
 		return labels.Nothing(), nil
 	}

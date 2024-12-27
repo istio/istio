@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	klabels "k8s.io/apimachinery/pkg/labels"
+
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -2418,7 +2420,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 	// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
 	// A service with passthrough resolution is always passthrough, regardless of the TrafficPolicy.
 	if service.Resolution == Passthrough || tp.GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH {
-		instances := ps.ServiceEndpointsByPort(service, port.Port, nil)
+		instances := ps.ServiceEndpointsByPort(service, port.Port, nil, nil)
 		if len(instances) == 0 {
 			return MTLSDisable
 		}
@@ -2441,7 +2443,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 }
 
 // ServiceEndpointsByPort returns the cached instances by port if it exists.
-func (ps *PushContext) ServiceEndpointsByPort(svc *Service, port int, labels labels.Instance) []*IstioEndpoint {
+func (ps *PushContext) ServiceEndpointsByPort(svc *Service, port int, labels labels.Instance, selector klabels.Selector) []*IstioEndpoint {
 	var out []*IstioEndpoint
 	if instances, exists := ps.ServiceIndex.instancesByPort[svc.Key()][port]; exists {
 		// Use cached version of instances by port when labels are empty.
@@ -2452,6 +2454,8 @@ func (ps *PushContext) ServiceEndpointsByPort(svc *Service, port int, labels lab
 		for _, instance := range instances {
 			// check that one of the input labels is a subset of the labels
 			if labels.SubsetOf(instance.Labels) {
+				out = append(out, instance)
+			} else if selector != nil && selector.Matches(instance.Labels) {
 				out = append(out, instance)
 			}
 		}
