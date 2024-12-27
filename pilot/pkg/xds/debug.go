@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/xds"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -873,6 +874,11 @@ func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Re
 	}
 
 	writeJSON(w, push, req)
+}
+
+// DebugEndpoints lists all the supported debug endpoints.
+func (s *DiscoveryServer) DebugEndpoints() []string {
+	return slices.Sort(maps.Keys(s.debugHandlers))
 }
 
 // Debug lists all the supported debug endpoints.
