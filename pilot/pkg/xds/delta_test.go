@@ -394,7 +394,7 @@ func TestDeltaWDS(t *testing.T) {
 	// simulate a svc update
 	s.XdsUpdater.ConfigUpdate(&model.PushRequest{
 		ConfigsUpdated: sets.New(model.ConfigKey{
-			Kind: kind.Address, Name: svcA.ResourceName(), Namespace: svcA.Namespace,
+			Kind: kind.Address, Name: svcA.ResourceName(), Namespace: svcA.Service.Namespace,
 		}),
 	})
 
@@ -410,7 +410,7 @@ func TestDeltaWDS(t *testing.T) {
 	s.MemRegistry.RemoveServiceInfo(svcA)
 	s.XdsUpdater.ConfigUpdate(&model.PushRequest{
 		ConfigsUpdated: sets.New(model.ConfigKey{
-			Kind: kind.Address, Name: svcA.ResourceName(), Namespace: svcA.Namespace,
+			Kind: kind.Address, Name: svcA.ResourceName(), Namespace: svcA.Service.Namespace,
 		}),
 	})
 
