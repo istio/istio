@@ -153,11 +153,6 @@ type Agent struct {
 // Eventually most non-test settings should graduate to ProxyConfig
 // Please don't add 100 parameters to the NewAgent function (or any other)!
 type AgentOptions struct {
-	// ProxyXDSDebugViaAgent if true will listen on 15004 and forward queries
-	// to XDS istio.io/debug.
-	ProxyXDSDebugViaAgent bool
-	// Port value for the debugging endpoint.
-	ProxyXDSDebugViaAgentPort int
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
 	DNSCapture bool
 	// Enables DNS server at Gateways.
@@ -398,12 +393,6 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	a.xdsProxy, err = initXdsProxy(a)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start xds proxy: %v", err)
-	}
-	if a.cfg.ProxyXDSDebugViaAgent {
-		err = a.xdsProxy.initDebugInterface(a.cfg.ProxyXDSDebugViaAgentPort)
-		if err != nil {
-			return nil, fmt.Errorf("failed to start istio tap server: %v", err)
-		}
 	}
 
 	if a.cfg.GRPCBootstrapPath != "" {
