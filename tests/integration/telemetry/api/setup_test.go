@@ -172,7 +172,7 @@ func IsKindCluster() (bool, error) {
 		config, err := clientcmd.LoadFromFile(kc)
 		if err != nil {
 			if os.IsNotExist(err) {
-				fmt.Errorf("kubeconfig file not found: %s", kubeconfig)
+				fmt.Print("kubeconfig file not found: %s", kc)
 				continue
 			}
 			return false, err
