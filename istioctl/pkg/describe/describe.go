@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/kube/namespace"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -242,12 +244,28 @@ func getDestRuleSubsets(subsets []*v1alpha3.Subset, podsLabels []klabels.Set) ([
 	matchingSubsets := make([]string, 0, len(subsets))
 	nonmatchingSubsets := make([]string, 0, len(subsets))
 	for _, subset := range subsets {
-		subsetSelector := klabels.SelectorFromSet(subset.Labels)
-		if matchesAnyPod(subsetSelector, podsLabels) {
-			matchingSubsets = append(matchingSubsets, subset.Name)
+		if len(subset.Labels) != 0 {
+			subsetSelector := klabels.SelectorFromSet(subset.Labels)
+			if matchesAnyPod(subsetSelector, podsLabels) {
+				matchingSubsets = append(matchingSubsets, subset.Name)
+			} else {
+				nonmatchingSubsets = append(nonmatchingSubsets, subset.Name)
+			}
 		} else {
-			nonmatchingSubsets = append(nonmatchingSubsets, subset.Name)
+			// TODO test this
+			subsetSelector, err := namespace.LabelSelectorSelectorPbAsSelector(subset.GetSelector())
+			if err != nil {
+				log.Warnf("could not parse label selector for subset %s: %s", subset.Name, err)
+				nonmatchingSubsets = append(nonmatchingSubsets, subset.Name)
+			} else {
+				if subsetSelector.Matches(podsLabels) {
+					matchingSubsets = append(matchingSubsets, subset.Name)
+				} else {
+					nonmatchingSubsets = append(nonmatchingSubsets, subset.Name)
+				}
+			}
 		}
+
 	}
 
 	return matchingSubsets, nonmatchingSubsets
