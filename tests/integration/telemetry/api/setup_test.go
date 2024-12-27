@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"k8s.io/client-go/tools/clientcmd"
@@ -167,13 +168,19 @@ func IsKindCluster() (bool, error) {
 		kubeconfig = clientcmd.RecommendedHomeFile
 	}
 
-	config, err := clientcmd.LoadFromFile(kubeconfig)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, fmt.Errorf("kubeconfig file not found: %s", kubeconfig)
+	for _, kc := range strings.Split(kubeconfig, ":") {
+		config, err := clientcmd.LoadFromFile(kc)
+		if err != nil {
+			if os.IsNotExist(err) {
+				fmt.Errorf("kubeconfig file not found: %s", kubeconfig)
+				continue
+			}
+			return false, err
 		}
-		return false, err
+		currentContext := config.CurrentContext
+		if currentContext == "kind-kind" || len(currentContext) > 5 && currentContext[:5] == "kind-" {
+			return true, nil
+		}
 	}
-	currentContext := config.CurrentContext
-	return currentContext == "kind-kind" || len(currentContext) > 5 && currentContext[:5] == "kind-", nil
+	return false, nil
 }
