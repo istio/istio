@@ -27,10 +27,6 @@ import (
 	"istio.io/istio/pkg/config"
 )
 
-const (
-	IPAutoallocateStatusType = "ip-autoallocate"
-)
-
 func GetHostAddressesFromServiceEntry(se *networkingv1.ServiceEntry) map[string][]netip.Addr {
 	if se == nil {
 		return map[string][]netip.Addr{}
