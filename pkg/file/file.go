@@ -120,11 +120,6 @@ func Exists(name string) bool {
 	return !errors.Is(err, fs.ErrNotExist)
 }
 
-const (
-	// PrivateFileMode grants owner to read/write a file.
-	PrivateFileMode = 0o600
-)
-
 // DirEquals check if two directories are referring to the same directory
 func DirEquals(a, b string) (bool, error) {
 	aa, err := filepath.Abs(a)
