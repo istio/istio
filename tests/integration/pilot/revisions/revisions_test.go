@@ -18,6 +18,7 @@
 package revisions
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -29,9 +30,11 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -128,4 +131,22 @@ func TestMultiRevision(t *testing.T) {
 					}, retry.Delay(time.Millisecond*100))
 				})
 		})
+}
+
+// The Istioctl binary produced by Openshift Service Mesh does not support "uninstall" or "set" parameter.
+// Check for the Istioctl binary used and skip the test if it was produced by Openshift Service Mesh.
+func skipIfIstioctlProducedByOpenShiftServiceMesh(t framework.TestContext, istioCtl istioctl.Instance, cmd string) {
+	testCmd := []string{
+		"help",
+		cmd,
+	}
+	out, _, err := istioCtl.Invoke(testCmd)
+	if err != nil {
+		scopes.Framework.Errorf("failed to locate istioctl output: %v, output: %v", err, out)
+	}
+
+	if strings.Contains(out, "not supported in OpenShift Service Mesh context") {
+		t.Skip("Istioctl produced by OpenShift Service Mesh does not support '" + cmd +
+	           "' parameter - https://github.com/openshift-service-mesh/istio/pull/210",)
+	}
 }

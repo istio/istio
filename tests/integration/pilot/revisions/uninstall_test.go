@@ -60,6 +60,9 @@ func TestUninstallByRevision(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+				skipIfIstioctlProducedByOpenShiftServiceMesh(t, istioCtl, "uninstall")
+
 				uninstallCmd := []string{
 					"uninstall",
 					"--revision=" + stableRevision, "--skip-confirmation",
@@ -81,6 +84,9 @@ func TestUninstallByNotFoundRevision(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision_notfound").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+				skipIfIstioctlProducedByOpenShiftServiceMesh(t, istioCtl, "uninstall")
+
 				uninstallCmd := []string{
 					"uninstall",
 					"--revision=" + notFoundRevision, "--dry-run",
@@ -99,6 +105,9 @@ func TestUninstallWithSetFlag(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("uninstall_revision").Run(func(t framework.TestContext) {
 				istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+				skipIfIstioctlProducedByOpenShiftServiceMesh(t, istioCtl, "uninstall")
+
 				uninstallCmd := []string{
 					"uninstall", "--set",
 					"revision=" + stableRevision, "--skip-confirmation",
@@ -118,6 +127,8 @@ func TestUninstallCustomFile(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			skipIfIstioctlProducedByOpenShiftServiceMesh(t, istioCtl, "uninstall")
 
 			createIstioOperatorTempFile := func(name, revision string) (fileName string) {
 				tempFile, err := os.CreateTemp("", name)
@@ -179,6 +190,9 @@ func TestUninstallPurge(t *testing.T) {
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
+
+			skipIfIstioctlProducedByOpenShiftServiceMesh(t, istioCtl, "uninstall")
+
 			uninstallCmd := []string{
 				"uninstall",
 				"--purge", "--skip-confirmation",

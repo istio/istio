@@ -76,6 +76,7 @@ func TestRevisionTags(t *testing.T) {
 			}
 
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Default()})
+			skipIfIstioctlProducedByOpenShiftServiceMesh(t, istioCtl, "tag")
 			baseArgs := []string{"tag"}
 			for _, tc := range tcs {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
