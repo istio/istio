@@ -396,6 +396,44 @@ func TestConfigureIstioGateway(t *testing.T) {
   tag: test
   network: network-1`,
 		},
+		{
+			name: "service-status-port-enable-explicitly",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+					Annotations: map[string]string{annotation.NetworkingServiceExposeStatusPort.Name: "true"},
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: k8s.HTTPProtocolType,
+					}},
+				},
+			},
+			objects: defaultObjects,
+		},
+		{
+			name: "service-status-port-disable",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+					Annotations: map[string]string{annotation.NetworkingServiceExposeStatusPort.Name: "false"},
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: k8s.HTTPProtocolType,
+					}},
+				},
+			},
+			objects: defaultObjects,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

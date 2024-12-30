@@ -651,12 +651,21 @@ type TemplateInput struct {
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 	tcp := strings.ToLower(string(protocol.TCP))
-	svcPorts := make([]corev1.ServicePort, 0, len(gw.Spec.Listeners)+1)
-	svcPorts = append(svcPorts, corev1.ServicePort{
-		Name:        "status-port",
-		Port:        int32(15021),
-		AppProtocol: &tcp,
-	})
+
+	svcPortsSize := len(gw.Spec.Listeners)
+	if gw.Annotations[annotation.NetworkingServiceExposeStatusPort.Name] != "false" {
+		svcPortsSize++
+	}
+	svcPorts := make([]corev1.ServicePort, 0, svcPortsSize)
+
+	if gw.Annotations[annotation.NetworkingServiceExposeStatusPort.Name] != "false" {
+		svcPorts = append(svcPorts, corev1.ServicePort{
+			Name:        "status-port",
+			Port:        int32(15021),
+			AppProtocol: &tcp,
+		})
+	}
+
 	portNums := sets.New[int32]()
 	for i, l := range gw.Spec.Listeners {
 		if portNums.Contains(int32(l.Port)) {
