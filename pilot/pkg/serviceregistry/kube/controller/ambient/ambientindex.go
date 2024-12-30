@@ -271,7 +271,7 @@ func New(options Options) Index {
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
 	ServiceInfosByOwningWaypointHostname := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
 		// Filter out waypoint services
-		// TODO: we are looking at the *selector* -- we should be looking the labels themselves or something equivilent.
+		// TODO: we are looking at the *selector* -- we should be looking the labels themselves or something equivalent.
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
