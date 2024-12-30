@@ -122,10 +122,6 @@ func TestWaypointStatus(t *testing.T) {
 			})
 			t.NewSubTest("waypoint-tagged").Run(func(t framework.TestContext) {
 				revs := t.Settings().Revisions
-				// _, err := ambient.NewWaypointProxyRevisioned(t, apps.Namespace, "waypoint-tagged", revs.Default())
-				// if err != nil {
-				// 	t.Fatal(err)
-				// }
 
 				// create tag foo pointing at the revision we're testing
 				ik, err := istioctl.New(t, istioctl.Config{})
@@ -144,7 +140,8 @@ func TestWaypointStatus(t *testing.T) {
 				}
 
 				gw := &v1beta1.Gateway{
-					ObjectMeta: metav1.ObjectMeta{Name: "waypoint-tagged", Namespace: apps.Namespace.Name(),
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "waypoint-tagged", Namespace: apps.Namespace.Name(),
 						Labels:      map[string]string{"istio.io/rev": "foo"},
 						Annotations: map[string]string{"istio.io/waypoint-for": "none"},
 					},
@@ -164,7 +161,6 @@ func TestWaypointStatus(t *testing.T) {
 				}
 				time.Sleep(5 * time.Second)
 				retry.UntilSuccessOrFail(t, func() error {
-
 					wp, err := t.Clusters().Default().GatewayAPI().GatewayV1beta1().
 						Gateways(apps.Namespace.Name()).Get(context.Background(), "waypoint-tagged", metav1.GetOptions{})
 					if err != nil {
