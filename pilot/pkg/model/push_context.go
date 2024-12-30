@@ -2510,7 +2510,7 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 	// We should get 0 or 1 workloads, so just return the first.
 	infos, _ := ps.ambientIndex.AddressInformation(sets.New(n.String() + "/" + ip))
 	for _, wl := range ExtractWorkloadsFromAddresses(infos) {
-		if wl.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
+		if wl.Workload.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
 			return true
 		}
 	}

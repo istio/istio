@@ -182,10 +182,10 @@ func namespacedHostname(namespace, hostname string) string {
 }
 
 func networkAddressFromWorkload(wl model.WorkloadInfo) []networkAddress {
-	networkAddrs := make([]networkAddress, 0, len(wl.Addresses))
-	for _, addr := range wl.Addresses {
+	networkAddrs := make([]networkAddress, 0, len(wl.Workload.Addresses))
+	for _, addr := range wl.Workload.Addresses {
 		// mustByteIPToString is ok since this is from our IP constructed
-		networkAddrs = append(networkAddrs, networkAddress{network: wl.Network, ip: mustByteIPToString(addr)})
+		networkAddrs = append(networkAddrs, networkAddress{network: wl.Workload.Network, ip: mustByteIPToString(addr)})
 	}
 	return networkAddrs
 }
