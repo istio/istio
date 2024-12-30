@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -121,8 +121,6 @@ func TestWaypointStatus(t *testing.T) {
 				})
 			})
 			t.NewSubTest("waypoint-tagged").Run(func(t framework.TestContext) {
-				revs := t.Settings().Revisions
-
 				// create tag foo pointing at the revision we're testing
 				ik, err := istioctl.New(t, istioctl.Config{})
 				if err != nil {
@@ -133,29 +131,13 @@ func TestWaypointStatus(t *testing.T) {
 					"set",
 					"foo",
 					"--revision",
-					revs.Default(),
+					"default",
 				})
 				if err != nil {
 					t.Fatal(err)
 				}
 
-				gw := &v1beta1.Gateway{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "waypoint-tagged", Namespace: apps.Namespace.Name(),
-						Labels:      map[string]string{"istio.io/rev": "foo"},
-						Annotations: map[string]string{"istio.io/waypoint-for": "none"},
-					},
-					Spec: v1beta1.GatewaySpec{
-						GatewayClassName: constants.WaypointGatewayClassName,
-						Listeners: []v1beta1.Listener{{
-							Port:     15008,
-							Name:     "mesh",
-							Protocol: "HBONE",
-						}},
-					},
-				}
-				_, err = t.Clusters().Default().GatewayAPI().GatewayV1beta1().
-					Gateways(apps.Namespace.Name()).Create(context.Background(), gw, metav1.CreateOptions{})
+				_, err = ambient.NewWaypointProxyRevisioned(t, apps.Namespace, "waypoint-tagged", "foo")
 				if err != nil {
 					t.Fatal(err)
 				}
