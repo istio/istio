@@ -132,7 +132,7 @@ func (a *index) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
 				// No waypoint found.
 				continue
 			}
-			wi.WaypointHostname = waypoints[0].Hostname
+			wi.WaypointHostname = waypoints[0].Service.Hostname
 		}
 		res = append(res, wi)
 	}

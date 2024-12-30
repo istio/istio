@@ -329,7 +329,7 @@ func (a *index) matchingServicesWithoutSelectors(
 	// Build out our set of already-matched services to avoid double-selecting a service
 	seen := sets.NewWithLength[string](len(alreadyMatchingServices))
 	for _, s := range alreadyMatchingServices {
-		seen.Insert(s.Hostname)
+		seen.Insert(s.Service.Hostname)
 	}
 	tr := TargetRef{
 		Kind:      gvk.Pod.Kind,
@@ -421,7 +421,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 		allServices := a.serviceEntriesInfo(se, nil, nil)
 		if implicitEndpoints {
 			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
-				return &networkingv1alpha3.WorkloadEntry{Address: si.Hostname}
+				return &networkingv1alpha3.WorkloadEntry{Address: si.Service.Hostname}
 			})
 		}
 		if len(eps) == 0 {
@@ -546,7 +546,7 @@ func (a *index) endpointSlicesBuilder(
 			}
 			// Endpoint slice port has name (service port name, not containerPort) and port (targetPort)
 			// We need to join with the Service port list to translate the port name to
-			for _, svcPort := range svc.Ports {
+			for _, svcPort := range svc.Service.Ports {
 				portName := svc.PortNames[int32(svcPort.ServicePort)]
 				if portName.PortName != *p.Name {
 					continue
@@ -674,10 +674,10 @@ func fetchPeerAuthentications(
 func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, services []model.ServiceInfo) map[string]*workloadapi.PortList {
 	res := map[string]*workloadapi.PortList{}
 	for _, svc := range services {
-		n := namespacedHostname(svc.Namespace, svc.Hostname)
+		n := namespacedHostname(svc.Service.Namespace, svc.Service.Hostname)
 		pl := &workloadapi.PortList{}
 		res[n] = pl
-		for _, port := range svc.Ports {
+		for _, port := range svc.Service.Ports {
 			targetPort := port.TargetPort
 			// Named targetPort has different semantics from Service vs ServiceEntry
 			if svc.Source.Kind == kind.Service {
@@ -731,12 +731,12 @@ func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
 func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*workloadapi.PortList {
 	res := map[string]*workloadapi.PortList{}
 	for _, svc := range services {
-		n := namespacedHostname(svc.Namespace, svc.Hostname)
+		n := namespacedHostname(svc.Service.Namespace, svc.Service.Hostname)
 		pl := &workloadapi.PortList{
-			Ports: make([]*workloadapi.Port, 0, len(svc.Ports)),
+			Ports: make([]*workloadapi.Port, 0, len(svc.Service.Ports)),
 		}
 		res[n] = pl
-		for _, port := range svc.Ports {
+		for _, port := range svc.Service.Ports {
 			targetPort := port.TargetPort
 			// The svc.Ports represents the workloadapi.Service, which drops the port name info and just has numeric target Port.
 			// TargetPort can be 0 which indicates its a named port. Check if its a named port and replace with the real targetPort if so.

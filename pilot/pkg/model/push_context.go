@@ -2116,10 +2116,11 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 	listenerInfo := WasmPluginListenerInfo{}
 	if proxy.IsWaypointProxy() {
 		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
-		for i := range servicesInfo {
-			svc, exist := ps.ServiceIndex.HostnameAndNamespace[host.Name(servicesInfo[i].Hostname)][servicesInfo[i].Namespace]
+		for _, si := range servicesInfo {
+			s := si.Service
+			svc, exist := ps.ServiceIndex.HostnameAndNamespace[host.Name(s.Hostname)][s.Namespace]
 			if !exist {
-				log.Warnf("cannot find waypoint service in serviceindex, namespace/hostname: %s/%s", servicesInfo[i].Namespace, servicesInfo[i].Hostname)
+				log.Warnf("cannot find waypoint service in serviceindex, namespace/hostname: %s/%s", s.Namespace, s.Hostname)
 				continue
 			}
 			listenerInfo = listenerInfo.WithService(svc)
@@ -2509,7 +2510,7 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 	// We should get 0 or 1 workloads, so just return the first.
 	infos, _ := ps.ambientIndex.AddressInformation(sets.New(n.String() + "/" + ip))
 	for _, wl := range ExtractWorkloadsFromAddresses(infos) {
-		if wl.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
+		if wl.Workload.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
 			return true
 		}
 	}

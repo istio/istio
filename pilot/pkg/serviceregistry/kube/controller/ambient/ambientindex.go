@@ -271,7 +271,8 @@ func New(options Options) Index {
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
 	ServiceInfosByOwningWaypointHostname := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
 		// Filter out waypoint services
-		if s.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+		// TODO: we are looking at the *selector* -- we should be looking the labels themselves or something equivalent.
+		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
 		waypoint := s.Service.Waypoint
@@ -290,7 +291,7 @@ func New(options Options) Index {
 	})
 	ServiceInfosByOwningWaypointIP := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
-		if s.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
 		waypoint := s.Service.Waypoint
@@ -335,14 +336,14 @@ func New(options Options) Index {
 
 	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, networkAddressFromWorkload)
 	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, func(o model.WorkloadInfo) []string {
-		return maps.Keys(o.Services)
+		return maps.Keys(o.Workload.Services)
 	})
 	WorkloadWaypointIndexHostname := krt.NewIndex(Workloads, func(w model.WorkloadInfo) []NamespaceHostname {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		waypoint := w.Waypoint
+		waypoint := w.Workload.Waypoint
 		if waypoint == nil {
 			return nil
 		}
@@ -361,7 +362,7 @@ func New(options Options) Index {
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		waypoint := w.Waypoint
+		waypoint := w.Workload.Waypoint
 		if waypoint == nil {
 			return nil
 		}
@@ -531,8 +532,8 @@ func dedupeWorkloads(workloads []model.WorkloadInfo) []model.AddressInfo {
 		// HostNetwork mode is expected to have overlapping IPs, and tells the data plane to avoid relying on the IP as a unique
 		// identifier.
 		// For anything else, exclude duplicates.
-		if wl.NetworkMode != workloadapi.NetworkMode_HOST_NETWORK {
-			for _, addr := range wl.Addresses {
+		if wl.Workload.NetworkMode != workloadapi.NetworkMode_HOST_NETWORK {
+			for _, addr := range wl.Workload.Addresses {
 				a := byteIPToAddr(addr)
 				if seenAddresses.InsertContains(a) {
 					// We have already seen this address. We don't want to include it.
@@ -647,7 +648,7 @@ func (a *index) AdditionalPodSubscriptions(
 		for _, wl := range model.ExtractWorkloadsFromAddresses(a.Lookup(addr)) {
 			// We may have gotten an update for Pod, but are subscribed to a Service.
 			// We need to force a subscription on the Pod as well
-			for namespacedHostname := range wl.Services {
+			for namespacedHostname := range wl.Workload.Services {
 				if currentSubs.Contains(namespacedHostname) {
 					shouldSubscribe.Insert(wl.ResourceName())
 					break
@@ -659,7 +660,7 @@ func (a *index) AdditionalPodSubscriptions(
 	// Next, as an optimization, we will send all node-local endpoints
 	if nodeName := proxy.Metadata.NodeName; nodeName != "" {
 		for _, wl := range model.ExtractWorkloadsFromAddresses(a.All()) {
-			if wl.Node == nodeName {
+			if wl.Workload.Node == nodeName {
 				n := wl.ResourceName()
 				if currentSubs.Contains(n) {
 					continue

@@ -1008,14 +1008,18 @@ type ServicePortName struct {
 }
 
 type ServiceInfo struct {
-	*workloadapi.Service
+	Service *workloadapi.Service
 	// LabelSelectors for the Service. Note these are only used internally, not sent over XDS
-	LabelSelector
+	LabelSelector LabelSelector
 	// PortNames provides a mapping of ServicePort -> port names. Note these are only used internally, not sent over XDS
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
 	Source   TypedObject
 	Waypoint WaypointBindingStatus
+}
+
+func (i ServiceInfo) GetLabelSelector() map[string]string {
+	return i.LabelSelector.Labels
 }
 
 func (i ServiceInfo) GetStatusTarget() TypedObject {
@@ -1101,7 +1105,11 @@ func (i WaypointBindingStatus) Equals(other WaypointBindingStatus) bool {
 }
 
 func (i ServiceInfo) NamespacedName() types.NamespacedName {
-	return types.NamespacedName{Name: i.Name, Namespace: i.Namespace}
+	return types.NamespacedName{Name: i.Service.Name, Namespace: i.Service.Namespace}
+}
+
+func (i ServiceInfo) GetNamespace() string {
+	return i.Service.Namespace
 }
 
 func (i ServiceInfo) Equals(other ServiceInfo) bool {
@@ -1121,7 +1129,7 @@ func serviceResourceName(s *workloadapi.Service) string {
 }
 
 type WorkloadInfo struct {
-	*workloadapi.Workload
+	Workload *workloadapi.Workload
 	// Labels for the workload. Note these are only used internally, not sent over XDS
 	Labels map[string]string
 	// Source is the type that introduced this workload.
@@ -1335,7 +1343,7 @@ func ExtractWorkloadsFromAddresses(addrs []AddressInfo) []WorkloadInfo {
 func SortWorkloadsByCreationTime(workloads []WorkloadInfo) []WorkloadInfo {
 	sort.SliceStable(workloads, func(i, j int) bool {
 		if workloads[i].CreationTime.Equal(workloads[j].CreationTime) {
-			return workloads[i].Uid < workloads[j].Uid
+			return workloads[i].Workload.Uid < workloads[j].Workload.Uid
 		}
 		return workloads[i].CreationTime.Before(workloads[j].CreationTime)
 	})
