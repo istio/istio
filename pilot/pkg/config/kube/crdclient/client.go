@@ -115,7 +115,6 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		name := fmt.Sprintf("%s.%s", s.Plural(), s.Group())
 		schemasByCRDName[name] = s
 	}
-	revisions.NewTagWatcher(client, opts.Revision)
 	out := &Client{
 		domainSuffix:     opts.DomainSuffix,
 		schemas:          schemas,
@@ -151,9 +150,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 		return
 	}
 
-	if cl.tagWatcher != nil {
-		go cl.tagWatcher.Run(stop)
-	}
+	go cl.tagWatcher.Run(stop)
 
 	t0 := time.Now()
 	cl.logger.Infof("Starting Pilot K8S CRD controller")
