@@ -32,12 +32,12 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1113,7 +1113,7 @@ func (i ServiceInfo) GetNamespace() string {
 }
 
 func (i ServiceInfo) Equals(other ServiceInfo) bool {
-	return proto.Equal(i.Service, other.Service) &&
+	return protoconv.Equals(i.Service, other.Service) &&
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
 		i.Source == other.Source &&
@@ -1139,7 +1139,7 @@ type WorkloadInfo struct {
 }
 
 func (i WorkloadInfo) Equals(other WorkloadInfo) bool {
-	return proto.Equal(i.Workload, other.Workload) &&
+	return protoconv.Equals(i.Workload, other.Workload) &&
 		maps.Equal(i.Labels, other.Labels) &&
 		i.Source == other.Source &&
 		i.CreationTime == other.CreationTime
@@ -1307,8 +1307,8 @@ func (i WorkloadAuthorization) GetConditions() ConditionSet {
 // end impl StatusWriter
 
 func (i WorkloadAuthorization) Equals(other WorkloadAuthorization) bool {
-	return maps.Equal(i.Labels, other.Labels) &&
-		proto.Equal(i.Authorization, other.Authorization) &&
+	return protoconv.Equals(i.Authorization, other.Authorization) &&
+		maps.Equal(i.Labels, other.Labels) &&
 		i.Source == other.Source &&
 		i.Binding.Equals(other.Binding)
 }
