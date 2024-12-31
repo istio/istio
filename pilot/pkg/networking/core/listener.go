@@ -170,6 +170,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	default:
 		certProxy := &model.Proxy{}
 		certProxy.IstioVersion = proxy.IstioVersion
+		certProxy.Type = proxy.Type
 		// If certificate files are specified in gateway configuration, use file based SDS.
 		certProxy.Metadata = &model.NodeMetadata{
 			TLSServerCertChain: serverTLSSettings.ServerCertificate,

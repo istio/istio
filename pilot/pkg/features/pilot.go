@@ -263,6 +263,9 @@ var (
 
 	PreferDestinationRulesTLSForExternalServices = env.Register("PREFER_DESTINATIONRULE_TLS_FOR_EXTERNAL_SERVICES", true,
 		"If true, external services will prefer the TLS settings from DestinationRules over the metadata TLS settings.").Get()
+
+	DefaultFileSDSFetchTimeout = env.Register("PILOT_DEFAULT_FILE_SDS_FETCH_TIMEOUT", 0*time.Second,
+		"Initial Fetchtimeout for file bases SDS for gateway listeners").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
