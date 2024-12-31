@@ -572,17 +572,6 @@ func (configgen *ConfigGeneratorImpl) buildHostRDSConfig(
 			if vsHttpRoute.Mirror != nil && vsHttpRoute.Mirror.Port == nil {
 				cacheable = false
 			}
-			if vsHttpRoute.Delegate != nil {
-				vsDependent = append(vsDependent, config.Config{
-					Meta: config.Meta{
-						GroupVersionKind: gvk.VirtualService,
-						Name:             vsHttpRoute.Delegate.Name,
-						Namespace:        vsHttpRoute.Delegate.Namespace,
-					},
-					Spec: networking.VirtualService{},
-				})
-
-			}
 		}
 		vsDependent = append(vsDependent, config.Config{
 			Meta: config.Meta{
@@ -632,9 +621,10 @@ func (configgen *ConfigGeneratorImpl) buildHostRDSConfig(
 		ProxyVersion: node.Metadata.IstioVersion,
 		ListenerPort: rdsPort,
 		// Use same host vs to cache, although the cache can be cleared when the port is different, this can be accepted
-		VirtualServices: vsDependent,
-		HTTPRoutes:      httpRoutes,
-		EnvoyFilterKeys: efKeys,
+		VirtualServices:         vsDependent,
+		DelegateVirtualServices: push.DelegateVirtualServices(vsDependent),
+		HTTPRoutes:              httpRoutes,
+		EnvoyFilterKeys:         efKeys,
 	}
 
 	var resource *discovery.Resource

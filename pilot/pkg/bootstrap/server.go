@@ -858,6 +858,7 @@ func (s *Server) initRegistryEventHandlers() {
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
 				Reason:         model.NewReasonStats(model.ServiceUpdate),
 			}
+			log.Infof("PushRequest generated in serviceHandler: %#v", pushReq)
 			s.XDSServer.ConfigUpdate(pushReq)
 		}
 	}
@@ -883,6 +884,7 @@ func (s *Server) initRegistryEventHandlers() {
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
 				Reason:         model.NewReasonStats(model.ConfigUpdate),
 			}
+			log.Infof("PushRequest generated in configHandler: %#v", pushReq)
 			s.XDSServer.ConfigUpdate(pushReq)
 		}
 		schemas := collections.Pilot.All()

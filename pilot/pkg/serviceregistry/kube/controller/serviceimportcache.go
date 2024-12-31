@@ -217,6 +217,7 @@ func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
 
 		Reason: model.NewReasonStats(model.ServiceUpdate),
 	}
+	log.Infof("PushRequest generated in serviceImportCacheImpl::doFullPush: %#v", pushReq)
 	ic.opts.XDSUpdater.ConfigUpdate(pushReq)
 }
 
