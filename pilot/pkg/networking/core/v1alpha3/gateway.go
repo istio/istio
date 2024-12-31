@@ -138,10 +138,11 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 	return nil
 }
 
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder) *ListenerBuilder {
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder, req *model.PushRequest, efKeys []string) (*ListenerBuilder, []*discovery.Resource, cacheStats) {
+	resources := make([]*discovery.Resource, 0)
 	if builder.node.MergedGateway == nil {
 		log.Debugf("buildGatewayListeners: no gateways for router %v", builder.node.ID)
-		return builder
+		return builder, resources, cacheStats{}
 	}
 
 	mergedGateway := builder.node.MergedGateway
@@ -154,6 +155,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	proxyConfig := builder.node.Metadata.ProxyConfigOrDefault(builder.push.Mesh.DefaultConfig)
 	// listener port -> host/bind
 	tlsHostsByPort := map[uint32]map[string]string{}
+
+	gatewaysByListenerName := map[string][]*config.Config{}
+	hit, miss := 0, 0
+
 	for _, port := range mergedGateway.ServerPorts {
 		// Skip ports we cannot bind to. Note that MergeGateways will already translate Service port to
 		// targetPort, which handles the common case of exposing ports like 80 and 443 but listening on
@@ -181,7 +186,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			istionetworking.TransportProtocolTCP:  mergedGateway.MergedServers,
 			istionetworking.TransportProtocolQUIC: mergedGateway.MergedQUICTransportServers,
 		}
-
 		for transport, gwServers := range transportToServers {
 			if gwServers == nil {
 				log.Debugf("buildGatewayListeners: no gateway-server for transport %s at port %d", transport.String(), port.Number)
@@ -214,6 +218,28 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			if serversForPort == nil {
 				continue
 			}
+
+			var gateways []*config.Config
+			for _, s := range serversForPort.Servers {
+				gateways = append(gateways, builder.push.GetGatewayByName(mergedGateway.GatewayNameForServer[s]))
+			}
+
+			if !features.EnableUnsafeAssertions && features.EnableLDSCaching {
+				listenerCache := &ListenerCache{
+					ListenerName:    lname,
+					Gateways:        gateways,
+					EnvoyFilterKeys: efKeys,
+				}
+				cachedListener := configgen.Cache.Get(listenerCache)
+				if cachedListener != nil {
+					resources = append(resources, cachedListener)
+					hit++
+					continue
+				} else {
+					miss++
+				}
+			}
+			gatewaysByListenerName[lname] = gateways
 
 			var newFilterChains []istionetworking.FilterChain
 			switch transport {
@@ -264,6 +290,19 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			continue
 		}
 		listeners = append(listeners, ml.mutable.Listener)
+
+		if features.EnableRDSCaching {
+			listenerCache := &ListenerCache{
+				ListenerName:    ml.mutable.Listener.Name,
+				Gateways:        gatewaysByListenerName[ml.mutable.Listener.Name],
+				EnvoyFilterKeys: efKeys,
+			}
+			resource := &discovery.Resource{
+				Name:     ml.mutable.Listener.Name,
+				Resource: protoconv.MessageToAny(ml.mutable.Listener),
+			}
+			configgen.Cache.Add(listenerCache, req, resource)
+		}
 	}
 	// We'll try to return any listeners we successfully marshaled; if we have none, we'll emit the error we built up
 	err := errs.ErrorOrNil()
@@ -272,13 +311,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		log.Info(err.Error())
 	}
 
-	if len(mutableopts) == 0 {
+	if len(mutableopts) == 0 && len(resources) == 0 {
 		log.Warnf("gateway has zero listeners for node %v", builder.node.ID)
-		return builder
+		return builder, resources, cacheStats{}
 	}
 
 	builder.gatewayListeners = listeners
-	return builder
+	return builder, resources, cacheStats{hits: hit, miss: miss}
 }
 
 func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(

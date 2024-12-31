@@ -447,6 +447,11 @@ var (
 	EnableCDSCaching = env.Register("PILOT_ENABLE_CDS_CACHE", false,
 		"If true, Pilot will cache CDS responses. Note: this depends on PILOT_ENABLE_XDS_CACHE.").Get()
 
+	// EnableLDSCaching determines if LDS caching is enabled. This is explicitly split out of ENABLE_XDS_CACHE,
+	// so that in case there are issues with the LDS cache we can just disable the LDS cache.
+	EnableLDSCaching = env.Register("PILOT_ENABLE_LDS_CACHE", false,
+		"If true, Pilot will cache LDS responses. Note: this depends on PILOT_ENABLE_XDS_CACHE.").Get()
+
 	// EnableRDSCaching determines if RDS caching is enabled. This is explicitly split out of ENABLE_XDS_CACHE,
 	// so that in case there are issues with the RDS cache we can just disable the RDS cache.
 	EnableRDSCaching = env.Register("PILOT_ENABLE_RDS_CACHE", true,

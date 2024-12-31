@@ -27,6 +27,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -96,9 +97,13 @@ var (
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
-	push *model.PushContext,
-) []*listener.Listener {
-	builder := NewListenerBuilder(node, push)
+	req *model.PushRequest,
+) ([]*listener.Listener, []*discovery.Resource, model.XdsLogDetails) {
+	builder := NewListenerBuilder(node, req.Push)
+	var resources []*discovery.Resource
+	cacheStats := cacheStats{}
+	efw := req.Push.EnvoyFilters(node)
+	efKeys := efw.Keys()
 
 	switch node.Type {
 	case model.SidecarProxy:
@@ -106,7 +111,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	case model.Waypoint:
 		builder = configgen.buildWaypointListeners(builder)
 	case model.Router:
-		builder = configgen.buildGatewayListeners(builder)
+		builder, resources, cacheStats = configgen.buildGatewayListeners(builder, req, efKeys)
 	}
 
 	builder.patchListeners()
@@ -115,7 +120,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 		l = append(l, buildConnectOriginateListener())
 	}
 
-	return l
+	return l, resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
@@ -1035,7 +1040,7 @@ type gatewayListenerOpts struct {
 	port              *model.Port
 	filterChainOpts   []*filterChainOpts
 	needPROXYProtocol bool
-	// Added by ingrss
+	// Added by ingress
 	enableProxyProtocol bool
 	// End added by ingress
 }

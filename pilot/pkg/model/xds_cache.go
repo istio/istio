@@ -27,6 +27,7 @@ import (
 type XdsCacheImpl struct {
 	cds typedXdsCache[uint64]
 	eds typedXdsCache[uint64]
+	lds typedXdsCache[uint64]
 	rds typedXdsCache[uint64]
 	sds typedXdsCache[string]
 }
@@ -71,6 +72,7 @@ type XdsCacheEntry interface {
 const (
 	CDSType = "cds"
 	EDSType = "eds"
+	LDSType = "lds"
 	RDSType = "rds"
 	SDSType = "sds"
 )
@@ -85,6 +87,13 @@ func NewXdsCache() XdsCache {
 	} else {
 		cache.cds = disabledCache[uint64]{}
 	}
+
+	if features.EnableLDSCaching {
+		cache.lds = newTypedXdsCache[uint64]()
+	} else {
+		cache.lds = disabledCache[uint64]{}
+	}
+
 	if features.EnableRDSCaching {
 		cache.rds = newTypedXdsCache[uint64]()
 	} else {
@@ -106,6 +115,7 @@ func (x XdsCacheImpl) Run(stop <-chan struct{}) {
 			case <-ticker.C:
 				x.cds.Flush()
 				x.eds.Flush()
+				x.lds.Flush()
 				x.rds.Flush()
 				x.sds.Flush()
 			case <-stop:
@@ -127,6 +137,9 @@ func (x XdsCacheImpl) Add(entry XdsCacheEntry, pushRequest *PushRequest, value *
 	case EDSType:
 		key := k.(uint64)
 		x.eds.Add(key, entry, pushRequest, value)
+	case LDSType:
+		key := k.(uint64)
+		x.lds.Add(key, entry, pushRequest, value)
 	case SDSType:
 		key := k.(string)
 		x.sds.Add(key, entry, pushRequest, value)
@@ -151,6 +164,9 @@ func (x XdsCacheImpl) Get(entry XdsCacheEntry) *discovery.Resource {
 	case EDSType:
 		key := k.(uint64)
 		return x.eds.Get(key)
+	case LDSType:
+		key := k.(uint64)
+		return x.lds.Get(key)
 	case SDSType:
 		key := k.(string)
 		return x.sds.Get(key)
@@ -170,6 +186,8 @@ func (x XdsCacheImpl) Clear(s sets.Set[ConfigKey]) {
 	hasVirtualService := HasConfigsOfKind(s, kind.VirtualService)
 	hasHTTPRoute := HasConfigsOfKind(s, kind.HTTPRoute)
 	hasSecret := HasConfigsOfKind(s, kind.Secret)
+	hasGateway := HasConfigsOfKind(s, kind.Gateway)
+
 	if hasDestiantionRule || hasServiceEntry || hasEnvoyFilter {
 		x.cds.Clear(s)
 	}
@@ -179,17 +197,22 @@ func (x XdsCacheImpl) Clear(s sets.Set[ConfigKey]) {
 	} else if hasDestiantionRule || hasServiceEntry {
 		x.eds.Clear(s)
 	}
+
 	if hasServiceEntry || hasVirtualService || hasHTTPRoute || hasDestiantionRule || hasEnvoyFilter {
 		x.rds.Clear(s)
 	}
 	if hasSecret {
 		x.sds.Clear(s)
 	}
+	if hasGateway || hasEnvoyFilter {
+		x.lds.Clear(s)
+	}
 }
 
 func (x XdsCacheImpl) ClearAll() {
 	x.cds.ClearAll()
 	x.eds.ClearAll()
+	x.lds.ClearAll()
 	x.rds.ClearAll()
 	x.sds.ClearAll()
 }
@@ -201,6 +224,9 @@ func (x XdsCacheImpl) Keys(t string) []any {
 		return convertToAnySlices(keys)
 	case EDSType:
 		keys := x.eds.Keys()
+		return convertToAnySlices(keys)
+	case LDSType:
+		keys := x.lds.Keys()
 		return convertToAnySlices(keys)
 	case SDSType:
 		keys := x.sds.Keys()
@@ -225,6 +251,7 @@ func (x XdsCacheImpl) Snapshot() []*discovery.Resource {
 	var out []*discovery.Resource
 	out = append(out, x.cds.Snapshot()...)
 	out = append(out, x.eds.Snapshot()...)
+	out = append(out, x.lds.Snapshot()...)
 	out = append(out, x.rds.Snapshot()...)
 	out = append(out, x.sds.Snapshot()...)
 	return out
