@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
+	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
@@ -376,7 +377,7 @@ func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
 
 // serviceEntryHandler defines the handler for service entries
 func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Event) {
-	if event == model.EventUpdate {
+	if event == model.EventUpdate && serviceentry.ShouldV2AutoAllocateIPFromConfig(curr) {
 		currStatus, _ := curr.Status.(*v1alpha3.ServiceEntryStatus)
 		prevStatus, _ := old.Status.(*v1alpha3.ServiceEntryStatus)
 		log.Debugf("old.Generation %d, curr.Generation %d, currStatus.ObservedGeneration %d, prevStatus.ObservedGeneration %d",
