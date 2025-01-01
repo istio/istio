@@ -238,6 +238,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	// httpStaticOverlayUpdated is the same as httpStaticOverlay but with an extra endpoint added to test updates
 	httpStaticOverlayUpdated := func() *config.Config {
 		c := httpStaticOverlay.DeepCopy()
+		oldGen := c.Generation
+		c.Generation = oldGen + 1
 		se := c.Spec.(*networking.ServiceEntry)
 		se.Endpoints = append(se.Endpoints, &networking.WorkloadEntry{
 			Address: "6.6.6.6",
@@ -248,6 +250,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	// httpStaticOverlayUpdatedInstance is the same as httpStaticOverlayUpdated but with an extra endpoint added that has the same address
 	httpStaticOverlayUpdatedInstance := func() *config.Config {
 		c := httpStaticOverlayUpdated.DeepCopy()
+		oldGen := c.Generation
+		c.Generation = oldGen + 1
 		se := c.Spec.(*networking.ServiceEntry)
 		se.Endpoints = append(se.Endpoints, &networking.WorkloadEntry{
 			Address: "6.6.6.6",
@@ -265,6 +269,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	httpStaticOverlayUpdatedNs := func() *config.Config {
 		c := httpStaticOverlay.DeepCopy()
 		c.Namespace = "other"
+		oldGen := c.Generation
+		c.Generation = oldGen + 1
 		se := c.Spec.(*networking.ServiceEntry)
 		se.Endpoints = append(se.Endpoints, &networking.WorkloadEntry{
 			Address: "7.7.7.7",
@@ -429,6 +435,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// Change the target port
 		targetPortChanged := func() *config.Config {
 			c := httpStaticOverlayUpdated.DeepCopy()
+			oldGeneratoin := c.Generation
+			c.Generation = oldGeneratoin + 1
 			c.Spec.(*networking.ServiceEntry).Ports[0].TargetPort = 33333
 			return &c
 		}()
@@ -465,6 +473,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// same as httpStaticOverlayUpdated but with an additional host
 		httpStaticHost := func() *config.Config {
 			c := httpStaticOverlayUpdated.DeepCopy()
+			oldGen := c.Generation
+			c.Generation = oldGen + 1
 			se := c.Spec.(*networking.ServiceEntry)
 			se.Hosts = append(se.Hosts, "other.com")
 			return &c
@@ -512,6 +522,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// This is not applied, just to make makeInstance pick the right service.
 		tcpDNSUpdated := func() *config.Config {
 			c := tcpDNS.DeepCopy()
+			oldGen := c.Generation
+			c.Generation = oldGen + 1
 			se := c.Spec.(*networking.ServiceEntry)
 			se.Endpoints = []*networking.WorkloadEntry{
 				{
@@ -548,6 +560,8 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// same as selector but with an additional host
 		selector1 := func() *config.Config {
 			c := httpStaticOverlay.DeepCopy()
+			oldGen := c.Generation
+			c.Generation = oldGen + 1
 			se := c.Spec.(*networking.ServiceEntry)
 			se.Hosts = append(se.Hosts, "selector1.com")
 			se.Endpoints = nil
