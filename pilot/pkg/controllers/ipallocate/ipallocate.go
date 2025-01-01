@@ -392,11 +392,6 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 			Path:      "/status/addresses",
 			Value:     assignedAddresses,
 		},
-		{
-			Operation: "replace",
-			Path:      "/status/observedGeneration",
-			Value:     se.Generation,
-		},
 	})
 
 	addStatusAndAddresses, err2 := json.Marshal([]jsonPatch{
@@ -414,11 +409,6 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 			Operation: "add",
 			Path:      "/status/addresses",
 			Value:     assignedAddresses,
-		},
-		{
-			Operation: "add",
-			Path:      "/status/observedGeneration",
-			Value:     se.Generation,
 		},
 	})
 

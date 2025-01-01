@@ -23,7 +23,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/api/networking/v1alpha3"
 	networking "istio.io/api/networking/v1alpha3"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
@@ -378,15 +377,9 @@ func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
 // serviceEntryHandler defines the handler for service entries
 func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Event) {
 	if event == model.EventUpdate && serviceentry.ShouldV2AutoAllocateIPFromConfig(curr) {
-		currStatus, _ := curr.Status.(*v1alpha3.ServiceEntryStatus)
-		prevStatus, _ := old.Status.(*v1alpha3.ServiceEntryStatus)
-		log.Debugf("old.Generation %d, curr.Generation %d, currStatus.ObservedGeneration %d, prevStatus.ObservedGeneration %d",
-			old.Generation, curr.Generation, currStatus.ObservedGeneration, prevStatus.ObservedGeneration)
-		skipUpdate := old.Generation == curr.Generation && // no spec change
-			currStatus.ObservedGeneration != prevStatus.ObservedGeneration && // no status change - means meata data change
-			curr.Generation == currStatus.ObservedGeneration // no spec change and status change
-		if skipUpdate {
-			log.Debugf("Skip event %s for service entry %s/%s, status only update", event, curr.Namespace, curr.Name)
+		statusOnlyUpdate := old.Generation == curr.Generation && old.Meta.Equals(curr.Meta)
+		if statusOnlyUpdate {
+			log.Debugf("Skip update for service entry %s/%s, status only update", curr.Namespace, curr.Name)
 			return
 		}
 	}
