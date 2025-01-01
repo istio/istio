@@ -94,8 +94,8 @@ type Meta struct {
 	Generation int64 `json:"generation,omitempty"`
 }
 
-func (m Meta) Equals(other Meta) bool {
-	return maps.Equal(m.Labels, other.Labels) && maps.Equal(m.Annotations, other.Annotations) && m.Domain == other.Domain
+func (meta *Meta) Equals(other Meta) bool {
+	return maps.Equal(meta.Labels, other.Labels) && maps.Equal(meta.Annotations, other.Annotations) && meta.Domain == other.Domain
 }
 
 // Config is a configuration unit consisting of the type of configuration, the
