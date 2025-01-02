@@ -567,6 +567,7 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 
 	// update all related services
 	if updatedNeeded && c.updateServiceNodePortAddresses() {
+		log.Info("PushRequest generated onNodeEvent")
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: model.NewReasonStats(model.ServiceUpdate),

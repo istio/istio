@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -143,6 +144,7 @@ func (sd *ServiceDiscovery) AddServiceNotify(svc *model.Service) {
 
 		Reason: model.NewReasonStats(model.ServiceUpdate),
 	}
+	log.Infof("PushRequest generated in ServiceDiscovery::AddServiceNotify: %#v", pushReq)
 	sd.XdsUpdater.ConfigUpdate(pushReq)
 }
 

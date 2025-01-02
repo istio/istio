@@ -164,15 +164,27 @@ func (x XdsCacheImpl) Get(entry XdsCacheEntry) *discovery.Resource {
 }
 
 func (x XdsCacheImpl) Clear(s sets.Set[ConfigKey]) {
-	x.cds.Clear(s)
+	hasDestiantionRule := HasConfigsOfKind(s, kind.DestinationRule)
+	hasServiceEntry := HasConfigsOfKind(s, kind.ServiceEntry)
+	hasEnvoyFilter := HasConfigsOfKind(s, kind.EnvoyFilter)
+	hasVirtualService := HasConfigsOfKind(s, kind.VirtualService)
+	hasHTTPRoute := HasConfigsOfKind(s, kind.HTTPRoute)
+	hasSecret := HasConfigsOfKind(s, kind.Secret)
+	if hasDestiantionRule || hasServiceEntry || hasEnvoyFilter {
+		x.cds.Clear(s)
+	}
 	// clear all EDS cache for PA change
 	if HasConfigsOfKind(s, kind.PeerAuthentication) {
 		x.eds.ClearAll()
-	} else {
+	} else if hasDestiantionRule || hasServiceEntry {
 		x.eds.Clear(s)
 	}
-	x.rds.Clear(s)
-	x.sds.Clear(s)
+	if hasServiceEntry || hasVirtualService || hasHTTPRoute || hasDestiantionRule || hasEnvoyFilter {
+		x.rds.Clear(s)
+	}
+	if hasSecret {
+		x.sds.Clear(s)
+	}
 }
 
 func (x XdsCacheImpl) ClearAll() {

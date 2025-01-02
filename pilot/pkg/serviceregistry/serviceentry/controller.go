@@ -334,6 +334,7 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		ConfigsUpdated: configsUpdated,
 		Reason:         model.NewReasonStats(model.EndpointUpdate),
 	}
+	log.Infof("PushRequest generated in workloadEntryHandler: %#v", pushReq)
 	// trigger a full push
 	s.XdsUpdater.ConfigUpdate(pushReq)
 }
@@ -469,6 +470,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 		ConfigsUpdated: configsUpdated,
 		Reason:         model.NewReasonStats(model.ServiceUpdate),
 	}
+	log.Infof("PushRequest generated in Controller::serviceEntryHandler: %#v", pushReq)
 	s.XdsUpdater.ConfigUpdate(pushReq)
 }
 
@@ -611,6 +613,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 			ConfigsUpdated: configsUpdated,
 			Reason:         model.NewReasonStats(model.EndpointUpdate),
 		}
+		log.Infof("PushRequest generated in workloadInstanceHandler: %#v", pushReq)
 		s.XdsUpdater.ConfigUpdate(pushReq)
 	}
 }
