@@ -273,7 +273,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
-	resources = cb.normalizeClusters(resources)
+	// Only normalize clusters if the proxy is not using delta xDS. For Delta XDS it is not possible to
+	// identify duplicates at Istiod.
+	if proxy.Metadata != nil && proxy.Metadata.Raw["ISTIO_DELTA_XDS"] == "false" {
+		resources = cb.normalizeClusters(resources)
+	}
 
 	if cacheStats.empty() {
 		return resources, model.DefaultXdsLogDetails
