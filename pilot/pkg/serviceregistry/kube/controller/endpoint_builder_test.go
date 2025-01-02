@@ -23,6 +23,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
@@ -286,11 +287,32 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 				},
 				opts: Options{ClusterID: c.ctl.cluster},
 			}
-			eb := cc.NewEndpointBuilderFromMetadata(c.proxy)
+			eb := newEndpointBuilderFromMetadata(cc, c.proxy)
 
 			assert.Equal(t, eb.labels, c.expected)
 		})
 	}
+}
+
+func newEndpointBuilderFromMetadata(c *Controller, proxy *model.Proxy) *EndpointBuilder {
+	locality := util.LocalityToString(proxy.Locality)
+	out := &EndpointBuilder{
+		controller:     c,
+		metaNetwork:    proxy.Metadata.Network,
+		serviceAccount: proxy.Metadata.ServiceAccount,
+		locality: model.Locality{
+			Label:     locality,
+			ClusterID: c.Cluster(),
+		},
+		tlsMode:  model.GetTLSModeFromEndpointLabels(proxy.Labels),
+		nodeName: proxy.GetNodeName(),
+	}
+	var networkID network.ID
+	if len(proxy.IPAddresses) > 0 {
+		networkID = out.endpointNetwork(proxy.IPAddresses[0])
+	}
+	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, out.nodeName, networkID)
+	return out
 }
 
 type testController struct {
