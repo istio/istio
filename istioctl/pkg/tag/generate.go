@@ -58,6 +58,8 @@ type tagWebhookConfig struct {
 	Annotations    map[string]string
 	// FailurePolicy records the failure policy to use for the webhook.
 	FailurePolicy map[string]*admitv1.FailurePolicyType
+	// ReinvocationPolicy records the reinvocation policy to use for the webhook.
+	ReinvocationPolicy string
 }
 
 // GenerateOptions is the group of options needed to generate a tag webhook.
@@ -281,6 +283,9 @@ func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (s
 		"values.istiodRemote.injectionURL=" + config.URL,
 		"values.global.istioNamespace=" + config.IstioNamespace,
 	}
+	if len(config.ReinvocationPolicy) > 0 {
+		flags = append(flags, "values.sidecarInjectorWebhook.reinvocationPolicy="+config.ReinvocationPolicy)
+	}
 	mfs, _, err := render.GenerateManifest(nil, flags, false, nil, nil)
 	if err != nil {
 		return "", err
@@ -343,7 +348,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 		rev = ""
 	}
 
-	var injectionURL, caBundle, path string
+	var injectionURL, caBundle, path, reinvocationPolicy string
 	found := false
 	for _, w := range wh.Webhooks {
 		if strings.HasSuffix(w.Name, istioInjectionWebhookSuffix) {
@@ -356,6 +361,9 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 				if w.ClientConfig.Service.Path != nil {
 					path = *w.ClientConfig.Service.Path
 				}
+			}
+			if w.ReinvocationPolicy != nil {
+				reinvocationPolicy = string(*w.ReinvocationPolicy)
 			}
 			break
 		}
@@ -377,14 +385,15 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 	}
 
 	return &tagWebhookConfig{
-		Tag:            tagName,
-		Revision:       rev,
-		URL:            injectionURL,
-		CABundle:       caBundle,
-		IstioNamespace: istioNS,
-		Path:           path,
-		Labels:         filteredLabels,
-		Annotations:    wh.Annotations,
-		FailurePolicy:  map[string]*admitv1.FailurePolicyType{},
+		Tag:                tagName,
+		Revision:           rev,
+		URL:                injectionURL,
+		CABundle:           caBundle,
+		IstioNamespace:     istioNS,
+		Path:               path,
+		Labels:             filteredLabels,
+		Annotations:        wh.Annotations,
+		FailurePolicy:      map[string]*admitv1.FailurePolicyType{},
+		ReinvocationPolicy: reinvocationPolicy,
 	}, nil
 }
