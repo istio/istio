@@ -125,18 +125,25 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 	})
 	testCases := []struct {
 		name        string
+		proxy       *model.Proxy
 		wasmPlugins []*model.WasmPluginWrapper
 		names       []string
 		expectedECs []*core.TypedExtensionConfig
 	}{
 		{
-			name:        "empty",
+			name: "empty",
+			proxy: &model.Proxy{
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: 0},
+			},
 			wasmPlugins: []*model.WasmPluginWrapper{},
 			names:       []string{someAuthNFilter.Name},
 			expectedECs: []*core.TypedExtensionConfig{},
 		},
 		{
 			name: "authn",
+			proxy: &model.Proxy{
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: 0},
+			},
 			wasmPlugins: []*model.WasmPluginWrapper{
 				someAuthNFilter,
 				someAuthZFilter,
@@ -151,6 +158,9 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 		},
 		{
 			name: "network",
+			proxy: &model.Proxy{
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: 0},
+			},
 			wasmPlugins: []*model.WasmPluginWrapper{
 				someNetworkFilter,
 			},
@@ -166,6 +176,9 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 		},
 		{
 			name: "combination of http and network",
+			proxy: &model.Proxy{
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: 0},
+			},
 			wasmPlugins: []*model.WasmPluginWrapper{
 				someAuthNFilter,
 				someNetworkFilter,
@@ -188,7 +201,7 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ecs := InsertedExtensionConfigurations(tc.wasmPlugins, tc.names, nil)
+			ecs := InsertedExtensionConfigurations(tc.proxy, tc.wasmPlugins, tc.names, nil)
 			if diff := cmp.Diff(tc.expectedECs, ecs, protocmp.Transform()); diff != "" {
 				t.Fatal(diff)
 			}
