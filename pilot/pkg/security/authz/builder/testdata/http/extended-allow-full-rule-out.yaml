@@ -16,14 +16,14 @@ typedConfig:
                 - authenticated:
                     principalName:
                       safeRegex:
-                        regex: spiffe://.+/ns/my-ns/(.+/|)sa/my-sa
+                        regex: spiffe://.+/ns/my-ns/(.+/|)sa/my-sa(/.+)?
             - notId:
                 orIds:
                   ids:
                   - authenticated:
                       principalName:
                         safeRegex:
-                          regex: spiffe://.+/ns/my-ns/(.+/|)sa/my-sa-not
+                          regex: spiffe://.+/ns/my-ns/(.+/|)sa/my-sa-not(/.+)?
       ns[foo]-policy[httpbin-1]-rule[1]:
         permissions:
         - andRules:
