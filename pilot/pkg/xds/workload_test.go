@@ -166,7 +166,7 @@ func TestWorkloadReconnect(t *testing.T) {
 			ResourceNamesSubscribe:   []string{},
 			ResourceNamesUnsubscribe: []string{},
 			InitialResourceVersions: map[string]string{
-				"/127.0.0.1": "",
+				"Kubernetes//Pod/default/pod": "",
 			},
 		})
 		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")

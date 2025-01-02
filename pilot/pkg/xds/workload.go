@@ -108,11 +108,17 @@ func (e WorkloadGenerator) GenerateDeltas(
 	haveAliases := sets.New[string]()
 	for _, addr := range addrs {
 		// TODO(@hzxuzhonghu): calculate removed with aliases in `AddressInformation`
-		aliases := addr.Aliases()
-		removed.DeleteAll(aliases...)
+		var aliases []string
+		if !w.Wildcard {
+			// For on-demand, a client may request by an alias, so we need to compute things.
+			// For wildcard subscriptions, alias is not needed and we always use the canonical resource name.
+			// Avoid Alias computation in these situations
+			aliases := addr.Aliases()
+			removed.DeleteAll(aliases...)
+			haveAliases.InsertAll(aliases...)
+		}
 		n := addr.ResourceName()
 		have.Insert(n)
-		haveAliases.InsertAll(aliases...)
 		switch w.TypeUrl {
 		case v3.WorkloadType:
 			if addr.GetWorkload() != nil {
