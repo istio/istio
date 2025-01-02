@@ -44,9 +44,6 @@ var (
 	CustomCACertConfigMapName = env.RegisterStringVar("CUSTOM_CA_CERT_NAME", "",
 		"Defines the configmap's name of  istio's root ca certificate").Get()
 
-	HostRDSMergeSubset = env.RegisterBoolVar("HOST_RDS_MERGE_SUBSET", true,
-		"If enabled, if host A is a subset of B, then we merge B's routes into A's hostRDS").Get()
-
 	EnableScopedRDS = env.RegisterBoolVar("ENBALE_SCOPED_RDS", true,
 		"If enabled, each host in virtualservice will have an independent RDS, which is used with SRDS").Get()
 

@@ -698,52 +698,21 @@ func (configgen *ConfigGeneratorImpl) buildHostRDSConfig(
 		vsCache[rdsPort] = listenerVirtualServices
 	}
 	for _, vsCtx := range listenerVirtualServices {
-		virtualService := vsCtx.virtualService
+		virtualService := vsCtx.virtualService.Spec.(*networking.VirtualService)
 		hostMatch := false
-		var selectHost string
-		for _, hostname := range virtualService.Spec.(*networking.VirtualService).Hosts {
+		for _, hostname := range virtualService.Hosts {
 			// exact match
 			if hostname == hostRDSHost {
 				hostMatch = true
-				selectHost = hostRDSHost
 				break
-			}
-			if alifeatures.HostRDSMergeSubset {
-				// subset match
-				if host.Name(hostRDSHost).SubsetOf(host.Name(hostname)) {
-					hostMatch = true
-					selectHost = hostname
-				}
 			}
 		}
 		if !hostMatch {
 			continue
 		}
-		if len(virtualService.Spec.(*networking.VirtualService).Hosts) > 1 {
-			copiedVS := networking.VirtualService{}
-			copiedVS = *(virtualService.Spec.(*networking.VirtualService))
-			copiedVS.Hosts = []string{selectHost}
-			selectedVirtualServices = append(selectedVirtualServices, virtualServiceContext{
-				virtualService: config.Config{
-					Meta:   virtualService.Meta,
-					Spec:   &copiedVS,
-					Status: virtualService.Status,
-				},
-				server:      vsCtx.server,
-				gatewayName: vsCtx.gatewayName,
-			})
-		} else {
-			selectedVirtualServices = append(selectedVirtualServices, vsCtx)
-		}
+		selectedVirtualServices = append(selectedVirtualServices, vsCtx)
 	}
 	sort.SliceStable(selectedVirtualServices, func(i, j int) bool {
-		// Sort by subset
-		// before: ["*.abc.com", "*.com", "www.abc.com"]
-		// after: ["www.abc.com", "*.abc.com", "*.com"]
-		if host.Name(selectedVirtualServices[i].virtualService.Spec.(*networking.VirtualService).Hosts[0]).SubsetOf(
-			host.Name(selectedVirtualServices[j].virtualService.Spec.(*networking.VirtualService).Hosts[0])) {
-			return true
-		}
 		// Sort by creationTimestamp after
 		return selectedVirtualServices[i].virtualService.CreationTimestamp.Before(selectedVirtualServices[j].virtualService.CreationTimestamp)
 	})
