@@ -1,4 +1,4 @@
-*                                                                @costinm @linsun @howardjohn @stevenctl @keithmattix @hzxuzhonghu
+*                                                                @istio/technical-oversight-committee @stevenctl @hzxuzhonghu
 /.gitattributes                                                  @istio/wg-test-and-release-maintainers
 /.gitignore                                                      @istio/wg-test-and-release-maintainers
 /Makefile.core.mk                                                @istio/wg-test-and-release-maintainers
