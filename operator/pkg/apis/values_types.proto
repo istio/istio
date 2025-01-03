@@ -224,6 +224,103 @@ message TargetUtilizationConfig {
   int32 targetAverageUtilization = 1;
 }
 
+// Configuration for ztunnel.
+message ZtunnelConfig {
+  // Controls whether ztunnel is installed.
+  google.protobuf.BoolValue enabled = 1;
+
+  // Hub to pull the container image from. Image will be `Hub/Image:Tag-Variant`.
+  string hub = 2;
+
+  // The container image tag to pull. Image will be `Hub/Image:Tag-Variant`.
+  google.protobuf.Value tag = 3;
+
+  // The container image variant to pull. Options are "debug" or "distroless". Unset will use the default for the given version.
+  string variant = 4;
+
+  // Image name to pull from. Image will be `Hub/Image:Tag-Variant`.
+  // If Image contains a "/", it will replace the entire `image` in the pod.
+  string image = 5;
+
+  // Specifies the image pull policy. one of Always, Never, IfNotPresent.
+  // Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated.
+  //
+  // More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+  string imagePullPolicy = 6;
+
+  // List of secret names to add to the service account as image pull secrets.
+  repeated string imagePullSecrets = 7;
+
+  // resourceName, if set, will override the naming of resources. If not set, will default to the release name.
+  // It is recommended to not set this; this is primarily for backwards compatibility.
+  string resourceName = 25;
+
+  // Labels to apply to all top level resources.
+  map<string, string> labels = 8;
+
+  // Annotations to apply to all top level resources.
+  google.protobuf.Struct annotations = 9;
+
+  //Additional volumeMounts to the ztunnel container.
+  repeated k8s.io.api.core.v1.VolumeMount volumeMounts = 10;
+
+  // Additional volumes to the ztunnel pod.
+  repeated k8s.io.api.core.v1.Volume volumes = 11;
+
+  // Annotations added to each ztunnel pod. The default annotations are required for scraping prometheus (in most environments).
+  google.protobuf.Struct podAnnotations = 12;
+
+  // Additional labels to apply on the pod level.
+  //
+  // See https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+  google.protobuf.Struct podLabels = 13;
+
+  // The k8s resource requests and limits for the ztunnel Pods.
+  Resources resources = 14;
+
+  // Environment variables passed to the ztunnel pod.
+  google.protobuf.Struct env = 15;
+
+  // Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.
+  MultiClusterConfig multiCluster = 16;
+
+  // Defines runtime configuration of components,
+  // For ztunnel, only defaultConfig is used, but this is nested under `meshConfig` for consistency with other
+  // components.
+  // See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options.
+  // TODO can this import the real mesh config API?
+  google.protobuf.Value meshConfig = 17;
+
+  // Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+  // Used to locate the XDS and CA, if caAddress or xdsAddress are not set explicitly.
+  string revision = 18;
+
+  // The customized CA address to retrieve certificates for the pods in the cluster.
+  // CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
+  string caAddress = 19;
+
+  // The customized XDS address to retrieve configuration.
+  // This should include the port - 15012 for Istiod. TLS will be used with the certificates in "istiod-ca-cert" secret.
+  // By default, it is istiod.istio-system.svc:15012 if revision is not set, or istiod-<revision>.<istioNamespace>.svc:15012
+  string xdsAddress = 20;
+
+  // Specifies the default namespace for the Istio control plane components.
+  // Used to locate the XDS and CA, if caAddress or xdsAddress are not set.
+  string istioNamespace = 21;
+
+  // Configuration log level of ztunnel binary. By default, it is info.
+  // Valid values are: trace, debug, info, warn, error.
+  string logLevel = 22;
+
+  // Specifies whether ztunnel component should output logs in json format by adding --log_as_json argument.
+  google.protobuf.BoolValue logAsJson = 23;
+
+  // seLinuxOptions passed to the ztunnel pod.
+  // Set to `type: RuntimeDefault` to use the default profile if available.
+  // For OpenShift, set to `type: spc_t` to get writable sockets in hostmounts to work, eventually consider CSI driver instead.
+  google.protobuf.Struct seLinuxOptions = 24;
+}
+
 // Compute resources required by a container.
 message Resources {
   // The maximum amount of compute resources allowed.
@@ -1366,7 +1463,7 @@ message Values {
   PilotConfig pilot = 10;
 
   // Configuration for the ZTunnel component.
-  google.protobuf.Value ztunnel = 41;
+  ZtunnelConfig ztunnel = 41;
 
   // Controls whether telemetry is exported for Pilot.
   TelemetryConfig telemetry = 23;
