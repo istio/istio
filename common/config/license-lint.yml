@@ -132,3 +132,5 @@ allowlisted_modules:
 # gonum.org/v1/gonum/graph/formats/rdf/testdata/LICENSE.md
 - gonum.org/v1/gonum
 
+# BSD 3-clause: https://github.com/go-inf/inf/blob/v0.9.1/LICENSE
+- gopkg.in/inf.v0
