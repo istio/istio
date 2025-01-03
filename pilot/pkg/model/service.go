@@ -1790,7 +1790,7 @@ func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
 }
 
 func EqualUsingPremarshaled[T proto.Message](a T, am *anypb.Any, b T, bm *anypb.Any) bool {
-	// If they are both pre-marshaled, use the marshalled representation. This is orders of magnitude faster
+	// If they are both pre-marshaled, use the marshaled representation. This is orders of magnitude faster
 	if am != nil && bm != nil {
 		return bytes.Equal(am.Value, bm.Value)
 	}
