@@ -173,6 +173,8 @@ type Settings struct {
 	// EnableDualStack indicates the test should have dual stack enabled or not.
 	EnableDualStack bool
 
+	IPFamilies string
+
 	// Helm repo to be used for tests
 	HelmRepo string
 
@@ -193,6 +195,13 @@ type Settings struct {
 func (s *Settings) SkipVMs() {
 	s.SkipVM = true
 	s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "vm")
+}
+
+// Checks if dual-stack mode is to be enabled for tests based on the IpFamilies
+func (s *Settings) SetDualStack() {
+	if len(strings.Split(s.IPFamilies, ",")) > 1 {
+		s.EnableDualStack = true
+	}
 }
 
 // Skip checks whether a given class is skipped
@@ -266,6 +275,8 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("PullSecret:        						 %s\n", s.Image.PullSecret)
 	result += fmt.Sprintf("MaxDumps:          						 %d\n", s.MaxDumps)
 	result += fmt.Sprintf("HelmRepo:          						 %v\n", s.HelmRepo)
+	result += fmt.Sprintf("EnableDualStack:							 %v\n", s.EnableDualStack)
+	result += fmt.Sprintf("IPFamilies:							 %v\n", s.IPFamilies)
 	result += fmt.Sprintf("GatewayConformanceStandardOnly: %v\n", s.GatewayConformanceStandardOnly)
 	return result
 }
