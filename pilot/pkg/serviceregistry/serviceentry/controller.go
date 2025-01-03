@@ -385,8 +385,10 @@ func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Ev
 		// See https://github.com/kubernetes/kubernetes/blob/59fdc02b13ec1412d7f4ad078c91050516024a79/staging/src/k8s.io/apiextensions-apiserver/pkg/registry/customresourcedefinition/strategy.go#L82-L89
 		// Generation != 0 check ensures that the underlying platform manages Generations.
 		statusOnlyUpdate := curr.Generation != 0 && old.Generation == curr.Generation && old.Meta.Equals(curr.Meta)
+		log.Infof("ServiceEntry %s/%s updated, statusOnlyUpdate: %v", curr.Namespace, curr.Name, statusOnlyUpdate)
+		log.Infof("ServiceEntry old %v, current %v", old, curr)
 		if statusOnlyUpdate {
-			log.Debugf("Skip update for service entry %s/%s, status only update", curr.Namespace, curr.Name)
+			log.Infof("Skip update for service entry %s/%s, status only update", curr.Namespace, curr.Name)
 			return
 		}
 	}
