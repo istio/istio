@@ -1,0 +1,23 @@
+_err: Cannot set serviceAccounts with namespaces or principals
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: service-account-and-namespace
+spec:
+  rules:
+    - from:
+        - source:
+            serviceAccounts: ["bar/sa"]
+            namespaces: ["bar"]
+---
+_err: Cannot set serviceAccounts with namespaces or principals
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: service-account-and-namespace-principal
+spec:
+  rules:
+    - from:
+        - source:
+            serviceAccounts: ["baz/sa"]
+            principals: ["bar"]
