@@ -377,7 +377,14 @@ func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
 // serviceEntryHandler defines the handler for service entries
 func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Event) {
 	if event == model.EventUpdate && serviceentry.ShouldV2AutoAllocateIPFromConfig(curr) {
-		statusOnlyUpdate := old.Generation == curr.Generation && old.Meta.Equals(curr.Meta)
+		// If a spec is changed, generation is also updated. But if the spec is not changed
+		// i.e. there is no change in generation, there are two possibilities - either metadata
+		// has changed or status has been updated. We check if metadata has changed, if not, we
+		// assume it is status update.
+		// nolint: lll
+		// See https://github.com/kubernetes/kubernetes/blob/59fdc02b13ec1412d7f4ad078c91050516024a79/staging/src/k8s.io/apiextensions-apiserver/pkg/registry/customresourcedefinition/strategy.go#L82-L89
+		// Generation != 0 check ensures that the underlying platform manages Generations.
+		statusOnlyUpdate := curr.Generation != 0 && old.Generation == curr.Generation && old.Meta.Equals(curr.Meta)
 		if statusOnlyUpdate {
 			log.Debugf("Skip update for service entry %s/%s, status only update", curr.Namespace, curr.Name)
 			return

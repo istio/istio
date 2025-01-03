@@ -1366,7 +1366,6 @@ func TestWorkloadInstances(t *testing.T) {
 				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:80"}, ambient), nodeMeta)
 
 				newSE := serviceEntry.DeepCopy()
-				newSE.Generation = 1
 				newSE.Spec.(*networking.ServiceEntry).Ports = []*networking.ServicePort{{
 					Name:       "http",
 					Number:     80,
@@ -1383,7 +1382,6 @@ func TestWorkloadInstances(t *testing.T) {
 					Protocol:   "http",
 					TargetPort: 9091,
 				}}
-				newSE.Generation = 2
 				makeIstioObject(t, s.Store(), newSE)
 				expectEndpoints(t, s, "outbound|80||service.namespace.svc.cluster.local", nil, nodeMeta)
 				expectEndpoints(t, s, "outbound|9090||service.namespace.svc.cluster.local", expectAmbient([]string{"1.2.3.4:9091"}, ambient), nodeMeta)
