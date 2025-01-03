@@ -59,7 +59,7 @@ func (s *DiscoveryServer) compareDiff(
 	newByName := slices.GroupUnique(sotwRes, (*discovery.Resource).GetName)
 	curByName := slices.GroupUnique(current, (*discovery.Resource).GetName)
 
-	watched := sets.New(w.ResourceNames...)
+	watched := w.ResourceNames
 
 	details := fmt.Sprintf("last:%v sotw:%v delta:%v-%v", len(current), len(sotwRes), len(deltaRes), len(deleted))
 	wantDeleted := sets.New[string]()

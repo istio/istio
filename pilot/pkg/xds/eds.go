@@ -193,7 +193,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	empty := 0
 	cached := 0
 	regenerated := 0
-	for _, clusterName := range w.ResourceNames {
+	for clusterName := range w.ResourceNames {
 		if edsUpdatedServices != nil {
 			if _, ok := edsUpdatedServices[model.ParseSubsetKeyHostname(clusterName)]; !ok {
 				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
@@ -250,7 +250,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 	cached := 0
 	regenerated := 0
 
-	for _, clusterName := range w.ResourceNames {
+	for clusterName := range w.ResourceNames {
 		// filter out eds that are not updated for clusters
 		if _, ok := edsUpdatedServices[model.ParseSubsetKeyHostname(clusterName)]; !ok {
 			continue

@@ -85,7 +85,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	// Holds subset clusters per service, keyed by hostname.
 	subsetClusters := make(map[string]sets.String)
 
-	for _, cluster := range watched.ResourceNames {
+	for cluster := range watched.ResourceNames {
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
 		// check with the name of our service (cluster names are in the format outbound|<port>|<subset>|<hostname>).
 		dir, subset, svcHost, port := model.ParseSubsetKey(cluster)

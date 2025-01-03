@@ -114,7 +114,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 		logFiltered = " filtered:" + strconv.Itoa(len(w.ResourceNames)-len(req.Delta.Subscribed))
 		w = &model.WatchedResource{
 			TypeUrl:       w.TypeUrl,
-			ResourceNames: req.Delta.Subscribed.UnsortedList(),
+			ResourceNames: req.Delta.Subscribed,
 		}
 	}
 	res, logdata, err := gen.Generate(con.proxy, w, req)

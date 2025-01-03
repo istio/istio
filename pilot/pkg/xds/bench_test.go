@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // ConfigInput defines inputs passed to the test config templates
@@ -298,9 +299,9 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			b.ResetTimer()
 			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				watchedResources := []string{}
+				watchedResources := sets.New[string]()
 				for svc := 0; svc < tt.services; svc++ {
-					watchedResources = append(watchedResources, fmt.Sprintf("outbound|80||foo-%d.com", svc))
+					watchedResources.Insert(fmt.Sprintf("outbound|80||foo-%d.com", svc))
 				}
 				wr := &model.WatchedResource{ResourceNames: watchedResources}
 				c, _, _ = s.Discovery.Generators[v3.EndpointType].Generate(proxy, wr, &model.PushRequest{Full: true, Push: s.PushContext()})
@@ -363,15 +364,15 @@ func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 func getWatchedResources(tpe string, tt ConfigInput, s *xds.FakeDiscoveryServer, proxy *model.Proxy) *model.WatchedResource {
 	switch tpe {
 	case v3.SecretType:
-		watchedResources := []string{}
+		watchedResources := sets.New[string]()
 		for i := 0; i < tt.Services; i++ {
-			watchedResources = append(watchedResources, fmt.Sprintf("kubernetes://default/sds-credential-%d", i))
+			watchedResources.Insert(fmt.Sprintf("kubernetes://default/sds-credential-%d", i))
 		}
 		return &model.WatchedResource{ResourceNames: watchedResources}
 	case v3.RouteType:
 		l := s.ConfigGen.BuildListeners(proxy, s.PushContext())
 		routeNames := xdstest.ExtractRoutesFromListeners(l)
-		return &model.WatchedResource{ResourceNames: routeNames}
+		return &model.WatchedResource{ResourceNames: sets.New(routeNames...)}
 	}
 	return nil
 }
