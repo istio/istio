@@ -115,25 +115,25 @@ func (p *WasmPluginWrapper) MatchType(pluginType WasmPluginType) bool {
 	return pluginType == WasmPluginTypeAny || pluginType == fromPluginType(p.WasmPlugin.Type)
 }
 
-func (p *WasmPluginWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
+func (p *WasmPluginWrapper) BuildHTTPWasmFilter(proxy *Proxy) *httpwasm.Wasm {
 	if !(p.Type == extensions.PluginType_HTTP || p.Type == extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE) {
 		return nil
 	}
 	return &httpwasm.Wasm{
-		Config: p.buildPluginConfig(),
+		Config: p.buildPluginConfig(proxy),
 	}
 }
 
-func (p *WasmPluginWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
+func (p *WasmPluginWrapper) BuildNetworkWasmFilter(proxy *Proxy) *networkwasm.Wasm {
 	if p.Type != extensions.PluginType_NETWORK {
 		return nil
 	}
 	return &networkwasm.Wasm{
-		Config: p.buildPluginConfig(),
+		Config: p.buildPluginConfig(proxy),
 	}
 }
 
-func (p *WasmPluginWrapper) buildPluginConfig() *wasmextensions.PluginConfig {
+func (p *WasmPluginWrapper) buildPluginConfig(proxy *Proxy) *wasmextensions.PluginConfig {
 	cfg := &anypb.Any{}
 	plugin := p.WasmPlugin
 	if plugin.PluginConfig != nil && len(plugin.PluginConfig.Fields) > 0 {
@@ -159,14 +159,29 @@ func (p *WasmPluginWrapper) buildPluginConfig() *wasmextensions.PluginConfig {
 
 	datasource := buildDataSource(u, plugin)
 	resourceName := p.Namespace + "." + p.Name
-	// nolint: staticcheck // FailOpen deprecated
-	return &wasmextensions.PluginConfig{
+
+	wasmConfig := &wasmextensions.PluginConfig{
 		Name:          resourceName,
 		RootId:        plugin.PluginName,
 		Configuration: cfg,
 		Vm:            buildVMConfig(datasource, p.ResourceVersion, plugin),
-		FailOpen:      plugin.FailStrategy == extensions.FailStrategy_FAIL_OPEN,
 	}
+
+	// FailOpen is deprecated in 1.25, remove this once v1.25 is EOL.
+	if proxy.VersionGreaterOrEqual(&IstioVersion{Major: 1, Minor: 25, Patch: 0}) {
+		switch plugin.FailStrategy {
+		case extensions.FailStrategy_FAIL_OPEN:
+			wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
+		case extensions.FailStrategy_FAIL_CLOSE:
+			wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_CLOSED
+		}
+		// TODO: support more failure policies
+	} else {
+		// nolint: staticcheck // FailOpen deprecated in 1.25
+		wasmConfig.FailOpen = plugin.FailStrategy == extensions.FailStrategy_FAIL_OPEN
+	}
+
+	return wasmConfig
 }
 
 type WasmPluginListenerInfo struct {

@@ -97,6 +97,7 @@ func toEnvoyNetworkFilter(wasmPlugin *model.WasmPluginWrapper) *listener.Filter 
 
 // InsertedExtensionConfigurations builds added via WasmPlugin.
 func InsertedExtensionConfigurations(
+	proxy *model.Proxy,
 	wasmPlugins []*model.WasmPluginWrapper,
 	names []string, pullSecrets map[string][]byte,
 ) []*core.TypedExtensionConfig {
@@ -111,7 +112,7 @@ func InsertedExtensionConfigurations(
 		}
 		switch {
 		case p.Type == extensions.PluginType_NETWORK:
-			wasmExtensionConfig := p.BuildNetworkWasmFilter()
+			wasmExtensionConfig := p.BuildNetworkWasmFilter(proxy)
 			if wasmExtensionConfig == nil {
 				continue
 			}
@@ -123,7 +124,7 @@ func InsertedExtensionConfigurations(
 			}
 			result = append(result, ec)
 		default:
-			wasmExtensionConfig := p.BuildHTTPWasmFilter()
+			wasmExtensionConfig := p.BuildHTTPWasmFilter(proxy)
 			if wasmExtensionConfig == nil {
 				continue
 			}
