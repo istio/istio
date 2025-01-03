@@ -1127,7 +1127,7 @@ func (i ServiceInfo) GetNamespace() string {
 }
 
 func (i ServiceInfo) Equals(other ServiceInfo) bool {
-	return EqualUsingPremarshaled(i.Service, i.MarshaledAddress, other.Service, other.MarshaledAddress) &&
+	return equalUsingPremarshaled(i.Service, i.MarshaledAddress, other.Service, other.MarshaledAddress) &&
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
 		i.Source == other.Source &&
@@ -1159,7 +1159,7 @@ type WorkloadInfo struct {
 }
 
 func (i WorkloadInfo) Equals(other WorkloadInfo) bool {
-	return EqualUsingPremarshaled(i.Workload, i.MarshaledAddress, other.Workload, other.MarshaledAddress) &&
+	return equalUsingPremarshaled(i.Workload, i.MarshaledAddress, other.Workload, other.MarshaledAddress) &&
 		maps.Equal(i.Labels, other.Labels) &&
 		i.Source == other.Source &&
 		i.CreationTime == other.CreationTime
@@ -1789,7 +1789,7 @@ func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
 	return true
 }
 
-func EqualUsingPremarshaled[T proto.Message](a T, am *anypb.Any, b T, bm *anypb.Any) bool {
+func equalUsingPremarshaled[T proto.Message](a T, am *anypb.Any, b T, bm *anypb.Any) bool {
 	// If they are both pre-marshaled, use the marshaled representation. This is orders of magnitude faster
 	if am != nil && bm != nil {
 		return bytes.Equal(am.Value, bm.Value)
