@@ -2,6 +2,8 @@ module istio.io/istio
 
 go 1.23.0
 
+replace istio.io/api v1.24.0-alpha.0.0.20241217180900-c363ca75e894 => /Users/shulin/Development/api
+
 require (
 	cloud.google.com/go/compute/metadata v0.6.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6

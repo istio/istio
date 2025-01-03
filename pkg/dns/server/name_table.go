@@ -62,7 +62,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 				// The IP will be unspecified here if its headless service or if the auto
 				// IP allocation logic for service entry was unable to allocate an IP.
 				if svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
-					for _, instance := range cfg.Push.ServiceEndpointsByPort(svc, svc.Ports[0].Port, nil) {
+					for _, instance := range cfg.Push.ServiceEndpointsByPort(svc, svc.Ports[0].Port, nil, nil) {
 						// addresses may be empty or invalid here
 						isValidInstance := true
 						for _, addr := range instance.Addresses {

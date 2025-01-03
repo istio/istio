@@ -729,6 +729,31 @@ func TestDeleteService(t *testing.T) {
 	}
 }
 
+func TestLabelSelector(t *testing.T) {
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-subsets.yaml"),
+	})
+	adscConn := s.Connect(nil, nil, watchEds)
+
+	// Validate that endpoints are pushed correctly.
+	evens := getEndpointsFromCluster("outbound|81|evens|subset.default.svc.cluster.local", adscConn, t)
+	if len(evens) != 2 {
+		t.Fatalf("expected 2 results from the evens cluster, got %d", len(evens))
+	}
+	odds := getEndpointsFromCluster("outbound|81|odds|subset.default.svc.cluster.local", adscConn, t)
+	if len(odds) != 1 {
+		t.Fatalf("expected 2 results from the evens cluster, got %d", len(odds))
+	}
+
+	notOdds := getEndpointsFromCluster("outbound|81|notodds|subset.default.svc.cluster.local", adscConn, t)
+	if len(notOdds) != 1 {
+		t.Fatalf("expected 1 results from the notodds cluster, got %d", len(notOdds))
+	}
+	if notOdds[0] != "127.0.0.2" {
+		t.Fatalf("expected addr 127.0.0.2 in notodds subset, but got %s", notOdds[0])
+	}
+}
+
 func fullPush(s *xdsfake.FakeDiscoveryServer) {
 	s.Discovery.Push(&model.PushRequest{Full: true})
 }
@@ -801,6 +826,24 @@ func testEndpoints(expected string, cluster string, adsc *adsc.ADSC, t *testing.
 		}
 	}
 	t.Fatalf("Expecting %s got %v", expected, found)
+}
+
+// Verify server sends the endpoint. This check for a single endpoint with the given
+// address.
+func getEndpointsFromCluster(cluster string, adsc *adsc.ADSC, t *testing.T) []string {
+	t.Helper()
+	lbe, f := adsc.GetEndpoints()[cluster]
+	if !f || len(lbe.Endpoints) == 0 {
+		t.Fatalf("No lb endpoints for %v, %v", cluster, adsc.EndpointsJSON())
+	}
+	var found []string
+	for _, lbe := range lbe.Endpoints {
+		for _, e := range lbe.LbEndpoints {
+			addr := e.GetEndpoint().Address.GetSocketAddress().Address
+			found = append(found, addr)
+		}
+	}
+	return found
 }
 
 func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, adsc2 *adsc.ADSC, t *testing.T) {

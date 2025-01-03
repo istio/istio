@@ -56,6 +56,17 @@ var (
 // have labels name=kittyCat,region=us-east.
 type Instance map[string]string
 
+// Has returns whether the provided label exists in the map.
+func (i Instance) Has(label string) bool {
+	_, exists := i[label]
+	return exists
+}
+
+// Get returns the value in the map for the provided label.
+func (i Instance) Get(label string) string {
+	return i[label]
+}
+
 // SubsetOf is true if the label has same values for the keys
 func (i Instance) SubsetOf(that Instance) bool {
 	if len(i) == 0 {

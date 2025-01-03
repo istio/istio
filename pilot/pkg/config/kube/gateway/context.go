@@ -85,7 +85,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 		}
 		svcKey := svc.Key()
 		for port := range ports {
-			instances := gc.ps.ServiceEndpointsByPort(svc, port, nil)
+			instances := gc.ps.ServiceEndpointsByPort(svc, port, nil, nil)
 			if len(instances) > 0 {
 				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
 				dummyProxy := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: gc.cluster}}

@@ -21,10 +21,13 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/kube/namespace"
+
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
@@ -71,13 +74,14 @@ type EndpointBuilder struct {
 	failoverPriorityLabels []byte
 
 	// These fields are provided for convenience only
-	subsetName   string
-	subsetLabels labels.Instance
-	hostname     host.Name
-	port         int
-	push         *model.PushContext
-	proxy        *model.Proxy
-	dir          model.TrafficDirection
+	subsetName    string
+	subsetLabels  labels.Instance
+	labelSelector klabels.Selector
+	hostname      host.Name
+	port          int
+	push          *model.PushContext
+	proxy         *model.Proxy
+	dir           model.TrafficDirection
 
 	mtlsChecker *mtlsChecker
 }
@@ -158,6 +162,7 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 	}
 	b.mtlsChecker = newMtlsChecker(b.push, b.port, b.destinationRule.GetRule(), b.subsetName)
 	b.subsetLabels = getSubSetLabels(b.DestinationRule(), b.subsetName)
+	b.labelSelector = getLabelSelector(b.DestinationRule(), b.subsetName)
 }
 
 func (b *EndpointBuilder) populateFailoverPriorityLabels() {
@@ -322,7 +327,7 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	if b == nil {
 		return nil
 	}
-	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels, b.labelSelector)
 	// don't use the pre-computed endpoints for CDS to preserve previous behavior
 	// CDS is always toServiceWaypoint=false. We do not yet support calling waypoints for CDS (DNS type)
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
@@ -357,8 +362,16 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		if ep.Addresses[0] != "" && ep.EndpointPort != 0 && !netutil.IsValidIPAddress(ep.Addresses[0]) {
 			return false
 		}
-		// filter out endpoints that don't match the subset
-		if !b.subsetLabels.SubsetOf(ep.Labels) {
+
+		if b.subsetLabels != nil {
+			// filter out endpoints that don't match the subset
+			if !b.subsetLabels.SubsetOf(ep.Labels) {
+				return false
+			}
+			return true
+		}
+
+		if b.labelSelector != nil && !b.labelSelector.Matches(ep.Labels) {
 			return false
 		}
 		return true
@@ -829,6 +842,33 @@ func getSubSetLabels(dr *v1alpha3.DestinationRule, subsetName string) labels.Ins
 	return nil
 }
 
+func getLabelSelector(dr *v1alpha3.DestinationRule, subsetName string) klabels.Selector {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	if dr == nil {
+		return nil
+	}
+
+	for _, subset := range dr.Subsets {
+		if subset.Name == subsetName {
+			if subset.GetSelector() == nil {
+				return nil
+			}
+			selector, err := namespace.LabelSelectorSelectorPbAsSelector(subset.GetSelector())
+			if err != nil {
+				log.Warnf("could not parse label selector for subset %s: %s", subsetName, err)
+				return nil
+			}
+			return selector
+		}
+	}
+
+	return nil
+}
+
 // For services that have a waypoint, we want to send to the waypoints rather than the service endpoints.
 // Lookup the
 func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) ([]*model.IstioEndpoint, bool) {
@@ -877,7 +917,15 @@ func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.Endpoint
 			return false
 		}
 		// filter out endpoints that don't match the subset
-		if !b.subsetLabels.SubsetOf(ep.Labels) {
+		if b.subsetLabels != nil {
+			// filter out endpoints that don't match the subset
+			if !b.subsetLabels.SubsetOf(ep.Labels) {
+				return false
+			}
+			return true
+		}
+
+		if b.labelSelector != nil && !b.labelSelector.Matches(ep.Labels) {
 			return false
 		}
 		return true

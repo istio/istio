@@ -1,0 +1,59 @@
+# Attempt to use all possible fields in DestinationRule
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: subset
+  namespace: testns
+spec:
+  hosts:
+    - subset.default.svc.cluster.local
+  ports:
+    - number: 81
+      name: http
+      protocol: HTTP
+  resolution: STATIC
+  endpoints:
+    - address: 127.0.0.2
+      labels:
+        numtype: even
+        version: a
+      ports:
+        http: 7072
+    - address: 127.0.0.3
+      labels:
+        numtype: odd
+        version: a
+      ports:
+        http: 7072
+    - address: 127.0.0.4
+      labels:
+        numtype: even
+        version: b
+      ports:
+        http: 7072
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: subset
+  namespace: testns
+spec:
+  host: subset.default.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    tls:
+      mode: DISABLE
+  subsets:
+    - name: evens
+      labels:
+        numtype: even
+    - name: odds
+      labels:
+        numtype: odd
+    - name: notodds
+      selector:
+        matchExpressions:
+          - { key: numtype, operator: NotIn, values: [ odd ] }
+          - { key: version, operator: In, values: [ a ] }
+---

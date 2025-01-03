@@ -645,6 +645,87 @@ func TestApplyDestinationRule(t *testing.T) {
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
 		{
+			name:        "subset with label and selector, label should override",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:   host.Name("foo.example.com"),
+				Ports:      servicePort,
+				Resolution: model.DNSRoundRobinLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"version": "v1", "foo": "bar"},
+				},
+			},
+			port:      servicePort[0],
+			proxyView: model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.example.com",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "v1",
+						Labels: map[string]string{"foo": "bar"},
+						// if the below selector is respected, then v1 subset cluster will not be created
+						// in this test we confirm that is not the case.
+						Selector: &v1beta1.LabelSelector{
+							MatchExpressions: []*v1beta1.LabelSelectorRequirement{{
+								Key:      "version",
+								Operator: "NotIn",
+								Values:   []string{"v1"},
+							}},
+						},
+					},
+					{
+						Name:   "nothing",
+						Labels: map[string]string{"version": "v2"},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS},
+			}},
+		},
+		{
+			name:        "subset with selector",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS}},
+			clusterMode: DefaultClusterMode,
+			service: &model.Service{
+				Hostname:   host.Name("foo.example.com"),
+				Ports:      servicePort,
+				Resolution: model.DNSRoundRobinLB,
+				Attributes: model.ServiceAttributes{
+					Namespace: TestServiceNamespace,
+					Labels:    map[string]string{"version": "v1"},
+				},
+			},
+			port:      servicePort[0],
+			proxyView: model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.example.com",
+				Subsets: []*networking.Subset{
+					{
+						Name: "v1",
+						Selector: &v1beta1.LabelSelector{
+							MatchExpressions: []*v1beta1.LabelSelectorRequirement{{
+								Key:      "version",
+								Operator: "In",
+								Values:   []string{"v1"},
+							}},
+						},
+					},
+					{
+						Name:   "nothing",
+						Labels: map[string]string{"version": "v2"},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.example.com",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_LOGICAL_DNS},
+			}},
+		},
+		{
 			name:        "destination rule with tls mode SIMPLE",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
