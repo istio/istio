@@ -1,18 +1,12 @@
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
-  name: httpbin-1
-  namespace: foo
+  name: full
 spec:
   selector:
     matchLabels:
       app: httpbin
-      version: v1
   rules:
-    - from:
-        - source:
-            serviceAccounts: [ "my-ns/my-sa" ]
-            notServiceAccounts: [ "my-ns/my-sa-not" ]
     - from:
         - source:
             principals: ["principal", "principal-prefix-*", "*-suffix-principal", "*"]
@@ -78,3 +72,17 @@ spec:
         - key: "experimental.envoy.filters.a.b[c]"
           values: ["exact", "prefix-*", "*-suffix", "*"]
           notValues: ["not-exact", "not-prefix-*", "*-not-suffix", "*"]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: service-account-and-namespace-principal-split
+spec:
+  rules:
+    - from:
+        - source:
+            serviceAccounts: ["baz/sa"]
+        - source:
+            principals: ["bar"]
+        - source:
+            namespaces: ["bar"]
