@@ -389,7 +389,7 @@ func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Ev
 		log.Infof("ServiceEntry old %v, current %v", old, curr)
 		if statusOnlyUpdate {
 			log.Infof("Skip update for service entry %s/%s, status only update", curr.Namespace, curr.Name)
-			return
+			// return
 		}
 	}
 
