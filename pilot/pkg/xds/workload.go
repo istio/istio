@@ -129,7 +129,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 				})
 			}
 		case v3.AddressType:
-			proto := addr.Marshalled
+			proto := addr.Marshaled
 			if proto == nil {
 				proto = protoconv.MessageToAny(addr)
 			}

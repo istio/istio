@@ -296,10 +296,10 @@ func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
 
 func precomputeService(w model.ServiceInfo) model.ServiceInfo {
 	addr := serviceToAddress(w.Service)
-	w.MarshalledAddress = protoconv.MessageToAny(addr)
+	w.MarshaledAddress = protoconv.MessageToAny(addr)
 	w.AsAddress = model.AddressInfo{
-		Address:    addr,
-		Marshalled: w.MarshalledAddress,
+		Address:   addr,
+		Marshaled: w.MarshaledAddress,
 	}
 	return w
 }

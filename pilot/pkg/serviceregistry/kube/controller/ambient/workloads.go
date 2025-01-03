@@ -961,10 +961,10 @@ func precomputeWorkloadPtr(w *model.WorkloadInfo) *model.WorkloadInfo {
 
 func precomputeWorkload(w model.WorkloadInfo) model.WorkloadInfo {
 	addr := workloadToAddress(w.Workload)
-	w.MarshalledAddress = protoconv.MessageToAny(addr)
+	w.MarshaledAddress = protoconv.MessageToAny(addr)
 	w.AsAddress = model.AddressInfo{
-		Address:    addr,
-		Marshalled: w.MarshalledAddress,
+		Address:   addr,
+		Marshaled: w.MarshaledAddress,
 	}
 	return w
 }
