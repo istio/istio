@@ -58,6 +58,14 @@ func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInsta
 	return all
 }
 
+func (s *serviceInstancesStore) countByKey(key instancesKey) int {
+	count := 0
+	for _, instances := range s.instances[key] {
+		count += len(instances)
+	}
+	return count
+}
+
 // deleteInstanceKeys deletes all instances with the given configKey and instanceKey
 // Note: as a convenience, this takes a []ServiceInstance instead of []instanceKey, as most callers have this format
 // However, this function only operates on the instance keys
