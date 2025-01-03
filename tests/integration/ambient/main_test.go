@@ -95,8 +95,6 @@ func TestMain(m *testing.M) {
 		RequireMinVersion(24).
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
-			// TODO: this doesn't actually set revision, for some reason
-			t.Settings().Revisions.Set("rev-a=")
 			return nil
 		}).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
