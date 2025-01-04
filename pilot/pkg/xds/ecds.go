@@ -39,16 +39,8 @@ type EcdsGenerator struct {
 var _ model.XdsResourceGenerator = &EcdsGenerator{}
 
 func ecdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	if proxy.Type == model.Ztunnel {
-		// Not supported for ztunnel
-		return false
-	}
-	if req == nil {
-		return true
-	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
+	if res, ok := xdsNeedsPush(req, proxy); ok {
+		return res
 	}
 	// Only push if config updates is triggered by EnvoyFilter, WasmPlugin, or Secret.
 	for config := range req.ConfigsUpdated {
