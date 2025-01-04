@@ -57,7 +57,9 @@ func AugmentLabels(in labels.Instance, clusterID cluster.ID, locality, k8sNode s
 	if len(k8sNode) > 0 {
 		out[LabelHostname] = k8sNode
 	}
-	if len(networkID) > 0 {
+	// In c.Network(), we already set the network label in priority order pod labels > namespace label > mesh Network
+	// We won't let proxy.Metadata.Network override the above.
+	if len(networkID) > 0 && out[label.TopologyNetwork.Name] == "" {
 		out[label.TopologyNetwork.Name] = networkID.String()
 	}
 	return out

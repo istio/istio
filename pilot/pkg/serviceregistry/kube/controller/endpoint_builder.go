@@ -19,7 +19,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config/labels"
@@ -84,27 +83,6 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 	}
 	networkID := out.endpointNetwork(ip)
 	out.labels = labelutil.AugmentLabels(podLabels, c.Cluster(), locality, node, networkID)
-	return out
-}
-
-func (c *Controller) NewEndpointBuilderFromMetadata(proxy *model.Proxy) *EndpointBuilder {
-	locality := util.LocalityToString(proxy.Locality)
-	out := &EndpointBuilder{
-		controller:     c,
-		metaNetwork:    proxy.Metadata.Network,
-		serviceAccount: proxy.Metadata.ServiceAccount,
-		locality: model.Locality{
-			Label:     locality,
-			ClusterID: c.Cluster(),
-		},
-		tlsMode:  model.GetTLSModeFromEndpointLabels(proxy.Labels),
-		nodeName: proxy.GetNodeName(),
-	}
-	var networkID network.ID
-	if len(proxy.IPAddresses) > 0 {
-		networkID = out.endpointNetwork(proxy.IPAddresses[0])
-	}
-	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, out.nodeName, networkID)
 	return out
 }
 
