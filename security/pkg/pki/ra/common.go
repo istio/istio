@@ -108,6 +108,10 @@ func ValidateCSR(csrPEM []byte, subjectIDs []string) bool {
 	if err != nil {
 		return false
 	}
+	// ztunnel CSRs do not have a Subject, fill in an empty "O=" to be consistent with `GenCSRTemplate`'s behavior
+	if len(csr.Subject.Organization) == 0 {
+		csr.Subject.Organization = []string{""}
+	}
 	if !compareCSRs(csr, genCSRTemplate) {
 		return false
 	}
