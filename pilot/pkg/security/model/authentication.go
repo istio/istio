@@ -20,8 +20,10 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -157,17 +159,23 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 				},
 			}
 		}
+		sdsSecretConfig := ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName))
+		if proxy.Type == model.Router {
+			sdsSecretConfig.SdsConfig.InitialFetchTimeout = durationpb.New(features.DefaultFileSDSFetchTimeout)
+		}
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         defaultValidationContext,
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
+				ValidationContextSdsSecretConfig: sdsSecretConfig,
 			},
 		}
 
 	}
-	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),
+	sdsSecretConfig := ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName))
+	if proxy.Type == model.Router {
+		sdsSecretConfig.SdsConfig.InitialFetchTimeout = durationpb.New(features.DefaultFileSDSFetchTimeout)
 	}
+	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{sdsSecretConfig}
 }
 
 // ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext
