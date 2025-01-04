@@ -95,6 +95,8 @@ func TestGetPublicKey(t *testing.T) {
 
 	mockCertURL := ms.URL + "/oauth2/v3/certs"
 
+	var prevLastUsedTime time.Time
+
 	cases := []struct {
 		in                []string
 		expectedJwtPubkey string
@@ -116,11 +118,56 @@ func TestGetPublicKey(t *testing.T) {
 		if c.expectedJwtPubkey != pk {
 			t.Errorf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
 		}
+
+		val, found := r.keyEntries.Load(jwtKey{issuer: c.in[0], jwksURI: c.in[1]})
+		if !found {
+			t.Errorf("GetPublicKey(\"\", %+v): did not produce a cache entry", c.in)
+		}
+
+		lastUsedTime := val.(jwtPubKeyEntry).lastUsedTime
+		if lastUsedTime.Sub(prevLastUsedTime) <= 0 {
+			t.Errorf("GetPublicKey(\"\", %+v): invocation did not update lastUsedTime in the cache", c.in)
+		}
+
+		prevLastUsedTime = lastUsedTime
 	}
 
 	// Verify mock server http://localhost:9999/oauth2/v3/certs was only called once because of the cache.
 	if got, want := ms.PubKeyHitNum, uint64(1); got != want {
 		t.Errorf("Mock server Hit number => expected %d but got %d", want, got)
+	}
+}
+
+func TestGetPublicKeyCacheAccessTimeOutOfOrder(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
+	defer r.Close()
+
+	existingLastUsedTime := time.Now().Add(time.Hour)
+
+	// Don't expect to actually hit the network on this test run, so
+	key := jwtKey{issuer: "testIssuer", jwksURI: "https://localhost/some/arbitrary/jwks"}
+	r.keyEntries.Store(key, jwtPubKeyEntry{
+		lastRefreshedTime: time.Now(),
+		lastUsedTime:      existingLastUsedTime,
+		pubKey:            "somekey",
+		timeout:           5 * time.Second,
+	})
+
+	pubKey, err := r.GetPublicKey(key.issuer, key.jwksURI, time.Minute)
+	if err != nil {
+		t.Errorf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", key, err)
+	}
+
+	if pubKey != "somekey" {
+		t.Errorf("GetPublicKey(\"\", %+v) did not returned the cached publickey", key)
+	}
+
+	val, found := r.keyEntries.Load(key)
+	if !found {
+		t.Fatalf("cache entry not found for key: %+v", key)
+	}
+	if val.(jwtPubKeyEntry).lastUsedTime != existingLastUsedTime {
+		t.Errorf("GetPublicKey(\"\", %+v) unexpectedly decremented lastUsedTime in the cache", key)
 	}
 }
 

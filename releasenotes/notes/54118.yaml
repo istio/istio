@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 52121
+releaseNotes:
+- |
+  **Fixed** Possible race conditions in JWK resolution cache for JWT policies that when triggered would cause
+  cache misses & failures to update signing keys when rotated

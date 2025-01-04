@@ -61,6 +61,9 @@ const (
 	// JwtPubKeyRefreshIntervalOnFailureResetThreshold is the threshold to reset the refresh interval on failure.
 	JwtPubKeyRefreshIntervalOnFailureResetThreshold = 60 * time.Minute
 
+	// How many times should we attempt to update a cache bucket via load + compare and swap before giving up.
+	JwtMaxCacheBucketUpdateCompareAndSwapAttempts = 10
+
 	// How many times should we retry the failed network fetch on main flow. The main flow
 	// means it's called when Pilot is pushing configs. Do not retry to make sure not to block Pilot
 	// too long.
@@ -228,10 +231,20 @@ func (r *JwksResolver) GetPublicKey(issuer string, jwksURI string, timeout time.
 	key := jwtKey{issuer: issuer, jwksURI: jwksURI}
 	if val, found := r.keyEntries.Load(key); found {
 		e := val.(jwtPubKeyEntry)
-		// Update cached key's last used time.
-		e.lastUsedTime = now
-		e.timeout = timeout
-		r.keyEntries.Store(key, e)
+
+		if !r.updateCacheBucket(key, func(entry *jwtPubKeyEntry) {
+			entry.timeout = timeout
+			if now.Sub(entry.lastUsedTime) > 0 {
+				entry.lastUsedTime = now // Update if lastUsedTime is before "now"
+			}
+		}) {
+			// Updating the cache bucket may fail if enough competing goroutines are writing to this bucket at the same time.
+			// We set the number of CompareAndSwap attempts to be sufficiently large such that its most likely as a result of
+			// a large number of parallel GetPublicKey calls (since the refresher will only ever have 1 goroutine writing to the cache at a given time).
+			// As a result, it's likely that lastUsedTime will be approximately up to date since so many cache hits are being processed at the same time.
+			log.Warnf("Failed to update lastUsedTime in the cache for %q due to write contention", jwksURI)
+		}
+
 		if e.pubKey == "" {
 			return e.pubKey, errEmptyPubKeyFoundInCache
 		}
@@ -409,6 +422,32 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout 
 	return getPublicKey()
 }
 
+func (r *JwksResolver) updateCacheBucket(key jwtKey, updateFunc func(*jwtPubKeyEntry)) bool {
+	for attempt := 0; attempt < JwtMaxCacheBucketUpdateCompareAndSwapAttempts; attempt++ {
+		val, found := r.keyEntries.Load(key)
+		if !found {
+			return false
+		}
+
+		e := val.(jwtPubKeyEntry)
+		newEntry := jwtPubKeyEntry{
+			pubKey:            e.pubKey,
+			timeout:           e.timeout,
+			lastRefreshedTime: e.lastRefreshedTime,
+			lastUsedTime:      e.lastUsedTime,
+		}
+		updateFunc(&newEntry)
+
+		// CompareAndSwap will not modify the cache unless the bucket has not been altered since we loaded it. If multiple
+		// goroutines are updating the bucket at the same time, one is guaranteed to succeed.
+		if r.keyEntries.CompareAndSwap(key, e, newEntry) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (r *JwksResolver) refresher() {
 	// Wake up once in a while and refresh stale items.
 	r.refreshTicker = time.NewTicker(r.refreshInterval)
@@ -506,12 +545,28 @@ func (r *JwksResolver) refresh(jwksURIBackgroundChannel bool) bool {
 				return
 			}
 			newPubKey := string(resp)
-			r.keyEntries.Store(k, jwtPubKeyEntry{
-				pubKey:            newPubKey,
-				lastRefreshedTime: now,            // update the lastRefreshedTime if we get a success response from the network.
-				lastUsedTime:      e.lastUsedTime, // keep original lastUsedTime.
-				timeout:           e.timeout,
-			})
+			if !r.updateCacheBucket(k, func(entry *jwtPubKeyEntry) {
+				entry.lastRefreshedTime = now
+				entry.pubKey = newPubKey
+			}) {
+				// While unlikely, in the event we are unable to update the cached entry via compare and swap, forcefully write refreshed data to the cache.
+				log.Warnf("Failed to safely update cache for JWT public key from %q due to write contention, forcefully writing refreshed JWKs to cache")
+
+				lastUsedTime := e.lastUsedTime
+				timeout := e.timeout
+				if latestEntry, found := r.keyEntries.Load(k); found {
+					lastUsedTime = latestEntry.(jwtPubKeyEntry).lastUsedTime
+					timeout = latestEntry.(jwtPubKeyEntry).timeout
+				}
+
+				r.keyEntries.Store(k, jwtPubKeyEntry{
+					lastRefreshedTime: now,
+					pubKey:            newPubKey,
+					lastUsedTime:      lastUsedTime,
+					timeout:           timeout,
+				})
+			}
+
 			isNewKey, err := compareJWKSResponse(oldPubKey, newPubKey)
 			if err != nil {
 				hasErrors.Store(true)
