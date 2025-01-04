@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
 	"strings"
 
@@ -344,14 +345,26 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	}
 
 	existingHostAddresses := autoallocate.GetHostAddressesFromServiceEntry(se)
-	existingAddresses := []netip.Addr{}
 	hostsWithAddresses := sets.New[string]()
+	hostsInSpec := sets.New[string]()
+
+	for host := range maps.Keys(existingHostAddresses) {
+		hostsWithAddresses.Insert(host)
+	}
+	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
+		hostsInSpec.Insert(host)
+	}
+	// nothing to patch
+	if hostsInSpec.Equals(hostsWithAddresses) && !forcedReassign {
+		return nil, nil, nil
+	}
+
+	existingAddresses := []netip.Addr{}
 
 	// collect existing addresses and the hosts which already have assigned addresses
-	for host, addresses := range existingHostAddresses {
+	for _, addresses := range existingHostAddresses {
 		// this is likely a noop, but just to be safe we should check and potentially resolve conflict
 		existingAddresses = append(existingAddresses, addresses...)
-		hostsWithAddresses.Insert(host)
 	}
 
 	// if we are being forced to reassign we already know there is a conflict
@@ -362,12 +375,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 
 	// construct the assigned addresses datastructure to patch
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
-	hostsInSpec := sets.New[string]()
 	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
-		if hostsInSpec.InsertContains(host) {
-			// if we already worked on this host don't process it again
-			continue
-		}
 		assignedIPs := []netip.Addr{}
 		if aa, ok := existingHostAddresses[host]; ok && !forcedReassign {
 			// we already assigned this host, do not re-assign
@@ -379,11 +387,6 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 		for _, a := range assignedIPs {
 			assignedAddresses = append(assignedAddresses, apiv1alpha3.ServiceEntryAddress{Value: a.String(), Host: host})
 		}
-	}
-
-	// nothing to patch
-	if hostsInSpec.Equals(hostsWithAddresses) && !forcedReassign {
-		return nil, nil, nil
 	}
 
 	replaceAddresses, err := json.Marshal([]jsonPatch{
