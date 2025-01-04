@@ -65,8 +65,8 @@ func NewAgentOptions(proxy *ProxyArgs, cfg *meshconfig.ProxyConfig, sds istioage
 		ProxyNamespace:              PodNamespaceVar.Get(),
 		ProxyDomain:                 proxy.DNSDomain,
 		IstiodSAN:                   istiodSAN.Get(),
-		MetadataDiscovery:           enableWDSEnv,
 		SDSFactory:                  sds,
+		MetadataDiscovery:           enableWDSEnv,
 		WorkloadIdentitySocketFile:  workloadIdentitySocketFile,
 	}
 	extractXDSHeadersFromEnv(o)
