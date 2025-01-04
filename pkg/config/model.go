@@ -94,6 +94,10 @@ type Meta struct {
 	Generation int64 `json:"generation,omitempty"`
 }
 
+func (meta *Meta) Equals(other Meta) bool {
+	return maps.Equal(meta.Labels, other.Labels) && maps.Equal(meta.Annotations, other.Annotations) && meta.Domain == other.Domain
+}
+
 // Config is a configuration unit consisting of the type of configuration, the
 // key identifier that is unique per type, and the content represented as a
 // protobuf message.
