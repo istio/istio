@@ -483,6 +483,14 @@ func WithDebugging(handler *DebugHandler) CollectionOption {
 	}
 }
 
+// WithJoinUnchecked enables an optimization for join collections, where keys are not deduplicated across collections.
+// This option can only be used when joined collections are disjoint: keys overlapping between collections is undefined behavior
+func WithJoinUnchecked() CollectionOption {
+	return func(c *collectionOptions) {
+		c.joinUnchecked = true
+	}
+}
+
 // NewCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
 // This applies for one-to-one relationships between I and O.
 // For zero-to-one, use NewSingleton. For one-to-many, use NewManyCollection.

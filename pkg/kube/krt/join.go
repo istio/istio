@@ -24,10 +24,11 @@ import (
 )
 
 type join[T any] struct {
-	collectionName string
-	id             collectionUID
-	collections    []internalCollection[T]
-	synced         <-chan struct{}
+	collectionName   string
+	id               collectionUID
+	collections      []internalCollection[T]
+	synced           <-chan struct{}
+	uncheckedOverlap bool
 }
 
 func (j *join[T]) GetKey(k string) *T {
@@ -40,14 +41,42 @@ func (j *join[T]) GetKey(k string) *T {
 }
 
 func (j *join[T]) List() []T {
-	res := []T{}
-	found := sets.New[string]()
+	var res []T
+	if j.uncheckedOverlap {
+		first := true
+		for _, c := range j.collections {
+			objs := c.List()
+			// As an optimization, take the first (non-empty) result as-is without copying
+			if len(objs) > 0 && first {
+				res = objs
+				first = false
+			} else {
+				// After the first, safely merge into the result
+				res = append(res, objs...)
+			}
+		}
+		return res
+	}
+	var found sets.String
+	first := true
 	for _, c := range j.collections {
-		for _, i := range c.List() {
-			key := GetKey(i)
-			if !found.InsertContains(key) {
-				// Only keep it if it is the first time we saw it, as our merging mechanism is to keep the first one
-				res = append(res, i)
+		objs := c.List()
+		// As an optimization, take the first (non-empty) result as-is without copying
+		if len(objs) > 0 && first {
+			res = objs
+			first = false
+			found = sets.NewWithLength[string](len(objs))
+			for _, i := range objs {
+				found.Insert(GetKey(i))
+			}
+		} else {
+			// After the first, safely merge into the result
+			for _, i := range objs {
+				key := GetKey(i)
+				if !found.InsertContains(key) {
+					// Only keep it if it is the first time we saw it, as our merging mechanism is to keep the first one
+					res = append(res, i)
+				}
 			}
 		}
 	}
@@ -93,8 +122,16 @@ type joinIndexer struct {
 // nolint: unused // (not true)
 func (j joinIndexer) Lookup(key string) []any {
 	var res []any
+	first := true
 	for _, i := range j.indexers {
-		res = append(res, i.Lookup(key)...)
+		l := i.Lookup(key)
+		if len(l) > 0 && first {
+			// Optimization: re-use the first returned slice
+			res = l
+			first = false
+		} else {
+			res = append(res, l...)
+		}
 	}
 	return res
 }
@@ -138,9 +175,10 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	}()
 	// TODO: in the future, we could have a custom merge function. For now, since we just take the first, we optimize around that case
 	return &join[T]{
-		collectionName: o.name,
-		id:             nextUID(),
-		synced:         synced,
-		collections:    c,
+		collectionName:   o.name,
+		id:               nextUID(),
+		synced:           synced,
+		collections:      c,
+		uncheckedOverlap: o.joinUnchecked,
 	}
 }

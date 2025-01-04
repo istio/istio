@@ -66,10 +66,11 @@ func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
 
 // collectionOptions tracks options for a collection
 type collectionOptions struct {
-	name         string
-	augmentation func(o any) any
-	stop         <-chan struct{}
-	debugger     *DebugHandler
+	name          string
+	augmentation  func(o any) any
+	stop          <-chan struct{}
+	debugger      *DebugHandler
+	joinUnchecked bool
 }
 
 type indexedDependency struct {
