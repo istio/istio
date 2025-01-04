@@ -348,7 +348,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	hostsWithAddresses := sets.New[string]()
 	hostsInSpec := sets.New[string]()
 
-	for host := range maps.Keys(existingHostAddresses) {
+	for _, host := range maps.Keys(existingHostAddresses) {
 		hostsWithAddresses.Insert(host)
 	}
 	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
