@@ -64,7 +64,7 @@ metadata:
   name: random-{{$j}}
 spec:
   serviceAccount: random
-  address: 10.10.10.10
+  address: 240.241.{{div $j 255 }}.{{mod $j 255 }}
   labels:
     app: random-{{mod $j $.Services}}
 ---
