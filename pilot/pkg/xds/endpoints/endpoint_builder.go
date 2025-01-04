@@ -830,14 +830,11 @@ func getSubSetLabels(dr *v1alpha3.DestinationRule, subsetName string) labels.Ins
 }
 
 // For services that have a waypoint, we want to send to the waypoints rather than the service endpoints.
-// Lookup the
+// Lookup the service, find its waypoint, then find the waypoint's endpoints.
 func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) ([]*model.IstioEndpoint, bool) {
+	// Currently we only support routers (gateways)
 	if b.nodeType != model.Router {
 		// Currently only ingress will call waypoints
-		return nil, false
-	}
-	// ...and they must explicitly opt in
-	if b.service.Attributes.Labels["istio.io/ingress-use-waypoint"] != "true" {
 		return nil, false
 	}
 	if b.service.GetAddressForProxy(b.proxy) == constants.UnspecifiedIP {
@@ -854,6 +851,10 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 		log.Warnf("unexpected multiple waypoint services for %v", b.clusterName)
 	}
 	svc := svcs[0]
+	// They need to explicitly opt-in on the service to send from ingress -> waypoint
+	if !svc.IngressUseWaypoint {
+		return nil, false
+	}
 	waypointClusterName := model.BuildSubsetKey(
 		model.TrafficDirectionOutbound,
 		"",
