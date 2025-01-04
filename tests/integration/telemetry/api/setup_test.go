@@ -20,10 +20,7 @@ package api
 import (
 	"encoding/base64"
 	"fmt"
-	"os"
 	"testing"
-
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/echo/common"
@@ -156,24 +153,4 @@ proxyMetadata:
 		return err
 	}
 	return nil
-}
-
-// The function validates if the cluster is a "Kind" cluster,
-// By looking into a context name. Expects "kind-" prefix.
-// That is required by some tests for specific actions on "Kind".
-func IsKindCluster() (bool, error) {
-	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfig == "" {
-		kubeconfig = clientcmd.RecommendedHomeFile
-	}
-
-	config, err := clientcmd.LoadFromFile(kubeconfig)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, fmt.Errorf("kubeconfig file not found: %s", kubeconfig)
-		}
-		return false, err
-	}
-	currentContext := config.CurrentContext
-	return currentContext == "kind-kind" || len(currentContext) > 5 && currentContext[:5] == "kind-", nil
 }

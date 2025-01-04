@@ -111,10 +111,7 @@ spec:
 }
 
 func setupWasmExtension(t framework.TestContext) {
-	isKind, err := IsKindCluster()
-	if err != nil {
-		t.Errorf("failed to identify cluster type: %v", err)
-	}
+	isKind := t.Clusters().IsKindCluster()
 
 	// By default, for any platform, the test will pull the test image from public "gcr.io" registry.
 	// For "Kind" environment, it will pull the images from the "kind-registry".
