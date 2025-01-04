@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - 54453
+
+releaseNotes:
+- |
+  **Added** a new `Gateway` annotation to control whether its auto-generated `Service` exposes the `15021` health status port. The default
+  behavior is to expose the port, and this remains unchanged.
+
+  Now, it can be disabled by setting the `networking.istio.io/service-expose-status-port` annotation to `false`, e.g.:
+  ```yaml
+  apiVersion: gateway.networking.k8s.io/v1
+  kind: Gateway
+  metadata:
+    name: default
+    annotations:
+      networking.istio.io/service-expose-status-port: "false"
+  ```
