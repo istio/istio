@@ -482,7 +482,7 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 
 	// 2. Workload by IP
 	if wls := a.workloads.ByAddress.Lookup(networkAddr); len(wls) > 0 {
-		return dedupeWorkloads(wls)
+		return slices.Map(wls, modelWorkloadToAddressInfo)
 	}
 
 	// 3. Service
@@ -514,39 +514,9 @@ func (a *index) lookupService(key string) *model.ServiceInfo {
 
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
-	res := dedupeWorkloads(a.workloads.List())
+	res := slices.Map(a.workloads.List(), modelWorkloadToAddressInfo)
 	for _, s := range a.services.List() {
 		res = append(res, s.AsAddress)
-	}
-	return res
-}
-
-func dedupeWorkloads(workloads []model.WorkloadInfo) []model.AddressInfo {
-	if len(workloads) <= 1 {
-		return slices.Map(workloads, modelWorkloadToAddressInfo)
-	}
-	res := []model.AddressInfo{}
-	seenAddresses := sets.New[netip.Addr]()
-	for _, wl := range workloads {
-		write := true
-		// HostNetwork mode is expected to have overlapping IPs, and tells the data plane to avoid relying on the IP as a unique
-		// identifier.
-		// For anything else, exclude duplicates.
-		if wl.Workload.NetworkMode != workloadapi.NetworkMode_HOST_NETWORK {
-			for _, addr := range wl.Workload.Addresses {
-				a := byteIPToAddr(addr)
-				if seenAddresses.InsertContains(a) {
-					// We have already seen this address. We don't want to include it.
-					// We do want to prefer Pods > WorkloadEntry to give precedence to Kubernetes. However, the underlying `a.workloads`
-					// already guarantees this, so no need to handle it here.
-					write = false
-					break
-				}
-			}
-		}
-		if write {
-			res = append(res, wl.AsAddress)
-		}
 	}
 	return res
 }
