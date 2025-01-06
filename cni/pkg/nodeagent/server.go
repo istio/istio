@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
+	"time"
 
 	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +38,8 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/util/sets"
 )
+
+const defaultZTunnelKeepAliveCheckInterval = 5 * time.Second
 
 var log = scopes.CNIAgent
 
@@ -91,7 +94,7 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 	}
 
 	podNsMap := newPodNetnsCache(openNetnsInRoot(pconstants.HostMountsPath))
-	ztunnelServer, err := newZtunnelServer(args.ServerSocket, podNsMap)
+	ztunnelServer, err := newZtunnelServer(args.ServerSocket, podNsMap, defaultZTunnelKeepAliveCheckInterval)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
 	}

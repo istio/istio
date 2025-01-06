@@ -33,10 +33,7 @@ import (
 	"istio.io/istio/pkg/zdsapi"
 )
 
-var (
-	ztunnelKeepAliveCheckInterval = 5 * time.Second
-	readWriteDeadline             = 5 * time.Second
-)
+var readWriteDeadline = 5 * time.Second
 
 var ztunnelConnected = monitoring.NewGauge("ztunnel_connected",
 	"number of connections to ztunnel")
@@ -61,8 +58,7 @@ To clean up stale ztunnels
 */
 
 type connMgr struct {
-	connectionSet map[*ZtunnelConnection]struct{}
-	latestConn    *ZtunnelConnection
+	connectionSet []*ZtunnelConnection
 	mu            sync.Mutex
 }
 
@@ -70,25 +66,34 @@ func (c *connMgr) addConn(conn *ZtunnelConnection) {
 	log.Debug("ztunnel connected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.connectionSet[conn] = struct{}{}
-	c.latestConn = conn
+	c.connectionSet = append(c.connectionSet, conn)
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
 func (c *connMgr) LatestConn() *ZtunnelConnection {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.latestConn
+	if len(c.connectionSet) == 0 {
+		return nil
+	}
+	return c.connectionSet[len(c.connectionSet)-1]
 }
 
 func (c *connMgr) deleteConn(conn *ZtunnelConnection) {
 	log.Debug("ztunnel disconnected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	delete(c.connectionSet, conn)
-	if c.latestConn == conn {
-		c.latestConn = nil
+
+	// Loop over the slice, keeping non-deleted conn pointers
+	// but filtering out the deleted one.
+	var retainedConns []*ZtunnelConnection
+	for _, existingConn := range c.connectionSet {
+		// Not conn-by-pointer that was deleted? Keep it.
+		if existingConn != conn {
+			retainedConns = append(retainedConns, existingConn)
+		}
 	}
+	c.connectionSet = retainedConns
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
@@ -106,13 +111,14 @@ type ztunnelServer struct {
 	// connections to pod delivered map
 	// add pod goes to newest connection
 	// delete pod goes to all connections
-	conns *connMgr
-	pods  PodNetnsCache
+	conns             *connMgr
+	pods              PodNetnsCache
+	keepaliveInterval time.Duration
 }
 
 var _ ZtunnelServer = &ztunnelServer{}
 
-func newZtunnelServer(addr string, pods PodNetnsCache) (*ztunnelServer, error) {
+func newZtunnelServer(addr string, pods PodNetnsCache, keepaliveInterval time.Duration) (*ztunnelServer, error) {
 	if addr == "" {
 		return nil, fmt.Errorf("addr cannot be empty")
 	}
@@ -136,9 +142,10 @@ func newZtunnelServer(addr string, pods PodNetnsCache) (*ztunnelServer, error) {
 	return &ztunnelServer{
 		listener: l,
 		conns: &connMgr{
-			connectionSet: map[*ZtunnelConnection]struct{}{},
+			connectionSet: []*ZtunnelConnection{},
 		},
-		pods: pods,
+		pods:              pods,
+		keepaliveInterval: keepaliveInterval,
 	}, nil
 }
 
@@ -226,7 +233,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 				resp: resp,
 			}
 
-		case <-time.After(ztunnelKeepAliveCheckInterval):
+		case <-time.After(z.keepaliveInterval):
 			// do a short read, just to see if the connection to ztunnel is
 			// still alive. As ztunnel shouldn't send anything unless we send
 			// something first, we expect to get an os.ErrDeadlineExceeded error
@@ -254,6 +261,10 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 	}
 }
 
+// PodDeleted sends a pod deletion notification to connected ztunnels.
+//
+// Note that unlike PodAdded, this deletion event is broadcast to *all*
+// currently-connected ztunnels - not just the latest. This is intentional.
 func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 	r := &zdsapi.WorkloadRequest{
 		Payload: &zdsapi.WorkloadRequest_Del{
@@ -273,7 +284,7 @@ func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 
 	z.conns.mu.Lock()
 	defer z.conns.mu.Unlock()
-	for conn := range z.conns.connectionSet {
+	for _, conn := range z.conns.connectionSet {
 		_, err := conn.send(ctx, data, nil)
 		if err != nil {
 			delErr = append(delErr, err)
@@ -386,7 +397,7 @@ func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn *ZtunnelConnectio
 	if err != nil {
 		return err
 	}
-	log.Debugf("snaptshot sent to ztunnel")
+	log.Debugf("snapshot sent to ztunnel")
 	if resp.GetAck().GetError() != "" {
 		log.Errorf("snap-sent: got ack error: %s", resp.GetAck().GetError())
 	}
