@@ -452,62 +452,6 @@ func fillCacheWithFakePods(cache *fakePodCache, podCount int) func() {
 	}
 }
 
-// func connect(ctx context.Context) struct {
-// 	ztunClient *net.UnixConn
-// 	ztunServer *ztunnelServer
-// 	uid        string
-// } {
-// 	pods := &fakePodCache{}
-
-// 	pod, ns := podAndNetns()
-// 	workload := WorkloadInfo{
-// 		Workload: podToWorkload(pod),
-// 		Netns:    ns,
-// 	}
-// 	pods.pods = map[string]WorkloadInfo{
-// 		string(pod.UID): workload,
-// 	}
-// 	ret := connectWithPods(ctx, pods)
-
-// 	return struct {
-// 		ztunClient *net.UnixConn
-// 		ztunServer *ztunnelServer
-// 		uid        string
-// 	}{ztunClient: ret.ztunClient, ztunServer: ret.ztunServer, uid: string(pod.UID)}
-// }
-
-// func connectWithPods(ctx context.Context, pods PodNetnsCache) struct {
-// 	ztunClient *net.UnixConn
-// 	ztunServer *ztunnelServer
-// } {
-// 	// go uses @ instead of \0 for abstract unix sockets
-// 	addr := fmt.Sprintf("@testaddr%d", ztunnelTestCounter.Add(1))
-// 	ztun, err := newZtunnelServer(addr, pods)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	go ztun.Run(ctx)
-
-// 	// now as a client connect confirm we and get snapshot
-// 	resolvedAddr, err := net.ResolveUnixAddr("unixpacket", addr)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	ztunClient, err := net.DialUnix("unixpacket", nil, resolvedAddr)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	// send hello
-// 	sendHello(ztunClient)
-
-// 	return struct {
-// 		ztunClient *net.UnixConn
-// 		ztunServer *ztunnelServer
-// 	}{ztunClient: ztunClient, ztunServer: ztun}
-// }
-
-// TODO
 func connect(ctx context.Context) struct {
 	ztunClient *net.UnixConn
 	ztunServer *ztunnelServer
