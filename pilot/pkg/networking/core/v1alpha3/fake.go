@@ -255,6 +255,7 @@ func (f *ConfigGenTest) Listeners(p *model.Proxy) []*listener.Listener {
 	listeners, _, _ := f.ConfigGen.BuildListeners(p, &model.PushRequest{})
 	return listeners
 }
+// End modified by Higress
 
 func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
 	raw, _ := f.ConfigGen.BuildClusters(p, &model.PushRequest{Push: f.PushContext()})
