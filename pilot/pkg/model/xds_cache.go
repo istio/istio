@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+// Modified by Higress (add lds cache)
 type XdsCacheImpl struct {
 	cds typedXdsCache[uint64]
 	eds typedXdsCache[uint64]
