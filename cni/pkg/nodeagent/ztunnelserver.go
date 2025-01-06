@@ -62,7 +62,6 @@ To clean up stale ztunnels
 
 type connMgr struct {
 	connectionSet []*ZtunnelConnection
-	latestConn    *ZtunnelConnection
 	mu            sync.Mutex
 }
 
@@ -71,14 +70,16 @@ func (c *connMgr) addConn(conn *ZtunnelConnection) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.connectionSet = append(c.connectionSet, conn)
-	c.latestConn = conn
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
 func (c *connMgr) LatestConn() *ZtunnelConnection {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.latestConn
+	if len(c.connectionSet) == 0 {
+		return nil
+	}
+	return c.connectionSet[len(c.connectionSet)-1]
 }
 
 func (c *connMgr) deleteConn(conn *ZtunnelConnection) {
@@ -96,12 +97,6 @@ func (c *connMgr) deleteConn(conn *ZtunnelConnection) {
 		}
 	}
 	c.connectionSet = retainedConns
-	newSize := len(c.connectionSet)
-	if newSize == 0 {
-		c.latestConn = nil
-	} else {
-		c.latestConn = c.connectionSet[newSize-1]
-	}
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
@@ -402,7 +397,7 @@ func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn *ZtunnelConnectio
 	if err != nil {
 		return err
 	}
-	log.Debugf("snaptshot sent to ztunnel")
+	log.Debugf("snapshot sent to ztunnel")
 	if resp.GetAck().GetError() != "" {
 		log.Errorf("snap-sent: got ack error: %s", resp.GetAck().GetError())
 	}
