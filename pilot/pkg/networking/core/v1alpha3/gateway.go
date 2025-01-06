@@ -321,6 +321,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	builder.gatewayListeners = listeners
 	return builder, resources, cacheStats{hits: hit, miss: miss}
 }
+// End modified by Higress
 
 func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	builder *ListenerBuilder,
