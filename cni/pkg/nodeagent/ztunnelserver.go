@@ -61,7 +61,7 @@ To clean up stale ztunnels
 */
 
 type connMgr struct {
-	connectionSet map[*ZtunnelConnection]struct{}
+	connectionSet []*ZtunnelConnection
 	latestConn    *ZtunnelConnection
 	mu            sync.Mutex
 }
@@ -70,7 +70,7 @@ func (c *connMgr) addConn(conn *ZtunnelConnection) {
 	log.Debug("ztunnel connected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.connectionSet[conn] = struct{}{}
+	c.connectionSet = append(c.connectionSet, conn)
 	c.latestConn = conn
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
@@ -85,9 +85,22 @@ func (c *connMgr) deleteConn(conn *ZtunnelConnection) {
 	log.Debug("ztunnel disconnected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	delete(c.connectionSet, conn)
-	if c.latestConn == conn {
+
+	// Loop over the slice, keeping non-deleted conn pointers
+	// but filtering out the deleted one.
+	var retainedConns []*ZtunnelConnection
+	for _, existingConn := range c.connectionSet {
+		// Not conn-by-pointer that was deleted? Keep it.
+		if existingConn != conn {
+			retainedConns = append(retainedConns, existingConn)
+		}
+	}
+	c.connectionSet = retainedConns
+	newSize := len(c.connectionSet)
+	if newSize == 0 {
 		c.latestConn = nil
+	} else {
+		c.latestConn = c.connectionSet[newSize-1]
 	}
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
@@ -136,7 +149,7 @@ func newZtunnelServer(addr string, pods PodNetnsCache) (*ztunnelServer, error) {
 	return &ztunnelServer{
 		listener: l,
 		conns: &connMgr{
-			connectionSet: map[*ZtunnelConnection]struct{}{},
+			connectionSet: []*ZtunnelConnection{},
 		},
 		pods: pods,
 	}, nil
@@ -254,6 +267,10 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 	}
 }
 
+// PodDeleted sends a pod deletion notification to connected ztunnels.
+//
+// Note that unlike PodAdded, this deletion event is broadcast to *all*
+// currently-connected ztunnels - not just the latest. This is intentional.
 func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 	r := &zdsapi.WorkloadRequest{
 		Payload: &zdsapi.WorkloadRequest_Del{
@@ -273,7 +290,7 @@ func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 
 	z.conns.mu.Lock()
 	defer z.conns.mu.Unlock()
-	for conn := range z.conns.connectionSet {
+	for _, conn := range z.conns.connectionSet {
 		_, err := conn.send(ctx, data, nil)
 		if err != nil {
 			delErr = append(delErr, err)
