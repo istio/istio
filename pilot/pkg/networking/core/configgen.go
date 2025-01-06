@@ -28,6 +28,7 @@ import (
 
 // ConfigGenerator represents the interfaces to be implemented by code that generates xDS responses
 type ConfigGenerator interface {
+        // Modified by Higress
 	// BuildListeners returns the list of inbound/outbound listeners for the given proxy. This is the LDS output
 	// Internally, the computation will be optimized to ensure that listeners are computed only
 	// once and shared across multiple invocations of this function.
