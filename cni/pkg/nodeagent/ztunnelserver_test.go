@@ -79,7 +79,7 @@ func TestZtunnelSendsPodSnapshot(t *testing.T) {
 	mt.Assert(ztunnelConnected.Name(), nil, monitortest.Exactly(0))
 }
 
-func TestZtunnelConnectTwiceUpdatesLatest(t *testing.T) {
+func TestMultipleConnectedZtunnelsGetEvents(t *testing.T) {
 	ztunnelKeepAliveCheckInterval = time.Second / 10
 	mt := monitortest.New(t)
 	setupLogging()
@@ -251,6 +251,8 @@ func TestZtunnelLatestConnFallsBackToPreviousIfNewestDisconnects(t *testing.T) {
 
 	// this will retry for a bit, so shouldn't flake
 	mt.Assert(ztunnelConnected.Name(), nil, monitortest.Exactly(1))
+
+	assert.Equal(t, (srv.ztunServer.conns.LatestConn() != nil), true)
 
 	// Now, add a new pod. Since client2 already disconnected, this should go to client 1
 	errChan := make(chan error)
