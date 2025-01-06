@@ -43,26 +43,22 @@ func (a *index) generateServiceEntryUID(svcEntryNamespace, svcEntryName, addr st
 	return a.ClusterID.String() + "/networking.istio.io/ServiceEntry/" + svcEntryNamespace + "/" + svcEntryName + "/" + addr
 }
 
-func workloadToAddressInfo(w *workloadapi.Workload) model.AddressInfo {
-	return model.AddressInfo{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{
-				Workload: w,
-			},
+func workloadToAddress(w *workloadapi.Workload) *workloadapi.Address {
+	return &workloadapi.Address{
+		Type: &workloadapi.Address_Workload{
+			Workload: w,
 		},
 	}
 }
 
 func modelWorkloadToAddressInfo(w model.WorkloadInfo) model.AddressInfo {
-	return workloadToAddressInfo(w.Workload)
+	return w.AsAddress
 }
 
-func serviceToAddressInfo(s *workloadapi.Service) model.AddressInfo {
-	return model.AddressInfo{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Service{
-				Service: s,
-			},
+func serviceToAddress(s *workloadapi.Service) *workloadapi.Address {
+	return &workloadapi.Address{
+		Type: &workloadapi.Address_Service{
+			Service: s,
 		},
 	}
 }

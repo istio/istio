@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -34,6 +35,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -87,13 +89,14 @@ func (a *index) serviceServiceBuilder(
 		waypointStatus.Error = wperr
 
 		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		return &model.ServiceInfo{
-			Service:       a.constructService(s, waypoint),
+		svc := a.constructService(s, waypoint)
+		return precomputeServicePtr(&model.ServiceInfo{
+			Service:       svc,
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(s.Spec.Selector),
 			Source:        MakeSource(s),
 			Waypoint:      waypointStatus,
-		}
+		})
 	}
 }
 
@@ -133,13 +136,13 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint
 		waypoint.Error = wperr
 	}
 	return slices.Map(a.constructServiceEntries(s, w), func(e *workloadapi.Service) model.ServiceInfo {
-		return model.ServiceInfo{
+		return precomputeService(model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
 			LabelSelector: sel,
 			Source:        MakeSource(s),
 			Waypoint:      waypoint,
-		}
+		})
 	})
 }
 
@@ -285,4 +288,18 @@ func getVIPs(svc *v1.Service) []string {
 		}
 	}
 	return res
+}
+
+func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
+	return ptr.Of(precomputeService(*w))
+}
+
+func precomputeService(w model.ServiceInfo) model.ServiceInfo {
+	addr := serviceToAddress(w.Service)
+	w.MarshaledAddress = protoconv.MessageToAny(addr)
+	w.AsAddress = model.AddressInfo{
+		Address:   addr,
+		Marshaled: w.MarshaledAddress,
+	}
+	return w
 }
