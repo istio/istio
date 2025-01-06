@@ -250,6 +250,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	return p
 }
 
+// Modified by Higress
 func (f *ConfigGenTest) Listeners(p *model.Proxy) []*listener.Listener {
 	listeners, _, _ := f.ConfigGen.BuildListeners(p, &model.PushRequest{})
 	return listeners
