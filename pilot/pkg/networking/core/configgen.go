@@ -33,6 +33,7 @@ type ConfigGenerator interface {
 	// Internally, the computation will be optimized to ensure that listeners are computed only
 	// once and shared across multiple invocations of this function.
 	BuildListeners(node *model.Proxy, req *model.PushRequest) ([]*listener.Listener, []*discovery.Resource, model.XdsLogDetails)
+	// End modified by Higress
 
 	// BuildClusters returns the list of clusters for the given proxy. This is the CDS output
 	BuildClusters(node *model.Proxy, req *model.PushRequest) ([]*discovery.Resource, model.XdsLogDetails)
