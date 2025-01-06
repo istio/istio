@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -348,18 +347,16 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	hostsWithAddresses := sets.New[string]()
 	hostsInSpec := sets.New[string]()
 
-	for _, host := range maps.Keys(existingHostAddresses) {
-		hostsWithAddresses.Insert(host)
-	}
 	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
 		hostsInSpec.Insert(host)
 	}
 	existingAddresses := []netip.Addr{}
 
 	// collect existing addresses and the hosts which already have assigned addresses
-	for _, addresses := range existingHostAddresses {
+	for host, addresses := range existingHostAddresses {
 		// this is likely a noop, but just to be safe we should check and potentially resolve conflict
 		existingAddresses = append(existingAddresses, addresses...)
+		hostsWithAddresses.Insert(host)
 	}
 
 	// if we are being forced to reassign we already know there is a conflict
