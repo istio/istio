@@ -58,7 +58,7 @@ func RegisterEdsShim(
 	ServiceEds := krt.NewCollection(
 		Services,
 		func(ctx krt.HandlerContext, svc model.ServiceInfo) *serviceEDS {
-			useWaypoint := ingressUseWaypoint(svc, krt.FetchOne(ctx, Namespaces, krt.FilterKey(svc.Namespace)))
+			useWaypoint := ingressUseWaypoint(svc, krt.FetchOne(ctx, Namespaces, krt.FilterKey(svc.Service.Namespace)))
 			if !useWaypoint {
 				// Currently, we only need this for ingres -> waypoint usage
 				// If we extend this to sidecars, etc we can drop this.
@@ -114,7 +114,7 @@ func (a *index) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
 	}
 	for _, s := range svcs {
 		wp := s.Service.GetWaypoint()
-		useWaypoint := ingressUseWaypoint(s, a.namespaces.GetKey(s.Namespace))
+		useWaypoint := ingressUseWaypoint(s, a.namespaces.GetKey(s.Service.Namespace))
 		wi := model.ServiceWaypointInfo{
 			Service:            s.Service,
 			IngressUseWaypoint: useWaypoint,
