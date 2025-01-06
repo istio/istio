@@ -95,6 +95,7 @@ var (
 	defaultGatewayTransportSocketConnectTimeout = 15 * time.Second
 )
 
+// Modified by Higress
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	req *model.PushRequest,
