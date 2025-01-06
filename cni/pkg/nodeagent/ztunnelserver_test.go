@@ -38,7 +38,6 @@ import (
 var ztunnelTestCounter atomic.Uint32
 
 func TestZtunnelSendsPodSnapshot(t *testing.T) {
-	ztunnelKeepAliveCheckInterval = time.Second / 10
 	mt := monitortest.New(t)
 	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -80,7 +79,6 @@ func TestZtunnelSendsPodSnapshot(t *testing.T) {
 }
 
 func TestMultipleConnectedZtunnelsGetEvents(t *testing.T) {
-	ztunnelKeepAliveCheckInterval = time.Second / 10
 	mt := monitortest.New(t)
 	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -186,7 +184,6 @@ func TestMultipleConnectedZtunnelsGetEvents(t *testing.T) {
 }
 
 func TestZtunnelLatestConnFallsBackToPreviousIfNewestDisconnects(t *testing.T) {
-	ztunnelKeepAliveCheckInterval = time.Second / 10
 	mt := monitortest.New(t)
 	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -287,7 +284,6 @@ func TestZtunnelLatestConnFallsBackToPreviousIfNewestDisconnects(t *testing.T) {
 }
 
 func TestZtunnelRemovePod(t *testing.T) {
-	ztunnelKeepAliveCheckInterval = time.Second / 10
 	mt := monitortest.New(t)
 	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -310,6 +306,7 @@ func TestZtunnelRemovePod(t *testing.T) {
 
 	// now remove the pod
 	ztunnelServer := fixture.ztunServer
+	defer ztunnelServer.Close()
 	errChan := make(chan error)
 	go func() {
 		errChan <- ztunnelServer.PodDeleted(ctx, uid)
@@ -328,7 +325,6 @@ func TestZtunnelRemovePod(t *testing.T) {
 }
 
 func TestZtunnelPodAdded(t *testing.T) {
-	ztunnelKeepAliveCheckInterval = time.Second / 10
 	mt := monitortest.New(t)
 	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -350,6 +346,7 @@ func TestZtunnelPodAdded(t *testing.T) {
 
 	// now add the pod
 	ztunnelServer := fixture.ztunServer
+	defer ztunnelServer.Close()
 	errChan := make(chan error)
 	pod2, ns2, tmpFileToClose := podAndNetns()
 	defer tmpFileToClose.Close()
@@ -371,7 +368,6 @@ func TestZtunnelPodAdded(t *testing.T) {
 }
 
 func TestZtunnelPodKept(t *testing.T) {
-	ztunnelKeepAliveCheckInterval = time.Second / 10
 	mt := monitortest.New(t)
 	setupLogging()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -554,7 +550,7 @@ func startServerWithPodCache(ctx context.Context, podCache PodNetnsCache) struct
 } {
 	// go uses @ instead of \0 for abstract unix sockets
 	addr := fmt.Sprintf("@testaddr%d", ztunnelTestCounter.Add(1))
-	ztServ, err := newZtunnelServer(addr, podCache)
+	ztServ, err := newZtunnelServer(addr, podCache, time.Second/10)
 	if err != nil {
 		panic(err)
 	}

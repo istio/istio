@@ -33,10 +33,7 @@ import (
 	"istio.io/istio/pkg/zdsapi"
 )
 
-var (
-	ztunnelKeepAliveCheckInterval = 5 * time.Second
-	readWriteDeadline             = 5 * time.Second
-)
+var readWriteDeadline = 5 * time.Second
 
 var ztunnelConnected = monitoring.NewGauge("ztunnel_connected",
 	"number of connections to ztunnel")
@@ -114,13 +111,14 @@ type ztunnelServer struct {
 	// connections to pod delivered map
 	// add pod goes to newest connection
 	// delete pod goes to all connections
-	conns *connMgr
-	pods  PodNetnsCache
+	conns             *connMgr
+	pods              PodNetnsCache
+	keepaliveInterval time.Duration
 }
 
 var _ ZtunnelServer = &ztunnelServer{}
 
-func newZtunnelServer(addr string, pods PodNetnsCache) (*ztunnelServer, error) {
+func newZtunnelServer(addr string, pods PodNetnsCache, keepaliveInterval time.Duration) (*ztunnelServer, error) {
 	if addr == "" {
 		return nil, fmt.Errorf("addr cannot be empty")
 	}
@@ -146,7 +144,8 @@ func newZtunnelServer(addr string, pods PodNetnsCache) (*ztunnelServer, error) {
 		conns: &connMgr{
 			connectionSet: []*ZtunnelConnection{},
 		},
-		pods: pods,
+		pods:              pods,
+		keepaliveInterval: keepaliveInterval,
 	}, nil
 }
 
@@ -234,7 +233,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 				resp: resp,
 			}
 
-		case <-time.After(ztunnelKeepAliveCheckInterval):
+		case <-time.After(z.keepaliveInterval):
 			// do a short read, just to see if the connection to ztunnel is
 			// still alive. As ztunnel shouldn't send anything unless we send
 			// something first, we expect to get an os.ErrDeadlineExceeded error
