@@ -312,7 +312,7 @@ func TestProxyK8sHostnameLabel(t *testing.T) {
 		IPAddresses: []string{"128.0.0.1"},
 		ID:          "pod1.nsa",
 		DNSDomain:   "nsa.svc.cluster.local",
-		Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID},
+		Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID, NodeName: pod.Spec.NodeName},
 	}
 	got := controller.GetProxyWorkloadLabels(proxy)
 	if pod.Spec.NodeName != got[labelutil.LabelHostname] {
