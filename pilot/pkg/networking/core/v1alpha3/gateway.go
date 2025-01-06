@@ -138,6 +138,7 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 	return nil
 }
 
+// Modified by Higress
 func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder, req *model.PushRequest, efKeys []string) (*ListenerBuilder, []*discovery.Resource, cacheStats) {
 	resources := make([]*discovery.Resource, 0)
 	if builder.node.MergedGateway == nil {
