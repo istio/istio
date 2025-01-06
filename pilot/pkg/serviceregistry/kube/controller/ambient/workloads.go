@@ -873,7 +873,7 @@ func convertGateway(gw model.NetworkGateway) model.WorkloadInfo {
 		wl.Hostname = gw.Addr
 	}
 
-	return model.WorkloadInfo{Workload: wl}
+	return precomputeWorkload(model.WorkloadInfo{Workload: wl})
 }
 
 func (a *index) getNetworkGatewayAddress(n string) *workloadapi.GatewayAddress {
