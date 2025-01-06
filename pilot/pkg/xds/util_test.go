@@ -18,6 +18,14 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/genproto/googleapis/rpc/status"
+
+	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestAtMostNJoin(t *testing.T) {
@@ -57,6 +65,152 @@ func TestAtMostNJoin(t *testing.T) {
 			if got := atMostNJoin(tt.data, tt.limit); got != tt.want {
 				t.Errorf("got %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestShouldRespondDelta(t *testing.T) {
+	tests := []struct {
+		name     string
+		wr       map[string]*model.WatchedResource
+		request  *discovery.DeltaDiscoveryRequest
+		response bool
+	}{
+		{
+			name: "initial request",
+			wr:   map[string]*model.WatchedResource{},
+			request: &discovery.DeltaDiscoveryRequest{
+				TypeUrl: v3.ClusterType,
+			},
+			response: true,
+		},
+		{
+			name: "ack",
+			wr: map[string]*model.WatchedResource{
+				v3.ClusterType: {
+					NonceSent: "nonce",
+				},
+			},
+			request: &discovery.DeltaDiscoveryRequest{
+				TypeUrl:       v3.ClusterType,
+				ResponseNonce: "nonce",
+			},
+			response: false,
+		},
+		{
+			name: "ack forced",
+			wr: map[string]*model.WatchedResource{
+				v3.EndpointType: {
+					NonceSent:     "nonce",
+					AlwaysRespond: true,
+				},
+			},
+			request: &discovery.DeltaDiscoveryRequest{
+				TypeUrl:       v3.EndpointType,
+				ResponseNonce: "nonce",
+			},
+			response: true,
+		},
+		{
+			name: "stale nonce",
+			wr: map[string]*model.WatchedResource{
+				v3.ClusterType: {
+					NonceSent: "nonce",
+				},
+			},
+			request: &discovery.DeltaDiscoveryRequest{
+				TypeUrl:       v3.ClusterType,
+				ResponseNonce: "stale nonce",
+			},
+			response: false,
+		},
+		{
+			name: "nack",
+			wr: map[string]*model.WatchedResource{
+				v3.ClusterType: {
+					NonceSent: "nonce",
+				},
+			},
+			request: &discovery.DeltaDiscoveryRequest{
+				TypeUrl:     v3.ClusterType,
+				ErrorDetail: &status.Status{Message: "Test request NACK"},
+			},
+			response: false,
+		},
+		{
+			name: "reconnect",
+			wr:   map[string]*model.WatchedResource{},
+			request: &discovery.DeltaDiscoveryRequest{
+				TypeUrl:                 v3.ClusterType,
+				InitialResourceVersions: map[string]string{},
+				ResponseNonce:           "reconnect nonce",
+			},
+			response: true,
+		},
+		{
+			name: "resources subscribe",
+			wr: map[string]*model.WatchedResource{
+				v3.EndpointType: {
+					NonceSent:     "nonce",
+					ResourceNames: sets.New("cluster1"),
+				},
+			},
+			request: &discovery.DeltaDiscoveryRequest{
+				TypeUrl:                v3.EndpointType,
+				ResponseNonce:          "nonce",
+				ResourceNamesSubscribe: []string{"cluster2"},
+			},
+			response: true,
+		},
+		{
+			name: "resources unsubscribe",
+			wr: map[string]*model.WatchedResource{
+				v3.EndpointType: {
+					NonceSent:     "nonce",
+					ResourceNames: sets.New("cluster1"),
+				},
+			},
+			request: &discovery.DeltaDiscoveryRequest{
+				TypeUrl:                  v3.EndpointType,
+				ResponseNonce:            "nonce",
+				ResourceNamesUnsubscribe: []string{"cluster1"},
+			},
+			response: true,
+		},
+		{
+			name: "ack with same resources",
+			wr: map[string]*model.WatchedResource{
+				v3.EndpointType: {
+					NonceSent:     "nonce",
+					ResourceNames: sets.New("cluster2", "cluster1"),
+				},
+			},
+			request: &discovery.DeltaDiscoveryRequest{
+				TypeUrl:                v3.EndpointType,
+				ResponseNonce:          "nonce",
+				ResourceNamesSubscribe: []string{"cluster1", "cluster2"},
+			},
+			response: false,
+		},
+		{
+			name: "initial resources",
+			wr:   map[string]*model.WatchedResource{},
+			request: &discovery.DeltaDiscoveryRequest{
+				TypeUrl:                 v3.EndpointType,
+				InitialResourceVersions: map[string]string{"clsuter1": "version1"},
+			},
+			response: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conn := newConnection("", &fakeStream{})
+			conn.SetID("proxy")
+			conn.proxy = &model.Proxy{
+				WatchedResources: tt.wr,
+			}
+			assert.Equal(t, shouldRespondDelta(conn, tt.request), tt.response)
 		})
 	}
 }

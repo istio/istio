@@ -282,7 +282,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 
-	shouldRespond := s.shouldRespondDelta(con, req)
+	shouldRespond := shouldRespondDelta(con, req)
 	if !shouldRespond {
 		return nil
 	}
@@ -352,7 +352,7 @@ func (s *DiscoveryServer) forceEDSPush(con *Connection) error {
 
 // shouldRespondDelta determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
 // using WatchedResource for previous state and discovery request for the current state.
-func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryRequest) bool {
+func shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
 
 	// If there is an error in request that means previous response is erroneous.
@@ -658,7 +658,7 @@ func deltaWatchedResources(existing sets.String, request *discovery.DeltaDiscove
 		}
 	}
 	for _, r := range request.ResourceNamesUnsubscribe {
-		if !res.DeleteContains(r) {
+		if res.DeleteContains(r) {
 			changed = true
 		}
 	}

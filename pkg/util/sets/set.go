@@ -231,8 +231,8 @@ func (s Set[T]) InsertContains(item T) bool {
 // DeleteContains deletes the item from the set and returns if it was already present.
 // Example:
 //
-//	if !set.DeleteContains(item) {
-//		fmt.Println("item was not in the set", item)
+//	if set.DeleteContains(item) {
+//		fmt.Println("item was delete", item)
 //	}
 func (s Set[T]) DeleteContains(item T) bool {
 	if !s.Contains(item) {
