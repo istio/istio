@@ -103,4 +103,5 @@ func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 		})
 	}
 	return resources, logs, nil
+	// End modified by Higress
 }
