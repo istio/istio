@@ -370,12 +370,12 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 		return nil, nil, nil
 	}
 
-	hostsInSpec = sets.New[string]()
+	assignedHosts := sets.New[string]()
 
 	// construct the assigned addresses datastructure to patch
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
 	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
-		if hostsInSpec.InsertContains(host) {
+		if assignedHosts.InsertContains(host) {
 			continue
 		}
 		assignedIPs := []netip.Addr{}
