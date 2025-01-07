@@ -231,6 +231,10 @@ func TestCheckValidPathTemplate(t *testing.T) {
 			values: []string{"/{*}/foo"},
 		},
 		{
+			name:   "valid path template - matchOneTemplate with trailing slash",
+			values: []string{"/{*}/foo/"},
+		},
+		{
 			name:   "valid path template - matchAnyTemplate",
 			values: []string{"/foo/{**}/bar"},
 		},
@@ -308,11 +312,127 @@ func TestCheckValidPathTemplate(t *testing.T) {
 			values:    []string{"/{*}/foo/temp}/*"},
 			wantError: true,
 		},
+		{
+			name:      "unsupported path template - matchAnyTemplate is not the last operator in the template",
+			values:    []string{"/{**}/foo/temp/{*}/bar"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - simple multiple matchAnyTemplates",
+			values:    []string{"/{**}/{**}"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - multiple matchAnyTemplates",
+			values:    []string{"/{**}/foo/temp/{**}/bar"},
+			wantError: true,
+		},
+		{
+			name:      "unsupported path template - invalid literal in path template",
+			values:    []string{"/{*}/foo/?abc"},
+			wantError: true,
+		},
 	}
 	for _, c := range cases {
 		err := security.CheckValidPathTemplate(c.name, c.values)
 		if c.wantError == (err == nil) {
 			t.Fatalf("CheckValidPathTemplate(%s): want error (%v) but got (%v)", c.name, c.wantError, err)
+		}
+	}
+}
+
+func TestIsValidLiteral(t *testing.T) {
+	// Valid literals:
+	//   "a-zA-Z0-9-._~" - Unreserved
+	//   "%"             - pct-encoded
+	//   "!$&'()+,;"     - sub-delims excluding *=
+	//   ":@"
+	//   "="             - user included "=" allowed
+	cases := []struct {
+		name     string
+		glob     string
+		expected bool
+	}{
+		{
+			name:     "valid - alphabet chars and nums",
+			glob:     "123abcABC",
+			expected: true,
+		},
+		{
+			name:     "valid - unreserved chars",
+			glob:     "._~-",
+			expected: true,
+		},
+		{
+			name:     "valid - equals",
+			glob:     "a=c",
+			expected: true,
+		},
+		{
+			name:     "valid - mixed chars",
+			glob:     "-._~%20!$&'()+,;:@",
+			expected: true,
+		},
+		{
+			name:     "invalid - mixed chars",
+			glob:     "`~!@#$%^&()-_+;:,<.>'\"\\| ",
+			expected: false,
+		},
+		{
+			name:     "invalid - slash",
+			glob:     "abc/",
+			expected: false,
+		},
+		{
+			name:     "invalid - star with other chars",
+			glob:     "ab*c",
+			expected: false,
+		},
+		{
+			name:     "invalid - star",
+			glob:     "*",
+			expected: false,
+		},
+		{
+			name:     "invalid - double star with other chars",
+			glob:     "ab**c",
+			expected: false,
+		},
+		{
+			name:     "invalid - double star",
+			glob:     "**",
+			expected: false,
+		},
+		{
+			name:     "invalid - question mark",
+			glob:     "?abc",
+			expected: false,
+		},
+		{
+			name:     "invalid - question mark with equals",
+			glob:     "?a=c",
+			expected: false,
+		},
+		{
+			name:     "invalid - left curly brace",
+			glob:     "{abc",
+			expected: false,
+		},
+		{
+			name:     "invalid - right curly brace",
+			glob:     "abc}",
+			expected: false,
+		},
+		{
+			name:     "invalid - curly brace set",
+			glob:     "{abc}",
+			expected: false,
+		},
+	}
+	for _, c := range cases {
+		actual := security.IsValidLiteral(c.glob)
+		if c.expected != actual {
+			t.Fatalf("IsValidLiteral(%s): expected (%v), got (%v)", c.name, c.expected, actual)
 		}
 	}
 }
