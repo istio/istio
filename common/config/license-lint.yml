@@ -137,3 +137,6 @@ allowlisted_modules:
 
 # BSD 3-clause: https://github.com/go-git/gcfg/blob/main/LICENSE
 - github.com/go-git/gcfg
+
+# Apache 2.0
+- github.com/aws/smithy-go
