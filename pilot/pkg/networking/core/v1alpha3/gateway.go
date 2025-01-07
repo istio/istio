@@ -187,7 +187,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			istionetworking.TransportProtocolTCP:  mergedGateway.MergedServers,
 			istionetworking.TransportProtocolQUIC: mergedGateway.MergedQUICTransportServers,
 		}
-		
+
 		for transport, gwServers := range transportToServers {
 			if gwServers == nil {
 				log.Debugf("buildGatewayListeners: no gateway-server for transport %s at port %d", transport.String(), port.Number)
@@ -223,7 +223,18 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 
 			var gateways []*config.Config
 			for _, s := range serversForPort.Servers {
-				gateways = append(gateways, builder.push.GetGatewayByName(mergedGateway.GatewayNameForServer[s]))
+				gatewayName := mergedGateway.GatewayNameForServer[s]
+				parts := strings.Split(gatewayName, "/")
+				if len(parts) != 2 {
+					continue
+				}
+				gateways = append(gateways, &config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.Gateway,
+						Namespace:        parts[0],
+						Name:             parts[1],
+					},
+				})
 			}
 
 			if !features.EnableUnsafeAssertions && features.EnableLDSCaching {
@@ -321,6 +332,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	builder.gatewayListeners = listeners
 	return builder, resources, cacheStats{hits: hit, miss: miss}
 }
+
 // End modified by Higress
 
 func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
