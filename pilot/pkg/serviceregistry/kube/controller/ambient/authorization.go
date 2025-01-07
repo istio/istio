@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi/security"
@@ -266,7 +267,7 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 	// Note that this doesn't actually attach the policy to any workload; it just makes it available
 	// to ztunnel in case a workload needs it.
 	foundNonStrictPortmTLS := false
-	for port, mtls := range pa.PortLevelMtls {
+	for port, mtls := range maps.SeqStable(pa.PortLevelMtls) {
 		switch portMtlsMode := mtls.GetMode(); {
 		case portMtlsMode == v1beta1.PeerAuthentication_MutualTLS_STRICT:
 			// If either:
