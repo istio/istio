@@ -134,3 +134,6 @@ allowlisted_modules:
 
 # BSD 3-clause: https://github.com/go-inf/inf/blob/v0.9.1/LICENSE
 - gopkg.in/inf.v0
+
+# BSD 3-clause: https://github.com/go-git/gcfg/blob/main/LICENSE
+- github.com/go-git/gcfg
