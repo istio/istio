@@ -267,9 +267,7 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 	// Note that this doesn't actually attach the policy to any workload; it just makes it available
 	// to ztunnel in case a workload needs it.
 	foundNonStrictPortmTLS := false
-	keys := slices.Sort(maps.Keys(pa.PortLevelMtls))
-	for _, port := range keys {
-		mtls := pa.PortLevelMtls[port]
+	for port, mtls := range maps.SeqStable(pa.PortLevelMtls) {
 		switch portMtlsMode := mtls.GetMode(); {
 		case portMtlsMode == v1beta1.PeerAuthentication_MutualTLS_STRICT:
 			// If either:
