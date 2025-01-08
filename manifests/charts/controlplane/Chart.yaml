@@ -16,9 +16,13 @@ icon: https://istio.io/latest/favicons/android-192x192.png
 
 # These will be stamped out to real versions during release publish
 dependencies:
-  - name: base
-    version: 1.0.0
-    repository: "file://../base"
+  # TODO it makes the most logical sense for `base`
+  # (which includes CP CRDs, mostly) to be installed
+  # with the controlplane. But, as it is a singleton chart,
+  # it cannot be, without some work.
+  # - name: base
+  #   version: 1.0.0
+  #   repository: "file://../base"
   - name: istiod
     version: 1.0.0
     repository: "file://../istio-control/istio-discovery"
