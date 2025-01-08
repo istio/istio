@@ -37,7 +37,7 @@ func NewConfigMapSource(client kube.Client, namespace, name, key string, stop <-
 		Namespace:     namespace,
 		FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String(),
 	})
-	cms := krt.WrapClient(clt, krt.WithName("ConfigMap_"+name), krt.WithStop(stop))
+	cms := krt.WrapClient(clt, krt.WithName("ConfigMap_"+name), krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler))
 
 	cmKey := types.NamespacedName{Namespace: namespace, Name: name}.String()
 
@@ -48,7 +48,7 @@ func NewConfigMapSource(client kube.Client, namespace, name, key string, stop <-
 	return krt.NewSingleton(func(ctx krt.HandlerContext) *string {
 		cm := ptr.Flatten(krt.FetchOne(ctx, cms, krt.FilterKey(cmKey)))
 		return meshConfigMapData(cm, key)
-	}, krt.WithName("ConfigMap_"+key), krt.WithStop(stop))
+	}, krt.WithName("ConfigMap_"+key), krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler))
 }
 
 func meshConfigMapData(cm *v1.ConfigMap, key string) *string {

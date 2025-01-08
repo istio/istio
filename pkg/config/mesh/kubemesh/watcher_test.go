@@ -17,6 +17,8 @@ package kubemesh
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pkg/kube/krt"
+	"sigs.k8s.io/yaml"
 	"sync"
 	"testing"
 	"time"
@@ -36,7 +38,7 @@ import (
 const (
 	namespace string = "istio-system"
 	name      string = "istio"
-	key       string = "MeshConfig"
+	key       string = MeshConfigKey
 )
 
 func makeConfigMapWithName(name, resourceVersion string, data map[string]string) *v1.ConfigMap {
@@ -66,7 +68,7 @@ func TestExtraConfigmap(t *testing.T) {
 	cmUserinvalid := makeConfigMapWithName(extraCmName, "1", map[string]string{
 		key: "ingressClass: 1",
 	})
-	setup := func(t test.Failer) (corev1.ConfigMapInterface, mesh.Watcher) {
+	setup := func(t *testing.T) (corev1.ConfigMapInterface, mesh.Watcher) {
 		client := kube.NewFakeClient()
 		cms := client.Kube().CoreV1().ConfigMaps(namespace)
 		stop := test.NewStop(t)
@@ -76,6 +78,12 @@ func TestExtraConfigmap(t *testing.T) {
 		col.AsCollection().Synced().WaitUntilSynced(stop)
 		w := mesh.ConfigAdapter(col)
 
+		t.Cleanup(func() {
+			if t.Failed() {
+				b, _ := yaml.Marshal(krt.GlobalDebugHandler)
+				t.Log(string(b))
+			}
+		})
 		return cms, w
 	}
 

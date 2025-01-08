@@ -27,16 +27,19 @@ func NewCollection(primary *MeshConfigSource, secondary *MeshConfigSource, stop 
 		func(ctx krt.HandlerContext) *MeshConfigResource {
 			meshCfg := DefaultMeshConfig()
 
+			log.Errorf("howardjohn: base")
 			for _, attempt := range []*MeshConfigSource{secondary, primary} {
 				if attempt == nil {
 					// Source is not specified, skip it
 					continue
 				}
 				s := krt.FetchOne(ctx, (*attempt).AsCollection())
+				log.Errorf("howardjohn: got %v", s)
 				if s == nil {
 					// Source specified but not giving us any data
 					continue
 				}
+				log.Errorf("howardjohn: APPLY config %v", *s)
 				n, err := ApplyMeshConfig(*s, meshCfg)
 				if err != nil {
 					panic("FTODODODO")
@@ -47,7 +50,7 @@ func NewCollection(primary *MeshConfigSource, secondary *MeshConfigSource, stop 
 				meshCfg = n
 			}
 			return &MeshConfigResource{meshCfg}
-		}, krt.WithName("MeshConfig"), krt.WithStop(stop),
+		}, krt.WithName("MeshConfig"), krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler),
 	)
 }
 
