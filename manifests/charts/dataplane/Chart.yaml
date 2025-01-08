@@ -27,4 +27,4 @@ dependencies:
   - name: ztunnel
     version: 1.0.0
     repository: "file://../ztunnel"
-    condition: ambient.enabled
+    condition: cni.ambient.enabled
