@@ -790,6 +790,8 @@ spec:
   portLevelMtls:
     18080:
       mode: PERMISSIVE
+		19090:
+      mode: PERMISSIVE
 				`).ApplyOrFail(t)
 				opt := opt.DeepCopy()
 				// Should pass for all workloads, in or out of mesh, targeting this port
