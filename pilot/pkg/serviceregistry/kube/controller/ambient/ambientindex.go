@@ -315,9 +315,8 @@ func New(options Options) Index {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Service
 		},
-		PushXds(a.XDSUpdater, func(i model.ServiceInfo) model.ConfigKey {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
-		})), false)
+		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
+	), false)
 
 	Workloads := a.WorkloadsCollection(
 		Pods,
@@ -384,9 +383,8 @@ func New(options Options) Index {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
-		PushXds(a.XDSUpdater, func(i model.WorkloadInfo) model.ConfigKey {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
-		})), false)
+		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName),
+	), false)
 
 	if features.EnableIngressWaypointRouting {
 		RegisterEdsShim(
@@ -719,6 +717,36 @@ func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 			Full:           false,
 			ConfigsUpdated: cu,
 			Reason:         model.NewReasonStats(model.AmbientUpdate),
+		})
+	}
+}
+
+func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string) func(events []krt.Event[T], initialSync bool) {
+	return func(events []krt.Event[T], initialSync bool) {
+		au := sets.New[string]()
+		for _, e := range events {
+			for _, i := range e.Items() {
+				c := f(i)
+				if c != "" {
+					au.Insert(c)
+				}
+			}
+		}
+		if len(au) == 0 {
+			return
+		}
+		cu := sets.NewWithLength[model.ConfigKey](len(au))
+		for v := range au {
+			cu.Insert(model.ConfigKey{
+				Kind: kind.Address,
+				Name: v,
+			})
+		}
+		xds.ConfigUpdate(&model.PushRequest{
+			Full:             false,
+			AddressesUpdated: au,
+			ConfigsUpdated:   cu,
+			Reason:           model.NewReasonStats(model.AmbientUpdate),
 		})
 	}
 }
