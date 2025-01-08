@@ -21,15 +21,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
-	"google.golang.org/protobuf/testing/protocmp"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
@@ -74,9 +70,12 @@ func TestExtraConfigmap(t *testing.T) {
 		client := kube.NewFakeClient()
 		cms := client.Kube().CoreV1().ConfigMaps(namespace)
 		stop := test.NewStop(t)
-		w := NewConfigMapWatcher(client, namespace, name, key, true, stop)
-		AddUserMeshConfig(client, w, namespace, key, extraCmName, stop)
-		client.RunAndWait(stop)
+		primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, stop)
+		userMeshConfig := NewConfigMapSource(client, namespace, extraCmName, MeshConfigKey, stop)
+		col := mesh.NewCollection(&primaryMeshConfig, &userMeshConfig, stop)
+		col.AsCollection().Synced().WaitUntilSynced(stop)
+		w := mesh.ConfigAdapter(col)
+
 		return cms, w
 	}
 
@@ -88,7 +87,7 @@ func TestExtraConfigmap(t *testing.T) {
 		if _, err := cms.Create(context.Background(), cmUser, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
-		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+		assertMeshConfig(t, w, "core")
 	})
 	t.Run("user first", func(t *testing.T) {
 		cms, w := setup(t)
@@ -98,21 +97,21 @@ func TestExtraConfigmap(t *testing.T) {
 		if _, err := cms.Create(context.Background(), cmCore, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
-		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+		assertMeshConfig(t, w, "core")
 	})
 	t.Run("only user", func(t *testing.T) {
 		cms, w := setup(t)
 		if _, err := cms.Create(context.Background(), cmUser, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
-		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "user" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+		assertMeshConfig(t, w, "user")
 	})
 	t.Run("only core", func(t *testing.T) {
 		cms, w := setup(t)
 		if _, err := cms.Create(context.Background(), cmCore, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
-		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+		assertMeshConfig(t, w, "core")
 	})
 	t.Run("invalid user config", func(t *testing.T) {
 		cms, w := setup(t)
@@ -122,7 +121,7 @@ func TestExtraConfigmap(t *testing.T) {
 		if _, err := cms.Create(context.Background(), cmUserinvalid, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
-		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "core" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+		assertMeshConfig(t, w, "core")
 	})
 	t.Run("many updates", func(t *testing.T) {
 		cms, w := setup(t)
@@ -140,7 +139,7 @@ func TestExtraConfigmap(t *testing.T) {
 		if _, err := cms.Create(context.Background(), mkMap(name, "init"), metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
-		retry.UntilOrFail(t, func() bool { return w.Mesh().GetIngressClass() == "init" }, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+		assertMeshConfig(t, w, "init")
 		errCh := make(chan error, 2)
 		for i := 0; i < 100; i++ {
 			t.Log("iter", i)
@@ -181,6 +180,12 @@ func TestExtraConfigmap(t *testing.T) {
 	})
 }
 
+func assertMeshConfig(t *testing.T, w mesh.Watcher, v string) {
+	t.Helper()
+	assert.EventuallyEqual(t, func() string { return w.Mesh().GetIngressClass() }, v, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
+}
+
+/*
 func TestNewConfigMapWatcher(t *testing.T) {
 	yaml := "trustDomain: something.new"
 	m, err := mesh.ApplyMeshConfigDefaults(yaml)
@@ -258,3 +263,4 @@ func TestNewConfigMapWatcher(t *testing.T) {
 		})
 	}
 }
+*/

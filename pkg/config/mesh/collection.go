@@ -2,6 +2,7 @@ package mesh
 
 import (
 	"os"
+	"path"
 
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube/krt"
@@ -18,27 +19,27 @@ func NewFileSource(fileWatcher filewatcher.FileWatcher, filename string, stop <-
 			return "", err
 		}
 		return string(b), nil
-	}, krt.WithName("MeshConfig_File"), krt.WithStop(stop))
+	}, krt.WithName("Mesh_File_"+path.Base(filename)), krt.WithStop(stop))
 }
 
-func NewCollection(primary *krt.Singleton[string], secondary *krt.Singleton[string], stop <-chan struct{}) krt.Singleton[MeshConfigResource] {
+func NewCollection(primary *MeshConfigSource, secondary *MeshConfigSource, stop <-chan struct{}) krt.Singleton[MeshConfigResource] {
 	return krt.NewSingleton[MeshConfigResource](
 		func(ctx krt.HandlerContext) *MeshConfigResource {
 			meshCfg := DefaultMeshConfig()
-			if secondary != nil {
-				s := krt.FetchOne(ctx, (*secondary).AsCollection())
-				n, err := ApplyMeshConfig(*s, meshCfg)
-				if err != nil {
-					log.Error(err)
-					// TODO!!!
-					return nil
+
+			for _, attempt := range []*MeshConfigSource{secondary, primary} {
+				if attempt == nil {
+					// Source is not specified, skip it
+					continue
 				}
-				meshCfg = n
-			}
-			if primary != nil {
-				s := krt.FetchOne(ctx, (*primary).AsCollection())
+				s := krt.FetchOne(ctx, (*attempt).AsCollection())
+				if s == nil {
+					// Source specified but not giving us any data
+					continue
+				}
 				n, err := ApplyMeshConfig(*s, meshCfg)
 				if err != nil {
+					panic("FTODODODO")
 					log.Error(err)
 					// TODO!!!
 					return nil
@@ -47,5 +48,27 @@ func NewCollection(primary *krt.Singleton[string], secondary *krt.Singleton[stri
 			}
 			return &MeshConfigResource{meshCfg}
 		}, krt.WithName("MeshConfig"), krt.WithStop(stop),
+	)
+}
+
+func NewNetworksCollection(primary *MeshConfigSource, secondary *MeshConfigSource, stop <-chan struct{}) krt.Singleton[MeshNetworksResource] {
+	return krt.NewSingleton[MeshNetworksResource](
+		func(ctx krt.HandlerContext) *MeshNetworksResource {
+			for _, attempt := range []*MeshConfigSource{secondary, primary} {
+				if attempt == nil {
+					continue
+				}
+				if s := krt.FetchOne(ctx, (*attempt).AsCollection()); s != nil {
+					n, err := ParseMeshNetworks(*s)
+					if err != nil {
+						log.Error(err)
+						// TODO!!!
+						return nil
+					}
+					return &MeshNetworksResource{n}
+				}
+			}
+			return &MeshNetworksResource{nil}
+		}, krt.WithName("MeshNetworks"), krt.WithStop(stop),
 	)
 }

@@ -58,14 +58,14 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	}()
 	col := s.getMeshConfiguration(args, fileWatcher)
 	col.AsCollection().Synced().WaitUntilSynced(s.internalStop)
-	s.environment.Watcher = mesh.Adapter(col)
+	s.environment.Watcher = mesh.ConfigAdapter(col)
 }
 
 func (s *Server) getMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) krt.Singleton[mesh.MeshConfigResource] {
 	// Watcher will be merging more than one mesh config source?
 	var userMeshConfig *mesh.MeshConfigSource
 	if features.SharedMeshConfig != "" && s.kubeClient != nil {
-		userMeshConfig = ptr.Of(kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, features.SharedMeshConfig, s.internalStop))
+		userMeshConfig = ptr.Of(kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, features.SharedMeshConfig, kubemesh.MeshConfigKey, s.internalStop))
 	}
 	if _, err := os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
 		fileSource, err := mesh.NewFileSource(fileWatcher, args.MeshConfigFile, s.internalStop)
@@ -80,29 +80,48 @@ func (s *Server) getMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.F
 		return mesh.NewCollection(nil, nil, s.internalStop)
 	}
 	configMapName := getMeshConfigMapName(args.Revision)
-	primary := kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, configMapName, s.internalStop)
+	primary := kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, configMapName, kubemesh.MeshConfigKey, s.internalStop)
 	return mesh.NewCollection(&primary, userMeshConfig, s.internalStop)
+}
+
+func (s *Server) getMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) krt.Singleton[mesh.MeshNetworksResource] {
+	// Watcher will be merging more than one mesh config source?
+	var userMeshConfig *mesh.MeshConfigSource
+	if features.SharedMeshConfig != "" && s.kubeClient != nil {
+		userMeshConfig = ptr.Of(kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, features.SharedMeshConfig, kubemesh.MeshNetworksKey, s.internalStop))
+	}
+	if _, err := os.Stat(args.NetworksConfigFile); !os.IsNotExist(err) {
+		fileSource, err := mesh.NewFileSource(fileWatcher, args.NetworksConfigFile, s.internalStop)
+		if err == nil {
+			return mesh.NewNetworksCollection(&fileSource, userMeshConfig, s.internalStop)
+		}
+	}
+
+	if s.kubeClient == nil {
+		// Use a default mesh.
+		log.Warnf("Using default mesh - missing file %s and no k8s client", args.MeshConfigFile)
+		return mesh.NewNetworksCollection(nil, nil, s.internalStop)
+	}
+	configMapName := getMeshConfigMapName(args.Revision)
+	primary := kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, configMapName, kubemesh.MeshNetworksKey, s.internalStop)
+	return mesh.NewNetworksCollection(&primary, userMeshConfig, s.internalStop)
 }
 
 // initMeshNetworks loads the mesh networks configuration from the file provided
 // in the args and add a watcher for changes in this file.
 func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
-	if s.environment.NetworksWatcher != nil {
-		return
-	}
-	log.Info("initializing mesh networks")
-	if args.NetworksConfigFile != "" {
-		var err error
-		s.environment.NetworksWatcher, err = mesh.NewNetworksWatcher(fileWatcher, args.NetworksConfigFile)
-		if err != nil {
-			log.Info(err)
+	log.Infof("initializing mesh configuration %v", args.MeshConfigFile)
+	defer func() {
+		if s.environment.Watcher != nil {
+			log.Infof("mesh configuration: %s", mesh.PrettyFormatOfMeshConfig(s.environment.Mesh()))
+			log.Infof("version: %s", version.Info.String())
+			argsdump, _ := json.MarshalIndent(args, "", "   ")
+			log.Infof("flags: %s", argsdump)
 		}
-	}
-
-	if s.environment.NetworksWatcher == nil {
-		log.Info("mesh networks configuration not provided")
-		s.environment.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
-	}
+	}()
+	col := s.getMeshNetworks(args, fileWatcher)
+	col.AsCollection().Synced().WaitUntilSynced(s.internalStop)
+	s.environment.NetworksWatcher = mesh.NetworksAdapter(col)
 }
 
 func getMeshConfigMapName(revision string) string {

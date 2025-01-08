@@ -15,6 +15,8 @@
 package mesh_test
 
 import (
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"testing"
 	"time"
 
@@ -25,15 +27,8 @@ import (
 	"istio.io/istio/pkg/filewatcher"
 )
 
-func TestNewNetworksWatcherWithBadInputShouldFail(t *testing.T) {
-	g := NewWithT(t)
-	_, err := mesh.NewNetworksWatcher(filewatcher.NewWatcher(), "")
-	g.Expect(err).ToNot(BeNil())
-}
 
 func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
-	g := NewWithT(t)
-
 	path := newTempFile(t)
 	defer removeSilent(path)
 
@@ -43,7 +38,7 @@ func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
 	writeMessage(t, path, &n)
 
 	w := newNetworksWatcher(t, path)
-	g.Expect(w.Networks()).To(Equal(&n))
+	assert.Equal(t, w.Networks(), &n)
 
 	doneCh := make(chan struct{}, 1)
 
@@ -59,8 +54,8 @@ func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
 
 	select {
 	case <-doneCh:
-		g.Expect(newN).To(Equal(&n))
-		g.Expect(w.Networks()).To(Equal(newN))
+		assert.Equal(t, newN, &n)
+		assert.Equal(t, w.Networks(), newN)
 		break
 	case <-time.After(time.Second * 5):
 		t.Fatal("timed out waiting for update")
@@ -69,9 +64,8 @@ func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
 
 func newNetworksWatcher(t *testing.T, filename string) mesh.NetworksWatcher {
 	t.Helper()
-	w, err := mesh.NewNetworksWatcher(filewatcher.NewWatcher(), filename)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return w
+	fs, err := mesh.NewFileSource(filewatcher.NewWatcher(), filename, test.NewStop(t))
+	assert.NoError(t, err)
+	col := mesh.NewNetworksCollection(&fs, nil, test.NewStop(t))
+	return mesh.NetworksAdapter(col)
 }

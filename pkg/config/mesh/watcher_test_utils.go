@@ -19,29 +19,34 @@ import (
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/kube/krt"
 )
 
 // only used for testing, exposes a blocking Update method that allows test environments to trigger meshConfig updates
 type TestWatcher struct {
-	internalWatcher
+	adapter
+	col    krt.StaticSingleton[MeshConfigResource]
 	doneCh chan struct{} // used to implement a blocking Update method
 }
 
 func NewTestWatcher(meshConfig *meshconfig.MeshConfig) *TestWatcher {
+	c := krt.NewStatic(&MeshConfigResource{meshConfig}, true)
 	w := &TestWatcher{
-		internalWatcher: internalWatcher{},
+		adapter: adapter{c},
+		col:     c,
+		doneCh:  make(chan struct{}, 1),
 	}
-	w.internalWatcher.MeshConfig.Store(meshConfig)
 	w.doneCh = make(chan struct{}, 1)
+	// TODO this is probably broken as we don't have ordering
 	w.AddMeshHandler(func() {
 		w.doneCh <- struct{}{}
 	})
 	return w
 }
 
-// blocks until watcher handlers trigger
+// Update blocks until watcher handlers trigger
 func (t *TestWatcher) Update(meshConfig *meshconfig.MeshConfig, timeout time.Duration) error {
-	t.HandleMeshConfig(meshConfig)
+	t.col.Set(&MeshConfigResource{meshConfig})
 	select {
 	case <-t.doneCh:
 		return nil
