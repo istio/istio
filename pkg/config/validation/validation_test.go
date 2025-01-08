@@ -826,8 +826,8 @@ func TestValidateHTTPHeaderName(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		if got := ValidateHTTPHeaderName(tc.name); (got == nil) != tc.valid {
-			t.Errorf("ValidateHTTPHeaderName(%q) => got valid=%v, want valid=%v",
+		if got := ValidateStrictHTTPHeaderName(tc.name); (got == nil) != tc.valid {
+			t.Errorf("ValidateStrictHTTPHeaderName(%q) => got valid=%v, want valid=%v",
 				tc.name, got == nil, tc.valid)
 		}
 	}
