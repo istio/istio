@@ -68,11 +68,6 @@ func mustByteIPToString(b []byte) string {
 	return ip.String()
 }
 
-func byteIPToAddr(b []byte) netip.Addr {
-	ip, _ := netip.AddrFromSlice(b) // Address only comes from objects we create, so it must be valid
-	return ip
-}
-
 func (a *index) toNetworkAddress(vip string) (*workloadapi.NetworkAddress, error) {
 	ip, err := netip.ParseAddr(vip)
 	if err != nil {
