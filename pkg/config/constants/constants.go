@@ -189,4 +189,7 @@ const (
 	AllTraffic = "all"
 	// NoTraffic indicates that no traffic should go through the intended waypoint.
 	NoTraffic = "none"
+
+	// Limit that Envoy enforces on the MaxProgramSize of RE2 regular expressions.
+	Re2MaxProgramSizeErorLevel = 32768
 )

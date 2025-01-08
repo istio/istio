@@ -332,7 +332,7 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig, policy string) map[stri
 	// Setup defaults
 	runtimeFlags := map[string]any{
 		"overload.global_downstream_max_connections": "2147483647",
-		"re2.max_program_size.error_level":           "32768",
+		"re2.max_program_size.error_level":           strconv.Itoa(constants.Re2MaxProgramSizeErorLevel),
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
 	}
