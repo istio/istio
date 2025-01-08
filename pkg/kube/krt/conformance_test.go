@@ -17,16 +17,20 @@ package krt_test
 import (
 	"fmt"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/krt/files"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -85,6 +89,20 @@ func (r *manyRig) CreateObject(key string) {
 	r.names.UpdateObject(name)
 }
 
+type fileRig struct {
+	files.Collection[Named]
+	rootPath string
+}
+
+func (r *fileRig) CreateObject(key string) {
+	name := strings.ReplaceAll(key, "/", "_")
+	ns, name, _ := strings.Cut(key, "/")
+	obj := Named{Namespace: ns, Name: name}
+	b, _ := yaml.Marshal(obj)
+	_ = os.WriteFile(filepath.Join(r.rootPath, key), b, 0o644)
+	// r.UpdateObject(Named{Namespace: ns, Name: name})
+}
+
 // TestConformance aims to provide a 'conformance' suite for Collection implementations to ensure each collection behaves
 // the same way.
 // This is done by having each collection implement a small test rig that can be used to exercise various standardized paths.
@@ -132,6 +150,14 @@ func TestConformance(t *testing.T) {
 			Collection: col,
 			namespaces: namespaces,
 			names:      names,
+		}
+		runConformance[Named](t, rig)
+	})
+	t.Run("files", func(t *testing.T) {
+		col := files.NewCollection[Named](krt.WithStop(test.NewStop(t)))
+		rig := &fileRig{
+			Collection: col,
+			rootPath:   t.TempDir(),
 		}
 		runConformance[Named](t, rig)
 	})

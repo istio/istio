@@ -47,7 +47,7 @@ func NewStatic[T any](initial *T, startSynced bool, opts ...CollectionOption) St
 		eventHandlers: &handlers[T]{},
 	}
 	x.synced.Store(startSynced)
-	o := buildCollectionOptions(opts...)
+	o := buildCollectionOptions2(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("Static[%v]", ptr.TypeName[T]())
 	}

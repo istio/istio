@@ -18,13 +18,39 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/watcher/configmapwatcher"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 )
+
+const key = "mesh"
+
+type meshConfigYaml string
+
+func NewConfigMapSource(client kube.Client, namespace, name string, stop <-chan struct{}) mesh.MeshConfigSource {
+	clt := kclient.NewFiltered[*v1.ConfigMap](client, kclient.Filter{
+		Namespace:     namespace,
+		FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String(),
+	})
+	cms := krt.WrapClient(clt, krt.WithName("ConfigMap_"+name), krt.WithStop(stop))
+
+	// Start informer immediately instead of with the rest. This is because we use configmapwatcher for
+	// single types (so its never shared), and for use cases where we need the results immediately
+	// during startup.
+	clt.Start(stop)
+	return krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+		cm := ptr.Flatten(krt.FetchOne(ctx, cms))
+		return ptr.Of(meshConfigMapData(cm, key))
+	}, krt.WithName("MeshConfig_ConfigMap"), krt.WithStop(stop))
+}
 
 // NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
 func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiWatch bool, stop <-chan struct{}) *mesh.MultiWatcher {
@@ -37,7 +63,7 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiW
 			return
 		}
 		if meshNetworks != nil {
-			w.SetNetworks(meshNetworks)
+			// w.SetNetworks(meshNetworks)
 		}
 		if multiWatch {
 			meshConfig := meshConfigMapData(cm, key)

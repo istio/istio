@@ -20,8 +20,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	uatomic "go.uber.org/atomic"
+	"google.golang.org/protobuf/proto"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/krt/files"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -81,44 +86,50 @@ func NewFixedWatcher(mesh *meshconfig.MeshConfig) Watcher {
 	return &iw
 }
 
+type adapter struct {
+	krt.Singleton[MeshConfigResource]
+}
+
+func (a adapter) Mesh() *meshconfig.MeshConfig {
+	v := a.Singleton.Get()
+	return v.MeshConfig
+}
+
+func (a adapter) AddMeshHandler(h func()) *WatcherHandlerRegistration {
+	active := uatomic.NewBool(true)
+	reg := &WatcherHandlerRegistration{
+		remove: func() {
+			active.Store(false)
+		},
+	}
+	// Do not run initial state to match existing semantics
+	a.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshConfigResource], initialSync bool) {
+		if active.Load() {
+			h()
+		}
+	}, false)
+	return reg
+}
+
+func (a adapter) DeleteMeshHandler(registration *WatcherHandlerRegistration) {
+	registration.remove()
+}
+
+func (a adapter) HandleUserMeshConfig(s string) {
+	// TODO implement me
+	panic("implement me")
+}
+
+var _ Watcher = adapter{}
+
 // NewFileWatcher creates a new Watcher for changes to the given mesh config file. Returns an error
 // if the given file does not exist or failed during parsing.
 func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string, multiWatch bool) (Watcher, error) {
-	meshConfigYaml, err := ReadMeshConfigData(filename)
+	col, err := files.NewSingleton[MeshConfigResource](fileWatcher, filename, make(chan struct{}), readMeshConfigResource, krt.WithName("MeshConfig"))
 	if err != nil {
 		return nil, err
 	}
-
-	meshConfig, err := ApplyMeshConfigDefaults(meshConfigYaml)
-	if err != nil {
-		return nil, err
-	}
-
-	w := &internalWatcher{
-		revMeshConfig: meshConfigYaml,
-	}
-	w.MeshConfig.Store(meshConfig)
-
-	// Watch the config file for changes and reload if it got modified
-	addFileWatcher(fileWatcher, filename, func() {
-		if multiWatch {
-			meshConfig, err := ReadMeshConfigData(filename)
-			if err != nil {
-				log.Warnf("failed to read mesh configuration, using default: %v", err)
-				return
-			}
-			w.HandleMeshConfigData(meshConfig)
-			return
-		}
-		// Reload the config file
-		meshConfig, err = ReadMeshConfig(filename)
-		if err != nil {
-			log.Warnf("failed to read mesh configuration, using default: %v", err)
-			return
-		}
-		w.HandleMeshConfig(meshConfig)
-	})
-	return w, nil
+	return adapter{col}, nil
 }
 
 // Mesh returns the latest mesh config.
@@ -132,7 +143,7 @@ func (w *internalWatcher) AddMeshHandler(h func()) *WatcherHandlerRegistration {
 	defer w.mutex.Unlock()
 
 	handler := &WatcherHandlerRegistration{
-		handler: h,
+		// handler: h,
 	}
 	w.handlers = append(w.handlers, handler)
 	return handler
@@ -221,7 +232,7 @@ func (w *internalWatcher) handleMeshConfigInternal(meshConfig *meshconfig.MeshCo
 
 	// TODO hack: the first handler added is the ConfigPush, other handlers affect what will be pushed, so reversing iteration
 	for i := len(handlers) - 1; i >= 0; i-- {
-		handlers[i].handler()
+		// handlers[i].handler()
 	}
 }
 
@@ -251,4 +262,28 @@ func addFileWatcher(fileWatcher filewatcher.FileWatcher, file string, callback f
 func PrettyFormatOfMeshConfig(meshConfig *meshconfig.MeshConfig) string {
 	meshConfigDump, _ := protomarshal.ToJSONWithIndent(meshConfig, "    ")
 	return meshConfigDump
+}
+
+type MeshConfigResource struct {
+	*meshconfig.MeshConfig
+}
+
+func (m MeshConfigResource) ResourceName() string { return "MeshConfigResource" }
+
+func (m MeshConfigResource) Equals(other MeshConfigResource) bool {
+	return proto.Equal(m.MeshConfig, other.MeshConfig)
+}
+
+type MeshNetworksResource struct {
+	*meshconfig.MeshNetworks
+}
+
+func (m MeshNetworksResource) ResourceName() string { return "MeshNetworksResource" }
+
+func (m MeshNetworksResource) Equals(other MeshNetworksResource) bool {
+	return proto.Equal(m.MeshNetworks, other.MeshNetworks)
+}
+
+func Adapter(configuration krt.Singleton[MeshConfigResource]) Watcher {
+	return adapter{configuration}
 }

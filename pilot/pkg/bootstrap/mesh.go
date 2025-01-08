@@ -22,7 +22,9 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/kubemesh"
 	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/version"
 )
 
@@ -54,46 +56,32 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 			log.Infof("flags: %s", argsdump)
 		}
 	}()
+	col := s.getMeshConfiguration(args, fileWatcher)
+	col.AsCollection().Synced().WaitUntilSynced(s.internalStop)
+	s.environment.Watcher = mesh.Adapter(col)
+}
 
+func (s *Server) getMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) krt.Singleton[mesh.MeshConfigResource] {
 	// Watcher will be merging more than one mesh config source?
-	multiWatch := features.SharedMeshConfig != ""
-
-	var err error
-	if _, err = os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
-		s.environment.Watcher, err = mesh.NewFileWatcher(fileWatcher, args.MeshConfigFile, multiWatch)
+	var userMeshConfig *mesh.MeshConfigSource
+	if features.SharedMeshConfig != "" && s.kubeClient != nil {
+		userMeshConfig = ptr.Of(kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, features.SharedMeshConfig, s.internalStop))
+	}
+	if _, err := os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
+		fileSource, err := mesh.NewFileSource(fileWatcher, args.MeshConfigFile, s.internalStop)
 		if err == nil {
-			if multiWatch && s.kubeClient != nil {
-				kubemesh.AddUserMeshConfig(
-					s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
-			} else {
-				// Normal install no longer uses this mode - testing and special installs still use this.
-				log.Warnf("Using local mesh config file %s, in cluster configs ignored", args.MeshConfigFile)
-			}
-			return
+			return mesh.NewCollection(&fileSource, userMeshConfig, s.internalStop)
 		}
 	}
 
-	// Config file either didn't exist or failed to load.
 	if s.kubeClient == nil {
 		// Use a default mesh.
-		meshConfig := mesh.DefaultMeshConfig()
-		s.environment.Watcher = mesh.NewFixedWatcher(meshConfig)
 		log.Warnf("Using default mesh - missing file %s and no k8s client", args.MeshConfigFile)
-		return
+		return mesh.NewCollection(nil, nil, s.internalStop)
 	}
-
-	// Watch the istio ConfigMap for mesh config changes.
-	// This may be necessary for external Istiod.
 	configMapName := getMeshConfigMapName(args.Revision)
-	multiWatcher := kubemesh.NewConfigMapWatcher(
-		s.kubeClient, args.Namespace, configMapName, configMapKey, multiWatch, s.internalStop)
-	s.environment.Watcher = multiWatcher
-	s.environment.NetworksWatcher = multiWatcher
-	log.Infof("initializing mesh networks from mesh config watcher")
-
-	if multiWatch {
-		kubemesh.AddUserMeshConfig(s.kubeClient, s.environment.Watcher, args.Namespace, configMapKey, features.SharedMeshConfig, s.internalStop)
-	}
+	primary := kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, configMapName, s.internalStop)
+	return mesh.NewCollection(&primary, userMeshConfig, s.internalStop)
 }
 
 // initMeshNetworks loads the mesh networks configuration from the file provided

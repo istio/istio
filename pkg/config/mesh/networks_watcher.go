@@ -15,27 +15,25 @@
 package mesh
 
 import (
-	"fmt"
-	"reflect"
 	"sync"
+
+	uatomic "go.uber.org/atomic"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/filewatcher"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/krt/files"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // NetworksHolder is a holder of a mesh networks configuration.
 type NetworksHolder interface {
-	SetNetworks(*meshconfig.MeshNetworks)
 	Networks() *meshconfig.MeshNetworks
-	PrevNetworks() *meshconfig.MeshNetworks
 }
 
 // WatcherHandlerRegistration will be returned to caller to remove the handler later.
 type WatcherHandlerRegistration struct {
-	handler func()
+	remove func()
 }
 
 // NetworksWatcher watches changes to the mesh networks config.
@@ -52,10 +50,9 @@ type NetworksWatcher interface {
 var _ NetworksWatcher = &internalNetworkWatcher{}
 
 type internalNetworkWatcher struct {
-	mutex        sync.RWMutex
-	handlers     []*WatcherHandlerRegistration
-	networks     *meshconfig.MeshNetworks
-	prevNetworks *meshconfig.MeshNetworks
+	mutex    sync.RWMutex
+	handlers []*WatcherHandlerRegistration
+	networks *meshconfig.MeshNetworks
 }
 
 // NewFixedNetworksWatcher creates a new NetworksWatcher that always returns the given config.
@@ -66,31 +63,44 @@ func NewFixedNetworksWatcher(networks *meshconfig.MeshNetworks) NetworksWatcher 
 	}
 }
 
+type networksAdapter struct {
+	files.Singleton[MeshNetworksResource]
+}
+
+func (n networksAdapter) Networks() *meshconfig.MeshNetworks {
+	v := n.Singleton.Get()
+	return v.MeshNetworks
+}
+
+func (n networksAdapter) AddNetworksHandler(h func()) *WatcherHandlerRegistration {
+	active := uatomic.NewBool(true)
+	reg := &WatcherHandlerRegistration{
+		remove: func() {
+			active.Store(false)
+		},
+	}
+	// Do not run initial state to match existing semantics
+	n.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshNetworksResource], initialSync bool) {
+		if active.Load() {
+			h()
+		}
+	}, false)
+	return reg
+}
+
+func (n networksAdapter) DeleteNetworksHandler(registration *WatcherHandlerRegistration) {
+	registration.remove()
+}
+
+var _ NetworksWatcher = networksAdapter{}
+
 // NewNetworksWatcher creates a new watcher for changes to the given networks config file.
 func NewNetworksWatcher(fileWatcher filewatcher.FileWatcher, filename string) (NetworksWatcher, error) {
-	meshNetworks, err := ReadMeshNetworks(filename)
+	col, err := files.NewSingleton[MeshNetworksResource](fileWatcher, filename, make(chan struct{}), readMeshNetworksResource, krt.WithName("MeshNetworks"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read mesh networks configuration from %q: %v", filename, err)
+		return nil, err
 	}
-
-	networksdump, _ := protomarshal.ToJSONWithIndent(meshNetworks, "   ")
-	log.Infof("mesh networks configuration: %s", networksdump)
-
-	w := &internalNetworkWatcher{
-		networks: meshNetworks,
-	}
-
-	// Watch the networks config file for changes and reload if it got modified
-	addFileWatcher(fileWatcher, filename, func() {
-		// Reload the config file
-		meshNetworks, err := ReadMeshNetworks(filename)
-		if err != nil {
-			log.Warnf("failed to read mesh networks configuration from %q: %v", filename, err)
-			return
-		}
-		w.SetNetworks(meshNetworks)
-	})
-	return w, nil
+	return networksAdapter{col}, nil
 }
 
 // Networks returns the latest network configuration for the mesh.
@@ -103,44 +113,12 @@ func (w *internalNetworkWatcher) Networks() *meshconfig.MeshNetworks {
 	return w.networks
 }
 
-// PrevNetworks returns the previous network configuration for the mesh.
-func (w *internalNetworkWatcher) PrevNetworks() *meshconfig.MeshNetworks {
-	if w == nil {
-		return nil
-	}
-	w.mutex.RLock()
-	defer w.mutex.RUnlock()
-	return w.prevNetworks
-}
-
-// SetNetworks will use the given value for mesh networks and notify all handlers of the change
-func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetworks) {
-	var handlers []*WatcherHandlerRegistration
-
-	w.mutex.Lock()
-	if !reflect.DeepEqual(meshNetworks, w.networks) {
-		networksdump, _ := protomarshal.ToJSONWithIndent(meshNetworks, "    ")
-		log.Infof("mesh networks configuration updated to: %s", networksdump)
-
-		// Store the new config.
-		w.prevNetworks = w.networks
-		w.networks = meshNetworks
-		handlers = append([]*WatcherHandlerRegistration{}, w.handlers...)
-	}
-	w.mutex.Unlock()
-
-	// Notify the handlers of the change.
-	for _, h := range handlers {
-		h.handler()
-	}
-}
-
 // AddNetworksHandler registers a callback handler for changes to the mesh network config.
 func (w *internalNetworkWatcher) AddNetworksHandler(h func()) *WatcherHandlerRegistration {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	handler := &WatcherHandlerRegistration{
-		handler: h,
+		// handler: h,
 	}
 	w.handlers = append(w.handlers, handler)
 	return handler

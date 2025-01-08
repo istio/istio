@@ -59,6 +59,18 @@ func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
 		o(c)
 	}
 	if c.stop == nil {
+		panic("x")
+		c.stop = make(chan struct{})
+	}
+	return *c
+}
+
+func buildCollectionOptions2(opts ...CollectionOption) collectionOptions {
+	c := &collectionOptions{}
+	for _, o := range opts {
+		o(c)
+	}
+	if c.stop == nil {
 		c.stop = make(chan struct{})
 	}
 	return *c
