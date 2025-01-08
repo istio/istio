@@ -534,12 +534,14 @@ func handleRule(action security.Action, rule *v1beta1.Rule) ([]*security.Rules, 
 			httpMatch.InsertAll(problems...)
 		}
 		match := &security.Match{
-			SourceIps:     stringToIP(op.IpBlocks),
-			NotSourceIps:  stringToIP(op.NotIpBlocks),
-			Namespaces:    stringToMatch(op.Namespaces),
-			NotNamespaces: stringToMatch(op.NotNamespaces),
-			Principals:    stringToMatch(op.Principals),
-			NotPrincipals: stringToMatch(op.NotPrincipals),
+			SourceIps:          stringToIP(op.IpBlocks),
+			NotSourceIps:       stringToIP(op.NotIpBlocks),
+			Namespaces:         stringToMatch(op.Namespaces),
+			NotNamespaces:      stringToMatch(op.NotNamespaces),
+			ServiceAccounts:    stringToServiceAccountMatch(op.ServiceAccounts),
+			NotServiceAccounts: stringToServiceAccountMatch(op.NotServiceAccounts),
+			Principals:         stringToMatch(op.Principals),
+			NotPrincipals:      stringToMatch(op.NotPrincipals),
 		}
 		fromMatches = append(fromMatches, match)
 	}
@@ -620,6 +622,18 @@ func stringToMatch(rules []string) []*security.StringMatch {
 			}}
 		}
 		res = append(res, sm)
+	}
+	return res
+}
+
+func stringToServiceAccountMatch(rules []string) []*security.ServiceAccountMatch {
+	res := make([]*security.ServiceAccountMatch, 0, len(rules))
+	for _, v := range rules {
+		ns, sa, _ := strings.Cut(v, "/")
+		res = append(res, &security.ServiceAccountMatch{
+			Namespace:      ns,
+			ServiceAccount: sa,
+		})
 	}
 	return res
 }

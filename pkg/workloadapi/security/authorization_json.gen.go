@@ -61,6 +61,17 @@ func (this *Address) UnmarshalJSON(b []byte) error {
 	return AuthorizationUnmarshaler.Unmarshal(bytes.NewReader(b), this)
 }
 
+// MarshalJSON is a custom marshaler for ServiceAccountMatch
+func (this *ServiceAccountMatch) MarshalJSON() ([]byte, error) {
+	str, err := AuthorizationMarshaler.MarshalToString(this)
+	return []byte(str), err
+}
+
+// UnmarshalJSON is a custom unmarshaler for ServiceAccountMatch
+func (this *ServiceAccountMatch) UnmarshalJSON(b []byte) error {
+	return AuthorizationUnmarshaler.Unmarshal(bytes.NewReader(b), this)
+}
+
 // MarshalJSON is a custom marshaler for StringMatch
 func (this *StringMatch) MarshalJSON() ([]byte, error) {
 	str, err := AuthorizationMarshaler.MarshalToString(this)
