@@ -620,6 +620,89 @@ spec:
 			},
 		},
 	})
+	// Contain ever special char allowed in a header
+	absurdHeader := "a!#$%&'*+-.^_`|~z"
+	t.RunTraffic(TrafficTestCase{
+		name: "weird header matches",
+		templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+			return map[string]any{"header": absurdHeader}
+		},
+		config: `
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - {{ .dstSvc }}
+  http:
+  - match:
+    - headers:
+        {{.header|quote}}:
+          exact: why
+    route:
+    - destination:
+        host: {{ .dstSvc }}
+`,
+		workloadAgnostic: true,
+		children: []TrafficCall{
+			{
+				name: "no match",
+				opts: echo.CallOptions{
+					Port:  echo.Port{Name: "http"},
+					HTTP:  echo.HTTP{},
+					Check: check.Status(http.StatusNotFound),
+				},
+			},
+			{
+				name: "match",
+				opts: echo.CallOptions{
+					Port:  echo.Port{Name: "http"},
+					HTTP:  echo.HTTP{Headers: headers.New().With(absurdHeader, "why").Build()},
+					Check: check.OK(),
+				},
+			},
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
+		name: "pseudo header matches",
+		config: `
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - {{ .dstSvc }}
+  http:
+  - match:
+    - headers:
+        :method:
+          exact: GET
+    route:
+    - destination:
+        host: {{ .dstSvc }}
+`,
+		workloadAgnostic: true,
+		children: []TrafficCall{
+			{
+				name: "no match",
+				opts: echo.CallOptions{
+					Port:  echo.Port{Name: "http"},
+					HTTP:  echo.HTTP{Method: "POST"},
+					Check: check.Status(http.StatusNotFound),
+				},
+			},
+			{
+				name: "match",
+				opts: echo.CallOptions{
+					Port:  echo.Port{Name: "http"},
+					HTTP:  echo.HTTP{Method: "GET"},
+					Check: check.OK(),
+				},
+			},
+		},
+	})
 	t.RunTraffic(TrafficTestCase{
 		name: "rewrite uri",
 		config: `
