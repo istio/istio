@@ -56,7 +56,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 		return e.generateDeltasOndemand(proxy, req, w)
 	}
 
-	subs := w.ResourceNames
+	subs := req.Delta.Subscribed
 
 	reqAddresses := addresses
 	if isReq {
@@ -77,11 +77,6 @@ func (e WorkloadGenerator) GenerateDeltas(
 		removed = subs.Difference(have).Merge(removed)
 	}
 
-	proxy.Lock()
-	defer proxy.Unlock()
-	// For wildcard, we record all resources that have been pushed and not removed
-	// It was to correctly calculate removed resources during full push alongside with specific address removed.
-	w.ResourceNames = subs.Merge(have).DeleteAllSet(removed)
 	return resources, removed.UnsortedList(), model.XdsLogDetails{}, true, nil
 }
 
