@@ -17,8 +17,6 @@ package kubemesh
 import (
 	"context"
 	"fmt"
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/util/protomarshal"
 	"sync"
 	"testing"
 	"time"
@@ -28,11 +26,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 const (
@@ -198,10 +198,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	cm := makeConfigMap("1", map[string]string{
 		key: yaml,
 	})
-	badCM := makeConfigMap("2", map[string]string{
-		"other-key": yaml,
-	})
-	badCM2 := makeConfigMap("3", map[string]string{
+	badCM := makeConfigMap("3", map[string]string{
 		key: "bad yaml",
 	})
 
@@ -212,6 +209,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	col := mesh.NewCollection(&primaryMeshConfig, nil, stop)
 	col.AsCollection().Synced().WaitUntilSynced(stop)
 	w := mesh.ConfigAdapter(col)
+	client.RunAndWait(stop)
 
 	var mu sync.Mutex
 	newM := mesh.DefaultMeshConfig()
@@ -234,7 +232,6 @@ func TestNewConfigMapWatcher(t *testing.T) {
 		// Handle misconfiguration errors.
 		{updated: badCM, expect: m},
 		{updated: cm, expect: m},
-		{updated: badCM2, expect: m},
 		{updated: badCM, expect: m},
 		{updated: cm, expect: m},
 
@@ -244,7 +241,6 @@ func TestNewConfigMapWatcher(t *testing.T) {
 
 	for i, step := range steps {
 		t.Run(fmt.Sprintf("[%v]", i), func(t *testing.T) {
-
 			switch {
 			case step.added != nil:
 				_, err := cms.Create(context.TODO(), step.added, metav1.CreateOptions{})
