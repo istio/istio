@@ -82,7 +82,11 @@
       },
       {
         "tag_name": "ai_model",
-        "regex": "^wasmcustom\\..*?\\.model\\.((.*?)\\.)(input_token|output_token)"
+        "regex": "^wasmcustom\\..*?\\.model\\.((.*?)\\.)consumer"
+      },
+      {
+        "tag_name": "ai_consumer",
+        "regex": "^wasmcustom\\..*?\\.consumer\\.((.*?)\\.)metric"
       },
       {{- range $a, $tag := .extraStatTags }}
       {
