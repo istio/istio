@@ -102,8 +102,8 @@ test.integration-fuzz.%.kube: | $(JUNIT_REPORT) check-go-tag
 	$(call run-test,./tests/integration/$(subst .,/,$*)/...,-tags="integfuzz integ")
 
 # Generate presubmit integration test targets for each component in kubernetes environment
-test.integration.%.kube.presubmit:
-	@make test.integration.$*.kube
+test.integration.%.kube.presubmit: test.integration.$*.kube
+	@:
 
 # Run all tests
 .PHONY: test.integration.kube
