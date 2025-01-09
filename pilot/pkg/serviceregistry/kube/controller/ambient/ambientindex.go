@@ -159,7 +159,6 @@ func New(options Options) Index {
 		stop:            make(chan struct{}),
 	}
 
-	MeshConfig := options.MeshConfig
 	filter := kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
 	}
@@ -167,8 +166,8 @@ func New(options Options) Index {
 		stop:     a.stop,
 		debugger: options.Debugger,
 	}
-	// ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, opts.WithName("ConfigMaps")...)
 
+	MeshConfig := options.MeshConfig
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
 		gvr.AuthorizationPolicy, kubetypes.StandardInformer, filter)
 	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, opts.WithName("AuthorizationPolicies")...)
@@ -731,3 +730,5 @@ func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string) func(events [
 		})
 	}
 }
+
+type MeshConfig = meshwatcher.MeshConfigResource
