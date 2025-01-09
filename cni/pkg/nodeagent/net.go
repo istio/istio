@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +26,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/cni/pkg/iptables"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/slices"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -43,6 +43,124 @@ type NetServer struct {
 
 var _ MeshDataplane = &NetServer{}
 
+// ConstructInitialSnapshot is always called first, before Start.
+// It takes a "snapshot" of ambient pods that were already running when the server started, and:
+//
+// - initializes a an internal cache of pod info and netns handles with these existing pods.
+// This cache will also be updated when the K8S informer gets a new pod.
+// This cache represents the "state of the world" of all enrolled pods on the node this agent
+// knows about, and will be sent to any connecting ztunnel as a startup message.
+func (s *NetServer) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {
+	var consErr []error
+
+	podsByUID := slices.GroupUnique(ambientPods, (*corev1.Pod).GetUID)
+	if err := s.buildZtunnelSnapshot(podsByUID); err != nil {
+		log.Warnf("failed to construct initial ztunnel snapshot: %v", err)
+		consErr = append(consErr, err)
+	}
+
+	return errors.Join(consErr...)
+}
+
+// Start starts the ztunnel connection listen server.
+// ConstructInitialSnapshot should always be invoked before this function.
+func (s *NetServer) Start(ctx context.Context) {
+	log.Debug("starting ztunnel server")
+	go s.ztunnelServer.Run(ctx)
+}
+
+// Stop stops the ztunnel connection listen server.
+func (s *NetServer) Stop(_ bool) {
+	log.Debug("stopping ztunnel server")
+	s.ztunnelServer.Close()
+}
+
+// AddPodToMesh adds a pod to mesh by
+// 1. Getting the netns (and making sure the netns is cached in the ztunnel state of the world snapshot)
+// 2. Adding the pod's IPs to the hostnetns ipsets for node probe checks
+// 3. Creating iptables rules inside the pod's netns
+// 4. Notifying the connected ztunnel via GRPC to create a proxy for the pod
+//
+// You may ask why we pass the pod IPs separately from the pod manifest itself (which contains the pod IPs as a field)
+// - this is because during add specifically, if CNI plugins have not finished executing,
+// K8S may get a pod Add event without any IPs in the object, and the pod will later be updated with IPs.
+//
+// We always need the IPs, but this is fine because this AddPodToMesh can be called from the CNI plugin as well,
+// which always has the firsthand info of the IPs, even before K8S does - so we pass them separately here because
+// we actually may have them before K8S in the Pod object.
+func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
+	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
+	log.Infof("adding pod to the mesh")
+	// make sure the cache is aware of the pod, even if we don't have the netns yet.
+	s.currentPodSnapshot.Ensure(string(pod.UID))
+	openNetns, err := s.getOrOpenNetns(pod, netNs)
+	if err != nil {
+		return err
+	}
+
+	podCfg := getPodLevelTrafficOverrides(pod)
+
+	log.Debug("calling CreateInpodRules")
+	if err := s.netnsRunner(openNetns, func() error {
+		return s.podIptables.CreateInpodRules(log, podCfg)
+	}); err != nil {
+		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
+		return err
+	}
+
+	// For *any* failures after calling `CreateInpodRules`, we must return PartialAdd error.
+	// The pod was injected with iptables rules, so it must be annotated as "inpod" - even if
+	// the following fails.
+	// This is so that if it is removed from the mesh, the inpod rules will unconditionally
+	// be removed.
+
+	log.Debug("notifying subscribed node proxies")
+	if err := s.sendPodToZtunnelAndWaitForAck(ctx, pod, openNetns); err != nil {
+		return NewErrPartialAdd(err)
+	}
+	return nil
+}
+
+// RemovePodFromMesh is called when a pod needs to be removed from the mesh.
+//
+// It:
+// - Informs the connected ztunnel that the pod no longer needs to be proxied.
+// - Removes the pod's netns file handle from the cache/state of the world snapshot.
+// - Steps into the pod netns to remove the inpod iptables redirection rules.
+func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error {
+	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
+	log.WithLabels("delete", isDelete).Debugf("removing pod from the mesh")
+
+	// Aggregate errors together, so that if part of the cleanup fails we still proceed with other steps.
+	var errs []error
+
+	// Whether pod is already deleted or not, we need to let go of our netns ref.
+	openNetns := s.currentPodSnapshot.Take(string(pod.UID))
+	if openNetns == nil {
+		log.Debug("failed to find pod netns during removal")
+	}
+
+	// If the pod is already deleted or terminated, we do not need to clean up the pod network -- only the host side.
+	if !isDelete {
+		if openNetns != nil {
+			// pod is removed from the mesh, but is still running. remove iptables rules
+			log.Debugf("calling DeleteInpodRules")
+			if err := s.netnsRunner(openNetns, func() error { return s.podIptables.DeleteInpodRules(log) }); err != nil {
+				return fmt.Errorf("failed to delete inpod rules: %w", err)
+			}
+		} else {
+			log.Warn("pod netns already gone, not deleting inpod rules")
+		}
+	}
+
+	log.Debug("removing pod from ztunnel")
+	if err := s.ztunnelServer.PodDeleted(ctx, string(pod.UID)); err != nil {
+		log.Errorf("failed to delete pod from ztunnel: %v", err)
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
 func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, podIptables *iptables.IptablesConfigurator, podNs PodNetnsFinder) *NetServer {
 	return &NetServer{
 		ztunnelServer:      ztunnelServer,
@@ -51,16 +169,6 @@ func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, podIptab
 		podIptables:        podIptables,
 		netnsRunner:        NetnsDo,
 	}
-}
-
-func (s *NetServer) Start(ctx context.Context) {
-	log.Debug("starting ztunnel server")
-	go s.ztunnelServer.Run(ctx)
-}
-
-func (s *NetServer) Stop(_ bool) {
-	log.Debug("stopping ztunnel server")
-	s.ztunnelServer.Close()
 }
 
 func (s *NetServer) rescanPod(pod *corev1.Pod) error {
@@ -105,70 +213,8 @@ func (s *NetServer) getNetns(pod *corev1.Pod) (Netns, error) {
 	return openNetns, nil
 }
 
-// AddPodToMesh adds a pod to mesh by
-// 1. Getting the netns
-// 2. Adding the pod's IPs to the hostnetns ipsets for node probe checks
-// 3. Creating iptables rules inside the pod's netns
-// 4. Notifying ztunnel via GRPC to create a proxy for the pod
-//
-// You may ask why we pass the pod IPs separately from the pod manifest itself (which contains the pod IPs as a field)
-// - this is because during add specifically, if CNI plugins have not finished executing,
-// K8S may get a pod Add event without any IPs in the object, and the pod will later be updated with IPs.
-//
-// We always need the IPs, but this is fine because this AddPodToMesh can be called from the CNI plugin as well,
-// which always has the firsthand info of the IPs, even before K8S does - so we pass them separately here because
-// we actually may have them before K8S in the Pod object.
-func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
-	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
-	log.Infof("adding pod to the mesh")
-	// make sure the cache is aware of the pod, even if we don't have the netns yet.
-	s.currentPodSnapshot.Ensure(string(pod.UID))
-	openNetns, err := s.getOrOpenNetns(pod, netNs)
-	if err != nil {
-		return err
-	}
-
-	podCfg := getPodLevelTrafficOverrides(pod)
-
-	log.Debug("calling CreateInpodRules")
-	if err := s.netnsRunner(openNetns, func() error {
-		return s.podIptables.CreateInpodRules(log, podCfg)
-	}); err != nil {
-		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
-		return err
-	}
-
-	// For *any* failures after calling `CreateInpodRules`, we must return PartialAdd error.
-	// The pod was injected with iptables rules, so it must be annotated as "inpod" - even if
-	// the following fails.
-	// This is so that if it is removed from the mesh, the inpod rules will unconditionally
-	// be removed.
-
-	log.Debug("notifying subscribed node proxies")
-	if err := s.sendPodToZtunnelAndWaitForAck(ctx, pod, openNetns); err != nil {
-		return NewErrPartialAdd(err)
-	}
-	return nil
-}
-
 func (s *NetServer) sendPodToZtunnelAndWaitForAck(ctx context.Context, pod *corev1.Pod, netns Netns) error {
 	return s.ztunnelServer.PodAdded(ctx, pod, netns)
-}
-
-// ConstructInitialSnapshot takes a "snapshot" of current ambient pods and
-//
-// 1. Constructs a ztunnel state message to initialize ztunnel
-// 2. Syncs the host ipset
-func (s *NetServer) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {
-	var consErr []error
-
-	podsByUID := slices.GroupUnique(ambientPods, (*corev1.Pod).GetUID)
-	if err := s.buildZtunnelSnapshot(podsByUID); err != nil {
-		log.Warnf("failed to construct initial ztunnel snapshot: %v", err)
-		consErr = append(consErr, err)
-	}
-
-	return errors.Join(consErr...)
 }
 
 func (s *NetServer) buildZtunnelSnapshot(ambientPodUIDs map[types.UID]*corev1.Pod) error {
@@ -199,12 +245,11 @@ func getPodLevelTrafficOverrides(pod *corev1.Pod) iptables.PodLevelOverrides {
 	// non-mesh traffic on inbound, and send to the mesh on outbound.
 	// Basically, this just disables inbound redirection.
 	podCfg := iptables.PodLevelOverrides{IngressMode: false}
-	if a, f := pod.Annotations[annotation.AmbientBypassInboundCapture.Name]; f {
-		var err error
-		podCfg.IngressMode, err = strconv.ParseBool(a)
-		if err != nil {
-			log.Warnf("annotation %v=%q found, but only '*' is supported", annotation.AmbientBypassInboundCapture.Name, a)
-		}
+
+	if ingressMode, err := util.CheckBooleanAnnotation(pod, annotation.AmbientBypassInboundCapture.Name); err == nil {
+		podCfg.IngressMode = ingressMode
+	} else {
+		log.Warn(err)
 	}
 
 	if virt, hasVirt := pod.Annotations[annotation.IoIstioRerouteVirtualInterfaces.Name]; hasVirt {
@@ -232,39 +277,4 @@ func realDependenciesInpod(useScopedLocks bool) *dep.RealDependencies {
 		UsePodScopedXtablesLock: useScopedLocks,
 		NetworkNamespace:        "",
 	}
-}
-
-// RemovePodFromMesh is called when a pod needs to be removed from the mesh
-func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error {
-	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
-	log.WithLabels("delete", isDelete).Debugf("removing pod from the mesh")
-
-	// Aggregate errors together, so that if part of the cleanup fails we still proceed with other steps.
-	var errs []error
-
-	// Whether pod is already deleted or not, we need to let go of our netns ref.
-	openNetns := s.currentPodSnapshot.Take(string(pod.UID))
-	if openNetns == nil {
-		log.Debug("failed to find pod netns during removal")
-	}
-
-	// If the pod is already deleted or terminated, we do not need to clean up the pod network -- only the host side.
-	if !isDelete {
-		if openNetns != nil {
-			// pod is removed from the mesh, but is still running. remove iptables rules
-			log.Debugf("calling DeleteInpodRules")
-			if err := s.netnsRunner(openNetns, func() error { return s.podIptables.DeleteInpodRules(log) }); err != nil {
-				return fmt.Errorf("failed to delete inpod rules: %w", err)
-			}
-		} else {
-			log.Warn("pod netns already gone, not deleting inpod rules")
-		}
-	}
-
-	log.Debug("removing pod from ztunnel")
-	if err := s.ztunnelServer.PodDeleted(ctx, string(pod.UID)); err != nil {
-		log.Errorf("failed to delete pod from ztunnel: %v", err)
-		errs = append(errs, err)
-	}
-	return errors.Join(errs...)
 }

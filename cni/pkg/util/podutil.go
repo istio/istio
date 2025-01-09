@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -140,4 +141,23 @@ func GetPodIPsIfPresent(pod *corev1.Pod) []netip.Addr {
 		podIPs = append(podIPs, ip)
 	}
 	return podIPs
+}
+
+// CheckBooleanAnnotation checks for the named boolean-style (as per strcov.ParseBool)
+// annotation on the pod. If not present, or the annotation value is unparsable, returns false.
+// Otherwise, returns true. Returns a non-nil error if annotation value could not be parsed.
+func CheckBooleanAnnotation(pod *corev1.Pod, annotationName string) (bool, error) {
+	val, isPresent := pod.Annotations[annotationName]
+
+	if !isPresent {
+		return false, nil
+	}
+
+	var err error
+	parsedVal, err := strconv.ParseBool(val)
+	if err != nil {
+		return false, fmt.Errorf("annotation %v=%q found, but only boolean values are supported", annotationName, val)
+	}
+
+	return parsedVal, nil
 }
