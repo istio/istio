@@ -361,7 +361,7 @@ func (rb *IptablesRuleBuilder) GetStateFromSave(data string) map[string]map[stri
 			continue
 		}
 
-		// If we're not in a default table, skip processing line
+		// If we are in a non-built-in table, skip processing line
 		if _, exists := result[table]; !exists {
 			continue
 		}
