@@ -117,7 +117,11 @@ func (e WorkloadGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource
 	return resources, details, err
 }
 
-func (e WorkloadGenerator) generateDeltasOndemand(proxy *model.Proxy, req *model.PushRequest, w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+func (e WorkloadGenerator) generateDeltasOndemand(
+	proxy *model.Proxy,
+	req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	isReq := req.IsRequest()
 	subs := w.ResourceNames
 
