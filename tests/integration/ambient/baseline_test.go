@@ -791,7 +791,7 @@ spec:
   portLevelMtls:
     18080:
       mode: PERMISSIVE
-		19090:
+    19090:
       mode: PERMISSIVE
 				`).ApplyOrFail(t)
 				opt := opt.DeepCopy()
