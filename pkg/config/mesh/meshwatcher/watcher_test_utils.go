@@ -16,6 +16,7 @@ package meshwatcher
 
 import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube/krt"
 )
 
@@ -29,8 +30,11 @@ func (w FixedWatcher) Set(n *meshconfig.MeshConfig) {
 }
 
 // NewFixedWatcher creates a new Watcher that always returns the given mesh config.
-func NewFixedWatcher(mesh *meshconfig.MeshConfig) FixedWatcher {
-	col := krt.NewStatic(&MeshConfigResource{mesh}, true)
+func NewFixedWatcher(m *meshconfig.MeshConfig) FixedWatcher {
+	if m == nil {
+		m = mesh.DefaultMeshConfig()
+	}
+	col := krt.NewStatic(&MeshConfigResource{m}, true, krt.WithName("MeshConfig"), krt.WithDebugging(krt.GlobalDebugHandler))
 	a := adapter{col}
 	return FixedWatcher{
 		adapter: a,

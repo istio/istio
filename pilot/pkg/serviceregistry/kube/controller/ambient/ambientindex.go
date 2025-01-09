@@ -208,8 +208,6 @@ func New(options Options) Index {
 		ObjectFilter: options.Client.ObjectFilter(),
 	}, opts.WithName("EndpointSlices")...)
 
-	// MeshConfig := MeshConfigCollection(ConfigMaps, options, opts)
-
 	Networks := buildNetworkCollections(Namespaces, Gateways, options, opts)
 	a.networks = Networks
 	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods, opts)
