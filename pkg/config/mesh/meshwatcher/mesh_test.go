@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/filewatcher"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -49,7 +48,6 @@ func watcherShouldNotifyHandlers(t *testing.T) {
 
 	var newM *meshconfig.MeshConfig
 	w.AddMeshHandler(func() {
-		log.Errorf("howardjohn: mesh handler...")
 		newM = w.Mesh()
 		close(doneCh)
 	})

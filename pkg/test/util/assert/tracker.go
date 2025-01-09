@@ -16,7 +16,6 @@ package assert
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/log"
 	"sync"
 	"time"
 
@@ -61,7 +60,6 @@ func (t *Tracker[T]) WaitOrdered(events ...T) {
 		retry.UntilSuccessOrFail(t.t, func() error {
 			t.mu.Lock()
 			defer t.mu.Unlock()
-			log.Errorf("howardjohn: want %v have %v", event, t.events)
 			if len(t.events) == 0 {
 				return fmt.Errorf("no events")
 			}

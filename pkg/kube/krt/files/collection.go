@@ -19,14 +19,16 @@ type Collection[T any] struct {
 }
 
 func NewCollection[T any](opts ...krt.CollectionOption) Collection[T] {
-	sc := krt.NewStaticCollection[T](nil, opts...)
-	return Collection[T]{sc}
+	panic("not yet implemented")
 }
 
 type Singleton[T any] struct {
 	krt.Singleton[T]
 }
 
+// NewSingleton returns a collection that reads and watches a single file
+// The `readFile` function is used to read and deserialize the file and will be called each time the file changes.
+// This will also be called during the initial construction of the collection; if the initial readFile fails an error is returned.
 func NewSingleton[T any](
 	fileWatcher filewatcher.FileWatcher,
 	filename string,
@@ -42,14 +44,12 @@ func NewSingleton[T any](
 	cur := atomic.NewPointer(&cfg)
 	trigger := krt.NewRecomputeTrigger(true, opts...)
 	sc := krt.NewSingleton[T](func(ctx krt.HandlerContext) *T {
-		log.Errorf("howardjohn: run singleton %v", cur.Load())
 		trigger.MarkDependant(ctx)
 		return cur.Load()
 	}, opts...)
 	// TODO use proper stop.
 	sc.AsCollection().Synced().WaitUntilSynced(stop)
 	watchFile(fileWatcher, filename, stop, func() {
-		log.Errorf("howardjohn: CALL")
 		cfg, err := readFile(filename)
 		if err != nil {
 			log.Warnf("failed to update: %v", err)
@@ -83,10 +83,8 @@ func watchFile(fileWatcher filewatcher.FileWatcher, file string, stop <-chan str
 				return
 			case <-timerC:
 				timerC = nil
-				log.Errorf("howardjohn: CALLBACK")
 				callback()
 			case <-fileWatcher.Events(file):
-				log.Errorf("howardjohn: EVENT")
 				// Use a timer to debounce configuration updates
 				if timerC == nil {
 					timerC = time.After(100 * time.Millisecond)
