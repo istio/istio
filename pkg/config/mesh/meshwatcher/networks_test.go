@@ -67,7 +67,7 @@ func newNetworksWatcher(t *testing.T, filename string) mesh.NetworksWatcher {
 	})
 	fs, err := meshwatcher.NewFileSource(w, filename, test.NewStop(t))
 	assert.NoError(t, err)
-	col := meshwatcher.NewNetworksCollection(&fs, nil, test.NewStop(t))
+	col := meshwatcher.NewNetworksCollection(test.NewStop(t), fs)
 	col.AsCollection().Synced().WaitUntilSynced(test.NewStop(t))
 	return meshwatcher.NetworksAdapter(col)
 }

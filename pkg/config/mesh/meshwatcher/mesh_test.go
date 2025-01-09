@@ -77,7 +77,7 @@ func newWatcher(t testing.TB, filename string) mesh.Watcher {
 	stop := test.NewStop(t)
 	fs, err := meshwatcher.NewFileSource(w, filename, stop)
 	assert.NoError(t, err)
-	col := meshwatcher.NewCollection(&fs, nil, stop)
+	col := meshwatcher.NewCollection( stop, fs)
 
 	col.AsCollection().Synced().WaitUntilSynced(stop)
 	return meshwatcher.ConfigAdapter(col)

@@ -61,6 +61,14 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	s.environment.Watcher = meshwatcher.ConfigAdapter(col)
 }
 
+func toSources(base meshwatcher.MeshConfigSource, user *meshwatcher.MeshConfigSource) []meshwatcher.MeshConfigSource {
+	if user != nil {
+		// User configuration is applied first
+		return []meshwatcher.MeshConfigSource{*user, base}
+	}
+	return []meshwatcher.MeshConfigSource{base}
+}
+
 func (s *Server) getMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) krt.Singleton[meshwatcher.MeshConfigResource] {
 	// Watcher will be merging more than one mesh config source?
 	var userMeshConfig *meshwatcher.MeshConfigSource
@@ -70,18 +78,18 @@ func (s *Server) getMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.F
 	if _, err := os.Stat(args.MeshConfigFile); !os.IsNotExist(err) {
 		fileSource, err := meshwatcher.NewFileSource(fileWatcher, args.MeshConfigFile, s.internalStop)
 		if err == nil {
-			return meshwatcher.NewCollection(&fileSource, userMeshConfig, s.internalStop)
+			return meshwatcher.NewCollection(s.internalStop, toSources(fileSource, userMeshConfig)...)
 		}
 	}
 
 	if s.kubeClient == nil {
 		// Use a default mesh.
 		log.Warnf("Using default mesh - missing file %s and no k8s client", args.MeshConfigFile)
-		return meshwatcher.NewCollection(nil, nil, s.internalStop)
+		return meshwatcher.NewCollection(s.internalStop)
 	}
 	configMapName := getMeshConfigMapName(args.Revision)
 	primary := kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, configMapName, kubemesh.MeshConfigKey, s.internalStop)
-	return meshwatcher.NewCollection(&primary, userMeshConfig, s.internalStop)
+	return meshwatcher.NewCollection(s.internalStop, toSources(primary, userMeshConfig)...)
 }
 
 func (s *Server) getMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) krt.Singleton[meshwatcher.MeshNetworksResource] {
@@ -93,18 +101,18 @@ func (s *Server) getMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWa
 	if _, err := os.Stat(args.NetworksConfigFile); !os.IsNotExist(err) {
 		fileSource, err := meshwatcher.NewFileSource(fileWatcher, args.NetworksConfigFile, s.internalStop)
 		if err == nil {
-			return meshwatcher.NewNetworksCollection(&fileSource, userMeshConfig, s.internalStop)
+			return meshwatcher.NewNetworksCollection(s.internalStop, toSources(fileSource, userMeshConfig)...)
 		}
 	}
 
 	if s.kubeClient == nil {
 		// Use a default mesh.
 		log.Warnf("Using default mesh - missing file %s and no k8s client", args.MeshConfigFile)
-		return meshwatcher.NewNetworksCollection(nil, nil, s.internalStop)
+		return meshwatcher.NewNetworksCollection(s.internalStop)
 	}
 	configMapName := getMeshConfigMapName(args.Revision)
 	primary := kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, configMapName, kubemesh.MeshNetworksKey, s.internalStop)
-	return meshwatcher.NewNetworksCollection(&primary, userMeshConfig, s.internalStop)
+	return meshwatcher.NewNetworksCollection(s.internalStop, toSources(primary, userMeshConfig)...)
 }
 
 // initMeshNetworks loads the mesh networks configuration from the file provided

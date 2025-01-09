@@ -23,18 +23,16 @@ func NewFileSource(fileWatcher filewatcher.FileWatcher, filename string, stop <-
 	}, krt.WithName("Mesh_File_"+path.Base(filename)), krt.WithStop(stop))
 }
 
-func NewCollection(primary *MeshConfigSource, secondary *MeshConfigSource, stop <-chan struct{}) krt.Singleton[MeshConfigResource] {
+// NewCollection builds a new mesh config built by applying the provided sources.
+// Sources are applied in order (example: default < sources[0] < sources[1]).
+func NewCollection(stop <-chan struct{}, sources ...MeshConfigSource) krt.Singleton[MeshConfigResource] {
 	return krt.NewSingleton[MeshConfigResource](
 		func(ctx krt.HandlerContext) *MeshConfigResource {
 			meshCfg := mesh.DefaultMeshConfig()
 
 			log.Errorf("howardjohn: computing collection!")
-			for _, attempt := range []*MeshConfigSource{secondary, primary} {
-				if attempt == nil {
-					// Source is not specified, skip it
-					continue
-				}
-				s := krt.FetchOne(ctx, (*attempt).AsCollection())
+			for _, attempt := range sources {
+				s := krt.FetchOne(ctx, attempt.AsCollection())
 				log.Errorf("howardjohn: got source %v", s)
 				if s == nil {
 					// Source specified but not giving us any data
@@ -43,9 +41,14 @@ func NewCollection(primary *MeshConfigSource, secondary *MeshConfigSource, stop 
 				log.Errorf("howardjohn: merge in config %v", *s)
 				n, err := mesh.ApplyMeshConfig(*s, meshCfg)
 				if err != nil {
-					log.Warnf("invalid mesh config, using last known state: %v", err)
-					ctx.DiscardResult()
-					return nil
+					if len(sources) == 1 {
+						log.Warnf("invalid mesh config, using last known state: %v", err)
+						ctx.DiscardResult()
+						return nil
+					} else {
+						log.Warnf("invalid mesh config, ignoring: %v", err)
+						continue
+					}
 				}
 				meshCfg = n
 			}
@@ -55,14 +58,13 @@ func NewCollection(primary *MeshConfigSource, secondary *MeshConfigSource, stop 
 	)
 }
 
-func NewNetworksCollection(primary *MeshConfigSource, secondary *MeshConfigSource, stop <-chan struct{}) krt.Singleton[MeshNetworksResource] {
+// NewNetworksCollection builds a new meshnetworks config built by applying the provided sources.
+// Sources are applied in order (example: default < sources[0] < sources[1]).
+func NewNetworksCollection(stop <-chan struct{}, sources ...MeshConfigSource) krt.Singleton[MeshNetworksResource] {
 	return krt.NewSingleton[MeshNetworksResource](
 		func(ctx krt.HandlerContext) *MeshNetworksResource {
-			for _, attempt := range []*MeshConfigSource{secondary, primary} {
-				if attempt == nil {
-					continue
-				}
-				if s := krt.FetchOne(ctx, (*attempt).AsCollection()); s != nil {
+			for _, attempt := range sources {
+				if s := krt.FetchOne(ctx, attempt.AsCollection()); s != nil {
 					n, err := mesh.ParseMeshNetworks(*s)
 					if err != nil {
 						log.Warnf("invalid mesh networks, using last known state: %v", err)

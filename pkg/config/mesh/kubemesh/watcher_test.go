@@ -75,7 +75,7 @@ func TestExtraConfigmap(t *testing.T) {
 		stop := test.NewStop(t)
 		primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, stop)
 		userMeshConfig := NewConfigMapSource(client, namespace, extraCmName, MeshConfigKey, stop)
-		col := meshwatcher.NewCollection(&primaryMeshConfig, &userMeshConfig, stop)
+		col := meshwatcher.NewCollection(stop, userMeshConfig, primaryMeshConfig)
 		col.AsCollection().Synced().WaitUntilSynced(stop)
 		w := meshwatcher.ConfigAdapter(col)
 
@@ -207,7 +207,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
 	stop := test.NewStop(t)
 	primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, stop)
-	col := meshwatcher.NewCollection(&primaryMeshConfig, nil, stop)
+	col := meshwatcher.NewCollection(stop, primaryMeshConfig)
 	col.AsCollection().Synced().WaitUntilSynced(stop)
 	w := meshwatcher.ConfigAdapter(col)
 	client.RunAndWait(stop)
