@@ -63,8 +63,8 @@ func NewNetworksCollection(primary *MeshConfigSource, secondary *MeshConfigSourc
 				if s := krt.FetchOne(ctx, (*attempt).AsCollection()); s != nil {
 					n, err := ParseMeshNetworks(*s)
 					if err != nil {
-						log.Error(err)
-						// TODO!!!
+						log.Warnf("invalid mesh networks, using last known state: %v", err)
+						ctx.DiscardResult()
 						return nil
 					}
 					return &MeshNetworksResource{n}

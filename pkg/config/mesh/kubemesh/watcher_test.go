@@ -17,6 +17,8 @@ package kubemesh
 import (
 	"context"
 	"fmt"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/util/protomarshal"
 	"sync"
 	"testing"
 	"time"
@@ -25,11 +27,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -79,12 +79,6 @@ func TestExtraConfigmap(t *testing.T) {
 		w := mesh.ConfigAdapter(col)
 
 		client.RunAndWait(stop)
-		t.Cleanup(func() {
-			if t.Failed() {
-				b, _ := yaml.Marshal(krt.GlobalDebugHandler)
-				t.Log(string(b))
-			}
-		})
 		return cms, w
 	}
 
@@ -194,7 +188,6 @@ func assertMeshConfig(t *testing.T, w mesh.Watcher, v string) {
 	assert.EventuallyEqual(t, func() string { return w.Mesh().GetIngressClass() }, v, retry.Delay(time.Millisecond), retry.Timeout(time.Second))
 }
 
-/*
 func TestNewConfigMapWatcher(t *testing.T) {
 	yaml := "trustDomain: something.new"
 	m, err := mesh.ApplyMeshConfigDefaults(yaml)
@@ -215,8 +208,10 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	client := kube.NewFakeClient()
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
 	stop := test.NewStop(t)
-	w := NewConfigMapWatcher(client, namespace, name, key, false, stop)
-	client.RunAndWait(stop)
+	primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, stop)
+	col := mesh.NewCollection(&primaryMeshConfig, nil, stop)
+	col.AsCollection().Synced().WaitUntilSynced(stop)
+	w := mesh.ConfigAdapter(col)
 
 	var mu sync.Mutex
 	newM := mesh.DefaultMeshConfig()
@@ -249,27 +244,24 @@ func TestNewConfigMapWatcher(t *testing.T) {
 
 	for i, step := range steps {
 		t.Run(fmt.Sprintf("[%v]", i), func(t *testing.T) {
-			g := NewWithT(t)
 
 			switch {
 			case step.added != nil:
 				_, err := cms.Create(context.TODO(), step.added, metav1.CreateOptions{})
-				g.Expect(err).Should(BeNil())
+				assert.NoError(t, err)
 			case step.updated != nil:
 				_, err := cms.Update(context.TODO(), step.updated, metav1.UpdateOptions{})
-				g.Expect(err).Should(BeNil())
+				assert.NoError(t, err)
 			case step.deleted != nil:
-				g.Expect(cms.Delete(context.TODO(), step.deleted.Name, metav1.DeleteOptions{})).
-					Should(Succeed())
+				assert.NoError(t, cms.Delete(context.TODO(), step.deleted.Name, metav1.DeleteOptions{}))
 			}
 
-			retry.UntilOrFail(t, func() bool { return cmp.Equal(w.Mesh(), step.expect, protocmp.Transform()) })
-			retry.UntilOrFail(t, func() bool {
+			assert.EventuallyEqual(t, w.Mesh, step.expect)
+			assert.EventuallyEqual(t, func() *meshconfig.MeshConfig {
 				mu.Lock()
 				defer mu.Unlock()
-				return cmp.Equal(newM, step.expect, protocmp.Transform())
-			})
+				return protomarshal.Clone(newM)
+			}, step.expect)
 		})
 	}
 }
-*/
