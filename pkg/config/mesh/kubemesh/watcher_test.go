@@ -28,6 +28,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -74,9 +75,9 @@ func TestExtraConfigmap(t *testing.T) {
 		stop := test.NewStop(t)
 		primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, stop)
 		userMeshConfig := NewConfigMapSource(client, namespace, extraCmName, MeshConfigKey, stop)
-		col := mesh.NewCollection(&primaryMeshConfig, &userMeshConfig, stop)
+		col := meshwatcher.NewCollection(&primaryMeshConfig, &userMeshConfig, stop)
 		col.AsCollection().Synced().WaitUntilSynced(stop)
-		w := mesh.ConfigAdapter(col)
+		w := meshwatcher.ConfigAdapter(col)
 
 		client.RunAndWait(stop)
 		return cms, w
@@ -206,9 +207,9 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
 	stop := test.NewStop(t)
 	primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, stop)
-	col := mesh.NewCollection(&primaryMeshConfig, nil, stop)
+	col := meshwatcher.NewCollection(&primaryMeshConfig, nil, stop)
 	col.AsCollection().Synced().WaitUntilSynced(stop)
-	w := mesh.ConfigAdapter(col)
+	w := meshwatcher.ConfigAdapter(col)
 	client.RunAndWait(stop)
 
 	var mu sync.Mutex

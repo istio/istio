@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -34,7 +34,7 @@ import (
 )
 
 func newFakeController() (model.ConfigStoreController, kube.Client) {
-	meshHolder := mesh.NewTestWatcher(&meshconfig.MeshConfig{
+	meshHolder := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
 		IngressControllerMode: meshconfig.MeshConfig_DEFAULT,
 	})
 	fakeClient := kube.NewFakeClient()

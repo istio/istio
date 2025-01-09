@@ -56,6 +56,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -191,7 +192,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			NetworksWatcher: opts.NetworksWatcher,
 			SkipRun:         true,
 			ConfigCluster:   k8sCluster == opts.DefaultClusterName,
-			MeshWatcher:     mesh.NewFixedWatcher(m),
+			MeshWatcher:     meshwatcher.NewFixedWatcher(m),
 			CRDs: []schema.GroupVersionResource{
 				// Install all CRDs used (mostly in Ambient)
 				gvr.AuthorizationPolicy,
@@ -217,7 +218,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	stop := test.NewStop(t)
-	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
+	ingr := ingress.NewController(defaultKubeClient, meshwatcher.NewFixedWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	})
 	defaultKubeClient.RunAndWait(stop)

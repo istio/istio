@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesh_test
+package meshwatcher_test
 
 import (
 	"os"
@@ -24,6 +24,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
@@ -32,20 +33,16 @@ import (
 )
 
 func TestWatcherShouldNotifyHandlers(t *testing.T) {
-	watcherShouldNotifyHandlers(t, false)
+	watcherShouldNotifyHandlers(t)
 }
 
-func TestMultiWatcherShouldNotifyHandlers(t *testing.T) {
-	watcherShouldNotifyHandlers(t, true)
-}
-
-func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
+func watcherShouldNotifyHandlers(t *testing.T) {
 	path := newTempFile(t)
 
 	m := mesh.DefaultMeshConfig()
 	writeMessage(t, path, m)
 
-	w := newWatcher(t, path, multi)
+	w := newWatcher(t, path)
 	assert.Equal(t, w.Mesh(), m)
 
 	doneCh := make(chan struct{}, 1)
@@ -71,19 +68,19 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 	}
 }
 
-func newWatcher(t testing.TB, filename string, multi bool) mesh.Watcher {
+func newWatcher(t testing.TB, filename string) mesh.Watcher {
 	t.Helper()
 	w := filewatcher.NewWatcher()
 	t.Cleanup(func() {
 		w.Close()
 	})
 	stop := test.NewStop(t)
-	fs, err := mesh.NewFileSource(w, filename, stop)
+	fs, err := meshwatcher.NewFileSource(w, filename, stop)
 	assert.NoError(t, err)
-	col := mesh.NewCollection(&fs, nil, stop)
+	col := meshwatcher.NewCollection(&fs, nil, stop)
 
 	col.AsCollection().Synced().WaitUntilSynced(stop)
-	return mesh.ConfigAdapter(col)
+	return meshwatcher.ConfigAdapter(col)
 }
 
 func newTempFile(t testing.TB) string {
@@ -115,31 +112,5 @@ func writeFile(t testing.TB, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o666); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func removeSilent(path string) {
-	_ = os.RemoveAll(path)
-}
-
-func BenchmarkGetMesh(b *testing.B) {
-	b.StopTimer()
-
-	path := newTempFile(b)
-	defer removeSilent(path)
-
-	m := mesh.DefaultMeshConfig()
-	writeMessage(b, path, m)
-
-	w := newWatcher(b, path, false)
-
-	b.StartTimer()
-
-	handler := func(mc *meshconfig.MeshConfig) {
-		// Do nothing
-	}
-
-	for i := 0; i < b.N; i++ {
-		handler(w.Mesh())
 	}
 }

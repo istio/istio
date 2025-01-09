@@ -340,21 +340,3 @@ func ReadMeshConfigData(filename string) (string, error) {
 	}
 	return string(yaml), nil
 }
-
-// readMeshConfigResource gets mesh configuration from a config file
-func readMeshConfigResource(filename string) (MeshConfigResource, error) {
-	mc, err := ReadMeshConfig(filename)
-	if err != nil {
-		return MeshConfigResource{}, err
-	}
-	return MeshConfigResource{mc}, nil
-}
-
-// readMeshNetworksResource gets mesh configuration from a config file
-func readMeshNetworksResource(filename string) (MeshNetworksResource, error) {
-	mn, err := ReadMeshNetworks(filename)
-	if err != nil {
-		return MeshNetworksResource{}, err
-	}
-	return MeshNetworksResource{mn}, nil
-}

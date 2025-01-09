@@ -12,15 +12,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesh
+package meshwatcher
 
 import (
 	"errors"
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube/krt"
 )
+
+// NewFixedWatcher creates a new Watcher that always returns the given mesh config. It will never
+// fire any events, since the config never changes.
+func NewFixedWatcher(mesh *meshconfig.MeshConfig) mesh.Watcher {
+	return adapter{krt.NewStatic(&MeshConfigResource{mesh}, true)}
+}
+
+type FixedNetworksWatcher struct {
+	networksAdapter
+	col krt.StaticSingleton[MeshNetworksResource]
+}
+
+func (w FixedNetworksWatcher) SetNetworks(n *meshconfig.MeshNetworks) {
+	w.col.Set(&MeshNetworksResource{n})
+}
+
+// NewFixedNetworksWatcher creates a new NetworksWatcher that always returns the given config.
+// It will never fire any events, since the config never changes.
+func NewFixedNetworksWatcher(networks *meshconfig.MeshNetworks) FixedNetworksWatcher {
+	col := krt.NewStatic(&MeshNetworksResource{networks}, true)
+	a := networksAdapter{col}
+	return FixedNetworksWatcher{
+		networksAdapter: a,
+		col:             col,
+	}
+}
 
 // only used for testing, exposes a blocking Update method that allows test environments to trigger meshConfig updates
 type TestWatcher struct {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesh_test
+package meshwatcher_test
 
 import (
 	"testing"
@@ -20,6 +20,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -27,7 +28,6 @@ import (
 
 func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
 	path := newTempFile(t)
-	defer removeSilent(path)
 
 	n := meshconfig.MeshNetworks{
 		Networks: make(map[string]*meshconfig.Network),
@@ -65,9 +65,9 @@ func newNetworksWatcher(t *testing.T, filename string) mesh.NetworksWatcher {
 	t.Cleanup(func() {
 		w.Close()
 	})
-	fs, err := mesh.NewFileSource(w, filename, test.NewStop(t))
+	fs, err := meshwatcher.NewFileSource(w, filename, test.NewStop(t))
 	assert.NoError(t, err)
-	col := mesh.NewNetworksCollection(&fs, nil, test.NewStop(t))
+	col := meshwatcher.NewNetworksCollection(&fs, nil, test.NewStop(t))
 	col.AsCollection().Synced().WaitUntilSynced(test.NewStop(t))
-	return mesh.NetworksAdapter(col)
+	return meshwatcher.NetworksAdapter(col)
 }

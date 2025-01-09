@@ -12,38 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesh
+package meshwatcher
 
 import (
 	uatomic "go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/util/protomarshal"
 )
-
-// Holder of a mesh configuration.
-type Holder interface {
-	Mesh() *meshconfig.MeshConfig
-}
-
-// Watcher is a Holder whose mesh config can be updated asynchronously.
-type Watcher interface {
-	Holder
-
-	// AddMeshHandler registers a callback handler for changes to the mesh config.
-	AddMeshHandler(h func()) *WatcherHandlerRegistration
-
-	// DeleteMeshHandler unregisters a callback handler when remote cluster is removed.
-	DeleteMeshHandler(registration *WatcherHandlerRegistration)
-}
-
-// NewFixedWatcher creates a new Watcher that always returns the given mesh config. It will never
-// fire any events, since the config never changes.
-func NewFixedWatcher(mesh *meshconfig.MeshConfig) Watcher {
-	return adapter{krt.NewStatic(&MeshConfigResource{mesh}, true)}
-}
 
 type adapter struct {
 	krt.Singleton[MeshConfigResource]
@@ -54,13 +33,11 @@ func (a adapter) Mesh() *meshconfig.MeshConfig {
 	return v.MeshConfig
 }
 
-func (a adapter) AddMeshHandler(h func()) *WatcherHandlerRegistration {
+func (a adapter) AddMeshHandler(h func()) *mesh.WatcherHandlerRegistration {
 	active := uatomic.NewBool(true)
-	reg := &WatcherHandlerRegistration{
-		remove: func() {
-			active.Store(false)
-		},
-	}
+	reg := mesh.NewWatcherHandlerRegistration(func() {
+		active.Store(false)
+	})
 	// Do not run initial state to match existing semantics
 	a.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshConfigResource], initialSync bool) {
 		if active.Load() {
@@ -70,11 +47,11 @@ func (a adapter) AddMeshHandler(h func()) *WatcherHandlerRegistration {
 	return reg
 }
 
-func (a adapter) DeleteMeshHandler(registration *WatcherHandlerRegistration) {
-	registration.remove()
+func (a adapter) DeleteMeshHandler(registration *mesh.WatcherHandlerRegistration) {
+	registration.Remove()
 }
 
-var _ Watcher = adapter{}
+var _ mesh.Watcher = adapter{}
 
 func PrettyFormatOfMeshConfig(meshConfig *meshconfig.MeshConfig) string {
 	meshConfigDump, _ := protomarshal.ToJSONWithIndent(meshConfig, "    ")
@@ -101,10 +78,10 @@ func (m MeshNetworksResource) Equals(other MeshNetworksResource) bool {
 	return proto.Equal(m.MeshNetworks, other.MeshNetworks)
 }
 
-func ConfigAdapter(configuration krt.Singleton[MeshConfigResource]) Watcher {
+func ConfigAdapter(configuration krt.Singleton[MeshConfigResource]) mesh.Watcher {
 	return adapter{configuration}
 }
 
-func NetworksAdapter(configuration krt.Singleton[MeshNetworksResource]) NetworksWatcher {
+func NetworksAdapter(configuration krt.Singleton[MeshNetworksResource]) mesh.NetworksWatcher {
 	return networksAdapter{configuration}
 }

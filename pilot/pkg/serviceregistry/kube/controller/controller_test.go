@@ -46,7 +46,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
@@ -71,7 +71,7 @@ func eventually(t test.Failer, cond func() bool) {
 }
 
 func TestServices(t *testing.T) {
-	networksWatcher := mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
+	networksWatcher := meshwatcher.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 		Networks: map[string]*meshconfig.Network{
 			"network1": {
 				Endpoints: []*meshconfig.Network_NetworkEndpoints{
@@ -1098,7 +1098,7 @@ func TestController_Service(t *testing.T) {
 }
 
 func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
-	meshWatcher := mesh.NewFixedWatcher(&meshconfig.MeshConfig{
+	meshWatcher := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{
 		DiscoverySelectors: []*meshconfig.LabelSelector{
 			{
 				MatchLabels: map[string]string{
@@ -1267,7 +1267,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		meshConfig *meshconfig.MeshConfig,
 		expectedSvcList []*model.Service,
 		expectedNumSvcEvents int,
-		testMeshWatcher *mesh.TestWatcher,
+		testMeshWatcher *meshwatcher.TestWatcher,
 		fx *xdsfake.Updater,
 		controller *FakeController,
 	) {
@@ -1287,7 +1287,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		})
 	}
 
-	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 
 	nsA := "nsA"
 	nsB := "nsB"
@@ -1444,7 +1444,7 @@ func TestControllerResourceScoping(t *testing.T) {
 		meshConfig *meshconfig.MeshConfig,
 		expectedSvcList []*model.Service,
 		expectedNumSvcEvents int,
-		testMeshWatcher *mesh.TestWatcher,
+		testMeshWatcher *meshwatcher.TestWatcher,
 		fx *xdsfake.Updater,
 		controller *FakeController,
 	) {
@@ -1467,7 +1467,7 @@ func TestControllerResourceScoping(t *testing.T) {
 
 	client := kubelib.NewFakeClient()
 	t.Cleanup(client.Shutdown)
-	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 
 	nsA := "nsA"
 	nsB := "nsB"
@@ -2471,7 +2471,7 @@ func TestVisibilityNoneService(t *testing.T) {
 }
 
 func TestDiscoverySelector(t *testing.T) {
-	networksWatcher := mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
+	networksWatcher := meshwatcher.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 		Networks: map[string]*meshconfig.Network{
 			"network1": {
 				Endpoints: []*meshconfig.Network_NetworkEndpoints{

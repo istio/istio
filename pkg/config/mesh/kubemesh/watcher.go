@@ -15,12 +15,14 @@
 package kubemesh
 
 import (
+	"fmt"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
@@ -32,7 +34,7 @@ const (
 	MeshNetworksKey = "meshNetworks"
 )
 
-func NewConfigMapSource(client kube.Client, namespace, name, key string, stop <-chan struct{}) mesh.MeshConfigSource {
+func NewConfigMapSource(client kube.Client, namespace, name, key string, stop <-chan struct{}) meshwatcher.MeshConfigSource {
 	clt := kclient.NewFiltered[*v1.ConfigMap](client, kclient.Filter{
 		Namespace:     namespace,
 		FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String(),
@@ -48,7 +50,7 @@ func NewConfigMapSource(client kube.Client, namespace, name, key string, stop <-
 	return krt.NewSingleton(func(ctx krt.HandlerContext) *string {
 		cm := ptr.Flatten(krt.FetchOne(ctx, cms, krt.FilterKey(cmKey)))
 		return meshConfigMapData(cm, key)
-	}, krt.WithName("ConfigMap_"+key), krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler))
+	}, krt.WithName(fmt.Sprintf("ConfigMap_%s_%s", name, key)), krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler))
 }
 
 func meshConfigMapData(cm *v1.ConfigMap, key string) *string {
