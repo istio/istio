@@ -58,6 +58,7 @@ import (
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/util/smallset"
 )
 
 // Constants for duration fields
@@ -75,7 +76,7 @@ var (
 	tchars               = "!#$%&'*+-.^_`|~" + "A-Z" + "a-z" + "0-9"
 	validHeaderNameRegex = regexp.MustCompile("^[" + tchars + "]+$")
 
-	validProbeHeaderNameRegex = regexp.MustCompile("^[-A-Za-z0-9]+$")
+	validProbeHeaderNameRegex  = regexp.MustCompile("^[-A-Za-z0-9]+$")
 	validStrictHeaderNameRegex = validProbeHeaderNameRegex
 )
 
@@ -271,6 +272,15 @@ func ValidateCORSHTTPHeaderName(name string) error {
 	return nil
 }
 
+// https://httpwg.org/specs/rfc7540.html#PseudoHeaderFields
+var pseudoHeaders = smallset.New(
+	":method",
+	":scheme",
+	":authority",
+	":path",
+	":status",
+)
+
 // ValidateHTTPHeaderNameOrJwtClaimRoute validates a header name, allowing special @request.auth.claims syntax
 func ValidateHTTPHeaderNameOrJwtClaimRoute(name string) error {
 	if name == "" {
@@ -278,6 +288,10 @@ func ValidateHTTPHeaderNameOrJwtClaimRoute(name string) error {
 	}
 	if jwt.ToRoutingClaim(name).Match {
 		// Jwt claim form
+		return nil
+	}
+	if pseudoHeaders.Contains(name) {
+		// Valid pseudo header
 		return nil
 	}
 	// Else ensure its a valid header
