@@ -304,7 +304,7 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	redirectDNS := cfg.cfg.RedirectDNS
 	// How many DNS flags do we have? Three DNS flags! AH AH AH AH
-	if redirectDNS && cfg.cfg.CaptureAllDNS == false && len(cfg.cfg.DNSServersV4) == 0 && len(cfg.cfg.DNSServersV6) == 0 {
+	if redirectDNS && !cfg.cfg.CaptureAllDNS && len(cfg.cfg.DNSServersV4) == 0 && len(cfg.cfg.DNSServersV6) == 0 {
 		log.Warn("REDIRECT_DNS is set, but CAPTURE_ALL_DNS is false, and no DNS servers provided. DNS capture disabled.")
 		redirectDNS = false
 	}
