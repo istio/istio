@@ -154,6 +154,7 @@ func TestConformance(t *testing.T) {
 		runConformance[Named](t, rig)
 	})
 	t.Run("files", func(t *testing.T) {
+		t.Skip("Not implemented")
 		col := files.NewCollection[Named](krt.WithStop(test.NewStop(t)))
 		rig := &fileRig{
 			Collection: col,

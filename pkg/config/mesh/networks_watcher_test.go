@@ -15,18 +15,15 @@
 package mesh_test
 
 import (
-	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/util/assert"
 	"testing"
 	"time"
-
-	. "github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
-
 
 func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
 	path := newTempFile(t)
@@ -64,8 +61,13 @@ func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
 
 func newNetworksWatcher(t *testing.T, filename string) mesh.NetworksWatcher {
 	t.Helper()
-	fs, err := mesh.NewFileSource(filewatcher.NewWatcher(), filename, test.NewStop(t))
+	w := filewatcher.NewWatcher()
+	t.Cleanup(func() {
+		w.Close()
+	})
+	fs, err := mesh.NewFileSource(w, filename, test.NewStop(t))
 	assert.NoError(t, err)
 	col := mesh.NewNetworksCollection(&fs, nil, test.NewStop(t))
+	col.AsCollection().Synced().WaitUntilSynced(test.NewStop(t))
 	return mesh.NetworksAdapter(col)
 }

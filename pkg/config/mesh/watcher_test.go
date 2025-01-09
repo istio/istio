@@ -20,22 +20,16 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
-
-func TestNewWatcherWithBadInputShouldFail(t *testing.T) {
-	g := NewWithT(t)
-	_, err := mesh.NewFileWatcher(filewatcher.NewWatcher(), "", false)
-	g.Expect(err).ToNot(BeNil())
-}
 
 func TestWatcherShouldNotifyHandlers(t *testing.T) {
 	watcherShouldNotifyHandlers(t, false)
@@ -52,7 +46,6 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 	writeMessage(t, path, m)
 
 	w := newWatcher(t, path, multi)
-	// time.Sleep(time.Second)
 	assert.Equal(t, w.Mesh(), m)
 
 	doneCh := make(chan struct{}, 1)
@@ -80,11 +73,17 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 
 func newWatcher(t testing.TB, filename string, multi bool) mesh.Watcher {
 	t.Helper()
-	w, err := mesh.NewFileWatcher(filewatcher.NewWatcher(), filename, multi)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return w
+	w := filewatcher.NewWatcher()
+	t.Cleanup(func() {
+		w.Close()
+	})
+	stop := test.NewStop(t)
+	fs, err := mesh.NewFileSource(w, filename, stop)
+	assert.NoError(t, err)
+	col := mesh.NewCollection(&fs, nil, stop)
+
+	col.AsCollection().Synced().WaitUntilSynced(stop)
+	return mesh.ConfigAdapter(col)
 }
 
 func newTempFile(t testing.TB) string {

@@ -17,8 +17,6 @@ package kubemesh
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/kube/krt"
-	"sigs.k8s.io/yaml"
 	"sync"
 	"testing"
 	"time"
@@ -27,9 +25,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -78,6 +78,7 @@ func TestExtraConfigmap(t *testing.T) {
 		col.AsCollection().Synced().WaitUntilSynced(stop)
 		w := mesh.ConfigAdapter(col)
 
+		client.RunAndWait(stop)
 		t.Cleanup(func() {
 			if t.Failed() {
 				b, _ := yaml.Marshal(krt.GlobalDebugHandler)

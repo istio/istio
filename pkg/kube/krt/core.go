@@ -129,6 +129,10 @@ func (e Event[T]) Latest() T {
 // This can be used with Fetch to dynamically query for resources.
 // Note: this doesn't expose Fetch as a method, as Go generics do not support arbitrary generic types on methods.
 type HandlerContext interface {
+	// DiscardResult triggers the result of this invocation to be skipped
+	// This allows a collection to mark that the current state is *invalid* and should use the last-known state.
+	// Note this differs from returning `nil`, which would otherwise wipe out the last known state.
+	DiscardResult()
 	// _internalHandler is an interface that can only be implemented by this package.
 	_internalHandler()
 }
@@ -151,6 +155,8 @@ type (
 	TransformationMulti[I, O any] func(ctx HandlerContext, i I) []O
 	// TransformationEmptyToMulti represents a singleton operator that returns a set of objects. There are no inputs.
 	TransformationEmptyToMulti[T any] func(ctx HandlerContext) []T
+	// transformationMultiInternal is like TransformationMulti but takes an additional
+	transformationMultiInternal[I, O any] func(ctx HandlerContext, i I) ([]O, bool)
 )
 
 // Key is a string, but with a type associated to avoid mixing up keys

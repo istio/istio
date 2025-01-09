@@ -356,8 +356,13 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		i := a.Latest()
 		iKey := getTypedKey(i)
 
-		ctx := &collectionDependencyTracker[I, O]{h, nil, iKey}
-		results := slices.GroupUnique(h.transformation(ctx, i), getTypedKey[O])
+		ctx := &collectionDependencyTracker[I, O]{manyCollection: h, key: iKey}
+		res := h.transformation(ctx, i)
+		if ctx.discardResult {
+			h.log.WithLabels("iKey", iKey).Errorf("discarding result")
+			continue
+		}
+		results := slices.GroupUnique(res, getTypedKey[O])
 		recomputedResults[idx] = results
 		// Store new dependency state, to insert in the next loop under the lock
 		pendingDepStateUpdates[iKey] = ctx
@@ -393,7 +398,12 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 			delete(h.collectionState.inputs, iKey)
 			h.dependencyState.delete(iKey)
 		} else {
-			h.dependencyState.update(iKey, pendingDepStateUpdates[iKey].d)
+			ctx, f := pendingDepStateUpdates[iKey]
+			if !f {
+				// Was skipped above
+				continue
+			}
+			h.dependencyState.update(iKey, ctx.d)
 			results := recomputedResults[idx]
 			newKeys := sets.New(maps.Keys(results)...)
 			oldKeys := h.collectionState.mappings[iKey]
@@ -696,8 +706,9 @@ func (h *manyCollection[I, O]) uid() collectionUID {
 // for a given transformation call at once, then apply it in a single transaction to the manyCollection.
 type collectionDependencyTracker[I, O any] struct {
 	*manyCollection[I, O]
-	d   []*dependency
-	key Key[I]
+	d             []*dependency
+	key           Key[I]
+	discardResult bool
 }
 
 func (i *collectionDependencyTracker[I, O]) name() string {
@@ -727,4 +738,8 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(
 }
 
 func (i *collectionDependencyTracker[I, O]) _internalHandler() {
+}
+
+func (i *collectionDependencyTracker[I, O]) DiscardResult() {
+	i.discardResult = true
 }

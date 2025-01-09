@@ -42,9 +42,8 @@ func NewCollection(primary *MeshConfigSource, secondary *MeshConfigSource, stop 
 				log.Errorf("howardjohn: APPLY config %v", *s)
 				n, err := ApplyMeshConfig(*s, meshCfg)
 				if err != nil {
-					panic("FTODODODO")
-					log.Error(err)
-					// TODO!!!
+					log.Warnf("invalid mesh config, using last known state: %v", err)
+					ctx.DiscardResult()
 					return nil
 				}
 				meshCfg = n

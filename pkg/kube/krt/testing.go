@@ -26,6 +26,10 @@ func (t TestingDummyContext) name() string {
 	return "testing"
 }
 
+func (t TestingDummyContext) DiscardResult() {
+	panic("TestingDummyContext cannot DiscardResult")
+}
+
 var (
 	_ registerDependency = TestingDummyContext{}
 	_ HandlerContext     = TestingDummyContext{}
