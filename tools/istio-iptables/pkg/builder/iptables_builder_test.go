@@ -368,11 +368,13 @@ func TestStateFromRestoreFormat(t *testing.T) {
 				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "raw", "-f", "foo", "-b", "baar")
 				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "POSTROUTING", "nat", "-f", "foo", "-b", "bar", "-j", "ISTIO_TEST")
 				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "ISTIO_TEST", "nat", "-f", "foo", "-b", "bar")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "filter", "-f", "foo", "-b", "bar")
 			},
 			map[string]map[string][]string{
 				"filter": {
 					"chain": {
 						"-A chain -f foo -b baaz",
+						"-A chain -f foo -b bar",
 					},
 				},
 				"mangle": {
