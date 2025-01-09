@@ -303,6 +303,12 @@ func (cfg *IptablesConfigurator) Run() error {
 	}
 
 	redirectDNS := cfg.cfg.RedirectDNS
+	// How many DNS flags do we have? Three DNS flags! AH AH AH AH
+	if redirectDNS && cfg.cfg.CaptureAllDNS == false && len(cfg.cfg.DNSServersV4) == 0 && len(cfg.cfg.DNSServersV6) == 0 {
+		log.Warn("REDIRECT_DNS is set, but CAPTURE_ALL_DNS is false, and no DNS servers provided. DNS capture disabled.")
+		redirectDNS = false
+	}
+
 	cfg.logConfig()
 
 	cfg.shortCircuitExcludeInterfaces()
@@ -399,6 +405,8 @@ func (cfg *IptablesConfigurator) Run() error {
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
+		// Note that this rule is, unlike the others, protocol-independent - we want to unconditionally skip
+		// all UDP/TCP packets from Envoy, regardless of dest.
 		cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat",
 			"-m", "owner", "--uid-owner", uid, "-j", "RETURN")
 	}
@@ -435,6 +443,8 @@ func (cfg *IptablesConfigurator) Run() error {
 
 		// Avoid infinite loops. Don't redirect Envoy traffic directly back to
 		// Envoy for non-loopback traffic.
+		// Note that this rule is, unlike the others, protocol-independent - we want to unconditionally skip
+		// all UDP/TCP packets from Envoy, regardless of dest.
 		cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-m", "owner", "--gid-owner", gid, "-j", "RETURN")
 	}
 
@@ -443,12 +453,6 @@ func (cfg *IptablesConfigurator) Run() error {
 	cfg.handleCaptureByOwnerGroup(ownerGroupsFilter)
 
 	if redirectDNS {
-		// Uniquely for DNS (at this time) we need a jump in "raw:OUTPUT", so this jump is conditional on that setting.
-		// And, unlike nat/OUTPUT, we have no shared rules, so no need to do a 2-level jump at this time
-		cfg.ruleBuilder.AppendRule("OUTPUT", "raw", "-j", constants.ISTIOOUTPUTDNS)
-
-		cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-j", constants.ISTIOOUTPUTDNS)
-
 		SetupDNSRedir(
 			cfg.ruleBuilder, cfg.cfg.ProxyUID, cfg.cfg.ProxyGID,
 			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS,
@@ -517,6 +521,23 @@ func (cfg *IptablesConfigurator) Run() error {
 func SetupDNSRedir(iptables *builder.IptablesRuleBuilder, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
 	ownerGroupsFilter config.InterceptFilter,
 ) {
+	// Uniquely for DNS (at this time) we need a jump in "raw:OUTPUT", so this jump is conditional on that setting.
+	// And, unlike nat/OUTPUT, we have no shared rules, so no need to do a 2-level jump at this time
+	iptables.AppendRule("OUTPUT", "raw", "-j", constants.ISTIOOUTPUTDNS)
+
+	// Conditionally insert jumps for V6 and V4 - we may have DNS capture enabled for V4 servers but not V6, or vice versa.
+	// This avoids creating no-op jumps in v6 if we only need them in v4.
+	//
+	// TODO we should probably *conditionally* create jumps if and only if rules exist in the jumped-to table,
+	// in a more automatic fashion.
+	if captureAllDNS || len(dnsServersV4) > 0 {
+		iptables.AppendRuleV4(constants.ISTIOOUTPUT, "nat", "-j", constants.ISTIOOUTPUTDNS)
+	}
+
+	if captureAllDNS || len(dnsServersV6) > 0 {
+		iptables.AppendRuleV6(constants.ISTIOOUTPUT, "nat", "-j", constants.ISTIOOUTPUTDNS)
+	}
+
 	if captureAllDNS {
 		// Redirect all TCP dns traffic on port 53 to the agent on port 15053
 		// This will be useful for the CNI case where pod DNS server address cannot be decided.
@@ -552,26 +573,6 @@ func SetupDNSRedir(iptables *builder.IptablesRuleBuilder, proxyUID, proxyGID str
 				"-j", "REDIRECT",
 				"--to-ports", constants.IstioAgentDNSListenerPort)
 		}
-	}
-
-	// Make sure that upstream DNS requests from agent/envoy dont get captured.
-	// TODO: add ip6 as well
-	for _, uid := range split(proxyUID) {
-		iptables.AppendRule(constants.ISTIOOUTPUTDNS, "nat", "-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", "RETURN")
-	}
-	for _, gid := range split(proxyGID) {
-		iptables.AppendRule(constants.ISTIOOUTPUTDNS, "nat", "-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", gid, "-j", "RETURN")
-	}
-
-	if ownerGroupsFilter.Except {
-		for _, group := range ownerGroupsFilter.Values {
-			iptables.AppendRule(constants.ISTIOOUTPUTDNS, "nat", "-p", "udp", "--dport", "53", "-m", "owner", "--gid-owner", group, "-j", "RETURN")
-		}
-	} else {
-		groupIsNoneOf := CombineMatchers(ownerGroupsFilter.Values, func(group string) []string {
-			return []string{"-m", "owner", "!", "--gid-owner", group}
-		})
-		iptables.AppendRule(constants.ISTIOOUTPUTDNS, "nat", Flatten([]string{"-p", "udp", "--dport", "53"}, groupIsNoneOf, []string{"-j", "RETURN"})...)
 	}
 
 	if captureAllDNS {
