@@ -131,7 +131,12 @@ func (e Event[T]) Latest() T {
 type HandlerContext interface {
 	// DiscardResult triggers the result of this invocation to be skipped
 	// This allows a collection to mark that the current state is *invalid* and should use the last-known state.
-	// Note this differs from returning `nil`, which would otherwise wipe out the last known state.
+	//
+	// Note: this differs from returning `nil`, which would otherwise wipe out the last known state.
+	//
+	// Note: if the current resource has never been computed, the result will not be discarded if it is non-nil. This allows
+	// setting a default. For example, you may always return a static default config if the initial results are invalid,
+	// but not revert to this config if later results are invalid. Results can unconditionally be discarded by returning nil.
 	DiscardResult()
 	// _internalHandler is an interface that can only be implemented by this package.
 	_internalHandler()
@@ -155,8 +160,6 @@ type (
 	TransformationMulti[I, O any] func(ctx HandlerContext, i I) []O
 	// TransformationEmptyToMulti represents a singleton operator that returns a set of objects. There are no inputs.
 	TransformationEmptyToMulti[T any] func(ctx HandlerContext) []T
-	// transformationMultiInternal is like TransformationMulti but takes an additional
-	transformationMultiInternal[I, O any] func(ctx HandlerContext, i I) ([]O, bool)
 )
 
 // Key is a string, but with a type associated to avoid mixing up keys
