@@ -270,10 +270,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
 		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
 	}
+	// Dedupte the inbound clusters added by Envoy filters.
+	clusters = cb.normalizeClusters(clusters)
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
-	resources = cb.normalizeClusters(resources)
 
 	if cacheStats.empty() {
 		return resources, model.DefaultXdsLogDetails
