@@ -1267,14 +1267,12 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		meshConfig *meshconfig.MeshConfig,
 		expectedSvcList []*model.Service,
 		expectedNumSvcEvents int,
-		testMeshWatcher *meshwatcher.TestWatcher,
+		testMeshWatcher meshwatcher.FixedWatcher,
 		fx *xdsfake.Updater,
 		controller *FakeController,
 	) {
 		// update meshConfig
-		if err := testMeshWatcher.Update(meshConfig, time.Second*5); err != nil {
-			t.Fatalf("%v", err)
-		}
+		testMeshWatcher.Set(meshConfig)
 
 		// assert firing of service events
 		for i := 0; i < expectedNumSvcEvents; i++ {
@@ -1287,7 +1285,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		})
 	}
 
-	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
+	meshWatcher := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{})
 
 	nsA := "nsA"
 	nsB := "nsB"
@@ -1444,15 +1442,13 @@ func TestControllerResourceScoping(t *testing.T) {
 		meshConfig *meshconfig.MeshConfig,
 		expectedSvcList []*model.Service,
 		expectedNumSvcEvents int,
-		testMeshWatcher *meshwatcher.TestWatcher,
+		testMeshWatcher meshwatcher.FixedWatcher,
 		fx *xdsfake.Updater,
 		controller *FakeController,
 	) {
 		t.Helper()
 		// update meshConfig
-		if err := testMeshWatcher.Update(meshConfig, time.Second*5); err != nil {
-			t.Fatalf("%v", err)
-		}
+		testMeshWatcher.Set(meshConfig)
 
 		// assert firing of service events
 		for i := 0; i < expectedNumSvcEvents; i++ {
@@ -1467,7 +1463,7 @@ func TestControllerResourceScoping(t *testing.T) {
 
 	client := kubelib.NewFakeClient()
 	t.Cleanup(client.Shutdown)
-	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
+	meshWatcher := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{})
 
 	nsA := "nsA"
 	nsB := "nsB"

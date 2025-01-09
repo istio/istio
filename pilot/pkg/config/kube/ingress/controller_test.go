@@ -34,7 +34,7 @@ import (
 )
 
 func newFakeController() (model.ConfigStoreController, kube.Client) {
-	meshHolder := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
+	meshHolder := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{
 		IngressControllerMode: meshconfig.MeshConfig_DEFAULT,
 	})
 	fakeClient := kube.NewFakeClient()

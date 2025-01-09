@@ -41,6 +41,8 @@ func NewCollection(stop <-chan struct{}, sources ...MeshConfigSource) krt.Single
 				log.Errorf("howardjohn: merge in config %v", *s)
 				n, err := mesh.ApplyMeshConfig(*s, meshCfg)
 				if err != nil {
+					// For backwards compatibility, keep inconsistent behavior
+					// TODO(https://github.com/istio/istio/issues/54615) align this.
 					if len(sources) == 1 {
 						log.Warnf("invalid mesh config, using last known state: %v", err)
 						ctx.DiscardResult()

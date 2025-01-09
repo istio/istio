@@ -15,18 +15,27 @@
 package meshwatcher
 
 import (
-	"errors"
-	"time"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube/krt"
 )
 
-// NewFixedWatcher creates a new Watcher that always returns the given mesh config. It will never
-// fire any events, since the config never changes.
-func NewFixedWatcher(mesh *meshconfig.MeshConfig) mesh.Watcher {
-	return adapter{krt.NewStatic(&MeshConfigResource{mesh}, true)}
+type FixedWatcher struct {
+	adapter
+	col krt.StaticSingleton[MeshConfigResource]
+}
+
+func (w FixedWatcher) Set(n *meshconfig.MeshConfig) {
+	w.col.Set(&MeshConfigResource{n})
+}
+
+// NewFixedWatcher creates a new Watcher that always returns the given mesh config.
+func NewFixedWatcher(mesh *meshconfig.MeshConfig) FixedWatcher {
+	col := krt.NewStatic(&MeshConfigResource{mesh}, true)
+	a := adapter{col}
+	return FixedWatcher{
+		adapter: a,
+		col:     col,
+	}
 }
 
 type FixedNetworksWatcher struct {
@@ -39,45 +48,11 @@ func (w FixedNetworksWatcher) SetNetworks(n *meshconfig.MeshNetworks) {
 }
 
 // NewFixedNetworksWatcher creates a new NetworksWatcher that always returns the given config.
-// It will never fire any events, since the config never changes.
 func NewFixedNetworksWatcher(networks *meshconfig.MeshNetworks) FixedNetworksWatcher {
 	col := krt.NewStatic(&MeshNetworksResource{networks}, true)
 	a := networksAdapter{col}
 	return FixedNetworksWatcher{
 		networksAdapter: a,
 		col:             col,
-	}
-}
-
-// only used for testing, exposes a blocking Update method that allows test environments to trigger meshConfig updates
-type TestWatcher struct {
-	adapter
-	col    krt.StaticSingleton[MeshConfigResource]
-	doneCh chan struct{} // used to implement a blocking Update method
-}
-
-func NewTestWatcher(meshConfig *meshconfig.MeshConfig) *TestWatcher {
-	c := krt.NewStatic(&MeshConfigResource{meshConfig}, true)
-	w := &TestWatcher{
-		adapter: adapter{c},
-		col:     c,
-		doneCh:  make(chan struct{}, 1),
-	}
-	w.doneCh = make(chan struct{}, 1)
-	// TODO this is probably broken as we don't have ordering
-	w.AddMeshHandler(func() {
-		w.doneCh <- struct{}{}
-	})
-	return w
-}
-
-// Update blocks until watcher handlers trigger
-func (t *TestWatcher) Update(meshConfig *meshconfig.MeshConfig, timeout time.Duration) error {
-	t.col.Set(&MeshConfigResource{meshConfig})
-	select {
-	case <-t.doneCh:
-		return nil
-	case <-time.After(timeout):
-		return errors.New("timed out waiting for mesh.Watcher handler to trigger")
 	}
 }
