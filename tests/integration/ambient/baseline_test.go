@@ -724,9 +724,6 @@ func TestPeerAuthentication(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-			if opt.Scheme != scheme.TCP {
-				return
-			}
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
@@ -824,6 +821,8 @@ spec:
   portLevelMtls:
     18080:
       mode: PERMISSIVE
+    19090:
+      mode: PERMISSIVE
         `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				// Should pass for all workloads, in or out of mesh, targeting this port
@@ -835,7 +834,7 @@ spec:
 apiVersion: security.istio.io/v1
 kind: PeerAuthentication
 metadata:
-  name: global-strict
+  name: global-permissive
 spec:
   mtls:
     mode: PERMISSIVE
@@ -855,6 +854,8 @@ spec:
       app: "{{ .Destination }}"
   portLevelMtls:
     18080:
+      mode: STRICT
+    19090:
       mode: STRICT
         `).ApplyOrFail(t)
 				opt = opt.DeepCopy()
