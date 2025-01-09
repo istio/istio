@@ -30,23 +30,23 @@ func NewCollection(stop <-chan struct{}, sources ...MeshConfigSource) krt.Single
 		func(ctx krt.HandlerContext) *MeshConfigResource {
 			meshCfg := mesh.DefaultMeshConfig()
 
-			log.Errorf("howardjohn: computing collection!")
 			for _, attempt := range sources {
 				s := krt.FetchOne(ctx, attempt.AsCollection())
-				log.Errorf("howardjohn: got source %v", s)
 				if s == nil {
 					// Source specified but not giving us any data
 					continue
 				}
-				log.Errorf("howardjohn: merge in config %v", *s)
 				n, err := mesh.ApplyMeshConfig(*s, meshCfg)
 				if err != nil {
 					// For backwards compatibility, keep inconsistent behavior
 					// TODO(https://github.com/istio/istio/issues/54615) align this.
 					if len(sources) == 1 {
 						log.Warnf("invalid mesh config, using last known state: %v", err)
+						// We never want a nil mesh config. If it fails, we discard the result but allow falling back to the
+						// default if there is no last known state.
+						// We may consider failing hard on startup instead of silently ignoring errors.
 						ctx.DiscardResult()
-						return nil
+						return &MeshConfigResource{mesh.DefaultMeshConfig()}
 					} else {
 						log.Warnf("invalid mesh config, ignoring: %v", err)
 						continue
@@ -54,7 +54,6 @@ func NewCollection(stop <-chan struct{}, sources ...MeshConfigSource) krt.Single
 				}
 				meshCfg = n
 			}
-			log.Errorf("howardjohn: final %v", meshCfg.IngressClass)
 			return &MeshConfigResource{meshCfg}
 		}, krt.WithName("MeshConfig"), krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler),
 	)
@@ -71,7 +70,7 @@ func NewNetworksCollection(stop <-chan struct{}, sources ...MeshConfigSource) kr
 					if err != nil {
 						log.Warnf("invalid mesh networks, using last known state: %v", err)
 						ctx.DiscardResult()
-						return nil
+						return &MeshNetworksResource{mesh.DefaultMeshNetworks()}
 					}
 					return &MeshNetworksResource{n}
 				}

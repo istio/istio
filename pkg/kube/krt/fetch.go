@@ -15,7 +15,6 @@
 package krt
 
 import (
-	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -75,7 +74,6 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 		o := c.augment(i)
 		return d.filter.Matches(o, true)
 	})
-	log.SetOutputLevel(istiolog.DebugLevel)
 	if log.DebugEnabled() {
 		log.WithLabels(
 			"parent", h.name(),

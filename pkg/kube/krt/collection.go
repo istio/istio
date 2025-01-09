@@ -358,10 +358,6 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 
 		ctx := &collectionDependencyTracker[I, O]{manyCollection: h, key: iKey}
 		res := h.transformation(ctx, i)
-		if ctx.discardResult {
-			h.log.WithLabels("iKey", iKey).Errorf("discarding result")
-			continue
-		}
 		results := slices.GroupUnique(res, getTypedKey[O])
 		recomputedResults[idx] = results
 		// Store new dependency state, to insert in the next loop under the lock
@@ -398,13 +394,18 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 			delete(h.collectionState.inputs, iKey)
 			h.dependencyState.delete(iKey)
 		} else {
-			ctx, f := pendingDepStateUpdates[iKey]
-			if !f {
-				// Was skipped above
-				continue
+			ctx := pendingDepStateUpdates[iKey]
+			results := recomputedResults[idx]
+			if ctx.discardResult {
+				_, alreadyHasAResult := h.collectionState.mappings[iKey]
+				nowHasAResult := len(results) > 0
+				if alreadyHasAResult || !nowHasAResult {
+					h.log.WithLabels("iKey", iKey).Debugf("discarding result")
+					continue
+				}
+				h.log.WithLabels("iKey", iKey).Debugf("would discard result, but it is the first so including it")
 			}
 			h.dependencyState.update(iKey, ctx.d)
-			results := recomputedResults[idx]
 			newKeys := sets.New(maps.Keys(results)...)
 			oldKeys := h.collectionState.mappings[iKey]
 			h.collectionState.mappings[iKey] = newKeys

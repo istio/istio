@@ -15,6 +15,7 @@
 package krt_test
 
 import (
+	"go.uber.org/atomic"
 	"strings"
 	"testing"
 
@@ -95,6 +96,15 @@ type Named struct {
 
 func (s Named) ResourceName() string {
 	return s.Namespace + "/" + s.Name
+}
+
+
+type Static struct {
+	Value string
+}
+
+func (s Static) ResourceName() string {
+	return "static"
 }
 
 func NewLabeled(n map[string]string) Labeled {
@@ -517,4 +527,65 @@ func TestCollectionMultipleFetch(t *testing.T) {
 
 	cc.Delete("foo1", "")
 	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), nil}})
+}
+
+func TestCollectionDiscardResult(t *testing.T) {
+	t.Run("with initial default", func(t *testing.T) {
+		stop := test.NewStop(t)
+		opts := KrtOptions{stop}
+		state := atomic.NewString("initial")
+		trigger := krt.NewRecomputeTrigger(true)
+		col := krt.NewSingleton(func(ctx krt.HandlerContext) *Static {
+			trigger.MarkDependant(ctx)
+			ctx.DiscardResult()
+			return &Static{Value: state.Load()}
+		}, opts.WithName("Test")...)
+		assert.Equal(t, col.AsCollection().Synced().WaitUntilSynced(stop), true)
+		// Use the initial state
+		assert.EventuallyEqual(t, col.Get, &Static{Value: "initial"})
+	})
+	t.Run("with no default", func(t *testing.T) {
+		stop := test.NewStop(t)
+		opts := KrtOptions{stop}
+		trigger := krt.NewRecomputeTrigger(true)
+		col := krt.NewSingleton(func(ctx krt.HandlerContext) *Static {
+			trigger.MarkDependant(ctx)
+			ctx.DiscardResult()
+			return nil
+		}, opts.WithName("Test")...)
+		assert.Equal(t, col.AsCollection().Synced().WaitUntilSynced(stop), true)
+		// Use the initial state
+		assert.EventuallyEqual(t, col.Get, nil)
+	})
+	t.Run("swapping", func(t *testing.T) {
+		stop := test.NewStop(t)
+		opts := KrtOptions{stop}
+		state := atomic.NewString("initial")
+		trigger := krt.NewRecomputeTrigger(true)
+		tt := assert.NewTracker[string](t)
+		col := krt.NewSingleton(func(ctx krt.HandlerContext) *Static {
+			trigger.MarkDependant(ctx)
+			s := state.Load()
+			if s == "skip" {
+				ctx.DiscardResult()
+			}
+			return &Static{Value: s}
+		}, opts.WithName("Test")...)
+		col.AsCollection().Register(TrackerHandler[Static](tt))
+
+		assert.Equal(t, col.AsCollection().Synced().WaitUntilSynced(stop), true)
+		// Use the initial state
+		assert.EventuallyEqual(t, col.Get, &Static{Value: "initial"})
+
+		state.Store("skip")
+		trigger.TriggerRecomputation()
+		assert.Equal(t, col.Get(), &Static{Value: "initial"})
+
+		state.Store("final")
+		trigger.TriggerRecomputation()
+		assert.EventuallyEqual(t, col.Get, &Static{Value: "final"})
+
+		// Should see only one event
+		tt.WaitOrdered("add/static", "update/static")
+	})
 }
