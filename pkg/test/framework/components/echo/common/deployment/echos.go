@@ -273,14 +273,14 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 
 	defaultConfigs = append(defaultConfigs, a, b, cSvc, headless, stateful, naked, tProxy, vmSvc)
 
-	if t.Settings().EnableDualStack {
+	if len(t.Settings().IPFamilies) > 1 {
 		dSvc := echo.Config{
 			Service:         DSvc,
 			ServiceAccount:  true,
 			Ports:           ports.All(),
 			Subsets:         []echo.SubsetConfig{{}},
 			IncludeExtAuthz: c.IncludeExtAuthz,
-			IPFamilies:      "IPv4",
+			IPFamilies:      t.Settings().IPFamilies[0],
 			DualStack:       true,
 		}
 		eSvc := echo.Config{
@@ -289,7 +289,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Ports:           ports.All(),
 			Subsets:         []echo.SubsetConfig{{}},
 			IncludeExtAuthz: c.IncludeExtAuthz,
-			IPFamilies:      "IPv6",
+			IPFamilies:      t.Settings().IPFamilies[1],
 			DualStack:       true,
 		}
 		defaultConfigs = append(defaultConfigs, dSvc, eSvc)

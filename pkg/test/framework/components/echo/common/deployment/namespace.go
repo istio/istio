@@ -95,7 +95,7 @@ func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *
 	n.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: ns}).GetMatches(echos)
 	n.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: ns}).GetMatches(echos)
 	n.C = match.ServiceName(echo.NamespacedName{Name: CSvc, Namespace: ns}).GetMatches(echos)
-	if t.Settings().EnableDualStack {
+	if len(t.Settings().IPFamilies) > 1 {
 		n.D = match.ServiceName(echo.NamespacedName{Name: DSvc, Namespace: ns}).GetMatches(echos)
 		n.E = match.ServiceName(echo.NamespacedName{Name: ESvc, Namespace: ns}).GetMatches(echos)
 	}

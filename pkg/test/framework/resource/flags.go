@@ -63,6 +63,12 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	}
 	s.SkipWorkloadClasses = normalized
 
+	normalizedIPFamilies := make(ArrayFlags, 0)
+	for _, ipFamily := range s.IPFamilies {
+		normalizedIPFamilies = append(normalizedIPFamilies, strings.Split(ipFamily, ",")...)
+	}
+	s.IPFamilies = normalizedIPFamilies
+
 	if s.Image.Hub == "" {
 		s.Image.Hub = env.HUB.ValueOrDefault("gcr.io/istio-testing")
 	}
@@ -90,9 +96,6 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	if s.HelmRepo == "" {
 		s.HelmRepo = "https://istio-release.storage.googleapis.com/charts"
 	}
-
-	// set dual-stack mode for tests based on the specified ip families
-	s.SetDualStack()
 
 	if err = validate(s); err != nil {
 		return nil, err
@@ -206,7 +209,8 @@ func init() {
 	flag.Uint64Var(&settingsFromCommandLine.MaxDumps, "istio.test.maxDumps", settingsFromCommandLine.MaxDumps,
 		"Maximum number of full test dumps that are allowed to occur within a test suite.")
 	flag.StringVar(&settingsFromCommandLine.HelmRepo, "istio.test.helmRepo", settingsFromCommandLine.HelmRepo, "Helm repo to use to pull the charts.")
-	flag.StringVar(&settingsFromCommandLine.IPFamilies, "istio.test.IPFamilies", settingsFromCommandLine.IPFamilies, "The order of IP families for dual-stack")
+	flag.Var(&settingsFromCommandLine.IPFamilies, "istio.test.IPFamilies",
+		"IP families (IPv6, IPv4) to test with. If both specified, dualstack config will be used. The order the families are defined indicates precedence.")
 	flag.BoolVar(&settingsFromCommandLine.GatewayConformanceStandardOnly, "istio.test.gatewayConformanceStandardOnly",
 		settingsFromCommandLine.GatewayConformanceStandardOnly,
 		"If set, only the standard gateway conformance tests will be run; tests relying on experimental resources will be skipped.")

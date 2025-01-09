@@ -304,7 +304,7 @@ func (b *builder) deployServices() (err error) {
 	services := make(map[string]string)
 	for _, cfg := range b.configs {
 		if cfg.IPFamilies == "" {
-			cfg.IPFamilies = b.ctx.Settings().IPFamilies
+			cfg.IPFamilies = strings.Join(b.ctx.Settings().IPFamilies, ",")
 		}
 		if len(strings.Split(cfg.IPFamilies, ",")) == 1 {
 			cfg.IPFamilyPolicy = string(corev1.IPFamilyPolicySingleStack)

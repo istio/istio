@@ -18,6 +18,7 @@
 package security
 
 import (
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -60,7 +61,7 @@ func TestReachability(t *testing.T) {
 			integIstioVersion := cMinIstioVersion
 			var migrationApp echo.Instances
 			// if dual stack is enabled, a dual stack echo config should be added
-			if !t.Settings().EnableDualStack {
+			if len(t.Settings().IPFamilies) <= 1 {
 				// Create a custom echo deployment in NS1 with subsets that allows us to test the
 				// migration of a workload to istio (from no sidecar to sidecar).
 				migrationApp = deployment.New(t).
@@ -105,7 +106,7 @@ func TestReachability(t *testing.T) {
 							Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
 						},
 					},
-					IPFamilies:     "IPv4, IPv6",
+					IPFamilies:     strings.Join(t.Settings().IPFamilies, ","),
 					IPFamilyPolicy: string(corev1.IPFamilyPolicyRequireDualStack),
 				}).BuildOrFail(t)
 			}

@@ -197,7 +197,8 @@ spec:
 			host:  "bar",
 		},
 	}
-	if t.Settings().EnableDualStack {
+	// additional tests for dual-stack scenario
+	if len(t.Settings().IPFamilies) > 1 {
 		additionalTestCases := []struct {
 			check echo.Checker
 			from  echo.Instances
