@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeclient "istio.io/istio/pkg/kube"
@@ -132,6 +133,8 @@ type Options struct {
 	StatusNotifier        *activenotifier.ActiveNotifier
 	Flags                 FeatureFlags
 
+	MeshConfig krt.Singleton[meshwatcher.MeshConfigResource]
+
 	Debugger *krt.DebugHandler
 }
 
@@ -156,6 +159,7 @@ func New(options Options) Index {
 		stop:            make(chan struct{}),
 	}
 
+	MeshConfig := options.MeshConfig
 	filter := kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
 	}
@@ -163,7 +167,7 @@ func New(options Options) Index {
 		stop:     a.stop,
 		debugger: options.Debugger,
 	}
-	ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, opts.WithName("ConfigMaps")...)
+	// ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, opts.WithName("ConfigMaps")...)
 
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
 		gvr.AuthorizationPolicy, kubetypes.StandardInformer, filter)
@@ -205,11 +209,10 @@ func New(options Options) Index {
 		ObjectFilter: options.Client.ObjectFilter(),
 	}, opts.WithName("EndpointSlices")...)
 
-	MeshConfig := MeshConfigCollection(ConfigMaps, options, opts)
+	// MeshConfig := MeshConfigCollection(ConfigMaps, options, opts)
 
 	Networks := buildNetworkCollections(Namespaces, Gateways, options, opts)
 	a.networks = Networks
-
 	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods, opts)
 
 	// AllPolicies includes peer-authentication converted policies

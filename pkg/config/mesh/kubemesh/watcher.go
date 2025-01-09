@@ -34,6 +34,7 @@ const (
 	MeshNetworksKey = "meshNetworks"
 )
 
+// NewConfigMapSource builds a MeshConfigSource reading from ConfigMap "name" with key "key".
 func NewConfigMapSource(client kube.Client, namespace, name, key string, stop <-chan struct{}) meshwatcher.MeshConfigSource {
 	clt := kclient.NewFiltered[*v1.ConfigMap](client, kclient.Filter{
 		Namespace:     namespace,

@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
@@ -125,7 +126,7 @@ type Options struct {
 	MeshNetworksWatcher mesh.NetworksWatcher
 
 	// MeshWatcher observes changes to the mesh config
-	MeshWatcher mesh.Watcher
+	MeshWatcher meshwatcher.WatcherCollection
 
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32
@@ -288,6 +289,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			ClusterID:       options.ClusterID,
 			Revision:        options.Revision,
 			XDSUpdater:      options.XDSUpdater,
+			MeshConfig:      options.MeshWatcher,
 			LookupNetwork:   c.Network,
 			LookupNetworkGateways: func() []model.NetworkGateway {
 				return slices.Filter(c.NetworkGateways(), func(g model.NetworkGateway) bool {

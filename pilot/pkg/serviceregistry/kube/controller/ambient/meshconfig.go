@@ -16,24 +16,25 @@
 package ambient
 
 import (
-	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 )
 
-type MeshConfig struct {
-	*meshapi.MeshConfig
-}
+type MeshConfig = meshwatcher.MeshConfigResource
 
-func (m MeshConfig) ResourceName() string { return "MeshConfig" }
+//type MeshConfig struct {
+//	*meshapi.MeshConfig
+//}
 
-func (m MeshConfig) Equals(other MeshConfig) bool { return proto.Equal(m.MeshConfig, other.MeshConfig) }
+//func (m MeshConfig) ResourceName() string { return "MeshConfig" }
+//
+//func (m MeshConfig) Equals(other MeshConfig) bool { return proto.Equal(m.MeshConfig, other.MeshConfig) }
 
 func MeshConfigCollection(configMaps krt.Collection[*v1.ConfigMap], options Options, opts KrtOptions) krt.Singleton[MeshConfig] {
 	cmName := "istio"

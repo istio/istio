@@ -47,8 +47,7 @@ func NewSingleton[T any](
 		trigger.MarkDependant(ctx)
 		return cur.Load()
 	}, opts...)
-	// TODO use proper stop.
-	sc.AsCollection().Synced().WaitUntilSynced(stop)
+	sc.AsCollection().WaitUntilSynced(stop)
 	watchFile(fileWatcher, filename, stop, func() {
 		cfg, err := readFile(filename)
 		if err != nil {

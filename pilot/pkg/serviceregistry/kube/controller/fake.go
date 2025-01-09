@@ -45,7 +45,7 @@ type FakeControllerOptions struct {
 	Client            kubelib.Client
 	CRDs              []schema.GroupVersionResource
 	NetworksWatcher   mesh.NetworksWatcher
-	MeshWatcher       mesh.Watcher
+	MeshWatcher       meshwatcher.WatcherCollection
 	ServiceHandler    model.ServiceHandler
 	ClusterID         cluster.ID
 	WatchedNamespaces string

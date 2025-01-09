@@ -24,6 +24,17 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
+// WatcherCollection is an interface to describe an object that implements both the legacy mesh.Watcher interface and the
+// new krt interface.
+type WatcherCollection interface {
+	mesh.Watcher
+	krt.Singleton[MeshConfigResource]
+}
+
+func ConfigAdapter(configuration krt.Singleton[MeshConfigResource]) WatcherCollection {
+	return adapter{configuration}
+}
+
 type adapter struct {
 	krt.Singleton[MeshConfigResource]
 }
@@ -76,10 +87,6 @@ func (m MeshNetworksResource) ResourceName() string { return "MeshNetworksResour
 
 func (m MeshNetworksResource) Equals(other MeshNetworksResource) bool {
 	return proto.Equal(m.MeshNetworks, other.MeshNetworks)
-}
-
-func ConfigAdapter(configuration krt.Singleton[MeshConfigResource]) mesh.Watcher {
-	return adapter{configuration}
 }
 
 func NetworksAdapter(configuration krt.Singleton[MeshNetworksResource]) mesh.NetworksWatcher {

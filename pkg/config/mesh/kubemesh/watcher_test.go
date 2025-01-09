@@ -76,7 +76,7 @@ func TestExtraConfigmap(t *testing.T) {
 		primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, stop)
 		userMeshConfig := NewConfigMapSource(client, namespace, extraCmName, MeshConfigKey, stop)
 		col := meshwatcher.NewCollection(stop, userMeshConfig, primaryMeshConfig)
-		col.AsCollection().Synced().WaitUntilSynced(stop)
+		col.AsCollection().WaitUntilSynced(stop)
 		w := meshwatcher.ConfigAdapter(col)
 
 		client.RunAndWait(stop)
