@@ -344,8 +344,13 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	}
 
 	existingHostAddresses := autoallocate.GetHostAddressesFromServiceEntry(se)
-	existingAddresses := []netip.Addr{}
 	hostsWithAddresses := sets.New[string]()
+	hostsInSpec := sets.New[string]()
+
+	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
+		hostsInSpec.Insert(host)
+	}
+	existingAddresses := []netip.Addr{}
 
 	// collect existing addresses and the hosts which already have assigned addresses
 	for host, addresses := range existingHostAddresses {
@@ -360,12 +365,17 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 		c.markUsedOrQueueConflict(existingAddresses, config.NamespacedName(se))
 	}
 
+	// nothing to patch
+	if hostsInSpec.Equals(hostsWithAddresses) && !forcedReassign {
+		return nil, nil, nil
+	}
+
+	assignedHosts := sets.New[string]()
+
 	// construct the assigned addresses datastructure to patch
 	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
-	hostsInSpec := sets.New[string]()
 	for _, host := range slices.Filter(se.Spec.Hosts, removeWildCarded) {
-		if hostsInSpec.InsertContains(host) {
-			// if we already worked on this host don't process it again
+		if assignedHosts.InsertContains(host) {
 			continue
 		}
 		assignedIPs := []netip.Addr{}
@@ -379,11 +389,6 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 		for _, a := range assignedIPs {
 			assignedAddresses = append(assignedAddresses, apiv1alpha3.ServiceEntryAddress{Value: a.String(), Host: host})
 		}
-	}
-
-	// nothing to patch
-	if hostsInSpec.Equals(hostsWithAddresses) && !forcedReassign {
-		return nil, nil, nil
 	}
 
 	replaceAddresses, err := json.Marshal([]jsonPatch{
