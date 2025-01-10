@@ -7,3 +7,4 @@ releaseNotes:
     This enables the DNS proxying for workloads in ambient mesh by default, improving security, performance, and enabling
     a number of features.
     This can be disabled explicitly or with `compatibilityVersion=1.24`.
+    Note: only new pods will have DNS enabled. To enable for existing pods, they must be restarted.
