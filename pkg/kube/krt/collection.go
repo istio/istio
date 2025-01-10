@@ -483,7 +483,7 @@ func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opt
 	}
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
-		o.name = fmt.Sprintf("Collection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
+		o.name = fmt.Sprintf("FileCollection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
 	}
 	return newManyCollection[I, O](c, hm, o)
 }

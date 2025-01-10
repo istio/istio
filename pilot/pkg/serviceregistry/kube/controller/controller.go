@@ -147,6 +147,8 @@ type Options struct {
 	// StatusWritingEnabled determines if status writing is enabled. This may be set to `nil`, in which case status
 	// writing will never be enabled
 	StatusWritingEnabled *activenotifier.ActiveNotifier
+
+	KrtDebugger *krt.DebugHandler
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -297,7 +299,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 				})
 			},
 			StatusNotifier: options.StatusWritingEnabled,
-			Debugger:       krt.GlobalDebugHandler,
+			Debugger:       options.KrtDebugger,
 			Flags: ambient.FeatureFlags{
 				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,

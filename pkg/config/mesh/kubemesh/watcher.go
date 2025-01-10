@@ -35,23 +35,23 @@ const (
 )
 
 // NewConfigMapSource builds a MeshConfigSource reading from ConfigMap "name" with key "key".
-func NewConfigMapSource(client kube.Client, namespace, name, key string, stop <-chan struct{}) meshwatcher.MeshConfigSource {
+func NewConfigMapSource(client kube.Client, namespace, name, key string, opts krt.OptionsBuilder) meshwatcher.MeshConfigSource {
 	clt := kclient.NewFiltered[*v1.ConfigMap](client, kclient.Filter{
 		Namespace:     namespace,
 		FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String(),
 	})
-	cms := krt.WrapClient(clt, krt.WithName("ConfigMap_"+name), krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler))
+	cms := krt.WrapClient(clt, opts.WithName("ConfigMap_"+name)...)
 
 	cmKey := types.NamespacedName{Namespace: namespace, Name: name}.String()
 
 	// Start informer immediately instead of with the rest. This is because we use configmapwatcher for
 	// single types (so its never shared), and for use cases where we need the results immediately
 	// during startup.
-	clt.Start(stop)
+	clt.Start(opts.Stop())
 	return krt.NewSingleton(func(ctx krt.HandlerContext) *string {
 		cm := ptr.Flatten(krt.FetchOne(ctx, cms, krt.FilterKey(cmKey)))
 		return meshConfigMapData(cm, key)
-	}, krt.WithName(fmt.Sprintf("ConfigMap_%s_%s", name, key)), krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler))
+	}, opts.WithName(fmt.Sprintf("ConfigMap_%s_%s", name, key))...)
 }
 
 func meshConfigMapData(cm *v1.ConfigMap, key string) *string {

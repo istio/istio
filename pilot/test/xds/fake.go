@@ -63,6 +63,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -133,7 +134,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := xds.NewDiscoveryServer(model.NewEnvironment(), map[string]string{})
+	s := xds.NewDiscoveryServer(model.NewEnvironment(), map[string]string{}, krt.GlobalDebugHandler)
 	// Disable debounce to reduce test times
 	s.DebounceOptions.DebounceAfter = opts.DebounceTime
 	// Setup time to Now instead of process start to make logs not misleading

@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/filewatcher"
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -65,9 +65,10 @@ func newNetworksWatcher(t *testing.T, filename string) mesh.NetworksWatcher {
 	t.Cleanup(func() {
 		w.Close()
 	})
-	fs, err := meshwatcher.NewFileSource(w, filename, test.NewStop(t))
+	opts := krttest.Options(t)
+	fs, err := meshwatcher.NewFileSource(w, filename, opts)
 	assert.NoError(t, err)
-	col := meshwatcher.NewNetworksCollection(test.NewStop(t), fs)
-	col.AsCollection().Synced().WaitUntilSynced(test.NewStop(t))
+	col := meshwatcher.NewNetworksCollection(opts, fs)
+	col.AsCollection().Synced().WaitUntilSynced(opts.Stop())
 	return meshwatcher.NetworksAdapter(col)
 }

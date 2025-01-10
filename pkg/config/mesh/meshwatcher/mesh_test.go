@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/filewatcher"
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -72,12 +72,12 @@ func newWatcher(t testing.TB, filename string) mesh.Watcher {
 	t.Cleanup(func() {
 		w.Close()
 	})
-	stop := test.NewStop(t)
-	fs, err := meshwatcher.NewFileSource(w, filename, stop)
+	opts := krttest.Options(t)
+	fs, err := meshwatcher.NewFileSource(w, filename, opts)
 	assert.NoError(t, err)
-	col := meshwatcher.NewCollection(stop, fs)
+	col := meshwatcher.NewCollection(opts, fs)
 
-	col.AsCollection().Synced().WaitUntilSynced(stop)
+	col.AsCollection().Synced().WaitUntilSynced(opts.Stop())
 	return meshwatcher.ConfigAdapter(col)
 }
 

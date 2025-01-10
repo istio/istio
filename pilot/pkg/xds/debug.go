@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/xds"
-	"istio.io/istio/pkg/kube/krt"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/security"
@@ -1029,7 +1028,7 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) krtz(w http.ResponseWriter, req *http.Request) {
-	writeJSON(w, krt.GlobalDebugHandler, req)
+	writeJSON(w, s.krtDebugger, req)
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {

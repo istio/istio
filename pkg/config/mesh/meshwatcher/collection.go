@@ -21,25 +21,24 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/kube/krt/files"
 	"istio.io/istio/pkg/log"
 )
 
 type MeshConfigSource = krt.Singleton[string]
 
-func NewFileSource(fileWatcher filewatcher.FileWatcher, filename string, stop <-chan struct{}) (MeshConfigSource, error) {
-	return files.NewSingleton[string](fileWatcher, filename, stop, func(filename string) (string, error) {
+func NewFileSource(fileWatcher filewatcher.FileWatcher, filename string, opts krt.OptionsBuilder) (MeshConfigSource, error) {
+	return krt.NewFileSingleton[string](fileWatcher, filename, func(filename string) (string, error) {
 		b, err := os.ReadFile(filename)
 		if err != nil {
 			return "", err
 		}
 		return string(b), nil
-	}, krt.WithName("Mesh_File_"+path.Base(filename)), krt.WithStop(stop))
+	}, opts.WithName("Mesh_File_"+path.Base(filename))...)
 }
 
 // NewCollection builds a new mesh config built by applying the provided sources.
 // Sources are applied in order (example: default < sources[0] < sources[1]).
-func NewCollection(stop <-chan struct{}, sources ...MeshConfigSource) krt.Singleton[MeshConfigResource] {
+func NewCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Singleton[MeshConfigResource] {
 	return krt.NewSingleton[MeshConfigResource](
 		func(ctx krt.HandlerContext) *MeshConfigResource {
 			meshCfg := mesh.DefaultMeshConfig()
@@ -69,13 +68,13 @@ func NewCollection(stop <-chan struct{}, sources ...MeshConfigSource) krt.Single
 				meshCfg = n
 			}
 			return &MeshConfigResource{meshCfg}
-		}, krt.WithName("MeshConfig"), krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler),
+		}, opts.WithName("MeshConfig")...,
 	)
 }
 
 // NewNetworksCollection builds a new meshnetworks config built by applying the provided sources.
 // Sources are applied in order (example: default < sources[0] < sources[1]).
-func NewNetworksCollection(stop <-chan struct{}, sources ...MeshConfigSource) krt.Singleton[MeshNetworksResource] {
+func NewNetworksCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Singleton[MeshNetworksResource] {
 	return krt.NewSingleton[MeshNetworksResource](
 		func(ctx krt.HandlerContext) *MeshNetworksResource {
 			for _, attempt := range sources {
@@ -90,6 +89,6 @@ func NewNetworksCollection(stop <-chan struct{}, sources ...MeshConfigSource) kr
 				}
 			}
 			return &MeshNetworksResource{nil}
-		}, krt.WithName("MeshNetworks"), krt.WithStop(stop),
+		}, opts.WithName("MeshNetworks")...,
 	)
 }

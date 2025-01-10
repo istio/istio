@@ -72,6 +72,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.ClusterID = s.clusterID
 	args.RegistryOptions.KubeOptions.Revision = args.Revision
+	args.RegistryOptions.KubeOptions.KrtDebugger = args.KrtDebugger
 	args.RegistryOptions.KubeOptions.Metrics = s.environment
 	args.RegistryOptions.KubeOptions.XDSUpdater = s.XDSServer
 	args.RegistryOptions.KubeOptions.MeshNetworksWatcher = s.environment.NetworksWatcher

@@ -64,17 +64,6 @@ func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
 	return *c
 }
 
-func buildCollectionOptions2(opts ...CollectionOption) collectionOptions {
-	c := &collectionOptions{}
-	for _, o := range opts {
-		o(c)
-	}
-	if c.stop == nil {
-		c.stop = make(chan struct{})
-	}
-	return *c
-}
-
 // collectionOptions tracks options for a collection
 type collectionOptions struct {
 	name          string

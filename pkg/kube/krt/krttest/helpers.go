@@ -74,3 +74,7 @@ func extractType[T any](items *[]any) []T {
 	*items = unmatched
 	return matched
 }
+
+func Options(t test.Failer) krt.OptionsBuilder {
+	return krt.NewOptionsBuilder(test.NewStop(t), krt.GlobalDebugHandler)
+}

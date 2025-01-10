@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -72,14 +72,14 @@ func TestExtraConfigmap(t *testing.T) {
 	setup := func(t *testing.T) (corev1.ConfigMapInterface, mesh.Watcher) {
 		client := kube.NewFakeClient()
 		cms := client.Kube().CoreV1().ConfigMaps(namespace)
-		stop := test.NewStop(t)
-		primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, stop)
-		userMeshConfig := NewConfigMapSource(client, namespace, extraCmName, MeshConfigKey, stop)
-		col := meshwatcher.NewCollection(stop, userMeshConfig, primaryMeshConfig)
-		col.AsCollection().WaitUntilSynced(stop)
+		opts := krttest.Options(t)
+		primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, opts)
+		userMeshConfig := NewConfigMapSource(client, namespace, extraCmName, MeshConfigKey, opts)
+		col := meshwatcher.NewCollection(opts, userMeshConfig, primaryMeshConfig)
+		col.AsCollection().WaitUntilSynced(opts.Stop())
 		w := meshwatcher.ConfigAdapter(col)
 
-		client.RunAndWait(stop)
+		client.RunAndWait(opts.Stop())
 		return cms, w
 	}
 
@@ -205,12 +205,12 @@ func TestNewConfigMapWatcher(t *testing.T) {
 
 	client := kube.NewFakeClient()
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
-	stop := test.NewStop(t)
-	primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, stop)
-	col := meshwatcher.NewCollection(stop, primaryMeshConfig)
-	col.AsCollection().Synced().WaitUntilSynced(stop)
+	opts := krttest.Options(t)
+	primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, opts)
+	col := meshwatcher.NewCollection(opts, primaryMeshConfig)
+	col.AsCollection().Synced().WaitUntilSynced(opts.Stop())
 	w := meshwatcher.ConfigAdapter(col)
-	client.RunAndWait(stop)
+	client.RunAndWait(opts.Stop())
 
 	var mu sync.Mutex
 	newM := mesh.DefaultMeshConfig()

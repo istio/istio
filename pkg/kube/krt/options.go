@@ -4,24 +4,32 @@ package krt
 // without excessive duplication.
 type OptionsBuilder struct {
 	stop     chan struct{}
-	Debugger *DebugHandler
+	debugger *DebugHandler
 }
 
 func NewOptionsBuilder(stop chan struct{}, debugger *DebugHandler) OptionsBuilder {
 	return OptionsBuilder{
 		stop:     stop,
-		Debugger: debugger,
+		debugger: debugger,
 	}
 }
 
 // WithName applies the base options with a specific name
 func (k OptionsBuilder) WithName(n string) []CollectionOption {
-	return []CollectionOption{WithDebugging(k.Debugger), WithStop(k.stop), WithName(n)}
+	return []CollectionOption{WithDebugging(k.debugger), WithStop(k.stop), WithName(n)}
 }
 
 // With applies arbitrary options along with the base options.
 func (k OptionsBuilder) With(opts ...CollectionOption) []CollectionOption {
-	return append([]CollectionOption{WithDebugging(k.Debugger), WithStop(k.stop)}, opts...)
+	return append([]CollectionOption{WithDebugging(k.debugger), WithStop(k.stop)}, opts...)
+}
+
+func (k OptionsBuilder) Stop() <-chan struct{} {
+	return k.stop
+}
+
+func (k OptionsBuilder) Debugger() *DebugHandler {
+	return k.debugger
 }
 
 // WithName allows explicitly naming a controller. This is a best practice to make debugging easier.

@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/kube/krt/files"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -90,7 +89,7 @@ func (r *manyRig) CreateObject(key string) {
 }
 
 type fileRig struct {
-	files.Collection[Named]
+	krt.FileCollection[Named]
 	rootPath string
 }
 
@@ -155,10 +154,10 @@ func TestConformance(t *testing.T) {
 	})
 	t.Run("files", func(t *testing.T) {
 		t.Skip("Not implemented")
-		col := files.NewCollection[Named](krt.WithStop(test.NewStop(t)))
+		col := krt.NewFileCollection[Named](krt.WithStop(test.NewStop(t)))
 		rig := &fileRig{
-			Collection: col,
-			rootPath:   t.TempDir(),
+			FileCollection: col,
+			rootPath:       t.TempDir(),
 		}
 		runConformance[Named](t, rig)
 	})
@@ -166,7 +165,7 @@ func TestConformance(t *testing.T) {
 
 func runConformance[T any](t *testing.T, collection Rig[T]) {
 	stop := test.NewStop(t)
-	// Collection should start empty...
+	// FileCollection should start empty...
 	assert.Equal(t, len(collection.List()), 0)
 
 	// Register a handler at the start of the collection

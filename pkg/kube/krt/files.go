@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package files
+package krt
 
 import (
 	"fmt"
@@ -23,46 +23,45 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/filewatcher"
-	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 )
 
-type Collection[T any] struct {
-	krt.StaticCollection[T]
+type FileCollection[T any] struct {
+	StaticCollection[T]
 }
 
-func NewCollection[T any](opts ...krt.CollectionOption) Collection[T] {
+func NewFileCollection[T any](opts ...CollectionOption) FileCollection[T] {
 	panic("not yet implemented")
 }
 
-type Singleton[T any] struct {
-	krt.Singleton[T]
+type FileSingleton[T any] struct {
+	Singleton[T]
 }
 
-// NewSingleton returns a collection that reads and watches a single file
+// NewFileSingleton returns a collection that reads and watches a single file
 // The `readFile` function is used to read and deserialize the file and will be called each time the file changes.
 // This will also be called during the initial construction of the collection; if the initial readFile fails an error is returned.
-func NewSingleton[T any](
+func NewFileSingleton[T any](
 	fileWatcher filewatcher.FileWatcher,
 	filename string,
-	stop <-chan struct{},
 	readFile func(filename string) (T, error),
-	opts ...krt.CollectionOption,
-) (Singleton[T], error) {
+	opts ...CollectionOption,
+) (FileSingleton[T], error) {
 	cfg, err := readFile(filename)
 	if err != nil {
-		return Singleton[T]{}, err
+		return FileSingleton[T]{}, err
 	}
 
+	o := buildCollectionOptions(opts...)
+
 	cur := atomic.NewPointer(&cfg)
-	trigger := krt.NewRecomputeTrigger(true, opts...)
-	sc := krt.NewSingleton[T](func(ctx krt.HandlerContext) *T {
+	trigger := NewRecomputeTrigger(true, opts...)
+	sc := NewSingleton[T](func(ctx HandlerContext) *T {
 		trigger.MarkDependant(ctx)
 		return cur.Load()
 	}, opts...)
-	sc.AsCollection().WaitUntilSynced(stop)
-	watchFile(fileWatcher, filename, stop, func() {
+	sc.AsCollection().WaitUntilSynced(o.stop)
+	watchFile(fileWatcher, filename, o.stop, func() {
 		cfg, err := readFile(filename)
 		if err != nil {
 			log.Warnf("failed to update: %v", err)
@@ -71,7 +70,7 @@ func NewSingleton[T any](
 		cur.Store(&cfg)
 		trigger.TriggerRecomputation()
 	})
-	return Singleton[T]{sc}, nil
+	return FileSingleton[T]{sc}, nil
 }
 
 func ReadFileAsYaml[T any](filename string) (T, error) {

@@ -106,7 +106,7 @@ func TestIndexCollection(t *testing.T) {
 		pods := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "1.2.3.5"))
 		names := slices.Sort(slices.Map(pods, SimplePod.ResourceName))
 		return ptr.Of(strings.Join(names, ","))
-	}, opts.WithName("Collection")...)
+	}, opts.WithName("FileCollection")...)
 	Collection.AsCollection().WaitUntilSynced(stop)
 	fetchSorted := func(ip string) []SimplePod {
 		return slices.SortBy(IPIndex.Lookup(ip), func(t SimplePod) string {
