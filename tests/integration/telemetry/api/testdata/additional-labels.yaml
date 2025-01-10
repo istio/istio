@@ -1,0 +1,22 @@
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: additional-labels
+  namespace: istio-system
+spec:
+  metrics:
+    - overrides:
+        - match:
+            metric: ALL_METRICS
+            mode: CLIENT
+          tagOverrides:
+            custom_label:
+              value: filter_state.upstream_peer.labels['custom-label']
+        - match:
+            metric: ALL_METRICS
+            mode: SERVER
+          tagOverrides:
+            custom_label:
+              value: filter_state.downstream_peer.labels['custom-label']
+      providers:
+        - name: prometheus

@@ -110,6 +110,11 @@ proxyMetadata:
 			e.Subsets[0].Annotations[annotation.SidecarStatsHistogramBuckets.Name] = customBuckets
 		}
 		e.Subsets[0].Annotations[annotation.ProxyConfig.Name] = proxyMetadata
+		// add custom label to echo instances, this will be used to test additional labels exchange.
+		if e.Subsets[0].Labels == nil {
+			e.Subsets[0].Labels = map[string]string{}
+		}
+		e.Subsets[0].Labels["custom-label"] = e.Service
 	}
 
 	proxyMd := `{"proxyMetadata": {"OUTPUT_CERTS": "/etc/certs/custom"}}`

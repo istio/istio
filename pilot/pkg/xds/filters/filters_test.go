@@ -19,10 +19,13 @@ import (
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -80,4 +83,89 @@ func TestBuildRouterFilter(t *testing.T) {
 			t.Errorf("Test %s failed, expected: %v ,got: %v", tt.name, spew.Sdump(result), spew.Sdump(tt.expected))
 		}
 	}
+}
+
+func TestMxFilters(t *testing.T) {
+	assert.Equal(t, TCPClusterMx, &cluster.Filter{
+		Name: MxFilterName,
+		TypedConfig: protoconv.TypedStructWithFields(MetadataExchangeTypeURL, map[string]any{
+			"protocol":         "istio-peer-exchange",
+			"enable_discovery": true,
+		}),
+	})
+
+	assert.Equal(t, TCPListenerMx, &listener.Filter{
+		Name: MxFilterName,
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(MetadataExchangeTypeURL, map[string]any{
+				"protocol":         "istio-peer-exchange",
+				"enable_discovery": true,
+			}),
+		},
+	})
+
+	assert.Equal(t, SidecarInboundMetadataFilter, &hcm.HttpFilter{
+		Name: MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL, map[string]any{
+				"downstream_discovery": []any{
+					map[string]any{
+						"istio_headers": map[string]any{},
+					},
+					map[string]any{
+						"workload_discovery": map[string]any{},
+					},
+				},
+				"downstream_propagation": []any{
+					map[string]any{
+						"istio_headers": map[string]any{},
+					},
+				},
+			}),
+		},
+	})
+
+	assert.Equal(t, SidecarOutboundMetadataFilter, &hcm.HttpFilter{
+		Name: MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL, map[string]any{
+				"upstream_discovery": []any{
+					map[string]any{
+						"istio_headers": map[string]any{},
+					},
+					map[string]any{
+						"workload_discovery": map[string]any{},
+					},
+				},
+				"upstream_propagation": []any{
+					map[string]any{
+						"istio_headers": map[string]any{},
+					},
+				},
+			}),
+		},
+	})
+
+	assert.Equal(t, SidecarOutboundMetadataFilterSkipHeaders, &hcm.HttpFilter{
+		Name: MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL, map[string]any{
+				"upstream_discovery": []any{
+					map[string]any{
+						"istio_headers": map[string]any{},
+					},
+					map[string]any{
+						"workload_discovery": map[string]any{},
+					},
+				},
+				"upstream_propagation": []any{
+					map[string]any{
+						"istio_headers": map[string]any{
+							"skip_external_clusters": true,
+						},
+					},
+				},
+			}),
+		},
+	})
 }
