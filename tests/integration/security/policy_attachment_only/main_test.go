@@ -49,7 +49,7 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, func(c resource.Context, cfg *istio.Config) {
-			if len(c.Settings().IPFamilies) <= 1 {
+			if len(c.Settings().IPFamilies) < 2 {
 				cfg.ControlPlaneValues = `
 values:
   pilot: 
