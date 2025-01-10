@@ -447,6 +447,12 @@ func (rb *IptablesRuleBuilder) GetStateFromSave(data string) map[string]map[stri
 			table = strings.TrimSpace(line[1:])
 			continue
 		}
+
+		// If we are in a non-built-in table, skip processing line
+		if _, exists := result[table]; !exists {
+			continue
+		}
+
 		// Found chain, setup an empty list for the chain if it is an ISTIO one
 		if strings.HasPrefix(line, ":") {
 			if !strings.HasPrefix(line, ":ISTIO") {

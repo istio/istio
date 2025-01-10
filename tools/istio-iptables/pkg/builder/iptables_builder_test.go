@@ -351,3 +351,96 @@ func TestCleanupRulesV4V6(t *testing.T) {
 		})
 	}
 }
+
+func TestStateFromRestoreFormat(t *testing.T) {
+	builderConfig := &config.Config{}
+	for _, tt := range []struct {
+		name      string
+		setupFunc func(iptables *IptablesRuleBuilder)
+		expected  map[string]map[string][]string
+	}{
+		{
+			"default",
+			func(iptables *IptablesRuleBuilder) {
+				iptables.InsertRuleV4(iptableslog.UndefinedCommand, "chain", "nat", 2, "-f", "foo", "-b", "bar")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "filter", "-f", "foo", "-b", "baaz")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "mangle", "-f", "fooo", "-b", "baz")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "raw", "-f", "foo", "-b", "baar")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "POSTROUTING", "nat", "-f", "foo", "-b", "bar", "-j", "ISTIO_TEST")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "ISTIO_TEST", "nat", "-f", "foo", "-b", "bar")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "filter", "-f", "foo", "-b", "bar")
+			},
+			map[string]map[string][]string{
+				"filter": {
+					"chain": {
+						"-A chain -f foo -b baaz",
+						"-A chain -f foo -b bar",
+					},
+				},
+				"mangle": {
+					"chain": {
+						"-A chain -f fooo -b baz",
+					},
+				},
+				"nat": {
+					"ISTIO_TEST": {
+						"-A ISTIO_TEST -f foo -b bar",
+					},
+					"POSTROUTING": {
+						"-A POSTROUTING -f foo -b bar -j ISTIO_TEST",
+					},
+					"chain": {
+						"-I chain 2 -f foo -b bar",
+					},
+				},
+				"raw": {
+					"chain": {
+						"-A chain -f foo -b baar",
+					},
+				},
+			},
+		},
+		{
+			"empty",
+			func(iptables *IptablesRuleBuilder) {
+			},
+			map[string]map[string][]string{
+				"filter": {},
+				"mangle": {},
+				"nat":    {},
+				"raw":    {},
+			},
+		},
+		{
+			"with-non-built-in-tables",
+			func(iptables *IptablesRuleBuilder) {
+				iptables.InsertRuleV4(iptableslog.UndefinedCommand, "chain", "nat", 2, "-f", "foo", "-b", "bar")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain2", "filter", "-f", "foo", "-b", "baz")
+				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain2", "does-not-exist", "-f", "foo", "-b", "baz")
+			},
+			map[string]map[string][]string{
+				"filter": {
+					"chain2": {
+						"-A chain2 -f foo -b baz",
+					},
+				},
+				"mangle": {},
+				"nat": {
+					"chain": {
+						"-I chain 2 -f foo -b bar",
+					},
+				},
+				"raw": {},
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			iptables := NewIptablesRuleBuilder(builderConfig)
+			tt.setupFunc(iptables)
+			actual := iptables.GetStateFromSave(iptables.BuildV4Restore())
+			if !reflect.DeepEqual(actual, tt.expected) {
+				t.Errorf("Actual and expected output mismatch; but instead got Actual: %#v ; Expected: %#v", actual, tt.expected)
+			}
+		})
+	}
+}
