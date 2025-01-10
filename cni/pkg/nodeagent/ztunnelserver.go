@@ -232,7 +232,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 					log.Error("ztunnel connection broken/unwritable, disposing of this connection")
 					return err
 				}
-				// - we could write, but ztunnel responded wtih an `ack` error (in which case, this conn is not dead)
+				// - we could write, but ztunnel responded with an `ack` error (in which case, this conn is not dead)
 				log.Errorf("ztunnel responded with an ack error: err %v ackErr %s", err, resp.GetAck().GetError())
 			}
 			log.Debugf("ztunnel acked")
