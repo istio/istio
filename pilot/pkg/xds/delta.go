@@ -504,7 +504,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 	}
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 	resp := &discovery.DeltaDiscoveryResponse{
-		ControlPlane: ControlPlane(),
+		ControlPlane: ControlPlane(w.TypeUrl),
 		TypeUrl:      w.TypeUrl,
 		// TODO: send different version for incremental eds
 		SystemVersionInfo: req.Push.PushVersion,
