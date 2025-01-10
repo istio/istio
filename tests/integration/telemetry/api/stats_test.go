@@ -109,7 +109,8 @@ func runStatsTest(t framework.TestContext, expectedBuckets int, enableMXAddition
 	// Enable strict mTLS. This is needed for mock secured prometheus scraping test.
 	t.ConfigIstio().YAML(ist.Settings().SystemNamespace, strictMtlsPeerAuthenticationConfig).ApplyOrFail(t)
 	if enableMXAdditionalLabels {
-		t.ConfigIstio().File(ist.Settings().SystemNamespace, additionalLabelConfigPath).ApplyOrFail(t)
+		// use namespace scoped Telemetry API to override the root level config
+		t.ConfigIstio().File(apps.Namespace.Name(), additionalLabelConfigPath).ApplyOrFail(t)
 	}
 	g, _ := errgroup.WithContext(context.Background())
 	for _, cltInstance := range GetClientInstances() {
@@ -180,7 +181,8 @@ func TestStatsTCPFilter(t *testing.T) {
 func runTCPStatsTest(t framework.TestContext, enableMXAdditionalLabels bool) {
 	g, _ := errgroup.WithContext(t.Context())
 	if enableMXAdditionalLabels {
-		t.ConfigIstio().File(ist.Settings().SystemNamespace, additionalLabelConfigPath).ApplyOrFail(t)
+		// use namespace scoped Telemetry API to override the root level config
+		t.ConfigIstio().File(apps.Namespace.Name(), additionalLabelConfigPath).ApplyOrFail(t)
 	}
 	for _, cltInstance := range GetClientInstances() {
 		g.Go(func() error {
@@ -412,8 +414,8 @@ func buildQuery(sourceCluster string, enableMXAdditionalLabels bool) (sourceQuer
 
 	sourceQuery, destinationQuery, appQuery = BuildQueryCommon(labels, ns.Name())
 	if enableMXAdditionalLabels {
-		sourceQuery.Labels["custom_label"] = "a"
-		destinationQuery.Labels["custom_label"] = "b"
+		sourceQuery.Labels["upstream_custom_label"] = "b"
+		destinationQuery.Labels["downstream_custom_label"] = "a"
 	}
 
 	return
@@ -466,7 +468,7 @@ func buildTCPQuery(sourceCluster string, enableAdditionalLabels bool) (destinati
 	}
 	if enableAdditionalLabels {
 		// reporter is destination, so custom label is `b`.
-		labels["custom_label"] = "b"
+		labels["downstream_custom_label"] = "a"
 	}
 	return prometheus.Query{
 		Metric: "istio_tcp_connections_opened_total",
