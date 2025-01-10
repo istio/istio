@@ -4,7 +4,7 @@
 
 # The following flags (in addition to ${V}) can be specified on the command-line, or the environment. This
 # is primarily used by the CI systems.
-_INTEGRATION_TEST_FLAGS ?= $(INTEGRATION_TEST_FLAGS)
+_INTEGRATION_TEST_FLAGS := $(INTEGRATION_TEST_FLAGS)
 
 # $(CI) specifies that the test is running in a CI system. This enables CI specific logging.
 ifneq ($(CI),)
