@@ -207,7 +207,7 @@ func (a *index) WaypointsCollection(
 	gateways krt.Collection[*v1beta1.Gateway],
 	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
 	pods krt.Collection[*v1.Pod],
-	opts KrtOptions,
+	opts krt.OptionsBuilder,
 ) krt.Collection[Waypoint] {
 	podsByNamespace := krt.NewNamespaceIndex(pods)
 	return krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {

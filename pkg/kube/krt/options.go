@@ -1,6 +1,5 @@
 package krt
 
-
 // OptionsBuilder is a small wrapper around KRT options to make it easy to provide a common set of options to all collections
 // without excessive duplication.
 type OptionsBuilder struct {
