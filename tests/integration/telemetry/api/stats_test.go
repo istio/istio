@@ -79,6 +79,9 @@ func TestStatsFilter(t *testing.T) {
 				runStatsTest(t, expectedBuckets, false)
 			})
 			t.NewSubTest("additional-labels").Run(func(t framework.TestContext) {
+				if t.Settings().PeerMetadataDiscovery {
+					t.Skipf("Peer metadata discovery is enabled, skipping additional-labels test")
+				}
 				runStatsTest(t, expectedBuckets, true)
 			})
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
@@ -173,6 +176,9 @@ func TestStatsTCPFilter(t *testing.T) {
 				runTCPStatsTest(t, false)
 			})
 			t.NewSubTest("additional-labels").Run(func(t framework.TestContext) {
+				if t.Settings().PeerMetadataDiscovery {
+					t.Skipf("Peer metadata discovery is enabled, skipping additional-labels test")
+				}
 				runTCPStatsTest(t, true)
 			})
 		})
