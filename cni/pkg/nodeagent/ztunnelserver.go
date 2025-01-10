@@ -231,12 +231,14 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 				if strings.Contains(err.Error(), "sendmsg: broken pipe") {
 					log.Error("ztunnel connection broken/unwritable, disposing of this connection")
 					return err
-				} else {
-					// if we timed out waiting for a (valid) response, mention and continue, connection may not be trashed
-					log.Warnf("timed out waiting for valid ztunnel response: %s", err)
 				}
-				// - we wrote, got a response, but ztunnel responded with an `ack` error (in which case, this conn is not dead)
-				log.Errorf("ztunnel responded with an ack error: err %v ackErr %s", err, resp.GetAck().GetError())
+				// if we timed out waiting for a (valid) response, mention and continue, connection may not be trashed
+				log.Warnf("timed out waiting for valid ztunnel response: %s", err)
+
+				if resp.GetAck().GetError() != "" {
+					// - we wrote, got a response, but ztunnel responded with an `ack` error (in which case, this conn is not dead)
+					log.Errorf("ztunnel responded with an ack error: ackErr %s", resp.GetAck().GetError())
+				}
 			}
 			log.Debugf("ztunnel acked")
 			// Safety: Resp is buffered, so this will not block
