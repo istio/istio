@@ -138,17 +138,6 @@ type Options struct {
 	Debugger *krt.DebugHandler
 }
 
-// KrtOptions is a small wrapper around KRT options to make it easy to provide a common set of options to all collections
-// without excessive duplication.
-type KrtOptions struct {
-	stop     chan struct{}
-	debugger *krt.DebugHandler
-}
-
-func (k KrtOptions) WithName(n string) []krt.CollectionOption {
-	return []krt.CollectionOption{krt.WithDebugging(k.debugger), krt.WithStop(k.stop), krt.WithName(n)}
-}
-
 func New(options Options) Index {
 	a := &index{
 		SystemNamespace: options.SystemNamespace,
@@ -162,10 +151,7 @@ func New(options Options) Index {
 	filter := kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
 	}
-	opts := KrtOptions{
-		stop:     a.stop,
-		debugger: options.Debugger,
-	}
+	opts := krt.NewOptionsBuilder(a.stop, options.Debugger)
 
 	MeshConfig := options.MeshConfig
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
