@@ -1,0 +1,32 @@
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default-mesh
+  namespace: istio-system
+spec:
+  mtls:
+    mode: PERMISSIVE
+---
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default-foo
+  namespace: foo
+spec:
+  mtls:
+    mode: UNSET
+---
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: workload
+  namespace: foo
+spec:
+  selector:
+    matchLabels:
+      app: a
+  portLevelMtls:
+    9090:
+      mode: STRICT
+    8080:
+      mode: PERMISSIVE

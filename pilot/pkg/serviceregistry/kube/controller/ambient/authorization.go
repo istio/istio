@@ -25,6 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi/security"
 )
@@ -239,6 +241,7 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 
 	action := security.Action_DENY
 	var rules []*security.Rules
+	var groups []*security.Group
 
 	if mode == v1beta1.PeerAuthentication_MutualTLS_STRICT {
 		rules = append(rules, &security.Rules{
@@ -259,18 +262,39 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 	// Note that this doesn't actually attach the policy to any workload; it just makes it available
 	// to ztunnel in case a workload needs it.
 	foundNonStrictPortmTLS := false
-	for port, mtls := range pa.PortLevelMtls {
+	keys := slices.Sort(maps.Keys(pa.PortLevelMtls))
+	for _, port := range keys {
+		mtls := pa.PortLevelMtls[port]
 		switch portMtlsMode := mtls.GetMode(); {
 		case portMtlsMode == v1beta1.PeerAuthentication_MutualTLS_STRICT:
-			rules = append(rules, &security.Rules{
-				Matches: []*security.Match{
+			// If either:
+			// 1. The workload-level policy is STRICT
+			// 2. The workload level policy is nil/unset and the namespace-level policy is STRICT
+			// 3. The workload level policy is nil/unset and the namespace-level policy is nil/unset and the mesh-level policy is STRICT
+			// then we don't need to add a rule for this STRICT port since it will be enforced by the parent policy
+			if isMtlsModeStrict(pa.GetMtls()) || // #1
+				(isMtlsModeUnset(pa.GetMtls()) && // First condition for #2 and #3
+					(nsCfg != nil && isMtlsModeStrict(nsCfg.Spec.Mtls)) || // #2
+					// #3
+					((nsCfg == nil || isMtlsModeUnset(nsCfg.Spec.Mtls)) && rootCfg != nil && isMtlsModeStrict(rootCfg.Spec.Mtls))) {
+				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s",
+					port, portMtlsMode, cfg.Namespace, cfg.Name, mode)
+				continue
+			}
+			// Groups are OR'd so we need to create one for each STRICT workload port
+			groups = append(groups, &security.Group{
+				Rules: []*security.Rules{
 					{
-						NotPrincipals: []*security.StringMatch{
+						Matches: []*security.Match{
 							{
-								MatchType: &security.StringMatch_Presence{},
+								NotPrincipals: []*security.StringMatch{
+									{
+										MatchType: &security.StringMatch_Presence{},
+									},
+								},
+								DestinationPorts: []uint32{port},
 							},
 						},
-						DestinationPorts: []uint32{port},
 					},
 				},
 			})
@@ -313,21 +337,9 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 		return nil
 	}
 
-	if len(rules) == 0 {
-		// we never added any rules; return
+	if len(rules) == 0 && len(groups) == 0 {
+		// we never added any rules or groups; return
 		return nil
-	}
-
-	opol := &security.Authorization{
-		Name: model.GetAmbientPolicyConfigName(model.ConfigKey{
-			Name:      cfg.Name,
-			Kind:      kind.PeerAuthentication,
-			Namespace: cfg.Namespace,
-		}),
-		Namespace: cfg.Namespace,
-		Scope:     scope,
-		Action:    action,
-		Groups:    []*security.Group{{Rules: rules}},
 	}
 
 	// We only need to merge if the effective policy is STRICT, the workload policy's mode is unstrict, and we have a non-strict port level policy
@@ -340,9 +352,10 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 	}
 
 	// If the effective policy (namespace or mesh) is STRICT and we have a non-strict port level policy,
-	// we need to merge that strictness into the workload policy so that the static strict policy
+	// we need to merge that strictness into the workload policy so that the static strict policy can be elided
+	// from the workload's policy list.
 	if shouldMergeStrict && foundNonStrictPortmTLS {
-		opol.Groups[0].Rules = append(opol.Groups[0].Rules, &security.Rules{
+		rules = append(rules, &security.Rules{
 			Matches: []*security.Match{
 				{
 					NotPrincipals: []*security.StringMatch{
@@ -353,6 +366,24 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 				},
 			},
 		})
+	}
+
+	if len(rules) > 0 {
+		groups = append(groups, &security.Group{
+			Rules: rules,
+		})
+	}
+
+	opol := &security.Authorization{
+		Name: model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Name:      cfg.Name,
+			Kind:      kind.PeerAuthentication,
+			Namespace: cfg.Namespace,
+		}),
+		Namespace: cfg.Namespace,
+		Scope:     scope,
+		Action:    action,
+		Groups:    groups,
 	}
 
 	return opol
