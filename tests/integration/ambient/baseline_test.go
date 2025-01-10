@@ -679,7 +679,7 @@ spec:
       version: v2
 `).ApplyOrFail(t)
 			t.NewSubTest("v1").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.Count = 5
 				opt.Timeout = time.Second * 10
 				opt.Check = check.And(
@@ -696,7 +696,7 @@ spec:
 			})
 
 			t.NewSubTest("v2").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.Count = 5
 				opt.Timeout = time.Second * 10
 				if opt.HTTP.Headers == nil {
@@ -741,7 +741,7 @@ spec:
   mtls:
     mode: PERMISSIVE
 `).ApplyOrFail(t)
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("strict").Run(func(t framework.TestContext) {
@@ -758,7 +758,7 @@ spec:
   mtls:
     mode: STRICT
 				`).ApplyOrFail(t)
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
 					// Expect deny if the dest is in the mesh (enforcing mTLS) but src is not (not sending mTLS)
 					opt.Check = CheckDeny
@@ -787,8 +787,10 @@ spec:
   portLevelMtls:
     18080:
       mode: PERMISSIVE
+    19090:
+      mode: PERMISSIVE
 				`).ApplyOrFail(t)
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				// Should pass for all workloads, in or out of mesh, targeting this port
 				src.CallOrFail(t, opt)
 			})
@@ -823,7 +825,7 @@ spec:
     19090:
       mode: PERMISSIVE
         `).ApplyOrFail(t)
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				// Should pass for all workloads, in or out of mesh, targeting this port
 				src.CallOrFail(t, opt)
 			})
@@ -857,7 +859,7 @@ spec:
     19090:
       mode: STRICT
         `).ApplyOrFail(t)
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
 					// Expect deny if the dest is in the mesh (enforcing mTLS) but src is not (not sending mTLS)
 					opt.Check = CheckDeny
@@ -1125,14 +1127,14 @@ spec:
 				}
 			}
 			t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/deny"
 				opt.Check = CheckDeny
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("simple allow").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/allowed"
 				opt.Check = check.OK()
 				overrideCheck(&opt)
@@ -2393,7 +2395,7 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 						for _, opt := range callOptions {
 							opt := opt
 							t.NewSubTestf("%v", opt.Scheme).RunParallel(func(t framework.TestContext) {
-								opt = opt.DeepCopy()
+								opt := opt.DeepCopy()
 								opt.To = dst
 								opt.Check = check.OK()
 								f(t, src, dst, opt)
@@ -2594,7 +2596,7 @@ func runTestContext(t framework.TestContext, f func(t framework.TestContext, src
 					for _, opt := range callOptions {
 						src, dst, opt := src, dst, opt
 						t.NewSubTestf("%v", opt.Scheme).Run(func(t framework.TestContext) {
-							opt = opt.DeepCopy()
+							opt := opt.DeepCopy()
 							opt.To = dst
 							opt.Check = check.OK()
 							f(t, src, dst, opt)
