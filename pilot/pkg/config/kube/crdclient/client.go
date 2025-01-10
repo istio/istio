@@ -120,7 +120,6 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		schemas:          schemas,
 		schemasByCRDName: schemasByCRDName,
 		revision:         opts.Revision,
-		tagWatcher:       revisions.NewTagWatcher(client, opts.Revision),
 		queue:            queue.NewQueue(1 * time.Second),
 		started:          atomic.NewBool(false),
 		kinds:            map[config.GroupVersionKind]kclient.Untyped{},
@@ -128,6 +127,12 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		client:           client,
 		logger:           scope.WithLabels("controller", opts.Identifier),
 		filtersByGVK:     opts.FiltersByGVK,
+	}
+
+	// if schemas contains mutatingwebhooks, include the tag watcher.
+	mwcSchema := collection.NewSchemasBuilder().MustAdd(collections.MutatingWebhookConfiguration).Build()
+	if len(schemas.Intersect(mwcSchema).All()) > 0 {
+		out.tagWatcher = revisions.NewTagWatcher(client, opts.Revision)
 	}
 
 	for _, s := range out.schemas.All() {
@@ -150,7 +155,9 @@ func (cl *Client) Run(stop <-chan struct{}) {
 		return
 	}
 
-	go cl.tagWatcher.Run(stop)
+	if cl.tagWatcher != nil {
+		go cl.tagWatcher.Run(stop)
+	}
 
 	t0 := time.Now()
 	cl.logger.Infof("Starting Pilot K8S CRD controller")
@@ -454,7 +461,11 @@ func (cl *Client) inRevision(obj any) bool {
 	if object == nil {
 		return false
 	}
-	return config.LabelsInRevisionOrTags(object.GetLabels(), cl.revision, cl.tagWatcher.GetMyTags())
+	myTags := sets.String{}
+	if cl.tagWatcher != nil {
+		myTags = cl.tagWatcher.GetMyTags()
+	}
+	return config.LabelsInRevisionOrTags(object.GetLabels(), cl.revision, myTags)
 }
 
 func (cl *Client) onEvent(resourceGVK config.GroupVersionKind, old controllers.Object, curr controllers.Object, event model.Event) {
