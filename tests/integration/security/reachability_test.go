@@ -56,10 +56,9 @@ func TestReachability(t *testing.T) {
 			systemNS := istio.ClaimSystemNamespaceOrFail(t, t)
 
 			integIstioVersion := cMinIstioVersion
-			var migrationApp echo.Instances
 			// Create a custom echo deployment in NS1 with subsets that allows us to test the
 			// migration of a workload to istio (from no sidecar to sidecar).
-			migrationApp = deployment.New(t).
+			migrationApp := deployment.New(t).
 				WithClusters(t.Clusters()...).WithConfig(echo.Config{
 				Namespace:      echo1NS,
 				Service:        migrationServiceName,
