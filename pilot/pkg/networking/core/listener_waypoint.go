@@ -345,6 +345,11 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					portProtocols[port.Port] = port.Protocol
 				}
 			}
+
+			// If the service has no addresses, we don't want this waypoint to be able to serve its hostname
+			if len(svcAddresses) == 0 {
+				delete(svcHostnameMap.Map, authorityKey)
+			}
 		}
 		if len(portMapper.Map) > 0 {
 			ranges := slices.Map(svcAddresses, func(vip string) *xds.CidrRange {
