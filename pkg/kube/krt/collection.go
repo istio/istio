@@ -606,6 +606,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 	h.onPrimaryInputEventLocked(toRun)
 }
 
+// nolint: unused // it is used to implement interface
 func (h *manyCollection[I, O]) _internalHandler() {
 }
 

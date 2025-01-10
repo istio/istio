@@ -52,6 +52,7 @@ func (i *informer[I]) augment(a any) any {
 
 var _ internalCollection[controllers.Object] = &informer[controllers.Object]{}
 
+// nolint: unused // (not true, its to implement an interface)
 func (i *informer[I]) _internalHandler() {}
 
 func (i *informer[I]) Synced() Syncer {

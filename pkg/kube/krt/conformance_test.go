@@ -17,15 +17,12 @@ package krt_test
 import (
 	"fmt"
 	"math/rand"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
@@ -94,12 +91,6 @@ type fileRig struct {
 }
 
 func (r *fileRig) CreateObject(key string) {
-	name := strings.ReplaceAll(key, "/", "_")
-	ns, name, _ := strings.Cut(key, "/")
-	obj := Named{Namespace: ns, Name: name}
-	b, _ := yaml.Marshal(obj)
-	_ = os.WriteFile(filepath.Join(r.rootPath, key), b, 0o644)
-	// r.UpdateObject(Named{Namespace: ns, Name: name})
 }
 
 // TestConformance aims to provide a 'conformance' suite for Collection implementations to ensure each collection behaves

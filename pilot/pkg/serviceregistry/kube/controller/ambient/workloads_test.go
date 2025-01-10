@@ -1683,7 +1683,7 @@ var podReady = []v1.PodCondition{
 func GetMeshConfig(mc *krttest.MockCollection) krt.StaticSingleton[MeshConfig] {
 	attempt := krttest.GetMockSingleton[MeshConfig](mc)
 	if attempt.Get() == nil {
-		return krt.NewStatic(&MeshConfig{mesh.DefaultMeshConfig()}, true)
+		return krt.NewStatic(&MeshConfig{MeshConfig: mesh.DefaultMeshConfig()}, true)
 	}
 	return attempt
 }

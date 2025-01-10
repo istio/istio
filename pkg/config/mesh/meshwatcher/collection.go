@@ -60,10 +60,9 @@ func NewCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Sin
 						// We may consider failing hard on startup instead of silently ignoring errors.
 						ctx.DiscardResult()
 						return &MeshConfigResource{mesh.DefaultMeshConfig()}
-					} else {
-						log.Warnf("invalid mesh config, ignoring: %v", err)
-						continue
 					}
+					log.Warnf("invalid mesh config, ignoring: %v", err)
+					continue
 				}
 				meshCfg = n
 			}
