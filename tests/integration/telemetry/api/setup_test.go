@@ -82,6 +82,10 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.ControlPlaneValues = `
+values:
+  pilot:
+    env:
+      PILOT_MX_ADDITIONAL_LABELS: "custom-label"
 meshConfig:
   accessLogFile: "" # disable from install, we will enable via Telemetry layer
   extensionProviders:
