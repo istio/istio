@@ -11,11 +11,6 @@ spec:
         enabled: true
   values:
     meshConfig:
-      # maybe necessary for Sidecar interoperability testing
-      # defaultConfig:
-      #   proxyMetadata:
-      #     ISTIO_META_DNS_CAPTURE: "true"
-      #     DNS_PROXY_ADDR: "0.0.0.0:15053"
       accessLogFile: /dev/stdout
       # Just used to exclude for testing
       discoverySelectors:
