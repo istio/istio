@@ -443,8 +443,7 @@ var (
 
 	// EnableCDSCaching determines if CDS caching is enabled. This is explicitly split out of ENABLE_XDS_CACHE,
 	// so that in case there are issues with the CDS cache we can just disable the CDS cache.
-	// Updated by ingress.
-	EnableCDSCaching = env.Register("PILOT_ENABLE_CDS_CACHE", false,
+	EnableCDSCaching = env.Register("PILOT_ENABLE_CDS_CACHE", true,
 		"If true, Pilot will cache CDS responses. Note: this depends on PILOT_ENABLE_XDS_CACHE.").Get()
 
 	// EnableLDSCaching determines if LDS caching is enabled. This is explicitly split out of ENABLE_XDS_CACHE,

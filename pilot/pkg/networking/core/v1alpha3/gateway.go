@@ -139,11 +139,11 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 }
 
 // Modified by Higress
-func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder, req *model.PushRequest, efKeys []string) (*ListenerBuilder, []*discovery.Resource, cacheStats) {
-	resources := make([]*discovery.Resource, 0)
+func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBuilder, req *model.PushRequest, efKeys []string) (*ListenerBuilder, cacheStats) {
+	listeners := make([]*listener.Listener, 0)
 	if builder.node.MergedGateway == nil {
 		log.Debugf("buildGatewayListeners: no gateways for router %v", builder.node.ID)
-		return builder, resources, cacheStats{}
+		return builder, cacheStats{}
 	}
 
 	mergedGateway := builder.node.MergedGateway
@@ -243,9 +243,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 					Gateways:        gateways,
 					EnvoyFilterKeys: efKeys,
 				}
-				cachedListener := configgen.Cache.Get(listenerCache)
-				if cachedListener != nil {
-					resources = append(resources, cachedListener)
+				cachedResource := configgen.Cache.Get(listenerCache)
+				if cachedResource != nil {
+					cachedListner, err := protoconv.UnmarshalAny[listener.Listener](cachedResource.Resource)
+					if err != nil {
+						errs = multierror.Append(errs, fmt.Errorf("unmarshal lds cache resource to listener %s failed: %v", lname, err))
+						miss++
+						continue
+					}
+					listeners = append(listeners, cachedListner)
 					hit++
 					continue
 				} else {
@@ -291,7 +297,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			}
 		}
 	}
-	listeners := make([]*listener.Listener, 0)
 	for _, ml := range mutableopts {
 		ml.mutable.Listener = buildGatewayListener(*ml.opts, ml.transport)
 		log.Debugf("buildGatewayListeners: marshaling listener %q with %d filter chains",
@@ -324,13 +329,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		log.Info(err.Error())
 	}
 
-	if len(mutableopts) == 0 && len(resources) == 0 {
+	if len(mutableopts) == 0 && len(listeners) == 0 {
 		log.Warnf("gateway has zero listeners for node %v", builder.node.ID)
-		return builder, resources, cacheStats{}
+		return builder, cacheStats{}
 	}
 
 	builder.gatewayListeners = listeners
-	return builder, resources, cacheStats{hits: hit, miss: miss}
+	return builder, cacheStats{hits: hit, miss: miss}
 }
 
 // End modified by Higress

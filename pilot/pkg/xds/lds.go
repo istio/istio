@@ -95,7 +95,7 @@ func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	}
 	resources := model.Resources{}
 	// Modified by Higress
-	listeners, resources, logs := l.Server.ConfigGenerator.BuildListeners(proxy, req)
+	listeners, logs := l.Server.ConfigGenerator.BuildListeners(proxy, req)
 	for _, c := range listeners {
 		resources = append(resources, &discovery.Resource{
 			Name:     c.Name,

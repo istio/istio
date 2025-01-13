@@ -27,7 +27,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -99,9 +98,8 @@ var (
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	req *model.PushRequest,
-) ([]*listener.Listener, []*discovery.Resource, model.XdsLogDetails) {
+) ([]*listener.Listener, model.XdsLogDetails) {
 	builder := NewListenerBuilder(node, req.Push)
-	var resources []*discovery.Resource
 	cacheStats := cacheStats{}
 	efw := req.Push.EnvoyFilters(node)
 	efKeys := efw.Keys()
@@ -112,17 +110,33 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	case model.Waypoint:
 		builder = configgen.buildWaypointListeners(builder)
 	case model.Router:
-		builder, resources, cacheStats = configgen.buildGatewayListeners(builder, req, efKeys)
+		builder, cacheStats = configgen.buildGatewayListeners(builder, req, efKeys)
 	}
 
-	builder.patchListeners()
-	l := builder.getListeners()
-	if builder.node.EnableHBONE() && !builder.node.IsAmbient() {
-		l = append(l, buildConnectOriginateListener())
+	var l []*listener.Listener
+	// Because the EnvoyFilter still needs to be patched before the final LDS data is generated,
+	// it is determined here that as long as all LDS caches are hit, the cached listeners will be
+	// used to avoid repeatedly patching the EnvoyFilter.
+	if !cacheStats.empty() && cacheStats.miss == 0 {
+		node.RLock()
+		if len(node.CachedListeners) > 0 {
+			l = node.CachedListeners
+		}
+		node.RUnlock()
+	} else {
+		builder.patchListeners()
+		l = builder.getListeners()
+		if builder.node.EnableHBONE() && !builder.node.IsAmbient() {
+			l = append(l, buildConnectOriginateListener())
+		}
+		node.Lock()
+		node.CachedListeners = l
+		node.Unlock()
 	}
 
-	return l, resources, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
+	return l, model.XdsLogDetails{AdditionalInfo: fmt.Sprintf("cached:%v/%v", cacheStats.hits, cacheStats.hits+cacheStats.miss)}
 }
+
 // End modified by Higress
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
