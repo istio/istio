@@ -51,7 +51,7 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		configContext:    ptr.Of[string](""),
 		impersonate:      ptr.Of[string](""),
 		impersonateUID:   ptr.Of[string](""),
-		impersonateGroup: ptr.Of[[]string]([]string{""}),
+		impersonateGroup: ptr.Of[[]string](nil),
 		namespace:        ptr.Of[string](""),
 		istioNamespace:   ptr.Of[string](""),
 	}
