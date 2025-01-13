@@ -230,24 +230,22 @@ func New(options Options) Index {
 			return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 		}), false)
 
-	serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
-	servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
-
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces, opts)
 
-	WaypointPolicyStatus := WaypointPolicyStatusCollection(
-		AuthzPolicies,
-		Waypoints,
-		Services,
-		ServiceEntries,
-		Namespaces,
-		opts,
-	)
-
-	authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
-
 	if features.EnableAmbientStatus {
+		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
+		servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
+		authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
+
+		WaypointPolicyStatus := WaypointPolicyStatusCollection(
+			AuthzPolicies,
+			Waypoints,
+			Services,
+			ServiceEntries,
+			Namespaces,
+			opts,
+		)
 		statusQueue := statusqueue.NewQueue(options.StatusNotifier)
 		statusqueue.Register(statusQueue, "istio-ambient-service", WorkloadServices,
 			func(info model.ServiceInfo) (kclient.Patcher, map[string]model.Condition) {
