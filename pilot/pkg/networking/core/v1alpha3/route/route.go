@@ -501,7 +501,7 @@ func translateRoute(
 	}
 
 	// Update by ingress
-	if redirect := in.Redirect; redirect != nil && !IgnoreRedirect(redirect, listenPort) {
+	if redirect := in.Redirect; redirect != nil && !IgnoreRedirect(redirect, opts.IsTLS) {
 		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
 		ApplyDirectResponse(out, in.DirectResponse)
@@ -1632,8 +1632,8 @@ func cutPrefix(s, prefix string) (after string, found bool) {
 }
 
 // Add by ingress
-func IgnoreRedirect(redirect *networking.HTTPRedirect, port int) bool {
-	if port != 443 {
+func IgnoreRedirect(redirect *networking.HTTPRedirect, isTLS bool) bool {
+	if !isTLS {
 		return false
 	}
 

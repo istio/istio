@@ -2812,14 +2812,14 @@ func TestSortVHostRoutes(t *testing.T) {
 func TestIgnoreRedirect(t *testing.T) {
 	cases := []struct {
 		redirect *networking.HTTPRedirect
-		port     int
+		isTLS    bool
 		expect   bool
 	}{
 		{
 			redirect: &networking.HTTPRedirect{
 				Scheme: "https",
 			},
-			port:   8080,
+			isTLS:  false,
 			expect: false,
 		},
 		{
@@ -2827,7 +2827,7 @@ func TestIgnoreRedirect(t *testing.T) {
 				Scheme: "https",
 				Uri:    "/test",
 			},
-			port:   443,
+			isTLS:  true,
 			expect: false,
 		},
 		{
@@ -2835,14 +2835,14 @@ func TestIgnoreRedirect(t *testing.T) {
 				Scheme:       "https",
 				RedirectCode: 308,
 			},
-			port:   443,
+			isTLS:  true,
 			expect: true,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run("", func(t *testing.T) {
-			result := route.IgnoreRedirect(c.redirect, c.port)
+			result := route.IgnoreRedirect(c.redirect, c.isTLS)
 			if c.expect != result {
 				t.Fatalf("Should be %v, actual is %v", c.expect, result)
 			}
