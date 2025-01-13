@@ -36,13 +36,11 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/test"
 	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
@@ -2868,7 +2866,7 @@ func TestDirect(t *testing.T) {
 				CaCert:             string(cert.RootCert),
 				InsecureSkipVerify: true,
 			}
-			run := func(name string, options echo.CallOptions, testOpts ...func(*testing.T)) {
+			run := func(name string, options echo.CallOptions) {
 				t.NewSubTest(name).Run(func(t framework.TestContext) {
 					_, err := c.CallEcho(nil, options)
 					if err != nil {
@@ -2892,23 +2890,13 @@ func TestDirect(t *testing.T) {
 				HBONE:   hbsvc,
 				Check:   check.OK(),
 			})
-			run("VIP destination, FQDN authority (without feature flag)", echo.CallOptions{
-				To:      apps.ServiceAddressedWaypoint,
-				Count:   1,
-				Address: apps.ServiceAddressedWaypoint.ClusterLocalFQDN(),
-				Port:    echo.Port{Name: ports.HTTP.Name},
-				HBONE:   hbsvc,
-				Check:   check.NotOK(),
-			})
-			run("VIP destination, FQDN authority (with feature flag)", echo.CallOptions{
+			run("VIP destination, FQDN authority", echo.CallOptions{
 				To:      apps.ServiceAddressedWaypoint,
 				Count:   1,
 				Address: apps.ServiceAddressedWaypoint.ClusterLocalFQDN(),
 				Port:    echo.Port{Name: ports.HTTP.Name},
 				HBONE:   hbsvc,
 				Check:   check.OK(),
-			}, func(t *testing.T) {
-				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			})
 			run("VIP destination, unknown port", echo.CallOptions{
 				To:      apps.ServiceAddressedWaypoint,
