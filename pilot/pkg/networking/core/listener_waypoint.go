@@ -494,7 +494,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		},
 	}
 
-	if len(svcHostnameMap.Map) > 0 {
+	if len(svcHostnameMap.Map) > 0 && features.EnableAmbientMultiNetwork {
 		l.FilterChainMatcher.OnNoMatch = &matcher.Matcher_OnMatch{
 			OnMatch: &matcher.Matcher_OnMatch_Matcher{
 				Matcher: &matcher.Matcher{
