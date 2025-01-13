@@ -133,6 +133,11 @@ func validate(s *Settings) error {
 		return fmt.Errorf("values for Hub & Tag are not detected. Please supply them through command-line or via environment")
 	}
 
+	for _, ipFamily := range s.IPFamilies {
+		if ipFamily != "IPv4" && ipFamily != "IPv6" {
+			return fmt.Errorf("supported values for --istio.test.IPFamilies are `IPv4`, `IPv6`, `IPv4,IPv6` or `IPv6,IPv4`")
+		}
+	}
 	return nil
 }
 
