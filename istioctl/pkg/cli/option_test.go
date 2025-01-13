@@ -18,8 +18,9 @@ import (
 	"testing"
 
 	"github.com/spf13/pflag"
-	"istio.io/istio/pkg/test/util/assert"
 	"k8s.io/client-go/rest"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func Test_AddRootFlags(t *testing.T) {
