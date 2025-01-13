@@ -27,6 +27,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -384,6 +385,10 @@ type Proxy struct {
 	// LastPushContext; the XDS cache depends on knowing the time of the PushContext to determine if a
 	// key is stale or not.
 	LastPushTime time.Time
+
+	// Added by Higress
+	CachedListeners []*listener.Listener
+	// End added by Higress
 }
 
 // WatchedResource tracks an active DiscoveryRequest subscription.
