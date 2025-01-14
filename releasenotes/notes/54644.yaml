@@ -5,4 +5,4 @@ issue:
   - 54644
 releaseNotes:
 - |
-  **Reduced** the amount of iptables logs related to rule checks and deletions.
+  **Fixed** excessive iptables info-level log entries for rule checks and deletions.
