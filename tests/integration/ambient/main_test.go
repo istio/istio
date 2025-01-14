@@ -104,6 +104,9 @@ func TestMain(m *testing.M) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
 values:
+  pilot:
+    env:
+      AMBIENT_ENABLE_MULTI_NETWORK: "true"
   cni:
     # The CNI repair feature is disabled for these tests because this is a controlled environment,
     # and it is important to catch issues that might otherwise be automatically fixed.
