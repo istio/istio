@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 54644
+releaseNotes:
+- |
+  **Reduced** the amount of iptables logs related to rule checks and deletions.
