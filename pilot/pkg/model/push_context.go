@@ -31,6 +31,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	alifeatures "istio.io/istio/pkg/ali/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -843,9 +844,11 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 		svcHost := string(s.Hostname)
 
 		// Added by ingress
-		if s.Attributes.Namespace == "mcp" {
-			gwSvcs = append(gwSvcs, s)
-			continue
+		if alifeatures.EnablePushAllMcpClusters {
+			if s.Attributes.Namespace == "mcp" {
+				gwSvcs = append(gwSvcs, s)
+				continue
+			}
 		}
 		// End added by ingress
 

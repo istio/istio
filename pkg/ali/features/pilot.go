@@ -58,4 +58,7 @@ var (
 
 	EnableLDSGrpcStatsFilter = env.RegisterBoolVar("ENABLE_GRPC_STATS_FILTER", false,
 		"If enabled, the grpc_stats filter will be append to LDS filter chain").Get()
+
+	EnablePushAllMcpClusters = env.RegisterBoolVar("ENABLE_PUSH_ALL_MCP_CLUSTERS", true,
+		"If enable, all mcp clusters will push to data plane").Get()
 )
