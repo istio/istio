@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os/exec"
 	"regexp"
 	"time"
 
@@ -65,6 +66,16 @@ func (i *istioImpl) Close() error {
 		}
 		return errG.Wait().ErrorOrNil()
 	}
+
+	// Execute External Control Plane Cleanup Script
+	if i.cfg.ControlPlaneInstaller != "" && !i.cfg.DeployIstio {
+		scopes.Framework.Infof("============= Execute Control Plane Cleanup =============")
+		cmd := exec.Command(i.cfg.ControlPlaneInstaller, "cleanup", i.workDir)
+		if err := cmd.Run(); err != nil {
+			scopes.Framework.Errorf("failed to run external control plane installer: %v", err)
+		}
+	}
+
 	for _, f := range i.istiod {
 		f.Close()
 	}
