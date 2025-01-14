@@ -291,7 +291,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			var tcpChain, httpChain *listener.FilterChain
 			origDst := svc.GetAddressForProxy(lb.node) + ":" + portString
 			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
-			if len(svcAddresses) > 0 {
+			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork {
 				setOrigDstForCluster := []*listener.Filter{getOrigDstSfs(origDst, false)}
 				tcpChain = &listener.FilterChain{
 					Filters: append(setOrigDstForCluster, lb.buildInboundNetworkFilters(cc)...),
