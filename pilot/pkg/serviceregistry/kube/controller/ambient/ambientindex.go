@@ -17,7 +17,6 @@ package ambient
 import (
 	"net/netip"
 	"strings"
-	"sync/atomic"
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -57,8 +56,6 @@ type Index interface {
 	All() []model.AddressInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
-	SyncAll()
-	NetworksSynced()
 	Run(stop <-chan struct{})
 	HasSynced() bool
 	model.AmbientIndexes
@@ -100,12 +97,11 @@ type index struct {
 	services  servicesCollection
 	workloads workloadsCollection
 	waypoints waypointsCollection
+	networks  networkCollections
 
 	namespaces krt.Collection[model.NamespaceInfo]
 
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
-	networkUpdateTrigger  *krt.RecomputeTrigger
-	networkGateways       *atomic.Pointer[map[network.ID][]model.NetworkGateway]
 
 	statusQueue *statusqueue.StatusQueue
 
@@ -113,12 +109,7 @@ type index struct {
 	DomainSuffix    string
 	ClusterID       cluster.ID
 	XDSUpdater      model.XDSUpdater
-	// Network provides a way to lookup which network a given workload is running on
-	Network LookupNetwork
-	// LookupNetworkGatewaysExpensive provides a function to lookup all the known network gateways in the system.
-	// This is generally called infrequently and cached in networkGateways.
-	LookupNetworkGatewaysExpensive LookupNetworkGateways
-	Flags                          FeatureFlags
+	Flags           FeatureFlags
 
 	stop chan struct{}
 }
@@ -157,17 +148,12 @@ func (k KrtOptions) WithName(n string) []krt.CollectionOption {
 
 func New(options Options) Index {
 	a := &index{
-		networkUpdateTrigger: krt.NewRecomputeTrigger(false, krt.WithName("NetworkTrigger")),
-		networkGateways:      new(atomic.Pointer[map[network.ID][]model.NetworkGateway]),
-
-		SystemNamespace:                options.SystemNamespace,
-		DomainSuffix:                   options.DomainSuffix,
-		ClusterID:                      options.ClusterID,
-		XDSUpdater:                     options.XDSUpdater,
-		Network:                        options.LookupNetwork,
-		LookupNetworkGatewaysExpensive: options.LookupNetworkGateways,
-		Flags:                          options.Flags,
-		stop:                           make(chan struct{}),
+		SystemNamespace: options.SystemNamespace,
+		DomainSuffix:    options.DomainSuffix,
+		ClusterID:       options.ClusterID,
+		XDSUpdater:      options.XDSUpdater,
+		Flags:           options.Flags,
+		stop:            make(chan struct{}),
 	}
 
 	filter := kclient.Filter{
@@ -220,6 +206,10 @@ func New(options Options) Index {
 	}, opts.WithName("EndpointSlices")...)
 
 	MeshConfig := MeshConfigCollection(ConfigMaps, options, opts)
+
+	Networks := buildNetworkCollections(Namespaces, Gateways, options, opts)
+	a.networks = Networks
+
 	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods, opts)
 
 	// AllPolicies includes peer-authentication converted policies
@@ -650,39 +640,12 @@ func (a *index) AdditionalPodSubscriptions(
 	return shouldSubscribe
 }
 
-func (a *index) SyncAll() {
-	// Reload NetworkGateways, which is expensive to compute each time
-	raw := a.LookupNetworkGatewaysExpensive()
-	grouped := slices.Group(raw, func(t model.NetworkGateway) network.ID {
-		return t.Network
-	})
-	a.networkGateways.Store(ptr.Of(grouped))
-	a.networkUpdateTrigger.TriggerRecomputation()
+func (a *index) LookupNetworkGateway(ctx krt.HandlerContext, id network.ID) []NetworkGateway {
+	return krt.Fetch(ctx, a.networks.NetworkGateways, krt.FilterIndex(a.networks.GatewaysByNetwork, id))
 }
 
-func (a *index) LookupNetworkGateway(id network.ID) []model.NetworkGateway {
-	n := a.networkGateways.Load()
-	if n == nil {
-		return nil
-	}
-	return (*n)[id]
-}
-
-func (a *index) LookupAllNetworkGateway() []model.NetworkGateway {
-	// Since computing the network set is expensive we cache it. Look it up now
-	n := a.networkGateways.Load()
-	if n == nil {
-		return nil
-	}
-	res := make([]model.NetworkGateway, 0, len(*n))
-	for _, v := range *n {
-		res = append(res, v...)
-	}
-	return res
-}
-
-func (a *index) NetworksSynced() {
-	a.networkUpdateTrigger.MarkSynced()
+func (a *index) LookupAllNetworkGateway(ctx krt.HandlerContext) []NetworkGateway {
+	return krt.Fetch(ctx, a.networks.NetworkGateways)
 }
 
 func (a *index) Run(stop <-chan struct{}) {
@@ -700,7 +663,13 @@ func (a *index) HasSynced() bool {
 	return a.services.HasSynced() &&
 		a.workloads.HasSynced() &&
 		a.waypoints.HasSynced() &&
-		a.authorizationPolicies.HasSynced()
+		a.authorizationPolicies.HasSynced() &&
+		a.networks.HasSynced()
+}
+
+func (a *index) Network(ctx krt.HandlerContext) network.ID {
+	net := krt.FetchOne(ctx, a.networks.SystemNamespace.AsCollection())
+	return network.ID(ptr.OrEmpty(net))
 }
 
 type (

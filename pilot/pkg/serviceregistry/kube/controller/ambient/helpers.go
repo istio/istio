@@ -22,7 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -68,31 +68,31 @@ func mustByteIPToString(b []byte) string {
 	return ip.String()
 }
 
-func (a *index) toNetworkAddress(vip string) (*workloadapi.NetworkAddress, error) {
+func (a *index) toNetworkAddress(ctx krt.HandlerContext, vip string) (*workloadapi.NetworkAddress, error) {
 	ip, err := netip.ParseAddr(vip)
 	if err != nil {
 		return nil, fmt.Errorf("parse %v: %v", vip, err)
 	}
 	return &workloadapi.NetworkAddress{
-		Network: a.Network(vip, make(labels.Instance, 0)).String(),
+		Network: a.Network(ctx).String(),
 		Address: ip.AsSlice(),
 	}, nil
 }
 
-func (a *index) toNetworkAddressFromIP(ip netip.Addr) *workloadapi.NetworkAddress {
+func (a *index) toNetworkAddressFromIP(ctx krt.HandlerContext, ip netip.Addr) *workloadapi.NetworkAddress {
 	return &workloadapi.NetworkAddress{
-		Network: a.Network(ip.String(), make(labels.Instance, 0)).String(),
+		Network: a.Network(ctx).String(),
 		Address: ip.AsSlice(),
 	}
 }
 
-func (a *index) toNetworkAddressFromCidr(vip string) (*workloadapi.NetworkAddress, error) {
+func (a *index) toNetworkAddressFromCidr(ctx krt.HandlerContext, vip string) (*workloadapi.NetworkAddress, error) {
 	ip, err := parseCidrOrIP(vip)
 	if err != nil {
 		return nil, err
 	}
 	return &workloadapi.NetworkAddress{
-		Network: a.Network(vip, make(labels.Instance, 0)).String(),
+		Network: a.Network(ctx).String(),
 		Address: ip.AsSlice(),
 	}, nil
 }

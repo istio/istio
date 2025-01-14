@@ -1660,7 +1660,6 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		Debugger:       debugger,
 		Flags:          flags,
 	})
-	idx.NetworksSynced()
 	cl.RunAndWait(test.NewStop(t))
 
 	dumpOnFailure(t, debugger)
@@ -1696,7 +1695,13 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 	a.ns.Create(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   testNS,
-			Labels: map[string]string{"istio.io/dataplane-mode": "ambient"},
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: "ambient"},
+		},
+	})
+	a.ns.Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   systemNS,
+			Labels: map[string]string{label.TopologyNetwork.Name: string(networkID)},
 		},
 	})
 

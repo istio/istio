@@ -88,8 +88,7 @@ func (a *index) serviceServiceBuilder(
 		}
 		waypointStatus.Error = wperr
 
-		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		svc := a.constructService(s, waypoint)
+		svc := a.constructService(ctx, s, waypoint)
 		return precomputeServicePtr(&model.ServiceInfo{
 			Service:       svc,
 			PortNames:     portNames,
@@ -114,12 +113,11 @@ func (a *index) serviceEntryServiceBuilder(
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
-		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		return a.serviceEntriesInfo(s, waypoint, waypointError)
+		return a.serviceEntriesInfo(ctx, s, waypoint, waypointError)
 	}
 }
 
-func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint, wperr *model.StatusMessage) []model.ServiceInfo {
+func (a *index) serviceEntriesInfo(ctx krt.HandlerContext, s *networkingclient.ServiceEntry, w *Waypoint, wperr *model.StatusMessage) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
 	portNames := map[int32]model.ServicePortName{}
 	for _, p := range s.Spec.Ports {
@@ -135,7 +133,7 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint
 	if wperr != nil {
 		waypoint.Error = wperr
 	}
-	return slices.Map(a.constructServiceEntries(s, w), func(e *workloadapi.Service) model.ServiceInfo {
+	return slices.Map(a.constructServiceEntries(ctx, s, w), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
@@ -146,9 +144,11 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint
 	})
 }
 
-func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
+func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
 	var autoassignedHostAddresses map[string][]netip.Addr
-	addresses, err := slices.MapErr(svc.Spec.Addresses, a.toNetworkAddressFromCidr)
+	addresses, err := slices.MapErr(svc.Spec.Addresses, func(e string) (*workloadapi.NetworkAddress, error) {
+		return a.toNetworkAddressFromCidr(ctx, e)
+	})
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
 		return nil
@@ -183,7 +183,9 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 		hostsAddresses := addresses
 		if len(hostsAddresses) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
 			if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
-				hostsAddresses = slices.Map(hostsAddrs, a.toNetworkAddressFromIP)
+				hostsAddresses = slices.Map(hostsAddrs, func(e netip.Addr) *workloadapi.NetworkAddress {
+					return a.toNetworkAddressFromIP(ctx, e)
+				})
 			}
 		}
 		res = append(res, &workloadapi.Service{
@@ -200,7 +202,7 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 	return res
 }
 
-func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Service {
+func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Waypoint) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
 		ports = append(ports, &workloadapi.Port{
@@ -209,7 +211,9 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 		})
 	}
 
-	addresses, err := slices.MapErr(getVIPs(svc), a.toNetworkAddress)
+	addresses, err := slices.MapErr(getVIPs(svc), func(e string) (*workloadapi.NetworkAddress, error) {
+		return a.toNetworkAddress(ctx, e)
+	})
 	if err != nil {
 		log.Warnf("fail to parse service %v: %v", config.NamespacedName(svc), err)
 		return nil

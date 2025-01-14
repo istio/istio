@@ -313,13 +313,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		})
 		c.reloadMeshNetworks()
 	}
-	if c.ambientIndex != nil {
-		c.networkManager.NetworkGatewaysHandler.AppendNetworkGatewayHandler(func() {
-			// This is to ensure the ambient workloads are updated dynamically, aligning them with the current network settings.
-			// With this, the pod do not need to restart when the network configuration changes.
-			c.ambientIndex.SyncAll()
-		})
-	}
 	return c
 }
 
@@ -666,20 +659,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
+	if c.ambientIndex != nil {
+		go c.ambientIndex.Run(stop)
+	}
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
-	if c.ambientIndex != nil {
-		go func() {
-			// Wait until we have everything ready, then we can notify ambient everything is ready
-			// This ensures it gets the initial network state.
-			kubelib.WaitForCacheSync("kube controller queue", stop, func() bool {
-				return c.queue.HasSynced() || c.initialSyncTimedout.Load()
-			})
-
-			c.ambientIndex.NetworksSynced()
-			c.ambientIndex.Run(stop)
-		}()
-	}
 
 	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
