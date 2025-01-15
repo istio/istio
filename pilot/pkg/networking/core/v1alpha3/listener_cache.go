@@ -29,6 +29,7 @@ type ListenerCache struct {
 	ListenerName    string
 	Gateways        []*config.Config
 	EnvoyFilterKeys []string
+	WasmPlugins     []*config.Config
 }
 
 func (l *ListenerCache) Type() string {
@@ -56,6 +57,14 @@ func (l *ListenerCache) Key() any {
 	}
 	h.Write(Separator)
 
+	for _, plugin := range l.WasmPlugins {
+		h.Write([]byte(plugin.Name))
+		h.Write(Slash)
+		h.Write([]byte(plugin.Namespace))
+		h.Write(Separator)
+	}
+	h.Write(Separator)
+
 	return h.Sum64()
 }
 
@@ -68,6 +77,10 @@ func (l *ListenerCache) DependentConfigs() []model.ConfigHash {
 	for _, efKey := range l.EnvoyFilterKeys {
 		items := strings.Split(efKey, "/")
 		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
+	}
+
+	for _, plugin := range l.WasmPlugins {
+		configs = append(configs, model.ConfigKey{Kind: kind.WasmPlugin, Name: plugin.Name, Namespace: plugin.Namespace}.HashCode())
 	}
 	return configs
 }
