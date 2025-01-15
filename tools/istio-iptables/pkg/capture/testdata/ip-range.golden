@@ -5,10 +5,11 @@ ip6tables-save
 -N ISTIO_REDIRECT
 -N ISTIO_IN_REDIRECT
 -N ISTIO_OUTPUT
+-N ISTIO_OUTPUT_DNS
 -A ISTIO_INBOUND -p tcp --dport 15008 -j RETURN
 -A ISTIO_REDIRECT -p tcp -j REDIRECT --to-ports 15001
 -A ISTIO_IN_REDIRECT -p tcp -j REDIRECT --to-ports 15006
--A OUTPUT -p tcp -j ISTIO_OUTPUT
+-A OUTPUT -j ISTIO_OUTPUT
 -A ISTIO_OUTPUT -o lo -s 127.0.0.6/32 -j RETURN
 -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -p tcp -m multiport ! --dports 53,15008 -m owner --uid-owner 3 -j ISTIO_IN_REDIRECT
 -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --uid-owner 3 -j RETURN
@@ -22,29 +23,27 @@ ip6tables-save
 -A ISTIO_OUTPUT -o lo ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m owner --gid-owner 2 -j ISTIO_IN_REDIRECT
 -A ISTIO_OUTPUT -o lo -p tcp ! --dport 53 -m owner ! --gid-owner 2 -j RETURN
 -A ISTIO_OUTPUT -m owner --gid-owner 2 -j RETURN
--A ISTIO_OUTPUT -p tcp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-ports 15053
+-A ISTIO_OUTPUT -j ISTIO_OUTPUT_DNS
+-A ISTIO_OUTPUT_DNS -p tcp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-ports 15053
+-A ISTIO_OUTPUT_DNS -p udp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-port 15053
 -A ISTIO_OUTPUT -d 127.0.0.1/32 -j RETURN
 -A ISTIO_OUTPUT -d 1.1.0.0/16 -j RETURN
 -A ISTIO_OUTPUT -d 9.9.0.0/16 -j ISTIO_REDIRECT
--A OUTPUT -p udp -j ISTIO_OUTPUT
--A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j RETURN
--A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j RETURN
--A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j RETURN
--A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j RETURN
--A ISTIO_OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j REDIRECT --to-port 15053
 COMMIT
 * raw
--N ISTIO_OUTPUT
--A OUTPUT -p udp -j ISTIO_OUTPUT
--A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 3 -j CT --zone 1
--A ISTIO_OUTPUT -p udp --sport 15053 -m owner --uid-owner 3 -j CT --zone 2
--A ISTIO_OUTPUT -p udp --dport 53 -m owner --uid-owner 4 -j CT --zone 1
--A ISTIO_OUTPUT -p udp --sport 15053 -m owner --uid-owner 4 -j CT --zone 2
--A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 1 -j CT --zone 1
--A ISTIO_OUTPUT -p udp --sport 15053 -m owner --gid-owner 1 -j CT --zone 2
--A ISTIO_OUTPUT -p udp --dport 53 -m owner --gid-owner 2 -j CT --zone 1
--A ISTIO_OUTPUT -p udp --sport 15053 -m owner --gid-owner 2 -j CT --zone 2
--A ISTIO_OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j CT --zone 2
--A PREROUTING -p udp --sport 53 -s 127.0.0.53/32 -j CT --zone 1
+-N ISTIO_OUTPUT_DNS
+-N ISTIO_INBOUND
+-A OUTPUT -j ISTIO_OUTPUT_DNS
+-A ISTIO_OUTPUT_DNS -p udp --dport 53 -m owner --uid-owner 3 -j CT --zone 1
+-A ISTIO_OUTPUT_DNS -p udp --sport 15053 -m owner --uid-owner 3 -j CT --zone 2
+-A ISTIO_OUTPUT_DNS -p udp --dport 53 -m owner --uid-owner 4 -j CT --zone 1
+-A ISTIO_OUTPUT_DNS -p udp --sport 15053 -m owner --uid-owner 4 -j CT --zone 2
+-A ISTIO_OUTPUT_DNS -p udp --dport 53 -m owner --gid-owner 1 -j CT --zone 1
+-A ISTIO_OUTPUT_DNS -p udp --sport 15053 -m owner --gid-owner 1 -j CT --zone 2
+-A ISTIO_OUTPUT_DNS -p udp --dport 53 -m owner --gid-owner 2 -j CT --zone 1
+-A ISTIO_OUTPUT_DNS -p udp --sport 15053 -m owner --gid-owner 2 -j CT --zone 2
+-A PREROUTING -j ISTIO_INBOUND
+-A ISTIO_OUTPUT_DNS -p udp --dport 53 -d 127.0.0.53/32 -j CT --zone 2
+-A ISTIO_INBOUND -p udp --sport 53 -s 127.0.0.53/32 -j CT --zone 1
 COMMIT
 iptables-save
