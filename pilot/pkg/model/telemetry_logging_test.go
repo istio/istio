@@ -16,7 +16,6 @@ package model
 
 import (
 	"reflect"
-	"sort"
 	"testing"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -706,7 +705,6 @@ func TestAccessLogging(t *testing.T) {
 					}
 					got = append(got, p.Provider.Name)
 				}
-				sort.Strings(got)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("got %v want %v", got, tt.want)
