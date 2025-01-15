@@ -5,4 +5,4 @@ issue:
   - 54545
 releaseNotes:
   - |
-    **Enhanced** rootca-compare command to handle the case when pod has multiple root CA
+    **Added** changes for rootca-compare command to handle the case when pod has multiple root CA
