@@ -79,6 +79,6 @@ Your PR should pass all the checks if you followed these steps.
 
 - Values may be marked as deprecated, but may not be removed until a minimum of 2 releases after the PR marking them as such is merged.
 
-- If you are _marking_ a value as `deprecated`, the PR doing so **must* add a [release note](../../releasenotes/README.md) mentioning the value being deprecated, and any replacements.
+- If you are _marking_ a value as `deprecated`, the PR doing so **must* add a [release note](../../releasenotes/README.md) mentioning the value being deprecated, and any replacements/alternatives.
 
-- When _removing_ a value that has been marked as `deprecated` for a minimum of 2 releases, **both** the `releaseNote` and `upgradeNote` fields must be populated in the release note in the removal PR.
+- When _removing_ a value that has been marked as `deprecated` for a minimum of 2 releases, **both** the `releaseNote` and `upgradeNote` fields must be populated in the release note in the removal PR, mentioning the value being removed, and any replacements/alternatives.
