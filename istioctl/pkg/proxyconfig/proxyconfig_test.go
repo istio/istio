@@ -236,8 +236,8 @@ func TestMatchRootCACerts(t *testing.T) {
 	certA, _ := createTestCertificate("A")
 	certB, _ := createTestCertificate("B")
 
-	pemCertA, _ := createPEMCert(certA)
-	pemCertB, _ := createPEMCert(certB)
+	pemCertA := createPEMCert(certA)
+	pemCertB := createPEMCert(certB)
 
 	pemCertAPlusB := append(pemCertA, pemCertB...)
 
@@ -293,12 +293,12 @@ func TestMatchRootCACerts(t *testing.T) {
 }
 
 // Helper functions to create test certificates
-func createPEMCert(cert *x509.Certificate) ([]byte, error) {
+func createPEMCert(cert *x509.Certificate) []byte {
 	pemBlock := &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: cert.Raw,
 	}
-	return pem.EncodeToMemory(pemBlock), nil
+	return pem.EncodeToMemory(pemBlock)
 }
 
 func createTestCertificate(commonName string) (*x509.Certificate, error) {

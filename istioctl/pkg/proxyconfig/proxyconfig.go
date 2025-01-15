@@ -1288,11 +1288,10 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 					podName1, podNamespace1, podName2, podNamespace2)
 				c.Println(report)
 				return nil
-			} else {
-				report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the non identical ROOTCA, theoretically the connectivity between them is unavailable",
-					podName1, podNamespace1, podName2, podNamespace2)
-				return errors.New(report)
 			}
+			report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the non identical ROOTCA, theoretically the connectivity between them is unavailable",
+				podName1, podNamespace1, podName2, podNamespace2)
+			return errors.New(report)
 		},
 		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
@@ -1303,7 +1302,6 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 
 // checkRootCACertMatchExist compares rootCA certs, returns true if rootCA cert match exist
 func checkRootCACertMatchExist(rootCAPod1 []byte, rootCAPod2 []byte) (bool, error) {
-
 	rootCACerts1, parseRootCAPod1Err := parsePEMCerts(rootCAPod1)
 	if parseRootCAPod1Err != nil {
 		return false, parseRootCAPod1Err

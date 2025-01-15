@@ -55,12 +55,10 @@ func (w *Wrapper) GetRootCAFromSecretConfigDump(anySec *anypb.Any) ([]byte, erro
 					return nil, fmt.Errorf("failed to decode inlinebytes: %v", err)
 				}
 				return rootCA, err
-			} else {
-				return nil, fmt.Errorf("cannot retrieve inlineBytes from trustCA section")
 			}
-		} else {
-			return nil, fmt.Errorf("cannot retrieve trustedCa from secret ROOTCA")
+			return nil, fmt.Errorf("cannot retrieve inlineBytes from trustCA section")
 		}
+		return nil, fmt.Errorf("cannot retrieve trustedCa from secret ROOTCA")
 	}
 	return nil, fmt.Errorf("cannot find ROOTCA from secret config dump")
 }

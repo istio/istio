@@ -193,9 +193,8 @@ func (c *ConfigWriter) PrintPodRootCAFromDynamicSecretDump() ([]byte, error) {
 			rootCAData, err := c.configDump.GetRootCAFromSecretConfigDump(secret.GetSecret())
 			if err != nil {
 				return nil, fmt.Errorf("can not dump ROOTCA from secret: %v", err)
-			} else {
-				return rootCAData, nil
 			}
+			return rootCAData, nil
 		}
 	}
 	return nil, fmt.Errorf("cannot find ROOTCA from secret")
