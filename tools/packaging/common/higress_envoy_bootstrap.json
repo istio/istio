@@ -96,7 +96,7 @@
       {{- end }}
       {
         "tag_name": "response_code_class",
-        "regex": "^(cluster|listener|http).*?_rq(_(\\dxx))$"
+        "regex": "_rq(_(\\dxx))$"
       },
       {
         "tag_name": "listener_address",
