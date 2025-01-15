@@ -360,13 +360,13 @@ func TestStateFromRestoreFormat(t *testing.T) {
 		{
 			"default",
 			func(iptables *IptablesRuleBuilder) {
-				iptables.InsertRuleV4(iptableslog.UndefinedCommand, "chain", "nat", 2, "-f", "foo", "-b", "bar")
-				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "filter", "-f", "foo", "-b", "baaz")
-				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "mangle", "-f", "fooo", "-b", "baz")
-				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "raw", "-f", "foo", "-b", "baar")
-				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "POSTROUTING", "nat", "-f", "foo", "-b", "bar", "-j", "ISTIO_TEST")
-				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "ISTIO_TEST", "nat", "-f", "foo", "-b", "bar")
-				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain", "filter", "-f", "foo", "-b", "bar")
+				iptables.InsertRuleV4("chain", "nat", 2, "-f", "foo", "-b", "bar")
+				iptables.AppendRuleV4("chain", "filter", "-f", "foo", "-b", "baaz")
+				iptables.AppendRuleV4("chain", "mangle", "-f", "fooo", "-b", "baz")
+				iptables.AppendRuleV4("chain", "raw", "-f", "foo", "-b", "baar")
+				iptables.AppendRuleV4("POSTROUTING", "nat", "-f", "foo", "-b", "bar", "-j", "ISTIO_TEST")
+				iptables.AppendRuleV4("ISTIO_TEST", "nat", "-f", "foo", "-b", "bar")
+				iptables.AppendRuleV4("chain", "filter", "-f", "foo", "-b", "bar")
 			},
 			map[string]map[string][]string{
 				"filter": {
@@ -412,9 +412,9 @@ func TestStateFromRestoreFormat(t *testing.T) {
 		{
 			"with-non-built-in-tables",
 			func(iptables *IptablesRuleBuilder) {
-				iptables.InsertRuleV4(iptableslog.UndefinedCommand, "chain", "nat", 2, "-f", "foo", "-b", "bar")
-				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain2", "filter", "-f", "foo", "-b", "baz")
-				iptables.AppendRuleV4(iptableslog.UndefinedCommand, "chain2", "does-not-exist", "-f", "foo", "-b", "baz")
+				iptables.InsertRuleV4("chain", "nat", 2, "-f", "foo", "-b", "bar")
+				iptables.AppendRuleV4("chain2", "filter", "-f", "foo", "-b", "baz")
+				iptables.AppendRuleV4("chain2", "does-not-exist", "-f", "foo", "-b", "baz")
 			},
 			map[string]map[string][]string{
 				"filter": {
