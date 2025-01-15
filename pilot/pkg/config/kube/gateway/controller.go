@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -88,6 +89,8 @@ type Controller struct {
 	// is only the case when we are the leader.
 	statusController *atomic.Pointer[status.Controller]
 
+	tagWatcher revisions.TagWatcher
+
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
 }
 
@@ -111,6 +114,7 @@ func NewController(
 		cluster:               options.ClusterID,
 		domain:                options.DomainSuffix,
 		statusController:      atomic.NewPointer(ctl),
+		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision),
 		waitForCRD:            waitForCRD,
 	}
 
@@ -177,13 +181,21 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 		log.Debugf("reconcile complete in %v", time.Since(t0))
 	}()
 	gatewayClass := c.cache.List(gvk.GatewayClass, metav1.NamespaceAll)
-	gateway := c.cache.List(gvk.KubernetesGateway, metav1.NamespaceAll)
+	all_gateways := c.cache.List(gvk.KubernetesGateway, metav1.NamespaceAll)
 	httpRoute := c.cache.List(gvk.HTTPRoute, metav1.NamespaceAll)
 	grpcRoute := c.cache.List(gvk.GRPCRoute, metav1.NamespaceAll)
 	tcpRoute := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
 	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
 	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
 	serviceEntry := c.cache.List(gvk.ServiceEntry, metav1.NamespaceAll) // TODO lazy load only referenced SEs?
+
+	// Filter down to gateways currently in this tag/revision
+	gateway := []config.Config{}
+	for _, gw := range all_gateways {
+		if c.tagWatcher.IsMine(gw.ToObjectMeta()) {
+			gateway = append(gateway, gw)
+		}
+	}
 
 	input := GatewayResources{
 		GatewayClass:   deepCopyStatus(gatewayClass),
@@ -296,10 +308,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			}
 		}()
 	}
+	go c.tagWatcher.Run(stop)
 }
 
 func (c *Controller) HasSynced() bool {
-	return c.cache.HasSynced() && c.namespaces.HasSynced()
+	return c.cache.HasSynced() && c.namespaces.HasSynced() && c.tagWatcher.HasSynced()
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
