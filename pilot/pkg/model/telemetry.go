@@ -279,6 +279,11 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 		cfgs = append(cfgs, cfg)
 	}
 
+	// Sort the access logs by provider name for deterministic ordering
+	sort.Slice(cfgs, func(i, j int) bool {
+		return cfgs[i].Provider.Name < cfgs[j].Provider.Name
+	})
+
 	t.computedLoggingConfig[key] = cfgs
 	return cfgs
 }
