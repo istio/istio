@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
@@ -260,6 +259,9 @@ var wdsCases = []ConfigInput{
 		Services:         100,
 		Instances:        1000,
 		KubernetesClient: true,
+		PushRequest: &model.PushRequest{
+			Reason: model.NewReasonStats(model.ProxyRequest),
+		},
 	},
 }
 
@@ -275,10 +277,7 @@ var wdsIncrementalCases = func() []ConfigInput {
 	cases := slices.Clone(wdsCases)
 	// Request a single resource
 	cases[0].PushRequest = &model.PushRequest{
-		ConfigsUpdated: sets.New(model.ConfigKey{
-			Kind: kind.Address,
-			Name: "Kubernetes/networking.istio.io/WorkloadEntry//random-0",
-		}),
+		AddressesUpdated: sets.New("Kubernetes/networking.istio.io/WorkloadEntry//random-0"),
 	}
 	return cases
 }()
