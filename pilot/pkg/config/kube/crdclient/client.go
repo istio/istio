@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -51,7 +52,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/queue"
-	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -70,8 +70,6 @@ type Client struct {
 
 	// revision for this control plane instance. We will only read configs that match this revision.
 	revision string
-
-	tagWatcher revisions.TagWatcher
 
 	// kinds keeps track of all cache handlers for known types
 	kinds   map[config.GroupVersionKind]kclient.Untyped
@@ -129,12 +127,6 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		filtersByGVK:     opts.FiltersByGVK,
 	}
 
-	// if schemas contains mutatingwebhooks, include the tag watcher.
-	mwcSchema := collection.NewSchemasBuilder().MustAdd(collections.MutatingWebhookConfiguration).Build()
-	if len(schemas.Intersect(mwcSchema).All()) > 0 {
-		out.tagWatcher = revisions.NewTagWatcher(client, opts.Revision)
-	}
-
 	for _, s := range out.schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Plural(), s.Group())
@@ -153,10 +145,6 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	if cl.started.Swap(true) {
 		// was already started by other thread
 		return
-	}
-
-	if cl.tagWatcher != nil {
-		go cl.tagWatcher.Run(stop)
 	}
 
 	t0 := time.Now()
@@ -380,6 +368,9 @@ func (cl *Client) addCRD(name string) {
 		ObjectFilter:    composeFilters(namespaceFilter, cl.inRevision, extraFilter),
 		ObjectTransform: transform,
 	}
+	if resourceGVK == gvk.Gateway || resourceGVK == gvk.KubernetesGateway {
+		filter.ObjectFilter = composeFilters(namespaceFilter, extraFilter)
+	}
 
 	var kc kclient.Untyped
 	if s.IsBuiltin() {
@@ -461,11 +452,7 @@ func (cl *Client) inRevision(obj any) bool {
 	if object == nil {
 		return false
 	}
-	myTags := sets.String{}
-	if cl.tagWatcher != nil {
-		myTags = cl.tagWatcher.GetMyTags()
-	}
-	return config.LabelsInRevisionOrTags(object.GetLabels(), cl.revision, myTags)
+	return config.LabelsInRevision(object.GetLabels(), cl.revision)
 }
 
 func (cl *Client) onEvent(resourceGVK config.GroupVersionKind, old controllers.Object, curr controllers.Object, event model.Event) {
