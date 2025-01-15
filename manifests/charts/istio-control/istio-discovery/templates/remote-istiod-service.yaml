@@ -1,5 +1,5 @@
 # This file is only used for remote `istiod` installs.
-{{- if .Values.istiodRemote.enabled }}
+{{- if .Values.global.remotePilotAddress }}
 apiVersion: v1
 kind: Service
 metadata:
