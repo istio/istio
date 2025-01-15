@@ -179,31 +179,25 @@ func (c *ConfigWriter) PrintBootstrapSummary() error {
 }
 
 // PrintPodRootCAFromDynamicSecretDump prints just pod's root ca from dynamic secret config dump to the ConfigWriter stdout
-func (c *ConfigWriter) PrintPodRootCAFromDynamicSecretDump() (string, error) {
+func (c *ConfigWriter) PrintPodRootCAFromDynamicSecretDump() ([]byte, error) {
 	if c.configDump == nil {
-		return "", fmt.Errorf("config writer has not been primed")
+		return nil, fmt.Errorf("config writer has not been primed")
 	}
 	secretDump, err := c.configDump.GetSecretConfigDump()
 	if err != nil {
-		return "", fmt.Errorf("sidecar doesn't support secrets: %v", err)
+		return nil, fmt.Errorf("sidecar doesn't support secrets: %v", err)
 	}
 	for _, secret := range secretDump.DynamicActiveSecrets {
 		// check the ROOTCA from secret dump
 		if secret.Name == "ROOTCA" {
-			var returnStr string
-			var returnErr error
-			strCA, err := c.configDump.GetRootCAFromSecretConfigDump(secret.GetSecret())
+			rootCAData, err := c.configDump.GetRootCAFromSecretConfigDump(secret.GetSecret())
 			if err != nil {
-				returnStr = ""
-				returnErr = fmt.Errorf("can not dump ROOTCA from secret: %v", err)
-			} else {
-				returnStr = strCA
-				returnErr = nil
+				return nil, fmt.Errorf("can not dump ROOTCA from secret: %v", err)
 			}
-			return returnStr, returnErr
+			return rootCAData, nil
 		}
 	}
-	return "", fmt.Errorf("can not find ROOTCA from secret")
+	return nil, fmt.Errorf("cannot find ROOTCA from secret")
 }
 
 func (c *ConfigWriter) getIstioVersionInfo(bootstrapDump *adminv3.BootstrapConfigDump) (version, sha string) {
