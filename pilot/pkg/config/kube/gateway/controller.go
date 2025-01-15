@@ -181,7 +181,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 		log.Debugf("reconcile complete in %v", time.Since(t0))
 	}()
 	gatewayClass := c.cache.List(gvk.GatewayClass, metav1.NamespaceAll)
-	all_gateways := c.cache.List(gvk.KubernetesGateway, metav1.NamespaceAll)
+	allGateways := c.cache.List(gvk.KubernetesGateway, metav1.NamespaceAll)
 	httpRoute := c.cache.List(gvk.HTTPRoute, metav1.NamespaceAll)
 	grpcRoute := c.cache.List(gvk.GRPCRoute, metav1.NamespaceAll)
 	tcpRoute := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
@@ -191,7 +191,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 
 	// Filter down to gateways currently in this tag/revision
 	gateway := []config.Config{}
-	for _, gw := range all_gateways {
+	for _, gw := range allGateways {
 		if c.tagWatcher.IsMine(gw.ToObjectMeta()) {
 			gateway = append(gateway, gw)
 		}
