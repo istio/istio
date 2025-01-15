@@ -35,7 +35,6 @@ set -x
 DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.32.0"
 
 # the default kind cluster should be ipv4 if not otherwise specified
-# Default IP family of the cluster is IPv4
 KIND_IP_FAMILY="${KIND_IP_FAMILY:-ipv4}"
 
 # COMMON_SCRIPTS contains the directory this file is in.
