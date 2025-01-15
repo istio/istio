@@ -21,7 +21,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/errgroup"
-	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -274,15 +273,14 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 
 	defaultConfigs = append(defaultConfigs, a, b, cSvc, headless, stateful, naked, tProxy, vmSvc)
 
-	if t.Settings().EnableDualStack {
+	if len(t.Settings().IPFamilies) > 1 {
 		dSvc := echo.Config{
 			Service:         DSvc,
 			ServiceAccount:  true,
 			Ports:           ports.All(),
 			Subsets:         []echo.SubsetConfig{{}},
 			IncludeExtAuthz: c.IncludeExtAuthz,
-			IPFamilies:      "IPv6, IPv4",
-			IPFamilyPolicy:  string(corev1.IPFamilyPolicyRequireDualStack),
+			IPFamilies:      t.Settings().IPFamilies[0],
 			DualStack:       true,
 		}
 		eSvc := echo.Config{
@@ -291,8 +289,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			Ports:           ports.All(),
 			Subsets:         []echo.SubsetConfig{{}},
 			IncludeExtAuthz: c.IncludeExtAuthz,
-			IPFamilies:      "IPv6",
-			IPFamilyPolicy:  string(corev1.IPFamilyPolicySingleStack),
+			IPFamilies:      t.Settings().IPFamilies[1],
 			DualStack:       true,
 		}
 		defaultConfigs = append(defaultConfigs, dSvc, eSvc)
