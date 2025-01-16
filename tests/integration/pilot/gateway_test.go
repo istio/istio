@@ -280,7 +280,7 @@ kind: Gateway
 metadata:
   name: gateway
   labels:
-    istio.io/rev: {{ revision }}
+    istio.io/rev: {{.revision}}
 spec:
   gatewayClassName: istio
   listeners:
