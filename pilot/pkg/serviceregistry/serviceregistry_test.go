@@ -68,7 +68,7 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 	delegate := model.NewEndpointIndexUpdater(endpoints)
 	xdsUpdater := xdsfake.NewWithDelegate(delegate)
 	delegate.ConfigUpdateFunc = xdsUpdater.ConfigUpdate
-	meshWatcher := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{})
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 	kc := kubecontroller.NewController(
 		client,
 		kubecontroller.Options{

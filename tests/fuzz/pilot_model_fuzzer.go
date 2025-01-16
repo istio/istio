@@ -199,7 +199,7 @@ func FuzzInitContext(data []byte) int {
 	sd.WantGetProxyServiceTargets = slices.Map(serviceInstances, model.ServiceInstanceToTarget)
 	env.ServiceDiscovery = sd
 
-	env.Watcher = meshwatcher.NewFixedWatcher(m)
+	env.Watcher = meshwatcher.NewTestWatcher(m)
 	env.EndpointIndex = model.NewEndpointIndex(model.DisabledCache{})
 	env.Init()
 	pc := model.NewPushContext()

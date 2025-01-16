@@ -20,42 +20,46 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 )
 
-type FixedWatcher struct {
+// TestWatcher provides an interface that takes a static MeshConfig which can be updated explicitly.
+// It is intended for tests
+type TestWatcher struct {
 	adapter
 	col krt.StaticSingleton[MeshConfigResource]
 }
 
-func (w FixedWatcher) Set(n *meshconfig.MeshConfig) {
+func (w TestWatcher) Set(n *meshconfig.MeshConfig) {
 	w.col.Set(&MeshConfigResource{n})
 }
 
-// NewFixedWatcher creates a new Watcher that always returns the given mesh config.
-func NewFixedWatcher(m *meshconfig.MeshConfig) FixedWatcher {
+// NewTestWatcher creates a new Watcher that always returns the given mesh config.
+func NewTestWatcher(m *meshconfig.MeshConfig) TestWatcher {
 	if m == nil {
 		m = mesh.DefaultMeshConfig()
 	}
 	col := krt.NewStatic(&MeshConfigResource{m}, true, krt.WithName("MeshConfig"), krt.WithDebugging(krt.GlobalDebugHandler))
 	a := adapter{col}
-	return FixedWatcher{
+	return TestWatcher{
 		adapter: a,
 		col:     col,
 	}
 }
 
-type FixedNetworksWatcher struct {
+// TestNetworksWatcher provides an interface that takes a static MeshNetworks which can be updated explicitly.
+// It is intended for tests
+type TestNetworksWatcher struct {
 	networksAdapter
 	col krt.StaticSingleton[MeshNetworksResource]
 }
 
-func (w FixedNetworksWatcher) SetNetworks(n *meshconfig.MeshNetworks) {
+func (w TestNetworksWatcher) SetNetworks(n *meshconfig.MeshNetworks) {
 	w.col.Set(&MeshNetworksResource{n})
 }
 
 // NewFixedNetworksWatcher creates a new NetworksWatcher that always returns the given config.
-func NewFixedNetworksWatcher(networks *meshconfig.MeshNetworks) FixedNetworksWatcher {
+func NewFixedNetworksWatcher(networks *meshconfig.MeshNetworks) TestNetworksWatcher {
 	col := krt.NewStatic(&MeshNetworksResource{networks}, true)
 	a := networksAdapter{col}
-	return FixedNetworksWatcher{
+	return TestNetworksWatcher{
 		networksAdapter: a,
 		col:             col,
 	}

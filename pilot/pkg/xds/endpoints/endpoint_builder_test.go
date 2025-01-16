@@ -391,7 +391,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env := model.NewEnvironment()
 			env.ConfigStore = model.NewFakeStore()
-			env.Watcher = meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})
+			env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})
 			meshNetworks := meshwatcher.NewFixedNetworksWatcher(nil)
 			env.NetworksWatcher = meshNetworks
 			env.ServiceDiscovery = memory.NewServiceDiscovery()

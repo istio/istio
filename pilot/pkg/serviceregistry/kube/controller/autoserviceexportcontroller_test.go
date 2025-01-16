@@ -53,7 +53,7 @@ func TestServiceExportController(t *testing.T) {
 			},
 		},
 	}
-	env := model.Environment{Watcher: meshwatcher.NewFixedWatcher(&m)}
+	env := model.Environment{Watcher: meshwatcher.NewTestWatcher(&m)}
 	env.Init()
 
 	sc := newAutoServiceExportController(autoServiceExportOptions{

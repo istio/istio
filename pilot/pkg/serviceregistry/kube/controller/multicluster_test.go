@@ -81,7 +81,7 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 }
 
 func initController(client kube.CLIClient, ns string, stop <-chan struct{}) *multicluster.Controller {
-	sc := multicluster.NewController(client, ns, "cluster-1", meshwatcher.NewFixedWatcher(nil))
+	sc := multicluster.NewController(client, ns, "cluster-1", meshwatcher.NewTestWatcher(nil))
 	sc.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
@@ -98,7 +98,7 @@ func Test_KubeSecretController(t *testing.T) {
 	mc := NewMulticluster("pilot-abc-123", Options{
 		ClusterID:             "cluster-1",
 		DomainSuffix:          DomainSuffix,
-		MeshWatcher:           meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{}),
+		MeshWatcher:           meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
 		MeshServiceController: mockserviceController,
 	}, nil, nil, "default", false, nil, s, mcc)
 	assert.NoError(t, mcc.Run(stop))
@@ -141,7 +141,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	mc := NewMulticluster("pilot-abc-123", Options{
 		ClusterID:             "cluster-1",
 		DomainSuffix:          DomainSuffix,
-		MeshWatcher:           meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{}),
+		MeshWatcher:           meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
 		MeshServiceController: mockserviceController,
 	}, nil, certWatcher, "default", false, nil, s, mcc)
 	assert.NoError(t, mcc.Run(stop))

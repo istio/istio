@@ -119,7 +119,7 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *mes
 	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		ConfigStore:      configStore,
-		Watcher:          meshwatcher.NewFixedWatcher(meshConfig),
+		Watcher:          meshwatcher.NewTestWatcher(meshConfig),
 	}
 
 	pushContext := model.NewPushContext()

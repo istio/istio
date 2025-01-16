@@ -143,7 +143,7 @@ func TestOIDCAuthenticate(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed at unmarshal jwt rule")
 	}
-	authenticator, err := NewJwtAuthenticator(&jwtRule, meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{TrustDomain: "baz.svc.id.goog"}))
+	authenticator, err := NewJwtAuthenticator(&jwtRule, meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "baz.svc.id.goog"}))
 	if err != nil {
 		t.Fatalf("failed to create the JWT authenticator: %v", err)
 	}

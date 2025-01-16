@@ -94,6 +94,7 @@ func NewEnvironment() *Environment {
 	}
 }
 
+// Watcher is a type alias to keep the embedded type name stable.
 type Watcher = meshwatcher.WatcherCollection
 
 // Environment provides an aggregate environmental API for Pilot

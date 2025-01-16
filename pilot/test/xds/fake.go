@@ -193,7 +193,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			NetworksWatcher: opts.NetworksWatcher,
 			SkipRun:         true,
 			ConfigCluster:   k8sCluster == opts.DefaultClusterName,
-			MeshWatcher:     meshwatcher.NewFixedWatcher(m),
+			MeshWatcher:     meshwatcher.NewTestWatcher(m),
 			CRDs: []schema.GroupVersionResource{
 				// Install all CRDs used (mostly in Ambient)
 				gvr.AuthorizationPolicy,
@@ -219,7 +219,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	stop := test.NewStop(t)
-	ingr := ingress.NewController(defaultKubeClient, meshwatcher.NewFixedWatcher(m), kube.Options{
+	ingr := ingress.NewController(defaultKubeClient, meshwatcher.NewTestWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	})
 	defaultKubeClient.RunAndWait(stop)

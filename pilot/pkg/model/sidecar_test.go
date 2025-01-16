@@ -2725,7 +2725,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
 			env := NewEnvironment()
-			env.Watcher = meshwatcher.NewFixedWatcher(meshConfig)
+			env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
 			ps.Mesh = env.Mesh()
 
 			env.ServiceDiscovery = &localServiceDiscovery{services: tt.services}

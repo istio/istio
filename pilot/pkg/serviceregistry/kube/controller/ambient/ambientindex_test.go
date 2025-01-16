@@ -1660,7 +1660,7 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		StatusNotifier: activenotifier.New(true),
 		Debugger:       debugger,
 		Flags:          flags,
-		MeshConfig:     meshwatcher.NewFixedWatcher(nil),
+		MeshConfig:     meshwatcher.NewTestWatcher(nil),
 	})
 
 	dumpOnFailure(t, debugger)

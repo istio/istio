@@ -874,7 +874,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	}
 	pcs := model.GetProxyConfigs(store, m)
 	env := model.Environment{
-		Watcher:     meshwatcher.NewFixedWatcher(m),
+		Watcher:     meshwatcher.NewTestWatcher(m),
 		ConfigStore: store,
 	}
 	env.SetPushContext(&model.PushContext{
@@ -1403,7 +1403,7 @@ global:
 		Watcher: faultyWatcher,
 		Port:    0,
 		Env: &model.Environment{
-			Watcher: meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{}),
+			Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
 		},
 		Mux: http.NewServeMux(),
 	}

@@ -24,8 +24,10 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// MeshConfigSource provides an input to the full mesh config (which is made by merging multiple sources)
 type MeshConfigSource = krt.Singleton[string]
 
+// NewFileSource creates a MeshConfigSource from a file. The file must exist.
 func NewFileSource(fileWatcher filewatcher.FileWatcher, filename string, opts krt.OptionsBuilder) (MeshConfigSource, error) {
 	return krt.NewFileSingleton[string](fileWatcher, filename, func(filename string) (string, error) {
 		b, err := os.ReadFile(filename)
@@ -39,6 +41,10 @@ func NewFileSource(fileWatcher filewatcher.FileWatcher, filename string, opts kr
 // NewCollection builds a new mesh config built by applying the provided sources.
 // Sources are applied in order (example: default < sources[0] < sources[1]).
 func NewCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Singleton[MeshConfigResource] {
+	if len(sources) > 2 {
+		// There is no real reason for this other than to enforce we don't accidentally put more sources
+		panic("currently only 2 sources are supported")
+	}
 	return krt.NewSingleton[MeshConfigResource](
 		func(ctx krt.HandlerContext) *MeshConfigResource {
 			meshCfg := mesh.DefaultMeshConfig()
@@ -46,6 +52,7 @@ func NewCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Sin
 			for _, attempt := range sources {
 				s := krt.FetchOne(ctx, attempt.AsCollection())
 				if s == nil {
+					panic("xx")
 					// Source specified but not giving us any data
 					continue
 				}
@@ -74,6 +81,10 @@ func NewCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Sin
 // NewNetworksCollection builds a new meshnetworks config built by applying the provided sources.
 // Sources are applied in order (example: default < sources[0] < sources[1]).
 func NewNetworksCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Singleton[MeshNetworksResource] {
+	if len(sources) > 2 {
+		// There is no real reason for this other than to enforce we don't accidentally put more sources
+		panic("currently only 2 sources are supported")
+	}
 	return krt.NewSingleton[MeshNetworksResource](
 		func(ctx krt.HandlerContext) *MeshNetworksResource {
 			for _, attempt := range sources {

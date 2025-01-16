@@ -100,7 +100,7 @@ var testObjects = []runtime.Object{
 func fakeMeshHolder(ingressService string) mesh.Watcher {
 	config := mesh.DefaultMeshConfig()
 	config.IngressService = ingressService
-	return meshwatcher.NewFixedWatcher(config)
+	return meshwatcher.NewTestWatcher(config)
 }
 
 func makeStatusSyncer(t *testing.T, name string) *StatusSyncer {

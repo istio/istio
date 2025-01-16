@@ -331,7 +331,7 @@ func newTestEnviroment() *model.Environment {
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
-	env.Watcher = meshwatcher.NewFixedWatcher(meshConfig)
+	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
 
 	pushContext := model.NewPushContext()
 	env.Init()

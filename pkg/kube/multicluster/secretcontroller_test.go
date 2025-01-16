@@ -73,7 +73,7 @@ func TestKubeConfigOverride(t *testing.T) {
 	fakeRestConfig := &rest.Config{}
 	client := kube.NewFakeClient()
 	stopCh := test.NewStop(t)
-	c := NewController(client, secretNamespace, "", meshwatcher.NewFixedWatcher(nil), func(cfg *rest.Config) {
+	c := NewController(client, secretNamespace, "", meshwatcher.NewTestWatcher(nil), func(cfg *rest.Config) {
 		cfg.QPS = expectedQPS
 		cfg.Burst = expectedBurst
 	})
@@ -118,7 +118,7 @@ func buildTestController(t *testing.T, synced bool) testController {
 		t:      t,
 	}
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
-	tc.controller = NewController(tc.client, secretNamespace, "config", meshwatcher.NewFixedWatcher(nil))
+	tc.controller = NewController(tc.client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
 	tc.controller.ClientBuilder = TestingBuildClientsFromConfig
 	iter := atomic.NewInt32(0)
 	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
@@ -251,7 +251,7 @@ func TestObjectFilter(t *testing.T) {
 		client: clientWithNamespace(),
 		t:      t,
 	}
-	mesh := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{
+	mesh := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
 		DiscoverySelectors: []*meshconfig.LabelSelector{
 			{
 				MatchLabels: map[string]string{
@@ -491,7 +491,7 @@ func TestSecretController(t *testing.T) {
 
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
-	c := NewController(client, secretNamespace, "config", meshwatcher.NewFixedWatcher(nil))
+	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
 	c.ClientBuilder = TestingBuildClientsFromConfig
 	client.RunAndWait(stopCh)
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)

@@ -31,21 +31,32 @@ type WatcherCollection interface {
 	krt.Singleton[MeshConfigResource]
 }
 
+// ConfigAdapter wraps a MeshConfig collection into a mesh.Watcher interface.
 func ConfigAdapter(configuration krt.Singleton[MeshConfigResource]) WatcherCollection {
 	return adapter{configuration}
 }
 
+// adapter is a helper to expose the krt collection using the older mesh.Watcher interface
 type adapter struct {
 	krt.Singleton[MeshConfigResource]
 }
 
+var _ mesh.Watcher = adapter{}
+
+// Mesh returns the current MeshConfig
 func (a adapter) Mesh() *meshconfig.MeshConfig {
+	// Just get the value; we know there is always one set due to the way the collection is setup.
 	v := a.Singleton.Get()
 	return v.MeshConfig
 }
 
+// AddMeshHandler registers a callback that will be called anytime the MeshConfig changes.
+// Usually a handler would then call .Mesh() to get the new state.
+// The returned WatcherHandlerRegistration can be used to un-register the handler at a later time.
 func (a adapter) AddMeshHandler(h func()) *mesh.WatcherHandlerRegistration {
 	active := uatomic.NewBool(true)
+	// The mesh.Watcher allows unregistering, while krt currently doesn't
+	// When we remove, mark this as "not active" so we skip events.
 	reg := mesh.NewWatcherHandlerRegistration(func() {
 		active.Store(false)
 	})
@@ -58,17 +69,17 @@ func (a adapter) AddMeshHandler(h func()) *mesh.WatcherHandlerRegistration {
 	return reg
 }
 
+// DeleteMeshHandler removes a previously registered handler.
 func (a adapter) DeleteMeshHandler(registration *mesh.WatcherHandlerRegistration) {
 	registration.Remove()
 }
-
-var _ mesh.Watcher = adapter{}
 
 func PrettyFormatOfMeshConfig(meshConfig *meshconfig.MeshConfig) string {
 	meshConfigDump, _ := protomarshal.ToJSONWithIndent(meshConfig, "    ")
 	return meshConfigDump
 }
 
+// MeshConfigResource holds the current MeshConfig state
 type MeshConfigResource struct {
 	*meshconfig.MeshConfig
 }
@@ -79,6 +90,7 @@ func (m MeshConfigResource) Equals(other MeshConfigResource) bool {
 	return proto.Equal(m.MeshConfig, other.MeshConfig)
 }
 
+// MeshNetworksResource holds the current MeshNetworks state
 type MeshNetworksResource struct {
 	*meshconfig.MeshNetworks
 }
@@ -89,6 +101,7 @@ func (m MeshNetworksResource) Equals(other MeshNetworksResource) bool {
 	return proto.Equal(m.MeshNetworks, other.MeshNetworks)
 }
 
+// NetworksAdapter wraps a MeshNetworks collection into a mesh.NetworksWatcher interface.
 func NetworksAdapter(configuration krt.Singleton[MeshNetworksResource]) mesh.NetworksWatcher {
 	return networksAdapter{configuration}
 }

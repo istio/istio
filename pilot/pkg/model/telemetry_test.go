@@ -166,7 +166,7 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 
 	environment := &Environment{
 		ConfigStore: store,
-		Watcher:     meshwatcher.NewFixedWatcher(m),
+		Watcher:     meshwatcher.NewTestWatcher(m),
 	}
 	telemetries := getTelemetries(environment)
 

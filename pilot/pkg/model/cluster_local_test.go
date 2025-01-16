@@ -266,7 +266,7 @@ func TestIsClusterLocal(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			env := &model.Environment{Watcher: meshwatcher.NewFixedWatcher(c.m)}
+			env := &model.Environment{Watcher: meshwatcher.NewTestWatcher(c.m)}
 			env.Init()
 
 			clusterLocal := env.ClusterLocal().GetClusterLocalHosts().IsClusterLocal(host.Name(c.host))

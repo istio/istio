@@ -458,7 +458,7 @@ func createFakeAuthorizationPolicies(configs []config.Config) *AuthorizationPoli
 	}
 	environment := &Environment{
 		ConfigStore: store,
-		Watcher:     meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-config"}),
+		Watcher:     meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-config"}),
 	}
 	authzPolicies := GetAuthorizationPolicies(environment)
 	return authzPolicies

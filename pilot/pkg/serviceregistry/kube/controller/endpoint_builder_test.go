@@ -150,7 +150,7 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 			fc.RunAndWait(test.NewStop(t))
 			cc := &Controller{
 				nodes:       nodes,
-				meshWatcher: meshwatcher.NewFixedWatcher(mesh.DefaultMeshConfig()),
+				meshWatcher: meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig()),
 				networkManager: &networkManager{
 					clusterID: c.ctl.cluster,
 					network:   c.ctl.network,

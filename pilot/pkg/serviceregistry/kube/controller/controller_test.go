@@ -1098,7 +1098,7 @@ func TestController_Service(t *testing.T) {
 }
 
 func TestController_ServiceWithFixedDiscoveryNamespaces(t *testing.T) {
-	meshWatcher := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
 		DiscoverySelectors: []*meshconfig.LabelSelector{
 			{
 				MatchLabels: map[string]string{
@@ -1267,7 +1267,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		meshConfig *meshconfig.MeshConfig,
 		expectedSvcList []*model.Service,
 		expectedNumSvcEvents int,
-		testMeshWatcher meshwatcher.FixedWatcher,
+		testMeshWatcher meshwatcher.TestWatcher,
 		fx *xdsfake.Updater,
 		controller *FakeController,
 	) {
@@ -1285,7 +1285,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		})
 	}
 
-	meshWatcher := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{})
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 
 	nsA := "nsA"
 	nsB := "nsB"
@@ -1442,7 +1442,7 @@ func TestControllerResourceScoping(t *testing.T) {
 		meshConfig *meshconfig.MeshConfig,
 		expectedSvcList []*model.Service,
 		expectedNumSvcEvents int,
-		testMeshWatcher meshwatcher.FixedWatcher,
+		testMeshWatcher meshwatcher.TestWatcher,
 		fx *xdsfake.Updater,
 		controller *FakeController,
 	) {
@@ -1463,7 +1463,7 @@ func TestControllerResourceScoping(t *testing.T) {
 
 	client := kubelib.NewFakeClient()
 	t.Cleanup(client.Shutdown)
-	meshWatcher := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{})
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 
 	nsA := "nsA"
 	nsB := "nsB"

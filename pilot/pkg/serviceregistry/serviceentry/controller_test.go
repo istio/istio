@@ -103,7 +103,7 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 		}
 	}()
 
-	meshcfg := meshwatcher.NewFixedWatcher(mesh.DefaultMeshConfig())
+	meshcfg := meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())
 	serviceController := NewController(configController, fx, meshcfg)
 	return configController, serviceController
 }
@@ -119,7 +119,7 @@ func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Opti
 	delegate := model.NewEndpointIndexUpdater(endpoints)
 	xdsUpdater := xdsfake.NewWithDelegate(delegate)
 
-	meshcfg := meshwatcher.NewFixedWatcher(mesh.DefaultMeshConfig())
+	meshcfg := meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())
 	istioStore := configController
 	var controller *Controller
 	if !workloadOnly {

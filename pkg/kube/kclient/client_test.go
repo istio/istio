@@ -414,7 +414,7 @@ func TestToOpts(t *testing.T) {
 func TestFilterNamespace(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
-	meshWatcher := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 	}}})
 	testns := clienttest.NewWriter[*corev1.Namespace](t, c)
@@ -457,7 +457,7 @@ func TestFilterNamespace(t *testing.T) {
 func TestFilter(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
-	meshWatcher := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{})
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 	testns := clienttest.NewWriter[*corev1.Namespace](t, c)
 	testns.Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default", Labels: map[string]string{"kubernetes.io/metadata.name": "default"}}})
 	testns.Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "selected", Labels: map[string]string{"kubernetes.io/metadata.name": "selected"}}})
@@ -534,7 +534,7 @@ func TestFilter(t *testing.T) {
 func TestFilterClusterScoped(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
-	meshWatcher := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 	}}})
 	// Note: it is silly to filter cluster scoped resources, but if it is done we should not break.
@@ -565,7 +565,7 @@ func TestFilterDeadlock(t *testing.T) {
 	c := kube.NewFakeClient(&appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "random", Namespace: "test"},
 	})
-	meshWatcher := meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"selected": "yes"},
 	}}})
 	stop := test.NewStop(t)

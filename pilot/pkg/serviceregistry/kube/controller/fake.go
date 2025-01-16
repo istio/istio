@@ -79,7 +79,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		opts.Client = kubelib.NewFakeClient()
 	}
 	if opts.MeshWatcher == nil {
-		opts.MeshWatcher = meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"})
+		opts.MeshWatcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"})
 	}
 	cleanupStop := false
 	stop := opts.Stop

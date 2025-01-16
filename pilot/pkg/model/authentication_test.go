@@ -1501,7 +1501,7 @@ func getTestAuthenticationPolicies(configs []*config.Config, t *testing.T) *Auth
 	}
 	environment := &Environment{
 		ConfigStore: configStore,
-		Watcher:     meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
+		Watcher:     meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
 	}
 
 	return initAuthenticationPolicies(environment)

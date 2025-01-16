@@ -335,7 +335,7 @@ func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshcon
 	}
 	// add the new one
 	c[string(id)] = network
-	server.Env().NetworksWatcher.(meshwatcher.FixedNetworksWatcher).SetNetworks(&meshconfig.MeshNetworks{Networks: c})
+	server.Env().NetworksWatcher.(meshwatcher.TestNetworksWatcher).SetNetworks(&meshconfig.MeshNetworks{Networks: c})
 }
 
 func getLbEndpointAddrs(eps []*endpoint.LbEndpoint) []string {

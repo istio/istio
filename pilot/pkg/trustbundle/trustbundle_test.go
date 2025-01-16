@@ -289,7 +289,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 	caCertPool.AddCert(server2.Certificate())
 	defer server2.Close()
 
-	tb := NewTrustBundle(caCertPool, meshwatcher.NewFixedWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"}))
+	tb := NewTrustBundle(caCertPool, meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"}))
 
 	// Change global remote timeout interval for the duration of the unit test
 	remoteTimeout = 30 * time.Millisecond

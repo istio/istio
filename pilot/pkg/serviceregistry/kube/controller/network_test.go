@@ -198,7 +198,7 @@ func removeGatewayResource(t *testing.T, c *FakeController) {
 	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).Delete("eastwest-gwapi", "istio-system")
 }
 
-func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher meshwatcher.FixedNetworksWatcher) {
+func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher meshwatcher.TestNetworksWatcher) {
 	clienttest.Wrap(t, c.services).Create(&corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "istio-meshnetworks-gw", Namespace: "istio-system"},
 		Spec: corev1.ServiceSpec{
