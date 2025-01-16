@@ -499,7 +499,15 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 		return false
 	}
 	// Filter out unhealthy endpoints
+	// This is used to let envoy know about the amount of health endpoints in a cluster.
 	if !features.SendUnhealthyEndpoints.Load() && ep.HealthStatus == model.UnHealthy {
+		return false
+	}
+	// Filter out terminating endpoints -- we never need these. Even in "send unhealthy mode", there is no need
+	// to consider terminating endpoints in the calculation.
+	// For example, if I change a service with 1 pod, I will temporarily have 1 new pod and 1 terminating pod.
+	// We want this to be 100% healthy, not 50% healthy.
+	if ep.HealthStatus == model.Terminating {
 		return false
 	}
 	// Draining endpoints are only sent to 'persistent session' clusters.
