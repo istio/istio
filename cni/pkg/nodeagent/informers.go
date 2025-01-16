@@ -103,11 +103,8 @@ func (s *InformerHandlers) GetPodIfAmbientEnabled(podName, podNamespace string) 
 }
 
 func (s *InformerHandlers) Start() {
-	// Wait for all (pod|namespace) events to be enqueued.
 	kube.WaitForCacheSync("informer", s.ctx.Done(), s.pods.HasSynced, s.namespaces.HasSynced)
 	go s.queue.Run(s.ctx.Done())
-	// Wait for all enqueued (pod|namespace) events in queue to be processed
-	kube.WaitForCacheSync("informer queue", s.ctx.Done(), s.queue.HasSynced)
 }
 
 // Gets a point-in-time snapshot of all pods that are CURRENTLY ambient enabled
