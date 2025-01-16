@@ -274,7 +274,8 @@ func TaggedGatewayTest(t framework.TestContext) {
 	}
 	for _, tc := range testCases {
 		t.NewSubTest(fmt.Sprintf("gateway-connectivity-tagged-%s", tc.revisionValue)).Run(func(t framework.TestContext) {
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{"revision": tc.revisionValue}, `apiVersion: gateway.networking.k8s.io/v1beta1
+			t.ConfigIstio().Eval(apps.Namespace.Name(),
+				map[string]string{"revision": tc.revisionValue}, `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: gateway
