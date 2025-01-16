@@ -270,9 +270,12 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 				deniedResources = append(deniedResources, r.Name)
 			}
 		case credentials.KubernetesSecretType:
+			// CA Certs are public information, so we allows allow these to be accessed (from the same namespace)
+			isCAOnlySecret := strings.HasSuffix(r.Name, securitymodel.SdsCaSuffix)
 			// For Kubernetes, we require the secret to be in the same namespace as the proxy and for it to be
 			// authorized for access.
-			if sameNamespace && isAuthorized() {
+			if sameNamespace && (isCAOnlySecret || isAuthorized()) {
+				// if sameNamespace && isAuthorized() {
 				allowedResources = append(allowedResources, r)
 			} else {
 				deniedResources = append(deniedResources, r.Name)
