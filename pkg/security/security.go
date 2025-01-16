@@ -199,6 +199,8 @@ type Options struct {
 	// well-known ./etc/certs location.
 	FileMountedCerts bool
 
+	ServeOnlyFiles bool
+
 	// PilotCertProvider is the provider of the Pilot certificate (PILOT_CERT_PROVIDER env)
 	// Determines the root CA file to use for connecting to CA gRPC:
 	// - istiod
@@ -498,6 +500,11 @@ func GetWorkloadSDSSocketListenPath(sockfile string) string {
 // will put its socket.
 func GetIstioSDSServerSocketPath() string {
 	return filepath.Join(WorkloadIdentityPath, DefaultWorkloadIdentitySocketFile)
+}
+
+func GetIstioSDSFileServerSocketPath() string {
+	// TODO: wrong path!!!
+	return filepath.Join(WorkloadIdentityCredentialsPath, "files-socket")
 }
 
 type SdsCertificateConfig struct {

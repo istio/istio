@@ -45,7 +45,7 @@ type Server struct {
 func NewServer(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *mesh.PrivateKeyProvider) *Server {
 	s := &Server{stopped: atomic.NewBool(false)}
 	s.workloadSds = newSDSService(workloadSecretCache, options, pkpConf)
-	s.initWorkloadSdsService()
+	s.initWorkloadSdsService(options)
 	return s
 }
 
@@ -75,11 +75,15 @@ func (s *Server) Stop() {
 	}
 }
 
-func (s *Server) initWorkloadSdsService() {
+func (s *Server) initWorkloadSdsService(opts *security.Options) {
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions()...)
 	s.workloadSds.register(s.grpcWorkloadServer)
 	var err error
-	s.grpcWorkloadListener, err = uds.NewListener(security.GetIstioSDSServerSocketPath())
+	path := security.GetIstioSDSServerSocketPath()
+	if opts.ServeOnlyFiles {
+		path = security.GetIstioSDSFileServerSocketPath()
+	}
+	s.grpcWorkloadListener, err = uds.NewListener(path)
 	go func() {
 		sdsServiceLog.Info("Starting SDS grpc server")
 		waitTime := time.Second
@@ -91,13 +95,13 @@ func (s *Server) initWorkloadSdsService() {
 			serverOk := true
 			setUpUdsOK := true
 			if s.grpcWorkloadListener == nil {
-				if s.grpcWorkloadListener, err = uds.NewListener(security.GetIstioSDSServerSocketPath()); err != nil {
+				if s.grpcWorkloadListener, err = uds.NewListener(path); err != nil {
 					sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to set up UDS: %v", err)
 					setUpUdsOK = false
 				}
 			}
 			if s.grpcWorkloadListener != nil {
-				sdsServiceLog.Infof("Starting SDS server for workload certificates, will listen on %q", security.GetIstioSDSServerSocketPath())
+				sdsServiceLog.Infof("Starting SDS server for workload certificates, will listen on %q", path)
 				if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
 					sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
 					serverOk = false

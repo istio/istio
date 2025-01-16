@@ -24,7 +24,8 @@ import (
 
 const (
 	// SDSClusterName is the name of the cluster for SDS connections
-	SDSClusterName = "sds-grpc"
+	SDSClusterName     = "sds-grpc"
+	SDSFileClusterName = "sds-files-grpc"
 
 	// SDSDefaultResourceName is the default name in sdsconfig, used for fetching normal key/cert.
 	SDSDefaultResourceName = "default"
@@ -103,7 +104,7 @@ func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSFileClusterName},
 							},
 						},
 					},
