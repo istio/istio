@@ -401,6 +401,12 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		}
 	}
 
+	// use of "ISTIO_META_DNS_AUTO_ALLOCATE" is being deprecated, check and warn
+	if _, autoAllocationV1Used := config.GetProxyMetadata()["ISTIO_META_DNS_AUTO_ALLOCATE"]; autoAllocationV1Used {
+		errs = multierror.Append(errs, errors.New("'ISTIO_META_DNS_AUTO_ALLOCATE' is deprecated; review "+
+			"https://istio.io/latest/docs/ops/configuration/traffic-management/dns-proxy/#dns-auto-allocation-v2 for information about replacement functionality"))
+	}
+
 	if config.EnvoyMetricsService != nil && config.EnvoyMetricsService.Address != "" {
 		if err := ValidateProxyAddress(config.EnvoyMetricsService.Address); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsService.Address)))

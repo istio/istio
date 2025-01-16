@@ -650,6 +650,17 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			),
 			isValid: true,
 		},
+		{
+			name: "ISTIO_META_DNS_AUTO_ALLOCATE is deprecated",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					if c.ProxyMetadata == nil {
+						c.ProxyMetadata = make(map[string]string)
+					}
+					c.ProxyMetadata["ISTIO_META_DNS_AUTO_ALLOCATE"] = "true"
+				}),
+			isValid: false,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
