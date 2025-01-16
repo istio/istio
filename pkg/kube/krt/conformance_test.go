@@ -90,6 +90,8 @@ type fileRig struct {
 	rootPath string
 }
 
+// CreateObject is a stub
+// TODO(https://github.com/istio/istio/issues/54731) implement this
 func (r *fileRig) CreateObject(key string) {
 }
 
@@ -144,7 +146,7 @@ func TestConformance(t *testing.T) {
 		runConformance[Named](t, rig)
 	})
 	t.Run("files", func(t *testing.T) {
-		t.Skip("Not implemented")
+		t.Skip("https://github.com/istio/istio/issues/54731")
 		col := krt.NewFileCollection[Named](krt.WithStop(test.NewStop(t)))
 		rig := &fileRig{
 			FileCollection: col,
@@ -156,7 +158,7 @@ func TestConformance(t *testing.T) {
 
 func runConformance[T any](t *testing.T, collection Rig[T]) {
 	stop := test.NewStop(t)
-	// FileCollection should start empty...
+	// Collection should start empty...
 	assert.Equal(t, len(collection.List()), 0)
 
 	// Register a handler at the start of the collection

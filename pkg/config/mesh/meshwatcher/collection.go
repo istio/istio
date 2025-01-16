@@ -52,8 +52,10 @@ func NewCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Sin
 			for _, attempt := range sources {
 				s := krt.FetchOne(ctx, attempt.AsCollection())
 				if s == nil {
-					panic("xx")
 					// Source specified but not giving us any data
+					// Practically, this means the configmap doesn't exist -- for the file source, we only build it if the file exists
+					// It is valid to run with no configmap, so we just log at debug level.
+					log.Debugf("mesh configuration source missing")
 					continue
 				}
 				n, err := mesh.ApplyMeshConfig(*s, meshCfg)

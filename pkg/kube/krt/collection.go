@@ -395,7 +395,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		} else {
 			ctx := pendingDepStateUpdates[iKey]
 			results := recomputedResults[idx]
-			if ctx.discardResult {
+			if ctx.discardUpdate {
 				_, alreadyHasAResult := h.collectionState.mappings[iKey]
 				nowHasAResult := len(results) > 0
 				if alreadyHasAResult || !nowHasAResult {
@@ -481,7 +481,7 @@ func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opt
 	}
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
-		o.name = fmt.Sprintf("FileCollection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
+		o.name = fmt.Sprintf("Collection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
 	}
 	return newManyCollection[I, O](c, hm, o)
 }
@@ -672,7 +672,7 @@ type collectionDependencyTracker[I, O any] struct {
 	*manyCollection[I, O]
 	d             []*dependency
 	key           Key[I]
-	discardResult bool
+	discardUpdate bool
 }
 
 func (i *collectionDependencyTracker[I, O]) name() string {
@@ -705,5 +705,5 @@ func (i *collectionDependencyTracker[I, O]) _internalHandler() {
 }
 
 func (i *collectionDependencyTracker[I, O]) DiscardResult() {
-	i.discardResult = true
+	i.discardUpdate = true
 }

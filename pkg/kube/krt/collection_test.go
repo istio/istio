@@ -578,7 +578,7 @@ func TestCollectionDiscardResult(t *testing.T) {
 		trigger.TriggerRecomputation()
 		assert.EventuallyEqual(t, col.Get, &Static{Value: "final"})
 
-		// Should see only one event
+		// Should see only one update -- the skip is ignored.
 		tt.WaitOrdered("add/static", "update/static")
 	})
 }

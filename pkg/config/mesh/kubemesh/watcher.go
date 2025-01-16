@@ -42,12 +42,12 @@ func NewConfigMapSource(client kube.Client, namespace, name, key string, opts kr
 	})
 	cms := krt.WrapClient(clt, opts.WithName("ConfigMap_"+name)...)
 
-	cmKey := types.NamespacedName{Namespace: namespace, Name: name}.String()
-
 	// Start informer immediately instead of with the rest. This is because we use configmapwatcher for
 	// single types (so its never shared), and for use cases where we need the results immediately
 	// during startup.
 	clt.Start(opts.Stop())
+
+	cmKey := types.NamespacedName{Namespace: namespace, Name: name}.String()
 	return krt.NewSingleton(func(ctx krt.HandlerContext) *string {
 		cm := ptr.Flatten(krt.FetchOne(ctx, cms, krt.FilterKey(cmKey)))
 		return meshConfigMapData(cm, key)

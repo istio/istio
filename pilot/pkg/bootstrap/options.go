@@ -55,7 +55,7 @@ type PilotArgs struct {
 	NetworksConfigFile string
 	RegistryOptions    RegistryOptions
 	CtrlZOptions       *ctrlz.Options
-	KrtDebugger        *krt.DebugHandler
+	KrtDebugger        *krt.DebugHandler `json:"-"`
 	KeepaliveOptions   *keepalive.Options
 	ShutdownDuration   time.Duration
 	JwtRule            string

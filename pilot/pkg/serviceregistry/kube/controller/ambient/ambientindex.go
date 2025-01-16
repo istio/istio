@@ -133,7 +133,7 @@ type Options struct {
 	StatusNotifier        *activenotifier.ActiveNotifier
 	Flags                 FeatureFlags
 
-	MeshConfig krt.Singleton[meshwatcher.MeshConfigResource]
+	MeshConfig krt.Singleton[MeshConfig]
 
 	Debugger *krt.DebugHandler
 }

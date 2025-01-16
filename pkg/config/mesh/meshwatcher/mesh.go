@@ -74,11 +74,6 @@ func (a adapter) DeleteMeshHandler(registration *mesh.WatcherHandlerRegistration
 	registration.Remove()
 }
 
-func PrettyFormatOfMeshConfig(meshConfig *meshconfig.MeshConfig) string {
-	meshConfigDump, _ := protomarshal.ToJSONWithIndent(meshConfig, "    ")
-	return meshConfigDump
-}
-
 // MeshConfigResource holds the current MeshConfig state
 type MeshConfigResource struct {
 	*meshconfig.MeshConfig
@@ -104,4 +99,14 @@ func (m MeshNetworksResource) Equals(other MeshNetworksResource) bool {
 // NetworksAdapter wraps a MeshNetworks collection into a mesh.NetworksWatcher interface.
 func NetworksAdapter(configuration krt.Singleton[MeshNetworksResource]) mesh.NetworksWatcher {
 	return networksAdapter{configuration}
+}
+
+func PrettyFormatOfMeshConfig(meshConfig *meshconfig.MeshConfig) string {
+	meshConfigDump, _ := protomarshal.ToYAML(meshConfig)
+	return meshConfigDump
+}
+
+func PrettyFormatOfMeshNetworks(meshNetworks *meshconfig.MeshNetworks) string {
+	meshNetworksDump, _ := protomarshal.ToYAML(meshNetworks)
+	return meshNetworksDump
 }
