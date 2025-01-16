@@ -17,10 +17,14 @@ package nodeagent
 import (
 	"context"
 	"fmt"
+	"math"
+	"time"
 
+	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/util"
@@ -59,8 +63,32 @@ func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDa
 	s := &InformerHandlers{ctx: ctx, dataplane: dataplane, systemNamespace: systemNamespace}
 	s.queue = controllers.NewQueue("ambient",
 		controllers.WithGenericReconciler(s.reconcile),
-		controllers.WithMaxAttempts(5),
+		// Effectively uncapped max attempts.
+		// This is because ztunnel may connect at $any-point after we start the handler,
+		// and processing some events will continue to fail until there is a ztunnel
+		// ready to accept events fired by the handler.
+		//
+		// Note that even in this case, the failure mode for pods should
+		// always be `fail closed`, but we really have no reason to cap retry attempts
+		// caused by ztunnel not being connected, since it must (at some point).
+		//
+		// Note that an important corollary of this is that *failed pod events should be retryable*
+		// - POD ADD (ipset, iptables, ztunnel send) must be idempotent
+		// - POD DEL (ipset, iptables, ztunnel send) must be idempotent
+		//
+		// iptables case (reconciliation) is the only place where this is not always true,
+		// but that is being worked on.
+		//
+		// So max out attempt count and instead regulate with ratelimiter
+		controllers.WithMaxAttempts(math.MaxInt),
+		// Start with small intervals, max out at 5 sec retry intervals
+		controllers.WithRateLimiter(workqueue.NewTypedMaxOfRateLimiter(
+			workqueue.NewTypedItemExponentialFailureRateLimiter[any](5*time.Millisecond, 5*time.Second),
+			// default `workqueue` bucket settings to avoid herds
+			&workqueue.TypedBucketRateLimiter[any]{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
+		)),
 	)
+
 	// We only need to handle pods on our node
 	s.pods = kclient.NewFiltered[*corev1.Pod](kubeClient, kclient.Filter{FieldSelector: "spec.nodeName=" + NodeName})
 	s.pods.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
@@ -109,6 +137,8 @@ func (s *InformerHandlers) Start() {
 	// Note that we are explicitly *not* doing
 	// 'kube.WaitForCacheSync("informer queue", s.ctx.Done(), s.queue.HasSynced)'
 	// here, because we cannot successfully process the event queue until a ztunnel connects.
+	//
+	// We will always retry failed events, for as long as the agent is running.
 }
 
 // Gets a point-in-time snapshot of all pods that are CURRENTLY ambient enabled

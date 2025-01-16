@@ -249,10 +249,13 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 	var retErr error
 	err := s.netServer.AddPodToMesh(ctx, pod, podIPs, netNs)
 	if err != nil {
-		log.Errorf("failed to add pod to ztunnel: %v", err)
+		// iptables failed, so don't bother annotating.
 		if !errors.Is(err, ErrPartialAdd) {
+			log.Errorf("failed capturing pod", err)
 			return err
 		}
+		// iptables succeeded, so even if we failed to send to ztunnel, must annotate
+		log.Errorf("failed to add pod to ztunnel: %v", err)
 		retErr = err
 	}
 
