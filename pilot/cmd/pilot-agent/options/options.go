@@ -125,8 +125,8 @@ var (
 	wasmHTTPRequestMaxRetries = env.Register("WASM_HTTP_REQUEST_MAX_RETRIES", wasm.DefaultHTTPRequestMaxRetries,
 		"maximum number of HTTP/HTTPS request retries for pulling a Wasm module via http/https").Get()
 
-	enableWDSEnv = env.Register("PEER_METADATA_DISCOVERY", false,
-		"If set to true, enable the peer metadata discovery extension in Envoy").Get()
+	enableWDSEnv, enableWDSEnvWasSet = env.Register("PEER_METADATA_DISCOVERY", false,
+		"If set to true, enable the peer metadata discovery extension in Envoy").Lookup()
 
 	envoyStatusPortEnv = env.Register("ENVOY_STATUS_PORT", 15021,
 		"Envoy health status port value").Get()
