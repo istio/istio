@@ -72,7 +72,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 							}
 						}
 						if len(instance.Addresses) == 0 || !isValidInstance ||
-							(!svc.Attributes.PublishNotReadyAddresses && instance.HealthStatus == model.UnHealthy) {
+							(!svc.Attributes.PublishNotReadyAddresses && instance.HealthStatus != model.Healthy) {
 							continue
 						}
 						// TODO(stevenctl): headless across-networks https://github.com/istio/istio/issues/38327

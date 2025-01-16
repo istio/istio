@@ -454,16 +454,20 @@ type Locality struct {
 	ClusterID cluster.ID
 }
 
-// Endpoint health status.
+// HealthStatus indicates the status of the Endpoint.
 type HealthStatus int32
 
 const (
-	// Healthy.
+	// Healthy indicates an endpoint is ready to accept traffic
 	Healthy HealthStatus = 1
-	// Unhealthy.
+	// UnHealthy indicates an endpoint is not ready to accept traffic
 	UnHealthy HealthStatus = 2
-	// Draining - the constant matches envoy
+	// Draining is a special case, which is used only when persistent sessions are enabled. This indicates an endpoint
+	// was previously healthy, but is now shutting down.
+	// Without persistent sessions, an endpoint that is shutting down will be marked as Terminating.
 	Draining HealthStatus = 3
+	// Terminating marks an endpoint as shutting down. Similar to "unhealthy", this means we should not send it traffic.
+	Terminating HealthStatus = 4
 )
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
