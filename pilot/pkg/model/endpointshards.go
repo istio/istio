@@ -18,7 +18,6 @@ import (
 	"sort"
 	"sync"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -374,7 +373,7 @@ func endpointUpdateRequiresPush(oldIstioEndpoints []*IstioEndpoint, incomingEndp
 			// new endpoint. Always send new healthy endpoints.
 			// Also send new unhealthy endpoints when SendUnhealthyEndpoints is enabled.
 			// This is OK since we disable panic threshold when SendUnhealthyEndpoints is enabled.
-			if nie.HealthStatus != UnHealthy || features.SendUnhealthyEndpoints.Load() {
+			if nie.HealthStatus != UnHealthy || nie.SendUnhealthyEndpoints {
 				needPush = true
 			}
 			newIstioEndpoints = append(newIstioEndpoints, nie)

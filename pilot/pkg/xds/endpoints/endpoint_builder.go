@@ -163,7 +163,7 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 func (b *EndpointBuilder) populateFailoverPriorityLabels() {
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
 	if enableFailover {
-		lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+		lbSetting, _ := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
 		if lbSetting != nil && lbSetting.Distribute == nil &&
 			len(lbSetting.FailoverPriority) > 0 && (lbSetting.Enabled == nil || lbSetting.Enabled.Value) {
 			b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, lbSetting.FailoverPriority)
@@ -375,7 +375,8 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 	// will never detect the hosts are unhealthy and redirect traffic.
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
-	lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+	lbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
+	enableFailover = enableFailover || forceFailover
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		l = util.CloneClusterLoadAssignment(l)
@@ -498,9 +499,10 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	if len(ep.Addresses) == 0 && (!b.gateways().IsMultiNetworkEnabled() || b.proxy.InNetwork(ep.Network)) {
 		return false
 	}
-	// Filter out unhealthy endpoints
+	// Filter out unhealthy endpoints, unless the service needs them.
 	// This is used to let envoy know about the amount of health endpoints in a cluster.
-	if !features.SendUnhealthyEndpoints.Load() && ep.HealthStatus == model.UnHealthy {
+	// This is used to let envoy know about the amount of health endpoints in a cluster.
+	if !b.service.SupportsUnhealthyEndpoints() && ep.HealthStatus == model.UnHealthy {
 		return false
 	}
 	// Filter out terminating endpoints -- we never need these. Even in "send unhealthy mode", there is no need

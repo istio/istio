@@ -158,8 +158,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	// For these policies, we have the standard logic apply
 	cb.applyConnectionPool(mesh, localCluster, connectionPool)
 	cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
-	applyOutlierDetection(localCluster.cluster, outlierDetection)
-	applyLoadBalancer(localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+	applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
+	applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
 
 	// Setup EDS config after apply LoadBalancer, since it can impact the result
 	if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {

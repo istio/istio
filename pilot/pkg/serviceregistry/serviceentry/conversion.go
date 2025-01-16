@@ -18,6 +18,9 @@ import (
 	"net/netip"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -178,6 +181,11 @@ func convertServices(cfg config.Config) []*model.Service {
 		resolution = model.ClientSideLB
 	}
 
+	trafficDistribution := model.TrafficDistributionAny
+	if strings.EqualFold(cfg.Annotations[annotation.NetworkingTrafficDistribution.Name], corev1.ServiceTrafficDistributionPreferClose) {
+		trafficDistribution = model.TrafficDistributionPreferClose
+	}
+
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
 	var portOverrides map[uint32]uint32
 	for _, port := range serviceEntry.Ports {
@@ -255,7 +263,7 @@ func convertServices(cfg config.Config) []*model.Service {
 				Labels:                 lbls,
 				ExportTo:               exportTo,
 				LabelSelectors:         labelSelectors,
-				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name},
+				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution},
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
 		}
