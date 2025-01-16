@@ -160,6 +160,9 @@ var rootCmd = &cobra.Command{
 		// repair will (necessarily) be unavailable.
 		repair.StartRepair(ctx, cfg.RepairConfig)
 
+		// Note that even though we "install" the CNI plugin here *after* we start the node agent,
+		// it will block ambient-enabled pods from starting until `watchServerReady` == true
+		// (that is, the node agent is ready to respond to plugin events)
 		log.Info("initialization complete, watching node CNI dir")
 		// installer.Run() will block indefinitely, and attempt to permanently "keep"
 		// the CNI binary installed.

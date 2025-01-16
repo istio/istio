@@ -157,16 +157,20 @@ func (s *Server) Start() {
 	log.Info("CNI ambient server starting")
 	s.kubeClient.RunAndWait(s.ctx.Done())
 	log.Info("CNI ambient server kubeclient started")
+	// Start the informer handlers FIRST, before we snapshot.
+	// They will keep the (mutex'd) snapshot cache synced.
+	s.handlers.Start()
 	pods := s.handlers.GetActiveAmbientPodSnapshot()
 	err := s.dataplane.ConstructInitialSnapshot(pods)
 	if err != nil {
 		log.Warnf("failed to construct initial snapshot: %v", err)
 	}
-
+	// Start accepting ztunnel connections
+	// (and send current snapshot when we get one)
+	s.dataplane.Start(s.ctx)
+	// Everything (informer handlers, snapshot, zt server) ready to go
 	log.Info("CNI ambient server marking ready")
 	s.Ready()
-	s.dataplane.Start(s.ctx)
-	s.handlers.Start()
 }
 
 func (s *Server) Stop(skipCleanup bool) {
