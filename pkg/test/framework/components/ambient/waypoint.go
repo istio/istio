@@ -88,10 +88,6 @@ type WaypointProxy interface {
 
 // NewWaypointProxy creates a new WaypointProxy.
 func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) (WaypointProxy, error) {
-	return NewRevisionedWaypointProxy(ctx, ns, name, "")
-}
-
-func NewRevisionedWaypointProxy(ctx resource.Context, ns namespace.Instance, name, revision string) (WaypointProxy, error) {
 	server := &kubeComponent{
 		ns: ns,
 	}
@@ -115,9 +111,6 @@ func NewRevisionedWaypointProxy(ctx resource.Context, ns namespace.Instance, nam
 		name,
 		"--for",
 		constants.AllTraffic,
-	}
-	if revision != "" {
-		args = append(args, "--revision", revision)
 	}
 	_, _, err = ik.Invoke(args)
 	if err != nil {
