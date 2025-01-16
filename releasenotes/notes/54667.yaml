@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+    - |
+        **Fixed** 'istioctl --as' implicitly sets `--as-group=""` when `--as` is used without `--as-group`.
