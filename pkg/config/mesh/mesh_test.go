@@ -204,7 +204,7 @@ proxyHeaders:
 func TestDefaultProxyConfig(t *testing.T) {
 	v := agent.ValidateMeshConfigProxyConfig(mesh.DefaultProxyConfig())
 	if v.Err != nil {
-		t.Errorf("validation of default proxy config failed with %v", err)
+		t.Errorf("validation of default proxy config failed with %v", v.Err)
 	}
 }
 
