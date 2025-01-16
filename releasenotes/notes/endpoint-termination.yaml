@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Updated** the `PILOT_SEND_UNHEALTHY_ENDPOINTS` feature (which is off by default) to not include terminating endpoints.
+    This ensures a service is not considered unhealthy during scale down or rollout events.
