@@ -226,7 +226,7 @@ type AgentOptions struct {
 	WASMOptions wasm.Options
 
 	// Enable metadata discovery bootstrap extension
-	MetadataDiscovery bool
+	MetadataDiscovery *bool
 
 	SDSFactory func(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *mesh.PrivateKeyProvider) SDSService
 
