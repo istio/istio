@@ -1050,7 +1050,7 @@ func TestGetLocalityLbSetting(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetLocalityLbSetting(tt.mesh, tt.dr, nil)
+			got, _ := GetLocalityLbSetting(tt.mesh, tt.dr, nil)
 			if !reflect.DeepEqual(tt.expected, got) {
 				t.Fatalf("Expected: %v, got: %v", tt.expected, got)
 			}
