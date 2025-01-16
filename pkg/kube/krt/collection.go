@@ -357,8 +357,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		iKey := getTypedKey(i)
 
 		ctx := &collectionDependencyTracker[I, O]{manyCollection: h, key: iKey}
-		res := h.transformation(ctx, i)
-		results := slices.GroupUnique(res, getTypedKey[O])
+		results := slices.GroupUnique(h.transformation(ctx, i), getTypedKey[O])
 		recomputedResults[idx] = results
 		// Store new dependency state, to insert in the next loop under the lock
 		pendingDepStateUpdates[iKey] = ctx
@@ -459,7 +458,6 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	}
 	h.eventHandlers.Distribute(events, false)
 }
-
 
 // WithJoinUnchecked enables an optimization for join collections, where keys are not deduplicated across collections.
 // This option can only be used when joined collections are disjoint: keys overlapping between collections is undefined behavior
