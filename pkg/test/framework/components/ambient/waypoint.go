@@ -102,7 +102,7 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 		return nil, err
 	}
 	// TODO: detect from UseWaypointProxy in echo.Config
-	args := []string{
+	_, _, err = ik.Invoke([]string{
 		"waypoint",
 		"apply",
 		"--namespace",
@@ -111,8 +111,7 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 		name,
 		"--for",
 		constants.AllTraffic,
-	}
-	_, _, err = ik.Invoke(args)
+	})
 	if err != nil {
 		return nil, err
 	}

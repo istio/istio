@@ -135,7 +135,7 @@ var defaultSyncSignal = syncSignal{}
 // processed all events that were added prior to Run() being called Warning: these items will be
 // processed at least once, but may have failed.
 func (q Queue) HasSynced() bool {
-	return q.initialSync != nil && q.initialSync.Load()
+	return q.initialSync.Load()
 }
 
 // Closed returns a chan that will be signaled when the Instance has stopped processing tasks.
