@@ -53,7 +53,7 @@ func TestGateway(t *testing.T) {
 
 			t.NewSubTest("unmanaged").Run(UnmanagedGatewayTest)
 			t.NewSubTest("managed").Run(ManagedGatewayTest)
-			t.NewSubTest("managed").Run(TaggedGatewayTest)
+			t.NewSubTest("tagged").Run(TaggedGatewayTest)
 			t.NewSubTest("managed-owner").Run(ManagedOwnerGatewayTest)
 			t.NewSubTest("status").Run(StatusGatewayTest)
 			t.NewSubTest("managed-short-name").Run(ManagedGatewayShortNameTest)
