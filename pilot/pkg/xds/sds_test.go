@@ -63,6 +63,12 @@ var (
 	simpleCaCert = makeSecret("ca-only", map[string]string{
 		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "dns/root-cert.pem")),
 	})
+	// A secret with -cacert in the suffix, referenced directly in the credential
+	trickyCaCert = makeSecret("tricky-cacert", map[string]string{
+		credentials.GenericScrtCert:   readFile(filepath.Join(certDir, "dns/cert-chain.pem")),
+		credentials.GenericScrtKey:    readFile(filepath.Join(certDir, "dns/key.pem")),
+		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "dns/root-cert.pem")),
+	})
 	genericCert = makeSecret("generic", map[string]string{
 		credentials.GenericScrtCert: readFile(filepath.Join(certDir, "default/cert-chain.pem")),
 		credentials.GenericScrtKey:  readFile(filepath.Join(certDir, "default/key.pem")),
@@ -111,6 +117,7 @@ func TestGenerateSDS(t *testing.T) {
 		request              *model.PushRequest
 		expect               map[string]Expected
 		accessReviewResponse func(action k8stesting.Action) (bool, runtime.Object, error)
+		objects              []runtime.Object
 	}{
 		{
 			name:      "simple",
@@ -342,22 +349,48 @@ func TestGenerateSDS(t *testing.T) {
 				return true, nil, errors.New("not authorized")
 			},
 		},
+		{
+			// proxy without authorization -- can get CA certs only.
+			// If a credential name is poorly named with a -cacert suffix, we shouldn't let that be accesses
+			name:      "tricky cacert name",
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			resources: []string{"kubernetes://tricky-cacert", "kubernetes://tricky-cacert-cacert"},
+			request:   &model.PushRequest{Full: true},
+			expect: map[string]Expected{
+				// They should NOT be able to get the private key material
+				"kubernetes://tricky-cacert": {
+					CaCert: string(trickyCaCert.Data[credentials.GenericScrtCaCert]),
+				},
+				"kubernetes://tricky-cacert-cacert": {
+					CaCert: string(trickyCaCert.Data[credentials.GenericScrtCaCert]),
+				},
+			},
+			objects: []runtime.Object{trickyCaCert},
+			accessReviewResponse: func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, nil, errors.New("not authorized")
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.proxy.Metadata == nil {
 				tt.proxy.Metadata = &model.NodeMetadata{}
 			}
-			tt.proxy.Metadata.ClusterID = constants.DefaultClusterName
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-				KubernetesObjects: []runtime.Object{
+			obj := tt.objects
+			if obj == nil {
+				// Default set
+				obj = []runtime.Object{
 					genericCert,
 					genericMtlsCert,
 					simpleCaCert,
 					genericMtlsCertCrl,
 					genericMtlsCertSplit,
 					genericMtlsCertSplitCa,
-				},
+				}
+			}
+			tt.proxy.Metadata.ClusterID = constants.DefaultClusterName
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				KubernetesObjects: obj,
 			})
 			cc := s.KubeClient().Kube().(*fake.Clientset)
 
