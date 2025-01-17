@@ -84,7 +84,7 @@ func buildNetworkCollections(
 	}
 }
 
-func fromGatewayBuilder(clusterId cluster.ID) krt.TransformationMulti[*v1beta1.Gateway, NetworkGateway] {
+func fromGatewayBuilder(clusterID cluster.ID) krt.TransformationMulti[*v1beta1.Gateway, NetworkGateway] {
 	return func(ctx krt.HandlerContext, gw *v1beta1.Gateway) []NetworkGateway {
 		netLabel := gw.GetLabels()[label.TopologyNetwork.Name]
 		if netLabel == "" {
@@ -97,7 +97,7 @@ func fromGatewayBuilder(clusterId cluster.ID) krt.TransformationMulti[*v1beta1.G
 
 		base := model.NetworkGateway{
 			Network: network.ID(netLabel),
-			Cluster: clusterId,
+			Cluster: clusterID,
 			ServiceAccount: types.NamespacedName{
 				Namespace: gw.Namespace,
 				Name:      kube.GatewaySA(gw),

@@ -1660,7 +1660,6 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		Debugger:       debugger,
 		Flags:          flags,
 	})
-	cl.RunAndWait(test.NewStop(t))
 
 	dumpOnFailure(t, debugger)
 	a := &ambientTestServer{
@@ -1705,6 +1704,7 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		},
 	})
 
+	cl.RunAndWait(test.NewStop(t))
 	return a
 }
 
