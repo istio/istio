@@ -99,7 +99,7 @@ func TestEnvoyArgs(t *testing.T) {
 		"--allow-unknown-static-fields",
 		"-l", "trace",
 		"--component-log-level", "misc:error",
-		"--skip-deprecated-logs", // Ensure the --skip-deprecated-logs flag is included
+		"--skip-deprecated-logs",
 		"--config-yaml", `{"key":"value"}`,
 		"--concurrency", "8",
 	}
