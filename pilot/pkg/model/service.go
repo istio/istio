@@ -454,16 +454,21 @@ type Locality struct {
 	ClusterID cluster.ID
 }
 
-// Endpoint health status.
+// HealthStatus indicates the status of the Endpoint.
 type HealthStatus int32
 
 const (
-	// Healthy.
+	// Healthy indicates an endpoint is ready to accept traffic
 	Healthy HealthStatus = 1
-	// Unhealthy.
+	// UnHealthy indicates an endpoint is not ready to accept traffic
 	UnHealthy HealthStatus = 2
-	// Draining - the constant matches envoy
+	// Draining is a special case, which is used only when persistent sessions are enabled. This indicates an endpoint
+	// was previously healthy, but is now shutting down.
+	// Without persistent sessions, an endpoint that is shutting down will be marked as Terminating.
 	Draining HealthStatus = 3
+	// Terminating marks an endpoint as shutting down. Similar to "unhealthy", this means we should not send it traffic.
+	// But unlike "unhealthy", this means we do not consider it when calculating failover.
+	Terminating HealthStatus = 4
 )
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
@@ -1001,8 +1006,9 @@ func (i AddressInfo) ResourceName() string {
 }
 
 type ServiceWaypointInfo struct {
-	Service          *workloadapi.Service
-	WaypointHostname string
+	Service            *workloadapi.Service
+	IngressUseWaypoint bool
+	WaypointHostname   string
 }
 
 type TypedObject struct {
@@ -1115,7 +1121,10 @@ type StatusMessage struct {
 }
 
 func (i WaypointBindingStatus) Equals(other WaypointBindingStatus) bool {
-	return i.ResourceName == other.ResourceName && i.IngressUseWaypoint == other.IngressUseWaypoint && ptr.Equal(i.Error, other.Error)
+	return i.ResourceName == other.ResourceName &&
+		i.IngressUseWaypoint == other.IngressUseWaypoint &&
+		i.IngressLabelPresent == other.IngressLabelPresent &&
+		ptr.Equal(i.Error, other.Error)
 }
 
 func (i ServiceInfo) NamespacedName() types.NamespacedName {
@@ -1368,6 +1377,19 @@ func SortWorkloadsByCreationTime(workloads []WorkloadInfo) []WorkloadInfo {
 		return workloads[i].CreationTime.Before(workloads[j].CreationTime)
 	})
 	return workloads
+}
+
+type NamespaceInfo struct {
+	Name               string
+	IngressUseWaypoint bool
+}
+
+func (i NamespaceInfo) ResourceName() string {
+	return i.Name
+}
+
+func (i NamespaceInfo) Equals(other NamespaceInfo) bool {
+	return i == other
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This

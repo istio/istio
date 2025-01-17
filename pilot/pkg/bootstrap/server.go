@@ -1162,6 +1162,9 @@ func (s *Server) initControllers(args *PilotArgs) error {
 }
 
 func (s *Server) initNodeUntaintController(args *PilotArgs) {
+	if s.kubeClient == nil {
+		return
+	}
 	s.addStartFunc("nodeUntainter controller", func(stop <-chan struct{}) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.NodeUntaintController, args.Revision, s.kubeClient).
@@ -1174,6 +1177,9 @@ func (s *Server) initNodeUntaintController(args *PilotArgs) {
 }
 
 func (s *Server) initIPAutoallocateController(args *PilotArgs) {
+	if s.kubeClient == nil {
+		return
+	}
 	s.addStartFunc("ip autoallocate controller", func(stop <-chan struct{}) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.IPAutoallocateController, args.Revision, s.kubeClient).

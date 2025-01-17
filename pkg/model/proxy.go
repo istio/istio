@@ -292,7 +292,7 @@ type NodeMetadata struct {
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
 	// EnableHBONE, if set, will enable generation of HBONE listener config.
-	// Note: this only impacts sidecars; ztunnel and waypoint proxy unconditionally use HBONE.
+	// Note: this only impacts sidecars and gateways; ztunnel and waypoint proxy unconditionally use HBONE.
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
 
 	// DisableHBONESend, will disable sending HBONE.
@@ -344,7 +344,7 @@ type NodeMetadata struct {
 	CloudrunAddr string `json:"CLOUDRUN_ADDR,omitempty"`
 
 	// Metadata discovery service enablement
-	MetadataDiscovery StringBool `json:"METADATA_DISCOVERY,omitempty"`
+	MetadataDiscovery *StringBool `json:"METADATA_DISCOVERY,omitempty"`
 
 	// Envoy command line to option to control deprecates=d logs behavior.
 	EnvoySkipDeprecatedLogs StringBool `json:"ENVOY_SKIP_DEPRECATED_LOGS,omitempty"`
