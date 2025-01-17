@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 54458
+releaseNotes:
+  - |
+    **Fixed** an issue where using a tag in the istio.io/rev label on a gateway causes the gateway to be improperly programmed, and to lack status.
+
