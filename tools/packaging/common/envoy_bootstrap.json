@@ -316,6 +316,7 @@
           }]
         }
       },
+      {{- if .custom_file_path }}
       {
         "name": "sds-files-grpc",
         "alt_stat_name": "sds-files-grpc;",
@@ -337,7 +338,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "./var/run/secrets/workload-spiffe-credentials/files-socket"
+                    "path": "{{ .custom_file_path }}"
                   }
                 }
               }
@@ -345,6 +346,7 @@
           }]
         }
       },
+      {{- end }}
       {
         "name": "xds-grpc",
         "alt_stat_name": "xds-grpc;",

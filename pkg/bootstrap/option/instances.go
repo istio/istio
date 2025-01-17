@@ -124,6 +124,10 @@ func OutlierLogPath(value string) Instance {
 	return newOptionOrSkipIfZero("outlier_log_path", value)
 }
 
+func CustomFileSDSPath(value string) Instance {
+	return newOptionOrSkipIfZero("custom_file_path", value)
+}
+
 func ApplicationLogJSON(value bool) Instance {
 	return newOption("log_json", value)
 }

@@ -281,6 +281,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		ProxyConfig:                 a.proxyConfig,
 		PilotSubjectAltName:         pilotSAN,
 		CredentialSocketExists:      credentialSocketExists,
+		CustomCredentialsFileExists: a.secOpts.ServeOnlyFiles,
 		OutlierLogPath:              a.envoyOpts.OutlierLogPath,
 		EnvoyPrometheusPort:         a.cfg.EnvoyPrometheusPort,
 		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
@@ -376,15 +377,13 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	// Are we listening to the Istio default SDS server socket, or something else?
 	isIstioSDS := configuredAgentSocketPath == security.GetIstioSDSServerSocketPath()
 
-	disableCaClient := false
-
 	socketExists, err := checkSocket(ctx, configuredAgentSocketPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check SDS socket: %v", err)
 	}
 	if socketExists {
 		log.Infof("Existing workload SDS socket found at %s. Default Istio SDS Server will only serve files", configuredAgentSocketPath)
-		disableCaClient = true
+		a.secOpts.ServeOnlyFiles = true
 	} else if !isIstioSDS {
 		// If we are configured to use something other than the default Istio SDS server and we can't find a socket at that path, error out.
 		return nil, fmt.Errorf("agent configured for non-default SDS socket path: %s but no socket found", configuredAgentSocketPath)
@@ -392,7 +391,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 
 	// otherwise we are not configured to listen to something else, so just start the Istio SDS server and use it.
 	log.Info("Starting default Istio SDS Server")
-	err = a.initSdsServer(disableCaClient)
+	err = a.initSdsServer()
 	if err != nil {
 		return nil, fmt.Errorf("failed to start default Istio SDS server: %v", err)
 	}
@@ -441,7 +440,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	return a.wg.Wait, nil
 }
 
-func (a *Agent) initSdsServer(disableCaClient bool) error {
+func (a *Agent) initSdsServer() error {
 	var err error
 	if security.CheckWorkloadCertificate(security.WorkloadIdentityCertChainPath, security.WorkloadIdentityKeyPath, security.WorkloadIdentityRootCertPath) {
 		log.Info("workload certificate files detected, creating secret manager without caClient")
@@ -451,13 +450,9 @@ func (a *Agent) initSdsServer(disableCaClient bool) error {
 		a.secOpts.FileMountedCerts = true
 	}
 
-	if disableCaClient {
-		a.secOpts.ServeOnlyFiles = true
-	}
-
 	// If proxy is using file mounted certs, we do not have to connect to CA.
 	// It can also be explicitly disabled, used when we have an external SDS server for mTLS certs, but still need the file manager.
-	createCaClient := !a.secOpts.FileMountedCerts && !disableCaClient
+	createCaClient := !a.secOpts.FileMountedCerts && !a.secOpts.ServeOnlyFiles
 	a.secretCache, err = a.newSecretManager(createCaClient)
 	if err != nil {
 		return fmt.Errorf("failed to start workload secret manager %v", err)

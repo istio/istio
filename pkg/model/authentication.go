@@ -82,6 +82,15 @@ var (
 
 // ConstructSdsSecretConfig constructs SDS Secret Configuration for workload proxy.
 func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
+	return constructSdsSecretConfig(name, SDSClusterName)
+}
+
+// ConstructSdsFilesSecretConfig constructs SDS Secret Configuration for workload proxy, using a custom path for files
+func ConstructSdsFilesSecretConfig(name string) *tls.SdsSecretConfig {
+	return constructSdsSecretConfig(name, SDSFileClusterName)
+}
+
+func constructSdsSecretConfig(name string, clusterName string) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
@@ -104,7 +113,7 @@ func ConstructSdsSecretConfig(name string) *tls.SdsSecretConfig {
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSFileClusterName},
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: clusterName},
 							},
 						},
 					},

@@ -81,7 +81,7 @@ func (s *Server) initWorkloadSdsService(opts *security.Options) {
 	var err error
 	path := security.GetIstioSDSServerSocketPath()
 	if opts.ServeOnlyFiles {
-		path = security.GetIstioSDSFileServerSocketPath()
+		path = security.FileCredentialNameSocketPath
 	}
 	s.grpcWorkloadListener, err = uds.NewListener(path)
 	go func() {
@@ -101,7 +101,11 @@ func (s *Server) initWorkloadSdsService(opts *security.Options) {
 				}
 			}
 			if s.grpcWorkloadListener != nil {
-				sdsServiceLog.Infof("Starting SDS server for workload certificates, will listen on %q", path)
+				if opts.ServeOnlyFiles {
+					sdsServiceLog.Infof("Starting SDS server for workload certificates, will listen on %q", path)
+				} else {
+					sdsServiceLog.Infof("Starting SDS server for file certificates only, will listen on %q", path)
+				}
 				if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
 					sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
 					serverOk = false
