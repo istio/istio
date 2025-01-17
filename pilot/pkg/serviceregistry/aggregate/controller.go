@@ -128,16 +128,13 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressI
 			i = wis
 		} else {
 			i = append(i, wis...)
-			removed.Merge(r)
-		}
-	}
-	if foundRegistryCount > 1 {
-		// We may have 'removed' it in one registry but found it in another
-		// As an optimization, we skip this in the common case of only one registry
-		for _, wl := range i {
-			// TODO(@hzxuzhonghu) This is not right for workload, we may search workload by ip, but the resource name is uid.
-			if removed.Contains(wl.ResourceName()) {
-				removed.Delete(wl.ResourceName())
+			// Each value in the removed set means an address that is
+			// not found in any registry above. So we should compute the
+			// intersection of these sets.
+			if removed == nil || r == nil {
+				removed = nil
+			} else {
+				removed = removed.Intersection(r)
 			}
 		}
 	}
