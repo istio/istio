@@ -38,12 +38,13 @@ type envoy struct {
 
 // Envoy binary flags
 type ProxyConfig struct {
-	LogLevel          string
-	ComponentLogLevel string
-	NodeIPs           []string
-	Sidecar           bool
-	LogAsJSON         bool
-	OutlierLogPath    string
+	LogLevel           string
+	ComponentLogLevel  string
+	NodeIPs            []string
+	Sidecar            bool
+	LogAsJSON          bool
+	OutlierLogPath     string
+	SkipDeprecatedLogs bool
 
 	BinaryPath    string
 	ConfigPath    string
@@ -70,6 +71,10 @@ func NewProxy(cfg ProxyConfig) Proxy {
 	} else if cfg.ComponentLogLevel != "" {
 		// Use the old setting if we don't set any component log levels in LogLevel
 		args = append(args, "--component-log-level", cfg.ComponentLogLevel)
+	}
+
+	if cfg.SkipDeprecatedLogs {
+		args = append(args, "--skip-deprecated-logs")
 	}
 
 	// Explicitly enable core dumps. This may be desirable more often (by default), but for now we only set it in VM tests.

@@ -160,4 +160,8 @@ var (
 	exitOnZeroActiveConnectionsEnv = env.Register("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",
 		false,
 		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
+
+	envoySkipDeprecatedLogsEnv = env.Register("ENVOY_SKIP_DEPRECATED_LOGS",
+		false,
+		"When set to true, enables Envoy command line option to skip deprecated log lines").Get()
 )
