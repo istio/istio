@@ -175,6 +175,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 			TLSServerCertChain: serverTLSSettings.ServerCertificate,
 			TLSServerKey:       serverTLSSettings.PrivateKey,
 			TLSServerRootCert:  serverTLSSettings.CaCertificates,
+			Raw:                proxy.Metadata.Raw,
 		}
 
 		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl, []string{}, validateClient)
