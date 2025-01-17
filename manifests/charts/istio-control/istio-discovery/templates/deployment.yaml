@@ -88,6 +88,12 @@ spec:
       initContainers:
         {{- tpl (toYaml .) $ | nindent 8 }}
 {{- end }}
+    {{- if .Values.global.hostNetwork }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+    {{- else }}
+      dnsPolicy: {{ .Values.global.dnsPolicy }}
+    {{- end }}
       containers:
         - name: discovery
 {{- if contains "/" .Values.image }}
