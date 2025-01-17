@@ -63,6 +63,14 @@ _internal_defaults_do_not_set:
   # Inject initContainers into the istiod pod
   initContainers: []
 
+  # Required for use in managed kubernetes clusters (such as AWS EKS) with custom CNI (such as calico),
+  # because control-plane managed by AWS cannot communicate with pods' IP CIDR and admission webhooks are not working
+  ##
+  hostNetwork: true
+
+  # When hostNetwork is enabled, this will set to ClusterFirstWithHostNet automatically
+  dnsPolicy: ClusterFirst    
+
   nodeSelector: {}
   podAnnotations: {}
   serviceAnnotations: {}
@@ -299,14 +307,6 @@ _internal_defaults_do_not_set:
     # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
     # for more detail.
     priorityClassName: ""
-
-    # Required for use in managed kubernetes clusters (such as AWS EKS) with custom CNI (such as calico),
-    # because control-plane managed by AWS cannot communicate with pods' IP CIDR and admission webhooks are not working
-    ##
-    hostNetwork: false
-
-    # When hostNetwork is enabled, this will set to ClusterFirstWithHostNet automatically
-    dnsPolicy: ClusterFirst    
 
     proxy:
       image: proxyv2
