@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
@@ -74,7 +75,7 @@ type Model struct {
 }
 
 // New returns a model representing a single authorization policy.
-func New(r *authzpb.Rule) (*Model, error) {
+func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 	m := Model{}
 
 	basePermission := ruleList{}
@@ -99,7 +100,7 @@ func New(r *authzpb.Rule) (*Model, error) {
 		case k == attrSrcNamespace:
 			basePrincipal.appendLast(srcNamespaceGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcServiceAccount:
-			basePrincipal.appendLast(srcServiceAccountGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(srcServiceAccountGenerator{policyName: policyName}, k, when.Values, when.NotValues)
 		case k == attrSrcPrincipal:
 			basePrincipal.appendLast(srcPrincipalGenerator{}, k, when.Values, when.NotValues)
 		case k == attrRequestPrincipal:
@@ -123,7 +124,7 @@ func New(r *authzpb.Rule) (*Model, error) {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
 			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
-			merged.insertFront(srcServiceAccountGenerator{}, attrSrcServiceAccount, s.ServiceAccounts, s.NotServiceAccounts)
+			merged.insertFront(srcServiceAccountGenerator{policyName: policyName}, attrSrcServiceAccount, s.ServiceAccounts, s.NotServiceAccounts)
 			merged.insertFrontExtended(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
 			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
 		}

@@ -433,7 +433,7 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 	rulesWithL7 := sets.New[string]()
 
 	for _, rule := range pol.Rules {
-		rules, foundL7 := handleRule(action, rule)
+		rules, foundL7 := handleRule(action, rule, obj.Namespace)
 		if rules != nil {
 			rg := &security.Group{
 				Rules: rules,
@@ -508,7 +508,7 @@ func httpSources(s *v1beta1.Source) []string {
 	return foundUnsupportedSources
 }
 
-func handleRule(action security.Action, rule *v1beta1.Rule) ([]*security.Rules, []string) {
+func handleRule(action security.Action, rule *v1beta1.Rule, ruleNamespace string) ([]*security.Rules, []string) {
 	l7RuleFound := false
 	httpMatch := sets.New[string]()
 	toMatches := []*security.Match{}
@@ -538,8 +538,8 @@ func handleRule(action security.Action, rule *v1beta1.Rule) ([]*security.Rules, 
 			NotSourceIps:       stringToIP(op.NotIpBlocks),
 			Namespaces:         stringToMatch(op.Namespaces),
 			NotNamespaces:      stringToMatch(op.NotNamespaces),
-			ServiceAccounts:    stringToServiceAccountMatch(op.ServiceAccounts),
-			NotServiceAccounts: stringToServiceAccountMatch(op.NotServiceAccounts),
+			ServiceAccounts:    stringToServiceAccountMatch(op.ServiceAccounts, ruleNamespace),
+			NotServiceAccounts: stringToServiceAccountMatch(op.NotServiceAccounts, ruleNamespace),
 			Principals:         stringToMatch(op.Principals),
 			NotPrincipals:      stringToMatch(op.NotPrincipals),
 		}
@@ -626,14 +626,21 @@ func stringToMatch(rules []string) []*security.StringMatch {
 	return res
 }
 
-func stringToServiceAccountMatch(rules []string) []*security.ServiceAccountMatch {
+func stringToServiceAccountMatch(rules []string, ruleNamespace string) []*security.ServiceAccountMatch {
 	res := make([]*security.ServiceAccountMatch, 0, len(rules))
 	for _, v := range rules {
-		ns, sa, _ := strings.Cut(v, "/")
-		res = append(res, &security.ServiceAccountMatch{
-			Namespace:      ns,
-			ServiceAccount: sa,
-		})
+		ns, sa, ok := strings.Cut(v, "/")
+		if ok {
+			res = append(res, &security.ServiceAccountMatch{
+				Namespace:      ns,
+				ServiceAccount: sa,
+			})
+		} else {
+			res = append(res, &security.ServiceAccountMatch{
+				Namespace:      ruleNamespace,
+				ServiceAccount: v,
+			})
+		}
 	}
 	return res
 }
