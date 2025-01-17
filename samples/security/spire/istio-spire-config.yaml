@@ -29,7 +29,6 @@ spec:
         enabled: true
         label:
           istio: ingressgateway
-          spiffe.io/spire-managed-identity: "true"
         k8s:
           overlays:
             - apiVersion: apps/v1
@@ -50,7 +49,7 @@ spec:
                 - path: spec.template.spec.initContainers
                   value:
                     - name: wait-for-spire-socket
-                      image: busybox:1.37
+                      image: busybox:1.28
                       volumeMounts:
                         - name: workload-socket
                           mountPath: /run/secrets/workload-spiffe-uds

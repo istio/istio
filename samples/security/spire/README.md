@@ -33,16 +33,31 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
   $ kubectl apply -f clusterspiffeid.yaml
   ```
 
+1. Add the `spiffe.io/spire-managed-identity: true` label to the Ingress-gateway Deployment:
+
+  ```bash
+  $ kubectl patch deployment istio-ingressgateway -n istio-system -p '{"spec":{"template":{"metadata":{"labels":{"spiffe.io/spire-managed-identity": "true"}}}}}'
+  ```
+
 1. Deploy the `sleep-spire.yaml` version of the [sleep](/samples/sleep/README.md) service, which injects the custom istio-agent template defined in `istio-spire-config.yaml` and has the `spiffe.io/spire-managed-identity: true` label.
+
+  If you have [automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection) enabled:
 
   ```bash
   $ kubectl apply -f sleep-spire.yaml
   ```
 
+  Otherwise, manually inject the sidecar before applying:
+
+  ```bash
+  $ kubectl apply -f <(istioctl kube-inject -f sleep-spire.yaml)
+  ```
+
 1. Retrieve sleep's SVID identity document using the `istioctl proxy-config secret` command:
 
   ```bash
-  $ istioctl pc secret deploy/sleep -o json | jq -r \
+  $ export SLEEP_POD=$(kubectl get pod -l app=sleep -o jsonpath="{.items[0].metadata.name}")
+  $ istioctl pc secret $SLEEP_POD -o json | jq -r \
   '.dynamicActiveSecrets[0].secret.tlsCertificate.certificateChain.inlineBytes' | base64 --decode > chain.pem
   ```
 
@@ -55,9 +70,21 @@ See [Istio CA Integration with SPIRE](https://istio.io/latest/docs/ops/integrati
 
 ## Tear down
 
-1.  Delete the spire installation:
+1.  Delete all deployments and configurations for the SPIRE Agent, Server, and namespace:
 
   ```bash
-  $ kubectl delete -f clusterspiffeid.yaml
-  $ kubectl delete -f spire-quickstart.yaml
+  $ kubectl delete namespace spire
+  ```
+
+1.  Delete the ClusterRole, ClusterRoleBinding, Role, RoleBindings, ValidatingWebhookConfiguration, CSIDriver, and CustomResourceDefinition:
+
+  ```bash
+  $ kubectl delete clusterrole spire-server-cluster-role spire-agent-cluster-role manager-role
+  $ kubectl delete clusterrolebinding spire-server-cluster-role-binding spire-agent-cluster-role-binding manager-role-binding
+  $ kubectl delete role spire-server-role leader-election-role
+  $ kubectl delete rolebinding spire-server-role-binding leader-election-role-binding
+  $ kubectl delete ValidatingWebhookConfiguration spire-controller-manager-webhook
+  $ kubectl delete csidriver csi.spiffe.io
+  $ kubectl delete CustomResourceDefinition clusterspiffeids.spire.spiffe.io
+  $ kubectl delete CustomResourceDefinition clusterfederatedtrustdomains.spire.spiffe.io
   ```
