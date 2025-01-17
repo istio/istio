@@ -1006,8 +1006,9 @@ func (i AddressInfo) ResourceName() string {
 }
 
 type ServiceWaypointInfo struct {
-	Service          *workloadapi.Service
-	WaypointHostname string
+	Service            *workloadapi.Service
+	IngressUseWaypoint bool
+	WaypointHostname   string
 }
 
 type TypedObject struct {
@@ -1120,7 +1121,10 @@ type StatusMessage struct {
 }
 
 func (i WaypointBindingStatus) Equals(other WaypointBindingStatus) bool {
-	return i.ResourceName == other.ResourceName && i.IngressUseWaypoint == other.IngressUseWaypoint && ptr.Equal(i.Error, other.Error)
+	return i.ResourceName == other.ResourceName &&
+		i.IngressUseWaypoint == other.IngressUseWaypoint &&
+		i.IngressLabelPresent == other.IngressLabelPresent &&
+		ptr.Equal(i.Error, other.Error)
 }
 
 func (i ServiceInfo) NamespacedName() types.NamespacedName {
@@ -1373,6 +1377,19 @@ func SortWorkloadsByCreationTime(workloads []WorkloadInfo) []WorkloadInfo {
 		return workloads[i].CreationTime.Before(workloads[j].CreationTime)
 	})
 	return workloads
+}
+
+type NamespaceInfo struct {
+	Name               string
+	IngressUseWaypoint bool
+}
+
+func (i NamespaceInfo) ResourceName() string {
+	return i.Name
+}
+
+func (i NamespaceInfo) Equals(other NamespaceInfo) bool {
+	return i == other
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This

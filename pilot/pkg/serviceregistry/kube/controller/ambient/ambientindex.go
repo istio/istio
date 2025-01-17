@@ -101,6 +101,8 @@ type index struct {
 	workloads workloadsCollection
 	waypoints waypointsCollection
 
+	namespaces krt.Collection[model.NamespaceInfo]
+
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
 	networkUpdateTrigger  *krt.RecomputeTrigger
 	networkGateways       *atomic.Pointer[map[network.ID][]model.NetworkGateway]
@@ -316,6 +318,13 @@ func New(options Options) Index {
 		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
 	), false)
 
+	NamespacesInfo := krt.NewCollection(Namespaces, func(ctx krt.HandlerContext, i *v1.Namespace) *model.NamespaceInfo {
+		return &model.NamespaceInfo{
+			Name:               i.Name,
+			IngressUseWaypoint: i.Labels["istio.io/ingress-use-waypoint"] == "true",
+		}
+	}, opts.WithName("NamespacesInfo")...)
+
 	Workloads := a.WorkloadsCollection(
 		Pods,
 		Nodes,
@@ -388,6 +397,7 @@ func New(options Options) Index {
 		RegisterEdsShim(
 			a.XDSUpdater,
 			Workloads,
+			NamespacesInfo,
 			WorkloadServiceIndex,
 			WorkloadServices,
 			ServiceAddressIndex,
@@ -395,6 +405,7 @@ func New(options Options) Index {
 		)
 	}
 
+	a.namespaces = NamespacesInfo
 	a.workloads = workloadsCollection{
 		Collection:               Workloads,
 		ByAddress:                WorkloadAddressIndex,
