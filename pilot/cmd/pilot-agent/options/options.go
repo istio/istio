@@ -162,6 +162,6 @@ var (
 		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
 
 	envoySkipDeprecatedLogsEnv = env.Register("ENVOY_SKIP_DEPRECATED_LOGS",
-		false,
-		"When set to true, enables Envoy command line option to skip deprecated log lines").Get()
+		true,
+		"By default, deprecated log messages are skipped, Set to 'false' to display all deprecated log messages.").Get()
 )

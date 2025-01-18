@@ -3,4 +3,4 @@ kind: feature
 area: installation
 releaseNotes:
   - |
-    **Added** support for configuring a new Envoy command line option to skip deprecated logs.
+    **Added** support for Envoy config parameter to skip deprecated logs with default set to true.
