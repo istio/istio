@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/53680
+releaseNotes:
+  - |
+    **Added** support to preserve the original case of HTTP/1.x headers.

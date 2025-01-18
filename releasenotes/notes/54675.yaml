@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 54545
+releaseNotes:
+  - |
+    **Added** changes for rootca-compare command to handle the case when pod has multiple root CA

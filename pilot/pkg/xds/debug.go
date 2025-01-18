@@ -520,11 +520,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 		}
 		c.proxy.RLock()
 		for k, wr := range c.proxy.WatchedResources {
-			r := wr.ResourceNames
-			if r == nil {
-				r = []string{}
-			}
-			adsClient.Watches[k] = r
+			adsClient.Watches[k] = wr.ResourceNames.UnsortedList()
 		}
 		c.proxy.RUnlock()
 		adsClients.Connected = append(adsClients.Connected, adsClient)
@@ -948,6 +944,7 @@ func cloneProxy(proxy *model.Proxy) *model.Proxy {
 	for k, v := range proxy.WatchedResources {
 		// nolint: govet
 		v := *v
+		v.ResourceNames = v.ResourceNames.Copy()
 		out.WatchedResources[k] = &v
 	}
 	return out

@@ -125,7 +125,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 				if err != nil {
 					// Use NOOP filter because the download failed.
 					// nolint: staticcheck // FailOpen deprecated
-					newExtensionConfig, err = createHTTPDefaultFilter(extConfig.GetName(), wasmHTTPConfig.GetConfig().GetFailOpen())
+					newExtensionConfig, err = createHTTPDefaultFilter(extConfig.GetName(), httpWasmFailOpen(wasmHTTPConfig))
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.
 						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
@@ -138,8 +138,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 				newExtensionConfig, err := convertNetworkWasmConfigFromRemoteToLocal(extConfig, wasmNetworkConfig, cache)
 				if err != nil {
 					// Use NOOP filter because the download failed.
-					// nolint: staticcheck // FailOpen deprecated
-					newExtensionConfig, err = createNetworkDefaultFilter(extConfig.GetName(), wasmNetworkConfig.GetConfig().GetFailOpen())
+					newExtensionConfig, err = createNetworkDefaultFilter(extConfig.GetName(), networkWasmFailOpen(wasmNetworkConfig))
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.
 						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
@@ -158,6 +157,24 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 		wasmLog.Errorf("convert the wasm config: %v", err)
 	}
 	return err
+}
+
+func httpWasmFailOpen(http *httpwasm.Wasm) bool {
+	if failurePolicy := http.GetConfig().FailurePolicy; failurePolicy != wasmextensions.FailurePolicy_UNSPECIFIED {
+		return failurePolicy == wasmextensions.FailurePolicy_FAIL_OPEN
+	}
+
+	// FailOpen deprecated
+	return http.GetConfig().GetFailOpen() // nolint: staticcheck
+}
+
+func networkWasmFailOpen(network *networkwasm.Wasm) bool {
+	if failurePolicy := network.GetConfig().FailurePolicy; failurePolicy != wasmextensions.FailurePolicy_UNSPECIFIED {
+		return failurePolicy == wasmextensions.FailurePolicy_FAIL_OPEN
+	}
+
+	// FailOpen deprecated
+	return network.GetConfig().GetFailOpen() // nolint: staticcheck
 }
 
 // tryUnmarshal returns the typed extension config and wasm config by unmarsharling `resource`,

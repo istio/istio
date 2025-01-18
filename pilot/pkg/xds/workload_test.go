@@ -166,7 +166,7 @@ func TestWorkloadReconnect(t *testing.T) {
 			ResourceNamesSubscribe:   []string{},
 			ResourceNamesUnsubscribe: []string{},
 			InitialResourceVersions: map[string]string{
-				"/127.0.0.1": "",
+				"Kubernetes//Pod/default/pod": "",
 			},
 		})
 		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
@@ -253,6 +253,7 @@ func TestWorkload(t *testing.T) {
 		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod4")
 	})
 	t.Run("wildcard", func(t *testing.T) {
+		log.FindScope("delta").SetOutputLevel(log.DebugLevel)
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{

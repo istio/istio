@@ -3624,7 +3624,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 				proxy.PrevSidecarScope.SetDestinationRulesForTesting(tc.prevConfigs)
 			}
 			clusters, removed, delta := cg.DeltaClusters(proxy, tc.configUpdated,
-				&model.WatchedResource{ResourceNames: tc.watchedResourceNames})
+				&model.WatchedResource{ResourceNames: sets.New(tc.watchedResourceNames...)})
 			if delta != tc.usedDelta {
 				t.Errorf("un expected delta, want %v got %v", tc.usedDelta, delta)
 			}

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 54544
+  - 53843
+releaseNotes:
+- |
+  **Fixed** issue where out-of-order ztunnel disconnects could put `istio-cni` in a state where it believes it has no connections.

@@ -143,9 +143,6 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	}
 
 	if len(configsUpdated) > 0 {
-		// For headless services, trigger a full push to regenerate listeners per endpoint.
-		// Otherwise we only need to push NDS, but still need to set Full as true but we skip
-		// all other xDS except NDS during the push.
 		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: configsUpdated,
@@ -247,10 +244,17 @@ func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus 
 		return model.Healthy
 	}
 
+	// An endpoint is draining only if it was previously ready (serving == true) and persistent sessions is enabled
 	if svc != nil && svc.SupportsDrainingEndpoints() &&
 		(e.Conditions.Serving == nil || *e.Conditions.Serving) &&
 		(e.Conditions.Terminating == nil || *e.Conditions.Terminating) {
 		return model.Draining
+	}
+
+	// If it is shutting down, mark it as terminating. This occurs regardless of whether it was previously healthy or not.
+	if svc != nil &&
+		(e.Conditions.Terminating == nil || *e.Conditions.Terminating) {
+		return model.Terminating
 	}
 
 	return model.UnHealthy

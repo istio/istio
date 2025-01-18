@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** an issue where ingress gateways did not use WDS discovery to retrieve metadata for ambient destinations.

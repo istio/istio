@@ -371,6 +371,8 @@ type PushRequest struct {
 	// The kind of resources are defined in pkg/config/schemas.
 	ConfigsUpdated sets.Set[ConfigKey]
 
+	AddressesUpdated sets.Set[string]
+
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
 	Push *PushContext
@@ -506,7 +508,6 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	if other.Push != nil {
 		pr.Push = other.Push
 	}
-
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) == 0 || len(other.ConfigsUpdated) == 0 {
 		pr.ConfigsUpdated = nil
@@ -514,6 +515,12 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 		for conf := range other.ConfigsUpdated {
 			pr.ConfigsUpdated.Insert(conf)
 		}
+	}
+
+	if pr.AddressesUpdated == nil {
+		pr.AddressesUpdated = other.AddressesUpdated
+	} else {
+		pr.AddressesUpdated.Merge(other.AddressesUpdated)
 	}
 
 	return pr
@@ -555,6 +562,12 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 		merged.ConfigsUpdated = make(sets.Set[ConfigKey], len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
 		merged.ConfigsUpdated.Merge(pr.ConfigsUpdated)
 		merged.ConfigsUpdated.Merge(other.ConfigsUpdated)
+	}
+
+	if len(pr.AddressesUpdated) > 0 || len(other.AddressesUpdated) > 0 {
+		merged.AddressesUpdated = make(sets.Set[string], len(pr.AddressesUpdated)+len(other.AddressesUpdated))
+		merged.AddressesUpdated.Merge(pr.AddressesUpdated)
+		merged.AddressesUpdated.Merge(other.AddressesUpdated)
 	}
 
 	return merged

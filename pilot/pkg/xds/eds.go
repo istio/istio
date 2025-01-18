@@ -108,16 +108,11 @@ var skippedEdsConfigs = sets.New(
 	kind.GRPCRoute,
 )
 
-func edsNeedsPush(updates model.XdsUpdates, proxy *model.Proxy) bool {
-	if proxy.Type == model.Ztunnel {
-		// Not supported for ztunnel
-		return false
+func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
+		return res
 	}
-	// If none set, we will always push
-	if len(updates) == 0 {
-		return true
-	}
-	for config := range updates {
+	for config := range req.ConfigsUpdated {
 		if !skippedEdsConfigs.Contains(config.Kind) {
 			return true
 		}
@@ -126,7 +121,7 @@ func edsNeedsPush(updates model.XdsUpdates, proxy *model.Proxy) bool {
 }
 
 func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !edsNeedsPush(req.ConfigsUpdated, proxy) {
+	if !edsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	resources, logDetails := eds.buildEndpoints(proxy, req, w)
@@ -136,7 +131,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, 
 func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	if !edsNeedsPush(req.ConfigsUpdated, proxy) {
+	if !edsNeedsPush(req, proxy) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	if !shouldUseDeltaEds(req) {
@@ -193,7 +188,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	empty := 0
 	cached := 0
 	regenerated := 0
-	for _, clusterName := range w.ResourceNames {
+	for clusterName := range w.ResourceNames {
 		if edsUpdatedServices != nil {
 			if _, ok := edsUpdatedServices[model.ParseSubsetKeyHostname(clusterName)]; !ok {
 				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
@@ -250,7 +245,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 	cached := 0
 	regenerated := 0
 
-	for _, clusterName := range w.ResourceNames {
+	for clusterName := range w.ResourceNames {
 		// filter out eds that are not updated for clusters
 		if _, ok := edsUpdatedServices[model.ParseSubsetKeyHostname(clusterName)]; !ok {
 			continue

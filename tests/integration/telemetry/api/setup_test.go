@@ -20,10 +20,7 @@ package api
 import (
 	"encoding/base64"
 	"fmt"
-	"os"
 	"testing"
-
-	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/echo/common"
@@ -82,6 +79,10 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.ControlPlaneValues = `
+values:
+  pilot:
+    env:
+      PILOT_MX_ADDITIONAL_LABELS: "custom-label"
 meshConfig:
   accessLogFile: "" # disable from install, we will enable via Telemetry layer
   extensionProviders:
@@ -110,6 +111,11 @@ proxyMetadata:
 			e.Subsets[0].Annotations[annotation.SidecarStatsHistogramBuckets.Name] = customBuckets
 		}
 		e.Subsets[0].Annotations[annotation.ProxyConfig.Name] = proxyMetadata
+		// add custom label to echo instances, this will be used to test additional labels exchange.
+		if e.Subsets[0].Labels == nil {
+			e.Subsets[0].Labels = map[string]string{}
+		}
+		e.Subsets[0].Labels["custom-label"] = e.Service
 	}
 
 	proxyMd := `{"proxyMetadata": {"OUTPUT_CERTS": "/etc/certs/custom"}}`
@@ -156,24 +162,4 @@ proxyMetadata:
 		return err
 	}
 	return nil
-}
-
-// The function validates if the cluster is a "Kind" cluster,
-// By looking into a context name. Expects "kind-" prefix.
-// That is required by some tests for specific actions on "Kind".
-func IsKindCluster() (bool, error) {
-	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfig == "" {
-		kubeconfig = clientcmd.RecommendedHomeFile
-	}
-
-	config, err := clientcmd.LoadFromFile(kubeconfig)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, fmt.Errorf("kubeconfig file not found: %s", kubeconfig)
-		}
-		return false, err
-	}
-	currentContext := config.CurrentContext
-	return currentContext == "kind-kind" || len(currentContext) > 5 && currentContext[:5] == "kind-", nil
 }

@@ -65,6 +65,15 @@ func (s Set[T]) DeleteAll(items ...T) Set[T] {
 	return s
 }
 
+// DeleteAllSet removes items from the set.
+// Note: this differs from Difference() as this is in-place
+func (s Set[T]) DeleteAllSet(other Set[T]) Set[T] {
+	for item := range other {
+		delete(s, item)
+	}
+	return s
+}
+
 // Merge a set of objects that are in s2 into s
 // For example:
 // s = {a1, a2, a3}
@@ -217,6 +226,20 @@ func (s Set[T]) InsertContains(item T) bool {
 	}
 	s[item] = struct{}{}
 	return false
+}
+
+// DeleteContains deletes the item from the set and returns if it was already present.
+// Example:
+//
+//	if set.DeleteContains(item) {
+//		fmt.Println("item was delete", item)
+//	}
+func (s Set[T]) DeleteContains(item T) bool {
+	if !s.Contains(item) {
+		return false
+	}
+	delete(s, item)
+	return true
 }
 
 // Contains returns whether the given item is in the set.

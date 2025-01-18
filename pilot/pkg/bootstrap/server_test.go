@@ -202,6 +202,8 @@ func TestNewServerCertInit(t *testing.T) {
 			test.SetForTest(t, &features.PilotCertProvider, c.certProvider)
 			test.SetForTest(t, &features.EnableCAServer, c.enableCA)
 
+			// Run test in an isolated directory so we don't read test files written by other cases
+			assert.NoError(t, os.Chdir(t.TempDir()))
 			// check if we have some tls assets to write for test
 			if c.FSCertsPaths != (TLSFSLoadPaths{}) {
 				err := loadCertFilesAtPaths(c.FSCertsPaths)

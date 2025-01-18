@@ -85,7 +85,7 @@ func getCommonTestCases() []struct {
 		{
 			"tproxy",
 			func(cfg *config.Config) {
-				cfg.InboundInterceptionMode = constants.TPROXY
+				cfg.InboundInterceptionMode = "TPROXY"
 				cfg.InboundPortsInclude = "*"
 				cfg.OutboundIPRangesExclude = "1.1.0.0/16"
 				cfg.OutboundIPRangesInclude = "9.9.0.0/16"
@@ -185,14 +185,14 @@ func getCommonTestCases() []struct {
 			"inbound-ports-tproxy",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "32000,31000"
-				cfg.InboundInterceptionMode = constants.TPROXY
+				cfg.InboundInterceptionMode = "TPROXY"
 			},
 		},
 		{
 			"inbound-ports-wildcard-tproxy",
 			func(cfg *config.Config) {
 				cfg.InboundPortsInclude = "*"
-				cfg.InboundInterceptionMode = constants.TPROXY
+				cfg.InboundInterceptionMode = "TPROXY"
 			},
 		},
 		{
@@ -483,16 +483,16 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 					t.Errorf("iptables cmd (%s %s) failed: %s", cmd.Path, cmd.Args, stderr.String())
 				}
 				residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
-				assert.Equal(t, residueExists, false)
-				assert.Equal(t, deltaExists, true)
+				assert.Equal(t, residueExists, false, "found unexpected residue on final pass")
+				assert.Equal(t, deltaExists, true, "found no delta on final pass")
 			}()
 
 			// First Pass
 			iptConfigurator := NewIptablesConfigurator(cfg, ext)
 			assert.NoError(t, iptConfigurator.Run())
 			residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
-			assert.Equal(t, residueExists, true)
-			assert.Equal(t, deltaExists, false)
+			assert.Equal(t, residueExists, true, "did not find residue on first pass")
+			assert.Equal(t, deltaExists, false, "found delta on first pass")
 
 			// Diverge from installation
 			cmd := exec.Command("iptables", "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
@@ -504,8 +504,8 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 
 			// Apply not required after tainting non-ISTIO chains with extra rules
 			residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
-			assert.Equal(t, residueExists, true)
-			assert.Equal(t, deltaExists, false)
+			assert.Equal(t, residueExists, true, "did not find residue on second pass")
+			assert.Equal(t, deltaExists, false, "found delta on second pass")
 
 			cmd = exec.Command("iptables", "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
 			cmd.Stdout = &stdout
@@ -516,8 +516,8 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 
 			// Apply required after tainting ISTIO chains
 			residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
-			assert.Equal(t, residueExists, true)
-			assert.Equal(t, deltaExists, true)
+			assert.Equal(t, residueExists, true, "did not find residue on third pass")
+			assert.Equal(t, deltaExists, true, "found no delta on third pass")
 
 			// Fail is expected if cleanup is skipped
 			cfg.Reconcile = false

@@ -589,6 +589,26 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			// Validate that endpoints are pushed.
 			validateEndpoints(true, []string{"10.0.0.53:53", "10.0.0.54:53"}, nil)
 
+			// Mark an endpoint as terminating, it should be removed
+			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+				[]*model.IstioEndpoint{
+					{
+						Addresses:       []string{"10.0.0.53"},
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Healthy,
+					},
+					{
+						Addresses:       []string{"10.0.0.54"},
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Terminating,
+					},
+				})
+
+			// Validate that endpoints are pushed.
+			validateEndpoints(true, []string{"10.0.0.53:53"}, nil)
+
 			// Remove last healthy endpoints
 			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "", []*model.IstioEndpoint{})
 			validateEndpoints(true, nil, nil)

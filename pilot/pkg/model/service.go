@@ -23,6 +23,7 @@
 package model
 
 import (
+	"bytes"
 	"fmt"
 	"net/netip"
 	"sort"
@@ -33,11 +34,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -451,16 +454,21 @@ type Locality struct {
 	ClusterID cluster.ID
 }
 
-// Endpoint health status.
+// HealthStatus indicates the status of the Endpoint.
 type HealthStatus int32
 
 const (
-	// Healthy.
+	// Healthy indicates an endpoint is ready to accept traffic
 	Healthy HealthStatus = 1
-	// Unhealthy.
+	// UnHealthy indicates an endpoint is not ready to accept traffic
 	UnHealthy HealthStatus = 2
-	// Draining - the constant matches envoy
+	// Draining is a special case, which is used only when persistent sessions are enabled. This indicates an endpoint
+	// was previously healthy, but is now shutting down.
+	// Without persistent sessions, an endpoint that is shutting down will be marked as Terminating.
 	Draining HealthStatus = 3
+	// Terminating marks an endpoint as shutting down. Similar to "unhealthy", this means we should not send it traffic.
+	// But unlike "unhealthy", this means we do not consider it when calculating failover.
+	Terminating HealthStatus = 4
 )
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
@@ -958,6 +966,11 @@ var _ AmbientIndexes = NoopAmbientIndexes{}
 
 type AddressInfo struct {
 	*workloadapi.Address
+	Marshaled *anypb.Any
+}
+
+func (i AddressInfo) Equals(other AddressInfo) bool {
+	return protoconv.Equals(i.Address, other.Address)
 }
 
 func (i AddressInfo) Aliases() []string {
@@ -993,8 +1006,9 @@ func (i AddressInfo) ResourceName() string {
 }
 
 type ServiceWaypointInfo struct {
-	Service          *workloadapi.Service
-	WaypointHostname string
+	Service            *workloadapi.Service
+	IngressUseWaypoint bool
+	WaypointHostname   string
 }
 
 type TypedObject struct {
@@ -1016,6 +1030,12 @@ type ServiceInfo struct {
 	// Source is the type that introduced this service.
 	Source   TypedObject
 	Waypoint WaypointBindingStatus
+	// MarshaledAddress contains the pre-marshaled representation.
+	// Note: this is an Address -- not a Service.
+	MarshaledAddress *anypb.Any
+	// AsAddress contains a pre-created AddressInfo representation. This ensures we do not need repeated conversions on
+	// the hotpath
+	AsAddress AddressInfo
 }
 
 func (i ServiceInfo) GetLabelSelector() map[string]string {
@@ -1101,7 +1121,10 @@ type StatusMessage struct {
 }
 
 func (i WaypointBindingStatus) Equals(other WaypointBindingStatus) bool {
-	return i.ResourceName == other.ResourceName && i.IngressUseWaypoint == other.IngressUseWaypoint && ptr.Equal(i.Error, other.Error)
+	return i.ResourceName == other.ResourceName &&
+		i.IngressUseWaypoint == other.IngressUseWaypoint &&
+		i.IngressLabelPresent == other.IngressLabelPresent &&
+		ptr.Equal(i.Error, other.Error)
 }
 
 func (i ServiceInfo) NamespacedName() types.NamespacedName {
@@ -1113,7 +1136,7 @@ func (i ServiceInfo) GetNamespace() string {
 }
 
 func (i ServiceInfo) Equals(other ServiceInfo) bool {
-	return proto.Equal(i.Service, other.Service) &&
+	return equalUsingPremarshaled(i.Service, i.MarshaledAddress, other.Service, other.MarshaledAddress) &&
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
 		i.Source == other.Source &&
@@ -1136,10 +1159,16 @@ type WorkloadInfo struct {
 	Source kind.Kind
 	// CreationTime is the time when the workload was created. Note this is used internally only.
 	CreationTime time.Time
+	// MarshaledAddress contains the pre-marshaled representation.
+	// Note: this is an Address -- not a Workload.
+	MarshaledAddress *anypb.Any
+	// AsAddress contains a pre-created AddressInfo representation. This ensures we do not need repeated conversions on
+	// the hotpath
+	AsAddress AddressInfo
 }
 
 func (i WorkloadInfo) Equals(other WorkloadInfo) bool {
-	return proto.Equal(i.Workload, other.Workload) &&
+	return equalUsingPremarshaled(i.Workload, i.MarshaledAddress, other.Workload, other.MarshaledAddress) &&
 		maps.Equal(i.Labels, other.Labels) &&
 		i.Source == other.Source &&
 		i.CreationTime == other.CreationTime
@@ -1307,8 +1336,8 @@ func (i WorkloadAuthorization) GetConditions() ConditionSet {
 // end impl StatusWriter
 
 func (i WorkloadAuthorization) Equals(other WorkloadAuthorization) bool {
-	return maps.Equal(i.Labels, other.Labels) &&
-		proto.Equal(i.Authorization, other.Authorization) &&
+	return protoconv.Equals(i.Authorization, other.Authorization) &&
+		maps.Equal(i.Labels, other.Labels) &&
 		i.Source == other.Source &&
 		i.Binding.Equals(other.Binding)
 }
@@ -1348,6 +1377,19 @@ func SortWorkloadsByCreationTime(workloads []WorkloadInfo) []WorkloadInfo {
 		return workloads[i].CreationTime.Before(workloads[j].CreationTime)
 	})
 	return workloads
+}
+
+type NamespaceInfo struct {
+	Name               string
+	IngressUseWaypoint bool
+}
+
+func (i NamespaceInfo) ResourceName() string {
+	return i.Name
+}
+
+func (i NamespaceInfo) Equals(other NamespaceInfo) bool {
+	return i == other
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
@@ -1767,4 +1809,14 @@ func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
 	}
 
 	return true
+}
+
+func equalUsingPremarshaled[T proto.Message](a T, am *anypb.Any, b T, bm *anypb.Any) bool {
+	// If they are both pre-marshaled, use the marshaled representation. This is orders of magnitude faster
+	if am != nil && bm != nil {
+		return bytes.Equal(am.Value, bm.Value)
+	}
+
+	// Fallback to equals
+	return protoconv.Equals(a, b)
 }

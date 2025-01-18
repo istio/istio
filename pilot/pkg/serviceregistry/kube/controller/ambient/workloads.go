@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -113,13 +114,17 @@ func (a *index) WorkloadsCollection(
 		return slices.Map(a.LookupAllNetworkGateway(), convertGateway)
 	}, opts.WithName("NetworkGatewayWorkloads")...)
 
-	Workloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{
-		PodWorkloads,
-		WorkloadEntryWorkloads,
-		ServiceEntryWorkloads,
-		EndpointSliceWorkloads,
-		NetworkGatewayWorkloads,
-	}, opts.WithName("Workloads")...)
+	Workloads := krt.JoinCollection(
+		[]krt.Collection[model.WorkloadInfo]{
+			PodWorkloads,
+			WorkloadEntryWorkloads,
+			ServiceEntryWorkloads,
+			EndpointSliceWorkloads,
+			NetworkGatewayWorkloads,
+		},
+		// Each collection has its own unique UID as the key. This guarantees an object can exist in only a single collection
+		// This enables us to use the JoinUnchecked optimization.
+		append(opts.WithName("Workloads"), krt.WithJoinUnchecked())...)
 	return Workloads
 }
 
@@ -184,7 +189,12 @@ func (a *index) workloadEntryWorkloadBuilder(
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(wle.Labels, w.WorkloadName)
 
 		setTunnelProtocol(wle.Labels, wle.Annotations, w)
-		return &model.WorkloadInfo{Workload: w, Labels: wle.Labels, Source: kind.WorkloadEntry, CreationTime: wle.CreationTimestamp.Time}
+		return precomputeWorkloadPtr(&model.WorkloadInfo{
+			Workload:     w,
+			Labels:       wle.Labels,
+			Source:       kind.WorkloadEntry,
+			CreationTime: wle.CreationTimestamp.Time,
+		})
 	}
 }
 
@@ -298,7 +308,12 @@ func (a *index) podWorkloadBuilder(
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
 		setTunnelProtocol(p.Labels, p.Annotations, w)
-		return &model.WorkloadInfo{Workload: w, Labels: p.Labels, Source: kind.Pod, CreationTime: p.CreationTimestamp.Time}
+		return precomputeWorkloadPtr(&model.WorkloadInfo{
+			Workload:     w,
+			Labels:       p.Labels,
+			Source:       kind.Pod,
+			CreationTime: p.CreationTimestamp.Time,
+		})
 	}
 }
 
@@ -489,7 +504,12 @@ func (a *index) serviceEntryWorkloadBuilder(
 			w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(se.Labels, w.WorkloadName)
 
 			setTunnelProtocol(se.Labels, se.Annotations, w)
-			res = append(res, model.WorkloadInfo{Workload: w, Labels: se.Labels, Source: kind.WorkloadEntry, CreationTime: se.CreationTimestamp.Time})
+			res = append(res, precomputeWorkload(model.WorkloadInfo{
+				Workload:     w,
+				Labels:       se.Labels,
+				Source:       kind.WorkloadEntry,
+				CreationTime: se.CreationTimestamp.Time,
+			}))
 		}
 		return res
 	}
@@ -617,12 +637,12 @@ func (a *index) endpointSlicesBuilder(
 				Waypoint:              nil, // Not supported. In theory, we could allow it as an EndpointSlice label, but there is no real use case.
 				Locality:              nil, // Not supported. We could maybe, there is a "zone", but it doesn't seem to be well supported
 			}
-			res = append(res, model.WorkloadInfo{
+			res = append(res, precomputeWorkload(model.WorkloadInfo{
 				Workload:     w,
 				Labels:       nil,
 				Source:       kind.EndpointSlice,
 				CreationTime: es.CreationTimestamp.Time,
-			})
+			}))
 		}
 
 		return res
@@ -857,7 +877,7 @@ func convertGateway(gw model.NetworkGateway) model.WorkloadInfo {
 		wl.Hostname = gw.Addr
 	}
 
-	return model.WorkloadInfo{Workload: wl}
+	return precomputeWorkload(model.WorkloadInfo{Workload: wl})
 }
 
 func (a *index) getNetworkGatewayAddress(n string) *workloadapi.GatewayAddress {
@@ -937,4 +957,18 @@ func endpointSliceAddressIndex(EndpointSlices krt.Collection[*discovery.Endpoint
 		}
 		return res
 	})
+}
+
+func precomputeWorkloadPtr(w *model.WorkloadInfo) *model.WorkloadInfo {
+	return ptr.Of(precomputeWorkload(*w))
+}
+
+func precomputeWorkload(w model.WorkloadInfo) model.WorkloadInfo {
+	addr := workloadToAddress(w.Workload)
+	w.MarshaledAddress = protoconv.MessageToAny(addr)
+	w.AsAddress = model.AddressInfo{
+		Address:   addr,
+		Marshaled: w.MarshaledAddress,
+	}
+	return w
 }

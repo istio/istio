@@ -68,7 +68,6 @@ func ReadNFLOGSocket(ctx context.Context) {
 		if attrs.Prefix != nil {
 			prefix = *attrs.Prefix
 		}
-		comment := IDToCommand[prefix].Comment
 		uid, gid := uint32(0), uint32(0)
 		if attrs.UID != nil {
 			uid = *attrs.UID
@@ -97,7 +96,7 @@ func ReadNFLOGSocket(ctx context.Context) {
 			"outDev", outDev,
 			"src", src,
 			"dst", dst,
-		).Infof(comment)
+		).Infof("istio rule")
 		return 0
 	}
 

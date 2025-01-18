@@ -16,10 +16,17 @@ package proxyconfig
 
 import (
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 	"k8s.io/cli-runtime/pkg/resource"
@@ -223,6 +230,88 @@ func TestPrintProxyConfigSummary(t *testing.T) {
 	if err := assert.Compare(out.String(), string(expected)); err != nil {
 		t.Fatalf("Unexpected output for 'istioctl proxy-config all'\n got: %q\nwant: %q", out.String(), expected)
 	}
+}
+
+func TestMatchRootCACerts(t *testing.T) {
+	certA, _ := createTestCertificate("A")
+	certB, _ := createTestCertificate("B")
+
+	pemCertA := createPEMCert(certA)
+	pemCertB := createPEMCert(certB)
+
+	pemCertAPlusB := append(pemCertA, pemCertB...)
+
+	tests := []struct {
+		name           string
+		rootCAPod1Data []byte
+		rootCAPod2Data []byte
+		expectedMatch  bool
+		expectedError  string
+	}{
+		{
+			name:           "Matching Certificates - both rootCA identical",
+			rootCAPod1Data: pemCertA,
+			rootCAPod2Data: pemCertA,
+			expectedMatch:  true,
+		},
+		{
+			name:           "Non-Matching Certificates",
+			rootCAPod1Data: pemCertA,
+			rootCAPod2Data: pemCertB,
+			expectedMatch:  false,
+		},
+		{
+			name:           "Subset of Certificates",
+			rootCAPod1Data: pemCertAPlusB,
+			rootCAPod2Data: pemCertB,
+			expectedMatch:  true,
+		},
+		{
+			name:           "Invalid Certificate Data",
+			rootCAPod1Data: []byte("invalid data"),
+			rootCAPod2Data: pemCertA,
+			expectedMatch:  false,
+			expectedError:  "failed to parse certificates: invalid data",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			match, err := checkRootCACertMatchExist(tt.rootCAPod1Data, tt.rootCAPod2Data)
+
+			if tt.expectedError != "" {
+				if err == nil || tt.expectedError != err.Error() {
+					t.Errorf("expected error: %v, got: %v", tt.expectedError, err)
+				}
+			}
+
+			if match != tt.expectedMatch {
+				t.Errorf("expected match: %v, got: %v", tt.expectedMatch, match)
+			}
+		})
+	}
+}
+
+// Helper functions to create test certificates
+func createPEMCert(cert *x509.Certificate) []byte {
+	pemBlock := &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: cert.Raw,
+	}
+	return pem.EncodeToMemory(pemBlock)
+}
+
+func createTestCertificate(commonName string) (*x509.Certificate, error) {
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: commonName},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().AddDate(1, 0, 0),
+		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+	}
+	privKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	certBytes, _ := x509.CreateCertificate(rand.Reader, template, template, &privKey.PublicKey, privKey)
+	return x509.ParseCertificate(certBytes)
 }
 
 func init() {

@@ -418,7 +418,7 @@ func configsUpdated(req *model.PushRequest) string {
 		break
 	}
 	if len(req.ConfigsUpdated) > 1 {
-		more := fmt.Sprintf(" and %d more configs", len(req.ConfigsUpdated)-1)
+		more := " and " + strconv.Itoa(len(req.ConfigsUpdated)-1) + " more configs"
 		configs += more
 	}
 	return configs

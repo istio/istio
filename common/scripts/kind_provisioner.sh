@@ -35,7 +35,7 @@ set -x
 DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.32.0"
 
 # the default kind cluster should be ipv4 if not otherwise specified
-IP_FAMILY="${IP_FAMILY:-ipv4}"
+KIND_IP_FAMILY="${KIND_IP_FAMILY:-ipv4}"
 
 # COMMON_SCRIPTS contains the directory this file is in.
 COMMON_SCRIPTS=$(dirname "${BASH_SOURCE:-$0}")
@@ -147,7 +147,7 @@ function setup_kind_cluster_retry() {
 # 1. NAME: Name of the Kind cluster (optional)
 # 2. IMAGE: Node image used by KinD (optional)
 # 3. CONFIG: KinD cluster configuration YAML file. If not specified then DEFAULT_CLUSTER_YAML is used
-# 4. NOMETALBINSTALL: Dont install matllb if set.
+# 4. NOMETALBINSTALL: Dont install metalb if set.
 # This function returns 0 when everything goes well, or 1 otherwise
 # If Kind cluster was already created then it would be cleaned up in case of errors
 function setup_kind_cluster() {
@@ -186,7 +186,7 @@ function setup_kind_cluster() {
 
   # Create KinD cluster
   if ! (yq eval "${CONFIG}" --expression ".networking.disableDefaultCNI = ${KIND_DISABLE_CNI}" \
-    --expression ".networking.ipFamily = \"${IP_FAMILY}\"" | \
+    --expression ".networking.ipFamily = \"${KIND_IP_FAMILY}\"" | \
     kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" ${KIND_WAIT_FLAG:+"$KIND_WAIT_FLAG"} --config -); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     return 9
@@ -230,7 +230,7 @@ function setup_kind_cluster() {
   # https://github.com/coredns/coredns/issues/2494#issuecomment-457215452
   # CoreDNS should handle those domains and answer with NXDOMAIN instead of SERVFAIL
   # otherwise pods stops trying to resolve the domain.
-  if [ "${IP_FAMILY}" = "ipv6" ] || [ "${IP_FAMILY}" = "dual" ]; then
+  if [ "${KIND_IP_FAMILY}" = "ipv6" ] || [ "${KIND_IP_FAMILY}" = "dual" ]; then
     # Get the current config
     original_coredns=$(kubectl get -oyaml -n=kube-system configmap/coredns)
     echo "Original CoreDNS config:"
@@ -267,14 +267,14 @@ function cleanup_kind_clusters() {
 # setup_kind_clusters sets up a given number of kind clusters with given topology
 # as specified in cluster topology configuration file.
 # 1. IMAGE = docker image used as node by KinD
-# 2. IP_FAMILY = either ipv4 or ipv6
+# 2. KIND_IP_FAMILY = either ipv4 or ipv6 or dual
 #
 # NOTE: Please call load_cluster_topology before calling this method as it expects
 # cluster topology information to be loaded in advance
 function setup_kind_clusters() {
   IMAGE="${1:-"${DEFAULT_KIND_IMAGE}"}"
   KUBECONFIG_DIR="${ARTIFACTS:-$(mktemp -d)}/kubeconfig"
-  IP_FAMILY="${2:-ipv4}"
+  KIND_IP_FAMILY="${2:-ipv4}"
 
   check_default_cluster_yaml
 

@@ -59,7 +59,7 @@ func readConfigFile(filename string) ([]byte, error) {
 
 func StableXdsStatusCommand(ctx cli.Context) *cobra.Command {
 	cmd := XdsStatusCommand(ctx)
-	unstableFlags := []string{"xds-via-agents", "xds-via-agents-limit"}
+	unstableFlags := []string{}
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		for _, flag := range unstableFlags {
 			if cmd.PersistentFlags().Changed(flag) {
@@ -175,11 +175,6 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	centralOpts.AttachControlPlaneFlags(statusCmd)
 	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump JSON file")
-	statusCmd.PersistentFlags().BoolVar(&multiXdsOpts.XdsViaAgents, "xds-via-agents", false,
-		"Access Istiod via the tap service of each agent")
-	statusCmd.PersistentFlags().IntVar(&multiXdsOpts.XdsViaAgentsLimit, "xds-via-agents-limit", 100,
-		"Maximum number of pods being visited by istioctl when `xds-via-agent` flag is true."+
-			"To iterate all the agent pods without limit, set to 0")
 
 	return statusCmd
 }

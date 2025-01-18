@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -107,6 +108,12 @@ func TestGolden(t *testing.T) {
 		},
 		{
 			base: "default",
+		},
+		{
+			base: "ambient",
+			envVars: map[string]string{
+				"ISTIO_META_ENABLE_HBONE": "true", // This is our indication that this proxy is in an ambient installation
+			},
 		},
 		{
 			base: "explicit_internal_address",
@@ -349,7 +356,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("invalid generated file %s: %v", c.base, err)
 			}
 
-			checkStatsMatcher(t, realM, goldenM, c.stats)
+			checkStatsMatcher(t, realM, goldenM, c.stats, node.Metadata)
 			checkStatsTags(t, goldenM)
 
 			if c.check != nil {
@@ -596,11 +603,14 @@ func checkClusterNameTag(t *testing.T, regex string) {
 	}
 }
 
-func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats) {
+func checkStatsMatcher(t *testing.T, got, want *bootstrap.Bootstrap, stats stats, meta *model.BootstrapNodeMetadata) {
 	gsm := got.GetStatsConfig().GetStatsMatcher()
-
+	variablePrefixes := ""
+	if meta.EnableHBONE {
+		variablePrefixes = "workload_discovery,"
+	}
 	if stats.prefixes == "" {
-		stats.prefixes = v2Prefixes + requiredEnvoyStatsMatcherInclusionPrefixes + v2Suffix
+		stats.prefixes = v2Prefixes + variablePrefixes + requiredEnvoyStatsMatcherInclusionPrefixes + v2Suffix
 	} else {
 		stats.prefixes = v2Prefixes + stats.prefixes + "," + requiredEnvoyStatsMatcherInclusionPrefixes + v2Suffix
 	}

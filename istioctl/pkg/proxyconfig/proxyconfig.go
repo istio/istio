@@ -17,7 +17,9 @@ package proxyconfig
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -1254,12 +1256,12 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 				return err
 			}
 
-			var rootCA1, rootCA2 string
+			var rootCAPod1, rootCAPod2 []byte
 			if len(args) == 2 {
 				if podName1, podNamespace1, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				rootCA1, err = extractRootCA(kubeClient, podName1, podNamespace1, c.OutOrStdout())
+				rootCAPod1, err = extractRootCA(kubeClient, podName1, podNamespace1, c.OutOrStdout())
 				if err != nil {
 					return err
 				}
@@ -1267,7 +1269,7 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName2, podNamespace2, err = getPodName(ctx, args[1]); err != nil {
 					return err
 				}
-				rootCA2, err = extractRootCA(kubeClient, podName2, podNamespace2, c.OutOrStdout())
+				rootCAPod2, err = extractRootCA(kubeClient, podName2, podNamespace2, c.OutOrStdout())
 				if err != nil {
 					return err
 				}
@@ -1276,18 +1278,20 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("rootca-compare requires 2 pods as an argument")
 			}
 
-			var returnErr error
-			if rootCA1 == rootCA2 {
+			rootCACertMatch, rootCACertMatchErr := checkRootCACertMatchExist(rootCAPod1, rootCAPod2)
+			if rootCACertMatchErr != nil {
+				return rootCACertMatchErr
+			}
+
+			if rootCACertMatch {
 				report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the identical ROOTCA, theoretically the connectivity between them is available",
 					podName1, podNamespace1, podName2, podNamespace2)
 				c.Println(report)
-				returnErr = nil
-			} else {
-				report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the non identical ROOTCA, theoretically the connectivity between them is unavailable",
-					podName1, podNamespace1, podName2, podNamespace2)
-				returnErr = errors.New(report)
+				return nil
 			}
-			return returnErr
+			report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the non identical ROOTCA, theoretically the connectivity between them is unavailable",
+				podName1, podNamespace1, podName2, podNamespace2)
+			return errors.New(report)
 		},
 		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
@@ -1296,10 +1300,50 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 	return rootCACompareConfigCmd
 }
 
-func extractRootCA(client kube.CLIClient, podName, podNamespace string, out io.Writer) (string, error) {
+// checkRootCACertMatchExist compares rootCA certs, returns true if rootCA cert match exist
+func checkRootCACertMatchExist(rootCAPod1 []byte, rootCAPod2 []byte) (bool, error) {
+	rootCACerts1, parseRootCAPod1Err := parsePEMCerts(rootCAPod1)
+	if parseRootCAPod1Err != nil {
+		return false, parseRootCAPod1Err
+	}
+
+	rootCACerts2, parseRootCAPod2Err := parsePEMCerts(rootCAPod2)
+	if parseRootCAPod2Err != nil {
+		return false, parseRootCAPod2Err
+	}
+
+	for _, cert1 := range rootCACerts1 {
+		for _, cert2 := range rootCACerts2 {
+			if cert1.Equal(cert2) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+// Parse the PEM data and extract the certificates
+func parsePEMCerts(certData []byte) ([]*x509.Certificate, error) {
+	var certs []*x509.Certificate
+	block, rest := pem.Decode(certData)
+	if block == nil {
+		return nil, fmt.Errorf("failed to parse certificates: %s", certData)
+	}
+	for block != nil {
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse certificate: %v", err)
+		}
+		certs = append(certs, cert)
+		block, rest = pem.Decode(rest)
+	}
+	return certs, nil
+}
+
+func extractRootCA(client kube.CLIClient, podName, podNamespace string, out io.Writer) ([]byte, error) {
 	configWriter, err := setupPodConfigdumpWriter(client, podName, podNamespace, secretPath, out)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return configWriter.PrintPodRootCAFromDynamicSecretDump()
 }

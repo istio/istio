@@ -249,6 +249,8 @@ func TestNameTable(t *testing.T) {
 		makeServiceInstances(pod1, headlessService, "pod1", "headless-svc", model.Healthy))
 	uhpush.AddServiceInstances(headlessService,
 		makeServiceInstances(pod2, headlessService, "pod2", "headless-svc", model.UnHealthy))
+	uhpush.AddServiceInstances(headlessService,
+		makeServiceInstances(pod3, headlessService, "pod3", "headless-svc", model.Terminating))
 
 	uhreadypush := model.NewPushContext()
 	uhreadypush.Mesh = mesh
@@ -257,6 +259,8 @@ func TestNameTable(t *testing.T) {
 		makeServiceInstances(pod1, headlessService, "pod1", "headless-svc", model.Healthy))
 	uhreadypush.AddServiceInstances(headlessService,
 		makeServiceInstances(pod2, headlessService, "pod2", "headless-svc", model.UnHealthy))
+	uhreadypush.AddServiceInstances(headlessService,
+		makeServiceInstances(pod3, headlessService, "pod3", "headless-svc", model.Terminating))
 
 	wpush := model.NewPushContext()
 	wpush.Mesh = mesh
@@ -492,8 +496,14 @@ func TestNameTable(t *testing.T) {
 						Shortname: "pod2.headless-svc",
 						Namespace: "testns",
 					},
+					"pod3.headless-svc.testns.svc.cluster.local": {
+						Ips:       []string{"19.6.7.8"},
+						Registry:  "Kubernetes",
+						Shortname: "pod3.headless-svc",
+						Namespace: "testns",
+					},
 					"headless-svc.testns.svc.cluster.local": {
-						Ips:       []string{"1.2.3.4", "9.6.7.8"},
+						Ips:       []string{"1.2.3.4", "9.6.7.8", "19.6.7.8"},
 						Registry:  "Kubernetes",
 						Shortname: "headless-svc",
 						Namespace: "testns",

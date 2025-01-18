@@ -34,7 +34,7 @@ func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	extensions := envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
 	wasmPlugins := push.WasmPluginsByName(proxy, parseExtensionName(extensionConfigNames))
-	extensions = append(extensions, extension.InsertedExtensionConfigurations(wasmPlugins, extensionConfigNames, pullSecrets)...)
+	extensions = append(extensions, extension.InsertedExtensionConfigurations(proxy, wasmPlugins, extensionConfigNames, pullSecrets)...)
 	return extensions
 }
 

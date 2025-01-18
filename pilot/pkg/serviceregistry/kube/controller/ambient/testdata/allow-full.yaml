@@ -13,6 +13,14 @@ groups:
       - presence: {}
 - rules:
   - matches:
+    - notServiceAccounts:
+      - namespace: ns
+        serviceAccount: sa-not
+      serviceAccounts:
+      - namespace: ns
+        serviceAccount: sa
+- rules:
+  - matches:
     - namespaces:
       - exact: ns
       - prefix: ns-prefix-

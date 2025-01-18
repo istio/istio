@@ -282,16 +282,20 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	if features.EnableAmbient {
 		c.ambientIndex = ambient.New(ambient.Options{
-			Client:                kubeClient,
-			SystemNamespace:       options.SystemNamespace,
-			DomainSuffix:          options.DomainSuffix,
-			ClusterID:             options.ClusterID,
-			Revision:              options.Revision,
-			XDSUpdater:            options.XDSUpdater,
-			LookupNetwork:         c.Network,
-			LookupNetworkGateways: c.NetworkGateways,
-			StatusNotifier:        options.StatusWritingEnabled,
-			Debugger:              krt.GlobalDebugHandler,
+			Client:          kubeClient,
+			SystemNamespace: options.SystemNamespace,
+			DomainSuffix:    options.DomainSuffix,
+			ClusterID:       options.ClusterID,
+			Revision:        options.Revision,
+			XDSUpdater:      options.XDSUpdater,
+			LookupNetwork:   c.Network,
+			LookupNetworkGateways: func() []model.NetworkGateway {
+				return slices.Filter(c.NetworkGateways(), func(g model.NetworkGateway) bool {
+					return g.HBONEPort != 0
+				})
+			},
+			StatusNotifier: options.StatusWritingEnabled,
+			Debugger:       krt.GlobalDebugHandler,
 			Flags: ambient.FeatureFlags{
 				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
@@ -1121,18 +1125,9 @@ func (c *Controller) GetProxyServiceTargetsByPod(pod *v1.Pod, service *v1.Servic
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	pod := c.pods.getPodByProxy(proxy)
 	if pod != nil {
-		var locality, nodeName string
-		locality = c.getPodLocality(pod)
-		if len(proxy.GetNodeName()) == 0 {
-			// this can happen for an "old" proxy with no `Metadata.NodeName` set
-			// in this case we set the node name in labels on the fly
-			// TODO: remove this when 1.16 is EOL?
-			nodeName = pod.Spec.NodeName
-		}
-		if len(locality) == 0 && len(nodeName) == 0 {
-			return pod.Labels
-		}
-		return labelutil.AugmentLabels(pod.Labels, c.clusterID, locality, nodeName, c.network)
+		locality := c.getPodLocality(pod)
+		nodeName := proxy.GetNodeName()
+		return labelutil.AugmentLabels(pod.Labels, c.clusterID, locality, nodeName, c.Network(pod.Status.PodIP, pod.Labels))
 	}
 	return nil
 }

@@ -312,7 +312,7 @@ func TestProxyK8sHostnameLabel(t *testing.T) {
 		IPAddresses: []string{"128.0.0.1"},
 		ID:          "pod1.nsa",
 		DNSDomain:   "nsa.svc.cluster.local",
-		Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID},
+		Metadata:    &model.NodeMetadata{Namespace: "nsa", ClusterID: clusterID, NodeName: pod.Spec.NodeName},
 	}
 	got := controller.GetProxyWorkloadLabels(proxy)
 	if pod.Spec.NodeName != got[labelutil.LabelHostname] {
@@ -2464,7 +2464,6 @@ func TestVisibilityNoneService(t *testing.T) {
 	svc := getService(controller, "svc1", "nsA", t)
 	svc.Annotations = map[string]string{}
 	updateService(controller, svc, t)
-	fx.WaitOrFail(t, "eds cache")
 	fx.WaitOrFail(t, "service")
 	host := string(kube.ServiceHostname("svc1", "nsA", controller.opts.DomainSuffix))
 	// We should see a full push.
