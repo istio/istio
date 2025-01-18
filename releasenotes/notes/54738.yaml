@@ -3,4 +3,4 @@ kind: feature
 area: installation
 releaseNotes:
   - |
-    **Added** support for Envoy config parameter to skip deprecated logs with default set to true.
+    **Added** support for Envoy config parameter to skip deprecated logs, with the default set to true. Setting the ENVOY_SKIP_DEPRECATED_LOGS environment variable to false will enable deprecated logs.
