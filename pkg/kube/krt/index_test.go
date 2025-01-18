@@ -107,7 +107,7 @@ func TestIndexCollection(t *testing.T) {
 		names := slices.Sort(slices.Map(pods, SimplePod.ResourceName))
 		return ptr.Of(strings.Join(names, ","))
 	}, opts.WithName("Collection")...)
-	Collection.AsCollection().Synced().WaitUntilSynced(stop)
+	Collection.AsCollection().WaitUntilSynced(stop)
 	fetchSorted := func(ip string) []SimplePod {
 		return slices.SortBy(IPIndex.Lookup(ip), func(t SimplePod) string {
 			return t.ResourceName()

@@ -39,6 +39,7 @@ type informer[I controllers.ComparableObject] struct {
 	eventHandlers *handlers[I]
 	augmentation  func(a any) any
 	synced        chan struct{}
+	baseSyncer    Syncer
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -58,6 +59,14 @@ func (i *informer[I]) Synced() Syncer {
 		name:   i.collectionName,
 		synced: i.synced,
 	}
+}
+
+func (i *informer[I]) HasSynced() bool {
+	return i.baseSyncer.HasSynced()
+}
+
+func (i *informer[I]) WaitUntilSynced(stop <-chan struct{}) bool {
+	return i.baseSyncer.WaitUntilSynced(stop)
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -105,7 +114,7 @@ func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runE
 	synced := i.inf.AddEventHandler(informerEventHandler[I](func(o Event[I], initialSync bool) {
 		f([]Event[I]{o}, initialSync)
 	}))
-	base := i.Synced()
+	base := i.baseSyncer
 	handler := pollSyncer{
 		name: fmt.Sprintf("%v handler", i.name()),
 		f:    synced.HasSynced,
@@ -161,6 +170,10 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		eventHandlers:  &handlers[I]{},
 		augmentation:   o.augmentation,
 		synced:         make(chan struct{}),
+	}
+	h.baseSyncer = channelSyncer{
+		name:   h.collectionName,
+		synced: h.synced,
 	}
 
 	go func() {

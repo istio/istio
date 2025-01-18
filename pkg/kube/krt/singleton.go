@@ -52,6 +52,12 @@ func NewStatic[T any](initial *T, startSynced bool, opts ...CollectionOption) St
 		o.name = fmt.Sprintf("Static[%v]", ptr.TypeName[T]())
 	}
 	x.collectionName = o.name
+	x.syncer = pollSyncer{
+		name: x.collectionName,
+		f: func() bool {
+			return x.synced.Load()
+		},
+	}
 	maybeRegisterCollectionForDebugging(x, o.debugger)
 	return collectionAdapter[T]{x}
 }
@@ -63,6 +69,7 @@ type static[T any] struct {
 	id             collectionUID
 	eventHandlers  *handlers[T]
 	collectionName string
+	syncer         Syncer
 }
 
 func (d *static[T]) GetKey(k string) *T {
@@ -92,7 +99,7 @@ func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExi
 			}}, true)
 		}
 	}
-	return d.Synced()
+	return d.syncer
 }
 
 func (d *static[T]) Synced() Syncer {
@@ -102,6 +109,14 @@ func (d *static[T]) Synced() Syncer {
 			return d.synced.Load()
 		},
 	}
+}
+
+func (d *static[T]) HasSynced() bool {
+	return d.syncer.HasSynced()
+}
+
+func (d *static[T]) WaitUntilSynced(stop <-chan struct{}) bool {
+	return d.syncer.WaitUntilSynced(stop)
 }
 
 func (d *static[T]) Set(now *T) {

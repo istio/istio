@@ -34,9 +34,9 @@ func TestRecomputeTrigger(t *testing.T) {
 		return ptr.Of(response.Load())
 	}, krt.WithStop(test.NewStop(t)))
 
-	assert.Equal(t, col2.Synced().HasSynced(), false)
+	assert.Equal(t, col2.HasSynced(), false)
 	rt.MarkSynced()
-	assert.Equal(t, col2.Synced().WaitUntilSynced(test.NewStop(t)), true)
+	assert.Equal(t, col2.WaitUntilSynced(test.NewStop(t)), true)
 
 	tt := assert.NewTracker[string](t)
 	col2.Register(TrackerHandler[string](tt))

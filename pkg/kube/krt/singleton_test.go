@@ -45,7 +45,7 @@ func TestSingleton(t *testing.T) {
 			})...))
 		}, krt.WithStop(stop),
 	)
-	ConfigMapNames.AsCollection().Synced().WaitUntilSynced(stop)
+	ConfigMapNames.AsCollection().WaitUntilSynced(stop)
 	tt := assert.NewTracker[string](t)
 	ConfigMapNames.Register(TrackerHandler[string](tt))
 	tt.WaitOrdered("add/")

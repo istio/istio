@@ -186,7 +186,7 @@ func TestCollectionJoinSync(t *testing.T) {
 		IP:      "9.9.9.9",
 	}, true)
 	AllPods := krt.JoinCollection([]krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection()})
-	assert.Equal(t, AllPods.Synced().WaitUntilSynced(stop), true)
+	assert.Equal(t, AllPods.WaitUntilSynced(stop), true)
 	// Assert Equal -- not EventuallyEqual -- to ensure our WaitForCacheSync is proper
 	assert.Equal(t, fetcherSorted(AllPods)(), []SimplePod{
 		{Named{"namespace", "name"}, NewLabeled(map[string]string{"app": "foo"}), "1.2.3.4"},

@@ -36,6 +36,7 @@ type staticList[T any] struct {
 	id             collectionUID
 	stop           <-chan struct{}
 	collectionName string
+	syncer         Syncer
 }
 
 func NewStaticCollection[T any](vals []T, opts ...CollectionOption) StaticCollection[T] {
@@ -55,6 +56,7 @@ func NewStaticCollection[T any](vals []T, opts ...CollectionOption) StaticCollec
 		id:             nextUID(),
 		stop:           o.stop,
 		collectionName: o.name,
+		syncer:         alwaysSynced{},
 	}
 
 	return StaticCollection[T]{
@@ -183,6 +185,14 @@ func (s *staticList[T]) List() []T {
 
 func (s *staticList[T]) Register(f func(o Event[T])) Syncer {
 	return registerHandlerAsBatched(s, f)
+}
+
+func (s *staticList[T]) HasSynced() bool {
+	return s.syncer.HasSynced()
+}
+
+func (s *staticList[T]) WaitUntilSynced(stop <-chan struct{}) bool {
+	return s.syncer.WaitUntilSynced(stop)
 }
 
 func (s *staticList[T]) Synced() Syncer {
