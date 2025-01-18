@@ -57,6 +57,7 @@ import (
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/util/smallset"
 )
 
 // Constants for duration fields
@@ -69,7 +70,14 @@ const (
 	matchPrefix = "prefix:"
 )
 
-var validHeaderRegex = regexp.MustCompile("^[-_A-Za-z0-9]+$")
+// https://greenbytes.de/tech/webdav/rfc7230.html#header.fields
+var (
+	tchars               = "!#$%&'*+-.^_`|~" + "A-Z" + "a-z" + "0-9"
+	validHeaderNameRegex = regexp.MustCompile("^[" + tchars + "]+$")
+
+	validProbeHeaderNameRegex  = regexp.MustCompile("^[-A-Za-z0-9]+$")
+	validStrictHeaderNameRegex = validProbeHeaderNameRegex
+)
 
 const (
 	kb = 1024
@@ -226,12 +234,23 @@ func checkDryRunAnnotation(cfg config.Config, allowed bool) error {
 	return nil
 }
 
-// ValidateHTTPHeaderName validates a header name
-func ValidateHTTPHeaderName(name string) error {
+// ValidateStrictHTTPHeaderName validates a header name. This uses stricter semantics than HTTP allows (ValidateHTTPHeaderName)
+func ValidateStrictHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
 	}
-	if !validHeaderRegex.MatchString(name) {
+	if !validStrictHeaderNameRegex.MatchString(name) {
+		return fmt.Errorf("header name %s is not a valid header name", name)
+	}
+	return nil
+}
+
+// ValidateProbeHeaderName validates a header name for a HTTP probe. This aligns with Kubernetes logic
+func ValidateProbeHeaderName(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
+	if !validProbeHeaderNameRegex.MatchString(name) {
 		return fmt.Errorf("header name %s is not a valid header name", name)
 	}
 	return nil
@@ -246,11 +265,20 @@ func ValidateCORSHTTPHeaderName(name string) error {
 	if name == "*" {
 		return nil
 	}
-	if !validHeaderRegex.MatchString(name) {
+	if !validHeaderNameRegex.MatchString(name) {
 		return fmt.Errorf("header name %s is not a valid header name", name)
 	}
 	return nil
 }
+
+// https://httpwg.org/specs/rfc7540.html#PseudoHeaderFields
+var pseudoHeaders = smallset.New(
+	":method",
+	":scheme",
+	":authority",
+	":path",
+	":status",
+)
 
 // ValidateHTTPHeaderNameOrJwtClaimRoute validates a header name, allowing special @request.auth.claims syntax
 func ValidateHTTPHeaderNameOrJwtClaimRoute(name string) error {
@@ -261,8 +289,12 @@ func ValidateHTTPHeaderNameOrJwtClaimRoute(name string) error {
 		// Jwt claim form
 		return nil
 	}
+	if pseudoHeaders.Contains(name) {
+		// Valid pseudo header
+		return nil
+	}
 	// Else ensure its a valid header
-	if !validHeaderRegex.MatchString(name) {
+	if !validHeaderNameRegex.MatchString(name) {
 		return fmt.Errorf("header name %s is not a valid header name", name)
 	}
 	return nil
@@ -1556,7 +1588,7 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 			errs = multierror.Append(errs, errors.New("outputClaimToHeaders header and claim value must be non-empty string"))
 			continue
 		}
-		if err := ValidateHTTPHeaderName(claimAndHeaders.Header); err != nil {
+		if err := ValidateStrictHTTPHeaderName(claimAndHeaders.Header); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -2737,7 +2769,7 @@ func validateReadinessProbe(probe *networking.ReadinessProbe) (errs error) {
 				errs = appendErrors(errs, fmt.Errorf("invalid nil header"))
 				continue
 			}
-			errs = appendErrors(errs, ValidateHTTPHeaderName(header.Name))
+			errs = appendErrors(errs, ValidateProbeHeaderName(header.Name))
 		}
 	case *networking.ReadinessProbe_TcpSocket:
 		h := m.TcpSocket

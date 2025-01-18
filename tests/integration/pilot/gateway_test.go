@@ -197,15 +197,15 @@ spec:
 			host:  "bar",
 		},
 	}
-	if t.Settings().EnableDualStack {
+	// additional tests for dual-stack scenario
+	if len(t.Settings().IPFamilies) > 1 {
 		additionalTestCases := []struct {
 			check echo.Checker
 			from  echo.Instances
 			host  string
 		}{
-			// apps.D hosts a dual-stack service,
-			// apps.E hosts an ipv6 only service and
-			// apps.B hosts an ipv4 only service
+			// apps.D and apps.E host single-stack services
+			// apps.B hosts a dual-stack service
 			{
 				check: check.OK(),
 				from:  apps.D,

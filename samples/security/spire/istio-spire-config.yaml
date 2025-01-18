@@ -7,7 +7,6 @@ spec:
   meshConfig:
     trustDomain: example.org
   values:
-    global:
     # This is used to customize the sidecar template
     sidecarInjectorWebhook:
       templates:

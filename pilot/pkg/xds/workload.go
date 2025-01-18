@@ -45,14 +45,86 @@ func (e WorkloadGenerator) GenerateDeltas(
 	req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	updatedAddresses := model.ConfigNamesOfKind(req.ConfigsUpdated, kind.Address)
+	addresses := req.AddressesUpdated
 	isReq := req.IsRequest()
-	if len(updatedAddresses) == 0 && len(req.ConfigsUpdated) > 0 {
-		// Nothing changed..
+	if !isReq && len(addresses) == 0 {
+		// Nothing changed...
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
 
+	if !w.Wildcard {
+		return e.generateDeltasOndemand(proxy, req, w)
+	}
+
 	subs := w.ResourceNames
+
+	reqAddresses := addresses
+	if isReq {
+		reqAddresses = nil
+	}
+	addrs, removed := e.Server.Env.ServiceDiscovery.AddressInformation(reqAddresses)
+	// Note: while "removed" is a weird name for a resource that never existed, this is how the spec works:
+	// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#id2
+	have := sets.New[string]()
+	resources := make(model.Resources, 0, len(addrs))
+	for _, addr := range addrs {
+		resources = appendAddress(addr, w.TypeUrl, nil, have, resources)
+	}
+
+	if isReq {
+		// If it's a full push, AddressInformation won't have info to compute the full set of removals.
+		// Instead, we need can see what resources are missing that we were subscribe to; those were removed.
+		removed = subs.Difference(have).Merge(removed)
+	}
+
+	proxy.Lock()
+	defer proxy.Unlock()
+	// For wildcard, we record all resources that have been pushed and not removed
+	// It was to correctly calculate removed resources during full push alongside with specific address removed.
+	w.ResourceNames = subs.Merge(have).DeleteAllSet(removed)
+	return resources, removed.UnsortedList(), model.XdsLogDetails{}, true, nil
+}
+
+func appendAddress(addr model.AddressInfo, requestedType string, aliases []string, have sets.Set[string], resources model.Resources) model.Resources {
+	n := addr.ResourceName()
+	have.Insert(n)
+	switch requestedType {
+	case v3.WorkloadType:
+		if addr.GetWorkload() != nil {
+			resources = append(resources, &discovery.Resource{
+				Name:     n,
+				Aliases:  aliases,
+				Resource: protoconv.MessageToAny(addr.GetWorkload()), // TODO: pre-marshal
+			})
+		}
+	case v3.AddressType:
+		proto := addr.Marshaled
+		if proto == nil {
+			proto = protoconv.MessageToAny(addr)
+		}
+
+		resources = append(resources, &discovery.Resource{
+			Name:     n,
+			Aliases:  aliases,
+			Resource: proto,
+		})
+	}
+	return resources
+}
+
+func (e WorkloadGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	resources, _, details, _, err := e.GenerateDeltas(proxy, req, w)
+	return resources, details, err
+}
+
+func (e WorkloadGenerator) generateDeltasOndemand(
+	proxy *model.Proxy,
+	req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	isReq := req.IsRequest()
+	subs := w.ResourceNames
+
 	var addresses sets.String
 	if isReq {
 		// this is from request, we only send response for the subscribed address
@@ -60,35 +132,22 @@ func (e WorkloadGenerator) GenerateDeltas(
 		// At t1, a client request B, we only send B and additional resources back to the client, no A here.
 		addresses = req.Delta.Subscribed
 	} else {
-		if w.Wildcard {
-			addresses = updatedAddresses
-		} else {
-			// this is from the external triggers instead of request
-			// send response for all the subscribed intersect with the updated
-			addresses = updatedAddresses.IntersectInPlace(subs)
-		}
+		// this is from the external triggers instead of request
+		// send response for all the subscribed intersect with the updated
+		addresses = req.AddressesUpdated.Intersection(subs)
 	}
 
-	if !w.Wildcard {
-		// We only need this for on-demand. This allows us to subscribe the client to resources they
-		// didn't explicitly request.
-		// For wildcard, they subscribe to everything already.
-		additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
-		if addresses == nil {
-			addresses = sets.New[string]()
-		}
+	// We only need this for on-demand. This allows us to subscribe the client to resources they
+	// didn't explicitly request.
+	// For wildcard, they subscribe to everything already.
+	additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
+	if addresses == nil {
+		addresses = additional
+	} else {
 		addresses.Merge(additional)
 	}
 
-	// TODO: it is needlessly wasteful to do a full sync just because the rest of Istio thought it was "full"
-	// The rest of Istio xDS types would treat `req.Full && len(req.ConfigsUpdated) == 0` as a need to trigger a "full" push.
-	// This is only an escape hatch for a lack of complete mapping of "Input changed -> Output changed".
-	// WDS does not suffer this limitation, so we could almost safely ignore these.
-	// However, other code will merge "Partial push + Full push -> Full push", so skipping full pushes isn't viable.
-	full := (isReq && w.Wildcard) || (!isReq && req.Full && len(req.ConfigsUpdated) == 0)
-
-	// Nothing to do
-	if len(addresses) == 0 && !full {
+	if len(addresses) == 0 {
 		if isReq {
 			// We need to respond for requests, even if we have nothing to respond with
 			return make(model.Resources, 0), nil, model.XdsLogDetails{}, false, nil
@@ -96,75 +155,23 @@ func (e WorkloadGenerator) GenerateDeltas(
 		// For NOP pushes, no need
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
-	resources := make(model.Resources, 0)
-	reqAddresses := addresses
-	if full {
-		reqAddresses = nil
-	}
-	addrs, removed := e.Server.Env.ServiceDiscovery.AddressInformation(reqAddresses)
+	addrs, removed := e.Server.Env.ServiceDiscovery.AddressInformation(addresses)
 	// Note: while "removed" is a weird name for a resource that never existed, this is how the spec works:
 	// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#id2
 	have := sets.New[string]()
-	haveAliases := sets.New[string]()
+	resources := make(model.Resources, 0, len(addrs))
 	for _, addr := range addrs {
-		// TODO(@hzxuzhonghu): calculate removed with aliases in `AddressInformation`
-		var aliases []string
-		if !w.Wildcard {
-			// For on-demand, a client may request by an alias, so we need to compute things.
-			// For wildcard subscriptions, alias is not needed and we always use the canonical resource name.
-			// Avoid Alias computation in these situations
-			aliases := addr.Aliases()
-			removed.DeleteAll(aliases...)
-			haveAliases.InsertAll(aliases...)
-		}
-		n := addr.ResourceName()
-		have.Insert(n)
-		switch w.TypeUrl {
-		case v3.WorkloadType:
-			if addr.GetWorkload() != nil {
-				resources = append(resources, &discovery.Resource{
-					Name:     n,
-					Aliases:  aliases,
-					Resource: protoconv.MessageToAny(addr.GetWorkload()), // TODO: pre-marshal
-				})
-			}
-		case v3.AddressType:
-			proto := addr.Marshaled
-			if proto == nil {
-				proto = protoconv.MessageToAny(addr)
-			}
-
-			resources = append(resources, &discovery.Resource{
-				Name:     n,
-				Aliases:  aliases,
-				Resource: proto,
-			})
-		}
-	}
-
-	if full {
-		// If it's a full push, AddressInformation won't have info to compute the full set of removals.
-		// Instead, we need can see what resources are missing that we were subscribe to; those were removed.
-		removed = subs.Difference(have).Difference(haveAliases).Merge(removed)
+		aliases := addr.Aliases()
+		removed.DeleteAll(aliases...)
+		resources = appendAddress(addr, w.TypeUrl, aliases, have, resources)
 	}
 
 	proxy.Lock()
 	defer proxy.Unlock()
-	if !w.Wildcard {
-		// For on-demand, we may have requested a VIP but gotten Pod IPs back. We need to update
-		// the internal book-keeping to subscribe to the Pods, so that we push updates to those Pods.
-		w.ResourceNames = subs.Merge(have)
-	} else {
-		// For wildcard, we record all resources that have been pushed and not removed
-		// It was to correctly calculate removed resources during full push alongside with specific address removed.
-		w.ResourceNames = subs.Merge(have).DeleteAllSet(removed)
-	}
+	// For on-demand, we may have requested a VIP but gotten Pod IPs back. We need to update
+	// the internal book-keeping to subscribe to the Pods, so that we push updates to those Pods.
+	w.ResourceNames = subs.Merge(have)
 	return resources, removed.UnsortedList(), model.XdsLogDetails{}, true, nil
-}
-
-func (e WorkloadGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	resources, _, details, _, err := e.GenerateDeltas(proxy, req, w)
-	return resources, details, err
 }
 
 type WorkloadRBACGenerator struct {

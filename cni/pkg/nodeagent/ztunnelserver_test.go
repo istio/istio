@@ -78,6 +78,26 @@ func TestZtunnelSendsPodSnapshot(t *testing.T) {
 	mt.Assert(ztunnelConnected.Name(), nil, monitortest.Exactly(0))
 }
 
+func TestZtunnelWriteErrorCausesConnToDrop(t *testing.T) {
+	mt := monitortest.New(t)
+	setupLogging()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	fixture := connect(ctx)
+	defer fixture.podCloser()
+
+	ztunClient := fixture.ztunClient
+
+	// we got a message from ztun, so it should have observed us being connected
+	mt.Assert(ztunnelConnected.Name(), nil, monitortest.Exactly(1))
+
+	// Now close without responding
+	ztunClient.Close()
+	// this will retry for a bit, so shouldn't flake
+	mt.Assert(ztunnelConnected.Name(), nil, monitortest.Exactly(0))
+}
+
 func TestMultipleConnectedZtunnelsGetEvents(t *testing.T) {
 	mt := monitortest.New(t)
 	setupLogging()

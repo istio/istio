@@ -103,14 +103,12 @@ func (v IptablesVersion) IsWriteCmd(cmd constants.IptablesCmd) bool {
 // Constants for iptables commands
 // These should not be used directly/assumed to be present, but should be contextually detected
 const (
-	iptablesBin         = "iptables"
-	iptablesNftBin      = "iptables-nft"
-	iptablesLegacyBin   = "iptables-legacy"
-	ip6tablesBin        = "ip6tables"
-	ip6tablesNftBin     = "ip6tables-nft"
-	ip6tablesLegacyBin  = "ip6tables-legacy"
-	iptablesRestoreBin  = "iptables-restore"
-	ip6tablesRestoreBin = "ip6tables-restore"
+	iptablesBin        = "iptables"
+	iptablesNftBin     = "iptables-nft"
+	iptablesLegacyBin  = "iptables-legacy"
+	ip6tablesBin       = "ip6tables"
+	ip6tablesNftBin    = "ip6tables-nft"
+	ip6tablesLegacyBin = "ip6tables-legacy"
 )
 
 // It is not sufficient to check for the presence of one binary or the other in $PATH -

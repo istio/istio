@@ -21,6 +21,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -63,7 +64,7 @@ type connMgr struct {
 }
 
 func (c *connMgr) addConn(conn *ZtunnelConnection) {
-	log.Debug("ztunnel connected")
+	log.Info("ztunnel connected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.connectionSet = append(c.connectionSet, conn)
@@ -80,7 +81,7 @@ func (c *connMgr) LatestConn() *ZtunnelConnection {
 }
 
 func (c *connMgr) deleteConn(conn *ZtunnelConnection) {
-	log.Debug("ztunnel disconnected")
+	log.Info("ztunnel disconnected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -224,7 +225,20 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 			log.Debugf("got update to send to ztunnel")
 			resp, err := conn.sendDataAndWaitForAck(update.Update, update.Fd)
 			if err != nil {
-				log.Errorf("ztunnel acked error: err %v ackErr %s", err, resp.GetAck().GetError())
+				// Two possibilities
+				// - we couldn't _write_ to the connection (in which case, this conn is dead)
+				// (annoyingly, go's `net.OpErr` is not convertible?)
+				if strings.Contains(err.Error(), "sendmsg: broken pipe") {
+					log.Error("ztunnel connection broken/unwritable, disposing of this connection")
+					return err
+				}
+				// if we timed out waiting for a (valid) response, mention and continue, connection may not be trashed
+				log.Warnf("timed out waiting for valid ztunnel response: %s", err)
+
+				if resp.GetAck().GetError() != "" {
+					// - we wrote, got a response, but ztunnel responded with an `ack` error (in which case, this conn is not dead)
+					log.Errorf("ztunnel responded with an ack error: ackErr %s", resp.GetAck().GetError())
+				}
 			}
 			log.Debugf("ztunnel acked")
 			// Safety: Resp is buffered, so this will not block

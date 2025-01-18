@@ -114,13 +114,17 @@ func (a *index) WorkloadsCollection(
 		return slices.Map(a.LookupAllNetworkGateway(), convertGateway)
 	}, opts.WithName("NetworkGatewayWorkloads")...)
 
-	Workloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{
-		PodWorkloads,
-		WorkloadEntryWorkloads,
-		ServiceEntryWorkloads,
-		EndpointSliceWorkloads,
-		NetworkGatewayWorkloads,
-	}, opts.WithName("Workloads")...)
+	Workloads := krt.JoinCollection(
+		[]krt.Collection[model.WorkloadInfo]{
+			PodWorkloads,
+			WorkloadEntryWorkloads,
+			ServiceEntryWorkloads,
+			EndpointSliceWorkloads,
+			NetworkGatewayWorkloads,
+		},
+		// Each collection has its own unique UID as the key. This guarantees an object can exist in only a single collection
+		// This enables us to use the JoinUnchecked optimization.
+		append(opts.WithName("Workloads"), krt.WithJoinUnchecked())...)
 	return Workloads
 }
 

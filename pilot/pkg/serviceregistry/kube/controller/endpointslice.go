@@ -244,10 +244,17 @@ func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus 
 		return model.Healthy
 	}
 
+	// An endpoint is draining only if it was previously ready (serving == true) and persistent sessions is enabled
 	if svc != nil && svc.SupportsDrainingEndpoints() &&
 		(e.Conditions.Serving == nil || *e.Conditions.Serving) &&
 		(e.Conditions.Terminating == nil || *e.Conditions.Terminating) {
 		return model.Draining
+	}
+
+	// If it is shutting down, mark it as terminating. This occurs regardless of whether it was previously healthy or not.
+	if svc != nil &&
+		(e.Conditions.Terminating == nil || *e.Conditions.Terminating) {
+		return model.Terminating
 	}
 
 	return model.UnHealthy

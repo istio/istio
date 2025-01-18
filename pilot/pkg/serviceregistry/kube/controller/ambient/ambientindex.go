@@ -101,6 +101,8 @@ type index struct {
 	workloads workloadsCollection
 	waypoints waypointsCollection
 
+	namespaces krt.Collection[model.NamespaceInfo]
+
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
 	networkUpdateTrigger  *krt.RecomputeTrigger
 	networkGateways       *atomic.Pointer[map[network.ID][]model.NetworkGateway]
@@ -230,24 +232,22 @@ func New(options Options) Index {
 			return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 		}), false)
 
-	serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
-	servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
-
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces, opts)
 
-	WaypointPolicyStatus := WaypointPolicyStatusCollection(
-		AuthzPolicies,
-		Waypoints,
-		Services,
-		ServiceEntries,
-		Namespaces,
-		opts,
-	)
-
-	authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
-
 	if features.EnableAmbientStatus {
+		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
+		servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
+		authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
+
+		WaypointPolicyStatus := WaypointPolicyStatusCollection(
+			AuthzPolicies,
+			Waypoints,
+			Services,
+			ServiceEntries,
+			Namespaces,
+			opts,
+		)
 		statusQueue := statusqueue.NewQueue(options.StatusNotifier)
 		statusqueue.Register(statusQueue, "istio-ambient-service", WorkloadServices,
 			func(info model.ServiceInfo) (kclient.Patcher, map[string]model.Condition) {
@@ -315,9 +315,15 @@ func New(options Options) Index {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Service
 		},
-		PushXds(a.XDSUpdater, func(i model.ServiceInfo) model.ConfigKey {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
-		})), false)
+		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
+	), false)
+
+	NamespacesInfo := krt.NewCollection(Namespaces, func(ctx krt.HandlerContext, i *v1.Namespace) *model.NamespaceInfo {
+		return &model.NamespaceInfo{
+			Name:               i.Name,
+			IngressUseWaypoint: i.Labels["istio.io/ingress-use-waypoint"] == "true",
+		}
+	}, opts.WithName("NamespacesInfo")...)
 
 	Workloads := a.WorkloadsCollection(
 		Pods,
@@ -384,14 +390,14 @@ func New(options Options) Index {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
-		PushXds(a.XDSUpdater, func(i model.WorkloadInfo) model.ConfigKey {
-			return model.ConfigKey{Kind: kind.Address, Name: i.ResourceName()}
-		})), false)
+		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName),
+	), false)
 
 	if features.EnableIngressWaypointRouting {
 		RegisterEdsShim(
 			a.XDSUpdater,
 			Workloads,
+			NamespacesInfo,
 			WorkloadServiceIndex,
 			WorkloadServices,
 			ServiceAddressIndex,
@@ -399,6 +405,7 @@ func New(options Options) Index {
 		)
 	}
 
+	a.namespaces = NamespacesInfo
 	a.workloads = workloadsCollection{
 		Collection:               Workloads,
 		ByAddress:                WorkloadAddressIndex,
@@ -719,6 +726,36 @@ func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 			Full:           false,
 			ConfigsUpdated: cu,
 			Reason:         model.NewReasonStats(model.AmbientUpdate),
+		})
+	}
+}
+
+func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string) func(events []krt.Event[T], initialSync bool) {
+	return func(events []krt.Event[T], initialSync bool) {
+		au := sets.New[string]()
+		for _, e := range events {
+			for _, i := range e.Items() {
+				c := f(i)
+				if c != "" {
+					au.Insert(c)
+				}
+			}
+		}
+		if len(au) == 0 {
+			return
+		}
+		cu := sets.NewWithLength[model.ConfigKey](len(au))
+		for v := range au {
+			cu.Insert(model.ConfigKey{
+				Kind: kind.Address,
+				Name: v,
+			})
+		}
+		xds.ConfigUpdate(&model.PushRequest{
+			Full:             false,
+			AddressesUpdated: au,
+			ConfigsUpdated:   cu,
+			Reason:           model.NewReasonStats(model.AmbientUpdate),
 		})
 	}
 }

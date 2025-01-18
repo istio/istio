@@ -111,7 +111,11 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		var gateways []string
 		conflictingGWMatch := 0
 		sPortNumber := strconv.Itoa(int(server.GetPort().GetNumber()))
-		for _, values := range hitSameGateways {
+		for key, values := range hitSameGateways {
+			if _, port := parseFromGatewayMapKey(key); port != sPortNumber {
+				continue
+			}
+
 			for gwNameKey, gwHostsBind := range values {
 				// both selector and port number are the same, then check hosts and bind
 				if gwName != gwNameKey && isGWConflict(server, gwHostsBind) {

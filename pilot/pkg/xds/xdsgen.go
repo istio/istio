@@ -58,8 +58,12 @@ var controlPlane = lazy.New(func() (*core.ControlPlane, error) {
 	return &core.ControlPlane{Identifier: string(byVersion)}, nil
 })
 
-// ControlPlane identifies the instance and Istio version.
-func ControlPlane() *core.ControlPlane {
+// ControlPlane identifies the instance and Istio version, based on the requested type URL
+func ControlPlane(typ string) *core.ControlPlane {
+	if typ != TypeDebugSyncronization {
+		// Currently only TypeDebugSyncronization utilizes this so don't both sending otherwise
+		return nil
+	}
 	// Error will never happen because the getter of lazy does not return error.
 	cp, _ := controlPlane.Get()
 	return cp
@@ -136,7 +140,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 
 	resp := &discovery.DiscoveryResponse{
-		ControlPlane: ControlPlane(),
+		ControlPlane: ControlPlane(w.TypeUrl),
 		TypeUrl:      w.TypeUrl,
 		// TODO: send different version for incremental eds
 		VersionInfo: req.Push.PushVersion,

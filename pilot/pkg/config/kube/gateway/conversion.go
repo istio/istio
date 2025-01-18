@@ -2221,11 +2221,11 @@ func reportGatewayStatus(
 
 	if len(internal) > 0 {
 		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
-		gatewayConditions[string(k8s.GatewayReasonProgrammed)].message = msg
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].message = msg
 	}
 
 	if len(gatewayServices) == 0 {
-		gatewayConditions[string(k8s.GatewayReasonProgrammed)].error = &ConfigError{
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
 			Reason:  InvalidAddress,
 			Message: "Failed to assign to any requested addresses",
 		}
