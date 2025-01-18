@@ -88,6 +88,9 @@ func (s *NetServer) Stop(_ bool) {
 // We always need the IPs, but this is fine because this AddPodToMesh can be called from the CNI plugin as well,
 // which always has the firsthand info of the IPs, even before K8S does - so we pass them separately here because
 // we actually may have them before K8S in the Pod object.
+//
+// Importantly, some of the failures that can occur when calling this function are retryable, and some are not.
+// AddPodToMesh will return a RetryablePartialAdd error for the former.
 func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	log.Infof("adding pod to the mesh")
@@ -108,15 +111,17 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 		return err
 	}
 
-	// For *any* failures after calling `CreateInpodRules`, we must return PartialAdd error.
+	// For *any* failures after calling `CreateInpodRules`, we must return RetryablePartialAdd error.
 	// The pod was injected with iptables rules, so it must be annotated as "inpod" - even if
 	// the following fails.
 	// This is so that if it is removed from the mesh, the inpod rules will unconditionally
 	// be removed.
-
+	//
+	// Additionally, unlike the other errors, it is safe to retry `partial adds` with another
+	// `AddPodToMesh`, in case a ztunnel connection later becomes available.
 	log.Debug("notifying subscribed node proxies")
 	if err := s.sendPodToZtunnelAndWaitForAck(ctx, pod, openNetns); err != nil {
-		return NewErrPartialAdd(err)
+		return NewErrRetryablePartialAdd(err)
 	}
 	return nil
 }
@@ -127,12 +132,11 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 // - Informs the connected ztunnel that the pod no longer needs to be proxied.
 // - Removes the pod's netns file handle from the cache/state of the world snapshot.
 // - Steps into the pod netns to remove the inpod iptables redirection rules.
+//
+// If this function returns an error, the removal may be retried.
 func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	log.WithLabels("delete", isDelete).Debugf("removing pod from the mesh")
-
-	// Aggregate errors together, so that if part of the cleanup fails we still proceed with other steps.
-	var errs []error
 
 	// Whether pod is already deleted or not, we need to let go of our netns ref.
 	openNetns := s.currentPodSnapshot.Take(string(pod.UID))
@@ -156,9 +160,9 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 	log.Debug("removing pod from ztunnel")
 	if err := s.ztunnelServer.PodDeleted(ctx, string(pod.UID)); err != nil {
 		log.Errorf("failed to delete pod from ztunnel: %v", err)
-		errs = append(errs, err)
+		return err
 	}
-	return errors.Join(errs...)
+	return nil
 }
 
 func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, podIptables *iptables.IptablesConfigurator, podNs PodNetnsFinder) *NetServer {

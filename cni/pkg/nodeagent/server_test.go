@@ -97,12 +97,13 @@ func TestMeshDataplaneAddsAnnotationOnAddWithPartialError(t *testing.T) {
 		pod,
 		podIPs,
 		"",
-	).Return(ErrPartialAdd)
+	).Return(ErrRetryablePartialAdd)
 
 	server.Start(fakeCtx)
 	fakeClientSet := fake.NewClientset(pod)
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
+
 	set := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
 
 	m := getFakeDPWithIPSet(server, fakeClientSet, set)
@@ -116,7 +117,7 @@ func TestMeshDataplaneAddsAnnotationOnAddWithPartialError(t *testing.T) {
 	pod, err = fakeClientSet.CoreV1().Pods("test").Get(fakeCtx, "test", metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, len(pod.Annotations), 1)
-	assert.Equal(t, pod.Annotations[annotation.AmbientRedirection.Name], constants.AmbientRedirectionEnabled)
+	assert.Equal(t, pod.Annotations[annotation.AmbientRedirection.Name], constants.AmbientRedirectionPending)
 }
 
 func TestMeshDataplaneDoesntAnnotateOnAddWithRealError(t *testing.T) {

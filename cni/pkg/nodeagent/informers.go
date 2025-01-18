@@ -16,6 +16,7 @@ package nodeagent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -157,7 +158,7 @@ func (s *InformerHandlers) GetActiveAmbientPodSnapshot() []*corev1.Pod {
 		// from the snapshot.
 		if !util.IsZtunnelPod(s.systemNamespace, pod) &&
 			!kube.CheckPodTerminal(pod) &&
-			util.PodRedirectionActive(pod) {
+			util.PodFullyEnrolled(pod) {
 			pods = append(pods, pod)
 		}
 	}
@@ -271,20 +272,21 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// 1. Logging (so the change event diff is more obvious)
 		// 2. To work around a potential k8s pod removal bug
 		oldPod := event.Old.(*corev1.Pod)
-		isAnnotated := util.PodRedirectionActive(currentPod)
+		isEnrolled := util.PodFullyEnrolled(currentPod)
+		isPartiallyEnrolled := util.PodPartiallyEnrolled(currentPod)
 		shouldBeEnabled := util.PodRedirectionEnabled(ns, currentPod)
 		isTerminated := kube.CheckPodTerminal(currentPod)
 		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
-		changeNeeded := (isAnnotated != shouldBeEnabled) && !isTerminated
+		changeNeeded := (isEnrolled != shouldBeEnabled) || isPartiallyEnrolled
 
 		// nolint: lll
-		log.Debugf("pod update: annotation=%v shouldBeEnabled=%v changeNeeded=%v isTerminated=%v, oldPod=%+v, newPod=%+v",
-			isAnnotated, shouldBeEnabled, changeNeeded, isTerminated, oldPod.ObjectMeta, currentPod.ObjectMeta)
+		log.Debugf("pod update: isEnrolled=%v isPartiallyEnrolled=%v shouldBeEnabled=%v changeNeeded=%v isTerminated=%v, oldPod=%+v, newPod=%+v",
+			isEnrolled, isPartiallyEnrolled, shouldBeEnabled, changeNeeded, isTerminated, oldPod.ObjectMeta, currentPod.ObjectMeta)
 
 		// If it was a job pod that (a) we captured and (b) just terminated (successfully or otherwise)
 		// remove it (the pod process is gone, but kube will keep the Pods around in
 		// a terminated || failed state - we should still do cleanup)
-		if isAnnotated && isTerminated {
+		if (isPartiallyEnrolled || isEnrolled) && isTerminated {
 			log.Debugf("deleting pod from mesh: pod was enabled but is now terminated")
 			// Unlike the other cases, we actually want to use the "old" event for terminated job pods
 			// - kubernetes will (weirdly) issue a new status to the pod with no IP on termination, meaning
@@ -294,12 +296,14 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 			// and safer to just check the old pod status for the IP.
 			//
 			// https://github.com/kubernetes/kubernetes/issues/125370
-			err := s.dataplane.RemovePodFromMesh(s.ctx, oldPod, true)
-			log.Debugf("RemovePodFromMesh returned: %v", err)
+			if err := s.dataplane.RemovePodFromMesh(s.ctx, oldPod, true); err != nil {
+				log.Warnf("RemovePodFromMesh for terminated pod returned error, will retry: %v", err)
+				return err
+			}
 			return nil
 		}
 
-		if !changeNeeded {
+		if !changeNeeded || isTerminated {
 			log.Debugf("pod update event skipped: no change needed")
 			return nil
 		}
@@ -307,10 +311,11 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// Pod is not terminated, and has changed in a way we care about - so reconcile
 		if !shouldBeEnabled {
 			log.Debugf("removing pod from mesh: no longer should be enabled")
-			err := s.dataplane.RemovePodFromMesh(s.ctx, currentPod, false)
-			log.Debugf("RemovePodFromMesh returned: %v", err)
-			return err
-			// we ignore errors here as we don't want this event to be retried by the queue.
+			if err := s.dataplane.RemovePodFromMesh(s.ctx, currentPod, false); err != nil {
+				log.Warnf("RemovePodFromMesh for active pod returned error, will retry: %v", err)
+				return err
+			}
+			return nil
 		}
 
 		// netns == ""; at this point netns should have been added via the initial snapshot,
@@ -332,9 +337,17 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		}
 
 		log.Debugf("pod is now enrolled, adding to mesh")
-		err := s.dataplane.AddPodToMesh(s.ctx, currentPod, podIPs, "")
-		if err != nil {
-			log.Warnf("AddPodToMesh returned: %v", err)
+		if err := s.dataplane.AddPodToMesh(s.ctx, currentPod, podIPs, ""); err != nil {
+			// If the failure is retryable/recoverable, the pod
+			// has not been fully enrolled yet, and may have a partial annotation status,
+			// so we want to return an error and let the informer retry.
+			if errors.Is(err, ErrRetryablePartialAdd) {
+				log.Warnf("Unable to send pod to ztunnel. Will retry. AddPodToMesh returned: %v", err)
+				return err
+			}
+			// Otherwise, it was a more serious error we likely cannot recover from
+			// (iptables apply failed, etc etc) so do not bother to retry
+			log.Errorf("Failed capturing pod, will not retry. AddPodToMesh returned: %v", err)
 		}
 	case controllers.EventDelete:
 		// If the pod was annotated (by informer or plugin) remove pod from mesh.
@@ -342,11 +355,11 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// we *do not* want to check the cache for the pod - because it (probably)
 		// won't be there anymore. So for this case *alone*, we check the most recent
 		// pod information from the triggering event.
-		if util.PodRedirectionActive(latestEventPod) {
-			log.Debugf("pod is deleted and was captured, removing from ztunnel")
-			err := s.dataplane.RemovePodFromMesh(s.ctx, latestEventPod, true)
-			if err != nil {
-				log.Warnf("DelPodFromMesh returned: %v", err)
+		if util.PodFullyEnrolled(latestEventPod) || util.PodPartiallyEnrolled(latestEventPod) {
+			log.Debugf("pod is deleted and was (fully or partially) captured, removing from ztunnel")
+			if err := s.dataplane.RemovePodFromMesh(s.ctx, latestEventPod, true); err != nil {
+				log.Warnf("Unable to send pod to ztunnel for removal. Will retry. RemovePodFrmMesh returned: %v", err)
+				return err
 			}
 		} else {
 			log.Debugf("skipped deleting from mesh for pod, pod not in mesh")

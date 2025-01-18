@@ -19,22 +19,22 @@ import (
 	"fmt"
 )
 
-var ErrPartialAdd = errors.New("partial add error")
+var ErrRetryablePartialAdd = errors.New("partial add error")
 
-type PartialAddError struct {
+type RetryablePartialAddError struct {
 	inner error
 }
 
-func (e *PartialAddError) Error() string {
-	return fmt.Sprintf("%s: %v", ErrPartialAdd.Error(), e.inner)
+func (e *RetryablePartialAddError) Error() string {
+	return fmt.Sprintf("%s: %v", ErrRetryablePartialAdd.Error(), e.inner)
 }
 
-func (e *PartialAddError) Unwrap() []error {
-	return []error{ErrPartialAdd, e.inner}
+func (e *RetryablePartialAddError) Unwrap() []error {
+	return []error{ErrRetryablePartialAdd, e.inner}
 }
 
-func NewErrPartialAdd(err error) *PartialAddError {
-	return &PartialAddError{
+func NewErrRetryablePartialAdd(err error) *RetryablePartialAddError {
+	return &RetryablePartialAddError{
 		inner: err,
 	}
 }

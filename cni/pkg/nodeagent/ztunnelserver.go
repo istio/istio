@@ -278,7 +278,9 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 // PodDeleted sends a pod deletion notification to connected ztunnels.
 //
 // Note that unlike PodAdded, this deletion event is broadcast to *all*
-// currently-connected ztunnels - not just the latest. This is intentional.
+// currently-connected ztunnels - not just the latest.
+// This is intentional, and critical to handle proper shutdown/reconnect
+// cycles.
 func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 	r := &zdsapi.WorkloadRequest{
 		Payload: &zdsapi.WorkloadRequest_Del{

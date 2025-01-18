@@ -308,7 +308,7 @@ func TestReturnsPartialErrorOnZtunnelFail(t *testing.T) {
 
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "faksens")
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 1)
-	if !errors.Is(err, ErrPartialAdd) {
+	if !errors.Is(err, ErrRetryablePartialAdd) {
 		t.Fatal("expected partial error")
 	}
 }
@@ -336,7 +336,7 @@ func TestDoesntReturnPartialErrorOnIptablesFail(t *testing.T) {
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 0)
 
 	// error is not partial error
-	if errors.Is(err, ErrPartialAdd) {
+	if errors.Is(err, ErrRetryablePartialAdd) {
 		t.Fatal("expected not a partial error")
 	}
 }
