@@ -177,7 +177,15 @@ func (s *DebugWriter) PrintAll(drs map[string]*discovery.DiscoveryResponse) erro
 			if s.InternalDebugAllIstiod {
 				mappedResp[id] = string(resource.Value) + "\n"
 			} else {
-				_, _ = s.Writer.Write(resource.Value)
+				var result []map[string]interface{}
+				if err := json.Unmarshal(resource.Value, &result); err != nil {
+					return err
+				}
+				resp, err := json.MarshalIndent(result, "", "  ")
+				if err != nil {
+					return err
+				}
+				_, _ = s.Writer.Write(resp)
 				_, _ = s.Writer.Write([]byte("\n"))
 			}
 		}
