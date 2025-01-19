@@ -147,6 +147,10 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 	if o.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 		return nil, nil
 	}
+	// This is an east/west gateway, so it cannot have a waypoint
+	if o.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
+		return nil, nil
+	}
 	w, err := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
 	if err != nil || w == nil {
 		return nil, err
