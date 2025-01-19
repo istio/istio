@@ -2102,8 +2102,9 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 			server, programmed := buildListener(r, obj, l, i, controllerName)
 
 			servers = append(servers, server)
-			if controllerName == constants.ManagedGatewayMeshController {
-				// Waypoint doesn't actually convert the routes to VirtualServices
+			if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
+				// Waypoint and ambient e/w don't actually convert the routes to VirtualServices
+				// TODO: Maybe E/W gateway should for non 15008 ports for backwards compat?
 				continue
 			}
 			meta := parentMeta(obj, &l.Name)
@@ -2516,7 +2517,7 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 		return string(p), nil
 	// Our own custom types
 	case k8s.ProtocolType(protocol.HBONE):
-		if name != constants.ManagedGatewayMeshController {
+		if name != constants.ManagedGatewayMeshController && name != constants.ManagedGatewayEastWestController {
 			return "", fmt.Errorf("protocol %q is only supported for waypoint proxies", p)
 		}
 		return string(p), nil
