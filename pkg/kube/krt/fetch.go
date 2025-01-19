@@ -42,7 +42,7 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 		o(d)
 	}
 	// Important: register before we List(), so we cannot miss any events
-	h.registerDependency(d, c.Synced(), func(f erasedEventHandler) Syncer {
+	h.registerDependency(d, c, func(f erasedEventHandler) Syncer {
 		ff := func(o []Event[T], initialSync bool) {
 			f(slices.Map(o, castEvent[T, any]), initialSync)
 		}

@@ -164,6 +164,8 @@ type manyCollection[I, O any] struct {
 	synced       chan struct{}
 	stop         <-chan struct{}
 	queue        queue.Instance
+
+	syncer Syncer
 }
 
 type collectionIndex[I, O any] struct {
@@ -244,11 +246,12 @@ type multiIndex[I, O any] struct {
 	mappings map[Key[I]]sets.Set[Key[O]]
 }
 
-func (h *manyCollection[I, O]) Synced() Syncer {
-	return channelSyncer{
-		name:   h.collectionName,
-		synced: h.synced,
-	}
+func (h *manyCollection[I, O]) HasSynced() bool {
+	return h.syncer.HasSynced()
+}
+
+func (h *manyCollection[I, O]) WaitUntilSynced(stop <-chan struct{}) bool {
+	return h.syncer.WaitUntilSynced(stop)
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -523,6 +526,7 @@ func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 
 func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O], opts collectionOptions) Collection[O] {
 	c := cc.(internalCollection[I])
+
 	h := &manyCollection[I, O]{
 		transformation: hf,
 		collectionName: opts.name,
@@ -545,6 +549,10 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 		synced:        make(chan struct{}),
 		stop:          opts.stop,
 	}
+	h.syncer = channelSyncer{
+		name:   h.collectionName,
+		synced: h.synced,
+	}
 	maybeRegisterCollectionForDebugging(h, opts.debugger)
 
 	// Create our queue. When it syncs (that is, all items that were present when Run() was called), we mark ourselves as synced.
@@ -564,7 +572,7 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 func (h *manyCollection[I, O]) runQueue() {
 	c := h.parent
 	// Wait for primary dependency to be ready
-	if !c.Synced().WaitUntilSynced(h.stop) {
+	if !c.WaitUntilSynced(h.stop) {
 		return
 	}
 	// Now register to our primary collection. On any event, we will enqueue the update.
@@ -649,7 +657,7 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) Syncer {
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bool), runExistingState bool) Syncer {
 	if !runExistingState {
 		// If we don't to run the initial state this is simple, we just register the handler.
-		return h.eventHandlers.Insert(f, h.Synced(), nil, h.stop)
+		return h.eventHandlers.Insert(f, h, nil, h.stop)
 	}
 	// We need to run the initial state, but we don't want to get duplicate events.
 	// We should get "ADD initialObject1, ADD initialObjectN, UPDATE someLaterUpdate" without mixing the initial ADDs
@@ -667,7 +675,7 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bo
 	}
 
 	// Send out all the initial objects to the handler. We will then unlock the new events so it gets the future updates.
-	return h.eventHandlers.Insert(f, h.Synced(), events, h.stop)
+	return h.eventHandlers.Insert(f, h, events, h.stop)
 }
 
 func (h *manyCollection[I, O]) name() string {

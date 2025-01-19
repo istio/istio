@@ -229,7 +229,7 @@ func TestCollectionInitialState(t *testing.T) {
 	SimplePods := SimplePodCollection(pods, opts)
 	SimpleServices := SimpleServiceCollection(services, opts)
 	SimpleEndpoints := SimpleEndpointsCollection(SimplePods, SimpleServices, opts)
-	assert.Equal(t, SimpleEndpoints.Synced().WaitUntilSynced(stop), true)
+	assert.Equal(t, SimpleEndpoints.WaitUntilSynced(stop), true)
 	// Assert Equal -- not EventuallyEqual -- to ensure our WaitForCacheSync is proper
 	assert.Equal(t, fetcherSorted(SimpleEndpoints)(), []SimpleEndpoint{{"pod", "svc", "namespace", "1.2.3.4"}})
 }

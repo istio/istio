@@ -697,10 +697,10 @@ func (a *index) Run(stop <-chan struct{}) {
 }
 
 func (a *index) HasSynced() bool {
-	return a.services.Synced().HasSynced() &&
-		a.workloads.Synced().HasSynced() &&
-		a.waypoints.Synced().HasSynced() &&
-		a.authorizationPolicies.Synced().HasSynced()
+	return a.services.HasSynced() &&
+		a.workloads.HasSynced() &&
+		a.waypoints.HasSynced() &&
+		a.authorizationPolicies.HasSynced()
 }
 
 type (

@@ -147,7 +147,7 @@ func runConformance[T any](t *testing.T, collection Rig[T]) {
 	earlyHandlerSynced := collection.Register(TrackerHandler[T](earlyHandler))
 
 	// Ensure the collection and handler are synced
-	assert.Equal(t, collection.Synced().WaitUntilSynced(stop), true)
+	assert.Equal(t, collection.WaitUntilSynced(stop), true)
 	assert.Equal(t, earlyHandlerSynced.WaitUntilSynced(stop), true)
 
 	// Create an object

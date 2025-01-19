@@ -29,6 +29,7 @@ type join[T any] struct {
 	collections      []internalCollection[T]
 	synced           <-chan struct{}
 	uncheckedOverlap bool
+	syncer           Syncer
 }
 
 func (j *join[T]) GetKey(k string) *T {
@@ -152,6 +153,14 @@ func (j *join[T]) Synced() Syncer {
 	}
 }
 
+func (j *join[T]) HasSynced() bool {
+	return j.syncer.HasSynced()
+}
+
+func (j *join[T]) WaitUntilSynced(stop <-chan struct{}) bool {
+	return j.syncer.WaitUntilSynced(stop)
+}
+
 // JoinCollection combines multiple Collection[T] into a single
 // Collection[T] merging equal objects into one record
 // in the resulting Collection
@@ -166,7 +175,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	})
 	go func() {
 		for _, c := range c {
-			if !c.Synced().WaitUntilSynced(o.stop) {
+			if !c.WaitUntilSynced(o.stop) {
 				return
 			}
 		}
@@ -180,5 +189,9 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		synced:           synced,
 		collections:      c,
 		uncheckedOverlap: o.joinUnchecked,
+		syncer: channelSyncer{
+			name:   o.name,
+			synced: synced,
+		},
 	}
 }
