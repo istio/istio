@@ -203,8 +203,8 @@ func mount(src, dst string) error {
 	return syscall.Mount(src, dst, "", syscall.MS_BIND|syscall.MS_RDONLY, "")
 }
 
-func (r *RealDependencies) executeXTablesWithOutput(log *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion,
-	ignoreErrors bool, silenceOutput bool, stdin io.ReadSeeker, args ...string,
+func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion,
+	silenceErrors bool, stdin io.ReadSeeker, args ...string,
 ) (*bytes.Buffer, error) {
 	mode := "without lock"
 	stdout := &bytes.Buffer{}
@@ -268,15 +268,11 @@ func (r *RealDependencies) executeXTablesWithOutput(log *log.Scope, cmd constant
 	c.Stdin = stdin
 	err := run(c)
 	if len(stdout.String()) != 0 {
-		if !silenceOutput {
-			log.Infof("Command output: \n%v", stdout.String())
-		} else {
-			log.Debugf("Command output: \n%v", stdout.String())
-		}
+		log.Debugf("Command output: \n%v", stdout.String())
 	}
 
 	// TODO Check naming and redirection logic
-	if (err != nil || len(stderr.String()) != 0) && !ignoreErrors {
+	if (err != nil || len(stderr.String()) != 0) && !silenceErrors {
 		stderrStr := stderr.String()
 
 		// Transform to xtables-specific error messages with more useful and actionable hints.
@@ -285,22 +281,10 @@ func (r *RealDependencies) executeXTablesWithOutput(log *log.Scope, cmd constant
 		}
 
 		log.Errorf("Command error output: %v", stderrStr)
-	} else if err != nil && ignoreErrors {
+	} else if err != nil && silenceErrors {
 		// Log ignored errors for debugging purposes
 		log.Debugf("Ignoring iptables command error: %v", err)
 	}
 
 	return stdout, err
-}
-
-func (r *RealDependencies) executeXTables(
-	logger *log.Scope,
-	cmd constants.IptablesCmd,
-	iptVer *IptablesVersion,
-	ignoreErrors bool,
-	stdin io.ReadSeeker,
-	args ...string,
-) error {
-	_, err := r.executeXTablesWithOutput(logger, cmd, iptVer, ignoreErrors, false, stdin, args...)
-	return err
 }
