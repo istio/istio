@@ -116,6 +116,8 @@ type patcher func(gvr schema.GroupVersionResource, name string, namespace string
 type classInfo struct {
 	// controller name for this class
 	controller string
+	// controller label for this class
+	controllerLabel string
 	// description for this class
 	description string
 	// The key in the templates to use for this class
@@ -150,6 +152,12 @@ func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 	if features.EnableAmbientWaypoints {
 		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
 	}
+
+	// N.B Ambient e/w gateways are just fancy waypoints, but we want a different
+	// GatewayClass for better UX
+	if features.EnableAmbientMultiNetwork {
+		res[constants.EastWestGatewayClassName] = constants.ManagedGatewayEastWestController
+	}
 	return res
 }
 
@@ -161,6 +169,7 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			templates:          "kube-gateway",
 			defaultServiceType: corev1.ServiceTypeLoadBalancer,
 			addressType:        gateway.HostnameAddressType,
+			controllerLabel:    constants.ManagedGatewayControllerLabel,
 		},
 	}
 
@@ -183,7 +192,20 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			defaultServiceType: corev1.ServiceTypeClusterIP,
 			// Report both. Consumers of the gateways can choose which they want.
 			// In particular, Istio across different versions consumes different address types, so this retains compat
-			addressType: "",
+			addressType:     "",
+			controllerLabel: constants.ManagedGatewayMeshControllerLabel,
+		}
+	}
+
+	if features.EnableAmbientMultiNetwork {
+		m[constants.ManagedGatewayEastWestController] = classInfo{
+			controller:         constants.ManagedGatewayEastWestController,
+			description:        "The default GatewayClass for Istio East West Gateways",
+			templates:          "waypoint",
+			disableNameSuffix:  true,
+			defaultServiceType: corev1.ServiceTypeLoadBalancer,
+			addressType:        "",
+			controllerLabel:    constants.ManagedGatewayEastWestControllerLabel,
 		}
 	}
 	return m
@@ -364,6 +386,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 		log.Debugf("skipping unknown controller %q", controller)
 		return nil
 	}
+	log.Infof("reconciling gateway with controller %s", ci.controller)
 
 	// find the tag or revision indicated by the object
 	if !d.tagWatcher.IsMine(gw.ObjectMeta) {
@@ -423,7 +446,10 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		InfrastructureLabels:      gw.GetLabels(),
 		InfrastructureAnnotations: gw.GetAnnotations(),
 		GatewayNameLabel:          label.IoK8sNetworkingGatewayGatewayName.Name,
+		IsEastWestGateway:         features.EnableAmbientMultiNetwork && gi.controller == constants.ManagedGatewayEastWestController,
+		ControllerLabel:           gi.controllerLabel,
 	}
+
 	// Default to the gateway labels/annotations and overwrite if infrastructure labels/annotations are set
 	input.InfrastructureLabels = extractInfrastructureLabels(gw)
 	input.InfrastructureAnnotations = extractInfrastructureAnnotations(gw)
@@ -455,7 +481,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 }
 
 func (d *DeploymentController) setLabelOverrides(gw gateway.Gateway, input TemplateInput) {
-	// TODO: Codify this API (i.e how to know if a specific gateway is an Istio waypoint gateway)
+	// TODO: Codify this API (i.e how to know if a specific gateway is an Istio waypoint or east/west gateway)
 	isWaypointGateway := strings.Contains(string(gw.Spec.GatewayClassName), "waypoint")
 
 	var hasAmbientLabel bool
@@ -848,6 +874,8 @@ type TemplateInput struct {
 	InfrastructureLabels      map[string]string
 	InfrastructureAnnotations map[string]string
 	GatewayNameLabel          string
+	IsEastWestGateway         bool
+	ControllerLabel           string
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {

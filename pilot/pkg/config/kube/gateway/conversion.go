@@ -1860,7 +1860,7 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 		return string(p), nil
 	// Our own custom types
 	case k8s.ProtocolType(protocol.HBONE):
-		if name != constants.ManagedGatewayMeshController {
+		if name != constants.ManagedGatewayMeshController && name != constants.ManagedGatewayEastWestController {
 			return "", fmt.Errorf("protocol %q is only supported for waypoint proxies", p)
 		}
 		return string(p), nil

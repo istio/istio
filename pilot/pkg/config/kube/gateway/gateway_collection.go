@@ -104,8 +104,9 @@ func GatewayCollection(
 			server, programmed := buildListener(ctx, secrets, grants, namespaces, obj, status, l, i, controllerName)
 
 			servers = append(servers, server)
-			if controllerName == constants.ManagedGatewayMeshController {
-				// Waypoint doesn't actually convert the routes to VirtualServices
+			if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
+				// Waypoint and ambient e/w don't actually convert the routes to VirtualServices
+				// TODO: Maybe E/W gateway should for non 15008 ports for backwards compat?
 				continue
 			}
 			meta := parentMeta(obj, &l.Name)
