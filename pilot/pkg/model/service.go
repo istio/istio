@@ -150,7 +150,7 @@ func (s *Service) SupportsDrainingEndpoints() bool {
 
 // SupportsUnhealthyEndpoints marks if this service should send unhealthy endpoints
 func (s *Service) SupportsUnhealthyEndpoints() bool {
-	if features.RawSendUnhealthyEndpoints.Load() {
+	if features.GlobalSendUnhealthyEndpoints.Load() {
 		// Enable process-wide
 		return true
 	}

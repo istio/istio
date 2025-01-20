@@ -2463,7 +2463,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
-			test.SetAtomicBoolForTest(t, features.RawSendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
+			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
 			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
 				LoadAssignment:       &endpoint.ClusterLoadAssignment{},

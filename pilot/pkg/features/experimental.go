@@ -29,8 +29,8 @@ var (
 	FilterGatewayClusterConfig = env.Register("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
 		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
 
-	// RawSendUnhealthyEndpoints contains the raw setting on RawSendUnhealthyEndpoints. This should be checked per-service
-	RawSendUnhealthyEndpoints = atomic.NewBool(env.Register(
+	// GlobalSendUnhealthyEndpoints contains the raw setting on GlobalSendUnhealthyEndpoints. This should be checked per-service
+	GlobalSendUnhealthyEndpoints = atomic.NewBool(env.Register(
 		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
 		false,
 		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing."+

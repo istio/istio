@@ -165,7 +165,7 @@ func TestIncrementalPush(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/38709
 func TestSAUpdate(t *testing.T) {
-	test.SetAtomicBoolForTest(t, features.RawSendUnhealthyEndpoints, false)
+	test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, false)
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.Connect(s.SetupProxy(nil), nil, []string{v3.ClusterType})
 
@@ -207,7 +207,7 @@ func TestSAUpdate(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/38709
 func TestSAUpdateWithMulAddrsInstance(t *testing.T) {
-	test.SetAtomicBoolForTest(t, features.RawSendUnhealthyEndpoints, false)
+	test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, false)
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.Connect(s.SetupProxy(nil), nil, []string{v3.ClusterType})
 
@@ -398,7 +398,7 @@ func TestEDSOverlapping(t *testing.T) {
 func TestEDSUnhealthyEndpoints(t *testing.T) {
 	for _, sendUnhealthy := range []bool{true, false} {
 		t.Run(fmt.Sprint(sendUnhealthy), func(t *testing.T) {
-			test.SetAtomicBoolForTest(t, features.RawSendUnhealthyEndpoints, sendUnhealthy)
+			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, sendUnhealthy)
 			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 			addUnhealthyCluster(s, sendUnhealthy)
 			s.EnsureSynced(t)

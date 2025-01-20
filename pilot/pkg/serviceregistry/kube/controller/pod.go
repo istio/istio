@@ -197,7 +197,7 @@ func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
 		"",
 		model.AlwaysDiscoverable,
 		model.Healthy,
-		features.RawSendUnhealthyEndpoints.Load(),
+		features.GlobalSendUnhealthyEndpoints.Load(),
 	)
 	// If pod is dual stack, handle all IPs
 	if features.EnableDualStack && len(pod.Status.PodIPs) > 1 {
