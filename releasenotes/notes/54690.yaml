@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 53596
+
+releaseNotes:
+- |
+  **Deprecated** use of `ISTIO_META_DNS_AUTO_ALLOCATE` in proxyMetadata in favor of https://istio.io/latest/docs/ops/configuration/traffic-management/dns-proxy/#dns-auto-allocation-v2. New users of Istio IP auto-allocation should adopt the new status-based controller. Existing users may continue to use the older implementation. 

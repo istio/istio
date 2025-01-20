@@ -323,7 +323,8 @@ func ValidateTLS(settings *networking.ClientTLSSettings) (errs error) {
 }
 
 // ValidateMeshConfigProxyConfig checks that the mesh config is well-formed
-func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) {
+func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) Validation {
+	var errs, warnings error
 	if config.ConfigPath == "" {
 		errs = multierror.Append(errs, errors.New("config path must be set"))
 	}
@@ -401,6 +402,12 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		}
 	}
 
+	// use of "ISTIO_META_DNS_AUTO_ALLOCATE" is being deprecated, check and warn
+	if _, autoAllocationV1Used := config.GetProxyMetadata()["ISTIO_META_DNS_AUTO_ALLOCATE"]; autoAllocationV1Used {
+		warnings = multierror.Append(warnings, errors.New("'ISTIO_META_DNS_AUTO_ALLOCATE' is deprecated; review "+
+			"https://istio.io/latest/docs/ops/configuration/traffic-management/dns-proxy/#dns-auto-allocation-v2 for information about replacement functionality"))
+	}
+
 	if config.EnvoyMetricsService != nil && config.EnvoyMetricsService.Address != "" {
 		if err := ValidateProxyAddress(config.EnvoyMetricsService.Address); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsService.Address)))
@@ -431,7 +438,7 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		}
 	}
 
-	return
+	return Validation{errs, warnings}
 }
 
 func ValidateControlPlaneAuthPolicy(policy meshconfig.AuthenticationPolicy) error {

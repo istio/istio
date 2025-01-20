@@ -55,7 +55,8 @@ func validateProxyConfig(value string) error {
 	if err := protomarshal.ApplyYAML(value, config); err != nil {
 		return fmt.Errorf("failed to convert to apply proxy config: %v", err)
 	}
-	return agent.ValidateMeshConfigProxyConfig(config)
+	v := agent.ValidateMeshConfigProxyConfig(config)
+	return v.Err
 }
 
 func validateAnnotations(annotations map[string]string) (err error) {
