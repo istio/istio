@@ -224,7 +224,7 @@ func (s *StatusSyncer) shouldTargetIngress(ingress *knetworking.Ingress) bool {
 	if ingress.Spec.IngressClassName != nil {
 		ingressClass = s.ingressClasses.Get(*ingress.Spec.IngressClassName, "")
 	}
-	return shouldProcessIngressWithClass(s.meshConfig.Mesh(), ingress, ingressClass)
+	return shouldProcessIngressWithClass(s.meshConfig.Mesh(), ingressClass)
 }
 
 func (s *StatusSyncer) enqueueAll() {
