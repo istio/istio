@@ -1,0 +1,8 @@
+#!/bin/sh
+
+set -e
+
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+
+exec "${WD}/run-tool" "lister-gen" "k8s.io/code-generator/cmd/lister-gen" "$@"

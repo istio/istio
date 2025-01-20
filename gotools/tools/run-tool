@@ -1,0 +1,57 @@
+#!/bin/sh
+set -e
+
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+
+function hash() {
+  local base="${1}"
+  {
+    cat "${base}"/go.*
+    # GOGCCFLAGS changes each time
+    go env | grep -v GOGCCFLAGS
+  }  | sha256sum | cut -f1 -d' '
+}
+
+function findpath() {
+  local path="$1"
+  local key="$2"
+  while read line; do
+    fk="$(<<<"$line" cut -f1 -d=)"
+    if [[ "${fk}" == "${key}" ]]; then
+      # We found a matching hash key, print the path
+      <<<"$line" cut -f2 -d=
+      break
+    fi
+  done <"${path}"
+}
+
+toolname="${1:?tool name}"
+toolfull="${2:?tool full}"
+
+pushd "${WD}/source/${toolname}" > /dev/null
+key="$(hash "${WD}/source/${toolname}")"
+if [[ -f .cache ]]; then
+  bin="$(findpath .cache "${key}")"
+  if [ ! -f "${bin}" ]; then
+    # We found a cached entry, but it has been removed from disk
+    sed -i "/${key}=/d" .cache
+    bin=""
+  fi
+else
+  # I am not entirely sure why but the first time we execute we seem to have the binary not persisted
+  # Run it twice
+  go1.24rc1 tool -n "${toolfull}" > /dev/null
+fi
+# Need to build
+if [[ -z "${bin}" ]]; then
+    bin="$(go1.24rc1 tool -n "${toolfull}")"
+    # Store our entry in the cache
+    echo "${key}=${bin}" >> .cache
+fi
+popd > /dev/null
+
+# First arg was the binary to run, so shift it.
+shift
+shift
+exec "${bin}" "$@"

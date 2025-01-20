@@ -1,0 +1,8 @@
+#!/bin/sh
+
+set -e
+
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+
+exec "${WD}/run-tool" "protoc-gen-docs" "istio.io/tools/cmd/protoc-gen-docs" "$@"

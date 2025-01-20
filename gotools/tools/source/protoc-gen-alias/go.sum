@@ -1,0 +1,4 @@
+google.golang.org/protobuf v1.36.0 h1:mjIs9gYtt56AzC4ZaffQuh88TZurBGhIJMBZGSxNerQ=
+google.golang.org/protobuf v1.36.0/go.mod h1:9fA7Ob0pmnwhb644+1+CVWFRbNajQ6iRojtC/QF5bRE=
+istio.io/tools v0.0.0-20250120191759-4ce71408e994 h1:9M0842S1UpbDJuaVX/gpMwpZ+RC9jVRacAhUHgIc5u4=
+istio.io/tools v0.0.0-20250120191759-4ce71408e994/go.mod h1:3/3x388KCkgNcxFaNoSsxC98zatVivnw2D4vbIbVfTs=

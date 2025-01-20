@@ -29,7 +29,8 @@ su-exec 0:0 cp `which go1.24rc2` `which go`
 go version
 go1.24rc2 version
 
-export PATH="/home/prow/go/istio:$PATH"
+export PATH="/home/prow/go/istio/gotools/tools:$PATH"
+kind version
 
 if [[ "${TARGET_OUT_LINUX:-}" == "" ]]; then
   echo "Environment variables not set. Make sure you run through the makefile (\`make init\`) rather than directly."

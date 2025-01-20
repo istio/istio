@@ -1,0 +1,56 @@
+#!/bin/bash
+
+set -e
+
+WD=$(dirname "$0")
+WD=$(cd "$WD"; pwd)
+cd "${WD}"
+
+
+function version_aware_basename() {
+  local n="$1"
+  # Get the last component of the path
+  local bn="$(basename "$n")"
+  
+  # Check if the basename starts with 'v' followed by a number
+  if [[ "$bn" =~ ^v[0-9] ]]; then
+    # If it does, return the parent directory name instead
+    dirname="$(basename "$(dirname "$n")")"
+    echo "$dirname"
+  else
+    # Otherwise return the basename as normal
+    echo "$bn"
+  fi
+}
+
+
+path="$(<<<"$1" cut -d@ -f1)"
+name="$(version_aware_basename "$path")"
+
+# Create a dedicated folder so we have isolation between the versions used by each tool
+# TODO: make a tool-group so we can share the same underlying go.mod
+rm -rf "./source/${name}"
+mkdir -p "./source/${name}"
+pushd "./source/${name}" > /dev/null
+go1.24rc1 mod init "local/tool/${name}"
+go1.24rc1 get -tool "$1"
+popd > /dev/null
+
+function hash() {
+    echo
+}
+
+# Create a helper script
+# We find the binary of the tool using -n so we can run in the appropriate
+# working directory.
+cat <<EOF > "./${name}"
+#!/bin/sh
+
+set -e
+
+WD=\$(dirname "\$0")
+WD=\$(cd "\$WD"; pwd)
+
+exec "\${WD}/run-tool" "${name}" "${path}" "\$@"
+EOF
+chmod +x "./${name}"
