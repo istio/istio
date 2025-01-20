@@ -440,7 +440,7 @@ func TestServiceEntryServices(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
-			a := newAmbientUnitTest()
+			a := newAmbientUnitTest(t)
 			builder := a.serviceEntryServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
@@ -766,7 +766,7 @@ func TestServiceServices(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
-			a := newAmbientUnitTest()
+			a := newAmbientUnitTest(t)
 			builder := a.serviceServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
@@ -900,7 +900,7 @@ func TestServiceConditions(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
-			a := newAmbientUnitTest()
+			a := newAmbientUnitTest(t)
 			builder := a.serviceServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),

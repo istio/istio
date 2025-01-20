@@ -110,8 +110,7 @@ func (a *index) WorkloadsCollection(
 		opts.WithName("EndpointSliceWorkloads")...)
 
 	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
-		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		return slices.Map(a.LookupAllNetworkGateway(), convertGateway)
+		return slices.Map(a.LookupAllNetworkGateway(ctx), convertGateway)
 	}, opts.WithName("NetworkGatewayWorkloads")...)
 
 	Workloads := krt.JoinCollection(
@@ -152,8 +151,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 			}))
 		}
 		services := krt.Fetch(ctx, workloadServices, fo...)
-		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		network := a.Network(wle.Spec.Address, wle.Labels).String()
+		network := a.Network(ctx).String()
 		if wle.Spec.Network != "" {
 			network = wle.Spec.Network
 		}
@@ -166,7 +164,7 @@ func (a *index) workloadEntryWorkloadBuilder(
 			Name:                  wle.Name,
 			Namespace:             wle.Namespace,
 			Network:               network,
-			NetworkGateway:        a.getNetworkGatewayAddress(network),
+			NetworkGateway:        a.getNetworkGatewayAddress(ctx, network),
 			ClusterId:             string(a.ClusterID),
 			ServiceAccount:        wle.Spec.ServiceAccount,
 			Services:              constructServicesFromWorkloadEntry(&wle.Spec, services),
@@ -272,9 +270,8 @@ func (a *index) podWorkloadBuilder(
 		if !IsPodReady(p) || p.DeletionTimestamp != nil {
 			status = workloadapi.WorkloadStatus_UNHEALTHY
 		}
-		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
 		// We only check the network of the first IP. This should be fine; it is not supported for a single pod to span multiple networks
-		network := a.Network(p.Status.PodIP, p.Labels).String()
+		network := a.Network(ctx).String()
 
 		appTunnel, targetWaypoint := computeWaypoint(ctx, waypoints, namespaces, p.ObjectMeta)
 
@@ -286,7 +283,7 @@ func (a *index) podWorkloadBuilder(
 			Name:                  p.Name,
 			Namespace:             p.Namespace,
 			Network:               network,
-			NetworkGateway:        a.getNetworkGatewayAddress(network),
+			NetworkGateway:        a.getNetworkGatewayAddress(ctx, network),
 			ClusterId:             string(a.ClusterID),
 			Addresses:             podIPs,
 			ServiceAccount:        p.Spec.ServiceAccountName,
@@ -433,7 +430,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 		}
 		// here we don't care about the *service* waypoint (hence it is nil); we are only going to use a subset of the info in
 		// `allServices` (since we are building workloads here, not services).
-		allServices := a.serviceEntriesInfo(se, nil, nil)
+		allServices := a.serviceEntriesInfo(ctx, se, nil, nil)
 		if implicitEndpoints {
 			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
 				return &networkingv1alpha3.WorkloadEntry{Address: si.Service.Hostname}
@@ -472,8 +469,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 			// enforce traversing waypoints
 			policies = append(policies, implicitWaypointPolicies(a.Flags, ctx, waypoints, targetWaypoint, services)...)
 
-			a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-			network := a.Network(wle.Address, wle.Labels).String()
+			network := a.Network(ctx).String()
 			if wle.Network != "" {
 				network = wle.Network
 			}
@@ -482,7 +478,7 @@ func (a *index) serviceEntryWorkloadBuilder(
 				Name:                  se.Name,
 				Namespace:             se.Namespace,
 				Network:               network,
-				NetworkGateway:        a.getNetworkGatewayAddress(network),
+				NetworkGateway:        a.getNetworkGatewayAddress(ctx, network),
 				ClusterId:             string(a.ClusterID),
 				ServiceAccount:        wle.ServiceAccount,
 				Services:              constructServicesFromWorkloadEntry(wle, services),
@@ -624,7 +620,7 @@ func (a *index) endpointSlicesBuilder(
 				Namespace:   es.Namespace,
 				Addresses:   addresses,
 				Hostname:    "",
-				Network:     a.Network(key, nil).String(),
+				Network:     a.Network(ctx).String(),
 				TrustDomain: pickTrustDomain(meshCfg),
 				Services:    services,
 				Status:      health,
@@ -863,9 +859,9 @@ func gatewayUID(gw model.NetworkGateway) string {
 // convertGateway always converts a NetworkGateway into a Workload.
 // Workloads have a NetworkGateway field, which is effectively a pointer to another object (Service or Workload); in order
 // to facilitate this we need to translate our Gateway model down into a WorkloadInfo ztunnel can understand.
-func convertGateway(gw model.NetworkGateway) model.WorkloadInfo {
+func convertGateway(gw NetworkGateway) model.WorkloadInfo {
 	wl := &workloadapi.Workload{
-		Uid:            gatewayUID(gw),
+		Uid:            gatewayUID(gw.NetworkGateway),
 		ServiceAccount: gw.ServiceAccount.Name,
 		Namespace:      gw.ServiceAccount.Namespace,
 		Network:        gw.Network.String(),
@@ -880,8 +876,8 @@ func convertGateway(gw model.NetworkGateway) model.WorkloadInfo {
 	return precomputeWorkload(model.WorkloadInfo{Workload: wl})
 }
 
-func (a *index) getNetworkGatewayAddress(n string) *workloadapi.GatewayAddress {
-	if networks := a.LookupNetworkGateway(network.ID(n)); len(networks) > 0 {
+func (a *index) getNetworkGatewayAddress(ctx krt.HandlerContext, n string) *workloadapi.GatewayAddress {
+	if networks := a.LookupNetworkGateway(ctx, network.ID(n)); len(networks) > 0 {
 		// Currently only support one, so find the first one that is valid
 		for _, net := range networks {
 			if net.HBONEPort == 0 {

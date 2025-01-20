@@ -241,7 +241,7 @@ func (a *index) WaypointsCollection(
 			trafficType = tt
 		}
 
-		return a.makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType)
+		return a.makeWaypoint(ctx, gateway, gatewayClass, serviceAccounts, trafficType)
 	}, opts.WithName("Waypoints")...)
 }
 
@@ -303,6 +303,7 @@ func getGatewayOrGatewayClassAnnotation(gateway *v1beta1.Gateway, class *v1beta1
 }
 
 func (a *index) makeWaypoint(
+	ctx krt.HandlerContext,
 	gateway *v1beta1.Gateway,
 	gatewayClass *v1beta1.GatewayClass,
 	serviceAccounts []string,
@@ -310,7 +311,7 @@ func (a *index) makeWaypoint(
 ) *Waypoint {
 	return &Waypoint{
 		Named:           krt.NewNamed(gateway),
-		Address:         a.getGatewayAddress(gateway),
+		Address:         a.getGatewayAddress(ctx, gateway),
 		DefaultBinding:  makeInboundBinding(gateway, gatewayClass),
 		AllowedRoutes:   makeAllowedRoutes(gateway),
 		TrafficType:     trafficType,
@@ -394,7 +395,7 @@ func makeAllowedRoutes(gateway *v1beta1.Gateway) WaypointSelector {
 	}
 }
 
-func (a *index) getGatewayAddress(gw *v1beta1.Gateway) *workloadapi.GatewayAddress {
+func (a *index) getGatewayAddress(ctx krt.HandlerContext, gw *v1beta1.Gateway) *workloadapi.GatewayAddress {
 	for _, addr := range gw.Status.Addresses {
 		if addr.Type != nil && *addr.Type == v1beta1.HostnameAddressType {
 			// Prefer hostname from status, if we can find it.
@@ -425,7 +426,7 @@ func (a *index) getGatewayAddress(gw *v1beta1.Gateway) *workloadapi.GatewayAddre
 			return &workloadapi.GatewayAddress{
 				Destination: &workloadapi.GatewayAddress_Address{
 					// probably use from Cidr instead?
-					Address: a.toNetworkAddressFromIP(ip),
+					Address: a.toNetworkAddressFromIP(ctx, ip),
 				},
 				// TODO: look up the HBONE port instead of hardcoding it
 				HboneMtlsPort: 15008,
