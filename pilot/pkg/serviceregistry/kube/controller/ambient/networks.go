@@ -47,8 +47,8 @@ type networkCollections struct {
 }
 
 func (c networkCollections) HasSynced() bool {
-	return c.SystemNamespace.AsCollection().Synced().HasSynced() &&
-		c.NetworkGateways.Synced().HasSynced()
+	return c.SystemNamespace.AsCollection().HasSynced() &&
+		c.NetworkGateways.HasSynced()
 }
 
 func buildNetworkCollections(
