@@ -20,6 +20,16 @@
 set -o errexit
 set -o nounset
 set -o pipefail
+set -x
+
+(cd /tmp; go install golang.org/dl/go1.24rc2@latest)
+go1.24rc2 download
+go version
+su-exec 0:0 cp `which go1.24rc2` `which go`
+go version
+go1.24rc2 version
+
+export PATH="/home/prow/go/istio:$PATH"
 
 if [[ "${TARGET_OUT_LINUX:-}" == "" ]]; then
   echo "Environment variables not set. Make sure you run through the makefile (\`make init\`) rather than directly."
