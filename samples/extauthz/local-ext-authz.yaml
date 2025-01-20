@@ -83,7 +83,7 @@ spec:
         ports:
         - containerPort: 8080
       - image: gcr.io/istio-testing/ext-authz:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: ext-authz
         ports:
         - containerPort: 8000
