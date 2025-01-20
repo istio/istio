@@ -147,6 +147,57 @@ func TestInformerExistingPodAddErrorRetriesIfRetryable(t *testing.T) {
 	fs.AssertExpectations(t)
 }
 
+func TestInformerExistingPodAddErrorAnnotatesWithPartialStatusOnRetry(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "test",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+		},
+	}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+	client := kube.NewFakeClient(ns, pod)
+	fs := &fakeServer{}
+
+	fs.On("AddPodToMesh",
+		ctx,
+		mock.IsType(pod),
+		util.GetPodIPsIfPresent(pod),
+		"",
+	).Return(ErrRetryablePartialAdd)
+
+	_, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
+
+	// label the namespace
+	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
+	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
+		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
+	assert.NoError(t, err)
+
+	// wait for all update events to settle
+	// 1. init ns reconcile 2. ns label reconcile 3. pod reconcile 4. pod partial anno
+	// 5. retry 6. retry
+	// This must be AtLeast because informer will keep retrying. We just need to wait for enough events
+	// to know the pod got a partial annotation
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(6))
+
+	assertPodAnnotatedPending(t, client, pod)
+
+	// Assert expected calls actually made
+	fs.AssertExpectations(t)
+}
+
 func TestInformerExistingPodAddErrorDoesNotRetryIfNotRetryable(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
