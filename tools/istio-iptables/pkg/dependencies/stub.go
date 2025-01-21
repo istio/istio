@@ -44,7 +44,7 @@ func (s *DependenciesStub) Run(logger *log.Scope,
 	stdin io.ReadSeeker,
 	args ...string,
 ) (*bytes.Buffer, error) {
-	s.execute(quietLogging /*quietly*/, cmd, iptVer, stdin, args...)
+	s.execute(quietLogging, cmd, iptVer, stdin, args...)
 	_ = s.writeAllToDryRunPath()
 	return &bytes.Buffer{}, nil
 }
