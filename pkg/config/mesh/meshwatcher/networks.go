@@ -31,6 +31,7 @@ func (n networksAdapter) Networks() *meshconfig.MeshNetworks {
 	return v.MeshNetworks
 }
 
+// AddNetworksHandler registers a callback handler for changes to the networks config.
 func (n networksAdapter) AddNetworksHandler(h func()) *mesh.WatcherHandlerRegistration {
 	active := uatomic.NewBool(true)
 	reg := mesh.NewWatcherHandlerRegistration(func() {

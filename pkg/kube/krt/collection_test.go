@@ -533,7 +533,7 @@ func TestCollectionDiscardResult(t *testing.T) {
 			ctx.DiscardResult()
 			return &Static{Value: state.Load()}
 		}, opts.WithName("Test")...)
-		assert.Equal(t, col.AsCollection().Synced().WaitUntilSynced(stop), true)
+		assert.Equal(t, col.AsCollection().WaitUntilSynced(stop), true)
 		// Use the initial state
 		assert.EventuallyEqual(t, col.Get, &Static{Value: "initial"})
 	})
@@ -546,7 +546,7 @@ func TestCollectionDiscardResult(t *testing.T) {
 			ctx.DiscardResult()
 			return nil
 		}, opts.WithName("Test")...)
-		assert.Equal(t, col.AsCollection().Synced().WaitUntilSynced(stop), true)
+		assert.Equal(t, col.AsCollection().WaitUntilSynced(stop), true)
 		// Use the initial state
 		assert.EventuallyEqual(t, col.Get, nil)
 	})
@@ -566,7 +566,7 @@ func TestCollectionDiscardResult(t *testing.T) {
 		}, opts.WithName("Test")...)
 		col.AsCollection().Register(TrackerHandler[Static](tt))
 
-		assert.Equal(t, col.AsCollection().Synced().WaitUntilSynced(stop), true)
+		assert.Equal(t, col.AsCollection().WaitUntilSynced(stop), true)
 		// Use the initial state
 		assert.EventuallyEqual(t, col.Get, &Static{Value: "initial"})
 

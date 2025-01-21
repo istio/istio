@@ -1654,9 +1654,7 @@ func newAmbientUnitTest(t test.Failer) *index {
 		Options{
 			SystemNamespace: systemNS,
 			ClusterID:       testC,
-		}, KrtOptions{
-			stop: test.NewStop(t),
-		})
+		}, krt.NewOptionsBuilder(test.NewStop(t), nil))
 	idx := &index{
 		networks:        networks,
 		SystemNamespace: systemNS,

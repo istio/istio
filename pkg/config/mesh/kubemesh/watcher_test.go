@@ -208,7 +208,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	opts := krttest.Options(t)
 	primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, opts)
 	col := meshwatcher.NewCollection(opts, primaryMeshConfig)
-	col.AsCollection().Synced().WaitUntilSynced(opts.Stop())
+	col.AsCollection().WaitUntilSynced(opts.Stop())
 	w := meshwatcher.ConfigAdapter(col)
 	client.RunAndWait(opts.Stop())
 

@@ -48,7 +48,7 @@ const (
 func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
 	log.Infof("initializing mesh configuration %v", args.MeshConfigFile)
 	col := s.getMeshConfiguration(args, fileWatcher)
-	col.AsCollection().Synced().WaitUntilSynced(s.internalStop)
+	col.AsCollection().WaitUntilSynced(s.internalStop)
 	s.environment.Watcher = meshwatcher.ConfigAdapter(col)
 
 	log.Infof("mesh configuration: %s", meshwatcher.PrettyFormatOfMeshConfig(s.environment.Mesh()))
@@ -57,6 +57,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 	log.Infof("flags: %s", argsdump)
 }
 
+// getMeshConfiguration builds up MeshConfig.
 func (s *Server) getMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) krt.Singleton[meshwatcher.MeshConfigResource] {
 	// We need to get mesh configuration up-front, before we start anything, so we use internalStop rather than scheduling a task to run
 	// later.
@@ -73,7 +74,7 @@ func (s *Server) getMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.F
 func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) {
 	log.Infof("initializing mesh networks configuration %v", args.NetworksConfigFile)
 	col := s.getMeshNetworks(args, fileWatcher)
-	col.AsCollection().Synced().WaitUntilSynced(s.internalStop)
+	col.AsCollection().WaitUntilSynced(s.internalStop)
 	s.environment.NetworksWatcher = meshwatcher.NetworksAdapter(col)
 	log.Infof("mesh networks configuration: %s", meshwatcher.PrettyFormatOfMeshNetworks(s.environment.MeshNetworks()))
 }
@@ -98,6 +99,12 @@ func getMeshConfigMapName(revision string) string {
 }
 
 // getConfigurationSources builds the mesh sources. This can pull MeshConfig and Meshnetworks (based on file/configmap key)
+// There are a variety of possible states:
+// * default + file
+// * default + file + configmap
+// * default + configmap
+// * default + configmap + configmap
+// * default
 func (s *Server) getConfigurationSources(args *PilotArgs, fileWatcher filewatcher.FileWatcher, file string, cmKey string) []meshwatcher.MeshConfigSource {
 	opts := krt.NewOptionsBuilder(s.internalStop, args.KrtDebugger)
 	// Watcher will be merging more than one mesh config source?

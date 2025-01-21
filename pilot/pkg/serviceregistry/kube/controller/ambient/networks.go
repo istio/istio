@@ -55,7 +55,7 @@ func buildNetworkCollections(
 	namespaces krt.Collection[*v1.Namespace],
 	gateways krt.Collection[*v1beta1.Gateway],
 	options Options,
-	opts KrtOptions,
+	opts krt.OptionsBuilder,
 ) networkCollections {
 	SystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
 		ns := ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(options.SystemNamespace)))

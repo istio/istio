@@ -475,7 +475,6 @@ const (
 	DependentResource TriggerReason = "depdendentresource"
 	// NamespaceUpdate describes a push triggered by a Namespace change
 	NamespaceUpdate TriggerReason = "namespace"
-	NamespaceUpdate TriggerReason = "namespace"
 	// ClusterUpdate describes a push triggered by a Cluster change
 	ClusterUpdate TriggerReason = "cluster"
 )
