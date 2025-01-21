@@ -477,6 +477,8 @@ const (
 	NamespaceUpdate TriggerReason = "namespace"
 	// ClusterUpdate describes a push triggered by a Cluster change
 	ClusterUpdate TriggerReason = "cluster"
+	// TagUpdate occurs when the revision's tags change, and all resources must be recalculated.
+	TagUpdate TriggerReason = "tag"
 )
 
 // Merge two update requests together
