@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test"
@@ -873,7 +874,7 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	}
 	pcs := model.GetProxyConfigs(store, m)
 	env := model.Environment{
-		Watcher:     mesh.NewFixedWatcher(m),
+		Watcher:     meshwatcher.NewTestWatcher(m),
 		ConfigStore: store,
 	}
 	env.SetPushContext(&model.PushContext{
@@ -1402,7 +1403,7 @@ global:
 		Watcher: faultyWatcher,
 		Port:    0,
 		Env: &model.Environment{
-			Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+			Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
 		},
 		Mux: http.NewServeMux(),
 	}

@@ -12,25 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package krt
+package meshwatcher
 
-type TestingDummyContext struct{}
+import (
+	"testing"
 
-func (t TestingDummyContext) _internalHandler() {
-}
-
-func (t TestingDummyContext) registerDependency(d *dependency, s Syncer, f func(f erasedEventHandler) Syncer) {
-}
-
-func (t TestingDummyContext) name() string {
-	return "testing"
-}
-
-func (t TestingDummyContext) DiscardResult() {
-	panic("TestingDummyContext cannot DiscardResult")
-}
-
-var (
-	_ registerDependency = TestingDummyContext{}
-	_ HandlerContext     = TestingDummyContext{}
+	"istio.io/istio/tests/util/leak"
 )
+
+func TestMain(m *testing.M) {
+	// CheckMain asserts that no goroutines are leaked after a test package exits.
+	leak.CheckMain(m)
+}

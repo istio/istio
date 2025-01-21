@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/ptr"
@@ -165,7 +166,7 @@ func createTestTelemetries(configs []config.Config, t *testing.T) (*Telemetries,
 
 	environment := &Environment{
 		ConfigStore: store,
-		Watcher:     mesh.NewFixedWatcher(m),
+		Watcher:     meshwatcher.NewTestWatcher(m),
 	}
 	telemetries := getTelemetries(environment)
 

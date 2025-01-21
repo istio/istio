@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -1643,7 +1644,7 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 	} {
 		clienttest.MakeCRD(t, cl, crd)
 	}
-	debugger := &krt.DebugHandler{}
+	debugger := krt.GlobalDebugHandler
 	idx := New(Options{
 		Client:          cl,
 		SystemNamespace: systemNS,
@@ -1659,6 +1660,7 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		StatusNotifier: activenotifier.New(true),
 		Debugger:       debugger,
 		Flags:          flags,
+		MeshConfig:     meshwatcher.NewTestWatcher(nil),
 	})
 
 	dumpOnFailure(t, debugger)

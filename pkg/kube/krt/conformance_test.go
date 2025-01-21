@@ -85,6 +85,16 @@ func (r *manyRig) CreateObject(key string) {
 	r.names.UpdateObject(name)
 }
 
+type fileRig struct {
+	krt.FileCollection[Named]
+	rootPath string
+}
+
+// CreateObject is a stub
+// TODO(https://github.com/istio/istio/issues/54731) implement this
+func (r *fileRig) CreateObject(key string) {
+}
+
 // TestConformance aims to provide a 'conformance' suite for Collection implementations to ensure each collection behaves
 // the same way.
 // This is done by having each collection implement a small test rig that can be used to exercise various standardized paths.
@@ -132,6 +142,15 @@ func TestConformance(t *testing.T) {
 			Collection: col,
 			namespaces: namespaces,
 			names:      names,
+		}
+		runConformance[Named](t, rig)
+	})
+	t.Run("files", func(t *testing.T) {
+		t.Skip("https://github.com/istio/istio/issues/54731")
+		col := krt.NewFileCollection[Named](krt.WithStop(test.NewStop(t)))
+		rig := &fileRig{
+			FileCollection: col,
+			rootPath:       t.TempDir(),
 		}
 		runConformance[Named](t, rig)
 	})

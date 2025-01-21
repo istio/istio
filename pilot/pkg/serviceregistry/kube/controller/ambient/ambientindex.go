@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeclient "istio.io/istio/pkg/kube"
@@ -132,18 +133,9 @@ type Options struct {
 	StatusNotifier        *activenotifier.ActiveNotifier
 	Flags                 FeatureFlags
 
+	MeshConfig krt.Singleton[MeshConfig]
+
 	Debugger *krt.DebugHandler
-}
-
-// KrtOptions is a small wrapper around KRT options to make it easy to provide a common set of options to all collections
-// without excessive duplication.
-type KrtOptions struct {
-	stop     chan struct{}
-	debugger *krt.DebugHandler
-}
-
-func (k KrtOptions) WithName(n string) []krt.CollectionOption {
-	return []krt.CollectionOption{krt.WithDebugging(k.debugger), krt.WithStop(k.stop), krt.WithName(n)}
 }
 
 func New(options Options) Index {
@@ -159,12 +151,9 @@ func New(options Options) Index {
 	filter := kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
 	}
-	opts := KrtOptions{
-		stop:     a.stop,
-		debugger: options.Debugger,
-	}
-	ConfigMaps := krt.NewInformerFiltered[*v1.ConfigMap](options.Client, filter, opts.WithName("ConfigMaps")...)
+	opts := krt.NewOptionsBuilder(a.stop, options.Debugger)
 
+	MeshConfig := options.MeshConfig
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
 		gvr.AuthorizationPolicy, kubetypes.StandardInformer, filter)
 	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, opts.WithName("AuthorizationPolicies")...)
@@ -205,11 +194,8 @@ func New(options Options) Index {
 		ObjectFilter: options.Client.ObjectFilter(),
 	}, opts.WithName("EndpointSlices")...)
 
-	MeshConfig := MeshConfigCollection(ConfigMaps, options, opts)
-
 	Networks := buildNetworkCollections(Namespaces, Gateways, options, opts)
 	a.networks = Networks
-
 	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods, opts)
 
 	// AllPolicies includes peer-authentication converted policies
@@ -728,3 +714,5 @@ func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string) func(events [
 		})
 	}
 }
+
+type MeshConfig = meshwatcher.MeshConfigResource

@@ -33,7 +33,7 @@ import (
 
 func TestIndex(t *testing.T) {
 	stop := test.NewStop(t)
-	opts := KrtOptions{stop}
+	opts := testOptions(t)
 	c := kube.NewFakeClient()
 	kpc := kclient.New[*corev1.Pod](c)
 	pc := clienttest.Wrap(t, kpc)
@@ -91,7 +91,7 @@ func TestIndex(t *testing.T) {
 
 func TestIndexCollection(t *testing.T) {
 	stop := test.NewStop(t)
-	opts := KrtOptions{stop}
+	opts := testOptions(t)
 	c := kube.NewFakeClient()
 	kpc := kclient.New[*corev1.Pod](c)
 	pc := clienttest.Wrap(t, kpc)

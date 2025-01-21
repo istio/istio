@@ -356,7 +356,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		i := a.Latest()
 		iKey := getTypedKey(i)
 
-		ctx := &collectionDependencyTracker[I, O]{h, nil, iKey}
+		ctx := &collectionDependencyTracker[I, O]{manyCollection: h, key: iKey}
 		results := slices.GroupUnique(h.transformation(ctx, i), getTypedKey[O])
 		recomputedResults[idx] = results
 		// Store new dependency state, to insert in the next loop under the lock
@@ -393,8 +393,20 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 			delete(h.collectionState.inputs, iKey)
 			h.dependencyState.delete(iKey)
 		} else {
-			h.dependencyState.update(iKey, pendingDepStateUpdates[iKey].d)
+			ctx := pendingDepStateUpdates[iKey]
 			results := recomputedResults[idx]
+			if ctx.discardUpdate {
+				// Called when the collection explicitly calls DiscardResult() on the context.
+				// This is typically used when we want to retain the last-correct state.
+				_, alreadyHasAResult := h.collectionState.mappings[iKey]
+				nowHasAResult := len(results) > 0
+				if alreadyHasAResult || !nowHasAResult {
+					h.log.WithLabels("iKey", iKey).Debugf("discarding result")
+					continue
+				}
+				h.log.WithLabels("iKey", iKey).Debugf("would discard result, but it is the first so including it")
+			}
+			h.dependencyState.update(iKey, ctx.d)
 			newKeys := sets.New(maps.Keys(results)...)
 			oldKeys := h.collectionState.mappings[iKey]
 			h.collectionState.mappings[iKey] = newKeys
@@ -447,43 +459,6 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		h.log.WithLabels("events", len(events)).Debugf("calling handlers")
 	}
 	h.eventHandlers.Distribute(events, false)
-}
-
-// WithName allows explicitly naming a controller. This is a best practice to make debugging easier.
-// If not set, a default name is picked.
-func WithName(name string) CollectionOption {
-	return func(c *collectionOptions) {
-		c.name = name
-	}
-}
-
-// WithObjectAugmentation allows transforming an object into another for usage throughout the library.
-// Currently this applies to things like Name, Namespace, Labels, LabelSelector, etc. Equals is not currently supported,
-// but likely in the future.
-// The intended usage is to add support for these fields to collections of types that do not implement the appropriate interfaces.
-// The conversion function can convert to a embedded struct with extra methods added:
-//
-//	type Wrapper struct { Object }
-//	func (w Wrapper) ResourceName() string { return ... }
-//	WithObjectAugmentation(func(o any) any { return Wrapper{o.(Object)} })
-func WithObjectAugmentation(fn func(o any) any) CollectionOption {
-	return func(c *collectionOptions) {
-		c.augmentation = fn
-	}
-}
-
-// WithStop sets a custom stop channel so a collection can be terminated when the channel is closed
-func WithStop(stop <-chan struct{}) CollectionOption {
-	return func(c *collectionOptions) {
-		c.stop = stop
-	}
-}
-
-// WithDebugging enables debugging of the collection
-func WithDebugging(handler *DebugHandler) CollectionOption {
-	return func(c *collectionOptions) {
-		c.debugger = handler
-	}
 }
 
 // WithJoinUnchecked enables an optimization for join collections, where keys are not deduplicated across collections.
@@ -631,6 +606,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 	h.onPrimaryInputEventLocked(toRun)
 }
 
+// nolint: unused // it is used to implement interface
 func (h *manyCollection[I, O]) _internalHandler() {
 }
 
@@ -696,8 +672,9 @@ func (h *manyCollection[I, O]) uid() collectionUID {
 // for a given transformation call at once, then apply it in a single transaction to the manyCollection.
 type collectionDependencyTracker[I, O any] struct {
 	*manyCollection[I, O]
-	d   []*dependency
-	key Key[I]
+	d             []*dependency
+	key           Key[I]
+	discardUpdate bool
 }
 
 func (i *collectionDependencyTracker[I, O]) name() string {
@@ -727,4 +704,8 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(
 }
 
 func (i *collectionDependencyTracker[I, O]) _internalHandler() {
+}
+
+func (i *collectionDependencyTracker[I, O]) DiscardResult() {
+	i.discardUpdate = true
 }

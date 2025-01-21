@@ -41,7 +41,7 @@ import (
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/log"
@@ -119,7 +119,7 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *mes
 	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		ConfigStore:      configStore,
-		Watcher:          mesh.NewFixedWatcher(meshConfig),
+		Watcher:          meshwatcher.NewTestWatcher(meshConfig),
 	}
 
 	pushContext := model.NewPushContext()

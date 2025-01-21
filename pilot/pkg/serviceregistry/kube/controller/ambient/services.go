@@ -45,7 +45,7 @@ func (a *index) ServicesCollection(
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
-	opts KrtOptions,
+	opts krt.OptionsBuilder,
 ) krt.Collection[model.ServiceInfo] {
 	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces),
 		opts.WithName("ServicesInfo")...)

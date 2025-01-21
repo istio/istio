@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/network"
 )
@@ -61,7 +61,7 @@ func (r expectedResults) getAddrs() []string {
 // the Split Horizon EDS - all local endpoints + endpoint per remote network that also has
 // endpoints for the service.
 func TestSplitHorizonEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{NetworksWatcher: mesh.NewFixedNetworksWatcher(nil)})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{NetworksWatcher: meshwatcher.NewFixedNetworksWatcher(nil)})
 
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
 	// Network has 1 gateway
@@ -335,7 +335,7 @@ func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshcon
 	}
 	// add the new one
 	c[string(id)] = network
-	server.Env().NetworksWatcher.SetNetworks(&meshconfig.MeshNetworks{Networks: c})
+	server.Env().NetworksWatcher.(meshwatcher.TestNetworksWatcher).SetNetworks(&meshconfig.MeshNetworks{Networks: c})
 }
 
 func getLbEndpointAddrs(eps []*endpoint.LbEndpoint) []string {

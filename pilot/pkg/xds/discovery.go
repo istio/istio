@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/envoyfilter"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/kube/krt"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/security"
@@ -132,10 +133,12 @@ type DiscoveryServer struct {
 
 	// DiscoveryStartTime is the time since the binary started
 	DiscoveryStartTime time.Time
+
+	krtDebugger *krt.DebugHandler
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string, debugger *krt.DebugHandler) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                 env,
 		Generators:          map[string]model.XdsResourceGenerator{},
@@ -148,6 +151,7 @@ func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string
 		pushQueue:           NewPushQueue(),
 		debugHandlers:       map[string]string{},
 		adsClients:          map[string]*Connection{},
+		krtDebugger:         debugger,
 		DebounceOptions: DebounceOptions{
 			DebounceAfter:     features.DebounceAfter,
 			debounceMax:       features.DebounceMax,

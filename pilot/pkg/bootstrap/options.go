@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/kube/krt"
 )
 
 // RegistryOptions provide configuration options for the configuration controller. If FileDir is set, that directory will
@@ -54,6 +55,7 @@ type PilotArgs struct {
 	NetworksConfigFile string
 	RegistryOptions    RegistryOptions
 	CtrlZOptions       *ctrlz.Options
+	KrtDebugger        *krt.DebugHandler `json:"-"`
 	KeepaliveOptions   *keepalive.Options
 	ShutdownDuration   time.Duration
 	JwtRule            string
@@ -140,6 +142,7 @@ func (p *PilotArgs) applyDefaults() {
 	p.JwtRule = JwtRule
 	p.KeepaliveOptions = keepalive.DefaultOption()
 	p.RegistryOptions.ClusterRegistriesNamespace = p.Namespace
+	p.KrtDebugger = new(krt.DebugHandler)
 }
 
 func (p *PilotArgs) Complete() error {

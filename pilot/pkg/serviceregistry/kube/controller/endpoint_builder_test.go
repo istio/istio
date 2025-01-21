@@ -25,6 +25,7 @@ import (
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	pkgmodel "istio.io/istio/pkg/model"
@@ -149,7 +150,7 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 			fc.RunAndWait(test.NewStop(t))
 			cc := &Controller{
 				nodes:       nodes,
-				meshWatcher: mesh.NewFixedWatcher(mesh.DefaultMeshConfig()),
+				meshWatcher: meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig()),
 				networkManager: &networkManager{
 					clusterID: c.ctl.cluster,
 					network:   c.ctl.network,

@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
@@ -125,7 +126,7 @@ type Options struct {
 	MeshNetworksWatcher mesh.NetworksWatcher
 
 	// MeshWatcher observes changes to the mesh config
-	MeshWatcher mesh.Watcher
+	MeshWatcher meshwatcher.WatcherCollection
 
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32
@@ -146,6 +147,8 @@ type Options struct {
 	// StatusWritingEnabled determines if status writing is enabled. This may be set to `nil`, in which case status
 	// writing will never be enabled
 	StatusWritingEnabled *activenotifier.ActiveNotifier
+
+	KrtDebugger *krt.DebugHandler
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -288,6 +291,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			ClusterID:       options.ClusterID,
 			Revision:        options.Revision,
 			XDSUpdater:      options.XDSUpdater,
+			MeshConfig:      options.MeshWatcher,
 			LookupNetwork:   c.Network,
 			LookupNetworkGateways: func() []model.NetworkGateway {
 				return slices.Filter(c.NetworkGateways(), func(g model.NetworkGateway) bool {
@@ -295,7 +299,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 				})
 			},
 			StatusNotifier: options.StatusWritingEnabled,
-			Debugger:       krt.GlobalDebugHandler,
+			Debugger:       options.KrtDebugger,
 			Flags: ambient.FeatureFlags{
 				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,

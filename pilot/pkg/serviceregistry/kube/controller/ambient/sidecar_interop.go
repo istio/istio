@@ -53,7 +53,7 @@ func RegisterEdsShim(
 	WorkloadsByServiceKey krt.Index[string, model.WorkloadInfo],
 	Services krt.Collection[model.ServiceInfo],
 	ServicesByAddress krt.Index[networkAddress, model.ServiceInfo],
-	opts KrtOptions,
+	opts krt.OptionsBuilder,
 ) {
 	ServiceEds := krt.NewCollection(
 		Services,

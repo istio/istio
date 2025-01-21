@@ -35,9 +35,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/util/sets"
 	istioversion "istio.io/istio/pkg/version"
 )
@@ -427,33 +425,6 @@ func StripPodUnusedFields(obj any) (any, error) {
 		pod.Status.ContainerStatuses = nil
 	}
 
-	return obj, nil
-}
-
-func SlowConvertKindsToRuntimeObjects(in []crd.IstioKind) ([]runtime.Object, error) {
-	res := make([]runtime.Object, 0, len(in))
-	for _, o := range in {
-		r, err := SlowConvertToRuntimeObject(&o)
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, r)
-	}
-	return res, nil
-}
-
-// SlowConvertToRuntimeObject converts an IstioKind to a runtime.Object.
-// As the name implies, it is not efficient.
-func SlowConvertToRuntimeObject(in *crd.IstioKind) (runtime.Object, error) {
-	by, err := config.ToJSON(in)
-	if err != nil {
-		return nil, err
-	}
-	gvk := in.GetObjectKind().GroupVersionKind()
-	obj, _, err := IstioCodec.UniversalDeserializer().Decode(by, &gvk, nil)
-	if err != nil {
-		return nil, err
-	}
 	return obj, nil
 }
 

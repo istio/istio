@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 )
 
 func TestIsClusterLocal(t *testing.T) {
@@ -265,7 +266,7 @@ func TestIsClusterLocal(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			g := NewWithT(t)
 
-			env := &model.Environment{Watcher: mesh.NewFixedWatcher(c.m)}
+			env := &model.Environment{Watcher: meshwatcher.NewTestWatcher(c.m)}
 			env.Init()
 
 			clusterLocal := env.ClusterLocal().GetClusterLocalHosts().IsClusterLocal(host.Name(c.host))

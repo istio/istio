@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesh_test
+package meshwatcher_test
 
 import (
 	"os"
@@ -20,37 +20,28 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-func TestNewWatcherWithBadInputShouldFail(t *testing.T) {
-	g := NewWithT(t)
-	_, err := mesh.NewFileWatcher(filewatcher.NewWatcher(), "", false)
-	g.Expect(err).ToNot(BeNil())
-}
-
 func TestWatcherShouldNotifyHandlers(t *testing.T) {
-	watcherShouldNotifyHandlers(t, false)
+	watcherShouldNotifyHandlers(t)
 }
 
-func TestMultiWatcherShouldNotifyHandlers(t *testing.T) {
-	watcherShouldNotifyHandlers(t, true)
-}
-
-func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
+func watcherShouldNotifyHandlers(t *testing.T) {
 	path := newTempFile(t)
 
 	m := mesh.DefaultMeshConfig()
 	writeMessage(t, path, m)
 
-	w := newWatcher(t, path, multi)
+	w := newWatcher(t, path)
 	assert.Equal(t, w.Mesh(), m)
 
 	doneCh := make(chan struct{}, 1)
@@ -75,13 +66,19 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 	}
 }
 
-func newWatcher(t testing.TB, filename string, multi bool) mesh.Watcher {
+func newWatcher(t testing.TB, filename string) mesh.Watcher {
 	t.Helper()
-	w, err := mesh.NewFileWatcher(filewatcher.NewWatcher(), filename, multi)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return w
+	w := filewatcher.NewWatcher()
+	t.Cleanup(func() {
+		w.Close()
+	})
+	opts := krttest.Options(t)
+	fs, err := meshwatcher.NewFileSource(w, filename, opts)
+	assert.NoError(t, err)
+	col := meshwatcher.NewCollection(opts, fs)
+
+	col.AsCollection().WaitUntilSynced(opts.Stop())
+	return meshwatcher.ConfigAdapter(col)
 }
 
 func newTempFile(t testing.TB) string {
@@ -113,31 +110,5 @@ func writeFile(t testing.TB, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o666); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func removeSilent(path string) {
-	_ = os.RemoveAll(path)
-}
-
-func BenchmarkGetMesh(b *testing.B) {
-	b.StopTimer()
-
-	path := newTempFile(b)
-	defer removeSilent(path)
-
-	m := mesh.DefaultMeshConfig()
-	writeMessage(b, path, m)
-
-	w := newWatcher(b, path, false)
-
-	b.StartTimer()
-
-	handler := func(mc *meshconfig.MeshConfig) {
-		// Do nothing
-	}
-
-	for i := 0; i < b.N; i++ {
-		handler(w.Mesh())
 	}
 }

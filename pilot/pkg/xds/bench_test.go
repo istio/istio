@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/env"
 	istiolog "istio.io/istio/pkg/log"
@@ -323,7 +324,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 		b.Run(fmt.Sprintf("%d/%d", tt.endpoints, tt.services), func(b *testing.B) {
 			s := xds.NewFakeDiscoveryServer(b, xds.FakeOptions{
 				Configs: createEndpointsConfig(tt.endpoints, tt.services, numNetworks),
-				NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
+				NetworksWatcher: meshwatcher.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 					Networks: createGateways(numNetworks),
 				}),
 			})

@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -1086,7 +1086,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
-	env.Watcher = mesh.NewFixedWatcher(meshConfig)
+	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
 
 	pushContext := model.NewPushContext()
 	env.Init()
@@ -1143,7 +1143,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
-	env.Watcher = mesh.NewFixedWatcher(meshConfig)
+	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
 
 	pushContext := model.NewPushContext()
 	env.Init()
@@ -1195,7 +1195,7 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
-	env.Watcher = mesh.NewFixedWatcher(meshConfig)
+	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
 
 	pushContext := model.NewPushContext()
 	env.Init()
@@ -1253,7 +1253,7 @@ func buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(failoverPri
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
-	env.Watcher = mesh.NewFixedWatcher(meshConfig)
+	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
 
 	pushContext := model.NewPushContext()
 	env.Init()

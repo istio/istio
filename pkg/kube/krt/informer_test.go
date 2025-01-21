@@ -35,7 +35,7 @@ import (
 
 func TestNewInformer(t *testing.T) {
 	stop := test.NewStop(t)
-	opts := KrtOptions{stop}
+	opts := testOptions(t)
 	c := kube.NewFakeClient()
 	ConfigMaps := krt.NewInformer[*corev1.ConfigMap](c, opts.WithName("ConfigMaps")...)
 	c.RunAndWait(stop)
@@ -88,8 +88,7 @@ func TestNewInformer(t *testing.T) {
 }
 
 func TestUnregisteredTypeCollection(t *testing.T) {
-	stop := test.NewStop(t)
-	opts := KrtOptions{stop}
+	opts := testOptions(t)
 	np := &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "netpol",

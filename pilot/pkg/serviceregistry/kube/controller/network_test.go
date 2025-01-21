@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -46,7 +46,7 @@ import (
 
 func TestNetworkUpdateTriggers(t *testing.T) {
 	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
-	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
+	meshNetworks := meshwatcher.NewFixedNetworksWatcher(nil)
 	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ClusterID:       constants.DefaultClusterName,
 		NetworksWatcher: meshNetworks,
@@ -198,7 +198,7 @@ func removeGatewayResource(t *testing.T, c *FakeController) {
 	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).Delete("eastwest-gwapi", "istio-system")
 }
 
-func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher mesh.NetworksWatcher) {
+func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher meshwatcher.TestNetworksWatcher) {
 	clienttest.Wrap(t, c.services).Create(&corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "istio-meshnetworks-gw", Namespace: "istio-system"},
 		Spec: corev1.ServiceSpec{
@@ -257,9 +257,10 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 	testNS := "test"
 	systemNS := "istio-system"
 
+	networksWatcher := meshwatcher.NewFixedNetworksWatcher(nil)
 	s, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		SystemNamespace: systemNS,
-		NetworksWatcher: mesh.NewFixedNetworksWatcher(nil),
+		NetworksWatcher: networksWatcher,
 	})
 
 	tracker := assert.NewTracker[string](t)
@@ -350,7 +351,7 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 		})
 		createOrUpdateNamespace(t, s, systemNS, "nw3")
 		tracker.WaitOrdered(systemNS)
-		addMeshNetworksFromRegistryGateway(t, s, s.meshNetworksWatcher)
+		addMeshNetworksFromRegistryGateway(t, s, networksWatcher)
 		expectNetwork(t, s, "nw3")
 	})
 }
@@ -361,7 +362,7 @@ func TestAmbientSync(t *testing.T) {
 	stop := test.NewStop(t)
 	s, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		SystemNamespace: systemNS,
-		NetworksWatcher: mesh.NewFixedNetworksWatcher(nil),
+		NetworksWatcher: meshwatcher.NewFixedNetworksWatcher(nil),
 		SkipRun:         true,
 		CRDs:            []schema.GroupVersionResource{gvr.KubernetesGateway},
 		ConfigCluster:   true,
