@@ -636,6 +636,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	if svc == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
+
 	vs := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 	if vs == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
@@ -697,6 +698,13 @@ func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, li
 			break
 		}
 		for _, match := range http.Match {
+			// Source label matching is not supported in ambient mode, and thus not supported in
+			// waypoint routes. Any matchers containing source labels should be dropped.
+			// See https://github.com/istio/istio/issues/51565 for more details and discussion.
+			if len(match.SourceLabels) > 0 {
+				continue
+			}
+
 			if r := lb.translateWaypointRoute(virtualService, http, match, listenPort); r != nil {
 				out = append(out, r)
 				// This is a catch all path. Routes are matched in order, so we will never go beyond this match
