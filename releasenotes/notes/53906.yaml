@@ -1,9 +1,12 @@
 apiVersion: release-notes/v2
 kind: feature
 area: traffic-management
+issue:
+  - 1360
 releaseNotes:
 - |
   **Added** Support for reconciling in-pod iptables rules of existing ambient pods from the previous version on `istio-cni` upgrade. Feature can be toggled with `--set cni.ambient.reconcileIptablesOnStartup=true` and will be enabled by default in future releases.
+
 upgradeNotes:
   - title: Ambient pod upgrade reconcilation.
     content: |
