@@ -98,8 +98,8 @@ type WasmPluginWrapper struct {
 	ResourceVersion string
 }
 
-func (p *WasmPluginWrapper) MatchListener(matcher WorkloadPolicyMatcher, li WasmPluginListenerInfo) bool {
-	if matcher.ShouldAttachPolicy(gvk.WasmPlugin, p.NamespacedName(), p) {
+func (p *WasmPluginWrapper) MatchListener(matcher WorkloadPolicyMatcher, li WasmPluginListenerInfo, rootNamespace string) bool {
+	if matcher.ShouldAttachPolicy(gvk.WasmPlugin, p.NamespacedName(), p, rootNamespace) {
 		return matchTrafficSelectors(p.Match, li)
 	}
 

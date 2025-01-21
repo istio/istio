@@ -458,7 +458,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy, svc *Service) computed
 		if len(spec.GetSelector().GetMatchLabels()) == 0 && len(GetTargetRefs(spec)) == 0 {
 			continue
 		}
-		if matcher.ShouldAttachPolicy(gvk.Telemetry, telemetry.NamespacedName(), spec) {
+		if matcher.ShouldAttachPolicy(gvk.Telemetry, telemetry.NamespacedName(), spec, t.RootNamespace) {
 			ct = appendApplicableTelemetries(ct, telemetry, spec)
 		} else {
 			log.Debug("There isn't a match between the workload and the policy. Policy is ignored.")

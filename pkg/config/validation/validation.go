@@ -1250,6 +1250,7 @@ var allowedTargetRefs = []config.GroupVersionKind{
 	gvk.Service,
 	gvk.ServiceEntry,
 	gvk.KubernetesGateway,
+	gvk.GatewayClass,
 }
 
 func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
