@@ -103,7 +103,7 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 
-			if selectionOpts.ShouldAttachPolicy(gvk.AuthorizationPolicy, config.NamespacedName(), spec) {
+			if selectionOpts.ShouldAttachPolicy(gvk.AuthorizationPolicy, config.NamespacedName(), spec, policy.RootNamespace) {
 				configs = updateAuthorizationPoliciesResult(configs, config)
 			}
 		}

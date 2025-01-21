@@ -586,7 +586,7 @@ func TestMatchListener(t *testing.T) {
 				WorkloadLabels:    tc.proxyLabels,
 				IsWaypoint:        false,
 			}
-			got := tc.wasmPlugin.MatchListener(opts, tc.listenerInfo)
+			got := tc.wasmPlugin.MatchListener(opts, tc.listenerInfo, "istio-system")
 			if tc.want != got {
 				t.Errorf("MatchListener got %v want %v", got, tc.want)
 			}
