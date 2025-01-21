@@ -346,6 +346,9 @@ type NodeMetadata struct {
 	// Metadata discovery service enablement
 	MetadataDiscovery *StringBool `json:"METADATA_DISCOVERY,omitempty"`
 
+	// Envoy command line to option to control deprecates=d logs behavior.
+	EnvoySkipDeprecatedLogs StringBool `json:"ENVOY_SKIP_DEPRECATED_LOGS,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]any `json:"-"`

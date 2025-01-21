@@ -43,9 +43,11 @@ func TestEnvoyArgs(t *testing.T) {
 		Concurrency:       8,
 	}
 
+	expectedArgs := []string{"-l", "trace", "--component-log-level", "misc:error"}
+
 	test := &envoy{
 		ProxyConfig: cfg,
-		extraArgs:   []string{"-l", "trace", "--component-log-level", "misc:error"},
+		extraArgs:   expectedArgs,
 	}
 
 	testProxy := NewProxy(cfg)
@@ -69,6 +71,40 @@ func TestEnvoyArgs(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("envoyArgs() => got:\n%v,\nwant:\n%v", got, want)
+	}
+
+	// Test with setting up SkipDeprecatedLogs.
+	cfg.SkipDeprecatedLogs = true
+
+	expectedArgsWithDeprecatedLogs := append(expectedArgs, "--skip-deprecated-logs")
+
+	testWithDeprecatedLogs := &envoy{
+		ProxyConfig: cfg,
+		extraArgs:   expectedArgsWithDeprecatedLogs,
+	}
+
+	testProxyWithDeprecatedLogs := NewProxy(cfg)
+	if !reflect.DeepEqual(testProxyWithDeprecatedLogs, testWithDeprecatedLogs) {
+		t.Errorf("unexpected struct got\n%v\nwant\n%v", testProxyWithDeprecatedLogs, testWithDeprecatedLogs)
+	}
+
+	gotWithDeprecatedLogs := testWithDeprecatedLogs.args("test.json", "testdata/bootstrap.json")
+	wantWithDeprecatedLogs := []string{
+		"-c", "test.json",
+		"--drain-time-s", "45",
+		"--drain-strategy", "immediate",
+		"--local-address-ip-version", "v4",
+		"--file-flush-interval-msec", "1000",
+		"--disable-hot-restart",
+		"--allow-unknown-static-fields",
+		"-l", "trace",
+		"--component-log-level", "misc:error",
+		"--skip-deprecated-logs",
+		"--config-yaml", `{"key":"value"}`,
+		"--concurrency", "8",
+	}
+	if !reflect.DeepEqual(gotWithDeprecatedLogs, wantWithDeprecatedLogs) {
+		t.Errorf("envoyArgs() => got:\n%v,\nwant:\n%v", gotWithDeprecatedLogs, wantWithDeprecatedLogs)
 	}
 }
 

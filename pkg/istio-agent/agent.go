@@ -230,6 +230,8 @@ type AgentOptions struct {
 	// by Istio's default SDS server, the socket file must be present.
 	// Note that the path is not configurable by design - only the socket file name.
 	WorkloadIdentitySocketFile string
+
+	EnvoySkipDeprecatedLogs bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -285,6 +287,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
 		XDSRootCert:                 a.cfg.XDSRootCerts,
 		MetadataDiscovery:           a.cfg.MetadataDiscovery,
+		EnvoySkipDeprecatedLogs:     a.cfg.EnvoySkipDeprecatedLogs,
 	})
 }
 
@@ -321,6 +324,7 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 	a.envoyOpts.AdminPort = a.proxyConfig.ProxyAdminPort
 	a.envoyOpts.DrainDuration = a.proxyConfig.DrainDuration
 	a.envoyOpts.Concurrency = a.proxyConfig.Concurrency.GetValue()
+	a.envoyOpts.SkipDeprecatedLogs = a.cfg.EnvoySkipDeprecatedLogs
 
 	// Checking only uid should be sufficient - but tests also run as root and
 	// will break due to permission errors if we start envoy as 1337.

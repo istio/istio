@@ -583,6 +583,7 @@ type MetadataOptions struct {
 	EnvoyPrometheusPort         int
 	ExitOnZeroActiveConnections bool
 	MetadataDiscovery           *bool
+	EnvoySkipDeprecatedLogs     bool
 }
 
 const (
@@ -643,6 +644,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	} else {
 		meta.MetadataDiscovery = ptr.Of(model.StringBool(*options.MetadataDiscovery))
 	}
+	meta.EnvoySkipDeprecatedLogs = model.StringBool(options.EnvoySkipDeprecatedLogs)
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
