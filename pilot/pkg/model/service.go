@@ -1592,6 +1592,9 @@ func (s *Service) HasAddressOrAssigned(id cluster.ID) bool {
 			return true
 		}
 	}
+	if s.DefaultAddress != constants.UnspecifiedIP {
+		return true
+	}
 	if s.AutoAllocatedIPv4Address != "" {
 		return true
 	}
