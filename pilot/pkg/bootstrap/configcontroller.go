@@ -140,7 +140,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	s.ConfigStores = append(s.ConfigStores, configController)
 	tw := revisions.NewTagWatcher(s.kubeClient, args.Revision)
 	s.addStartFunc("tag-watcher", func(stop <-chan struct{}) error {
-		tw.Run(stop)
+		go tw.Run(stop)
 		return nil
 	})
 	tw.AddHandler(func(sets.String) {
