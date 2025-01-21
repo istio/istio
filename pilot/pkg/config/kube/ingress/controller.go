@@ -141,7 +141,7 @@ func (c *controller) shouldProcessIngress(mesh *meshconfig.MeshConfig, i *knetwo
 		}
 		class = c
 	}
-	return shouldProcessIngressWithClass(mesh, class)
+	return shouldProcessIngressWithClass(mesh, i, class)
 }
 
 // shouldProcessIngressUpdate checks whether we should renotify registered handlers about an update event

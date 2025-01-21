@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
@@ -262,11 +263,25 @@ func resolveNamedPort(backend *knetworking.IngressBackend, namespace string, ser
 	return 0, errNotFound
 }
 
-// shouldProcessIngress determines whether the given knetworking resource should be processed
-// by the controller, based on the Ingress's specified IngressClass
-// See https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class
-func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingressClass *knetworking.IngressClass) bool {
-	if ingressClass != nil {
+// shouldProcessIngress determines whether the given Ingress resource should be processed
+// by the controller, based on its Ingress class annotation
+// (see https://kubernetes.io/docs/concepts/services-networking/ingress/#deprecated-annotation)
+// or, in more recent versions of kubernetes (v1.18+), based on the Ingress's specified IngressClass
+// (see https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class)
+func shouldProcessIngressWithClass(mesh *meshconfig.MeshConfig, ingress *knetworking.Ingress, ingressClass *knetworking.IngressClass) bool {
+	if class, exists := ingress.Annotations[annotation.IoKubernetesIngressClass.Name]; exists {
+		switch mesh.IngressControllerMode {
+		case meshconfig.MeshConfig_OFF:
+			return false
+		case meshconfig.MeshConfig_STRICT:
+			return class == mesh.IngressClass
+		case meshconfig.MeshConfig_DEFAULT:
+			return class == mesh.IngressClass
+		default:
+			log.Warnf("invalid ingress synchronization mode: %v", mesh.IngressControllerMode)
+			return false
+		}
+	} else if ingressClass != nil {
 		return ingressClass.Spec.Controller == IstioIngressController
 	} else {
 		switch mesh.IngressControllerMode {

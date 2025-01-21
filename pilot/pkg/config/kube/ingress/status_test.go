@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -136,8 +137,9 @@ func TestStatusController(t *testing.T) {
 	ingc := clienttest.Wrap(t, c.ingressClasses)
 	ing.Create(&knetworking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ingress",
-			Namespace: "default",
+			Name:        "ingress",
+			Namespace:   "default",
+			Annotations: map[string]string{annotation.IoKubernetesIngressClass.Name: "istio"},
 		},
 	})
 

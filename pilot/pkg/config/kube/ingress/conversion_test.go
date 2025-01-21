@@ -366,10 +366,30 @@ func TestIngressClass(t *testing.T) {
 			className = c.ingressClass.Name
 		}
 		t.Run(fmt.Sprintf("%d %s %s %s", i, c.ingressMode, c.annotation, className), func(t *testing.T) {
+			ing := knetworking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-ingress",
+					Namespace:   "default",
+					Annotations: make(map[string]string),
+				},
+				Spec: knetworking.IngressSpec{
+					DefaultBackend: &knetworking.IngressBackend{
+						Service: &knetworking.IngressServiceBackend{
+							Name: "default-http-backend",
+							Port: knetworking.ServiceBackendPort{Number: 8000},
+						},
+					},
+				},
+			}
+
 			mesh := mesh.DefaultMeshConfig()
 			mesh.IngressControllerMode = c.ingressMode
 
-			if c.shouldProcess != shouldProcessIngressWithClass(mesh, c.ingressClass) {
+			if c.annotation != "" {
+				ing.Annotations["kubernetes.io/ingress.class"] = c.annotation
+			}
+
+			if c.shouldProcess != shouldProcessIngressWithClass(mesh, &ing, c.ingressClass) {
 				t.Errorf("got %v, want %v",
 					!c.shouldProcess, c.shouldProcess)
 			}
