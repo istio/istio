@@ -64,16 +64,15 @@ func (s *NetServer) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) 
 	}
 
 	if s.podIptables.ReconcileModeEnabled() {
-		log.Debug("inpod reconcile mode enabled")
+		log.Info("inpod reconcile mode enabled")
 		for _, pod := range existingAmbientPods {
 			log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 			log.Debug("upgrading and reconciling inpod rules for already-running pod if necessary")
 			err := s.reconcileExistingPod(pod)
 			if err != nil {
-				//nolint: lll
-				log.Errorf("failed to reconcile inpod rules for %s/%s, try restarting the pod, or removing and re-adding it to the mesh: %v", pod.Namespace, pod.Name, err)
+				// for now, we will simply log an error, no need to append this error to the generic snapshot list
+				log.Errorf("failed to reconcile inpod rules for pod, try restarting the pod, or removing and re-adding it to the mesh: %v", err)
 			}
-			consErr = append(consErr, err)
 		}
 	}
 	return errors.Join(consErr...)
