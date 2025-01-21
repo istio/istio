@@ -200,7 +200,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocketMatches = nil
 	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
-	localCluster.cluster.TransportSocket = util.TunnelHostInternalUpstreamTransportSocket(transportSocket)
+	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
 
 	return localCluster.build()
 }

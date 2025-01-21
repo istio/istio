@@ -19,10 +19,8 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
-	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/api/mesh/v1alpha1"
@@ -45,33 +43,6 @@ var istioMtlsTransportSocketMatch = &structpb.Struct{
 	},
 }
 
-func internalUpstreamSocket(inner *core.TransportSocket) *core.TransportSocket {
-	return &core.TransportSocket{
-		Name: "envoy.transport_sockets.internal_upstream",
-		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-			PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
-				{
-					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
-					Name: util.OriginalDstMetadataKey,
-				},
-				{
-					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
-						Cluster: &metadata.MetadataKind_Cluster{},
-					}},
-					Name: "istio",
-				},
-				{
-					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{
-						Host: &metadata.MetadataKind_Host{},
-					}},
-					Name: "istio",
-				},
-			},
-			TransportSocket: inner,
-		})},
-	}
-}
-
 func hboneTransportSocket(inner *core.TransportSocket) *cluster.Cluster_TransportSocketMatch {
 	return &cluster.Cluster_TransportSocketMatch{
 		Name: "hbone",
@@ -80,7 +51,7 @@ func hboneTransportSocket(inner *core.TransportSocket) *cluster.Cluster_Transpor
 				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
 			},
 		},
-		TransportSocket: internalUpstreamSocket(inner),
+		TransportSocket: util.FullMetadataPassthroughInternalUpstreamTransportSocket(inner),
 	}
 }
 
