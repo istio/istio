@@ -133,7 +133,7 @@ func TestListGatewayResourceType(t *testing.T) {
 	})
 
 	cg := core.NewConfigGenTest(t, core.TestOptions{})
-	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(HaveOccurred())
+	controller.Reconcile(cg.PushContext())
 	cfg := controller.List(gvk.Gateway, "ns1")
 	g.Expect(cfg).To(HaveLen(1))
 	for _, c := range cfg {

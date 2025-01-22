@@ -512,12 +512,7 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 	push := model.NewPushContext()
 	push.PushVersion = version
 	push.JwtKeyResolver = s.JwtKeyResolver
-	if err := push.InitContext(s.Env, oldPushContext, req); err != nil {
-		log.Errorf("XDS: failed to init push context: %v", err)
-		// We can't push if we can't read the data - stick with previous version.
-		pushContextErrors.Increment()
-		return nil, err
-	}
+	push.InitContext(s.Env, oldPushContext, req)
 
 	s.dropCacheForRequest(req)
 	s.Env.SetPushContext(push)

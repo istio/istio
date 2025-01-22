@@ -83,12 +83,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	}
 
 	// InitContext returns immediately if the context was already initialized.
-	if err = s.globalPushContext().InitContext(s.Env, nil, nil); err != nil {
-		// Error accessing the data - log and close, maybe a different pilot replica
-		// has more luck
-		deltaLog.Warnf("Error reading config %v", err)
-		return status.Error(codes.Unavailable, "error reading config")
-	}
+	s.globalPushContext().InitContext(s.Env, nil, nil)
 	con := newDeltaConnection(peerAddr, stream)
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected

@@ -203,7 +203,7 @@ func FuzzInitContext(data []byte) int {
 	env.EndpointIndex = model.NewEndpointIndex(model.DisabledCache{})
 	env.Init()
 	pc := model.NewPushContext()
-	_ = pc.InitContext(env, nil, nil)
+	pc.InitContext(env, nil, nil)
 	return 1
 }
 

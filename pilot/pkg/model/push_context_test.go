@@ -1357,9 +1357,7 @@ func TestServiceIndex(t *testing.T) {
 
 	// Init a new push context
 	pc := NewPushContext()
-	if err := pc.InitContext(env, nil, nil); err != nil {
-		t.Fatal(err)
-	}
+	pc.InitContext(env, nil, nil)
 	si := pc.ServiceIndex
 
 	// Should have all 5 services
@@ -1621,20 +1619,16 @@ func TestInitPushContext(t *testing.T) {
 
 	// Init a new push context
 	old := NewPushContext()
-	if err := old.InitContext(env, nil, nil); err != nil {
-		t.Fatal(err)
-	}
+	old.InitContext(env, nil, nil)
 
 	// Create a new one, copying from the old one
 	// Pass a ConfigsUpdated otherwise we would just copy it directly
 	newPush := NewPushContext()
-	if err := newPush.InitContext(env, old, &PushRequest{
+	newPush.InitContext(env, old, &PushRequest{
 		ConfigsUpdated: sets.Set[ConfigKey]{
 			{Kind: kind.Secret}: {},
 		},
-	}); err != nil {
-		t.Fatal(err)
-	}
+	})
 
 	// Check to ensure the update is identical to the old one
 	// There is probably a better way to do this.
@@ -1846,15 +1840,13 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 	newPush = NewPushContext()
 	newPush.Mesh = env.Mesh()
 	svcName := "svc6.foo.cluster.local"
-	if err := newPush.InitContext(env, oldPush, &PushRequest{
+	newPush.InitContext(env, oldPush, &PushRequest{
 		ConfigsUpdated: sets.Set[ConfigKey]{
 			{Kind: kind.Service, Name: svcName, Namespace: "foo"}: {},
 		},
 		Reason: nil,
 		Full:   true,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	})
 	when = "updateContext(with no changes)"
 	verifyServices(true, fmt.Sprintf(testDesc, otherNS, when), otherNS, newPush)
 	verifyServices(true, fmt.Sprintf(testDesc, defaultNS, when), defaultNS, newPush)
