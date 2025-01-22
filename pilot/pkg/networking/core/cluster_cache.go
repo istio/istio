@@ -127,6 +127,9 @@ func (t *clusterCache) Key() any {
 	}
 	h.Write(Separator)
 
+	h.WriteString(strconv.FormatBool(t.preserveHTTP1HeaderCase))
+	h.Write(Separator)
+
 	if t.endpointBuilder != nil {
 		t.endpointBuilder.WriteHash(h)
 	}
