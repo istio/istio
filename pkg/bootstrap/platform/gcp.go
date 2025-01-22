@@ -83,6 +83,12 @@ var GCPStaticMetadata = func() map[string]string {
 	return md
 }()
 
+// zoneFromResolvConf extracts the zone from resolv.conf.
+// The doc which describes the format can be found in:
+// https://cloud.google.com/kubernetes-engine/docs/how-to/kube-dns
+// GKE provides resolv.conf based on the Node(GCE)'s resolv.conf.
+// GCE's resolv.conf format can be found in:
+// https://cloud.google.com/compute/docs/internal-dns
 func zoneFromResolvConf() string {
 	b, err := os.ReadFile("/etc/resolv.conf")
 	if err != nil {
