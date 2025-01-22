@@ -542,7 +542,7 @@ func TestServiceAccount(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.Name, func(t *testing.T) {
-			r, _ := serviceAccountRegex(input)
+			r := serviceAccountRegex("", input)
 			// Parse as regex. Envoy does a full string match, so handle that
 			rgx, err := regexp.Compile("^" + r + "$")
 			if err != nil {
@@ -569,4 +569,9 @@ func yamlPrincipal(t *testing.T, yaml string) *rbacpb.Principal {
 		t.Fatalf("failed to parse yaml: %s", err)
 	}
 	return p
+}
+
+func TestServiceAccountRegex(t *testing.T) {
+	assert.Equal(t, serviceAccountRegex("", "my-ns/my-sa"), `spiffe://.+/ns/my-ns/(.+/|)sa/my-sa(/.+)?`)
+	assert.Equal(t, serviceAccountRegex("my-ns", "my-sa"), `spiffe://.+/ns/my-ns/(.+/|)sa/my-sa(/.+)?`)
 }

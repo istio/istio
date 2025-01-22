@@ -22,6 +22,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	matcherv3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
@@ -81,7 +82,7 @@ when:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := New(tc.rule)
+			got, err := New(types.NamespacedName{}, tc.rule)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -259,7 +260,7 @@ when:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			m, err := New(tc.rule)
+			m, err := New(types.NamespacedName{}, tc.rule)
 			if err != nil {
 				t.Fatal(err)
 			}

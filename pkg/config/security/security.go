@@ -113,6 +113,7 @@ func CheckEmptyValues(key string, values []string) error {
 
 func CheckServiceAccount(key string, values []string) error {
 	if len(values) > 16 {
+		// Arbitrary limit to avoid unbounded configuration sizes
 		return fmt.Errorf("may not have more than 16 values")
 	}
 	for _, value := range values {
@@ -122,21 +123,26 @@ func CheckServiceAccount(key string, values []string) error {
 		if strings.Contains(value, "*") {
 			return fmt.Errorf("wildcard not allowed, found in %s", key)
 		}
-		if strings.Count(value, "/") != 1 {
-			return fmt.Errorf("expected format 'namespace/serviceAccount', found %q in %s", value, key)
+		segments := strings.Count(value, "/")
+		if segments != 0 && segments != 1 {
+			return fmt.Errorf("expected format 'serviceAccount' or 'namespace/serviceAccount', found %q in %s", value, key)
 		}
 		if len(value) > 320 {
 			return fmt.Errorf("value cannot exceed 320 characters, found %q in %s", value, key)
 		}
 		ns, sa, ok := strings.Cut(value, "/")
-		if !ok {
-			return fmt.Errorf("expected format 'namespace/serviceAccount', found %q in %s", value, key)
-		}
-		if len(ns) == 0 {
-			return fmt.Errorf("expected format 'namespace/serviceAccount', found empty namespace %q in %s", value, key)
-		}
-		if len(sa) == 0 {
-			return fmt.Errorf("expected format 'namespace/serviceAccount', found empty serviceAccount %q in %s", value, key)
+		if ok {
+			if len(ns) == 0 {
+				return fmt.Errorf("expected format 'serviceAccount' or 'namespace/serviceAccount', found empty namespace %q in %s", value, key)
+			}
+			if len(sa) == 0 {
+				return fmt.Errorf("expected format 'serviceAccount' or 'namespace/serviceAccount', found empty serviceAccount %q in %s", value, key)
+			}
+		} else {
+			sa := value
+			if len(sa) == 0 {
+				return fmt.Errorf("expected format 'serviceAccount' or 'namespace/serviceAccount', found empty serviceAccount %q in %s", value, key)
+			}
 		}
 	}
 	return nil

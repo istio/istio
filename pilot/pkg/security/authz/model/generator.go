@@ -20,6 +20,7 @@ import (
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
@@ -180,25 +181,27 @@ func (srcNamespaceGenerator) principal(_, value string, _ bool, useAuthenticated
 	return principalAuthenticated(m, useAuthenticated), nil
 }
 
-type srcServiceAccountGenerator struct{}
+type srcServiceAccountGenerator struct {
+	policyName types.NamespacedName
+}
 
-func (srcServiceAccountGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+func (g srcServiceAccountGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
 }
 
-func (srcServiceAccountGenerator) principal(_, value string, _ bool, useAuthenticated bool) (*rbacpb.Principal, error) {
-	regex, err := serviceAccountRegex(value)
-	if err != nil {
-		return nil, err
-	}
+func (g srcServiceAccountGenerator) principal(_, value string, _ bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+	regex := serviceAccountRegex(g.policyName.Namespace, value)
 	m := matcher.StringMatcherRegex(regex)
 	return principalAuthenticated(m, useAuthenticated), nil
 }
 
-func serviceAccountRegex(value string) (string, error) {
+// serviceAccountRegex builds a regex that will match the SA specifier.
+// The specifier takes a `<name>` or `<namespace>/<name>` value. If namespace is elided, defaultNamespace is used.
+func serviceAccountRegex(defaultNamespace string, value string) string {
 	ns, sa, ok := strings.Cut(value, "/")
 	if !ok {
-		return "", fmt.Errorf("invalid value: %v", value)
+		ns = defaultNamespace
+		sa = value
 	}
 	// Format should follow...
 	// 'spiffe://' then a trust domain + arbitrary k/v pairs
@@ -206,7 +209,7 @@ func serviceAccountRegex(value string) (string, error) {
 	// optional arbitrary k/v pairs
 	// '/sa/<serviceAccount>'
 	// Either end of string OR / + arbitrary k/v pairs (the / ensures we do not match <service account>-some-junk)
-	return fmt.Sprintf("spiffe://.+/ns/%s/(.+/|)sa/%s(/.+)?", ns, sa), nil
+	return fmt.Sprintf("spiffe://.+/ns/%s/(.+/|)sa/%s(/.+)?", ns, sa)
 }
 
 type srcPrincipalGenerator struct{}

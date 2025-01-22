@@ -16,9 +16,13 @@ groups:
     - notServiceAccounts:
       - namespace: ns
         serviceAccount: sa-not
+      - namespace: cfg
+        serviceAccount: sa-not-only
       serviceAccounts:
       - namespace: ns
         serviceAccount: sa
+      - namespace: cfg
+        serviceAccount: sa-only
 - rules:
   - matches:
     - namespaces:
@@ -108,4 +112,5 @@ groups:
       - 9001
       - 9002
 name: allow
+namespace: cfg
 scope: NAMESPACE
