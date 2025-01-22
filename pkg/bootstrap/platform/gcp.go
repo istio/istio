@@ -98,8 +98,8 @@ var zoneInResolvRE = regexp.MustCompile(`^search.* ([^-]+-[^-]+-[^-]+)\.c\.[^.]+
 func zoneFromResolvConfData(s string) string {
 	ll := strings.Split(s, "\n")
 	for _, l := range ll {
-		if zone := zoneInResolvRE.FindString(l); zone != "" {
-			return zone
+		if m := zoneInResolvRE.FindStringSubmatch(l); len(m) == 2 {
+			return m[1]
 		}
 	}
 	log.Warnf("Failed to load the zone name of the pod from resolv.conf")
