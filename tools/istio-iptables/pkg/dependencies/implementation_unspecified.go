@@ -30,7 +30,7 @@ import (
 var ErrNotImplemented = errors.New("not implemented")
 
 func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion,
-	quietLogging bool, stdin io.ReadSeeker, args ...string,
+	silenceErrors bool, stdin io.ReadSeeker, args ...string,
 ) (*bytes.Buffer, error) {
 	return nil, ErrNotImplemented
 }
