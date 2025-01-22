@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // URL schemes supported by the config store
@@ -132,6 +133,17 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	}
 	configController := s.makeKubeConfigController(args)
 	s.ConfigStores = append(s.ConfigStores, configController)
+	tw := revisions.NewTagWatcher(s.kubeClient, args.Revision)
+	s.addStartFunc("tag-watcher", func(stop <-chan struct{}) error {
+		go tw.Run(stop)
+		return nil
+	})
+	tw.AddHandler(func(sets.String) {
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: model.NewReasonStats(model.TagUpdate),
+		})
+	})
 	if features.EnableGatewayAPI {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)

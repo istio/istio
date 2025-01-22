@@ -300,17 +300,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	}
 
 	// find the tag or revision indicated by the object
-	selectedTag, ok := gw.Labels[label.IoIstioRev.Name]
-	if !ok {
-		ns := d.namespaces.Get(gw.Namespace, "")
-		if ns == nil {
-			log.Debugf("gateway is not for this revision, skipping")
-			return nil
-		}
-		selectedTag = ns.Labels[label.IoIstioRev.Name]
-	}
-	myTags := d.tagWatcher.GetMyTags()
-	if !myTags.Contains(selectedTag) && !(selectedTag == "" && myTags.Contains("default")) {
+	if !d.tagWatcher.IsMine(gw.ObjectMeta) {
 		log.Debugf("gateway is not for this revision, skipping")
 		return nil
 	}

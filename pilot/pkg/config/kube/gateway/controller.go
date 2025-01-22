@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -88,6 +89,8 @@ type Controller struct {
 	// is only the case when we are the leader.
 	statusController *atomic.Pointer[status.Controller]
 
+	tagWatcher revisions.TagWatcher
+
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
 }
 
@@ -111,6 +114,7 @@ func NewController(
 		cluster:               options.ClusterID,
 		domain:                options.DomainSuffix,
 		statusController:      atomic.NewPointer(ctl),
+		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision),
 		waitForCRD:            waitForCRD,
 	}
 
@@ -184,6 +188,11 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
 	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
 	serviceEntry := c.cache.List(gvk.ServiceEntry, metav1.NamespaceAll) // TODO lazy load only referenced SEs?
+
+	// all other types are filtered by revision, but for gateways we need to select tags as well
+	gateway = slices.FilterInPlace(gateway, func(gw config.Config) bool {
+		return c.tagWatcher.IsMine(gw.ToObjectMeta())
+	})
 
 	input := GatewayResources{
 		GatewayClass:   deepCopyStatus(gatewayClass),
@@ -296,10 +305,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			}
 		}()
 	}
+	go c.tagWatcher.Run(stop)
 }
 
 func (c *Controller) HasSynced() bool {
-	return c.cache.HasSynced() && c.namespaces.HasSynced()
+	return c.cache.HasSynced() && c.namespaces.HasSynced() && c.tagWatcher.HasSynced()
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
