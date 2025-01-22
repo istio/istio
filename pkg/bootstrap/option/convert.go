@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"google.golang.org/protobuf/types/known/durationpb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -86,7 +86,7 @@ func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName stri
 		// This double conversion is to encode the typed config and get it out as struct
 		// so that convertToJSON properly encodes the structure. Since this is just for
 		// bootstrap generation this is better than having our custom structs.
-		tlsContextStruct, _ := conversion.MessageToStruct(protoconv.MessageToAny(tlsContext))
+		tlsContextStruct, _ := protomarshal.MessageToStructSlow(protoconv.MessageToAny(tlsContext))
 		transportSocket := &TransportSocket{
 			Name:        wellknown.TransportSocketTLS,
 			TypedConfig: tlsContextStruct,

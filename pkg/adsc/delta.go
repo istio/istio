@@ -23,7 +23,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"go.uber.org/atomic"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
@@ -34,6 +33,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/log"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/slices"
@@ -254,7 +254,7 @@ func (c *Client) trigger(ctx *handlerContext, typeURL string, r *discovery.Resou
 
 // getProtoMessageType returns the Golang type of the proto with the specified name.
 func newProto(tt string) proto.Message {
-	name := protoreflect.FullName(strings.TrimPrefix(tt, resource.APITypePrefix))
+	name := protoreflect.FullName(strings.TrimPrefix(tt, pm.APITypePrefix))
 	t, err := protoregistry.GlobalTypes.FindMessageByName(name)
 	if err != nil || t == nil {
 		return nil
@@ -366,7 +366,7 @@ func NewDeltaWithBackoffPolicy(discoveryAddr string, config *DeltaADSConfig, bac
 
 func typeName[T proto.Message]() string {
 	ft := new(T)
-	return resource.APITypePrefix + string((*ft).ProtoReflect().Descriptor().FullName())
+	return pm.APITypePrefix + string((*ft).ProtoReflect().Descriptor().FullName())
 }
 
 // Register registers a handler for a type which is reflected by the proto message.

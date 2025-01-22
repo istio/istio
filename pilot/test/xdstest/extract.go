@@ -29,7 +29,6 @@ import (
 	tcpproxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/maps"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -505,5 +505,5 @@ func MapKeys[M ~map[string]V, V any](mp M) []string {
 
 func TypeName[T proto.Message]() string {
 	ft := new(T)
-	return resource.APITypePrefix + string((*ft).ProtoReflect().Descriptor().FullName())
+	return pm.APITypePrefix + string((*ft).ProtoReflect().Descriptor().FullName())
 }

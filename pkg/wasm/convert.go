@@ -28,13 +28,13 @@ import (
 	networkrbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/hashicorp/go-multierror"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/istiomultierror"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 var (
@@ -210,12 +210,12 @@ func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *httpwasm.Wa
 		}
 
 		if typedStruct.TypeUrl == model.WasmHTTPFilterType {
-			if err := conversion.StructToMessage(typedStruct.Value, wasmHTTPFilterConfig); err != nil {
+			if err := protomarshal.StructToMessageSlow(typedStruct.Value, wasmHTTPFilterConfig); err != nil {
 				return nil, nil, nil, fmt.Errorf("failed to convert extension config struct %+v to Wasm Network filter", typedStruct)
 			}
 		} else if typedStruct.TypeUrl == model.WasmNetworkFilterType {
 			wasmNetwork = true
-			if err := conversion.StructToMessage(typedStruct.Value, wasmNetworkFilterConfig); err != nil {
+			if err := protomarshal.StructToMessageSlow(typedStruct.Value, wasmNetworkFilterConfig); err != nil {
 				return nil, nil, nil, fmt.Errorf("failed to convert extension config struct %+v to Wasm HTTP filter", typedStruct)
 			}
 		} else {

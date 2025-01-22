@@ -23,7 +23,6 @@ import (
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -161,7 +160,7 @@ func TestListenerAccessLog(t *testing.T) {
 }
 
 func verify(t *testing.T, encoding meshconfig.MeshConfig_AccessLogEncoding, got *accesslog.AccessLog, wantFormat string) {
-	cfg, _ := conversion.MessageToStruct(got.GetTypedConfig())
+	cfg, _ := protomarshal.MessageToStructSlow(got.GetTypedConfig())
 	if encoding == meshconfig.MeshConfig_JSON {
 		jsonFormat := cfg.GetFields()["log_format"].GetStructValue().GetFields()["json_format"]
 		jsonFormatString, _ := protomarshal.ToJSON(jsonFormat)
