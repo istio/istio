@@ -570,3 +570,8 @@ func yamlPrincipal(t *testing.T, yaml string) *rbacpb.Principal {
 	}
 	return p
 }
+
+func TestServiceAccountRegex(t *testing.T) {
+	assert.Equal(t, serviceAccountRegex("", "my-ns/my-sa"), `spiffe://.+/ns/my-ns/(.+/|)sa/my-sa(/.+)?`)
+	assert.Equal(t, serviceAccountRegex("my-ns", "my-sa"), `spiffe://.+/ns/my-ns/(.+/|)sa/my-sa(/.+)?`)
+}

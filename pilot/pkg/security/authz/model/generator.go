@@ -195,6 +195,8 @@ func (g srcServiceAccountGenerator) principal(_, value string, _ bool, useAuthen
 	return principalAuthenticated(m, useAuthenticated), nil
 }
 
+// serviceAccountRegex builds a regex that will match the SA specifier.
+// The specifier takes a `<name>` or `<namespace>/<name>` value. If namespace is elided, defaultNamespace is used.
 func serviceAccountRegex(defaultNamespace string, value string) string {
 	ns, sa, ok := strings.Cut(value, "/")
 	if !ok {

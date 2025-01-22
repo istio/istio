@@ -145,6 +145,16 @@ func TestValidateCondition(t *testing.T) {
 			wantError: true,
 		},
 		{
+			key:       "source.serviceAccount",
+			values:    []string{"/emptyns"},
+			wantError: true,
+		},
+		{
+			key:       "source.serviceAccount",
+			values:    []string{"emptysa/"},
+			wantError: true,
+		},
+		{
 			key:    "source.serviceAccount",
 			values: []string{"ns/sa"},
 		},
