@@ -56,7 +56,7 @@ const (
 var GCPStaticMetadata = func() map[string]string {
 	gcpm := env.Register("GCP_METADATA", "", "Pipe separated GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
 	quota := env.Register("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
-	zone := env.Register("GCP_ZONE", "", "GCP Zone where the workload is running on.").Get()
+	zone := env.Register("GCP_ZONE", zoneFromResolvConf(), "GCP Zone where the workload is running on.").Get()
 	if len(gcpm) == 0 {
 		return map[string]string{}
 	}
@@ -82,6 +82,30 @@ var GCPStaticMetadata = func() map[string]string {
 	}
 	return md
 }()
+
+func zoneFromResolvConf() string {
+	b, err := os.ReadFile("/etc/resolv.conf")
+	if err != nil {
+		return ""
+	}
+	return zoneFromResolvConfData(string(b))
+}
+
+// Example resolv.conf:
+// search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal c.test-proj.internal google.internal
+var zoneInResolvRE = regexp.MustCompile(`^search.* ([^-]+-[^-]+-[^-]+)\.c\.[^.]+\.internal`)
+
+func zoneFromResolvConfData(s string) string {
+	ll := strings.Split(s, "\n")
+	for _, l := range ll {
+		log.Infof("%v", l)
+		if zone := zoneInResolvRE.FindString(l); zone != "" {
+			return zone
+		}
+	}
+	log.Warnf("Failed to load the zone name of the pod from resolv.conf")
+	return ""
+}
 
 // nolint: staticcheck // we are not currently using Context() function variants
 var (

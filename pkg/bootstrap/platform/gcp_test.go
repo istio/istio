@@ -446,3 +446,58 @@ func TestZoneToRegion(t *testing.T) {
 		})
 	}
 }
+
+func TestZoneFromResolvConfData(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name: "firstElementAndMiddleLine",
+			input: `domain us-central1-c.c.test-proj.internal
+search us-central1-c.c.test-proj.internal. c.test-proj.internal. google.internal.
+nameserver 8.8.8.8
+`,
+			want: "us-central1-c",
+		},
+		{
+			name: "middleElementAndFirstLine",
+			input: `search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal c.test-proj.internal google.internal
+nameserver 34.118.224.10
+options ndots:5`,
+			want: "us-central1-f",
+		},
+		{
+			name: "lastElement",
+			input: `nameserver 34.118.224.10
+options ndots:5
+search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal`,
+			want: "us-central1-f",
+		},
+		{
+			name: "lastElementWithTrailingSpace",
+			input: `nameserver 34.118.224.10
+options ndots:5
+search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal `,
+			want: "us-central1-f",
+		},
+		{
+			name: "withoutSearchTerm",
+			input: `nameserver 34.118.224.10
+options ndots:5
+search httpbin.svc.cluster.local svc.cluster.local cluster.local
+domain us-central1-f.c.test-proj.internal `,
+			want: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := zoneFromResolvConfData(tc.input)
+			if got != tc.want {
+				t.Errorf("unexpected output from zoneFromResolvConfData (got: %v, want: %v)", got, tc.want)
+			}
+		})
+	}
+}
