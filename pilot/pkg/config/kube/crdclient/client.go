@@ -368,7 +368,7 @@ func (cl *Client) addCRD(name string) {
 		ObjectFilter:    composeFilters(namespaceFilter, cl.inRevision, extraFilter),
 		ObjectTransform: transform,
 	}
-	if resourceGVK == gvk.Gateway || resourceGVK == gvk.KubernetesGateway {
+	if resourceGVK == gvk.KubernetesGateway {
 		filter.ObjectFilter = composeFilters(namespaceFilter, extraFilter)
 	}
 
