@@ -187,9 +187,10 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
   trace "build images" build_images "${PARAMS[*]}"
 
   # upload WASM plugins to kind-registry
-  crane copy gcr.io/istio-testing/wasm/attributegen:359dcd3a19f109c50e97517fe6b1e2676e870c4d kind-registry:5000/istio-testing/wasm/attributegen:0.0.1 --insecure
-  crane copy gcr.io/istio-testing/wasm/header-injector:0.0.1 kind-registry:5000/istio-testing/wasm/header-injector:0.0.1 --insecure
-  crane copy gcr.io/istio-testing/wasm/header-injector:0.0.2 kind-registry:5000/istio-testing/wasm/header-injector:0.0.2 --insecure
+  registry_url=$(if [ -z "$DEVCONTAINER" ]; then echo "localhost"; else echo $KIND_REGISTRY_NAME; fi):$KIND_REGISTRY_PORT
+  crane copy gcr.io/istio-testing/wasm/attributegen:359dcd3a19f109c50e97517fe6b1e2676e870c4d "$registry_url/istio-testing/wasm/attributegen:0.0.1" --insecure
+  crane copy gcr.io/istio-testing/wasm/header-injector:0.0.1 "$registry_url/istio-testing/wasm/header-injector:0.0.1" --insecure
+  crane copy gcr.io/istio-testing/wasm/header-injector:0.0.2 "$registry_url/istio-testing/wasm/header-injector:0.0.2" --insecure
 
   # Make "kind-registry" resolvable in IPv6 cluster
   if [[ "$KIND_IP_FAMILY" == "ipv6" ]]; then
