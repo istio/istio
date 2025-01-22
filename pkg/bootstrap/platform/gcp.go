@@ -98,7 +98,6 @@ var zoneInResolvRE = regexp.MustCompile(`^search.* ([^-]+-[^-]+-[^-]+)\.c\.[^.]+
 func zoneFromResolvConfData(s string) string {
 	ll := strings.Split(s, "\n")
 	for _, l := range ll {
-		log.Infof("%v", l)
 		if zone := zoneInResolvRE.FindString(l); zone != "" {
 			return zone
 		}
