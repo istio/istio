@@ -722,8 +722,8 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 		if guardrails {
 			log.Info("Removing guardrails")
 			guardrailsCleanup := cfg.ruleBuilder.BuildCleanupGuardrails()
-			cfg.tryExecuteIptablesCommands(iptVer, guardrailsCleanup)
-			cfg.tryExecuteIptablesCommands(ipt6Ver, guardrailsCleanup)
+			_ = cfg.executeIptablesCommands(iptVer, guardrailsCleanup)
+			_ = cfg.executeIptablesCommands(ipt6Ver, guardrailsCleanup)
 		}
 	}()
 
