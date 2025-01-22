@@ -279,11 +279,11 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &iptVer, nil); err != nil {
+		if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &iptVer, nil); err == nil {
 			log.Infof("Final iptables state (IPv4):\n%s", state)
 		}
 		if cfg.cfg.EnableIPv6 {
-			if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &ipt6Ver, nil); err != nil {
+			if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &ipt6Ver, nil); err == nil {
 				log.Infof("Final iptables state (IPv6):\n%s", state)
 			}
 		}
@@ -722,8 +722,8 @@ func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVe
 		if guardrails {
 			log.Info("Removing guardrails")
 			guardrailsCleanup := cfg.ruleBuilder.BuildCleanupGuardrails()
-			_ = cfg.executeIptablesCommands(iptVer, guardrailsCleanup)
-			_ = cfg.executeIptablesCommands(ipt6Ver, guardrailsCleanup)
+			cfg.tryExecuteIptablesCommands(iptVer, guardrailsCleanup)
+			cfg.tryExecuteIptablesCommands(ipt6Ver, guardrailsCleanup)
 		}
 	}()
 

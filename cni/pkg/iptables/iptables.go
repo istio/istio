@@ -465,8 +465,8 @@ func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBu
 		if guardrails {
 			log.Info("Removing guardrails")
 			guardrailsCleanup := iptablesBuilder.BuildCleanupGuardrails()
-			_ = cfg.executeIptablesCommands(log, &cfg.iptV, guardrailsCleanup)
-			_ = cfg.executeIptablesCommands(log, &cfg.ipt6V, guardrailsCleanup)
+			cfg.tryExecuteIptablesCommands(log, &cfg.iptV, guardrailsCleanup)
+			cfg.tryExecuteIptablesCommands(log, &cfg.ipt6V, guardrailsCleanup)
 		}
 	}()
 	residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, cfg.ext, iptablesBuilder, &cfg.iptV, &cfg.ipt6V)
