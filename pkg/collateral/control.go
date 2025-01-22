@@ -667,9 +667,15 @@ func normalizeID(id string) string {
 	return strings.Replace(id, ".", "-", -1)
 }
 
-func (g *generator) genVars(root *cobra.Command, selectFn SelectEnvFn) {
-	if selectFn == nil {
-		selectFn = DefaultSelectEnvFn
+func (g *generator) genVars(root *cobra.Command, selectFunc SelectEnvFn) {
+	if selectFunc == nil {
+		selectFunc = DefaultSelectEnvFn
+	}
+
+	cmdName := root.Name()
+
+	selectFn := func(v env.Var) bool {
+		return selectFunc(v) && v.Binary.IsUsedBy(cmdName)
 	}
 
 	envVars := env.VarDescriptions()
@@ -691,7 +697,7 @@ func (g *generator) genVars(root *cobra.Command, selectFn SelectEnvFn) {
 
 	g.emit("<h2 id=\"envvars\">Environment variables</h2>")
 
-	g.emit("These environment variables affect the behavior of the <code>", root.Name(), "</code> command. ")
+	g.emit("These environment variables affect the behavior of the <code>", cmdName, "</code> command. ")
 
 	g.emit("<table class=\"envvars\">")
 	g.emit("<thead>")
