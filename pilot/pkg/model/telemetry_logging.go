@@ -117,6 +117,37 @@ var (
 		},
 	}
 
+	// LegacyEnvoyJSONLogFormatIstio is the same as above except that it utilizes UPSTREAM_CLUSTER instead of
+	// UPSTREAM_CLUSTER_RAW, so it may show the new ; delimeter for the cluster name.
+	LegacyEnvoyJSONLogFormatIstio = &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"start_time":                        {Kind: &structpb.Value_StringValue{StringValue: "%START_TIME%"}},
+			"route_name":                        {Kind: &structpb.Value_StringValue{StringValue: "%ROUTE_NAME%"}},
+			"method":                            {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:METHOD)%"}},
+			"path":                              {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"}},
+			"protocol":                          {Kind: &structpb.Value_StringValue{StringValue: "%PROTOCOL%"}},
+			"response_code":                     {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE%"}},
+			"response_flags":                    {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_FLAGS%"}},
+			"response_code_details":             {Kind: &structpb.Value_StringValue{StringValue: "%RESPONSE_CODE_DETAILS%"}},
+			"connection_termination_details":    {Kind: &structpb.Value_StringValue{StringValue: "%CONNECTION_TERMINATION_DETAILS%"}},
+			"bytes_received":                    {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_RECEIVED%"}},
+			"bytes_sent":                        {Kind: &structpb.Value_StringValue{StringValue: "%BYTES_SENT%"}},
+			"duration":                          {Kind: &structpb.Value_StringValue{StringValue: "%DURATION%"}},
+			"upstream_service_time":             {Kind: &structpb.Value_StringValue{StringValue: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"}},
+			"x_forwarded_for":                   {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-FORWARDED-FOR)%"}},
+			"user_agent":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(USER-AGENT)%"}},
+			"request_id":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
+			"authority":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
+			"upstream_host":                     {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
+			"upstream_cluster":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
+			"upstream_local_address":            {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
+			"downstream_local_address":          {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
+			"downstream_remote_address":         {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
+			"requested_server_name":             {Kind: &structpb.Value_StringValue{StringValue: "%REQUESTED_SERVER_NAME%"}},
+			"upstream_transport_failure_reason": {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"}},
+		},
+	}
+
 	// State logged by the metadata exchange filter about the upstream and downstream service instances
 	// We need to propagate these as part of access log service stream
 	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
@@ -238,7 +269,7 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text:
 			fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat(logFormat.Text, proxyVersion)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels:
-			fl.AccessLogFormat, needsFormatter = buildFileAccessJSONLogFormat(logFormat)
+			fl.AccessLogFormat, needsFormatter = buildFileAccessJSONLogFormat(logFormat, proxyVersion)
 		}
 	} else {
 		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat("", proxyVersion)
@@ -273,9 +304,12 @@ func buildFileAccessTextLogFormat(logFormatText string, proxyVersion *IstioVersi
 }
 
 func buildFileAccessJSONLogFormat(
-	logFormat *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels,
+	logFormat *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels, proxyVersion *IstioVersion,
 ) (*fileaccesslog.FileAccessLog_LogFormat, []*core.TypedExtensionConfig) {
 	jsonLogStruct := EnvoyJSONLogFormatIstio
+	if !versionGE123(proxyVersion) {
+		jsonLogStruct = LegacyEnvoyJSONLogFormatIstio
+	}
 	if logFormat.Labels != nil {
 		jsonLogStruct = logFormat.Labels
 	}
@@ -283,6 +317,9 @@ func buildFileAccessJSONLogFormat(
 	// allow default behavior when no labels supplied.
 	if len(jsonLogStruct.Fields) == 0 {
 		jsonLogStruct = EnvoyJSONLogFormatIstio
+		if !versionGE123(proxyVersion) {
+			jsonLogStruct = LegacyEnvoyJSONLogFormatIstio
+		}
 	}
 
 	formatters := accessLogJSONFormatters(jsonLogStruct)
