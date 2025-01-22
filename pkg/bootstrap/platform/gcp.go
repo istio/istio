@@ -56,7 +56,7 @@ const (
 var GCPStaticMetadata = func() map[string]string {
 	gcpm := env.Register("GCP_METADATA", "", "Pipe separated GCP metadata, schemed as PROJECT_ID|PROJECT_NUMBER|CLUSTER_NAME|CLUSTER_ZONE").Get()
 	quota := env.Register("GCP_QUOTA_PROJECT", "", "Allows specification of a quota project to be used in requests to GCP APIs.").Get()
-	zone := env.Register("GCP_ZONE", zoneFromResolvConf(), "GCP Zone where the workload is running on.").Get()
+	zone := env.Register("GCP_ZONE", "", "GCP Zone where the workload is running on.").Get()
 	if len(gcpm) == 0 {
 		return map[string]string{}
 	}
@@ -92,6 +92,7 @@ var GCPStaticMetadata = func() map[string]string {
 func zoneFromResolvConf() string {
 	b, err := os.ReadFile("/etc/resolv.conf")
 	if err != nil {
+		log.Warnf("Failed to read resolv.conf")
 		return ""
 	}
 	return zoneFromResolvConfData(string(b))
@@ -202,11 +203,16 @@ func IsGCP() bool {
 // Metadata returned by the GCP Environment is taken from the GCE metadata
 // service.
 func NewGCP() Environment {
+	zone := GCPStaticMetadata[GCPZone]
+	if zone == "" {
+		zone = zoneFromResolvConf()
+	}
+
 	return &gcpEnv{
 		fillMetadata: lazy.New(func() (bool, error) {
 			return shouldFillMetadata(), nil
 		}),
-		cachedZone: atomic.NewString(GCPStaticMetadata[GCPZone]),
+		cachedZone: atomic.NewString(zone),
 	}
 }
 
