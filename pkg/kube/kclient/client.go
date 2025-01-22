@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -95,13 +96,17 @@ func (n *informerClient[T]) Start(stopCh <-chan struct{}) {
 type internalIndex struct {
 	key     string
 	indexer cache.Indexer
+	filter  func(t any) bool
 }
 
-func (i internalIndex) Lookup(key string) []interface{} {
+func (i internalIndex) Lookup(key string) []any {
 	res, err := i.indexer.ByIndex(i.key, key)
 	if err != nil {
 		// This should only happen if the index key (i.key, not key) does not exist which should be impossible.
 		log.Fatalf("index lookup failed: %v", err)
+	}
+	if i.filter != nil {
+		return slices.FilterInPlace(res, i.filter)
 	}
 	return res
 }
@@ -112,7 +117,7 @@ func (n *informerClient[T]) Index(extract func(o T) []string) RawIndexer {
 	// We just need some unique key, any will do
 	key := fmt.Sprintf("%p", extract)
 	if err := n.informer.AddIndexers(map[string]cache.IndexFunc{
-		key: func(obj interface{}) ([]string, error) {
+		key: func(obj any) ([]string, error) {
 			t := controllers.Extract[T](obj)
 			return extract(t), nil
 		},
@@ -123,6 +128,7 @@ func (n *informerClient[T]) Index(extract func(o T) []string) RawIndexer {
 	ret := internalIndex{
 		key:     key,
 		indexer: n.informer.GetIndexer(),
+		filter:  n.filter,
 	}
 	return ret
 }
