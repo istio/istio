@@ -249,6 +249,13 @@ func buildAccessLogFilter(f ...*accesslog.AccessLogFilter) *accesslog.AccessLogF
 }
 
 func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfig, proxyVersion *model.IstioVersion) *accesslog.AccessLog {
+	// Calculate access log config on-the-flay for proxy versions <1.23
+	if !util.IsIstioVersionGE123(proxyVersion) {
+		lal := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh, proxyVersion)
+		lal.Filter = addAccessLogFilter()
+		return lal
+	}
+
 	if cal := b.cachedListenerFileAccessLog(); cal != nil {
 		return cal
 	}
