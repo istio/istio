@@ -189,6 +189,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
 	serviceEntry := c.cache.List(gvk.ServiceEntry, metav1.NamespaceAll) // TODO lazy load only referenced SEs?
 
+	// all other types are filtered by revision, but for gateways we need to select tags as well
 	gateway = slices.FilterInPlace(gateway, func(gw config.Config) bool {
 		return c.tagWatcher.IsMine(gw.ToObjectMeta())
 	})
