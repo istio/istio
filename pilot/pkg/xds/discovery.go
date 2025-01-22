@@ -273,10 +273,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// saved.
 	t0 := time.Now()
 	versionLocal := s.NextVersion()
-	push, err := s.initPushContext(req, oldPushContext, versionLocal)
-	if err != nil {
-		return
-	}
+	push := s.initPushContext(req, oldPushContext, versionLocal)
 	initContextTime := time.Since(t0)
 	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 	pushContextInitTime.Record(initContextTime.Seconds())
@@ -508,7 +505,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 // method is technically thread safe (there are no data races), it should not be called in parallel;
 // if it is, then we may start two push context creations (say A, and B), but then write them in
 // reverse order, leaving us with a final version of A, which may be incomplete.
-func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext, version string) (*model.PushContext, error) {
+func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext, version string) *model.PushContext {
 	push := model.NewPushContext()
 	push.PushVersion = version
 	push.JwtKeyResolver = s.JwtKeyResolver
@@ -517,7 +514,7 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 	s.dropCacheForRequest(req)
 	s.Env.SetPushContext(push)
 
-	return push, nil
+	return push
 }
 
 func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
