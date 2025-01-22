@@ -89,7 +89,7 @@ var GCPStaticMetadata = func() map[string]string {
 // GKE provides resolv.conf based on the Node(GCE)'s resolv.conf.
 // GCE's resolv.conf format can be found in:
 // https://cloud.google.com/compute/docs/internal-dns
-func zoneFromResolvConf() string {
+var zoneFromResolvConf = func() string {
 	b, err := os.ReadFile("/etc/resolv.conf")
 	if err != nil {
 		log.Warnf("Failed to read resolv.conf")
