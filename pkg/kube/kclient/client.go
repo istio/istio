@@ -105,7 +105,10 @@ func (i internalIndex) Lookup(key string) []any {
 		// This should only happen if the index key (i.key, not key) does not exist which should be impossible.
 		log.Fatalf("index lookup failed: %v", err)
 	}
-	return slices.FilterInPlace(res, i.filter)
+	if i.filter != nil {
+		return slices.FilterInPlace(res, i.filter)
+	}
+	return res
 }
 
 var _ RawIndexer = internalIndex{}
