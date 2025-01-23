@@ -19,7 +19,6 @@ import (
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/model"
 )
@@ -135,15 +134,6 @@ func LightstepAddress(value string) Instance {
 
 func LightstepToken(value string) Instance {
 	return newOption("lightstepToken", value)
-}
-
-func OpenCensusAgentAddress(value string) Instance {
-	return newOptionOrSkipIfZero("openCensusAgent", value)
-}
-
-func OpenCensusAgentContexts(value []meshAPI.Tracing_OpenCensusAgent_TraceContext) Instance {
-	return newOption("openCensusAgentContexts", value).
-		withConvert(openCensusAgentContextConverter(value))
 }
 
 func StackDriverEnabled(value bool) Instance {

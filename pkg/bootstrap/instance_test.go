@@ -174,9 +174,6 @@ func TestGolden(t *testing.T) {
 			base: "metrics_no_statsd",
 		},
 		{
-			base: "tracing_opencensusagent",
-		},
-		{
 			base: "tracing_none",
 		},
 		{

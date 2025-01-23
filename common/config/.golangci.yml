@@ -329,6 +329,15 @@ issues:
     - linters:
         - staticcheck
       text: "SA1019: grpc.WithReturnConnectionError"
+    - linters:
+        - staticcheck
+      text: 'SA1019: c.DnsJitter is deprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.'
+    - linters:
+        - staticcheck
+      text: 'SA1019: c.DnsRefreshRate is deprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.'
+    - linters:
+        - staticcheck
+      text: 'SA1019: c.RespectDnsTtl is deprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.'
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all
   # excluded by default patterns execute `golangci-lint run --help`.
