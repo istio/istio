@@ -19,6 +19,8 @@ _internal_defaults_do_not_set:
       labels:
         app: istio-egressgateway
         istio: egressgateway
+        # By default, don't enroll gateways into the ambient dataplane
+        "istio.io/dataplane-mode": none
 
       # Scalability tuning
       # replicaCount: 1
