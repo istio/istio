@@ -6,11 +6,11 @@ _internal_defaults_do_not_set:
   gateways:
     istio-ingressgateway:
       name: istio-ingressgateway
+      # NOTE that these labels will get encoded implicitly into selectorLabels
+      # if this is a problem, consider using the `gateway` chart instead
       labels:
         app: istio-ingressgateway
         istio: ingressgateway
-        # By default, don't enroll gateways into the ambient dataplane
-        "istio.io/dataplane-mode": none
       ports:
       ## You can add custom gateway ports in user values overrides, but it must include those ports since helm replaces.
       # Note that AWS ELB will by default perform health checks on the first port
