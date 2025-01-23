@@ -83,6 +83,36 @@ var GCPStaticMetadata = func() map[string]string {
 	return md
 }()
 
+// zoneFromResolvConf extracts the zone from resolv.conf.
+// The doc which describes the format can be found in:
+// https://cloud.google.com/kubernetes-engine/docs/how-to/kube-dns
+// GKE provides resolv.conf based on the Node(GCE)'s resolv.conf.
+// GCE's resolv.conf format can be found in:
+// https://cloud.google.com/compute/docs/internal-dns
+var zoneFromResolvConf = func() string {
+	b, err := os.ReadFile("/etc/resolv.conf")
+	if err != nil {
+		log.Warnf("Failed to read resolv.conf")
+		return ""
+	}
+	return zoneFromResolvConfData(string(b))
+}
+
+// Example resolv.conf:
+// search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal c.test-proj.internal google.internal
+var zoneInResolvRE = regexp.MustCompile(`^search.* ([^-]+-[^-]+-[^-]+)\.c\.[^.]+\.internal`)
+
+func zoneFromResolvConfData(s string) string {
+	ll := strings.Split(s, "\n")
+	for _, l := range ll {
+		if m := zoneInResolvRE.FindStringSubmatch(l); len(m) == 2 {
+			return m[1]
+		}
+	}
+	log.Warnf("Failed to load the zone name of the pod from resolv.conf")
+	return ""
+}
+
 // nolint: staticcheck // we are not currently using Context() function variants
 var (
 	// shouldFillMetadata returns whether the workload is running on GCP and the metadata endpoint is accessible
@@ -278,6 +308,13 @@ func (e *gcpEnv) getPodZone() (string, error) {
 	if z != "" {
 		return z, nil
 	}
+	// Try to read resolv.conf and extract Pod's zone.
+	z = zoneFromResolvConf()
+	if z != "" {
+		e.cachedZone.Store(z)
+		return z, nil
+	}
+	// Fallback to Metadata Server to get the zone.
 	ctx, cfn := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cfn()
 	z, err := zoneFn(ctx)

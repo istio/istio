@@ -362,14 +362,16 @@ func TestDefaultPort(t *testing.T) {
 
 func TestLocality(t *testing.T) {
 	tests := []struct {
-		name   string
-		zoneFn func(context.Context) (string, error)
-		env    map[string]string
-		want   map[string]string
+		name     string
+		zoneFn   func(context.Context) (string, error)
+		resolvFn func() string
+		env      map[string]string
+		want     map[string]string
 	}{
 		{
 			"fill by env variable",
 			func(context.Context) (string, error) { return "us-east1-ir", nil },
+			func() string { return "us-central3-f" },
 			map[string]string{
 				GCPZone: "us-central2-ir",
 			},
@@ -378,12 +380,14 @@ func TestLocality(t *testing.T) {
 		{
 			"fill by metadata server",
 			func(context.Context) (string, error) { return "us-east1-ir", nil },
+			func() string { return "" },
 			map[string]string{},
 			map[string]string{"Zone": "us-east1-ir", "Region": "us-east1"},
 		},
 		{
 			"fill by env variable without compute metadata",
 			func(context.Context) (string, error) { return "", errors.New("error") },
+			func() string { return "" },
 			map[string]string{
 				GCPZone: "us-central2-ir",
 			},
@@ -392,12 +396,21 @@ func TestLocality(t *testing.T) {
 		{
 			"no env variable and unable to reach compute metadata",
 			func(context.Context) (string, error) { return "", errors.New("error") },
+			func() string { return "" },
 			map[string]string{},
 			map[string]string{},
+		},
+		{
+			"fill by resolv.conf",
+			func(context.Context) (string, error) { return "us-east1-ir", nil },
+			func() string { return "us-central3-f" },
+			map[string]string{},
+			map[string]string{"Zone": "us-central3-f", "Region": "us-central3"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &zoneFromResolvConf, tt.resolvFn)
 			test.SetForTest(t, &GCPStaticMetadata, tt.env)
 			zoneFn = tt.zoneFn
 			e := NewGCP()
@@ -442,6 +455,61 @@ func TestZoneToRegion(t *testing.T) {
 				if got != tc.wantRegion {
 					t.Errorf("unexpected region was returned. (got: %v, want: %v)", got, tc.wantRegion)
 				}
+			}
+		})
+	}
+}
+
+func TestZoneFromResolvConfData(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name: "firstElementAndMiddleLine",
+			input: `domain us-central1-c.c.test-proj.internal
+search us-central1-c.c.test-proj.internal. c.test-proj.internal. google.internal.
+nameserver 8.8.8.8
+`,
+			want: "us-central1-c",
+		},
+		{
+			name: "middleElementAndFirstLine",
+			input: `search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal c.test-proj.internal google.internal
+nameserver 34.118.224.10
+options ndots:5`,
+			want: "us-central1-f",
+		},
+		{
+			name: "lastElement",
+			input: `nameserver 34.118.224.10
+options ndots:5
+search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal`,
+			want: "us-central1-f",
+		},
+		{
+			name: "lastElementWithTrailingSpace",
+			input: `nameserver 34.118.224.10
+options ndots:5
+search httpbin.svc.cluster.local svc.cluster.local cluster.local us-central1-f.c.test-proj.internal `,
+			want: "us-central1-f",
+		},
+		{
+			name: "withoutSearchTerm",
+			input: `nameserver 34.118.224.10
+options ndots:5
+search httpbin.svc.cluster.local svc.cluster.local cluster.local
+domain us-central1-f.c.test-proj.internal `,
+			want: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := zoneFromResolvConfData(tc.input)
+			if got != tc.want {
+				t.Errorf("unexpected output from zoneFromResolvConfData (got: %v, want: %v)", got, tc.want)
 			}
 		})
 	}
