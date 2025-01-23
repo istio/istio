@@ -191,7 +191,14 @@ func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
 		return
 	}
 	// fire instance handles for workload
-	ep := pc.c.NewEndpointBuilder(pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable, model.Healthy)
+	ep := pc.c.NewEndpointBuilder(pod).buildIstioEndpoint(
+		pod.Status.PodIP,
+		0,
+		"",
+		model.AlwaysDiscoverable,
+		model.Healthy,
+		features.GlobalSendUnhealthyEndpoints.Load(),
+	)
 	// If pod is dual stack, handle all IPs
 	if features.EnableDualStack && len(pod.Status.PodIPs) > 1 {
 		ep.Addresses = slices.Map(pod.Status.PodIPs, func(e v1.PodIP) string {

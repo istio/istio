@@ -92,6 +92,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 	svcPortName string,
 	discoverabilityPolicy model.EndpointDiscoverabilityPolicy,
 	healthStatus model.HealthStatus,
+	sendUnhealthy bool,
 ) *model.IstioEndpoint {
 	if b == nil {
 		return nil
@@ -105,21 +106,22 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 	}
 
 	return &model.IstioEndpoint{
-		Labels:                b.labels,
-		ServiceAccount:        b.serviceAccount,
-		Locality:              b.locality,
-		TLSMode:               b.tlsMode,
-		Addresses:             []string{endpointAddress},
-		EndpointPort:          uint32(endpointPort),
-		ServicePortName:       svcPortName,
-		Network:               networkID,
-		WorkloadName:          b.workloadName,
-		Namespace:             b.namespace,
-		HostName:              b.hostname,
-		SubDomain:             b.subDomain,
-		DiscoverabilityPolicy: discoverabilityPolicy,
-		HealthStatus:          healthStatus,
-		NodeName:              b.nodeName,
+		Labels:                 b.labels,
+		ServiceAccount:         b.serviceAccount,
+		Locality:               b.locality,
+		TLSMode:                b.tlsMode,
+		Addresses:              []string{endpointAddress},
+		EndpointPort:           uint32(endpointPort),
+		ServicePortName:        svcPortName,
+		Network:                networkID,
+		WorkloadName:           b.workloadName,
+		Namespace:              b.namespace,
+		HostName:               b.hostname,
+		SubDomain:              b.subDomain,
+		DiscoverabilityPolicy:  discoverabilityPolicy,
+		HealthStatus:           healthStatus,
+		SendUnhealthyEndpoints: sendUnhealthy,
+		NodeName:               b.nodeName,
 	}
 }
 

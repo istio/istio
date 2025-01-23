@@ -2463,7 +2463,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
-			test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
+			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
 			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
 				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
@@ -2478,7 +2478,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 				test.SetForTest(t, &features.EnableRedisFilter, true)
 			}
 
-			applyLoadBalancer(c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
+			applyLoadBalancer(nil, c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
 
 			if c.LbPolicy != tt.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)

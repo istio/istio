@@ -37,30 +37,24 @@ const (
 func GetLocalityLbSetting(
 	mesh *v1alpha3.LocalityLoadBalancerSetting,
 	destrule *v1alpha3.LocalityLoadBalancerSetting,
-) *v1alpha3.LocalityLoadBalancerSetting {
-	var enabled bool
-	// Locality lb is enabled if its not explicitly disabled in mesh global config
-	if mesh != nil && (mesh.Enabled == nil || mesh.Enabled.Value) {
-		enabled = true
-	}
-	// Unless we explicitly override this in destination rule
+	service *model.Service,
+) (*v1alpha3.LocalityLoadBalancerSetting, bool) {
 	if destrule != nil {
 		if destrule.Enabled != nil && !destrule.Enabled.Value {
-			enabled = false
-		} else {
-			enabled = true
+			return nil, false
 		}
+		return destrule, false
 	}
-	if !enabled {
-		return nil
+	if service != nil && service.Attributes.TrafficDistribution == model.TrafficDistributionPreferClose {
+		return &v1alpha3.LocalityLoadBalancerSetting{
+			Enabled: wrappers.Bool(true),
+		}, true
 	}
-
-	// Destination Rule overrides mesh config. If its defined, use that
-	if destrule != nil {
-		return destrule
+	msh := mesh.GetEnabled()
+	if msh != nil && !msh.Value {
+		return nil, false
 	}
-	// Otherwise fall back to mesh default
-	return mesh
+	return mesh, false
 }
 
 func ApplyLocalityLoadBalancer(

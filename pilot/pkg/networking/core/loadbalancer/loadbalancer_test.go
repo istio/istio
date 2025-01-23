@@ -992,15 +992,20 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 func TestGetLocalityLbSetting(t *testing.T) {
 	// dummy config for test
+	preferCloseService := &model.Service{Attributes: model.ServiceAttributes{K8sAttributes: model.K8sAttributes{
+		TrafficDistribution: model.TrafficDistributionPreferClose,
+	}}}
 	failover := []*networking.LocalityLoadBalancerSetting_Failover{nil}
 	cases := []struct {
 		name     string
 		mesh     *networking.LocalityLoadBalancerSetting
 		dr       *networking.LocalityLoadBalancerSetting
+		svc      *model.Service
 		expected *networking.LocalityLoadBalancerSetting
 	}{
 		{
 			"all disabled",
+			nil,
 			nil,
 			nil,
 			nil,
@@ -1009,29 +1014,48 @@ func TestGetLocalityLbSetting(t *testing.T) {
 			"mesh only",
 			&networking.LocalityLoadBalancerSetting{},
 			nil,
+			nil,
 			&networking.LocalityLoadBalancerSetting{},
 		},
 		{
 			"dr only",
 			nil,
 			&networking.LocalityLoadBalancerSetting{},
+			nil,
 			&networking.LocalityLoadBalancerSetting{},
 		},
 		{
 			"dr only override",
 			nil,
 			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			nil,
 			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
 		},
 		{
-			"both",
+			"dr and mesh",
 			&networking.LocalityLoadBalancerSetting{},
 			&networking.LocalityLoadBalancerSetting{Failover: failover},
+			nil,
 			&networking.LocalityLoadBalancerSetting{Failover: failover},
+		},
+		{
+			"all",
+			&networking.LocalityLoadBalancerSetting{},
+			&networking.LocalityLoadBalancerSetting{Failover: failover},
+			preferCloseService,
+			&networking.LocalityLoadBalancerSetting{Failover: failover},
+		},
+		{
+			"service and mesh",
+			&networking.LocalityLoadBalancerSetting{},
+			nil,
+			preferCloseService,
+			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
 		},
 		{
 			"mesh disabled",
 			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+			nil,
 			nil,
 			nil,
 		},
@@ -1040,17 +1064,19 @@ func TestGetLocalityLbSetting(t *testing.T) {
 			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
 			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
 			nil,
+			nil,
 		},
 		{
 			"dr enabled override mesh disabled",
 			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
 			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			nil,
 			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetLocalityLbSetting(tt.mesh, tt.dr)
+			got, _ := GetLocalityLbSetting(tt.mesh, tt.dr, tt.svc)
 			if !reflect.DeepEqual(tt.expected, got) {
 				t.Fatalf("Expected: %v, got: %v", tt.expected, got)
 			}

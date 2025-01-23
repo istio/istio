@@ -165,7 +165,7 @@ func TestIncrementalPush(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/38709
 func TestSAUpdate(t *testing.T) {
-	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, false)
+	test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, false)
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.Connect(s.SetupProxy(nil), nil, []string{v3.ClusterType})
 
@@ -207,7 +207,7 @@ func TestSAUpdate(t *testing.T) {
 
 // Regression test for https://github.com/istio/istio/issues/38709
 func TestSAUpdateWithMulAddrsInstance(t *testing.T) {
-	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, false)
+	test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, false)
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.Connect(s.SetupProxy(nil), nil, []string{v3.ClusterType})
 
@@ -398,9 +398,9 @@ func TestEDSOverlapping(t *testing.T) {
 func TestEDSUnhealthyEndpoints(t *testing.T) {
 	for _, sendUnhealthy := range []bool{true, false} {
 		t.Run(fmt.Sprint(sendUnhealthy), func(t *testing.T) {
-			test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, sendUnhealthy)
+			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, sendUnhealthy)
 			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
-			addUnhealthyCluster(s)
+			addUnhealthyCluster(s, sendUnhealthy)
 			s.EnsureSynced(t)
 			adscon := s.Connect(nil, nil, watchEds)
 
@@ -454,16 +454,18 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 				[]*model.IstioEndpoint{
 					{
-						Addresses:       []string{"10.0.0.53"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.UnHealthy,
+						Addresses:              []string{"10.0.0.53"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.UnHealthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 					{
-						Addresses:       []string{"10.0.0.54"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.UnHealthy,
+						Addresses:              []string{"10.0.0.54"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.UnHealthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 				})
 
@@ -478,16 +480,18 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 				[]*model.IstioEndpoint{
 					{
-						Addresses:       []string{"10.0.0.53"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.Healthy,
+						Addresses:              []string{"10.0.0.53"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.Healthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 					{
-						Addresses:       []string{"10.0.0.54"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.Healthy,
+						Addresses:              []string{"10.0.0.54"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.Healthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 				})
 
@@ -498,16 +502,18 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 				[]*model.IstioEndpoint{
 					{
-						Addresses:       []string{"10.0.0.53"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.Healthy,
+						Addresses:              []string{"10.0.0.53"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.Healthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 					{
-						Addresses:       []string{"10.0.0.54"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.Healthy,
+						Addresses:              []string{"10.0.0.54"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.Healthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 				})
 			// Validate that endpoint is not pushed.
@@ -517,16 +523,18 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 				[]*model.IstioEndpoint{
 					{
-						Addresses:       []string{"10.0.0.53"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.UnHealthy,
+						Addresses:              []string{"10.0.0.53"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.UnHealthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 					{
-						Addresses:       []string{"10.0.0.54"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.Healthy,
+						Addresses:              []string{"10.0.0.54"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.Healthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 				})
 
@@ -541,16 +549,18 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 				[]*model.IstioEndpoint{
 					{
-						Addresses:       []string{"10.0.0.53"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.Healthy,
+						Addresses:              []string{"10.0.0.53"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.Healthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 					{
-						Addresses:       []string{"10.0.0.54"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.Healthy,
+						Addresses:              []string{"10.0.0.54"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.Healthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 				})
 
@@ -560,10 +570,11 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 				[]*model.IstioEndpoint{
 					{
-						Addresses:       []string{"10.0.0.53"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.Healthy,
+						Addresses:              []string{"10.0.0.53"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.Healthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 				})
 
@@ -573,16 +584,18 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 				[]*model.IstioEndpoint{
 					{
-						Addresses:       []string{"10.0.0.53"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.Healthy,
+						Addresses:              []string{"10.0.0.53"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.Healthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 					{
-						Addresses:       []string{"10.0.0.54"},
-						EndpointPort:    53,
-						ServicePortName: "tcp-dns",
-						HealthStatus:    model.Healthy,
+						Addresses:              []string{"10.0.0.54"},
+						EndpointPort:           53,
+						ServicePortName:        "tcp-dns",
+						HealthStatus:           model.Healthy,
+						SendUnhealthyEndpoints: sendUnhealthy,
 					},
 				})
 
@@ -1325,7 +1338,7 @@ func addOverlappingEndpoints(s *xdsfake.FakeDiscoveryServer) {
 	fullPush(s)
 }
 
-func addUnhealthyCluster(s *xdsfake.FakeDiscoveryServer) {
+func addUnhealthyCluster(s *xdsfake.FakeDiscoveryServer, sendUnhealthy bool) {
 	svc := &model.Service{
 		DefaultAddress: constants.UnspecifiedIP,
 		Hostname:       "unhealthy.svc.cluster.local",
@@ -1341,10 +1354,11 @@ func addUnhealthyCluster(s *xdsfake.FakeDiscoveryServer) {
 	s.MemRegistry.AddInstance(&model.ServiceInstance{
 		Service: svc,
 		Endpoint: &model.IstioEndpoint{
-			Addresses:       []string{"10.0.0.53"},
-			EndpointPort:    53,
-			ServicePortName: "tcp-dns",
-			HealthStatus:    model.UnHealthy,
+			Addresses:              []string{"10.0.0.53"},
+			EndpointPort:           53,
+			ServicePortName:        "tcp-dns",
+			HealthStatus:           model.UnHealthy,
+			SendUnhealthyEndpoints: sendUnhealthy,
 		},
 		ServicePort: &model.Port{
 			Name:     "tcp-dns",

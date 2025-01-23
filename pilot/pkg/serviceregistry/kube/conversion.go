@@ -154,6 +154,14 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 
 	istioService.Attributes.Type = string(svc.Spec.Type)
 	istioService.Attributes.ExternalName = externalName
+
+	preferClose := strings.EqualFold(svc.Annotations[annotation.NetworkingTrafficDistribution.Name], corev1.ServiceTrafficDistributionPreferClose)
+	if svc.Spec.TrafficDistribution != nil {
+		preferClose = *svc.Spec.TrafficDistribution == corev1.ServiceTrafficDistributionPreferClose
+	}
+	if preferClose {
+		istioService.Attributes.TrafficDistribution = model.TrafficDistributionPreferClose
+	}
 	istioService.Attributes.NodeLocal = nodeLocal
 	istioService.Attributes.PublishNotReadyAddresses = svc.Spec.PublishNotReadyAddresses
 	if len(svc.Spec.ExternalIPs) > 0 {

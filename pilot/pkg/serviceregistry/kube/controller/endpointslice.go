@@ -312,7 +312,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 					portName = *port.Name
 				}
 
-				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus)
+				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus, svc.SupportsUnhealthyEndpoints())
 				if len(overrideAddresses) > 1 {
 					istioEndpoint.Addresses = overrideAddresses
 				}
