@@ -90,7 +90,8 @@ func (s *NetServer) Stop(_ bool) {
 // we actually may have them before K8S in the Pod object.
 //
 // Importantly, some of the failures that can occur when calling this function are retryable, and some are not.
-// AddPodToMesh will return a RetryablePartialAdd error for the former.
+// If this function returns a NonRetryableError, the function call should NOT be retried.
+// Any other error indicates the function call can be retried.
 func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	log.Infof("adding pod to the mesh")
@@ -98,7 +99,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	s.currentPodSnapshot.Ensure(string(pod.UID))
 	openNetns, err := s.getOrOpenNetns(pod, netNs)
 	if err != nil {
-		return err
+		return NewErrNonRetryableAdd(err)
 	}
 
 	podCfg := getPodLevelTrafficOverrides(pod)
@@ -107,21 +108,23 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	if err := s.netnsRunner(openNetns, func() error {
 		return s.podIptables.CreateInpodRules(log, podCfg)
 	}); err != nil {
+		// We currently treat any failure to create inpod rules as non-retryable/catastrophic,
+		// and return a NonRetryableError in this case.
 		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
-		return err
+		return NewErrNonRetryableAdd(err)
 	}
 
-	// For *any* failures after calling `CreateInpodRules`, we must return RetryablePartialAdd error.
-	// The pod was injected with iptables rules, so it must be annotated as "inpod" - even if
-	// the following fails.
+	// For *any* other failures after a successful `CreateInpodRules` call, we must return
+	// the error as-is.
+	//
 	// This is so that if it is removed from the mesh, the inpod rules will unconditionally
 	// be removed.
 	//
-	// Additionally, unlike the other errors, it is safe to retry `partial adds` with another
+	// Additionally, unlike the other errors, it is safe to retry regular errors with another
 	// `AddPodToMesh`, in case a ztunnel connection later becomes available.
 	log.Debug("notifying subscribed node proxies")
 	if err := s.sendPodToZtunnelAndWaitForAck(ctx, pod, openNetns); err != nil {
-		return NewErrRetryablePartialAdd(err)
+		return err
 	}
 	return nil
 }

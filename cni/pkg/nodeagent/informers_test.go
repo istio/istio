@@ -109,14 +109,14 @@ func TestInformerExistingPodAddErrorRetriesIfRetryable(t *testing.T) {
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Once().Return(ErrRetryablePartialAdd)
+	).Once().Return(errors.New("something failed"))
 
 	fs.On("AddPodToMesh",
 		ctx,
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Once().Return(ErrRetryablePartialAdd)
+	).Once().Return(errors.New("something failed"))
 
 	fs.On("AddPodToMesh",
 		ctx,
@@ -136,7 +136,7 @@ func TestInformerExistingPodAddErrorRetriesIfRetryable(t *testing.T) {
 
 	// wait for all update events to settle
 	// for all that tho, we should only get 3 ADD attempts (2 failed, one succeed), as enforced by mock
-	// total 8:
+	// total 8 update events:
 	// 1. init ns reconcile 2. ns label reconcile 3. pod reconcile 4. pod partial anno
 	// 5. retry 6. retry 7. success 8. pod full anno
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(8))
@@ -174,7 +174,7 @@ func TestInformerExistingPodAddErrorAnnotatesWithPartialStatusOnRetry(t *testing
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Return(ErrRetryablePartialAdd)
+	).Return(errors.New("something failed"))
 
 	_, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 
@@ -225,7 +225,7 @@ func TestInformerExistingPodAddErrorDoesNotRetryIfNotRetryable(t *testing.T) {
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Once().Return(errors.New("SOMETHING ELSE BAD"))
+	).Once().Return(ErrNonRetryableAdd)
 
 	_, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 

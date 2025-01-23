@@ -242,7 +242,8 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 
 	ns := s.namespaces.Get(latestEventPod.Namespace, "")
 	if ns == nil {
-		return fmt.Errorf("failed to find namespace %v", ns)
+		log.Errorf("failed to find namespace %v, skipping this event", ns)
+		return nil
 	}
 
 	switch event.Event {
@@ -338,16 +339,18 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 
 		log.Debugf("pod is now enrolled, adding to mesh")
 		if err := s.dataplane.AddPodToMesh(s.ctx, currentPod, podIPs, ""); err != nil {
-			// If the failure is retryable/recoverable, the pod
-			// has not been fully enrolled yet, and may have a partial annotation status,
-			// so we want to return an error and let the informer retry.
-			if errors.Is(err, ErrRetryablePartialAdd) {
-				log.Warnf("Unable to send pod to ztunnel. Will retry. AddPodToMesh returned: %v", err)
-				return err
+			// If this is a serious error we likely cannot recover from
+			// (iptables apply failed, etc etc) do not bother to retry by returning an error to the informer,
+			// just log and return nothing.
+			if errors.Is(err, ErrNonRetryableAdd) {
+				log.Errorf("Failed capturing pod, will not retry. AddPodToMesh returned: %v", err)
+				return nil
 			}
-			// Otherwise, it was a more serious error we likely cannot recover from
-			// (iptables apply failed, etc etc) so do not bother to retry
-			log.Errorf("Failed capturing pod, will not retry. AddPodToMesh returned: %v", err)
+			// If the failure is retryable/recoverable, the pod has not been fully enrolled yet,
+			// and may have a partial annotation status, so we want to return an error and let the informer retry
+			// the add until it hopefully succeeds.
+			log.Warnf("Unable to send pod to ztunnel. Will retry. AddPodToMesh returned: %v", err)
+			return err
 		}
 	case controllers.EventDelete:
 		// If the pod was annotated (by informer or plugin) remove pod from mesh.

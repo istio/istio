@@ -97,7 +97,7 @@ func TestMeshDataplaneAddsAnnotationOnAddWithPartialError(t *testing.T) {
 		pod,
 		podIPs,
 		"",
-	).Return(ErrRetryablePartialAdd)
+	).Return(errors.New("some retryable failure"))
 
 	server.Start(fakeCtx)
 	fakeClientSet := fake.NewClientset(pod)
@@ -120,7 +120,7 @@ func TestMeshDataplaneAddsAnnotationOnAddWithPartialError(t *testing.T) {
 	assert.Equal(t, pod.Annotations[annotation.AmbientRedirection.Name], constants.AmbientRedirectionPending)
 }
 
-func TestMeshDataplaneDoesntAnnotateOnAddWithRealError(t *testing.T) {
+func TestMeshDataplaneDoesntAnnotateOnAddWithNonretryableError(t *testing.T) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
@@ -139,7 +139,7 @@ func TestMeshDataplaneDoesntAnnotateOnAddWithRealError(t *testing.T) {
 		pod,
 		podIPs,
 		"",
-	).Return(errors.New("not partial error"))
+	).Return(ErrNonRetryableAdd)
 
 	server.Start(fakeCtx)
 	fakeClientSet := fake.NewClientset(pod)
