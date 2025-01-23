@@ -297,7 +297,7 @@ func New(options Options) Index {
 	NamespacesInfo := krt.NewCollection(Namespaces, func(ctx krt.HandlerContext, i *v1.Namespace) *model.NamespaceInfo {
 		return &model.NamespaceInfo{
 			Name:               i.Name,
-			IngressUseWaypoint: i.Labels["istio.io/ingress-use-waypoint"] == "true",
+			IngressUseWaypoint: strings.EqualFold(i.Labels["istio.io/ingress-use-waypoint"], "true"),
 		}
 	}, opts.WithName("NamespacesInfo")...)
 
