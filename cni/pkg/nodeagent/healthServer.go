@@ -15,34 +15,63 @@
 package nodeagent
 
 import (
+	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"sync/atomic"
 
 	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/network"
 )
 
-// StartHealthServer initializes and starts a web server that exposes liveness and readiness endpoints at port 8000.
-func StartHealthServer() (installReady *atomic.Value, watchReady *atomic.Value) {
-	router := http.NewServeMux()
-	installReady, watchReady = initRouter(router)
-
-	go func() {
-		_ = http.ListenAndServe(":"+constants.ReadinessPort, router)
-	}()
-
-	return
+type Probes struct {
+	InstallReady *atomic.Value
+	WatchReady   *atomic.Value
 }
 
-func initRouter(router *http.ServeMux) (installReady *atomic.Value, watchReady *atomic.Value) {
-	installReady = &atomic.Value{}
-	watchReady = &atomic.Value{}
-	installReady.Store(false)
-	watchReady.Store(false)
+func StartServer(ctx context.Context, port int) (Probes, error) {
+	probes := Probes{}
+	if port <= 0 {
+		return probes, nil
+	}
+	exporter, err := monitoring.RegisterPrometheusExporter(nil, nil)
+	if err != nil {
+		log.Errorf("could not set up prometheus exporter: %v", err)
+		return probes, err
+	}
+	mux := http.NewServeMux()
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		log.Errorf("unable to listen on socket: %v. "+
+			"Hint: the istio-cni node agent typically runs in the hostNetwork. "+""+
+			"Port conflicts may be caused by other processes on the host utilizing the same port.", err)
+		return probes, err
+	}
+	mux.Handle("/metrics", exporter)
+	server := &http.Server{
+		Handler: mux,
+	}
+	go func() {
+		if err = server.Serve(listener); network.IsUnexpectedListenerError(err) {
+			log.Errorf("error running http server: %s", err)
+		}
+	}()
+	context.AfterFunc(ctx, func() {
+		err := server.Close()
+		log.Debugf("monitoring server terminated: %v", err)
+	})
+	router := http.NewServeMux()
+	probes.InstallReady = &atomic.Value{}
+	probes.InstallReady.Store(false)
+	probes.WatchReady = &atomic.Value{}
+	probes.WatchReady.Store(false)
 
 	router.HandleFunc(constants.LivenessEndpoint, healthz)
-	router.HandleFunc(constants.ReadinessEndpoint, readyz(installReady, watchReady))
+	router.HandleFunc(constants.ReadinessEndpoint, readyz(probes.InstallReady, probes.WatchReady))
 
-	return
+	return probes, nil
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {

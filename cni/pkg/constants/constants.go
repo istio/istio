@@ -67,7 +67,6 @@ const (
 	// K8s liveness and readiness endpoints
 	LivenessEndpoint   = "/healthz"
 	ReadinessEndpoint  = "/readyz"
-	ReadinessPort      = "8000"
 	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
 )
 

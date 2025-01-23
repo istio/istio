@@ -61,15 +61,15 @@ var rootCmd = &cobra.Command{
 		}
 		return nil
 	},
-	RunE: func(c *cobra.Command, args []string) (err error) {
+	RunE: func(c *cobra.Command, args []string) error {
 		ctx := c.Context()
 
 		// Start controlz server
 		_, _ = ctrlz.Run(ctrlzOptions, nil)
 
-		var cfg *config.Config
-		if cfg, err = constructConfig(); err != nil {
-			return
+		cfg, err := constructConfig()
+		if err != nil {
+			return err
 		}
 		log.Infof("CNI logging level: %+v", istiolog.LevelToString(log.GetOutputLevel()))
 		log.Infof("CNI install configuration: \n%+v", cfg.InstallConfig)
@@ -77,20 +77,21 @@ var rootCmd = &cobra.Command{
 
 		// Start metrics server
 		monitoring.SetupMonitoring(cfg.InstallConfig.MonitoringPort, "/metrics", ctx.Done())
-
-		// Start UDS log server
-		udsLogger := udsLog.NewUDSLogger(log.GetOutputLevel())
-		if err = udsLogger.StartUDSLogServer(filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.LogUDSSocketName), ctx.Done()); err != nil {
-			log.Errorf("Failed to start up UDS Log Server: %v", err)
-			return
-		}
-
 		// Creates a basic health endpoint server that reports health status
 		// based on atomic flag, as set by installer
 		// TODO nodeagent watch server should affect this too, and drop atomic flag
-		installDaemonReady, watchServerReady := nodeagent.StartHealthServer()
+		probes, err := nodeagent.StartServer(ctx, cfg.InstallConfig.MonitoringPort)
+		if err != nil {
+			return err
+		}
+		// Start UDS log server
+		udsLogger := udsLog.NewUDSLogger(log.GetOutputLevel())
+		if err := udsLogger.StartUDSLogServer(ctx, filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.LogUDSSocketName)); err != nil {
+			log.Errorf("Failed to start up UDS Log Server: %v", err)
+			return err
+		}
 
-		installer := install.NewInstaller(&cfg.InstallConfig, installDaemonReady)
+		installer := install.NewInstaller(&cfg.InstallConfig, probes.InstallReady)
 
 		if cfg.InstallConfig.AmbientEnabled {
 			// Start ambient controller
@@ -99,7 +100,7 @@ var rootCmd = &cobra.Command{
 			// as well as listen for messages from the CNI binary.
 			cniEventAddr := filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.CNIEventSocketName)
 			log.Infof("Starting ambient node agent with inpod redirect mode on socket %s", cniEventAddr)
-			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
+			ambientAgent, err := nodeagent.NewServer(ctx, probes.WatchReady, cniEventAddr,
 				nodeagent.AmbientArgs{
 					SystemNamespace:            nodeagent.SystemNamespace,
 					Revision:                   nodeagent.Revision,
@@ -145,7 +146,7 @@ var rootCmd = &cobra.Command{
 
 		} else {
 			// Ambient not enabled, so this readiness flag is no-op'd
-			watchServerReady.Store(true)
+			probes.WatchReady.Store(true)
 
 			// Ambient watch server not enabled - on shutdown
 			// we just need to remove CNI plugin.
@@ -173,7 +174,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		return
+		return nil
 	},
 }
 

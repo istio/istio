@@ -94,12 +94,15 @@ spec:
 {{- end }}
           ports:
           - containerPort: 15014
+{{if .Values.ambient.enabled }}
+            hostPort: 15014
+{{- end }}
             name: metrics
             protocol: TCP
           readinessProbe:
             httpGet:
               path: /readyz
-              port: 8000
+              port: 15014
           securityContext:
             privileged: false
             runAsGroup: 0

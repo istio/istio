@@ -24,28 +24,28 @@ import (
 	"istio.io/istio/pkg/network"
 )
 
-func SetupMonitoring(port int, path string, stop <-chan struct{}) {
+func SetupMonitoring(port int, path string, stop <-chan struct{}) error {
 	if port <= 0 {
-		return
+		return nil
 	}
 	mux := http.NewServeMux()
 	var listener net.Listener
 	var err error
 	if listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port)); err != nil {
 		log.Errorf("unable to listen on socket: %v", err)
-		return
+		return err
 	}
 	exporter, err := monitoring.RegisterPrometheusExporter(nil, nil)
 	if err != nil {
 		log.Errorf("could not set up prometheus exporter: %v", err)
-		return
+		return err
 	}
 	mux.Handle(path, exporter)
 	monitoringServer := &http.Server{
 		Handler: mux,
 	}
 	go func() {
-		if err = monitoringServer.Serve(listener); network.IsUnexpectedListenerError(err) {
+		if err := monitoringServer.Serve(listener); network.IsUnexpectedListenerError(err) {
 			log.Errorf("error running monitoring http server: %s", err)
 		}
 	}()
@@ -54,4 +54,6 @@ func SetupMonitoring(port int, path string, stop <-chan struct{}) {
 		err := monitoringServer.Close()
 		log.Debugf("monitoring server terminated: %v", err)
 	}()
+
+	return nil
 }

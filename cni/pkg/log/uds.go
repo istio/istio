@@ -15,6 +15,7 @@
 package log
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -60,7 +61,7 @@ func NewUDSLogger(level istiolog.Level) *UDSLogger {
 }
 
 // StartUDSLogServer starts up a UDS server which receives log reported from CNI network plugin.
-func (l *UDSLogger) StartUDSLogServer(sockAddress string, stop <-chan struct{}) error {
+func (l *UDSLogger) StartUDSLogServer(ctx context.Context, sockAddress string) error {
 	if sockAddress == "" {
 		return nil
 	}
@@ -75,14 +76,13 @@ func (l *UDSLogger) StartUDSLogServer(sockAddress string, stop <-chan struct{}) 
 		}
 	}()
 
-	go func() {
-		<-stop
+	context.AfterFunc(ctx, func() {
 		if err := l.loggingServer.Close(); err != nil {
 			log.Errorf("CNI log server terminated with error: %v", err)
 		} else {
 			log.Debug("CNI log server terminated")
 		}
-	}()
+	})
 
 	return nil
 }
