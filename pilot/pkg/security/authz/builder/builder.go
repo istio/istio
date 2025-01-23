@@ -96,64 +96,54 @@ func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies
 
 // BuildHTTP returns the HTTP filters built from the authorization policy.
 func (b Builder) BuildHTTP() []*hcm.HttpFilter {
-	b.logger = &AuthzLogger{}
-	defer b.logger.Report()
-	if b.option.IsCustomBuilder {
-		// Use the DENY action so that a HTTP rule is properly handled when generating for TCP filter chain.
-		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, false); configs != nil {
-			b.logger.AppendDebugf("built %d HTTP filters for CUSTOM action", len(configs.http))
-			return configs.http
-		}
-		return nil
-	}
-
-	var filters []*hcm.HttpFilter
-	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, false); configs != nil {
-		b.logger.AppendDebugf("built %d HTTP filters for AUDIT action", len(configs.http))
-		filters = append(filters, configs.http...)
-	}
-	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, false); configs != nil {
-		b.logger.AppendDebugf("built %d HTTP filters for DENY action", len(configs.http))
-		filters = append(filters, configs.http...)
-	}
-	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, false); configs != nil {
-		b.logger.AppendDebugf("built %d HTTP filters for ALLOW action", len(configs.http))
-		filters = append(filters, configs.http...)
-	}
-	return filters
+	return build(b, b.buildHTTP, "HTTP", false)
 }
 
 // BuildTCP returns the TCP filters built from the authorization policy.
 func (b Builder) BuildTCP() []*listener.Filter {
+	return build(b, b.buildTCP, "TCP", true)
+}
+
+// BuildTCPRulesAsHTTPFilter returns the TCP filters built from the authorization policy.
+func (b Builder) BuildTCPRulesAsHTTPFilter() []*hcm.HttpFilter {
+	return build(b, b.buildHTTP, "HTTP for TCP", true)
+}
+
+func build[T any](b Builder, build func(rule *builtRule) []T, logType string, forTCP bool) []T {
 	b.logger = &AuthzLogger{}
 	defer b.logger.Report()
 	if b.option.IsCustomBuilder {
-		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, true); configs != nil {
-			b.logger.AppendDebugf("built %d TCP filters for CUSTOM action", len(configs.tcp))
-			return configs.tcp
+		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, forTCP); configs != nil {
+			t := build(configs)
+			b.logger.AppendDebugf("built %d %s filters for CUSTOM action", len(t), logType)
+			return t
 		}
 		return nil
 	}
 
-	var filters []*listener.Filter
-	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, true); configs != nil {
-		b.logger.AppendDebugf("built %d TCP filters for AUDIT action", len(configs.tcp))
-		filters = append(filters, configs.tcp...)
+	var filters []T
+	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, forTCP); configs != nil {
+		t := build(configs)
+		b.logger.AppendDebugf("built %d %s filters for AUDIT action", len(t), logType)
+		filters = append(filters, t...)
 	}
-	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, true); configs != nil {
-		b.logger.AppendDebugf("built %d TCP filters for DENY action", len(configs.tcp))
-		filters = append(filters, configs.tcp...)
+	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, forTCP); configs != nil {
+		t := build(configs)
+		b.logger.AppendDebugf("built %d %s filters for DENY action", len(t), logType)
+		filters = append(filters, t...)
 	}
-	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, true); configs != nil {
-		b.logger.AppendDebugf("built %d TCP filters for ALLOW action", len(configs.tcp))
-		filters = append(filters, configs.tcp...)
+	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, forTCP); configs != nil {
+		t := build(configs)
+		b.logger.AppendDebugf("built %d %s filters for ALLOW action", len(t), logType)
+		filters = append(filters, t...)
 	}
 	return filters
 }
 
-type builtConfigs struct {
-	http []*hcm.HttpFilter
-	tcp  []*listener.Filter
+type builtRule struct {
+	rules       *rbacpb.RBAC
+	shadowRules *rbacpb.RBAC
+	providers   []string
 }
 
 func (b Builder) isDryRun(policy model.AuthorizationPolicy) bool {
@@ -179,7 +169,7 @@ func shadowRuleStatPrefix(rule *rbacpb.RBAC) string {
 	}
 }
 
-func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_Action, forTCP bool) *builtConfigs {
+func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_Action, forTCP bool) *builtRule {
 	if len(policies) == 0 {
 		return nil
 	}
@@ -251,13 +241,17 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 	if !hasDryRunPolicy {
 		shadowRules = nil
 	}
-	if forTCP {
-		return &builtConfigs{tcp: b.buildTCP(enforceRules, shadowRules, providers)}
+	return &builtRule{
+		rules:       enforceRules,
+		shadowRules: shadowRules,
+		providers:   providers,
 	}
-	return &builtConfigs{http: b.buildHTTP(enforceRules, shadowRules, providers)}
 }
 
-func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*hcm.HttpFilter {
+func (b Builder) buildHTTP(rule *builtRule) []*hcm.HttpFilter {
+	rules := rule.rules
+	shadowRules := rule.shadowRules
+	providers := rule.providers
 	if !b.option.IsCustomBuilder {
 		rbac := &rbachttp.RBAC{
 			Rules:                 rules,
@@ -304,7 +298,10 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 	}
 }
 
-func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*listener.Filter {
+func (b Builder) buildTCP(rule *builtRule) []*listener.Filter {
+	rules := rule.rules
+	shadowRules := rule.shadowRules
+	providers := rule.providers
 	if !b.option.IsCustomBuilder {
 		rbac := &rbactcp.RBAC{
 			Rules:                 rules,
