@@ -123,7 +123,7 @@ func TestInformerExistingPodAddErrorRetriesIfRetryable(t *testing.T) {
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
 		"",
-	).Once().Return(nil)
+	).Return(nil)
 
 	_, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
 
@@ -134,12 +134,19 @@ func TestInformerExistingPodAddErrorRetriesIfRetryable(t *testing.T) {
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for all update events to settle
-	// for all that tho, we should only get 3 ADD attempts (2 failed, one succeed), as enforced by mock
-	// total 8 update events:
-	// 1. init ns reconcile 2. ns label reconcile 3. pod reconcile 4. pod partial anno
-	// 5. retry 6. retry 7. success 8. pod full anno
-	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(8))
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "add"}, monitortest.Exactly(2))
+	// Unfortunately the scenario tested here is inherently racy - once the first AddPodToMesh
+	// fails, we annotate with a partial status, and the original event is queued by the informer for retry.
+	//
+	// However the partial status *also* triggers its own new update event, and given that the informer
+	// doesn't "diff" old and new events, we can't tell them apart. This is fine tho, since `Adds` are
+	// idempotent, one or both of them will succeed (we don't care which) and will ultimately annotate
+	// + enroll the pod.
+	//
+	// This does make event-counting tricky tho, since the event count varies depending on which event
+	// happens to win the race (or if they *both* win and AddPodToMesh gets called 2x),
+	// so we have to rely on AtLeast here (sometimes it's 9, sometimes it's 8)
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(8))
 
 	assertPodAnnotated(t, client, pod)
 
