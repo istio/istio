@@ -378,5 +378,6 @@ func (b *AccessLogBuilder) reset() {
 	b.mutex.Lock()
 	b.fileAccesslog = nil
 	b.listenerFileAccessLog = nil
+	b.hboneFileAccessLog = nil
 	b.mutex.Unlock()
 }
