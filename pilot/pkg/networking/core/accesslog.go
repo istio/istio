@@ -64,11 +64,10 @@ type AccessLogBuilder struct {
 	// tcpGrpcListenerAccessLog is used when access log service is enabled in mesh config.
 	tcpGrpcListenerAccessLog *accesslog.AccessLog
 
-	// file accessLog which is cached and reset on MeshConfig change.
-	mutex                 sync.RWMutex
-	fileAccesslog         *accesslog.AccessLog
-	listenerFileAccessLog *accesslog.AccessLog
-	hboneFileAccessLog    *accesslog.AccessLog
+	coreAccessLog             cachedMeshConfigAccessLog
+	listenerAccessLog         cachedMeshConfigAccessLog
+	hboneOriginationAccessLog cachedMeshConfigAccessLog
+	hboneTerminationAccessLog cachedMeshConfigAccessLog
 }
 
 func newAccessLogBuilder() *AccessLogBuilder {
@@ -76,6 +75,12 @@ func newAccessLogBuilder() *AccessLogBuilder {
 		tcpGrpcAccessLog:         tcpGrpcAccessLog(false),
 		httpGrpcAccessLog:        httpGrpcAccessLog(),
 		tcpGrpcListenerAccessLog: tcpGrpcAccessLog(true),
+		coreAccessLog:            newCachedMeshConfigAccessLog(nil),
+		// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
+		// not get filter Access Logs like in cases like NR to upstream.
+		listenerAccessLog:         newCachedMeshConfigAccessLog(listenerAccessLogFilter()),
+		hboneOriginationAccessLog: newCachedMeshConfigAccessLog(hboneOriginationAccessLogFilter()),
+		hboneTerminationAccessLog: newCachedMeshConfigAccessLog(hboneTerminationAccessLogFilter()),
 	}
 }
 
@@ -86,7 +91,7 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			tcp.AccessLog = append(tcp.AccessLog, b.buildFileAccessLog(mesh))
+			tcp.AccessLog = append(tcp.AccessLog, b.coreAccessLog.buildOrFetch(mesh))
 		}
 
 		if mesh.EnableEnvoyAccessLogService {
@@ -101,20 +106,38 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 	}
 }
 
-func (b *AccessLogBuilder) setHboneAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy, class networking.ListenerClass) {
+func (b *AccessLogBuilder) setHboneOriginationAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy, class networking.ListenerClass) {
 	mesh := push.Mesh
 	cfgs := push.Telemetry.AccessLogging(push, proxy, class, nil)
 
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			tcp.AccessLog = append(tcp.AccessLog, b.buildHboneFileAccessLog(mesh))
+			tcp.AccessLog = append(tcp.AccessLog, b.hboneOriginationAccessLog.buildOrFetch(mesh))
 		}
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(cfgs, hboneAccessLogFilter()); len(al) != 0 {
+	if al := buildAccessLogFromTelemetry(cfgs, hboneOriginationAccessLogFilter()); len(al) != 0 {
 		tcp.AccessLog = append(tcp.AccessLog, al...)
+	}
+}
+
+func (b *AccessLogBuilder) setHboneTerminationAccessLog(push *model.PushContext, proxy *model.Proxy,
+	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass,
+) {
+	mesh := push.Mesh
+	cfgs := push.Telemetry.AccessLogging(push, proxy, class, nil)
+	if len(cfgs) == 0 {
+		// No Telemetry API configured, fall back to legacy mesh config setting
+		if mesh.AccessLogFile != "" {
+			connectionManager.AccessLog = append(connectionManager.AccessLog, b.hboneTerminationAccessLog.buildOrFetch(mesh))
+		}
+		return
+	}
+
+	if al := buildAccessLogFromTelemetry(cfgs, hboneTerminationAccessLogFilter()); len(al) != 0 {
+		connectionManager.AccessLog = append(connectionManager.AccessLog, al...)
 	}
 }
 
@@ -171,7 +194,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			connectionManager.AccessLog = append(connectionManager.AccessLog, b.buildFileAccessLog(mesh))
+			connectionManager.AccessLog = append(connectionManager.AccessLog, b.coreAccessLog.buildOrFetch(mesh))
 		}
 
 		if mesh.EnableEnvoyAccessLogService {
@@ -198,7 +221,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			listener.AccessLog = append(listener.AccessLog, b.buildListenerFileAccessLog(mesh))
+			listener.AccessLog = append(listener.AccessLog, b.listenerAccessLog.buildOrFetch(mesh))
 		}
 
 		if mesh.EnableEnvoyAccessLogService {
@@ -214,22 +237,6 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	}
 }
 
-func (b *AccessLogBuilder) buildFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
-	// Building the access log is relatively expensive, and changes infrequently, so we amortize the cost via a cache.
-	if cal := b.cachedFileAccessLog(); cal != nil {
-		return cal
-	}
-
-	// We need to build access log. This is needed either on first access or when mesh config changes.
-	al := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
-
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	b.fileAccesslog = al
-
-	return al
-}
-
 func listenerAccessLogFilter() *accesslog.AccessLogFilter {
 	return &accesslog.AccessLogFilter{
 		FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
@@ -239,12 +246,29 @@ func listenerAccessLogFilter() *accesslog.AccessLogFilter {
 	}
 }
 
-func hboneAccessLogFilter() *accesslog.AccessLogFilter {
+func hboneOriginationAccessLogFilter() *accesslog.AccessLogFilter {
 	return &accesslog.AccessLogFilter{
 		FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
 			// UF: upstream failure, we couldn't connect. This is important to log at this layer, since the error details
 			// are lost otherwise.
 			ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"UF"}},
+		},
+	}
+}
+
+func hboneTerminationAccessLogFilter() *accesslog.AccessLogFilter {
+	return &accesslog.AccessLogFilter{
+		FilterSpecifier: &accesslog.AccessLogFilter_StatusCodeFilter{
+			StatusCodeFilter: &accesslog.StatusCodeFilter{
+				Comparison: &accesslog.ComparisonFilter{
+					Op: accesslog.ComparisonFilter_GE,
+					Value: &core.RuntimeUInt32{
+						DefaultValue: 400,
+						// Required by the API but useless for us. Set to a bogus value so we always use DefaultValue
+						RuntimeKey: "istio.io/unset",
+					},
+				},
+			},
 		},
 	}
 }
@@ -267,58 +291,41 @@ func buildAccessLogFilter(f ...*accesslog.AccessLogFilter) *accesslog.AccessLogF
 	}
 }
 
-func (b *AccessLogBuilder) buildListenerFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
-	if cal := b.cachedListenerFileAccessLog(); cal != nil {
-		return cal
-	}
+func newCachedMeshConfigAccessLog(filter *accesslog.AccessLogFilter) cachedMeshConfigAccessLog {
+	return cachedMeshConfigAccessLog{filter: filter}
+}
 
+type cachedMeshConfigAccessLog struct {
+	filter *accesslog.AccessLogFilter
+	mutex  sync.RWMutex
+	cached *accesslog.AccessLog
+}
+
+func (b *cachedMeshConfigAccessLog) getCached() *accesslog.AccessLog {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	return b.cached
+}
+
+func (b *cachedMeshConfigAccessLog) buildOrFetch(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+	if c := b.getCached(); c != nil {
+		return c
+	}
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	lal := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
-	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
-	// not get filter Access Logs like in cases like NR to upstream.
-	lal.Filter = listenerAccessLogFilter()
+	accessLog := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
+	accessLog.Filter = b.filter
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.listenerFileAccessLog = lal
+	b.cached = accessLog
 
-	return lal
+	return accessLog
 }
 
-func (b *AccessLogBuilder) buildHboneFileAccessLog(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
-	if cal := b.cachedHboneFileAccessLog(); cal != nil {
-		return cal
-	}
-
-	// We need to build access log. This is needed either on first access or when mesh config changes.
-	lal := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
-	// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
-	// not get filter Access Logs like in cases like NR to upstream.
-	lal.Filter = hboneAccessLogFilter()
-
+func (b *cachedMeshConfigAccessLog) reset() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.hboneFileAccessLog = lal
-
-	return lal
-}
-
-func (b *AccessLogBuilder) cachedFileAccessLog() *accesslog.AccessLog {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-	return b.fileAccesslog
-}
-
-func (b *AccessLogBuilder) cachedListenerFileAccessLog() *accesslog.AccessLog {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-	return b.listenerFileAccessLog
-}
-
-func (b *AccessLogBuilder) cachedHboneFileAccessLog() *accesslog.AccessLog {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-	return b.hboneFileAccessLog
+	b.cached = nil
 }
 
 func tcpGrpcAccessLog(isListener bool) *accesslog.AccessLog {
@@ -375,9 +382,7 @@ func httpGrpcAccessLog() *accesslog.AccessLog {
 }
 
 func (b *AccessLogBuilder) reset() {
-	b.mutex.Lock()
-	b.fileAccesslog = nil
-	b.listenerFileAccessLog = nil
-	b.hboneFileAccessLog = nil
-	b.mutex.Unlock()
+	b.coreAccessLog.reset()
+	b.listenerAccessLog.reset()
+	b.hboneOriginationAccessLog.reset()
 }
