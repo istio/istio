@@ -31,10 +31,16 @@ import (
 	"istio.io/istio/pkg/config/constants"
 )
 
-var annotationPatch = []byte(fmt.Sprintf(
+var annotationEnabledPatch = []byte(fmt.Sprintf(
 	`{"metadata":{"annotations":{"%s":"%s"}}}`,
 	annotation.AmbientRedirection.Name,
 	constants.AmbientRedirectionEnabled,
+))
+
+var annotationPendingPatch = []byte(fmt.Sprintf(
+	`{"metadata":{"annotations":{"%s":"%s"}}}`,
+	annotation.AmbientRedirection.Name,
+	constants.AmbientRedirectionPending,
 ))
 
 var annotationRemovePatch = []byte(fmt.Sprintf(
@@ -66,14 +72,30 @@ func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 	return true
 }
 
-// PodRedirectionActive reports on whether the pod _has_ actually been configured for traffic redirection.
+// PodFullyEnrolled reports on whether the pod _has_ actually been fully configured for traffic redirection.
 //
-// That is, have we annotated it after successfully sending it to the node proxy and set up iptables rules.
+// That is, have we annotated it after successfully setting up iptables rules AND sending it to a node proxy instance.
 //
 // If you just want to know if the pod _should be_ configured for traffic redirection, see PodRedirectionEnabled
-func PodRedirectionActive(pod *corev1.Pod) bool {
+func PodFullyEnrolled(pod *corev1.Pod) bool {
 	if pod != nil {
 		return pod.GetAnnotations()[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
+	}
+	return false
+}
+
+// PodPartiallyEnrolled reports on whether the pod _has_ already been partially configured
+// (e.g. for traffic redirection) but not fully configured.
+//
+// That is, have we annotated it after setting iptables rules, but have not yet been able to send it to
+// a node proxy instance.
+//
+// Pods like this still need to undergo the removal process (to potentially undo the redirection).
+//
+// If you just want to know if the pod _should be_ configured for traffic redirection, see PodRedirectionEnabled
+func PodPartiallyEnrolled(pod *corev1.Pod) bool {
+	if pod != nil {
+		return pod.GetAnnotations()[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionPending
 	}
 	return false
 }
@@ -96,7 +118,22 @@ func AnnotateEnrolledPod(client kubernetes.Interface, pod *metav1.ObjectMeta) er
 			context.Background(),
 			pod.Name,
 			types.MergePatchType,
-			annotationPatch,
+			annotationEnabledPatch,
+			metav1.PatchOptions{},
+			// Both "pods" and "pods/status" can mutate the metadata. However, pods/status is lower privilege, so we use that instead.
+			"status",
+		)
+	return err
+}
+
+func AnnotatePartiallyEnrolledPod(client kubernetes.Interface, pod *metav1.ObjectMeta) error {
+	_, err := client.CoreV1().
+		Pods(pod.Namespace).
+		Patch(
+			context.Background(),
+			pod.Name,
+			types.MergePatchType,
+			annotationPendingPatch,
 			metav1.PatchOptions{},
 			// Both "pods" and "pods/status" can mutate the metadata. However, pods/status is lower privilege, so we use that instead.
 			"status",

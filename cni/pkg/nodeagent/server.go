@@ -159,14 +159,18 @@ func (s *Server) Start() {
 	log.Info("CNI ambient server kubeclient started")
 	pods := s.handlers.GetActiveAmbientPodSnapshot()
 	err := s.dataplane.ConstructInitialSnapshot(pods)
+	// Start the informer handlers FIRST, before we snapshot.
+	// They will keep the (mutex'd) snapshot cache synced.
+	s.handlers.Start()
 	if err != nil {
 		log.Warnf("failed to construct initial snapshot: %v", err)
 	}
-
+	// Start accepting ztunnel connections
+	// (and send current snapshot when we get one)
+	s.dataplane.Start(s.ctx)
+	// Everything (informer handlers, snapshot, zt server) ready to go
 	log.Info("CNI ambient server marking ready")
 	s.Ready()
-	s.dataplane.Start(s.ctx)
-	s.handlers.Start()
 }
 
 func (s *Server) Stop(skipCleanup bool) {
@@ -235,6 +239,19 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 	s.netServer.Stop(skipCleanup)
 }
 
+// AddPodToMesh attempts to inject iptables rules into the pod, and sends the pod to ztunnel.
+// If this succeeds, it will add the pod to the node ipset, and finally annotate the pod
+// (indicating it has been mutated/captured) with a captured status.
+//
+// If anything fails *before* sending the pod to ztunnel, returns an NonRetryableAdd error
+// (which indicates the function call should not be retried).
+//
+// For any other failure after that point, returns a standard Error (which indicates the
+// function call can be retried).
+//
+// If the *last* step of sending the pod to ztunnel fails, then the pod will still be annotated
+// with a partially-captured status (indicating it has been mutated/redirected, and thus potentially
+// needs cleanup) and the error will be returned, indicating that the function call can be retried.
 func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
 	// Ordering is important in this func:
 	//
@@ -242,84 +259,100 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 	// - Annotate IF rule injection doesn't fail.
 	// - Add pod IP to ipset IF none of the above has failed, as a last step
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
-	var retErr error
-	err := s.netServer.AddPodToMesh(ctx, pod, podIPs, netNs)
-	if err != nil {
-		log.Errorf("failed to add pod to ztunnel: %v", err)
-		if !errors.Is(err, ErrPartialAdd) {
+	if err := s.netServer.AddPodToMesh(ctx, pod, podIPs, netNs); err != nil {
+		// iptables injection failed, this is not a "retryable partial add"
+		// this is a nonrecoverable/nonretryable error and we won't even bother to
+		// annotate the pod or retry the event.
+		if errors.Is(err, ErrNonRetryableAdd) {
+			// propagate, bail immediately, don't continue
 			return err
 		}
-		retErr = err
+		// Any other error is recoverable/retryable and means we just couldn't contact ztunnel.
+		// However, any other error also means iptables injection was successful, so
+		// we must annotate the pod with a partial status (so removal can undo iptables)
+		// regardless of ztunnel's current status.
+		// So annotate indicating that this pod was injected (and thus needs to be either retried
+		// or uninjected on removal) but is not fully captured yet.
+		log.Errorf("failed to add pod to ztunnel: %v, pod partially added, annotating with pending status")
+		if err := util.AnnotatePartiallyEnrolledPod(s.kubeClient, &pod.ObjectMeta); err != nil {
+			// If we have an error annotating the partial status - that is itself retryable.
+			return err
+		}
+		// Otherwise return the original error
+		return err
 	}
 
+	// Handle node healthcheck probe rewrites
+	if _, err := s.addPodToHostNSIpset(pod, podIPs); err != nil {
+		log.Errorf("failed to add pod to ipset, pod will fail healthchecks: %v", err)
+		// Adding pod to ipset should always be an upsert, so should not fail
+		// unless we have a kernel incompatibility - thus it should either
+		// never fail, or isn't usefully retryable.
+		// For now tho, err on the side of being loud in the logs,
+		// since retrying in that case isn't _harmful_ and means all pods will fail anyway.
+		return err
+	}
+
+	// Once we successfully annotate the pod as fully captured,
+	// the informer can no longer retry events, and there's no going back.
+	// This should be the last step in all cases - once we do this, the CP (and the informer) will consider
+	// this pod "ambient" and successfully enrolled.
 	log.Debugf("annotating pod")
 	if err := util.AnnotateEnrolledPod(s.kubeClient, &pod.ObjectMeta); err != nil {
-		log.Errorf("failed to annotate pod enrollment: %v", err)
-		retErr = err
+		// If we have an error annotating the full status - that is retryable.
+		// (maybe K8S is busy, etc - but we need a k8s controlplane ACK).
+		return err
 	}
 
-	// ipset is only relevant for pod healthchecks.
-	// therefore, if we had *any* error adding the pod to the mesh
-	// do not add the pod to the ipset, so that it will definitely *not* pass healthchecks,
-	// and the operator can investigate.
-	//
-	// This is also important to avoid ipset sync issues if we add the pod ip to the ipset, but
-	// enrolling fails because ztunnel (or the pod netns, or whatever) isn't ready yet,
-	// and the pod is rescheduled with a new IP. In that case we don't get
-	// a removal event, and so would never clean up the old IP that we eagerly-added.
-	//
-	// TODO one place this *can* fail is
-	// - if a CNI plugin after us in the chain fails (currently, we are explicitly the last in the chain by design)
-	// - the CmdAdd comes back thru here with a new IP
-	// - we will never clean up that old IP that we "lost"
-	// To fix this we probably need to impl CmdDel + manage our own podUID/IP mapping.
-	if retErr == nil {
-		// Handle node healthcheck probe rewrites
-		_, err = s.addPodToHostNSIpset(pod, podIPs)
-		if err != nil {
-			log.Errorf("failed to add pod to ipset: %v", err)
-			return err
-		}
-	} else {
-		log.Errorf("pod was not enrolled and is unhealthy: %v", retErr)
-	}
-
-	return retErr
+	return nil
 }
 
+// RemovePodFromMesh attempts to remove iptables rules from the pod (if it is not already terminating),
+// and sends the pod remove to ztunnel.
+//
+// If this succeeds, it will un-annotate the pod (indicating it is no longer captured) and remove the pod
+// from the node ipset.
+//
+// If anything fails, an error will be returned, indicating that the function call can be retried.
 func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	log.WithLabels("deleted", isDelete).Info("removing pod from mesh")
 
-	// Aggregate errors together, so that if part of the removal fails we still proceed with other steps.
-	var errs []error
-
 	// Remove the hostside ipset entry first, and unconditionally - if later failures happen, we never
-	// want to leave stale entries
+	// want to leave stale entries (and the pod healthchecks will start to fail, which is a good signal)
 	if err := removePodFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
 		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)
-		errs = append(errs, err)
+		// Removing pod from ipset should never fail, even if the IP is no longer there
+		// (unless we have a kernel incompatibility).
+		// - so while retrying on ipser remove error is safe from an eventing perspective,
+		// it may not be useful
+		return err
 	}
 
 	// Specifically, at this time, we do _not_ want to un-annotate the pod if we cannot successfully remove it,
 	// as the pod is probably in a broken state and we don't want to let go of it from the CP perspective while that is true.
-	// So we will return if this fails.
+	// So we will return if this fails (for a potential retry).
 	if err := s.netServer.RemovePodFromMesh(ctx, pod, isDelete); err != nil {
 		log.Errorf("failed to remove pod from mesh: %v", err)
-		errs = append(errs, err)
-		return errors.Join(errs...)
+		return err
 	}
 
-	// This should be the last step in all cases - once we do this, the CP will no longer consider this pod "ambient",
-	// regardless of the state it is in
+	// This should be the last step in all cases - once we do this, the CP will no longer consider
+	// this pod "ambient" (and the informer will not be able to retry on removal errors),
+	// regardless of the state it is in.
 	log.Debug("removing annotation from pod")
 	if err := util.AnnotateUnenrollPod(s.kubeClient, &pod.ObjectMeta); err != nil {
 		log.Errorf("failed to annotate pod unenrollment: %v", err)
-		errs = append(errs, err)
-		return errors.Join(errs...)
+		// If the pod is already terminating anyway, we don't care if we can't remove the annotation,
+		// so only return a retryable error on annotation failure if it's not terminating.
+		if !isDelete {
+			// If we have an error annotating the partial status and the pod is not terminating
+			// - that is retryable.
+			return err
+		}
 	}
 
-	return errors.Join(errs...)
+	return nil
 }
 
 // syncHostIPSets is called after the host node ipset has been created (or found + flushed)
@@ -383,10 +416,6 @@ func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr
 	for _, pip := range podIPs {
 		// Add to host ipset
 		log.Debugf("adding probe ip %s to set", pip)
-		// Add IP/port combo to set. Note that we set Replace to false here - we _did_ previously
-		// set it to true, but in theory that could mask weird scenarios where K8S triggers events out of order ->
-		// an add(sameIPreused) then delete(originalIP).
-		// Which will result in the new pod starting to fail healthchecks.
 		if err := s.hostsideProbeIPSet.AddIP(pip, ipProto, podUID, true); err != nil {
 			ipsetAddrErrs = append(ipsetAddrErrs, err)
 			log.Errorf("failed adding ip %s to set, error was %s",

@@ -19,22 +19,24 @@ import (
 	"fmt"
 )
 
-var ErrPartialAdd = errors.New("partial add error")
+// An error on pod add that the ambient informer should not
+// attempt to retry
+var ErrNonRetryableAdd = errors.New("pod add cannot be retried")
 
-type PartialAddError struct {
+type NonRetryableAddError struct {
 	inner error
 }
 
-func (e *PartialAddError) Error() string {
-	return fmt.Sprintf("%s: %v", ErrPartialAdd.Error(), e.inner)
+func (e *NonRetryableAddError) Error() string {
+	return fmt.Sprintf("%s: %v", ErrNonRetryableAdd.Error(), e.inner)
 }
 
-func (e *PartialAddError) Unwrap() []error {
-	return []error{ErrPartialAdd, e.inner}
+func (e *NonRetryableAddError) Unwrap() []error {
+	return []error{ErrNonRetryableAdd, e.inner}
 }
 
-func NewErrPartialAdd(err error) *PartialAddError {
-	return &PartialAddError{
+func NewErrNonRetryableAdd(err error) *NonRetryableAddError {
+	return &NonRetryableAddError{
 		inner: err,
 	}
 }
