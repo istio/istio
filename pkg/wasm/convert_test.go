@@ -27,8 +27,6 @@ import (
 	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -37,6 +35,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/xds"
+	pm "istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 type mockCache struct {
@@ -66,7 +66,7 @@ func (c *mockCache) Get(downloadURL string, opts GetOptions) (string, error) {
 func (c *mockCache) Cleanup() {}
 
 func messageToStruct(t *testing.T, m proto.Message) *structpb.Struct {
-	st, err := conversion.MessageToStruct(m)
+	st, err := protomarshal.MessageToStructSlow(m)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,7 +340,7 @@ func TestWasmConvert(t *testing.T) {
 }
 
 func buildTypedStructExtensionConfig(name string, wasm *wasm.Wasm) *core.TypedExtensionConfig {
-	ws, _ := conversion.MessageToStruct(wasm)
+	ws, _ := protomarshal.MessageToStructSlow(wasm)
 	return &core.TypedExtensionConfig{
 		Name: name,
 		TypedConfig: protoconv.MessageToAny(
@@ -373,7 +373,7 @@ var extensionConfigMap = map[string]*core.TypedExtensionConfig{
 	"no-wasm": {
 		Name: "no-wasm",
 		TypedConfig: protoconv.MessageToAny(
-			&udpa.TypedStruct{TypeUrl: resource.APITypePrefix + "sometype"},
+			&udpa.TypedStruct{TypeUrl: pm.APITypePrefix + "sometype"},
 		),
 	},
 	"no-remote-load": buildTypedStructExtensionConfig("no-remote-load", &wasm.Wasm{

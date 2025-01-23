@@ -33,7 +33,6 @@
 //go:generate sh -c "echo 'package xds\n\nimport (' >> filter_types.gen.go"
 //go:generate sh -c "go list github.com/envoyproxy/go-control-plane/contrib/... | grep 'v3' | grep -v /pkg/ | xargs -I{} echo '\t_ \"{}\"' >> filter_types.gen.go"
 //go:generate sh -c "go list github.com/envoyproxy/go-control-plane/envoy/... | grep 'v3' | grep -v /pkg/ | xargs -I{} echo '\t_ \"{}\"' >> filter_types.gen.go"
-//go:generate sh -c "go list github.com/envoyproxy/go-control-plane/pkg/... | grep 'v3' | grep -v /pkg/ | xargs -I{} echo '\t_ \"{}\"' >> filter_types.gen.go"
 //go:generate sh -c "echo '\n\t// Istio-specific Envoy filters' >> filter_types.gen.go"
 //go:generate sh -c "go list istio.io/api/envoy/config/filter/... | grep 'v[0-9]' | xargs -I{} echo '\t_ \"{}\"' >> filter_types.gen.go"
 //go:generate sh -c "echo ')' >> filter_types.gen.go"

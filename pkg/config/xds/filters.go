@@ -15,16 +15,14 @@
 package xds
 
 import (
-	resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-
 	pm "istio.io/istio/pkg/model"
 )
 
 const (
 	WasmHTTPFilterType    = pm.WasmHTTPFilterType
 	WasmNetworkFilterType = pm.WasmNetworkFilterType
-	RBACHTTPFilterType    = resource.APITypePrefix + "envoy.extensions.filters.http.rbac.v3.RBAC"
-	RBACNetworkFilterType = resource.APITypePrefix + "envoy.extensions.filters.network.rbac.v3.RBAC"
+	RBACHTTPFilterType    = pm.APITypePrefix + "envoy.extensions.filters.http.rbac.v3.RBAC"
+	RBACNetworkFilterType = pm.APITypePrefix + "envoy.extensions.filters.network.rbac.v3.RBAC"
 	TypedStructType       = pm.TypedStructType
 
 	StatsFilterName = "istio.stats"
