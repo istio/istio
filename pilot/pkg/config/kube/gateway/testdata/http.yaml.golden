@@ -112,11 +112,23 @@ spec:
   http:
   - match:
     - uri:
-        prefix: /get
+        prefix: /1
     name: default.http-retry-request.0
     retries:
-      attempts: 2
+      attempts: 3
       retryOn: connect-failure,refused-stream,unavailable,cancelled,503,429
+    route:
+    - destination:
+        host: httpbin.default.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - uri:
+        prefix: /2
+    name: default.http-retry-request.1
+    retries:
+      attempts: 2
+      retryOn: connect-failure,refused-stream,unavailable,cancelled
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix

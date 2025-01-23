@@ -289,13 +289,21 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /get
+            value: /1
       backendRefs:
         - name: httpbin
           port: 80
       retry:
-        attempts: 2
+        attempts: 3
         codes:
         - 503
         - 429
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /2
+      backendRefs:
+        - name: httpbin
+          port: 80
+      retry: {}
 ---
