@@ -284,7 +284,7 @@ func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.Iptables
 			// Log ignored errors for debugging purposes
 			log.Debugf("Ignoring iptables command error: %v", transformedErr)
 		}
-		err = errors.Join(err, fmt.Errorf(stderrStr))
+		err = errors.Join(err, errors.New(stderrStr))
 	} else if len(stderrStr) > 0 {
 		log.Debugf("Command stderr output: %s", stderrStr)
 	}
