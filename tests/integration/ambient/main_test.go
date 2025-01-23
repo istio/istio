@@ -113,6 +113,9 @@ values:
     # Refer to issue #49207 for more context.
     repair:
       enabled: false
+    # TODO temporary for getting context on	https://github.com/istio/istio/issues/54645
+    logging:
+	  level: "all:debug"
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
