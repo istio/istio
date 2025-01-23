@@ -25,13 +25,7 @@ import (
 // Dependencies is used as abstraction for the commands used from the operating system
 type Dependencies interface {
 	// Run runs a command
-	Run(log *istiolog.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error
-
-	// Run runs a command and get the output
-	RunWithOutput(log *istiolog.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error)
-
-	// RunQuietlyAndIgnore runs a command quietly and ignores errors
-	RunQuietlyAndIgnore(log *istiolog.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string)
+	Run(log *istiolog.Scope, quietLogging bool, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error)
 
 	// DetectIptablesVersion consults the available binaries and in-use tables to determine
 	// which iptables variant (legacy, nft, v6, v4) we should use in the current context.

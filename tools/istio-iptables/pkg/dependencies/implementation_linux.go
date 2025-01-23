@@ -16,6 +16,7 @@ package dependencies
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -203,8 +204,8 @@ func mount(src, dst string) error {
 	return syscall.Mount(src, dst, "", syscall.MS_BIND|syscall.MS_RDONLY, "")
 }
 
-func (r *RealDependencies) executeXTablesWithOutput(log *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion,
-	ignoreErrors bool, silenceOutput bool, stdin io.ReadSeeker, args ...string,
+func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion,
+	silenceErrors bool, stdin io.ReadSeeker, args ...string,
 ) (*bytes.Buffer, error) {
 	mode := "without lock"
 	stdout := &bytes.Buffer{}
@@ -261,46 +262,32 @@ func (r *RealDependencies) executeXTablesWithOutput(log *log.Scope, cmd constant
 			c = exec.Command(cmdBin, args...)
 		}
 	}
-	log.Infof("Running command (%s): %s %s", mode, cmdBin, strings.Join(args, " "))
+	log.Debugf("Running command (%s): %s %s", mode, cmdBin, strings.Join(args, " "))
 
 	c.Stdout = stdout
 	c.Stderr = stderr
 	c.Stdin = stdin
 	err := run(c)
 	if len(stdout.String()) != 0 {
-		if !silenceOutput {
-			log.Infof("Command output: \n%v", stdout.String())
-		} else {
-			log.Debugf("Command output: \n%v", stdout.String())
-		}
+		log.Debugf("Command output: \n%v", stdout.String())
 	}
 
-	// TODO Check naming and redirection logic
-	if (err != nil || len(stderr.String()) != 0) && !ignoreErrors {
-		stderrStr := stderr.String()
+	stderrStr := stderr.String()
 
-		// Transform to xtables-specific error messages with more useful and actionable hints.
-		if err != nil {
-			stderrStr = transformToXTablesErrorMessage(stderrStr, err)
+	if err != nil {
+		// Transform to xtables-specific error messages
+		transformedErr := transformToXTablesErrorMessage(stderrStr, err)
+
+		if !silenceErrors {
+			log.Errorf("Command error: %v", transformedErr)
+		} else {
+			// Log ignored errors for debugging purposes
+			log.Debugf("Ignoring iptables command error: %v", transformedErr)
 		}
-
-		log.Errorf("Command error output: %v", stderrStr)
-	} else if err != nil && ignoreErrors {
-		// Log ignored errors for debugging purposes
-		log.Debugf("Ignoring iptables command error: %v", err)
+		err = errors.Join(err, errors.New(stderrStr))
+	} else if len(stderrStr) > 0 {
+		log.Debugf("Command stderr output: %s", stderrStr)
 	}
 
 	return stdout, err
-}
-
-func (r *RealDependencies) executeXTables(
-	logger *log.Scope,
-	cmd constants.IptablesCmd,
-	iptVer *IptablesVersion,
-	ignoreErrors bool,
-	stdin io.ReadSeeker,
-	args ...string,
-) error {
-	_, err := r.executeXTablesWithOutput(logger, cmd, iptVer, ignoreErrors, false, stdin, args...)
-	return err
 }

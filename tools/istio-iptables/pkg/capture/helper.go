@@ -68,7 +68,7 @@ check_loop:
 		if ipCfg.ver == nil {
 			continue
 		}
-		output, err := ext.RunWithOutput(log, constants.IPTablesSave, ipCfg.ver, nil)
+		output, err := ext.Run(log, true, constants.IPTablesSave, ipCfg.ver, nil)
 		if err == nil {
 			currentState := ruleBuilder.GetStateFromSave(output.String())
 			log.Debugf("Current iptables state: %#v", currentState)
@@ -112,7 +112,7 @@ check_loop:
 				}
 			}
 			for _, cmd := range ipCfg.checkRules {
-				if err := ext.Run(log, constants.IPTables, ipCfg.ver, nil, cmd...); err != nil {
+				if _, err := ext.Run(log, true, constants.IPTables, ipCfg.ver, nil, cmd...); err != nil {
 					deltaExists = true
 					log.Debugf("iptables check rules failed")
 					break

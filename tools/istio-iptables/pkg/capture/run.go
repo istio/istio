@@ -279,9 +279,13 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		_ = cfg.ext.Run(log.WithLabels(), constants.IPTablesSave, &iptVer, nil)
+		if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &iptVer, nil); err == nil {
+			log.Infof("Final iptables state (IPv4):\n%s", state)
+		}
 		if cfg.cfg.EnableIPv6 {
-			_ = cfg.ext.Run(log.WithLabels(), constants.IPTablesSave, &ipt6Ver, nil)
+			if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &ipt6Ver, nil); err == nil {
+				log.Infof("Final iptables state (IPv6):\n%s", state)
+			}
 		}
 	}()
 
@@ -692,7 +696,7 @@ func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter config.Interce
 
 func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVersion, commands [][]string) error {
 	for _, cmd := range commands {
-		if err := cfg.ext.Run(log.WithLabels(), constants.IPTables, iptVer, nil, cmd...); err != nil {
+		if _, err := cfg.ext.Run(log.WithLabels(), false, constants.IPTables, iptVer, nil, cmd...); err != nil {
 			return err
 		}
 	}
@@ -701,14 +705,15 @@ func (cfg *IptablesConfigurator) executeIptablesCommands(iptVer *dep.IptablesVer
 
 func (cfg *IptablesConfigurator) tryExecuteIptablesCommands(iptVer *dep.IptablesVersion, commands [][]string) {
 	for _, cmd := range commands {
-		cfg.ext.RunQuietlyAndIgnore(log.WithLabels(), constants.IPTables, iptVer, nil, cmd...)
+		_, _ = cfg.ext.Run(log.WithLabels(), true, constants.IPTables, iptVer, nil, cmd...)
 	}
 }
 
 func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(iptVer *dep.IptablesVersion, data string) error {
 	log.Infof("Running iptables restore with: %s and the following input:\n%v", iptVer.CmdToString(constants.IPTablesRestore), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(log.WithLabels(), constants.IPTablesRestore, iptVer, strings.NewReader(data), "--noflush")
+	_, err := cfg.ext.Run(log.WithLabels(), false, constants.IPTablesRestore, iptVer, strings.NewReader(data), "--noflush")
+	return err
 }
 
 func (cfg *IptablesConfigurator) executeCommands(iptVer, ipt6Ver *dep.IptablesVersion) error {

@@ -37,33 +37,16 @@ type DependenciesStub struct {
 	ExecutedAll      []string
 }
 
-func (s *DependenciesStub) Run(logger *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
-	s.execute(false /*quietly*/, cmd, iptVer, stdin, args...)
-	_ = s.writeAllToDryRunPath()
-	return nil
-}
-
-func (s *DependenciesStub) RunWithOutput(
-	ogger *log.Scope,
+func (s *DependenciesStub) Run(logger *log.Scope,
+	quietLogging bool,
 	cmd constants.IptablesCmd,
 	iptVer *IptablesVersion,
 	stdin io.ReadSeeker,
 	args ...string,
 ) (*bytes.Buffer, error) {
-	s.execute(false /*quietly*/, cmd, iptVer, stdin, args...)
+	s.execute(quietLogging, cmd, iptVer, stdin, args...)
 	_ = s.writeAllToDryRunPath()
 	return &bytes.Buffer{}, nil
-}
-
-func (s *DependenciesStub) RunQuietlyAndIgnore(
-	logger *log.Scope,
-	cmd constants.IptablesCmd,
-	iptVer *IptablesVersion,
-	stdin io.ReadSeeker,
-	args ...string,
-) {
-	s.execute(true /*quietly*/, cmd, iptVer, stdin, args...)
-	_ = s.writeAllToDryRunPath()
 }
 
 func (s *DependenciesStub) DetectIptablesVersion(ipV6 bool) (IptablesVersion, error) {

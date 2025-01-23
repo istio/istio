@@ -220,32 +220,11 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 // Run runs a command
 func (r *RealDependencies) Run(
 	logger *log.Scope,
-	cmd constants.IptablesCmd,
-	iptVer *IptablesVersion,
-	stdin io.ReadSeeker,
-	args ...string,
-) error {
-	return r.executeXTables(logger, cmd, iptVer, false, stdin, args...)
-}
-
-// Run runs a command and returns stdout
-func (r *RealDependencies) RunWithOutput(
-	logger *log.Scope,
+	quietLogging bool,
 	cmd constants.IptablesCmd,
 	iptVer *IptablesVersion,
 	stdin io.ReadSeeker,
 	args ...string,
 ) (*bytes.Buffer, error) {
-	return r.executeXTablesWithOutput(logger, cmd, iptVer, false, true, stdin, args...)
-}
-
-// RunQuietlyAndIgnore runs a command quietly and ignores errors
-func (r *RealDependencies) RunQuietlyAndIgnore(
-	logger *log.Scope,
-	cmd constants.IptablesCmd,
-	iptVer *IptablesVersion,
-	stdin io.ReadSeeker,
-	args ...string,
-) {
-	_ = r.executeXTables(logger, cmd, iptVer, true, stdin, args...)
+	return r.executeXTables(logger, cmd, iptVer, quietLogging, stdin, args...)
 }

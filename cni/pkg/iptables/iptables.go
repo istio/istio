@@ -191,7 +191,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range deleteCmds {
-			cfg.ext.RunQuietlyAndIgnore(log, iptablesconstants.IPTables, &iptVer, nil, cmd...)
+			_, _ = cfg.ext.Run(log, true, iptablesconstants.IPTables, &iptVer, nil, cmd...)
 		}
 	}
 }
@@ -520,7 +520,7 @@ func (cfg *IptablesConfigurator) cleanupIstioLeftovers(log *istiolog.Scope, ext 
 		if ipVer == nil {
 			continue
 		}
-		output, err := ext.RunWithOutput(log, iptablesconstants.IPTablesSave, ipVer, nil)
+		output, err := ext.Run(log, true, iptablesconstants.IPTablesSave, ipVer, nil)
 		if err == nil {
 			currentState := ruleBuilder.GetStateFromSave(output.String())
 			leftovers := iptablescapture.HasIstioLeftovers(currentState)
@@ -541,21 +541,24 @@ func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(
 	cmd := iptablesconstants.IPTablesRestore
 	log.Infof("Running %s with the following input:\n%v", iptVer.CmdToString(cmd), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(log, cmd, iptVer, strings.NewReader(data), "--noflush", "-v")
+	_, err := cfg.ext.Run(log, false, cmd, iptVer, strings.NewReader(data), "--noflush", "-v")
+	return err
 }
 
 func (cfg *IptablesConfigurator) executeIptablesCommands(log *istiolog.Scope, iptVer *dep.IptablesVersion, args [][]string) error {
 	var iptErrs []error
 	// TODO: pass log all the way through
 	for _, argSet := range args {
-		iptErrs = append(iptErrs, cfg.ext.Run(log, iptablesconstants.IPTables, iptVer, nil, argSet...))
+		if _, err := cfg.ext.Run(log, false, iptablesconstants.IPTables, iptVer, nil, argSet...); err != nil {
+			iptErrs = append(iptErrs, err)
+		}
 	}
 	return errors.Join(iptErrs...)
 }
 
 func (cfg *IptablesConfigurator) tryExecuteIptablesCommands(log *istiolog.Scope, iptVer *dep.IptablesVersion, commands [][]string) {
 	for _, cmd := range commands {
-		cfg.ext.RunQuietlyAndIgnore(log, iptablesconstants.IPTables, iptVer, nil, cmd...)
+		_, _ = cfg.ext.Run(log, true, iptablesconstants.IPTables, iptVer, nil, cmd...)
 	}
 }
 
@@ -601,7 +604,7 @@ func (cfg *IptablesConfigurator) DeleteHostRules() {
 	runCommands := func(cmds [][]string, version *dep.IptablesVersion) {
 		for _, cmd := range cmds {
 			// Ignore errors, as it is expected to fail in cases where the node is already cleaned up.
-			cfg.ext.RunQuietlyAndIgnore(log.WithLabels("component", "host"), iptablesconstants.IPTables, version, nil, cmd...)
+			_, _ = cfg.ext.Run(log.WithLabels("component", "host"), true, iptablesconstants.IPTables, version, nil, cmd...)
 		}
 	}
 

@@ -413,6 +413,7 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 			cfg.ForceApply = true
 			iptConfigurator = NewIptablesConfigurator(cfg, ext)
 			assert.Error(t, iptConfigurator.Run())
+			cfg.ForceApply = false
 		})
 	}
 }
