@@ -289,7 +289,7 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /1
+            value: /explicit
       backendRefs:
         - name: httpbin
           port: 80
@@ -301,9 +301,17 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /2
+            value: /empty
       backendRefs:
         - name: httpbin
           port: 80
       retry: {}
----
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /disable
+      backendRefs:
+        - name: httpbin
+          port: 80
+      retry:
+        attempts: 0

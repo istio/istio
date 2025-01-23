@@ -112,7 +112,7 @@ spec:
   http:
   - match:
     - uri:
-        prefix: /1
+        prefix: /explicit
     name: default.http-retry-request.0
     retries:
       attempts: 3
@@ -124,7 +124,17 @@ spec:
           number: 80
   - match:
     - uri:
-        prefix: /2
+        prefix: /disable
+    name: default.http-retry-request.2
+    retries: {}
+    route:
+    - destination:
+        host: httpbin.default.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - uri:
+        prefix: /empty
     name: default.http-retry-request.1
     retries:
       attempts: 2
