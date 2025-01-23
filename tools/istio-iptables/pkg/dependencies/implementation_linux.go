@@ -16,6 +16,7 @@ package dependencies
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -271,19 +272,21 @@ func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.Iptables
 		log.Debugf("Command output: \n%v", stdout.String())
 	}
 
-	// TODO Check naming and redirection logic
-	if (err != nil || len(stderr.String()) != 0) && !silenceErrors {
-		stderrStr := stderr.String()
+	stderrStr := stderr.String()
 
-		// Transform to xtables-specific error messages with more useful and actionable hints.
-		if err != nil {
-			stderrStr = transformToXTablesErrorMessage(stderrStr, err)
+	if err != nil {
+		// Transform to xtables-specific error messages
+		transformedErr := transformToXTablesErrorMessage(stderrStr, err)
+
+		if !silenceErrors {
+			log.Errorf("Command error: %v", transformedErr)
+		} else {
+			// Log ignored errors for debugging purposes
+			log.Debugf("Ignoring iptables command error: %v", transformedErr)
 		}
-
-		log.Errorf("Command error output: %v", stderrStr)
-	} else if err != nil && silenceErrors {
-		// Log ignored errors for debugging purposes
-		log.Debugf("Ignoring iptables command error: %v", err)
+		err = errors.Join(err, fmt.Errorf(stderrStr))
+	} else if len(stderrStr) > 0 {
+		log.Debugf("Command stderr output: %s", stderrStr)
 	}
 
 	return stdout, err
