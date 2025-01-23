@@ -203,16 +203,11 @@ func IsGCP() bool {
 // Metadata returned by the GCP Environment is taken from the GCE metadata
 // service.
 func NewGCP() Environment {
-	zone := GCPStaticMetadata[GCPZone]
-	if zone == "" {
-		zone = zoneFromResolvConf()
-	}
-
 	return &gcpEnv{
 		fillMetadata: lazy.New(func() (bool, error) {
 			return shouldFillMetadata(), nil
 		}),
-		cachedZone: atomic.NewString(zone),
+		cachedZone: atomic.NewString(GCPStaticMetadata[GCPZone]),
 	}
 }
 
@@ -313,6 +308,13 @@ func (e *gcpEnv) getPodZone() (string, error) {
 	if z != "" {
 		return z, nil
 	}
+	// Try to read resolv.conf and extract Pod's zone.
+	z = zoneFromResolvConf()
+	if z != "" {
+		e.cachedZone.Store(z)
+		return z, nil
+	}
+	// Fallback to Metadata Server to get the zone.
 	ctx, cfn := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cfn()
 	z, err := zoneFn(ctx)
