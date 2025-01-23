@@ -96,7 +96,9 @@ _internal_defaults_do_not_set:
   readinessProbe: {}
 
   # Labels to apply to all resources
-  labels: {}
+  labels:
+    # By default, don't enroll gateways into the ambient dataplane
+    "istio.io/dataplane-mode": none
 
   # Annotations to apply to all resources
   annotations: {}
