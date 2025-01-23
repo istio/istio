@@ -23,13 +23,6 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
-var TunnelHostMetadata = []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
-	{
-		Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
-		Name: OriginalDstMetadataKey,
-	},
-}
-
 func RawBufferTransport() *core.TransportSocket {
 	return &core.TransportSocket{
 		Name:       "raw_buffer",
@@ -37,6 +30,7 @@ func RawBufferTransport() *core.TransportSocket {
 	}
 }
 
+// DefaultInternalUpstreamTransportSocket provides an internal_upstream transport that does not passthrough any metadata.
 var DefaultInternalUpstreamTransportSocket = &core.TransportSocket{
 	Name: "internal_upstream",
 	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
@@ -44,12 +38,49 @@ var DefaultInternalUpstreamTransportSocket = &core.TransportSocket{
 	})},
 }
 
-func TunnelHostInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.TransportSocket {
+// WaypointInternalUpstreamTransportSocket builds an internal upstream transport socket suitable for usage in a waypoint
+// This will passthrough the OrigDst key
+func WaypointInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.TransportSocket {
 	return &core.TransportSocket{
 		Name: "internal_upstream",
 		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-			PassthroughMetadata: TunnelHostMetadata,
-			TransportSocket:     inner,
+			PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
+				{
+					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
+					Name: OriginalDstMetadataKey,
+				},
+			},
+
+			TransportSocket: inner,
+		})},
+	}
+}
+
+// FullMetadataPassthroughInternalUpstreamTransportSocket builds an internal upstream transport socket suitable for usage in
+// originating HBONE. For waypoints, use WaypointInternalUpstreamTransportSocket.
+func FullMetadataPassthroughInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.TransportSocket {
+	return &core.TransportSocket{
+		Name: "envoy.transport_sockets.internal_upstream",
+		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
+			PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
+				{
+					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
+					Name: OriginalDstMetadataKey,
+				},
+				{
+					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
+						Cluster: &metadata.MetadataKind_Cluster{},
+					}},
+					Name: "istio",
+				},
+				{
+					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{
+						Host: &metadata.MetadataKind_Host{},
+					}},
+					Name: "istio",
+				},
+			},
+			TransportSocket: inner,
 		})},
 	}
 }
