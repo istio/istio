@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 54824
+releaseNotes:
+- |
+  **Added** ambient dataplane exclusion labels to Istio-shipped gateways by default, to avoid out-of-the-box confusing behavior if installing gateways outside of `istio-system`.
