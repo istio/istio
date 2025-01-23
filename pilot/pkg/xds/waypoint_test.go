@@ -86,6 +86,7 @@ metadata:
   namespace: default
   labels:
     istio.io/use-waypoint: waypoint
+    istio.io/ingress-use-waypoint: "true"
 spec:
   hosts: [app.com]
   addresses: [1.2.3.4]
@@ -492,8 +493,30 @@ spec:
 	assert.Equal(t, sets.New(slices.Map(notApp.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), false)
 }
 
+func TestIngressUseWaypoint(t *testing.T) {
+	d, _ := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		appPod, appPodNoMesh,
+		waypointInstance, appWorkloadEntry,
+		appServiceEntry)
+	ingressProxy := d.SetupProxy(&model.Proxy{
+		Type:            model.Router,
+		ConfigNamespace: "default",
+		IPAddresses:     []string{"3.0.0.3"}, // Arbitrary
+	})
+
+	eps := slices.Sort(xdstest.ExtractLoadAssignments(d.Endpoints(ingressProxy))["outbound|80||app.com"])
+	assert.Equal(t, eps, []string{
+		// 1.2.3.4: Service VIP
+		// 3.0.0.1: Waypoint Pod IP
+		"connect_originate;1.2.3.4:80;3.0.0.1:15008",
+	})
+}
+
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
 	test.SetForTest(t, &features.EnableDualStack, true)
+	test.SetForTest(t, &features.EnableIngressWaypointRouting, true)
 	c := joinYaml(configs...)
 	mc := mesh.DefaultMeshConfig()
 	mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
