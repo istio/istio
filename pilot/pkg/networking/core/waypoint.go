@@ -15,8 +15,11 @@
 package core
 
 import (
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -108,4 +111,38 @@ func filterWaypointOutboundServices(
 		}
 	}
 	return res
+}
+
+// TODO: memoize this on the MergedServer/MergedGateway
+func isDoubleHbone(node *model.Proxy) bool {
+	servers := node.MergedGateway.MergedServers
+	hbonePortFound := false
+	var server *model.MergedServers
+	for port, s := range servers {
+		if port.Number == model.HBoneInboundListenPort && port.Protocol == protocol.HBONE.String() {
+			hbonePortFound = true
+			server = s
+			break
+		}
+	}
+
+	if !hbonePortFound || server == nil {
+		panic("we should never get here; waypoints require a server on port 15008")
+	}
+
+	doubleHbone := false
+	for _, s := range server.Servers {
+		if len(s.Hosts) != 0 {
+			// TODO: If we do decide to encode SNI for HBONE, we'll need to consider this
+			panic("Why does the HBONE server have hosts/SNI?")
+		}
+		if doubleHbone {
+			log.Warnf("Multiple HBONE servers found on port %d. This one is %v", model.HBoneInboundListenPort, s)
+		}
+		if s.Tls.Mode == networking.ServerTLSSettings_SIMPLE {
+			doubleHbone = true
+		}
+	}
+
+	return doubleHbone
 }
