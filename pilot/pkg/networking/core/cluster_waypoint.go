@@ -115,6 +115,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	policy *networking.TrafficPolicy,
 	drConfig *config.Config,
 ) *cluster.Cluster {
+	terminate := isDoubleHbone(proxy)
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
 	discoveryType := convertResolution(cb.proxyType, svc)
@@ -156,6 +157,23 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		connectionPool = &networking.ConnectionPoolSettings{}
 	}
 
+	if terminate {
+		// We're tunneling double HBONE as raw TCP, so no need for HTTP settings
+		// or h2 upgrade
+		connectionPool.Http = nil
+		cb.applyConnectionPool(mesh, localCluster, connectionPool)
+		applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+		// TODO: Decide if we want to support this
+		if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
+			log.Warnf("Passthrough on the east/west gateway isn't expected")
+			localCluster.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+		}
+		maybeApplyEdsConfig(localCluster.cluster)
+		// No transport socket necessary for double HBONE
+		return localCluster.build()
+	}
+
 	// For these policies, we have the standard logic apply
 	cb.applyConnectionPool(mesh, localCluster, connectionPool)
 	cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
@@ -164,6 +182,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 
 	// Setup EDS config after apply LoadBalancer, since it can impact the result
 	if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
+		log.Warnf("Passthrough on the east/west gateway isn't expected")
 		localCluster.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 	}
 	maybeApplyEdsConfig(localCluster.cluster)
@@ -249,6 +268,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
 			dr := CastDestinationRule(cfg)
 			policy, _ := util.GetPortLevelTrafficPolicy(dr.GetTrafficPolicy(), port)
+			// TODO: figure out if we need to filter out non-tcp subsets for double hbone
 			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, policy, cfg))
 			}
