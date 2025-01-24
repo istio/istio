@@ -274,3 +274,44 @@ spec:
     timeouts:
       request: 2ms
       backendRequest: 1ms
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-retry-request
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["retry.domain.example"]
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /explicit
+      backendRefs:
+        - name: httpbin
+          port: 80
+      retry:
+        attempts: 3
+        codes:
+        - 503
+        - 429
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /empty
+      backendRefs:
+        - name: httpbin
+          port: 80
+      retry: {}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /disable
+      backendRefs:
+        - name: httpbin
+          port: 80
+      retry:
+        attempts: 0

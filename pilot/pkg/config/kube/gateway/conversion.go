@@ -197,7 +197,6 @@ func convertVirtualService(r configContext) []config.Config {
 func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 	obj config.Config, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *ConfigError) {
-	// TODO: implement rewrite, corspolicy, retries
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
 		vs.Name = string(*r.Name)
@@ -269,6 +268,28 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 		}
 	}
 
+	if r.Retry != nil {
+		// "Implementations SHOULD retry on connection errors (disconnect, reset, timeout,
+		// TCP failure) if a retry stanza is configured."
+		retryOn := []string{"connect-failure", "refused-stream", "unavailable", "cancelled"}
+		for _, codes := range r.Retry.Codes {
+			retryOn = append(retryOn, strconv.Itoa(int(codes)))
+		}
+		vs.Retries = &istio.HTTPRetry{
+			// If unset, default is implementation specific.
+			// VirtualService.retry has no default when set -- users are expected to set it if they customize `retry`.
+			// However, the default retry if none are set is "2", so we use that as the default.
+			Attempts:      int32(ptr.OrDefault(r.Retry.Attempts, 2)),
+			PerTryTimeout: nil,
+			RetryOn:       strings.Join(retryOn, ","),
+		}
+		if vs.Retries.Attempts == 0 {
+			// Invalid to set this when there are no attempts
+			vs.Retries.RetryOn = ""
+		}
+		// Istio does not currently implement the Backoff field due to lack of support in VirtualService
+	}
+
 	if r.Timeouts != nil {
 		if r.Timeouts.Request != nil {
 			request, _ := time.ParseDuration(string(*r.Timeouts.Request))
@@ -288,7 +309,6 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 			}
 		}
 	}
-
 	if weightSum(r.BackendRefs) == 0 && vs.Redirect == nil {
 		// The spec requires us to return 500 when there are no >0 weight backends
 		vs.DirectResponse = &istio.HTTPDirectResponse{
@@ -309,7 +329,6 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 	obj config.Config, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *ConfigError) {
-	// TODO: implement rewrite, timeout, mirror, corspolicy, retries
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
 		vs.Name = string(*r.Name)
