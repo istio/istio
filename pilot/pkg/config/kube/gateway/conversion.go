@@ -2550,7 +2550,7 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 		}
 		ok = false
 	}
-	if controllerName == constants.ManagedGatewayMeshController {
+	if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
 		if unexpectedWaypointListener(l) {
 			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
 				Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
