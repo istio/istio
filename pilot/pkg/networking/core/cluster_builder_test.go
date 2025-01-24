@@ -1384,6 +1384,7 @@ func TestClusterDnsConfig(t *testing.T) {
 			if dnsConfig.UdpMaxQueries.Value != tt.udpMaxQueries {
 				t.Errorf("Unexpected UdpMaxQueries, expected : %v, got: %v", tt.udpMaxQueries, dnsConfig.UdpMaxQueries.Value)
 			}
+			//nolint:staticcheck // DnsJitter is deprecated
 			if c.DnsJitter.AsDuration() != tt.dnsJitter {
 				t.Errorf("Unexpected dnsJitter, expected : %v, got: %v", tt.dnsJitter, c.DnsJitter.AsDuration())
 			}

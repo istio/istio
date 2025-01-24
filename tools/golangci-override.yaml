@@ -40,12 +40,6 @@ linters-settings:
             desc: "do not use gopkg.in/yaml.v3; use sigs.k8s.io/yaml instead"
           - pkg: github.com/ghodss/yaml
             desc: "do not use github.com/ghodss/yaml; use sigs.k8s.io/yaml instead"
-          - pkg: github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3
-            desc: "DnsJitter is deprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto"
-          - pkg: github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3
-            desc: "DnsRefreshRate is deprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto"
-          - pkg: github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3
-            desc: "RespectDnsTtl is deprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto"
       DenyOperatorAndIstioctl:
         files:
           # Tests can do anything
