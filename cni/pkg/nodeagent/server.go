@@ -45,7 +45,7 @@ var log = scopes.CNIAgent
 
 type MeshDataplane interface {
 	// MUST be called first, (even before Start()).
-	ConstructInitialSnapshot(ambientPods []*corev1.Pod) error
+	ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) error
 	Start(ctx context.Context)
 
 	AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error
@@ -203,13 +203,13 @@ type meshDataplane struct {
 // It takes a "snapshot" of ambient pods that were already running when the server started,
 // and constructs various required "state" (adding the pods to the host-level node ipset,
 // building the state of the world snapshot send to connecting ztunnels)
-func (s *meshDataplane) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {
-	if err := s.syncHostIPSets(ambientPods); err != nil {
+func (s *meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) error {
+	if err := s.syncHostIPSets(existingAmbientPods); err != nil {
 		log.Errorf("failed to sync host IPset: %v", err)
 		return err
 	}
 
-	return s.netServer.ConstructInitialSnapshot(ambientPods)
+	return s.netServer.ConstructInitialSnapshot(existingAmbientPods)
 }
 
 // Start starts the netserver.

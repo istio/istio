@@ -672,3 +672,9 @@ func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder 
 
 	return iptablesBuilder
 }
+
+// ReconcileModeEnable returns true if this particular iptables configurator
+// supports/has idempotent execution enabled - i.e. reconcile mode.
+func (cfg *IptablesConfigurator) ReconcileModeEnabled() bool {
+	return cfg.cfg.Reconcile
+}
