@@ -116,6 +116,7 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		GenerateRequestId:          ph.GenerateRequestID,
 		UseRemoteAddress:           proto.BoolFalse,
 	}
+	accessLogBuilder.setHboneTerminationAccessLog(lb.push, lb.node, h, istionetworking.ListenerClassSidecarInbound)
 
 	// Protocol settings
 	h.StreamIdleTimeout = istio_route.Notimeout
@@ -530,7 +531,7 @@ func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, 
 		},
 	}
 	// Set access logs. These are filtered down to only connection establishment errors, to avoid double logs in most cases.
-	accessLogBuilder.setHboneAccessLog(push, proxy, tcpProxy, class)
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, class)
 	l := &listener.Listener{
 		Name:              ConnectOriginate,
 		UseOriginalDst:    wrappers.Bool(false),
