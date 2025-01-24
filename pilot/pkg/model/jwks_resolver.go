@@ -550,7 +550,7 @@ func (r *JwksResolver) refresh(jwksURIBackgroundChannel bool) bool {
 				entry.pubKey = newPubKey
 			}) {
 				// While unlikely, in the event we are unable to update the cached entry via compare and swap, forcefully write refreshed data to the cache.
-				log.Warnf("Failed to safely update cache for JWT public key from %q due to write contention, forcefully writing refreshed JWKs to cache")
+				log.Warnf("Failed to safely update cache for JWT public key from %q due to write contention, forcefully writing refreshed JWKs to cache", jwksURI)
 
 				lastUsedTime := e.lastUsedTime
 				timeout := e.timeout
