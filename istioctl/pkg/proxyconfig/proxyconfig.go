@@ -145,8 +145,8 @@ var (
 	reset             = false
 )
 
-func extractConfigDump(kubeClient kube.CLIClient, podName, podNamespace string, addtionPath string) ([]byte, error) {
-	path := "config_dump" + addtionPath
+func extractConfigDump(kubeClient kube.CLIClient, podName, podNamespace string, additionPath string) ([]byte, error) {
+	path := "config_dump" + additionPath
 	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
@@ -154,8 +154,8 @@ func extractConfigDump(kubeClient kube.CLIClient, podName, podNamespace string, 
 	return debug, err
 }
 
-func setupPodConfigdumpWriter(kubeClient kube.CLIClient, podName, podNamespace string, addtionPath string, out io.Writer) (*configdump.ConfigWriter, error) {
-	debug, err := extractConfigDump(kubeClient, podName, podNamespace, addtionPath)
+func setupPodConfigdumpWriter(kubeClient kube.CLIClient, podName, podNamespace string, additionPath string, out io.Writer) (*configdump.ConfigWriter, error) {
+	debug, err := extractConfigDump(kubeClient, podName, podNamespace, additionPath)
 	if err != nil {
 		return nil, err
 	}
