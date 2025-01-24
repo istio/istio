@@ -55,7 +55,14 @@ func NewWaypointTerminationBuilder(actionType ActionType, push *model.PushContex
 	return newBuilder(actionType, push, proxy, false, nil, true)
 }
 
-func newBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy, useFilterState bool, svc *model.Service, alwaysTreatAsNonWaypoint bool) *Builder {
+func newBuilder(
+	actionType ActionType,
+	push *model.PushContext,
+	proxy *model.Proxy,
+	useFilterState bool,
+	svc *model.Service,
+	alwaysTreatAsNonWaypoint bool,
+) *Builder {
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
