@@ -65,7 +65,7 @@ var (
 
 	WaypointLayeredAuthorizationPolicies = env.Register(
 		"ENABLE_LAYERED_WAYPOINT_AUTHORIZATION_POLICIES",
-		true,
+		false,
 		"If enabled, selector based authorization policies will be enforced as L4 policies in front of the waypoint.").Get()
 )
 
