@@ -6338,6 +6338,9 @@ spec:
                               description: Match a specific virtual host in a route
                                 configuration and apply the patch to the virtual host.
                               properties:
+                                domainName:
+                                  description: Match a domain name in a virtual host.
+                                  type: string
                                 name:
                                   description: The VirtualHosts objects generated
                                     by Istio are named as host:port, where the host
@@ -7548,7 +7551,7 @@ spec:
                   - message: Address is required
                     rule: has(self.address) || has(self.network)
                   - message: UDS may not include ports
-                    rule: '(has(self.address) && self.address.startsWith("unix://"))
+                    rule: '(has(self.address) ? self.address : "").startsWith("unix://")
                       ? !has(self.ports) : true'
                 maxItems: 4096
                 type: array
@@ -7658,16 +7661,15 @@ spec:
                 1 : 0) <= 1'
             - message: CIDR addresses are allowed only for NONE/STATIC resolution
                 types
-              rule: |-
-                !(has(self.addresses) && self.addresses.exists(k, k.contains("/")) && has(self.resolution) &&
-                self.resolution != "STATIC" && self.resolution != "NONE")
+              rule: '!((has(self.addresses) ? self.addresses : []).exists(k, k.contains("/"))
+                && !((has(self.resolution) ? self.resolution : "NONE") in ["STATIC",
+                "NONE"]))'
             - message: NONE mode cannot set endpoints
-              rule: '(!has(self.resolution) || self.resolution == "NONE") ? !has(self.endpoints)
-                : true'
+              rule: '((has(self.resolution) ? self.resolution : "NONE") == "NONE")
+                ? !has(self.endpoints) : true'
             - message: DNS_ROUND_ROBIN mode cannot have multiple endpoints
-              rule: |-
-                (has(self.resolution) && self.resolution == "DNS_ROUND_ROBIN") ? (!has(self.endpoints) ||
-                size(self.endpoints) == 1) : true
+              rule: '((has(self.resolution) ? self.resolution : "") == "DNS_ROUND_ROBIN")
+                ? ((has(self.endpoints) ? self.endpoints : []).size() <= 1) : true'
           status:
             properties:
               conditions:
@@ -7847,7 +7849,7 @@ spec:
                   - message: Address is required
                     rule: has(self.address) || has(self.network)
                   - message: UDS may not include ports
-                    rule: '(has(self.address) && self.address.startsWith("unix://"))
+                    rule: '(has(self.address) ? self.address : "").startsWith("unix://")
                       ? !has(self.ports) : true'
                 maxItems: 4096
                 type: array
@@ -7957,16 +7959,15 @@ spec:
                 1 : 0) <= 1'
             - message: CIDR addresses are allowed only for NONE/STATIC resolution
                 types
-              rule: |-
-                !(has(self.addresses) && self.addresses.exists(k, k.contains("/")) && has(self.resolution) &&
-                self.resolution != "STATIC" && self.resolution != "NONE")
+              rule: '!((has(self.addresses) ? self.addresses : []).exists(k, k.contains("/"))
+                && !((has(self.resolution) ? self.resolution : "NONE") in ["STATIC",
+                "NONE"]))'
             - message: NONE mode cannot set endpoints
-              rule: '(!has(self.resolution) || self.resolution == "NONE") ? !has(self.endpoints)
-                : true'
+              rule: '((has(self.resolution) ? self.resolution : "NONE") == "NONE")
+                ? !has(self.endpoints) : true'
             - message: DNS_ROUND_ROBIN mode cannot have multiple endpoints
-              rule: |-
-                (has(self.resolution) && self.resolution == "DNS_ROUND_ROBIN") ? (!has(self.endpoints) ||
-                size(self.endpoints) == 1) : true
+              rule: '((has(self.resolution) ? self.resolution : "") == "DNS_ROUND_ROBIN")
+                ? ((has(self.endpoints) ? self.endpoints : []).size() <= 1) : true'
           status:
             properties:
               conditions:
@@ -8146,7 +8147,7 @@ spec:
                   - message: Address is required
                     rule: has(self.address) || has(self.network)
                   - message: UDS may not include ports
-                    rule: '(has(self.address) && self.address.startsWith("unix://"))
+                    rule: '(has(self.address) ? self.address : "").startsWith("unix://")
                       ? !has(self.ports) : true'
                 maxItems: 4096
                 type: array
@@ -8256,16 +8257,15 @@ spec:
                 1 : 0) <= 1'
             - message: CIDR addresses are allowed only for NONE/STATIC resolution
                 types
-              rule: |-
-                !(has(self.addresses) && self.addresses.exists(k, k.contains("/")) && has(self.resolution) &&
-                self.resolution != "STATIC" && self.resolution != "NONE")
+              rule: '!((has(self.addresses) ? self.addresses : []).exists(k, k.contains("/"))
+                && !((has(self.resolution) ? self.resolution : "NONE") in ["STATIC",
+                "NONE"]))'
             - message: NONE mode cannot set endpoints
-              rule: '(!has(self.resolution) || self.resolution == "NONE") ? !has(self.endpoints)
-                : true'
+              rule: '((has(self.resolution) ? self.resolution : "NONE") == "NONE")
+                ? !has(self.endpoints) : true'
             - message: DNS_ROUND_ROBIN mode cannot have multiple endpoints
-              rule: |-
-                (has(self.resolution) && self.resolution == "DNS_ROUND_ROBIN") ? (!has(self.endpoints) ||
-                size(self.endpoints) == 1) : true
+              rule: '((has(self.resolution) ? self.resolution : "") == "DNS_ROUND_ROBIN")
+                ? ((has(self.endpoints) ? self.endpoints : []).size() <= 1) : true'
           status:
             properties:
               conditions:
@@ -13246,8 +13246,8 @@ spec:
             - message: Address is required
               rule: has(self.address) || has(self.network)
             - message: UDS may not include ports
-              rule: '(has(self.address) && self.address.startsWith("unix://")) ? !has(self.ports)
-                : true'
+              rule: '(has(self.address) ? self.address : "").startsWith("unix://")
+                ? !has(self.ports) : true'
           status:
             properties:
               conditions:
@@ -13406,8 +13406,8 @@ spec:
             - message: Address is required
               rule: has(self.address) || has(self.network)
             - message: UDS may not include ports
-              rule: '(has(self.address) && self.address.startsWith("unix://")) ? !has(self.ports)
-                : true'
+              rule: '(has(self.address) ? self.address : "").startsWith("unix://")
+                ? !has(self.ports) : true'
           status:
             properties:
               conditions:
@@ -13566,8 +13566,8 @@ spec:
             - message: Address is required
               rule: has(self.address) || has(self.network)
             - message: UDS may not include ports
-              rule: '(has(self.address) && self.address.startsWith("unix://")) ? !has(self.ports)
-                : true'
+              rule: '(has(self.address) ? self.address : "").startsWith("unix://")
+                ? !has(self.ports) : true'
           status:
             properties:
               conditions:
@@ -13895,7 +13895,7 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: UDS may not include ports
-                  rule: '(has(self.address) && self.address.startsWith("unix://"))
+                  rule: '(has(self.address) ? self.address : "").startsWith("unix://")
                     ? !has(self.ports) : true'
             required:
             - template
@@ -14203,7 +14203,7 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: UDS may not include ports
-                  rule: '(has(self.address) && self.address.startsWith("unix://"))
+                  rule: '(has(self.address) ? self.address : "").startsWith("unix://")
                     ? !has(self.ports) : true'
             required:
             - template
@@ -14511,7 +14511,7 @@ spec:
                 type: object
                 x-kubernetes-validations:
                 - message: UDS may not include ports
-                  rule: '(has(self.address) && self.address.startsWith("unix://"))
+                  rule: '(has(self.address) ? self.address : "").startsWith("unix://")
                     ? !has(self.ports) : true'
             required:
             - template
@@ -15497,9 +15497,8 @@ spec:
             type: object
             x-kubernetes-validations:
             - message: portLevelMtls requires selector
-              rule: |-
-                has(self.selector) && has(self.selector.matchLabels) && self.selector.matchLabels.size() > 0 ||
-                !has(self.portLevelMtls)
+              rule: 'has(self.portLevelMtls) ? (((has(self.selector) && has(self.selector.matchLabels))
+                ? self.selector.matchLabels : {}).size() > 0) : true'
           status:
             properties:
               conditions:
@@ -15661,9 +15660,8 @@ spec:
             type: object
             x-kubernetes-validations:
             - message: portLevelMtls requires selector
-              rule: |-
-                has(self.selector) && has(self.selector.matchLabels) && self.selector.matchLabels.size() > 0 ||
-                !has(self.portLevelMtls)
+              rule: 'has(self.portLevelMtls) ? (((has(self.selector) && has(self.selector.matchLabels))
+                ? self.selector.matchLabels : {}).size() > 0) : true'
           status:
             properties:
               conditions:

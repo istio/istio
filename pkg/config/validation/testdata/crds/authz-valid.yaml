@@ -81,7 +81,7 @@ spec:
   rules:
     - from:
         - source:
-            serviceAccounts: ["baz/sa"]
+            serviceAccounts: ["baz/sa", "sa"]
         - source:
             principals: ["bar"]
         - source:
