@@ -1285,7 +1285,7 @@ func populateClientAndWaitForInformer(ctx context.Context, t *testing.T, client 
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
-	go handlers.Start()
+	handlers.Start()
 
 	// Unfortunately mt asserts cannot assert on 0 events (which makes a certain amount of sense)
 	if expectAddEvents > 0 {
