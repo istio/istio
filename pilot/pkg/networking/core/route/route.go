@@ -36,7 +36,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/route/retry"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -1251,13 +1250,11 @@ func BuildDefaultHTTPInboundRoute(proxy *model.Proxy, clusterName string, operat
 		// gRPC requests time out like any other requests using timeout or its default.
 		GrpcTimeoutHeaderMax: Notimeout,
 	}
-	if util.VersionGreaterOrEqual124(proxy) && features.EnableInboundRetryPolicy {
-		out.GetRoute().RetryPolicy = &route.RetryPolicy{
-			RetryOn: "reset-before-request",
-			NumRetries: &wrapperspb.UInt32Value{
-				Value: 2,
-			},
-		}
+	out.GetRoute().RetryPolicy = &route.RetryPolicy{
+		RetryOn: "reset-before-request",
+		NumRetries: &wrapperspb.UInt32Value{
+			Value: 2,
+		},
 	}
 	return out
 }
