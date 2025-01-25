@@ -114,8 +114,9 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 }
 
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
-	// Kubernetes Gateway API semantics support shortnames
-	if UseGatewaySemantics(config.Config{Meta: meta}) {
+	// If this VirtualService was generated (Ingress, Gateway API, etc.) rather than internal, don't resolve shortnames
+	cfg := config.Config{Meta: meta}
+	if UseIngressSemantics(cfg) || UseGatewaySemantics(cfg) {
 		return
 	}
 
