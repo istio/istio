@@ -41,8 +41,8 @@ func TestFormatter_PrintLog(t *testing.T) {
 	output, _ := Print(msgs, LogFormat, false)
 
 	g.Expect(output).To(Equal(
-		"Error [B1] (SoapBubble) Explosion accident: the bubble is too big\n" +
-			"Warning [C1] (GrandCastle) Collapse danger: the castle is too old",
+		"Error [B1] ([cluster-default] SoapBubble) Explosion accident: the bubble is too big\n" +
+			"Warning [C1] ([cluster-default] GrandCastle) Collapse danger: the castle is too old",
 	))
 }
 
@@ -64,8 +64,8 @@ func TestFormatter_PrintLogWithColor(t *testing.T) {
 	output, _ := Print(msgs, LogFormat, true)
 
 	g.Expect(output).To(Equal(
-		"\033[1;31mError\033[0m [B1] (SoapBubble) Explosion accident: the bubble is too big\n" +
-			"\033[33mWarning\033[0m [C1] (GrandCastle) Collapse danger: the castle is too old",
+		"\033[1;31mError\033[0m [B1] ([cluster-default] SoapBubble) Explosion accident: the bubble is too big\n" +
+			"\033[33mWarning\033[0m [C1] ([cluster-default] GrandCastle) Collapse danger: the castle is too old",
 	))
 }
 

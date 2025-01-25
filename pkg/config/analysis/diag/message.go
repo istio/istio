@@ -135,7 +135,7 @@ func (m *Message) Origin() string {
 				loc = m.ReplaceLine(loc)
 			}
 		}
-		origin = fmt.Sprintf(" ([cluster-%s] %s%s) ",
+		origin = fmt.Sprintf(" ([cluster-%s] %s%s)",
 			m.Resource.Origin.ClusterName().String(), m.Resource.Origin.FriendlyName(), loc)
 	}
 	return origin

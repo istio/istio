@@ -68,6 +68,6 @@ func MockResource(name string) *resource.Instance {
 		Metadata: resource.Metadata{
 			FullName: resource.NewShortOrFullName("default", name),
 		},
-		Origin: testOrigin{name: name},
+		Origin: testOrigin{name: name, cluster: "default"},
 	}
 }
