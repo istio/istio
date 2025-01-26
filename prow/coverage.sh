@@ -24,6 +24,8 @@ ROOT=$(dirname "$WD")
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
+export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
+
 # Define paths for reports
 REPORT_COVERAGE="${REPORT_COVERAGE:-${ARTIFACTS}/coverage.out}"
 
