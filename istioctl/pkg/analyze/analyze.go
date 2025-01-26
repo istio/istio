@@ -199,11 +199,16 @@ func Analyze(ctx cli.Context) *cobra.Command {
 			}
 			sa.SetSuppressions(suppressions)
 
+			shouldPrintCluster := false
 			// If we're using kube, use that as a base source.
 			if useKube {
 				clients, err := getClients(ctx)
 				if err != nil {
 					return err
+				}
+				// If there are multiple clients, we think it's a multi-cluster scenario.
+				if len(clients) > 1 {
+					shouldPrintCluster = true
 				}
 				for _, c := range clients {
 					k := kube.EnableCrdWatcher(c.client)
@@ -261,6 +266,15 @@ func Analyze(ctx cli.Context) *cobra.Command {
 
 			// Get messages for output
 			outputMessages := result.Messages.SetDocRef("istioctl-analyze").FilterOutLowerThan(outputThreshold.Level)
+
+			if shouldPrintCluster {
+				for i := range outputMessages {
+					m := &outputMessages[i]
+					if m.Resource != nil && m.Resource.Origin.ClusterName().String() != "" {
+						m.PrintCluster = true
+					}
+				}
+			}
 
 			// Print all the messages to stdout in the specified format
 			output, err := formatting.Print(outputMessages, msgOutputFormat, colorize)

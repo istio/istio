@@ -166,6 +166,8 @@ func TestFormatter_PintLogForMultiCluster(t *testing.T) {
 		diag.MockResourceMultiCluster("GrandCastle"),
 		"the castle is too old",
 	)
+	firstMsg.PrintCluster = true
+	secondMsg.PrintCluster = true
 
 	msgs := diag.Messages{firstMsg, secondMsg}
 	output, _ := Print(msgs, LogFormat, true)

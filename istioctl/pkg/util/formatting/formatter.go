@@ -47,41 +47,8 @@ func init() {
 	}
 }
 
-// shouldPrintCluster set PrintCluster to true for messages
-// by checking if there are multiple clusters in the messages.
-//
-// Messages are sorted by cluster name, so we can simply check if
-// the cluster name of first message equal to the last one.
-func shouldPrintCluster(ms diag.Messages) diag.Messages {
-	firstCluster, lastCluster := "", ""
-	for _, m := range ms {
-		if m.Resource != nil && m.Resource.Origin.ClusterName() != "" {
-			firstCluster = m.Resource.Origin.ClusterName().String()
-			break
-		}
-	}
-
-	for i := len(ms) - 1; i >= 0; i-- {
-		m := ms[i]
-		if m.Resource != nil && m.Resource.Origin.ClusterName() != "" {
-			lastCluster = m.Resource.Origin.ClusterName().String()
-			break
-		}
-	}
-	if firstCluster != lastCluster {
-		for i := range ms {
-			m := &ms[i]
-			if m.Resource != nil && m.Resource.Origin.ClusterName() != "" {
-				m.PrintCluster = true
-			}
-		}
-	}
-	return ms
-}
-
 // Print output messages in the specified format with color options
 func Print(ms diag.Messages, format string, colorize bool) (string, error) {
-	ms = shouldPrintCluster(ms)
 	switch format {
 	case LogFormat:
 		return printLog(ms, colorize), nil
