@@ -26,27 +26,14 @@ setup_and_export_git_sha
 
 # Define paths for reports
 REPORT_COVERAGE="${REPORT_COVERAGE:-${ARTIFACTS}/coverage.out}"
-COVERAGE_THRESH_PCT="${COVERAGE_THRESH_PCT:-50}" # Default coverage threshold
 
-case "${1:-run}" in
-  run)
-    mkdir -p "$(dirname "${REPORT_COVERAGE}")"
-    # Run the Go coverage test
-    go test ./... -coverprofile="${REPORT_COVERAGE}" || true
-    if ! command -v overcover &>/dev/null; then
-      echo "Overcover is not installed. Installing..."
-      go install github.com/klmitch/overcover@latest
-    fi
-    # Run Overcover to validate coverage threshold
-    overcover --coverprofile="${REPORT_COVERAGE}" ./cni/... --threshold="${COVERAGE_THRESH_PCT}"
-    echo "Coverage report generated: ${REPORT_COVERAGE}"
-    ;;
-  report)
-    # Upload the coverage report to GCS
-    gsutil cp "${REPORT_COVERAGE}" "gs://${GCS_BUCKET:-istio-prow}/coverage/${GIT_SHA}.out"
-    ;;
-  *)
-    echo "unknown command, expect 'run' or 'report'."
-    exit 1
-    ;;
-esac
+mkdir -p "$(dirname "${REPORT_COVERAGE}")"
+# Run the Go coverage test
+go test ./... -coverprofile="${REPORT_COVERAGE}" || true
+if ! command -v overcover &>/dev/null; then
+  echo "Overcover is not installed. Installing..."
+  go install github.com/klmitch/overcover@latest
+fi
+# Run Overcover to validate coverage threshold
+overcover --coverprofile="${REPORT_COVERAGE}" ./cni/...
+echo "Coverage report generated: ${REPORT_COVERAGE}"
