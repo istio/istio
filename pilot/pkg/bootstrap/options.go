@@ -137,6 +137,7 @@ func (p *PilotArgs) applyDefaults() {
 	p.CniNamespace = PodNamespace
 	p.PodName = PodName
 	p.Revision = Revision
+	p.RegistryOptions.KubeOptions.Revision = Revision
 	p.JwtRule = JwtRule
 	p.KeepaliveOptions = keepalive.DefaultOption()
 	p.RegistryOptions.ClusterRegistriesNamespace = p.Namespace
