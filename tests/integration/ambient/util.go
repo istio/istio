@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 const (
@@ -148,7 +149,7 @@ func WaitForStalledPodOrFail(t framework.TestContext, cluster cluster.Cluster, n
 				waiting := cState.State.Waiting
 
 				scopes.Framework.Infof("checking pod status for stall")
-				if waiting != nil && waiting.Reason == "ContainerCreating" {
+				if waiting != nil && (waiting.Reason == "ContainerCreating" || waiting.Reason == "PodInitializing") {
 					scopes.Framework.Infof("checking pod events")
 					events, err := cluster.Kube().CoreV1().Events(ns.Name()).List(context.TODO(), metav1.ListOptions{})
 					if err != nil {
@@ -160,7 +161,14 @@ func WaitForStalledPodOrFail(t framework.TestContext, cluster cluster.Cluster, n
 						}
 					}
 				}
+			}
+			for _, cState := range p.Status.InitContainerStatuses {
+				terminated := cState.LastTerminationState.Terminated
 
+				scopes.Framework.Infof("checking pod status terminated")
+				if terminated != nil && terminated.ExitCode == constants.ValidationErrorCode {
+					return nil
+				}
 			}
 		}
 		return fmt.Errorf("cannot find any pod with wanted failure status")
