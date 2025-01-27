@@ -28,6 +28,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/protocol"
@@ -608,7 +609,8 @@ func RunTestMultiQUICGateways(t framework.TestContext, inst istio.Instance, call
 					CreateIngressKubeSecret(t, cn, TLS, IngressCredentialA, false)
 				}
 
-				ing := inst.IngressFor(fromCluster)
+				serviceName := types.NamespacedName{Name: inst.Settings().IngressGatewayServiceName + "-quic", Namespace: inst.Settings().SystemNamespace}
+				ing := inst.CustomIngressFor(fromCluster, serviceName, inst.Settings().IngressGatewayServiceName+"-quic")
 				if ing == nil {
 					t.Skip()
 				}

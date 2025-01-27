@@ -21,10 +21,27 @@ spec:
           - port: 443
             targetPort: 8443
             name: https
+    - name: istio-ingressgateway-quic
+      enabled: true
+      k8s:
+        service:
+          ports:
           - port: 443
             targetPort: 8443
             name: http3
             protocol: UDP
+        serviceAnnotations:
+          # This annotation is required for aws platform clusters.
+          # Otherwise, the service will stuck in the "pending" state.
+          # The annotation creates the load balancer and "Network LB"
+          # instead of the default "Application LB".
+          service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+        overlays:
+        - kind: Service
+          name: istio-ingressgateway-quic
+          patches:
+          - path: metadata.labels.istio-quic-svc
+            value: "true"
   values:
     pilot:
       env:

@@ -80,6 +80,12 @@ const (
 	imagePullPolicyValuesKey = "global.imagePullPolicy"
 
 	// DefaultEgressGatewayLabel is the default Istio label for the egress gateway.
+	DefaultIngressGatewayIstioLabel = "ingressgateway"
+
+	// DefaultEgressGatewayServiceName is the default service name for the egress gateway.
+	DefaultIngressGatewayServiceName = "istio-ingressgateway"
+
+	// DefaultEgressGatewayLabel is the default Istio label for the egress gateway.
 	DefaultEgressGatewayIstioLabel = "egressgateway"
 
 	// DefaultEgressGatewayServiceName is the default service name for the egress gateway.
@@ -91,20 +97,23 @@ var (
 	operatorOptions string
 
 	settingsFromCommandline = &Config{
-		SystemNamespace:               DefaultSystemNamespace,
-		TelemetryNamespace:            DefaultSystemNamespace,
-		DeployIstio:                   true,
-		PrimaryClusterIOPFile:         IntegrationTestDefaultsIOP,
-		ConfigClusterIOPFile:          IntegrationTestDefaultsIOP,
-		RemoteClusterIOPFile:          IntegrationTestRemoteDefaultsIOP,
-		BaseIOPFile:                   BaseIOP,
-		DeployEastWestGW:              true,
-		DumpKubernetesManifests:       false,
-		IstiodlessRemotes:             true,
-		EnableCNI:                     false,
-		EgressGatewayServiceNamespace: DefaultSystemNamespace,
-		EgressGatewayServiceName:      DefaultEgressGatewayServiceName,
-		EgressGatewayIstioLabel:       DefaultEgressGatewayIstioLabel,
+		SystemNamespace:                DefaultSystemNamespace,
+		TelemetryNamespace:             DefaultSystemNamespace,
+		DeployIstio:                    true,
+		PrimaryClusterIOPFile:          IntegrationTestDefaultsIOP,
+		ConfigClusterIOPFile:           IntegrationTestDefaultsIOP,
+		RemoteClusterIOPFile:           IntegrationTestRemoteDefaultsIOP,
+		BaseIOPFile:                    BaseIOP,
+		DeployEastWestGW:               true,
+		DumpKubernetesManifests:        false,
+		IstiodlessRemotes:              true,
+		EnableCNI:                      false,
+		IngressGatewayServiceNamespace: DefaultSystemNamespace,
+		IngressGatewayServiceName:      DefaultIngressGatewayServiceName,
+		IngressGatewayIstioLabel:       DefaultIngressGatewayIstioLabel,
+		EgressGatewayServiceNamespace:  DefaultSystemNamespace,
+		EgressGatewayServiceName:       DefaultEgressGatewayServiceName,
+		EgressGatewayIstioLabel:        DefaultEgressGatewayIstioLabel,
 	}
 )
 
