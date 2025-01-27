@@ -44,6 +44,7 @@ type WorkloadPolicyMatcher struct {
 	WorkloadLabels    labels.Instance
 	IsWaypoint        bool
 	Services          []ServiceInfoForPolicyMatcher
+	RootNamespace     string
 }
 
 type ServiceInfoForPolicyMatcher struct {
@@ -66,6 +67,11 @@ func PolicyMatcherForProxy(proxy *Proxy) WorkloadPolicyMatcher {
 		WorkloadLabels:    proxy.Labels,
 		IsWaypoint:        proxy.IsWaypointProxy(),
 	}
+}
+
+func (p WorkloadPolicyMatcher) WithRootNamespace(rns string) WorkloadPolicyMatcher {
+	p.RootNamespace = rns
+	return p
 }
 
 func (p WorkloadPolicyMatcher) WithService(service *Service) WorkloadPolicyMatcher {
@@ -117,7 +123,6 @@ func GetTargetRefs(p TargetablePolicy) []*v1beta1.PolicyTargetReference {
 func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 	policyName types.NamespacedName,
 	policy TargetablePolicy,
-	rootNamespace string,
 ) bool {
 	gatewayName, isGatewayAPI := workloadGatewayName(p.WorkloadLabels)
 	targetRefs := GetTargetRefs(policy)
@@ -169,7 +174,7 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 		}
 
 		// Is p.IsWaypoint good enough or do we specifically need to check that it is an istio-waypoint?
-		if policyName.Namespace == rootNamespace &&
+		if policyName.Namespace == p.RootNamespace &&
 			p.IsWaypoint &&
 			matchesGroupKind(targetRef, gvk.GatewayClass) &&
 			targetRef.GetName() == constants.WaypointGatewayClassName {

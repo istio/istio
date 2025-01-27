@@ -451,14 +451,14 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy, svc *Service) computed
 		Tracing:      ts,
 	}
 
-	matcher := PolicyMatcherForProxy(proxy).WithService(svc)
+	matcher := PolicyMatcherForProxy(proxy).WithService(svc).WithRootNamespace(t.RootNamespace)
 	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
 		spec := telemetry.Spec
 		// Namespace wide policy; already handled above
 		if len(spec.GetSelector().GetMatchLabels()) == 0 && len(GetTargetRefs(spec)) == 0 {
 			continue
 		}
-		if matcher.ShouldAttachPolicy(gvk.Telemetry, telemetry.NamespacedName(), spec, t.RootNamespace) {
+		if matcher.ShouldAttachPolicy(gvk.Telemetry, telemetry.NamespacedName(), spec) {
 			ct = appendApplicableTelemetries(ct, telemetry, spec)
 		} else {
 			log.Debug("There isn't a match between the workload and the policy. Policy is ignored.")
