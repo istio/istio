@@ -448,6 +448,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 					"app":     "httpbin",
 					"version": "v1",
 				},
+				RootNamespace: "istio-config",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "foo", policyWithServiceRef),

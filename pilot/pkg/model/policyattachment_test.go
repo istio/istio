@@ -90,7 +90,8 @@ func TestPolicyMatcher(t *testing.T) {
 		WorkloadLabels: labels.Instance{
 			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-waypoint",
 		},
-		IsWaypoint: true,
+		IsWaypoint:    true,
+		RootNamespace: "istio-system",
 	}
 	serviceTarget := WorkloadPolicyMatcher{
 		WorkloadNamespace: "default",
@@ -386,7 +387,7 @@ func TestPolicyMatcher(t *testing.T) {
 			} else {
 				nsName = types.NamespacedName{Name: "policy1", Namespace: "default"}
 			}
-			matcher := tt.selection.ShouldAttachPolicy(mockKind, nsName, tt.policy, "istio-system")
+			matcher := tt.selection.ShouldAttachPolicy(mockKind, nsName, tt.policy)
 
 			if matcher != tt.expected {
 				t.Errorf("Expected %v, but got %v", tt.expected, matcher)
