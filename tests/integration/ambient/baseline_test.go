@@ -1147,7 +1147,7 @@ func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-			if !dst.Config().HasServiceAddressedWaypointProxy() {
+			if !dst.Config().HasAnyWaypointProxy() {
 				// we only care about testing waypoints
 				return
 			}
@@ -1163,7 +1163,16 @@ func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
 			}
 
 			opt.NewConnectionPerRequest = true
-
+			waypointName := "none"
+			switch {
+			case dst.Config().HasServiceAddressedWaypointProxy():
+				waypointName = dst.Config().ServiceWaypointProxy
+			case dst.Config().HasWorkloadAddressedWaypointProxy():
+				waypointName = dst.Config().WorkloadWaypointProxy
+				// send traffic to the workload instead of the service so it will redirect to the WL waypoint
+				opt.Address = dst.MustWorkloads().Addresses()[0]
+				opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+			}
 			systemNamespace := i.Settings().SystemNamespace
 
 			// setup default deny for workloads
@@ -1180,14 +1189,6 @@ spec:
 				opt.Check = CheckDeny
 				src.CallOrFail(t, opt)
 			})
-
-			waypointName := "none"
-			switch {
-			case dst.Config().HasServiceAddressedWaypointProxy():
-				waypointName = dst.Config().ServiceWaypointProxy
-			case dst.Config().HasWorkloadAddressedWaypointProxy():
-				waypointName = dst.Config().WorkloadWaypointProxy
-			}
 
 			t.ConfigIstio().Eval(dst.Config().NamespaceName(), map[string]string{
 				"Namespace":    apps.Namespace.Name(),
