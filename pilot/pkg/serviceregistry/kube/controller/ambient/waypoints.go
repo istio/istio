@@ -87,11 +87,27 @@ func fetchWaypointForInstance(ctx krt.HandlerContext, Waypoints krt.Collection[W
 	return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(namespace+"/"+name))
 }
 
+// fetchWaypointForTarget attempts to find the network gateways that should handle traffic for a given service
+// Workload support is not yet implemented
+func fetchNetworkGatewayForTarget(
+	ctx krt.HandlerContext,
+	gateways krt.Collection[*v1beta1.Gateway],
+	namespaces krt.Collection[*v1.Namespace],
+	o metav1.ObjectMeta,
+) (*Waypoint, *model.StatusMessage) {
+	// This is a waypoint, so it cannot have a waypoint
+	// namespace to be used when the annotation doesn't include a namespace
+	fallbackNamespace := o.Namespace
+	// try fetching the waypoint defined on the object itself
+	gw, isNone := getExportThrough(o, fallbackNamespace)
+}
+
 // fetchWaypointForTarget attempts to find the waypoint that should handle traffic for a given service or workload
 func fetchWaypointForTarget(
 	ctx krt.HandlerContext,
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	selector string,
 	o metav1.ObjectMeta,
 ) (*Waypoint, *model.StatusMessage) {
 	// namespace to be used when the annotation doesn't include a namespace
@@ -187,7 +203,7 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
 	if labelValue, ok := meta.Labels[label.IoIstioUseWaypoint.Name]; ok {
 		// NOTE: this means Istio reserves the word "none" in this field with a special meaning
-		//   a waypoint named "none" cannot be used and will be ignored
+		// a waypoint named "none" cannot be used and will be ignored
 		if labelValue == "none" {
 			return nil, true
 		}
@@ -195,6 +211,39 @@ func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt
 		if override, f := meta.Labels[label.IoIstioUseWaypointNamespace.Name]; f {
 			namespace = override
 		}
+		return &krt.Named{
+			Name:      labelValue,
+			Namespace: namespace,
+		}, false
+	}
+	return nil, false
+}
+
+func getExportThrough(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
+	if labelValue, ok := meta.Labels[label.IoIstioExportThrough.Name]; ok {
+		// NOTE: this means Istio reserves the word "none" in this field with a special meaning
+		// an east west gateway named "none" cannot be used and will be ignored
+		if labelValue == "none" {
+			return nil, true
+		}
+		namespace := defaultNamespace
+		segments := strings.Split(labelValue, ".")
+
+		// TODO: Do we need to log or emit some event?
+		if len(segments) < 1 {
+			return nil, false
+		}
+
+		// Of the form "namespace.gateway-name"
+		if len(segments) == 2 {
+			return &krt.Named{
+				Name:      segments[1],
+				Namespace: segments[0],
+			}, false
+		}
+
+		// We don't expect multiple dots, so interpret the whole thing as the gateway name
+		// even though it contains dots and would be an invalid k8s resource name
 		return &krt.Named{
 			Name:      labelValue,
 			Namespace: namespace,
