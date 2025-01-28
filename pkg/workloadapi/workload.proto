@@ -79,10 +79,10 @@ message Service {
   // through the waypoint.
   GatewayAddress waypoint = 7;
 
-  // local_network_gateways is a list of gateways that this service
-  // is exposed to. When set, all referenced gateways will be programmed
+  // local_network_gateway is the gateway through which this service
+  // is exposed. When set, this gateways will be programmed
   // to service cross-network traffic to this service.
-  repeated GatewayAddress local_network_gateways = 11;
+  GatewayAddress local_network_gateway = 11;
 
   // Load balancing policy for selecting endpoints.
   // Note: this applies only to connecting directly to the workload; when waypoints are used, the waypoint's load_balancing

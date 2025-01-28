@@ -87,9 +87,11 @@ type waypointsCollection struct {
 
 type servicesCollection struct {
 	krt.Collection[model.ServiceInfo]
-	ByAddress                krt.Index[networkAddress, model.ServiceInfo]
-	ByOwningWaypointHostname krt.Index[NamespaceHostname, model.ServiceInfo]
-	ByOwningWaypointIP       krt.Index[networkAddress, model.ServiceInfo]
+	ByAddress                      krt.Index[networkAddress, model.ServiceInfo]
+	ByOwningWaypointHostname       krt.Index[NamespaceHostname, model.ServiceInfo]
+	ByOwningWaypointIP             krt.Index[networkAddress, model.ServiceInfo]
+	ByOwningNetworkGatewayHostname krt.Index[NamespaceHostname, model.ServiceInfo]
+	ByOwningNetworkGatewayIP       krt.Index[networkAddress, model.ServiceInfo]
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -409,12 +411,25 @@ func New(options Options) Index {
 		ByOwningWaypointHostname: WorkloadWaypointIndexHostname,
 		ByOwningWaypointIP:       WorkloadWaypointIndexIP,
 	}
-	a.services = servicesCollection{
+	serviceCollection := servicesCollection{
 		Collection:               WorkloadServices,
 		ByAddress:                ServiceAddressIndex,
 		ByOwningWaypointHostname: ServiceInfosByOwningWaypointHostname,
 		ByOwningWaypointIP:       ServiceInfosByOwningWaypointIP,
 	}
+
+	if features.EnableAmbientMultiNetwork {
+		ServiceInfosByOwningNetworkGatewayHostname := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
+			// TODO: ensure that we return all network gateways this service is associated with
+			panic("not implemented")
+		})
+		ServiceInfosByOwningNetworkGatewayIP := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []networkAddress {
+			panic("not implemented")
+		})
+		serviceCollection.ByOwningNetworkGatewayHostname = ServiceInfosByOwningNetworkGatewayHostname
+		serviceCollection.ByOwningNetworkGatewayIP = ServiceInfosByOwningNetworkGatewayIP
+	}
+	a.services = serviceCollection
 	a.waypoints = waypointsCollection{
 		Collection: Waypoints,
 	}
@@ -576,6 +591,10 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 	}
 	// Response is unsorted; it is up to the caller to sort
 	return maps.Values(out)
+}
+
+func (a *index) ServicesForNetworkGateway(key model.WaypointKey) []model.ServiceInfo {
+	panic("not implemented")
 }
 
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
