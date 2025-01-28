@@ -31,7 +31,7 @@ REPORT_COVERAGE="${REPORT_COVERAGE:-${ARTIFACTS}/coverage.out}"
 
 mkdir -p "$(dirname "${REPORT_COVERAGE}")"
 # Run the Go coverage test
-go test ./... -coverprofile="${REPORT_COVERAGE}" || true
+go test ./... -coverprofile="${REPORT_COVERAGE}"
 if ! command -v overcover &>/dev/null; then
   echo "Overcover is not installed. Installing..."
   go install github.com/klmitch/overcover@latest
