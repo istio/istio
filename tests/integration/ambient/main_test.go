@@ -115,7 +115,7 @@ values:
       enabled: false
     # TODO temporary for getting context on	https://github.com/istio/istio/issues/54645
     logging:
-	  level: "all:debug"
+      level: "all:debug"
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
