@@ -36,6 +36,6 @@ if ! command -v overcover &>/dev/null; then
   echo "Overcover is not installed. Installing..."
   go install github.com/klmitch/overcover@latest
 fi
-# Run Overcover to validate coverage threshold
-overcover --coverprofile="${REPORT_COVERAGE}" ./cni/...
+
+overcover --coverprofile="${REPORT_COVERAGE}" ./...
 echo "Coverage report generated: ${REPORT_COVERAGE}"
