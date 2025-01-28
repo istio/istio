@@ -19,7 +19,7 @@ _internal_defaults_do_not_set:
   # CNI-and-platform specific path defaults.
   # These may need to be set to platform-specific values, consult
   # overrides for your platform in `manifests/helm-profiles/platform-*.yaml`
-  cniBinDir: /opt/cni/bin
+  cniBinDir: ""
   cniConfDir: /etc/cni/net.d
   cniConfFileName: ""
   cniNetnsDir: "/var/run/netns"
