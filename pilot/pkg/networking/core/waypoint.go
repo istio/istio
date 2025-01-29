@@ -15,11 +15,10 @@
 package core
 
 import (
-	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -44,6 +43,34 @@ const (
 type waypointServices struct {
 	services        map[host.Name]*model.Service
 	orderedServices []*model.Service
+}
+
+// findNetworkGatewayResources returns the services associated with the network gateway
+// TODO: Add support for workloads
+func findNetworkGatewayResources(node *model.Proxy, push *model.PushContext) *waypointServices {
+	key := model.WaypointKeyForNetworkGatewayProxy(node)
+	serviceInfos := push.ServicesForNetworkGateway(key)
+
+	waypointServices := &waypointServices{}
+
+	for _, s := range serviceInfos {
+		hostName := host.Name(s.Service.Hostname)
+		svc, ok := push.ServiceIndex.HostnameAndNamespace[hostName][s.Service.Namespace]
+		if !ok {
+			continue
+		}
+		if waypointServices.services == nil {
+			waypointServices.services = map[host.Name]*model.Service{}
+		}
+		waypointServices.services[hostName] = svc
+	}
+
+	unorderedServices := maps.Values(waypointServices.services)
+	if len(serviceInfos) > 0 {
+		waypointServices.orderedServices = model.SortServicesByCreationTime(unorderedServices)
+	}
+
+	return waypointServices
 }
 
 // findWaypointResources returns workloads and services associated with the waypoint proxy
@@ -114,35 +141,8 @@ func filterWaypointOutboundServices(
 }
 
 // TODO: memoize this on the MergedServer/MergedGateway
-func isDoubleHbone(node *model.Proxy) bool {
-	servers := node.MergedGateway.MergedServers
-	hbonePortFound := false
-	var server *model.MergedServers
-	for port, s := range servers {
-		if port.Number == model.HBoneInboundListenPort && port.Protocol == protocol.HBONE.String() {
-			hbonePortFound = true
-			server = s
-			break
-		}
-	}
+func isEastWestGateway(node *model.Proxy) bool {
+	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
 
-	if !hbonePortFound || server == nil {
-		panic("we should never get here; waypoints require a server on port 15008")
-	}
-
-	doubleHbone := false
-	for _, s := range server.Servers {
-		if len(s.Hosts) != 0 {
-			// TODO: If we do decide to encode SNI for HBONE, we'll need to consider this
-			panic("Why does the HBONE server have hosts/SNI?")
-		}
-		if doubleHbone {
-			log.Warnf("Multiple HBONE servers found on port %d. This one is %v", model.HBoneInboundListenPort, s)
-		}
-		if s.Tls.Mode == networking.ServerTLSSettings_SIMPLE {
-			doubleHbone = true
-		}
-	}
-
-	return doubleHbone
+	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
 }

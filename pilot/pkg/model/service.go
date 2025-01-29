@@ -938,6 +938,14 @@ type WaypointKey struct {
 
 // WaypointKeyForProxy builds a key from a proxy to lookup
 func WaypointKeyForProxy(node *Proxy) WaypointKey {
+	return waypointKeyForProxy(node, false)
+}
+
+func WaypointKeyForNetworkGatewayProxy(node *Proxy) WaypointKey {
+	return waypointKeyForProxy(node, true)
+}
+
+func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
 	key := WaypointKey{
 		Namespace: node.ConfigNamespace,
 		Network:   node.Metadata.Network.String(),
@@ -945,7 +953,12 @@ func WaypointKeyForProxy(node *Proxy) WaypointKey {
 	for _, svct := range node.ServiceTargets {
 		key.Hostnames = append(key.Hostnames, svct.Service.Hostname.String())
 
-		ips := svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
+		var ips []string
+		if externalAddresses {
+			ips = svct.Service.Attributes.ClusterExternalAddresses.GetAddressesFor(node.GetClusterID())
+		} else {
+			ips = svct.Service.ClusterVIPs.GetAddressesFor(node.GetClusterID())
+		}
 		// if we find autoAllocated addresses then ips should contain constants.UnspecifiedIP which should not be used
 		foundAutoAllocated := false
 		if svct.Service.AutoAllocatedIPv4Address != "" {
@@ -1068,8 +1081,9 @@ type ServiceInfo struct {
 	// PortNames provides a mapping of ServicePort -> port names. Note these are only used internally, not sent over XDS
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
-	Source   TypedObject
-	Waypoint WaypointBindingStatus
+	Source         TypedObject
+	Waypoint       WaypointBindingStatus
+	NetworkGateway WaypointBindingStatus
 	// MarshaledAddress contains the pre-marshaled representation.
 	// Note: this is an Address -- not a Service.
 	MarshaledAddress *anypb.Any

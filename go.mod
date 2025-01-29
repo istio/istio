@@ -2,7 +2,7 @@ module istio.io/istio
 
 go 1.24.0
 
-replace istio.io/api => ../istio-api
+replace istio.io/api => github.com/keithmattix/istio-api v0.0.0-20250128232930-c47fbc229df8
 
 require (
 	cloud.google.com/go/compute/metadata v0.6.0
