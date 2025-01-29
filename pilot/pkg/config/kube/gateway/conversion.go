@@ -2098,8 +2098,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 
 			servers = append(servers, server)
 			if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
-				// Waypoint and ambient e/w don't actually convert the routes to VirtualServices
-				// TODO: Maybe E/W gateway should for non 15008 ports for backwards compat?
+				// Waypoints don't actually convert the routes to VirtualServices
 				continue
 			}
 			meta := parentMeta(obj, &l.Name)
@@ -2130,6 +2129,12 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 			}
 
 			allowed, _ := generateSupportedKinds(l)
+			if kgw.GatewayClassName == constants.EastWestGatewayClassName {
+				// Don't allow any routes on the east-west gateway for now
+				// TODO: Figure out if we want to allow TLSRoute for routing
+				// out of the east/west gateway
+				allowed = nil
+			}
 			pri := &parentInfo{
 				InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
 				AllowedKinds:     allowed,
@@ -2197,6 +2202,20 @@ func unexpectedWaypointListener(l k8s.Listener) bool {
 	if l.Protocol != k8s.ProtocolType(protocol.HBONE) {
 		return true
 	}
+	return false
+}
+
+func unexpectedEastWestWaypointListener(l k8s.Listener) bool {
+	if l.Port != 15008 {
+		return true
+	}
+	if l.Protocol != k8s.ProtocolType(protocol.HBONE) {
+		return true
+	}
+	if l.TLS == nil || *l.TLS.Mode != k8s.TLSModeTerminate {
+		return false
+	}
+	// TODO: Should we check that there aren't more things set
 	return false
 }
 
@@ -2487,11 +2506,20 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 		}
 		ok = false
 	}
-	if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
+	if controllerName == constants.ManagedGatewayMeshController {
 		if unexpectedWaypointListener(l) {
 			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
 				Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
 				Message: `Expected a single listener on port 15008 with protocol "HBONE"`,
+			}
+		}
+	}
+
+	if controllerName == constants.ManagedGatewayEastWestController {
+		if unexpectedEastWestWaypointListener(l) {
+			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+				Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
+				Message: `Expected a single listener on port 15008 with protocol "HBONE" and TLS.Mode == Terminate`,
 			}
 		}
 	}
