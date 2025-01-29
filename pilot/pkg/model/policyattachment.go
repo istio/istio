@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/ptr"
@@ -43,6 +44,7 @@ type WorkloadPolicyMatcher struct {
 	WorkloadLabels    labels.Instance
 	IsWaypoint        bool
 	Services          []ServiceInfoForPolicyMatcher
+	RootNamespace     string
 }
 
 type ServiceInfoForPolicyMatcher struct {
@@ -65,6 +67,11 @@ func PolicyMatcherForProxy(proxy *Proxy) WorkloadPolicyMatcher {
 		WorkloadLabels:    proxy.Labels,
 		IsWaypoint:        proxy.IsWaypointProxy(),
 	}
+}
+
+func (p WorkloadPolicyMatcher) WithRootNamespace(rns string) WorkloadPolicyMatcher {
+	p.RootNamespace = rns
+	return p
 }
 
 func (p WorkloadPolicyMatcher) WithService(service *Service) WorkloadPolicyMatcher {
@@ -113,7 +120,10 @@ func GetTargetRefs(p TargetablePolicy) []*v1beta1.PolicyTargetReference {
 	return targetRefs
 }
 
-func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, policyName types.NamespacedName, policy TargetablePolicy) bool {
+func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
+	policyName types.NamespacedName,
+	policy TargetablePolicy,
+) bool {
 	gatewayName, isGatewayAPI := workloadGatewayName(p.WorkloadLabels)
 	targetRefs := GetTargetRefs(policy)
 
@@ -161,6 +171,14 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind, 
 					return true
 				}
 			}
+		}
+
+		// Is p.IsWaypoint good enough or do we specifically need to check that it is an istio-waypoint?
+		if policyName.Namespace == p.RootNamespace &&
+			p.IsWaypoint &&
+			matchesGroupKind(targetRef, gvk.GatewayClass) &&
+			targetRef.GetName() == constants.WaypointGatewayClassName {
+			return true
 		}
 
 		// Namespace does not match

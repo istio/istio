@@ -52,7 +52,7 @@ func NewBuilderForService(actionType ActionType, push *model.PushContext, proxy 
 		IsCustomBuilder: actionType == Custom,
 		UseFilterState:  useFilterState,
 	}
-	selectionOpts := model.PolicyMatcherForProxy(proxy).WithService(svc)
+	selectionOpts := model.PolicyMatcherForProxy(proxy).WithService(svc).WithRootNamespace(push.AuthzPolicies.RootNamespace)
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}

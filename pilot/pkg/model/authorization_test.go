@@ -75,6 +75,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		Name:      "foo-svc",
 		Namespace: "foo",
 	}
+	policyWithGWClassRef := protomarshal.Clone(policy)
+	policyWithGWClassRef.TargetRef = &selectorpb.PolicyTargetReference{
+		Group: gvk.GatewayClass.Group,
+		Kind:  gvk.GatewayClass.Kind,
+		Name:  "istio-waypoint",
+	}
 
 	denyPolicy := protomarshal.Clone(policy)
 	denyPolicy.Action = authpb.AuthorizationPolicy_DENY
@@ -425,6 +431,32 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 				newConfig("authz-2", "foo", policyWithSelector),
 			},
 			wantAllow: []AuthorizationPolicy{
+				{Name: "authz-1", Namespace: "foo", Spec: policyWithServiceRef},
+			},
+		},
+		{
+			name: "waypoint with default policies",
+			selectionOpts: WorkloadPolicyMatcher{
+				IsWaypoint: true,
+				Services: []ServiceInfoForPolicyMatcher{
+					{Name: "foo-svc", Namespace: "foo", Registry: provider.Kubernetes},
+				},
+				WorkloadNamespace: "foo",
+				WorkloadLabels: labels.Instance{
+					label.IoK8sNetworkingGatewayGatewayName.Name: "foo-waypoint",
+					// labels match in selector policy but ignore them for waypoint
+					"app":     "httpbin",
+					"version": "v1",
+				},
+				RootNamespace: "istio-config",
+			},
+			configs: []config.Config{
+				newConfig("authz-1", "foo", policyWithServiceRef),
+				newConfig("default", "istio-config", policyWithGWClassRef),
+				newConfig("default-non-waypoint", "istio-config", policyWithSelector),
+			},
+			wantAllow: []AuthorizationPolicy{
+				{Name: "default", Namespace: "istio-config", Spec: policyWithGWClassRef},
 				{Name: "authz-1", Namespace: "foo", Spec: policyWithServiceRef},
 			},
 		},

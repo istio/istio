@@ -210,6 +210,20 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 						},
 					},
 				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-ref",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.GatewayClass.Group,
+							Kind:  gvk.GatewayClass.Kind,
+							Name:  "istio-waypoint",
+						},
+					},
+				},
 			},
 			wantPeerAuthn: []*config.Config{
 				{
@@ -613,6 +627,20 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 						},
 					},
 				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-ref",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.GatewayClass.Group,
+							Kind:  gvk.GatewayClass.Kind,
+							Name:  "istio-waypoint",
+						},
+					},
+				},
 			},
 			wantPeerAuthn: []*config.Config{
 				{
@@ -646,6 +674,20 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 			},
 			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-ref",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.GatewayClass.Group,
+							Kind:  gvk.GatewayClass.Kind,
+							Name:  "istio-waypoint",
+						},
+					},
+				},
 				{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.RequestAuthentication,
@@ -829,6 +871,20 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 							Group: gvk.KubernetesGateway.Group,
 							Kind:  gvk.KubernetesGateway.Kind,
 							Name:  "my-gateway",
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-ref",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.GatewayClass.Group,
+							Kind:  gvk.GatewayClass.Kind,
+							Name:  "istio-waypoint",
 						},
 					},
 				},
@@ -1562,6 +1618,11 @@ func createTestConfigs(withMeshPeerAuthn bool) []*config.Config {
 				"app": "httpbin",
 			},
 		}, nil),
+		createTestRequestAuthenticationResource("global-with-ref", rootNamespace, nil, &selectorpb.PolicyTargetReference{
+			Group: gvk.GatewayClass.Group,
+			Kind:  gvk.GatewayClass.Kind,
+			Name:  "istio-waypoint",
+		}),
 		createTestRequestAuthenticationResource("default", "foo", nil, nil),
 		createTestRequestAuthenticationResource("default", "bar", nil, nil),
 		createTestRequestAuthenticationResource("with-selector", "foo", selector, nil),

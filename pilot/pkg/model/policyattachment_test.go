@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
@@ -39,6 +40,11 @@ func TestPolicyMatcher(t *testing.T) {
 		Group: gvk.KubernetesGateway.Group,
 		Kind:  gvk.KubernetesGateway.Kind,
 		Name:  "sample-waypoint",
+	}
+	istioWaypointClassTargetRef := &v1beta1.PolicyTargetReference{
+		Group: gvk.GatewayClass.Group,
+		Kind:  gvk.GatewayClass.Kind,
+		Name:  constants.WaypointGatewayClassName,
 	}
 	serviceTargetRef := &v1beta1.PolicyTargetReference{
 		Group: gvk.Service.Group,
@@ -84,7 +90,8 @@ func TestPolicyMatcher(t *testing.T) {
 		WorkloadLabels: labels.Instance{
 			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-waypoint",
 		},
-		IsWaypoint: true,
+		IsWaypoint:    true,
+		RootNamespace: "istio-system",
 	}
 	serviceTarget := WorkloadPolicyMatcher{
 		WorkloadNamespace: "default",
@@ -109,6 +116,7 @@ func TestPolicyMatcher(t *testing.T) {
 		selection              WorkloadPolicyMatcher
 		policy                 TargetablePolicy
 		enableSelectorPolicies bool
+		policyNamespacedName   *types.NamespacedName
 
 		expected bool
 	}{
@@ -340,12 +348,45 @@ func TestPolicyMatcher(t *testing.T) {
 			enableSelectorPolicies: false,
 			expected:               false,
 		},
+		{
+			name: "gateway class attached policy in root namespace",
+			selection: func() WorkloadPolicyMatcher {
+				return sampleWaypoint
+			}(),
+			// Policy points to a waypoint.. but its in the wrong namespace
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{istioWaypointClassTargetRef},
+			},
+			enableSelectorPolicies: false,
+			policyNamespacedName: &types.NamespacedName{
+				Namespace: "istio-system",
+				Name:      "global default",
+			},
+			expected: true,
+		},
+		{
+			name: "gateway class attached policy in non-root namespace",
+			selection: func() WorkloadPolicyMatcher {
+				return sampleWaypoint
+			}(),
+			// Policy points to a waypoint.. but its in the wrong namespace
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{istioWaypointClassTargetRef},
+			},
+			enableSelectorPolicies: false,
+			expected:               false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableSelectorBasedK8sGatewayPolicy, tt.enableSelectorPolicies)
-			nsName := types.NamespacedName{Name: "policy1", Namespace: "default"}
+			var nsName types.NamespacedName
+			if tt.policyNamespacedName != nil {
+				nsName = *tt.policyNamespacedName
+			} else {
+				nsName = types.NamespacedName{Name: "policy1", Namespace: "default"}
+			}
 			matcher := tt.selection.ShouldAttachPolicy(mockKind, nsName, tt.policy)
 
 			if matcher != tt.expected {
