@@ -1281,6 +1281,7 @@ func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
 		log.Errorf("Could not write response: %v", err)
 		handleError(log, fmt.Sprintf("could not write response: %v", err))
 		http.Error(w, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
+		return
 	}
 	totalSuccessfulInjections.Increment()
 }
