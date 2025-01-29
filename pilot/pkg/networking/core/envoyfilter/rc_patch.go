@@ -341,20 +341,9 @@ func virtualHostMatch(vh *route.VirtualHost, rp *model.EnvoyFilterConfigPatchWra
 		return false
 	}
 
-	if match.DomainName == "" {
-		// check if virtual host names match
-		return match.Name == "" || match.Name == vh.Name
-	}
-
-	// check if a domain of the virtual host matches
-	for _, domain := range vh.Domains {
-		if match.DomainName == domain {
-			// check if virtual host names match
-			return match.Name == "" || match.Name == vh.Name
-		}
-	}
-
-	return false
+	// check if virtual host name and a domain name matches
+	return (match.Name == "" || match.Name == vh.Name) &&
+		(match.DomainName == "" || slices.Contains(vh.Domains, match.DomainName))
 }
 
 func routeMatch(httpRoute *route.Route, rp *model.EnvoyFilterConfigPatchWrapper) bool {
