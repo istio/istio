@@ -133,7 +133,7 @@ func Test_virtualHostMatch(t *testing.T) {
 							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
 								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
 									DomainName: "*.scooby",
-									Name: "scoobydoo",
+									Name:       "scoobydoo",
 								},
 							},
 						},
@@ -181,7 +181,7 @@ func Test_virtualHostMatch(t *testing.T) {
 							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
 								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
 									DomainName: "*.scooby",
-									Name: "scooby",
+									Name:       "scooby",
 								},
 							},
 						},
@@ -206,7 +206,7 @@ func Test_virtualHostMatch(t *testing.T) {
 							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
 								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
 									DomainName: "*.in",
-									Name: "scoobydoo",
+									Name:       "scoobydoo",
 								},
 							},
 						},

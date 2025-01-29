@@ -345,7 +345,7 @@ func virtualHostMatch(vh *route.VirtualHost, rp *model.EnvoyFilterConfigPatchWra
 		// check if virtual host names match
 		return match.Name == "" || match.Name == vh.Name
 	}
-	
+
 	// check if a domain of the virtual host matches
 	for _, domain := range vh.Domains {
 		if match.DomainName == domain {
