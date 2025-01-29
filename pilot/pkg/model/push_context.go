@@ -1295,13 +1295,13 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
-func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
+func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) {
 	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
 	// If this does happen, one thread will block then exit early from InitDone=true
 	ps.initializeMutex.Lock()
 	defer ps.initializeMutex.Unlock()
 	if ps.InitDone.Load() {
-		return nil
+		return
 	}
 
 	ps.Mesh = env.Mesh()
@@ -1313,13 +1313,9 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	// create new or incremental update
 	if pushReq == nil || oldPushContext == nil || !oldPushContext.InitDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
-		if err := ps.createNewContext(env); err != nil {
-			return err
-		}
+		ps.createNewContext(env)
 	} else {
-		if err := ps.updateContext(env, oldPushContext, pushReq); err != nil {
-			return err
-		}
+		ps.updateContext(env, oldPushContext, pushReq)
 	}
 
 	ps.networkMgr = env.NetworkManager
@@ -1327,15 +1323,12 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
 	ps.InitDone.Store(true)
-	return nil
 }
 
-func (ps *PushContext) createNewContext(env *Environment) error {
+func (ps *PushContext) createNewContext(env *Environment) {
 	ps.initServiceRegistry(env, nil)
 
-	if err := ps.initKubernetesGateways(env); err != nil {
-		return err
-	}
+	ps.initKubernetesGateways(env)
 
 	ps.initVirtualServices(env)
 
@@ -1352,14 +1345,13 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 
 	// Must be initialized in the end
 	ps.initSidecarScopes(env)
-	return nil
 }
 
 func (ps *PushContext) updateContext(
 	env *Environment,
 	oldPushContext *PushContext,
 	pushReq *PushRequest,
-) error {
+) {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool
@@ -1411,9 +1403,7 @@ func (ps *PushContext) updateContext(
 
 	if servicesChanged || gatewayAPIChanged {
 		// Gateway status depends on services, so recompute if they change as well
-		if err := ps.initKubernetesGateways(env); err != nil {
-			return err
-		}
+		ps.initKubernetesGateways(env)
 	}
 
 	if virtualServicesChanged {
@@ -1482,8 +1472,6 @@ func (ps *PushContext) updateContext(
 		ps.sidecarIndex = oldPushContext.sidecarIndex
 		oldPushContext.sidecarIndex.derivedSidecarMutex.RUnlock()
 	}
-
-	return nil
 }
 
 // Caches list of services in the registry, and creates a map
@@ -2486,12 +2474,11 @@ func (ps *PushContext) ServiceEndpoints(svcKey string) map[int][]*IstioEndpoint 
 }
 
 // initKubernetesGateways initializes Kubernetes gateway-api objects
-func (ps *PushContext) initKubernetesGateways(env *Environment) error {
+func (ps *PushContext) initKubernetesGateways(env *Environment) {
 	if env.GatewayAPIController != nil {
 		ps.GatewayAPIController = env.GatewayAPIController
-		return env.GatewayAPIController.Reconcile(ps)
+		env.GatewayAPIController.Reconcile(ps)
 	}
-	return nil
 }
 
 // ReferenceAllowed determines if a given resource (of type `kind` and name `resourceName`) can be

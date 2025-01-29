@@ -409,9 +409,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 
 			// Init a new push context
 			push := model.NewPushContext()
-			if err := push.InitContext(env, nil, nil); err != nil {
-				t.Fatal(err)
-			}
+			push.InitContext(env, nil, nil)
 			env.SetPushContext(push)
 			if push.NetworkManager() == nil {
 				t.Fatal("error: NetworkManager should not be nil!")

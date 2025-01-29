@@ -1116,7 +1116,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 
 	pushContext := model.NewPushContext()
 	env.Init()
-	_ = pushContext.InitContext(env, nil, nil)
+	pushContext.InitContext(env, nil, nil)
 	env.SetPushContext(pushContext)
 	pushContext.SetDestinationRulesForTesting([]config.Config{
 		{
@@ -1173,7 +1173,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 
 	pushContext := model.NewPushContext()
 	env.Init()
-	_ = pushContext.InitContext(env, nil, nil)
+	pushContext.InitContext(env, nil, nil)
 	env.SetPushContext(pushContext)
 	pushContext.SetDestinationRulesForTesting([]config.Config{
 		{
@@ -1225,7 +1225,7 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 
 	pushContext := model.NewPushContext()
 	env.Init()
-	_ = pushContext.InitContext(env, nil, nil)
+	pushContext.InitContext(env, nil, nil)
 	env.SetPushContext(pushContext)
 	pushContext.SetDestinationRulesForTesting([]config.Config{
 		{
@@ -1283,7 +1283,7 @@ func buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(failoverPri
 
 	pushContext := model.NewPushContext()
 	env.Init()
-	_ = pushContext.InitContext(env, nil, nil)
+	pushContext.InitContext(env, nil, nil)
 	env.SetPushContext(pushContext)
 	pushContext.SetDestinationRulesForTesting([]config.Config{
 		{
