@@ -661,7 +661,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	tunnel := supportTunnel(b, e)
 	// Only send HBONE if its necessary. If they support legacy mTLS and do not explicitly PreferHBONE, we will use legacy mTLS.
 	// However, waypoints (TrafficDirectionInboundVIP) do not support legacy mTLS, so do not allow opting out of that case.
-	if mtlsEnabled && !features.PreferHBONESend && b.dir != model.TrafficDirectionInboundVIP {
+	supportsMtls := e.TLSMode == model.IstioMutualTLSModeLabel
+	if supportsMtls && !features.PreferHBONESend && b.dir != model.TrafficDirectionInboundVIP {
 		tunnel = false
 	}
 	if b.proxy.Metadata.DisableHBONESend {
