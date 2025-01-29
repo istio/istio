@@ -37,7 +37,6 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
-	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -54,9 +53,9 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -79,13 +78,14 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// 1. Decapsulation CONNECT listener.
 	// 2. IP dispatch listener, handling both VIPs and direct pod IPs.
 	// 3. Encapsulation CONNECT listener, originating the tunnel
-	// TODO: is this sufficient
-	controller, isManagedGateway := lb.node.Labels[label.GatewayManaged.Name]
-	if isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel {
-		// East-west gateways have a different selector than regular waypoints
-		
+	// TODO: is this sufficient to check?
+	var wls []model.WorkloadInfo
+	var wps *waypointServices
+	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
+		wps = findNetworkGatewayResources(lb.node, lb.push)
+	} else {
+		wls, wps = findWaypointResources(lb.node, lb.push)
 	}
-	wls, wps := findWaypointResources(lb.node, lb.push)
 	listeners = append(listeners,
 		lb.buildWaypointInboundConnectTerminate(),
 		lb.buildWaypointInternal(wls, wps.orderedServices),
@@ -227,7 +227,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
-	terminate := isDoubleHbone(lb.node)
+	terminate := isEastWestGateway(lb.node)
 	ipMatcher := &matcher.IPMatcher{}
 	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{
 		Map: make(map[string]*matcher.Matcher_OnMatch),
@@ -321,6 +321,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				Name:    cc.clusterName,
 			}
 			if terminate {
+				log.Infof("Adding termination for %s:%d", svc.Hostname, port.Port)
 				// We want to send to all ports regardless of protocol, but we want the filter chains to tcp proxy no matter what
 				// (since we're expecting double-hbone). There's no point in sniffing, so we just send to the TCP chain.
 				chains = append(chains, tcpChain)
@@ -386,7 +387,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		}
 	}
 
-	{
+	if !terminate {
 		// Direct pod access chain.
 		cc := inboundChainConfig{
 			clusterName: EncapClusterName,

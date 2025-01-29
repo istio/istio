@@ -185,13 +185,8 @@ spec:
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
         {{- $network := valueOrDefault (index .InfrastructureLabels `topology.istio.io/network`) .Values.global.network }}
         {{- if $network }}
-        {{- if .IsEastWestGateway }}
-        - name: ISTIO_META_REQUESTED_NETWORK_VIEW
-          value: "{{ $network }}"
-        {{- else }}
         - name: ISTIO_META_NETWORK
           value: "{{ $network }}"
-        {{- end }}
         {{- end }}
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT

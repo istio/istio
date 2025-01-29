@@ -115,7 +115,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	policy *networking.TrafficPolicy,
 	drConfig *config.Config,
 ) *cluster.Cluster {
-	terminate := isDoubleHbone(proxy)
+	// TODO: is this enough? Probably since we validate no extra listeners are present in the conversion later
+	terminate := isEastWestGateway(proxy)
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
 	discoveryType := convertResolution(cb.proxyType, svc)

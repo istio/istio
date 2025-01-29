@@ -1542,6 +1542,20 @@ func unexpectedWaypointListener(l k8s.Listener) bool {
 	return false
 }
 
+func unexpectedEastWestWaypointListener(l k8s.Listener) bool {
+	if l.Port != 15008 {
+		return true
+	}
+	if l.Protocol != k8s.ProtocolType(protocol.HBONE) {
+		return true
+	}
+	if l.TLS == nil || *l.TLS.Mode != k8s.TLSModeTerminate {
+		return false
+	}
+	// TODO: Should we check that there aren't more things set
+	return false
+}
+
 func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
 	res := sets.New[k8s.SectionName]()
 	for _, l := range spec.Listeners {
@@ -1816,11 +1830,20 @@ func buildListener(
 		}
 		ok = false
 	}
-	if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
+	if controllerName == constants.ManagedGatewayMeshController {
 		if unexpectedWaypointListener(l) {
 			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
 				Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
 				Message: `Expected a single listener on port 15008 with protocol "HBONE"`,
+			}
+		}
+	}
+
+	if controllerName == constants.ManagedGatewayEastWestController {
+		if unexpectedEastWestWaypointListener(l) {
+			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+				Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
+				Message: `Expected a single listener on port 15008 with protocol "HBONE" and TLS.Mode == Terminate`,
 			}
 		}
 	}
