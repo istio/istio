@@ -88,13 +88,21 @@ func (a *index) serviceServiceBuilder(
 		}
 		waypointStatus.Error = wperr
 
-		svc := a.constructService(ctx, s, waypoint)
+		networkWaypointStatus := model.WaypointBindingStatus{}
+		networkWaypoint, networkWaypointError := fetchNetworkGatewayForService(ctx, waypoints, namespaces, s.ObjectMeta)
+		if networkWaypoint != nil {
+			networkWaypointStatus.ResourceName = networkWaypoint.ResourceName()
+		}
+		networkWaypointStatus.Error = networkWaypointError
+
+		svc := a.constructService(ctx, s, waypoint, networkWaypoint)
 		return precomputeServicePtr(&model.ServiceInfo{
-			Service:       svc,
-			PortNames:     portNames,
-			LabelSelector: model.NewSelector(s.Spec.Selector),
-			Source:        MakeSource(s),
-			Waypoint:      waypointStatus,
+			Service:        svc,
+			PortNames:      portNames,
+			LabelSelector:  model.NewSelector(s.Spec.Selector),
+			Source:         MakeSource(s),
+			Waypoint:       waypointStatus,
+			NetworkGateway: networkWaypointStatus,
 		})
 	}
 }
@@ -205,7 +213,7 @@ func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingc
 	return res
 }
 
-func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Waypoint) *workloadapi.Service {
+func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Waypoint, networkGateway *Waypoint) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
 		ports = append(ports, &workloadapi.Port{
@@ -259,16 +267,17 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 			ipFamily = workloadapi.IPFamilies_IPV6_ONLY
 		}
 	}
-	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
+	// TODO: this is only checking one controller - we may be missing service vips for instances in another cluster
 	return &workloadapi.Service{
-		Name:          svc.Name,
-		Namespace:     svc.Namespace,
-		Hostname:      string(kube.ServiceHostname(svc.Name, svc.Namespace, a.DomainSuffix)),
-		Addresses:     addresses,
-		Ports:         ports,
-		Waypoint:      w.GetAddress(),
-		LoadBalancing: lb,
-		IpFamilies:    ipFamily,
+		Name:                svc.Name,
+		Namespace:           svc.Namespace,
+		Hostname:            string(kube.ServiceHostname(svc.Name, svc.Namespace, a.DomainSuffix)),
+		Addresses:           addresses,
+		Ports:               ports,
+		Waypoint:            w.GetAddress(),
+		LocalNetworkGateway: networkGateway.GetAddress(),
+		LoadBalancing:       lb,
+		IpFamilies:          ipFamily,
 	}
 }
 

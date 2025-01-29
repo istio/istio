@@ -87,33 +87,23 @@ func fetchWaypointForInstance(ctx krt.HandlerContext, Waypoints krt.Collection[W
 	return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(namespace+"/"+name))
 }
 
-// fetchWaypointForTarget attempts to find the network gateways that should handle traffic for a given service
-// Workload support is not yet implemented
-func fetchNetworkGatewayForTarget(
-	ctx krt.HandlerContext,
-	gateways krt.Collection[*v1beta1.Gateway],
-	namespaces krt.Collection[*v1.Namespace],
-	o metav1.ObjectMeta,
-) (*Waypoint, *model.StatusMessage) {
-	// This is a waypoint, so it cannot have a waypoint
-	// namespace to be used when the annotation doesn't include a namespace
-	fallbackNamespace := o.Namespace
-	// try fetching the waypoint defined on the object itself
-	gw, isNone := getExportThrough(o, fallbackNamespace)
-}
-
-// fetchWaypointForTarget attempts to find the waypoint that should handle traffic for a given service or workload
-func fetchWaypointForTarget(
+func fetchWaypointForTargetBase(
 	ctx krt.HandlerContext,
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
-	selector string,
 	o metav1.ObjectMeta,
+	isNetworkGateway bool,
 ) (*Waypoint, *model.StatusMessage) {
 	// namespace to be used when the annotation doesn't include a namespace
 	fallbackNamespace := o.Namespace
 	// try fetching the waypoint defined on the object itself
-	wp, isNone := getUseWaypoint(o, fallbackNamespace)
+	var wp *krt.Named
+	var isNone bool
+	if isNetworkGateway {
+		wp, isNone = getExportThrough(o, fallbackNamespace)
+	} else {
+		wp, isNone = getUseWaypoint(o, fallbackNamespace)
+	}
 	if isNone {
 		// we've got a local override here opting out of waypoint
 		return nil, nil
@@ -156,8 +146,30 @@ func fetchWaypointForTarget(
 	return nil, nil
 }
 
-func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
+// fetchWaypointForTarget attempts to find the waypoint that should handle traffic for a given service or workload
+func fetchWaypointForTarget(
+	ctx krt.HandlerContext,
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
+	o metav1.ObjectMeta,
+) (*Waypoint, *model.StatusMessage) {
+	return fetchWaypointForTargetBase(ctx, waypoints, namespaces, o, false)
+}
+
+// fetchWaypointForTarget attempts to find the network gateways that should handle traffic for a given service
+// Workload support is not yet implemented
+func fetchNetworkGatewayForTarget(
+	ctx krt.HandlerContext,
+	gateways krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
+	o metav1.ObjectMeta,
+) (*Waypoint, *model.StatusMessage) {
+	return fetchWaypointForTargetBase(ctx, gateways, namespaces, o, true)
+}
+
+func fetchWaypointForServiceBase(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
 	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
+	isNetworkGateway bool,
 ) (*Waypoint, *model.StatusMessage) {
 	// This is a waypoint, so it cannot have a waypoint
 	if o.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
@@ -167,7 +179,13 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 	if o.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
 		return nil, nil
 	}
-	w, err := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
+	var w *Waypoint
+	var err *model.StatusMessage
+	if isNetworkGateway {
+		w, err = fetchNetworkGatewayForTarget(ctx, Waypoints, Namespaces, o)
+	} else {
+		w, err = fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
+	}
 	if err != nil || w == nil {
 		return nil, err
 	}
@@ -178,6 +196,18 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 	log.Debugf("Unable to add service waypoint %s/%s; traffic type %s not supported for %s/%s",
 		w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
 	return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
+}
+
+func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
+	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
+) (*Waypoint, *model.StatusMessage) {
+	return fetchWaypointForServiceBase(ctx, Waypoints, Namespaces, o, false)
+}
+
+func fetchNetworkGatewayForService(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
+	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
+) (*Waypoint, *model.StatusMessage) {
+	return fetchWaypointForServiceBase(ctx, Waypoints, Namespaces, o, true)
 }
 
 func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
