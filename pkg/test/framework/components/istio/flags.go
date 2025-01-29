@@ -69,4 +69,8 @@ func init() {
 		settingsFromCommandline.SharedMeshConfigName,
 		`Specifies the name of the SHARED_MESH_CONFIG defined and created by the user upon installing Istio.
 		Should only be set when istio.test.kube.userSharedMeshConfig=true and istio.test.kube.deploy=false.`)
+	flag.StringVar(&settingsFromCommandline.ControlPlaneInstaller, "istio.test.kube.controlPlaneInstaller",
+		settingsFromCommandline.ControlPlaneInstaller,
+		`Specifies the external script to install external control plane at run time.
+		Should only be set when istio.test.kube.deploy=false.`)
 }
