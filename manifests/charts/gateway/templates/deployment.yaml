@@ -41,6 +41,9 @@ spec:
         {{ $key | quote }}: {{ $val | quote }}
         {{- end }}
         {{- end }}
+        {{- with .Values.networkGateway }}
+        topology.istio.io/network: "{{.}}"
+        {{- end }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
