@@ -70,6 +70,9 @@ func newBuilder(
 	}
 	selectionOpts := model.PolicyMatcherForProxy(proxy).WithService(svc).WithRootNamespace(push.AuthzPolicies.RootNamespace)
 	if alwaysTreatAsNonWaypoint {
+		// The intention here is to apply authz rules to the waypoint, but using the standard workload selector policy semantics,
+		// rather than the per-service rules.
+		// This gives us two layers of authorization policy applied.
 		selectionOpts.IsWaypoint = false
 	}
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)

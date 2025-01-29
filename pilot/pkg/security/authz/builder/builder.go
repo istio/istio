@@ -101,7 +101,7 @@ func (b Builder) BuildTCP() []*listener.Filter {
 	return build(b, b.buildTCP, "TCP", true)
 }
 
-// BuildTCPRulesAsHTTPFilter returns the TCP filters built from the authorization policy.
+// BuildTCPRulesAsHTTPFilter returns the HTTP filters built from TCP authorization policy.
 func (b Builder) BuildTCPRulesAsHTTPFilter() []*hcm.HttpFilter {
 	return build(b, b.buildHTTP, "HTTP for TCP", true)
 }
