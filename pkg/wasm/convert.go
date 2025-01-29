@@ -123,13 +123,16 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 			if wasmHTTPConfig != nil {
 				newExtensionConfig, err := convertHTTPWasmConfigFromRemoteToLocal(extConfig, wasmHTTPConfig, cache)
 				if err != nil {
+					// Store the conversion error.
+					convertErrs[i] = err
 					// Use NOOP filter because the download failed.
 					// nolint: staticcheck // FailOpen deprecated
 					newExtensionConfig, err = createHTTPDefaultFilter(extConfig.GetName(), httpWasmFailOpen(wasmHTTPConfig))
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.
-						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
-						convertErrs[i] = err
+						me := multierror.Append(istiomultierror.New(), convertErrs[i],
+							fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err))
+						convertErrs[i] = me.ErrorOrNil()
 						return
 					}
 				}
@@ -137,12 +140,15 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 			} else {
 				newExtensionConfig, err := convertNetworkWasmConfigFromRemoteToLocal(extConfig, wasmNetworkConfig, cache)
 				if err != nil {
+					// Store the conversion error.
+					convertErrs[i] = err
 					// Use NOOP filter because the download failed.
 					newExtensionConfig, err = createNetworkDefaultFilter(extConfig.GetName(), networkWasmFailOpen(wasmNetworkConfig))
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.
-						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
-						convertErrs[i] = err
+						me := multierror.Append(istiomultierror.New(), convertErrs[i],
+							fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err))
+						convertErrs[i] = me.ErrorOrNil()
 						return
 					}
 				}
