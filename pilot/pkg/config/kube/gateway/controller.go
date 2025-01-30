@@ -16,14 +16,23 @@ package gateway
 
 import (
 	"fmt"
-	"sync"
-	"time"
-
 	"go.uber.org/atomic"
+	istio "istio.io/api/networking/v1alpha3"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	creds "istio.io/istio/pilot/pkg/model/credentials"
+	"istio.io/istio/pkg/config/constants"
+	kubeconfig "istio.io/istio/pkg/config/gateway/kube"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	"strings"
+	"sync"
 
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
@@ -33,7 +42,6 @@ import (
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -65,11 +73,8 @@ var errUnsupportedOp = fmt.Errorf("unsupported operation: the gateway config sto
 type Controller struct {
 	// client for accessing Kubernetes
 	client kube.Client
-	// cache provides access to the underlying gateway-configs
-	cache model.ConfigStoreController
 
 	// Gateway-api types reference namespace labels directly, so we need access to these
-	namespaces       kclient.Client[*corev1.Namespace]
 	namespaceHandler model.EventHandler
 
 	// Gateway-api types reference secrets directly, so we need access to these
@@ -92,6 +97,232 @@ type Controller struct {
 	tagWatcher revisions.TagWatcher
 
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
+
+	Namespaces      krt.Collection[*corev1.Namespace]
+	GatewayClasses  krt.Collection[*gateway.GatewayClass]
+	Gateways        krt.Collection[*gateway.Gateway]
+	HTTPRoutes      krt.Collection[*gateway.HTTPRoute]
+	GRPCRoutes      krt.Collection[*gatewayv1.GRPCRoute]
+	TCPRoutes       krt.Collection[*gatewayalpha.TCPRoute]
+	TLSRoutes       krt.Collection[*gatewayalpha.TLSRoute]
+	ReferenceGrants krt.Collection[*gateway.ReferenceGrant]
+	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
+}
+
+type GatewayClass struct {
+	Name       string
+	Controller gateway.GatewayController
+}
+
+func (g GatewayClass) ResourceName() string {
+	return g.Name
+}
+
+func GatewayClassesCollection(
+	GatewayClasses krt.Collection[*gateway.GatewayClass]) krt.Collection[GatewayClass] {
+	return krt.NewCollection(GatewayClasses, func(ctx krt.HandlerContext, obj *gateway.GatewayClass) *GatewayClass {
+		return &GatewayClass{
+			Name:       obj.Name,
+			Controller: obj.Spec.ControllerName,
+		}
+	})
+}
+
+type ReferencePair struct {
+	To, From Reference
+}
+
+type ReferenceGrants struct {
+	collection krt.Collection[ReferenceGrant]
+	index krt.Index[ReferencePair, ReferenceGrant]
+}
+
+func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, resourceName string, namespace string) bool {
+	p, err := creds.ParseResourceName(resourceName, "", "", "")
+	if err != nil {
+		log.Warnf("failed to parse resource name %q: %v", resourceName, err)
+		return false
+	}
+	from := Reference{Kind: gvk.KubernetesGateway, Namespace: gateway.Namespace(namespace)}
+	to := Reference{Kind: gvk.Secret, Namespace: gateway.Namespace(p.Namespace)}
+	pair := ReferencePair{From: from, To: to}
+	grants := krt.Fetch(ctx, refs.collection, krt.FilterIndex(refs.index, pair))
+	for _, g := range grants {
+		if g.AllowAll || g.AllowedName == p.Name {
+			return true
+		}
+	}
+	return false
+}
+
+
+type ReferenceGrant struct {
+	Source types.NamespacedName
+	From Reference
+	To   Reference
+	AllowAll     bool
+	AllowedName string
+}
+
+func (g ReferenceGrant) ResourceName() string {
+	return g.Source.String() + "/" + g.From.String() + "/" + g.To.String()
+}
+
+func ReferenceGrantsCollection(
+	ReferenceGrants krt.Collection[*gateway.ReferenceGrant]) krt.Collection[ReferenceGrant] {
+	return krt.NewManyCollection(ReferenceGrants, func(ctx krt.HandlerContext, obj *gateway.ReferenceGrant) []ReferenceGrant {
+		rp := obj.Spec
+		results := make([]ReferenceGrant, 0, len(rp.From) * len(rp.To))
+		for _, from := range rp.From {
+			fromKey := Reference{
+				Namespace: from.Namespace,
+			}
+			if string(from.Group) == gvk.KubernetesGateway.Group && string(from.Kind) == gvk.KubernetesGateway.Kind {
+				fromKey.Kind = gvk.KubernetesGateway
+			} else if string(from.Group) == gvk.HTTPRoute.Group && string(from.Kind) == gvk.HTTPRoute.Kind {
+				fromKey.Kind = gvk.HTTPRoute
+			} else if string(from.Group) == gvk.TLSRoute.Group && string(from.Kind) == gvk.TLSRoute.Kind {
+				fromKey.Kind = gvk.TLSRoute
+			} else if string(from.Group) == gvk.TCPRoute.Group && string(from.Kind) == gvk.TCPRoute.Kind {
+				fromKey.Kind = gvk.TCPRoute
+			} else {
+				// Not supported type. Not an error; may be for another controller
+				continue
+			}
+			for _, to := range rp.To {
+				toKey := Reference{
+					Namespace: gateway.Namespace(obj.Namespace),
+				}
+				if to.Group == "" && string(to.Kind) == gvk.Secret.Kind {
+					toKey.Kind = gvk.Secret
+				} else if to.Group == "" && string(to.Kind) == gvk.Service.Kind {
+					toKey.Kind = gvk.Service
+				} else {
+					// Not supported type. Not an error; may be for another controller
+					continue
+				}
+				rg := ReferenceGrant{
+					Source:      config.NamespacedName(obj),
+					From:        fromKey,
+					To:          toKey,
+					AllowAll:    false,
+					AllowedName: "",
+				}
+				if to.Name != nil {
+					rg.AllowedName = string(*to.Name)
+				} else {
+					rg.AllowAll = true
+				}
+					results = append(results, rg)
+			}
+		}
+		return results
+	})
+}
+
+func GatewayCollection(
+	Gateways krt.Collection[*gateway.Gateway],
+	GatewayClasses krt.Collection[GatewayClass],
+Namespaces krt.Collection[*corev1.Namespace],
+	grants ReferenceGrants,
+	DomainSuffix string,
+	) krt.Collection[config.Config] {
+
+	return krt.NewManyCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) []config.Config {
+		result := []config.Config{}
+		kgw := obj.Spec
+		class := krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(kgw.GatewayClassName)))
+		if class == nil {
+			// No gateway class found, this may be meant for another controller; should be skipped.
+			return nil
+		}
+		controllerName := class.Controller
+		classInfo, f := classInfos[controllerName]
+		if !f {
+			return nil
+		}
+		if classInfo.disableRouteGeneration {
+			//reportUnmanagedGatewayStatus(obj)
+			// We found it, but don't want to handle this class
+			return nil
+		}
+		servers := []*istio.Server{}
+
+		// Extract the addresses. A gateway will bind to a specific Service
+		gatewayServices, err := extractGatewayServices(DomainSuffix, obj, classInfo)
+		if len(gatewayServices) == 0 && err != nil {
+			// Short circuit if its a hard failure
+			//reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
+			return nil
+		}
+
+		for i, l := range kgw.Listeners {
+			server, programmed := buildListener(ctx, grants, Namespaces, obj, l, i, controllerName)
+
+			servers = append(servers, server)
+			if controllerName == constants.ManagedGatewayMeshController {
+				// Waypoint doesn't actually convert the routes to VirtualServices
+				continue
+			}
+			meta := parentMeta2(obj, &l.Name)
+			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
+			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
+
+			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
+			gatewayConfig := config.Config{
+				Meta: config.Meta{
+					CreationTimestamp: obj.CreationTimestamp.Time,
+					GroupVersionKind:  gvk.Gateway,
+					Name:              kubeconfig.InternalGatewayName(obj.Name, string(l.Name)),
+					Annotations:       meta,
+					Namespace:         obj.Namespace,
+					Domain:            DomainSuffix,
+				},
+				Spec: &istio.Gateway{
+					Servers: []*istio.Server{server},
+				},
+			}
+
+			allowed, _ := generateSupportedKinds(l)
+			pri := &parentInfo{
+				InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
+				AllowedKinds:     allowed,
+				Hostnames:        server.Hosts,
+				OriginalHostname: string(ptr.OrEmpty(l.Hostname)),
+				SectionName:      l.Name,
+				Port:             l.Port,
+				Protocol:         l.Protocol,
+			}
+			pri.ReportAttachedRoutes = func() {
+				//reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)
+			}
+
+			if programmed {
+				result = append(result, gatewayConfig)
+			}
+		}
+
+
+		//reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
+		return result
+	})
+}
+
+type Outputs struct {
+	Gateways        krt.Collection[config.Config]
+	VirtualServices krt.Collection[config.Config]
+}
+
+type Inputs struct {
+	Namespaces      krt.Collection[*corev1.Namespace]
+	GatewayClasses  krt.Collection[*gateway.GatewayClass]
+	Gateways        krt.Collection[*gateway.Gateway]
+	HTTPRoutes      krt.Collection[*gateway.HTTPRoute]
+	GRPCRoutes      krt.Collection[*gatewayv1.GRPCRoute]
+	TCPRoutes       krt.Collection[*gatewayalpha.TCPRoute]
+	TLSRoutes       krt.Collection[*gatewayalpha.TLSRoute]
+	ReferenceGrants krt.Collection[*gateway.ReferenceGrant]
+	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
 }
 
 var _ model.GatewayController = &Controller{}
@@ -103,34 +334,62 @@ func NewController(
 	credsController credentials.MulticlusterController,
 	options controller.Options,
 ) *Controller {
-	var ctl *status.Controller
 
-	namespaces := kclient.NewFiltered[*corev1.Namespace](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()})
+	var ctl *status.Controller
+	stop := make(chan struct{})
+	opts := krt.NewOptionsBuilder(stop, krt.GlobalDebugHandler)
+	Namespaces := krt.NewInformer[*corev1.Namespace](kc, opts.WithName("Namespaces")...)
+
+	GatewayClasses := buildClient[*gateway.GatewayClass](kc, opts, "GatewayClasses")
+	Gateways := buildClient[*gateway.Gateway](kc, opts, "Gateways")
+	HTTPRoutes := buildClient[*gateway.HTTPRoute](kc, opts, "Gateways")
+	GRPCRoutes := buildClient[*gatewayv1.GRPCRoute](kc, opts, "Gateways")
+	// TODO: conditional
+	TCPRoutes := buildClient[*gatewayalpha.TCPRoute](kc, opts, "Gateways")
+	TLSRoutes := buildClient[*gatewayalpha.TLSRoute](kc, opts, "Gateways")
+	ReferenceGrants := buildClient[*gateway.ReferenceGrant](kc, opts, "Gateways")
+	ServiceEntries := buildClient[*networkingclient.ServiceEntry](kc, opts, "Gateways")
 	gatewayController := &Controller{
 		client:                kc,
-		cache:                 c,
-		namespaces:            namespaces,
 		credentialsController: credsController,
 		cluster:               options.ClusterID,
 		domain:                options.DomainSuffix,
 		statusController:      atomic.NewPointer(ctl),
 		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision),
 		waitForCRD:            waitForCRD,
+
+		Namespaces:      Namespaces,
+		GatewayClasses:  GatewayClasses,
+		Gateways:        Gateways,
+		HTTPRoutes:      HTTPRoutes,
+		GRPCRoutes:      GRPCRoutes,
+		TCPRoutes:       TCPRoutes,
+		TLSRoutes:       TLSRoutes,
+		ReferenceGrants: ReferenceGrants,
+		ServiceEntries:  ServiceEntries,
 	}
 
-	namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
-		UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
-			if !labels.Instance(oldNs.Labels).Equals(newNs.Labels) {
-				gatewayController.namespaceEvent(oldNs, newNs)
-			}
-		},
-	})
+	//namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
+	//	UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
+	//		if !labels.Instance(oldNs.Labels).Equals(newNs.Labels) {
+	//			gatewayController.namespaceEvent(oldNs, newNs)
+	//		}
+	//	},
+	//})
 
 	if credsController != nil {
 		credsController.AddSecretHandler(gatewayController.secretEvent)
 	}
 
 	return gatewayController
+}
+
+func buildClient[I controllers.ComparableObject](kc kube.Client, opts krt.OptionsBuilder, name string) krt.Collection[I] {
+	filter := kclient.Filter{
+		ObjectFilter: kc.ObjectFilter(),
+	}
+	cc := kclient.NewDelayedInformer[I](kc, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
+	return krt.WrapClient[I](cc, opts.WithName(name)...)
 }
 
 func (c *Controller) Schemas() collection.Schemas {
@@ -176,70 +435,74 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 // Reconcile takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
 // Any status updates required will be enqueued as well.
 func (c *Controller) Reconcile(ps *model.PushContext) {
-	t0 := time.Now()
-	defer func() {
-		log.Debugf("reconcile complete in %v", time.Since(t0))
-	}()
-	gatewayClass := c.cache.List(gvk.GatewayClass, metav1.NamespaceAll)
-	gateway := c.cache.List(gvk.KubernetesGateway, metav1.NamespaceAll)
-	httpRoute := c.cache.List(gvk.HTTPRoute, metav1.NamespaceAll)
-	grpcRoute := c.cache.List(gvk.GRPCRoute, metav1.NamespaceAll)
-	tcpRoute := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
-	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
-	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
-	serviceEntry := c.cache.List(gvk.ServiceEntry, metav1.NamespaceAll) // TODO lazy load only referenced SEs?
+	return
+	/*
+		t0 := time.Now()
+		defer func() {
+			log.Debugf("reconcile complete in %v", time.Since(t0))
+		}()
+		gatewayClass := c.cache.List(gvk.GatewayClass, metav1.NamespaceAll)
+		gateway := c.cache.List(gvk.KubernetesGateway, metav1.NamespaceAll)
+		httpRoute := c.cache.List(gvk.HTTPRoute, metav1.NamespaceAll)
+		grpcRoute := c.cache.List(gvk.GRPCRoute, metav1.NamespaceAll)
+		tcpRoute := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
+		tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
+		referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
+		serviceEntry := c.cache.List(gvk.ServiceEntry, metav1.NamespaceAll) // TODO lazy load only referenced SEs?
 
-	// all other types are filtered by revision, but for gateways we need to select tags as well
-	gateway = slices.FilterInPlace(gateway, func(gw config.Config) bool {
-		return c.tagWatcher.IsMine(gw.ToObjectMeta())
-	})
+		// all other types are filtered by revision, but for gateways we need to select tags as well
+		gateway = slices.FilterInPlace(gateway, func(gw config.Config) bool {
+			return c.tagWatcher.IsMine(gw.ToObjectMeta())
+		})
 
-	input := GatewayResources{
-		GatewayClass:   deepCopyStatus(gatewayClass),
-		Gateway:        deepCopyStatus(gateway),
-		HTTPRoute:      deepCopyStatus(httpRoute),
-		GRPCRoute:      deepCopyStatus(grpcRoute),
-		TCPRoute:       deepCopyStatus(tcpRoute),
-		TLSRoute:       deepCopyStatus(tlsRoute),
-		ReferenceGrant: referenceGrant,
-		ServiceEntry:   serviceEntry,
-		Domain:         c.domain,
-		Context:        NewGatewayContext(ps, c.cluster),
-	}
+		input := GatewayResources{
+			GatewayClass:   deepCopyStatus(gatewayClass),
+			Gateway:        deepCopyStatus(gateway),
+			HTTPRoute:      deepCopyStatus(httpRoute),
+			GRPCRoute:      deepCopyStatus(grpcRoute),
+			TCPRoute:       deepCopyStatus(tcpRoute),
+			TLSRoute:       deepCopyStatus(tlsRoute),
+			ReferenceGrant: referenceGrant,
+			ServiceEntry:   serviceEntry,
+			Domain:         c.domain,
+			Context:        NewGatewayContext(ps, c.cluster),
+		}
 
-	if !input.hasResources() {
-		// Early exit for common case of no gateway-api used.
+		if !input.hasResources() {
+			// Early exit for common case of no gateway-api used.
+			c.stateMu.Lock()
+			defer c.stateMu.Unlock()
+			// make sure we clear out the state, to handle the last gateway-api resource being removed
+			c.state = IstioResources{}
+			return
+		}
+
+		nsl := c.namespaces.List("", klabels.Everything())
+		namespaces := make(map[string]*corev1.Namespace, len(nsl))
+		for _, ns := range nsl {
+			namespaces[ns.Name] = ns
+		}
+		input.Namespaces = namespaces
+
+		if c.credentialsController != nil {
+			credentials, err := c.credentialsController.ForCluster(c.cluster)
+			if err != nil {
+				log.Warnf("failed to get credentials: %v", err)
+			} else {
+				input.Credentials = credentials
+			}
+		}
+
+		output := convertResources(input)
+
+		// Handle all status updates
+		c.QueueStatusUpdates(input)
+
 		c.stateMu.Lock()
 		defer c.stateMu.Unlock()
-		// make sure we clear out the state, to handle the last gateway-api resource being removed
-		c.state = IstioResources{}
-		return
-	}
+		c.state = output
 
-	nsl := c.namespaces.List("", klabels.Everything())
-	namespaces := make(map[string]*corev1.Namespace, len(nsl))
-	for _, ns := range nsl {
-		namespaces[ns.Name] = ns
-	}
-	input.Namespaces = namespaces
-
-	if c.credentialsController != nil {
-		credentials, err := c.credentialsController.ForCluster(c.cluster)
-		if err != nil {
-			log.Warnf("failed to get credentials: %v", err)
-		} else {
-			input.Credentials = credentials
-		}
-	}
-
-	output := convertResources(input)
-
-	// Handle all status updates
-	c.QueueStatusUpdates(input)
-
-	c.stateMu.Lock()
-	defer c.stateMu.Unlock()
-	c.state = output
+	*/
 }
 
 func (c *Controller) QueueStatusUpdates(r GatewayResources) {
@@ -309,7 +572,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 }
 
 func (c *Controller) HasSynced() bool {
-	return c.cache.HasSynced() && c.namespaces.HasSynced() && c.tagWatcher.HasSynced()
+	return true // TODO
+	//return c.cache.HasSynced() && c.namespaces.HasSynced() && c.tagWatcher.HasSynced()
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
