@@ -55,7 +55,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -81,15 +80,18 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// TODO: is this sufficient to check?
 	var wls []model.WorkloadInfo
 	var wps *waypointServices
+	var forwarder *listener.Listener
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
 		wps = findNetworkGatewayResources(lb.node, lb.push)
+		forwarder = buildWaypointForwardInnerConnectListener(lb.push, lb.node)
 	} else {
 		wls, wps = findWaypointResources(lb.node, lb.push)
+		forwarder = buildWaypointConnectOriginateListener(lb.push, lb.node)
 	}
 	listeners = append(listeners,
 		lb.buildWaypointInboundConnectTerminate(),
 		lb.buildWaypointInternal(wls, wps.orderedServices),
-		buildWaypointConnectOriginateListener(lb.push, lb.node))
+		forwarder)
 
 	return listeners
 }
@@ -320,8 +322,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				Filters: append(slices.Clone(filters), lb.buildWaypointInboundHTTPFilters(svc, cc)...),
 				Name:    cc.clusterName,
 			}
-			if terminate {
-				log.Infof("Adding termination for %s:%d", svc.Hostname, port.Port)
+			if terminate && features.EnableAmbientMultiNetwork {
+				// First we need to check if this service has a waypoint
+				// If it does, we need to send to the waypoint, not the service
+
 				// We want to send to all ports regardless of protocol, but we want the filter chains to tcp proxy no matter what
 				// (since we're expecting double-hbone). There's no point in sniffing, so we just send to the TCP chain.
 				chains = append(chains, tcpChain)
@@ -387,6 +391,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		}
 	}
 
+	// TODO: is this correct?
 	if !terminate {
 		// Direct pod access chain.
 		cc := inboundChainConfig{
@@ -541,10 +546,18 @@ func buildWaypointConnectOriginateListener(push *model.PushContext, proxy *model
 	return buildConnectOriginateListener(push, proxy, istionetworking.ListenerClassSidecarInbound)
 }
 
-func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) *listener.Listener {
+func buildWaypointForwardInnerConnectListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	return buildForwardInnerConnectListener(push, proxy, istionetworking.ListenerClassSidecarInbound)
+}
+
+func buildForwardInnerConnectListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) *listener.Listener {
+	return buildConnectForwarder(push, proxy, class, ForwardInnerConnect)
+}
+
+func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass, clusterName string) *listener.Listener {
 	tcpProxy := &tcp.TcpProxy{
-		StatPrefix:       ConnectOriginate,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: ConnectOriginate},
+		StatPrefix:       clusterName,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
 			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
 		},
@@ -552,7 +565,7 @@ func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, 
 	// Set access logs. These are filtered down to only connection establishment errors, to avoid double logs in most cases.
 	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, class)
 	l := &listener.Listener{
-		Name:              ConnectOriginate,
+		Name:              clusterName,
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
@@ -569,6 +582,10 @@ func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, 
 	}
 	accessLogBuilder.setListenerAccessLog(push, proxy, l, class)
 	return l
+}
+
+func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) *listener.Listener {
+	return buildConnectForwarder(push, proxy, class, ConnectOriginate)
 }
 
 // buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.
@@ -1000,6 +1017,10 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 		// Ensure TLS 1.3 is used everywhere
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+	}
+	if isEastWestGateway(proxy) {
+		// The gateway should accept TLS 1.2 for compatibility with older clients.
+		ctx.TlsParams.TlsMinimumProtocolVersion = tls.TlsParameters_TLSv1_2
 	}
 	// Compliance for Envoy tunnel TLS contexts.
 	security.EnforceCompliance(ctx)

@@ -32,6 +32,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	sec_model "istio.io/istio/pilot/pkg/security/model"
@@ -73,8 +74,12 @@ var (
 		return buildInternalUpstreamCluster(MainInternalName, MainInternalName)
 	}
 
-	GetEncapCluster = func() *cluster.Cluster {
-		return buildInternalUpstreamCluster(EncapClusterName, ConnectOriginate)
+	GetEncapCluster = func(p *model.Proxy) *cluster.Cluster {
+		name := ConnectOriginate
+		if isEastWestGateway(p) {
+			name = ForwardInnerConnect
+		}
+		return buildInternalUpstreamCluster(EncapClusterName, name)
 	}
 )
 
@@ -91,11 +96,16 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	clusters := make([]*cluster.Cluster, 0)
 	// Creates "main_internal" cluster to route to the main internal listener.
 	// Creates "encap" cluster to route to the encap listener.
-	clusters = append(clusters, GetMainInternalCluster(), GetEncapCluster())
+	clusters = append(clusters, GetMainInternalCluster(), GetEncapCluster(proxy))
 	// Creates per-VIP load balancing upstreams.
 	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
+
 	// Upstream of the "encap" listener.
-	clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
+	if features.EnableAmbientMultiNetwork && isEastWestGateway(proxy) {
+		clusters = append(clusters, cb.buildWaypointForwardInnerConnect())
+	} else {
+		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
+	}
 
 	for _, c := range clusters {
 		if c.TransportSocket != nil && c.TransportSocketMatches != nil {
@@ -171,7 +181,9 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 			localCluster.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 		}
 		maybeApplyEdsConfig(localCluster.cluster)
-		// No transport socket necessary for double HBONE
+		// Set a transport socket since we're going to an internal listener
+		transportSocket := util.RawBufferTransport()
+		localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
 		return localCluster.build()
 	}
 
@@ -266,10 +278,15 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 			if port.Protocol == protocol.UDP {
 				continue
 			}
+			if isEastWestGateway(proxy) {
+				// East-west gateways don't respect DestinationRule, so don't read it here
+				// TODO: Confirm this decision
+				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
+				continue
+			}
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
 			dr := CastDestinationRule(cfg)
 			policy, _ := util.GetPortLevelTrafficPolicy(dr.GetTrafficPolicy(), port)
-			// TODO: figure out if we need to filter out non-tcp subsets for double hbone
 			if port.Protocol.IsUnsupported() || port.Protocol.IsTCP() {
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, policy, cfg))
 			}
@@ -297,6 +314,43 @@ func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push
 		Prefix: spiffe.URIPrefix + push.Mesh.GetTrustDomain() + "/ns/" + proxy.Metadata.Namespace + "/sa/",
 	}
 	return cb.buildConnectOriginate(proxy, push, m)
+}
+
+func (cb *ClusterBuilder) buildWaypointForwardInnerConnect() *cluster.Cluster {
+	return cb.buildForwardInnerConnect()
+}
+
+// Create a cluster to replace connect_originate when we're forwarding a double-hbone request.
+func (cb *ClusterBuilder) buildForwardInnerConnect() *cluster.Cluster {
+	c := &cluster.Cluster{
+		Name:                          ForwardInnerConnect,
+		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
+		CleanupInterval:               durationpb.New(60 * time.Second),
+		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
+		TypedExtensionProtocolOptions: h2connectUpgrade(),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UpstreamPortOverride: &wrappers.UInt32Value{
+					Value: model.HBoneInboundListenPort, // Should be fine whether we're sending to destination or waypoint
+				},
+				// Used to override destination pods with waypoints.
+				MetadataKey: &metadata.MetadataKey{
+					Key: util.OriginalDstMetadataKey,
+					Path: []*metadata.MetadataKey_PathSegment{{
+						Segment: &metadata.MetadataKey_PathSegment_Key{
+							Key: "waypoint",
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	c.AltStatName = util.DelimitedStatsPrefix(ForwardInnerConnect)
+
+	return c
 }
 
 func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.PushContext, uriSanMatchers ...*matcher.StringMatcher) *cluster.Cluster {
