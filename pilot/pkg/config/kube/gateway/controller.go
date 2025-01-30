@@ -134,7 +134,7 @@ type ReferencePair struct {
 
 type ReferenceGrants struct {
 	collection krt.Collection[ReferenceGrant]
-	index krt.Index[ReferencePair, ReferenceGrant]
+	index      krt.Index[ReferencePair, ReferenceGrant]
 }
 
 func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, resourceName string, namespace string) bool {
@@ -155,12 +155,29 @@ func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, resourceName s
 	return false
 }
 
+func (refs ReferenceGrants) BackendAllowed(ctx krt.HandlerContext,
+k config.GroupVersionKind,
+	backendName gateway.ObjectName,
+	backendNamespace gateway.Namespace,
+	routeNamespace string,
+) bool {
+	from := Reference{Kind: k, Namespace: gateway.Namespace(routeNamespace)}
+	to := Reference{Kind: gvk.Service, Namespace: backendNamespace}
+	pair := ReferencePair{From: from, To: to}
+	grants := krt.Fetch(ctx, refs.collection, krt.FilterIndex(refs.index, pair))
+	for _, g := range grants {
+		if g.AllowAll || g.AllowedName == string(backendName) {
+			return true
+		}
+	}
+	return false
+}
 
 type ReferenceGrant struct {
-	Source types.NamespacedName
-	From Reference
-	To   Reference
-	AllowAll     bool
+	Source      types.NamespacedName
+	From        Reference
+	To          Reference
+	AllowAll    bool
 	AllowedName string
 }
 
@@ -168,11 +185,18 @@ func (g ReferenceGrant) ResourceName() string {
 	return g.Source.String() + "/" + g.From.String() + "/" + g.To.String()
 }
 
+type RouteContext struct {
+	Krt krt.HandlerContext
+	Grants ReferenceGrants
+	Parents Parents
+	Domain string
+}
+
 func ReferenceGrantsCollection(
 	ReferenceGrants krt.Collection[*gateway.ReferenceGrant]) krt.Collection[ReferenceGrant] {
 	return krt.NewManyCollection(ReferenceGrants, func(ctx krt.HandlerContext, obj *gateway.ReferenceGrant) []ReferenceGrant {
 		rp := obj.Spec
-		results := make([]ReferenceGrant, 0, len(rp.From) * len(rp.To))
+		results := make([]ReferenceGrant, 0, len(rp.From)*len(rp.To))
 		for _, from := range rp.From {
 			fromKey := Reference{
 				Namespace: from.Namespace,
@@ -213,7 +237,7 @@ func ReferenceGrantsCollection(
 				} else {
 					rg.AllowAll = true
 				}
-					results = append(results, rg)
+				results = append(results, rg)
 			}
 		}
 		return results
@@ -223,10 +247,10 @@ func ReferenceGrantsCollection(
 func GatewayCollection(
 	Gateways krt.Collection[*gateway.Gateway],
 	GatewayClasses krt.Collection[GatewayClass],
-Namespaces krt.Collection[*corev1.Namespace],
+	Namespaces krt.Collection[*corev1.Namespace],
 	grants ReferenceGrants,
 	DomainSuffix string,
-	) krt.Collection[config.Config] {
+) krt.Collection[config.Config] {
 
 	return krt.NewManyCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) []config.Config {
 		result := []config.Config{}
@@ -302,9 +326,129 @@ Namespaces krt.Collection[*corev1.Namespace],
 			}
 		}
 
-
 		//reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
 		return result
+	})
+}
+
+type Parents struct {
+}
+
+func (P Parents) Fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo {
+	return nil
+}
+
+func TCPRouteCollection(
+	Gateways krt.Collection[*gateway.Gateway],
+	GatewayClasses krt.Collection[GatewayClass],
+	TCPRoutes krt.Collection[*gatewayalpha.TCPRoute],
+	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
+	Parents Parents,
+	Namespaces krt.Collection[*corev1.Namespace],
+	grants ReferenceGrants,
+	DomainSuffix string,
+) krt.Collection[config.Config] {
+	return krt.NewManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []config.Config {
+		ctx := RouteContext{
+			Krt:     krtctx,
+			Grants:  grants,
+			Parents: Parents,
+			Domain:  DomainSuffix,
+		}
+		route := obj.Spec
+		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
+
+		//reportStatus := func(results []RouteParentResult) {
+		//	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
+		//		rs := s.(*gatewayalpha.TCPRouteStatus)
+		//		rs.Parents = createRouteStatus(results, obj, rs.Parents)
+		//		return rs
+		//	})
+		//}
+		type conversionResult struct {
+			error  *ConfigError
+			routes []*istio.TCPRoute
+		}
+		convertRules := func(mesh bool) conversionResult {
+			res := conversionResult{}
+			for _, r := range route.Rules {
+				vs, err := convertTCPRoute(ctx, r, obj, !mesh)
+				// This was a hard error
+				if vs == nil {
+					res.error = err
+					return conversionResult{error: err}
+				}
+				// Got an error but also routes
+				if err != nil {
+					res.error = err
+				}
+				res.routes = append(res.routes, vs)
+			}
+			return res
+		}
+		meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
+		//reportStatus(slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
+		//	res := RouteParentResult{
+		//		OriginalReference: r.OriginalReference,
+		//		DeniedReason:      r.DeniedReason,
+		//		RouteError:        gwResult.error,
+		//	}
+		//	if r.IsMesh() {
+		//		res.RouteError = meshResult.error
+		//	}
+		//	return res
+		//}))
+
+		vs := []config.Config{}
+		for _, parent := range filteredReferences(parentRefs) {
+			routes := gwResult.routes
+			vsHosts := []string{"*"}
+			if parent.IsMesh() {
+				routes = meshResult.routes
+				if parent.OriginalReference.Port != nil {
+					routes = augmentTCPPortMatch(routes, *parent.OriginalReference.Port)
+				}
+				ref := types.NamespacedName{
+					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))),
+					Name:      string(parent.OriginalReference.Name),
+				}
+				if parent.InternalKind == gvk.ServiceEntry {
+					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ServiceEntries, krt.FilterKey(ref.String())))
+					if ses != nil {
+						vsHosts = ses.Spec.Hosts
+					} else {
+						// TODO: report an error
+						vsHosts = []string{}
+					}
+				} else {
+					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, DomainSuffix)}
+				}
+			}
+			for i, host := range vsHosts {
+				name := fmt.Sprintf("%s-tcp-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
+				// Create one VS per hostname with a single hostname.
+				// This ensures we can treat each hostname independently, as the spec requires
+				vs = append(vs, config.Config{
+					Meta: config.Meta{
+						CreationTimestamp: obj.CreationTimestamp.Time,
+						GroupVersionKind:  gvk.VirtualService,
+						Name:              name,
+						Annotations:       routeMeta2(obj),
+						Namespace:         obj.Namespace,
+						Domain:            DomainSuffix,
+					},
+					Spec: &istio.VirtualService{
+						// We can use wildcard here since each listener can have at most one route bound to it, so we have
+						// a single VS per Gateway.
+						Hosts:    []string{host},
+						Gateways: []string{parent.InternalName},
+						Tcp:      routes,
+					},
+				})
+			}
+		}
+		return vs
+
 	})
 }
 

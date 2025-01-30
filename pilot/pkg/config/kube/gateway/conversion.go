@@ -804,6 +804,12 @@ func routeMeta(obj config.Config) map[string]string {
 	return m
 }
 
+func routeMeta2(obj controllers.Object) map[string]string {
+	m := parentMeta2(obj, nil)
+	m[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
+	return m
+}
+
 // sortHTTPRoutes sorts generated vs routes to meet gateway-api requirements
 // see https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1alpha2.HTTPRouteRule
 func sortHTTPRoutes(routes []*istio.HTTPRoute) {
@@ -1078,93 +1084,70 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 	return parentRefs
 }
 
+func extractParentReferenceInfo2(ctx krt.HandlerContext, parents Parents, routeRefs []k8s.ParentReference,
+	hostnames []k8s.Hostname, kind config.GroupVersionKind, localNamespace string,
+) []routeParentReference {
+	parentRefs := []routeParentReference{}
+	for _, ref := range routeRefs {
+		ir, err := toInternalParentReference(ref, localNamespace)
+		if err != nil {
+			// Cannot handle the reference. Maybe it is for another controller, so we just ignore it
+			continue
+		}
+		pk := parentReference{
+			parentKey:   ir,
+			SectionName: ptr.OrEmpty(ref.SectionName),
+			Port:        ptr.OrEmpty(ref.Port),
+		}
+		gk := ir
+		if ir.Kind == gvk.Service || ir.Kind == gvk.ServiceEntry {
+			gk = meshParentKey
+		}
+		currentParents := parents.Fetch(ctx, gk)
+		appendParent := func(pr *parentInfo, pk parentReference) {
+			bannedHostnames := sets.New[string]()
+			for _, gw := range currentParents {
+				if gw == pr {
+					continue // do not ban ourself
+				}
+				if gw.Port != pr.Port {
+					// We only care about listeners on the same port
+					continue
+				}
+				if gw.Protocol != pr.Protocol {
+					// We only care about listeners on the same protocol
+					continue
+				}
+				bannedHostnames.Insert(gw.OriginalHostname)
+			}
+			rpi := routeParentReference{
+				InternalName:      pr.InternalName,
+				InternalKind:      ir.Kind,
+				Hostname:          pr.OriginalHostname,
+				DeniedReason:      referenceAllowed(pr, kind, pk, hostnames, localNamespace),
+				OriginalReference: ref,
+				BannedHostnames:   bannedHostnames.Copy().Delete(pr.OriginalHostname),
+			}
+			if rpi.DeniedReason == nil {
+				// Record that we were able to bind to the parent
+				pr.AttachedRoutes++
+			}
+			parentRefs = append(parentRefs, rpi)
+		}
+		for _, gw := range currentParents {
+			// Append all matches. Note we may be adding mismatch section or ports; this is handled later
+			appendParent(gw, pk)
+		}
+	}
+	// Ensure stable order
+	slices.SortBy(parentRefs, func(a routeParentReference) string {
+		return parentRefString(a.OriginalReference)
+	})
+	return parentRefs
+}
+
 func buildTCPVirtualService(ctx configContext, obj config.Config) []config.Config {
-	route := obj.Spec.(*k8salpha.TCPRouteSpec)
-	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
-
-	reportStatus := func(results []RouteParentResult) {
-		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-			rs := s.(*k8salpha.TCPRouteStatus)
-			rs.Parents = createRouteStatus(results, obj, rs.Parents)
-			return rs
-		})
-	}
-	type conversionResult struct {
-		error  *ConfigError
-		routes []*istio.TCPRoute
-	}
-	convertRules := func(mesh bool) conversionResult {
-		res := conversionResult{}
-		for _, r := range route.Rules {
-			vs, err := convertTCPRoute(ctx, r, obj, !mesh)
-			// This was a hard error
-			if vs == nil {
-				res.error = err
-				return conversionResult{error: err}
-			}
-			// Got an error but also routes
-			if err != nil {
-				res.error = err
-			}
-			res.routes = append(res.routes, vs)
-		}
-		return res
-	}
-	meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
-	reportStatus(slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
-		res := RouteParentResult{
-			OriginalReference: r.OriginalReference,
-			DeniedReason:      r.DeniedReason,
-			RouteError:        gwResult.error,
-		}
-		if r.IsMesh() {
-			res.RouteError = meshResult.error
-		}
-		return res
-	}))
-
-	vs := []config.Config{}
-	for _, parent := range filteredReferences(parentRefs) {
-		routes := gwResult.routes
-		vsHosts := []string{"*"}
-		if parent.IsMesh() {
-			routes = meshResult.routes
-			if parent.OriginalReference.Port != nil {
-				routes = augmentTCPPortMatch(routes, *parent.OriginalReference.Port)
-			}
-			if parent.InternalKind == gvk.ServiceEntry {
-				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
-					string(parent.OriginalReference.Name),
-					string(ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace))))
-			} else {
-				vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
-					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
-			}
-		}
-		for i, host := range vsHosts {
-			name := fmt.Sprintf("%s-tcp-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
-			// Create one VS per hostname with a single hostname.
-			// This ensures we can treat each hostname independently, as the spec requires
-			vs = append(vs, config.Config{
-				Meta: config.Meta{
-					CreationTimestamp: obj.CreationTimestamp,
-					GroupVersionKind:  gvk.VirtualService,
-					Name:              name,
-					Annotations:       routeMeta(obj),
-					Namespace:         obj.Namespace,
-					Domain:            ctx.Domain,
-				},
-				Spec: &istio.VirtualService{
-					// We can use wildcard here since each listener can have at most one route bound to it, so we have
-					// a single VS per Gateway.
-					Hosts:    []string{host},
-					Gateways: []string{parent.InternalName},
-					Tcp:      routes,
-				},
-			})
-		}
-	}
-	return vs
+	return nil
 }
 
 func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Config {
@@ -1258,7 +1241,7 @@ func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Confi
 	return vs
 }
 
-func convertTCPRoute(ctx configContext, r k8salpha.TCPRouteRule, obj config.Config, enforceRefGrant bool) (*istio.TCPRoute, *ConfigError) {
+func convertTCPRoute(ctx RouteContext, r k8salpha.TCPRouteRule, obj *k8salpha.TCPRoute, enforceRefGrant bool) (*istio.TCPRoute, *ConfigError) {
 	if tcpWeightSum(r.BackendRefs) == 0 {
 		// The spec requires us to reject connections when there are no >0 weight backends
 		// We don't have a great way to do it. TODO: add a fault injection API for TCP?
@@ -1273,7 +1256,7 @@ func convertTCPRoute(ctx configContext, r k8salpha.TCPRouteRule, obj config.Conf
 			}},
 		}, nil
 	}
-	dest, backendErr, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant, gvk.TCPRoute)
+	dest, backendErr, err := buildTCPDestination2(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant, gvk.TCPRoute)
 	if err != nil {
 		return nil, err
 	}
@@ -1336,6 +1319,51 @@ func buildTCPDestination(
 	res := []*istio.RouteDestination{}
 	for i, fwd := range action {
 		dst, err := buildDestination(ctx, fwd, ns, enforceRefGrant, k)
+		if err != nil {
+			if isInvalidBackend(err) {
+				invalidBackendErr = err
+				// keep going, we will gracefully drop invalid backends
+			} else {
+				return nil, nil, err
+			}
+		}
+		res = append(res, &istio.RouteDestination{
+			Destination: dst,
+			Weight:      int32(weights[i]),
+		})
+	}
+	return res, invalidBackendErr, nil
+}
+
+func buildTCPDestination2(
+	ctx RouteContext,
+	forwardTo []k8s.BackendRef,
+	ns string,
+	enforceRefGrant bool,
+	k config.GroupVersionKind,
+) ([]*istio.RouteDestination, *ConfigError, *ConfigError) {
+	if forwardTo == nil {
+		return nil, nil, nil
+	}
+
+	weights := []int{}
+	action := []k8s.BackendRef{}
+	for _, w := range forwardTo {
+		wt := int(ptr.OrDefault(w.Weight, 1))
+		if wt == 0 {
+			continue
+		}
+		action = append(action, w)
+		weights = append(weights, wt)
+	}
+	if len(weights) == 1 {
+		weights = []int{0}
+	}
+
+	var invalidBackendErr *ConfigError
+	res := []*istio.RouteDestination{}
+	for i, fwd := range action {
+		dst, err := buildDestination2(ctx, fwd, ns, enforceRefGrant, k)
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1601,6 +1629,87 @@ func buildDestination(ctx configContext, to k8s.BackendRef, ns string, enforceRe
 		if ctx.Context.GetService(hostname, namespace) == nil {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
+		return &istio.Destination{
+			Host: string(to.Name),
+			Port: &istio.PortSelector{Number: uint32(*to.Port)},
+		}, invalidBackendErr
+	}
+	return &istio.Destination{}, &ConfigError{
+		Reason:  InvalidDestinationKind,
+		Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", ptr.OrEmpty(to.Group), ptr.OrEmpty(to.Kind)),
+	}
+}
+
+func buildDestination2(ctx RouteContext, to k8s.BackendRef, ns string, enforceRefGrant bool, k config.GroupVersionKind) (*istio.Destination, *ConfigError) {
+	// check if the reference is allowed
+	if enforceRefGrant {
+		if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
+			if !ctx.Grants.BackendAllowed(ctx.Krt, k, to.Name, *toNs, ns) {
+				return &istio.Destination{}, &ConfigError{
+					Reason:  InvalidDestinationPermit,
+					Message: fmt.Sprintf("backendRef %v/%v not accessible to a %s in namespace %q (missing a ReferenceGrant?)", to.Name, *toNs, k.Kind, ns),
+				}
+			}
+		}
+	}
+
+	namespace := ptr.OrDefault((*string)(to.Namespace), ns)
+	var invalidBackendErr *ConfigError
+	if nilOrEqual((*string)(to.Group), "") && nilOrEqual((*string)(to.Kind), gvk.Service.Kind) {
+		// Service
+		if to.Port == nil {
+			// "Port is required when the referent is a Kubernetes Service."
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+		}
+		if strings.Contains(string(to.Name), ".") {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
+		}
+		hostname := fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.Domain)
+		//if ctx.Context.GetService(hostname, namespace) == nil {
+		//	invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+		//}
+		return &istio.Destination{
+			// TODO: implement ReferencePolicy for cross namespace
+			Host: hostname,
+			Port: &istio.PortSelector{Number: uint32(*to.Port)},
+		}, invalidBackendErr
+	}
+	if nilOrEqual((*string)(to.Group), features.MCSAPIGroup) && nilOrEqual((*string)(to.Kind), "ServiceImport") {
+		// Service import
+		hostname := fmt.Sprintf("%s.%s.svc.clusterset.local", to.Name, namespace)
+		if !features.EnableMCSHost {
+			// They asked for ServiceImport, but actually don't have full support enabled...
+			// No problem, we can just treat it as Service, which is already cross-cluster in this mode anyways
+			hostname = fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.Domain)
+		}
+		if to.Port == nil {
+			// We don't know where to send without port
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+		}
+		if strings.Contains(string(to.Name), ".") {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
+		}
+		//if ctx.Context.GetService(hostname, namespace) == nil {
+		//	invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+		//}
+		return &istio.Destination{
+			Host: hostname,
+			Port: &istio.PortSelector{Number: uint32(*to.Port)},
+		}, invalidBackendErr
+	}
+	if nilOrEqual((*string)(to.Group), gvk.ServiceEntry.Group) && nilOrEqual((*string)(to.Kind), "Hostname") {
+		// Hostname synthetic type
+		if to.Port == nil {
+			// We don't know where to send without port
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+		}
+		if to.Namespace != nil {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
+		}
+		//hostname := string(to.Name)
+		//if ctx.Context.GetService(hostname, namespace) == nil {
+		//	invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+		//}
 		return &istio.Destination{
 			Host: string(to.Name),
 			Port: &istio.PortSelector{Number: uint32(*to.Port)},
@@ -1911,33 +2020,6 @@ func createGRPCURIMatch(match k8s.GRPCRouteMatch) (*istio.StringMatch, *ConfigEr
 		// Should never happen, unless a new field is added
 		return nil, &ConfigError{Reason: InvalidConfiguration, Message: fmt.Sprintf("unknown type: %q is not supported Path match type", tp)}
 	}
-}
-
-// getGatewayClass finds all gateway class that are owned by Istio
-// Response is ClassName -> Controller type
-func getGatewayClasses(r GatewayResources) map[string]k8s.GatewayController {
-	res := map[string]k8s.GatewayController{}
-	// Setup builtin ones - these can be overridden possibly
-	for name, controller := range builtinClasses {
-		res[string(name)] = controller
-	}
-	for _, obj := range r.GatewayClass {
-		gwc := obj.Spec.(*k8s.GatewayClassSpec)
-		_, known := classInfos[gwc.ControllerName]
-		if !known {
-			continue
-		}
-		res[obj.Name] = gwc.ControllerName
-
-		// Set status. If we created it, it may already be there. If not, set it again
-		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-			gcs := s.(*k8s.GatewayClassStatus)
-			*gcs = GetClassStatus(gcs, obj.Generation)
-			return gcs
-		})
-	}
-
-	return res
 }
 
 // parentKey holds info about a parentRef (eg route binding to a Gateway). This is a mirror of
