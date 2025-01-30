@@ -314,8 +314,8 @@ func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetwo
 		ForwardedClientCert:        hcm.HttpConnectionManager_APPEND_FORWARD,
 		IncludeRequestAttemptCount: true,
 		SuppressDebugHeaders:       false,
-		GenerateRequestID:          nil, // Envoy default is to enable them, so set nil
-		SkipIstioMXHeaders:         false,
+		GenerateRequestID:          nil,  // Envoy default is to enable them, so set nil
+		SkipIstioMXHeaders:         true, // TODO: do not merge
 	}
 	if class == istionetworking.ListenerClassSidecarOutbound {
 		// Likely due to a mistake, outbound uses "envoy" while inbound uses "istio-envoy". Bummer.

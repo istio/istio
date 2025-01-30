@@ -731,11 +731,12 @@ type buildClusterOpts struct {
 	// Used for traffic across multiple network clusters
 	// the east-west gateway in a remote cluster will use this value to route
 	// traffic to the appropriate service
-	istioMtlsSni    string
-	clusterMode     ClusterMode
-	direction       model.TrafficDirection
-	meshExternal    bool
-	serviceMTLSMode model.MutualTLSMode
+	istioMtlsSni      string
+	clusterMode       ClusterMode
+	direction         model.TrafficDirection
+	meshExternal      bool
+	serviceMTLSMode   model.MutualTLSMode
+	allInstancesHBONE bool
 	// Indicates the service registry of the cluster being built.
 	serviceRegistry provider.ID
 	// Indicates if the destinationRule has a workloadSelector

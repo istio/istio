@@ -2421,6 +2421,30 @@ func (ps *PushContext) NetworkManager() *NetworkManager {
 	return ps.networkMgr
 }
 
+func (ps *PushContext) BestEffortInferHBONE(service *Service, port *Port) bool {
+	instances := ps.ServiceEndpointsByPort(service, port.Port, nil)
+	if len(instances) == 0 {
+		return false
+	}
+	for _, e := range instances {
+		addressSupportsTunnel := false
+		if SupportsTunnel(e.Labels, TunnelHTTP) {
+			addressSupportsTunnel = true
+		} else {
+			for _, addr := range e.Addresses {
+				if ps.SupportsTunnel(e.Network, addr) {
+					addressSupportsTunnel = true
+					break
+				}
+			}
+		}
+		if !addressSupportsTunnel {
+			return false
+		}
+	}
+	return true
+}
+
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
 // policies (both alpha and beta) in the system. The function always returns MTLSUnknown for external service.
 // The result is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
