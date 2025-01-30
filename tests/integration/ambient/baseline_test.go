@@ -1143,6 +1143,94 @@ spec:
 	})
 }
 
+func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		applyDrainingWorkaround(t)
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			if !dst.Config().HasAnyWaypointProxy() {
+				// we only care about testing waypoints
+				return
+			}
+
+			if src == dst {
+				// don't test self calls
+				return
+			}
+
+			if src.Config().IsUncaptured() {
+				// uncaptured will not honor waypoint
+				return
+			}
+
+			opt.NewConnectionPerRequest = true
+			waypointName := "none"
+			switch {
+			case dst.Config().HasServiceAddressedWaypointProxy():
+				waypointName = dst.Config().ServiceWaypointProxy
+			case dst.Config().HasWorkloadAddressedWaypointProxy():
+				waypointName = dst.Config().WorkloadWaypointProxy
+				// send traffic to the workload instead of the service so it will redirect to the WL waypoint
+				opt.Address = dst.MustWorkloads().Addresses()[0]
+				opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+			}
+			systemNamespace := i.Settings().SystemNamespace
+
+			// setup default deny for workloads
+			t.ConfigIstio().YAML(systemNamespace,
+				`apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+ name: allow-nothing
+spec:
+  {}`).ApplyOrFail(t)
+
+			t.NewSubTest("allow-nothing").Run(func(t framework.TestContext) {
+				opt := opt.DeepCopy()
+				opt.Check = CheckDeny
+				src.CallOrFail(t, opt)
+			})
+
+			t.ConfigIstio().Eval(dst.Config().NamespaceName(), map[string]string{
+				"Namespace":    apps.Namespace.Name(),
+				"WaypointName": waypointName,
+			}, `apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+ name: allow-from-waypoint
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}"]`).ApplyOrFail(t)
+
+			// These should always succeed since waypoint doesn't enforce workload-selected policy
+			t.NewSubTest("workload-allow-from-waypoint").Run(func(t framework.TestContext) {
+				opt := opt.DeepCopy()
+				opt.Check = check.OK()
+
+				src.CallOrFail(t, opt)
+			})
+
+			t.ConfigIstio().YAML(systemNamespace, `apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+ name: allow-nothing-waypoint
+spec:
+  targetRefs:
+  - group: "gateway.networking.k8s.io" 
+    kind: "GatewayClass"
+    name: "istio-waypoint"`).ApplyOrFail(t)
+
+			t.NewSubTest("allow-nothing-waypoint").Run(func(t framework.TestContext) {
+				opt := opt.DeepCopy()
+				opt.Check = CheckDeny
+				src.CallOrFail(t, opt)
+			})
+		})
+	})
+}
+
 func TestAuthorizationL7(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
