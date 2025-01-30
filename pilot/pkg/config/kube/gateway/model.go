@@ -109,3 +109,7 @@ type Reference struct {
 	Kind      config.GroupVersionKind
 	Namespace k8s.Namespace
 }
+
+func (refs Reference) String() string {
+	return refs.Kind.String() + "/" + string(refs.Namespace)
+}
