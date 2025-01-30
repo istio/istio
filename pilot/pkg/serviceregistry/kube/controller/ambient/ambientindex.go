@@ -651,12 +651,10 @@ func (a *index) ServicesForNetworkGateway(key model.WaypointKey) []model.Service
 	}
 
 	for _, addr := range key.Addresses {
-		log.Infof("looking up services for network gateway %v with address %v", key, addr)
 		for _, res := range a.services.ByOwningNetworkGatewayIP.Lookup(networkAddress{
 			network: key.Network,
 			ip:      addr,
 		}) {
-			log.Infof("found service %v for network gateway %v", res.ResourceName(), key)
 			name := res.ResourceName()
 			if _, f := out[name]; !f {
 				out[name] = res
