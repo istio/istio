@@ -156,7 +156,7 @@ func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, resourceName s
 }
 
 func (refs ReferenceGrants) BackendAllowed(ctx krt.HandlerContext,
-k config.GroupVersionKind,
+	k config.GroupVersionKind,
 	backendName gateway.ObjectName,
 	backendNamespace gateway.Namespace,
 	routeNamespace string,
@@ -186,10 +186,10 @@ func (g ReferenceGrant) ResourceName() string {
 }
 
 type RouteContext struct {
-	Krt krt.HandlerContext
-	Grants ReferenceGrants
+	Krt     krt.HandlerContext
+	Grants  ReferenceGrants
 	Parents Parents
-	Domain string
+	Domain  string
 }
 
 func ReferenceGrantsCollection(
@@ -244,16 +244,22 @@ func ReferenceGrantsCollection(
 	})
 }
 
+type Gateway struct {
+	config.Config
+	Valid      bool // DO NOT USE if not valid
+	parent     parentKey
+	parentInfo parentInfo
+}
+
 func GatewayCollection(
 	Gateways krt.Collection[*gateway.Gateway],
 	GatewayClasses krt.Collection[GatewayClass],
 	Namespaces krt.Collection[*corev1.Namespace],
 	grants ReferenceGrants,
 	DomainSuffix string,
-) krt.Collection[config.Config] {
-
-	return krt.NewManyCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) []config.Config {
-		result := []config.Config{}
+) krt.Collection[Gateway] {
+	return krt.NewManyCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) []Gateway {
+		result := []Gateway{}
 		kgw := obj.Spec
 		class := krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(kgw.GatewayClassName)))
 		if class == nil {
@@ -308,7 +314,12 @@ func GatewayCollection(
 			}
 
 			allowed, _ := generateSupportedKinds(l)
-			pri := &parentInfo{
+			ref := parentKey{
+				Kind:      gvk.KubernetesGateway,
+				Name:      obj.Name,
+				Namespace: obj.Namespace,
+			}
+			pri := parentInfo{
 				InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
 				AllowedKinds:     allowed,
 				Hostnames:        server.Hosts,
@@ -321,9 +332,13 @@ func GatewayCollection(
 				//reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)
 			}
 
-			if programmed {
-				result = append(result, gatewayConfig)
+			res := Gateway{
+				Config:     gatewayConfig,
+				Valid:      programmed,
+				parent:     ref,
+				parentInfo: pri,
 			}
+			result = append(result, res)
 		}
 
 		//reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
@@ -332,19 +347,41 @@ func GatewayCollection(
 }
 
 type Parents struct {
+	gateways     krt.Collection[Gateway]
+	gatewayIndex krt.Index[parentKey, Gateway]
 }
 
-func (P Parents) Fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo {
-	return nil
+func (p Parents) Fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo {
+	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw Gateway) *parentInfo {
+		return &gw.parentInfo
+	})
+}
+
+type ParentInfo struct {
+	Key  parentKey
+	Info parentInfo
+}
+
+func (pi ParentInfo) ResourceName() string {
+	return pi.Key.Name // TODO!!!! more infoi and section name
+}
+
+func BuildParents(
+	Gateways krt.Collection[Gateway],
+) Parents {
+	idx := krt.NewIndex(Gateways, func(o Gateway) []parentKey {
+		return []parentKey{o.parent}
+	})
+	return Parents{
+		gateways:     Gateways,
+		gatewayIndex: idx,
+	}
 }
 
 func TCPRouteCollection(
-	Gateways krt.Collection[*gateway.Gateway],
-	GatewayClasses krt.Collection[GatewayClass],
 	TCPRoutes krt.Collection[*gatewayalpha.TCPRoute],
 	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
 	Parents Parents,
-	Namespaces krt.Collection[*corev1.Namespace],
 	grants ReferenceGrants,
 	DomainSuffix string,
 ) krt.Collection[config.Config] {
