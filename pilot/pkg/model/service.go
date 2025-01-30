@@ -1506,6 +1506,27 @@ func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
 	return nil
 }
 
+// HasAddressOrAssigned returns whether the service has an IP address.
+// This includes auto-allocated IP addresses. Note that not all proxies support auto-allocated IP addresses;
+// typically GetAllAddressesForProxy should be used which automatically filters addresses to account for that.
+func (s *Service) HasAddressOrAssigned(id cluster.ID) bool {
+	if id != "" {
+		if len(s.ClusterVIPs.GetAddressesFor(id)) > 0 {
+			return true
+		}
+	}
+	if s.DefaultAddress != constants.UnspecifiedIP {
+		return true
+	}
+	if s.AutoAllocatedIPv4Address != "" {
+		return true
+	}
+	if s.AutoAllocatedIPv6Address != "" {
+		return true
+	}
+	return false
+}
+
 // GetAllAddressesForProxy returns a k8s service's all addresses to the cluster where the node resides.
 // Especially for dual stack k8s service to get other IP family addresses.
 func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {

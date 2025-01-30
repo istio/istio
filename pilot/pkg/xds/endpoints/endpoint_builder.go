@@ -840,7 +840,7 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 	if b.service.Attributes.Labels["istio.io/ingress-use-waypoint"] != "true" {
 		return nil, false
 	}
-	if b.service.GetAddressForProxy(b.proxy) == constants.UnspecifiedIP {
+	if !b.service.HasAddressOrAssigned(b.proxy.Metadata.ClusterID) {
 		// No VIP, so skip this. Currently, waypoints can only accept VIP traffic
 		return nil, false
 	}
