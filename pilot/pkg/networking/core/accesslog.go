@@ -385,4 +385,5 @@ func (b *AccessLogBuilder) reset() {
 	b.coreAccessLog.reset()
 	b.listenerAccessLog.reset()
 	b.hboneOriginationAccessLog.reset()
+	b.hboneTerminationAccessLog.reset()
 }
