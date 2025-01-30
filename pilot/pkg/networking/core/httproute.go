@@ -315,7 +315,7 @@ func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetwo
 		IncludeRequestAttemptCount: true,
 		SuppressDebugHeaders:       false,
 		GenerateRequestID:          nil,  // Envoy default is to enable them, so set nil
-		SkipIstioMXHeaders:         true, // TODO: do not merge
+		SkipIstioMXHeaders:         false,
 	}
 	if class == istionetworking.ListenerClassSidecarOutbound {
 		// Likely due to a mistake, outbound uses "envoy" while inbound uses "istio-envoy". Bummer.

@@ -273,8 +273,14 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	cb.applyMetadataExchange(opts.mutable.cluster)
 
 	if service.MeshExternal || opts.allInstancesHBONE {
+		// Conditionally skips based on config
+		key := "external"
+		if opts.allInstancesHBONE {
+			// Unconditionally skips
+			key = "disable_mx"
+		}
 		im := getOrCreateIstioMetadata(mc.cluster)
-		im.Fields["external"] = &structpb.Value{
+		im.Fields[key] = &structpb.Value{
 			Kind: &structpb.Value_BoolValue{
 				BoolValue: true,
 			},
