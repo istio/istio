@@ -97,16 +97,7 @@ type Controller struct {
 	tagWatcher revisions.TagWatcher
 
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
-
-	Namespaces      krt.Collection[*corev1.Namespace]
-	GatewayClasses  krt.Collection[*gateway.GatewayClass]
-	Gateways        krt.Collection[*gateway.Gateway]
-	HTTPRoutes      krt.Collection[*gateway.HTTPRoute]
-	GRPCRoutes      krt.Collection[*gatewayv1.GRPCRoute]
-	TCPRoutes       krt.Collection[*gatewayalpha.TCPRoute]
-	TLSRoutes       krt.Collection[*gatewayalpha.TLSRoute]
-	ReferenceGrants krt.Collection[*gateway.ReferenceGrant]
-	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
+	outputs    Outputs
 }
 
 type GatewayClass struct {
@@ -135,6 +126,19 @@ type ReferencePair struct {
 type ReferenceGrants struct {
 	collection krt.Collection[ReferenceGrant]
 	index      krt.Index[ReferencePair, ReferenceGrant]
+}
+
+func BuildReferenceGrants(collection krt.Collection[ReferenceGrant]) ReferenceGrants {
+	idx := krt.NewIndex(collection, func(o ReferenceGrant) []ReferencePair {
+		return []ReferencePair{{
+			To:   o.To,
+			From: o.From,
+		}}
+	})
+	return ReferenceGrants{
+		collection: collection,
+		index:      idx,
+	}
 }
 
 func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, resourceName string, namespace string) bool {
@@ -249,6 +253,10 @@ type Gateway struct {
 	Valid      bool // DO NOT USE if not valid
 	parent     parentKey
 	parentInfo parentInfo
+}
+
+func (g Gateway) ResourceName() string {
+	return config.NamespacedName(g.Config).Name
 }
 
 func GatewayCollection(
@@ -490,7 +498,7 @@ func TCPRouteCollection(
 }
 
 type Outputs struct {
-	Gateways        krt.Collection[config.Config]
+	Gateways        krt.Collection[Gateway]
 	VirtualServices krt.Collection[config.Config]
 }
 
@@ -519,17 +527,7 @@ func NewController(
 	var ctl *status.Controller
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, krt.GlobalDebugHandler)
-	Namespaces := krt.NewInformer[*corev1.Namespace](kc, opts.WithName("Namespaces")...)
 
-	GatewayClasses := buildClient[*gateway.GatewayClass](kc, opts, "GatewayClasses")
-	Gateways := buildClient[*gateway.Gateway](kc, opts, "Gateways")
-	HTTPRoutes := buildClient[*gateway.HTTPRoute](kc, opts, "Gateways")
-	GRPCRoutes := buildClient[*gatewayv1.GRPCRoute](kc, opts, "Gateways")
-	// TODO: conditional
-	TCPRoutes := buildClient[*gatewayalpha.TCPRoute](kc, opts, "Gateways")
-	TLSRoutes := buildClient[*gatewayalpha.TLSRoute](kc, opts, "Gateways")
-	ReferenceGrants := buildClient[*gateway.ReferenceGrant](kc, opts, "Gateways")
-	ServiceEntries := buildClient[*networkingclient.ServiceEntry](kc, opts, "Gateways")
 	gatewayController := &Controller{
 		client:                kc,
 		credentialsController: credsController,
@@ -538,17 +536,43 @@ func NewController(
 		statusController:      atomic.NewPointer(ctl),
 		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision),
 		waitForCRD:            waitForCRD,
-
-		Namespaces:      Namespaces,
-		GatewayClasses:  GatewayClasses,
-		Gateways:        Gateways,
-		HTTPRoutes:      HTTPRoutes,
-		GRPCRoutes:      GRPCRoutes,
-		TCPRoutes:       TCPRoutes,
-		TLSRoutes:       TLSRoutes,
-		ReferenceGrants: ReferenceGrants,
-		ServiceEntries:  ServiceEntries,
 	}
+
+	inputs := Inputs{
+		Namespaces:      krt.NewInformer[*corev1.Namespace](kc, opts.WithName("Namespaces")...),
+		GatewayClasses:  buildClient[*gateway.GatewayClass](kc, gvr.GatewayClass, opts, "GatewayClasses"),
+		Gateways:        buildClient[*gateway.Gateway](kc, gvr.KubernetesGateway, opts, "Gateways"),
+		HTTPRoutes:      buildClient[*gateway.HTTPRoute](kc, gvr.HTTPRoute, opts, "Gateways"),
+		GRPCRoutes:      buildClient[*gatewayv1.GRPCRoute](kc, gvr.GRPCRoute, opts, "Gateways"),
+		TCPRoutes:       buildClient[*gatewayalpha.TCPRoute](kc, gvr.TCPRoute, opts, "Gateways"),
+		TLSRoutes:       buildClient[*gatewayalpha.TLSRoute](kc, gvr.TLSRoute, opts, "Gateways"),
+		ReferenceGrants: buildClient[*gateway.ReferenceGrant](kc, gvr.ReferenceGrant, opts, "Gateways"),
+		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](kc, gvr.ServiceEntry, opts, "Gateways"),
+	}
+
+	GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses)
+	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants))
+	Gateways := GatewayCollection(
+		inputs.Gateways,
+		GatewayClasses,
+		inputs.Namespaces,
+		ReferenceGrants,
+		options.DomainSuffix,
+	)
+
+	Parents := BuildParents(Gateways)
+	TCPRoutes := TCPRouteCollection(
+		inputs.TCPRoutes,
+		inputs.ServiceEntries,
+		Parents,
+		ReferenceGrants,
+		options.DomainSuffix,
+	)
+	outputs := Outputs{
+		Gateways:        Gateways,
+		VirtualServices: TCPRoutes,
+	}
+	gatewayController.outputs = outputs
 
 	//namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
 	//	UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
@@ -565,11 +589,11 @@ func NewController(
 	return gatewayController
 }
 
-func buildClient[I controllers.ComparableObject](kc kube.Client, opts krt.OptionsBuilder, name string) krt.Collection[I] {
+func buildClient[I controllers.ComparableObject](kc kube.Client, gvr schema.GroupVersionResource, opts krt.OptionsBuilder, name string) krt.Collection[I] {
 	filter := kclient.Filter{
 		ObjectFilter: kc.ObjectFilter(),
 	}
-	cc := kclient.NewDelayedInformer[I](kc, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
+	cc := kclient.NewDelayedInformer[I](kc, gvr, kubetypes.StandardInformer, filter)
 	return krt.WrapClient[I](cc, opts.WithName(name)...)
 }
 
@@ -593,9 +617,14 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 	defer c.stateMu.RUnlock()
 	switch typ {
 	case gvk.Gateway:
-		return filterNamespace(c.state.Gateway, namespace)
+		return slices.MapFilter(c.outputs.Gateways.List(), func(g Gateway) *config.Config {
+			if g.Valid {
+				return &g.Config
+			}
+			return nil
+		})
 	case gvk.VirtualService:
-		return filterNamespace(c.state.VirtualService, namespace)
+		return c.outputs.VirtualServices.List()
 	default:
 		return nil
 	}
