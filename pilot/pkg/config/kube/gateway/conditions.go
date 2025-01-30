@@ -20,10 +20,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
+	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/kstatus"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
@@ -43,7 +43,7 @@ type RouteParentResult struct {
 	WaypointError *WaypointError
 }
 
-func createRouteStatus(parentResults []RouteParentResult, obj config.Config, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
+func createRouteStatus(parentResults []RouteParentResult, generation int64, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
 	parents := make([]k8s.RouteParentStatus, 0, len(parentResults))
 	// Fill in all the gateways that are already present but not owned by us. This is non-trivial as there may be multiple
 	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
@@ -182,7 +182,7 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 		parents = append(parents, k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
 			ControllerName: k8s.GatewayController(features.ManagedGatewayController),
-			Conditions:     setConditions(obj.Generation, currentConditions, conds),
+			Conditions:     setConditions(generation, currentConditions, conds),
 		})
 	}
 	// Ensure output is deterministic.
@@ -320,22 +320,10 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	return existingConditions
 }
 
-func reportListenerAttachedRoutes(index int, obj config.Config, i int32) {
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		gs := s.(*k8s.GatewayStatus)
-		for index >= len(gs.Listeners) {
-			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
-		}
-		status := gs.Listeners[index]
-		status.AttachedRoutes = i
-		gs.Listeners[index] = status
-		return gs
-	})
-}
-
-func reportListenerCondition(index int, l k8s.Listener, obj config.Config, conditions map[string]*condition) {
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		gs := s.(*k8s.GatewayStatus)
+func reportListenerCondition(index int, l k8s.Listener, obj *k8sbeta.Gateway,
+	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus], conditions map[string]*condition,
+) {
+	status.MutateInPlace(func(gs *k8sbeta.GatewayStatus) {
 		for index >= len(gs.Listeners) {
 			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
 		}
@@ -354,7 +342,6 @@ func reportListenerCondition(index int, l k8s.Listener, obj config.Config, condi
 			SupportedKinds: supported,
 			Conditions:     setConditions(obj.Generation, cond, conditions),
 		}
-		return gs
 	})
 }
 

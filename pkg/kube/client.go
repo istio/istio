@@ -243,7 +243,12 @@ func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object)
 	tracker := fc.Tracker()
 	// We got a set of objects... but which client do they apply to? Filter based on the group
 	filterGroup := func(object runtime.Object) bool {
-		g := object.GetObjectKind().GroupVersionKind().Group
+		gk := object.GetObjectKind().GroupVersionKind()
+		g := gk.Group
+		if gk.Kind == "" {
+			gvks, _, _ := IstioScheme.ObjectKinds(object)
+			g = config.FromKubernetesGVK(gvks[0]).Group
+		}
 		if strings.Contains(g, "istio.io") {
 			return group == "istio"
 		}

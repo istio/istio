@@ -160,8 +160,8 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)
 		}
-		gwc := gateway.NewController(s.kubeClient, configController, s.kubeClient.CrdWatcher().WaitForCRD,
-			s.environment.CredentialsController, args.RegistryOptions.KubeOptions)
+		args.RegistryOptions.KubeOptions.KrtDebugger = args.KrtDebugger
+		gwc := gateway.NewController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions, s.XDSServer)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 		s.addTerminatingStartFunc("gateway status", func(stop <-chan struct{}) error {

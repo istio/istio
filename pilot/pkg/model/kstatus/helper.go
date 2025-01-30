@@ -42,9 +42,11 @@ func InvertStatus(status metav1.ConditionStatus) metav1.ConditionStatus {
 // changes have been made. This allows users to declarative write status, without worrying about
 // tracking changes. When read to commit (typically to Kubernetes), any messages with Dirty=false can
 // be discarded.
-type WrappedStatus struct {
+type WrappedStatus = WrappedStatusTyped[config.Status]
+
+type WrappedStatusTyped[T comparable] struct {
 	// Status is the object that is wrapped.
-	config.Status
+	Status T
 	// Dirty indicates if this object has been modified at all.
 	// Note: only changes wrapped in Mutate are tracked.
 	Dirty bool
@@ -54,20 +56,36 @@ func Wrap(s config.Status) *WrappedStatus {
 	return &WrappedStatus{config.DeepCopy(s), false}
 }
 
-func (w *WrappedStatus) Mutate(f func(s config.Status) config.Status) {
-	if w.Status == nil {
+func WrapT[T comparable](s T) *WrappedStatusTyped[T] {
+	return &WrappedStatusTyped[T]{config.DeepCopy(s).(T), false}
+}
+
+func isNil[O comparable](o O) bool {
+	var t O
+	return o == t
+}
+
+func (w *WrappedStatusTyped[T]) Mutate(f func(s T) T) {
+	if isNil(w.Status) {
 		return
 	}
 	old := config.DeepCopy(w.Status)
 	w.Status = f(w.Status)
-	// TODO: change this to be more efficient. Likely we allow modifications via WrappedStatus that
+	// TODO: change this to be more efficient. Likely we allow modifications via WrappedStatusTyped that
 	// modify specific things (ie conditions).
 	if !reflect.DeepEqual(old, w.Status) {
 		w.Dirty = true
 	}
 }
 
-func (w *WrappedStatus) Unwrap() config.Status {
+func (w *WrappedStatusTyped[T]) MutateInPlace(f func(s T)) {
+	w.Mutate(func(s T) T {
+		f(s)
+		return s
+	})
+}
+
+func (w *WrappedStatusTyped[T]) Unwrap() T {
 	return w.Status
 }
 

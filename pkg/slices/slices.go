@@ -146,6 +146,12 @@ func MinFunc[S ~[]E, E any](x S, cmp func(a, b E) int) E {
 	return slices.MinFunc(x, cmp)
 }
 
+// Index returns the index of the first occurrence of v in s,
+// or -1 if not present.
+func Index[S ~[]E, E comparable](s S, v E) int {
+	return slices.Index(s, v)
+}
+
 // FindFunc finds the first element matching the function, or nil if none do
 func FindFunc[E any](s []E, f func(E) bool) *E {
 	idx := slices.IndexFunc(s, f)
