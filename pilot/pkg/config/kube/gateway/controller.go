@@ -391,6 +391,118 @@ func BuildParents(
 	}
 }
 
+func TLSRouteCollection(
+	TLSRoutes krt.Collection[*gatewayalpha.TLSRoute],
+	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
+	Parents Parents,
+	grants ReferenceGrants,
+	DomainSuffix string,
+	statusWriter StatusWriter,
+) krt.Collection[config.Config] {
+	return krt.NewManyCollection(TLSRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) []config.Config {
+		ctx := RouteContext{
+			Krt:     krtctx,
+			Grants:  grants,
+			Parents: Parents,
+			Domain:  DomainSuffix,
+		}
+		route := obj.Spec
+		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
+
+		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
+		status := kstatus.WrapT(&obj.Status)
+		reportStatus := func(results []RouteParentResult) {
+			status.MutateInPlace(func(s *gatewayalpha.TLSRouteStatus) {
+				s.Parents = createRouteStatus(results, obj.Generation, s.Parents)
+			})
+			EnqueueStatus(statusWriter, obj, status)
+		}
+		type conversionResult struct {
+			error  *ConfigError
+			routes []*istio.TLSRoute
+		}
+		convertRules := func(mesh bool) conversionResult {
+			res := conversionResult{}
+			for _, r := range route.Rules {
+				vs, err := convertTLSRoute(ctx, r, obj, !mesh)
+				// This was a hard error
+				if vs == nil {
+					res.error = err
+					return conversionResult{error: err}
+				}
+				// Got an error but also routes
+				if err != nil {
+					res.error = err
+				}
+				res.routes = append(res.routes, vs)
+			}
+			return res
+		}
+		meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
+		reportStatus(slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
+			res := RouteParentResult{
+				OriginalReference: r.OriginalReference,
+				DeniedReason:      r.DeniedReason,
+				RouteError:        gwResult.error,
+			}
+			if r.IsMesh() {
+				res.RouteError = meshResult.error
+			}
+			return res
+		}))
+
+		vs := []config.Config{}
+		for _, parent := range filteredReferences(parentRefs) {
+			routes := gwResult.routes
+			vsHosts := []string{"*"}
+			if parent.IsMesh() {
+				routes = meshResult.routes
+				ref := types.NamespacedName{
+					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))),
+					Name:      string(parent.OriginalReference.Name),
+				}
+				if parent.InternalKind == gvk.ServiceEntry {
+					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ServiceEntries, krt.FilterKey(ref.String())))
+					if ses != nil {
+						vsHosts = ses.Spec.Hosts
+					} else {
+						// TODO: report an error
+						vsHosts = []string{}
+					}
+				} else {
+					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, DomainSuffix)}
+				}
+				routes = augmentTLSPortMatch(routes, parent.OriginalReference.Port, vsHosts)
+			}
+			for i, host := range vsHosts {
+				name := fmt.Sprintf("%s-tls-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
+				filteredRoutes := routes
+				if parent.IsMesh() {
+					filteredRoutes = compatibleRoutesForHost(routes, host)
+				}
+				// Create one VS per hostname with a single hostname.
+				// This ensures we can treat each hostname independently, as the spec requires
+				vs = append(vs, config.Config{
+					Meta: config.Meta{
+						CreationTimestamp: obj.CreationTimestamp.Time,
+						GroupVersionKind:  gvk.VirtualService,
+						Name:              name,
+						Annotations:       routeMeta2(obj),
+						Namespace:         obj.Namespace,
+						Domain:            ctx.Domain,
+					},
+					Spec: &istio.VirtualService{
+						Hosts:    []string{host},
+						Gateways: []string{parent.InternalName},
+						Tls:      filteredRoutes,
+					},
+				})
+			}
+		}
+		return vs
+	})
+}
+
 func TCPRouteCollection(
 	TCPRoutes krt.Collection[*gatewayalpha.TCPRoute],
 	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
@@ -410,15 +522,12 @@ func TCPRouteCollection(
 		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
 
 		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
-		status := kstatus.Wrap(obj.Status.DeepCopy())
+		status := kstatus.WrapT(&obj.Status)
 		reportStatus := func(results []RouteParentResult) {
-			status.Mutate(func(s config.Status) config.Status {
-				rs := s.(*gatewayalpha.TCPRouteStatus)
+			status.MutateInPlace(func(rs *gatewayalpha.TCPRouteStatus) {
 				rs.Parents = createRouteStatus(results, obj.Generation, rs.Parents)
-
-				return rs
 			})
-			statusWriter.Enqueue(obj, status)
+			EnqueueStatus(statusWriter, obj, status)
 		}
 		type conversionResult struct {
 			error  *ConfigError
@@ -731,7 +840,7 @@ type StatusWriter struct {
 	statusController *atomic.Pointer[status.Controller]
 }
 
-func (sw StatusWriter) Enqueue(obj controllers.Object, ws *kstatus.WrappedStatus) {
+func EnqueueStatus[T comparable](sw StatusWriter, obj controllers.Object, ws *kstatus.WrappedStatusTyped[T]) {
 	if !ws.Dirty {
 		return
 	}
@@ -795,8 +904,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 }
 
 func (c *Controller) HasSynced() bool {
-	return true // TODO
-	// return c.cache.HasSynced() && c.namespaces.HasSynced() && c.tagWatcher.HasSynced()
+	return c.outputs.VirtualServices.HasSynced() && c.outputs.Gateways.HasSynced()
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {

@@ -177,7 +177,7 @@ func TestNamespaceEvent(t *testing.T) {
 			"allowed": "true",
 		},
 	}}
-	ns := clienttest.Wrap(t, c.namespaces)
+	ns := clienttest.NewWriter[*v1.Namespace](t, clientSet)
 
 	ns.Create(ns1)
 	s.AssertEmpty(t, time.Millisecond*10)
