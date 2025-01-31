@@ -170,13 +170,6 @@ func convertReferencePolicies(r GatewayResources) AllowedReferences {
 // convertVirtualService takes all xRoute types and generates corresponding VirtualServices.
 func convertVirtualService(r configContext) []config.Config {
 	result := []config.Config{}
-	for _, obj := range r.TCPRoute {
-		result = append(result, buildTCPVirtualService(r, obj)...)
-	}
-
-	for _, obj := range r.TLSRoute {
-		result = append(result, buildTLSVirtualService(r, obj)...)
-	}
 
 	// for gateway routes, build one VS per gateway+host
 	gatewayRoutes := make(map[string]map[string]*config.Config)
@@ -1147,101 +1140,6 @@ func extractParentReferenceInfo2(ctx krt.HandlerContext, parents Parents, routeR
 	return parentRefs
 }
 
-func buildTCPVirtualService(ctx configContext, obj config.Config) []config.Config {
-	return nil
-}
-
-func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Config {
-	route := obj.Spec.(*k8salpha.TLSRouteSpec)
-	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
-
-	reportStatus := func(results []RouteParentResult) {
-		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-			rs := s.(*k8salpha.TLSRouteStatus)
-			rs.Parents = createRouteStatus(results, obj.Generation, rs.Parents)
-			return rs
-		})
-	}
-	type conversionResult struct {
-		error  *ConfigError
-		routes []*istio.TLSRoute
-	}
-	convertRules := func(mesh bool) conversionResult {
-		res := conversionResult{}
-		for _, r := range route.Rules {
-			vs, err := convertTLSRoute(ctx, r, obj, !mesh)
-			// This was a hard error
-			if vs == nil {
-				res.error = err
-				return conversionResult{error: err}
-			}
-			// Got an error but also routes
-			if err != nil {
-				res.error = err
-			}
-			res.routes = append(res.routes, vs)
-		}
-		return res
-	}
-	meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
-	reportStatus(slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
-		res := RouteParentResult{
-			OriginalReference: r.OriginalReference,
-			DeniedReason:      r.DeniedReason,
-			RouteError:        gwResult.error,
-		}
-		if r.IsMesh() {
-			res.RouteError = meshResult.error
-		}
-		return res
-	}))
-
-	vs := []config.Config{}
-	for _, parent := range filteredReferences(parentRefs) {
-		routes := gwResult.routes
-		vsHosts := hostnameToStringList(route.Hostnames)
-		if parent.IsMesh() {
-			routes = meshResult.routes
-			if parent.InternalKind == gvk.ServiceEntry {
-				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
-					string(parent.OriginalReference.Name),
-					string(ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace))))
-			} else {
-				host := fmt.Sprintf("%s.%s.svc.%s",
-					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)
-				vsHosts = []string{host}
-			}
-			routes = augmentTLSPortMatch(routes, parent.OriginalReference.Port, vsHosts)
-		}
-
-		for i, host := range vsHosts {
-			name := fmt.Sprintf("%s-tls-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
-			filteredRoutes := routes
-			if parent.IsMesh() {
-				filteredRoutes = compatibleRoutesForHost(routes, host)
-			}
-			// Create one VS per hostname with a single hostname.
-			// This ensures we can treat each hostname independently, as the spec requires
-			vs = append(vs, config.Config{
-				Meta: config.Meta{
-					CreationTimestamp: obj.CreationTimestamp,
-					GroupVersionKind:  gvk.VirtualService,
-					Name:              name,
-					Annotations:       routeMeta(obj),
-					Namespace:         obj.Namespace,
-					Domain:            ctx.Domain,
-				},
-				Spec: &istio.VirtualService{
-					Hosts:    []string{host},
-					Gateways: []string{parent.InternalName},
-					Tls:      filteredRoutes,
-				},
-			})
-		}
-	}
-	return vs
-}
-
 func convertTCPRoute(ctx RouteContext, r k8salpha.TCPRouteRule, obj *k8salpha.TCPRoute, enforceRefGrant bool) (*istio.TCPRoute, *ConfigError) {
 	if tcpWeightSum(r.BackendRefs) == 0 {
 		// The spec requires us to reject connections when there are no >0 weight backends
@@ -1257,7 +1155,7 @@ func convertTCPRoute(ctx RouteContext, r k8salpha.TCPRouteRule, obj *k8salpha.TC
 			}},
 		}, nil
 	}
-	dest, backendErr, err := buildTCPDestination2(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant, gvk.TCPRoute)
+	dest, backendErr, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant, gvk.TCPRoute)
 	if err != nil {
 		return nil, err
 	}
@@ -1266,7 +1164,7 @@ func convertTCPRoute(ctx RouteContext, r k8salpha.TCPRouteRule, obj *k8salpha.TC
 	}, backendErr
 }
 
-func convertTLSRoute(ctx configContext, r k8salpha.TLSRouteRule, obj config.Config, enforceRefGrant bool) (*istio.TLSRoute, *ConfigError) {
+func convertTLSRoute(ctx RouteContext, r k8salpha.TLSRouteRule, obj *k8salpha.TLSRoute, enforceRefGrant bool) (*istio.TLSRoute, *ConfigError) {
 	if tcpWeightSum(r.BackendRefs) == 0 {
 		// The spec requires us to reject connections when there are no >0 weight backends
 		// We don't have a great way to do it. TODO: add a fault injection API for TCP?
@@ -1286,57 +1184,12 @@ func convertTLSRoute(ctx configContext, r k8salpha.TLSRouteRule, obj config.Conf
 		return nil, err
 	}
 	return &istio.TLSRoute{
-		Match: buildTLSMatch(obj.Spec.(*k8salpha.TLSRouteSpec).Hostnames),
+		Match: buildTLSMatch(obj.Spec.Hostnames),
 		Route: dest,
 	}, backendErr
 }
 
 func buildTCPDestination(
-	ctx configContext,
-	forwardTo []k8s.BackendRef,
-	ns string,
-	enforceRefGrant bool,
-	k config.GroupVersionKind,
-) ([]*istio.RouteDestination, *ConfigError, *ConfigError) {
-	if forwardTo == nil {
-		return nil, nil, nil
-	}
-
-	weights := []int{}
-	action := []k8s.BackendRef{}
-	for _, w := range forwardTo {
-		wt := int(ptr.OrDefault(w.Weight, 1))
-		if wt == 0 {
-			continue
-		}
-		action = append(action, w)
-		weights = append(weights, wt)
-	}
-	if len(weights) == 1 {
-		weights = []int{0}
-	}
-
-	var invalidBackendErr *ConfigError
-	res := []*istio.RouteDestination{}
-	for i, fwd := range action {
-		dst, err := buildDestination(ctx, fwd, ns, enforceRefGrant, k)
-		if err != nil {
-			if isInvalidBackend(err) {
-				invalidBackendErr = err
-				// keep going, we will gracefully drop invalid backends
-			} else {
-				return nil, nil, err
-			}
-		}
-		res = append(res, &istio.RouteDestination{
-			Destination: dst,
-			Weight:      int32(weights[i]),
-		})
-	}
-	return res, invalidBackendErr, nil
-}
-
-func buildTCPDestination2(
 	ctx RouteContext,
 	forwardTo []k8s.BackendRef,
 	ns string,
