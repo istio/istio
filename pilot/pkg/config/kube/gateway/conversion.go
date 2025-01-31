@@ -2031,24 +2031,26 @@ func unexpectedWaypointListener(l k8s.Listener) bool {
 	return false
 }
 
-func getListenerNames(obj config.Config) sets.Set[k8s.SectionName] {
+func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
 	res := sets.New[k8s.SectionName]()
-	for _, l := range obj.Spec.(*k8s.GatewaySpec).Listeners {
+	for _, l := range spec.Listeners {
 		res.Insert(l.Name)
 	}
 	return res
 }
 
 func reportGatewayStatus(
-	r configContext,
-	obj config.Config,
+	r *GatewayContext,
+	obj *k8sbeta.Gateway,
+	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus],
 	classInfo classInfo,
 	gatewayServices []string,
 	servers []*istio.Server,
 	gatewayErr *ConfigError,
 ) {
 	// TODO: we lose address if servers is empty due to an error
-	internal, internalIP, external, pending, warnings, allUsable := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
+	// TODO: this is not updated
+	internal, internalIP, external, pending, warnings, allUsable := r.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
@@ -2100,8 +2102,7 @@ func reportGatewayStatus(
 			Message: msg,
 		}
 	}
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		gs := s.(*k8s.GatewayStatus)
+	status.MutateInPlace(func(gs *k8sbeta.GatewayStatus) {
 		addressesToReport := external
 		if len(addressesToReport) == 0 {
 			wantAddressType := classInfo.addressType
@@ -2139,7 +2140,7 @@ func reportGatewayStatus(
 			}
 		}
 		// Prune listeners that have been removed
-		haveListeners := getListenerNames(obj)
+		haveListeners := getListenerNames(&obj.Spec)
 		listeners := make([]k8s.ListenerStatus, 0, len(gs.Listeners))
 		for _, l := range gs.Listeners {
 			if haveListeners.Contains(l.Name) {
@@ -2149,14 +2150,16 @@ func reportGatewayStatus(
 		}
 		gs.Listeners = listeners
 		gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
-		return gs
 	})
 }
 
 // reportUnmanagedGatewayStatus reports a status message for an unmanaged gateway.
 // For these gateways, we don't deploy them. However, all gateways ought to have a status message, even if its basically
 // just to say something read it
-func reportUnmanagedGatewayStatus(obj config.Config) {
+func reportUnmanagedGatewayStatus(
+	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus],
+	obj *k8sbeta.Gateway,
+) {
 	gatewayConditions := map[string]*condition{
 		string(k8s.GatewayConditionAccepted): {
 			reason:  string(k8s.GatewayReasonAccepted),
@@ -2169,15 +2172,12 @@ func reportUnmanagedGatewayStatus(obj config.Config) {
 		},
 	}
 
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		gs := s.(*k8s.GatewayStatus)
-		spec := obj.Spec.(*k8s.GatewaySpec)
-		gs.Addresses = slices.Map(spec.Addresses, func(e k8s.GatewayAddress) k8s.GatewayStatusAddress {
+	status.MutateInPlace(func(s *k8sbeta.GatewayStatus) {
+		s.Addresses = slices.Map(obj.Spec.Addresses, func(e k8s.GatewayAddress) k8s.GatewayStatusAddress {
 			return k8s.GatewayStatusAddress(e)
 		})
-		gs.Listeners = nil
-		gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
-		return gs
+		s.Listeners = nil
+		s.Conditions = setConditions(obj.Generation, s.Conditions, gatewayConditions)
 	})
 }
 
@@ -2254,31 +2254,16 @@ func extractGatewayServices(domainSuffix string, kgw *k8sbeta.Gateway, info clas
 	return gatewayServices, nil
 }
 
-// getNamespaceLabelReferences fetches all label keys used in namespace selectors. Return order may not be stable.
-func getNamespaceLabelReferences(routes *k8s.AllowedRoutes) []string {
-	if routes == nil || routes.Namespaces == nil || routes.Namespaces.Selector == nil {
-		return nil
-	}
-	res := []string{}
-	for k := range routes.Namespaces.Selector.MatchLabels {
-		res = append(res, k)
-	}
-	for _, me := range routes.Namespaces.Selector.MatchExpressions {
-		if me.Operator == metav1.LabelSelectorOpNotIn || me.Operator == metav1.LabelSelectorOpDoesNotExist {
-			// Over-matching is fine because this only controls the set of namespace
-			// label change events to watch and the actual binding enforcement happens
-			// by checking the intersection of the generated VirtualService.spec.hosts
-			// and Istio Gateway.spec.servers.hosts arrays - we just can't miss
-			// potentially relevant namespace label events here.
-			res = append(res, "*")
-		}
-
-		res = append(res, me.Key)
-	}
-	return res
-}
-
-func buildListener(ctx krt.HandlerContext, grants ReferenceGrants, Namespaces krt.Collection[*corev1.Namespace], obj *k8sbeta.Gateway, l k8s.Listener, listenerIndex int, controllerName k8s.GatewayController) (*istio.Server, bool) {
+func buildListener(
+	ctx krt.HandlerContext,
+	grants ReferenceGrants,
+	Namespaces krt.Collection[*corev1.Namespace],
+	obj *k8sbeta.Gateway,
+	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus],
+	l k8s.Listener,
+	listenerIndex int,
+	controllerName k8s.GatewayController,
+) (*istio.Server, bool) {
 	listenerConditions := map[string]*condition{
 		string(k8s.ListenerConditionAccepted): {
 			reason:  string(k8s.ListenerReasonAccepted),
@@ -2337,7 +2322,7 @@ func buildListener(ctx krt.HandlerContext, grants ReferenceGrants, Namespaces kr
 		Tls:   tls,
 	}
 
-	// reportListenerCondition(listenerIndex, l, obj, listenerConditions)
+	reportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
 	return server, ok
 }
 

@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"fmt"
+	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -290,9 +291,9 @@ func reportListenerAttachedRoutes(index int, obj config.Config, i int32) {
 	})
 }
 
-func reportListenerCondition(index int, l k8s.Listener, obj config.Config, conditions map[string]*condition) {
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		gs := s.(*k8s.GatewayStatus)
+func reportListenerCondition(index int, l k8s.Listener, obj *k8sbeta.Gateway,
+	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus],conditions map[string]*condition) {
+	status.MutateInPlace(func(gs *k8sbeta.GatewayStatus) {
 		for index >= len(gs.Listeners) {
 			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
 		}
@@ -311,7 +312,6 @@ func reportListenerCondition(index int, l k8s.Listener, obj config.Config, condi
 			SupportedKinds: supported,
 			Conditions:     setConditions(obj.Generation, cond, conditions),
 		}
-		return gs
 	})
 }
 
