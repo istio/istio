@@ -70,7 +70,7 @@ func newDialer(cfg *Config) hbone.Dialer {
 			ProxyAddress: cfg.Request.DoubleHbone[0].GetAddress(),
 			Headers:      cfg.hboneHeaders,
 			TLS:          cfg.hboneTLSConfig,
-		}, cfg.hboneTLSConfig)
+		}, cfg.innerHboneTLSConfig)
 	}
 	if cfg.Request.Hbone.GetAddress() != "" {
 		out := hbone.NewDialer(hbone.Config{

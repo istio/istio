@@ -108,10 +108,8 @@ func (d *doubleDialer) proxyTo(conn io.ReadWriteCloser, req Config, address stri
 	}
 	var remoteID, innerID string
 	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
-		ids := resp.TLS.PeerCertificates[0].DNSNames
-		if len(ids) > 0 {
-			remoteID = ids[0]
-		}
+		ids := resp.TLS.PeerCertificates[0].SerialNumber
+		remoteID = ids.String()
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("round trip failed: %v", resp.Status)
@@ -138,8 +136,15 @@ func (d *doubleDialer) proxyTo(conn io.ReadWriteCloser, req Config, address stri
 		innerTransport = &http2.Transport{
 			TLSClientConfig: d.innerTLSConfig,
 			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
-				log.Infof("Sending TLS connection with config %#v", tlsCfg)
-				return pc, nil
+				tlsCfg.ServerName = r.Host
+				// Upgrade the raw connection to a TLS connection.
+				c := tls.Client(pc, tlsCfg)
+				err := c.Handshake()
+				if err != nil {
+					pc.Close()
+					return nil, err
+				}
+				return c, nil
 			},
 		}
 	} else {
@@ -171,10 +176,8 @@ func (d *doubleDialer) proxyTo(conn io.ReadWriteCloser, req Config, address stri
 	if innerResp.TLS != nil {
 		log.Infof("inner TLS does exist")
 		if len(innerResp.TLS.PeerCertificates) > 0 {
-			ids := innerResp.TLS.PeerCertificates[0].DNSNames
-			if len(ids) > 0 {
-				innerID = ids[0]
-			}
+			ids := innerResp.TLS.PeerCertificates[0].SerialNumber
+			innerID = ids.String()
 		}
 	}
 	if innerResp.StatusCode != http.StatusOK {
