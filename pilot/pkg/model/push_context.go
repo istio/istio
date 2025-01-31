@@ -854,7 +854,7 @@ func virtualServiceDestinationsFilteredBySourceNamespace(v *networking.VirtualSe
 	return out
 }
 
-func (ps *PushContext) ExtraWaypointServices(proxy *Proxy) sets.String {
+func (ps *PushContext) ExtraWaypointServices(proxy *Proxy) (sets.Set[NamespacedHostname], sets.String) {
 	return ps.extraServicesForProxy(proxy)
 }
 
@@ -862,16 +862,14 @@ func (ps *PushContext) ExtraWaypointServices(proxy *Proxy) sets.String {
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	svcs := proxy.SidecarScope.services
 
+	// host set.
+	namespacedHostsFromGateways, hostsFromGateways := ps.extraServicesForProxy(proxy)
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
-	if proxy.MergedGateway == nil {
-		return nil
-	}
-
-	// host set.
-	hostsFromGateways := ps.extraServicesForProxy(proxy)
-	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
+	if proxy.MergedGateway != nil {
+		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
+			hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
+		}
 	}
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
 
@@ -879,8 +877,10 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 
 	for _, s := range svcs {
 		svcHost := string(s.Hostname)
-
-		if _, ok := hostsFromGateways[svcHost]; ok {
+		if hostsFromGateways.Contains(svcHost) || namespacedHostsFromGateways.Contains(NamespacedHostname{
+			Hostname:  s.Hostname,
+			Namespace: s.Attributes.Namespace,
+		}) {
 			gwSvcs = append(gwSvcs, s)
 		}
 	}
@@ -894,7 +894,7 @@ func (ps *PushContext) ServicesAttachedToMesh() map[string]sets.String {
 	return ps.virtualServiceIndex.referencedDestinations
 }
 
-func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
+func (ps *PushContext) ServiceAttachedToGateway(hostname string, namespace string, proxy *Proxy) bool {
 	gw := proxy.MergedGateway
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
@@ -911,7 +911,8 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) b
 			}
 		}
 	}
-	return ps.extraServicesForProxy(proxy).Contains(hostname)
+	namespaced, hosts := ps.extraServicesForProxy(proxy)
+	return hosts.Contains(hostname) || namespaced.Contains(NamespacedHostname{Hostname: host.Name(hostname), Namespace: namespace})
 }
 
 // wellknownProviders is a list of all known providers.
@@ -948,35 +949,46 @@ const addHostsFromMeshConfigProvidersHandled = 14
 // 1. MeshConfig.ExtensionProviders
 // 2. RequestAuthentication.JwtRules.JwksUri
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func (ps *PushContext) extraServicesForProxy(proxy *Proxy) sets.String {
+func (ps *PushContext) extraServicesForProxy(proxy *Proxy) (sets.Set[NamespacedHostname], sets.String) {
 	hosts := sets.String{}
+	namespaceScoped := sets.New[NamespacedHostname]()
+	addService := func(s string) {
+		if ns, h, ok := strings.Cut(s, "/"); ok {
+			namespaceScoped.Insert(NamespacedHostname{
+				Hostname:  host.Name(h),
+				Namespace: ns,
+			})
+		} else {
+			hosts.Insert(s)
+		}
+	}
 	// add services from MeshConfig.ExtensionProviders
 	for _, prov := range ps.Mesh.ExtensionProviders {
 		switch p := prov.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			hosts.Insert(p.EnvoyExtAuthzHttp.Service)
+			addService(p.EnvoyExtAuthzHttp.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			hosts.Insert(p.EnvoyExtAuthzGrpc.Service)
+			addService(p.EnvoyExtAuthzGrpc.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
-			hosts.Insert(p.Zipkin.Service)
+			addService(p.Zipkin.Service)
 		//nolint: staticcheck  // Lightstep deprecated
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
-			hosts.Insert(p.Lightstep.Service)
+			addService(p.Lightstep.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
-			hosts.Insert(p.Datadog.Service)
+			addService(p.Datadog.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-			hosts.Insert(p.Skywalking.Service)
+			addService(p.Skywalking.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
 			//nolint: staticcheck
-			hosts.Insert(p.Opencensus.Service)
+			addService(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
-			hosts.Insert(p.Opentelemetry.Service)
+			addService(p.Opentelemetry.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
-			hosts.Insert(p.EnvoyHttpAls.Service)
+			addService(p.EnvoyHttpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
-			hosts.Insert(p.EnvoyTcpAls.Service)
+			addService(p.EnvoyTcpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
-			hosts.Insert(p.EnvoyOtelAls.Service)
+			addService(p.EnvoyOtelAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog: // No services
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus: // No services
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver: // No services
@@ -998,7 +1010,7 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy) sets.String {
 			}
 		}
 	}
-	return hosts
+	return namespaceScoped, hosts
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
