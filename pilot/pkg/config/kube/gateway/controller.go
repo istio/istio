@@ -101,6 +101,8 @@ type Controller struct {
 
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
 	outputs    Outputs
+
+	gatewayContext *atomic.Pointer[GatewayContext]
 }
 
 type GatewayClass struct {
@@ -270,10 +272,17 @@ func GatewayCollection(
 	Namespaces krt.Collection[*corev1.Namespace],
 	grants ReferenceGrants,
 	DomainSuffix string,
+	UnstableContext *atomic.Pointer[GatewayContext],
 ) krt.Collection[Gateway] {
 	return krt.NewManyCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) []Gateway {
+		context := UnstableContext.Load()
+		// TODO this is basically broken, we don't get triggered when it syncs..
+		if context == nil {
+			return nil
+		}
 		result := []Gateway{}
 		kgw := obj.Spec
+		status := kstatus.WrapT(&obj.Status)
 		class := krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(kgw.GatewayClassName)))
 		if class == nil {
 			// No gateway class found, this may be meant for another controller; should be skipped.
@@ -285,7 +294,7 @@ func GatewayCollection(
 			return nil
 		}
 		if classInfo.disableRouteGeneration {
-			// reportUnmanagedGatewayStatus(obj)
+			reportUnmanagedGatewayStatus(status, obj)
 			// We found it, but don't want to handle this class
 			return nil
 		}
@@ -295,12 +304,12 @@ func GatewayCollection(
 		gatewayServices, err := extractGatewayServices(DomainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
-			// reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)
 			return nil
 		}
 
 		for i, l := range kgw.Listeners {
-			server, programmed := buildListener(ctx, grants, Namespaces, obj, l, i, controllerName)
+			server, programmed := buildListener(ctx, grants, Namespaces, obj, status, l, i, controllerName)
 
 			servers = append(servers, server)
 			if controllerName == constants.ManagedGatewayMeshController {
@@ -342,7 +351,7 @@ func GatewayCollection(
 				Protocol:         l.Protocol,
 			}
 			pri.ReportAttachedRoutes = func() {
-				// reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)
+				//reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)
 			}
 
 			res := Gateway{
@@ -407,6 +416,10 @@ func TLSRouteCollection(
 			Domain:  DomainSuffix,
 		}
 		route := obj.Spec
+		// TODO: take this and make a num of attached routes.. hm, not number. more like pkey set
+		// return is []ConfigWrapper {config.Config, parents []PK}
+		// Make a join of all routes, index by pk. Gateway does Attached:=len(Fetch(index))
+		// The problem is its circular, we need to split 'Parents' probably
 		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
 
 		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
@@ -654,6 +667,7 @@ func NewController(
 		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision),
 		statusWriter:          statusWriter,
 		waitForCRD:            waitForCRD,
+		gatewayContext: atomic.NewPointer[GatewayContext](nil),
 	}
 
 	inputs := Inputs{
@@ -676,6 +690,7 @@ func NewController(
 		inputs.Namespaces,
 		ReferenceGrants,
 		options.DomainSuffix,
+		gatewayController.gatewayContext,
 	)
 
 	Parents := BuildParents(Gateways)
@@ -764,6 +779,8 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 // Reconcile takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
 // Any status updates required will be enqueued as well.
 func (c *Controller) Reconcile(ps *model.PushContext) {
+	ctx := NewGatewayContext(ps, c.cluster)
+	c.gatewayContext.Store(&ctx)
 	return
 	/*
 		t0 := time.Now()
