@@ -42,6 +42,7 @@ import (
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/tests/integration/pilot/common"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
@@ -253,6 +254,11 @@ spec:
 			})
 		})
 	}
+
+	t.NewSubTest("rewrite").Run(func(t framework.TestContext) {
+		runner := common.TrafficContext{TestContext: t, Apps: apps, Istio: i}
+		common.HTTPRouteRewrite(runner, "gateway")
+	})
 }
 
 func TaggedGatewayTest(t framework.TestContext) {
