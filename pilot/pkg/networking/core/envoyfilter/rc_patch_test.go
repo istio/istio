@@ -102,6 +102,7 @@ func Test_virtualHostMatch(t *testing.T) {
 						"*.scooby",
 						"*.com",
 					},
+					Name: "scoobydoo",
 				},
 				cp: &model.EnvoyFilterConfigPatchWrapper{
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
@@ -150,6 +151,7 @@ func Test_virtualHostMatch(t *testing.T) {
 						"*.scooby",
 						"*.com",
 					},
+					Name: "scoobydoo",
 				},
 				cp: &model.EnvoyFilterConfigPatchWrapper{
 					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
