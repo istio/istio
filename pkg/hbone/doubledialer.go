@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
-	"sync"
 	"time"
 
 	"golang.org/x/net/http2"
@@ -70,60 +68,9 @@ func (d *doubleDialer) DialContext(ctx context.Context, network, address string)
 	}
 	// TODO: use context
 	c, s := net.Pipe()
-	err := d.proxyTo(s, d.outerCfg, address)
+	resp, pw, err := hbone(s, address, d.outerCfg, d.outerTransport, false)
 	if err != nil {
 		return nil, err
-	}
-	return c, nil
-}
-
-func (d doubleDialer) Dial(network, address string) (c net.Conn, err error) {
-	return d.DialContext(context.Background(), network, address)
-}
-
-func (d *doubleDialer) proxyTo(conn io.ReadWriteCloser, req Config, address string) error {
-	t0 := time.Now()
-
-	url := "http://" + req.ProxyAddress
-	if req.TLS != nil {
-		url = "https://" + req.ProxyAddress
-	}
-	// We could just pass `conn` to `http.NewRequest`, but this has a few issues:
-	// * Less visibility into i/o
-	// * http will call conn.Close, which will close before we want to (finished writing response).
-	pr, pw := io.Pipe()
-
-	r, err := http.NewRequest(http.MethodConnect, url, pr)
-	if err != nil {
-		return fmt.Errorf("new request: %v", err)
-	}
-	r.Host = address
-
-	// Initiate CONNECT.
-	log.Infof("initiate outer CONNECT to %v via %v", r.Host, url)
-
-	resp, err := d.outerTransport.RoundTrip(r)
-	if err != nil {
-		return fmt.Errorf("round trip: %v", err)
-	}
-	var remoteID, innerID string
-	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
-		ids := resp.TLS.PeerCertificates[0].DNSNames
-		if len(ids) > 0 {
-			remoteID = ids[0]
-		}
-	}
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("round trip failed: %v", resp.Status)
-	}
-	log.WithLabels("host", r.Host, "remote", remoteID).Info("Outer CONNECT established")
-
-	log.Infof("initiate inner CONNECT to %v via inner tunnel", r.Host)
-
-	ipr, ipw := io.Pipe()
-	innerReq, err := http.NewRequest(http.MethodConnect, url, ipr)
-	if err != nil {
-		return fmt.Errorf("new inner request: %v", err)
 	}
 
 	pc := &pipeConn{
@@ -131,15 +78,22 @@ func (d *doubleDialer) proxyTo(conn io.ReadWriteCloser, req Config, address stri
 		writer: pw,
 		reader: resp.Body,
 	}
-	innerReq.Host = address
+
 	var innerTransport *http2.Transport
 	if d.innerTLSConfig != nil {
 		log.Infof("using TLS on inner connection")
 		innerTransport = &http2.Transport{
 			TLSClientConfig: d.innerTLSConfig,
 			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
-				log.Infof("Sending TLS connection with config %#v", tlsCfg)
-				return pc, nil
+				tlsCfg.ServerName = resp.Request.Host
+				// Upgrade the raw connection to a TLS connection.
+				c := tls.Client(pc, tlsCfg)
+				err := c.HandshakeContext(ctx)
+				if err != nil {
+					pc.Close()
+					return nil, err
+				}
+				return c, nil
 			},
 		}
 	} else {
@@ -151,53 +105,16 @@ func (d *doubleDialer) proxyTo(conn io.ReadWriteCloser, req Config, address stri
 			},
 		}
 	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	// NOTE: We don't close the connection here because that will affect the outer connection from the HBONE client.
-	// Instead, we close the conn further down once we've finished proxying.
-	go func() {
-		// handle upstream (inner hbone server) <-- downstream (app)
-		copyBuffered(ipw, conn, log.WithLabels("name", "body to pipe"))
-		wg.Done()
-	}()
-
-	innerResp, innerErr := innerTransport.RoundTrip(innerReq)
-	if innerErr != nil {
-		return fmt.Errorf("inner round trip: %v", innerErr)
+	// Note: outerCfg is only used to generate the final URL and host header (which is the same for double hbone)
+	_, _, err = hbone(s, address, d.outerCfg, innerTransport, true)
+	if err != nil {
+		return nil, err
 	}
-	log.Info("inner round trip complete")
+	return c, nil
+}
 
-	if innerResp.TLS != nil {
-		log.Infof("inner TLS does exist")
-		if len(innerResp.TLS.PeerCertificates) > 0 {
-			ids := innerResp.TLS.PeerCertificates[0].DNSNames
-			if len(ids) > 0 {
-				innerID = ids[0]
-			}
-		}
-	}
-	if innerResp.StatusCode != http.StatusOK {
-		return fmt.Errorf("round trip failed: %v", innerResp.Status)
-	}
-	log.WithLabels("host", r.Host, "remote", innerID).Info("Inner CONNECT established")
-
-	go func() {
-		defer conn.Close()
-		defer resp.Body.Close()
-
-		wg.Add(1)
-		go func() {
-			// handle upstream (hbone server) --> downstream (app)
-			copyBuffered(conn, innerResp.Body, log.WithLabels("name", "body to conn"))
-			wg.Done()
-		}()
-
-		wg.Wait()
-		log.Infof("stream closed in %v", time.Since(t0))
-	}()
-
-	return nil
+func (d doubleDialer) Dial(network, address string) (c net.Conn, err error) {
+	return d.DialContext(context.Background(), network, address)
 }
 
 type pipeAddr struct {

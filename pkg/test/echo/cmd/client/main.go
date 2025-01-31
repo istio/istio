@@ -70,8 +70,6 @@ var (
 	hboneClientKey               string
 	hboneCaFile                  string
 	hboneInsecureSkipVerify      bool
-	innerHboneClientCert         string
-	innerHboneClientKey          string
 	innerHboneCaFile             string
 	innerHboneInsecureSkipVerify bool
 
@@ -174,10 +172,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&hboneClientCert, "hbone-client-cert", "", "client certificate file used for the HBONE request")
 	rootCmd.PersistentFlags().StringVar(&hboneClientKey, "hbone-client-key", "", "client certificate key file used for the HBONE request")
 	rootCmd.PersistentFlags().BoolVar(&hboneInsecureSkipVerify, "hbone-insecure-skip-verify", hboneInsecureSkipVerify, "skip TLS verification of HBONE request")
-	rootCmd.PersistentFlags().StringVar(&innerHboneCaFile, "inner-hbone-ca", "", "CA root cert file used for the inner HBONE request. Only used if --double-hbone is set")
-	rootCmd.PersistentFlags().StringVar(&innerHboneClientCert, "inner-hbone-client-cert", "", "client certificate file used for the inner HBONE request. Only used if --double-hbone is set")
-	rootCmd.PersistentFlags().StringVar(&innerHboneClientKey, "inner-hbone-client-key", "", "client certificate key file used for the inner HBONE request. Only used if --double-hbone is set")
-	rootCmd.PersistentFlags().BoolVar(&innerHboneInsecureSkipVerify, "inner-hbone-insecure-skip-verify", innerHboneInsecureSkipVerify, "skip TLS verification of inner HBONE request")
+	rootCmd.PersistentFlags().StringVar(&innerHboneCaFile, "inner-hbone-ca", "",
+		"CA root cert file used for the inner HBONE request. Only used if --double-hbone is set")
+	rootCmd.PersistentFlags().BoolVar(&innerHboneInsecureSkipVerify, "inner-hbone-insecure-skip-verify", innerHboneInsecureSkipVerify,
+		"skip TLS verification of inner HBONE request")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -220,6 +218,40 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 	} else if v6Only {
 		request.ForceIpFamily = "tcp6"
 	}
+	if len(doubleHboneAddress) > 0 {
+		request.DoubleHbone = &proto.HBONE{
+			Address:            doubleHboneAddress,
+			CertFile:           hboneClientCert,
+			KeyFile:            hboneClientKey,
+			CaCertFile:         hboneCaFile,
+			InsecureSkipVerify: hboneInsecureSkipVerify,
+		}
+		for _, header := range hboneHeaders {
+			parts := strings.SplitN(header, ":", 2)
+			// require name:value format
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid header format: %q (want name:value)", header)
+			}
+
+			request.DoubleHbone.Headers = append(request.Hbone.Headers, &proto.Header{
+				Key:   parts[0],
+				Value: strings.Trim(parts[1], " "),
+			})
+		}
+
+		request.Hbone = &proto.HBONE{
+			CertFile:           hboneClientCert, // same creds for inner tunnel
+			KeyFile:            hboneClientKey,
+			CaCertFile:         hboneCaFile,
+			InsecureSkipVerify: hboneInsecureSkipVerify,
+		}
+		if len(innerHboneCaFile) > 0 {
+			request.Hbone.CaCertFile = innerHboneCaFile
+		}
+		if innerHboneInsecureSkipVerify != hboneInsecureSkipVerify {
+			request.Hbone.InsecureSkipVerify = innerHboneInsecureSkipVerify
+		}
+	}
 	if len(hboneAddress) > 0 {
 		request.Hbone = &proto.HBONE{
 			Address:            hboneAddress,
@@ -239,38 +271,6 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 				Key:   parts[0],
 				Value: strings.Trim(parts[1], " "),
 			})
-		}
-	}
-
-	if len(doubleHboneAddress) > 0 {
-		outerHbone := &proto.HBONE{
-			Address:            doubleHboneAddress,
-			CertFile:           hboneClientCert,
-			KeyFile:            hboneClientKey,
-			CaCertFile:         hboneCaFile,
-			InsecureSkipVerify: hboneInsecureSkipVerify,
-		}
-		for _, header := range hboneHeaders {
-			parts := strings.SplitN(header, ":", 2)
-			// require name:value format
-			if len(parts) != 2 {
-				return nil, fmt.Errorf("invalid header format: %q (want name:value)", header)
-			}
-
-			outerHbone.Headers = append(request.Hbone.Headers, &proto.Header{
-				Key:   parts[0],
-				Value: strings.Trim(parts[1], " "),
-			})
-		}
-		innerHbone := &proto.HBONE{
-			CertFile:           innerHboneClientCert,
-			KeyFile:            innerHboneClientKey,
-			CaCertFile:         innerHboneCaFile,
-			InsecureSkipVerify: innerHboneInsecureSkipVerify,
-		}
-		request.DoubleHbone = []*proto.HBONE{
-			outerHbone, // First one is outer
-			innerHbone, // Second one is inner
 		}
 	}
 

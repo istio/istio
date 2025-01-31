@@ -95,7 +95,7 @@ func handleDoubleConnect(w http.ResponseWriter, r *http.Request, tlsConfig *tls.
 
 	dialer, listener := connutil.DialerListener(128)
 	go func() {
-		err := innerServer.Serve(listener)
+		err := innerServer.ServeTLS(listener, "", "")
 		if err != nil {
 			log.Errorf("failed to start intermediate http server: %v", err)
 		}

@@ -87,7 +87,7 @@ func (d *dialer) DialContext(ctx context.Context, network, address string) (net.
 	}
 	// TODO: use context
 	c, s := net.Pipe()
-	err := d.proxyTo(s, d.cfg, address)
+	_, _, err := hbone(s, address, d.cfg, d.transport, true)
 	if err != nil {
 		return nil, err
 	}
@@ -98,29 +98,28 @@ func (d dialer) Dial(network, address string) (c net.Conn, err error) {
 	return d.DialContext(context.Background(), network, address)
 }
 
-func (d *dialer) proxyTo(conn io.ReadWriteCloser, req Config, address string) error {
+func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http2.Transport, shouldCopy bool) (*http.Response, io.WriteCloser, error) {
 	t0 := time.Now()
 
 	url := "http://" + req.ProxyAddress
 	if req.TLS != nil {
 		url = "https://" + req.ProxyAddress
 	}
-	// Setup a pipe. We could just pass `conn` to `http.NewRequest`, but this has a few issues:
-	// * Less visibility into i/o
-	// * http will call conn.Close, which will close before we want to (finished writing response).
+
 	pr, pw := io.Pipe()
 	r, err := http.NewRequest(http.MethodConnect, url, pr)
 	if err != nil {
-		return fmt.Errorf("new request: %v", err)
+		return nil, nil, fmt.Errorf("new request: %v", err)
 	}
 	r.Host = address
-
 	// Initiate CONNECT.
 	log.Infof("initiate CONNECT to %v via %v", r.Host, url)
 
-	resp, err := d.transport.RoundTrip(r)
+	wg := sync.WaitGroup{}
+
+	resp, err := transport.RoundTrip(r)
 	if err != nil {
-		return fmt.Errorf("round trip: %v", err)
+		return nil, nil, fmt.Errorf("round trip: %v", err)
 	}
 	var remoteID string
 	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
@@ -129,30 +128,41 @@ func (d *dialer) proxyTo(conn io.ReadWriteCloser, req Config, address string) er
 			remoteID = ids[0]
 		}
 	}
+
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("round trip failed: %v", resp.Status)
+		return nil, nil, fmt.Errorf("round trip failed: %v", resp.Status)
+	}
+
+	if shouldCopy {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			// Copy from conn into the pipe, which will then be sent as part of the request
+			// handle upstream (hbone server) <-- downstream (app)
+			copyBuffered(pw, conn, log.WithLabels("name", "conn to pipe"))
+		}()
 	}
 	log.WithLabels("host", r.Host, "remote", remoteID).Info("CONNECT established")
-	go func() {
-		defer conn.Close()
-		defer resp.Body.Close()
 
-		wg := sync.WaitGroup{}
-		wg.Add(1)
+	if shouldCopy {
 		go func() {
-			// handle upstream (hbone server) --> downstream (app)
-			copyBuffered(conn, resp.Body, log.WithLabels("name", "body to conn"))
-			wg.Done()
+			defer conn.Close()
+			defer resp.Body.Close()
+
+			wg.Add(1)
+			go func() {
+				// handle upstream (hbone server) --> downstream (app)
+				copyBuffered(conn, resp.Body, log.WithLabels("name", "body to conn"))
+				wg.Done()
+			}()
+
+			wg.Wait()
+			log.Infof("stream closed in %v", time.Since(t0))
 		}()
-		// Copy from conn into the pipe, which will then be sent as part of the request
-		// handle upstream (hbone server) <-- downstream (app)
-		copyBuffered(pw, conn, log.WithLabels("name", "conn to pipe"))
+	}
 
-		wg.Wait()
-		log.Infof("stream closed in %v", time.Since(t0))
-	}()
-
-	return nil
+	return resp, pw, nil
 }
 
 // TLSDialWithDialer is an implementation of tls.DialWithDialer that accepts a generic Dialer

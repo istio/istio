@@ -58,6 +58,7 @@ func (c doubleConnectInstance) Start(onReady OnReadyFunc) error {
 		config = &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			NextProtos:   []string{"h2"},
+			MinVersion:   tls.VersionTLS12,
 			GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
 				// There isn't a way to pass through all ALPNs presented by the client down to the
 				// HTTP server to return in the response. However, for debugging, we can at least log
@@ -65,7 +66,6 @@ func (c doubleConnectInstance) Start(onReady OnReadyFunc) error {
 				epLog.Infof("TLS connection with alpn: %v", info.SupportedProtos)
 				return nil, nil
 			},
-			MinVersion: tls.VersionTLS12,
 		}
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnAddressTLS(c.ListenerIP, c.Port.Port, config)
