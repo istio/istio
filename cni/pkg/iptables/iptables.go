@@ -70,7 +70,16 @@ type IptablesConfig struct {
 type PodLevelOverrides struct {
 	VirtualInterfaces []string
 	IngressMode       bool
+	DNSProxy          PodDNSOverride
 }
+
+type PodDNSOverride int
+
+const (
+	PodDNSUnset PodDNSOverride = iota
+	PodDNSEnabled
+	PodDNSDisabled
+)
 
 type IptablesConfigurator struct {
 	ext    dep.Dependencies
@@ -220,7 +229,16 @@ func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverri
 }
 
 func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides PodLevelOverrides) *builder.IptablesRuleBuilder {
-	redirectDNS := cfg.cfg.RedirectDNS
+	var redirectDNS bool
+
+	switch podOverrides.DNSProxy {
+	case PodDNSUnset:
+		redirectDNS = cfg.cfg.RedirectDNS
+	case PodDNSEnabled:
+		redirectDNS = true
+	case PodDNSDisabled:
+		redirectDNS = false
+	}
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodTProxyMask)
