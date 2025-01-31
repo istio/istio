@@ -63,13 +63,17 @@ var (
 
 	caFile string
 
-	hboneAddress            string
-	hboneHeaders            []string
-	doubleHboneAddress      string
-	hboneClientCert         string
-	hboneClientKey          string
-	hboneCaFile             string
-	hboneInsecureSkipVerify bool
+	hboneAddress                 string
+	hboneHeaders                 []string
+	doubleHboneAddress           string
+	hboneClientCert              string
+	hboneClientKey               string
+	hboneCaFile                  string
+	hboneInsecureSkipVerify      bool
+	innerHboneClientCert         string
+	innerHboneClientKey          string
+	innerHboneCaFile             string
+	innerHboneInsecureSkipVerify bool
 
 	loggingOptions = log.DefaultOptions()
 
@@ -170,6 +174,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&hboneClientCert, "hbone-client-cert", "", "client certificate file used for the HBONE request")
 	rootCmd.PersistentFlags().StringVar(&hboneClientKey, "hbone-client-key", "", "client certificate key file used for the HBONE request")
 	rootCmd.PersistentFlags().BoolVar(&hboneInsecureSkipVerify, "hbone-insecure-skip-verify", hboneInsecureSkipVerify, "skip TLS verification of HBONE request")
+	rootCmd.PersistentFlags().StringVar(&innerHboneCaFile, "inner-hbone-ca", "", "CA root cert file used for the inner HBONE request. Only used if --double-hbone is set")
+	rootCmd.PersistentFlags().StringVar(&innerHboneClientCert, "inner-hbone-client-cert", "", "client certificate file used for the inner HBONE request. Only used if --double-hbone is set")
+	rootCmd.PersistentFlags().StringVar(&innerHboneClientKey, "inner-hbone-client-key", "", "client certificate key file used for the inner HBONE request. Only used if --double-hbone is set")
+	rootCmd.PersistentFlags().BoolVar(&innerHboneInsecureSkipVerify, "inner-hbone-insecure-skip-verify", innerHboneInsecureSkipVerify, "skip TLS verification of inner HBONE request")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 
@@ -235,7 +243,7 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 	}
 
 	if len(doubleHboneAddress) > 0 {
-		request.DoubleHbone = &proto.HBONE{
+		outerHbone := &proto.HBONE{
 			Address:            doubleHboneAddress,
 			CertFile:           hboneClientCert,
 			KeyFile:            hboneClientKey,
@@ -249,10 +257,20 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 				return nil, fmt.Errorf("invalid header format: %q (want name:value)", header)
 			}
 
-			request.DoubleHbone.Headers = append(request.Hbone.Headers, &proto.Header{
+			outerHbone.Headers = append(request.Hbone.Headers, &proto.Header{
 				Key:   parts[0],
 				Value: strings.Trim(parts[1], " "),
 			})
+		}
+		innerHbone := &proto.HBONE{
+			CertFile:           innerHboneClientCert,
+			KeyFile:            innerHboneClientKey,
+			CaCertFile:         innerHboneCaFile,
+			InsecureSkipVerify: innerHboneInsecureSkipVerify,
+		}
+		request.DoubleHbone = []*proto.HBONE{
+			outerHbone, // First one is outer
+			innerHbone, // Second one is inner
 		}
 	}
 

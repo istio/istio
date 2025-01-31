@@ -133,10 +133,12 @@ func (d *doubleDialer) proxyTo(conn io.ReadWriteCloser, req Config, address stri
 	}
 	innerReq.Host = address
 	var innerTransport *http2.Transport
-	if d.innerTLSConfig != nil && !d.innerTLSConfig.InsecureSkipVerify {
+	if d.innerTLSConfig != nil {
+		log.Infof("using TLS on inner connection")
 		innerTransport = &http2.Transport{
 			TLSClientConfig: d.innerTLSConfig,
 			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
+				log.Infof("Sending TLS connection with config %#v", tlsCfg)
 				return pc, nil
 			},
 		}
@@ -166,10 +168,13 @@ func (d *doubleDialer) proxyTo(conn io.ReadWriteCloser, req Config, address stri
 	}
 	log.Info("inner round trip complete")
 
-	if innerResp.TLS != nil && len(innerResp.TLS.PeerCertificates) > 0 {
-		ids := innerResp.TLS.PeerCertificates[0].DNSNames
-		if len(ids) > 0 {
-			innerID = ids[0]
+	if innerResp.TLS != nil {
+		log.Infof("inner TLS does exist")
+		if len(innerResp.TLS.PeerCertificates) > 0 {
+			ids := innerResp.TLS.PeerCertificates[0].DNSNames
+			if len(ids) > 0 {
+				innerID = ids[0]
+			}
 		}
 	}
 	if innerResp.StatusCode != http.StatusOK {
