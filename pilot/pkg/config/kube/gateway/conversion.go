@@ -17,9 +17,6 @@ package gateway
 import (
 	"cmp"
 	"fmt"
-	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/krt"
-	corev1 "k8s.io/api/core/v1"
 	"net"
 	"net/netip"
 	"sort"
@@ -28,6 +25,7 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
@@ -47,6 +45,9 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -431,7 +432,7 @@ func buildHTTPVirtualServices(
 	reportStatus := func(results []RouteParentResult) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			rs := s.(*k8s.HTTPRouteStatus)
-			rs.Parents = createRouteStatus(results, obj, rs.Parents)
+			rs.Parents = createRouteStatus(results, obj.Generation, rs.Parents)
 			return rs
 		})
 	}
@@ -671,7 +672,7 @@ func buildGRPCVirtualServices(
 	reportStatus := func(results []RouteParentResult) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			rs := s.(*k8s.GRPCRouteStatus)
-			rs.Parents = createRouteStatus(results, obj, rs.Parents)
+			rs.Parents = createRouteStatus(results, obj.Generation, rs.Parents)
 			return rs
 		})
 	}
@@ -886,9 +887,9 @@ func parentMeta(obj config.Config, sectionName *k8s.SectionName) map[string]stri
 }
 
 func parentMeta2(obj controllers.Object, sectionName *k8s.SectionName) map[string]string {
-	name := fmt.Sprintf("%s/%s.%s", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), obj.GetNamespace())
+	name := fmt.Sprintf("%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), obj.GetNamespace())
 	if sectionName != nil {
-		name = fmt.Sprintf("%s/%s/%s.%s", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), *sectionName, obj.GetNamespace())
+		name = fmt.Sprintf("%s/%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), *sectionName, obj.GetNamespace())
 	}
 	return map[string]string{
 		constants.InternalParentNames: name,
@@ -1157,7 +1158,7 @@ func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Confi
 	reportStatus := func(results []RouteParentResult) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			rs := s.(*k8salpha.TLSRouteStatus)
-			rs.Parents = createRouteStatus(results, obj, rs.Parents)
+			rs.Parents = createRouteStatus(results, obj.Generation, rs.Parents)
 			return rs
 		})
 	}
@@ -2483,7 +2484,7 @@ func buildListener(ctx krt.HandlerContext, grants ReferenceGrants, Namespaces kr
 		Tls:   tls,
 	}
 
-	//reportListenerCondition(listenerIndex, l, obj, listenerConditions)
+	// reportListenerCondition(listenerIndex, l, obj, listenerConditions)
 	return server, ok
 }
 

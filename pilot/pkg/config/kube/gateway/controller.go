@@ -16,14 +16,11 @@ package gateway
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+
 	"go.uber.org/atomic"
-	istio "istio.io/api/networking/v1alpha3"
-	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
-	creds "istio.io/istio/pilot/pkg/model/credentials"
-	"istio.io/istio/pkg/config/constants"
-	kubeconfig "istio.io/istio/pkg/config/gateway/kube"
-	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/ptr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,28 +28,34 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"strings"
-	"sync"
 
+	istio "istio.io/api/networking/v1alpha3"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	creds "istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	kubeconfig "istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
+	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -92,7 +95,7 @@ type Controller struct {
 
 	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
-	statusController *atomic.Pointer[status.Controller]
+	statusWriter StatusWriter
 
 	tagWatcher revisions.TagWatcher
 
@@ -110,7 +113,8 @@ func (g GatewayClass) ResourceName() string {
 }
 
 func GatewayClassesCollection(
-	GatewayClasses krt.Collection[*gateway.GatewayClass]) krt.Collection[GatewayClass] {
+	GatewayClasses krt.Collection[*gateway.GatewayClass],
+) krt.Collection[GatewayClass] {
 	return krt.NewCollection(GatewayClasses, func(ctx krt.HandlerContext, obj *gateway.GatewayClass) *GatewayClass {
 		return &GatewayClass{
 			Name:       obj.Name,
@@ -197,7 +201,8 @@ type RouteContext struct {
 }
 
 func ReferenceGrantsCollection(
-	ReferenceGrants krt.Collection[*gateway.ReferenceGrant]) krt.Collection[ReferenceGrant] {
+	ReferenceGrants krt.Collection[*gateway.ReferenceGrant],
+) krt.Collection[ReferenceGrant] {
 	return krt.NewManyCollection(ReferenceGrants, func(ctx krt.HandlerContext, obj *gateway.ReferenceGrant) []ReferenceGrant {
 		rp := obj.Spec
 		results := make([]ReferenceGrant, 0, len(rp.From)*len(rp.To))
@@ -280,7 +285,7 @@ func GatewayCollection(
 			return nil
 		}
 		if classInfo.disableRouteGeneration {
-			//reportUnmanagedGatewayStatus(obj)
+			// reportUnmanagedGatewayStatus(obj)
 			// We found it, but don't want to handle this class
 			return nil
 		}
@@ -290,7 +295,7 @@ func GatewayCollection(
 		gatewayServices, err := extractGatewayServices(DomainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
-			//reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
+			// reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
 			return nil
 		}
 
@@ -337,7 +342,7 @@ func GatewayCollection(
 				Protocol:         l.Protocol,
 			}
 			pri.ReportAttachedRoutes = func() {
-				//reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)
+				// reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)
 			}
 
 			res := Gateway{
@@ -349,7 +354,7 @@ func GatewayCollection(
 			result = append(result, res)
 		}
 
-		//reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
+		// reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
 		return result
 	})
 }
@@ -392,6 +397,7 @@ func TCPRouteCollection(
 	Parents Parents,
 	grants ReferenceGrants,
 	DomainSuffix string,
+	statusWriter StatusWriter,
 ) krt.Collection[config.Config] {
 	return krt.NewManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []config.Config {
 		ctx := RouteContext{
@@ -403,13 +409,17 @@ func TCPRouteCollection(
 		route := obj.Spec
 		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
 
-		//reportStatus := func(results []RouteParentResult) {
-		//	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		//		rs := s.(*gatewayalpha.TCPRouteStatus)
-		//		rs.Parents = createRouteStatus(results, obj, rs.Parents)
-		//		return rs
-		//	})
-		//}
+		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
+		status := kstatus.Wrap(obj.Status.DeepCopy())
+		reportStatus := func(results []RouteParentResult) {
+			status.Mutate(func(s config.Status) config.Status {
+				rs := s.(*gatewayalpha.TCPRouteStatus)
+				rs.Parents = createRouteStatus(results, obj.Generation, rs.Parents)
+
+				return rs
+			})
+			statusWriter.Enqueue(obj, status)
+		}
 		type conversionResult struct {
 			error  *ConfigError
 			routes []*istio.TCPRoute
@@ -432,17 +442,17 @@ func TCPRouteCollection(
 			return res
 		}
 		meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
-		//reportStatus(slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
-		//	res := RouteParentResult{
-		//		OriginalReference: r.OriginalReference,
-		//		DeniedReason:      r.DeniedReason,
-		//		RouteError:        gwResult.error,
-		//	}
-		//	if r.IsMesh() {
-		//		res.RouteError = meshResult.error
-		//	}
-		//	return res
-		//}))
+		reportStatus(slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
+			res := RouteParentResult{
+				OriginalReference: r.OriginalReference,
+				DeniedReason:      r.DeniedReason,
+				RouteError:        gwResult.error,
+			}
+			if r.IsMesh() {
+				res.RouteError = meshResult.error
+			}
+			return res
+		}))
 
 		vs := []config.Config{}
 		for _, parent := range filteredReferences(parentRefs) {
@@ -493,7 +503,6 @@ func TCPRouteCollection(
 			}
 		}
 		return vs
-
 	})
 }
 
@@ -523,18 +532,18 @@ func NewController(
 	credsController credentials.MulticlusterController,
 	options controller.Options,
 ) *Controller {
-
 	var ctl *status.Controller
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, krt.GlobalDebugHandler)
 
+	statusWriter := StatusWriter{statusController: atomic.NewPointer(ctl)}
 	gatewayController := &Controller{
 		client:                kc,
 		credentialsController: credsController,
 		cluster:               options.ClusterID,
 		domain:                options.DomainSuffix,
-		statusController:      atomic.NewPointer(ctl),
 		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision),
+		statusWriter:          statusWriter,
 		waitForCRD:            waitForCRD,
 	}
 
@@ -567,6 +576,7 @@ func NewController(
 		Parents,
 		ReferenceGrants,
 		options.DomainSuffix,
+		statusWriter,
 	)
 	outputs := Outputs{
 		Gateways:        Gateways,
@@ -632,13 +642,13 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 
 func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
 	if enabled && features.EnableGatewayAPIStatus && statusManager != nil {
-		c.statusController.Store(
+		c.statusWriter.statusController.Store(
 			statusManager.CreateGenericController(func(status status.Manipulator, context any) {
 				status.SetInner(context)
 			}),
 		)
 	} else {
-		c.statusController.Store(nil)
+		c.statusWriter.statusController.Store(nil)
 	}
 }
 
@@ -715,27 +725,30 @@ func (c *Controller) Reconcile(ps *model.PushContext) {
 	*/
 }
 
-func (c *Controller) QueueStatusUpdates(r GatewayResources) {
-	c.handleStatusUpdates(r.GatewayClass)
-	c.handleStatusUpdates(r.Gateway)
-	c.handleStatusUpdates(r.HTTPRoute)
-	c.handleStatusUpdates(r.GRPCRoute)
-	c.handleStatusUpdates(r.TCPRoute)
-	c.handleStatusUpdates(r.TLSRoute)
+type StatusWriter struct {
+	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
+	// is only the case when we are the leader.
+	statusController *atomic.Pointer[status.Controller]
 }
 
-func (c *Controller) handleStatusUpdates(configs []config.Config) {
-	statusController := c.statusController.Load()
+func (sw StatusWriter) Enqueue(obj controllers.Object, ws *kstatus.WrappedStatus) {
+	if !ws.Dirty {
+		return
+	}
+	statusController := sw.statusController.Load()
 	if statusController == nil {
 		return
 	}
-	for _, cfg := range configs {
-		ws := cfg.Status.(*kstatus.WrappedStatus)
-		if ws.Dirty {
-			res := status.ResourceFromModelConfig(cfg)
-			statusController.EnqueueStatusUpdateResource(ws.Unwrap(), res)
-		}
+
+	// TODO: this is a bit awkward since the status controller is reading from crdstore. I suppose it works -- it just means
+	// we cannot remove Gateway API types from there.
+	res := status.Resource{
+		GroupVersionResource: schematypes.GvrFromObject(obj),
+		Namespace:            obj.GetNamespace(),
+		Name:                 obj.GetName(),
+		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
 	}
+	statusController.EnqueueStatusUpdateResource(ws.Unwrap(), res)
 }
 
 func (c *Controller) Create(config config.Config) (revision string, err error) {
@@ -783,7 +796,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 func (c *Controller) HasSynced() bool {
 	return true // TODO
-	//return c.cache.HasSynced() && c.namespaces.HasSynced() && c.tagWatcher.HasSynced()
+	// return c.cache.HasSynced() && c.namespaces.HasSynced() && c.tagWatcher.HasSynced()
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
