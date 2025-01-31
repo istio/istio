@@ -17,9 +17,11 @@ package kstatus
 import (
 	"reflect"
 
+	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -63,6 +65,7 @@ func (w *WrappedStatus) Mutate(f func(s config.Status) config.Status) {
 	// TODO: change this to be more efficient. Likely we allow modifications via WrappedStatus that
 	// modify specific things (ie conditions).
 	if !reflect.DeepEqual(old, w.Status) {
+		log.Errorf("howardjohn: dirty, %v", cmp.Diff(old, w.Status))
 		w.Dirty = true
 	}
 }

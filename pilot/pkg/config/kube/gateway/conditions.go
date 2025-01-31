@@ -41,7 +41,7 @@ type RouteParentResult struct {
 	RouteError *ConfigError
 }
 
-func createRouteStatus(parentResults []RouteParentResult, obj config.Config, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
+func createRouteStatus(parentResults []RouteParentResult, generation int64, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
 	parents := make([]k8s.RouteParentStatus, 0, len(parentResults))
 	// Fill in all the gateways that are already present but not owned by us. This is non-trivial as there may be multiple
 	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
@@ -161,7 +161,7 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 		parents = append(parents, k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
 			ControllerName: k8s.GatewayController(features.ManagedGatewayController),
-			Conditions:     setConditions(obj.Generation, currentConditions, conds),
+			Conditions:     setConditions(generation, currentConditions, conds),
 		})
 	}
 	// Ensure output is deterministic.
