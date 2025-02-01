@@ -310,7 +310,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			origDst := svc.GetAddressForProxy(lb.node) + ":" + portString
 			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
 			var filters []*listener.Filter
-			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork {
+			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork && !terminate{
 				filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
 			}
 			tcpChain = &listener.FilterChain{
@@ -551,26 +551,30 @@ func buildWaypointForwardInnerConnectListener(push *model.PushContext, proxy *mo
 }
 
 func buildForwardInnerConnectListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) *listener.Listener {
-	return buildConnectForwarder(push, proxy, class, ForwardInnerConnect)
+	return buildConnectForwarder(push, proxy, class, ForwardInnerConnect, false)
 }
 
-func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass, clusterName string) *listener.Listener {
+func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass,
+	clusterName string, tunnel bool,
+) *listener.Listener {
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       clusterName,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
-		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+	}
+	if tunnel {
+		tcpProxy.TunnelingConfig = &tcp.TcpProxy_TunnelingConfig{
 			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
-		},
+		}
 	}
 	// Set access logs. These are filtered down to only connection establishment errors, to avoid double logs in most cases.
 	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, class)
 	l := &listener.Listener{
-		Name:              clusterName,
-		UseOriginalDst:    wrappers.Bool(false),
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		Name:           clusterName,
+		UseOriginalDst: wrappers.Bool(false),
 		ListenerFilters: []*listener.ListenerFilter{
 			xdsfilters.OriginalDestination,
 		},
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
@@ -585,7 +589,7 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 }
 
 func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) *listener.Listener {
-	return buildConnectForwarder(push, proxy, class, ConnectOriginate)
+	return buildConnectForwarder(push, proxy, class, ConnectOriginate, true)
 }
 
 // buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.
