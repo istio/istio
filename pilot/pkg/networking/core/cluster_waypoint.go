@@ -49,7 +49,7 @@ import (
 )
 
 // buildInternalUpstreamCluster builds a single endpoint cluster to the internal listener.
-func buildInternalUpstreamCluster(name string, internalListener string) *cluster.Cluster {
+func buildInternalUpstreamCluster(name string, internalListener string, h2 bool) *cluster.Cluster {
 	c := &cluster.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
@@ -59,9 +59,12 @@ func buildInternalUpstreamCluster(name string, internalListener string) *cluster
 			Endpoints:   util.BuildInternalEndpoint(internalListener, nil),
 		},
 		TransportSocket: util.DefaultInternalUpstreamTransportSocket,
-		TypedExtensionProtocolOptions: map[string]*anypb.Any{
+	}
+
+	if h2 {
+		c.TypedExtensionProtocolOptions = map[string]*anypb.Any{
 			v3.HttpProtocolOptionsType: passthroughHttpProtocolOptions,
-		},
+		}
 	}
 
 	c.AltStatName = util.DelimitedStatsPrefix(name)
@@ -71,15 +74,17 @@ func buildInternalUpstreamCluster(name string, internalListener string) *cluster
 
 var (
 	GetMainInternalCluster = func() *cluster.Cluster {
-		return buildInternalUpstreamCluster(MainInternalName, MainInternalName)
+		return buildInternalUpstreamCluster(MainInternalName, MainInternalName, true)
 	}
 
 	GetEncapCluster = func(p *model.Proxy) *cluster.Cluster {
 		name := ConnectOriginate
+		h2 := true
 		if isEastWestGateway(p) {
 			name = ForwardInnerConnect
+			h2 = false
 		}
-		return buildInternalUpstreamCluster(EncapClusterName, name)
+		return buildInternalUpstreamCluster(EncapClusterName, name, h2)
 	}
 )
 
@@ -183,7 +188,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		maybeApplyEdsConfig(localCluster.cluster)
 		// Set a transport socket since we're going to an internal listener
 		transportSocket := util.RawBufferTransport()
-		localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
+		localCluster.cluster.TransportSocket = util.FullMetadataPassthroughInternalUpstreamTransportSocket(transportSocket)
 		return localCluster.build()
 	}
 
@@ -323,13 +328,12 @@ func (cb *ClusterBuilder) buildWaypointForwardInnerConnect() *cluster.Cluster {
 // Create a cluster to replace connect_originate when we're forwarding a double-hbone request.
 func (cb *ClusterBuilder) buildForwardInnerConnect() *cluster.Cluster {
 	c := &cluster.Cluster{
-		Name:                          ForwardInnerConnect,
-		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
-		CleanupInterval:               durationpb.New(60 * time.Second),
-		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
-		TypedExtensionProtocolOptions: h2connectUpgrade(),
+		Name:                 ForwardInnerConnect,
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
+		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
+		ConnectTimeout:       protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
+		CleanupInterval:      durationpb.New(60 * time.Second),
+		CircuitBreakers:      &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UpstreamPortOverride: &wrappers.UInt32Value{
