@@ -361,7 +361,6 @@ func newDoubleHBONETLSConfig(c *Config) (*tls.Config, *tls.Config, error) {
 	outerTLSConfig := &tls.Config{
 		GetClientCertificate: c.hboneClientConfig,
 		MinVersion:           tls.VersionTLS12,
-		MaxVersion:           tls.VersionTLS12,
 		KeyLogWriter:         f,
 	}
 	rOuter := r[0]
@@ -387,7 +386,6 @@ func newDoubleHBONETLSConfig(c *Config) (*tls.Config, *tls.Config, error) {
 	innerTLSConfig := &tls.Config{
 		GetClientCertificate: c.innerHboneClientConfig,
 		MinVersion:           tls.VersionTLS12,
-		MaxVersion:           tls.VersionTLS12,
 		KeyLogWriter:         f2,
 	}
 	rInner := r[1]
