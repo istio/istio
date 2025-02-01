@@ -291,10 +291,18 @@ func getPodLevelTrafficOverrides(pod *corev1.Pod) iptables.PodLevelOverrides {
 	// Basically, this just disables inbound redirection.
 	podCfg := iptables.PodLevelOverrides{IngressMode: false}
 
-	if ingressMode, err := util.CheckBooleanAnnotation(pod, annotation.AmbientBypassInboundCapture.Name); err == nil {
+	if ingressMode, present := util.CheckBooleanAnnotation(pod, annotation.AmbientBypassInboundCapture.Name); present {
 		podCfg.IngressMode = ingressMode
-	} else {
-		log.Warn(err)
+	}
+
+	podCfg.DNSProxy = iptables.PodDNSUnset
+
+	if dnsCapture, present := util.CheckBooleanAnnotation(pod, annotation.AmbientDnsCapture.Name); present {
+		if dnsCapture {
+			podCfg.DNSProxy = iptables.PodDNSEnabled
+		} else {
+			podCfg.DNSProxy = iptables.PodDNSDisabled
+		}
 	}
 
 	if virt, hasVirt := pod.Annotations[annotation.IoIstioRerouteVirtualInterfaces.Name]; hasVirt {
