@@ -123,9 +123,15 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 			if wasmHTTPConfig != nil {
 				newExtensionConfig, err := convertHTTPWasmConfigFromRemoteToLocal(extConfig, wasmHTTPConfig, cache)
 				if err != nil {
+					failOpen := httpWasmFailOpen(wasmHTTPConfig)
+					rbacFilter := "deny"
+					if failOpen {
+						rbacFilter = "allow"
+					}
+					wasmLog.Errorf("error in converting the wasm config to local: %v. applying %s RBAC filter", err, rbacFilter)
 					// Use NOOP filter because the download failed.
 					// nolint: staticcheck // FailOpen deprecated
-					newExtensionConfig, err = createHTTPDefaultFilter(extConfig.GetName(), httpWasmFailOpen(wasmHTTPConfig))
+					newExtensionConfig, err = createHTTPDefaultFilter(extConfig.GetName(), failOpen)
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.
 						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
@@ -137,8 +143,15 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 			} else {
 				newExtensionConfig, err := convertNetworkWasmConfigFromRemoteToLocal(extConfig, wasmNetworkConfig, cache)
 				if err != nil {
+					failOpen := networkWasmFailOpen(wasmNetworkConfig)
+					rbacFilter := "deny"
+					if failOpen {
+						rbacFilter = "allow"
+					}
+					wasmLog.Errorf("error in converting the wasm config to local: %v. applying %s RBAC filter", err, rbacFilter)
+
 					// Use NOOP filter because the download failed.
-					newExtensionConfig, err = createNetworkDefaultFilter(extConfig.GetName(), networkWasmFailOpen(wasmNetworkConfig))
+					newExtensionConfig, err = createNetworkDefaultFilter(extConfig.GetName(), failOpen)
 					if err != nil {
 						// If the fallback is failing, send the Nack regardless of fail_open.
 						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
@@ -154,7 +167,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 	wg.Wait()
 	err := multierror.Append(istiomultierror.New(), convertErrs...).ErrorOrNil()
 	if err != nil {
-		wasmLog.Errorf("convert the wasm config: %v", err)
+		wasmLog.Errorf("error in applying failopen rbac config: %v", err)
 	}
 	return err
 }
