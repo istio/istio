@@ -47,6 +47,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/regex_engines/hyperscan/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/router/cluster_specifier/golang/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/tap_sinks/udp_sink/v3alpha"
+	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/upstreams/http/tcp/golang/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/vcl/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
