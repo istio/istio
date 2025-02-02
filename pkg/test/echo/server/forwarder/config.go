@@ -209,7 +209,6 @@ func getClientCertificateFunc(r *proto.ForwardEchoRequest) (func(info *tls.Certi
 		}
 		// nolint: unparam
 		return func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			fwLog.Debugf("Peer asking for client certificate")
 			for i, ca := range info.AcceptableCAs {
 				x := &pkix.RDNSequence{}
 				if _, err := asn1.Unmarshal(ca, x); err != nil {
@@ -263,7 +262,6 @@ func getHBONEClientConfig(r *proto.HBONE) (func(info *tls.CertificateRequestInfo
 		}
 		// nolint: unparam
 		return func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			fwLog.Infof("Peer asking for client certificate")
 			for i, ca := range info.AcceptableCAs {
 				x := &pkix.RDNSequence{}
 				if _, err := asn1.Unmarshal(ca, x); err != nil {
@@ -347,21 +345,10 @@ func newDoubleHBONETLSConfig(c *Config) (*tls.Config, *tls.Config, error) {
 		return nil, nil, fmt.Errorf("unexpected number of hbone configs, expected 2, got: %d", len(c.Request.DoubleHbone))
 	}
 
-	f, err := os.OpenFile("/tmp/outerkeys", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		panic(err)
-	}
-
-	f2, err := os.OpenFile("/tmp/innerkeys", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		panic(err)
-	}
-
 	// Outer logic
 	outerTLSConfig := &tls.Config{
 		GetClientCertificate: c.hboneClientConfig,
 		MinVersion:           tls.VersionTLS12,
-		KeyLogWriter:         f,
 	}
 	rOuter := r[0]
 	if rOuter.CaCertFile != "" {
@@ -386,7 +373,6 @@ func newDoubleHBONETLSConfig(c *Config) (*tls.Config, *tls.Config, error) {
 	innerTLSConfig := &tls.Config{
 		GetClientCertificate: c.innerHboneClientConfig,
 		MinVersion:           tls.VersionTLS12,
-		KeyLogWriter:         f2,
 	}
 	rInner := r[1]
 	if rInner.CaCertFile != "" {
