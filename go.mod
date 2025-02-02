@@ -17,8 +17,8 @@ require (
 	github.com/coreos/go-oidc/v3 v3.12.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v27.5.1+incompatible
-	github.com/envoyproxy/go-control-plane/contrib v1.32.4-0.20250124152931-009f366fdf49
-	github.com/envoyproxy/go-control-plane/envoy v1.32.4-0.20250124152931-009f366fdf49
+	github.com/envoyproxy/go-control-plane/contrib v1.32.4-0.20250129071740-454f8a02b0a2
+	github.com/envoyproxy/go-control-plane/envoy v1.32.4-0.20250129071740-454f8a02b0a2
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/fatih/color v1.18.0
 	github.com/felixge/fgprof v0.9.5
@@ -87,8 +87,8 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250122153221-138b5a5a4fd4
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250122153221-138b5a5a4fd4
-	google.golang.org/grpc v1.69.4
-	google.golang.org/protobuf v1.36.3
+	google.golang.org/grpc v1.70.0
+	google.golang.org/protobuf v1.36.4
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.17.0
@@ -132,7 +132,7 @@ require (
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/envoyproxy/go-control-plane v0.13.5-0.20250123154839-2a6715911fec // indirect
-	github.com/envoyproxy/protoc-gen-validate v1.1.0 // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
