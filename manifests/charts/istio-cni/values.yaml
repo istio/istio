@@ -1,6 +1,8 @@
 # "_internal_defaults_do_not_set" is a workaround for Helm limitations. Users should NOT set "._internal_defaults_do_not_set" explicitly, but rather directly set the fields internally.
 # For instance, instead of `--set _internal_defaults_do_not_set.foo=bar``, just set `--set foo=bar`.
 _internal_defaults_do_not_set:
+  # This will override the namespace of resources created by this chart
+  namespaceOverride: ""
   hub: ""
   tag: ""
   variant: ""

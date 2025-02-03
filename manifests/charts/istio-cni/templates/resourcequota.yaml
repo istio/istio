@@ -3,7 +3,7 @@ apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: {{ template "name" . }}-resource-quota
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ if .Values.namespaceOverride }}{{ .Values.namespaceOverride }}{{ else }}{{ .Release.Namespace }}{{ end }}
   labels:
     app.kubernetes.io/name: {{ template "name" . }}
     {{- include "istio.labels" . | nindent 4 }}

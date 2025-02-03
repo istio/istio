@@ -2,7 +2,7 @@ kind: ConfigMap
 apiVersion: v1
 metadata:
   name: {{ template "name" . }}-config
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ if .Values.namespaceOverride }}{{ .Values.namespaceOverride }}{{ else }}{{ .Release.Namespace }}{{ end }}
   labels:
     app: {{ template "name" . }}
     release: {{ .Release.Name }}
