@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 54726
+releaseNotes:
+- |
+  **Fixed** The CNI agent always sharing the network namespace with the host. Dynamic switching to the host network is now performed whenever necessary.
+  The old behavior can temporarily be restored by setting the `ambient.shareHostNetworkNamespace` field in the `istio-cni` chart.

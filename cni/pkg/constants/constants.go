@@ -78,4 +78,5 @@ var (
 	// Well-known subpath we will mount any needed host-mounts under,
 	// to preclude shadowing or breaking any pod-internal mounts
 	HostMountsPath = "/host"
+	HostNetNSPath  = HostMountsPath + "/proc/1/ns/net"
 )

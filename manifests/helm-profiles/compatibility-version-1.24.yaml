@@ -5,3 +5,4 @@ pilot:
 ambient:
   dnsCapture: false
   reconcileIptablesOnStartup: false
+  shareHostNetworkNamespace: true
