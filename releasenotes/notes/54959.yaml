@@ -29,5 +29,5 @@ issue: [54955]
 releaseNotes:
   - |
     **Fixed** Helm error preventing installation when `IstioOperator.components.gateways.ingressGateways.tag`
-    was set, but `IstioOperator.components.gateways.ingressGateways.label` is ommitted.
+    is set, but `IstioOperator.components.gateways.ingressGateways.label` is ommitted.
 
