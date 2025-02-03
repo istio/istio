@@ -73,6 +73,9 @@ func (c Component) Get(merged values.Map) ([]apis.GatewayComponentSpec, error) {
 		if spec.Namespace == "" {
 			spec.Namespace = "istio-system"
 		}
+		if spec.Label == nil {
+			spec.Label = make(map[string]string)
+		}
 		spec.Raw = m
 		return spec, nil
 	}
