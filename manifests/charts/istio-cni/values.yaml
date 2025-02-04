@@ -2,7 +2,7 @@
 # For instance, instead of `--set _internal_defaults_do_not_set.foo=bar``, just set `--set foo=bar`.
 _internal_defaults_do_not_set:
   # This will override the namespace of resources created by this chart
-  namespaceOverride: ""
+  namespace: ""
   hub: ""
   tag: ""
   variant: ""
