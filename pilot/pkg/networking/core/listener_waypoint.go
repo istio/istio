@@ -567,7 +567,9 @@ func buildForwardInnerConnectListener(push *model.PushContext, proxy *model.Prox
 	return buildConnectForwarder(push, proxy, class, ForwardInnerConnect, false)
 }
 
-func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass, clusterName string, tunnel bool) *listener.Listener {
+func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass,
+	clusterName string, tunnel bool,
+) *listener.Listener {
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       clusterName,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
