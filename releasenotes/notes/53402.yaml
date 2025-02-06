@@ -17,3 +17,7 @@ upgradeNotes:
       this vulnerability can be found here: https://github.com/envoyproxy/envoy/security/advisories/GHSA-ffhv-fvxq-r6mf
       Instructions for setting `explicit_internal_address_config` can be found [here](https://istio.io/v1.23/news/security/istio-security-2024-006/#am-i-impacted).
       Examples for explicitly configuring `MeshNetworks` can be found [here](https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks).
+
+docs:
+  - '[MeshNetworks] https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks'
+  - '[ENABLE_HCM_INTERNAL_NETWORKS] https://istio.io/latest/docs/reference/commands/pilot-discovery/#envvars'
