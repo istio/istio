@@ -431,7 +431,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	// If UseRemoteAddress is set, we must set the internal address config to preserve internal headers.
 	// As of Envoy 1.33, the default internalAddressConfig is set to an empty set. In previous versions
 	// the default was all private IPs. To preserve internal headers when useRemoteAddress is set, we must
-	// explicitly set the internalAddressConfig to all IPs in the mesh network. 
+	// explicitly set MeshNetworks to configure Envoy's internal_address_config.
 	// MeshNetwork configuration docs can be found here: https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks
 	if (features.EnableHCMInternalNetworks || httpOpts.useRemoteAddress) && lb.push.Networks != nil {
 		connectionManager.InternalAddressConfig = util.MeshNetworksToEnvoyInternalAddressConfig(lb.push.Networks)

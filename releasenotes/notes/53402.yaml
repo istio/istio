@@ -4,12 +4,16 @@ area: security
 issue:
   - 53402
 
-releaseNotes:
-  - |
-    **Fixed** comments relating to Envoy's default internalAddressConfig being changed to an empty set (as of 1.33).
-    In previous versions the default was all private IPs. To preserve internal headers when useRemoteAddress is set,
-    the internalAddressConfig must be set explicitly to all IPs in the mesh network (by setting `ENABLE_HCM_INTERNAL_NETWORKS`
-    to true) or `explicit_internal_address_config` must be set to false (to default to Envoy's previous behavior prior
-    to 1.33).
-    Instructions for setting `explicit_internal_address_config` can be found [here](https://istio.io/v1.23/news/security/istio-security-2024-006/#am-i-impacted).
-    Examples for explicitly configuring `MeshNetworks` can be found [here](https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks).
+upgradeNotes:
+  - title: Envoy default internalAddressConfig value change
+    content: |
+      As of Envoy 1.33, the default internalAddressConfig is set to an empty set. In previous versions the default was
+      all private IPs. To preserve internal headers when useRemoteAddress is set or at the gateway, the
+      internalAddressConfig must be set explicitly to all IPs in the mesh network by setting `ENABLE_HCM_INTERNAL_NETWORKS`
+      to true and configuring MeshNetworks. Alternatively, Envoy's `envoy.reloadable_features.explicit_internal_address_config`
+      flag could be set to false to revert to Envoy's previous behavior prior to 1.33. Setting `ENABLE_HCM_INTERNAL_NETWORKS`
+      and configuring MeshNetworks to all private IPs or reverting to Envoy's previous behavior will leave users with an
+      Istio Ingress Gateway potentially vulnerable to `x-envoy` header manipulation by external sources. More information about
+      this vulnerability can be found here: https://github.com/envoyproxy/envoy/security/advisories/GHSA-ffhv-fvxq-r6mf
+      Instructions for setting `explicit_internal_address_config` can be found [here](https://istio.io/v1.23/news/security/istio-security-2024-006/#am-i-impacted).
+      Examples for explicitly configuring `MeshNetworks` can be found [here](https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks).
