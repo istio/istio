@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 53402
+
+releaseNotes:
+  - |
+    **Fixed** comments relating to Envoy's default internalAddressConfig being changed to an empty set (as of 1.33).
+    In previous versions the default was all private IPs. To preserve internal headers when useRemoteAddress is set,
+    the internalAddressConfig must be set explicitly to all IPs in the mesh network (by setting `ENABLE_HCM_INTERNAL_NETWORKS`
+    to true) or `explicit_internal_address_config` must be set to false (to default to Envoy's previous behavior prior
+    to 1.33).
+    Instructions for setting `explicit_internal_address_config` can be found [here](https://istio.io/v1.23/news/security/istio-security-2024-006/#am-i-impacted).
+    Examples for explicitly configuring `MeshNetworks` can be found [here](https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks).
