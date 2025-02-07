@@ -2714,7 +2714,7 @@ func customTracingTags() []*tracing.CustomTag {
 			},
 		},
 		&tracing.CustomTag{
-			Tag: "istio.destination_workload",
+			Tag: "istio.destination_workload_metadata",
 			Type: &tracing.CustomTag_Metadata_{
 				Metadata: &tracing.CustomTag_Metadata{
 					Kind: &envoy_type_metadata_v3.MetadataKind{
