@@ -22,6 +22,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	resourcedetectors "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/resource_detectors/v3"
 	otelsamplers "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/samplers/v3"
+	envoy_type_metadata_v3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
@@ -543,6 +544,28 @@ func defaultTracingTags() []*tracing.CustomTag {
 			Type: &tracing.CustomTag_Literal_{
 				Literal: &tracing.CustomTag_Literal{
 					Value: "unknown",
+				},
+			},
+		},
+		&tracing.CustomTag{
+			Tag: "istio.destination_workload",
+			Type: &tracing.CustomTag_Metadata_{
+				Metadata: &tracing.CustomTag_Metadata{
+					Kind: &envoy_type_metadata_v3.MetadataKind{
+						Kind: &envoy_type_metadata_v3.MetadataKind_Host_{
+							Host: &envoy_type_metadata_v3.MetadataKind_Host{},
+						},
+					},
+					MetadataKey: &envoy_type_metadata_v3.MetadataKey{
+						Key: "istio",
+						Path: []*envoy_type_metadata_v3.MetadataKey_PathSegment{
+							{
+								Segment: &envoy_type_metadata_v3.MetadataKey_PathSegment_Key{
+									Key: "workload",
+								},
+							},
+						},
+					},
 				},
 			},
 		},

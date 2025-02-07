@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+
+kind: feature
+
+area: telemetry
+
+issue: [54901]
+
+releaseNotes:
+  - |
+    **Added** new tag `istio.workload` to spans with the name, namespace, canonical name,
+    canonical revision, namespace, and cluster of the destination workload.

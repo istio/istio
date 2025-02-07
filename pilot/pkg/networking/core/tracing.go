@@ -567,6 +567,28 @@ func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []
 				},
 			},
 		},
+		{
+			Tag: "istio.destination_workload",
+			Type: &tracing.CustomTag_Metadata_{
+				Metadata: &tracing.CustomTag_Metadata{
+					Kind: &envoy_type_metadata_v3.MetadataKind{
+						Kind: &envoy_type_metadata_v3.MetadataKind_Host_{
+							Host: &envoy_type_metadata_v3.MetadataKind_Host{},
+						},
+					},
+					MetadataKey: &envoy_type_metadata_v3.MetadataKey{
+						Key: "istio",
+						Path: []*envoy_type_metadata_v3.MetadataKey_PathSegment{
+							{
+								Segment: &envoy_type_metadata_v3.MetadataKey_PathSegment_Key{
+									Key: "workload",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
