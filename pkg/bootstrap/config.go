@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -101,9 +102,13 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	metadataDiscovery := cfg.Metadata.MetadataDiscovery
 	if strings.HasPrefix(cfg.ID, "waypoint~") {
 		xdsType = "DELTA_GRPC"
-		metadataDiscovery = true
+		metadataDiscovery = ptr.Of(model.StringBool(true))
 	}
 
+	var mDiscovery bool
+	if metadataDiscovery != nil && *metadataDiscovery {
+		mDiscovery = true
+	}
 	opts = append(opts,
 		option.NodeID(cfg.ID),
 		option.NodeType(cfg.ID),
@@ -113,7 +118,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
 		option.XdsType(xdsType),
-		option.MetadataDiscovery(bool(metadataDiscovery)),
+		option.MetadataDiscovery(mDiscovery),
 		option.MetricsLocalhostAccessOnly(cfg.Metadata.ProxyConfig.ProxyMetadata),
 		option.DeferredClusterCreation(features.EnableDeferredClusterCreation),
 	)
@@ -577,7 +582,7 @@ type MetadataOptions struct {
 	EnvoyStatusPort             int
 	EnvoyPrometheusPort         int
 	ExitOnZeroActiveConnections bool
-	MetadataDiscovery           bool
+	MetadataDiscovery           *bool
 }
 
 const (
@@ -633,7 +638,11 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.EnvoyStatusPort = options.EnvoyStatusPort
 	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
 	meta.ExitOnZeroActiveConnections = model.StringBool(options.ExitOnZeroActiveConnections)
-	meta.MetadataDiscovery = model.StringBool(options.MetadataDiscovery)
+	if options.MetadataDiscovery == nil {
+		meta.MetadataDiscovery = nil
+	} else {
+		meta.MetadataDiscovery = ptr.Of(model.StringBool(*options.MetadataDiscovery))
+	}
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
@@ -701,6 +710,12 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.OutlierLogPath = options.OutlierLogPath
 	if options.CredentialSocketExists {
 		untypedMeta[security.CredentialMetaDataName] = "true"
+	}
+
+	if meta.MetadataDiscovery == nil {
+		// If it's disabled, set it if ambient is enabled
+		meta.MetadataDiscovery = ptr.Of(meta.EnableHBONE)
+		log.Debugf("metadata discovery is disabled, setting it to %s based on if ambient HBONE is enabled", meta.MetadataDiscovery)
 	}
 
 	return &model.Node{
