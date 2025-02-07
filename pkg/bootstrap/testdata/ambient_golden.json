@@ -57,10 +57,6 @@
         "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));\\.)"
       },
       {
-        "tag_name": "thread_name",
-        "regex": "^server(\\.(.+))\\.watchdog"
-      },
-      {
         "tag_name": "tcp_prefix",
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
       },
@@ -337,8 +333,6 @@
     ],
     "listeners":[
       {
-        "name": "0.0.0.0_15090",
-        
         "address": {
           "socket_address": {
             "protocol": "TCP",
@@ -347,9 +341,6 @@
             "port_value": 15090
           }
         },
-        "ignore_global_conn_limit": true,
-        "bypass_overload_manager": true,
-        
         "filter_chains": [
           {
             "filters": [
@@ -393,7 +384,6 @@
         ]
       },
       {
-        "name": "0.0.0.0_15021",
         "address": {
            "socket_address": {
              "protocol": "TCP",
@@ -401,9 +391,6 @@
              "port_value": 15021
            }
         },
-        "ignore_global_conn_limit": true,
-        "bypass_overload_manager": true,
-        
         "filter_chains": [
           {
             "filters": [
@@ -454,11 +441,6 @@
     "outlier_detection": {
       "event_log_path": "/dev/stdout"
     }
-  }
-  
-  ,
-  "deferred_stat_options": {
-    "enable_deferred_creation_stats": true
   }
   
 }
