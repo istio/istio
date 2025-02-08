@@ -269,7 +269,9 @@ func TestConfigureIstioGateway(t *testing.T) {
 			values: `global:
   hub: test
   tag: test
-  network: network-2`,
+  network: network-2
+  waypoint:
+    terminationGracePeriodSeconds: 2`,
 		},
 		{
 			name: "waypoint-no-network-label",
@@ -291,7 +293,9 @@ func TestConfigureIstioGateway(t *testing.T) {
 			values: `global:
   hub: test
   tag: test
-  network: network-1`,
+  network: network-1
+  waypoint:
+    terminationGracePeriodSeconds: 2`,
 		},
 		{
 			name: "proxy-config-crd",
@@ -394,7 +398,9 @@ func TestConfigureIstioGateway(t *testing.T) {
 			values: `global:
   hub: test
   tag: test
-  network: network-1`,
+  network: network-1
+  waypoint:
+    terminationGracePeriodSeconds: 2`,
 		},
 	}
 	for _, tt := range tests {
@@ -575,11 +581,12 @@ func testInjectionConfig(t test.Failer, values string) func() inject.WebhookConf
 		vc, err = inject.NewValuesConfig(`
 global:
   hub: test
-  tag: test`)
+  tag: test
+  waypoint:
+    terminationGracePeriodSeconds: 2`)
 		if err != nil {
 			t.Fatal(err)
 		}
-
 	}
 	tmpl, err := inject.ParseTemplates(map[string]string{
 		"kube-gateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/kube-gateway.yaml")),
