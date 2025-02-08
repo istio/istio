@@ -334,13 +334,7 @@ func TestWaypointChanges(t *testing.T) {
 		// change the waypoint template
 		istio.GetOrFail(t).UpdateInjectionConfig(t, func(cfg *inject.Config) error {
 			mainTemplate := file.MustAsString(filepath.Join(env.IstioSrc, templateFile))
-			cfg.SetValues(map[string]any{
-				"global": map[string]any{
-					"waypoint": map[string]any{
-						"terminationGracePeriodSeconds": 3,
-					},
-				},
-			})
+			cfg.RawTemplates["waypoint"] = strings.ReplaceAll(mainTemplate, "terminationGracePeriodSeconds: {{ .Values.global.waypoint.terminationGracePeriodSeconds }}", "terminationGracePeriodSeconds: 3")
 			return nil
 		}, cleanup.Always)
 
