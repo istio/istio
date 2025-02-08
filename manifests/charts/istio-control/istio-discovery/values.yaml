@@ -524,6 +524,9 @@ _internal_defaults_do_not_set:
       # Tolerations for the waypoint proxy.
       tolerations: []
 
+      # The terminationGracePeriodSeconds for the waypoint proxy.
+      terminationGracePeriodSeconds: 2
+
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
