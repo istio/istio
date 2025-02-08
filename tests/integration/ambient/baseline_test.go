@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -334,7 +335,10 @@ func TestWaypointChanges(t *testing.T) {
 		// change the waypoint template
 		istio.GetOrFail(t).UpdateInjectionConfig(t, func(cfg *inject.Config) error {
 			mainTemplate := file.MustAsString(filepath.Join(env.IstioSrc, templateFile))
-			cfg.Values.Global.Waypoint.TerminationGracePeriodSeconds = 3
+			log.Infof("Template content: %v", mainTemplate)
+			cfg.RawTemplates["waypoint"] = strings.ReplaceAll(mainTemplate,
+				"terminationGracePeriodSeconds: {{ .Values.global.waypoint.terminationGracePeriodSeconds }}",
+				"terminationGracePeriodSeconds: 3")
 			return nil
 		}, cleanup.Always)
 
