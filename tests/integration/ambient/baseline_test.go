@@ -334,13 +334,13 @@ func TestWaypointChanges(t *testing.T) {
 		// change the waypoint template
 		istio.GetOrFail(t).UpdateInjectionConfig(t, func(cfg *inject.Config) error {
 			mainTemplate := file.MustAsString(filepath.Join(env.IstioSrc, templateFile))
-			cfg.Values = map[string]any{
+			cfg.SetValues(map[string]any{
 				"global": map[string]any{
 					"waypoint": map[string]any{
 						"terminationGracePeriodSeconds": 3,
 					},
 				},
-			}
+			})
 			return nil
 		}, cleanup.Always)
 
@@ -3291,7 +3291,7 @@ func restartZtunnel(t framework.TestContext) {
 					}
 				}
 			}
-		}`, time.Now().Format(time.RFC3339)) // e.g., “2006-01-02T15:04:05Z07:00”
+		}`, time.Now().Format(time.RFC3339)) // e.g., "2006-01-02T15:04:05Z07:00"
 	ds := t.Clusters().Default().Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace)
 	_, err := ds.Patch(context.Background(), "ztunnel", types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
