@@ -84,7 +84,7 @@ spec:
       tolerations:
       {{- toYaml .Values.global.waypoint.tolerations | nindent 8 }}
       {{- end }}
-      terminationGracePeriodSeconds: {{ .Values.global.waypoint.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.global.waypoint.terminationGracePeriodSeconds | default 2 }}
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
       - name: istio-proxy
