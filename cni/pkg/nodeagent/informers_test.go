@@ -26,6 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/util"
@@ -36,7 +38,13 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
+func resetPrometheusMetrics() {
+    // Reset all registered metrics
+    prometheus.DefaultRegisterer = prometheus.NewRegistry()
+}
+
 func TestInformerExistingPodAddedWhenNsLabeled(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -83,6 +91,7 @@ func TestInformerExistingPodAddedWhenNsLabeled(t *testing.T) {
 }
 
 func TestInformerExistingPodAddErrorRetriesIfRetryable(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -155,6 +164,7 @@ func TestInformerExistingPodAddErrorRetriesIfRetryable(t *testing.T) {
 }
 
 func TestInformerExistingPodAddErrorAnnotatesWithPartialStatusOnRetry(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -206,6 +216,7 @@ func TestInformerExistingPodAddErrorAnnotatesWithPartialStatusOnRetry(t *testing
 }
 
 func TestInformerExistingPodAddErrorDoesNotRetryIfNotRetryable(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -255,6 +266,7 @@ func TestInformerExistingPodAddErrorDoesNotRetryIfNotRetryable(t *testing.T) {
 }
 
 func TestInformerExistingPodAddedWhenDualStack(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -307,6 +319,7 @@ func TestInformerExistingPodAddedWhenDualStack(t *testing.T) {
 }
 
 func TestInformerExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -351,6 +364,7 @@ func TestInformerExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
 }
 
 func TestInformerExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 
@@ -431,6 +445,7 @@ func TestInformerExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 }
 
 func TestInformerExistingPodRemovalRetriesOnFailure(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 
@@ -516,6 +531,7 @@ func TestInformerExistingPodRemovalRetriesOnFailure(t *testing.T) {
 }
 
 func TestInformerExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 
@@ -604,6 +620,7 @@ func TestInformerExistingPodRemovedWhenPodLabelRemoved(t *testing.T) {
 }
 
 func TestInformerJobPodRemovalRetriesOnErrorEvenIfPodTerminal(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 
@@ -688,6 +705,7 @@ func TestInformerJobPodRemovalRetriesOnErrorEvenIfPodTerminal(t *testing.T) {
 }
 
 func TestInformerJobPodRemovedWhenPodTerminates(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 
@@ -786,6 +804,7 @@ func TestInformerJobPodRemovedWhenPodTerminates(t *testing.T) {
 }
 
 func TestInformerGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 
@@ -844,6 +863,7 @@ func TestInformerGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) 
 }
 
 func TestInformerGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 
@@ -902,6 +922,7 @@ func TestInformerGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T)
 }
 
 func TestInformerAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 
@@ -942,6 +963,7 @@ func TestInformerAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 }
 
 func TestInformerAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 
@@ -981,6 +1003,7 @@ func TestInformerAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 }
 
 func TestInformerAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 
@@ -1023,6 +1046,7 @@ func TestInformerAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 }
 
 func TestInformerExistingPodAddedWhenItPreExists(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1071,6 +1095,7 @@ func TestInformerExistingPodAddedWhenItPreExists(t *testing.T) {
 // and the informer. This test is designed to simulate the case where the informer
 // gets a stale event for a pod that has already been Added by the CNI plugin.
 func TestInformerPendingPodSkippedIfAlreadyLabeledAndEventStale(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1127,6 +1152,7 @@ func TestInformerPendingPodSkippedIfAlreadyLabeledAndEventStale(t *testing.T) {
 }
 
 func TestInformerSkipsUpdateEventIfPodNotActuallyPresentAnymore(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1179,6 +1205,7 @@ func TestInformerSkipsUpdateEventIfPodNotActuallyPresentAnymore(t *testing.T) {
 }
 
 func TestInformerStillHandlesDeleteEventIfPodNotActuallyPresentAnymore(t *testing.T) {
+	defer resetPrometheusMetrics()
 	setupLogging()
 	NodeName = "testnode"
 	ctx, cancel := context.WithCancel(context.Background())
