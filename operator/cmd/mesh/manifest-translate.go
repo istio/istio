@@ -144,9 +144,10 @@ func ManifestTranslate(kubeClient kube.CLIClient, mgArgs *ManifestTranslateArgs,
 			if m.GetNamespace() != "" {
 				nsFlag = " --namespace=" + m.GetNamespace()
 			}
-			commands = append(commands, fmt.Sprintf("kubectl annotate %s%s %s meta.helm.sh/release-name=%s", gk, nsFlag, m.GetName(), name))
-			commands = append(commands, fmt.Sprintf("kubectl annotate %s%s %s meta.helm.sh/release-namespace=%s", gk, nsFlag, m.GetName(), ns))
-			commands = append(commands, fmt.Sprintf("kubectl label %s%s %s app.kubernetes.io/managed-by=Helm", gk, nsFlag, m.GetName()))
+			commands = append(commands,
+				fmt.Sprintf("kubectl annotate %s%s %s meta.helm.sh/release-name=%s", gk, nsFlag, m.GetName(), name),
+				fmt.Sprintf("kubectl annotate %s%s %s meta.helm.sh/release-namespace=%s", gk, nsFlag, m.GetName(), ns),
+				fmt.Sprintf("kubectl label %s%s %s app.kubernetes.io/managed-by=Helm", gk, nsFlag, m.GetName()))
 		}
 		commands = append(commands, "\n", "# Run the actual Helm install operation",
 			fmt.Sprintf("helm upgrade --install %s --namespace %s -f %s oci://gcr.io/istio-release/charts/%s",
