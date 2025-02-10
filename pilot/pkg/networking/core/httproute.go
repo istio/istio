@@ -141,7 +141,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	req *model.PushRequest,
 	routeName string,
 	vHostCache map[int][]*route.VirtualHost,
-	efw *model.EnvoyFilterWrapper,
+	efw *model.MergedEnvoyFilterWrapper,
 	efKeys []string,
 ) (*discovery.Resource, bool) {
 	listenerPort, useSniffing, err := extractListenerPort(routeName)

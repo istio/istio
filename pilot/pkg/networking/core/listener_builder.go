@@ -61,7 +61,7 @@ type ListenerBuilder struct {
 	virtualOutboundListener *listener.Listener
 	virtualInboundListener  *listener.Listener
 
-	envoyFilterWrapper *model.EnvoyFilterWrapper
+	envoyFilterWrapper *model.MergedEnvoyFilterWrapper
 
 	// authnBuilder provides access to authn (mTLS) configuration for the given proxy.
 	authnBuilder *authn.Builder

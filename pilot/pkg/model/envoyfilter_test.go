@@ -179,7 +179,7 @@ func TestConvertEnvoyFilter(t *testing.T) {
 }
 
 func TestKeysApplyingTo(t *testing.T) {
-	e := &EnvoyFilterWrapper{
+	e := &MergedEnvoyFilterWrapper{
 		Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
 			networking.EnvoyFilter_HTTP_FILTER: {
 				{
@@ -214,7 +214,7 @@ func TestKeysApplyingTo(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		efw     *EnvoyFilterWrapper
+		efw     *MergedEnvoyFilterWrapper
 		applyTo []networking.EnvoyFilter_ApplyTo
 		want    []string
 	}{
