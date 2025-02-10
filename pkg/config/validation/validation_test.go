@@ -815,6 +815,25 @@ func TestValidateTlsOptions(t *testing.T) {
 	}
 }
 
+func TestStrictValidateHTTPHeaderName(t *testing.T) {
+	testCases := []struct {
+		name  string
+		valid bool
+	}{
+		{name: "header1", valid: true},
+		{name: "X-Requested-With", valid: true},
+		{name: ":authority", valid: false},
+		{name: "", valid: false},
+	}
+
+	for _, tc := range testCases {
+		if got := ValidateStrictHTTPHeaderName(tc.name); (got == nil) != tc.valid {
+			t.Errorf("ValidateStrictHTTPHeaderName(%q) => got valid=%v, want valid=%v",
+				tc.name, got == nil, tc.valid)
+		}
+	}
+}
+
 func TestValidateHTTPHeaderName(t *testing.T) {
 	testCases := []struct {
 		name  string
@@ -822,12 +841,16 @@ func TestValidateHTTPHeaderName(t *testing.T) {
 	}{
 		{name: "header1", valid: true},
 		{name: "X-Requested-With", valid: true},
+		{name: ":authority", valid: true},
+		{name: "funky!$#_", valid: true},
 		{name: "", valid: false},
+		{name: "::", valid: false},
+		{name: "illegal\"char", valid: false},
 	}
 
 	for _, tc := range testCases {
-		if got := ValidateHTTPHeaderName(tc.name); (got == nil) != tc.valid {
-			t.Errorf("ValidateHTTPHeaderName(%q) => got valid=%v, want valid=%v",
+		if got := ValidateHTTPHeaderNameOrJwtClaimRoute(tc.name); (got == nil) != tc.valid {
+			t.Errorf("ValidateStrictHTTPHeaderName(%q) => got valid=%v, want valid=%v",
 				tc.name, got == nil, tc.valid)
 		}
 	}
