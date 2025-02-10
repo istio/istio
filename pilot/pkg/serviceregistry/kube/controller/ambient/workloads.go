@@ -301,7 +301,8 @@ func (a *index) podWorkloadBuilder(
 			w.NetworkMode = workloadapi.NetworkMode_HOST_NETWORK
 		}
 
-		w.WorkloadName, w.WorkloadType = workloadNameAndType(p)
+		w.WorkloadName = workloadNameAndType(p)
+		w.WorkloadType = workloadapi.WorkloadType_POD // backwards compatibility
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
 		setTunnelProtocol(p.Labels, p.Annotations, w)
@@ -730,18 +731,9 @@ func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, ser
 	return res
 }
 
-func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
-	objMeta, typeMeta := kubeutil.GetWorkloadMetaFromPod(pod)
-	switch typeMeta.Kind {
-	case "Deployment":
-		return objMeta.Name, workloadapi.WorkloadType_DEPLOYMENT
-	case "Job":
-		return objMeta.Name, workloadapi.WorkloadType_JOB
-	case "CronJob":
-		return objMeta.Name, workloadapi.WorkloadType_CRONJOB
-	default:
-		return pod.Name, workloadapi.WorkloadType_POD
-	}
+func workloadNameAndType(pod *v1.Pod) string {
+	objMeta, _ := kubeutil.GetWorkloadMetaFromPod(pod)
+	return objMeta.Name
 }
 
 func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*workloadapi.PortList {

@@ -136,6 +136,44 @@ func TestPodWorkloads(t *testing.T) {
 			},
 		},
 		{
+			name:   "pod from replicaset",
+			inputs: []any{},
+			pod: &v1.Pod{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:         "rs-xvnqd",
+					Namespace:    "ns",
+					GenerateName: "rs-",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							Kind:       "ReplicaSet",
+							APIVersion: "apps/v1",
+							Name:       "rs",
+							Controller: ptr.Of(true),
+						},
+					},
+				},
+				Spec: v1.PodSpec{},
+				Status: v1.PodStatus{
+					Phase: v1.PodRunning,
+					PodIP: "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/ns/rs-xvnqd",
+				Name:              "rs-xvnqd",
+				Namespace:         "ns",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "rs",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "rs",
+				Status:            workloadapi.WorkloadStatus_UNHEALTHY,
+				ClusterId:         testC,
+			},
+		},
+		{
 			name: "pod with service",
 			inputs: []any{
 				model.ServiceInfo{
