@@ -1012,8 +1012,10 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *EnvoyFilterW
 		}
 	}
 
-	namespaceScoped.Merge(patches.ReferencedNamespacedServices)
-	hosts.Merge(patches.ReferencedServices)
+	if patches != nil {
+		namespaceScoped.Merge(patches.ReferencedNamespacedServices)
+		hosts.Merge(patches.ReferencedServices)
+	}
 	return namespaceScoped, hosts
 }
 
