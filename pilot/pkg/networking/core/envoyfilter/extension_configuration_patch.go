@@ -25,7 +25,7 @@ import (
 )
 
 // InsertedExtensionConfigurations returns extension configurations added via EnvoyFilter.
-func InsertedExtensionConfigurations(efw *model.EnvoyFilterWrapper, names []string) []*core.TypedExtensionConfig {
+func InsertedExtensionConfigurations(efw *model.MergedEnvoyFilterWrapper, names []string) []*core.TypedExtensionConfig {
 	result := make([]*core.TypedExtensionConfig, 0)
 	if efw == nil {
 		return result

@@ -377,7 +377,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 }
 
 type clusterPatcher struct {
-	efw  *model.EnvoyFilterWrapper
+	efw  *model.MergedEnvoyFilterWrapper
 	pctx networking.EnvoyFilter_PatchContext
 }
 
