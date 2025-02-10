@@ -24,9 +24,11 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	registrylabel "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -45,10 +47,22 @@ func GetLocalityLbSetting(
 		}
 		return destrule, false
 	}
-	if service != nil && service.Attributes.TrafficDistribution == model.TrafficDistributionPreferClose {
-		return &v1alpha3.LocalityLoadBalancerSetting{
-			Enabled: wrappers.Bool(true),
-		}, true
+	if service != nil && service.Attributes.TrafficDistribution != model.TrafficDistributionAny {
+		switch service.Attributes.TrafficDistribution {
+		case model.TrafficDistributionPreferClose:
+			return &v1alpha3.LocalityLoadBalancerSetting{
+				Enabled: wrappers.Bool(true),
+				// Prefer same network, region, zone, subzone
+				FailoverPriority: []string{
+					label.TopologyNetwork.Name,
+					registrylabel.LabelTopologyRegion,
+					registrylabel.LabelTopologyZone,
+					label.TopologySubzone.Name,
+				},
+			}, true
+		case model.TrafficDistributionAny:
+			// fallthrough
+		}
 	}
 	msh := mesh.GetEnabled()
 	if msh != nil && !msh.Value {
