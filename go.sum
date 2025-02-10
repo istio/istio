@@ -668,8 +668,8 @@ honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 istio.io/api v1.25.0-alpha.0.0.20250210191742-842850f20380 h1:uaR5+X9lZL12piBBi0XpkEjN6RcU7Nsj/Lz8Klcx714=
 istio.io/api v1.25.0-alpha.0.0.20250210191742-842850f20380/go.mod h1:QFzEXv/IT582T0FHZVp1QoolvE4ws0zz/vVO55blmlE=
-istio.io/client-go v1.25.0-alpha.0.0.20250210192142-cbdbd403daf5 h1:KSihSfCcTSCrwg1E/o4CXPYZ34kqWS02az1tfP8GEdg=
-istio.io/client-go v1.25.0-alpha.0.0.20250210192142-cbdbd403daf5/go.mod h1:QULZubWCtG3y9CTDoLPmDQ+cCl7fnUrkAGf/3rUxiNw=
+istio.io/client-go v1.25.0-alpha.0.0.20250210200242-943a5f024fa0 h1:jnvyw7xrUg2oWHDu85iszm/gfNleVsHBuBOQq3OeX1g=
+istio.io/client-go v1.25.0-alpha.0.0.20250210200242-943a5f024fa0/go.mod h1:QULZubWCtG3y9CTDoLPmDQ+cCl7fnUrkAGf/3rUxiNw=
 k8s.io/api v0.32.1 h1:f562zw9cy+GvXzXf0CKlVQ7yHJVYzLfL6JAS4kOAaOc=
 k8s.io/api v0.32.1/go.mod h1:/Yi/BqkuueW1BgpoePYBRdDYfjPF5sgTr5+YqDZra5k=
 k8s.io/apiextensions-apiserver v0.32.1 h1:hjkALhRUeCariC8DiVmb5jj0VjIc1N0DREP32+6UXZw=
