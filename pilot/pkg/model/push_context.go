@@ -854,16 +854,16 @@ func virtualServiceDestinationsFilteredBySourceNamespace(v *networking.VirtualSe
 	return out
 }
 
-func (ps *PushContext) ExtraWaypointServices(proxy *Proxy) (sets.Set[NamespacedHostname], sets.String) {
-	return ps.extraServicesForProxy(proxy)
+func (ps *PushContext) ExtraWaypointServices(proxy *Proxy, patches *EnvoyFilterWrapper) (sets.Set[NamespacedHostname], sets.String) {
+	return ps.extraServicesForProxy(proxy, patches)
 }
 
 // GatewayServices returns the set of services which are referred from the proxy gateways.
-func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
+func (ps *PushContext) GatewayServices(proxy *Proxy, patches *EnvoyFilterWrapper) []*Service {
 	svcs := proxy.SidecarScope.services
 
 	// host set.
-	namespacedHostsFromGateways, hostsFromGateways := ps.extraServicesForProxy(proxy)
+	namespacedHostsFromGateways, hostsFromGateways := ps.extraServicesForProxy(proxy, patches)
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
 	if proxy.MergedGateway != nil {
@@ -911,7 +911,8 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, namespace strin
 			}
 		}
 	}
-	namespaced, hosts := ps.extraServicesForProxy(proxy)
+	patches := ps.EnvoyFilters(proxy)
+	namespaced, hosts := ps.extraServicesForProxy(proxy, patches)
 	return hosts.Contains(hostname) || namespaced.Contains(NamespacedHostname{Hostname: host.Name(hostname), Namespace: namespace})
 }
 
@@ -949,7 +950,7 @@ const addHostsFromMeshConfigProvidersHandled = 14
 // 1. MeshConfig.ExtensionProviders
 // 2. RequestAuthentication.JwtRules.JwksUri
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func (ps *PushContext) extraServicesForProxy(proxy *Proxy) (sets.Set[NamespacedHostname], sets.String) {
+func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *EnvoyFilterWrapper) (sets.Set[NamespacedHostname], sets.String) {
 	hosts := sets.String{}
 	namespaceScoped := sets.New[NamespacedHostname]()
 	addService := func(s string) {
@@ -1010,6 +1011,9 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy) (sets.Set[NamespacedH
 			}
 		}
 	}
+
+	namespaceScoped.Merge(patches.ReferencedNamespacedServices)
+	hosts.Merge(patches.ReferencedServices)
 	return namespaceScoped, hosts
 }
 
@@ -2292,11 +2296,15 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
 	var out *MergedEnvoyFilterWrapper
 	if len(matchedEnvoyFilters) > 0 {
 		out = &MergedEnvoyFilterWrapper{
+			ReferencedNamespacedServices: sets.New[NamespacedHostname](),
+			ReferencedServices:           sets.New[string](),
 			// no need populate workloadSelector, as it is not used later.
 			Patches: make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper),
 		}
 		// merge EnvoyFilterWrapper
 		for _, efw := range matchedEnvoyFilters {
+			out.ReferencedNamespacedServices.Merge(efw.ReferencedNamespacedServices)
+			out.ReferencedServices.Merge(efw.ReferencedServices)
 			for applyTo, cps := range efw.Patches {
 				for _, cp := range cps {
 					if proxyMatch(proxy, cp) {

@@ -3313,7 +3313,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	proxy := &Proxy{Type: Router}
 	proxy.SetSidecarScope(ps)
 	proxy.SetGatewaysForProxy(ps)
-	got := sets.New(slices.Map(ps.GatewayServices(proxy), func(e *Service) string {
+	got := sets.New(slices.Map(ps.GatewayServices(proxy, nil), func(e *Service) string {
 		return e.Hostname.String()
 	})...)
 	// Should match 2 of the 3 providers; one has a mismatched namespace though
