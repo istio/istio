@@ -17,6 +17,7 @@ package conditions
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/meta/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -41,6 +42,7 @@ func (c *ConditionAnalyzer) Metadata() analysis.Metadata {
 			gvk.Service,
 			gvk.ServiceEntry,
 			gvk.AuthorizationPolicy,
+			gvk.KubernetesGateway,
 		},
 	}
 }
@@ -48,7 +50,7 @@ func (c *ConditionAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (c *ConditionAnalyzer) Analyze(ctx analysis.Context) {
 	// Check conditions for all supported types
-	for _, gvk := range []config.GroupVersionKind{gvk.Service, gvk.ServiceEntry, gvk.AuthorizationPolicy} {
+	for _, gvk := range []config.GroupVersionKind{gvk.Service, gvk.ServiceEntry, gvk.AuthorizationPolicy, gvk.KubernetesGateway} {
 		ctx.ForEach(gvk, func(r *resource.Instance) bool {
 			conditions := extractConditions(r)
 			for _, condition := range conditions {
@@ -77,7 +79,10 @@ func extractConditions(r *resource.Instance) (conditions []metav1.Condition) {
 	case *networking.ServiceEntryStatus:
 		return toMetaV1Conditions(status.Conditions)
 	case *corev1.ServiceStatus:
-		return (status.Conditions)
+		return status.Conditions
+	case *gatewayv1.GatewayStatus:
+		// TODO: handle listener conditions?
+		return status.Conditions
 	}
 	return nil
 }
