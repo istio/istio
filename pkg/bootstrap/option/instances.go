@@ -293,6 +293,10 @@ func LoadStatsConfigJSONStr(node *model.Node) Instance {
 	return skipOption("load_stats_config_json_str")
 }
 
+func WorkloadIdentitySocketFile(value string) Instance {
+	return newOption("workload_identity_socket_file", value)
+}
+
 type HistogramMatch struct {
 	Prefix string `json:"prefix"`
 }

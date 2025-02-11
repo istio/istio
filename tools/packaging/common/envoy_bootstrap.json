@@ -304,7 +304,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "./var/run/secrets/workload-spiffe-uds/socket"
+                    "path": "./var/run/secrets/workload-spiffe-uds/{{ .workload_identity_socket_file }}"
                   }
                 }
               }

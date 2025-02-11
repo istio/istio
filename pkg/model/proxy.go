@@ -346,6 +346,9 @@ type NodeMetadata struct {
 	// Metadata discovery service enablement
 	MetadataDiscovery *StringBool `json:"METADATA_DISCOVERY,omitempty"`
 
+	// Name of the socket file which will be used for workload SDS.
+	WorkloadIdentitySocketFile string `json:"WORKLOAD_IDENTITY_SOCKET_FILE,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]any `json:"-"`
