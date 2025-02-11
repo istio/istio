@@ -301,7 +301,7 @@ func (a *index) podWorkloadBuilder(
 			w.NetworkMode = workloadapi.NetworkMode_HOST_NETWORK
 		}
 
-		w.WorkloadName = workloadNameAndType(p)
+		w.WorkloadName = workloadName(p)
 		w.WorkloadType = workloadapi.WorkloadType_POD // backwards compatibility
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
@@ -731,7 +731,7 @@ func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, ser
 	return res
 }
 
-func workloadNameAndType(pod *v1.Pod) string {
+func workloadName(pod *v1.Pod) string {
 	objMeta, _ := kubeutil.GetWorkloadMetaFromPod(pod)
 	return objMeta.Name
 }
