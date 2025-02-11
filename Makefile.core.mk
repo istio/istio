@@ -291,8 +291,14 @@ refresh-goldens:
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/... \
 		./pkg/bootstrap/... \
 		./pkg/kube/inject/... \
+		./pilot/pkg/config/kube/gateway/... \
 		./pilot/pkg/security/authz/builder/... \
-		./cni/pkg/plugin/...
+		./pilot/pkg/serviceregistry/kube/controller/ambient/... \
+		./cni/pkg/iptables/... \
+		./cni/pkg/plugin/... \
+		./istioctl/pkg/workload/... \
+		./istioctl/pkg/writer/envoy/configdump/... \
+		./istioctl/pkg/writer/ztunnel/configdump/...
 
 update-golden: refresh-goldens
 
