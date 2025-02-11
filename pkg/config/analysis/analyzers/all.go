@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/pkg/config/analysis/analyzers/authz"
+	"istio.io/istio/pkg/config/analysis/analyzers/conditions"
 	"istio.io/istio/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
@@ -42,6 +43,7 @@ func All() []analysis.Analyzer {
 		// Please keep this list sorted alphabetically by pkg.name for convenience
 		&annotations.K8sAnalyzer{},
 		&authz.AuthorizationPoliciesAnalyzer{},
+		&conditions.ConditionAnalyzer{},
 		&deployment.ServiceAssociationAnalyzer{},
 		&deployment.ApplicationUIDAnalyzer{},
 		&deprecation.FieldAnalyzer{},

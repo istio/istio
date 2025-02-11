@@ -657,3 +657,16 @@ messages:
       type: "[]string"
     - name: error
       type: string
+
+  - name: "NegativeConditionStatus"
+    code: IST0171
+    level: Warning
+    description: "The condition status is not valid"
+    template: "condition status is not valid: type=%s, reason=%s, message=%s."
+    args:
+      - name: conditionType
+        type: string
+      - name: reason
+        type: string
+      - name: message
+        type: string
