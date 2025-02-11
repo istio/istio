@@ -290,6 +290,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
 		XDSRootCert:                 a.cfg.XDSRootCerts,
 		MetadataDiscovery:           a.cfg.MetadataDiscovery,
+		WorkloadIdentitySocketFile:  a.cfg.WorkloadIdentitySocketFile,
 	})
 }
 
