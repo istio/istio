@@ -118,6 +118,8 @@ values:
       level: "all:debug"
   ztunnel:
     terminationGracePeriodSeconds: 5
+    # TODO temporary for getting context on	https://github.com/istio/istio/issues/54645
+    logLevel: debug
     env:
       SECRET_TTL: 5m
 `
