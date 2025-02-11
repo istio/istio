@@ -505,14 +505,14 @@ var (
 	}.MustBuild()
 
 	Service = resource.Builder{
-		Identifier:    "Service",
-		Group:         "",
-		Kind:          "Service",
-		Plural:        "services",
-		Version:       "v1",
-		Proto:         "k8s.io.api.core.v1.ServiceSpec",
-		ReflectType:   reflect.TypeOf(&k8sioapicorev1.ServiceSpec{}).Elem(),
-		ProtoPackage:  "k8s.io/api/core/v1",
+		Identifier: "Service",
+		Group:      "",
+		Kind:       "Service",
+		Plural:     "services",
+		Version:    "v1",
+		Proto:      "k8s.io.api.core.v1.ServiceSpec", StatusProto: "k8s.io.api.core.v1.ServiceStatus",
+		ReflectType: reflect.TypeOf(&k8sioapicorev1.ServiceSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapicorev1.ServiceStatus{}).Elem(),
+		ProtoPackage: "k8s.io/api/core/v1", StatusPackage: "k8s.io/api/core/v1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       true,
