@@ -142,6 +142,8 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		}
 	}
 
+	opts = append(opts, option.WorkloadIdentitySocketFile(cfg.Metadata.WorkloadIdentitySocketFile))
+
 	// Support passing extra info from node environment as metadata
 	opts = append(opts, getNodeMetadataOptions(cfg.Node, cfg.CompliancePolicy)...)
 
@@ -583,6 +585,7 @@ type MetadataOptions struct {
 	EnvoyPrometheusPort         int
 	ExitOnZeroActiveConnections bool
 	MetadataDiscovery           *bool
+	WorkloadIdentitySocketFile  string
 }
 
 const (
@@ -643,6 +646,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	} else {
 		meta.MetadataDiscovery = ptr.Of(model.StringBool(*options.MetadataDiscovery))
 	}
+
+	meta.WorkloadIdentitySocketFile = options.WorkloadIdentitySocketFile
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 

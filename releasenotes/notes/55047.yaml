@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 51979
+releaseNotes:
+- |
+  **Fixed** an issue where customizing the workload identity SDS socketname via `WORKLOAD_IDENTITY_SOCKET_FILE` did not work, due to envoy bootstrap not being updated.
