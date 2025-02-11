@@ -21,7 +21,8 @@
       "METADATA_DISCOVERY": "false",
       "PILOT_SAN": [
         "istiod.istio-system.svc"
-      ]
+      ],
+      "WORKLOAD_IDENTITY_SOCKET_FILE": "socket"
     },
     "locality": {},
     "UserAgentVersionType": null
