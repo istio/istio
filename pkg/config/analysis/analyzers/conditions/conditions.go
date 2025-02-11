@@ -55,7 +55,7 @@ func (c *ConditionAnalyzer) Analyze(ctx analysis.Context) {
 				if condition.Status == metav1.ConditionFalse {
 					ctx.Report(gvk, msg.NewNegativeConditionStatus(
 						r,
-						string(condition.Type),
+						condition.Type,
 						condition.Reason,
 						condition.Message,
 					))
