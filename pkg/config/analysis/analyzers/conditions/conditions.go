@@ -56,7 +56,7 @@ func (c *ConditionAnalyzer) Analyze(ctx analysis.Context) {
 		ctx.ForEach(gvk, func(r *resource.Instance) bool {
 			conditions := extractConditions(r)
 			for _, condition := range conditions {
-				if condition.Status == metav1.ConditionFalse {
+				if shouldReportCondition(gvk, condition.Type, condition.Status) {
 					ctx.Report(gvk, msg.NewNegativeConditionStatus(
 						r,
 						condition.Type,
@@ -68,6 +68,40 @@ func (c *ConditionAnalyzer) Analyze(ctx analysis.Context) {
 			return true
 		})
 	}
+}
+
+// negativeConditionsToReport maps GVK to condition type to what we consider the "negative" status
+// if we cannot find the condition type, we will not report the condition
+var negativeConditionsToReport = map[config.GroupVersionKind]map[string]metav1.ConditionStatus{
+	gvk.Service: {
+		"istio.io/WaypointBound": metav1.ConditionFalse,
+	},
+	gvk.ServiceEntry: {
+		"istio.io/WaypointBound": metav1.ConditionFalse,
+	},
+	gvk.AuthorizationPolicy: {
+		"istio.io/ZtunnelAccepted": metav1.ConditionFalse,
+	},
+	gvk.KubernetesGateway: {
+		"Programmed": metav1.ConditionFalse,
+	},
+	gvk.HTTPRoute: {
+		"Accepted": metav1.ConditionFalse,
+	},
+	gvk.GRPCRoute: {
+		"Accepted": metav1.ConditionFalse,
+	},
+}
+
+// shouldReportCondition returns true if the condition is considered negative
+func shouldReportCondition(gvk config.GroupVersionKind, conditionType string, status metav1.ConditionStatus) bool {
+	if negativeConditionsToReport[gvk] == nil {
+		return false
+	}
+	if negativeConditionsToReport[gvk][conditionType] == status {
+		return true
+	}
+	return false
 }
 
 // extractConditions returns the name, namespace and conditions from a resource
