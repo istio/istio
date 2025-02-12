@@ -50,8 +50,14 @@ spec:
   endpoints:
   - address: {{.Local}}
     locality: region/zone/subzone
+{{with .Network}}
+    network: {{.}}
+{{end}}
   - address: {{.Remote}}
     locality: notregion/notzone/notsubzone
+{{with .Network}}
+    network: {{.}}
+{{end}}
   {{ if ne .NearLocal "" }}
   - address: {{.NearLocal}}
     locality: "nearregion/zone/subzone"
@@ -86,6 +92,7 @@ type LocalityInput struct {
 	Local               string
 	NearLocal           string
 	Remote              string
+	Network             string
 }
 
 const localityFailover = `
@@ -120,6 +127,10 @@ func TestLocality(t *testing.T) {
 				destC = apps.VM[0]
 			}
 
+			var network string
+			if len(t.Clusters()) == 1 {
+				network = t.Clusters()[0].NetworkName()
+			}
 			cases := []struct {
 				name     string
 				input    LocalityInput
@@ -213,6 +224,7 @@ func TestLocality(t *testing.T) {
 						Resolution:          "STATIC",
 						Local:               destB.Address(),
 						Remote:              destA.Address(),
+						Network:             network,
 					},
 					expectAllTrafficTo(destB.Config().Service),
 				},
