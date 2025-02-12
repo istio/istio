@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 54562
+releaseNotes:
+  - |
+    **Fixed** an issue in the sidecar injection template, which would remove any existing init container, if both traffic intercepting and native sidecar are disabled.
