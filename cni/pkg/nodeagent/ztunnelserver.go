@@ -88,8 +88,8 @@ func (c *connMgr) deleteConn(conn ZtunnelConnection) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Loop over the slice, keeping non-deleted conn pointers
-	// but filtering out the deleted one.
+	// Loop over the slice, keeping non-deleted conn but
+	// filtering out the deleted one.
 	var retainedConns []ZtunnelConnection
 	for _, existingConn := range c.connectionSet {
 		// Not conn that was deleted? Keep it.
@@ -180,11 +180,11 @@ func (z *ztunnelServer) Run(ctx context.Context) {
 			log.Errorf("failed to accept conn: %v", err)
 			continue
 		}
-		log.Debugf("connection accepted: %v", conn.uuid)
+		log.Debug("connection accepted")
 		go func() {
-			log.Debugf("handling conn %v", conn.uuid)
+			log.Debug("handling conn")
 			if err := z.handleConn(ctx, conn); err != nil {
-				log.Errorf("failed to handle conn: %v, %+v", err, conn)
+				log.Errorf("failed to handle conn: %v", err)
 			}
 		}()
 	}
@@ -346,7 +346,7 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 		"name", add.WorkloadInfo.Name,
 		"namespace", add.WorkloadInfo.Namespace,
 		"serviceAccount", add.WorkloadInfo.ServiceAccount,
-		"con_uuid", latestConn.uuid,
+		"conn_uuid", latestConn.uuid,
 	)
 
 	log.Infof("sending pod add to ztunnel")
@@ -450,9 +450,9 @@ type updateRequest struct {
 }
 
 type ZtunnelConnection struct {
-	uuid uuid.UUID
-	u         *net.UnixConn
-	Updates   chan updateRequest
+	uuid    uuid.UUID
+	u       *net.UnixConn
+	Updates chan updateRequest
 }
 
 func newZtunnelConnection(u *net.UnixConn) ZtunnelConnection {
