@@ -661,8 +661,8 @@ messages:
   - name: "NegativeConditionStatus"
     code: IST0171
     level: Warning
-    description: "The condition status is not valid"
-    template: "condition status is not valid: type=%s, reason=%s, message=%s."
+    description: "A condition with a negative status is present"
+    template: "A condition with a negative status is present: type=%s, reason=%s, message=%s."
     args:
       - name: conditionType
         type: string
