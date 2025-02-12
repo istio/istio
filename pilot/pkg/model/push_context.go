@@ -854,12 +854,12 @@ func virtualServiceDestinationsFilteredBySourceNamespace(v *networking.VirtualSe
 	return out
 }
 
-func (ps *PushContext) ExtraWaypointServices(proxy *Proxy, patches *EnvoyFilterWrapper) (sets.Set[NamespacedHostname], sets.String) {
+func (ps *PushContext) ExtraWaypointServices(proxy *Proxy, patches *MergedEnvoyFilterWrapper) (sets.Set[NamespacedHostname], sets.String) {
 	return ps.extraServicesForProxy(proxy, patches)
 }
 
 // GatewayServices returns the set of services which are referred from the proxy gateways.
-func (ps *PushContext) GatewayServices(proxy *Proxy, patches *EnvoyFilterWrapper) []*Service {
+func (ps *PushContext) GatewayServices(proxy *Proxy, patches *MergedEnvoyFilterWrapper) []*Service {
 	svcs := proxy.SidecarScope.services
 
 	// host set.
@@ -949,8 +949,8 @@ const addHostsFromMeshConfigProvidersHandled = 14
 // extraServicesForProxy returns a subset of services referred from the proxy gateways, including:
 // 1. MeshConfig.ExtensionProviders
 // 2. RequestAuthentication.JwtRules.JwksUri
-// TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *EnvoyFilterWrapper) (sets.Set[NamespacedHostname], sets.String) {
+// 3. EnvoyFilters with explicitly annotated references
+func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyFilterWrapper) (sets.Set[NamespacedHostname], sets.String) {
 	hosts := sets.String{}
 	namespaceScoped := sets.New[NamespacedHostname]()
 	addService := func(s string) {
@@ -2255,6 +2255,9 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 
 type MergedEnvoyFilterWrapper struct {
 	Patches map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
+
+	ReferencedNamespacedServices sets.Set[NamespacedHostname]
+	ReferencedServices           sets.String
 }
 
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy

@@ -211,7 +211,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 
 // buildClusters builds clusters for the proxy with the services passed.
 func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *model.PushRequest,
-	services []*model.Service, envoyFilterPatches *model.EnvoyFilterWrapper,
+	services []*model.Service, envoyFilterPatches *model.MergedEnvoyFilterWrapper,
 ) ([]*discovery.Resource, model.XdsLogDetails) {
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
