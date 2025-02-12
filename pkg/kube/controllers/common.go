@@ -16,7 +16,6 @@ package controllers
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/ptr"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 )
 
 var log = istiolog.RegisterScope("controllers", "common controller logic")

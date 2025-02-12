@@ -351,7 +351,7 @@ func GatewayCollection(
 				Protocol:         l.Protocol,
 			}
 			pri.ReportAttachedRoutes = func() {
-				//reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)
+				// reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)
 			}
 
 			res := Gateway{
@@ -667,7 +667,7 @@ func NewController(
 		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision),
 		statusWriter:          statusWriter,
 		waitForCRD:            waitForCRD,
-		gatewayContext: atomic.NewPointer[GatewayContext](nil),
+		gatewayContext:        atomic.NewPointer[GatewayContext](nil),
 	}
 
 	inputs := Inputs{
