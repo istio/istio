@@ -530,18 +530,8 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 		panic(err)
 	}
 
-	// attempt to handle status if we know the type
-	statusStruct, err := schema.Status()
-	if err == nil {
-		if status, ok := obj.UnstructuredContent()["status"]; ok {
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(status.(map[string]any), statusStruct); err != nil {
-				scope.Warnf("failed to parse status field: %v", err)
-			}
-		}
-	}
-
 	m := obj
-	return &config.Config{
+	result := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind:  schema.GroupVersionKind(),
 			UID:               string(m.GetUID()),
@@ -555,9 +545,22 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 			Generation:        m.GetGeneration(),
 			Domain:            domainSuffix,
 		},
-		Spec:   mv2,
-		Status: statusStruct,
+		Spec: mv2,
 	}
+
+	// attempt to handle status if we know the type
+	statusStruct, err := schema.Status()
+	if err == nil {
+		if status, ok := obj.UnstructuredContent()["status"]; ok {
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(status.(map[string]any), statusStruct); err != nil {
+				scope.Warnf("failed to parse status field: %v", err)
+			} else {
+				result.Status = statusStruct
+			}
+		}
+	}
+
+	return result
 }
 
 // BuildFieldPathMap builds the flat map for each field of the YAML resource
