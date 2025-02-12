@@ -273,12 +273,13 @@ func GatewayCollection(
 	grants ReferenceGrants,
 	DomainSuffix string,
 	UnstableContext *atomic.Pointer[GatewayContext],
+	statusWriter StatusWriter,
 ) krt.Collection[Gateway] {
-	return krt.NewManyCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) []Gateway {
+	statusCol, gw := krt.NewStatusCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
 		context := UnstableContext.Load()
 		// TODO this is basically broken, we don't get triggered when it syncs..
 		if context == nil {
-			return nil
+			return nil, nil
 		}
 		result := []Gateway{}
 		kgw := obj.Spec
@@ -286,17 +287,17 @@ func GatewayCollection(
 		class := krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(kgw.GatewayClassName)))
 		if class == nil {
 			// No gateway class found, this may be meant for another controller; should be skipped.
-			return nil
+			return nil, nil
 		}
 		controllerName := class.Controller
 		classInfo, f := classInfos[controllerName]
 		if !f {
-			return nil
+			return nil, nil
 		}
 		if classInfo.disableRouteGeneration {
 			reportUnmanagedGatewayStatus(status, obj)
 			// We found it, but don't want to handle this class
-			return nil
+			return status.Status, nil
 		}
 		servers := []*istio.Server{}
 
@@ -305,7 +306,7 @@ func GatewayCollection(
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)
-			return nil
+			return status.Status, nil
 		}
 
 		for i, l := range kgw.Listeners {
@@ -364,8 +365,13 @@ func GatewayCollection(
 		}
 
 		// reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
-		return result
+		return status.Status, result
 	})
+	statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]]) {
+		l := o.Latest()
+		EnqueueStatus2(statusWriter, l.Obj, l.Status)
+	})
+	return gw
 }
 
 type Parents struct {
@@ -691,6 +697,7 @@ func NewController(
 		ReferenceGrants,
 		options.DomainSuffix,
 		gatewayController.gatewayContext,
+		statusWriter,
 	)
 
 	Parents := BuildParents(Gateways)
@@ -875,6 +882,23 @@ func EnqueueStatus[T comparable](sw StatusWriter, obj controllers.Object, ws *ks
 		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
 	}
 	statusController.EnqueueStatusUpdateResource(ws.Unwrap(), res)
+}
+
+func EnqueueStatus2[T any](sw StatusWriter, obj controllers.Object, ws T) {
+	statusController := sw.statusController.Load()
+	if statusController == nil {
+		return
+	}
+
+	// TODO: this is a bit awkward since the status controller is reading from crdstore. I suppose it works -- it just means
+	// we cannot remove Gateway API types from there.
+	res := status.Resource{
+		GroupVersionResource: schematypes.GvrFromObject(obj),
+		Namespace:            obj.GetNamespace(),
+		Name:                 obj.GetName(),
+		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
+	}
+	statusController.EnqueueStatusUpdateResource(ws, res)
 }
 
 func (c *Controller) Create(config config.Config) (revision string, err error) {
