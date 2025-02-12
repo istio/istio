@@ -253,8 +253,8 @@ var (
 	MultiClusterInconsistentService = diag.NewMessageType(diag.Warning, "IST0170", "The service %v in namespace %q is inconsistent across clusters %q, which can lead to undefined behaviors. The inconsistent behaviors are: %v.")
 
 	// NegativeConditionStatus defines a diag.MessageType for message "NegativeConditionStatus".
-	// Description: The condition status is not valid
-	NegativeConditionStatus = diag.NewMessageType(diag.Warning, "IST0171", "condition status is not valid: type=%s, reason=%s, message=%s.")
+	// Description: A condition with a negative status is present
+	NegativeConditionStatus = diag.NewMessageType(diag.Warning, "IST0171", "A condition with a negative status is present: type=%s, reason=%s, message=%s.")
 )
 
 // All returns a list of all known message types.
