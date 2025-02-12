@@ -80,16 +80,23 @@ var negativeConditionsToReport = map[config.GroupVersionKind]map[string]metav1.C
 		"istio.io/WaypointBound": metav1.ConditionFalse,
 	},
 	gvk.AuthorizationPolicy: {
-		"istio.io/ZtunnelAccepted": metav1.ConditionFalse,
+		"ZtunnelAccepted":  metav1.ConditionFalse,
+		"WaypointAccepted": metav1.ConditionFalse,
 	},
 	gvk.KubernetesGateway: {
-		"Programmed": metav1.ConditionFalse,
+		"Accepted":     metav1.ConditionFalse,
+		"Programmed":   metav1.ConditionFalse,
+		"ResolvedRefs": metav1.ConditionFalse,
 	},
 	gvk.HTTPRoute: {
-		"Accepted": metav1.ConditionFalse,
+		"Accepted":     metav1.ConditionFalse,
+		"Programmed":   metav1.ConditionFalse,
+		"ResolvedRefs": metav1.ConditionFalse,
 	},
 	gvk.GRPCRoute: {
-		"Accepted": metav1.ConditionFalse,
+		"Accepted":     metav1.ConditionFalse,
+		"Programmed":   metav1.ConditionFalse,
+		"ResolvedRefs": metav1.ConditionFalse,
 	},
 }
 
