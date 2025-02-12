@@ -16,11 +16,11 @@ package gateway
 
 import (
 	"fmt"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
+	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/kstatus"
@@ -292,7 +292,8 @@ func reportListenerAttachedRoutes(index int, obj config.Config, i int32) {
 }
 
 func reportListenerCondition(index int, l k8s.Listener, obj *k8sbeta.Gateway,
-	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus],conditions map[string]*condition) {
+	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus], conditions map[string]*condition,
+) {
 	status.MutateInPlace(func(gs *k8sbeta.GatewayStatus) {
 		for index >= len(gs.Listeners) {
 			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
