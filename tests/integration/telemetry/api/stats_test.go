@@ -88,20 +88,26 @@ func TestStatsFilter(t *testing.T) {
 			t.NewSubTest("mockprom-to-metrics").Run(
 				func(t framework.TestContext) {
 					for _, prom := range mockProm {
-						st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, GetTarget().Instances())
-						prom.CallOrFail(t, echo.CallOptions{
-							ToWorkload: st,
-							Scheme:     scheme.HTTPS,
-							Port:       echo.Port{ServicePort: 15014},
-							HTTP: echo.HTTP{
-								Path: "/metrics",
-							},
-							TLS: echo.TLS{
-								CertFile:           "/etc/certs/custom/cert-chain.pem",
-								KeyFile:            "/etc/certs/custom/key.pem",
-								CaCertFile:         "/etc/certs/custom/root-cert.pem",
-								InsecureSkipVerify: true,
-							},
+						retry.UntilSuccessOrFail(t, func() error {
+							st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, GetTarget().Instances())
+							_, callErr := prom.Call(echo.CallOptions{
+								ToWorkload: st,
+								Scheme:     scheme.HTTPS,
+								Port:       echo.Port{ServicePort: 15014},
+								HTTP: echo.HTTP{
+									Path: "/metrics",
+								},
+								TLS: echo.TLS{
+									CertFile:           "/etc/certs/custom/cert-chain.pem",
+									KeyFile:            "/etc/certs/custom/key.pem",
+									CaCertFile:         "/etc/certs/custom/root-cert.pem",
+									InsecureSkipVerify: true,
+								},
+							})
+							if callErr != nil {
+								t.Logf("failed to call metrics endpoint: %v", st.NamespacedName())
+							}
+							return callErr
 						})
 					}
 				})
