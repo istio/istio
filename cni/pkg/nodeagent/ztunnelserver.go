@@ -65,7 +65,7 @@ type connMgr struct {
 }
 
 func (c *connMgr) addConn(conn ZtunnelConnection) {
-	log := log.WithLabels("conn_uuid", conn.conn_uuid)
+	log := log.WithLabels("conn_uuid", conn.uuid)
 	log.Info("ztunnel connected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -83,7 +83,7 @@ func (c *connMgr) LatestConn() (ZtunnelConnection, error) {
 }
 
 func (c *connMgr) deleteConn(conn ZtunnelConnection) {
-	log := log.WithLabels("conn_uuid", conn.conn_uuid)
+	log := log.WithLabels("conn_uuid", conn.uuid)
 	log.Info("ztunnel disconnected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -180,9 +180,9 @@ func (z *ztunnelServer) Run(ctx context.Context) {
 			log.Errorf("failed to accept conn: %v", err)
 			continue
 		}
-		log.Debugf("connection accepted: %v", conn.conn_uuid)
+		log.Debugf("connection accepted: %v", conn.uuid)
 		go func() {
-			log.Debugf("handling conn %v", conn.conn_uuid)
+			log.Debugf("handling conn %v", conn.uuid)
 			if err := z.handleConn(ctx, conn); err != nil {
 				log.Errorf("failed to handle conn: %v, %+v", err, conn)
 			}
@@ -207,7 +207,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 	z.conns.addConn(conn)
 	defer z.conns.deleteConn(conn)
 
-	log := log.WithLabels("conn_uuid", conn.conn_uuid)
+	log := log.WithLabels("conn_uuid", conn.uuid)
 
 	// get hello message from ztunnel
 	m, _, err := readProto[zdsapi.ZdsHello](conn.u, readWriteDeadline, nil)
@@ -346,7 +346,7 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 		"name", add.WorkloadInfo.Name,
 		"namespace", add.WorkloadInfo.Namespace,
 		"serviceAccount", add.WorkloadInfo.ServiceAccount,
-		"con_uuid", latestConn.conn_uuid,
+		"con_uuid", latestConn.uuid,
 	)
 
 	log.Infof("sending pod add to ztunnel")
@@ -450,13 +450,13 @@ type updateRequest struct {
 }
 
 type ZtunnelConnection struct {
-	conn_uuid uuid.UUID
+	uuid uuid.UUID
 	u         *net.UnixConn
 	Updates   chan updateRequest
 }
 
 func newZtunnelConnection(u *net.UnixConn) ZtunnelConnection {
-	return ZtunnelConnection{conn_uuid: uuid.New(), u: u, Updates: make(chan updateRequest, 100)}
+	return ZtunnelConnection{uuid: uuid.New(), u: u, Updates: make(chan updateRequest, 100)}
 }
 
 func (z *ZtunnelConnection) Close() {
