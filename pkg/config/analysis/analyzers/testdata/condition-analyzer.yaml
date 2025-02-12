@@ -10,6 +10,12 @@ status:
     reason: NoWaypoint
     message: 'waypoint "default/waypoint" is not ready'
     lastTransitionTime: "2023-01-01T00:00:00Z"
+    observedGeneration: 1
+  - type: argocd.argoproj.io/Synced # should be ignored by analyzer
+    status: "False"
+    reason: OutOfSync
+    message: 'Resource is out of sync with Git repository'
+    lastTransitionTime: "2023-01-01T00:00:00Z"
 ---
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
