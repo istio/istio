@@ -43,6 +43,8 @@ func (c *ConditionAnalyzer) Metadata() analysis.Metadata {
 			gvk.ServiceEntry,
 			gvk.AuthorizationPolicy,
 			gvk.KubernetesGateway,
+			gvk.HTTPRoute,
+			gvk.GRPCRoute,
 		},
 	}
 }
@@ -50,7 +52,7 @@ func (c *ConditionAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (c *ConditionAnalyzer) Analyze(ctx analysis.Context) {
 	// Check conditions for all supported types
-	for _, gvk := range []config.GroupVersionKind{gvk.Service, gvk.ServiceEntry, gvk.AuthorizationPolicy, gvk.KubernetesGateway} {
+	for _, gvk := range []config.GroupVersionKind{gvk.Service, gvk.ServiceEntry, gvk.AuthorizationPolicy, gvk.KubernetesGateway, gvk.HTTPRoute, gvk.GRPCRoute} {
 		ctx.ForEach(gvk, func(r *resource.Instance) bool {
 			conditions := extractConditions(r)
 			for _, condition := range conditions {
@@ -83,9 +85,22 @@ func extractConditions(r *resource.Instance) (conditions []metav1.Condition) {
 	case *gatewayv1.GatewayStatus:
 		// TODO: handle listener conditions?
 		return status.Conditions
+	case *gatewayv1.HTTPRouteStatus:
+		return extractParentConditions(status.Parents)
+	case *gatewayv1.GRPCRouteStatus:
+		return extractParentConditions(status.Parents)
 	default:
 		return nil
 	}
+}
+
+// extractParentConditions extracts conditions from RouteParentStatus entries
+func extractParentConditions(parents []gatewayv1.RouteParentStatus) []metav1.Condition {
+	var conditions []metav1.Condition
+	for _, parent := range parents {
+		conditions = append(conditions, parent.Conditions...)
+	}
+	return conditions
 }
 
 // toMetaV1Conditions converts Istio conditions to Kubernetes meta/v1 conditions

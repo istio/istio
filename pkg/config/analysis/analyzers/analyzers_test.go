@@ -998,6 +998,8 @@ var testGrid = []testCase{
 			{msg.NegativeConditionStatus, "ServiceEntry default/negative-condition-svcEntry"},
 			{msg.NegativeConditionStatus, "AuthorizationPolicy default/negative-condition-authz"},
 			{msg.NegativeConditionStatus, "Gateway default/negative-condition-gateway"},
+			{msg.NegativeConditionStatus, "HTTPRoute default/negative-condition-httproute"},
+			{msg.NegativeConditionStatus, "GRPCRoute default/negative-condition-grpcroute"},
 		},
 	},
 }
