@@ -83,8 +83,9 @@ func extractConditions(r *resource.Instance) (conditions []metav1.Condition) {
 	case *gatewayv1.GatewayStatus:
 		// TODO: handle listener conditions?
 		return status.Conditions
+	default:
+		return nil
 	}
-	return nil
 }
 
 // toMetaV1Conditions converts Istio conditions to Kubernetes meta/v1 conditions
