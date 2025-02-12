@@ -69,6 +69,12 @@ spec:
   {{- $holdProxy := and
       (or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts)
       (not $nativeSidecar) }}
+  {{- $noInitContainer := and
+      (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE`)
+      (not $nativeSidecar) }}
+  {{ if $noInitContainer }}
+  initContainers: []
+  {{ else -}}
   initContainers:
   {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
   {{ if .Values.pilot.cni.enabled -}}
@@ -165,6 +171,7 @@ spec:
       runAsUser: {{ .ProxyUID | default "1337" }}
       runAsNonRoot: true
     {{- end }}
+  {{ end -}}
   {{ end -}}
   {{ if not $nativeSidecar }}
   containers:
