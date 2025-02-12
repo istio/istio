@@ -68,7 +68,7 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	case model.Router:
 		if config.Kind == kind.ServiceEntry {
 			// If config is ServiceEntry, name of the config is service's FQDN
-			if features.FilterGatewayClusterConfig && !push.ServiceAttachedToGateway(config.Name, proxy) {
+			if features.FilterGatewayClusterConfig && !push.ServiceAttachedToGateway(config.Name, config.Namespace, proxy) {
 				return false
 			}
 
