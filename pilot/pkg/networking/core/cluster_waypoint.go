@@ -52,6 +52,7 @@ func buildInternalUpstreamCluster(name string, internalListener string) *cluster
 	c := &cluster.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+		CircuitBreakers:      &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
 			ClusterName: name,
 			Endpoints:   util.BuildInternalEndpoint(internalListener, nil),
