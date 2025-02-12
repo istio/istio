@@ -37,7 +37,7 @@ metadata:
   namespace: default
 status:
   conditions:
-  - type: istio.io/ZtunnelAccepted
+  - type: ZtunnelAccepted
     status: "False"
     reason: UnsupportedValue
     message: 'ztunnel does not support the CUSTOM action'
