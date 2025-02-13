@@ -24,6 +24,7 @@ type Instance struct {
 	Metadata Metadata
 	Message  config.Spec
 	Origin   Origin
+	Status   config.Status
 }
 
 // IsEmpty returns true if the resource Instance.Message is nil.

@@ -251,6 +251,10 @@ var (
 	// MultiClusterInconsistentService defines a diag.MessageType for message "MultiClusterInconsistentService".
 	// Description: The services live in different clusters under multi-cluster deployment model are inconsistent
 	MultiClusterInconsistentService = diag.NewMessageType(diag.Warning, "IST0170", "The service %v in namespace %q is inconsistent across clusters %q, which can lead to undefined behaviors. The inconsistent behaviors are: %v.")
+
+	// NegativeConditionStatus defines a diag.MessageType for message "NegativeConditionStatus".
+	// Description: A condition with a negative status is present
+	NegativeConditionStatus = diag.NewMessageType(diag.Warning, "IST0171", "A condition with a negative status is present: type=%s, reason=%s, message=%s.")
 )
 
 // All returns a list of all known message types.
@@ -317,6 +321,7 @@ func All() []*diag.MessageType {
 		UnknownUpgradeCompatibility,
 		UpdateIncompatibility,
 		MultiClusterInconsistentService,
+		NegativeConditionStatus,
 	}
 }
 
@@ -917,5 +922,16 @@ func NewMultiClusterInconsistentService(r *resource.Instance, serviceName string
 		namespace,
 		clusters,
 		error,
+	)
+}
+
+// NewNegativeConditionStatus returns a new diag.Message based on NegativeConditionStatus.
+func NewNegativeConditionStatus(r *resource.Instance, conditionType string, reason string, message string) diag.Message {
+	return diag.NewMessage(
+		NegativeConditionStatus,
+		r,
+		conditionType,
+		reason,
+		message,
 	)
 }
