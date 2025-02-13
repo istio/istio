@@ -18,45 +18,18 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
-// iptables tables
-const (
-	MANGLE = "mangle"
-	NAT    = "nat"
-	FILTER = "filter"
-	RAW    = "raw"
-)
-
-// Built-in iptables chains
-const (
-	INPUT       = "INPUT"
-	OUTPUT      = "OUTPUT"
-	FORWARD     = "FORWARD"
-	PREROUTING  = "PREROUTING"
-	POSTROUTING = "POSTROUTING"
-)
-
-var BuiltInChainsMap = map[string]struct{}{
-	INPUT:       {},
-	OUTPUT:      {},
-	FORWARD:     {},
-	PREROUTING:  {},
-	POSTROUTING: {},
-}
-
-// Constants used for generating iptables commands
-const (
-	TCP = "tcp"
-	UDP = "udp"
-
-	TPROXY   = "TPROXY"
-	RETURN   = "RETURN"
-	ACCEPT   = "ACCEPT"
-	REDIRECT = "REDIRECT"
-	MARK     = "MARK"
-	CT       = "CT"
-	DROP     = "DROP"
+var BuiltInChainsMap = sets.New(
+	"INPUT",
+	"OUTPUT",
+	"FORWARD",
+	"PREROUTING",
+	"POSTROUTING",
+	"ACCEPT",
+	"RETURN",
+	"DROP",
 )
 
 const (
@@ -65,9 +38,14 @@ const (
 	IPVersionSpecific = "PLACEHOLDER_IP_VERSION_SPECIFIC"
 )
 
+// In TPROXY mode, mark the packet from envoy outbound to app by podIP,
+// this is to prevent it being intercepted to envoy inbound listener.
+const OutboundMark = "1338"
+
 // iptables chains
 const (
 	ISTIOOUTPUT     = "ISTIO_OUTPUT"
+	ISTIOOUTPUTDNS  = "ISTIO_OUTPUT_DNS"
 	ISTIOINBOUND    = "ISTIO_INBOUND"
 	ISTIODIVERT     = "ISTIO_DIVERT"
 	ISTIOTPROXY     = "ISTIO_TPROXY"
@@ -93,7 +71,7 @@ const (
 	InboundTunnelPort         = "inbound-tunnel-port"
 	ProxyUID                  = "proxy-uid"
 	ProxyGID                  = "proxy-gid"
-	KubeVirtInterfaces        = "kube-virt-interfaces"
+	RerouteVirtualInterfaces  = "kube-virt-interfaces"
 	DryRun                    = "dry-run"
 	TraceLogging              = "iptables-trace-logging"
 	SkipRuleApply             = "skip-rule-apply"

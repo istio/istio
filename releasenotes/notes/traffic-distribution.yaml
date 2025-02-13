@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** support for the `Service.spec.trafficDistribution` field and `networking.istio.io/traffic-distribution` annotation, allowing a simpler mechanism to make traffic prefer geographically close endpoints.
+    Note: this feature previously existed only for ztunnel, but is now supported across all data planes.

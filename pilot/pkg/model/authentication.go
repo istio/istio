@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/slices"
 )
 
 // MutualTLSMode is the mutual TLS mode specified by authentication policy.
@@ -230,15 +231,11 @@ func getConfigsForWorkload(rootNamespace string, configsByNamespace map[string][
 	workloadLabels := selectionOpts.WorkloadLabels
 	namespace := selectionOpts.WorkloadNamespace
 	configs := make([]*config.Config, 0)
-	var lookupInNamespaces []string
-	if namespace != rootNamespace {
-		// Only check the root namespace if the (workload) namespace is not already the root namespace
-		// to avoid double inclusion.
-		lookupInNamespaces = []string{namespace, rootNamespace}
-	} else {
-		lookupInNamespaces = []string{namespace}
+	lookupInNamespaces := []string{namespace, rootNamespace}
+	for _, svc := range selectionOpts.Services {
+		lookupInNamespaces = append(lookupInNamespaces, svc.Namespace)
 	}
-	for _, ns := range lookupInNamespaces {
+	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
 		if nsConfig, ok := configsByNamespace[ns]; ok {
 			for idx := range nsConfig {
 				cfg := &nsConfig[idx]
@@ -250,7 +247,7 @@ func getConfigsForWorkload(rootNamespace string, configsByNamespace map[string][
 				switch cfg.GroupVersionKind {
 				case gvk.RequestAuthentication:
 					ra := cfg.Spec.(*v1beta1.RequestAuthentication)
-					should := selectionOpts.ShouldAttachPolicy(cfg.GroupVersionKind, cfg.NamespacedName(), ra)
+					should := selectionOpts.WithRootNamespace(rootNamespace).ShouldAttachPolicy(cfg.GroupVersionKind, cfg.NamespacedName(), ra)
 					if should {
 						configs = append(configs, cfg)
 					}

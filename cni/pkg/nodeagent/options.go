@@ -22,13 +22,14 @@ import (
 )
 
 var (
-	PodNamespace      = env.RegisterStringVar("POD_NAMESPACE", "", "pod's namespace").Get()
-	SystemNamespace   = env.RegisterStringVar("SYSTEM_NAMESPACE", constants.IstioSystemNamespace, "istio system namespace").Get()
-	PodName           = env.RegisterStringVar("POD_NAME", "", "").Get()
-	NodeName          = env.RegisterStringVar("NODE_NAME", "", "").Get()
-	Revision          = env.RegisterStringVar("REVISION", "", "").Get()
-	HostProbeSNATIP   = netip.MustParseAddr(env.RegisterStringVar("HOST_PROBE_SNAT_IP", DefaultHostProbeSNATIP, "").Get())
-	HostProbeSNATIPV6 = netip.MustParseAddr(env.RegisterStringVar("HOST_PROBE_SNAT_IPV6", DefaultHostProbeSNATIPV6, "").Get())
+	PodNamespace                   = env.RegisterStringVar("POD_NAMESPACE", "", "pod's namespace").Get()
+	SystemNamespace                = env.RegisterStringVar("SYSTEM_NAMESPACE", constants.IstioSystemNamespace, "istio system namespace").Get()
+	PodName                        = env.RegisterStringVar("POD_NAME", "", "").Get()
+	NodeName                       = env.RegisterStringVar("NODE_NAME", "", "").Get()
+	Revision                       = env.RegisterStringVar("REVISION", "", "").Get()
+	HostProbeSNATIP                = netip.MustParseAddr(env.RegisterStringVar("HOST_PROBE_SNAT_IP", DefaultHostProbeSNATIP, "").Get())
+	HostProbeSNATIPV6              = netip.MustParseAddr(env.RegisterStringVar("HOST_PROBE_SNAT_IPV6", DefaultHostProbeSNATIPV6, "").Get())
+	UseScopedIptablesLegacyLocking = env.RegisterBoolVar("AMBIENT_USE_SCOPED_XTABLES_LOCKING", true, "").Get()
 )
 
 const (
@@ -44,11 +45,11 @@ const (
 )
 
 type AmbientArgs struct {
-	SystemNamespace   string
-	Revision          string
-	KubeConfig        string
-	ServerSocket      string
-	DNSCapture        bool
-	EnableIPv6        bool
-	TPROXYRedirection bool
+	SystemNamespace            string
+	Revision                   string
+	KubeConfig                 string
+	ServerSocket               string
+	DNSCapture                 bool
+	EnableIPv6                 bool
+	ReconcilePodRulesOnStartup bool
 }

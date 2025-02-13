@@ -26,7 +26,7 @@ import (
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -289,7 +289,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 	caCertPool.AddCert(server2.Certificate())
 	defer server2.Close()
 
-	tb := NewTrustBundle(caCertPool, mesh.NewFixedWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"}))
+	tb := NewTrustBundle(caCertPool, meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"}))
 
 	// Change global remote timeout interval for the duration of the unit test
 	remoteTimeout = 30 * time.Millisecond

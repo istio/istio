@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -36,21 +37,16 @@ type DependenciesStub struct {
 	ExecutedAll      []string
 }
 
-func (s *DependenciesStub) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
-	s.execute(false /*quietly*/, cmd, iptVer, stdin, args...)
-	_ = s.writeAllToDryRunPath()
-	return nil
-}
-
-func (s *DependenciesStub) RunWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error) {
-	s.execute(false /*quietly*/, cmd, iptVer, stdin, args...)
+func (s *DependenciesStub) Run(logger *log.Scope,
+	quietLogging bool,
+	cmd constants.IptablesCmd,
+	iptVer *IptablesVersion,
+	stdin io.ReadSeeker,
+	args ...string,
+) (*bytes.Buffer, error) {
+	s.execute(quietLogging, cmd, iptVer, stdin, args...)
 	_ = s.writeAllToDryRunPath()
 	return &bytes.Buffer{}, nil
-}
-
-func (s *DependenciesStub) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
-	s.execute(true /*quietly*/, cmd, iptVer, stdin, args...)
-	_ = s.writeAllToDryRunPath()
 }
 
 func (s *DependenciesStub) DetectIptablesVersion(ipV6 bool) (IptablesVersion, error) {

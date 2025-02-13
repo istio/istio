@@ -21,11 +21,13 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	apiannotation "istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -33,6 +35,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -42,10 +45,13 @@ func (a *index) ServicesCollection(
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	opts krt.OptionsBuilder,
 ) krt.Collection[model.ServiceInfo] {
-	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces), krt.WithName("ServicesInfo"))
-	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces), krt.WithName("ServiceEntriesInfo"))
-	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, krt.WithName("WorkloadServices"))
+	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces),
+		opts.WithName("ServicesInfo")...)
+	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces),
+		opts.WithName("ServiceEntriesInfo")...)
+	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, opts.WithName("WorkloadService")...)
 	return WorkloadServices
 }
 
@@ -54,6 +60,14 @@ func (a *index) serviceServiceBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
+		if s.Spec.Type == v1.ServiceTypeExternalName {
+			// ExternalName services are not implemented by ambient (but will still work).
+			// The DNS requests will forward to the upstream DNS server, then Ztunnel can handle the request based on the target
+			// hostname.
+			// In theory we could add support for native 'DNS alias' into Ztunnel's DNS proxy. This would give the same behavior
+			// but let the DNS proxy handle it instead of forwarding upstream. However, at this time we do not do so.
+			return nil
+		}
 		portNames := map[int32]model.ServicePortName{}
 		for _, p := range s.Spec.Ports {
 			portNames[p.Port] = model.ServicePortName{
@@ -65,17 +79,23 @@ func (a *index) serviceServiceBuilder(
 		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
 		if waypoint != nil {
 			waypointStatus.ResourceName = waypoint.ResourceName()
+
+			// TODO: add this label to the istio api labels so we have constants to use
+			if val, ok := s.Labels["istio.io/ingress-use-waypoint"]; ok {
+				waypointStatus.IngressLabelPresent = true
+				waypointStatus.IngressUseWaypoint = strings.EqualFold(val, "true")
+			}
 		}
 		waypointStatus.Error = wperr
 
-		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		return &model.ServiceInfo{
-			Service:       a.constructService(s, waypoint),
+		svc := a.constructService(ctx, s, waypoint)
+		return precomputeServicePtr(&model.ServiceInfo{
+			Service:       svc,
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(s.Spec.Selector),
 			Source:        MakeSource(s),
 			Waypoint:      waypointStatus,
-		}
+		})
 	}
 }
 
@@ -93,12 +113,11 @@ func (a *index) serviceEntryServiceBuilder(
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
-		a.networkUpdateTrigger.MarkDependant(ctx) // Mark we depend on out of band a.Network
-		return a.serviceEntriesInfo(s, waypoint, waypointError)
+		return a.serviceEntriesInfo(ctx, s, waypoint, waypointError)
 	}
 }
 
-func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint, wperr *model.StatusMessage) []model.ServiceInfo {
+func (a *index) serviceEntriesInfo(ctx krt.HandlerContext, s *networkingclient.ServiceEntry, w *Waypoint, wperr *model.StatusMessage) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
 	portNames := map[int32]model.ServicePortName{}
 	for _, p := range s.Spec.Ports {
@@ -109,24 +128,30 @@ func (a *index) serviceEntriesInfo(s *networkingclient.ServiceEntry, w *Waypoint
 	waypoint := model.WaypointBindingStatus{}
 	if w != nil {
 		waypoint.ResourceName = w.ResourceName()
+		if val, ok := s.Labels["istio.io/ingress-use-waypoint"]; ok {
+			waypoint.IngressLabelPresent = true
+			waypoint.IngressUseWaypoint = strings.EqualFold(val, "true")
+		}
 	}
 	if wperr != nil {
 		waypoint.Error = wperr
 	}
-	return slices.Map(a.constructServiceEntries(s, w), func(e *workloadapi.Service) model.ServiceInfo {
-		return model.ServiceInfo{
+	return slices.Map(a.constructServiceEntries(ctx, s, w), func(e *workloadapi.Service) model.ServiceInfo {
+		return precomputeService(model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
 			LabelSelector: sel,
 			Source:        MakeSource(s),
 			Waypoint:      waypoint,
-		}
+		})
 	})
 }
 
-func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
+func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
 	var autoassignedHostAddresses map[string][]netip.Addr
-	addresses, err := slices.MapErr(svc.Spec.Addresses, a.toNetworkAddressFromCidr)
+	addresses, err := slices.MapErr(svc.Spec.Addresses, func(e string) (*workloadapi.NetworkAddress, error) {
+		return a.toNetworkAddressFromCidr(ctx, e)
+	})
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
 		return nil
@@ -148,7 +173,7 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 	}
 
 	var lb *workloadapi.LoadBalancing
-	preferClose := strings.EqualFold(svc.Annotations["networking.istio.io/traffic-distribution"], v1.ServiceTrafficDistributionPreferClose)
+	preferClose := strings.EqualFold(svc.Annotations[apiannotation.NetworkingTrafficDistribution.Name], v1.ServiceTrafficDistributionPreferClose)
 	if preferClose {
 		lb = preferCloseLoadBalancer
 	}
@@ -161,7 +186,9 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 		hostsAddresses := addresses
 		if len(hostsAddresses) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
 			if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
-				hostsAddresses = slices.Map(hostsAddrs, a.toNetworkAddressFromIP)
+				hostsAddresses = slices.Map(hostsAddrs, func(e netip.Addr) *workloadapi.NetworkAddress {
+					return a.toNetworkAddressFromIP(ctx, e)
+				})
 			}
 		}
 		res = append(res, &workloadapi.Service{
@@ -178,7 +205,7 @@ func (a *index) constructServiceEntries(svc *networkingclient.ServiceEntry, w *W
 	return res
 }
 
-func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Service {
+func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Waypoint) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
 		ports = append(ports, &workloadapi.Port{
@@ -187,7 +214,9 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 		})
 	}
 
-	addresses, err := slices.MapErr(getVIPs(svc), a.toNetworkAddress)
+	addresses, err := slices.MapErr(getVIPs(svc), func(e string) (*workloadapi.NetworkAddress, error) {
+		return a.toNetworkAddress(ctx, e)
+	})
 	if err != nil {
 		log.Warnf("fail to parse service %v: %v", config.NamespacedName(svc), err)
 		return nil
@@ -196,7 +225,7 @@ func (a *index) constructService(svc *v1.Service, w *Waypoint) *workloadapi.Serv
 	var lb *workloadapi.LoadBalancing
 
 	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
-	preferClose := strings.EqualFold(svc.Annotations["networking.istio.io/traffic-distribution"], v1.ServiceTrafficDistributionPreferClose)
+	preferClose := strings.EqualFold(svc.Annotations[apiannotation.NetworkingTrafficDistribution.Name], v1.ServiceTrafficDistributionPreferClose)
 	if svc.Spec.TrafficDistribution != nil {
 		preferClose = *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose
 	}
@@ -266,4 +295,18 @@ func getVIPs(svc *v1.Service) []string {
 		}
 	}
 	return res
+}
+
+func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
+	return ptr.Of(precomputeService(*w))
+}
+
+func precomputeService(w model.ServiceInfo) model.ServiceInfo {
+	addr := serviceToAddress(w.Service)
+	w.MarshaledAddress = protoconv.MessageToAny(addr)
+	w.AsAddress = model.AddressInfo{
+		Address:   addr,
+		Marshaled: w.MarshaledAddress,
+	}
+	return w
 }

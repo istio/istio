@@ -89,11 +89,6 @@ var (
 		[]float64{.1, .5, 1, 3, 5, 10, 20, 30},
 	)
 
-	pushContextErrors = monitoring.NewSum(
-		"pilot_xds_push_context_errors",
-		"Number of errors (timeouts) initiating push context.",
-	)
-
 	inboundUpdates = monitoring.NewSum(
 		"pilot_inbound_updates",
 		"Total number of updates received by pilot.",

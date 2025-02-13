@@ -70,9 +70,11 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
@@ -128,6 +130,8 @@ type Server struct {
 	// internalDebugMux is a mux for *internal* calls to the debug interface. That is, authentication is disabled.
 	internalDebugMux *http.ServeMux
 
+	metricsExporter http.Handler
+
 	// httpMux listens on the httpAddr (8080).
 	// If a Gateway is used in front and https is off it is also multiplexing
 	// the rest of the features if their port is empty.
@@ -177,6 +181,8 @@ type Server struct {
 	statusManager *status.Manager
 	// RWConfigStore is the configstore which allows updates, particularly for status.
 	RWConfigStore model.ConfigStoreController
+
+	krtDebugger *krt.DebugHandler
 }
 
 type readinessFlags struct {
@@ -228,6 +234,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	})
 	e.ServiceDiscovery = ac
 
+	exporter, err := monitoring.RegisterPrometheusExporter(nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("could not set up prometheus exporter: %v", err)
+	}
 	s := &Server{
 		clusterID:               getClusterID(args),
 		environment:             e,
@@ -241,6 +251,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		internalStop:            make(chan struct{}),
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 		webhookInfo:             &webhookInfo{},
+		metricsExporter:         exporter,
+		krtDebugger:             args.KrtDebugger,
 	}
 
 	// Apply custom initialization functions.
@@ -248,7 +260,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		fn(s)
 	}
 	// Initialize workload Trust Bundle before XDS Server
-	s.XDSServer = xds.NewDiscoveryServer(e, args.RegistryOptions.KubeOptions.ClusterAliases)
+	s.XDSServer = xds.NewDiscoveryServer(e, args.RegistryOptions.KubeOptions.ClusterAliases, args.KrtDebugger)
 	configGen := core.NewConfigGenerator(s.XDSServer.Cache)
 
 	grpcprom.EnableHandlingTimeHistogram()
@@ -1154,6 +1166,9 @@ func (s *Server) initControllers(args *PilotArgs) error {
 }
 
 func (s *Server) initNodeUntaintController(args *PilotArgs) {
+	if s.kubeClient == nil {
+		return
+	}
 	s.addStartFunc("nodeUntainter controller", func(stop <-chan struct{}) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.NodeUntaintController, args.Revision, s.kubeClient).
@@ -1166,6 +1181,9 @@ func (s *Server) initNodeUntaintController(args *PilotArgs) {
 }
 
 func (s *Server) initIPAutoallocateController(args *PilotArgs) {
+	if s.kubeClient == nil {
+		return
+	}
 	s.addStartFunc("ip autoallocate controller", func(stop <-chan struct{}) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.IPAutoallocateController, args.Revision, s.kubeClient).

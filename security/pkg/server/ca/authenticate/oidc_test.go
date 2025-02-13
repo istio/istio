@@ -31,7 +31,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -143,7 +143,7 @@ func TestOIDCAuthenticate(t *testing.T) {
 	if err != nil {
 		t.Fatal("failed at unmarshal jwt rule")
 	}
-	authenticator, err := NewJwtAuthenticator(&jwtRule, mesh.NewFixedWatcher(&meshconfig.MeshConfig{TrustDomain: "baz.svc.id.goog"}))
+	authenticator, err := NewJwtAuthenticator(&jwtRule, meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "baz.svc.id.goog"}))
 	if err != nil {
 		t.Fatalf("failed to create the JWT authenticator: %v", err)
 	}

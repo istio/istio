@@ -28,6 +28,8 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/yaml"
 
@@ -88,27 +90,41 @@ func environmentalDetection(client kube.Client, iop *apis.IstioOperator) (Warnin
 
 func detectCniIncompatibility(client kube.Client, cniEnabled bool, ztunnelEnabled bool) util.Errors {
 	var errs util.Errors
+	calicoResource := schema.GroupVersionResource{Group: "projectcalico.org", Version: "v3", Resource: "felixconfigurations"}
+	calico, err := client.Dynamic().Resource(calicoResource).Get(context.Background(), "default", metav1.GetOptions{})
+	if err == nil {
+		bpfConnectTimeLoadBalancing, found, _ := unstructured.NestedString(calico.Object, "spec", "bpfConnectTimeLoadBalancing")
+		if found && bpfConnectTimeLoadBalancing != "Disabled" {
+			// Need to disable Calico connect-time load balancing since it send traffic directly to the backend pod IP
+			// nolint: lll
+			errs = util.AppendErr(errs, fmt.Errorf("detected Calico CNI with 'bpfConnectTimeLoadBalancing=%s'; this must be set to 'bpfConnectTimeLoadBalancing=Disabled' in the Calico configuration", bpfConnectTimeLoadBalancing))
+		}
+		bpfConnectTimeLoadBalancingEnabled, found, _ := unstructured.NestedBool(calico.Object, "spec", "bpfConnectTimeLoadBalancingEnabled")
+		if found && bpfConnectTimeLoadBalancingEnabled {
+			// Same behavior as BpfconnectTimeLoadBalancing
+			// nolint: lll
+			errs = util.AppendErr(errs, fmt.Errorf("detected Calico CNI with 'bpfConnectTimeLoadBalancingEnabled=true'; this must be set to 'bpfConnectTimeLoadBalancingEnabled=false' in the Calico configuration"))
+		}
+	}
 	cilium, err := client.Kube().CoreV1().ConfigMaps("kube-system").Get(context.Background(), "cilium-config", metav1.GetOptions{})
-	if err != nil {
-		// Ignore errors, user may not be running Cilium at all
-		return nil
-	}
-	if cniEnabled && cilium.Data["cni-exclusive"] == "true" {
-		// Without this, Cilium will constantly overwrite our CNI config.
-		errs = util.AppendErr(errs,
-			fmt.Errorf("detected Cilium CNI with 'cni-exclusive=true'; this must be set to 'cni-exclusive=false' in the Cilium configuration"))
-	}
-	if ztunnelEnabled && cilium.Data["enable-bpf-masquerade"] == "true" {
-		// See https://github.com/istio/istio/issues/52208
-		errs = util.AppendErr(errs,
-			fmt.Errorf("detected Cilium CNI with 'enable-bpf-masquerade=true'; this must be set to 'false' when using ambient mode"))
-	}
-	bpfLbSocket := cilium.Data["bpf-lb-sock"] == "true"                 // Unset implies 'false', so this check is ok
-	bpfLbHostnsOnly := cilium.Data["bpf-lb-sock-hostns-only"] == "true" // Unset implies 'false', so this check is ok
-	if bpfLbSocket && !bpfLbHostnsOnly {
-		// See https://github.com/istio/istio/issues/27619
-		errs = util.AppendErr(errs,
-			errors.New("detected Cilium CNI with 'bpf-lb-sock=true'; this requires 'bpf-lb-sock-hostns-only=true' to be set"))
+	if err == nil {
+		if cniEnabled && cilium.Data["cni-exclusive"] == "true" {
+			// Without this, Cilium will constantly overwrite our CNI config.
+			errs = util.AppendErr(errs,
+				fmt.Errorf("detected Cilium CNI with 'cni-exclusive=true'; this must be set to 'cni-exclusive=false' in the Cilium configuration"))
+		}
+		if ztunnelEnabled && cilium.Data["enable-bpf-masquerade"] == "true" {
+			// See https://github.com/istio/istio/issues/52208
+			errs = util.AppendErr(errs,
+				fmt.Errorf("detected Cilium CNI with 'enable-bpf-masquerade=true'; this must be set to 'false' when using ambient mode"))
+		}
+		bpfLbSocket := cilium.Data["bpf-lb-sock"] == "true"                 // Unset implies 'false', so this check is ok
+		bpfLbHostnsOnly := cilium.Data["bpf-lb-sock-hostns-only"] == "true" // Unset implies 'false', so this check is ok
+		if bpfLbSocket && !bpfLbHostnsOnly {
+			// See https://github.com/istio/istio/issues/27619
+			errs = util.AppendErr(errs,
+				errors.New("detected Cilium CNI with 'bpf-lb-sock=true'; this requires 'bpf-lb-sock-hostns-only=true' to be set"))
+		}
 	}
 	return errs
 }

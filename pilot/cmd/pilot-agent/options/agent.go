@@ -22,6 +22,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/bootstrap/platform"
 	istioagent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wasm"
 )
@@ -58,8 +59,6 @@ func NewAgentOptions(proxy *ProxyArgs, cfg *meshconfig.ProxyConfig, sds istioage
 		Platform:                    platform.Discover(proxy.SupportsIPv6()),
 		GRPCBootstrapPath:           grpcBootstrapEnv,
 		DisableEnvoy:                disableEnvoyEnv,
-		ProxyXDSDebugViaAgent:       proxyXDSDebugViaAgent,
-		ProxyXDSDebugViaAgentPort:   proxyXDSDebugViaAgentPort,
 		DNSCapture:                  DNSCaptureByAgent.Get(),
 		DNSAtGateway:                EnableDNSAtGateway.Get(),
 		DNSForwardParallel:          DNSForwardParallel.Get(),
@@ -67,9 +66,12 @@ func NewAgentOptions(proxy *ProxyArgs, cfg *meshconfig.ProxyConfig, sds istioage
 		ProxyNamespace:              PodNamespaceVar.Get(),
 		ProxyDomain:                 proxy.DNSDomain,
 		IstiodSAN:                   istiodSAN.Get(),
-		MetadataDiscovery:           enableWDSEnv,
 		SDSFactory:                  sds,
 		WorkloadIdentitySocketFile:  workloadIdentitySocketFile,
+		EnvoySkipDeprecatedLogs:     envoySkipDeprecatedLogsEnv,
+	}
+	if enableWDSEnvWasSet {
+		o.MetadataDiscovery = ptr.Of(enableWDSEnv)
 	}
 	extractXDSHeadersFromEnv(o)
 	return o

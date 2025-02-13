@@ -24,6 +24,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	istiolog "istio.io/istio/pkg/log"
@@ -99,7 +100,7 @@ var testObjects = []runtime.Object{
 func fakeMeshHolder(ingressService string) mesh.Watcher {
 	config := mesh.DefaultMeshConfig()
 	config.IngressService = ingressService
-	return mesh.NewFixedWatcher(config)
+	return meshwatcher.NewTestWatcher(config)
 }
 
 func makeStatusSyncer(t *testing.T, name string) *StatusSyncer {

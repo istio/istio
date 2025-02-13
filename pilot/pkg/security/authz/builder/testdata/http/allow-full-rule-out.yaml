@@ -7,6 +7,35 @@ typedConfig:
         permissions:
         - andRules:
             rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        regex: spiffe://.+/ns/my-ns/(.+/|)sa/my-sa(/.+)?
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        regex: spiffe://.+/ns/foo/(.+/|)sa/sa-only(/.+)?
+            - notId:
+                orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          regex: spiffe://.+/ns/my-ns/(.+/|)sa/my-sa-not(/.+)?
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          regex: spiffe://.+/ns/foo/(.+/|)sa/sa-not-only(/.+)?
+      ns[foo]-policy[httpbin-1]-rule[1]:
+        permissions:
+        - andRules:
+            rules:
             - orRules:
                 rules:
                 - header:
@@ -192,67 +221,37 @@ typedConfig:
                   - requestedServerName:
                       safeRegex:
                         regex: .+
-            - orRules:
-                rules:
-                - metadata:
-                    filter: envoy.filters.a.b
-                    path:
-                    - key: c
-                    value:
-                      stringMatch:
+            - metadata:
+                filter: envoy.filters.a.b
+                path:
+                - key: c
+                value:
+                  orMatch:
+                    valueMatchers:
+                    - stringMatch:
                         exact: exact
-                - metadata:
-                    filter: envoy.filters.a.b
-                    path:
-                    - key: c
-                    value:
-                      stringMatch:
+                    - stringMatch:
                         prefix: prefix-
-                - metadata:
-                    filter: envoy.filters.a.b
-                    path:
-                    - key: c
-                    value:
-                      stringMatch:
+                    - stringMatch:
                         suffix: -suffix
-                - metadata:
-                    filter: envoy.filters.a.b
-                    path:
-                    - key: c
-                    value:
-                      stringMatch:
+                    - stringMatch:
                         safeRegex:
                           regex: .+
             - notRule:
-                orRules:
-                  rules:
-                  - metadata:
-                      filter: envoy.filters.a.b
-                      path:
-                      - key: c
-                      value:
-                        stringMatch:
+                metadata:
+                  filter: envoy.filters.a.b
+                  path:
+                  - key: c
+                  value:
+                    orMatch:
+                      valueMatchers:
+                      - stringMatch:
                           exact: not-exact
-                  - metadata:
-                      filter: envoy.filters.a.b
-                      path:
-                      - key: c
-                      value:
-                        stringMatch:
+                      - stringMatch:
                           prefix: not-prefix-
-                  - metadata:
-                      filter: envoy.filters.a.b
-                      path:
-                      - key: c
-                      value:
-                        stringMatch:
+                      - stringMatch:
                           suffix: -not-suffix
-                  - metadata:
-                      filter: envoy.filters.a.b
-                      path:
-                      - key: c
-                      value:
-                        stringMatch:
+                      - stringMatch:
                           safeRegex:
                             regex: .+
         principals:
@@ -293,67 +292,161 @@ typedConfig:
                           regex: .+
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.principal
-                    value:
-                      stringMatch:
-                        exact: requestPrincipals
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.principal
-                    value:
-                      stringMatch:
-                        prefix: requestPrincipals-prefix-
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.principal
-                    value:
-                      stringMatch:
-                        suffix: -suffix-requestPrincipals
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          regex: .+
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
+                          stringMatch:
+                            exact: requestPrincipals
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
+                          stringMatch:
+                            exact: ""
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
+                          stringMatch:
+                            prefix: requestPrincipals-prefix-
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              regex: .+
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              regex: .+
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
+                          stringMatch:
+                            suffix: -suffix-requestPrincipals
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              regex: .+
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              regex: .+
             - notId:
                 orIds:
                   ids:
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.principal
-                      value:
-                        stringMatch:
-                          exact: not-requestPrincipals
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.principal
-                      value:
-                        stringMatch:
-                          prefix: not-requestPrincipals-prefix-
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.principal
-                      value:
-                        stringMatch:
-                          suffix: -not-suffix-requestPrincipals
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            regex: .+
+                  - andIds:
+                      ids:
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: iss
+                          value:
+                            stringMatch:
+                              exact: not-requestPrincipals
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: sub
+                          value:
+                            stringMatch:
+                              exact: ""
+                  - andIds:
+                      ids:
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: iss
+                          value:
+                            stringMatch:
+                              prefix: not-requestPrincipals-prefix-
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: sub
+                          value:
+                            stringMatch:
+                              safeRegex:
+                                regex: .+
+                  - andIds:
+                      ids:
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: iss
+                          value:
+                            stringMatch:
+                              safeRegex:
+                                regex: .+
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: sub
+                          value:
+                            stringMatch:
+                              suffix: -not-suffix-requestPrincipals
+                  - andIds:
+                      ids:
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: iss
+                          value:
+                            stringMatch:
+                              safeRegex:
+                                regex: .+
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: sub
+                          value:
+                            stringMatch:
+                              safeRegex:
+                                regex: .+
             - orIds:
                 ids:
                 - authenticated:
@@ -566,380 +659,440 @@ typedConfig:
                           regex: .+
             - orIds:
                 ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.principal
-                    value:
-                      stringMatch:
-                        exact: requestPrincipals
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.principal
-                    value:
-                      stringMatch:
-                        prefix: requestPrincipals-prefix-
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.principal
-                    value:
-                      stringMatch:
-                        suffix: -suffix-requestPrincipals
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.principal
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          regex: .+
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.principal
-                    value:
-                      stringMatch:
-                        prefix: https://example.com/
-            - notId:
-                orIds:
-                  ids:
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.principal
-                      value:
-                        stringMatch:
-                          exact: not-requestPrincipals
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.principal
-                      value:
-                        stringMatch:
-                          prefix: not-requestPrincipals-prefix-
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.principal
-                      value:
-                        stringMatch:
-                          suffix: -not-suffix-requestPrincipals
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.principal
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            regex: .+
-            - orIds:
-                ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.audiences
-                    value:
-                      stringMatch:
-                        exact: audiences
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.audiences
-                    value:
-                      stringMatch:
-                        prefix: audiences-prefix-
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.audiences
-                    value:
-                      stringMatch:
-                        suffix: -suffix-audiences
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.audiences
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          regex: .+
-            - notId:
-                orIds:
-                  ids:
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.audiences
-                      value:
-                        stringMatch:
-                          exact: not-audiences
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.audiences
-                      value:
-                        stringMatch:
-                          prefix: not-audiences-prefix-
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.audiences
-                      value:
-                        stringMatch:
-                          suffix: -not-suffix-audiences
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.audiences
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            regex: .+
-            - orIds:
-                ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.presenter
-                    value:
-                      stringMatch:
-                        exact: presenter
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.presenter
-                    value:
-                      stringMatch:
-                        prefix: presenter-prefix-
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.presenter
-                    value:
-                      stringMatch:
-                        suffix: -suffix-presenter
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.presenter
-                    value:
-                      stringMatch:
-                        safeRegex:
-                          regex: .+
-            - notId:
-                orIds:
-                  ids:
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.presenter
-                      value:
-                        stringMatch:
-                          exact: not-presenter
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.presenter
-                      value:
-                        stringMatch:
-                          prefix: not-presenter-prefix-
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.presenter
-                      value:
-                        stringMatch:
-                          suffix: -not-suffix-presenter
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.presenter
-                      value:
-                        stringMatch:
-                          safeRegex:
-                            regex: .+
-            - orIds:
-                ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.claims
-                    - key: iss
-                    value:
-                      listMatch:
-                        oneOf:
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
                           stringMatch:
-                            exact: iss
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.claims
-                    - key: iss
-                    value:
-                      listMatch:
-                        oneOf:
+                            exact: requestPrincipals
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
                           stringMatch:
-                            prefix: iss-prefix-
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.claims
-                    - key: iss
-                    value:
-                      listMatch:
-                        oneOf:
+                            exact: ""
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
                           stringMatch:
-                            suffix: -suffix-iss
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.claims
-                    - key: iss
-                    value:
-                      listMatch:
-                        oneOf:
+                            prefix: requestPrincipals-prefix-
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              regex: .+
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              regex: .+
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
+                          stringMatch:
+                            suffix: -suffix-requestPrincipals
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              regex: .+
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
+                          stringMatch:
+                            safeRegex:
+                              regex: .+
+                - andIds:
+                    ids:
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: iss
+                        value:
+                          stringMatch:
+                            exact: https://example.com
+                    - metadata:
+                        filter: envoy.filters.http.jwt_authn
+                        path:
+                        - key: payload
+                        - key: sub
+                        value:
                           stringMatch:
                             safeRegex:
                               regex: .+
             - notId:
                 orIds:
                   ids:
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.claims
-                      - key: iss
-                      value:
-                        listMatch:
-                          oneOf:
+                  - andIds:
+                      ids:
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: iss
+                          value:
                             stringMatch:
-                              exact: not-iss
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.claims
-                      - key: iss
-                      value:
-                        listMatch:
-                          oneOf:
+                              exact: not-requestPrincipals
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: sub
+                          value:
                             stringMatch:
-                              prefix: not-iss-prefix-
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.claims
-                      - key: iss
-                      value:
-                        listMatch:
-                          oneOf:
+                              exact: ""
+                  - andIds:
+                      ids:
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: iss
+                          value:
                             stringMatch:
-                              suffix: -not-suffix-iss
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.claims
-                      - key: iss
-                      value:
-                        listMatch:
-                          oneOf:
+                              prefix: not-requestPrincipals-prefix-
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: sub
+                          value:
                             stringMatch:
                               safeRegex:
                                 regex: .+
-            - orIds:
-                ids:
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.claims
-                    - key: nested1
-                    - key: nested2
-                    value:
-                      listMatch:
+                  - andIds:
+                      ids:
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: iss
+                          value:
+                            stringMatch:
+                              safeRegex:
+                                regex: .+
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: sub
+                          value:
+                            stringMatch:
+                              suffix: -not-suffix-requestPrincipals
+                  - andIds:
+                      ids:
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: iss
+                          value:
+                            stringMatch:
+                              safeRegex:
+                                regex: .+
+                      - metadata:
+                          filter: envoy.filters.http.jwt_authn
+                          path:
+                          - key: payload
+                          - key: sub
+                          value:
+                            stringMatch:
+                              safeRegex:
+                                regex: .+
+            - metadata:
+                filter: envoy.filters.http.jwt_authn
+                path:
+                - key: payload
+                - key: aud
+                value:
+                  orMatch:
+                    valueMatchers:
+                    - listMatch:
                         oneOf:
-                          stringMatch:
-                            exact: nested
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.claims
-                    - key: nested1
-                    - key: nested2
-                    value:
-                      listMatch:
-                        oneOf:
-                          stringMatch:
-                            prefix: nested-prefix-
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.claims
-                    - key: nested1
-                    - key: nested2
-                    value:
-                      listMatch:
-                        oneOf:
-                          stringMatch:
-                            suffix: -suffix-nested
-                - metadata:
-                    filter: istio_authn
-                    path:
-                    - key: request.auth.claims
-                    - key: nested1
-                    - key: nested2
-                    value:
-                      listMatch:
-                        oneOf:
-                          stringMatch:
+                          orMatch:
+                            valueMatchers:
+                            - stringMatch:
+                                exact: audiences
+                            - stringMatch:
+                                prefix: audiences-prefix-
+                            - stringMatch:
+                                suffix: -suffix-audiences
+                            - stringMatch:
+                                safeRegex:
+                                  regex: .+
+                    - orMatch:
+                        valueMatchers:
+                        - stringMatch:
+                            exact: audiences
+                        - stringMatch:
+                            prefix: audiences-prefix-
+                        - stringMatch:
+                            suffix: -suffix-audiences
+                        - stringMatch:
                             safeRegex:
                               regex: .+
             - notId:
-                orIds:
-                  ids:
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.claims
-                      - key: nested1
-                      - key: nested2
-                      value:
-                        listMatch:
+                metadata:
+                  filter: envoy.filters.http.jwt_authn
+                  path:
+                  - key: payload
+                  - key: aud
+                  value:
+                    orMatch:
+                      valueMatchers:
+                      - listMatch:
                           oneOf:
-                            stringMatch:
+                            orMatch:
+                              valueMatchers:
+                              - stringMatch:
+                                  exact: not-audiences
+                              - stringMatch:
+                                  prefix: not-audiences-prefix-
+                              - stringMatch:
+                                  suffix: -not-suffix-audiences
+                              - stringMatch:
+                                  safeRegex:
+                                    regex: .+
+                      - orMatch:
+                          valueMatchers:
+                          - stringMatch:
+                              exact: not-audiences
+                          - stringMatch:
+                              prefix: not-audiences-prefix-
+                          - stringMatch:
+                              suffix: -not-suffix-audiences
+                          - stringMatch:
+                              safeRegex:
+                                regex: .+
+            - metadata:
+                filter: envoy.filters.http.jwt_authn
+                path:
+                - key: payload
+                - key: azp
+                value:
+                  orMatch:
+                    valueMatchers:
+                    - listMatch:
+                        oneOf:
+                          orMatch:
+                            valueMatchers:
+                            - stringMatch:
+                                exact: presenter
+                            - stringMatch:
+                                prefix: presenter-prefix-
+                            - stringMatch:
+                                suffix: -suffix-presenter
+                            - stringMatch:
+                                safeRegex:
+                                  regex: .+
+                    - orMatch:
+                        valueMatchers:
+                        - stringMatch:
+                            exact: presenter
+                        - stringMatch:
+                            prefix: presenter-prefix-
+                        - stringMatch:
+                            suffix: -suffix-presenter
+                        - stringMatch:
+                            safeRegex:
+                              regex: .+
+            - notId:
+                metadata:
+                  filter: envoy.filters.http.jwt_authn
+                  path:
+                  - key: payload
+                  - key: azp
+                  value:
+                    orMatch:
+                      valueMatchers:
+                      - listMatch:
+                          oneOf:
+                            orMatch:
+                              valueMatchers:
+                              - stringMatch:
+                                  exact: not-presenter
+                              - stringMatch:
+                                  prefix: not-presenter-prefix-
+                              - stringMatch:
+                                  suffix: -not-suffix-presenter
+                              - stringMatch:
+                                  safeRegex:
+                                    regex: .+
+                      - orMatch:
+                          valueMatchers:
+                          - stringMatch:
+                              exact: not-presenter
+                          - stringMatch:
+                              prefix: not-presenter-prefix-
+                          - stringMatch:
+                              suffix: -not-suffix-presenter
+                          - stringMatch:
+                              safeRegex:
+                                regex: .+
+            - metadata:
+                filter: envoy.filters.http.jwt_authn
+                path:
+                - key: payload
+                - key: iss
+                value:
+                  orMatch:
+                    valueMatchers:
+                    - listMatch:
+                        oneOf:
+                          orMatch:
+                            valueMatchers:
+                            - stringMatch:
+                                exact: iss
+                            - stringMatch:
+                                prefix: iss-prefix-
+                            - stringMatch:
+                                suffix: -suffix-iss
+                            - stringMatch:
+                                safeRegex:
+                                  regex: .+
+                    - orMatch:
+                        valueMatchers:
+                        - stringMatch:
+                            exact: iss
+                        - stringMatch:
+                            prefix: iss-prefix-
+                        - stringMatch:
+                            suffix: -suffix-iss
+                        - stringMatch:
+                            safeRegex:
+                              regex: .+
+            - notId:
+                metadata:
+                  filter: envoy.filters.http.jwt_authn
+                  path:
+                  - key: payload
+                  - key: iss
+                  value:
+                    orMatch:
+                      valueMatchers:
+                      - listMatch:
+                          oneOf:
+                            orMatch:
+                              valueMatchers:
+                              - stringMatch:
+                                  exact: not-iss
+                              - stringMatch:
+                                  prefix: not-iss-prefix-
+                              - stringMatch:
+                                  suffix: -not-suffix-iss
+                              - stringMatch:
+                                  safeRegex:
+                                    regex: .+
+                      - orMatch:
+                          valueMatchers:
+                          - stringMatch:
+                              exact: not-iss
+                          - stringMatch:
+                              prefix: not-iss-prefix-
+                          - stringMatch:
+                              suffix: -not-suffix-iss
+                          - stringMatch:
+                              safeRegex:
+                                regex: .+
+            - metadata:
+                filter: envoy.filters.http.jwt_authn
+                path:
+                - key: payload
+                - key: nested1
+                - key: nested2
+                value:
+                  orMatch:
+                    valueMatchers:
+                    - listMatch:
+                        oneOf:
+                          orMatch:
+                            valueMatchers:
+                            - stringMatch:
+                                exact: nested
+                            - stringMatch:
+                                prefix: nested-prefix-
+                            - stringMatch:
+                                suffix: -suffix-nested
+                            - stringMatch:
+                                safeRegex:
+                                  regex: .+
+                    - orMatch:
+                        valueMatchers:
+                        - stringMatch:
+                            exact: nested
+                        - stringMatch:
+                            prefix: nested-prefix-
+                        - stringMatch:
+                            suffix: -suffix-nested
+                        - stringMatch:
+                            safeRegex:
+                              regex: .+
+            - notId:
+                metadata:
+                  filter: envoy.filters.http.jwt_authn
+                  path:
+                  - key: payload
+                  - key: nested1
+                  - key: nested2
+                  value:
+                    orMatch:
+                      valueMatchers:
+                      - listMatch:
+                          oneOf:
+                            orMatch:
+                              valueMatchers:
+                              - stringMatch:
+                                  exact: not-nested
+                              - stringMatch:
+                                  prefix: not-nested-prefix-
+                              - stringMatch:
+                                  suffix: -not-suffix-nested
+                              - stringMatch:
+                                  safeRegex:
+                                    regex: .+
+                      - orMatch:
+                          valueMatchers:
+                          - stringMatch:
                               exact: not-nested
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.claims
-                      - key: nested1
-                      - key: nested2
-                      value:
-                        listMatch:
-                          oneOf:
-                            stringMatch:
+                          - stringMatch:
                               prefix: not-nested-prefix-
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.claims
-                      - key: nested1
-                      - key: nested2
-                      value:
-                        listMatch:
-                          oneOf:
-                            stringMatch:
+                          - stringMatch:
                               suffix: -not-suffix-nested
-                  - metadata:
-                      filter: istio_authn
-                      path:
-                      - key: request.auth.claims
-                      - key: nested1
-                      - key: nested2
-                      value:
-                        listMatch:
-                          oneOf:
-                            stringMatch:
+                          - stringMatch:
                               safeRegex:
                                 regex: .+
   shadowRulesStatPrefix: istio_dry_run_allow_

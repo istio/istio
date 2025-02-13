@@ -222,8 +222,7 @@ func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 	// we will merge labels from metadata with spec, with precedence to the metadata
 	labels := maps.MergeCopy(wle.Labels, cfg.Labels)
 	// shallow copy
-	copied := &networking.WorkloadEntry{}
-	protomarshal.ShallowCopy(copied, wle)
+	copied := protomarshal.ShallowClone(wle)
 	copied.Labels = labels
 	return copied
 }
@@ -378,8 +377,7 @@ func getUpdatedConfigs(services []*model.Service) sets.Set[model.ConfigKey] {
 func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Event) {
 	log.Debugf("Handle event %s for service entry %s/%s", event, curr.Namespace, curr.Name)
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
-	cs := convertServices(curr, s.clusterID)
-	configsUpdated := sets.New[model.ConfigKey]()
+	cs := convertServices(curr)
 	key := curr.NamespacedName()
 
 	s.mutex.Lock()
@@ -427,6 +425,7 @@ func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Ev
 
 	shard := model.ShardKeyFromRegistry(s)
 
+	configsUpdated := sets.NewWithLength[model.ConfigKey](len(addedSvcs) + len(updatedSvcs) + len(deletedSvcs) + len(unchangedSvcs))
 	for _, svc := range addedSvcs {
 		s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
 		configsUpdated.Insert(makeConfigKey(svc))
@@ -441,7 +440,7 @@ func (s *Controller) serviceEntryHandler(old, curr config.Config, event model.Ev
 		instanceKey := instancesKey{namespace: svc.Attributes.Namespace, hostname: svc.Hostname}
 		// There can be multiple service entries of same host reside in same namespace.
 		// Delete endpoint shards only if there are no service instances.
-		if len(s.serviceInstances.getByKey(instanceKey)) == 0 {
+		if s.serviceInstances.countByKey(instanceKey) == 0 {
 			s.XdsUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, model.EventDelete)
 		} else {
 			// If there are some endpoints remaining for the host, add svc to updatedSvcs to trigger eds cache update

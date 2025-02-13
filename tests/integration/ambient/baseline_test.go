@@ -206,7 +206,6 @@ func TestPodIP(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		for _, src := range apps.All {
 			for _, srcWl := range src.WorkloadsOrFail(t) {
-				srcWl := srcWl
 				t.NewSubTestf("from %v %v", src.Config().Service, srcWl.Address()).Run(func(t framework.TestContext) {
 					for _, dst := range apps.All {
 						for _, dstWl := range dst.WorkloadsOrFail(t) {
@@ -680,7 +679,7 @@ spec:
       version: v2
 `).ApplyOrFail(t)
 			t.NewSubTest("v1").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.Count = 5
 				opt.Timeout = time.Second * 10
 				opt.Check = check.And(
@@ -697,7 +696,7 @@ spec:
 			})
 
 			t.NewSubTest("v2").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.Count = 5
 				opt.Timeout = time.Second * 10
 				if opt.HTTP.Headers == nil {
@@ -724,9 +723,6 @@ func TestPeerAuthentication(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-			if opt.Scheme != scheme.TCP {
-				return
-			}
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
@@ -745,7 +741,7 @@ spec:
   mtls:
     mode: PERMISSIVE
 `).ApplyOrFail(t)
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("strict").Run(func(t framework.TestContext) {
@@ -762,15 +758,16 @@ spec:
   mtls:
     mode: STRICT
 				`).ApplyOrFail(t)
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
 					// Expect deny if the dest is in the mesh (enforcing mTLS) but src is not (not sending mTLS)
 					opt.Check = CheckDeny
 				}
 				src.CallOrFail(t, opt)
 			})
-			// globally peerauth == STRICT, but we have a port-specific allowlist that is PERMISSIVE,
-			// so anything hitting that port should not be rejected
+			// general workload peerauth == STRICT, but we have a port-specific allowlist that is PERMISSIVE,
+			// so anything hitting that port should not be rejected.
+			// NOTE: Using port 18080 since that's the http port for the echo deployment
 			t.NewSubTest("strict-permissive-ports").Run(func(t framework.TestContext) {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
@@ -788,11 +785,84 @@ spec:
   mtls:
     mode: STRICT
   portLevelMtls:
-    8080:
+    18080:
+      mode: PERMISSIVE
+    19090:
       mode: PERMISSIVE
 				`).ApplyOrFail(t)
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				// Should pass for all workloads, in or out of mesh, targeting this port
+				src.CallOrFail(t, opt)
+			})
+
+			// global peer auth is strict, but we have a permissive port-level rule
+			t.NewSubTest("global-strict-permissive-workload-ports").Run(func(t framework.TestContext) {
+				t.ConfigIstio().YAML(i.Settings().SystemNamespace, `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: global-strict
+spec:
+  mtls:
+    mode: STRICT
+        `).ApplyOrFail(t)
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: local-port-override
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  portLevelMtls:
+    18080:
+      mode: PERMISSIVE
+    19090:
+      mode: PERMISSIVE
+        `).ApplyOrFail(t)
+				opt := opt.DeepCopy()
+				// Should pass for all workloads, in or out of mesh, targeting this port
+				src.CallOrFail(t, opt)
+			})
+
+			t.NewSubTest("global-permissive-strict-workload-ports").Run(func(t framework.TestContext) {
+				t.ConfigIstio().YAML(i.Settings().SystemNamespace, `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: global-permissive
+spec:
+  mtls:
+    mode: PERMISSIVE
+        `).ApplyOrFail(t)
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: local-port-override
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  portLevelMtls:
+    18080:
+      mode: STRICT
+    19090:
+      mode: STRICT
+        `).ApplyOrFail(t)
+				opt := opt.DeepCopy()
+				if !src.Config().HasProxyCapabilities() && dst.Config().HasProxyCapabilities() {
+					// Expect deny if the dest is in the mesh (enforcing mTLS) but src is not (not sending mTLS)
+					opt.Check = CheckDeny
+				}
 				src.CallOrFail(t, opt)
 			})
 		})
@@ -1056,17 +1126,105 @@ spec:
 				}
 			}
 			t.NewSubTest("simple deny").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/deny"
 				opt.Check = CheckDeny
 				overrideCheck(&opt)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("simple allow").Run(func(t framework.TestContext) {
-				opt = opt.DeepCopy()
+				opt := opt.DeepCopy()
 				opt.HTTP.Path = "/allowed"
 				opt.Check = check.OK()
 				overrideCheck(&opt)
+				src.CallOrFail(t, opt)
+			})
+		})
+	})
+}
+
+func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		applyDrainingWorkaround(t)
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			if !dst.Config().HasAnyWaypointProxy() {
+				// we only care about testing waypoints
+				return
+			}
+
+			if src == dst {
+				// don't test self calls
+				return
+			}
+
+			if src.Config().IsUncaptured() {
+				// uncaptured will not honor waypoint
+				return
+			}
+
+			opt.NewConnectionPerRequest = true
+			waypointName := "none"
+			switch {
+			case dst.Config().HasServiceAddressedWaypointProxy():
+				waypointName = dst.Config().ServiceWaypointProxy
+			case dst.Config().HasWorkloadAddressedWaypointProxy():
+				waypointName = dst.Config().WorkloadWaypointProxy
+				// send traffic to the workload instead of the service so it will redirect to the WL waypoint
+				opt.Address = dst.MustWorkloads().Addresses()[0]
+				opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+			}
+			systemNamespace := i.Settings().SystemNamespace
+
+			// setup default deny for workloads
+			t.ConfigIstio().YAML(systemNamespace,
+				`apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+ name: allow-nothing
+spec:
+  {}`).ApplyOrFail(t)
+
+			t.NewSubTest("allow-nothing").Run(func(t framework.TestContext) {
+				opt := opt.DeepCopy()
+				opt.Check = CheckDeny
+				src.CallOrFail(t, opt)
+			})
+
+			t.ConfigIstio().Eval(dst.Config().NamespaceName(), map[string]string{
+				"Namespace":    apps.Namespace.Name(),
+				"WaypointName": waypointName,
+			}, `apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+ name: allow-from-waypoint
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}"]`).ApplyOrFail(t)
+
+			// These should always succeed since waypoint doesn't enforce workload-selected policy
+			t.NewSubTest("workload-allow-from-waypoint").Run(func(t framework.TestContext) {
+				opt := opt.DeepCopy()
+				opt.Check = check.OK()
+
+				src.CallOrFail(t, opt)
+			})
+
+			t.ConfigIstio().YAML(systemNamespace, `apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+ name: allow-nothing-waypoint
+spec:
+  targetRefs:
+  - group: "gateway.networking.k8s.io" 
+    kind: "GatewayClass"
+    name: "istio-waypoint"`).ApplyOrFail(t)
+
+			t.NewSubTest("allow-nothing-waypoint").Run(func(t framework.TestContext) {
+				opt := opt.DeepCopy()
+				opt.Check = CheckDeny
 				src.CallOrFail(t, opt)
 			})
 		})
@@ -1888,7 +2046,6 @@ spec:
 
 			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
-				tc := tc
 				for i, ip := range ips {
 					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
 						echotest.
@@ -2023,7 +2180,6 @@ spec:
 
 			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
 			for _, tc := range testCases {
-				tc := tc
 				for i, ip := range ips {
 					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
 						echotest.
@@ -2050,7 +2206,6 @@ spec:
 							})
 					})
 				}
-
 			}
 		})
 }
@@ -2101,7 +2256,6 @@ spec:
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
 			for _, tc := range testCases {
-				tc := tc
 				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
 					echotest.
 						New(t, apps.All).
@@ -2233,15 +2387,12 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 	runTest := func(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
 		svcs := apps.All
 		for _, src := range svcs {
-			src := src
 			t.NewSubTestf("from %v", src.Config().Service).RunParallel(func(t framework.TestContext) {
 				for _, dst := range svcs {
-					dst := dst
 					t.NewSubTestf("to %v", dst.Config().Service).RunParallel(func(t framework.TestContext) {
 						for _, opt := range callOptions {
-							opt := opt
 							t.NewSubTestf("%v", opt.Scheme).RunParallel(func(t framework.TestContext) {
-								opt = opt.DeepCopy()
+								opt := opt.DeepCopy()
 								opt.To = dst
 								opt.Check = check.OK()
 								f(t, src, dst, opt)
@@ -2253,8 +2404,6 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 		}
 	}
 	for _, c := range testCases {
-		// Create a copy to avoid races, as tests are run in parallel
-		c := c
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		t.NewSubTest(testName).Run(func(t framework.TestContext) {
 			// Apply the policy.
@@ -2440,9 +2589,8 @@ func runTestContext(t framework.TestContext, f func(t framework.TestContext, src
 			for _, dst := range svcs {
 				t.NewSubTestf("to %v", dst.Config().Service).Run(func(t framework.TestContext) {
 					for _, opt := range callOptions {
-						src, dst, opt := src, dst, opt
 						t.NewSubTestf("%v", opt.Scheme).Run(func(t framework.TestContext) {
-							opt = opt.DeepCopy()
+							opt := opt.DeepCopy()
 							opt.To = dst
 							opt.Check = check.OK()
 							f(t, src, dst, opt)
@@ -2546,7 +2694,7 @@ spec:
     - match:
         metric: REQUEST_COUNT
       tagOverrides:
-        custom_dimension: 
+        custom_dimension:
           value: "'test'"
         source_principal:
           operation: REMOVE
@@ -2674,7 +2822,7 @@ func buildQuery(src, dst echo.Instance) prometheus.Query {
 		"destination_service_namespace":  destns,
 		"source_canonical_service":       src.ServiceName(),
 		"source_canonical_revision":      src.Config().Version,
-		"source_principal":               "spiffe://" + src.Config().ServiceAccountName(),
+		"source_principal":               "spiffe://" + src.Config().SpiffeIdentity(),
 		"source_workload":                deployName(src),
 		"source_workload_namespace":      srcns,
 	}
@@ -2699,13 +2847,13 @@ func buildL4Query(src, dst echo.Instance) prometheus.Query {
 		"destination_service":            fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
 		"destination_service_name":       dst.Config().Service,
 		"destination_service_namespace":  destns,
-		"destination_principal":          "spiffe://" + dst.Config().ServiceAccountName(),
+		"destination_principal":          "spiffe://" + dst.Config().SpiffeIdentity(),
 		"destination_version":            dst.Config().Version,
 		"destination_workload":           deployName(dst),
 		"destination_workload_namespace": destns,
 		"source_canonical_service":       src.ServiceName(),
 		"source_canonical_revision":      src.Config().Version,
-		"source_principal":               "spiffe://" + src.Config().ServiceAccountName(),
+		"source_principal":               "spiffe://" + src.Config().SpiffeIdentity(),
 		"source_version":                 src.Config().Version,
 		"source_workload":                deployName(src),
 		"source_workload_namespace":      srcns,
@@ -2729,7 +2877,6 @@ func TestMetadataServer(t *testing.T) {
 		}
 		svcs := apps.All
 		for _, src := range svcs {
-			src := src
 			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
 				// curl -H "Metadata-Flavor: Google" 169.254.169.254/computeMetadata/v1/instance/service-accounts/default/identity
 				opts := echo.CallOptions{
@@ -2764,7 +2911,6 @@ func TestAPIServer(t *testing.T) {
 		assert.NoError(t, err)
 
 		for _, src := range svcs {
-			src := src
 			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
 				opts := echo.CallOptions{
 					Address: "kubernetes.default.svc",
@@ -2828,6 +2974,14 @@ func TestDirect(t *testing.T) {
 				To:      apps.ServiceAddressedWaypoint,
 				Count:   1,
 				Address: apps.ServiceAddressedWaypoint[0].Address(),
+				Port:    echo.Port{Name: ports.HTTP.Name},
+				HBONE:   hbsvc,
+				Check:   check.OK(),
+			})
+			run("VIP destination, FQDN authority", echo.CallOptions{
+				To:      apps.ServiceAddressedWaypoint,
+				Count:   1,
+				Address: apps.ServiceAddressedWaypoint.ClusterLocalFQDN(),
 				Port:    echo.Port{Name: ports.HTTP.Name},
 				HBONE:   hbsvc,
 				Check:   check.OK(),
@@ -3159,6 +3313,45 @@ func daemonsetsetComplete(ds *appsv1.DaemonSet) bool {
 	return ds.Status.UpdatedNumberScheduled == ds.Status.DesiredNumberScheduled &&
 		ds.Status.NumberReady == ds.Status.DesiredNumberScheduled &&
 		ds.Status.ObservedGeneration >= ds.Generation
+}
+
+func TestWaypointWithInvalidBackend(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			// We should expect a 500 error since the backend is invalid.
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: add-header
+spec:
+  parentRefs:
+  - name: sidecar
+    kind: Service
+    group: ""
+    port: 80
+  rules:
+  - filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: greeting
+          value: "hello world!"
+    backendRefs:
+    - name: invalid
+      port: 80
+`).
+				ApplyOrFail(t)
+			SetWaypoint(t, Sidecar, "waypoint")
+			client := apps.Captured
+			client[0].CallOrFail(t, echo.CallOptions{
+				To:   apps.Sidecar,
+				Port: ports.HTTP,
+				Check: check.And(
+					check.Status(500),
+				),
+			})
+		})
 }
 
 func TestWaypointWithSidecarBackend(t *testing.T) {

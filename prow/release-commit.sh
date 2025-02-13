@@ -29,6 +29,7 @@ setup_gcloud_credentials
 export GO111MODULE=on
 
 DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
+HELM_HUB=${HELM_HUB:-gcr.io/istio-testing/charts}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Enable emulation required for cross compiling a few images (VMs)
@@ -36,7 +37,7 @@ docker run --rm --privileged "${DOCKER_HUB}/qemu-user-static" --reset -p yes
 export ISTIO_DOCKER_QEMU=true
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=0e09a25eaf9fc639395a922713c883fa250cca02
+BUILDER_SHA=86ddbf9ccfc867a791f9bdec1057b3c7ca8d10b1
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
@@ -66,7 +67,7 @@ ${DEPENDENCIES:-$(cat <<EOD
     auto: deps
   client-go:
     git: https://github.com/istio/client-go
-    branch: master
+    auto: modules
   test-infra:
     git: https://github.com/istio/test-infra
     branch: master
@@ -106,5 +107,5 @@ release-builder validate --release "${WORK_DIR}/out"
 if [[ -z "${DRY_RUN:-}" ]]; then
   release-builder publish --release "${WORK_DIR}/out" \
     --gcsbucket "${GCS_BUCKET}" --gcsaliases "${TAG},${NEXT_VERSION}-dev,latest" \
-    --dockerhub "${DOCKER_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
+    --dockerhub "${DOCKER_HUB}" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
 fi

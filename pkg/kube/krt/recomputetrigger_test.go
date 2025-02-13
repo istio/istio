@@ -17,6 +17,8 @@ package krt_test
 import (
 	"testing"
 
+	"go.uber.org/atomic"
+
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
@@ -26,25 +28,25 @@ import (
 func TestRecomputeTrigger(t *testing.T) {
 	rt := krt.NewRecomputeTrigger(false)
 	col1 := krt.NewStatic(ptr.Of("foo"), true).AsCollection()
-	response := "foo"
+	response := atomic.NewString("foo")
 	col2 := krt.NewCollection(col1, func(ctx krt.HandlerContext, i string) *string {
 		rt.MarkDependant(ctx)
-		return ptr.Of(response)
-	})
+		return ptr.Of(response.Load())
+	}, krt.WithStop(test.NewStop(t)))
 
-	assert.Equal(t, col2.Synced().HasSynced(), false)
+	assert.Equal(t, col2.HasSynced(), false)
 	rt.MarkSynced()
-	assert.Equal(t, col2.Synced().WaitUntilSynced(test.NewStop(t)), true)
+	assert.Equal(t, col2.WaitUntilSynced(test.NewStop(t)), true)
 
 	tt := assert.NewTracker[string](t)
 	col2.Register(TrackerHandler[string](tt))
 	tt.WaitOrdered("add/foo")
 
-	response = "bar"
+	response.Store("bar")
 	rt.TriggerRecomputation()
 	tt.WaitUnordered("delete/foo", "add/bar")
 
-	response = "baz"
+	response.Store("baz")
 	rt.TriggerRecomputation()
 	tt.WaitUnordered("delete/bar", "add/baz")
 }

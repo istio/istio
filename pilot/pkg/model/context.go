@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/maps"
 	pm "istio.io/istio/pkg/model"
@@ -93,6 +94,9 @@ func NewEnvironment() *Environment {
 	}
 }
 
+// Watcher is a type alias to keep the embedded type name stable.
+type Watcher = meshwatcher.WatcherCollection
+
 // Environment provides an aggregate environmental API for Pilot
 type Environment struct {
 	// Discovery interface for listing services and instances.
@@ -102,7 +106,7 @@ type Environment struct {
 	ConfigStore
 
 	// Watcher is the watcher for the mesh config (to be merged into the config store)
-	mesh.Watcher
+	Watcher
 
 	// NetworksWatcher (loaded from a config map) provides information about the
 	// set of networks inside a mesh and how to route to endpoints in each
@@ -523,7 +527,7 @@ func compareVersion(ov, nv int) int {
 	return 1
 }
 
-func (node *Proxy) VersionGreaterAndEqual(inv *IstioVersion) bool {
+func (node *Proxy) VersionGreaterOrEqual(inv *IstioVersion) bool {
 	if inv == nil {
 		return true
 	}
@@ -979,7 +983,7 @@ func (node *Proxy) Clusters() []string {
 	defer node.RUnlock()
 	wr := node.WatchedResources[v3.EndpointType]
 	if wr != nil {
-		return wr.ResourceNames
+		return wr.ResourceNames.UnsortedList()
 	}
 	return nil
 }
@@ -988,7 +992,7 @@ func (node *Proxy) NewWatchedResource(typeURL string, names []string) {
 	node.Lock()
 	defer node.Unlock()
 
-	node.WatchedResources[typeURL] = &WatchedResource{TypeUrl: typeURL, ResourceNames: names}
+	node.WatchedResources[typeURL] = &WatchedResource{TypeUrl: typeURL, ResourceNames: sets.New(names...)}
 	// For all EDS requests that we have already responded with in the same stream let us
 	// force the response. It is important to respond to those requests for Envoy to finish
 	// warming of those resources(Clusters).
@@ -1045,18 +1049,11 @@ func (node *Proxy) DeleteWatchedResource(typeURL string) {
 	delete(node.WatchedResources, typeURL)
 }
 
-// SupportsEnvoyExtendedJwt indicates that the proxy JWT extension is capable of
-// replacing istio_authn filter.
-func (node *Proxy) SupportsEnvoyExtendedJwt() bool {
-	return node.IstioVersion == nil ||
-		node.IstioVersion.Compare(&IstioVersion{Major: 1, Minor: 21, Patch: -1}) >= 0
-}
-
 type GatewayController interface {
 	ConfigStoreController
 	// Reconcile updates the internal state of the gateway controller for a given input. This should be
 	// called before any List/Get calls if the state has changed
-	Reconcile(ctx *PushContext) error
+	Reconcile(ctx *PushContext)
 	// SecretAllowed determines if a SDS credential is accessible to a given namespace.
 	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
 	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.

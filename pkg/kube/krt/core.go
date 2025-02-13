@@ -26,7 +26,7 @@ var log = istiolog.RegisterScope("krt", "")
 // directly. Most importantly, consumers can subscribe to events when objects change.
 type Collection[T any] interface {
 	// GetKey returns an object by its key, if present. Otherwise, nil is returned.
-	GetKey(k Key[T]) *T
+	GetKey(k string) *T
 
 	// List returns all objects in the collection.
 	// Order of the list is undefined.
@@ -44,20 +44,24 @@ type Collection[T any] interface {
 // On initial sync, events will be published to registered clients
 // as the Collection is populated.
 type EventStream[T any] interface {
+	Syncer
+
 	// Register adds an event watcher to the collection. Any time an item in the collection changes, the handler will be
 	// called. Typically, usage of Register is done internally in krt via composition of Collections with Transformations
 	// (NewCollection, NewManyCollection, NewSingleton); however, at boundaries of the system (connecting to something not
 	// using krt), registering directly is expected.
+	// Handlers have the following semantics:
+	// * On each event, all handlers are called.
+	// * Each handler has its own unbounded event queue. Slow handlers will cause this queue to accumulate, but will not block
+	//   other handlers.
+	// * Events will be sent in order, and will not be dropped or deduplicated.
 	Register(f func(o Event[T])) Syncer
-
-	// Synced returns a Syncer which can be used to determine if the collection has synced. Once its synced, all dependencies have
-	// been processed, and all handlers have been called with the results.
-	Synced() Syncer
 
 	// RegisterBatch registers a handler that accepts multiple events at once. This can be useful as an optimization.
 	// Otherwise, behaves the same as Register.
 	// Additionally, skipping the default behavior of "send all current state through the handler" can be turned off.
 	// This is important when we register in a handler itself, which would cause duplicative events.
+	// Handlers MUST not mutate the event list.
 	RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer
 }
 
@@ -72,7 +76,7 @@ type internalCollection[T any] interface {
 	// Uid is an internal unique ID for this collection. MUST be globally unique
 	uid() collectionUID
 
-	dump()
+	dump() CollectionDump
 
 	// Augment mutates an object for use in various function calls. See WithObjectAugmentation
 	augment(any) any
@@ -125,6 +129,15 @@ func (e Event[T]) Latest() T {
 // This can be used with Fetch to dynamically query for resources.
 // Note: this doesn't expose Fetch as a method, as Go generics do not support arbitrary generic types on methods.
 type HandlerContext interface {
+	// DiscardResult triggers the result of this invocation to be skipped
+	// This allows a collection to mark that the current state is *invalid* and should use the last-known state.
+	//
+	// Note: this differs from returning `nil`, which would otherwise wipe out the last known state.
+	//
+	// Note: if the current resource has never been computed, the result will not be discarded if it is non-nil. This allows
+	// setting a default. For example, you may always return a static default config if the initial results are invalid,
+	// but not revert to this config if later results are invalid. Results can unconditionally be discarded by returning nil.
+	DiscardResult()
 	// _internalHandler is an interface that can only be implemented by this package.
 	_internalHandler()
 }

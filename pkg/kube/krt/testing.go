@@ -14,21 +14,20 @@
 
 package krt
 
-// Dump is a *testing* helper to dump the state of a collection, if possible, into logs.
-func Dump[O any](c Collection[O]) {
-	c.(internalCollection[O]).dump()
-}
-
 type TestingDummyContext struct{}
 
 func (t TestingDummyContext) _internalHandler() {
 }
 
-func (t TestingDummyContext) registerDependency(d *dependency, s Syncer, f func(f erasedEventHandler)) {
+func (t TestingDummyContext) registerDependency(d *dependency, s Syncer, f func(f erasedEventHandler) Syncer) {
 }
 
 func (t TestingDummyContext) name() string {
 	return "testing"
+}
+
+func (t TestingDummyContext) DiscardResult() {
+	panic("TestingDummyContext cannot DiscardResult")
 }
 
 var (

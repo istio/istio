@@ -48,6 +48,10 @@ data:
         - "-k"
         - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/kubevirtInterfaces` }}"
         {{ end -}}
+        {{ if (isset .ObjectMeta.Annotations `istio.io/reroute-virtual-interfaces`) -}}
+        - "-k"
+        - "{{ index .ObjectMeta.Annotations `istio.io/reroute-virtual-interfaces` }}"
+        {{ end -}}
         imagePullPolicy: "{{ valueOrDefault .Values.global.imagePullPolicy `Always` }}"
       {{- if .Values.global.proxy_init.resources }}
         resources:

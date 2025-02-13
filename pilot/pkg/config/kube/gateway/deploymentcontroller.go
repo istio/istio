@@ -182,7 +182,7 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *model.Environment,
 	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher, revision string,
 ) *DeploymentController {
-	filter := kclient.Filter{ObjectFilter: kube.FilterIfEnhancedFilteringEnabled(client)}
+	filter := kclient.Filter{ObjectFilter: client.ObjectFilter()}
 	gateways := kclient.NewFiltered[*gateway.Gateway](client, filter)
 	gatewayClasses := kclient.New[*gateway.GatewayClass](client)
 	dc := &DeploymentController{
@@ -300,17 +300,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	}
 
 	// find the tag or revision indicated by the object
-	selectedTag, ok := gw.Labels[label.IoIstioRev.Name]
-	if !ok {
-		ns := d.namespaces.Get(gw.Namespace, "")
-		if ns == nil {
-			log.Debugf("gateway is not for this revision, skipping")
-			return nil
-		}
-		selectedTag = ns.Labels[label.IoIstioRev.Name]
-	}
-	myTags := d.tagWatcher.GetMyTags()
-	if !myTags.Contains(selectedTag) && !(selectedTag == "" && myTags.Contains("default")) {
+	if !d.tagWatcher.IsMine(gw.ObjectMeta) {
 		log.Debugf("gateway is not for this revision, skipping")
 		return nil
 	}
@@ -573,10 +563,7 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 	if err != nil {
 		return err
 	}
-	j, err := json.Marshal(us.Object)
-	if err != nil {
-		return err
-	}
+
 	canManage, resourceVersion := d.canManage(gvr, us.GetName(), us.GetNamespace())
 	if !canManage {
 		log.Debugf("skipping %v/%v/%v, already managed", gvr, us.GetName(), us.GetNamespace())
@@ -585,6 +572,21 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 	// Ensure our canManage assertion is not stale
 	us.SetResourceVersion(resourceVersion)
 
+	// Because in 1.24 we removed old label "istio.io/gateway-name", in order to not mutate the deployment.spec.Selector during upgrade.
+	// we always use the old `selector` value
+	if gvr.Resource == "deployments" {
+		deployment := d.deployments.Get(us.GetName(), us.GetNamespace())
+		if deployment != nil && deployment.Spec.Selector.MatchLabels["istio.io/gateway-name"] != "" {
+			us.Object["spec"].(map[string]any)["selector"] = deployment.Spec.Selector
+			// nolint lll
+			us.Object["spec"].(map[string]any)["template"].(map[string]any)["metadata"].(map[string]any)["labels"].(map[string]any)["istio.io/gateway-name"] = deployment.Spec.Template.ObjectMeta.Labels["istio.io/gateway-name"]
+		}
+	}
+
+	j, err := json.Marshal(us.Object)
+	if err != nil {
+		return err
+	}
 	log.Debugf("applying %v", string(j))
 	if err := d.patcher(gvr, us.GetName(), us.GetNamespace(), j); err != nil {
 		return fmt.Errorf("patch %v/%v/%v: %v", us.GroupVersionKind(), us.GetNamespace(), us.GetName(), err)

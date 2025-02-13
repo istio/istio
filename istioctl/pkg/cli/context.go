@@ -15,13 +15,19 @@
 package cli
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 )
 
 type Context interface {
@@ -39,11 +45,15 @@ type Context interface {
 	IstioNamespace() string
 	// NamespaceOrDefault returns the namespace specified by the user, or the default namespace if none was specified
 	NamespaceOrDefault(namespace string) string
+	// CLIClientsForContexts returns clients for all the given contexts in a kubeconfig.
+	CLIClientsForContexts(contexts []string) ([]kube.CLIClient, error)
 }
 
 type instance struct {
 	// clients are cached clients for each revision
 	clients map[string]kube.CLIClient
+	// remoteClients are cached clients for each context with empty revision.
+	remoteClients map[string]kube.CLIClient
 	RootFlags
 }
 
@@ -58,7 +68,7 @@ func newKubeClientWithRevision(kubeconfig, configContext, revision string, imper
 	if err != nil {
 		return nil, err
 	}
-	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), kube.WithRevision(revision))
+	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), kube.WithRevision(revision), kube.WithCluster(cluster.ID(configContext)))
 }
 
 func NewCLIContext(rootFlags *RootFlags) Context {
@@ -79,18 +89,22 @@ func NewCLIContext(rootFlags *RootFlags) Context {
 	}
 }
 
+func (i *instance) getImpersonateConfig() rest.ImpersonationConfig {
+	impersonateConfig := rest.ImpersonationConfig{}
+	if len(*i.impersonate) > 0 {
+		impersonateConfig.UserName = *i.impersonate
+		impersonateConfig.UID = *i.impersonateUID
+		impersonateConfig.Groups = *i.impersonateGroup
+	}
+	return impersonateConfig
+}
+
 func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 	if i.clients == nil {
 		i.clients = make(map[string]kube.CLIClient)
 	}
 	if i.clients[rev] == nil {
-		impersonateConfig := rest.ImpersonationConfig{}
-		if len(*i.impersonate) > 0 {
-			impersonateConfig.UserName = *i.impersonate
-			impersonateConfig.UID = *i.impersonateUID
-			impersonateConfig.Groups = *i.impersonateGroup
-		}
-		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev, impersonateConfig)
+		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev, i.getImpersonateConfig())
 		if err != nil {
 			return nil, err
 		}
@@ -101,6 +115,38 @@ func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 
 func (i *instance) CLIClient() (kube.CLIClient, error) {
 	return i.CLIClientWithRevision("")
+}
+
+func (i *instance) CLIClientsForContexts(contexts []string) ([]kube.CLIClient, error) {
+	if i.remoteClients == nil {
+		i.remoteClients = make(map[string]kube.CLIClient)
+	}
+	// Validate if "all" incoming contexts are present in the kubeconfig. Fail fast if not.
+	rawConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(kube.ConfigLoadingRules(*i.kubeconfig), nil).RawConfig()
+	if err != nil {
+		return nil, fmt.Errorf("getting raw kubeconfig from file %q: %v", *i.kubeconfig, err)
+	}
+	impersonateConfig := i.getImpersonateConfig()
+	rawConfigContexts := maps.Keys(rawConfig.Contexts)
+	for _, c := range contexts {
+		if !slices.Contains(rawConfigContexts, c) {
+			return nil, fmt.Errorf("context %q not found", c)
+		}
+	}
+	var clients []kube.CLIClient
+	for _, contextName := range contexts {
+		if i.remoteClients[contextName] != nil {
+			clients = append(clients, i.remoteClients[contextName])
+			continue
+		}
+		c, err := newKubeClientWithRevision(*i.kubeconfig, contextName, "", impersonateConfig)
+		if err != nil {
+			return nil, fmt.Errorf("creating kube client for context %q: %v", contextName, err)
+		}
+		clients = append(clients, c)
+		i.remoteClients[contextName] = c
+	}
+	return clients, nil
 }
 
 func (i *instance) InferPodInfoFromTypedResource(name, namespace string) (pod string, ns string, err error) {
@@ -162,6 +208,14 @@ func (f *fakeInstance) CLIClientWithRevision(rev string) (kube.CLIClient, error)
 
 func (f *fakeInstance) CLIClient() (kube.CLIClient, error) {
 	return f.CLIClientWithRevision("")
+}
+
+func (f *fakeInstance) CLIClientsForContexts(contexts []string) ([]kube.CLIClient, error) {
+	c, err := f.CLIClientWithRevision("")
+	if err != nil {
+		return nil, err
+	}
+	return []kube.CLIClient{c}, nil
 }
 
 func (f *fakeInstance) InferPodInfoFromTypedResource(name, namespace string) (pod string, ns string, err error) {

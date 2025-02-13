@@ -24,19 +24,17 @@ import (
 	"testing"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
+	util "istio.io/istio/tests/integration/ambient"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -66,8 +64,8 @@ func TestCNIRaceRepair(t *testing.T) {
 			// To begin with, delete CNI Daemonset to simulate a CNI race condition.
 			// Temporarily store CNI DaemonSet, which will be deployed again later.
 			t.Log("Delete CNI Daemonset temporarily to simulate race condition")
-			cniDaemonSet := getCNIDaemonSet(t, c)
-			deleteCNIDaemonset(t, c)
+			cniDaemonSet := util.GetCNIDaemonSet(t, c, i.Settings().SystemNamespace)
+			util.DeleteCNIDaemonset(t, c, i.Settings().SystemNamespace)
 
 			// Rollout restart instances in the echo namespace, and wait for a broken instance.
 			t.Log("Rollout restart echo instance to get a broken instance")
@@ -75,85 +73,13 @@ func TestCNIRaceRepair(t *testing.T) {
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
 			}
-			waitForBrokenPodOrFail(t, c, ns)
+			util.WaitForStalledPodOrFail(t, c, ns)
 
 			t.Log("Redeploy CNI and verify repair takes effect by evicting the broken pod")
 			// Now bring back CNI Daemonset, and pod in the echo namespace should be repaired.
-			deployCNIDaemonset(t, c, cniDaemonSet)
+			util.DeployCNIDaemonset(t, c, cniDaemonSet)
 			waitForRepairOrFail(t, c, ns)
 		})
-}
-
-func getCNIDaemonSet(ctx framework.TestContext, c cluster.Cluster) *appsv1.DaemonSet {
-	cniDaemonSet, err := c.(istioKube.CLIClient).
-		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
-		Get(context.Background(), "istio-cni-node", metav1.GetOptions{})
-	if err != nil {
-		ctx.Fatalf("failed to get CNI Daemonset %v", err)
-	}
-	if cniDaemonSet == nil {
-		ctx.Fatal("cannot find CNI Daemonset")
-	}
-	return cniDaemonSet
-}
-
-func deleteCNIDaemonset(ctx framework.TestContext, c cluster.Cluster) {
-	if err := c.(istioKube.CLIClient).
-		Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
-		Delete(context.Background(), "istio-cni-node", metav1.DeleteOptions{}); err != nil {
-		ctx.Fatalf("failed to delete CNI Daemonset %v", err)
-	}
-
-	// Wait until the CNI Daemonset pod cannot be fetched anymore
-	retry.UntilSuccessOrFail(ctx, func() error {
-		scopes.Framework.Infof("Checking if CNI Daemonset pods are deleted...")
-		pods, err := c.PodsForSelector(context.TODO(), i.Settings().SystemNamespace, "k8s-app=istio-cni-node")
-		if err != nil {
-			return err
-		}
-		if len(pods.Items) > 0 {
-			return errors.New("CNI Daemonset pod still exists after deletion")
-		}
-		return nil
-	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
-}
-
-func deployCNIDaemonset(ctx framework.TestContext, c cluster.Cluster, cniDaemonSet *appsv1.DaemonSet) {
-	deployDaemonSet := appsv1.DaemonSet{}
-	deployDaemonSet.Spec = cniDaemonSet.Spec
-	deployDaemonSet.ObjectMeta = metav1.ObjectMeta{
-		Name:        cniDaemonSet.ObjectMeta.Name,
-		Namespace:   cniDaemonSet.ObjectMeta.Namespace,
-		Labels:      cniDaemonSet.ObjectMeta.Labels,
-		Annotations: cniDaemonSet.ObjectMeta.Annotations,
-	}
-	_, err := c.(istioKube.CLIClient).Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace).
-		Create(context.Background(), &deployDaemonSet, metav1.CreateOptions{})
-	if err != nil {
-		ctx.Fatalf("failed to deploy CNI Daemonset %v", err)
-	}
-}
-
-func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {
-	retry.UntilSuccessOrFail(t, func() error {
-		pods, err := cluster.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		if len(pods.Items) == 0 {
-			return fmt.Errorf("still waiting the pod in namespace %v to start", ns.Name())
-		}
-		// Verify that at least one pod is in broken state due to the race condition.
-		for _, p := range pods.Items {
-			for _, container := range p.Status.InitContainerStatuses {
-				if state := container.LastTerminationState.Terminated; state != nil && state.ExitCode ==
-					constants.ValidationErrorCode {
-					return nil
-				}
-			}
-		}
-		return fmt.Errorf("cannot find any pod with wanted exit code %v", constants.ValidationErrorCode)
-	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 }
 
 func waitForRepairOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {

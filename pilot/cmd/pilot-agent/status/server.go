@@ -79,6 +79,10 @@ const (
 	maxRespBodyLength = 10 * 1 << 10
 )
 
+// probes is a logging scope for probe responses. Since these logs are about the application, not Istio, users may need
+// to configure them to meet their preferences.
+var probes = log.RegisterScope("probes", "Status of forwarded application probes")
+
 var (
 	UpstreamLocalAddressIPv4 = &net.TCPAddr{IP: net.ParseIP("127.0.0.6")}
 	UpstreamLocalAddressIPv6 = &net.TCPAddr{IP: net.ParseIP("::6")}
@@ -87,7 +91,7 @@ var (
 var PrometheusScrapingConfig = env.Register("ISTIO_PROMETHEUS_ANNOTATIONS", "", "")
 
 var (
-	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz|startupz)$`)
+	appProberPattern = regexp.MustCompile(`^/(app-health|app-lifecycle)/[^/]+/(livez|readyz|startupz|prestopz|poststartz)$`)
 
 	EnableHTTP2Probing = env.Register("ISTIO_ENABLE_HTTP2_PROBING", true,
 		"If enabled, HTTP2 probes will be enabled for HTTPS probes, following Kubernetes").Get()
@@ -350,13 +354,15 @@ func validateAppKubeProber(path string, prober *Prober) error {
 
 // FormatProberURL returns a set of HTTP URLs that pilot agent will serve to take over Kubernetes
 // app probers.
-func FormatProberURL(container string) (string, string, string) {
+func FormatProberURL(container string) (string, string, string, string, string) {
 	return fmt.Sprintf("/app-health/%v/readyz", container),
 		fmt.Sprintf("/app-health/%v/livez", container),
-		fmt.Sprintf("/app-health/%v/startupz", container)
+		fmt.Sprintf("/app-health/%v/startupz", container),
+		fmt.Sprintf("/app-lifecycle/%v/prestopz", container),
+		fmt.Sprintf("/app-lifecycle/%v/poststartz", container)
 }
 
-// Run opens a the status port and begins accepting probes.
+// Run opens the status port and begins accepting probes.
 func (s *Server) Run(ctx context.Context) {
 	log.Infof("Opening status port %d", s.statusPort)
 
@@ -372,6 +378,7 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc(drainPath, s.handleDrain)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
+	mux.HandleFunc("/app-lifecycle/", s.handleAppProbe)
 
 	if s.enableProfiling {
 		// Add the handler for pprof.
@@ -778,7 +785,7 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	// Send the request.
 	response, err := httpClient.Do(appReq)
 	if err != nil {
-		log.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, proberPath)
+		probes.Errorf("Request to probe app failed: %v, original URL path = %v\napp URL path = %v", err, path, proberPath)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -815,7 +822,7 @@ func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) 
 		w.WriteHeader(http.StatusOK)
 		err = conn.Close()
 		if err != nil {
-			log.Infof("tcp connection is not closed: %v", err)
+			probes.Infof("tcp connection is not closed: %v", err)
 		}
 	}
 }
@@ -847,7 +854,7 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 	addr := net.JoinHostPort(s.appProbersDestination, strconv.Itoa(int(prober.GRPC.Port)))
 	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
-		log.Errorf("Failed to create grpc connection to probe app: %v", err)
+		probes.Errorf("Failed to create grpc connection to probe app: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -867,14 +874,14 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 		if ok {
 			switch status.Code() {
 			case codes.Unimplemented:
-				log.Errorf("server does not implement the grpc health protocol (grpc.health.v1.Health): %v", err)
+				probes.Errorf("server does not implement the grpc health protocol (grpc.health.v1.Health): %v", err)
 			case codes.DeadlineExceeded:
-				log.Errorf("grpc request not finished within timeout: %v", err)
+				probes.Errorf("grpc request not finished within timeout: %v", err)
 			default:
-				log.Errorf("grpc probe failed: %v", err)
+				probes.Errorf("grpc probe failed: %v", err)
 			}
 		} else {
-			log.Errorf("grpc probe failed: %v", err)
+			probes.Errorf("grpc probe failed: %v", err)
 		}
 		w.WriteHeader(http.StatusInternalServerError)
 		return

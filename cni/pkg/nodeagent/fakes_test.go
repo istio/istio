@@ -17,11 +17,13 @@ package nodeagent
 import (
 	"context"
 	"embed"
+	"errors"
 	"io/fs"
 	"sync/atomic"
 	"syscall"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/cni/pkg/iptables"
 )
@@ -154,22 +156,28 @@ type fakeIptablesDeps struct {
 
 var _ iptables.NetlinkDependencies = &fakeIptablesDeps{}
 
-func (r *fakeIptablesDeps) AddInpodMarkIPRule(cfg *iptables.Config) error {
+func (r *fakeIptablesDeps) AddInpodMarkIPRule(cfg *iptables.IptablesConfig) error {
 	r.AddInpodMarkIPRuleCnt.Add(1)
 	return nil
 }
 
-func (r *fakeIptablesDeps) DelInpodMarkIPRule(cfg *iptables.Config) error {
+func (r *fakeIptablesDeps) DelInpodMarkIPRule(cfg *iptables.IptablesConfig) error {
 	r.DelInpodMarkIPRuleCnt.Add(1)
 	return nil
 }
 
-func (r *fakeIptablesDeps) AddLoopbackRoutes(cfg *iptables.Config) error {
+func (r *fakeIptablesDeps) AddLoopbackRoutes(cfg *iptables.IptablesConfig) error {
 	r.AddLoopbackRoutesCnt.Add(1)
 	return r.AddRouteErr
 }
 
-func (r *fakeIptablesDeps) DelLoopbackRoutes(cfg *iptables.Config) error {
+func (r *fakeIptablesDeps) DelLoopbackRoutes(cfg *iptables.IptablesConfig) error {
 	r.DelLoopbackRoutesCnt.Add(1)
 	return nil
+}
+
+type NoOpPodNetnsProcFinder struct{}
+
+func (p *NoOpPodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (PodToNetns, error) {
+	return make(PodToNetns), errors.New("NoOpPodNetnsProcFinder always returns an error")
 }

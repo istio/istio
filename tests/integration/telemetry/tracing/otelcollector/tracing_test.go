@@ -94,16 +94,20 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 
 						// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
 						for _, cluster := range ctx.Clusters().ByNetwork()[ctx.Clusters().Default().NetworkName()] {
-							cluster := cluster
 							ctx.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
 								retry.UntilSuccessOrFail(ctx, func() error {
 									err := tracing.SendTraffic(ctx, nil, cluster)
 									if err != nil {
 										return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
 									}
+									hostDomain := ""
+									if ctx.Settings().OpenShift {
+										ingressAddr, _ := tracing.GetIngressInstance().HTTPAddresses()
+										hostDomain = ingressAddr[0]
+									}
 
 									// the OTel collector exports to Zipkin
-									traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", tc.customAttribute)
+									traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", tc.customAttribute, hostDomain)
 									t.Logf("got traces %v from %s", traces, cluster)
 									if err != nil {
 										return fmt.Errorf("cannot get traces from zipkin: %v", err)

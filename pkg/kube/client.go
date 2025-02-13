@@ -81,7 +81,6 @@ import (
 	clienttelemetryalpha "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -191,6 +190,12 @@ type CLIClient interface {
 
 	// PodLogs retrieves the logs for the given pod.
 	PodLogs(ctx context.Context, podName string, podNamespace string, container string, previousLog bool) (string, error)
+
+	// PodLogsFollow retrieves the logs for the given pod, following until the pod log stream is interrupted
+	PodLogsFollow(ctx context.Context, podName string, podNamespace string, container string) (string, error)
+
+	// ServicesForSelector finds services matching selector.
+	ServicesForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.ServiceList, error)
 
 	// NewPortForwarder creates a new PortForwarder configured for the given pod. If localPort=0, a port will be
 	// dynamically selected. If localAddress is empty, "localhost" is used.
@@ -802,6 +807,26 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 	return builder.String(), nil
 }
 
+func (c *client) PodLogsFollow(ctx context.Context, podName, podNamespace, container string) (string, error) {
+	opts := &v1.PodLogOptions{
+		Container: container,
+		Previous:  false,
+		Follow:    true,
+	}
+	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer closeQuietly(res)
+
+	builder := &strings.Builder{}
+	if _, err = io.Copy(builder, res); err != nil {
+		return "", err
+	}
+
+	return builder.String(), nil
+}
+
 func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {
 	istiods, err := c.GetIstioPods(ctx, istiodNamespace, metav1.ListOptions{
 		LabelSelector: "app=istiod",
@@ -1004,10 +1029,15 @@ func (c *client) PodsForSelector(ctx context.Context, namespace string, labelSel
 	})
 }
 
+func (c *client) ServicesForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.ServiceList, error) {
+	return c.kube.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: strings.Join(labelSelectors, ","),
+	})
+}
+
 func (c *client) ApplyYAMLFiles(namespace string, yamlFiles ...string) error {
 	g, _ := errgroup.WithContext(context.TODO())
 	for _, f := range removeEmptyFiles(yamlFiles) {
-		f := f
 		g.Go(func() error {
 			return c.ssapplyYAMLFile(namespace, false, f)
 		})
@@ -1020,7 +1050,6 @@ func (c *client) ApplyYAMLContents(namespace string, yamls ...string) error {
 	for _, yaml := range yamls {
 		cfgs := yml.SplitString(yaml)
 		for _, cfg := range cfgs {
-			cfg := cfg
 			g.Go(func() error {
 				return c.ssapplyYAML(cfg, namespace, false)
 			})
@@ -1032,7 +1061,6 @@ func (c *client) ApplyYAMLContents(namespace string, yamls ...string) error {
 func (c *client) ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) error {
 	g, _ := errgroup.WithContext(context.TODO())
 	for _, f := range removeEmptyFiles(yamlFiles) {
-		f := f
 		g.Go(func() error {
 			return c.ssapplyYAMLFile(namespace, true, f)
 		})
@@ -1140,7 +1168,6 @@ func (c *client) DeleteYAMLFiles(namespace string, yamlFiles ...string) (err err
 	errs := make([]error, len(yamlFiles))
 	g, _ := errgroup.WithContext(context.TODO())
 	for i, f := range yamlFiles {
-		i, f := i, f
 		g.Go(func() error {
 			errs[i] = c.deleteYAMLFile(namespace, false, f)
 			return errs[i]
@@ -1157,7 +1184,6 @@ func (c *client) DeleteYAMLFilesDryRun(namespace string, yamlFiles ...string) (e
 	errs := make([]error, len(yamlFiles))
 	g, _ := errgroup.WithContext(context.TODO())
 	for i, f := range yamlFiles {
-		i, f := i, f
 		g.Go(func() error {
 			errs[i] = c.deleteYAMLFile(namespace, true, f)
 			return errs[i]
@@ -1328,12 +1354,4 @@ func FindIstiodMonitoringPort(pod *v1.Pod) int {
 		}
 	}
 	return 15014
-}
-
-// FilterIfEnhancedFilteringEnabled returns the namespace filter if EnhancedResourceScoping is enabled, otherwise a NOP filter.
-func FilterIfEnhancedFilteringEnabled(k Client) kubetypes.DynamicObjectFilter {
-	if features.EnableEnhancedResourceScoping {
-		return k.ObjectFilter()
-	}
-	return nil
 }

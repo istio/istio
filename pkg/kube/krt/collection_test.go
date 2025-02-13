@@ -18,6 +18,7 @@ import (
 	"strings"
 	"testing"
 
+	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -34,13 +35,17 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+func testOptions(t test.Failer) krt.OptionsBuilder {
+	return krt.NewOptionsBuilder(test.NewStop(t), krt.GlobalDebugHandler)
+}
+
 type SimplePod struct {
 	Named
 	Labeled
 	IP string
 }
 
-func SimplePodCollection(pods krt.Collection[*corev1.Pod]) krt.Collection[SimplePod] {
+func SimplePodCollection(pods krt.Collection[*corev1.Pod], opts krt.OptionsBuilder) krt.Collection[SimplePod] {
 	return krt.NewCollection(pods, func(ctx krt.HandlerContext, i *corev1.Pod) *SimplePod {
 		if i.Status.PodIP == "" {
 			return nil
@@ -50,7 +55,7 @@ func SimplePodCollection(pods krt.Collection[*corev1.Pod]) krt.Collection[Simple
 			Labeled: NewLabeled(i.Labels),
 			IP:      i.Status.PodIP,
 		}
-	})
+	}, opts.WithName("SimplePods")...)
 }
 
 type SizedPod struct {
@@ -58,7 +63,7 @@ type SizedPod struct {
 	Size string
 }
 
-func SizedPodCollection(pods krt.Collection[*corev1.Pod]) krt.Collection[SizedPod] {
+func SizedPodCollection(pods krt.Collection[*corev1.Pod], opts krt.OptionsBuilder) krt.Collection[SizedPod] {
 	return krt.NewCollection(pods, func(ctx krt.HandlerContext, i *corev1.Pod) *SizedPod {
 		s, f := i.Labels["size"]
 		if !f {
@@ -68,7 +73,7 @@ func SizedPodCollection(pods krt.Collection[*corev1.Pod]) krt.Collection[SizedPo
 			Named: NewNamed(i),
 			Size:  s,
 		}
-	})
+	}, opts.WithName("SizedPods")...)
 }
 
 func NewNamed(n config.Namer) Named {
@@ -85,6 +90,14 @@ type Named struct {
 
 func (s Named) ResourceName() string {
 	return s.Namespace + "/" + s.Name
+}
+
+type Static struct {
+	Value string
+}
+
+func (s Static) ResourceName() string {
+	return "static"
 }
 
 func NewLabeled(n map[string]string) Labeled {
@@ -104,16 +117,16 @@ type SimpleService struct {
 	Selector map[string]string
 }
 
-func SimpleServiceCollection(services krt.Collection[*corev1.Service]) krt.Collection[SimpleService] {
+func SimpleServiceCollection(services krt.Collection[*corev1.Service], opts krt.OptionsBuilder) krt.Collection[SimpleService] {
 	return krt.NewCollection(services, func(ctx krt.HandlerContext, i *corev1.Service) *SimpleService {
 		return &SimpleService{
 			Named:    NewNamed(i),
 			Selector: i.Spec.Selector,
 		}
-	})
+	}, opts.WithName("SimpleService")...)
 }
 
-func SimpleServiceCollectionFromEntries(entries krt.Collection[*istioclient.ServiceEntry]) krt.Collection[SimpleService] {
+func SimpleServiceCollectionFromEntries(entries krt.Collection[*istioclient.ServiceEntry], opts krt.OptionsBuilder) krt.Collection[SimpleService] {
 	return krt.NewCollection(entries, func(ctx krt.HandlerContext, i *istioclient.ServiceEntry) *SimpleService {
 		l := i.Spec.WorkloadSelector.GetLabels()
 		if l == nil {
@@ -123,7 +136,7 @@ func SimpleServiceCollectionFromEntries(entries krt.Collection[*istioclient.Serv
 			Named:    NewNamed(i),
 			Selector: l,
 		}
-	})
+	}, opts.WithName("SimpleService")...)
 }
 
 type SimpleEndpoint struct {
@@ -137,7 +150,7 @@ func (s SimpleEndpoint) ResourceName() string {
 	return slices.Join("/", s.Namespace+"/"+s.Service+"/"+s.Pod)
 }
 
-func SimpleEndpointsCollection(pods krt.Collection[SimplePod], services krt.Collection[SimpleService]) krt.Collection[SimpleEndpoint] {
+func SimpleEndpointsCollection(pods krt.Collection[SimplePod], services krt.Collection[SimpleService], opts krt.OptionsBuilder) krt.Collection[SimpleEndpoint] {
 	return krt.NewManyCollection[SimpleService, SimpleEndpoint](services, func(ctx krt.HandlerContext, svc SimpleService) []SimpleEndpoint {
 		pods := krt.Fetch(ctx, pods, krt.FilterLabel(svc.Selector))
 		return slices.Map(pods, func(pod SimplePod) SimpleEndpoint {
@@ -148,7 +161,7 @@ func SimpleEndpointsCollection(pods krt.Collection[SimplePod], services krt.Coll
 				IP:        pod.IP,
 			}
 		})
-	})
+	}, opts.WithName("SimpleEndpoints")...)
 }
 
 func init() {
@@ -156,13 +169,14 @@ func init() {
 }
 
 func TestCollectionSimple(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
 	c := kube.NewFakeClient()
 	kpc := kclient.New[*corev1.Pod](c)
 	pc := clienttest.Wrap(t, kpc)
-	pods := krt.WrapClient[*corev1.Pod](kpc)
-	stop := test.NewStop(t)
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
 	c.RunAndWait(stop)
-	SimplePods := SimplePodCollection(pods)
+	SimplePods := SimplePodCollection(pods, opts)
 
 	assert.Equal(t, fetcherSorted(SimplePods)(), nil)
 	pod := &corev1.Pod{
@@ -193,6 +207,8 @@ func TestCollectionSimple(t *testing.T) {
 }
 
 func TestCollectionInitialState(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
 	c := kube.NewFakeClient(
 		&corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
@@ -210,29 +226,29 @@ func TestCollectionInitialState(t *testing.T) {
 			Spec: corev1.ServiceSpec{Selector: map[string]string{"app": "foo"}},
 		},
 	)
-	pods := krt.NewInformer[*corev1.Pod](c)
-	services := krt.NewInformer[*corev1.Service](c)
-	stop := test.NewStop(t)
+	pods := krt.NewInformer[*corev1.Pod](c, opts.WithName("Pods")...)
+	services := krt.NewInformer[*corev1.Service](c, opts.WithName("Services")...)
 	c.RunAndWait(stop)
-	SimplePods := SimplePodCollection(pods)
-	SimpleServices := SimpleServiceCollection(services)
-	SimpleEndpoints := SimpleEndpointsCollection(SimplePods, SimpleServices)
-	assert.Equal(t, SimpleEndpoints.Synced().WaitUntilSynced(stop), true)
+	SimplePods := SimplePodCollection(pods, opts)
+	SimpleServices := SimpleServiceCollection(services, opts)
+	SimpleEndpoints := SimpleEndpointsCollection(SimplePods, SimpleServices, opts)
+	assert.Equal(t, SimpleEndpoints.WaitUntilSynced(stop), true)
 	// Assert Equal -- not EventuallyEqual -- to ensure our WaitForCacheSync is proper
 	assert.Equal(t, fetcherSorted(SimpleEndpoints)(), []SimpleEndpoint{{"pod", "svc", "namespace", "1.2.3.4"}})
 }
 
 func TestCollectionMerged(t *testing.T) {
-	c := kube.NewFakeClient()
-	pods := krt.NewInformer[*corev1.Pod](c)
-	services := krt.NewInformer[*corev1.Service](c)
 	stop := test.NewStop(t)
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	pods := krt.NewInformer[*corev1.Pod](c, opts.WithName("Pods")...)
+	services := krt.NewInformer[*corev1.Service](c, opts.WithName("Services")...)
 	c.RunAndWait(stop)
 	pc := clienttest.Wrap(t, kclient.New[*corev1.Pod](c))
 	sc := clienttest.Wrap(t, kclient.New[*corev1.Service](c))
-	SimplePods := SimplePodCollection(pods)
-	SimpleServices := SimpleServiceCollection(services)
-	SimpleEndpoints := SimpleEndpointsCollection(SimplePods, SimpleServices)
+	SimplePods := SimplePodCollection(pods, opts)
+	SimpleServices := SimpleServiceCollection(services, opts)
+	SimpleEndpoints := SimpleEndpointsCollection(SimplePods, SimpleServices, opts)
 
 	assert.Equal(t, fetcherSorted(SimpleEndpoints)(), nil)
 	pod := &corev1.Pod{
@@ -288,12 +304,14 @@ type PodSizeCount struct {
 }
 
 func TestCollectionCycle(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
 	c := kube.NewFakeClient()
-	pods := krt.NewInformer[*corev1.Pod](c)
-	c.RunAndWait(test.NewStop(t))
+	pods := krt.NewInformer[*corev1.Pod](c, opts.WithName("Pods")...)
+	c.RunAndWait(stop)
 	pc := clienttest.Wrap(t, kclient.New[*corev1.Pod](c))
-	SimplePods := SimplePodCollection(pods)
-	SizedPods := SizedPodCollection(pods)
+	SimplePods := SimplePodCollection(pods, opts)
+	SizedPods := SizedPodCollection(pods, opts)
 	Thingys := krt.NewCollection[SimplePod, PodSizeCount](SimplePods, func(ctx krt.HandlerContext, pd SimplePod) *PodSizeCount {
 		if _, f := pd.Labels["want-size"]; !f {
 			return nil
@@ -305,7 +323,7 @@ func TestCollectionCycle(t *testing.T) {
 			Named:         pd.Named,
 			MatchingSizes: len(matches),
 		}
-	})
+	}, opts.WithName("Thingys")...)
 	tt := assert.NewTracker[string](t)
 	Thingys.RegisterBatch(BatchedTrackerHandler[PodSizeCount](tt), true)
 
@@ -442,6 +460,8 @@ func fetcherSorted[T krt.ResourceNamer](c krt.Collection[T]) func() []T {
 }
 
 func TestCollectionMultipleFetch(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
 	type Result struct {
 		Named
 		Configs []string
@@ -451,9 +471,9 @@ func TestCollectionMultipleFetch(t *testing.T) {
 	kcc := kclient.New[*corev1.ConfigMap](c)
 	pc := clienttest.Wrap(t, kpc)
 	cc := clienttest.Wrap(t, kcc)
-	pods := krt.WrapClient[*corev1.Pod](kpc)
-	configMaps := krt.WrapClient[*corev1.ConfigMap](kcc)
-	c.RunAndWait(test.NewStop(t))
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	configMaps := krt.WrapClient[*corev1.ConfigMap](kcc, opts.WithName("ConfigMaps")...)
+	c.RunAndWait(stop)
 
 	lblFoo := map[string]string{"app": "foo"}
 	lblBar := map[string]string{"app": "bar"}
@@ -468,7 +488,7 @@ func TestCollectionMultipleFetch(t *testing.T) {
 			Named:   NewNamed(i),
 			Configs: slices.Sort(names),
 		}
-	})
+	}, opts.WithName("Results")...)
 
 	assert.Equal(t, fetcherSorted(Results)(), nil)
 	pod := &corev1.Pod{
@@ -500,4 +520,65 @@ func TestCollectionMultipleFetch(t *testing.T) {
 
 	cc.Delete("foo1", "")
 	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), nil}})
+}
+
+func TestCollectionDiscardResult(t *testing.T) {
+	t.Run("with initial default", func(t *testing.T) {
+		stop := test.NewStop(t)
+		opts := testOptions(t)
+		state := atomic.NewString("initial")
+		trigger := krt.NewRecomputeTrigger(true)
+		col := krt.NewSingleton(func(ctx krt.HandlerContext) *Static {
+			trigger.MarkDependant(ctx)
+			ctx.DiscardResult()
+			return &Static{Value: state.Load()}
+		}, opts.WithName("Test")...)
+		assert.Equal(t, col.AsCollection().WaitUntilSynced(stop), true)
+		// Use the initial state
+		assert.EventuallyEqual(t, col.Get, &Static{Value: "initial"})
+	})
+	t.Run("with no default", func(t *testing.T) {
+		stop := test.NewStop(t)
+		opts := testOptions(t)
+		trigger := krt.NewRecomputeTrigger(true)
+		col := krt.NewSingleton(func(ctx krt.HandlerContext) *Static {
+			trigger.MarkDependant(ctx)
+			ctx.DiscardResult()
+			return nil
+		}, opts.WithName("Test")...)
+		assert.Equal(t, col.AsCollection().WaitUntilSynced(stop), true)
+		// Use the initial state
+		assert.EventuallyEqual(t, col.Get, nil)
+	})
+	t.Run("swapping", func(t *testing.T) {
+		stop := test.NewStop(t)
+		opts := testOptions(t)
+		state := atomic.NewString("initial")
+		trigger := krt.NewRecomputeTrigger(true)
+		tt := assert.NewTracker[string](t)
+		col := krt.NewSingleton(func(ctx krt.HandlerContext) *Static {
+			trigger.MarkDependant(ctx)
+			s := state.Load()
+			if s == "skip" {
+				ctx.DiscardResult()
+			}
+			return &Static{Value: s}
+		}, opts.WithName("Test")...)
+		col.AsCollection().Register(TrackerHandler[Static](tt))
+
+		assert.Equal(t, col.AsCollection().WaitUntilSynced(stop), true)
+		// Use the initial state
+		assert.EventuallyEqual(t, col.Get, &Static{Value: "initial"})
+
+		state.Store("skip")
+		trigger.TriggerRecomputation()
+		assert.Equal(t, col.Get(), &Static{Value: "initial"})
+
+		state.Store("final")
+		trigger.TriggerRecomputation()
+		assert.EventuallyEqual(t, col.Get, &Static{Value: "final"})
+
+		// Should see only one update -- the skip is ignored.
+		tt.WaitOrdered("add/static", "update/static")
+	})
 }

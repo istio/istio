@@ -716,10 +716,13 @@ func GetEndpointHost(e *endpoint.LbEndpoint) string {
 	return ""
 }
 
-func BuildTunnelMetadataStruct(address string, port int) *structpb.Struct {
+func BuildTunnelMetadataStruct(address string, port int, waypoint string) *structpb.Struct {
 	m := map[string]interface{}{
 		// logical destination behind the tunnel, on which policy and telemetry will be applied
 		"local": net.JoinHostPort(address, strconv.Itoa(port)),
+	}
+	if waypoint != "" {
+		m["waypoint"] = waypoint
 	}
 	st, _ := structpb.NewStruct(m)
 	return st
@@ -882,7 +885,7 @@ func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.Tr
 }
 
 func VersionGreaterOrEqual124(proxy *model.Proxy) bool {
-	return proxy.VersionGreaterAndEqual(&model.IstioVersion{Major: 1, Minor: 24, Patch: -1})
+	return proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 24, Patch: -1})
 }
 
 func DelimitedStatsPrefix(statPrefix string) string {

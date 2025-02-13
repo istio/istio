@@ -289,9 +289,10 @@ func (le *LeaderElector) renew(ctx context.Context) {
 	wait.Until(func() {
 		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, le.config.RenewDeadline)
 		defer timeoutCancel()
-		err := wait.PollImmediateUntil(le.config.RetryPeriod, func() (bool, error) {
-			return le.tryAcquireOrRenew(timeoutCtx), nil
-		}, timeoutCtx.Done())
+
+		err := wait.PollUntilContextCancel(timeoutCtx, le.config.RetryPeriod, true, func(ctx context.Context) (bool, error) {
+			return le.tryAcquireOrRenew(ctx), nil
+		})
 
 		le.maybeReportTransition()
 		desc := le.config.Lock.Describe()

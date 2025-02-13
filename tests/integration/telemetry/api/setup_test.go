@@ -79,8 +79,18 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.ControlPlaneValues = `
+values:
+  pilot:
+    env:
+      PILOT_MX_ADDITIONAL_LABELS: "custom-label"
 meshConfig:
   accessLogFile: "" # disable from install, we will enable via Telemetry layer
+  extensionProviders:
+  - name: filter-state-log
+    envoyFileAccessLog:      
+      path: /dev/stdout
+      logFormat:
+        text: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %FILTER_STATE(upstream_peer)% %FILTER_STATE(downstream_peer)%\n"
 `
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 	cfg.Values["global.logging.level"] = "xdsproxy:debug,wasm:debug"
@@ -101,6 +111,11 @@ proxyMetadata:
 			e.Subsets[0].Annotations[annotation.SidecarStatsHistogramBuckets.Name] = customBuckets
 		}
 		e.Subsets[0].Annotations[annotation.ProxyConfig.Name] = proxyMetadata
+		// add custom label to echo instances, this will be used to test additional labels exchange.
+		if e.Subsets[0].Labels == nil {
+			e.Subsets[0].Labels = map[string]string{}
+		}
+		e.Subsets[0].Labels["custom-label"] = e.Service
 	}
 
 	proxyMd := `{"proxyMetadata": {"OUTPUT_CERTS": "/etc/certs/custom"}}`
@@ -129,9 +144,6 @@ proxyMetadata:
 		return err
 	}
 
-	if err != nil {
-		return err
-	}
 	for _, c := range ctx.Clusters() {
 		ingr = append(ingr, ist.IngressFor(c))
 	}

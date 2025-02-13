@@ -17,7 +17,9 @@ package proxyconfig
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -102,6 +104,21 @@ const (
 	TraceLevel
 )
 
+const (
+	// edsPath get eds info
+	edsPath = "?include_eds=true"
+	// secretPath get secrets info
+	secretPath = "?mask=dynamic_active_secrets"
+	// clusterPath get cluster info
+	clusterPath = "?mask=dynamic_active_clusters,static_clusters"
+	// listenerPath get listener info
+	listenerPath = "?mask=dynamic_listeners,static_listeners"
+	// routePath get route info
+	routePath = "?mask=dynamic_route_configs,static_route_configs"
+	// bootstrapPath get bootstrap info
+	bootstrapPath = "?mask=bootstrap"
+)
+
 var levelToString = map[Level]string{
 	TraceLevel:    "trace",
 	DebugLevel:    "debug",
@@ -128,11 +145,8 @@ var (
 	reset             = false
 )
 
-func extractConfigDump(kubeClient kube.CLIClient, podName, podNamespace string, eds bool) ([]byte, error) {
-	path := "config_dump"
-	if eds {
-		path += "?include_eds=true"
-	}
+func extractConfigDump(kubeClient kube.CLIClient, podName, podNamespace string, additionPath string) ([]byte, error) {
+	path := "config_dump" + additionPath
 	debug, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute command on %s.%s sidecar: %v", podName, podNamespace, err)
@@ -140,8 +154,8 @@ func extractConfigDump(kubeClient kube.CLIClient, podName, podNamespace string, 
 	return debug, err
 }
 
-func setupPodConfigdumpWriter(kubeClient kube.CLIClient, podName, podNamespace string, includeEds bool, out io.Writer) (*configdump.ConfigWriter, error) {
-	debug, err := extractConfigDump(kubeClient, podName, podNamespace, includeEds)
+func setupPodConfigdumpWriter(kubeClient kube.CLIClient, podName, podNamespace string, additionPath string, out io.Writer) (*configdump.ConfigWriter, error) {
+	debug, err := extractConfigDump(kubeClient, podName, podNamespace, additionPath)
 	if err != nil {
 		return nil, err
 	}
@@ -184,9 +198,13 @@ func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.
 
 func setupEnvoyClusterStatsConfig(kubeClient kube.CLIClient, podName, podNamespace string, outputFormat string) (string, error) {
 	path := "clusters"
-	if outputFormat == jsonOutput || outputFormat == yamlOutput {
+	switch outputFormat {
+	case "", summaryOutput:
+	case jsonOutput, yamlOutput:
 		// for yaml output we will convert the json to yaml when printed
 		path += "?format=json"
+	default:
+		return "", fmt.Errorf("unable to match a printer suitable for the output format %s, allowed formats are: json,yaml,short", outputFormat)
 	}
 	result, err := kubeClient.EnvoyDoWithPort(context.TODO(), podName, podNamespace, "GET", path, proxyAdminPort)
 	if err != nil {
@@ -197,12 +215,14 @@ func setupEnvoyClusterStatsConfig(kubeClient kube.CLIClient, podName, podNamespa
 
 func setupEnvoyServerStatsConfig(kubeClient kube.CLIClient, podName, podNamespace string, outputFormat string) (string, error) {
 	path := "stats"
-	if outputFormat == jsonOutput || outputFormat == yamlOutput {
+	switch outputFormat {
+	case "", summaryOutput:
+	case jsonOutput, yamlOutput:
 		// for yaml output we will convert the json to yaml when printed
 		path += "?format=json"
-	} else if outputFormat == prometheusOutput {
+	case prometheusOutput:
 		path += "/prometheus"
-	} else if outputFormat == prometheusMergedOutput {
+	case prometheusMergedOutput:
 		pod, err := kubeClient.Kube().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 		if err != nil {
 			return "", fmt.Errorf("failed to retrieve Pod %s/%s: %v", podNamespace, podName, err)
@@ -214,6 +234,8 @@ func setupEnvoyServerStatsConfig(kubeClient kube.CLIClient, podName, podNamespac
 		}
 		path = promPath
 		port = promPort
+	default:
+		return "", fmt.Errorf("unable to match a printer suitable for the output format %s, allowed formats are: json,yaml,short,prom,prom-merged", outputFormat)
 	}
 
 	result, err := kubeClient.EnvoyDoWithPort(context.Background(), podName, podNamespace, "GET", path, proxyAdminPort)
@@ -365,7 +387,7 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, clusterPath, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -444,7 +466,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 					if err != nil {
 						return err
 					}
-					dump, err = extractConfigDump(kubeClient, podName, podNamespace, true)
+					dump, err = extractConfigDump(kubeClient, podName, podNamespace, edsPath)
 					if err != nil {
 						return err
 					}
@@ -469,7 +491,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 						return err
 					}
 
-					configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
+					configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, edsPath, c.OutOrStdout())
 					if err != nil {
 						return err
 					}
@@ -578,7 +600,7 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, listenerPath, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -876,7 +898,7 @@ func routeConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, routePath, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -1043,7 +1065,7 @@ func edsConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, edsPath, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -1122,7 +1144,7 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, bootstrapPath, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}
@@ -1183,7 +1205,7 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				cw, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
+				cw, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, secretPath, c.OutOrStdout())
 			} else {
 				cw, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 				if err != nil {
@@ -1234,12 +1256,12 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 				return err
 			}
 
-			var rootCA1, rootCA2 string
+			var rootCAPod1, rootCAPod2 []byte
 			if len(args) == 2 {
 				if podName1, podNamespace1, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				rootCA1, err = extractRootCA(kubeClient, podName1, podNamespace1, c.OutOrStdout())
+				rootCAPod1, err = extractRootCA(kubeClient, podName1, podNamespace1, c.OutOrStdout())
 				if err != nil {
 					return err
 				}
@@ -1247,7 +1269,7 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName2, podNamespace2, err = getPodName(ctx, args[1]); err != nil {
 					return err
 				}
-				rootCA2, err = extractRootCA(kubeClient, podName2, podNamespace2, c.OutOrStdout())
+				rootCAPod2, err = extractRootCA(kubeClient, podName2, podNamespace2, c.OutOrStdout())
 				if err != nil {
 					return err
 				}
@@ -1256,18 +1278,20 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("rootca-compare requires 2 pods as an argument")
 			}
 
-			var returnErr error
-			if rootCA1 == rootCA2 {
+			rootCACertMatch, rootCACertMatchErr := checkRootCACertMatchExist(rootCAPod1, rootCAPod2)
+			if rootCACertMatchErr != nil {
+				return rootCACertMatchErr
+			}
+
+			if rootCACertMatch {
 				report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the identical ROOTCA, theoretically the connectivity between them is available",
 					podName1, podNamespace1, podName2, podNamespace2)
 				c.Println(report)
-				returnErr = nil
-			} else {
-				report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the non identical ROOTCA, theoretically the connectivity between them is unavailable",
-					podName1, podNamespace1, podName2, podNamespace2)
-				returnErr = errors.New(report)
+				return nil
 			}
-			return returnErr
+			report := fmt.Sprintf("Both [%s.%s] and [%s.%s] have the non identical ROOTCA, theoretically the connectivity between them is unavailable",
+				podName1, podNamespace1, podName2, podNamespace2)
+			return errors.New(report)
 		},
 		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
@@ -1276,10 +1300,50 @@ func rootCACompareConfigCmd(ctx cli.Context) *cobra.Command {
 	return rootCACompareConfigCmd
 }
 
-func extractRootCA(client kube.CLIClient, podName, podNamespace string, out io.Writer) (string, error) {
-	configWriter, err := setupPodConfigdumpWriter(client, podName, podNamespace, false, out)
+// checkRootCACertMatchExist compares rootCA certs, returns true if rootCA cert match exist
+func checkRootCACertMatchExist(rootCAPod1 []byte, rootCAPod2 []byte) (bool, error) {
+	rootCACerts1, parseRootCAPod1Err := parsePEMCerts(rootCAPod1)
+	if parseRootCAPod1Err != nil {
+		return false, parseRootCAPod1Err
+	}
+
+	rootCACerts2, parseRootCAPod2Err := parsePEMCerts(rootCAPod2)
+	if parseRootCAPod2Err != nil {
+		return false, parseRootCAPod2Err
+	}
+
+	for _, cert1 := range rootCACerts1 {
+		for _, cert2 := range rootCACerts2 {
+			if cert1.Equal(cert2) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+// Parse the PEM data and extract the certificates
+func parsePEMCerts(certData []byte) ([]*x509.Certificate, error) {
+	var certs []*x509.Certificate
+	block, rest := pem.Decode(certData)
+	if block == nil {
+		return nil, fmt.Errorf("failed to parse certificates: %s", certData)
+	}
+	for block != nil {
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse certificate: %v", err)
+		}
+		certs = append(certs, cert)
+		block, rest = pem.Decode(rest)
+	}
+	return certs, nil
+}
+
+func extractRootCA(client kube.CLIClient, podName, podNamespace string, out io.Writer) ([]byte, error) {
+	configWriter, err := setupPodConfigdumpWriter(client, podName, podNamespace, secretPath, out)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return configWriter.PrintPodRootCAFromDynamicSecretDump()
 }
@@ -1388,7 +1452,7 @@ func ecdsConfigCmd(ctx cli.Context) *cobra.Command {
 				if podName, podNamespace, err = getPodName(ctx, args[0]); err != nil {
 					return err
 				}
-				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
+				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, edsPath, c.OutOrStdout())
 			} else {
 				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
 			}

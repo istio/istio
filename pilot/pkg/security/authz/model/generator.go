@@ -20,10 +20,10 @@ import (
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
-	"istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -181,6 +181,37 @@ func (srcNamespaceGenerator) principal(_, value string, _ bool, useAuthenticated
 	return principalAuthenticated(m, useAuthenticated), nil
 }
 
+type srcServiceAccountGenerator struct {
+	policyName types.NamespacedName
+}
+
+func (g srcServiceAccountGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (g srcServiceAccountGenerator) principal(_, value string, _ bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+	regex := serviceAccountRegex(g.policyName.Namespace, value)
+	m := matcher.StringMatcherRegex(regex)
+	return principalAuthenticated(m, useAuthenticated), nil
+}
+
+// serviceAccountRegex builds a regex that will match the SA specifier.
+// The specifier takes a `<name>` or `<namespace>/<name>` value. If namespace is elided, defaultNamespace is used.
+func serviceAccountRegex(defaultNamespace string, value string) string {
+	ns, sa, ok := strings.Cut(value, "/")
+	if !ok {
+		ns = defaultNamespace
+		sa = value
+	}
+	// Format should follow...
+	// 'spiffe://' then a trust domain + arbitrary k/v pairs
+	// '/ns/<namespace>/'
+	// optional arbitrary k/v pairs
+	// '/sa/<serviceAccount>'
+	// Either end of string OR / + arbitrary k/v pairs (the / ensures we do not match <service account>-some-junk)
+	return fmt.Sprintf("spiffe://.+/ns/%s/(.+/|)sa/%s(/.+)?", ns, sa)
+}
+
 type srcPrincipalGenerator struct{}
 
 func (srcPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
@@ -194,20 +225,8 @@ func (srcPrincipalGenerator) principal(key, value string, _ bool, useAuthenticat
 
 type requestPrincipalGenerator struct{}
 
-func (requestPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
-	return nil, fmt.Errorf("unimplemented")
-}
-
 func (requestPrincipalGenerator) extendedPermission(_ string, _ []string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
-}
-
-func (rpg requestPrincipalGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
-	if forTCP {
-		return nil, fmt.Errorf("%q is HTTP only", key)
-	}
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(m), nil
 }
 
 var matchAny = matcher.StringMatcherRegex(".+")
@@ -274,20 +293,8 @@ func (rpg requestPrincipalGenerator) extendedPrincipal(key string, values []stri
 
 type requestAudiencesGenerator struct{}
 
-func (requestAudiencesGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
-	return requestPrincipalGenerator{}.permission(key, value, forTCP)
-}
-
 func (requestAudiencesGenerator) extendedPermission(key string, values []string, forTCP bool) (*rbacpb.Permission, error) {
 	return requestPrincipalGenerator{}.extendedPermission(key, values, forTCP)
-}
-
-func (rag requestAudiencesGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
-	if forTCP {
-		return nil, fmt.Errorf("%q is HTTP only", key)
-	}
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(m), nil
 }
 
 func (rag requestAudiencesGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {
@@ -299,20 +306,8 @@ func (rag requestAudiencesGenerator) extendedPrincipal(key string, values []stri
 
 type requestPresenterGenerator struct{}
 
-func (requestPresenterGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
-	return requestPrincipalGenerator{}.permission(key, value, forTCP)
-}
-
 func (requestPresenterGenerator) extendedPermission(key string, values []string, forTCP bool) (*rbacpb.Permission, error) {
 	return requestPrincipalGenerator{}.extendedPermission(key, values, forTCP)
-}
-
-func (rpg requestPresenterGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
-	if forTCP {
-		return nil, fmt.Errorf("%q is HTTP only", key)
-	}
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(m), nil
 }
 
 func (rpg requestPresenterGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {
@@ -343,27 +338,8 @@ func (requestHeaderGenerator) principal(key, value string, forTCP bool, _ bool) 
 
 type requestClaimGenerator struct{}
 
-func (requestClaimGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
-	return nil, fmt.Errorf("unimplemented")
-}
-
 func (requestClaimGenerator) extendedPermission(_ string, _ []string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
-}
-
-func (rcg requestClaimGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
-	if forTCP {
-		return nil, fmt.Errorf("%q is HTTP only", key)
-	}
-
-	claims, err := extractNameInNestedBrackets(strings.TrimPrefix(key, attrRequestClaims))
-	if err != nil {
-		return nil, err
-	}
-	// Generate a metadata list matcher for the given path keys and value.
-	// On proxy side, the value should be of list type.
-	m := MetadataMatcherForJWTClaims(claims, matcher.StringMatcher(value), false)
-	return principalMetadata(m), nil
 }
 
 func (rcg requestClaimGenerator) extendedPrincipal(key string, values []string, forTCP bool) (*rbacpb.Principal, error) {

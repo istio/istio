@@ -18,112 +18,51 @@ import (
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/watcher/configmapwatcher"
-	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/ptr"
 )
 
-// NewConfigMapWatcher creates a new Watcher for changes to the given ConfigMap.
-func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiWatch bool, stop <-chan struct{}) *mesh.MultiWatcher {
-	w := mesh.NewMultiWatcher(mesh.DefaultMeshConfig())
-	c := configmapwatcher.NewController(client, namespace, name, func(cm *v1.ConfigMap) {
-		meshNetworks, err := ReadNetworksConfigMap(cm, "meshNetworks")
-		if err != nil {
-			// Keep the last known config in case there's a misconfiguration issue.
-			log.Errorf("failed to read meshNetworks config from ConfigMap: %v", err)
-			return
-		}
-		if meshNetworks != nil {
-			w.SetNetworks(meshNetworks)
-		}
-		if multiWatch {
-			meshConfig := meshConfigMapData(cm, key)
-			w.HandleMeshConfigData(meshConfig)
-			return
-		}
-		// Original behavior - just per-revision config
-		meshConfig, err := ReadConfigMap(cm, key)
-		if err != nil {
-			// Keep the last known config in case there's a misconfiguration issue.
-			log.Errorf("failed to read mesh config from ConfigMap: %v", err)
-			return
-		}
-		w.HandleMeshConfig(meshConfig)
+const (
+	MeshConfigKey   = "mesh"
+	MeshNetworksKey = "meshNetworks"
+)
+
+// NewConfigMapSource builds a MeshConfigSource reading from ConfigMap "name" with key "key".
+func NewConfigMapSource(client kube.Client, namespace, name, key string, opts krt.OptionsBuilder) meshwatcher.MeshConfigSource {
+	clt := kclient.NewFiltered[*v1.ConfigMap](client, kclient.Filter{
+		Namespace:     namespace,
+		FieldSelector: fields.OneTermEqualSelector(metav1.ObjectNameField, name).String(),
 	})
+	cms := krt.WrapClient(clt, opts.WithName("ConfigMap_"+name)...)
 
-	go c.Run(stop)
+	// Start informer immediately instead of with the rest. This is because we use configmapwatcher for
+	// single types (so its never shared), and for use cases where we need the results immediately
+	// during startup.
+	clt.Start(opts.Stop())
 
-	// Ensure the ConfigMap is initially loaded if present.
-	if !client.WaitForCacheSync("configmap watcher", stop, c.HasSynced) {
-		log.Error("failed to wait for cache sync")
-	}
-	return w
+	cmKey := types.NamespacedName{Namespace: namespace, Name: name}.String()
+	return krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+		cm := ptr.Flatten(krt.FetchOne(ctx, cms, krt.FilterKey(cmKey)))
+		return meshConfigMapData(cm, key)
+	}, opts.WithName(fmt.Sprintf("ConfigMap_%s_%s", name, key))...)
 }
 
-func AddUserMeshConfig(client kube.Client, watcher mesh.Watcher, namespace, key, userMeshConfig string, stop <-chan struct{}) {
-	c := configmapwatcher.NewController(client, namespace, userMeshConfig, func(cm *v1.ConfigMap) {
-		meshConfig := meshConfigMapData(cm, key)
-		watcher.HandleUserMeshConfig(meshConfig)
-	})
-
-	go c.Run(stop)
-	if !client.WaitForCacheSync("user mesh config", stop, c.HasSynced) {
-		log.Error("failed to wait for cache sync")
-	}
-}
-
-func meshConfigMapData(cm *v1.ConfigMap, key string) string {
+func meshConfigMapData(cm *v1.ConfigMap, key string) *string {
 	if cm == nil {
-		return ""
+		return nil
 	}
 
 	cfgYaml, exists := cm.Data[key]
 	if !exists {
-		return ""
+		return nil
 	}
 
-	return cfgYaml
-}
-
-func ReadConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshConfig, error) {
-	if cm == nil {
-		log.Info("no ConfigMap found, using default MeshConfig config")
-		return mesh.DefaultMeshConfig(), nil
-	}
-
-	cfgYaml, exists := cm.Data[key]
-	if !exists {
-		return nil, fmt.Errorf("missing ConfigMap key %q", key)
-	}
-
-	meshConfig, err := mesh.ApplyMeshConfigDefaults(cfgYaml)
-	if err != nil {
-		return nil, fmt.Errorf("failed reading MeshConfig config: %v. YAML:\n%s", err, cfgYaml)
-	}
-
-	log.Info("Loaded MeshConfig config from Kubernetes API server.")
-	return meshConfig, nil
-}
-
-func ReadNetworksConfigMap(cm *v1.ConfigMap, key string) (*meshconfig.MeshNetworks, error) {
-	if cm == nil {
-		log.Info("no ConfigMap found, using existing MeshNetworks config")
-		return nil, nil
-	}
-
-	cfgYaml, exists := cm.Data[key]
-	if !exists {
-		return nil, nil
-	}
-
-	meshNetworks, err := mesh.ParseMeshNetworks(cfgYaml)
-	if err != nil {
-		return nil, fmt.Errorf("failed reading MeshNetworks config: %v. YAML:\n%s", err, cfgYaml)
-	}
-
-	log.Info("Loaded MeshNetworks config from Kubernetes API server.")
-	return meshNetworks, nil
+	return &cfgYaml
 }

@@ -90,6 +90,8 @@ var rootCmd = &cobra.Command{
 		// TODO nodeagent watch server should affect this too, and drop atomic flag
 		installDaemonReady, watchServerReady := nodeagent.StartHealthServer()
 
+		installer := install.NewInstaller(&cfg.InstallConfig, installDaemonReady)
+
 		if cfg.InstallConfig.AmbientEnabled {
 			// Start ambient controller
 
@@ -99,31 +101,68 @@ var rootCmd = &cobra.Command{
 			log.Infof("Starting ambient node agent with inpod redirect mode on socket %s", cniEventAddr)
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
-					SystemNamespace:   nodeagent.SystemNamespace,
-					Revision:          nodeagent.Revision,
-					ServerSocket:      cfg.InstallConfig.ZtunnelUDSAddress,
-					DNSCapture:        cfg.InstallConfig.AmbientDNSCapture,
-					EnableIPv6:        cfg.InstallConfig.AmbientIPv6,
-					TPROXYRedirection: cfg.InstallConfig.AmbientTPROXYRedirection,
+					SystemNamespace:            nodeagent.SystemNamespace,
+					Revision:                   nodeagent.Revision,
+					ServerSocket:               cfg.InstallConfig.ZtunnelUDSAddress,
+					DNSCapture:                 cfg.InstallConfig.AmbientDNSCapture,
+					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
+					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
 			}
 
+			// Ambient watch server IS enabled - on shutdown
+			// we need to check and see if this is an upgrade.
+			//
+			// if it is, we do NOT remove the plugin, and do
+			// NOT do ambient watch server cleanup
+			defer func() {
+				var isUpgrade bool
+				if cfg.InstallConfig.AmbientDisableSafeUpgrade {
+					log.Info("Ambient node agent safe upgrade explicitly disabled via env")
+					isUpgrade = false
+				} else {
+					isUpgrade = ambientAgent.ShouldStopForUpgrade("istio-cni", nodeagent.PodNamespace)
+				}
+				log.Infof("Ambient node agent shutting down - is upgrade shutdown? %t", isUpgrade)
+				// if we are doing an "upgrade shutdown", then
+				// we do NOT want to remove/cleanup the CNI plugin.
+				//
+				// This is important - we want it to remain in place to "stall"
+				// new ambient-enabled pods while our replacement spins up.
+				if !isUpgrade {
+					if cleanErr := installer.Cleanup(); cleanErr != nil {
+						log.Error(cleanErr.Error())
+					}
+				}
+				ambientAgent.Stop(isUpgrade)
+			}()
+
 			ambientAgent.Start()
-			defer ambientAgent.Stop()
 
 			log.Info("Ambient node agent started, starting installer...")
 
 		} else {
 			// Ambient not enabled, so this readiness flag is no-op'd
 			watchServerReady.Store(true)
+
+			// Ambient watch server not enabled - on shutdown
+			// we just need to remove CNI plugin.
+			defer func() {
+				log.Infof("CNI node agent shutting down")
+				if cleanErr := installer.Cleanup(); cleanErr != nil {
+					log.Error(cleanErr.Error())
+				}
+			}()
 		}
-
-		installer := install.NewInstaller(&cfg.InstallConfig, installDaemonReady)
-
+		// TODO Note that during an "upgrade shutdown" in ambient mode,
+		// repair will (necessarily) be unavailable.
 		repair.StartRepair(ctx, cfg.RepairConfig)
 
+		// Note that even though we "install" the CNI plugin here *after* we start the node agent,
+		// it will block ambient-enabled pods from starting until `watchServerReady` == true
+		// (that is, the node agent is ready to respond to plugin events)
 		log.Info("initialization complete, watching node CNI dir")
 		// installer.Run() will block indefinitely, and attempt to permanently "keep"
 		// the CNI binary installed.
@@ -134,14 +173,6 @@ var rootCmd = &cobra.Command{
 				err = nil
 			} else {
 				log.Errorf("installer failed: %v", err)
-			}
-		}
-
-		if cleanErr := installer.Cleanup(); cleanErr != nil {
-			if err != nil {
-				err = fmt.Errorf("%s: %w", cleanErr.Error(), err)
-			} else {
-				err = cleanErr
 			}
 		}
 
@@ -264,10 +295,11 @@ func constructConfig() (*config.Config, error) {
 		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
-		AmbientEnabled:           viper.GetBool(constants.AmbientEnabled),
-		AmbientDNSCapture:        viper.GetBool(constants.AmbientDNSCapture),
-		AmbientIPv6:              viper.GetBool(constants.AmbientIPv6),
-		AmbientTPROXYRedirection: viper.GetBool(constants.AmbientTPROXYRedirection),
+		AmbientEnabled:                    viper.GetBool(constants.AmbientEnabled),
+		AmbientDNSCapture:                 viper.GetBool(constants.AmbientDNSCapture),
+		AmbientIPv6:                       viper.GetBool(constants.AmbientIPv6),
+		AmbientDisableSafeUpgrade:         viper.GetBool(constants.AmbientDisableSafeUpgrade),
+		AmbientReconcilePodRulesOnStartup: viper.GetBool(constants.AmbientReconcilePodRulesOnStartup),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {

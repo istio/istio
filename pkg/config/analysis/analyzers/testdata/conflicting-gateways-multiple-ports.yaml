@@ -1,0 +1,41 @@
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: beta
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: tcp
+      protocol: TCP
+    hosts:
+    - "foo.bar"
+  - port:
+      number: 90
+      name: tcp
+      protocol: TCP
+    hosts:
+    - "foo.bar"
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: alpha
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 70
+      name: http
+      protocol: HTTP
+    hosts:
+    - "foo.bar"
+  - port:
+      number: 90
+      name: http
+      protocol: HTTP
+    hosts:
+    - "foo.bar"

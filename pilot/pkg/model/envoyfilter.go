@@ -185,7 +185,7 @@ func (efw *EnvoyFilterWrapper) Keys() []string {
 }
 
 // Returns the keys of all the wrapped envoyfilters.
-func (efw *EnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_ApplyTo) []string {
+func (efw *MergedEnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_ApplyTo) []string {
 	if efw == nil {
 		return nil
 	}

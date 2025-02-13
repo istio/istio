@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 )
 
@@ -391,8 +391,8 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env := model.NewEnvironment()
 			env.ConfigStore = model.NewFakeStore()
-			env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})
-			meshNetworks := mesh.NewFixedNetworksWatcher(nil)
+			env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})
+			meshNetworks := meshwatcher.NewFixedNetworksWatcher(nil)
 			env.NetworksWatcher = meshNetworks
 			env.ServiceDiscovery = memory.NewServiceDiscovery()
 			xdsUpdater := xdsfake.NewFakeXDS()
@@ -409,9 +409,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 
 			// Init a new push context
 			push := model.NewPushContext()
-			if err := push.InitContext(env, nil, nil); err != nil {
-				t.Fatal(err)
-			}
+			push.InitContext(env, nil, nil)
 			env.SetPushContext(push)
 			if push.NetworkManager() == nil {
 				t.Fatal("error: NetworkManager should not be nil!")

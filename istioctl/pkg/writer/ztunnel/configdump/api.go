@@ -80,16 +80,18 @@ type ZtunnelService struct {
 }
 
 type PolicyMatch struct {
-	Namespaces          []StringMatch `json:"namespaces,omitempty"`
-	NotNamespaces       []StringMatch `json:"notNamespaces,omitempty"`
-	Principals          []StringMatch `json:"principals,omitempty"`
-	NotPrincipals       []StringMatch `json:"notPrincipals,omitempty"`
-	SourceIps           []string      `json:"sourceIps,omitempty"`
-	NotSourceIps        []string      `json:"notSourceIps,omitempty"`
-	DestinationIps      []string      `json:"destinationIps,omitempty"`
-	NotDestinationIps   []string      `json:"notDestinationIps,omitempty"`
-	DestinationPorts    []uint16      `json:"destinationPorts,omitempty"`
-	NotDestinationPorts []uint16      `json:"notDestinationPorts,omitempty"`
+	Namespaces          []StringMatch         `json:"namespaces,omitempty"`
+	NotNamespaces       []StringMatch         `json:"notNamespaces,omitempty"`
+	Principals          []StringMatch         `json:"principals,omitempty"`
+	NotPrincipals       []StringMatch         `json:"notPrincipals,omitempty"`
+	SourceIps           []string              `json:"sourceIps,omitempty"`
+	NotSourceIps        []string              `json:"notSourceIps,omitempty"`
+	DestinationIps      []string              `json:"destinationIps,omitempty"`
+	NotDestinationIps   []string              `json:"notDestinationIps,omitempty"`
+	DestinationPorts    []uint16              `json:"destinationPorts,omitempty"`
+	NotDestinationPorts []uint16              `json:"notDestinationPorts,omitempty"`
+	ServiceAccounts     []ServiceAccountMatch `json:"serviceAccounts,omitempty"`
+	NotServiceAccounts  []ServiceAccountMatch `json:"notServiceAccounts,omitempty"`
 }
 
 type StringMatch struct {
@@ -97,6 +99,11 @@ type StringMatch struct {
 	Suffix   string `json:"Suffix,omitempty"`
 	Prefix   string `json:"Prefix,omitempty"`
 	Presence any    `json:"Presence,omitempty"`
+}
+
+type ServiceAccountMatch struct {
+	Namespace      string `json:"namespace"`
+	ServiceAccount string `json:"serviceAccount"`
 }
 
 type ZtunnelPolicy struct {

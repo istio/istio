@@ -20,14 +20,18 @@ package pilot
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 
 	"istio.io/istio/istioctl/pkg/analyze"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -97,7 +101,7 @@ func TestFileOnly(t *testing.T) {
 		})
 }
 
-func TestDirectoryWithoutRecursion(t *testing.T) {
+func TestDirectory(t *testing.T) {
 	// nolint: staticcheck
 	framework.
 		NewTest(t).
@@ -112,33 +116,8 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
 
-			// Recursive is false, so we should only analyze
-			// testdata/some-dir/missing-gateway.yaml and get a
-			// SchemaValidationError (if we did recurse, we'd get a
-			// UnknownAnnotation as well).
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=false", dirWithConfig)
-			expectMessages(t, g, output, msg.SchemaValidationError)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
-		})
-}
-
-func TestDirectoryWithRecursion(t *testing.T) {
-	// nolint: staticcheck
-	framework.
-		NewTest(t).
-		RequiresSingleCluster().
-		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "istioctl-analyze",
-				Inject: true,
-			})
-
-			istioCtl := istioctl.NewOrFail(t, istioctl.Config{})
-
-			// Recursive is true, so we should see one error (SchemaValidationError).
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=true", dirWithConfig)
+			// Hardcore recursive to true, so we should see one error (SchemaValidationError).
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, dirWithConfig)
 			expectMessages(t, g, output, msg.SchemaValidationError)
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
@@ -459,7 +438,7 @@ func applyFileOrFail(t framework.TestContext, ns, filename string) {
 	})
 }
 
-func TestMultiCluster(t *testing.T) {
+func TestMultiClusterWithSecrets(t *testing.T) {
 	// nolint: staticcheck
 	framework.
 		NewTest(t).
@@ -511,12 +490,12 @@ spec:
     targetPort: 8080
 `, ind)
 				// apply inconsistent services
-				err := c.ApplyYAMLFiles(ns.Name(), svc)
+				err := c.ApplyYAMLContents(ns.Name(), svc)
 				g.Expect(err).To(BeNil())
 			}
 
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})
-			output, _ := istioctlSafe(t, istioCtl, "", true, "--all-namespaces")
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true)
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
 		})
 }
@@ -528,4 +507,74 @@ func createRemoteSecret(t test.Failer, i istioctl.Instance, cluster string) (str
 	args = append(args, "--name", cluster)
 
 	return i.Invoke(args)
+}
+
+func TestMultiClusterWithContexts(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			if len(t.Environment().Clusters()) < 2 {
+				t.Skip("skipping test, need at least 2 clusters")
+			}
+
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			for ind, c := range t.Environment().Clusters() {
+				svc := fmt.Sprintf(`
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews
+spec:
+  selector:
+    app: reviews
+  type: ClusterIP
+  ports:
+  - name: http-%d
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+`, ind)
+				// apply inconsistent services
+				err := c.ApplyYAMLContents(ns.Name(), svc)
+				g.Expect(err).To(BeNil())
+
+			}
+
+			mergedConfig := api.NewConfig()
+			mergedKubeconfig, err := os.CreateTemp("", "merged_kubeconfig.yaml")
+			g.Expect(err).To(BeNil(), fmt.Sprintf("Create file for storing merged kubeconfig: %v", err))
+			defer os.Remove(mergedKubeconfig.Name())
+			for _, c := range t.Environment().Clusters() {
+				filenamer, ok := c.(istioctl.Filenamer)
+				g.Expect(ok).To(BeTrue(), fmt.Sprintf("Cluster %v does not support fetching kubeconfig", c))
+				config, err := clientcmd.LoadFromFile(filenamer.Filename())
+				g.Expect(err).To(BeNil(), fmt.Sprintf("Load config from file %q: %v", filenamer.Filename(), err))
+				if mergedConfig.CurrentContext == "" {
+					mergedConfig.CurrentContext = config.CurrentContext
+				}
+				mergedConfig.Clusters = maps.MergeCopy(mergedConfig.Clusters, config.Clusters)
+				mergedConfig.AuthInfos = maps.MergeCopy(mergedConfig.AuthInfos, config.AuthInfos)
+				mergedConfig.Contexts = maps.MergeCopy(mergedConfig.Contexts, config.Contexts)
+			}
+			err = clientcmd.WriteToFile(*mergedConfig, mergedKubeconfig.Name())
+			g.Expect(err).To(BeNil(), fmt.Sprintf("Write merged kubeconfig to file %q: %v", mergedKubeconfig.Name(), err))
+			ctxArgs := []string{"--kubeconfig", mergedKubeconfig.Name()}
+			for _, ctx := range maps.Keys(mergedConfig.Contexts) {
+				if ctx == mergedConfig.CurrentContext {
+					continue
+				}
+				ctxArgs = append(ctxArgs, "--remote-contexts", ctx)
+			}
+
+			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})
+			output, _ := istioctlSafe(t, istioCtl, ns.Name(), true, ctxArgs...)
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
+		})
 }

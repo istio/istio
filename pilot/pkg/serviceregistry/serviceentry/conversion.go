@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
@@ -34,7 +35,6 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -50,7 +50,7 @@ func convertPort(port *networking.ServicePort) *model.Port {
 
 type HostAddress struct {
 	host           string
-	addresses      []string
+	address        string
 	autoAssignedV4 string
 	autoAssignedV6 string
 }
@@ -62,6 +62,7 @@ type HostAddress struct {
 // See kube.ConvertService for the conversion from K8S to internal Service.
 func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Config {
 	gvk := gvk.ServiceEntry
+
 	getSvcAddresses := func(s *model.Service, node *model.Proxy) []string {
 		if node.Metadata != nil && node.Metadata.ClusterID == "" {
 			var addresses []string
@@ -78,9 +79,9 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 		// Host is fully qualified: name, namespace, domainSuffix
 		Hosts: []string{string(svc.Hostname)},
 
-		// ServiceEntry can represent multiple services, so we return all the addresses of the services
-		// if proxy ClusterID unset.
-		// And only the cluster specific addresses when proxy ClusterID set.
+		// Internal Service and K8S Service have a single Address.
+		// ServiceEntry can represent multiple - but we are not using that. SE may be merged.
+		// Will be 0.0.0.0 if not specified as ClusterIP or ClusterIP==None. In such case resolution is Passthrough.
 		Addresses: getSvcAddresses(svc, proxy),
 
 		// This is based on alpha.istio.io/canonical-serviceaccounts and
@@ -154,7 +155,7 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 }
 
 // convertServices transforms a ServiceEntry config to a list of internal Service objects.
-func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
+func convertServices(cfg config.Config) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	// ShouldV2AutoAllocateIP already checks that there are no addresses in the spec however this is critical enough to likely be worth checking
 	// explicitly as well in case the logic changes. We never want to overwrite addresses in the spec if there are any
@@ -177,6 +178,8 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 	case networking.ServiceEntry_STATIC:
 		resolution = model.ClientSideLB
 	}
+
+	trafficDistribution := kube.GetTrafficDistribution(nil, cfg.Annotations)
 
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
 	var portOverrides map[uint32]uint32
@@ -202,26 +205,22 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 	if serviceEntry.WorkloadSelector != nil {
 		labelSelectors = serviceEntry.WorkloadSelector.Labels
 	}
-
 	hostAddresses := []*HostAddress{}
 	for _, hostname := range serviceEntry.Hosts {
-		localAddresses := addresses
-		if len(localAddresses) > 0 {
-			ha := &HostAddress{hostname, []string{}, "", ""}
-			for _, address := range localAddresses {
-				// Check if addresses is an IP first because that is the most common case.
+		if len(serviceEntry.Addresses) > 0 {
+			for _, address := range serviceEntry.Addresses {
+				// Check if address is an IP first because that is the most common case.
 				if netutil.IsValidIPAddress(address) {
-					ha.addresses = append(ha.addresses, address)
+					hostAddresses = append(hostAddresses, &HostAddress{hostname, address, "", ""})
 				} else if cidr, cidrErr := netip.ParsePrefix(address); cidrErr == nil {
 					newAddress := address
 					if cidr.Bits() == cidr.Addr().BitLen() {
-						// /32 mask. Remove the /32 and make it a normal IP addresses
+						// /32 mask. Remove the /32 and make it a normal IP address
 						newAddress = cidr.Addr().String()
 					}
-					ha.addresses = append(ha.addresses, newAddress)
+					hostAddresses = append(hostAddresses, &HostAddress{hostname, newAddress, "", ""})
 				}
 			}
-			hostAddresses = append(hostAddresses, ha)
 		} else {
 			var v4, v6 string
 			if autoAddresses, ok := addressLookup[hostname]; ok {
@@ -234,7 +233,7 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 					}
 				}
 			}
-			hostAddresses = append(hostAddresses, &HostAddress{hostname, []string{constants.UnspecifiedIP}, v4, v6})
+			hostAddresses = append(hostAddresses, &HostAddress{hostname, constants.UnspecifiedIP, v4, v6})
 		}
 	}
 
@@ -248,7 +247,7 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 			CreationTime:   creationTime,
 			MeshExternal:   serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL,
 			Hostname:       host.Name(ha.host),
-			DefaultAddress: ha.addresses[0],
+			DefaultAddress: ha.address,
 			Ports:          svcPorts,
 			Resolution:     resolution,
 			Attributes: model.ServiceAttributes{
@@ -259,7 +258,7 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 				Labels:                 lbls,
 				ExportTo:               exportTo,
 				LabelSelectors:         labelSelectors,
-				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name},
+				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution},
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
 		}
@@ -268,13 +267,6 @@ func convertServices(cfg config.Config, clusterID cluster.ID) []*model.Service {
 		}
 		if ha.autoAssignedV6 != "" {
 			svc.AutoAllocatedIPv6Address = ha.autoAssignedV6
-		}
-		if !slices.Equal(ha.addresses, []string{constants.UnspecifiedIP}) {
-			svc.ClusterVIPs = model.AddressMap{
-				Addresses: map[cluster.ID][]string{
-					clusterID: ha.addresses,
-				},
-			}
 		}
 		out = append(out, svc)
 	}
@@ -370,7 +362,7 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 		return nil
 	}
 	if services == nil {
-		services = convertServices(cfg, s.clusterID)
+		services = convertServices(cfg)
 	}
 
 	endpointsNum := len(serviceEntry.Endpoints)
@@ -473,7 +465,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 		dnsServiceEntryOnly = true
 	}
 	if addr != "" && !netutil.IsValidIPAddress(addr) {
-		// k8s can't use workloads with hostnames in the addresses field.
+		// k8s can't use workloads with hostnames in the address field.
 		dnsServiceEntryOnly = true
 	}
 	tlsMode := getTLSModeFromWorkloadEntry(we)
@@ -486,7 +478,7 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 	if locality == "" && len(we.Labels[model.LocalityLabel]) > 0 {
 		locality = model.GetLocalityLabel(we.Labels[model.LocalityLabel])
 	}
-	labels := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
+	lbls := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Addresses: []string{addr},
@@ -500,8 +492,8 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 			Namespace: cfg.Namespace,
 			// Workload entry config name is used as workload name, which will appear in metric label.
 			// After VM auto registry is introduced, workload group annotation should be used for workload name.
-			WorkloadName:   cfg.Name,
-			Labels:         labels,
+			WorkloadName:   labels.WorkloadNameFromWorkloadEntry(cfg.Name, cfg.Annotations, cfg.Labels),
+			Labels:         lbls,
 			TLSMode:        tlsMode,
 			ServiceAccount: sa,
 		},

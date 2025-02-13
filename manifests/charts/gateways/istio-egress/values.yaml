@@ -16,6 +16,8 @@ _internal_defaults_do_not_set:
         targetPort: 8443
         protocol: TCP
 
+      # NOTE that these labels will get encoded implicitly into selectorLabels
+      # if this is a problem, consider using the `gateway` chart instead
       labels:
         app: istio-egressgateway
         istio: egressgateway

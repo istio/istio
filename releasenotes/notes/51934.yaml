@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+
+issue: 
+  - 51934
+
+releaseNotes:
+- |
+  **Added** a new flag `remote-contexts` to the `istioctl analyze` command to specify remote cluster contexts during multi-cluster analysis.

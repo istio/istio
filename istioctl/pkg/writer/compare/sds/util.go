@@ -42,6 +42,7 @@ type SecretItem struct {
 	Source      string `json:"source"`
 	Destination string `json:"destination"`
 	State       string `json:"state"`
+	TrustDomain string `json:"trust_domain"`
 	SecretMeta
 }
 
@@ -52,6 +53,7 @@ type SecretMeta struct {
 	NotAfter     string `json:"not_after"`
 	NotBefore    string `json:"not_before"`
 	Type         string `json:"type"`
+	TrustDomain  string `json:"trust_domain"`
 }
 
 // NewSecretItemBuilder returns a new builder to create a secret item
@@ -67,16 +69,18 @@ type SecretItemBuilder interface {
 	Source(string) SecretItemBuilder
 	Destination(string) SecretItemBuilder
 	State(string) SecretItemBuilder
+	TrustDomain(string) SecretItemBuilder
 	Build() (SecretItem, error)
 }
 
 // secretItemBuilder implements SecretItemBuilder, and acts as an intermediate before SecretItem generation
 type secretItemBuilder struct {
-	name   string
-	data   string
-	source string
-	dest   string
-	state  string
+	name        string
+	data        string
+	source      string
+	dest        string
+	state       string
+	trustDomain string
 	SecretMeta
 }
 
@@ -110,6 +114,12 @@ func (s *secretItemBuilder) State(state string) SecretItemBuilder {
 	return s
 }
 
+// TrustDomain sets the trust domain of the secret on the agent or sidecar
+func (s *secretItemBuilder) TrustDomain(trustDomain string) SecretItemBuilder {
+	s.trustDomain = trustDomain
+	return s
+}
+
 // Build takes the set fields from the builder and constructs the actual SecretItem
 // including generating the SecretMeta from the supplied cert data, if present
 func (s *secretItemBuilder) Build() (SecretItem, error) {
@@ -119,12 +129,13 @@ func (s *secretItemBuilder) Build() (SecretItem, error) {
 		Source:      s.source,
 		Destination: s.dest,
 		State:       s.state,
+		TrustDomain: s.trustDomain,
 	}
 
 	var meta SecretMeta
 	var err error
 	if s.data != "" {
-		meta, err = secretMetaFromCert([]byte(s.data))
+		meta, err = secretMetaFromCert([]byte(s.data), result.TrustDomain)
 		if err != nil {
 			log.Debugf("failed to parse secret resource %s from source %s: %v",
 				s.name, s.source, err)
@@ -150,35 +161,37 @@ func GetEnvoySecrets(
 
 	proxySecretItems := make([]SecretItem, 0)
 	for _, warmingSecret := range secretConfigDump.DynamicWarmingSecrets {
-		secret, err := parseDynamicSecret(warmingSecret, "WARMING")
+		secrets, err := parseDynamicSecret(warmingSecret, "WARMING")
 		if err != nil {
 			return nil, fmt.Errorf("failed building warming secret %s: %v",
 				warmingSecret.Name, err)
 		}
-		proxySecretItems = append(proxySecretItems, secret)
+		proxySecretItems = append(proxySecretItems, secrets...)
 	}
 	for _, activeSecret := range secretConfigDump.DynamicActiveSecrets {
-		secret, err := parseDynamicSecret(activeSecret, "ACTIVE")
+		secrets, err := parseDynamicSecret(activeSecret, "ACTIVE")
 		if err != nil {
 			return nil, fmt.Errorf("failed building warming secret %s: %v",
 				activeSecret.Name, err)
 		}
-		if activeSecret.VersionInfo == "uninitialized" {
-			secret.State = "UNINITIALIZED"
+		for _, secret := range secrets {
+			if activeSecret.VersionInfo == "uninitialized" {
+				secret.State = "UNINITIALIZED"
+			}
 		}
-		proxySecretItems = append(proxySecretItems, secret)
+		proxySecretItems = append(proxySecretItems, secrets...)
 	}
 	return proxySecretItems, nil
 }
 
-func parseDynamicSecret(s *envoy_admin.SecretsConfigDump_DynamicSecret, state string) (SecretItem, error) {
+func parseDynamicSecret(s *envoy_admin.SecretsConfigDump_DynamicSecret, state string) ([]SecretItem, error) {
 	builder := NewSecretItemBuilder()
 	builder.Name(s.Name).State(state)
 
 	secretTyped := &auth.Secret{}
 	err := s.GetSecret().UnmarshalTo(secretTyped)
 	if err != nil {
-		return SecretItem{}, err
+		return []SecretItem{}, err
 	}
 
 	certChainSecret := secretTyped.
@@ -196,17 +209,19 @@ func parseDynamicSecret(s *envoy_admin.SecretsConfigDump_DynamicSecret, state st
 		builder.Data(string(certChainSecret))
 	} else if len(caDataSecret) > 0 {
 		builder.Data(string(caDataSecret))
+	} else {
+		return parseTrustBundles(secretTyped, state)
 	}
 
 	secret, err := builder.Build()
 	if err != nil {
-		return SecretItem{}, fmt.Errorf("error building secret: %v", err)
+		return []SecretItem{}, fmt.Errorf("error building secret: %v", err)
 	}
 
-	return secret, nil
+	return []SecretItem{secret}, nil
 }
 
-func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {
+func secretMetaFromCert(rawCert []byte, trustDomain string) (SecretMeta, error) {
 	block, _ := pem.Decode(rawCert)
 	if block == nil {
 		return SecretMeta{}, fmt.Errorf("failed to parse certificate PEM")
@@ -221,6 +236,15 @@ func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {
 	} else {
 		certType = "Cert Chain"
 	}
+	// Trust domain is already known for CAs from SPIFFECertValidator that includes this information,
+	// so skip determining this information, because usually it will be not included in the certificate.
+	if trustDomain == "" {
+		for _, uri := range cert.URIs {
+			if uri.Scheme == "spiffe" {
+				trustDomain = uri.Host
+			}
+		}
+	}
 
 	today := time.Now()
 	return SecretMeta{
@@ -229,5 +253,30 @@ func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {
 		NotBefore:    cert.NotBefore.Format(time.RFC3339),
 		Type:         certType,
 		Valid:        today.After(cert.NotBefore) && today.Before(cert.NotAfter),
+		TrustDomain:  trustDomain,
 	}, nil
+}
+
+func parseTrustBundles(secret *auth.Secret, state string) ([]SecretItem, error) {
+	var secretItems []SecretItem
+	if customValidator := secret.GetValidationContext().GetCustomValidatorConfig(); customValidator != nil {
+		if customValidator.GetTypedConfig().GetTypeUrl() == "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.SPIFFECertValidatorConfig" {
+			spiffeConfig := &auth.SPIFFECertValidatorConfig{}
+			if err := customValidator.GetTypedConfig().UnmarshalTo(spiffeConfig); err != nil {
+				return nil, fmt.Errorf("error unmarshaling spiffe config: %v", err)
+			}
+			for _, td := range spiffeConfig.GetTrustDomains() {
+				builder := NewSecretItemBuilder()
+				builder.Name(secret.Name).State(state)
+				builder.TrustDomain(td.GetName())
+				builder.Data(string(td.GetTrustBundle().GetInlineBytes()))
+				secretItem, err := builder.Build()
+				if err != nil {
+					return []SecretItem{}, err
+				}
+				secretItems = append(secretItems, secretItem)
+			}
+		}
+	}
+	return secretItems, nil
 }

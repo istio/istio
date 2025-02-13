@@ -59,17 +59,10 @@
           maxNumberOfAnnotations: {{ (($.Values.global.tracer).stackdriver).maxNumberOfAnnotations | default "200" }}
           # The global default max number of message events per span.
           maxNumberOfMessageEvents: {{ (($.Values.global.tracer).stackdriver).maxNumberOfMessageEvents | default "200" }}
-      {{- else if eq .Values.global.proxy.tracer "openCensusAgent" }}
-      {{/* Fill in openCensusAgent configuration from meshConfig so it isn't overwritten below */}}
-{{ toYaml $.Values.meshConfig.defaultConfig.tracing | indent 8 }}
       {{- end }}
       {{- end }}
       {{- if .Values.global.remotePilotAddress }}
-      {{- if .Values.enabled }}
-      discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
-      {{- else }}
       discoveryAddress: {{ printf "istiod.%s.svc" .Release.Namespace }}:15012
-      {{- end }}
       {{- else }}
       discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
       {{- end }}

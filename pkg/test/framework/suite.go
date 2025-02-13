@@ -320,7 +320,7 @@ func (s *suiteImpl) RequireMinVersion(minorVersion uint) Suite {
 
 func (s *suiteImpl) RequireDualStack() Suite {
 	fn := func(ctx resource.Context) error {
-		if !ctx.Settings().EnableDualStack {
+		if len(ctx.Settings().IPFamilies) < 2 {
 			s.Skip("Required DualStack condition is not satisfied")
 		}
 		return nil
@@ -362,7 +362,6 @@ func (s *suiteImpl) SetupParallel(fns ...resource.SetupFn) Suite {
 	s.setupFns = append(s.setupFns, func(ctx resource.Context) error {
 		g := multierror.Group{}
 		for _, fn := range fns {
-			fn := fn
 			g.Go(func() error {
 				return fn(ctx)
 			})

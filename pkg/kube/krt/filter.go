@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/smallset"
 )
 
@@ -33,8 +34,30 @@ type filter struct {
 	labels          map[string]string
 	generic         func(any) bool
 
-	listFromIndex func() any
-	indexMatches  func(any) bool
+	index *indexFilter
+}
+
+type indexFilter struct {
+	list         func() any
+	indexMatches func(any) bool
+	extractKeys  objectKeyExtractor
+	key          string
+}
+
+type objectKeyExtractor = func(o any) []string
+
+func getKeyExtractor(o any) []string {
+	return []string{GetKey(o)}
+}
+
+func (f *filter) reverseIndexKey() (string, objectKeyExtractor, bool) {
+	if f.keys.Len() == 1 {
+		return f.keys.List()[0], getKeyExtractor, true
+	}
+	if f.index != nil {
+		return f.index.key, f.index.extractKeys, true
+	}
+	return "", nil, false
 }
 
 func (f *filter) String() string {
@@ -89,11 +112,19 @@ func FilterSelects(lbls map[string]string) FetchOption {
 func FilterIndex[K comparable, I any](idx Index[K, I], k K) FetchOption {
 	return func(h *dependency) {
 		// Index is used to pre-filter on the List, and also to match in Matches. Provide type-erased methods for both
-		h.filter.listFromIndex = func() any {
-			return idx.Lookup(k)
-		}
-		h.filter.indexMatches = func(a any) bool {
-			return idx.objectHasKey(a.(I), k)
+		h.filter.index = &indexFilter{
+			list: func() any {
+				return idx.Lookup(k)
+			},
+			indexMatches: func(a any) bool {
+				return idx.objectHasKey(a.(I), k)
+			},
+			extractKeys: func(o any) []string {
+				return slices.Map(idx.extractKeys(o.(I)), func(e K) string {
+					return toString(e)
+				})
+			},
+			key: toString(k),
 		}
 	}
 }
@@ -131,18 +162,20 @@ func (f *filter) Matches(object any, forList bool) bool {
 	if !forList {
 		// First, lookup directly by key. This is cheap
 		// an empty set will match none
-		if !f.keys.IsNil() && !f.keys.Contains(string(GetKey[any](object))) {
+		if !f.keys.IsNil() && !f.keys.Contains(GetKey[any](object)) {
 			if log.DebugEnabled() {
-				log.Debugf("no match key: %q vs %q", f.keys, string(GetKey[any](object)))
+				log.Debugf("no match key: %q vs %q", f.keys, GetKey[any](object))
 			}
 			return false
 		}
 		// Index is also cheap, and often used to filter namespaces out. Make sure we do this early
-		if f.indexMatches != nil && !f.indexMatches(object) {
-			if log.DebugEnabled() {
-				log.Debugf("no match index")
+		if f.index != nil {
+			if !f.index.indexMatches(object) {
+				if log.DebugEnabled() {
+					log.Debugf("no match index")
+				}
+				return false
 			}
-			return false
 		}
 	}
 

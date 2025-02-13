@@ -63,31 +63,14 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 }
 
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
-	if req == nil {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
+		return res
+	}
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
 		return true
 	}
-	switch proxy.Type {
-	case model.Waypoint:
-		if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
-			// Waypoint proxies have a matcher against pod IPs in them. Historically, any LDS change would do a full
-			// push, recomputing push context. Doing that on every IP change doesn't scale, so we need these to remain
-			// incremental pushes.
-			// This allows waypoints only to push LDS on incremental pushes to Address type which would otherwise be skipped.
-			return true
-		}
-		// Otherwise, only handle full pushes (skip endpoint-only updates)
-		if !req.Full {
-			return false
-		}
-	default:
-		if !req.Full {
-			// LDS only handles full push
-			return false
-		}
-	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
+	if !req.Full {
+		return false
 	}
 	for config := range req.ConfigsUpdated {
 		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {

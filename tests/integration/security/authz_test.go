@@ -110,6 +110,76 @@ func TestAuthz_Principal(t *testing.T) {
 		})
 }
 
+func TestAuthz_ServiceAccount(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			allowed := apps.Ns1.A
+			denied := apps.Ns2.A
+
+			from := allowed.Append(denied)
+			fromMatch := match.AnyServiceName(from.NamespacedNames())
+			toMatch := match.Not(fromMatch)
+			to := toMatch.GetServiceMatches(apps.Ns1.All)
+			fromAndTo := to.Instances().Append(from)
+
+			config.New(t).
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
+				Source(config.File("testdata/authz/allow-serviceaccount.yaml.tmpl").WithParams(
+					param.Params{
+						"Allowed": allowed,
+					})).
+				BuildAll(nil, to).
+				Apply()
+
+			newTrafficTest(t, fromAndTo).
+				FromMatch(fromMatch).
+				ToMatch(toMatch).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+					allow := allowValue(from.NamespacedName() == allowed.NamespacedName())
+
+					cases := []struct {
+						ports []echo.Port
+						path  string
+						allow allowValue
+					}{
+						{
+							ports: []echo.Port{ports.GRPC, ports.TCP},
+							allow: allow,
+						},
+						{
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/allow",
+							allow: allow,
+						},
+						{
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/allow?param=value",
+							allow: allow,
+						},
+						{
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/deny",
+							allow: false,
+						},
+						{
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/deny?param=value",
+							allow: false,
+						},
+					}
+
+					for _, c := range cases {
+						newAuthzTest().
+							From(from).
+							To(to).
+							Allow(c.allow).
+							Path(c.path).
+							BuildAndRunForPorts(t, c.ports...)
+					}
+				})
+		})
+}
+
 func TestAuthz_DenyPrincipal(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
@@ -458,7 +528,6 @@ func TestAuthz_NotHost(t *testing.T) {
 					}
 
 					for _, c := range cases {
-						c := c
 						testName := fmt.Sprintf("%s(%s)/http", c.host, c.allow)
 						t.NewSubTest(testName).Run(func(t framework.TestContext) {
 							wantCode := http.StatusOK
@@ -1056,10 +1125,17 @@ func TestAuthz_PathTemplating(t *testing.T) {
 							path:  "/store/cart",
 							allow: false,
 						},
+						{
+							path:  "/store/foo/cart",
+							allow: true,
+						},
+						{
+							path:  "/store/foo/bar/cart",
+							allow: true,
+						},
 					}
 
 					for _, c := range cases {
-						c := c
 						testName := fmt.Sprintf("%s(%s)/http", c.path, c.allow)
 						t.NewSubTest(testName).Run(func(t framework.TestContext) {
 							newAuthzTest().
@@ -1214,7 +1290,6 @@ func TestAuthz_IngressGateway(t *testing.T) {
 					}
 
 					for _, c := range cases {
-						c := c
 						testName := fmt.Sprintf("%s%s(%s)/http", c.host, c.path, c.allow)
 						if len(c.ip) > 0 {
 							testName = c.ip + "->" + testName
@@ -1317,7 +1392,6 @@ func TestAuthz_EgressGateway(t *testing.T) {
 					}
 
 					for _, c := range cases {
-						c := c
 						testName := fmt.Sprintf("%s%s(%s)/http", c.host, c.path, c.allow)
 						t.NewSubTest(testName).Run(func(t framework.TestContext) {
 							wantCode := http.StatusOK
@@ -1501,7 +1575,6 @@ func TestAuthz_Conditions(t *testing.T) {
 					}
 
 					for _, c := range cases {
-						c := c
 						xfooHeader := ""
 						if c.headers != nil {
 							xfooHeader = "?x-foo=" + c.headers.Get("x-foo")
@@ -1599,7 +1672,6 @@ func TestAuthz_PathNormalization(t *testing.T) {
 					}
 
 					for _, c := range cases {
-						c := c
 						testName := fmt.Sprintf("%s(%s)/http", c.path, c.allow)
 						t.NewSubTest(testName).Run(func(t framework.TestContext) {
 							newAuthzTest().
@@ -1707,7 +1779,6 @@ func TestAuthz_CustomServer(t *testing.T) {
 							}
 
 							for _, c := range cases {
-								c := c
 								if c.skip {
 									continue
 								}
@@ -1722,7 +1793,6 @@ func TestAuthz_CustomServer(t *testing.T) {
 										return provider.IsProtocolSupported(tst.opts.Port.Protocol)
 									})
 								for _, tst := range tsts {
-									tst := tst
 									params := ""
 									if c.headers != nil {
 										params = fmt.Sprintf("?%s=%s", authz.XExtAuthz, c.headers.Get(authz.XExtAuthz))
@@ -1919,7 +1989,6 @@ func (tsts authzTests) RunAll(t framework.TestContext) {
 	outerTestName := fmt.Sprintf("%s%s(%s)", firstTest.prefix, firstTest.opts.HTTP.Path, firstTest.allow)
 	t.NewSubTest(outerTestName).Run(func(t framework.TestContext) {
 		for _, tst := range tsts {
-			tst := tst
 			t.NewSubTest(tst.opts.Port.Name).Run(func(t framework.TestContext) {
 				tst.BuildAndRun(t)
 			})
@@ -1947,7 +2016,6 @@ func (tsts authzTests) RunInSerial(t framework.TestContext) {
 	outerTestName := fmt.Sprintf("%s%s(%s)", firstTest.prefix, firstTest.opts.HTTP.Path, firstTest.allow)
 	t.NewSubTest(outerTestName).Run(func(t framework.TestContext) {
 		for _, tst := range tsts {
-			tst := tst
 			t.NewSubTest(tst.opts.Port.Name).Run(func(t framework.TestContext) {
 				tst.BuildAndRun(t)
 			})

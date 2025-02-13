@@ -69,12 +69,12 @@ func NewDiscoveryNamespacesFilter(
 				f.notifyHandlers(sets.New(ns.Name), nil)
 			}
 		},
-		UpdateFunc: func(old, new *corev1.Namespace) {
+		UpdateFunc: func(oldObj, newObj *corev1.Namespace) {
 			f.lock.Lock()
-			membershipChanged, namespaceAdded := f.namespaceUpdatedLocked(old.ObjectMeta, new.ObjectMeta)
+			membershipChanged, namespaceAdded := f.namespaceUpdatedLocked(oldObj.ObjectMeta, newObj.ObjectMeta)
 			f.lock.Unlock()
 			if membershipChanged {
-				added := sets.New(new.Name)
+				added := sets.New(newObj.Name)
 				var removed sets.String
 				if !namespaceAdded {
 					removed = added

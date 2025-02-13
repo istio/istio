@@ -199,7 +199,6 @@ func TestFilters(t *testing.T) {
 		},
 	}
 	for n, tc := range tests {
-		n, tc := n, tc
 		t.Run(n, func(t *testing.T) {
 			compare(t, tc.filter(all), tc.expect)
 		})
@@ -328,7 +327,6 @@ func TestRun(t *testing.T) {
 		}
 
 		for name, tt := range tests {
-			tt := tt
 			t.NewSubTest(name).Run(func(t framework.TestContext) {
 				testTopology := map[string]map[string]int{}
 				tt.run(t, testTopology)
@@ -383,8 +381,8 @@ func (f fakeInstance) NamespaceName() string {
 	return f.Config().NamespaceName()
 }
 
-func (f fakeInstance) ServiceAccountName() string {
-	return f.Config().ServiceAccountName()
+func (f fakeInstance) SpiffeIdentity() string {
+	return f.Config().SpiffeIdentity()
 }
 
 func (f fakeInstance) ClusterLocalFQDN() string {

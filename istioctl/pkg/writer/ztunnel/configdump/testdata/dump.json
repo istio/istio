@@ -1031,5 +1031,34 @@
       "state": "Unavailable: signing gRPC error (The service is currently unavailable): error trying to connect: TLS handshake failed: cert verification failed - unable to get local issuer certificate [CERTIFICATE_VERIFY_FAILED]",
       "certChain": []
     }
+  ],
+  "policies": [
+    {
+      "action": "Allow",
+      "name": "allow-nothing",
+      "namespace": "default",
+      "rules": [],
+      "scope": "Namespace"
+    },
+    {
+      "action": "Allow",
+      "name": "allow-waypoint",
+      "namespace": "default",
+      "rules": [
+        [
+          [
+            {
+              "serviceAccounts": [
+                {
+                  "namespace": "default",
+                  "serviceAccount": "waypoint"
+                }
+              ]
+            }
+          ]
+        ]
+      ],
+      "scope": "WorkloadSelector"
+    }
   ]
 }

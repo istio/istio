@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -88,6 +89,8 @@ type Controller struct {
 	// is only the case when we are the leader.
 	statusController *atomic.Pointer[status.Controller]
 
+	tagWatcher revisions.TagWatcher
+
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
 }
 
@@ -111,6 +114,7 @@ func NewController(
 		cluster:               options.ClusterID,
 		domain:                options.DomainSuffix,
 		statusController:      atomic.NewPointer(ctl),
+		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision),
 		waitForCRD:            waitForCRD,
 	}
 
@@ -171,7 +175,7 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 
 // Reconcile takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
 // Any status updates required will be enqueued as well.
-func (c *Controller) Reconcile(ps *model.PushContext) error {
+func (c *Controller) Reconcile(ps *model.PushContext) {
 	t0 := time.Now()
 	defer func() {
 		log.Debugf("reconcile complete in %v", time.Since(t0))
@@ -184,6 +188,11 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
 	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
 	serviceEntry := c.cache.List(gvk.ServiceEntry, metav1.NamespaceAll) // TODO lazy load only referenced SEs?
+
+	// all other types are filtered by revision, but for gateways we need to select tags as well
+	gateway = slices.FilterInPlace(gateway, func(gw config.Config) bool {
+		return c.tagWatcher.IsMine(gw.ToObjectMeta())
+	})
 
 	input := GatewayResources{
 		GatewayClass:   deepCopyStatus(gatewayClass),
@@ -204,7 +213,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 		defer c.stateMu.Unlock()
 		// make sure we clear out the state, to handle the last gateway-api resource being removed
 		c.state = IstioResources{}
-		return nil
+		return
 	}
 
 	nsl := c.namespaces.List("", klabels.Everything())
@@ -217,9 +226,10 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	if c.credentialsController != nil {
 		credentials, err := c.credentialsController.ForCluster(c.cluster)
 		if err != nil {
-			return fmt.Errorf("failed to get credentials: %v", err)
+			log.Warnf("failed to get credentials: %v", err)
+		} else {
+			input.Credentials = credentials
 		}
-		input.Credentials = credentials
 	}
 
 	output := convertResources(input)
@@ -230,7 +240,6 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.state = output
-	return nil
 }
 
 func (c *Controller) QueueStatusUpdates(r GatewayResources) {
@@ -296,10 +305,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			}
 		}()
 	}
+	go c.tagWatcher.Run(stop)
 }
 
 func (c *Controller) HasSynced() bool {
-	return c.cache.HasSynced() && c.namespaces.HasSynced()
+	return c.cache.HasSynced() && c.namespaces.HasSynced() && c.tagWatcher.HasSynced()
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {

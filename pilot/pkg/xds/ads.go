@@ -147,7 +147,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	// For now, don't let xDS piggyback debug requests start watchers.
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
 		return s.pushXds(con,
-			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames},
+			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: sets.New(req.ResourceNames...)},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 
@@ -226,12 +226,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	}
 
 	// InitContext returns immediately if the context was already initialized.
-	if err = s.globalPushContext().InitContext(s.Env, nil, nil); err != nil {
-		// Error accessing the data - log and close, maybe a different pilot replica
-		// has more luck
-		log.Warnf("Error reading config %v", err)
-		return status.Error(codes.Unavailable, "error reading config")
-	}
+	s.globalPushContext().InitContext(s.Env, nil, nil)
 	con := newConnection(peerAddr, stream)
 	con.ids = ids
 	con.s = s
@@ -386,6 +381,8 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 }
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
+	proxy.Lock()
+	defer proxy.Unlock()
 	var shouldResetGateway, shouldResetSidecarScope bool
 	// 1. If request == nil(initiation phase) or request.ConfigsUpdated == nil(global push), set proxy serviceTargets.
 	// 2. otherwise only set when svc update, this is for the case that a service may select the proxy

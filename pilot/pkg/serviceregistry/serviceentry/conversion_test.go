@@ -33,10 +33,10 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 )
@@ -604,11 +604,6 @@ func makeService(hostname host.Name, configName, configNamespace string, address
 			K8sAttributes:   model.K8sAttributes{ObjectName: configName},
 		},
 	}
-	if !slices.Equal(addresses, []string{constants.UnspecifiedIP}) {
-		svc.ClusterVIPs = model.AddressMap{
-			Addresses: map[cluster.ID][]string{"": addresses},
-		}
-	}
 
 	if autoV4 != "" {
 		svc.AutoAllocatedIPv4Address = autoV4
@@ -663,7 +658,7 @@ func makeInstanceWithServiceAccount(cfg *config.Config, addresses []string, port
 func makeTarget(cfg *config.Config, address string, port int,
 	svcPort *networking.ServicePort, svcLabels map[string]string, mtlsMode MTLSMode,
 ) model.ServiceTarget {
-	services := convertServices(*cfg, "")
+	services := convertServices(*cfg)
 	svc := services[0] // default
 	for _, s := range services {
 		if string(s.Hostname) == address {
@@ -694,7 +689,7 @@ func makeTarget(cfg *config.Config, address string, port int,
 func makeInstance(cfg *config.Config, addresses []string, port int,
 	svcPort *networking.ServicePort, svcLabels map[string]string, mtlsMode MTLSMode,
 ) *model.ServiceInstance {
-	services := convertServices(*cfg, "")
+	services := convertServices(*cfg)
 	svc := services[0] // default
 	getSvc := false
 	for _, s := range services {
@@ -738,7 +733,6 @@ func makeInstance(cfg *config.Config, addresses []string, port int,
 }
 
 func TestConvertService(t *testing.T) {
-	test.SetForTest(t, &features.EnableIPAutoallocate, true)
 	testConvertServiceBody(t)
 	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
 	testConvertServiceBody(t)
@@ -860,7 +854,11 @@ func testConvertServiceBody(t *testing.T) {
 			services: []*model.Service{
 				makeService("tcp1.com", "multiAddrInternal", "multiAddrInternal", []string{"1.1.1.0/16", "2.2.2.0/16"}, "", "",
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+				makeService("tcp1.com", "multiAddrInternal", "multiAddrInternal", []string{"2.2.2.0/16", "1.1.1.0/16"}, "", "",
+					map[string]int{"tcp-444": 444}, false, model.Passthrough),
 				makeService("tcp2.com", "multiAddrInternal", "multiAddrInternal", []string{"1.1.1.0/16", "2.2.2.0/16"}, "", "",
+					map[string]int{"tcp-444": 444}, false, model.Passthrough),
+				makeService("tcp2.com", "multiAddrInternal", "multiAddrInternal", []string{"2.2.2.0/16", "1.1.1.0/16"}, "", "",
 					map[string]int{"tcp-444": 444}, false, model.Passthrough),
 			},
 		},
@@ -879,7 +877,7 @@ func testConvertServiceBody(t *testing.T) {
 	})
 
 	for _, tt := range serviceTests {
-		services := convertServices(*tt.externalSvc, "")
+		services := convertServices(*tt.externalSvc)
 		if err := compare(t, services, tt.services); err != nil {
 			t.Errorf("testcase: %v\n%v ", tt.externalSvc.Name, err)
 		}
@@ -1066,8 +1064,8 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			services := convertServices(*tt.se, "")
-			s := &Controller{meshWatcher: mesh.NewFixedWatcher(mesh.DefaultMeshConfig())}
+			services := convertServices(*tt.se)
+			s := &Controller{meshWatcher: meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())}
 			instances := s.convertWorkloadEntryToServiceInstances(tt.wle, services, tt.se.Spec.(*networking.ServiceEntry), &configKey{}, tt.clusterID)
 			sortServiceInstances(instances)
 			sortServiceInstances(tt.out)
@@ -1402,7 +1400,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 
 	for _, tt := range workloadInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Controller{networkIDCallback: tt.getNetworkIDCb, meshWatcher: mesh.NewFixedWatcher(mesh.DefaultMeshConfig())}
+			s := &Controller{networkIDCallback: tt.getNetworkIDCb, meshWatcher: meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())}
 			instance := s.convertWorkloadEntryToWorkloadInstance(tt.wle, cluster.ID(clusterID))
 			if err := compare(t, instance, tt.out); err != nil {
 				t.Fatal(err)

@@ -19,7 +19,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config/labels"
@@ -66,7 +65,7 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 		ip = pod.Status.PodIP
 		node = pod.Spec.NodeName
 	}
-	dm, _ := kubeUtil.GetDeployMetaFromPod(pod)
+	dm, _ := kubeUtil.GetWorkloadMetaFromPod(pod)
 	out := &EndpointBuilder{
 		controller:     c,
 		serviceAccount: sa,
@@ -87,33 +86,13 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 	return out
 }
 
-func (c *Controller) NewEndpointBuilderFromMetadata(proxy *model.Proxy) *EndpointBuilder {
-	locality := util.LocalityToString(proxy.Locality)
-	out := &EndpointBuilder{
-		controller:     c,
-		metaNetwork:    proxy.Metadata.Network,
-		serviceAccount: proxy.Metadata.ServiceAccount,
-		locality: model.Locality{
-			Label:     locality,
-			ClusterID: c.Cluster(),
-		},
-		tlsMode:  model.GetTLSModeFromEndpointLabels(proxy.Labels),
-		nodeName: proxy.GetNodeName(),
-	}
-	var networkID network.ID
-	if len(proxy.IPAddresses) > 0 {
-		networkID = out.endpointNetwork(proxy.IPAddresses[0])
-	}
-	out.labels = labelutil.AugmentLabels(proxy.Labels, c.Cluster(), locality, out.nodeName, networkID)
-	return out
-}
-
 func (b *EndpointBuilder) buildIstioEndpoint(
 	endpointAddress string,
 	endpointPort int32,
 	svcPortName string,
 	discoverabilityPolicy model.EndpointDiscoverabilityPolicy,
 	healthStatus model.HealthStatus,
+	sendUnhealthy bool,
 ) *model.IstioEndpoint {
 	if b == nil {
 		return nil
@@ -127,21 +106,22 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 	}
 
 	return &model.IstioEndpoint{
-		Labels:                b.labels,
-		ServiceAccount:        b.serviceAccount,
-		Locality:              b.locality,
-		TLSMode:               b.tlsMode,
-		Addresses:             []string{endpointAddress},
-		EndpointPort:          uint32(endpointPort),
-		ServicePortName:       svcPortName,
-		Network:               networkID,
-		WorkloadName:          b.workloadName,
-		Namespace:             b.namespace,
-		HostName:              b.hostname,
-		SubDomain:             b.subDomain,
-		DiscoverabilityPolicy: discoverabilityPolicy,
-		HealthStatus:          healthStatus,
-		NodeName:              b.nodeName,
+		Labels:                 b.labels,
+		ServiceAccount:         b.serviceAccount,
+		Locality:               b.locality,
+		TLSMode:                b.tlsMode,
+		Addresses:              []string{endpointAddress},
+		EndpointPort:           uint32(endpointPort),
+		ServicePortName:        svcPortName,
+		Network:                networkID,
+		WorkloadName:           b.workloadName,
+		Namespace:              b.namespace,
+		HostName:               b.hostname,
+		SubDomain:              b.subDomain,
+		DiscoverabilityPolicy:  discoverabilityPolicy,
+		HealthStatus:           healthStatus,
+		SendUnhealthyEndpoints: sendUnhealthy,
+		NodeName:               b.nodeName,
 	}
 }
 

@@ -25,10 +25,10 @@ import (
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
+	iptablescapture "istio.io/istio/tools/istio-iptables/pkg/capture"
 	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
-	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
 )
 
 var log = scopes.CNIAgent
@@ -52,45 +52,71 @@ const (
 	ProbeIPSet                  = "istio-inpod-probes"
 )
 
-type Config struct {
-	TraceLogging bool `json:"IPTABLES_TRACE_LOGGING"`
-	EnableIPv6   bool `json:"ENABLE_INBOUND_IPV6"`
-	RedirectDNS  bool `json:"REDIRECT_DNS"`
-	// If true, TPROXY will be used for redirection. Else, REDIRECT will be used.
-	// Currently, this is treated as a feature flag, but may be promoted to a permanent feature if there is a need.
-	TPROXYRedirection bool `json:"TPROXY_REDIRECTION"`
+// "global"/per-instance IptablesConfig
+type IptablesConfig struct {
+	TraceLogging           bool       `json:"IPTABLES_TRACE_LOGGING"`
+	EnableIPv6             bool       `json:"ENABLE_INBOUND_IPV6"`
+	RedirectDNS            bool       `json:"REDIRECT_DNS"`
+	HostProbeSNATAddress   netip.Addr `json:"HOST_PROBE_SNAT_ADDRESS"`
+	HostProbeV6SNATAddress netip.Addr `json:"HOST_PROBE_V6_SNAT_ADDRESS"`
+	Reconcile              bool       `json:"RECONCILE"`
+	CleanupOnly            bool       `json:"CLEANUP_ONLY"`
+	ForceApply             bool       `json:"FORCE_APPLY"`
 }
+
+// For inpod rules, any runtime/dynamic pod-level
+// config overrides that may need to be taken into account
+// when injecting pod rules
+type PodLevelOverrides struct {
+	VirtualInterfaces []string
+	IngressMode       bool
+	DNSProxy          PodDNSOverride
+}
+
+type PodDNSOverride int
+
+const (
+	PodDNSUnset PodDNSOverride = iota
+	PodDNSEnabled
+	PodDNSDisabled
+)
 
 type IptablesConfigurator struct {
 	ext    dep.Dependencies
 	nlDeps NetlinkDependencies
-	cfg    *Config
+	cfg    *IptablesConfig
 	iptV   dep.IptablesVersion
 	ipt6V  dep.IptablesVersion
 }
 
-func ipbuildConfig(c *Config) *iptablesconfig.Config {
+func ipbuildConfig(c *IptablesConfig) *iptablesconfig.Config {
 	return &iptablesconfig.Config{
 		TraceLogging: c.TraceLogging,
 		EnableIPv6:   c.EnableIPv6,
 		RedirectDNS:  c.RedirectDNS,
+		Reconcile:    c.Reconcile,
+		ForceApply:   c.ForceApply,
 	}
 }
 
 func NewIptablesConfigurator(
-	cfg *Config,
+	hostCfg *IptablesConfig,
+	podCfg *IptablesConfig,
 	hostDeps dep.Dependencies,
 	podDeps dep.Dependencies,
 	nlDeps NetlinkDependencies,
 ) (*IptablesConfigurator, *IptablesConfigurator, error) {
-	if cfg == nil {
-		cfg = &Config{}
+	if hostCfg == nil {
+		hostCfg = &IptablesConfig{}
+	}
+	if podCfg == nil {
+		podCfg = &IptablesConfig{}
 	}
 
 	configurator := &IptablesConfigurator{
 		ext:    hostDeps,
 		nlDeps: nlDeps,
-		cfg:    cfg,
+		cfg:    hostCfg,
 	}
 
 	// By detecting iptables versions *here* once-for-all we are
@@ -128,46 +154,42 @@ func NewIptablesConfigurator(
 	// Setup another configurator with inpod configuration. Basically this will just change how locking is done.
 	inPodConfigurator := ptr.Of(*configurator)
 	inPodConfigurator.ext = podDeps
+	inPodConfigurator.cfg = podCfg
 	return configurator, inPodConfigurator, nil
 }
 
-func (cfg *IptablesConfigurator) DeleteInpodRules() error {
+func (cfg *IptablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
 	var inpodErrs []error
 
-	log.Debug("Deleting iptables rules")
-
-	inpodErrs = append(inpodErrs, cfg.executeDeleteCommands(), cfg.delInpodMarkIPRule(), cfg.delLoopbackRoute())
+	log.Debug("deleting iptables rules")
+	cfg.executeDeleteCommands(log)
+	inpodErrs = append(inpodErrs, cfg.delInpodMarkIPRule(), cfg.delLoopbackRoute())
 	return errors.Join(inpodErrs...)
 }
 
-func (cfg *IptablesConfigurator) executeDeleteCommands() error {
+func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 	deleteCmds := [][]string{
-		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
-		{"-t", iptablesconstants.MANGLE, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
-		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
-		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
-		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.PREROUTING, "-j", ChainInpodPrerouting},
-		{"-t", iptablesconstants.RAW, "-D", iptablesconstants.OUTPUT, "-j", ChainInpodOutput},
-	}
-
-	// these sometimes fail due to "Device or resource busy"
-	optionalDeleteCmds := [][]string{
+		{"-t", "mangle", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
+		{"-t", "mangle", "-D", "OUTPUT", "-j", ChainInpodOutput},
+		{"-t", "nat", "-D", "OUTPUT", "-j", ChainInpodOutput},
+		{"-t", "raw", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
+		{"-t", "raw", "-D", "OUTPUT", "-j", ChainInpodOutput},
+		{"-t", "nat", "-D", "PREROUTING", "-j", ChainInpodPrerouting},
 		// flush-then-delete our created chains
-		{"-t", iptablesconstants.MANGLE, "-F", ChainInpodPrerouting},
-		{"-t", iptablesconstants.MANGLE, "-F", ChainInpodOutput},
-		{"-t", iptablesconstants.NAT, "-F", ChainInpodPrerouting},
-		{"-t", iptablesconstants.NAT, "-F", ChainInpodOutput},
-		{"-t", iptablesconstants.RAW, "-F", ChainInpodPrerouting},
-		{"-t", iptablesconstants.RAW, "-F", ChainInpodOutput},
-		{"-t", iptablesconstants.MANGLE, "-X", ChainInpodPrerouting},
-		{"-t", iptablesconstants.MANGLE, "-X", ChainInpodOutput},
-		{"-t", iptablesconstants.NAT, "-X", ChainInpodPrerouting},
-		{"-t", iptablesconstants.NAT, "-X", ChainInpodOutput},
-		{"-t", iptablesconstants.RAW, "-X", ChainInpodPrerouting},
-		{"-t", iptablesconstants.RAW, "-X", ChainInpodOutput},
+		// these sometimes fail due to "Device or resource busy" or because they are optional given the iptables cfg
+		{"-t", "mangle", "-F", ChainInpodPrerouting},
+		{"-t", "mangle", "-F", ChainInpodOutput},
+		{"-t", "nat", "-F", ChainInpodPrerouting},
+		{"-t", "nat", "-F", ChainInpodOutput},
+		{"-t", "raw", "-F", ChainInpodPrerouting},
+		{"-t", "raw", "-F", ChainInpodOutput},
+		{"-t", "mangle", "-X", ChainInpodPrerouting},
+		{"-t", "mangle", "-X", ChainInpodOutput},
+		{"-t", "nat", "-X", ChainInpodPrerouting},
+		{"-t", "nat", "-X", ChainInpodOutput},
+		{"-t", "raw", "-X", ChainInpodPrerouting},
+		{"-t", "raw", "-X", ChainInpodOutput},
 	}
-
-	var delErrs []error
 
 	iptablesVariant := []dep.IptablesVersion{}
 	iptablesVariant = append(iptablesVariant, cfg.iptV)
@@ -178,24 +200,16 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 	for _, iptVer := range iptablesVariant {
 		for _, cmd := range deleteCmds {
-			delErrs = append(delErrs, cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...))
-		}
-
-		for _, cmd := range optionalDeleteCmds {
-			err := cfg.ext.Run(iptablesconstants.IPTables, &iptVer, nil, cmd...)
-			if err != nil {
-				log.Debugf("ignoring error deleting optional iptables rule: %v", err)
-			}
+			_, _ = cfg.ext.Run(log, true, iptablesconstants.IPTables, &iptVer, nil, cmd...)
 		}
 	}
-	return errors.Join(delErrs...)
 }
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbeSNAT, hostProbeV6SNAT netip.Addr) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides PodLevelOverrides) error {
 	// Append our rules here
-	builder := cfg.appendInpodRules(hostProbeSNAT, hostProbeV6SNAT)
+	builder := cfg.AppendInpodRules(podOverrides)
 
 	if err := cfg.addLoopbackRoute(); err != nil {
 		return err
@@ -214,8 +228,17 @@ func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, hostProbe
 	return nil
 }
 
-func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT netip.Addr) *builder.IptablesRuleBuilder {
-	redirectDNS := cfg.cfg.RedirectDNS
+func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides PodLevelOverrides) *builder.IptablesRuleBuilder {
+	var redirectDNS bool
+
+	switch podOverrides.DNSProxy {
+	case PodDNSUnset:
+		redirectDNS = cfg.cfg.RedirectDNS
+	case PodDNSEnabled:
+		redirectDNS = true
+	case PodDNSDisabled:
+		redirectDNS = false
+	}
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodTProxyMask)
@@ -228,137 +251,120 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 
 	// -t mangle -A PREROUTING -j ISTIO_PRERT
 	iptablesBuilder.AppendRule(
-		iptableslog.UndefinedCommand, iptablesconstants.PREROUTING, iptablesconstants.MANGLE,
+		"PREROUTING", "mangle",
 		"-j", ChainInpodPrerouting,
 	)
 
 	// -t mangle -A OUTPUT -p tcp -j ISTIO_OUTPUT
 	iptablesBuilder.AppendRule(
-		iptableslog.UndefinedCommand, iptablesconstants.OUTPUT, iptablesconstants.MANGLE,
+		"OUTPUT", "mangle",
 		"-j", ChainInpodOutput,
 	)
 
 	// -t nat -A OUTPUT -p tcp -j ISTIO_OUTPUT
 	iptablesBuilder.AppendRule(
-		iptableslog.UndefinedCommand, iptablesconstants.OUTPUT, iptablesconstants.NAT,
+		"OUTPUT", "nat",
 		"-j", ChainInpodOutput,
 	)
 
 	if redirectDNS {
 		iptablesBuilder.AppendRule(
-			iptableslog.UndefinedCommand, iptablesconstants.PREROUTING, iptablesconstants.RAW,
+			"PREROUTING", "raw",
 			"-j", ChainInpodPrerouting,
 		)
 		iptablesBuilder.AppendRule(
-			iptableslog.UndefinedCommand, iptablesconstants.OUTPUT, iptablesconstants.RAW,
+			"OUTPUT", "raw",
 			"-j", ChainInpodOutput,
 		)
 	}
 
-	natOrMangleBasedOnTproxy := iptablesconstants.MANGLE
-	if !cfg.cfg.TPROXYRedirection {
-		natOrMangleBasedOnTproxy = iptablesconstants.NAT
-		// -t nat -A PREROUTING -p tcp -j ISTIO_PRERT
-		iptablesBuilder.AppendRule(
-			iptableslog.UndefinedCommand, iptablesconstants.PREROUTING, iptablesconstants.NAT,
-			"-j", ChainInpodPrerouting,
-		)
-	}
+	// -t nat -A PREROUTING -p tcp -j ISTIO_PRERT
+	iptablesBuilder.AppendRule(
+		"PREROUTING", "nat",
+		"-j", ChainInpodPrerouting,
+	)
 
 	// From here on, we should be only inserting rules into our custom chains.
 
-	// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
-	//
-	// DESC: If we have a packet mark, set a connmark.
-	iptablesBuilder.AppendRule(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE, "-m", "mark",
-		"--mark", inpodMark,
-		"-j", "CONNMARK",
-		"--set-xmark", inpodTproxyMark)
+	// To keep things manageable, the first rules in the ISTIO_PRERT chain should be short-circuits, like
+	// virtual interface exclusions/redirects:
+	if len(podOverrides.VirtualInterfaces) != 0 {
+		for _, virtInterface := range podOverrides.VirtualInterfaces {
+			// CLI: -t nat -A ISTIO_PRERT -i virt0 -p tcp -j REDIRECT --to-ports 15001
+			//
+			// DESC: For any configured virtual interfaces, treat inbound as outbound traffic (useful for kubeVirt, VMs, DinD, etc)
+			// and just shunt it directly to the outbound port of the proxy.
+			// Note that for now this explicitly excludes UDP traffic, as we can't proxy arbitrary UDP stuff,
+			// and this is a difference from the old sidecar `traffic.sidecar.istio.io/kubevirtInterfaces` annotation.
+			iptablesBuilder.AppendRule(ChainInpodPrerouting, "nat",
+				"-i", fmt.Sprint(virtInterface),
+				"-p", "tcp",
+				"-j", "REDIRECT",
+				"--to-ports", fmt.Sprint(ZtunnelOutboundPort),
+			)
+			// CLI: -t nat -A ISTIO_PRERT -i virt0 -p tcp -j RETURN
+			//
+			// DESC: Now that the virtual interface packet has been redirected, just stop processing and jump out of the istio PRERT chain.
+			// Another difference from the sidecar kubevirt rules is that this one RETURNs from the istio chain,
+			// and not the top-level PREROUTING table like the kubevirt rule does.
+			// Returning from the top-level PREROUTING table would skip other people's PRERT rules unconditionally,
+			// which is unsafe (and should not be needed anyway) - if we really find ourselves needing to do that, we should ACCEPT inside our chain instead.
+			iptablesBuilder.AppendRule(ChainInpodPrerouting, "nat",
+				"-i", fmt.Sprint(virtInterface),
+				"-p", "tcp",
+				"-j", "RETURN",
+			)
+		}
+	}
 
-	// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
-	// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
-	//
-	// We do this so we can exempt this traffic from ztunnel capture/proxy - otherwise both kube-proxy (legit)
-	// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
+	if !podOverrides.IngressMode {
+		// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
+		//
+		// DESC: If we have a packet mark, set a connmark.
+		iptablesBuilder.AppendRule(ChainInpodPrerouting, "mangle", "-m", "mark",
+			"--mark", inpodMark,
+			"-j", "CONNMARK",
+			"--set-xmark", inpodTproxyMark)
 
-	// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
-	// CLI: -t mangle -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
-	//
-	// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
-	iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
-		iptableslog.UndefinedCommand, ChainInpodPrerouting, natOrMangleBasedOnTproxy,
-		"-s", iptablesconstants.IPVersionSpecific,
-		"-p", "tcp",
-		"-m", "tcp",
-		"-j", "ACCEPT",
-	)
+		// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
+		// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
+		//
+		// We do this so we can exempt this traffic from ztunnel capture/proxy - otherwise both kube-proxy (legit)
+		// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
+
+		// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+		// CLI: -t mangle -A ISTIO_PRERT -s fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+		//
+		// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
+		iptablesBuilder.AppendVersionedRule(cfg.cfg.HostProbeSNATAddress.String(), cfg.cfg.HostProbeV6SNATAddress.String(),
+			ChainInpodPrerouting, "nat",
+			"-s", iptablesconstants.IPVersionSpecific,
+			"-p", "tcp",
+			"-m", "tcp",
+			"-j", "ACCEPT",
+		)
+	}
 
 	// CLI: -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp -j ACCEPT
 	// CLI: -t NAT -A ISTIO_OUTPUT -d fd16:9254:7127:1337:ffff:ffff:ffff:ffff -p tcp -m tcp -j ACCEPT
 	//
 	// DESC: Anything coming BACK from the pod healthcheck port with a dest of our SNAT-ed hostside IP
 	// we also short-circuit.
-	iptablesBuilder.AppendVersionedRule(hostProbeSNAT.String(), hostProbeV6SNAT.String(),
-		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
+	iptablesBuilder.AppendVersionedRule(cfg.cfg.HostProbeSNATAddress.String(), cfg.cfg.HostProbeV6SNATAddress.String(),
+		ChainInpodOutput, "nat",
 		"-d", iptablesconstants.IPVersionSpecific,
 		"-p", "tcp",
 		"-m", "tcp",
 		"-j", "ACCEPT",
 	)
 
-	if cfg.cfg.TPROXYRedirection {
-		// prevent intercept traffic from app ==> app by pod ip
-		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
-			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-			"!", "-d", iptablesconstants.IPVersionSpecific, // ignore traffic to localhost ip, as this rule means to catch traffic to pod ip.
-			"-p", iptablesconstants.TCP,
-			"-i", "lo",
-			"-j", "ACCEPT")
-		// CLI: -A ISTIO_PRERT -p tcp -m tcp --dport <INPORT> -m mark ! --mark 0x539/0xfff -j TPROXY --on-port <INPORT> --on-ip 127.0.0.1 --tproxy-mark 0x111/0xfff
-		//
-		// DESC: Anything heading to <INPORT> that does not have the mark, TPROXY to ztunnel inbound port <INPORT>
-		iptablesBuilder.AppendRule(
-			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-			"-p", "tcp",
-			"-m", "tcp",
-			"--dport", fmt.Sprintf("%d", ZtunnelInboundPort),
-			"-m", "mark", "!",
-			"--mark", inpodMark,
-			"-j", "TPROXY",
-			"--on-port", fmt.Sprintf("%d", ZtunnelInboundPort),
-			// "--on-ip", "127.0.0.1",
-			"--tproxy-mark", inpodTproxyMark,
-		)
-		// CLI: -A ISTIO_PRERT -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-		//
-		// DESC: Anything that's already in conntrack as an established connection, accept
-		iptablesBuilder.AppendRule(
-			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-			"-p", "tcp",
-			"-m", "conntrack",
-			"--ctstate", "RELATED,ESTABLISHED",
-			"-j", "ACCEPT",
-		)
-		// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x539/0xfff -j TPROXY --on-port <INPLAINPORT> --on-ip 127.0.0.1 --tproxy-mark 0x111/0xfff
-		//
-		// DESC: Anything that is not bound for localhost and does not have the mark, TPROXY to ztunnel inbound plaintext port <INPLAINPORT>
-		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
-			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-			"!", "-d", iptablesconstants.IPVersionSpecific,
-			"-p", "tcp",
-			"-m", "mark", "!",
-			"--mark", inpodMark,
-			"-j", "TPROXY",
-			"--on-port", fmt.Sprintf("%d", ZtunnelInboundPlaintextPort),
-			"--tproxy-mark", inpodTproxyMark,
-		)
-	} else {
+	if !podOverrides.IngressMode {
 		// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports <INPLAINPORT>
 		//
 		// DESC: Anything that is not bound for localhost and does not have the mark, REDIRECT to ztunnel inbound plaintext port <INPLAINPORT>
 		// Skip 15008, which will go direct without redirect needed.
 		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
-			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.NAT,
+			ChainInpodPrerouting, "nat",
 			"!", "-d", iptablesconstants.IPVersionSpecific,
 			"-p", "tcp",
 			"!", "--dport", fmt.Sprint(ZtunnelInboundPort),
@@ -373,7 +379,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 	//
 	// DESC: Propagate/restore connmark (if we had one) for outbound
 	iptablesBuilder.AppendRule(
-		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.MANGLE,
+		ChainInpodOutput, "mangle",
 		"-m", "connmark",
 		"--mark", inpodTproxyMark,
 		"-j", "CONNMARK",
@@ -387,7 +393,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		//
 		// DESC: If this is a UDP DNS request to a non-localhost resolver, send it to ztunnel DNS proxy port
 		iptablesBuilder.AppendRule(
-			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
+			ChainInpodOutput, "nat",
 			"!", "-o", "lo",
 			"-p", "udp",
 			"-m", "mark", "!",
@@ -399,7 +405,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		)
 		// Same as above for TCP
 		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
-			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
+			ChainInpodOutput, "nat",
 			"!", "-d", iptablesconstants.IPVersionSpecific,
 			"-p", "tcp",
 			"--dport", "53",
@@ -413,7 +419,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		// See https://github.com/istio/istio/issues/33469
 		// Proxy --> Upstream
 		iptablesBuilder.AppendRule(
-			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.RAW,
+			ChainInpodOutput, "raw",
 			"-p", "udp",
 			// Proxy will mark outgoing packets
 			"-m", "mark",
@@ -425,7 +431,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 		)
 		// Upstream --> Proxy return packets
 		iptablesBuilder.AppendRule(
-			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.RAW,
+			ChainInpodPrerouting, "raw",
 			"-p", "udp",
 			"-m", "mark", "!",
 			"--mark", inpodMark,
@@ -440,7 +446,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 	//
 	// DESC: If this is outbound and has our mark, let it go.
 	iptablesBuilder.AppendRule(
-		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
+		ChainInpodOutput, "nat",
 		"-p", "tcp",
 		"-m", "mark",
 		"--mark", inpodTproxyMark,
@@ -450,7 +456,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 	// Do not redirect app calls to back itself via Ztunnel when using the endpoint address
 	// e.g. appN => appN by lo
 	iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
-		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
+		ChainInpodOutput, "nat",
 		"!", "-d", iptablesconstants.IPVersionSpecific,
 		"-o", "lo",
 		"-j", "ACCEPT",
@@ -459,7 +465,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 	//
 	// DESC: If this is outbound, not bound for localhost, and does not have our packet mark, redirect to ztunnel proxy <OUTPORT>
 	iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
-		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
+		ChainInpodOutput, "nat",
 		"!", "-d", iptablesconstants.IPVersionSpecific,
 		"-p", "tcp",
 		"-m", "mark", "!",
@@ -472,14 +478,77 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT, hostProbeV6SNAT
 
 func (cfg *IptablesConfigurator) executeCommands(log *istiolog.Scope, iptablesBuilder *builder.IptablesRuleBuilder) error {
 	var execErrs []error
+	guardrails := false
+	defer func() {
+		if guardrails {
+			log.Info("Removing guardrails")
+			guardrailsCleanup := iptablesBuilder.BuildCleanupGuardrails()
+			_ = cfg.executeIptablesCommands(log, &cfg.iptV, guardrailsCleanup)
+			_ = cfg.executeIptablesCommands(log, &cfg.ipt6V, guardrailsCleanup)
+		}
+	}()
+	residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, cfg.ext, iptablesBuilder, &cfg.iptV, &cfg.ipt6V)
+	if residueExists && deltaExists && !cfg.cfg.Reconcile {
+		log.Warn("reconcile is needed but no-reconcile flag is set. Unexpected behavior may occur due to preexisting iptables rules")
+	}
+	// Cleanup Step
+	if (residueExists && deltaExists && cfg.cfg.Reconcile) || cfg.cfg.CleanupOnly {
+		// Apply safety guardrails
+		if !cfg.cfg.CleanupOnly {
+			log.Info("Setting up guardrails")
+			guardrailsCleanup := iptablesBuilder.BuildCleanupGuardrails()
+			guardrailsRules := iptablesBuilder.BuildGuardrails()
+			for _, ver := range []*dep.IptablesVersion{&cfg.iptV, &cfg.ipt6V} {
+				cfg.tryExecuteIptablesCommands(log, ver, guardrailsCleanup)
+				if err := cfg.executeIptablesCommands(log, ver, guardrailsRules); err != nil {
+					return err
+				}
+				guardrails = true
+			}
+		}
+		// Remove old iptables
+		log.Info("Performing cleanup of existing iptables")
+		cfg.tryExecuteIptablesCommands(log, &cfg.iptV, iptablesBuilder.BuildCleanupV4())
+		cfg.tryExecuteIptablesCommands(log, &cfg.ipt6V, iptablesBuilder.BuildCleanupV6())
 
-	// Execute iptables-restore
-	execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV))
-	// Execute ip6tables-restore
-	if cfg.cfg.EnableIPv6 {
-		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V))
+		// Remove leftovers from non-matching istio iptables cfg
+		if cfg.cfg.Reconcile {
+			log.Info("Performing cleanup of any unexpected leftovers from previous iptables executions")
+			cfg.cleanupIstioLeftovers(log, cfg.ext, iptablesBuilder, &cfg.iptV, &cfg.ipt6V)
+		}
+	}
+
+	// Apply Step
+	if (deltaExists || cfg.cfg.ForceApply) && !cfg.cfg.CleanupOnly {
+		log.Info("Applying iptables chains and rules")
+		// Execute iptables-restore
+		execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV4Restore(), &cfg.iptV))
+		// Execute ip6tables-restore
+		if cfg.cfg.EnableIPv6 {
+			execErrs = append(execErrs, cfg.executeIptablesRestoreCommand(log, iptablesBuilder.BuildV6Restore(), &cfg.ipt6V))
+		}
 	}
 	return errors.Join(execErrs...)
+}
+
+func (cfg *IptablesConfigurator) cleanupIstioLeftovers(log *istiolog.Scope, ext dep.Dependencies, ruleBuilder *builder.IptablesRuleBuilder,
+	iptV *dep.IptablesVersion, ipt6V *dep.IptablesVersion,
+) {
+	for _, ipVer := range []*dep.IptablesVersion{iptV, ipt6V} {
+		if ipVer == nil {
+			continue
+		}
+		output, err := ext.Run(log, true, iptablesconstants.IPTablesSave, ipVer, nil)
+		if err == nil {
+			currentState := ruleBuilder.GetStateFromSave(output.String())
+			leftovers := iptablescapture.HasIstioLeftovers(currentState)
+			if len(leftovers) > 0 {
+				log.Infof("Detected Istio iptables artifacts from a previous execution; initiating a second cleanup pass.")
+				log.Debugf("Istio iptables artifacts identified for cleanup: %+v", leftovers)
+				cfg.tryExecuteIptablesCommands(log, ipVer, builder.BuildCleanupFromState(leftovers))
+			}
+		}
+	}
 }
 
 func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(
@@ -490,7 +559,25 @@ func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(
 	cmd := iptablesconstants.IPTablesRestore
 	log.Infof("Running %s with the following input:\n%v", iptVer.CmdToString(cmd), strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	return cfg.ext.Run(cmd, iptVer, strings.NewReader(data), "--noflush", "-v")
+	_, err := cfg.ext.Run(log, false, cmd, iptVer, strings.NewReader(data), "--noflush", "-v")
+	return err
+}
+
+func (cfg *IptablesConfigurator) executeIptablesCommands(log *istiolog.Scope, iptVer *dep.IptablesVersion, args [][]string) error {
+	var iptErrs []error
+	// TODO: pass log all the way through
+	for _, argSet := range args {
+		if _, err := cfg.ext.Run(log, false, iptablesconstants.IPTables, iptVer, nil, argSet...); err != nil {
+			iptErrs = append(iptErrs, err)
+		}
+	}
+	return errors.Join(iptErrs...)
+}
+
+func (cfg *IptablesConfigurator) tryExecuteIptablesCommands(log *istiolog.Scope, iptVer *dep.IptablesVersion, commands [][]string) {
+	for _, cmd := range commands {
+		_, _ = cfg.ext.Run(log, true, iptablesconstants.IPTables, iptVer, nil, cmd...)
+	}
 }
 
 func (cfg *IptablesConfigurator) addLoopbackRoute() error {
@@ -516,9 +603,9 @@ func (cfg *IptablesConfigurator) delInpodMarkIPRule() error {
 // via the nodeIP
 // - kubelet (node-local healthchecks, which we do not capture)
 // - kube-proxy (fowarded/proxied traffic from LoadBalancer-backed services, potentially with public IPs, which we must capture)
-func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks(hostSNATIP, hostSNATIPV6 *netip.Addr) error {
+func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks() error {
 	// Append our rules here
-	builder := cfg.appendHostRules(hostSNATIP, hostSNATIPV6)
+	builder := cfg.AppendHostRules()
 
 	log.Info("Adding host netnamespace iptables rules")
 
@@ -531,36 +618,22 @@ func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks(hostSNATIP, host
 
 func (cfg *IptablesConfigurator) DeleteHostRules() {
 	log.Debug("Attempting to delete hostside iptables rules (if they exist)")
-
-	cfg.executeHostDeleteCommands()
-}
-
-func (cfg *IptablesConfigurator) executeHostDeleteCommands() {
-	optionalDeleteCmds := [][]string{
-		// delete our main jump in the host ruleset. If it's not there, NBD.
-		{"-t", iptablesconstants.NAT, "-D", iptablesconstants.POSTROUTING, "-j", ChainHostPostrouting},
-		// flush-then-delete our created chains
-		// these sometimes fail due to "Device or resource busy" - again NBD.
-		{"-t", iptablesconstants.NAT, "-F", ChainHostPostrouting},
-		{"-t", iptablesconstants.NAT, "-X", ChainHostPostrouting},
-	}
-
-	// iptablei seems like a reasonable pluralization of iptables
-	iptablesVariant := []dep.IptablesVersion{}
-	iptablesVariant = append(iptablesVariant, cfg.iptV)
-
-	if cfg.cfg.EnableIPv6 {
-		iptablesVariant = append(iptablesVariant, cfg.ipt6V)
-	}
-	for _, iptVer := range iptablesVariant {
-		for _, cmd := range optionalDeleteCmds {
+	builder := cfg.AppendHostRules()
+	runCommands := func(cmds [][]string, version *dep.IptablesVersion) {
+		for _, cmd := range cmds {
 			// Ignore errors, as it is expected to fail in cases where the node is already cleaned up.
-			cfg.ext.RunQuietlyAndIgnore(iptablesconstants.IPTables, &iptVer, nil, cmd...)
+			_, _ = cfg.ext.Run(log.WithLabels("component", "host"), true, iptablesconstants.IPTables, version, nil, cmd...)
 		}
 	}
+
+	runCommands(builder.BuildCleanupV4(), &cfg.iptV)
+
+	if cfg.cfg.EnableIPv6 {
+		runCommands(builder.BuildCleanupV6(), &cfg.ipt6V)
+	}
 }
 
-func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP, hostSNATIPV6 *netip.Addr) *builder.IptablesRuleBuilder {
+func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder {
 	log.Info("configuring host-level iptables rules (healthchecks, etc)")
 
 	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
@@ -568,7 +641,7 @@ func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP, hostSNATIPV6 *netip
 	// For easier cleanup, insert a jump into an owned chain
 	// -A POSTROUTING -p tcp -j ISTIO_POSTRT
 	iptablesBuilder.AppendRule(
-		iptableslog.UndefinedCommand, iptablesconstants.POSTROUTING, iptablesconstants.NAT,
+		"POSTROUTING", "nat",
 		"-j", ChainHostPostrouting,
 	)
 
@@ -589,7 +662,7 @@ func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP, hostSNATIPV6 *netip
 
 	// -A OUTPUT -m owner --socket-exists -p tcp -m set --match-set istio-inpod-probes dst,dst -j SNAT --to-source 169.254.7.127
 	iptablesBuilder.AppendRuleV4(
-		iptableslog.UndefinedCommand, ChainHostPostrouting, iptablesconstants.NAT,
+		ChainHostPostrouting, "nat",
 		"-m", "owner",
 		"--socket-exists",
 		"-p", "tcp",
@@ -597,13 +670,13 @@ func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP, hostSNATIPV6 *netip
 		"--match-set", fmt.Sprintf(ipset.V4Name, ProbeIPSet),
 		"dst",
 		"-j", "SNAT",
-		"--to-source", hostSNATIP.String(),
+		"--to-source", cfg.cfg.HostProbeSNATAddress.String(),
 	)
 
 	// For V6 we have to use a different set and a different SNAT IP
 	if cfg.cfg.EnableIPv6 {
 		iptablesBuilder.AppendRuleV6(
-			iptableslog.UndefinedCommand, ChainHostPostrouting, iptablesconstants.NAT,
+			ChainHostPostrouting, "nat",
 			"-m", "owner",
 			"--socket-exists",
 			"-p", "tcp",
@@ -611,9 +684,15 @@ func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP, hostSNATIPV6 *netip
 			"--match-set", fmt.Sprintf(ipset.V6Name, ProbeIPSet),
 			"dst",
 			"-j", "SNAT",
-			"--to-source", hostSNATIPV6.String(),
+			"--to-source", cfg.cfg.HostProbeV6SNATAddress.String(),
 		)
 	}
 
 	return iptablesBuilder
+}
+
+// ReconcileModeEnable returns true if this particular iptables configurator
+// supports/has idempotent execution enabled - i.e. reconcile mode.
+func (cfg *IptablesConfigurator) ReconcileModeEnabled() bool {
+	return cfg.cfg.Reconcile
 }

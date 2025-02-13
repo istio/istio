@@ -32,9 +32,9 @@ import (
 )
 
 func TestSingleton(t *testing.T) {
-	c := kube.NewFakeClient()
-	ConfigMaps := krt.NewInformer[*corev1.ConfigMap](c)
 	stop := test.NewStop(t)
+	c := kube.NewFakeClient()
+	ConfigMaps := krt.NewInformer[*corev1.ConfigMap](c, krt.WithStop(stop))
 	c.RunAndWait(stop)
 	cmt := clienttest.NewWriter[*corev1.ConfigMap](t, c)
 	ConfigMapNames := krt.NewSingleton[string](
@@ -43,9 +43,9 @@ func TestSingleton(t *testing.T) {
 			return ptr.Of(slices.Join(",", slices.Map(cms, func(c *corev1.ConfigMap) string {
 				return config.NamespacedName(c).String()
 			})...))
-		},
+		}, krt.WithStop(stop),
 	)
-	ConfigMapNames.AsCollection().Synced().WaitUntilSynced(stop)
+	ConfigMapNames.AsCollection().WaitUntilSynced(stop)
 	tt := assert.NewTracker[string](t)
 	ConfigMapNames.Register(TrackerHandler[string](tt))
 	tt.WaitOrdered("add/")

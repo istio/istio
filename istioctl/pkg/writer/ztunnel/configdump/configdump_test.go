@@ -64,65 +64,50 @@ func TestConfigWriter_Prime(t *testing.T) {
 	}
 }
 
-func TestConfigWriter_PrintSecretSummary(t *testing.T) {
+func TestConfigWriter_PrintSummary(t *testing.T) {
 	tests := []struct {
 		name               string
 		wantOutputSecret   string
 		wantOutputWorkload string
+		wantOutputPolicies string
 		configNamespace    string
-		callPrime          bool
-		wantErr            bool
 	}{
 		{
-			name:             "returns expected secret summary onto Stdout",
-			callPrime:        true,
+			name:             "secret",
 			wantOutputSecret: "testdata/secretsummary.txt",
 		},
 		{
-			name:    "errors if config dump is not primed",
-			wantErr: true,
-		},
-		{
-			name:               "returns expected workload summary onto Stdout",
-			callPrime:          true,
+			name:               "workload",
 			wantOutputWorkload: "testdata/workloadsummary.txt",
 		},
 		{
-			name:               "returns expected workload summary with the default namespace",
-			callPrime:          true,
+			name:               "filtered workload",
 			configNamespace:    "default",
 			wantOutputWorkload: "testdata/workloadsummary_default.txt",
+		},
+		{
+			name:               "policies",
+			wantOutputPolicies: "testdata/policies.txt",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotOut := &bytes.Buffer{}
 			cw := &ConfigWriter{Stdout: gotOut}
-			cd, _ := os.ReadFile("testdata/dump.json")
-			if tt.callPrime {
-				cw.Prime(cd)
-			}
+			cd := util.ReadFile(t, "testdata/dump.json")
+			assert.NoError(t, cw.Prime(cd))
 			if tt.wantOutputSecret != "" {
-				err := cw.PrintSecretSummary()
-				if err == nil && tt.wantErr {
-					t.Errorf("PrintSecretSummary (%v) did not produce expected err", tt.name)
-				} else if err != nil && !tt.wantErr {
-					t.Errorf("PrintSecretSummary (%v) produced unexpected err: %v", tt.name, err)
-				}
+				assert.NoError(t, cw.PrintSecretSummary())
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputSecret)
 			}
 			if tt.wantOutputWorkload != "" {
-				wf := WorkloadFilter{}
-				if tt.configNamespace != "" {
-					wf.Namespace = tt.configNamespace
-				}
-				err := cw.PrintWorkloadSummary(wf)
-				if err == nil && tt.wantErr {
-					t.Errorf("PrintWorkloadSummary (%v) did not produce expected err", tt.name)
-				} else if err != nil && !tt.wantErr {
-					t.Errorf("PrintWorkloadSummary (%v) produced unexpected err: %v", tt.name, err)
-				}
+				wf := WorkloadFilter{Namespace: tt.configNamespace}
+				assert.NoError(t, cw.PrintWorkloadSummary(wf))
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputWorkload)
+			}
+			if tt.wantOutputPolicies != "" {
+				assert.NoError(t, cw.PrintPolicySummary(PolicyFilter{}))
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputPolicies)
 			}
 		})
 	}

@@ -42,13 +42,13 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 		o(d)
 	}
 	// Important: register before we List(), so we cannot miss any events
-	h.registerDependency(d, c.Synced(), func(f erasedEventHandler) {
+	h.registerDependency(d, c, func(f erasedEventHandler) Syncer {
 		ff := func(o []Event[T], initialSync bool) {
 			f(slices.Map(o, castEvent[T, any]), initialSync)
 		}
 		// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
 		// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
-		c.RegisterBatch(ff, false)
+		return c.RegisterBatch(ff, false)
 	})
 
 	// Now we can do the real fetching
@@ -59,13 +59,13 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 		// If they fetch a set of keys, directly Get these. Usually this is a single resource.
 		list = make([]T, 0, d.filter.keys.Len())
 		for _, k := range d.filter.keys.List() {
-			if i := c.GetKey(Key[T](k)); i != nil {
+			if i := c.GetKey(k); i != nil {
 				list = append(list, *i)
 			}
 		}
-	} else if d.filter.listFromIndex != nil {
+	} else if d.filter.index != nil {
 		// Otherwise from an index; fetch from there. Often this is a list of a namespace
-		list = d.filter.listFromIndex().([]T)
+		list = d.filter.index.list().([]T)
 	} else {
 		// Otherwise get everything
 		list = c.List()

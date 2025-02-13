@@ -35,6 +35,7 @@ func TestAuthz(t *testing.T) {
 			ExpectedOutput: `ACTION   AuthorizationPolicy         RULES
 ALLOW    _anonymous_match_nothing_   1
 ALLOW    httpbin.default             1
+CUSTOM   ext-authz.default           1
 `,
 		},
 	}

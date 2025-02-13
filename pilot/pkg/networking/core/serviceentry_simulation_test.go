@@ -16,9 +16,11 @@ package core_test
 import (
 	"testing"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -206,13 +208,69 @@ func TestServiceEntry(t *testing.T) {
 				},
 			},
 		},
+		{
+			// Regression test for https://github.com/istio/istio/issues/52847
+			name: "partial overlap of IP",
+			config: tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se1
+spec:
+  hosts:
+  - blah1.somedomain
+  addresses: {{ . |toJson }}
+  ports:
+  - number: 9999
+    name: port-9999
+    protocol: TCP`, []string{"1.1.1.1"}) + "\n---\n" + tmpl.MustEvaluate(`apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se2
+spec:
+  hosts:
+  - blah2.somedomain
+  addresses: {{ . |toJson }}
+  ports:
+  - number: 9999
+    name: port-9999
+    protocol: TCP`, []string{"2.2.2.2", "1.1.1.1"}),
+			kubeConfig: "",
+			calls: []simulation.Expect{
+				{
+					Name: "unique IP",
+					Call: simulation.Call{
+						Port: 9999,
+						// Matches both, but more closely matches blah2, but SNI is blah1
+						Address: "2.2.2.2",
+					},
+					Result: simulation.Result{
+						Error:           nil,
+						ListenerMatched: "2.2.2.2_9999",
+						ClusterMatched:  "outbound|9999||blah2.somedomain",
+					},
+				},
+				{
+					Name: "shared IP",
+					Call: simulation.Call{
+						Port: 9999,
+						// Matches both, but more closely matches blah2, but SNI is blah1
+						Address: "1.1.1.1",
+					},
+					Result: simulation.Result{
+						Error:           nil,
+						ListenerMatched: "1.1.1.1_9999",
+						ClusterMatched:  "outbound|9999||blah1.somedomain",
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := &model.Proxy{
 				Labels:      map[string]string{"app": "foo"},
-				Metadata:    &model.NodeMetadata{Labels: map[string]string{"app": "foo"}},
+				Metadata:    &model.NodeMetadata{Labels: map[string]string{"app": "foo"}, ClusterID: "Kubernetes"},
 				IPAddresses: []string{"127.0.0.1", "1234::1234"},
 			}
 			proxy.DiscoverIPMode()
@@ -256,6 +314,9 @@ spec:
 `
 
 func TestServiceEntryDuplicatedHostname(t *testing.T) {
+	// Only the old IP auto-allocator has this functionality
+	// TODO(https://github.com/istio/istio/issues/53676): implement this in the new one, and test both
+	test.SetForTest(t, &features.EnableIPAutoallocate, false)
 	cases := []simulationTest{
 		{
 			name:   "service entries with reused hosts should have auto allocated the same IP address",

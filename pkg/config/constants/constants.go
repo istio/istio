@@ -181,6 +181,11 @@ const (
 	// Anything else indicates it is not.
 	AmbientRedirectionEnabled = "enabled"
 
+	// The presence of this annotation with this specific value indicates the pod is
+	// *partially* captured but no ztunnel has accepted it for proxying yet.
+	// Pods in this state will not egress/ingress traffic until an active ztunnel begins proxying them.
+	AmbientRedirectionPending = "pending"
+
 	// ServiceTraffic indicates that service traffic should go through the intended waypoint.
 	ServiceTraffic = "service"
 	// WorkloadTraffic indicates that workload traffic should go through the intended waypoint.

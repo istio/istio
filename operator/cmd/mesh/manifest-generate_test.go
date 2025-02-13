@@ -370,6 +370,7 @@ func runRevisionedWebhookTest(t *testing.T, testResourceFile, whSource string) {
 func TestManifestGenerateIstiodRemote(t *testing.T) {
 	g := NewWithT(t)
 
+	const istiodServiceName = "istiod"
 	objss := runManifestCommands(t, "istiod_remote", "", liveCharts, nil)
 
 	for _, objs := range objss {
@@ -382,13 +383,13 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
 
 		g.Expect(objs.kind(gvk.ConfigMap.Kind).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
-		g.Expect(objs.kind(gvk.Service.Kind).nameEquals("istiod-remote")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.Service.Kind).nameEquals(istiodServiceName)).Should(Not(BeNil()))
 		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
 
 		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured.Object
 		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
 
-		ep := mustGetEndpoint(g, objs, "istiod-remote").Unstructured.Object
+		ep := mustGetEndpoint(g, objs, istiodServiceName).Unstructured.Object
 		g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
 		g.Expect(ep).Should(HavePathValueContain(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
 
@@ -516,8 +517,9 @@ func TestManifestGeneratePilot(t *testing.T) {
 			fileSelect: []string{"templates/deployment.yaml", "templates/autoscale.yaml"},
 		},
 		{
-			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istiod, Service:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector,ServiceAccount:*:istio-reader-service-account",
+			desc: "pilot_override_kubernetes",
+			// nolint: lll
+			diffSelect: "Deployment:*:istiod, Service:*:istiod,PodDisruptionBudget:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector,ServiceAccount:*:istio-reader-service-account",
 			fileSelect: []string{
 				"templates/deployment.yaml", "templates/mutatingwebhook.yaml",
 				"templates/service.yaml", "templates/reader-serviceaccount.yaml",
@@ -816,9 +818,20 @@ func TestLDFlags(t *testing.T) {
 	assert.Equal(t, vals.GetPathString("spec.tag"), version.DockerInfo.Tag)
 }
 
+// TestManifestGenerateStructure makes some basic assertions about the structure of GeneratedManifests output.
+// This is to ensure that we only generate a single ManifestSet per component-type (in this case ingress gateways).
+// prevent an `istioctl install` regression of https://github.com/istio/istio/issues/53875
+func TestManifestGenerateStructure(t *testing.T) {
+	multiGatewayFile := filepath.Join(testDataDir, "input/gateways.yaml")
+	sets, _, err := render.GenerateManifest([]string{multiGatewayFile}, []string{}, false, nil, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, len(sets), 1) // if this produces more than 1 ManifestSet it will cause a deadlock during install
+	gateways := sets[0].Manifests
+	assert.Equal(t, len(gateways), 21) // 7 kube resources * 3 gateways
+}
+
 func runTestGroup(t *testing.T, tests testGroup) {
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.desc, func(t *testing.T) {
 			t.Parallel()
 			inPath := filepath.Join(testDataDir, "input", tt.desc+".yaml")

@@ -95,7 +95,6 @@ func initTestEnv(t *testing.T, ki kubernetes.Interface, fx *xdsfake.Updater) {
 
 func cleanup(ki kubernetes.Interface) {
 	for _, n := range []string{"nsa", "nsb"} {
-		n := n
 		pods, err := ki.CoreV1().Pods(n).List(context.TODO(), metav1.ListOptions{})
 		if err == nil {
 			// Make sure the pods don't exist
@@ -257,7 +256,7 @@ func TestPodCacheEvents(t *testing.T) {
 	notReadyCondition := []v1.PodCondition{{Type: v1.PodReady, Status: v1.ConditionFalse}}
 	readyCondition := []v1.PodCondition{{Type: v1.PodReady, Status: v1.ConditionTrue}}
 
-	if err := f(nil,
+	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{Conditions: notReadyCondition, PodIP: ip, Phase: v1.PodPending}},
 		&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{Conditions: notReadyCondition, PodIP: ip, Phase: v1.PodPending}},
 		model.EventUpdate); err != nil {
 		t.Error(err)
@@ -266,7 +265,9 @@ func TestPodCacheEvents(t *testing.T) {
 		t.Errorf("notified workload handler %d times, want %d", handled, 0)
 	}
 
-	if err := f(nil, &v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{Conditions: readyCondition, PodIP: ip, Phase: v1.PodPending}}, model.EventUpdate); err != nil {
+	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{Conditions: notReadyCondition, PodIP: ip, Phase: v1.PodPending}},
+		&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{Conditions: readyCondition, PodIP: ip, Phase: v1.PodPending}},
+		model.EventUpdate); err != nil {
 		t.Error(err)
 	}
 	if handled != 1 {
@@ -274,7 +275,7 @@ func TestPodCacheEvents(t *testing.T) {
 	}
 	assert.Equal(t, c.pods.getPodKeys(ip), []types.NamespacedName{{Name: "pod1", Namespace: "default"}})
 
-	if err := f(nil,
+	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{Conditions: readyCondition, PodIP: ip, Phase: v1.PodPending}},
 		&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{Conditions: readyCondition, PodIP: ip, Phase: v1.PodFailed}}, model.EventUpdate); err != nil {
 		t.Error(err)
 	}
@@ -284,7 +285,8 @@ func TestPodCacheEvents(t *testing.T) {
 	assert.Equal(t, podCache.getPodKeys(ip), nil)
 
 	pod1.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-	if err := f(nil, &v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventUpdate); err != nil {
+	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{Conditions: readyCondition, PodIP: ip, Phase: v1.PodFailed}},
+		&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventUpdate); err != nil {
 		t.Error(err)
 	}
 	if handled != 2 {
@@ -292,7 +294,9 @@ func TestPodCacheEvents(t *testing.T) {
 	}
 
 	pod2 := metav1.ObjectMeta{Name: "pod2", Namespace: ns}
-	if err := f(nil, &v1.Pod{ObjectMeta: pod2, Status: v1.PodStatus{Conditions: readyCondition, PodIP: ip, Phase: v1.PodRunning}}, model.EventAdd); err != nil {
+	if err := f(&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}},
+		&v1.Pod{ObjectMeta: pod2, Status: v1.PodStatus{Conditions: readyCondition, PodIP: ip, Phase: v1.PodRunning}},
+		model.EventAdd); err != nil {
 		t.Error(err)
 	}
 	if handled != 3 {
@@ -308,9 +312,12 @@ func TestPodCacheEvents(t *testing.T) {
 	}
 	assert.Equal(t, sets.New(c.pods.getPodKeys(ip)...), sets.New(types.NamespacedName{Name: "pod2", Namespace: "default"}))
 
-	if err := f(nil, &v1.Pod{ObjectMeta: pod2, Spec: v1.PodSpec{
+	if err := f(&v1.Pod{ObjectMeta: pod2, Spec: v1.PodSpec{
 		RestartPolicy: v1.RestartPolicyOnFailure,
-	}, Status: v1.PodStatus{Conditions: readyCondition, PodIP: ip, Phase: v1.PodFailed}}, model.EventUpdate); err != nil {
+	}, Status: v1.PodStatus{Conditions: readyCondition, PodIP: ip, Phase: v1.PodFailed}},
+		&v1.Pod{ObjectMeta: pod2, Spec: v1.PodSpec{
+			RestartPolicy: v1.RestartPolicyOnFailure,
+		}, Status: v1.PodStatus{Conditions: readyCondition, PodIP: ip, Phase: v1.PodFailed}}, model.EventUpdate); err != nil {
 		t.Error(err)
 	}
 	if handled != 4 {

@@ -89,11 +89,10 @@ func NewCredentialsController(kc kube.Client, handlers []func(name string, names
 		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
 	secrets := kclient.NewFiltered[*v1.Secret](kc, kclient.Filter{
 		FieldSelector: fieldSelector,
-		ObjectFilter:  kube.FilterIfEnhancedFilteringEnabled(kc),
+		ObjectFilter:  kc.ObjectFilter(),
 	})
 
 	for _, h := range handlers {
-		h := h
 		// register handler before informer starts
 		secrets.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 			h(o.GetName(), o.GetNamespace())

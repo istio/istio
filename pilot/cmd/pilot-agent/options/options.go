@@ -95,10 +95,6 @@ var (
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
 	credIdentityProvider = env.Register("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
 		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
-	proxyXDSDebugViaAgent = env.Register("PROXY_XDS_DEBUG_VIA_AGENT", true,
-		"If set to true, the agent will listen on tap port and offer pilot's XDS istio.io/debug debug API there.").Get()
-	proxyXDSDebugViaAgentPort = env.Register("PROXY_XDS_DEBUG_VIA_AGENT_PORT", 15004,
-		"Agent debugging port.").Get()
 	// DNSCaptureByAgent is a copy of the env var in the init code.
 	DNSCaptureByAgent = env.Register("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
@@ -133,8 +129,8 @@ var (
 	wasmHTTPRequestMaxRetries = env.Register("WASM_HTTP_REQUEST_MAX_RETRIES", wasm.DefaultHTTPRequestMaxRetries,
 		"maximum number of HTTP/HTTPS request retries for pulling a Wasm module via http/https").Get()
 
-	enableWDSEnv = env.Register("PEER_METADATA_DISCOVERY", false,
-		"If set to true, enable the peer metadata discovery extension in Envoy").Get()
+	enableWDSEnv, enableWDSEnvWasSet = env.Register("PEER_METADATA_DISCOVERY", false,
+		"If set to true, enable the peer metadata discovery extension in Envoy").Lookup()
 
 	envoyStatusPortEnv = env.Register("ENVOY_STATUS_PORT", 15021,
 		"Envoy health status port value").Get()
@@ -164,4 +160,8 @@ var (
 	exitOnZeroActiveConnectionsEnv = env.Register("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",
 		false,
 		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
+
+	envoySkipDeprecatedLogsEnv = env.Register("ENVOY_SKIP_DEPRECATED_LOGS",
+		true,
+		"By default, deprecated log messages are skipped, Set to 'false' to display all deprecated log messages.").Get()
 )

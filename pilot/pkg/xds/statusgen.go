@@ -89,7 +89,7 @@ func (sg *StatusGen) handleInternalRequest(_ *model.Proxy, w *model.WatchedResou
 			break
 		}
 		var err error
-		dumpRes, err := sg.debugConfigDump(w.ResourceNames[0])
+		dumpRes, err := sg.debugConfigDump(w.ResourceNames.UnsortedList()[0])
 		if err != nil {
 			log.Infof("%s failed: %v", TypeDebugConfigDump, err)
 			break

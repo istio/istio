@@ -6,6 +6,12 @@ The Istio CNI Node Agent is responsible for several things
 - In sidecar mode, the CNI plugin can configure sidecar networking for pods when they are scheduled by the container runtime, using iptables. The CNI handling the netns setup replaces the current Istio approach using a `NET_ADMIN` privileged `initContainers` container, `istio-init`, injected in the pods along with `istio-proxy` sidecars. This removes the need for a privileged, `NET_ADMIN` container in the Istio users' application pods.
 - In ambient mode, the CNI plugin does not configure any networking, but is only responsible for synchronously pushing new pod events back up to an ambient watch server which runs as part of the Istio CNI node agent. The ambient server will find the pod netns and configure networking inside that pod via iptables. The ambient server will additionally watch enabled namespaces, and enroll already-started-but-newly-enrolled pods in a similar fashion.
 
+## Development
+
+The Istio cni-plugin has a hard dependency on Linux. Some efforts have been made to allow non-funtional builds on non-Linux OSes but these are not universal. For most any reasonable intents and purposes only building on Linux is supported. If you are on a non-Linux development environment use `make shell`.
+
+Most any Linux architecture supported by Go should work. Istio is only tested on AMD64 and ARM64.
+
 ## Privileges required
 
 Regardless of mode, the Istio CNI Node Agent requires privileged node permissions, and will require allow-listing in constrained environments that block privileged workloads by default. If using sidecar repair mode or ambient mode, the node agent additionally needs permissions to enter pod network namespaces and perform networking configuration in them. If either sidecar repair or ambient mode are enabled, on startup the container will drop all Linux capabilities via (`drop:ALL`), and re-add back the ones sidecar repair/ambient explicitly require to function, namely:
@@ -68,7 +74,7 @@ The annotation based control is currently only supported in 'sidecar' mode. See 
 - includeInboudPorts, excludeInboundPorts
 - includeOutboutPorts, excludeOutboundPorts
 - excludeInterfaces
-- kubevirtInterfaces
+- kubevirtInterfaces (deprecated), reroute-virtual-interfaces
 - ISTIO_META_DNS_CAPTURE env variable on the proxy - enables dns redirect
 - INVALID_DROP env var on proxy - changes behavior from reset to drop in iptables
 - auto excluded inbound ports: 15020, 15021, 15090

@@ -114,7 +114,6 @@ func (i Installer) install(manifests []manifest.ManifestSet) error {
 	})...)
 	dependencyWaitCh := dependenciesChannels()
 	for _, mf := range manifests {
-		mf := mf
 		c := mf.Component
 		ms := mf.Manifests
 		disabledComponents.Delete(c)

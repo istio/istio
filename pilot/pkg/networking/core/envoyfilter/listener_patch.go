@@ -37,13 +37,13 @@ import (
 // ApplyListenerPatches applies patches to LDS output
 func ApplyListenerPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
-	efw *model.EnvoyFilterWrapper,
+	efw *model.MergedEnvoyFilterWrapper,
 	lis []*listener.Listener,
 	skipAdds bool,
 ) (out []*listener.Listener) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		IncrementEnvoyFilterErrorMetric(Listener)
-		log.Errorf("listeners patch %s/%s caused panic, so the patches did not take effect", efw.Namespace, efw.Name)
+		log.Errorf("listeners patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the listeners generated before to reduce the influence.
 	out = lis
@@ -57,7 +57,7 @@ func ApplyListenerPatches(
 
 func patchListeners(
 	patchContext networking.EnvoyFilter_PatchContext,
-	efw *model.EnvoyFilterWrapper,
+	efw *model.MergedEnvoyFilterWrapper,
 	listeners []*listener.Listener,
 	skipAdds bool,
 ) []*listener.Listener {

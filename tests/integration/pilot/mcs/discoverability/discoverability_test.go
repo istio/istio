@@ -153,7 +153,6 @@ func TestServiceExportedInOneCluster(t *testing.T) {
 
 			// Test exporting service B exclusively in each cluster.
 			for _, exportCluster := range bClusters {
-				exportCluster := exportCluster
 				t.NewSubTestf("b exported in %s", exportCluster.StableName()).
 					Run(func(t framework.TestContext) {
 						// Export service B in the export cluster.
@@ -374,7 +373,6 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	// Create the ServiceExports in each cluster concurrently.
 	g := errgroup.Group{}
 	for _, c := range exportClusters {
-		c := c
 		g.Go(func() error {
 			_, err := c.Dynamic().Resource(serviceExportGVR).Namespace(echos.Namespace.Name()).Create(context.TODO(),
 				&unstructured.Unstructured{Object: u}, metav1.CreateOptions{})
@@ -393,7 +391,6 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	if common.IsMCSControllerEnabled(t) {
 		scopes.Framework.Infof("Waiting for the MCS Controller to create ServiceImport in each cluster")
 		for _, c := range importClusters {
-			c := c
 			serviceImports := c.Dynamic().Resource(serviceImportGVR).Namespace(echos.Namespace.Name())
 
 			g.Go(func() error {
@@ -416,7 +413,6 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	} else {
 		scopes.Framework.Infof("No MCS Controller running. Manually creating ServiceImport in each cluster")
 		for _, c := range importClusters {
-			c := c
 			g.Go(func() error {
 				// Generate a dummy service in the cluster to reserve the ClusterSet VIP.
 				clusterSetIPSvc, err := genClusterSetIPService(c)
@@ -446,7 +442,6 @@ func createAndCleanupServiceExport(t framework.TestContext, service string, expo
 	t.Cleanup(func() {
 		wg := sync.WaitGroup{}
 		for _, c := range exportClusters {
-			c := c
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

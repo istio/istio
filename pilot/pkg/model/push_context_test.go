@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
@@ -445,7 +446,7 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	}
 	env.ConfigStore = store
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(m)
+	env.Watcher = meshwatcher.NewTestWatcher(m)
 	env.Init()
 
 	// Init a new push context
@@ -529,7 +530,7 @@ func TestEnvoyFilterOrderAcrossNamespaces(t *testing.T) {
 	env.ConfigStore = store
 	m := mesh.DefaultMeshConfig()
 	m.RootNamespace = "istio-system"
-	env.Watcher = mesh.NewFixedWatcher(m)
+	env.Watcher = meshwatcher.NewTestWatcher(m)
 	env.Init()
 
 	// Init a new push context
@@ -862,7 +863,7 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 			}
 			env.ConfigStore = store
 			m := mesh.DefaultMeshConfig()
-			env.Watcher = mesh.NewFixedWatcher(m)
+			env.Watcher = meshwatcher.NewTestWatcher(m)
 			env.Init()
 
 			// Init a new push context
@@ -1269,7 +1270,7 @@ func TestWasmPlugins(t *testing.T) {
 	}
 	env.ConfigStore = store
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(m)
+	env.Watcher = meshwatcher.NewTestWatcher(m)
 	env.Init()
 
 	// Init a new push context
@@ -1351,14 +1352,12 @@ func TestServiceIndex(t *testing.T) {
 		},
 	}
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(m)
+	env.Watcher = meshwatcher.NewTestWatcher(m)
 	env.Init()
 
 	// Init a new push context
 	pc := NewPushContext()
-	if err := pc.InitContext(env, nil, nil); err != nil {
-		t.Fatal(err)
-	}
+	pc.InitContext(env, nil, nil)
 	si := pc.ServiceIndex
 
 	// Should have all 5 services
@@ -1615,25 +1614,21 @@ func TestInitPushContext(t *testing.T) {
 		},
 	}
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(m)
+	env.Watcher = meshwatcher.NewTestWatcher(m)
 	env.Init()
 
 	// Init a new push context
 	old := NewPushContext()
-	if err := old.InitContext(env, nil, nil); err != nil {
-		t.Fatal(err)
-	}
+	old.InitContext(env, nil, nil)
 
 	// Create a new one, copying from the old one
 	// Pass a ConfigsUpdated otherwise we would just copy it directly
 	newPush := NewPushContext()
-	if err := newPush.InitContext(env, old, &PushRequest{
+	newPush.InitContext(env, old, &PushRequest{
 		ConfigsUpdated: sets.Set[ConfigKey]{
 			{Kind: kind.Secret}: {},
 		},
-	}); err != nil {
-		t.Fatal(err)
-	}
+	})
 
 	// Check to ensure the update is identical to the old one
 	// There is probably a better way to do this.
@@ -1657,7 +1652,7 @@ func TestInitPushContext(t *testing.T) {
 func TestSidecarScope(t *testing.T) {
 	test.SetForTest(t, &features.ConvertSidecarScopeConcurrency, 10)
 	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
 	ps.ServiceIndex.HostnameAndNamespace["svc1.default.cluster.local"] = map[string]*Service{"default": nil}
 	ps.ServiceIndex.HostnameAndNamespace["svc2.nosidecar.cluster.local"] = map[string]*Service{"nosidecar": nil}
@@ -1774,7 +1769,7 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 	configStore := NewFakeStore()
 
 	m := mesh.DefaultMeshConfig()
-	env.Watcher = mesh.NewFixedWatcher(m)
+	env.Watcher = meshwatcher.NewTestWatcher(m)
 
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
@@ -1845,15 +1840,13 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 	newPush = NewPushContext()
 	newPush.Mesh = env.Mesh()
 	svcName := "svc6.foo.cluster.local"
-	if err := newPush.InitContext(env, oldPush, &PushRequest{
+	newPush.InitContext(env, oldPush, &PushRequest{
 		ConfigsUpdated: sets.Set[ConfigKey]{
 			{Kind: kind.Service, Name: svcName, Namespace: "foo"}: {},
 		},
 		Reason: nil,
 		Full:   true,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	})
 	when = "updateContext(with no changes)"
 	verifyServices(true, fmt.Sprintf(testDesc, otherNS, when), otherNS, newPush)
 	verifyServices(true, fmt.Sprintf(testDesc, defaultNS, when), defaultNS, newPush)
@@ -1863,7 +1856,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 	const partialNS string = "partial"
 	const wholeNS string = "whole"
 	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+	env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	sd := &localServiceDiscovery{}
 	env.ServiceDiscovery = sd
 	ps.Mesh = env.Mesh()
@@ -2598,7 +2591,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 
 func TestVirtualServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
+	env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
 	ps.Mesh = env.Mesh()
 	configStore := NewFakeStore()
 	gatewayName := "default/gateway"
@@ -2748,7 +2741,7 @@ func TestInitVirtualService(t *testing.T) {
 		test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 		test.SetForTest(t, &features.ScopeGatewayToNamespace, legacy)
 		ps := NewPushContext()
-		env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
+		env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 		ps.Mesh = env.Mesh()
 		configStore := NewFakeStore()
 		gatewayName := "ns1/gateway"
@@ -3042,7 +3035,7 @@ func TestInitVirtualService(t *testing.T) {
 func TestServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := NewEnvironment()
-	env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
+	env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
 	ps.Mesh = env.Mesh()
 
 	svc1 := &Service{
@@ -3138,7 +3131,7 @@ func TestServiceWithExportTo(t *testing.T) {
 func TestInstancesByPort(t *testing.T) {
 	ps := NewPushContext()
 	env := NewEnvironment()
-	env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
+	env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
 	ps.Mesh = env.Mesh()
 
 	// Test the Service Entry merge with same host with different generates
@@ -3200,7 +3193,8 @@ func TestInstancesByPort(t *testing.T) {
 
 func TestGetHostsFromMeshConfig(t *testing.T) {
 	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{
+	env := NewEnvironment()
+	env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
 		RootNamespace: "istio-system",
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
@@ -3212,11 +3206,29 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 					},
 				},
 			},
+			{
+				Name: "otel-ns-scoped",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
+					EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+						Service: "bar/otel.example.com",
+						Port:    9811,
+					},
+				},
+			},
+			{
+				Name: "otel-missing-ns-scoped",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
+					EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+						Service: "wrong-ns/otel-wrong.example.com",
+						Port:    9811,
+					},
+				},
+			},
 		},
 		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{
 			AccessLogging: []string{"otel"},
 		},
-	})}
+	})
 	ps.Mesh = env.Mesh()
 	configStore := NewFakeStore()
 	gatewayName := "ns1/gateway"
@@ -3280,8 +3292,32 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	ps.initTelemetry(env)
 	ps.initDefaultExportMaps()
 	ps.initVirtualServices(env)
-	assert.Equal(t, ps.virtualServiceIndex.destinationsByGateway[gatewayName], sets.String{})
-	assert.Equal(t, ps.extraServicesForProxy(nil), sets.New("otel.foo.svc.cluster.local"))
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{
+			{
+				Hostname:   "otel.foo.svc.cluster.local",
+				Attributes: ServiceAttributes{Namespace: "foo"},
+			},
+			{
+				Hostname:   "otel.example.com",
+				Attributes: ServiceAttributes{Namespace: "bar"},
+			},
+			{
+				Hostname:   "otel-wrong.example.com",
+				Attributes: ServiceAttributes{Namespace: "some-ns"},
+			},
+		},
+	}
+	ps.initDefaultExportMaps()
+	ps.initServiceRegistry(env, nil)
+	proxy := &Proxy{Type: Router}
+	proxy.SetSidecarScope(ps)
+	proxy.SetGatewaysForProxy(ps)
+	got := sets.New(slices.Map(ps.GatewayServices(proxy), func(e *Service) string {
+		return e.Hostname.String()
+	})...)
+	// Should match 2 of the 3 providers; one has a mismatched namespace though
+	assert.Equal(t, got, sets.New("otel.foo.svc.cluster.local", "otel.example.com"))
 }
 
 func TestWellKnownProvidersCount(t *testing.T) {

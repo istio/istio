@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Removed** OpenCensus support
+upgradeNotes:
+- title: OpenCensus support has been removed
+  content: |
+    Because Envoy has removed [OpenCensus tracing extension](https://www.envoyproxy.io/docs/envoy/latest/version_history/v1.33/v1.33.0.html#incompatible-behavior-changes), we have
+    removed OpenCensus support from Istio. If you are using OpenCensus, you should migrate to OpenTelemetry.

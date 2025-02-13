@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
-	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
 	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
 )
@@ -81,7 +80,6 @@ func NewRootCommand(sds istioagent.SDSServiceFactory) *cobra.Command {
 	rootCmd.AddCommand(waitCmd)
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(iptables.GetCommand(loggingOptions))
-	rootCmd.AddCommand(cleaniptables.GetCommand(loggingOptions))
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, collateral.Metadata{
 		Title:   "Istio Pilot Agent",
@@ -183,7 +181,7 @@ func addFlags(proxyCmd *cobra.Command) {
 	// DEPRECATED. Flags for proxy configuration
 	proxyCmd.PersistentFlags().StringVar(&proxyArgs.ServiceCluster, "serviceCluster", constants.ServiceClusterName, "Service cluster")
 	// Log levels are provided by the library https://github.com/gabime/spdlog, used by Envoy.
-	proxyCmd.PersistentFlags().StringVar(&proxyArgs.ProxyLogLevel, "proxyLogLevel", "warning,misc:error",
+	proxyCmd.PersistentFlags().StringVar(&proxyArgs.ProxyLogLevel, "proxyLogLevel", "warning",
 		fmt.Sprintf("The log level used to start the Envoy proxy (choose from {%s, %s, %s, %s, %s, %s, %s})."+
 			"Level may also include one or more scopes, such as 'info,misc:error,upstream:debug'",
 			"trace", "debug", "info", "warning", "error", "critical", "off"))

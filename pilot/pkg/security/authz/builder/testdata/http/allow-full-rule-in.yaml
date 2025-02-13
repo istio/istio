@@ -11,6 +11,10 @@ spec:
   rules:
     - from:
         - source:
+            serviceAccounts: [ "my-ns/my-sa", "sa-only" ]
+            notServiceAccounts: [ "my-ns/my-sa-not", "sa-not-only" ]
+    - from:
+        - source:
             principals: ["principal", "principal-prefix-*", "*-suffix-principal", "*"]
             requestPrincipals: ["requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*"]
             namespaces: ["ns", "ns-prefix-*", "*-ns-suffix", "*"]

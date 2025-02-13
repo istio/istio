@@ -1,5 +1,21 @@
 # Istio Installer
 
+## WARNING: Do not use the files in this directory to install Istio
+
+This directory contains the helm chart _sources_ which are versioned, built and pushed to following helm
+repositories with each Istio release.  If you want to make changes to Istio helm charts, you're in the
+right place.
+
+If you want to _install_ Istio with Helm, instead please [follow the Helm installation docs here](https://istio.io/latest/docs/setup/install/helm/).
+
+Charts in this folder are published to the following Helm repos:
+ - `https://istio-release.storage.googleapis.com/charts` (charts for official release versions)
+ - `oci://gcr.io/istio-release/charts/` (charts for official release versions and dev build versions)
+
+Chart publishing is handled by [release builder](https://github.com/istio/release-builder).
+
+---
+
 Note: If making any changes to the charts or values.yaml in this dir, first read [UPDATING-CHARTS.md](UPDATING-CHARTS.md)
 
 Istio installer is a modular, 'a-la-carte' installer for Istio. It is based on a

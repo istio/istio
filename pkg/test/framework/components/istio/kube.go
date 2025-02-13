@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/netip"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sync"
@@ -279,6 +280,15 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}()
 	i.id = ctx.TrackResource(i)
 
+	// Execute External Control Plane Installer Script
+	if cfg.ControlPlaneInstaller != "" && !cfg.DeployIstio {
+		scopes.Framework.Infof("============= Execute Control Plane Installer =============")
+		cmd := exec.Command(cfg.ControlPlaneInstaller, "install", workDir)
+		if err := cmd.Run(); err != nil {
+			scopes.Framework.Errorf("failed to run external control plane installer: %v", err)
+		}
+	}
+
 	if !cfg.DeployIstio {
 		scopes.Framework.Info("skipping deployment as specified in the config")
 		return i, nil
@@ -302,7 +312,6 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	// Install control plane clusters (can be external or primary).
 	errG := multierror.Group{}
 	for _, c := range ctx.AllClusters().Primaries() {
-		c := c
 		errG.Go(func() error {
 			return i.installControlPlaneCluster(c)
 		})
@@ -322,7 +331,6 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	// Install (non-config) remote clusters.
 	errG = multierror.Group{}
 	for _, c := range ctx.Clusters().Remotes(ctx.Clusters().Configs()...) {
-		c := c
 		errG.Go(func() error {
 			if err := i.installRemoteCluster(c); err != nil {
 				return fmt.Errorf("failed installing remote cluster %s: %v", c.Name(), err)
@@ -357,7 +365,6 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// Configure gateways for remote clusters.
 	for _, c := range ctx.Clusters().Remotes() {
-		c := c
 		if i.externalControlPlane || cfg.IstiodlessRemotes {
 			// Install ingress and egress gateways
 			// These need to be installed as a separate step for external control planes because config clusters are installed
@@ -600,7 +607,7 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 		args.AppendSet("components.cni.enabled", "true")
 	}
 
-	if ctx.Settings().EnableDualStack {
+	if len(ctx.Settings().IPFamilies) > 1 {
 		args.AppendSet("values.pilot.env.ISTIO_DUAL_STACK", "true")
 		args.AppendSet("values.pilot.ipFamilyPolicy", string(corev1.IPFamilyPolicyRequireDualStack))
 		args.AppendSet("meshConfig.defaultConfig.proxyMetadata.ISTIO_DUAL_STACK", "true")

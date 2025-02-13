@@ -54,8 +54,11 @@ var exittypeToString = map[XTablesExittype]string{
 
 // RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct {
-	NetworkNamespace         string
-	HostFilesystemPodNetwork bool
+	NetworkNamespace string
+	// Should generally be set to true anytime we are "jumping" from a shared iptables
+	// context (the node, an agent container) into a pod to do iptables stuff,
+	// as it's faster and reduces contention for legacy iptables versions that use file-based locking.
+	UsePodScopedXtablesLock bool
 }
 
 const iptablesVersionPattern = `v([0-9]+(\.[0-9]+)+)`
@@ -100,14 +103,12 @@ func (v IptablesVersion) IsWriteCmd(cmd constants.IptablesCmd) bool {
 // Constants for iptables commands
 // These should not be used directly/assumed to be present, but should be contextually detected
 const (
-	iptablesBin         = "iptables"
-	iptablesNftBin      = "iptables-nft"
-	iptablesLegacyBin   = "iptables-legacy"
-	ip6tablesBin        = "ip6tables"
-	ip6tablesNftBin     = "ip6tables-nft"
-	ip6tablesLegacyBin  = "ip6tables-legacy"
-	iptablesRestoreBin  = "iptables-restore"
-	ip6tablesRestoreBin = "ip6tables-restore"
+	iptablesBin        = "iptables"
+	iptablesNftBin     = "iptables-nft"
+	iptablesLegacyBin  = "iptables-legacy"
+	ip6tablesBin       = "ip6tables"
+	ip6tablesNftBin    = "ip6tables-nft"
+	ip6tablesLegacyBin = "ip6tables-legacy"
 )
 
 // It is not sufficient to check for the presence of one binary or the other in $PATH -
@@ -217,16 +218,13 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 }
 
 // Run runs a command
-func (r *RealDependencies) Run(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) error {
-	return r.executeXTables(cmd, iptVer, false, stdin, args...)
-}
-
-// Run runs a command and returns stdout
-func (r *RealDependencies) RunWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) (*bytes.Buffer, error) {
-	return r.executeXTablesWithOutput(cmd, iptVer, false, stdin, args...)
-}
-
-// RunQuietlyAndIgnore runs a command quietly and ignores errors
-func (r *RealDependencies) RunQuietlyAndIgnore(cmd constants.IptablesCmd, iptVer *IptablesVersion, stdin io.ReadSeeker, args ...string) {
-	_ = r.executeXTables(cmd, iptVer, true, stdin, args...)
+func (r *RealDependencies) Run(
+	logger *log.Scope,
+	quietLogging bool,
+	cmd constants.IptablesCmd,
+	iptVer *IptablesVersion,
+	stdin io.ReadSeeker,
+	args ...string,
+) (*bytes.Buffer, error) {
+	return r.executeXTables(logger, cmd, iptVer, quietLogging, stdin, args...)
 }

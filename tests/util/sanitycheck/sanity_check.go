@@ -61,10 +61,11 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 	testNs := namespace.NewOrFail(t, nsConfig)
 	deployment.New(t).
 		With(&client, echo.Config{
-			Service:   "client",
-			Namespace: testNs,
-			Ports:     []echo.Port{},
-			Subsets:   subsetConfig,
+			Service:        "client",
+			Namespace:      testNs,
+			Ports:          []echo.Port{},
+			Subsets:        subsetConfig,
+			ServiceAccount: true,
 		}).
 		With(&server, echo.Config{
 			Service:   "server",
@@ -83,6 +84,22 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 	return testNs, client, server
 }
 
+func BlockTestWithPolicy(t framework.TestContext, client, server echo.Instance) {
+	ns := server.Config().Namespace.Name()
+	t.ConfigIstio().Eval(ns, map[string]any{"serviceAccount": client.SpiffeIdentity()}, `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: block-sanity-test
+spec:
+  action: DENY
+  rules:
+  - from:
+    - source:
+        principals:
+        - {{ .serviceAccount }}`).ApplyOrFail(t)
+}
+
 func RunTrafficTestClientServer(t framework.TestContext, client, server echo.Instance) {
 	_ = client.CallOrFail(t, echo.CallOptions{
 		To:    server,
@@ -91,5 +108,16 @@ func RunTrafficTestClientServer(t framework.TestContext, client, server echo.Ins
 			Name: "http",
 		},
 		Check: check.OK(),
+	})
+}
+
+func RunTrafficTestClientServerExpectFail(t framework.TestContext, client, server echo.Instance) {
+	_ = client.CallOrFail(t, echo.CallOptions{
+		To:    server,
+		Count: 1,
+		Port: echo.Port{
+			Name: "http",
+		},
+		Check: check.Error(),
 	})
 }

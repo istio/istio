@@ -22,6 +22,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	matcherv3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
@@ -81,7 +82,7 @@ when:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := New(tc.rule, false)
+			got, err := New(types.NamespacedName{}, tc.rule)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -139,10 +140,10 @@ when:
 			action: rbacpb.RBAC_ALLOW,
 			rule:   rule,
 			want: []string{
-				"td-1/ns/foo/sa/sleep-1",
-				"td-1/ns/foo/sa/sleep-2",
-				"td-1/ns/foo/sa/sleep-3",
-				"td-1/ns/foo/sa/sleep-4",
+				"sleep-1",
+				"sleep-2",
+				"sleep-3",
+				"sleep-4",
 				"td-1/ns/foo/sa/httpbin-1",
 				"td-1/ns/foo/sa/httpbin-2",
 				"8001",
@@ -159,10 +160,10 @@ when:
 			forTCP: true,
 			rule:   rule,
 			notWant: []string{
-				"td-1/ns/foo/sa/sleep-1",
-				"td-1/ns/foo/sa/sleep-2",
-				"td-1/ns/foo/sa/sleep-3",
-				"td-1/ns/foo/sa/sleep-4",
+				"sleep-1",
+				"sleep-2",
+				"sleep-3",
+				"sleep-4",
 				"td-1/ns/foo/sa/httpbin-1",
 				"td-1/ns/foo/sa/httpbin-2",
 				"8001",
@@ -178,10 +179,10 @@ when:
 			action: rbacpb.RBAC_DENY,
 			rule:   rule,
 			want: []string{
-				"td-1/ns/foo/sa/sleep-1",
-				"td-1/ns/foo/sa/sleep-2",
-				"td-1/ns/foo/sa/sleep-3",
-				"td-1/ns/foo/sa/sleep-4",
+				"sleep-1",
+				"sleep-2",
+				"sleep-3",
+				"sleep-4",
 				"td-1/ns/foo/sa/httpbin-1",
 				"td-1/ns/foo/sa/httpbin-2",
 				"8001",
@@ -208,10 +209,10 @@ when:
 				"td-1/ns/foo/sa/httpbin-2",
 			},
 			notWant: []string{
-				"td-1/ns/foo/sa/sleep-1",
-				"td-1/ns/foo/sa/sleep-2",
-				"td-1/ns/foo/sa/sleep-3",
-				"td-1/ns/foo/sa/sleep-4",
+				"sleep-1",
+				"sleep-2",
+				"sleep-3",
+				"sleep-4",
 			},
 		},
 		{
@@ -219,10 +220,10 @@ when:
 			action: rbacpb.RBAC_LOG,
 			rule:   rule,
 			want: []string{
-				"td-1/ns/foo/sa/sleep-1",
-				"td-1/ns/foo/sa/sleep-2",
-				"td-1/ns/foo/sa/sleep-3",
-				"td-1/ns/foo/sa/sleep-4",
+				"sleep-1",
+				"sleep-2",
+				"sleep-3",
+				"sleep-4",
 				"td-1/ns/foo/sa/httpbin-1",
 				"td-1/ns/foo/sa/httpbin-2",
 				"8001",
@@ -249,17 +250,17 @@ when:
 				"td-1/ns/foo/sa/httpbin-2",
 			},
 			notWant: []string{
-				"td-1/ns/foo/sa/sleep-1",
-				"td-1/ns/foo/sa/sleep-2",
-				"td-1/ns/foo/sa/sleep-3",
-				"td-1/ns/foo/sa/sleep-4",
+				"sleep-1",
+				"sleep-2",
+				"sleep-3",
+				"sleep-4",
 			},
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			m, err := New(tc.rule, false)
+			m, err := New(types.NamespacedName{}, tc.rule)
 			if err != nil {
 				t.Fatal(err)
 			}

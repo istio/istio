@@ -140,11 +140,20 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 	if len(rootCertBytes) != 0 {
 		respCertChain = append(respCertChain, string(rootCertBytes))
 	}
-	response := &pb.IstioCertificateResponse{
-		CertChain: respCertChain,
+
+	// expand `respCertChain` since each element might be a concatenated multi-cert PEM
+	// the expanded structure (one cert per `string` in `certChain`) is specifically expected by `ztunnel`
+	response := &pb.IstioCertificateResponse{}
+	for _, pem := range respCertChain {
+		for _, cert := range util.PemCertBytestoString([]byte(pem)) {
+			// the trailing "\n" is added for backwards compatibility
+			// there are ca clients (see pkg/test/framework/components/istio/ca.go) that would try to simply concatenate elements in the chain
+			response.CertChain = append(response.CertChain, cert+"\n")
+		}
 	}
+	serverCaLog.Debugf("Responding with cert chain, %q", response.CertChain)
 	s.monitoring.Success.Increment()
-	serverCaLog.Debugf("CSR successfully signed, sans %v.", caller.Identities)
+	serverCaLog.Debugf("CSR successfully signed, sans %v.", sans)
 	return response, nil
 }
 

@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -44,7 +45,7 @@ type FakeControllerOptions struct {
 	Client            kubelib.Client
 	CRDs              []schema.GroupVersionResource
 	NetworksWatcher   mesh.NetworksWatcher
-	MeshWatcher       mesh.Watcher
+	MeshWatcher       meshwatcher.WatcherCollection
 	ServiceHandler    model.ServiceHandler
 	ClusterID         cluster.ID
 	WatchedNamespaces string
@@ -78,7 +79,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		opts.Client = kubelib.NewFakeClient()
 	}
 	if opts.MeshWatcher == nil {
-		opts.MeshWatcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"})
+		opts.MeshWatcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{TrustDomain: "cluster.local"})
 	}
 	cleanupStop := false
 	stop := opts.Stop

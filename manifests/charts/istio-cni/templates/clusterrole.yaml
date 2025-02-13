@@ -14,7 +14,7 @@ rules:
 - apiGroups: [""]
   resources: ["pods","nodes","namespaces"]
   verbs: ["get", "list", "watch"]
-{{- if (eq (coalesce .Values.platform .Values.global.platform) "openshift") }}
+{{- if (eq ((coalesce .Values.platform .Values.global.platform) | default "") "openshift") }}
 - apiGroups: ["security.openshift.io"]
   resources: ["securitycontextconstraints"]
   resourceNames: ["privileged"]
@@ -73,4 +73,8 @@ rules:
   {{- /* pods/status is less privileged than the full pod, and either can label. So use the lower pods/status */}}
   resources: ["pods/status"]
   verbs: ["patch", "update"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets"]
+  resourceNames: ["{{ template "name" . }}-node"]
+  verbs: ["get"]
 {{- end }}

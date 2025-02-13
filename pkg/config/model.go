@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Meta is metadata attached to each configuration unit.
@@ -120,6 +121,15 @@ func LabelsInRevision(lbls map[string]string, rev string) bool {
 	}
 	// Otherwise, only return true if revisions equal
 	return configEnv == rev
+}
+
+func LabelsInRevisionOrTags(lbls map[string]string, rev string, tags sets.Set[string]) bool {
+	if LabelsInRevision(lbls, rev) {
+		return true
+	}
+	configEnv := lbls[label.IoIstioRev.Name]
+	// Otherwise, only return true if revisions equal
+	return tags.Contains(configEnv)
 }
 
 func ObjectInRevision(o *Config, rev string) bool {
@@ -294,7 +304,7 @@ func DeepCopy(s any) any {
 	// but also not used by Istio at all.
 	if _, ok := s.(protoreflect.ProtoMessage); ok {
 		if pb, ok := s.(proto.Message); ok {
-			return proto.Clone(pb)
+			return protomarshal.Clone(pb)
 		}
 	}
 

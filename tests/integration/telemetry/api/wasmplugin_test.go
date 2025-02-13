@@ -339,7 +339,8 @@ func TestBadWasmRemoteLoad(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			// Enable logging for debugging
 			applyTelemetryResource(t, true)
-			badWasmTestHelper(t, "testdata/bad-filter.yaml", false, true)
+			// if wasm image is not ready, a deny-all rbac filter while be added instead. ecds is not rejected.
+			badWasmTestHelper(t, "testdata/bad-filter.yaml", false, false, true)
 		})
 }
 
@@ -355,11 +356,11 @@ func TestBadWasmWithFailOpen(t *testing.T) {
 			// Enable logging for debugging
 			applyTelemetryResource(t, true)
 			// since this case is for "fail_open=true", ecds is not rejected.
-			badWasmTestHelper(t, "testdata/bad-wasm-envoy-filter-fail-open.yaml", true, false)
+			badWasmTestHelper(t, "testdata/bad-wasm-envoy-filter-fail-open.yaml", true, false, false)
 		})
 }
 
-func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restartTarget bool, ecdsShouldReject bool) {
+func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restartTarget bool, ecdsShouldReject bool, forbiddenAfterConfig bool) {
 	t.Helper()
 	// Test bad wasm remote load in only one cluster.
 	// There is no need to repeat the same testing logic in multiple clusters.
@@ -405,8 +406,11 @@ func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restart
 
 	t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
 
-	// Verify that echo server could still return 200
-	SendTrafficOrFail(t, to)
-
-	t.Log("echo server still returns ok after bad wasm filter is applied.")
+	if forbiddenAfterConfig {
+		SendTrafficOrFailExpectForbidden(t, to)
+		t.Log("echo server returns 403 after bad wasm(FAIL_CLOSE) filter is applied.")
+	} else {
+		SendTrafficOrFail(t, to)
+		t.Log("echo server still returns ok after bad wasm(FAIL_OPEN) filter is applied.")
+	}
 }

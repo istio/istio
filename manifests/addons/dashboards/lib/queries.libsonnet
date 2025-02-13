@@ -144,10 +144,6 @@ local variables = import './variables.libsonnet';
           'Internal Errors',
           'pilot_total_xds_internal_errors'
         ),
-        self.query(
-          'Push Context Errors',
-          'pilot_xds_push_context_errors'
-        ),
       ],
 
       xdsConnections: [

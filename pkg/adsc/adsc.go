@@ -34,7 +34,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -630,7 +629,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 		switch filter.Name {
 		case wellknown.TCPProxy:
 			lt[l.Name] = l
-			config, _ := conversion.MessageToStruct(filter.GetTypedConfig())
+			config, _ := protomarshal.MessageToStructSlow(filter.GetTypedConfig())
 			c := config.Fields["cluster"].GetStringValue()
 			adscLog.Debugf("TCP: %s -> %s", l.Name, c)
 		case wellknown.HTTPConnectionManager:

@@ -60,17 +60,12 @@ var skippedNdsConfigs = sets.New(
 	kind.GRPCRoute,
 )
 
-func ndsNeedsPush(req *model.PushRequest) bool {
-	if req == nil {
-		return true
+func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
+		return res
 	}
 	if !req.Full {
-		// NDS generally handles full push. We only allow partial pushes, when headless endpoints change.
-		return headlessEndpointsUpdated(req)
-	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
+		return false
 	}
 	for config := range req.ConfigsUpdated {
 		if _, f := skippedNdsConfigs[config.Kind]; !f {
@@ -80,12 +75,8 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 	return false
 }
 
-func headlessEndpointsUpdated(req *model.PushRequest) bool {
-	return req.Reason.Has(model.HeadlessEndpointUpdate)
-}
-
 func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !ndsNeedsPush(req) {
+	if !ndsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	nt := n.ConfigGenerator.BuildNameTable(proxy, req.Push)

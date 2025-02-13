@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -361,11 +362,14 @@ func (cl *Client) addCRD(name string) {
 
 	var namespaceFilter kubetypes.DynamicObjectFilter
 	if !s.IsClusterScoped() {
-		namespaceFilter = kube.FilterIfEnhancedFilteringEnabled(cl.client)
+		namespaceFilter = cl.client.ObjectFilter()
 	}
 	filter := kubetypes.Filter{
 		ObjectFilter:    composeFilters(namespaceFilter, cl.inRevision, extraFilter),
 		ObjectTransform: transform,
+	}
+	if resourceGVK == gvk.KubernetesGateway {
+		filter.ObjectFilter = composeFilters(namespaceFilter, extraFilter)
 	}
 
 	var kc kclient.Untyped

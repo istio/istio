@@ -52,7 +52,7 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 	waypointServices := &waypointServices{}
 	for _, s := range serviceInfos {
 		hostName := host.Name(s.Service.Hostname)
-		svc, ok := push.ServiceIndex.HostnameAndNamespace[hostName][s.Namespace]
+		svc, ok := push.ServiceIndex.HostnameAndNamespace[hostName][s.Service.Namespace]
 		if !ok {
 			continue
 		}
@@ -81,7 +81,8 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 func filterWaypointOutboundServices(
 	referencedServices map[string]sets.String,
 	waypointServices map[host.Name]*model.Service,
-	extraServices sets.String,
+	extraNamespacedHostnames sets.Set[model.NamespacedHostname],
+	extraHostnames sets.String,
 	services []*model.Service,
 ) []*model.Service {
 	outboundServices := sets.New[string]()
@@ -97,7 +98,12 @@ func filterWaypointOutboundServices(
 	}
 	res := make([]*model.Service, 0, len(outboundServices))
 	for _, s := range services {
-		if outboundServices.Contains(s.Hostname.String()) || extraServices.Contains(s.Hostname.String()) {
+		if outboundServices.Contains(s.Hostname.String()) ||
+			extraHostnames.Contains(s.Hostname.String()) ||
+			extraNamespacedHostnames.Contains(model.NamespacedHostname{
+				Hostname:  s.Hostname,
+				Namespace: s.Attributes.Namespace,
+			}) {
 			res = append(res, s)
 		}
 	}

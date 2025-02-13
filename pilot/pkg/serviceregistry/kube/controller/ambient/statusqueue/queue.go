@@ -127,7 +127,7 @@ type StatusWriter interface {
 // statusReporter is a generics-erased object storing context on how to write status for a given type.
 type statusReporter struct {
 	getObject func(string) (StatusWriter, bool)
-	patcher   func(StatusWriter) (kclient.Patcher, []string)
+	patcher   func(StatusWriter) (kclient.Patcher, map[string]model.Condition)
 	relist    func()
 	start     func()
 }
@@ -135,23 +135,23 @@ type statusReporter struct {
 // Register registers a collection to have status reconciled.
 // The Collection is expected to produce objects that implement StatusWriter, which tells us what status to write.
 // The name is user facing, and ends up as a fieldManager for server-side-apply. It must be unique.
-func Register[T StatusWriter](q *StatusQueue, name string, col krt.Collection[T], getPatcher func(T) (kclient.Patcher, []string)) {
+func Register[T StatusWriter](q *StatusQueue, name string, col krt.Collection[T], getPatcher func(T) (kclient.Patcher, map[string]model.Condition)) {
 	sr := statusReporter{
 		getObject: func(s string) (StatusWriter, bool) {
-			if o := col.GetKey(krt.Key[T](s)); o != nil {
+			if o := col.GetKey(s); o != nil {
 				return *o, true
 			}
 			return nil, false
 		},
 		// Wrapper to remove generics
-		patcher: func(writer StatusWriter) (kclient.Patcher, []string) {
+		patcher: func(writer StatusWriter) (kclient.Patcher, map[string]model.Condition) {
 			return getPatcher(writer.(T))
 		},
 		relist: func() {
 			log.Debugf("processing snapshot")
 			for _, obj := range col.List() {
 				q.queue.Add(statusItem{
-					Key:      string(krt.GetKey(obj)),
+					Key:      krt.GetKey(obj),
 					Reporter: name,
 				})
 			}
@@ -163,7 +163,7 @@ func Register[T StatusWriter](q *StatusQueue, name string, col krt.Collection[T]
 				}
 				for _, o := range events {
 					ol := o.Latest()
-					key := string(krt.GetKey(ol))
+					key := krt.GetKey(ol)
 					log.Debugf("registering key for processing: %s", key)
 					q.queue.Add(statusItem{
 						Key:      key,

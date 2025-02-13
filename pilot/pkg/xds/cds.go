@@ -64,34 +64,15 @@ var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 }()
 
 func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
-	if req == nil {
+	if res, ok := xdsNeedsPush(req, proxy); ok {
+		return res
+	}
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
 		return true
 	}
-	switch proxy.Type {
-	case model.Waypoint:
-		if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
-			// TODO: this logic is identical to that used in LDS, consider refactor into a common function
-			// taken directly from LDS... waypoints need CDS updates on kind.Address changes
-			// after implementing use-waypoint which decouples waypoint creation, wl pod creation
-			// user specifying waypoint use. Without this we're not getting correct waypoint config
-			// in a timely manner
-			return true
-		}
-		// Otherwise, only handle full pushes (skip endpoint-only updates)
-		if !req.Full {
-			return false
-		}
-	default:
-		if !req.Full {
-			// CDS only handles full push
-			return false
-		}
+	if !req.Full {
+		return false
 	}
-	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
-		return true
-	}
-
 	checkGateway := false
 	for config := range req.ConfigsUpdated {
 		if proxy.Type == model.Router {

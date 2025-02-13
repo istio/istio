@@ -28,7 +28,6 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
@@ -58,6 +57,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -1728,7 +1728,7 @@ func testOutboundListenerRoute(t *testing.T, services ...*model.Service) {
 		}
 
 		f := l.FilterChains[0].Filters[0]
-		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+		cfg, _ := protomarshal.MessageToStructSlow(f.GetTypedConfig())
 		rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 		if rds != "8080" {
 			t.Fatalf("expect routes %s, found %s", "8080", rds)
@@ -1739,7 +1739,7 @@ func testOutboundListenerRoute(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expect listener %s", "1.2.3.4_8080")
 		}
 		f = l.FilterChains[0].Filters[0]
-		cfg, _ = conversion.MessageToStruct(f.GetTypedConfig())
+		cfg, _ = protomarshal.MessageToStructSlow(f.GetTypedConfig())
 		rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 		if rds != "test1.com:8080" {
 			t.Fatalf("expect routes %s, found %s", "test1.com:8080", rds)
@@ -1750,7 +1750,7 @@ func testOutboundListenerRoute(t *testing.T, services ...*model.Service) {
 			t.Fatalf("expect listener %s", "3.4.5.6_8080")
 		}
 		f = l.FilterChains[0].Filters[0]
-		cfg, _ = conversion.MessageToStruct(f.GetTypedConfig())
+		cfg, _ = protomarshal.MessageToStructSlow(f.GetTypedConfig())
 		rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 		if rds != "test3.com:8080" {
 			t.Fatalf("expect routes %s, found %s", "test3.com:8080", rds)
@@ -1810,7 +1810,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			}
 
 			verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-			verifyListenerFilters(t, listeners[0].ListenerFilters)
+			verifyHTTPListenerFilters(t, listeners[0].ListenerFilters)
 
 			if listeners[0].ListenerFiltersTimeout.GetSeconds() != 5 {
 				t.Fatalf("expected timeout 5s, found  ListenerFiltersTimeout %v",
@@ -1818,7 +1818,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			}
 
 			f := listeners[0].FilterChains[0].Filters[0]
-			cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+			cfg, _ := protomarshal.MessageToStructSlow(f.GetTypedConfig())
 			rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
 			expect := fmt.Sprintf("%d", oldestService.Ports[0].Port)
 			if rds != expect {
@@ -1836,7 +1836,7 @@ func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 			http := getHTTPFilterChain(t, listeners[0])
 
 			verifyHTTPFilterChainMatch(t, http)
-			verifyListenerFilters(t, listeners[0].ListenerFilters)
+			verifyHTTPListenerFilters(t, listeners[0].ListenerFilters)
 
 			if listeners[0].ListenerFiltersTimeout == nil {
 				t.Fatalf("expected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
@@ -2093,13 +2093,12 @@ func testInboundListenerConfigWithoutService(t *testing.T, proxy *model.Proxy) {
 	verifyFilterChainMatch(t, l)
 }
 
-func verifyListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
+func verifyHTTPListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
 	t.Helper()
-	if len(lfilters) != 2 {
-		t.Fatalf("expected %d listener filter, found %d", 2, len(lfilters))
+	if len(lfilters) != 1 {
+		t.Fatalf("expected %d listener filter, found %d", 1, len(lfilters))
 	}
-	if lfilters[0].Name != wellknown.TLSInspector ||
-		lfilters[1].Name != wellknown.HTTPInspector {
+	if lfilters[0].Name != wellknown.HTTPInspector {
 		t.Fatalf("expected listener filters not found, got %v", lfilters)
 	}
 }
@@ -2208,7 +2207,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 		}
 
 		verifyHTTPFilterChainMatch(t, l.FilterChains[0])
-		verifyListenerFilters(t, l.ListenerFilters)
+		verifyHTTPListenerFilters(t, l.ListenerFilters)
 
 		if l := findListenerByPort(listeners, 3306); !isMysqlListener(l) {
 			t.Fatalf("expected MySQL listener on port 3306, found %v", l)
@@ -2231,7 +2230,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 		}
 
 		verifyHTTPFilterChainMatch(t, l.FilterChains[0])
-		verifyListenerFilters(t, l.ListenerFilters)
+		verifyHTTPListenerFilters(t, l.ListenerFilters)
 	}
 }
 
@@ -2327,7 +2326,7 @@ func validateAccessLog(t *testing.T, l *listener.Listener, format string) {
 	if fc.AccessLog == nil {
 		t.Fatal("expected access log configuration")
 	}
-	cfg, _ := conversion.MessageToStruct(fc.AccessLog[0].GetTypedConfig())
+	cfg, _ := protomarshal.MessageToStructSlow(fc.AccessLog[0].GetTypedConfig())
 	textFormat := cfg.GetFields()["log_format"].GetStructValue().GetFields()["text_format_source"].GetStructValue().
 		GetFields()["inline_string"].GetStringValue()
 	if format != "" && textFormat != format {
@@ -2340,15 +2339,16 @@ func TestHttpProxyListener(t *testing.T) {
 	m.ProxyHttpPort = 15007
 	listeners := buildListeners(t, TestOptions{MeshConfig: m}, nil)
 	httpProxy := xdstest.ExtractListener("127.0.0.1_15007", listeners)
-	t.Log(xdstest.Dump(t, httpProxy))
 	f := httpProxy.FilterChains[0].Filters[0]
-	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := protomarshal.MessageToStructSlow(f.GetTypedConfig())
 
 	if httpProxy.Address.GetSocketAddress().GetPortValue() != 15007 {
+		t.Log(xdstest.Dump(t, httpProxy))
 		t.Fatalf("expected http proxy is not listening on %d, but on port %d", 15007,
 			httpProxy.Address.GetSocketAddress().GetPortValue())
 	}
 	if !strings.HasPrefix(cfg.Fields["stat_prefix"].GetStringValue(), "outbound_") {
+		t.Log(xdstest.Dump(t, httpProxy))
 		t.Fatalf("expected http proxy stat prefix to have outbound, %s", cfg.Fields["stat_prefix"].GetStringValue())
 	}
 }
@@ -2357,7 +2357,7 @@ func TestHttpProxyListenerPerWorkload(t *testing.T) {
 	listeners := buildListeners(t, TestOptions{}, &model.Proxy{Metadata: &model.NodeMetadata{HTTPProxyPort: "15007"}})
 	httpProxy := xdstest.ExtractListener("127.0.0.1_15007", listeners)
 	f := httpProxy.FilterChains[0].Filters[0]
-	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := protomarshal.MessageToStructSlow(f.GetTypedConfig())
 
 	if httpProxy.Address.GetSocketAddress().GetPortValue() != 15007 {
 		t.Fatalf("expected http proxy is not listening on %d, but on port %d", 15007,
@@ -2761,14 +2761,14 @@ func TestOutboundListenerConfig_TCPFailThrough(t *testing.T) {
 
 	verifyHTTPFilterChainMatch(t, l.FilterChains[0])
 	verifyPassThroughTCPFilterChain(t, l.DefaultFilterChain)
-	verifyListenerFilters(t, l.ListenerFilters)
+	verifyHTTPListenerFilters(t, l.ListenerFilters)
 }
 
 func verifyPassThroughTCPFilterChain(t *testing.T, fc *listener.FilterChain) {
 	t.Helper()
 	f := fc.Filters[0]
 	expectedStatPrefix := util.PassthroughCluster
-	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := protomarshal.MessageToStructSlow(f.GetTypedConfig())
 	statPrefix := cfg.Fields["stat_prefix"].GetStringValue()
 	if statPrefix != expectedStatPrefix {
 		t.Fatalf("expected listener to contain stat_prefix %s, found %s", expectedStatPrefix, statPrefix)
@@ -2786,7 +2786,7 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *listener.Listener, hostn
 		t.Fatal("expected TCP filters, found none")
 	}
 	expectedStatPrefix := fmt.Sprintf("outbound|8080||%s", hostname)
-	cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+	cfg, _ := protomarshal.MessageToStructSlow(f.GetTypedConfig())
 	statPrefix := cfg.Fields["stat_prefix"].GetStringValue()
 	if statPrefix != expectedStatPrefix {
 		t.Fatalf("expected listener to contain stat_prefix %s, found %s", expectedStatPrefix, statPrefix)

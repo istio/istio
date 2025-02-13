@@ -149,3 +149,16 @@ func ChannelIsEmpty[T any](t test.Failer, c <-chan T) {
 	case <-time.After(time.Millisecond * 20):
 	}
 }
+
+// ChannelIsClosed asserts a channel is closed
+func ChannelIsClosed[T any](t test.Failer, c <-chan T) {
+	t.Helper()
+	select {
+	case obj, ok := <-c:
+		if ok {
+			t.Fatalf("channel had element, expected closed: %v", obj)
+		}
+	default:
+		t.Fatalf("channel was not closed")
+	}
+}

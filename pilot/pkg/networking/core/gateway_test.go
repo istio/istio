@@ -2156,7 +2156,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			Selector: map[string]string{"istio": "ingressgateway"},
 			Servers: []*networking.Server{
 				{
-					Hosts: []string{"example.org"},
+					Hosts: []string{"Example.org"},
 					Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
 					Tls:   &networking.ServerTLSSettings{HttpsRedirect: true},
 				},
@@ -3721,7 +3721,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
 				{
 					NetworkFilters: []string{
-						xdsfilters.TCPListenerMx.GetName(),
+						xdsfilters.MxFilterName,
 						wellknown.TCPProxy,
 					},
 					HTTPFilters: []string{},
@@ -3814,7 +3814,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					{
 						TotalMatch: true, // there must be only 1 `istio_authn` network filter
 						NetworkFilters: []string{
-							xdsfilters.TCPListenerMx.GetName(),
+							xdsfilters.MxFilterName,
 							wellknown.TCPProxy,
 						},
 						HTTPFilters: []string{},

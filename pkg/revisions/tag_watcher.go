@@ -16,6 +16,8 @@ package revisions
 
 import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
@@ -33,6 +35,7 @@ type TagWatcher interface {
 	HasSynced() bool
 	AddHandler(handler TagHandler)
 	GetMyTags() sets.String
+	IsMine(metav1.ObjectMeta) bool
 }
 
 // TagHandler is a callback for when the tags revision change.
@@ -42,9 +45,10 @@ type tagWatcher struct {
 	revision string
 	handlers []TagHandler
 
-	queue    controllers.Queue
-	webhooks kclient.Client[*admissionregistrationv1.MutatingWebhookConfiguration]
-	index    kclient.Index[string, *admissionregistrationv1.MutatingWebhookConfiguration]
+	namespaces kclient.Client[*corev1.Namespace]
+	queue      controllers.Queue
+	webhooks   kclient.Client[*admissionregistrationv1.MutatingWebhookConfiguration]
+	index      kclient.Index[string, *admissionregistrationv1.MutatingWebhookConfiguration]
 }
 
 func NewTagWatcher(client kube.Client, revision string) TagWatcher {
@@ -62,11 +66,12 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 	p.index = kclient.CreateStringIndex(p.webhooks,
 		func(o *admissionregistrationv1.MutatingWebhookConfiguration) []string {
 			rev := o.GetLabels()[label.IoIstioRev.Name]
-			if rev == "" {
+			if rev == "" || !isTagWebhook(o) {
 				return nil
 			}
 			return []string{rev}
 		})
+	p.namespaces = kclient.New[*corev1.Namespace](client)
 	return p
 }
 
@@ -86,6 +91,19 @@ func (p *tagWatcher) AddHandler(handler TagHandler) {
 
 func (p *tagWatcher) HasSynced() bool {
 	return p.queue.HasSynced()
+}
+
+func (p *tagWatcher) IsMine(obj metav1.ObjectMeta) bool {
+	selectedTag, ok := obj.Labels[label.IoIstioRev.Name]
+	if !ok {
+		ns := p.namespaces.Get(obj.Namespace, "")
+		if ns == nil {
+			return true
+		}
+		selectedTag = ns.Labels[label.IoIstioRev.Name]
+	}
+	myTags := p.GetMyTags()
+	return myTags.Contains(selectedTag) || (selectedTag == "" && myTags.Contains("default"))
 }
 
 func (p *tagWatcher) GetMyTags() sets.String {

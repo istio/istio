@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/netip"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
@@ -38,28 +39,33 @@ type JwksInfo struct {
 }
 
 const (
-	attrRequestHeader    = "request.headers"        // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
-	attrSrcIP            = "source.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrRemoteIP         = "remote.ip"              // original client ip determined from x-forwarded-for or proxy protocol.
-	attrSrcNamespace     = "source.namespace"       // e.g. "default".
-	attrSrcPrincipal     = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
-	attrRequestPrincipal = "request.auth.principal" // authenticated principal of the request.
-	attrRequestAudiences = "request.auth.audiences" // intended audience(s) for this authentication information.
-	attrRequestPresenter = "request.auth.presenter" // authorized presenter of the credential.
-	attrRequestClaims    = "request.auth.claims"    // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
-	attrDestIP           = "destination.ip"         // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
-	attrDestPort         = "destination.port"       // must be in the range [0, 65535].
-	attrDestLabel        = "destination.labels"     // label name is surrounded by brackets, e.g. "destination.labels[version]".
-	attrDestName         = "destination.name"       // short service name, e.g. "productpage".
-	attrDestNamespace    = "destination.namespace"  // e.g. "default".
-	attrDestUser         = "destination.user"       // service account, e.g. "bookinfo-productpage".
-	attrConnSNI          = "connection.sni"         // server name indication, e.g. "www.example.com".
-	attrExperimental     = "experimental.envoy.filters."
+	attrRequestHeader     = "request.headers"        // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+	attrSrcIP             = "source.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrRemoteIP          = "remote.ip"              // original client ip determined from x-forwarded-for or proxy protocol.
+	attrSrcNamespace      = "source.namespace"       // e.g. "default".
+	attrSrcServiceAccount = "source.serviceAccount"  // e.g. "default/productpage".
+	attrSrcPrincipal      = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
+	attrRequestPrincipal  = "request.auth.principal" // authenticated principal of the request.
+	attrRequestAudiences  = "request.auth.audiences" // intended audience(s) for this authentication information.
+	attrRequestPresenter  = "request.auth.presenter" // authorized presenter of the credential.
+	attrRequestClaims     = "request.auth.claims"    // claim name is surrounded by brackets, e.g. "request.auth.claims[iss]".
+	attrDestIP            = "destination.ip"         // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
+	attrDestPort          = "destination.port"       // must be in the range [0, 65535].
+	attrDestLabel         = "destination.labels"     // label name is surrounded by brackets, e.g. "destination.labels[version]".
+	attrDestName          = "destination.name"       // short service name, e.g. "productpage".
+	attrDestNamespace     = "destination.namespace"  // e.g. "default".
+	attrDestUser          = "destination.user"       // service account, e.g. "bookinfo-productpage".
+	attrConnSNI           = "connection.sni"         // server name indication, e.g. "www.example.com".
+	attrExperimental      = "experimental.envoy.filters."
 )
 
 var (
 	MatchOneTemplate = "{*}"
 	MatchAnyTemplate = "{**}"
+
+	// Valid pchar from https://datatracker.ietf.org/doc/html/rfc3986#appendix-A
+	// pchar = unreserved / pct-encoded / sub-delims / ":" / "@"
+	validLiteral = regexp.MustCompile("^[a-zA-Z0-9-._~%!$&'()+,;:@=]+$")
 )
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
@@ -105,29 +111,84 @@ func CheckEmptyValues(key string, values []string) error {
 	return nil
 }
 
-func CheckValidPathTemplate(key string, paths []string) error {
-	for _, path := range paths {
-		containsPathTemplate := ContainsPathTemplate(path)
-		globs := strings.Split(path, "/")
-		for _, glob := range globs {
-			// If glob is a supported path template, skip the check.
-			if glob == MatchAnyTemplate || glob == MatchOneTemplate {
-				continue
+func CheckServiceAccount(key string, values []string) error {
+	if len(values) > 16 {
+		// Arbitrary limit to avoid unbounded configuration sizes
+		return fmt.Errorf("may not have more than 16 values")
+	}
+	for _, value := range values {
+		if value == "" {
+			return fmt.Errorf("empty value not allowed, found in %s", key)
+		}
+		if strings.Contains(value, "*") {
+			return fmt.Errorf("wildcard not allowed, found in %s", key)
+		}
+		segments := strings.Count(value, "/")
+		if segments != 0 && segments != 1 {
+			return fmt.Errorf("expected format 'serviceAccount' or 'namespace/serviceAccount', found %q in %s", value, key)
+		}
+		if len(value) > 320 {
+			return fmt.Errorf("value cannot exceed 320 characters, found %q in %s", value, key)
+		}
+		ns, sa, ok := strings.Cut(value, "/")
+		if ok {
+			if len(ns) == 0 {
+				return fmt.Errorf("expected format 'serviceAccount' or 'namespace/serviceAccount', found empty namespace %q in %s", value, key)
 			}
-			// If glob is not a supported path template and contains `{`, or `}` it is invalid.
-			if strings.ContainsAny(glob, "{}") {
-				return fmt.Errorf("invalid or unsupported path %s, found in %s."+
-					"Contains '{' or '}' beyond a supported path template", path, key)
+			if len(sa) == 0 {
+				return fmt.Errorf("expected format 'serviceAccount' or 'namespace/serviceAccount', found empty serviceAccount %q in %s", value, key)
 			}
-			// If glob contains `*`, is not a supported path template and
-			// the path contains a supported path template, it is invalid.
-			if strings.Contains(glob, "*") && containsPathTemplate {
-				return fmt.Errorf("invalid or unsupported path %s, found in %s."+
-					"Contains '*' beyond a supported path template", path, key)
+		} else {
+			sa := value
+			if len(sa) == 0 {
+				return fmt.Errorf("expected format 'serviceAccount' or 'namespace/serviceAccount', found empty serviceAccount %q in %s", value, key)
 			}
 		}
 	}
 	return nil
+}
+
+func CheckValidPathTemplate(key string, paths []string) error {
+	for _, path := range paths {
+		containsPathTemplate := ContainsPathTemplate(path)
+		foundMatchAnyTemplate := false
+		// Strip leading and trailing slashes if they exist
+		path = strings.Trim(path, "/")
+		globs := strings.Split(path, "/")
+		for _, glob := range globs {
+			// If glob is a supported path template, skip the check
+			// If glob is {**}, it must be the last operator in the template
+			if glob == MatchOneTemplate && !foundMatchAnyTemplate {
+				continue
+			} else if glob == MatchAnyTemplate && !foundMatchAnyTemplate {
+				foundMatchAnyTemplate = true
+				continue
+			} else if (glob == MatchAnyTemplate || glob == MatchOneTemplate) && foundMatchAnyTemplate {
+				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
+					"{**} is not the last operator", path, key)
+			}
+
+			// If glob is not a supported path template and contains `{`, or `}` it is invalid.
+			// Path is invalid if it contains `{` or `}` beyond a supported path template.
+			if strings.ContainsAny(glob, "{}") {
+				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
+					"Contains '{' or '}' beyond a supported path template", path, key)
+			}
+
+			// Validate glob is valid string literal
+			// Meets Envoy's valid pchar requirements from https://datatracker.ietf.org/doc/html/rfc3986#appendix-A
+			if containsPathTemplate && !IsValidLiteral(glob) {
+				return fmt.Errorf("invalid or unsupported path %s, found in %s. "+
+					"Contains segment %s with invalid string literal", path, key, glob)
+			}
+		}
+	}
+	return nil
+}
+
+// IsValidLiteral returns true if the glob is a valid string literal.
+func IsValidLiteral(glob string) bool {
+	return validLiteral.MatchString(glob)
 }
 
 // ContainsPathTemplate returns true if the path contains a valid path template.
@@ -147,6 +208,8 @@ func ValidateAttribute(key string, values []string) error {
 	case isEqual(key, attrRemoteIP):
 		return ValidateIPs(values)
 	case isEqual(key, attrSrcNamespace):
+	case isEqual(key, attrSrcServiceAccount):
+		return CheckServiceAccount(key, values)
 	case isEqual(key, attrSrcPrincipal):
 	case isEqual(key, attrRequestPrincipal):
 	case isEqual(key, attrRequestAudiences):

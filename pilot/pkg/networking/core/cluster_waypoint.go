@@ -25,7 +25,6 @@ import (
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -52,6 +52,7 @@ func buildInternalUpstreamCluster(name string, internalListener string) *cluster
 	c := &cluster.Cluster{
 		Name:                 name,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+		CircuitBreakers:      &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
 		LoadAssignment: &endpoint.ClusterLoadAssignment{
 			ClusterName: name,
 			Endpoints:   util.BuildInternalEndpoint(internalListener, nil),
@@ -158,8 +159,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	// For these policies, we have the standard logic apply
 	cb.applyConnectionPool(mesh, localCluster, connectionPool)
 	cb.applyH2Upgrade(localCluster, &port, mesh, connectionPool)
-	applyOutlierDetection(localCluster.cluster, outlierDetection)
-	applyLoadBalancer(localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+	applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
+	applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
 
 	// Setup EDS config after apply LoadBalancer, since it can impact the result
 	if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
@@ -200,7 +201,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocketMatches = nil
 	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
-	localCluster.cluster.TransportSocket = util.TunnelHostInternalUpstreamTransportSocket(transportSocket)
+	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
 
 	return localCluster.build()
 }
@@ -294,7 +295,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 		Name:                          ConnectOriginate,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:                proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration),
+		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
 		TypedExtensionProtocolOptions: h2connectUpgrade(),

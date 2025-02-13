@@ -41,12 +41,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/xds"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -186,9 +186,9 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 		s.addDebugHandler(mux, internalMux, "/debug/force_disconnect", "Disconnects a proxy from this Pilot", s.forceDisconnect)
 	}
 
-	s.addDebugHandler(mux, internalMux, "/debug/ecdsz", "Status and debug interface for ECDS", s.ecdsz)
-	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.Edsz)
-	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.ndsz)
+	s.addDebugHandler(mux, internalMux, "/debug/ecdsz", "Status and debug interface for ECDS", s.typedConfigDumpHandler("ecds"))
+	s.addDebugHandler(mux, internalMux, "/debug/edsz", "Status and debug interface for EDS", s.typedConfigDumpHandler("eds"))
+	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.typedConfigDumpHandler("nds"))
 	s.addDebugHandler(mux, internalMux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
 	s.addDebugHandler(mux, internalMux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
 
@@ -205,6 +205,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/resourcesz", "Debug support for watched resources", s.resourcez)
 	s.addDebugHandler(mux, internalMux, "/debug/instancesz", "Debug support for service instances", s.instancesz)
 	s.addDebugHandler(mux, internalMux, "/debug/ambientz", "Debug support for ambient", s.ambientz)
+	s.addDebugHandler(mux, internalMux, "/debug/krtz", "Debug support for krt (internal state)", s.krtz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/authorizationz", "Internal authorization policies", s.authorizationz)
 	s.addDebugHandler(mux, internalMux, "/debug/telemetryz", "Debug Telemetry configuration", s.telemetryz)
@@ -518,11 +519,7 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 		}
 		c.proxy.RLock()
 		for k, wr := range c.proxy.WatchedResources {
-			r := wr.ResourceNames
-			if r == nil {
-				r = []string{}
-			}
-			adsClient.Watches[k] = r
+			adsClient.Watches[k] = wr.ResourceNames.UnsortedList()
 		}
 		c.proxy.RUnlock()
 		adsClients.Connected = append(adsClients.Connected, adsClient)
@@ -530,24 +527,13 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, adsClients, req)
 }
 
-// ecdsz implements a status and debug interface for ECDS.
-// It is mapped to /debug/ecdsz
-func (s *DiscoveryServer) ecdsz(w http.ResponseWriter, req *http.Request) {
-	if s.handlePushRequest(w, req) {
-		return
+func (s *DiscoveryServer) typedConfigDumpHandler(typ string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		q.Set("types", typ)
+		r.URL.RawQuery = q.Encode()
+		s.ConfigDump(w, r)
 	}
-	proxyID, con := s.getDebugConnection(req)
-	if con == nil {
-		s.errorHandler(w, proxyID, con)
-		return
-	}
-
-	dump := s.getConfigDumpByResourceType(con, nil, []string{v3.ExtensionConfigurationType})
-	if len(dump[v3.ExtensionConfigurationType]) == 0 {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	writeJSON(w, dump[v3.ExtensionConfigurationType], req)
 }
 
 // ConfigDump returns information in the form of the Envoy admin API config dump for the specified proxy
@@ -583,7 +569,7 @@ func (s *DiscoveryServer) ConfigDump(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	includeEds := req.URL.Query().Get("include_eds") == "true"
+	includeEds := req.URL.Query().Has("include_eds")
 	dump, err := s.connectionConfigDump(con, includeEds)
 	if err != nil {
 		handleHTTPError(w, err)
@@ -598,7 +584,13 @@ func (s *DiscoveryServer) getResourceTypes(req *http.Request) []string {
 
 		resourceTypes := sets.New[string]()
 		for _, t := range ts {
-			resourceTypes.Insert(v3.GetResourceType(t))
+			rType := v3.GetResourceType(t)
+			resourceTypes.Insert(rType)
+			// special case for AddressType, include WorkloadType as well
+			// because they shared same short type name `WDS`
+			if rType == v3.AddressType {
+				resourceTypes.Insert(v3.WorkloadType)
+			}
 		}
 
 		return resourceTypes.UnsortedList()
@@ -875,6 +867,11 @@ func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Re
 	writeJSON(w, push, req)
 }
 
+// DebugEndpoints lists all the supported debug endpoints.
+func (s *DiscoveryServer) DebugEndpoints() []string {
+	return slices.Sort(maps.Keys(s.debugHandlers))
+}
+
 // Debug lists all the supported debug endpoints.
 func (s *DiscoveryServer) Debug(w http.ResponseWriter, req *http.Request) {
 	type debugEndpoint struct {
@@ -920,57 +917,6 @@ func (s *DiscoveryServer) list(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, cmdNames, req)
 }
 
-// ndsz implements a status and debug interface for NDS.
-// It is mapped to /debug/ndsz on the monitor port (15014).
-func (s *DiscoveryServer) ndsz(w http.ResponseWriter, req *http.Request) {
-	if s.handlePushRequest(w, req) {
-		return
-	}
-	proxyID, con := s.getDebugConnection(req)
-	if con == nil {
-		s.errorHandler(w, proxyID, con)
-		return
-	}
-	if !con.proxy.Metadata.DNSCapture {
-		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte("DNS capture is not enabled in the proxy\n"))
-		return
-	}
-
-	if s.Generators[v3.NameTableType] != nil {
-		nds, _, _ := s.Generators[v3.NameTableType].Generate(con.proxy, nil, &model.PushRequest{
-			Push: con.proxy.LastPushContext,
-			Full: true,
-		})
-		if len(nds) == 0 {
-			return
-		}
-		writeJSON(w, nds[0], req)
-	}
-}
-
-// Edsz implements a status and debug interface for EDS.
-// It is mapped to /debug/edsz on the monitor port (15014).
-func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
-	if s.handlePushRequest(w, req) {
-		return
-	}
-
-	proxyID, con := s.getDebugConnection(req)
-	if con == nil {
-		s.errorHandler(w, proxyID, con)
-		return
-	}
-
-	clusters := con.Clusters()
-	eps := make([]jsonMarshalProto, 0, len(clusters))
-	for _, clusterName := range clusters {
-		builder := endpoints.NewEndpointBuilder(clusterName, con.proxy, con.proxy.LastPushContext)
-		eps = append(eps, jsonMarshalProto{builder.BuildClusterLoadAssignment(s.Env.EndpointIndex)})
-	}
-	writeJSON(w, eps, req)
-}
-
 func (s *DiscoveryServer) forceDisconnect(w http.ResponseWriter, req *http.Request) {
 	proxyID, con := s.getDebugConnection(req)
 	if con == nil {
@@ -997,6 +943,7 @@ func cloneProxy(proxy *model.Proxy) *model.Proxy {
 	for k, v := range proxy.WatchedResources {
 		// nolint: govet
 		v := *v
+		v.ResourceNames = v.ResourceNames.Copy()
 		out.WatchedResources[k] = &v
 	}
 	return out
@@ -1043,7 +990,7 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 		return []byte(ip.String())
 	}
 	rewriteNetworkAddress := func(b *workloadapi.NetworkAddress) *workloadapi.NetworkAddress {
-		nb := proto.Clone(b).(*workloadapi.NetworkAddress)
+		nb := protomarshal.Clone(b)
 		nb.Address = rewriteAddress(nb.Address)
 		return nb
 	}
@@ -1051,7 +998,7 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 		if b == nil {
 			return nil
 		}
-		nb := proto.Clone(b).(*workloadapi.GatewayAddress)
+		nb := protomarshal.Clone(b)
 		switch t := nb.Destination.(type) {
 		case *workloadapi.GatewayAddress_Address:
 			t.Address = rewriteNetworkAddress(t.Address)
@@ -1059,7 +1006,7 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 		return nb
 	}
 	for _, original := range addresses {
-		addr := proto.Clone(original.Address).(*workloadapi.Address)
+		addr := protomarshal.Clone(original.Address)
 		switch addr := addr.Type.(type) {
 		case *workloadapi.Address_Workload:
 			w := addr.Workload
@@ -1078,6 +1025,10 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 		res.Policies = append(res.Policies, jsonMarshalProto{policy.Authorization})
 	}
 	writeJSON(w, res, req)
+}
+
+func (s *DiscoveryServer) krtz(w http.ResponseWriter, req *http.Request) {
+	writeJSON(w, s.krtDebugger, req)
 }
 
 func (s *DiscoveryServer) networkz(w http.ResponseWriter, req *http.Request) {

@@ -19,13 +19,13 @@ import (
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -86,6 +86,129 @@ func Test_virtualHostMatch(t *testing.T) {
 							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
 								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
 									Name: "scooby",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "domain name match",
+			args: args{
+				vh: &route.VirtualHost{
+					Domains: []string{
+						"*.scooby",
+						"*.com",
+					},
+					Name: "scoobydoo",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									DomainName: "*.scooby",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "vhost name match and domain name match",
+			args: args{
+				vh: &route.VirtualHost{
+					Domains: []string{
+						"*.scooby",
+						"*.com",
+					},
+					Name: "scoobydoo",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									DomainName: "*.scooby",
+									Name:       "scoobydoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "domain name mismatch",
+			args: args{
+				vh: &route.VirtualHost{
+					Domains: []string{
+						"*.scooby",
+						"*.com",
+					},
+					Name: "scoobydoo",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									DomainName: "*.in",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "vhost name mismatch and domain name match",
+			args: args{
+				vh: &route.VirtualHost{
+					Domains: []string{
+						"*.scooby",
+						"*.com",
+					},
+					Name: "scoobydoo",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									DomainName: "*.scooby",
+									Name:       "scooby",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "vhost name match but domain name mismatch",
+			args: args{
+				vh: &route.VirtualHost{
+					Domains: []string{
+						"*.scooby",
+						"*.com",
+					},
+					Name: "scoobydoo",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									DomainName: "*.in",
+									Name:       "scoobydoo",
 								},
 							},
 						},
@@ -1104,7 +1227,7 @@ func TestPatchHTTPRoute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			savedSharedVHost := proto.Clone(tt.args.sharedRoutesVHost).(*route.VirtualHost)
+			savedSharedVHost := protomarshal.Clone(tt.args.sharedRoutesVHost)
 			patchHTTPRoute(tt.args.patchContext, tt.args.patches, tt.args.routeConfiguration,
 				tt.args.virtualHost, tt.args.routeIndex, tt.args.routesRemoved, tt.args.portMap, &tt.args.clonedVhostRoutes)
 			if diff := cmp.Diff(tt.want, tt.args.virtualHost, protocmp.Transform()); diff != "" {

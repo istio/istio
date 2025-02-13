@@ -500,29 +500,28 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 
 	hostsByNamespace := make(map[string]hostClassification)
 	for _, h := range istioListener.Hosts {
-		parts := strings.SplitN(h, "/", 2)
-		if len(parts) < 2 {
+		if strings.Count(h, "/") != 1 {
 			log.Errorf("Illegal host in sidecar resource: %s, host must be of form namespace/dnsName", h)
 			continue
 		}
-		if parts[0] == currentNamespace {
-			parts[0] = configNamespace
+		ns, name, _ := strings.Cut(h, "/")
+		if ns == currentNamespace {
+			ns = configNamespace
 		}
 
-		ns := parts[0]
-		hName := host.Name(parts[1])
-		if _, exists := hostsByNamespace[ns]; !exists {
-			hostsByNamespace[ns] = hostClassification{exactHosts: sets.New[host.Name](), allHosts: make([]host.Name, 0)}
+		hName := host.Name(name)
+		hc, exists := hostsByNamespace[ns]
+		if !exists {
+			hc = hostClassification{exactHosts: sets.New[host.Name](), allHosts: make([]host.Name, 0)}
 		}
 
 		// exact hosts are saved separately for map lookup
 		if !hName.IsWildCarded() {
-			hostsByNamespace[ns].exactHosts.Insert(hName)
+			hc.exactHosts.Insert(hName)
 		}
 
 		// allHosts contains the exact hosts and wildcard hosts,
 		// since SelectVirtualServices will use `Matches` semantic matching.
-		hc := hostsByNamespace[ns]
 		hc.allHosts = append(hc.allHosts, hName)
 		hostsByNamespace[ns] = hc
 	}
@@ -705,7 +704,6 @@ func (sc *SidecarScope) Services() []*Service {
 func (sc *SidecarScope) SetDestinationRulesForTesting(configs []config.Config) {
 	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
 	for _, c := range configs {
-		c := c
 		sc.destinationRulesByNames[types.NamespacedName{Name: c.Name, Namespace: c.Namespace}] = &c
 	}
 }

@@ -1,0 +1,19 @@
+version: v1beta1
+plugins:
+- name: go
+  out: .
+  opt:
+  - paths=source_relative
+- name: go-grpc
+  out: .
+  opt:
+  - paths=source_relative
+- name: golang-jsonshim
+  out: .
+  opt: paths=source_relative
+- name: go-vtproto
+  out: .
+  opt:
+  - paths=source_relative
+  - features=marshal_strict+size+equal
+  - buildTag=vtprotobuf

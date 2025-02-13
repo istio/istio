@@ -1,0 +1,7 @@
+pilot:
+  env:
+    # 1.24 behavioral changes
+    PILOT_ENABLE_IP_AUTOALLOCATE: "false"
+ambient:
+  dnsCapture: false
+  reconcileIptablesOnStartup: false

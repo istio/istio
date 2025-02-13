@@ -63,6 +63,9 @@ type Message struct {
 
 	// Line is the line number of the error place in the message
 	Line int
+
+	// PintCluster indicates whether to add cluster info when printing the message
+	PrintCluster bool
 }
 
 // Unstructured returns this message as a JSON-style unstructured map
@@ -136,6 +139,9 @@ func (m *Message) Origin() string {
 			}
 		}
 		origin = " (" + m.Resource.Origin.FriendlyName() + loc + ")"
+		if m.PrintCluster {
+			origin = fmt.Sprintf(" [cluster-%s]", m.Resource.Origin.ClusterName()) + origin
+		}
 	}
 	return origin
 }

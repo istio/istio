@@ -22,7 +22,6 @@ import (
 	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -35,12 +34,13 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
 )
 
 // applyTrafficPolicy applies the trafficPolicy defined within destinationRule,
 // which can be called for both outbound and inbound cluster, but only connection pool will be applied to inbound cluster.
-func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
+func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildClusterOpts) {
 	connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol := selectTrafficPolicyComponents(opts.policy)
 	// Connection pool settings are applicable for both inbound and outbound clusters.
 	if connectionPool == nil {
@@ -49,8 +49,8 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool)
 	if opts.direction != model.TrafficDirectionInbound {
 		cb.applyH2Upgrade(opts.mutable, opts.port, opts.mesh, connectionPool)
-		applyOutlierDetection(opts.mutable.cluster, outlierDetection)
-		applyLoadBalancer(opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh)
+		applyOutlierDetection(service, opts.mutable.cluster, outlierDetection)
+		applyLoadBalancer(service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 			tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
@@ -197,6 +197,12 @@ func shouldH2Upgrade(clusterName string, port *model.Port, mesh *meshconfig.Mesh
 	// Upgrade if tls.GetMode() == networking.TLSSettings_ISTIO_MUTUAL
 	if connectionPool != nil && connectionPool.Http != nil {
 		override := connectionPool.Http.H2UpgradePolicy
+		// If useClientProtocol is set, do not upgrade
+		if connectionPool.Http.UseClientProtocol {
+			log.Debugf("Not upgrading cluster because useClientProtocol is set: %v (%v %v)",
+				clusterName, mesh.H2UpgradePolicy, override)
+			return false
+		}
 		// If user wants an upgrade at destination rule/port level that means he is sure that
 		// it is a Http port - upgrade in such case. This is useful incase protocol sniffing is
 		// enabled and user wants to upgrade/preserve http protocol from client.
@@ -223,20 +229,26 @@ func shouldH2Upgrade(clusterName string, port *model.Port, mesh *meshconfig.Mesh
 }
 
 func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
-	cluster.ConnectTimeout = proto.Clone(cb.req.Push.Mesh.ConnectTimeout).(*durationpb.Duration)
+	cluster.ConnectTimeout = protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout)
 }
 
-func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
-	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig,
+func applyLoadBalancer(
+	svc *model.Service,
+	c *cluster.Cluster,
+	lb *networking.LoadBalancerSettings,
+	port *model.Port,
+	locality *core.Locality,
+	proxyLabels map[string]string,
+	meshConfig *meshconfig.MeshConfig,
 ) {
 	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
 	// end points when load balancer is in panic mode.
-	if features.SendUnhealthyEndpoints.Load() {
+	if svc.SupportsUnhealthyEndpoints() {
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-	applyLocalityLoadBalancer(locality, proxyLabels, c, localityLbSetting)
+	localityLbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), svc)
+	applyLocalityLoadBalancer(locality, proxyLabels, c, localityLbSetting, forceFailover)
 
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
@@ -270,11 +282,15 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 	ApplyRingHashLoadBalancer(c, lb)
 }
 
-func applyLocalityLoadBalancer(locality *core.Locality, proxyLabels map[string]string, c *cluster.Cluster,
+func applyLocalityLoadBalancer(
+	locality *core.Locality,
+	proxyLabels map[string]string,
+	c *cluster.Cluster,
 	localityLB *networking.LocalityLoadBalancerSetting,
+	failover bool,
 ) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
-	enableFailover := c.OutlierDetection != nil
+	enableFailover := failover || c.OutlierDetection != nil
 	// set locality weighted lb config when locality lb is enabled, otherwise it will influence the result of LBPolicy like `least request`
 	if features.EnableLocalityWeightedLbConfig ||
 		(enableFailover && (localityLB.GetFailover() != nil || localityLB.GetFailoverPriority() != nil)) ||
@@ -309,7 +325,16 @@ func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
 func applyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
 	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
 
-	if loadbalancer.GetWarmupDurationSecs() != nil {
+	switch {
+	case loadbalancer.GetWarmup() != nil:
+		c.LbConfig = &cluster.Cluster_RoundRobinLbConfig_{
+			RoundRobinLbConfig: &cluster.Cluster_RoundRobinLbConfig{
+				SlowStartConfig: setWarmup(loadbalancer.GetWarmup()),
+			},
+		}
+
+	// Deprecated: uses setWarmup instead
+	case loadbalancer.GetWarmupDurationSecs() != nil:
 		c.LbConfig = &cluster.Cluster_RoundRobinLbConfig_{
 			RoundRobinLbConfig: &cluster.Cluster_RoundRobinLbConfig{
 				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
@@ -322,7 +347,16 @@ func applyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.Lo
 func applyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
 	c.LbPolicy = cluster.Cluster_LEAST_REQUEST
 
-	if loadbalancer.GetWarmupDurationSecs() != nil {
+	switch {
+	case loadbalancer.GetWarmup() != nil:
+		c.LbConfig = &cluster.Cluster_LeastRequestLbConfig_{
+			LeastRequestLbConfig: &cluster.Cluster_LeastRequestLbConfig{
+				SlowStartConfig: setWarmup(loadbalancer.GetWarmup()),
+			},
+		}
+
+	// Deprecated: uses setWarmup instead
+	case loadbalancer.GetWarmupDurationSecs() != nil:
 		c.LbConfig = &cluster.Cluster_LeastRequestLbConfig_{
 			LeastRequestLbConfig: &cluster.Cluster_LeastRequestLbConfig{
 				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
@@ -332,9 +366,36 @@ func applyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.
 }
 
 // setSlowStartConfig will set the warmupDurationSecs for LEAST_REQUEST and ROUND_ROBIN if provided in DestinationRule
+// Deprecated: use setWarmup instead
 func setSlowStartConfig(dur *durationpb.Duration) *cluster.Cluster_SlowStartConfig {
 	return &cluster.Cluster_SlowStartConfig{
 		SlowStartWindow: dur,
+	}
+}
+
+// setWarmup will set the warmup configuration for LEAST_REQUEST and ROUND_ROBIN if provided in DestinationRule
+// Runtime key is not exposed,the value is fixed
+func setWarmup(warmup *networking.WarmupConfiguration) *cluster.Cluster_SlowStartConfig {
+	var aggression, minWeightPercent float64
+
+	// If not specified, aggression defaults to 1.0 ensuring a linear traffic rampup
+	if a := warmup.Aggression; a == nil {
+		aggression = 1
+	} else {
+		aggression = a.GetValue()
+	}
+
+	// If not specified, minWeightPersent default to 10, aligned with envoy default
+	if m := warmup.MinimumPercent; m == nil {
+		minWeightPercent = 10
+	} else {
+		minWeightPercent = m.GetValue()
+	}
+
+	return &cluster.Cluster_SlowStartConfig{
+		SlowStartWindow:  warmup.Duration,
+		Aggression:       &core.RuntimeDouble{DefaultValue: aggression, RuntimeKey: "("},
+		MinWeightPercent: &xdstype.Percent{Value: minWeightPercent},
 	}
 }
 
@@ -355,7 +416,7 @@ func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
-func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetection) {
+func applyOutlierDetection(service *model.Service, c *cluster.Cluster, outlier *networking.OutlierDetection) {
 	if outlier == nil {
 		return
 	}
@@ -417,7 +478,7 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 		// When we are sending unhealthy endpoints, we should disable Panic Threshold. Otherwise
 		// Envoy will send traffic to "Unready" pods when the percentage of healthy hosts fall
 		// below minimum health percentage.
-		if features.SendUnhealthyEndpoints.Load() {
+		if service.SupportsUnhealthyEndpoints() {
 			minHealthPercent = 0
 		}
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(minHealthPercent)}

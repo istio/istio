@@ -48,6 +48,10 @@ func (i index[K, O]) Lookup(k K) []O {
 // CreateStringIndex creates a simple index, keyed by a string, over an informer for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
 // This is split from CreateIndex because string does not implement fmt.Stringer.
+//
+// If an informer is filtered, the underlying index will still store all data. Items that do not match the filter
+// are removed at Lookup() time.
+// If the filter changes, there is no "notification" to the user of an Index, as there are no events for indexes.
 func CreateStringIndex[O controllers.ComparableObject](
 	client Informer[O],
 	extract func(o O) []string,
@@ -58,6 +62,10 @@ func CreateStringIndex[O controllers.ComparableObject](
 // CreateIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
 // Keys can be any object, but they must encode down to a *unique* value with String().
+//
+// If an informer is filtered, the underlying index will still store all data. Items that do not match the filter
+// are removed at Lookup() time.
+// If the filter changes, there is no "notification" to the user of an Index, as there are no events for indexes.
 func CreateIndex[K fmt.Stringer, O controllers.ComparableObject](
 	client Informer[O],
 	extract func(o O) []K,

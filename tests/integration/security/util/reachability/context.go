@@ -128,8 +128,6 @@ func Run(testCases []TestCase, t framework.TestContext) {
 	}
 
 	for _, c := range testCases {
-		// Create a copy to avoid races, as tests are run in parallel
-		c := c
 		testName := strings.TrimSuffix(c.ConfigFile, filepath.Ext(c.ConfigFile))
 		t.NewSubTest(testName).Run(func(t framework.TestContext) {
 			// Apply the policy.
@@ -141,7 +139,6 @@ func Run(testCases []TestCase, t framework.TestContext) {
 			})
 			for _, clients := range []echo.Instances{A, B, Headless, Naked, HeadlessNaked} {
 				for _, from := range clients {
-					from := from
 					t.NewSubTest(fmt.Sprintf("%s in %s",
 						from.Config().Service, from.Config().Cluster.StableName())).Run(func(t framework.TestContext) {
 						destinationSets := []echo.Instances{
@@ -157,7 +154,6 @@ func Run(testCases []TestCase, t framework.TestContext) {
 						}
 
 						for _, to := range destinationSets {
-							to := to
 							if c.ExpectDestinations != nil {
 								to = c.ExpectDestinations(from, to)
 							}
@@ -177,9 +173,6 @@ func Run(testCases []TestCase, t framework.TestContext) {
 								copts = &c.CallOpts
 							}
 							for _, opts := range *copts {
-								// Copy the loop variables so they won't change for the subtests.
-								opts := opts
-
 								// Set the target on the call options.
 								opts.To = to
 								if len(toClusters) == 1 {

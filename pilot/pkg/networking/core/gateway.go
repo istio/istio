@@ -503,6 +503,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			if !server.GetTls().GetHttpsRedirect() {
 				continue
 			}
+			hostname = strings.ToLower(hostname)
 			if vHost, exists := vHostDedupMap[host.Name(hostname)]; exists {
 				vHost.RequireTls = route.VirtualHost_ALL
 				continue
@@ -652,6 +653,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 				useRemoteAddress:          true,
 				connectionManager:         buildGatewayConnectionManager(proxyConfig, node, false /* http3SupportEnabled */, push),
 				suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+				skipIstioMXHeaders:        ph.SkipIstioMXHeaders,
 				protocol:                  serverProto,
 				class:                     istionetworking.ListenerClassGateway,
 			},
@@ -673,6 +675,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 			useRemoteAddress:          true,
 			connectionManager:         buildGatewayConnectionManager(proxyConfig, node, http3Enabled, push),
 			suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+			skipIstioMXHeaders:        ph.SkipIstioMXHeaders,
 			protocol:                  serverProto,
 			statPrefix:                server.Name,
 			http3Only:                 http3Enabled,
@@ -727,6 +730,10 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
 		httpConnManager.CodecType = hcm.HttpConnectionManager_HTTP3
 	}
+	// As of Envoy 1.33, the default internalAddressConfig is set to an empty set. In previous versions
+	// the default was all private IPs. To preserve internal headers, we must set ENABLE_HCM_INTERNAL_NETWORKS
+	// to true and explicitly set MeshNetworks to configure Envoy's internal_address_config.
+	// MeshNetwork configuration docs can be found here: https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks
 	if features.EnableHCMInternalNetworks && push.Networks != nil {
 		httpConnManager.InternalAddressConfig = util.MeshNetworksToEnvoyInternalAddressConfig(push.Networks)
 	}

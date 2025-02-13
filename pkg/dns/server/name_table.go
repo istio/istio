@@ -48,7 +48,9 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	if cfg.AllServices {
 		services = cfg.Push.GetAllServices()
 	} else {
-		services = cfg.Node.SidecarScope.Services()
+		for _, el := range cfg.Node.SidecarScope.EgressListeners {
+			services = append(services, el.Services()...)
+		}
 	}
 	for _, svc := range services {
 		var addressList []string
@@ -64,7 +66,16 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 			if !netutil.IsValidIPAddress(svcAddress) {
 				continue
 			}
-			addressList = append(addressList, svcAddress)
+			if cfg.AllServices {
+				serviceEndpoints := cfg.Push.ServiceEndpoints(svc.Key())
+				for _, endpoints := range serviceEndpoints {
+					for _, instance := range endpoints {
+						addressList = append(addressList, instance.Addresses...)
+					}
+				}
+			} else {
+				addressList = append(addressList, svcAddress)
+			}
 		}
 		if headless {
 			// The IP will be unspecified here if its headless service or if the auto
@@ -79,7 +90,8 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 							break
 						}
 					}
-					if len(instance.Addresses) == 0 || !isValidInstance {
+					if len(instance.Addresses) == 0 || !isValidInstance ||
+						(!svc.Attributes.PublishNotReadyAddresses && instance.HealthStatus != model.Healthy) {
 						continue
 					}
 					// TODO(stevenctl): headless across-networks https://github.com/istio/istio/issues/38327

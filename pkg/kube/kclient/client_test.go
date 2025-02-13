@@ -15,6 +15,7 @@
 package kclient_test
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -28,6 +29,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -35,10 +37,13 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	istioclient "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	istionetclient "istio.io/client-go/pkg/apis/networking/v1"
+	oldistionetclient "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/config/schema/kubeclient"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -195,6 +200,46 @@ func TestSwappingClient(t *testing.T) {
 		}, 1)
 		tracker.WaitOrdered("add/name")
 	})
+}
+
+func TestDelayedClientWithRegisteredType(t *testing.T) {
+	kubeclient.Register[*oldistionetclient.DestinationRule](
+		gvr.DestinationRule_v1beta1,
+		gvk.DestinationRule_v1beta1.Kubernetes(),
+		func(c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (runtime.Object, error) {
+			// HACK: we can't  use clienttest.NewWriter with the old struct
+			return &oldistionetclient.DestinationRuleList{
+				Items: []*oldistionetclient.DestinationRule{{
+					ObjectMeta: metav1.ObjectMeta{Name: "fake-item", Namespace: "test-ns"},
+				}},
+			}, nil
+		},
+		func(c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().NetworkingV1beta1().DestinationRules(namespace).Watch(context.Background(), o)
+		},
+	)
+
+	c := kube.NewFakeClient()
+	clienttest.MakeCRD(t, c, gvr.DestinationRule_v1beta1)
+	inf := kclient.NewDelayedInformer[*oldistionetclient.DestinationRule](
+		c,
+		gvr.DestinationRule_v1beta1,
+		kubetypes.StandardInformer,
+		kubetypes.Filter{},
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	c.RunAndWait(ctx.Done())
+	kube.WaitForCacheSync("sync test", ctx.Done(), inf.HasSynced)
+
+	items := inf.List("test-ns", klabels.Everything())
+	if len(items) == 0 {
+		t.Fatalf("expected > 0 items, got %d", len(items))
+	}
+	if items[0].Name != "fake-item" {
+		t.Fatalf("expected item name 'fake-item', got '%s'", items[0].Name)
+	}
 }
 
 // setup some calls to ensure we trigger the race detector, if there was a race.
@@ -369,7 +414,7 @@ func TestToOpts(t *testing.T) {
 func TestFilterNamespace(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
-	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 	}}})
 	testns := clienttest.NewWriter[*corev1.Namespace](t, c)
@@ -412,7 +457,7 @@ func TestFilterNamespace(t *testing.T) {
 func TestFilter(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
-	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 	testns := clienttest.NewWriter[*corev1.Namespace](t, c)
 	testns.Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default", Labels: map[string]string{"kubernetes.io/metadata.name": "default"}}})
 	testns.Create(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "selected", Labels: map[string]string{"kubernetes.io/metadata.name": "selected"}}})
@@ -463,9 +508,9 @@ func TestFilter(t *testing.T) {
 	assert.Equal(t, len(tester.List("", klabels.Everything())), 2)
 
 	// Update the selectors...
-	assert.NoError(t, meshWatcher.Update(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
+	meshWatcher.Set(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
-	}}}, time.Second))
+	}}})
 	tracker.WaitOrdered("delete/1")
 	assert.Equal(t, len(tester.List("", klabels.Everything())), 1)
 
@@ -489,7 +534,7 @@ func TestFilter(t *testing.T) {
 func TestFilterClusterScoped(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
-	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
 	}}})
 	// Note: it is silly to filter cluster scoped resources, but if it is done we should not break.
@@ -520,7 +565,7 @@ func TestFilterDeadlock(t *testing.T) {
 	c := kube.NewFakeClient(&appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "random", Namespace: "test"},
 	})
-	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{{
 		MatchLabels: map[string]string{"selected": "yes"},
 	}}})
 	stop := test.NewStop(t)

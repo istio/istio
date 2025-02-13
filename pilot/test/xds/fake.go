@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 
@@ -55,12 +56,14 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -113,14 +116,15 @@ type FakeOptions struct {
 
 type FakeDiscoveryServer struct {
 	*core.ConfigGenTest
-	t            test.Failer
-	Discovery    *xds.DiscoveryServer
-	Listener     net.Listener
-	BufListener  *bufconn.Listener
-	kubeClient   kubelib.Client
-	KubeRegistry *kube.FakeController
-	XdsUpdater   model.XDSUpdater
-	MemRegistry  *memregistry.ServiceDiscovery
+	t              test.Failer
+	Discovery      *xds.DiscoveryServer
+	DiscoveryDebug *http.ServeMux
+	Listener       net.Listener
+	BufListener    *bufconn.Listener
+	kubeClient     kubelib.Client
+	KubeRegistry   *kube.FakeController
+	XdsUpdater     model.XDSUpdater
+	MemRegistry    *memregistry.ServiceDiscovery
 }
 
 func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
@@ -130,7 +134,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := xds.NewDiscoveryServer(model.NewEnvironment(), map[string]string{})
+	s := xds.NewDiscoveryServer(model.NewEnvironment(), map[string]string{}, krt.GlobalDebugHandler)
 	// Disable debounce to reduce test times
 	s.DebounceOptions.DebounceAfter = opts.DebounceTime
 	// Setup time to Now instead of process start to make logs not misleading
@@ -189,7 +193,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			NetworksWatcher: opts.NetworksWatcher,
 			SkipRun:         true,
 			ConfigCluster:   k8sCluster == opts.DefaultClusterName,
-			MeshWatcher:     mesh.NewFixedWatcher(m),
+			MeshWatcher:     meshwatcher.NewTestWatcher(m),
 			CRDs: []schema.GroupVersionResource{
 				// Install all CRDs used (mostly in Ambient)
 				gvr.AuthorizationPolicy,
@@ -215,7 +219,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	stop := test.NewStop(t)
-	ingr := ingress.NewController(defaultKubeClient, mesh.NewFixedWatcher(m), kube.Options{
+	ingr := ingress.NewController(defaultKubeClient, meshwatcher.NewTestWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	})
 	defaultKubeClient.RunAndWait(stop)
@@ -255,6 +259,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	bootstrap.InitGenerators(s, core.NewConfigGenerator(s.Cache), "istio-system", "", nil)
 	s.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
 	s.Generators[v3.ExtensionConfigurationType].(*xds.EcdsGenerator).SetCredController(creds)
+
+	debugMux := s.InitDebug(http.NewServeMux(), false, func() map[string]string {
+		return nil
+	})
 
 	memRegistry := cg.MemRegistry
 	memRegistry.XdsUpdater = s
@@ -343,15 +351,16 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	bufListener, _ := listener.(*bufconn.Listener)
 	fake := &FakeDiscoveryServer{
-		t:             t,
-		Discovery:     s,
-		Listener:      listener,
-		BufListener:   bufListener,
-		ConfigGenTest: cg,
-		kubeClient:    defaultKubeClient,
-		KubeRegistry:  defaultKubeController,
-		XdsUpdater:    xdsUpdater,
-		MemRegistry:   memRegistry,
+		t:              t,
+		Discovery:      s,
+		DiscoveryDebug: debugMux,
+		Listener:       listener,
+		BufListener:    bufListener,
+		ConfigGenTest:  cg,
+		kubeClient:     defaultKubeClient,
+		KubeRegistry:   defaultKubeController,
+		XdsUpdater:     xdsUpdater,
+		MemRegistry:    memRegistry,
 	}
 
 	return fake

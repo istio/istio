@@ -1,0 +1,36 @@
+iptables-save
+ip6tables-save
+* mangle
+-N ISTIO_OUTPUT
+-N ISTIO_PRERT
+-A PREROUTING -j ISTIO_PRERT
+-A OUTPUT -j ISTIO_OUTPUT
+-A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
+COMMIT
+* nat
+-N ISTIO_OUTPUT
+-N ISTIO_PRERT
+-A OUTPUT -j ISTIO_OUTPUT
+-A PREROUTING -j ISTIO_PRERT
+-A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp -j ACCEPT
+-A ISTIO_OUTPUT -p tcp -m mark --mark 0x111/0xfff -j ACCEPT
+-A ISTIO_OUTPUT ! -d 127.0.0.1/32 -o lo -j ACCEPT
+-A ISTIO_OUTPUT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports 15001
+COMMIT
+* mangle
+-N ISTIO_OUTPUT
+-N ISTIO_PRERT
+-A PREROUTING -j ISTIO_PRERT
+-A OUTPUT -j ISTIO_OUTPUT
+-A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
+COMMIT
+* nat
+-N ISTIO_OUTPUT
+-N ISTIO_PRERT
+-A OUTPUT -j ISTIO_OUTPUT
+-A PREROUTING -j ISTIO_PRERT
+-A ISTIO_OUTPUT -d e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164 -p tcp -m tcp -j ACCEPT
+-A ISTIO_OUTPUT -p tcp -m mark --mark 0x111/0xfff -j ACCEPT
+-A ISTIO_OUTPUT ! -d ::1/128 -o lo -j ACCEPT
+-A ISTIO_OUTPUT ! -d ::1/128 -p tcp -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports 15001
+COMMIT

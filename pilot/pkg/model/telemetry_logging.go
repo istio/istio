@@ -97,7 +97,7 @@ var (
 			"request_id":                        {Kind: &structpb.Value_StringValue{StringValue: "%REQ(X-REQUEST-ID)%"}},
 			"authority":                         {Kind: &structpb.Value_StringValue{StringValue: "%REQ(:AUTHORITY)%"}},
 			"upstream_host":                     {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_HOST%"}},
-			"upstream_cluster":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER%"}},
+			"upstream_cluster":                  {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_CLUSTER_RAW%"}},
 			"upstream_local_address":            {Kind: &structpb.Value_StringValue{StringValue: "%UPSTREAM_LOCAL_ADDRESS%"}},
 			"downstream_local_address":          {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_LOCAL_ADDRESS%"}},
 			"downstream_remote_address":         {Kind: &structpb.Value_StringValue{StringValue: "%DOWNSTREAM_REMOTE_ADDRESS%"}},
@@ -110,6 +110,8 @@ var (
 	// We need to propagate these as part of access log service stream
 	// Logging them by default on the console may be an issue as the base64 encoded string is bound to be a big one.
 	// But end users can certainly configure it on their own via the meshConfig using the %FILTER_STATE% macro.
+	// Related to https://github.com/istio/proxy/pull/5825, start from 1.24, Istio use new filter state key.
+	envoyStateToLog     = []string{"upstream_peer", "downstream_peer"}
 	envoyWasmStateToLog = []string{"wasm.upstream_peer", "wasm.upstream_peer_id", "wasm.downstream_peer", "wasm.downstream_peer_id"}
 
 	// reqWithoutQueryFormatter configures additional formatters needed for some of the format strings like "REQ_WITHOUT_QUERY"
@@ -138,7 +140,7 @@ var (
 // STOP. DO NOT UPDATE THIS WITHOUT UPDATING telemetryAccessLog.
 const telemetryAccessLogHandled = 14
 
-func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionProvider) *accesslog.AccessLog {
+func telemetryAccessLog(push *PushContext, proxy *Proxy, fp *meshconfig.MeshConfig_ExtensionProvider) *accesslog.AccessLog {
 	var al *accesslog.AccessLog
 	switch prov := fp.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
@@ -149,11 +151,11 @@ func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionPr
 			al = fileAccessLogFromTelemetry(prov.EnvoyFileAccessLog)
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
-		al = httpGrpcAccessLogFromTelemetry(push, prov.EnvoyHttpAls)
+		al = httpGrpcAccessLogFromTelemetry(push, proxy, prov.EnvoyHttpAls)
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
-		al = tcpGrpcAccessLogFromTelemetry(push, prov.EnvoyTcpAls)
+		al = tcpGrpcAccessLogFromTelemetry(push, proxy, prov.EnvoyTcpAls)
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
-		al = openTelemetryLog(push, prov.EnvoyOtelAls)
+		al = openTelemetryLog(push, proxy, prov.EnvoyOtelAls)
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp,
 		*meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc,
 		*meshconfig.MeshConfig_ExtensionProvider_Zipkin,
@@ -172,13 +174,23 @@ func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionPr
 	return al
 }
 
-func tcpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider) *accesslog.AccessLog {
+func filterStateObjectsToLog(proxy *Proxy) []string {
+	if proxy.VersionGreaterOrEqual(&IstioVersion{Major: 1, Minor: 24, Patch: 0}) {
+		return envoyStateToLog
+	}
+
+	return envoyWasmStateToLog
+}
+
+func tcpGrpcAccessLogFromTelemetry(push *PushContext, proxy *Proxy,
+	prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpGrpcV3LogProvider,
+) *accesslog.AccessLog {
 	logName := TCPEnvoyAccessLogFriendlyName
 	if prov != nil && prov.LogName != "" {
 		logName = prov.LogName
 	}
 
-	filterObjects := envoyWasmStateToLog
+	filterObjects := filterStateObjectsToLog(proxy)
 	if len(prov.FilterStateObjectsToLog) != 0 {
 		filterObjects = prov.FilterStateObjectsToLog
 	}
@@ -332,13 +344,15 @@ func accessLogTextFormatters(text string) []*core.TypedExtensionConfig {
 	return formatters
 }
 
-func httpGrpcAccessLogFromTelemetry(push *PushContext, prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider) *accesslog.AccessLog {
+func httpGrpcAccessLogFromTelemetry(push *PushContext, proxy *Proxy,
+	prov *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpGrpcV3LogProvider,
+) *accesslog.AccessLog {
 	logName := HTTPEnvoyAccessLogFriendlyName
 	if prov != nil && prov.LogName != "" {
 		logName = prov.LogName
 	}
 
-	filterObjects := envoyWasmStateToLog
+	filterObjects := filterStateObjectsToLog(proxy)
 	if len(prov.FilterStateObjectsToLog) != 0 {
 		filterObjects = prov.FilterStateObjectsToLog
 	}
@@ -443,7 +457,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 	return al
 }
 
-func openTelemetryLog(pushCtx *PushContext,
+func openTelemetryLog(pushCtx *PushContext, proxy *Proxy,
 	provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider,
 ) *accesslog.AccessLog {
 	hostname, cluster, err := clusterLookupFn(pushCtx, provider.Service, int(provider.Port))
@@ -468,7 +482,7 @@ func openTelemetryLog(pushCtx *PushContext,
 		labels = provider.LogFormat.Labels
 	}
 
-	cfg := buildOpenTelemetryAccessLogConfig(logName, hostname, cluster, f, labels)
+	cfg := buildOpenTelemetryAccessLogConfig(proxy, logName, hostname, cluster, f, labels)
 
 	return &accesslog.AccessLog{
 		Name:       OtelEnvoyALSName,
@@ -476,7 +490,9 @@ func openTelemetryLog(pushCtx *PushContext,
 	}
 }
 
-func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format string, labels *structpb.Struct) *otelaccesslog.OpenTelemetryAccessLogConfig {
+func buildOpenTelemetryAccessLogConfig(proxy *Proxy,
+	logName, hostname, clusterName, format string, labels *structpb.Struct,
+) *otelaccesslog.OpenTelemetryAccessLogConfig {
 	cfg := &otelaccesslog.OpenTelemetryAccessLogConfig{
 		CommonConfig: &grpcaccesslog.CommonGrpcAccessLogConfig{
 			LogName: logName,
@@ -489,7 +505,7 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 				},
 			},
 			TransportApiVersion:     core.ApiVersion_V3,
-			FilterStateObjectsToLog: envoyWasmStateToLog,
+			FilterStateObjectsToLog: filterStateObjectsToLog(proxy),
 		},
 		DisableBuiltinLabels: true,
 	}

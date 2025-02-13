@@ -901,6 +901,75 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 	}
 }
 
+func TestUseRemoteAddressInternalAddressConfig(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{})
+	sidecarProxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})
+	push := cg.PushContext()
+	cases := []struct {
+		name           string
+		networks       *meshconfig.MeshNetworks
+		expectedconfig *hcm.HttpConnectionManager_InternalAddressConfig
+	}{
+		{
+			name:           "nil networks",
+			expectedconfig: nil,
+		},
+		{
+			name:           "empty networks",
+			networks:       &meshconfig.MeshNetworks{},
+			expectedconfig: nil,
+		},
+		{
+			name: "networks populated",
+			networks: &meshconfig.MeshNetworks{
+				Networks: map[string]*meshconfig.Network{
+					"default": {
+						Endpoints: []*meshconfig.Network_NetworkEndpoints{
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "192.168.0.0/16",
+								},
+							},
+							{
+								Ne: &meshconfig.Network_NetworkEndpoints_FromCidr{
+									FromCidr: "172.16.0.0/12",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedconfig: &hcm.HttpConnectionManager_InternalAddressConfig{
+				CidrRanges: []*core.CidrRange{
+					{
+						AddressPrefix: "172.16.0.0",
+						PrefixLen:     &wrapperspb.UInt32Value{Value: 12},
+					},
+					{
+						AddressPrefix: "192.168.0.0",
+						PrefixLen:     &wrapperspb.UInt32Value{Value: 16},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			push.Networks = tt.networks
+			lb := &ListenerBuilder{
+				push:               push,
+				node:               sidecarProxy,
+				authzCustomBuilder: &authz.Builder{},
+				authzBuilder:       &authz.Builder{},
+			}
+			httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{useRemoteAddress: true})
+			if !reflect.DeepEqual(tt.expectedconfig, httpConnManager.InternalAddressConfig) {
+				t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, httpConnManager.InternalAddressConfig)
+			}
+		})
+	}
+}
+
 func TestAdditionalAddressesForIPv6(t *testing.T) {
 	test.SetForTest(t, &features.EnableAdditionalIpv4OutboundListenerForIpv6Only, true)
 	cg := NewConfigGenTest(t, TestOptions{Services: testServices})

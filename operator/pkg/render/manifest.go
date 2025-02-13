@@ -65,7 +65,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 	}
 
 	// Render each component
-	var allManifests []manifest.ManifestSet
+	allManifests := map[component.Name]manifest.ManifestSet{}
 	var chartWarnings util.Errors
 	for _, comp := range component.AllComponents {
 		specs, err := comp.Get(merged)
@@ -86,10 +86,16 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 			if err != nil {
 				return nil, nil, fmt.Errorf("post processing: %v", err)
 			}
-			allManifests = append(allManifests, manifest.ManifestSet{
-				Component: comp.UserFacingName,
-				Manifests: finalized,
-			})
+			manifests, found := allManifests[comp.UserFacingName]
+			if found {
+				manifests.Manifests = append(manifests.Manifests, finalized...)
+				allManifests[comp.UserFacingName] = manifests
+			} else {
+				allManifests[comp.UserFacingName] = manifest.ManifestSet{
+					Component: comp.UserFacingName,
+					Manifests: finalized,
+				}
+			}
 		}
 	}
 
@@ -99,7 +105,77 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 			logger.LogAndErrorf("%s %v", "❗", w)
 		}
 	}
-	return allManifests, merged, nil
+
+	values := make([]manifest.ManifestSet, 0, len(allManifests))
+
+	for _, v := range allManifests {
+		values = append(values, v)
+	}
+
+	return values, merged, nil
+}
+
+type MigrationResult struct {
+	Components []ComponentMigration
+}
+
+type ComponentMigration struct {
+	Component      component.Component
+	Values         values.Map
+	Manifest       []manifest.Manifest
+	SkippedPatches []string
+	Directory      string
+	ComponentSpec  apis.GatewayComponentSpec
+}
+
+// Migrate helps perform a migration from Istioctl to Helm.
+// This basically runs the same steps as GenerateManifest but without any post processing.
+func Migrate(files []string, setFlags []string, client kube.Client) (MigrationResult, error) {
+	res := MigrationResult{}
+	// First, compute our final configuration input. This will be in the form of an IstioOperator, but as an unstructured values.Map.
+	// This allows safe access to get/fetch values dynamically, and avoids issues are typing and whether we should emit empty fields.
+	merged, err := MergeInputs(files, setFlags, client)
+	if err != nil {
+		return res, fmt.Errorf("merge inputs: %v", err)
+	}
+	// After validation, apply any unvalidatedValues they may have set.
+	if unvalidatedValues, _ := merged.GetPathMap("spec.unvalidatedValues"); unvalidatedValues != nil {
+		merged.MergeFrom(values.MakeMap(unvalidatedValues, "spec", "values"))
+	}
+	var kubernetesVersion *version.Info
+	if client != nil {
+		v, err := client.GetKubernetesVersion()
+		if err != nil {
+			return res, fmt.Errorf("fail to get Kubernetes version: %v", err)
+		}
+		kubernetesVersion = v
+	}
+
+	// Render each component
+	for _, comp := range component.AllComponents {
+		specs, err := comp.Get(merged)
+		if err != nil {
+			return res, fmt.Errorf("get component %v: %v", comp.UserFacingName, err)
+		}
+		for _, spec := range specs {
+			// Each component may get a different view of the values; modify them as needed (with a copy)
+			compVals := applyComponentValuesToHelmValues(comp, spec, merged)
+			// Render the chart
+			rendered, _, err := helm.Render(spec.Namespace, comp.HelmSubdir, compVals, kubernetesVersion)
+			if err != nil {
+				return res, fmt.Errorf("helm render: %v", err)
+			}
+			res.Components = append(res.Components, ComponentMigration{
+				Values:         compVals,
+				Manifest:       rendered,
+				Component:      comp,
+				ComponentSpec:  spec,
+				SkippedPatches: nil,
+			})
+		}
+	}
+
+	return res, nil
 }
 
 // applyComponentValuesToHelmValues translates a generic values set into a component-specific one

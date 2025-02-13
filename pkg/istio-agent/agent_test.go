@@ -526,7 +526,6 @@ func TestAgent(t *testing.T) {
 			a.ProxyConfig.ProxyAdminPort = 15000
 			a.AgentConfig.EnvoyPrometheusPort = 15090
 			a.AgentConfig.EnvoyStatusPort = 15021
-			a.AgentConfig.ProxyXDSDebugViaAgent = false // uses a fixed port
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		envoyReady(t, "first agent", 15000)
@@ -536,7 +535,6 @@ func TestAgent(t *testing.T) {
 			a.ProxyConfig.ProxyAdminPort = 25000
 			a.AgentConfig.EnvoyPrometheusPort = 25090
 			a.AgentConfig.EnvoyStatusPort = 25021
-			a.AgentConfig.ProxyXDSDebugViaAgent = false // uses a fixed port
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		envoyReady(t, "second agent", 25000)
@@ -646,11 +644,10 @@ func Setup(t *testing.T, opts ...func(a AgentTest) AgentTest) *AgentTest {
 	resp.ProxyConfig.DiscoveryAddress = setupDiscovery(t, resp.XdsAuthenticator, ca.KeyCertBundle.GetRootCertPem(), resp.bootstrapGenerator)
 	rootCert := filepath.Join(env.IstioSrc, "./tests/testdata/certs/pilot/root-cert.pem")
 	resp.AgentConfig = AgentOptions{
-		ProxyXDSDebugViaAgent: true,
-		CARootCerts:           rootCert,
-		XDSRootCerts:          rootCert,
-		XdsUdsPath:            filepath.Join(d, "XDS"),
-		ServiceNode:           proxy.ServiceNode(),
+		CARootCerts:  rootCert,
+		XDSRootCerts: rootCert,
+		XdsUdsPath:   filepath.Join(d, "XDS"),
+		ServiceNode:  proxy.ServiceNode(),
 		SDSFactory: func(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *meshconfig.PrivateKeyProvider) SDSService {
 			return sds.NewServer(options, workloadSecretCache, pkpConf)
 		},

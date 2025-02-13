@@ -185,8 +185,6 @@ const (
 type ConfigErrorReason = string
 
 const (
-	// InvalidRefNotPermitted indicates a route was not permitted
-	InvalidRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestination indicates an issue with the destination
 	InvalidDestination ConfigErrorReason = "InvalidDestination"
 	InvalidAddress     ConfigErrorReason = ConfigErrorReason(k8s.GatewayReasonUnsupportedAddress)
@@ -196,8 +194,6 @@ const (
 	InvalidDestinationKind ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonInvalidKind)
 	// InvalidDestinationNotFound indicates a destination does not exist
 	InvalidDestinationNotFound ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonBackendNotFound)
-	// InvalidParentRef indicates we could not refer to the parent we request
-	InvalidParentRef ConfigErrorReason = "InvalidParentReference"
 	// InvalidFilter indicates an issue with the filters
 	InvalidFilter ConfigErrorReason = "InvalidFilter"
 	// InvalidTLS indicates an issue with TLS settings
@@ -206,8 +202,7 @@ const (
 	InvalidListenerRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonRefNotPermitted)
 	// InvalidConfiguration indicates a generic error for all other invalid configurations
 	InvalidConfiguration ConfigErrorReason = "InvalidConfiguration"
-	InvalidResources     ConfigErrorReason = ConfigErrorReason(k8s.GatewayReasonNoResources)
-	DeprecateFieldUsage                    = "DeprecatedField"
+	DeprecateFieldUsage  ConfigErrorReason = "DeprecatedField"
 )
 
 // ParentError represents that a parent could not be referenced
@@ -337,7 +332,7 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 		} else {
 			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
 		}
-		// UDP route note support
+		// UDP route not support
 	}
 	if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
 		// We need to filter down to only ones we actually support

@@ -21,7 +21,6 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	meshAPI "istio.io/api/mesh/v1alpha1"
 	networkingAPI "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/model"
@@ -210,37 +209,6 @@ func TestOptions(t *testing.T) {
 			key:      "lightstepToken",
 			option:   option.LightstepToken("fake"),
 			expected: "fake",
-		},
-		{
-			testName: "openCensusAgent address",
-			key:      "openCensusAgent",
-			option:   option.OpenCensusAgentAddress("fake-ocagent"),
-			expected: "fake-ocagent",
-		},
-		{
-			testName: "openCensusAgent empty context",
-			key:      "openCensusAgentContexts",
-			option:   option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{}),
-			expected: `["TRACE_CONTEXT","GRPC_TRACE_BIN","CLOUD_TRACE_CONTEXT","B3"]`,
-		},
-		{
-			testName: "openCensusAgent order context",
-			key:      "openCensusAgentContexts",
-			option: option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{
-				meshAPI.Tracing_OpenCensusAgent_CLOUD_TRACE_CONTEXT,
-				meshAPI.Tracing_OpenCensusAgent_B3,
-				meshAPI.Tracing_OpenCensusAgent_GRPC_BIN,
-				meshAPI.Tracing_OpenCensusAgent_W3C_TRACE_CONTEXT,
-			}),
-			expected: `["CLOUD_TRACE_CONTEXT","B3","GRPC_TRACE_BIN","TRACE_CONTEXT"]`,
-		},
-		{
-			testName: "openCensusAgent one context",
-			key:      "openCensusAgentContexts",
-			option: option.OpenCensusAgentContexts([]meshAPI.Tracing_OpenCensusAgent_TraceContext{
-				meshAPI.Tracing_OpenCensusAgent_B3,
-			}),
-			expected: `["B3"]`,
 		},
 		{
 			testName: "stackdriver enabled",
@@ -651,6 +619,12 @@ func TestOptions(t *testing.T) {
 			key:      "sts_port",
 			option:   option.STSPort(5555),
 			expected: 5555,
+		},
+		{
+			testName: "workload identity socket file",
+			key:      "workload_identity_socket_file",
+			option:   option.WorkloadIdentitySocketFile("sheboygan.sock"),
+			expected: "sheboygan.sock",
 		},
 		{
 			testName: "project id",

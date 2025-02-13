@@ -47,16 +47,45 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 }
 
 func NewBuilderForService(actionType ActionType, push *model.PushContext, proxy *model.Proxy, useFilterState bool, svc *model.Service) *Builder {
+	return newBuilder(actionType, push, proxy, useFilterState, svc, false)
+}
+
+// NewWaypointTerminationBuilder creates a builder for use on the waypoints HBONE termination layer
+func NewWaypointTerminationBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy) *Builder {
+	return newBuilder(actionType, push, proxy, false, nil, true)
+}
+
+func newBuilder(
+	actionType ActionType,
+	push *model.PushContext,
+	proxy *model.Proxy,
+	useFilterState bool,
+	svc *model.Service,
+	alwaysTreatAsNonWaypoint bool,
+) *Builder {
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
 		UseFilterState:  useFilterState,
-		UseExtendedJwt:  proxy.SupportsEnvoyExtendedJwt(),
 	}
-	selectionOpts := model.PolicyMatcherForProxy(proxy).WithService(svc)
+	selectionOpts := model.PolicyMatcherForProxy(proxy).WithService(svc).WithRootNamespace(push.AuthzPolicies.RootNamespace)
+	if alwaysTreatAsNonWaypoint {
+		// The intention here is to apply authz rules to the waypoint, but using the standard workload selector policy semantics,
+		// rather than the per-service rules.
+		// This gives us two layers of authorization policy applied.
+		selectionOpts.IsWaypoint = false
+	}
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}
+}
+
+func (b *Builder) BuildTCPRulesAsHTTPFilter() []*hcm.HttpFilter {
+	if b == nil || b.builder == nil {
+		return nil
+	}
+
+	return b.builder.BuildTCPRulesAsHTTPFilter()
 }
 
 func (b *Builder) BuildTCP() []*listener.Filter {

@@ -39,7 +39,12 @@ func (m *realDeps) ipsetIPHashCreate(name string, v6 bool) error {
 	} else {
 		family = unix.AF_INET
 	}
-	err := netlink.IpsetCreate(name, "hash:ip", netlink.IpsetCreateOptions{Comments: true, Replace: true, Family: family})
+
+	// Note: `vishvananda/netlink` seems to have a bug where it defaults to revision=1 for `hash:ip,port` but defaults to revision=0 for `hash:ip`
+	// This causes breakages in some cases with Docker-based nodes: https://github.com/istio/istio/issues/53512
+	// Setting `Revision=2` here seems to work correctly in all cases found thus far.
+	// Source: https://github.com/Olipro/ipset/blob/9f145b49100104d6570fe5c31a5236816ebb4f8f/kernel/net/netfilter/ipset/ip_set_hash_ip.c#L28
+	err := netlink.IpsetCreate(name, "hash:ip", netlink.IpsetCreateOptions{Comments: true, Replace: true, Revision: 2, Family: family})
 	// Note there appears to be a bug in vishvananda/netlink here:
 	// https://github.com/vishvananda/netlink/issues/992
 	//
@@ -114,6 +119,36 @@ func (m *realDeps) clearEntriesWithComment(name, comment string) error {
 		}
 	}
 	return nil
+}
+
+// clearEntriesWithIPAndComment takes an IP and a comment string and deletes any ipset entries where
+// both match the entry.
+//
+// Returns a non-nil error if listing or deletion fails.
+// For the first matching IP found in the list, *only* removes the entry if *both* the IP and comment match.
+// If the IP matches but the comment does not, returns the actual comment found to the caller, and does not
+// remove any entries.
+//
+// Otherwise, returns an empty string.
+func (m *realDeps) clearEntriesWithIPAndComment(name string, ip netip.Addr, comment string) (string, error) {
+	delIP := net.IP(ip.AsSlice())
+	res, err := netlink.IpsetList(name)
+	if err != nil {
+		return "", fmt.Errorf("failed to list ipset %s: %w", name, err)
+	}
+	for _, entry := range res.Entries {
+		if entry.IP.Equal(delIP) {
+			if entry.Comment == comment {
+				err := netlink.IpsetDel(name, &entry)
+				if err != nil {
+					return "", fmt.Errorf("failed to delete IP %s from ipset %s: %w", entry.IP, name, err)
+				}
+			} else {
+				return entry.Comment, nil
+			}
+		}
+	}
+	return "", nil
 }
 
 func (m *realDeps) clearEntriesWithIP(name string, ip netip.Addr) error {

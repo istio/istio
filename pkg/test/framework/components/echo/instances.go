@@ -37,8 +37,8 @@ func (i Instances) NamespaceName() string {
 	return i.Config().NamespaceName()
 }
 
-func (i Instances) ServiceAccountName() string {
-	return i.Config().ServiceAccountName()
+func (i Instances) SpiffeIdentity() string {
+	return i.Config().SpiffeIdentity()
 }
 
 func (i Instances) ClusterLocalFQDN() string {
@@ -194,7 +194,6 @@ func (i Instances) Append(instances Instances) Instances {
 func (i Instances) Restart() error {
 	g := multierror.Group{}
 	for _, app := range i {
-		app := app
 		g.Go(app.Restart)
 	}
 	return g.Wait().ErrorOrNil()

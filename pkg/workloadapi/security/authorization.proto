@@ -37,7 +37,7 @@ message Authorization {
 }
 
 message Group {
-  // Rules are OR-ed (e.g. ANY rule can match)
+  // Rules are AND-ed
   // This is a generic form of the authz policy's to, from and when
   repeated Rules rules = 1;
 }
@@ -57,6 +57,9 @@ message Match {
   repeated StringMatch namespaces = 1;
   repeated StringMatch not_namespaces = 2;
 
+  repeated ServiceAccountMatch service_accounts = 11;
+  repeated ServiceAccountMatch not_service_accounts = 12;
+
   repeated StringMatch principals = 3;
   repeated StringMatch not_principals = 4;
 
@@ -73,6 +76,11 @@ message Match {
 message Address {
   bytes address = 1;
   uint32 length = 2;
+}
+
+message ServiceAccountMatch {
+  string namespace = 1;
+  string serviceAccount = 2;
 }
 
 message StringMatch {

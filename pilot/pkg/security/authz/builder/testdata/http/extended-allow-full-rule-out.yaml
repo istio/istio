@@ -7,6 +7,35 @@ typedConfig:
         permissions:
         - andRules:
             rules:
+            - any: true
+        principals:
+        - andIds:
+            ids:
+            - orIds:
+                ids:
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        regex: spiffe://.+/ns/my-ns/(.+/|)sa/my-sa(/.+)?
+                - authenticated:
+                    principalName:
+                      safeRegex:
+                        regex: spiffe://.+/ns/foo/(.+/|)sa/sa-only(/.+)?
+            - notId:
+                orIds:
+                  ids:
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          regex: spiffe://.+/ns/my-ns/(.+/|)sa/my-sa-not(/.+)?
+                  - authenticated:
+                      principalName:
+                        safeRegex:
+                          regex: spiffe://.+/ns/foo/(.+/|)sa/sa-not-only(/.+)?
+      ns[foo]-policy[httpbin-1]-rule[1]:
+        permissions:
+        - andRules:
+            rules:
             - orRules:
                 rules:
                 - header:

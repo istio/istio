@@ -21,11 +21,9 @@ import (
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
 )
 
@@ -68,9 +66,16 @@ func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
 
 // collectionOptions tracks options for a collection
 type collectionOptions struct {
-	name         string
-	augmentation func(o any) any
-	stop         <-chan struct{}
+	name          string
+	augmentation  func(o any) any
+	stop          <-chan struct{}
+	debugger      *DebugHandler
+	joinUnchecked bool
+}
+
+type indexedDependency struct {
+	id  collectionUID
+	key string
 }
 
 // dependency is a specific thing that can be depended on
@@ -87,34 +92,8 @@ type erasedEventHandler = func(o []Event[any], initialSync bool)
 // This is called from Fetch to Collections, generally.
 type registerDependency interface {
 	// Registers a dependency, returning true if it is finalized
-	registerDependency(*dependency, Syncer, func(f erasedEventHandler))
+	registerDependency(*dependency, Syncer, func(f erasedEventHandler) Syncer)
 	name() string
-}
-
-// tryGetKey returns the Key for an object. If not possible, returns false
-func tryGetKey[O any](a O) (Key[O], bool) {
-	as, ok := any(a).(string)
-	if ok {
-		return Key[O](as), true
-	}
-	ao, ok := any(a).(controllers.Object)
-	if ok {
-		k, _ := cache.MetaNamespaceKeyFunc(ao)
-		return Key[O](k), true
-	}
-	ac, ok := any(a).(config.Config)
-	if ok {
-		return Key[O](keyFunc(ac.Name, ac.Namespace)), true
-	}
-	arn, ok := any(a).(ResourceNamer)
-	if ok {
-		return Key[O](arn.ResourceName()), true
-	}
-	ack := GetApplyConfigKey(a)
-	if ack != nil {
-		return *ack, true
-	}
-	return "", false
 }
 
 // getLabels returns the labels for an object, if possible.

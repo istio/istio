@@ -2,6 +2,7 @@ apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: allow
+  namespace: cfg
 spec:
   action: ALLOW
   rules:
@@ -9,6 +10,10 @@ spec:
     - source:
         principals: [ "principal", "principal-prefix-*", "*-suffix-principal", "*" ]
         notPrincipals: [ "not-principal", "not-principal-prefix-*", "*-suffix-not-principal", "*" ]
+  - from:
+    - source:
+        serviceAccounts: [ "ns/sa", "sa-only" ]
+        notServiceAccounts: [ "ns/sa-not", "sa-not-only" ]
   - from:
     - source:
         requestPrincipals: [ "requestPrincipals", "requestPrincipals-prefix-*", "*-suffix-requestPrincipals", "*" ]

@@ -104,14 +104,22 @@ func TestMain(m *testing.M) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
 values:
+  pilot:
+    env:
+      AMBIENT_ENABLE_MULTI_NETWORK: "true"
   cni:
     # The CNI repair feature is disabled for these tests because this is a controlled environment,
     # and it is important to catch issues that might otherwise be automatically fixed.
     # Refer to issue #49207 for more context.
     repair:
       enabled: false
+    # TODO temporary for getting context on	https://github.com/istio/istio/issues/54645
+    logging:
+      level: "all:debug"
   ztunnel:
     terminationGracePeriodSeconds: 5
+    # TODO temporary for getting context on	https://github.com/istio/istio/issues/54645
+    logLevel: debug
     env:
       SECRET_TTL: 5m
 `

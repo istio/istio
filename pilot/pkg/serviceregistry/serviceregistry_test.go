@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubeclient "istio.io/istio/pkg/kube"
@@ -67,7 +68,7 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 	delegate := model.NewEndpointIndexUpdater(endpoints)
 	xdsUpdater := xdsfake.NewWithDelegate(delegate)
 	delegate.ConfigUpdateFunc = xdsUpdater.ConfigUpdate
-	meshWatcher := mesh.NewFixedWatcher(&meshconfig.MeshConfig{})
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 	kc := kubecontroller.NewController(
 		client,
 		kubecontroller.Options{
@@ -1681,7 +1682,7 @@ func expectServiceEndpointsFromIndex(t *testing.T, ei *model.EndpointIndex, svc 
 // nolint: unparam
 func expectServiceEndpoints(t *testing.T, fx *xdsfake.Updater, svc *model.Service, port int, expected []EndpointResponse) {
 	t.Helper()
-	expectServiceEndpointsFromIndex(t, fx.Delegate.(*model.EndpointIndexUpdater).Index, svc, port, expected)
+	expectServiceEndpointsFromIndex(t, fx.Delegate.(*model.FakeEndpointIndexUpdater).Index, svc, port, expected)
 }
 
 func setPodReady(pod *v1.Pod) {

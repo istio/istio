@@ -95,7 +95,6 @@ func (c *configFactory) applyYAML(cleanupStrategy cleanup.Strategy, ns string, y
 
 	g, _ := errgroup.WithContext(context.TODO())
 	for _, cl := range c.clusters {
-		cl := cl
 		g.Go(func() error {
 			scopes.Framework.Debugf("Applying to %s to namespace %v: %s", cl.StableName(), ns, strings.Join(yamlFiles, ", "))
 			if err := cl.ApplyYAMLFiles(ns, yamlFiles...); err != nil {
@@ -126,7 +125,6 @@ func (c *configFactory) deleteYAML(ns string, yamlText ...string) error {
 
 	g, _ := errgroup.WithContext(context.TODO())
 	for _, c := range c.clusters {
-		c := c
 		g.Go(func() error {
 			if err := c.DeleteYAMLFiles(ns, yamlFiles...); err != nil {
 				return fmt.Errorf("failed deleting YAML from cluster %s: %v", c.Name(), err)
@@ -146,8 +144,6 @@ func (c *configFactory) WaitForConfig(ctx resource.Context, ns string, yamlText 
 		}
 
 		for _, cfg := range yamlText {
-			cfg := cfg
-
 			// TODO(https://github.com/istio/istio/issues/37324): It's currently unsafe
 			// to call istioctl concurrently since it relies on the istioctl library
 			// (rather than calling the binary from the command line) which uses a number
@@ -242,7 +238,6 @@ func (c *configPlan) Apply(opts ...apply.Option) error {
 	// Apply for each namespace concurrently.
 	g, _ := errgroup.WithContext(context.TODO())
 	for ns, y := range c.yamlText {
-		ns, y := ns, y
 		g.Go(func() error {
 			return c.applyYAML(options.Cleanup, ns, y...)
 		})
@@ -277,7 +272,6 @@ func (c *configPlan) Delete() error {
 	// Delete for each namespace concurrently.
 	g, _ := errgroup.WithContext(context.TODO())
 	for ns, y := range c.yamlText {
-		ns, y := ns, y
 		g.Go(func() error {
 			return c.deleteYAML(ns, y...)
 		})

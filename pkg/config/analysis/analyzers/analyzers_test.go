@@ -251,6 +251,23 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "gateways with different port are non-conflicting",
+		inputFiles: []string{"testdata/gateway-different-port.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected:   []message{
+			// no conflict expected, verify that no false-positive conflict is returned
+		},
+	},
+	{
+		name:       "conflicting gateways with multiple port declarations",
+		inputFiles: []string{"testdata/conflicting-gateways-multiple-ports.yaml"},
+		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
+		expected: []message{
+			{msg.ConflictingGateways, "Gateway alpha"},
+			{msg.ConflictingGateways, "Gateway beta"},
+		},
+	},
+	{
 		name:       "conflicting gateways detect by sub selector",
 		inputFiles: []string{"testdata/conflicting-gateways-subSelector.yaml"},
 		analyzer:   &gateway.ConflictingGatewayAnalyzer{},
@@ -987,7 +1004,6 @@ func TestAnalyzers(t *testing.T) {
 
 	// For each test case, verify we get the expected messages as output
 	for _, tc := range testGrid {
-		tc := tc // Capture range variable so subtests work correctly
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
 

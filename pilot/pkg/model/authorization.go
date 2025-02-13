@@ -19,6 +19,7 @@ import (
 
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 )
 
 type AuthorizationPolicy struct {
@@ -86,22 +87,19 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 		return configs
 	}
 
-	rootNamespace := policy.RootNamespace
-	wlNamespace := selectionOpts.WorkloadNamespace
-	svcNamespace := selectionOpts.ServiceNamespace
-	var lookupInNamespaces []string
-
-	if svcNamespace != "" {
-		lookupInNamespaces = []string{svcNamespace}
-	} else if wlNamespace != rootNamespace {
-		// Only check the root namespace if the (workload) namespace is not already the root namespace
-		// to avoid double inclusion.
-		lookupInNamespaces = []string{rootNamespace, wlNamespace}
-	} else {
-		lookupInNamespaces = []string{wlNamespace}
+	if len(selectionOpts.Services) > 1 {
+		// Currently, listing multiple services is unnecessary.
+		// To simplify, this function allows at most one service.
+		// The restriction can be lifted if future needs arise.
+		panic("ListAuthorizationPolicies expects at most 1 service in WorkloadPolicyMatcher")
 	}
 
-	for _, ns := range lookupInNamespaces {
+	lookupInNamespaces := []string{policy.RootNamespace, selectionOpts.WorkloadNamespace}
+	for _, svc := range selectionOpts.Services {
+		lookupInNamespaces = append(lookupInNamespaces, svc.Namespace)
+	}
+
+	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 

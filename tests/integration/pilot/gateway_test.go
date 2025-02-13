@@ -20,6 +20,7 @@ package pilot
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -51,6 +53,7 @@ func TestGateway(t *testing.T) {
 
 			t.NewSubTest("unmanaged").Run(UnmanagedGatewayTest)
 			t.NewSubTest("managed").Run(ManagedGatewayTest)
+			t.NewSubTest("tagged").Run(TaggedGatewayTest)
 			t.NewSubTest("managed-owner").Run(ManagedOwnerGatewayTest)
 			t.NewSubTest("status").Run(StatusGatewayTest)
 			t.NewSubTest("managed-short-name").Run(ManagedGatewayShortNameTest)
@@ -197,15 +200,15 @@ spec:
 			host:  "bar",
 		},
 	}
-	if t.Settings().EnableDualStack {
+	// additional tests for dual-stack scenario
+	if len(t.Settings().IPFamilies) > 1 {
 		additionalTestCases := []struct {
 			check echo.Checker
 			from  echo.Instances
 			host  string
 		}{
-			// apps.D hosts a dual-stack service,
-			// apps.E hosts an ipv6 only service and
-			// apps.B hosts an ipv4 only service
+			// apps.D and apps.E host single-stack services
+			// apps.B hosts a dual-stack service
 			{
 				check: check.OK(),
 				from:  apps.D,
@@ -244,6 +247,69 @@ spec:
 				Scheme: scheme.HTTP,
 				HTTP: echo.HTTP{
 					Headers: headers.New().WithHost(tc.host).Build(),
+				},
+				Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+				Check:   tc.check,
+			})
+		})
+	}
+}
+
+func TaggedGatewayTest(t framework.TestContext) {
+	istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(
+		t, strings.Split("tag set tag --revision default", " "))
+
+	testCases := []struct {
+		check         echo.Checker
+		revisionValue string
+	}{
+		{
+			check:         check.OK(),
+			revisionValue: "tag",
+		},
+		{
+			check:         check.NotOK(),
+			revisionValue: "badtag",
+		},
+	}
+	for _, tc := range testCases {
+		t.NewSubTest(fmt.Sprintf("gateway-connectivity-tagged-%s", tc.revisionValue)).Run(func(t framework.TestContext) {
+			t.ConfigIstio().Eval(apps.Namespace.Name(),
+				map[string]string{"revision": tc.revisionValue}, `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway
+  labels:
+    istio.io/rev: {{.revision}}
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "*.example.com"
+    port: 80
+    protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-1
+spec:
+  parentRefs:
+  - name: gateway
+  hostnames: ["bar.example.com"]
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+`).ApplyOrFail(t)
+			apps.B[0].CallOrFail(t, echo.CallOptions{
+				Port: echo.Port{
+					Protocol:    protocol.HTTP,
+					ServicePort: 80,
+				},
+				Scheme: scheme.HTTP,
+				HTTP: echo.HTTP{
+					Headers: headers.New().WithHost("bar.example.com").Build(),
 				},
 				Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
 				Check:   tc.check,

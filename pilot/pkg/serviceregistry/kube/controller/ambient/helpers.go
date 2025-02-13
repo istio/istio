@@ -22,7 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -43,26 +43,22 @@ func (a *index) generateServiceEntryUID(svcEntryNamespace, svcEntryName, addr st
 	return a.ClusterID.String() + "/networking.istio.io/ServiceEntry/" + svcEntryNamespace + "/" + svcEntryName + "/" + addr
 }
 
-func workloadToAddressInfo(w *workloadapi.Workload) model.AddressInfo {
-	return model.AddressInfo{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{
-				Workload: w,
-			},
+func workloadToAddress(w *workloadapi.Workload) *workloadapi.Address {
+	return &workloadapi.Address{
+		Type: &workloadapi.Address_Workload{
+			Workload: w,
 		},
 	}
 }
 
 func modelWorkloadToAddressInfo(w model.WorkloadInfo) model.AddressInfo {
-	return workloadToAddressInfo(w.Workload)
+	return w.AsAddress
 }
 
-func serviceToAddressInfo(s *workloadapi.Service) model.AddressInfo {
-	return model.AddressInfo{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Service{
-				Service: s,
-			},
+func serviceToAddress(s *workloadapi.Service) *workloadapi.Address {
+	return &workloadapi.Address{
+		Type: &workloadapi.Address_Service{
+			Service: s,
 		},
 	}
 }
@@ -72,36 +68,31 @@ func mustByteIPToString(b []byte) string {
 	return ip.String()
 }
 
-func byteIPToAddr(b []byte) netip.Addr {
-	ip, _ := netip.AddrFromSlice(b) // Address only comes from objects we create, so it must be valid
-	return ip
-}
-
-func (a *index) toNetworkAddress(vip string) (*workloadapi.NetworkAddress, error) {
+func (a *index) toNetworkAddress(ctx krt.HandlerContext, vip string) (*workloadapi.NetworkAddress, error) {
 	ip, err := netip.ParseAddr(vip)
 	if err != nil {
 		return nil, fmt.Errorf("parse %v: %v", vip, err)
 	}
 	return &workloadapi.NetworkAddress{
-		Network: a.Network(vip, make(labels.Instance, 0)).String(),
+		Network: a.Network(ctx).String(),
 		Address: ip.AsSlice(),
 	}, nil
 }
 
-func (a *index) toNetworkAddressFromIP(ip netip.Addr) *workloadapi.NetworkAddress {
+func (a *index) toNetworkAddressFromIP(ctx krt.HandlerContext, ip netip.Addr) *workloadapi.NetworkAddress {
 	return &workloadapi.NetworkAddress{
-		Network: a.Network(ip.String(), make(labels.Instance, 0)).String(),
+		Network: a.Network(ctx).String(),
 		Address: ip.AsSlice(),
 	}
 }
 
-func (a *index) toNetworkAddressFromCidr(vip string) (*workloadapi.NetworkAddress, error) {
+func (a *index) toNetworkAddressFromCidr(ctx krt.HandlerContext, vip string) (*workloadapi.NetworkAddress, error) {
 	ip, err := parseCidrOrIP(vip)
 	if err != nil {
 		return nil, err
 	}
 	return &workloadapi.NetworkAddress{
-		Network: a.Network(vip, make(labels.Instance, 0)).String(),
+		Network: a.Network(ctx).String(),
 		Address: ip.AsSlice(),
 	}, nil
 }
@@ -182,17 +173,17 @@ func namespacedHostname(namespace, hostname string) string {
 }
 
 func networkAddressFromWorkload(wl model.WorkloadInfo) []networkAddress {
-	networkAddrs := make([]networkAddress, 0, len(wl.Addresses))
-	for _, addr := range wl.Addresses {
+	networkAddrs := make([]networkAddress, 0, len(wl.Workload.Addresses))
+	for _, addr := range wl.Workload.Addresses {
 		// mustByteIPToString is ok since this is from our IP constructed
-		networkAddrs = append(networkAddrs, networkAddress{network: wl.Network, ip: mustByteIPToString(addr)})
+		networkAddrs = append(networkAddrs, networkAddress{network: wl.Workload.Network, ip: mustByteIPToString(addr)})
 	}
 	return networkAddrs
 }
 
 func networkAddressFromService(s model.ServiceInfo) []networkAddress {
-	networkAddrs := make([]networkAddress, 0, len(s.Addresses))
-	for _, addr := range s.Addresses {
+	networkAddrs := make([]networkAddress, 0, len(s.Service.Addresses))
+	for _, addr := range s.Service.Addresses {
 		// mustByteIPToString is ok since this is from our IP constructed
 		networkAddrs = append(networkAddrs, networkAddress{network: addr.Network, ip: mustByteIPToString(addr.Address)})
 	}

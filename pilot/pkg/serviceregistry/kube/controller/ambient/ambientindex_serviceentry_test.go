@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -34,7 +33,7 @@ func TestAmbientIndexDuplicates(t *testing.T) {
 	s.addWorkloadEntries(t, "140.140.0.10", "name1", "sa1", map[string]string{"app": "a"})
 	s.addPods(t, "140.140.0.10", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.wleXdsName("name0"), s.wleXdsName("name1"), s.podXdsName("pod0"), s.podXdsName("pod1"))
-	s.assertAddresses(t, "", "pod0")
+	s.assertAddresses(t, "", "pod0", "pod1", "name0", "name1")
 }
 
 func TestAmbientIndex_ServiceEntry(t *testing.T) {
@@ -86,7 +85,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	// workload entry is included in the result until pod1 with the same address below is added
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "name0")
 	// lookup by address should return the workload entry's address info
-	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []model.AddressInfo{{
+	we := model.AddressInfo{
 		Address: &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
 				Workload: &workloadapi.Workload{
@@ -104,14 +103,15 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 				},
 			},
 		},
-	}})
+	}
+	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []model.AddressInfo{we})
 
 	// test code path where service entry selects workloads via `ServiceEntry.workloadSelector`
 	s.addPods(t, "140.140.0.10", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
 
-	// lookup by address should return the pod's address info (ignore the workload entry with similar address)
-	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []model.AddressInfo{{
+	// lookup by address should return the pod and workload entry address info
+	pod := model.AddressInfo{
 		Address: &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
 				Workload: &workloadapi.Workload{
@@ -130,45 +130,49 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 				},
 			},
 		},
-	}})
+	}
+	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []model.AddressInfo{pod, we})
 
 	s.addPods(t, "140.140.0.11", "pod2", "sa1", map[string]string{"app": "other"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod2"))
-	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2")
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name0")
 	s.addWorkloadEntries(t, "240.240.34.56", "name1", "sa1", map[string]string{"app": "a"})
 	s.assertEvent(t, s.wleXdsName("name1"))
 	s.addWorkloadEntries(t, "240.240.34.57", "name2", "sa1", map[string]string{"app": "other"})
 	s.assertEvent(t, s.wleXdsName("name2"))
-	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1", "name2")
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name0", "name1", "name2")
 
 	s.addWorkloadEntries(t, "140.140.0.11", "name3", "sa1", map[string]string{"app": "other"})
 	s.assertEvent(t, s.wleXdsName("name3"))
-	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1", "name2")
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name0", "name1", "name2", "name3")
 
 	// a service entry should not be able to select across namespaces
 	s.addServiceEntry(t, "mismatched.istio.io", []string{"240.240.23.45"}, "name1", "mismatched-ns", map[string]string{"app": "a"}, nil)
 	s.assertEvent(t, "mismatched-ns/mismatched.istio.io")
-	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []model.AddressInfo{{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{
-				Workload: &workloadapi.Workload{
-					Uid:               s.podXdsName("pod1"),
-					Name:              "pod1",
-					Namespace:         testNS,
-					Addresses:         [][]byte{parseIP("140.140.0.10")},
-					Node:              "node1",
-					Network:           testNW,
-					CanonicalName:     "a",
-					CanonicalRevision: "latest",
-					ServiceAccount:    "sa1",
-					WorkloadType:      workloadapi.WorkloadType_POD,
-					WorkloadName:      "pod1",
-					Services:          nil, // should not be selected by the mismatched service entry
-					ClusterId:         testC,
+	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []model.AddressInfo{
+		pod,
+		{
+			Address: &workloadapi.Address{
+				Type: &workloadapi.Address_Workload{
+					Workload: &workloadapi.Workload{
+						Uid:               s.wleXdsName("name0"),
+						Name:              "name0",
+						Namespace:         testNS,
+						Addresses:         [][]byte{parseIP("140.140.0.10")},
+						Node:              "",
+						Network:           testNW,
+						CanonicalName:     "a",
+						CanonicalRevision: "latest",
+						ServiceAccount:    "sa1",
+						WorkloadType:      workloadapi.WorkloadType_POD,
+						WorkloadName:      "name0",
+						Services:          nil, // should not be selected by the mismatched service entry
+						ClusterId:         testC,
+					},
 				},
 			},
 		},
-	}})
+	})
 	assert.Equal(t, s.lookup(s.addrXdsName("240.240.34.56")), []model.AddressInfo{{
 		Address: &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
@@ -192,63 +196,118 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	}})
 
 	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "name1", testNS, map[string]string{"app": "a"}, nil)
-	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1", "name2")
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name0", "name1", "name2", "name3")
 	// we should see an update for the workloads selected by the service entry
 	// do not expect event for pod2 since it is not selected by the service entry
 	s.assertEvent(t, s.podXdsName("pod1"), s.wleXdsName("name0"), s.wleXdsName("name1"), "ns1/se.istio.io")
 
-	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []model.AddressInfo{{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{
-				Workload: &workloadapi.Workload{
-					Uid:               s.podXdsName("pod1"),
-					Name:              "pod1",
-					Namespace:         testNS,
-					Addresses:         [][]byte{parseIP("140.140.0.10")},
-					Node:              "node1",
-					Network:           testNW,
-					CanonicalName:     "a",
-					CanonicalRevision: "latest",
-					ServiceAccount:    "sa1",
-					WorkloadType:      workloadapi.WorkloadType_POD,
-					WorkloadName:      "pod1",
-					Services: map[string]*workloadapi.PortList{
-						"ns1/se.istio.io": {
-							Ports: []*workloadapi.Port{
-								{
-									ServicePort: 80,
-									TargetPort:  8080,
+	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []model.AddressInfo{
+		{
+			Address: &workloadapi.Address{
+				Type: &workloadapi.Address_Workload{
+					Workload: &workloadapi.Workload{
+						Uid:               s.podXdsName("pod1"),
+						Name:              "pod1",
+						Namespace:         testNS,
+						Addresses:         [][]byte{parseIP("140.140.0.10")},
+						Node:              "node1",
+						Network:           testNW,
+						CanonicalName:     "a",
+						CanonicalRevision: "latest",
+						ServiceAccount:    "sa1",
+						WorkloadType:      workloadapi.WorkloadType_POD,
+						WorkloadName:      "pod1",
+						Services: map[string]*workloadapi.PortList{
+							"ns1/se.istio.io": {
+								Ports: []*workloadapi.Port{
+									{
+										ServicePort: 80,
+										TargetPort:  8080,
+									},
+								},
+							},
+						},
+						ClusterId: testC,
+					},
+				},
+			},
+		},
+		{
+			Address: &workloadapi.Address{
+				Type: &workloadapi.Address_Workload{
+					Workload: &workloadapi.Workload{
+						Uid:               s.wleXdsName("name0"),
+						Name:              "name0",
+						Namespace:         testNS,
+						Addresses:         [][]byte{parseIP("140.140.0.10")},
+						Node:              "",
+						Network:           testNW,
+						CanonicalName:     "a",
+						CanonicalRevision: "latest",
+						ServiceAccount:    "sa1",
+						WorkloadType:      workloadapi.WorkloadType_POD,
+						WorkloadName:      "name0",
+						ClusterId:         testC,
+						Services: map[string]*workloadapi.PortList{
+							"ns1/se.istio.io": {
+								Ports: []*workloadapi.Port{
+									{
+										ServicePort: 80,
+										TargetPort:  8080,
+									},
 								},
 							},
 						},
 					},
-					ClusterId: testC,
 				},
 			},
 		},
-	}})
+	})
 
-	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.11")), []model.AddressInfo{{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{
-				Workload: &workloadapi.Workload{
-					Uid:               s.podXdsName("pod2"),
-					Name:              "pod2",
-					Namespace:         testNS,
-					Addresses:         [][]byte{parseIP("140.140.0.11")},
-					Node:              "node1",
-					Network:           testNW,
-					ClusterId:         testC,
-					CanonicalName:     "other",
-					CanonicalRevision: "latest",
-					ServiceAccount:    "sa1",
-					WorkloadType:      workloadapi.WorkloadType_POD,
-					WorkloadName:      "pod2",
-					Services:          nil, // labels don't match workloadSelector, this should be nil
+	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.11")), []model.AddressInfo{
+		{
+			Address: &workloadapi.Address{
+				Type: &workloadapi.Address_Workload{
+					Workload: &workloadapi.Workload{
+						Uid:               s.podXdsName("pod2"),
+						Name:              "pod2",
+						Namespace:         testNS,
+						Addresses:         [][]byte{parseIP("140.140.0.11")},
+						Node:              "node1",
+						Network:           testNW,
+						ClusterId:         testC,
+						CanonicalName:     "other",
+						CanonicalRevision: "latest",
+						ServiceAccount:    "sa1",
+						WorkloadType:      workloadapi.WorkloadType_POD,
+						WorkloadName:      "pod2",
+						Services:          nil, // labels don't match workloadSelector, this should be nil
+					},
 				},
 			},
 		},
-	}})
+		{
+			Address: &workloadapi.Address{
+				Type: &workloadapi.Address_Workload{
+					Workload: &workloadapi.Workload{
+						Uid:               s.wleXdsName("name3"),
+						Name:              "name3",
+						Namespace:         testNS,
+						Addresses:         [][]byte{parseIP("140.140.0.11")},
+						Node:              "",
+						Network:           testNW,
+						CanonicalName:     "other",
+						CanonicalRevision: "latest",
+						ServiceAccount:    "sa1",
+						WorkloadType:      workloadapi.WorkloadType_POD,
+						WorkloadName:      "name3",
+						Services:          nil, // labels don't match workloadSelector, this should be nil
+						ClusterId:         testC,
+					},
+				},
+			},
+		},
+	})
 
 	assert.Equal(t, s.lookup(s.addrXdsName("240.240.34.56")), []model.AddressInfo{{
 		Address: &workloadapi.Address{
@@ -282,31 +341,54 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	}})
 
 	s.deleteServiceEntry(t, "name1", testNS)
-	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1", "name2")
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name0", "name1", "name2", "name3")
 	s.assertUniqueWorkloads(t)
 	// we should see an update for the workloads selected by the service entry
 	s.assertEvent(t, s.podXdsName("pod1"), s.wleXdsName("name0"), s.wleXdsName("name1"), "ns1/se.istio.io")
-	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []model.AddressInfo{{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{
-				Workload: &workloadapi.Workload{
-					Uid:               s.podXdsName("pod1"),
-					Name:              "pod1",
-					Namespace:         testNS,
-					Addresses:         [][]byte{parseIP("140.140.0.10")},
-					Node:              "node1",
-					Network:           testNW,
-					ClusterId:         testC,
-					CanonicalName:     "a",
-					CanonicalRevision: "latest",
-					ServiceAccount:    "sa1",
-					WorkloadType:      workloadapi.WorkloadType_POD,
-					WorkloadName:      "pod1",
-					Services:          nil, // vips for pod1 should be gone now
+	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []model.AddressInfo{
+		{
+			Address: &workloadapi.Address{
+				Type: &workloadapi.Address_Workload{
+					Workload: &workloadapi.Workload{
+						Uid:               s.podXdsName("pod1"),
+						Name:              "pod1",
+						Namespace:         testNS,
+						Addresses:         [][]byte{parseIP("140.140.0.10")},
+						Node:              "node1",
+						Network:           testNW,
+						ClusterId:         testC,
+						CanonicalName:     "a",
+						CanonicalRevision: "latest",
+						ServiceAccount:    "sa1",
+						WorkloadType:      workloadapi.WorkloadType_POD,
+						WorkloadName:      "pod1",
+						Services:          nil, // vips for pod1 should be gone now
+					},
 				},
 			},
 		},
-	}})
+		{
+			Address: &workloadapi.Address{
+				Type: &workloadapi.Address_Workload{
+					Workload: &workloadapi.Workload{
+						Uid:               s.wleXdsName("name0"),
+						Name:              "name0",
+						Namespace:         testNS,
+						Addresses:         [][]byte{parseIP("140.140.0.10")},
+						Node:              "",
+						Network:           testNW,
+						CanonicalName:     "a",
+						CanonicalRevision: "latest",
+						ServiceAccount:    "sa1",
+						WorkloadType:      workloadapi.WorkloadType_POD,
+						WorkloadName:      "name0",
+						ClusterId:         testC,
+						Services:          nil, // vips for pod1 should be gone now
+					},
+				},
+			},
+		},
+	})
 
 	assert.Equal(t, s.lookup(s.addrXdsName("240.240.34.56")), []model.AddressInfo{{
 		Address: &workloadapi.Address{
@@ -332,8 +414,10 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 }
 
 func TestAmbientIndex_ServiceEntry_DisableK8SServiceSelectWorkloadEntries(t *testing.T) {
-	test.SetForTest(t, &features.EnableK8SServiceSelectWorkloadEntries, false)
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServerWithFlags(t, testC, testNW, FeatureFlags{
+		DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+		EnableK8SServiceSelectWorkloadEntries: false,
+	})
 
 	s.addPods(t, "140.140.0.10", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))

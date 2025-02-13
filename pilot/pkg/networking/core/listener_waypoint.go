@@ -17,6 +17,7 @@ package core
 import (
 	"fmt"
 	"net/netip"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -25,9 +26,15 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
+	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	envoymatcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	googleproto "google.golang.org/protobuf/proto"
 	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -53,6 +60,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -108,6 +116,7 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		GenerateRequestId:          ph.GenerateRequestID,
 		UseRemoteAddress:           proto.BoolFalse,
 	}
+	accessLogBuilder.setHboneTerminationAccessLog(lb.push, lb.node, h, istionetworking.ListenerClassSidecarInbound)
 
 	// Protocol settings
 	h.StreamIdleTimeout = istio_route.Notimeout
@@ -131,26 +140,33 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		},
 	}
 
+	var filters []*hcm.HttpFilter
+
+	if features.WaypointLayeredAuthorizationPolicies {
+		authzBuilder := authz.NewWaypointTerminationBuilder(authz.Local, lb.push, lb.node)
+		// We want L4 semantics, but applied to an HTTP filter.
+		// If we put them as a network filter, we get poor logs and cannot return an error at the CONNECT level
+		filters = authzBuilder.BuildTCPRulesAsHTTPFilter()
+	}
 	// Filters needed to propagate the tunnel metadata to the inner streams.
-	h.HttpFilters = []*hcm.HttpFilter{
+	h.HttpFilters = append(filters,
 		xdsfilters.WaypointDownstreamMetadataFilter,
 		xdsfilters.ConnectAuthorityFilter,
 		xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
 			StartChildSpan:       false,
 			SuppressDebugHeaders: ph.SuppressDebugHeaders,
 		}),
-	}
-	return []*listener.Filter{
-		{
-			Name:       wellknown.HTTPConnectionManager,
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
-		},
-	}
+	)
+	return []*listener.Filter{{
+		Name:       wellknown.HTTPConnectionManager,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
+	}}
 }
 
 func (lb *ListenerBuilder) buildConnectTerminateListener(routes []*route.Route) *listener.Listener {
 	actualWildcard, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 	bind := actualWildcard
+
 	l := &listener.Listener{
 		Name:    ConnectTerminate,
 		Address: util.BuildAddress(bind[0], model.HBoneInboundListenPort),
@@ -181,6 +197,7 @@ func (lb *ListenerBuilder) buildConnectTerminateListener(routes []*route.Route) 
 			},
 		},
 	}
+	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	if len(actualWildcard) > 1 {
 		l.AdditionalAddresses = util.BuildAdditionalAddresses(bind[1:], model.HBoneInboundListenPort)
 	}
@@ -205,16 +222,66 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
 	ipMatcher := &matcher.IPMatcher{}
+	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{
+		Map: make(map[string]*matcher.Matcher_OnMatch),
+	}
 	chains := []*listener.FilterChain{}
 	portProtocols := map[int]protocol.Instance{}
+	getOrigDstSfs := func(ipAndPort string, isHttp bool) *listener.Filter {
+		celTemplate := `%%CEL('%s' in filter_state ? filter_state['%s']: r'%s')%%`
+		celEval := fmt.Sprintf(celTemplate, xdsfilters.OriginalDstFilterStateKey, xdsfilters.OriginalDstFilterStateKey, ipAndPort)
+		filterStateValue := &sfsvalue.FilterStateValue{
+			Key: &sfsvalue.FilterStateValue_ObjectKey{
+				ObjectKey: "envoy.network.transport_socket.original_dst_address",
+			},
+			Value: &sfsvalue.FilterStateValue_FormatString{
+				FormatString: &core.SubstitutionFormatString{
+					Formatters: []*core.TypedExtensionConfig{
+						{
+							Name:        "envoy.formatter.cel",
+							TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
+						},
+					},
+					Format: &core.SubstitutionFormatString_TextFormatSource{
+						TextFormatSource: &core.DataSource{
+							Specifier: &core.DataSource_InlineString{
+								// If we have a valid original destination in filter state, use it. Else,
+								// fall back to the original destination address.
+								InlineString: celEval,
+							},
+						},
+					},
+				},
+			},
+		}
+		var msg googleproto.Message
+		if isHttp {
+			msg = &sfs.Config{
+				OnRequestHeaders: []*sfsvalue.FilterStateValue{filterStateValue},
+			}
+		} else {
+			msg = &sfsnetwork.Config{
+				OnNewConnection: []*sfsvalue.FilterStateValue{filterStateValue},
+			}
+		}
+		return &listener.Filter{
+			Name: "set_dst_address",
+			ConfigType: &listener.Filter_TypedConfig{
+				TypedConfig: protoconv.MessageToAny(msg),
+			},
+		}
+	}
 	for _, svc := range svcs {
+		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
 			}
 			portString := strconv.Itoa(port.Port)
+			authorityKey := fmt.Sprintf("%s:%d", svc.Hostname, port.Port)
 			tcpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port)
+
 			cc := inboundChainConfig{
 				clusterName:   tcpClusterName,
 				policyService: svc,
@@ -230,28 +297,46 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					KubernetesServiceName:      svc.Attributes.Name,
 				},
 			}
-			tcpChain := &listener.FilterChain{
-				Filters: lb.buildInboundNetworkFilters(cc),
-				Name:    cc.clusterName,
-			}
+			var tcpChain, httpChain *listener.FilterChain
+			origDst := svc.GetAddressForProxy(lb.node) + ":" + portString
 			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
-			cc.clusterName = httpClusterName
-			httpChain := &listener.FilterChain{
-				Filters: lb.buildWaypointInboundHTTPFilters(svc, cc),
-				Name:    cc.clusterName,
+			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork {
+				setOrigDstForCluster := []*listener.Filter{getOrigDstSfs(origDst, false)}
+				tcpChain = &listener.FilterChain{
+					Filters: append(setOrigDstForCluster, lb.buildInboundNetworkFilters(cc)...),
+					Name:    cc.clusterName,
+				}
+				cc.clusterName = httpClusterName
+				httpChain = &listener.FilterChain{
+					Filters: append(setOrigDstForCluster, lb.buildWaypointInboundHTTPFilters(svc, cc)...),
+					Name:    cc.clusterName,
+				}
+			} else {
+				tcpChain = &listener.FilterChain{
+					Filters: lb.buildInboundNetworkFilters(cc),
+					Name:    cc.clusterName,
+				}
+				cc.clusterName = httpClusterName
+				httpChain = &listener.FilterChain{
+					Filters: lb.buildWaypointInboundHTTPFilters(svc, cc),
+					Name:    cc.clusterName,
+				}
 			}
 			if port.Protocol.IsUnsupported() {
 				// If we need to sniff, insert two chains and the protocol detector
 				chains = append(chains, tcpChain, httpChain)
-				portMapper.Map[portString] = match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
+				protocolMatcher := match.ToMatcher(match.NewAppProtocol(match.ProtocolMatch{
 					TCP:  match.ToChain(tcpClusterName),
 					HTTP: match.ToChain(httpClusterName),
 				}))
+				portMapper.Map[portString] = protocolMatcher
+				svcHostnameMap.Map[authorityKey] = protocolMatcher
 				portProtocols[port.Port] = protocol.Unsupported
 			} else if port.Protocol.IsHTTP() {
 				// Otherwise, just insert HTTP/TCP
 				chains = append(chains, httpChain)
 				portMapper.Map[portString] = match.ToChain(httpChain.Name)
+				svcHostnameMap.Map[authorityKey] = match.ToChain(httpChain.Name)
 				// TCP and HTTP on the same port, mark it as requiring sniffing
 				if portProtocols[port.Port] != "" && portProtocols[port.Port] != protocol.HTTP {
 					portProtocols[port.Port] = protocol.Unsupported
@@ -261,16 +346,22 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			} else {
 				chains = append(chains, tcpChain)
 				portMapper.Map[portString] = match.ToChain(tcpChain.Name)
+				svcHostnameMap.Map[authorityKey] = match.ToChain(tcpChain.Name)
 				// TCP and HTTP on the same port, mark it as requiring sniffing
-				if portProtocols[port.Port] != "" && portProtocols[port.Port] != protocol.TCP {
+				if portProtocols[port.Port] != "" && !portProtocols[port.Port].IsTCP() {
 					portProtocols[port.Port] = protocol.Unsupported
 				} else {
-					portProtocols[port.Port] = protocol.TCP
+					portProtocols[port.Port] = port.Protocol
 				}
+			}
+
+			// If the service has no addresses, we don't want this waypoint to be able to serve its hostname
+			if len(svcAddresses) == 0 {
+				delete(svcHostnameMap.Map, authorityKey)
 			}
 		}
 		if len(portMapper.Map) > 0 {
-			ranges := slices.Map(svc.GetAllAddressesForProxy(lb.node), func(vip string) *xds.CidrRange {
+			ranges := slices.Map(svcAddresses, func(vip string) *xds.CidrRange {
 				cidr := util.ConvertAddressToCidr(vip)
 				return &xds.CidrRange{
 					AddressPrefix: cidr.AddressPrefix,
@@ -313,12 +404,13 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				lb.buildWaypointInboundHTTPFilters(nil, cc)...),
 			Name: "direct-http",
 		}
+
 		chains = append(chains, tcpChain, httpChain)
 		if len(wls) > 0 {
 			// Workload IP filtering happens here.
 			ipRange := []*xds.CidrRange{}
 			for _, wl := range wls {
-				for _, ip := range wl.Addresses {
+				for _, ip := range wl.Workload.Addresses {
 					addr, _ := netip.AddrFromSlice(ip)
 					cidr := util.ConvertAddressToCidr(addr.String())
 					ipRange = append(ipRange, &xds.CidrRange{
@@ -363,6 +455,30 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 	}
+	tlsInspector := func() *listener.ListenerFilter {
+		tlsPorts := sets.New[int]()
+		nonTLSPorts := sets.New[int]()
+		for _, s := range svcs {
+			for _, p := range s.Ports {
+				if p.Protocol.IsTLS() {
+					tlsPorts.Insert(p.Port)
+				} else {
+					nonTLSPorts.Insert(p.Port)
+				}
+			}
+		}
+		nonInspectorPorts := nonTLSPorts.DeleteAll(tlsPorts.UnsortedList()...).UnsortedList()
+		if len(nonInspectorPorts) > 0 {
+			slices.Sort(nonInspectorPorts)
+			return &listener.ListenerFilter{
+				Name:           wellknown.TLSInspector,
+				ConfigType:     xdsfilters.TLSInspector.ConfigType,
+				FilterDisabled: listenerPredicateExcludePorts(nonInspectorPorts),
+			}
+		}
+		return nil
+	}()
+
 	l := &listener.Listener{
 		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
@@ -386,6 +502,26 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			},
 		},
 	}
+
+	if len(svcHostnameMap.Map) > 0 && features.EnableAmbientMultiNetwork {
+		l.FilterChainMatcher.OnNoMatch = &matcher.Matcher_OnMatch{
+			OnMatch: &matcher.Matcher_OnMatch_Matcher{
+				Matcher: &matcher.Matcher{
+					MatcherType: &matcher.Matcher_MatcherTree_{
+						MatcherTree: &matcher.Matcher_MatcherTree{
+							Input: match.AuthorityFilterStateInput,
+							TreeType: &matcher.Matcher_MatcherTree_ExactMatchMap{
+								ExactMatchMap: svcHostnameMap,
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+	if tlsInspector != nil {
+		l.ListenerFilters = append(l.ListenerFilters, tlsInspector)
+	}
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	return l
 }
@@ -403,7 +539,7 @@ func buildConnectOriginateListener(push *model.PushContext, proxy *model.Proxy, 
 		},
 	}
 	// Set access logs. These are filtered down to only connection establishment errors, to avoid double logs in most cases.
-	accessLogBuilder.setHboneAccessLog(push, proxy, tcpProxy, class)
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, class)
 	l := &listener.Listener{
 		Name:              ConnectOriginate,
 		UseOriginalDst:    wrappers.Bool(false),
@@ -438,10 +574,10 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 
 	// TODO: consider dedicated listener class for waypoint filters
 	cls := istionetworking.ListenerClassSidecarInbound
-	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
-		Class:   cls,
-		Service: svc,
-	}, model.WasmPluginTypeHTTP)
+	wasm := lb.push.WasmPluginsByListenerInfo(lb.node,
+		model.WasmPluginListenerInfo{Class: cls}.WithService(svc),
+		model.WasmPluginTypeHTTP,
+	)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	// TODO policies here will need to be different per-chain (service attached)
 	pre = append(pre, authzCustomBuilder.BuildHTTP(cls)...)
@@ -509,6 +645,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	if svc == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
+
 	vs := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 	if vs == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
@@ -563,14 +700,21 @@ func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, li
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := lb.translateRoute(virtualService, http, nil, listenPort); r != nil {
+			if r := lb.translateWaypointRoute(virtualService, http, nil, listenPort); r != nil {
 				out = append(out, r)
 			}
 			// This is a catchall route, so we can stop processing the rest of the routes.
 			break
 		}
 		for _, match := range http.Match {
-			if r := lb.translateRoute(virtualService, http, match, listenPort); r != nil {
+			// Source label matching is not supported in ambient mode, and thus not supported in
+			// waypoint routes. Any matchers containing source labels should be dropped.
+			// See https://github.com/istio/istio/issues/51565 for more details and discussion.
+			if len(match.SourceLabels) > 0 {
+				continue
+			}
+
+			if r := lb.translateWaypointRoute(virtualService, http, match, listenPort); r != nil {
 				out = append(out, r)
 				// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 				// As an optimization, we can just stop sending any more routes here.
@@ -591,14 +735,15 @@ func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, li
 	return out, nil
 }
 
-func (lb *ListenerBuilder) translateRoute(
+func (lb *ListenerBuilder) translateWaypointRoute(
 	virtualService config.Config,
 	in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest,
 	listenPort int,
 ) *route.Route {
+	gatewaySemantics := model.UseGatewaySemantics(virtualService)
 	// When building routes, it's okay if the target cluster cannot be
-	// resolved Traffic to such clusters will blackhole.
+	// resolved. Traffic to such clusters will blackhole.
 
 	// Match by the destination port specified in the match condition
 	if match != nil && match.Port != 0 && match.Port != uint32(listenPort) {
@@ -612,7 +757,7 @@ func (lb *ListenerBuilder) translateRoute(
 
 	out := &route.Route{
 		Name:     routeName,
-		Match:    istio_route.TranslateRouteMatch(virtualService, match, true),
+		Match:    istio_route.TranslateRouteMatch(virtualService, match),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 	authority := ""
@@ -630,7 +775,7 @@ func (lb *ListenerBuilder) translateRoute(
 	} else if in.DirectResponse != nil {
 		istio_route.ApplyDirectResponse(out, in.DirectResponse)
 	} else {
-		lb.routeDestination(out, in, authority, listenPort)
+		lb.waypointRouteDestination(out, in, authority, listenPort, gatewaySemantics)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -649,7 +794,13 @@ func (lb *ListenerBuilder) translateRoute(
 	return out
 }
 
-func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTTPRoute, authority string, listenerPort int) {
+func (lb *ListenerBuilder) waypointRouteDestination(
+	out *route.Route,
+	in *networking.HTTPRoute,
+	authority string,
+	listenerPort int,
+	gatewaySemantics bool,
+) {
 	policy := in.Retries
 	if policy == nil {
 		// No VS policy set, use mesh defaults
@@ -665,13 +816,39 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 		action.Timeout = in.Timeout
 	}
 	// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
+	// TODO: check and see if the replacement has been fixed.
 	// nolint: staticcheck
 	action.MaxGrpcTimeout = action.Timeout
 
+	if gatewaySemantics {
+		// return 500 for invalid backends
+		// https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L204
+		action.ClusterNotFoundResponseCode = route.RouteAction_INTERNAL_SERVER_ERROR
+	}
 	out.Action = &route.Route_Route{Route: action}
 
 	if in.Rewrite != nil {
-		action.PrefixRewrite = in.Rewrite.GetUri()
+		if regexRewrite := in.Rewrite.GetUriRegexRewrite(); regexRewrite != nil {
+			action.RegexRewrite = &envoymatcher.RegexMatchAndSubstitute{
+				Pattern: &envoymatcher.RegexMatcher{
+					Regex: regexRewrite.Match,
+				},
+				Substitution: regexRewrite.Rewrite,
+			}
+		} else if uri := in.Rewrite.GetUri(); uri != "" {
+			if gatewaySemantics && uri == "/" {
+				// remove the prefix
+				action.RegexRewrite = &envoymatcher.RegexMatchAndSubstitute{
+					Pattern: &envoymatcher.RegexMatcher{
+						Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(out.Match.GetPathSeparatedPrefix())),
+					},
+					// hold `/` in case the entire path is removed
+					Substitution: `/\2`,
+				}
+			} else {
+				action.PrefixRewrite = uri
+			}
+		}
 		if in.Rewrite.GetAuthority() != "" {
 			authority = in.Rewrite.GetAuthority()
 		}
@@ -684,14 +861,16 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 
 	if in.Mirror != nil {
 		if mp := istio_route.MirrorPercent(in); mp != nil {
+			cluster := lb.getWaypointDestinationCluster(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				istio_route.TranslateRequestMirrorPolicy(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort, mp))
+				istio_route.TranslateRequestMirrorPolicyCluster(cluster, mp))
 		}
 	}
 	for _, mirror := range in.Mirrors {
 		if mp := istio_route.MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
+			cluster := lb.getWaypointDestinationCluster(mirror.Destination, lb.serviceForHostname(host.Name(mirror.Destination.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				istio_route.TranslateRequestMirrorPolicy(mirror.Destination, lb.serviceForHostname(host.Name(mirror.Destination.Host)), listenerPort, mp))
+				istio_route.TranslateRequestMirrorPolicyCluster(cluster, mp))
 		}
 	}
 
@@ -709,7 +888,7 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 			}
 		}
 		hostname := host.Name(dst.GetDestination().GetHost())
-		n := lb.GetDestinationCluster(dst.Destination, lb.serviceForHostname(hostname), listenerPort)
+		n := lb.getWaypointDestinationCluster(dst.Destination, lb.serviceForHostname(hostname), listenerPort)
 		clusterWeight := &route.WeightedCluster_ClusterWeight{
 			Name:   n,
 			Weight: weight,
@@ -756,9 +935,13 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 	}
 }
 
-// GetDestinationCluster generates a cluster name for the route, or error if no cluster
-// can be found. Called by translateRule to determine if
-func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+// getWaypointDestinationCluster generates a cluster name for the route. If the destination is invalid
+// or cannot be found, "UnknownService" is returned.
+func (lb *ListenerBuilder) getWaypointDestinationCluster(destination *networking.Destination, service *model.Service, listenerPort int) string {
+	if len(destination.GetHost()) == 0 {
+		// only happens when the gateway-api BackendRef is invalid
+		return "UnknownService"
+	}
 	dir, port := model.TrafficDirectionInboundVIP, listenerPort
 
 	if destination.GetPort() != nil {
@@ -793,10 +976,14 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 
 // portToSubset helps translate a port to the waypoint subset to use
 func portToSubset(service *model.Service, port int, destination *networking.Destination) string {
-	p, ok := service.Ports.GetByPort(port)
+	var p *model.Port
+	var ok bool
+	if service != nil {
+		p, ok = service.Ports.GetByPort(port)
+	}
 	if !ok {
 		// Port is unknown.
-		if destination.Subset != "" {
+		if destination != nil && destination.Subset != "" {
 			return "http/" + destination.Subset
 		}
 		return "http"

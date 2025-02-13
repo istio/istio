@@ -80,8 +80,11 @@ type InstallConfig struct {
 	// Whether ipv6 is enabled for ambient capture
 	AmbientIPv6 bool
 
-	// Feature flag to determined whether TPROXY is used for redirection.
-	AmbientTPROXYRedirection bool
+	// Feature flag to disable safe upgrade. Will be removed in future releases.
+	AmbientDisableSafeUpgrade bool
+
+	// Whether reconciliation of iptables at post startup is enabled for Ambient workloads
+	AmbientReconcilePodRulesOnStartup bool
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -144,8 +147,9 @@ func (c InstallConfig) String() string {
 	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")
 	b.WriteString("AmbientDNSCapture: " + fmt.Sprint(c.AmbientDNSCapture) + "\n")
 	b.WriteString("AmbientIPv6: " + fmt.Sprint(c.AmbientIPv6) + "\n")
-	b.WriteString("AmbientRedirectTPROXY: " + fmt.Sprint(c.AmbientTPROXYRedirection) + "\n")
+	b.WriteString("AmbientDisableSafeUpgrade: " + fmt.Sprint(c.AmbientDisableSafeUpgrade) + "\n")
 
+	b.WriteString("AmbientReconcilePodRulesOnStartup: " + fmt.Sprint(c.AmbientReconcilePodRulesOnStartup) + "\n")
 	return b.String()
 }
 

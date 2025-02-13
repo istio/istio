@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 53931
+releaseNotes:
+- |
+  **Fixed** `istioctl proxyconfig` performance issue.

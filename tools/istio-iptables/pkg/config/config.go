@@ -50,36 +50,36 @@ func DefaultConfig() *Config {
 // Command line options
 // nolint: maligned
 type Config struct {
-	ProxyPort               string        `json:"PROXY_PORT"`
-	InboundCapturePort      string        `json:"INBOUND_CAPTURE_PORT"`
-	InboundTunnelPort       string        `json:"INBOUND_TUNNEL_PORT"`
-	ProxyUID                string        `json:"PROXY_UID"`
-	ProxyGID                string        `json:"PROXY_GID"`
-	InboundInterceptionMode string        `json:"INBOUND_INTERCEPTION_MODE"`
-	InboundTProxyMark       string        `json:"INBOUND_TPROXY_MARK"`
-	InboundTProxyRouteTable string        `json:"INBOUND_TPROXY_ROUTE_TABLE"`
-	InboundPortsInclude     string        `json:"INBOUND_PORTS_INCLUDE"`
-	InboundPortsExclude     string        `json:"INBOUND_PORTS_EXCLUDE"`
-	OwnerGroupsInclude      string        `json:"OUTBOUND_OWNER_GROUPS_INCLUDE"`
-	OwnerGroupsExclude      string        `json:"OUTBOUND_OWNER_GROUPS_EXCLUDE"`
-	OutboundPortsInclude    string        `json:"OUTBOUND_PORTS_INCLUDE"`
-	OutboundPortsExclude    string        `json:"OUTBOUND_PORTS_EXCLUDE"`
-	OutboundIPRangesInclude string        `json:"OUTBOUND_IPRANGES_INCLUDE"`
-	OutboundIPRangesExclude string        `json:"OUTBOUND_IPRANGES_EXCLUDE"`
-	KubeVirtInterfaces      string        `json:"KUBE_VIRT_INTERFACES"`
-	ExcludeInterfaces       string        `json:"EXCLUDE_INTERFACES"`
-	IptablesProbePort       uint16        `json:"IPTABLES_PROBE_PORT"`
-	ProbeTimeout            time.Duration `json:"PROBE_TIMEOUT"`
-	DryRun                  bool          `json:"DRY_RUN"`
-	SkipRuleApply           bool          `json:"SKIP_RULE_APPLY"`
-	RunValidation           bool          `json:"RUN_VALIDATION"`
-	RedirectDNS             bool          `json:"REDIRECT_DNS"`
-	DropInvalid             bool          `json:"DROP_INVALID"`
-	CaptureAllDNS           bool          `json:"CAPTURE_ALL_DNS"`
-	EnableIPv6              bool          `json:"ENABLE_INBOUND_IPV6"`
-	DNSServersV4            []string      `json:"DNS_SERVERS_V4"`
-	DNSServersV6            []string      `json:"DNS_SERVERS_V6"`
-	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`
+	ProxyPort                string        `json:"PROXY_PORT"`
+	InboundCapturePort       string        `json:"INBOUND_CAPTURE_PORT"`
+	InboundTunnelPort        string        `json:"INBOUND_TUNNEL_PORT"`
+	ProxyUID                 string        `json:"PROXY_UID"`
+	ProxyGID                 string        `json:"PROXY_GID"`
+	InboundInterceptionMode  string        `json:"INBOUND_INTERCEPTION_MODE"`
+	InboundTProxyMark        string        `json:"INBOUND_TPROXY_MARK"`
+	InboundTProxyRouteTable  string        `json:"INBOUND_TPROXY_ROUTE_TABLE"`
+	InboundPortsInclude      string        `json:"INBOUND_PORTS_INCLUDE"`
+	InboundPortsExclude      string        `json:"INBOUND_PORTS_EXCLUDE"`
+	OwnerGroupsInclude       string        `json:"OUTBOUND_OWNER_GROUPS_INCLUDE"`
+	OwnerGroupsExclude       string        `json:"OUTBOUND_OWNER_GROUPS_EXCLUDE"`
+	OutboundPortsInclude     string        `json:"OUTBOUND_PORTS_INCLUDE"`
+	OutboundPortsExclude     string        `json:"OUTBOUND_PORTS_EXCLUDE"`
+	OutboundIPRangesInclude  string        `json:"OUTBOUND_IPRANGES_INCLUDE"`
+	OutboundIPRangesExclude  string        `json:"OUTBOUND_IPRANGES_EXCLUDE"`
+	RerouteVirtualInterfaces string        `json:"KUBE_VIRT_INTERFACES"`
+	ExcludeInterfaces        string        `json:"EXCLUDE_INTERFACES"`
+	IptablesProbePort        uint16        `json:"IPTABLES_PROBE_PORT"`
+	ProbeTimeout             time.Duration `json:"PROBE_TIMEOUT"`
+	DryRun                   bool          `json:"DRY_RUN"`
+	SkipRuleApply            bool          `json:"SKIP_RULE_APPLY"`
+	RunValidation            bool          `json:"RUN_VALIDATION"`
+	RedirectDNS              bool          `json:"REDIRECT_DNS"`
+	DropInvalid              bool          `json:"DROP_INVALID"`
+	CaptureAllDNS            bool          `json:"CAPTURE_ALL_DNS"`
+	EnableIPv6               bool          `json:"ENABLE_INBOUND_IPV6"`
+	DNSServersV4             []string      `json:"DNS_SERVERS_V4"`
+	DNSServersV6             []string      `json:"DNS_SERVERS_V6"`
+	NetworkNamespace         string        `json:"NETWORK_NAMESPACE"`
 	// When running in host filesystem, we have different semantics around the environment.
 	// For instance, we would have a node-shared IPTables lock, despite not needing it.
 	// HostFilesystemPodNetwork indicates we are in this mode, typically from the CNI.
@@ -119,7 +119,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("OUTBOUND_IP_RANGES_EXCLUDE=%s\n", c.OutboundIPRangesExclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_INCLUDE=%s\n", c.OutboundPortsInclude))
 	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_EXCLUDE=%s\n", c.OutboundPortsExclude))
-	b.WriteString(fmt.Sprintf("KUBE_VIRT_INTERFACES=%s\n", c.KubeVirtInterfaces))
+	b.WriteString(fmt.Sprintf("KUBE_VIRT_INTERFACES=%s\n", c.RerouteVirtualInterfaces))
 	// TODO consider renaming this env var to ENABLE_IPV6 - nothing about it is specific to "INBOUND"
 	b.WriteString(fmt.Sprintf("ENABLE_INBOUND_IPV6=%t\n", c.EnableIPv6))
 	// TODO remove this flag - "dual stack" should just mean

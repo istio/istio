@@ -34,9 +34,11 @@ import (
 )
 
 func TestNewInformer(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
 	c := kube.NewFakeClient()
-	ConfigMaps := krt.NewInformer[*corev1.ConfigMap](c)
-	c.RunAndWait(test.NewStop(t))
+	ConfigMaps := krt.NewInformer[*corev1.ConfigMap](c, opts.WithName("ConfigMaps")...)
+	c.RunAndWait(stop)
 	cmt := clienttest.NewWriter[*corev1.ConfigMap](t, c)
 	tt := assert.NewTracker[string](t)
 	ConfigMaps.Register(TrackerHandler[*corev1.ConfigMap](tt))
@@ -86,6 +88,7 @@ func TestNewInformer(t *testing.T) {
 }
 
 func TestUnregisteredTypeCollection(t *testing.T) {
+	opts := testOptions(t)
 	np := &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "netpol",
@@ -104,7 +107,7 @@ func TestUnregisteredTypeCollection(t *testing.T) {
 			return c.Kube().NetworkingV1().NetworkPolicies(namespace).Watch(context.Background(), o)
 		},
 	)
-	npcoll := krt.NewInformer[*v1.NetworkPolicy](c)
+	npcoll := krt.NewInformer[*v1.NetworkPolicy](c, opts.WithName("NetworkPolicies")...)
 	c.RunAndWait(test.NewStop(t))
 	assert.Equal(t, npcoll.List(), []*v1.NetworkPolicy{np})
 }

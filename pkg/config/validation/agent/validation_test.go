@@ -20,11 +20,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestValidateFQDN(t *testing.T) {
@@ -65,7 +65,6 @@ func TestValidateFQDN(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateFQDN(tt.fqdn)
 			valid := err == nil
@@ -73,7 +72,6 @@ func TestValidateFQDN(t *testing.T) {
 				t.Errorf("Expected valid=%v, got valid=%v for %v", tt.valid, valid, tt.fqdn)
 			}
 		})
-
 	}
 }
 
@@ -238,7 +236,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 	}
 
 	modify := func(config *meshconfig.ProxyConfig, fieldSetter func(*meshconfig.ProxyConfig)) *meshconfig.ProxyConfig {
-		clone := proto.Clone(config).(*meshconfig.ProxyConfig)
+		clone := protomarshal.Clone(config)
 		fieldSetter(clone)
 		return clone
 	}
@@ -247,6 +245,7 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		name    string
 		in      *meshconfig.ProxyConfig
 		isValid bool
+		isWarn  bool
 	}{
 		{
 			name:    "empty proxy config",
@@ -652,14 +651,34 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 			),
 			isValid: true,
 		},
+		{
+			name: "ISTIO_META_DNS_AUTO_ALLOCATE is deprecated",
+			in: modify(valid,
+				func(c *meshconfig.ProxyConfig) {
+					if c.ProxyMetadata == nil {
+						c.ProxyMetadata = make(map[string]string)
+					}
+					c.ProxyMetadata["ISTIO_META_DNS_AUTO_ALLOCATE"] = "true"
+				}),
+			isValid: true, // allowed
+			isWarn:  true, // issue a warning though
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ValidateMeshConfigProxyConfig(c.in); (got == nil) != c.isValid {
+			got := ValidateMeshConfigProxyConfig(c.in)
+			if (got.Err == nil) != c.isValid {
 				if c.isValid {
-					t.Errorf("got error %v, wanted none", got)
+					t.Errorf("got error %v, wanted none", got.Err)
 				} else {
 					t.Error("got no error, wanted one")
+				}
+			}
+			if (got.Warning != nil) != c.isWarn {
+				if c.isWarn {
+					t.Error("got no warning, wanted one")
+				} else {
+					t.Errorf("got warning %v, wanted none", got.Warning)
 				}
 			}
 		})
@@ -686,7 +705,8 @@ func TestValidateMeshConfigProxyConfig(t *testing.T) {
 		},
 	}
 
-	err := ValidateMeshConfigProxyConfig(invalid)
+	validation := ValidateMeshConfigProxyConfig(invalid)
+	err := validation.Err
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {

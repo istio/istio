@@ -24,13 +24,15 @@ import (
 )
 
 type join[T any] struct {
-	collectionName string
-	id             collectionUID
-	collections    []internalCollection[T]
-	synced         <-chan struct{}
+	collectionName   string
+	id               collectionUID
+	collections      []internalCollection[T]
+	synced           <-chan struct{}
+	uncheckedOverlap bool
+	syncer           Syncer
 }
 
-func (j *join[T]) GetKey(k Key[T]) *T {
+func (j *join[T]) GetKey(k string) *T {
 	for _, c := range j.collections {
 		if r := c.GetKey(k); r != nil {
 			return r
@@ -40,14 +42,42 @@ func (j *join[T]) GetKey(k Key[T]) *T {
 }
 
 func (j *join[T]) List() []T {
-	res := []T{}
-	found := sets.New[Key[T]]()
+	var res []T
+	if j.uncheckedOverlap {
+		first := true
+		for _, c := range j.collections {
+			objs := c.List()
+			// As an optimization, take the first (non-empty) result as-is without copying
+			if len(objs) > 0 && first {
+				res = objs
+				first = false
+			} else {
+				// After the first, safely merge into the result
+				res = append(res, objs...)
+			}
+		}
+		return res
+	}
+	var found sets.String
+	first := true
 	for _, c := range j.collections {
-		for _, i := range c.List() {
-			key := GetKey(i)
-			if !found.InsertContains(key) {
-				// Only keep it if it is the first time we saw it, as our merging mechanism is to keep the first one
-				res = append(res, i)
+		objs := c.List()
+		// As an optimization, take the first (non-empty) result as-is without copying
+		if len(objs) > 0 && first {
+			res = objs
+			first = false
+			found = sets.NewWithLength[string](len(objs))
+			for _, i := range objs {
+				found.Insert(GetKey(i))
+			}
+		} else {
+			// After the first, safely merge into the result
+			for _, i := range objs {
+				key := GetKey(i)
+				if !found.InsertContains(key) {
+					// Only keep it if it is the first time we saw it, as our merging mechanism is to keep the first one
+					res = append(res, i)
+				}
 			}
 		}
 	}
@@ -79,12 +109,10 @@ func (j *join[T]) name() string { return j.collectionName }
 func (j *join[T]) uid() collectionUID { return j.id }
 
 // nolint: unused // (not true, its to implement an interface)
-func (j *join[I]) dump() {
-	log.Errorf("> BEGIN DUMP (join %v)", j.collectionName)
-	for _, c := range j.collections {
-		c.dump()
-	}
-	log.Errorf("< END DUMP (join %v)", j.collectionName)
+func (j *join[I]) dump() CollectionDump {
+	// Dump should not be used on join; instead its preferred to enroll each individual collection. Maybe reconsider
+	// in the future if there is a need
+	return CollectionDump{}
 }
 
 // nolint: unused // (not true)
@@ -95,8 +123,16 @@ type joinIndexer struct {
 // nolint: unused // (not true)
 func (j joinIndexer) Lookup(key string) []any {
 	var res []any
+	first := true
 	for _, i := range j.indexers {
-		res = append(res, i.Lookup(key)...)
+		l := i.Lookup(key)
+		if len(l) > 0 && first {
+			// Optimization: re-use the first returned slice
+			res = l
+			first = false
+		} else {
+			res = append(res, l...)
+		}
 	}
 	return res
 }
@@ -117,6 +153,14 @@ func (j *join[T]) Synced() Syncer {
 	}
 }
 
+func (j *join[T]) HasSynced() bool {
+	return j.syncer.HasSynced()
+}
+
+func (j *join[T]) WaitUntilSynced(stop <-chan struct{}) bool {
+	return j.syncer.WaitUntilSynced(stop)
+}
+
 // JoinCollection combines multiple Collection[T] into a single
 // Collection[T] merging equal objects into one record
 // in the resulting Collection
@@ -131,7 +175,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	})
 	go func() {
 		for _, c := range c {
-			if !c.Synced().WaitUntilSynced(o.stop) {
+			if !c.WaitUntilSynced(o.stop) {
 				return
 			}
 		}
@@ -140,9 +184,14 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	}()
 	// TODO: in the future, we could have a custom merge function. For now, since we just take the first, we optimize around that case
 	return &join[T]{
-		collectionName: o.name,
-		id:             nextUID(),
-		synced:         synced,
-		collections:    c,
+		collectionName:   o.name,
+		id:               nextUID(),
+		synced:           synced,
+		collections:      c,
+		uncheckedOverlap: o.joinUnchecked,
+		syncer: channelSyncer{
+			name:   o.name,
+			synced: synced,
+		},
 	}
 }

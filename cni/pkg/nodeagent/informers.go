@@ -16,13 +16,17 @@ package nodeagent
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
+	"time"
 
+	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
@@ -41,7 +45,7 @@ var (
 )
 
 type K8sHandlers interface {
-	GetPodIfAmbient(podName, podNamespace string) (*corev1.Pod, error)
+	GetPodIfAmbientEnabled(podName, podNamespace string) (*corev1.Pod, error)
 	GetActiveAmbientPodSnapshot() []*corev1.Pod
 	Start()
 }
@@ -60,8 +64,32 @@ func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDa
 	s := &InformerHandlers{ctx: ctx, dataplane: dataplane, systemNamespace: systemNamespace}
 	s.queue = controllers.NewQueue("ambient",
 		controllers.WithGenericReconciler(s.reconcile),
-		controllers.WithMaxAttempts(5),
+		// Effectively uncapped max attempts.
+		// This is because ztunnel may connect at $any-point after we start the handler,
+		// and processing some events will continue to fail until there is a ztunnel
+		// ready to accept events fired by the handler.
+		//
+		// Note that even in this case, the failure mode for pods should
+		// always be `fail closed`, but we really have no reason to cap retry attempts
+		// caused by ztunnel not being connected, since it must (at some point).
+		//
+		// Note that an important corollary of this is that *failed pod events should be retryable*
+		// - POD ADD (ipset, iptables, ztunnel send) must be idempotent
+		// - POD DEL (ipset, iptables, ztunnel send) must be idempotent
+		//
+		// iptables case (reconciliation) is the only place where this is not always true,
+		// but that is being worked on.
+		//
+		// So max out attempt count and instead regulate with ratelimiter
+		controllers.WithMaxAttempts(math.MaxInt),
+		// Start with small intervals, max out at 5 sec retry intervals
+		controllers.WithRateLimiter(workqueue.NewTypedMaxOfRateLimiter(
+			workqueue.NewTypedItemExponentialFailureRateLimiter[any](5*time.Millisecond, 5*time.Second),
+			// default `workqueue` bucket settings to avoid herds
+			&workqueue.TypedBucketRateLimiter[any]{Limiter: rate.NewLimiter(rate.Limit(10), 100)},
+		)),
 	)
+
 	// We only need to handle pods on our node
 	s.pods = kclient.NewFiltered[*corev1.Pod](kubeClient, kclient.Filter{FieldSelector: "spec.nodeName=" + NodeName})
 	s.pods.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
@@ -84,11 +112,11 @@ func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDa
 	return s
 }
 
-// GetPodIfAmbient looks up a pod. It returns:
+// GetPodIfAmbientEnabled looks up a pod. It returns:
 // * An error if the pod cannot be found
-// * nil if the pod is found, but does not have ambient enabled
-// * the pod, if it is found and ambient is enabled
-func (s *InformerHandlers) GetPodIfAmbient(podName, podNamespace string) (*corev1.Pod, error) {
+// * nil if the pod is found, but is not currently eligible for ambient enrollment
+// * the pod, if it is found and is currently eligible for ambient enrollment
+func (s *InformerHandlers) GetPodIfAmbientEnabled(podName, podNamespace string) (*corev1.Pod, error) {
 	ns := s.namespaces.Get(podNamespace, "")
 	if ns == nil {
 		return nil, fmt.Errorf("failed to find namespace %v", ns)
@@ -104,8 +132,14 @@ func (s *InformerHandlers) GetPodIfAmbient(podName, podNamespace string) (*corev
 }
 
 func (s *InformerHandlers) Start() {
+	// Wait for all events to be queued
 	kube.WaitForCacheSync("informer", s.ctx.Done(), s.pods.HasSynced, s.namespaces.HasSynced)
 	go s.queue.Run(s.ctx.Done())
+	// Note that we are explicitly *not* doing
+	// 'kube.WaitForCacheSync("informer queue", s.ctx.Done(), s.queue.HasSynced)'
+	// here, because we cannot successfully process the event queue until a ztunnel connects.
+	//
+	// We will always retry failed events, for as long as the agent is running.
 }
 
 // Gets a point-in-time snapshot of all pods that are CURRENTLY ambient enabled
@@ -124,7 +158,7 @@ func (s *InformerHandlers) GetActiveAmbientPodSnapshot() []*corev1.Pod {
 		// from the snapshot.
 		if !util.IsZtunnelPod(s.systemNamespace, pod) &&
 			!kube.CheckPodTerminal(pod) &&
-			util.PodRedirectionActive(pod) {
+			util.PodFullyEnrolled(pod) {
 			pods = append(pods, pod)
 		}
 	}
@@ -159,9 +193,13 @@ func (s *InformerHandlers) enqueueNamespace(o controllers.Object) {
 
 func (s *InformerHandlers) reconcile(input any) error {
 	event := input.(controllers.Event)
+
+	defer EventTotals.With(eventTypeTag.Value(event.Event.String())).Increment()
+
 	switch event.Latest().(type) {
 	case *corev1.Namespace:
-		return s.reconcileNamespace(input)
+		s.reconcileNamespace(input)
+		return nil
 	case *corev1.Pod:
 		return s.reconcilePod(input)
 	default:
@@ -169,7 +207,7 @@ func (s *InformerHandlers) reconcile(input any) error {
 	}
 }
 
-func (s *InformerHandlers) reconcileNamespace(input any) error {
+func (s *InformerHandlers) reconcileNamespace(input any) {
 	event := input.(controllers.Event)
 	ns := event.Latest().(*corev1.Namespace)
 
@@ -187,7 +225,6 @@ func (s *InformerHandlers) reconcileNamespace(input any) error {
 			s.enqueueNamespace(newNs)
 		}
 	}
-	return nil
 }
 
 func getModeLabel(m map[string]string) string {
@@ -199,10 +236,15 @@ func getModeLabel(m map[string]string) string {
 
 func (s *InformerHandlers) reconcilePod(input any) error {
 	event := input.(controllers.Event)
-	pod := event.Latest().(*corev1.Pod)
-	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
+	latestEventPod := event.Latest().(*corev1.Pod)
 
-	defer EventTotals.With(eventTypeTag.Value(event.Event.String())).Increment()
+	log := log.WithLabels("ns", latestEventPod.Namespace, "name", latestEventPod.Name)
+
+	ns := s.namespaces.Get(latestEventPod.Namespace, "")
+	if ns == nil {
+		log.Errorf("failed to find namespace %v, skipping this event", ns)
+		return nil
+	}
 
 	switch event.Event {
 	case controllers.EventAdd:
@@ -216,28 +258,36 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// and the initial enqueueNamespace, and new pods will be handled by the CNI.
 
 	case controllers.EventUpdate:
-		// For update, we just need to handle opt outs
-		newPod := event.New.(*corev1.Pod)
-		oldPod := event.Old.(*corev1.Pod)
-		ns := s.namespaces.Get(newPod.Namespace, "")
-		if ns == nil {
-			return fmt.Errorf("failed to find namespace %v", ns)
+		// The pod data in the event may be stale, and we always want to operate on the most recent
+		// instance of the pod data in the former cache, so fetch it here.
+		currentPod := s.pods.Get(latestEventPod.Name, ns.Name)
+
+		// if the pod we get an Update event for no longer actually exists in the cluster,
+		// we should just skip handling the update event - we (probably) will get a Delete event.
+		if currentPod == nil {
+			log.Warnf("update event skipped - pod no longer exists")
+			return nil
 		}
-		wasAnnotated := oldPod.Annotations != nil && oldPod.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
-		isAnnotated := newPod.Annotations != nil && newPod.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
-		shouldBeEnabled := util.PodRedirectionEnabled(ns, newPod)
-		isTerminated := kube.CheckPodTerminal(newPod)
+		// NOTE that we *do not* consult the old pod state for `update` events, and that is intentional,
+		// with 2 exceptions:
+		// 1. Logging (so the change event diff is more obvious)
+		// 2. To work around a potential k8s pod removal bug
+		oldPod := event.Old.(*corev1.Pod)
+		isEnrolled := util.PodFullyEnrolled(currentPod)
+		isPartiallyEnrolled := util.PodPartiallyEnrolled(currentPod)
+		shouldBeEnabled := util.PodRedirectionEnabled(ns, currentPod)
+		isTerminated := kube.CheckPodTerminal(currentPod)
 		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
-		changeNeeded := (isAnnotated != shouldBeEnabled) && !isTerminated
+		changeNeeded := (isEnrolled != shouldBeEnabled) || isPartiallyEnrolled
 
 		// nolint: lll
-		log.Debugf("pod update: annotation=%v->%v shouldBeEnabled=%v changeNeeded=%v isTerminated=%v, oldPod=%+v, newPod=%+v",
-			wasAnnotated, isAnnotated, shouldBeEnabled, changeNeeded, isTerminated, oldPod.ObjectMeta, newPod.ObjectMeta)
+		log.Debugf("pod update: isEnrolled=%v isPartiallyEnrolled=%v shouldBeEnabled=%v changeNeeded=%v isTerminated=%v, oldPod=%+v, newPod=%+v",
+			isEnrolled, isPartiallyEnrolled, shouldBeEnabled, changeNeeded, isTerminated, oldPod.ObjectMeta, currentPod.ObjectMeta)
 
 		// If it was a job pod that (a) we captured and (b) just terminated (successfully or otherwise)
 		// remove it (the pod process is gone, but kube will keep the Pods around in
 		// a terminated || failed state - we should still do cleanup)
-		if isAnnotated && isTerminated {
+		if (isPartiallyEnrolled || isEnrolled) && isTerminated {
 			log.Debugf("deleting pod from mesh: pod was enabled but is now terminated")
 			// Unlike the other cases, we actually want to use the "old" event for terminated job pods
 			// - kubernetes will (weirdly) issue a new status to the pod with no IP on termination, meaning
@@ -245,12 +295,16 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 			//
 			// We will get subsequent events that append a new status with the IP put back, but it's simpler
 			// and safer to just check the old pod status for the IP.
-			err := s.dataplane.RemovePodFromMesh(s.ctx, oldPod, true)
-			log.Debugf("RemovePodFromMesh returned: %v", err)
+			//
+			// https://github.com/kubernetes/kubernetes/issues/125370
+			if err := s.dataplane.RemovePodFromMesh(s.ctx, oldPod, true); err != nil {
+				log.Warnf("RemovePodFromMesh for terminated pod returned error, will retry: %v", err)
+				return err
+			}
 			return nil
 		}
 
-		if !changeNeeded {
+		if !changeNeeded || isTerminated {
 			log.Debugf("pod update event skipped: no change needed")
 			return nil
 		}
@@ -258,56 +312,57 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// Pod is not terminated, and has changed in a way we care about - so reconcile
 		if !shouldBeEnabled {
 			log.Debugf("removing pod from mesh: no longer should be enabled")
-			err := s.dataplane.RemovePodFromMesh(s.ctx, pod, false)
-			log.Debugf("RemovePodFromMesh returned: %v", err)
-			// we ignore errors here as we don't want this event to be retried by the queue.
-		} else {
-			// If oldpod != ready && newpod != ready, but the ambient annotation was added,
-			// then assume this event was generated by the CNI plugin labeling the pod on startup,
-			// and skip the event.
-			//
-			// This isn't perfect (someone could manually annotate an unready pod,
-			// then install Istio, then the pod goes ready, and we'd miss capture) - but that
-			// seems vanishingly unlikely
-			wasReady := kube.CheckPodReadyOrComplete(oldPod)
-			isReady := kube.CheckPodReadyOrComplete(newPod)
-			if wasReady != nil && isReady != nil && isAnnotated {
-				log.Infof("pod update event skipped: added/labeled by CNI plugin")
+			if err := s.dataplane.RemovePodFromMesh(s.ctx, currentPod, false); err != nil {
+				log.Warnf("RemovePodFromMesh for active pod returned error, will retry: %v", err)
+				return err
+			}
+			return nil
+		}
+
+		// netns == ""; at this point netns should have been added via the initial snapshot,
+		// or via the cni plugin. If it happens to get here before the cni plugin somehow,
+		// then we will just fail to add the pod to the mesh, and it will be retried later when cni plugin adds it.
+
+		// We need a pod IP - if the pod was added via the CNI plugin, that plugin told us the IPs
+		// for the pod. If this is a pod added via informer, the pod should have already gone thru
+		// the CNI plugin chain, and have a PodIP.
+		//
+		// If PodIPs exists, it is preferred, otherwise fallback to PodIP.
+		//
+		// If we get to this point and have a pod that really and truly has no IP in either of those,
+		// it's not routable at this point and something is wrong/we should discard this event.
+		podIPs := util.GetPodIPsIfPresent(currentPod)
+		if len(podIPs) == 0 {
+			log.Debugf("pod update event skipped: no IP assigned yet")
+			return nil
+		}
+
+		log.Debugf("pod is now enrolled, adding to mesh")
+		if err := s.dataplane.AddPodToMesh(s.ctx, currentPod, podIPs, ""); err != nil {
+			// If this is a serious error we likely cannot recover from
+			// (iptables apply failed, etc etc) do not bother to retry by returning an error to the informer,
+			// just log and return nothing.
+			if errors.Is(err, ErrNonRetryableAdd) {
+				log.Errorf("Failed capturing pod, will not retry. AddPodToMesh returned: %v", err)
 				return nil
 			}
-
-			// netns == ""; at this point netns should have been added via the initial snapshot,
-			// or via the cni plugin. If it happens to get here before the cni plugin somehow,
-			// then we will just fail to add the pod to the mesh, and it will be retried later when cni plugin adds it.
-
-			// We need a pod IP - if the pod was added via the CNI plugin, that plugin told us the IPs
-			// for the pod. If this is a pod added via informer, the pod should have already gone thru
-			// the CNI plugin chain, and have a PodIP.
-			//
-			// If PodIPs exists, it is preferred, otherwise fallback to PodIP.
-			//
-			// If we get to this point and have a pod that really and truly has no IP in either of those,
-			// it's not routable at this point and something is wrong/we should discard this event.
-			podIPs := util.GetPodIPsIfPresent(pod)
-			if len(podIPs) == 0 {
-				log.Debugf("pod update event skipped: no IP assigned yet")
-				return nil
-			}
-
-			log.Debugf("pod is now enrolled, adding to mesh")
-			err := s.dataplane.AddPodToMesh(s.ctx, pod, podIPs, "")
-			if err != nil {
-				log.Warnf("AddPodToMesh returned: %v", err)
-			}
+			// If the failure is retryable/recoverable, the pod has not been fully enrolled yet,
+			// and may have a partial annotation status, so we want to return an error and let the informer retry
+			// the add until it hopefully succeeds.
+			log.Warnf("Unable to send pod to ztunnel. Will retry. AddPodToMesh returned: %v", err)
+			return err
 		}
 	case controllers.EventDelete:
-		// We are the only thing that should be annotating the pods for mesh inclusion.
-		// If we did, remove it from ztunnel
-		if util.PodRedirectionActive(pod) {
-			log.Debugf("pod is deleted and was captured, removing from ztunnel")
-			err := s.dataplane.RemovePodFromMesh(s.ctx, pod, true)
-			if err != nil {
-				log.Warnf("DelPodFromMesh returned: %v", err)
+		// If the pod was annotated (by informer or plugin) remove pod from mesh.
+		// NOTE that unlike the other event handling cases (ADD/UPDATE), for DELETE
+		// we *do not* want to check the cache for the pod - because it (probably)
+		// won't be there anymore. So for this case *alone*, we check the most recent
+		// pod information from the triggering event.
+		if util.PodFullyEnrolled(latestEventPod) || util.PodPartiallyEnrolled(latestEventPod) {
+			log.Debugf("pod is deleted and was (fully or partially) captured, removing from ztunnel")
+			if err := s.dataplane.RemovePodFromMesh(s.ctx, latestEventPod, true); err != nil {
+				log.Warnf("Unable to send pod to ztunnel for removal. Will retry. RemovePodFrmMesh returned: %v", err)
+				return err
 			}
 		} else {
 			log.Debugf("skipped deleting from mesh for pod, pod not in mesh")

@@ -93,3 +93,19 @@ func UnmarshalAny[T any](a *anypb.Any) (*T, error) {
 type vtStrictMarshal interface {
 	MarshalVTStrict() ([]byte, error)
 }
+
+type vtEquals[T proto.Message] interface {
+	EqualVT(T) bool
+}
+
+// Equals checks if two message are equal.
+// This is preferred to proto.Equals since it can use vtprotobuf implementations and is more type safe
+func Equals[T proto.Message](a T, b T) bool {
+	if features.EnableVtprotobuf {
+		if vt, ok := any(a).(vtEquals[T]); ok {
+			return vt.EqualVT(b)
+		}
+	}
+	// If not available, fallback to normal implementation
+	return proto.Equal(a, b)
+}

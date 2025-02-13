@@ -38,7 +38,6 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -58,6 +57,7 @@ import (
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/util/smallset"
 )
 
 // Constants for duration fields
@@ -70,7 +70,14 @@ const (
 	matchPrefix = "prefix:"
 )
 
-var validHeaderRegex = regexp.MustCompile("^[-_A-Za-z0-9]+$")
+// https://greenbytes.de/tech/webdav/rfc7230.html#header.fields
+var (
+	tchars               = "!#$%&'*+-.^_`|~" + "A-Z" + "a-z" + "0-9"
+	validHeaderNameRegex = regexp.MustCompile("^[" + tchars + "]+$")
+
+	validProbeHeaderNameRegex  = regexp.MustCompile("^[-A-Za-z0-9]+$")
+	validStrictHeaderNameRegex = validProbeHeaderNameRegex
+)
 
 const (
 	kb = 1024
@@ -227,12 +234,23 @@ func checkDryRunAnnotation(cfg config.Config, allowed bool) error {
 	return nil
 }
 
-// ValidateHTTPHeaderName validates a header name
-func ValidateHTTPHeaderName(name string) error {
+// ValidateStrictHTTPHeaderName validates a header name. This uses stricter semantics than HTTP allows (ValidateHTTPHeaderName)
+func ValidateStrictHTTPHeaderName(name string) error {
 	if name == "" {
 		return fmt.Errorf("header name cannot be empty")
 	}
-	if !validHeaderRegex.MatchString(name) {
+	if !validStrictHeaderNameRegex.MatchString(name) {
+		return fmt.Errorf("header name %s is not a valid header name", name)
+	}
+	return nil
+}
+
+// ValidateProbeHeaderName validates a header name for a HTTP probe. This aligns with Kubernetes logic
+func ValidateProbeHeaderName(name string) error {
+	if name == "" {
+		return fmt.Errorf("header name cannot be empty")
+	}
+	if !validProbeHeaderNameRegex.MatchString(name) {
 		return fmt.Errorf("header name %s is not a valid header name", name)
 	}
 	return nil
@@ -247,11 +265,20 @@ func ValidateCORSHTTPHeaderName(name string) error {
 	if name == "*" {
 		return nil
 	}
-	if !validHeaderRegex.MatchString(name) {
+	if !validHeaderNameRegex.MatchString(name) {
 		return fmt.Errorf("header name %s is not a valid header name", name)
 	}
 	return nil
 }
+
+// https://httpwg.org/specs/rfc7540.html#PseudoHeaderFields
+var pseudoHeaders = smallset.New(
+	":method",
+	":scheme",
+	":authority",
+	":path",
+	":status",
+)
 
 // ValidateHTTPHeaderNameOrJwtClaimRoute validates a header name, allowing special @request.auth.claims syntax
 func ValidateHTTPHeaderNameOrJwtClaimRoute(name string) error {
@@ -262,8 +289,12 @@ func ValidateHTTPHeaderNameOrJwtClaimRoute(name string) error {
 		// Jwt claim form
 		return nil
 	}
+	if pseudoHeaders.Contains(name) {
+		// Valid pseudo header
+		return nil
+	}
 	// Else ensure its a valid header
-	if !validHeaderRegex.MatchString(name) {
+	if !validHeaderNameRegex.MatchString(name) {
 		return fmt.Errorf("header name %s is not a valid header name", name)
 	}
 	return nil
@@ -1128,8 +1159,19 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 	}
 
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
-	if settings.WarmupDurationSecs != nil {
-		errs = AppendValidation(errs, agent.ValidateDuration(settings.WarmupDurationSecs))
+
+	if warm := settings.Warmup; warm != nil {
+		if warm.Duration == nil {
+			errs = AppendValidation(errs, fmt.Errorf("duration is required"))
+		} else {
+			errs = AppendValidation(errs, agent.ValidateDuration(warm.Duration))
+		}
+		if warm.MinimumPercent.GetValue() > 100 {
+			errs = AppendValidation(errs, fmt.Errorf("minimumPercent value should be less than or equal to 100"))
+		}
+		if warm.Aggression != nil && warm.Aggression.GetValue() < 1 {
+			errs = AppendValidation(errs, fmt.Errorf("aggression should be greater than or equal to 1"))
+		}
 	}
 	return
 }
@@ -1208,6 +1250,7 @@ var allowedTargetRefs = []config.GroupVersionKind{
 	gvk.Service,
 	gvk.ServiceEntry,
 	gvk.KubernetesGateway,
+	gvk.GatewayClass,
 }
 
 func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
@@ -1318,6 +1361,8 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 					if src := from.GetSource(); src != nil {
 						errs = appendErrors(errs, check(len(src.Namespaces) != 0, "From.Namespaces"))
 						errs = appendErrors(errs, check(len(src.NotNamespaces) != 0, "From.NotNamespaces"))
+						errs = appendErrors(errs, check(len(src.ServiceAccounts) != 0, "From.ServiceAccounts"))
+						errs = appendErrors(errs, check(len(src.NotServiceAccounts) != 0, "From.NotServiceAccounts"))
 						errs = appendErrors(errs, check(len(src.Principals) != 0, "From.Principals"))
 						errs = appendErrors(errs, check(len(src.NotPrincipals) != 0, "From.NotPrincipals"))
 						errs = appendErrors(errs, check(len(src.RequestPrincipals) != 0, "From.RequestPrincipals"))
@@ -1330,6 +1375,7 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 						continue
 					}
 					errs = appendErrors(errs, check(when.Key == "source.namespace", when.Key))
+					errs = appendErrors(errs, check(when.Key == "source.serviceAccount", when.Key))
 					errs = appendErrors(errs, check(when.Key == "source.principal", when.Key))
 					errs = appendErrors(errs, check(strings.HasPrefix(when.Key, "request.auth."), when.Key))
 				}
@@ -1366,9 +1412,13 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 				} else {
 					fromRuleExist = true
 					src := from.Source
+					if (len(src.Principals)+len(src.NotPrincipals)+len(src.Namespaces)+len(src.NotNamespaces) > 0) &&
+						(len(src.ServiceAccounts)+len(src.NotServiceAccounts) > 0) {
+						errs = appendErrors(errs, fmt.Errorf("cannot set serviceAccounts with namespaces or principals, found at rule %d", i))
+					}
 					if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 &&
 						len(src.RemoteIpBlocks) == 0 && len(src.NotPrincipals) == 0 && len(src.NotRequestPrincipals) == 0 && len(src.NotNamespaces) == 0 &&
-						len(src.NotIpBlocks) == 0 && len(src.NotRemoteIpBlocks) == 0 {
+						len(src.NotIpBlocks) == 0 && len(src.NotRemoteIpBlocks) == 0 && len(src.ServiceAccounts) == 0 && len(src.NotServiceAccounts) == 0 {
 						errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d", i))
 					}
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetIpBlocks()))
@@ -1378,16 +1428,19 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 					errs = appendErrors(errs, security.CheckEmptyValues("Principals", src.Principals))
 					errs = appendErrors(errs, security.CheckEmptyValues("RequestPrincipals", src.RequestPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("Namespaces", src.Namespaces))
+					errs = appendErrors(errs, security.CheckServiceAccount("ServiceAccounts", src.ServiceAccounts))
 					errs = appendErrors(errs, security.CheckEmptyValues("IpBlocks", src.IpBlocks))
 					errs = appendErrors(errs, security.CheckEmptyValues("RemoteIpBlocks", src.RemoteIpBlocks))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotPrincipals", src.NotPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotRequestPrincipals", src.NotRequestPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotNamespaces", src.NotNamespaces))
+					errs = appendErrors(errs, security.CheckServiceAccount("NotServiceAccounts", src.NotServiceAccounts))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotIpBlocks", src.NotIpBlocks))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotRemoteIpBlocks", src.NotRemoteIpBlocks))
 					if src.NotPrincipals != nil || src.Principals != nil || src.IpBlocks != nil ||
 						src.NotIpBlocks != nil || src.Namespaces != nil ||
-						src.NotNamespaces != nil || src.RemoteIpBlocks != nil || src.NotRemoteIpBlocks != nil {
+						src.NotNamespaces != nil || src.RemoteIpBlocks != nil || src.NotRemoteIpBlocks != nil ||
+						src.ServiceAccounts != nil || src.NotServiceAccounts != nil {
 						tcpRulesInFrom = true
 					}
 				}
@@ -1536,7 +1589,7 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 			errs = multierror.Append(errs, errors.New("outputClaimToHeaders header and claim value must be non-empty string"))
 			continue
 		}
-		if err := ValidateHTTPHeaderName(claimAndHeaders.Header); err != nil {
+		if err := ValidateStrictHTTPHeaderName(claimAndHeaders.Header); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
@@ -2025,8 +2078,7 @@ func asJSON(data any) string {
 	switch mr := data.(type) {
 	case *networking.HTTPMatchRequest:
 		if mr != nil && mr.Name != "" {
-			cl := &networking.HTTPMatchRequest{}
-			protomarshal.ShallowCopy(cl, mr)
+			cl := protomarshal.ShallowClone(mr)
 			cl.Name = ""
 			data = cl
 		}
@@ -2718,7 +2770,7 @@ func validateReadinessProbe(probe *networking.ReadinessProbe) (errs error) {
 				errs = appendErrors(errs, fmt.Errorf("invalid nil header"))
 				continue
 			}
-			errs = appendErrors(errs, ValidateHTTPHeaderName(header.Name))
+			errs = appendErrors(errs, ValidateProbeHeaderName(header.Name))
 		}
 	case *networking.ReadinessProbe_TcpSocket:
 		h := m.TcpSocket
@@ -2810,14 +2862,11 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 			}
 			if port.TargetPort != 0 {
 				errs = AppendValidation(errs, agent.ValidatePort(int(port.TargetPort)))
-				if serviceEntry.Resolution == networking.ServiceEntry_NONE && !features.PassthroughTargetPort {
-					errs = AppendWarningf(errs, "targetPort has no effect when resolution mode is NONE")
-				}
 			}
 			if len(serviceEntry.Addresses) == 0 && !autoAllocation {
 				if port.Protocol == "" || port.Protocol == "TCP" {
 					errs = AppendValidation(errs, WrapWarning(fmt.Errorf("addresses are required for ports serving TCP (or unset) protocol "+
-						"when ISTIO_META_DNS_AUTO_ALLOCATE is not set on a proxy")))
+						"when IP Autoallocation is not enabled")))
 				}
 			}
 			errs = AppendValidation(errs,

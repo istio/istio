@@ -85,7 +85,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	// Holds subset clusters per service, keyed by hostname.
 	subsetClusters := make(map[string]sets.String)
 
-	for _, cluster := range watched.ResourceNames {
+	for cluster := range watched.ResourceNames {
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
 		// check with the name of our service (cluster names are in the format outbound|<port>|<subset>|<hostname>).
 		dir, subset, svcHost, port := model.ParseSubsetKey(cluster)
@@ -240,8 +240,9 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
+		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy)
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(
-			req.Push.ServicesAttachedToMesh(), wps.services, req.Push.ExtraWaypointServices(proxy), services))
+			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services))
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Setup inbound clusters
@@ -270,10 +271,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
 		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
 	}
+	// Dedupte the inbound clusters added by Envoy filters.
+	clusters = cb.normalizeClusters(clusters)
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
-	resources = cb.normalizeClusters(resources)
 
 	if cacheStats.empty() {
 		return resources, model.DefaultXdsLogDetails
@@ -375,7 +377,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 }
 
 type clusterPatcher struct {
-	efw  *model.EnvoyFilterWrapper
+	efw  *model.MergedEnvoyFilterWrapper
 	pctx networking.EnvoyFilter_PatchContext
 }
 

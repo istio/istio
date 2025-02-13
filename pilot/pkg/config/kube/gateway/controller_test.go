@@ -84,20 +84,24 @@ var AlwaysReady = func(class schema.GroupVersionResource, stop <-chan struct{}) 
 func TestListInvalidGroupVersionKind(t *testing.T) {
 	g := NewWithT(t)
 	clientSet := kube.NewFakeClient()
-	clientSet.RunAndWait(test.NewStop(t))
+	stop := test.NewStop(t)
+	clientSet.RunAndWait(stop)
 	store := memory.NewController(memory.Make(collections.All))
 	controller := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 
 	typ := config.GroupVersionKind{Kind: "wrong-kind"}
 	c := controller.List(typ, "ns1")
 	g.Expect(c).To(HaveLen(0))
+	controller.Run(stop)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 }
 
 func TestListGatewayResourceType(t *testing.T) {
 	g := NewWithT(t)
 
 	clientSet := kube.NewFakeClient()
-	clientSet.RunAndWait(test.NewStop(t))
+	stop := test.NewStop(t)
+	clientSet.RunAndWait(stop)
 	store := memory.NewController(memory.Make(collections.All))
 	controller := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 
@@ -129,7 +133,7 @@ func TestListGatewayResourceType(t *testing.T) {
 	})
 
 	cg := core.NewConfigGenTest(t, core.TestOptions{})
-	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(HaveOccurred())
+	controller.Reconcile(cg.PushContext())
 	cfg := controller.List(gvk.Gateway, "ns1")
 	g.Expect(cfg).To(HaveLen(1))
 	for _, c := range cfg {
@@ -138,12 +142,15 @@ func TestListGatewayResourceType(t *testing.T) {
 		g.Expect(c.Namespace).To(Equal("ns1"))
 		g.Expect(c.Spec).To(Equal(expectedgw))
 	}
+	controller.Run(stop)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 }
 
 func TestNamespaceEvent(t *testing.T) {
 	clientSet := kube.NewFakeClient()
 	store := memory.NewController(memory.Make(collections.All))
 	c := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
+
 	s := xdsfake.NewFakeXDS()
 
 	c.RegisterEventHandler(gvk.Namespace, func(_, cfg config.Config, _ model.Event) {

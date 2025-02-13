@@ -32,6 +32,15 @@ spec:
     spec:
       containers:
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        lifecycle:
+          postStart:
+            httpGet:
+              path: /app-lifecycle/hello/poststartz
+              port: 15020
+          preStop:
+            httpGet:
+              path: /app-lifecycle/hello/prestopz
+              port: 15020
         livenessProbe:
           httpGet:
             path: /app-health/hello/livez
@@ -136,7 +145,7 @@ spec:
         - name: TRUST_DOMAIN
           value: cluster.local
         - name: ISTIO_KUBE_APP_PROBERS
-          value: '{"/app-health/hello/livez":{"httpGet":{"port":80}},"/app-health/hello/readyz":{"httpGet":{"port":3333}},"/app-health/world/livez":{"httpGet":{"port":90}}}'
+          value: '{"/app-health/hello/livez":{"httpGet":{"port":80}},"/app-health/hello/readyz":{"httpGet":{"port":3333}},"/app-health/world/livez":{"httpGet":{"port":90}},"/app-lifecycle/hello/poststartz":{"tcpSocket":{"port":93}},"/app-lifecycle/hello/prestopz":{"httpGet":{"port":91}}}'
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:

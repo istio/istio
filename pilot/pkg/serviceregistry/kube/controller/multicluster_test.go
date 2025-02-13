@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
@@ -81,7 +81,7 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 }
 
 func initController(client kube.CLIClient, ns string, stop <-chan struct{}) *multicluster.Controller {
-	sc := multicluster.NewController(client, ns, "cluster-1", mesh.NewFixedWatcher(nil))
+	sc := multicluster.NewController(client, ns, "cluster-1", meshwatcher.NewTestWatcher(nil))
 	sc.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
@@ -95,12 +95,12 @@ func Test_KubeSecretController(t *testing.T) {
 	stop := test.NewStop(t)
 	s := server.New()
 	mcc := initController(clientset, testSecretNameSpace, stop)
-	mc := NewMulticluster("pilot-abc-123", clientset.Kube(), testSecretNameSpace, Options{
+	mc := NewMulticluster("pilot-abc-123", Options{
 		ClusterID:             "cluster-1",
 		DomainSuffix:          DomainSuffix,
-		MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+		MeshWatcher:           meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
 		MeshServiceController: mockserviceController,
-	}, nil, nil, nil, "default", false, nil, s, mcc)
+	}, nil, nil, "default", false, nil, s, mcc)
 	assert.NoError(t, mcc.Run(stop))
 	go mockserviceController.Run(stop)
 	clientset.RunAndWait(stop)
@@ -138,12 +138,12 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	s := server.New()
 	certWatcher := keycertbundle.NewWatcher()
 	mcc := initController(clientset, testSecretNameSpace, stop)
-	mc := NewMulticluster("pilot-abc-123", clientset.Kube(), testSecretNameSpace, Options{
+	mc := NewMulticluster("pilot-abc-123", Options{
 		ClusterID:             "cluster-1",
 		DomainSuffix:          DomainSuffix,
-		MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
+		MeshWatcher:           meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
 		MeshServiceController: mockserviceController,
-	}, nil, nil, certWatcher, "default", false, nil, s, mcc)
+	}, nil, certWatcher, "default", false, nil, s, mcc)
 	assert.NoError(t, mcc.Run(stop))
 	go mockserviceController.Run(stop)
 	clientset.RunAndWait(stop)

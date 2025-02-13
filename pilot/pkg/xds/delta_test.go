@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
@@ -80,6 +79,7 @@ func TestDeltaCDS(t *testing.T) {
 		assert.Equal(t, sets.New(got...), sets.New(names...).Merge(base))
 	}
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	spamDebugEndpointsToDetectRace(t, s)
 	addTestClientEndpoints(s.MemRegistry)
 	s.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 	s.MemRegistry.SetEndpoints(edsIncSvc, "",
@@ -330,8 +330,11 @@ func TestDeltaReconnectRequests(t *testing.T) {
 	}
 }
 
+func init() {
+	features.EnableAmbient = true
+}
+
 func TestDeltaWDS(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbient, true)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	wlA := &model.WorkloadInfo{
 		Workload: &workloadapi.Workload{
@@ -395,9 +398,7 @@ func TestDeltaWDS(t *testing.T) {
 
 	// simulate a svc update
 	s.XdsUpdater.ConfigUpdate(&model.PushRequest{
-		ConfigsUpdated: sets.New(model.ConfigKey{
-			Kind: kind.Address, Name: svcA.ResourceName(), Namespace: svcA.Namespace,
-		}),
+		AddressesUpdated: sets.New(svcA.ResourceName()),
 	})
 
 	resp = ads.ExpectResponse()
@@ -411,9 +412,7 @@ func TestDeltaWDS(t *testing.T) {
 	// simulate a svc delete
 	s.MemRegistry.RemoveServiceInfo(svcA)
 	s.XdsUpdater.ConfigUpdate(&model.PushRequest{
-		ConfigsUpdated: sets.New(model.ConfigKey{
-			Kind: kind.Address, Name: svcA.ResourceName(), Namespace: svcA.Namespace,
-		}),
+		AddressesUpdated: sets.New(svcA.ResourceName()),
 	})
 
 	resp = ads.ExpectResponse()
@@ -426,18 +425,17 @@ func TestDeltaWDS(t *testing.T) {
 
 	// delete workload
 	s.MemRegistry.RemoveWorkloadInfo(wlA)
-	// a full push and a pod delete event
-	// This is a merged push request
+	// a pod delete event
 	s.XdsUpdater.ConfigUpdate(&model.PushRequest{
-		Full: true,
+		AddressesUpdated: sets.New(wlA.ResourceName()),
 	})
 
 	resp = ads.ExpectResponse()
 	if len(resp.RemovedResources) != 1 || resp.RemovedResources[0] != wlA.ResourceName() {
-		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
+		t.Fatalf("received unexpected removed wds resource %v", resp.RemovedResources)
 	}
-	if len(resp.Resources) != 4 {
-		t.Fatalf("received unexpected eds resource %v", resp.Resources)
+	if len(resp.Resources) != 0 {
+		t.Fatalf("received unexpected wds resource %v", resp.Resources)
 	}
 }
 

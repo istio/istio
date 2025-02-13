@@ -49,6 +49,32 @@ import (
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 )
 
+const (
+	testCert = `-----BEGIN CERTIFICATE-----
+Y2VydA==
+-----END CERTIFICATE-----
+`
+
+	testIntermediateCert = `-----BEGIN CERTIFICATE-----
+aW50ZXJtZWRpYXRlMQ==
+-----END CERTIFICATE-----
+`
+
+	testIntermediateCert2 = `-----BEGIN CERTIFICATE-----
+aW50ZXJtZWRpYXRlMg==
+-----END CERTIFICATE-----
+`
+
+	testCertChain = testIntermediateCert // this chain has only one intermediate
+
+	testMultiCertChain = testIntermediateCert + "\n" + testIntermediateCert2 // cert chain with multiple intermediates
+
+	testRootCert = `-----BEGIN CERTIFICATE-----
+cm9vdF9jZXJ0
+-----END CERTIFICATE-----
+`
+)
+
 type mockAuthenticator struct {
 	authSource     security.AuthSource
 	identities     []string
@@ -97,13 +123,13 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 
 	server := &Server{
 		ca: &mockca.FakeCA{
-			SignedCert:    []byte("cert"),
-			KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),
+			SignedCert:    []byte(testCert),
+			KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
 		},
 		Authenticators: []security.Authenticator{auth},
 		monitoring:     newMonitoringMetrics(),
 	}
-	mockCertChain := []string{"cert", "cert_chain", "root_cert"}
+	mockCertChain := []string{testCert, testCertChain, testRootCert}
 	mockIPAddr := &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}
 	testCerts := map[string]struct {
 		certChain    [][]*x509.Certificate
@@ -237,10 +263,22 @@ func TestCreateCertificate(t *testing.T) {
 		"Successful signing": {
 			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca: &mockca.FakeCA{
-				SignedCert:    []byte("cert"),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),
+				SignedCert:    []byte(testCert),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
 			},
-			certChain: []string{"cert", "cert_chain", "root_cert"},
+			certChain: []string{testCert, testCertChain, testRootCert},
+			code:      codes.OK,
+		},
+		"Successful signing w/ multi-cert chain": {
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
+			ca: &mockca.FakeCA{
+				SignedCert: []byte(testCert),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil,
+					[]byte(testMultiCertChain),
+					[]byte(testRootCert),
+				),
+			},
+			certChain: []string{testCert, testIntermediateCert, testIntermediateCert2, testRootCert}, // the response should have one cert per element in slice
 			code:      codes.OK,
 		},
 	}
@@ -349,10 +387,10 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 				kubernetesInfo: ztunnelCaller,
 			}},
 			ca: &mockca.FakeCA{
-				SignedCert:    []byte("cert"),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),
+				SignedCert:    []byte(testCert),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
 			},
-			certChain:           []string{"cert", "cert_chain", "root_cert"},
+			certChain:           []string{testCert, testCertChain, testRootCert},
 			trustedNodeAccounts: sets.Set[types.NamespacedName]{},
 			code:                codes.Unauthenticated,
 		},
@@ -363,10 +401,10 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 				kubernetesInfo: ztunnelCaller,
 			}},
 			ca: &mockca.FakeCA{
-				SignedCert:    []byte("cert"),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),
+				SignedCert:    []byte(testCert),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
 			},
-			certChain:           []string{"cert", "cert_chain", "root_cert"},
+			certChain:           []string{testCert, testCertChain, testRootCert},
 			pods:                []pod{ztunnelPod, podOtherNode},
 			impersonatePod:      podOtherNode,
 			callerClusterID:     cluster.ID("fake"),
@@ -380,10 +418,10 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 				kubernetesInfo: ztunnelCaller,
 			}},
 			ca: &mockca.FakeCA{
-				SignedCert:    []byte("cert"),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),
+				SignedCert:    []byte(testCert),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
 			},
-			certChain:           []string{"cert", "cert_chain", "root_cert"},
+			certChain:           []string{testCert, testCertChain, testRootCert},
 			pods:                []pod{ztunnelPod, podSameNode},
 			impersonatePod:      podSameNode,
 			callerClusterID:     cluster.ID("fake"),
@@ -397,10 +435,10 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 				kubernetesInfo: ztunnelCaller,
 			}},
 			ca: &mockca.FakeCA{
-				SignedCert:    []byte("cert"),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),
+				SignedCert:    []byte(testCert),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
 			},
-			certChain:           []string{"cert", "cert_chain", "root_cert"},
+			certChain:           []string{testCert, testCertChain, testRootCert},
 			pods:                []pod{ztunnelPod},
 			impersonatePod:      podSameNodeRemote,
 			callerClusterID:     cluster.ID("fake"),
@@ -416,10 +454,10 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 				kubernetesInfo: ztunnelCallerRemote,
 			}},
 			ca: &mockca.FakeCA{
-				SignedCert:    []byte("cert"),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),
+				SignedCert:    []byte(testCert),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
 			},
-			certChain:           []string{"cert", "cert_chain", "root_cert"},
+			certChain:           []string{testCert, testCertChain, testRootCert},
 			pods:                []pod{ztunnelPod, podSameNode},
 			impersonatePod:      podSameNodeRemote,
 			callerClusterID:     cluster.ID("fake-remote"),

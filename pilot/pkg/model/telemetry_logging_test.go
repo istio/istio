@@ -16,7 +16,6 @@ package model
 
 import (
 	"reflect"
-	"sort"
 	"testing"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -706,7 +705,6 @@ func TestAccessLogging(t *testing.T) {
 					}
 					got = append(got, p.Provider.Name)
 				}
-				sort.Strings(got)
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("got %v want %v", got, tt.want)
@@ -959,6 +957,13 @@ func TestAccessLoggingCache(t *testing.T) {
 }
 
 func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
+	sidecar := &Proxy{
+		ConfigNamespace: "default",
+		Labels:          map[string]string{"app": "test"},
+		Metadata:        &NodeMetadata{},
+		IstioVersion:    &IstioVersion{Major: 1, Minor: 23},
+	}
+
 	fakeCluster := "outbound|55680||otel-collector.monitoring.svc.cluster.local"
 	fakeAuthority := "otel-collector.monitoring.svc.cluster.local"
 	for _, tc := range []struct {
@@ -1042,7 +1047,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := buildOpenTelemetryAccessLogConfig(tc.logName, tc.hostname, tc.clusterName, tc.body, tc.labels)
+			got := buildOpenTelemetryAccessLogConfig(sidecar, tc.logName, tc.hostname, tc.clusterName, tc.body, tc.labels)
 			assert.Equal(t, tc.expected, got)
 		})
 	}
@@ -1430,6 +1435,13 @@ func TestTelemetryAccessLog(t *testing.T) {
 		},
 	}
 
+	sidecar := &Proxy{
+		ConfigNamespace: "default",
+		Labels:          map[string]string{"app": "test"},
+		Metadata:        &NodeMetadata{},
+		IstioVersion:    &IstioVersion{Major: 1, Minor: 23},
+	}
+
 	for _, tc := range []struct {
 		name       string
 		ctx        *PushContext
@@ -1597,7 +1609,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 			}
 			push.Mesh = tc.meshConfig
 
-			got := telemetryAccessLog(push, tc.fp)
+			got := telemetryAccessLog(push, sidecar, tc.fp)
 			if got == nil {
 				t.Fatal("get nil accesslog")
 			}
@@ -1908,6 +1920,39 @@ func TestAccessLogFormatters(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := accessLogFormatters(tc.text, tc.labels)
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestFilterStateObjectsToLog(t *testing.T) {
+	cases := []struct {
+		proxy    *Proxy
+		expected []string
+	}{
+		{
+			proxy: &Proxy{
+				IstioVersion: &IstioVersion{Major: 1, Minor: 23},
+			},
+			expected: []string{"wasm.upstream_peer", "wasm.upstream_peer_id", "wasm.downstream_peer", "wasm.downstream_peer_id"},
+		},
+		{
+			proxy: &Proxy{
+				IstioVersion: &IstioVersion{Major: 1, Minor: 24},
+			},
+			expected: []string{"upstream_peer", "downstream_peer"},
+		},
+		{
+			proxy: &Proxy{
+				IstioVersion: &IstioVersion{Major: 1, Minor: 25},
+			},
+			expected: []string{"upstream_peer", "downstream_peer"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run("", func(t *testing.T) {
+			got := filterStateObjectsToLog(tc.proxy)
 			assert.Equal(t, tc.expected, got)
 		})
 	}

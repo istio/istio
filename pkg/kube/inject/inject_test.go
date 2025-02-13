@@ -54,6 +54,22 @@ import (
 // TestInjection tests both the mutating webhook and kube-inject. It does this by sharing the same input and output
 // test files and running through the two different code paths.
 func TestInjection(t *testing.T) {
+	multi := multicluster.NewFakeController()
+	client := kube.NewFakeClient(
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-ns",
+				Annotations: map[string]string{
+					securityv1.UIDRangeAnnotation:           "1000620000/10000",
+					securityv1.SupplementalGroupsAnnotation: "1000620000/10000",
+				},
+			},
+		})
+	multiclusterNamespaceController := multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](multi, kubetypes.Filter{})
+	stop := test.NewStop(t)
+	multi.Add(constants.DefaultClusterName, client, stop)
+	client.RunAndWait(stop)
+
 	type testCase struct {
 		in            string
 		want          string
@@ -134,6 +150,17 @@ func TestInjection(t *testing.T) {
 			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
 			in:   "kubevirtInterfaces.yaml",
 			want: "kubevirtInterfaces.yaml.injected",
+			setFlags: []string{
+				`values.global.proxy.statusPort=123`,
+				`values.global.proxy.readinessInitialDelaySeconds=100`,
+				`values.global.proxy.readinessPeriodSeconds=200`,
+				`values.global.proxy.readinessFailureThreshold=300`,
+			},
+		},
+		{
+			// Verifies that the kubevirtInterfaces list are applied properly from parameters..
+			in:   "reroute-virtual-interfaces.yaml",
+			want: "reroute-virtual-interfaces.yaml.injected",
 			setFlags: []string{
 				`values.global.proxy.statusPort=123`,
 				`values.global.proxy.readinessInitialDelaySeconds=100`,
@@ -324,6 +351,34 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			in:   "native-sidecar-opt-in.yaml",
+			want: "native-sidecar-opt-in.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+			},
+		},
+		{
+			in:   "native-sidecar-opt-in.yaml",
+			want: "native-sidecar-opt-in.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "false")
+			},
+		},
+		{
+			in:   "native-sidecar-opt-out.yaml",
+			want: "native-sidecar-opt-out.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+			},
+		},
+		{
+			in:   "native-sidecar-opt-out.yaml",
+			want: "native-sidecar-opt-out.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "false")
+			},
+		},
+		{
 			in:         "custom-template.yaml",
 			want:       "custom-template.yaml.injected",
 			inFilePath: "custom-template.iop.yaml",
@@ -433,21 +488,9 @@ func TestInjection(t *testing.T) {
 		cases = append(cases, testCase{in: f.Name(), want: want})
 	}
 
-	// Precompute injection settings. This may seem like a premature optimization, but due to the size of
-	// YAMLs, with -race this was taking >10min in some cases to generate!
-	if util.Refresh() {
-		cleanupOldFiles(t)
-		writeInjectionSettings(t, "default", nil, "")
-		for i, c := range cases {
-			if c.setFlags != nil || c.inFilePath != "" {
-				writeInjectionSettings(t, fmt.Sprintf("%s.%d", c.in, i), c.setFlags, c.inFilePath)
-			}
-		}
-	}
 	// Preload default settings. Computation here is expensive, so this speeds the tests up substantially
-	defaultTemplate, defaultValues, defaultMesh := readInjectionSettings(t, "default")
+	defaultTemplate, defaultValues, defaultMesh := getInjectionSettings(t, nil, "")
 	for i, c := range cases {
-		i, c := i, c
 		testName := fmt.Sprintf("[%02d] %s", i, c.want)
 		if c.expectedError != "" {
 			testName = fmt.Sprintf("[%02d] %s", i, c.in)
@@ -466,7 +509,7 @@ func TestInjection(t *testing.T) {
 			}
 			sidecarTemplate, valuesConfig := defaultTemplate, defaultValues
 			if c.setFlags != nil || c.inFilePath != "" {
-				sidecarTemplate, valuesConfig, mc = readInjectionSettings(t, fmt.Sprintf("%s.%d", c.in, i))
+				sidecarTemplate, valuesConfig, mc = getInjectionSettings(t, c.setFlags, c.inFilePath)
 			}
 			if c.mesh != nil {
 				c.mesh(mc)
@@ -542,30 +585,14 @@ func TestInjection(t *testing.T) {
 					ProxyConfigs: &model.ProxyConfigs{},
 				})
 
-				multi := multicluster.NewFakeController()
-				client := kube.NewFakeClient(
-					&corev1.Namespace{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "test-ns",
-							Annotations: map[string]string{
-								securityv1.UIDRangeAnnotation:           "1000620000/10000",
-								securityv1.SupplementalGroupsAnnotation: "1000620000/10000",
-							},
-						},
-					})
-
 				webhook := &Webhook{
 					Config:       sidecarTemplate,
 					meshConfig:   mc,
 					env:          env,
 					valuesConfig: valuesConfig,
 					revision:     "default",
-					namespaces:   multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](multi, kubetypes.Filter{}),
+					namespaces:   multiclusterNamespaceController,
 				}
-
-				stop := test.NewStop(t)
-				multi.Add(constants.DefaultClusterName, client, stop)
-				client.RunAndWait(stop)
 
 				// Split multi-part yaml documents. Input and output will have the same number of parts.
 				inputYAMLs := splitYamlFile(inputFilePath, t)
@@ -995,7 +1022,6 @@ func TestAppendMultusNetwork(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			actual := appendMultusNetwork(tc.in, "istio-cni")
@@ -1205,7 +1231,7 @@ func BenchmarkInjection(b *testing.B) {
 	for _, tt := range cases {
 		b.Run(tt.name, func(b *testing.B) {
 			// Preload default settings. Computation here is expensive, so this speeds the tests up substantially
-			sidecarTemplate, valuesConfig, mc := readInjectionSettings(b, "default")
+			sidecarTemplate, valuesConfig, mc := getInjectionSettings(b, nil, "")
 			env := &model.Environment{}
 			env.SetPushContext(&model.PushContext{
 				ProxyConfigs: &model.ProxyConfigs{},

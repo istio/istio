@@ -18,9 +18,11 @@
       "GENERATOR": "grpc",
       "INSTANCE_IPS": "127.0.0.1",
       "ISTIO_VERSION": "version",
+      "METADATA_DISCOVERY": "false",
       "PILOT_SAN": [
         "istiod.istio-system.svc"
-      ]
+      ],
+      "WORKLOAD_IDENTITY_SOCKET_FILE": "socket"
     },
     "locality": {},
     "UserAgentVersionType": null

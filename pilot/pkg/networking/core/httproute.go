@@ -141,7 +141,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	req *model.PushRequest,
 	routeName string,
 	vHostCache map[int][]*route.VirtualHost,
-	efw *model.EnvoyFilterWrapper,
+	efw *model.MergedEnvoyFilterWrapper,
 	efKeys []string,
 ) (*discovery.Resource, bool) {
 	listenerPort, useSniffing, err := extractListenerPort(routeName)
@@ -773,13 +773,6 @@ func mergeAllVirtualHosts(vHostPortMap map[int][]*route.VirtualHost) []*route.Vi
 		}
 	}
 	return virtualHosts
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 // getUniqueAndSharedDNSDomain computes the unique and shared DNS suffix from a FQDN service name and

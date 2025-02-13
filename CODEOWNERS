@@ -1,4 +1,4 @@
-*                                                                @costinm @linsun @howardjohn @stevenctl @ericvn @hzxuzhonghu
+*                                                                @costinm @linsun @howardjohn @stevenctl @keithmattix @hzxuzhonghu
 /.gitattributes                                                  @istio/wg-test-and-release-maintainers
 /.gitignore                                                      @istio/wg-test-and-release-maintainers
 /Makefile.core.mk                                                @istio/wg-test-and-release-maintainers
@@ -63,7 +63,6 @@ Makefile*                                                        @istio/wg-test-
 /tools/                                                          @istio/wg-test-and-release-maintainers
 /tools/packaging/common/envoy_bootstrap.json                     @istio/wg-networking-maintainers
 /tools/istio-iptables/                                           @istio/wg-networking-maintainers
-/tools/istio-clean-iptables/                                     @istio/wg-networking-maintainers
 architecture/ambient                                             @istio/wg-networking-maintainers-pilot @istio/wg-networking-maintainers-ztunnel
 architecture/environments                                        @istio/wg-environments-maintainers
 architecture/networking                                          @istio/wg-networking-maintainers

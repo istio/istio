@@ -34,7 +34,6 @@ import (
 // This is a very basic benchmark on unit test data, so it doesn't tell us anything about how an analyzer performs at scale
 func BenchmarkAnalyzers(b *testing.B) {
 	for _, tc := range testGrid {
-		tc := tc // Capture range variable so subtests work correctly
 		b.Run(tc.name+"-bench", func(b *testing.B) {
 			sa, err := setupAnalyzerForCase(tc, nil)
 			if err != nil {

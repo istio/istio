@@ -33,6 +33,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
+	_ "istio.io/istio/pkg/util/protomarshal" // Ensure we get the more efficient vtproto gRPC encoder
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/xds"
 )
@@ -82,12 +83,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	}
 
 	// InitContext returns immediately if the context was already initialized.
-	if err = s.globalPushContext().InitContext(s.Env, nil, nil); err != nil {
-		// Error accessing the data - log and close, maybe a different pilot replica
-		// has more luck
-		deltaLog.Warnf("Error reading config %v", err)
-		return status.Error(codes.Unavailable, "error reading config")
-	}
+	s.globalPushContext().InitContext(s.Env, nil, nil)
 	con := newDeltaConnection(peerAddr, stream)
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
@@ -231,7 +227,7 @@ func (s *DiscoveryServer) receiveDelta(con *Connection, identities []string) {
 	}
 }
 
-func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newResourceNames []string) error {
+func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newResourceNames sets.String) error {
 	sendResonse := func() error {
 		start := time.Now()
 		defer func() { xds.RecordSendTime(time.Since(start)) }()
@@ -277,16 +273,16 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	}
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
 		return s.pushDeltaXds(con,
-			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe},
+			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: sets.New(req.ResourceNamesSubscribe...)},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 
-	shouldRespond := s.shouldRespondDelta(con, req)
+	shouldRespond := shouldRespondDelta(con, req)
 	if !shouldRespond {
 		return nil
 	}
 
-	subs, _ := deltaWatchedResources(nil, req)
+	subs, _, _ := deltaWatchedResources(nil, req)
 	request := &model.PushRequest{
 		Full:   true,
 		Push:   con.proxy.LastPushContext,
@@ -298,7 +294,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		Start: con.proxy.LastPushTime,
 		Delta: model.ResourceDelta{
 			// Record sub/unsub, but drop synthetic wildcard info
-			Subscribed:   sets.New(subs...),
+			Subscribed:   subs,
 			Unsubscribed: sets.New(req.ResourceNamesUnsubscribe...).Delete("*"),
 		},
 	}
@@ -351,7 +347,7 @@ func (s *DiscoveryServer) forceEDSPush(con *Connection) error {
 
 // shouldRespondDelta determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
 // using WatchedResource for previous state and discovery request for the current state.
-func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryRequest) bool {
+func shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryRequest) bool {
 	stype := v3.GetShortType(request.TypeUrl)
 
 	// If there is an error in request that means previous response is erroneous.
@@ -388,7 +384,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 			deltaLog.Debugf("ADS:%s: INIT %s %s", stype, con.ID(), request.ResponseNonce)
 		}
 
-		res, wildcard := deltaWatchedResources(nil, request)
+		res, wildcard, _ := deltaWatchedResources(nil, request)
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
 			ResourceNames: res,
@@ -411,26 +407,23 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// In this case response_nonce is empty.
 	spontaneousReq := request.ResponseNonce == ""
 
-	var previousResources, currentResources []string
 	var alwaysRespond bool
+	var subChanged bool
 
 	// Update resource names, and record ACK if required.
 	con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
-		previousResources = wr.ResourceNames
-		currentResources, _ = deltaWatchedResources(previousResources, request)
+		wr.ResourceNames, _, subChanged = deltaWatchedResources(wr.ResourceNames, request)
 		if !spontaneousReq {
 			// Clear last error, we got an ACK.
 			// Otherwise, this is just a change in resource subscription, so leave the last ACK info in place.
 			wr.LastError = ""
 			wr.NonceAcked = request.ResponseNonce
 		}
-		wr.ResourceNames = currentResources
 		alwaysRespond = wr.AlwaysRespond
 		wr.AlwaysRespond = false
 		return wr
 	})
 
-	subChanged := !slices.EqualUnordered(previousResources, currentResources)
 	// It is invalid in the below two cases:
 	// 1. no subscribed resources change from spontaneous delta request.
 	// 2. subscribed resources changes from ACK.
@@ -454,8 +447,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		deltaLog.Debugf("ADS:%s: ACK %s %s", stype, con.ID(), request.ResponseNonce)
 		return false
 	}
-	deltaLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s", stype,
-		previousResources, currentResources, con.ID(), request.ResponseNonce)
+	deltaLog.Debugf("ADS:%s: RESOURCE CHANGE %s %s", stype, con.ID(), request.ResponseNonce)
 
 	return true
 }
@@ -483,7 +475,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		logFiltered = " filtered:" + strconv.Itoa(len(w.ResourceNames)-len(req.Delta.Subscribed))
 		w = &model.WatchedResource{
 			TypeUrl:       w.TypeUrl,
-			ResourceNames: req.Delta.Subscribed.UnsortedList(),
+			ResourceNames: req.Delta.Subscribed,
 		}
 	}
 
@@ -507,34 +499,35 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 	}
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
 	resp := &discovery.DeltaDiscoveryResponse{
-		ControlPlane: ControlPlane(),
+		ControlPlane: ControlPlane(w.TypeUrl),
 		TypeUrl:      w.TypeUrl,
 		// TODO: send different version for incremental eds
 		SystemVersionInfo: req.Push.PushVersion,
 		Nonce:             nonce(req.Push.PushVersion),
 		Resources:         res,
 	}
-	currentResources := slices.Map(res, func(r *discovery.Resource) string {
-		return r.Name
-	})
 	if usedDelta {
 		resp.RemovedResources = deletedRes
 	} else if req.Full {
 		// similar to sotw
-		subscribed := sets.New(w.ResourceNames...)
-		removed := subscribed.DeleteAll(currentResources...)
+		removed := w.ResourceNames.Copy()
+		for _, r := range res {
+			removed.Delete(r.Name)
+		}
 		resp.RemovedResources = sets.SortedList(removed)
 	}
-	var newResourceNames []string
+	var newResourceNames sets.String
 	if shouldSetWatchedResources(w) {
 		// Set the new watched resources. Do not write to w directly, as it can be a copy from the 'filtered' logic above
 		if usedDelta {
 			// Apply the delta
-			newResourceNames = sets.SortedList(sets.New(w.ResourceNames...).
-				DeleteAll(resp.RemovedResources...).
-				InsertAll(currentResources...))
+			newResourceNames = w.ResourceNames.Copy().
+				DeleteAll(resp.RemovedResources...)
+			for _, r := range res {
+				newResourceNames.Insert(r.Name)
+			}
 		} else {
-			newResourceNames = currentResources
+			newResourceNames = resourceNamesSet(res)
 		}
 	}
 	if neverRemoveDelta(w.TypeUrl) {
@@ -591,6 +584,12 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 	return nil
 }
 
+func resourceNamesSet(res model.Resources) sets.Set[string] {
+	return sets.New(slices.Map(res, func(r *discovery.Resource) string {
+		return r.Name
+	})...)
+}
+
 // requiresResourceNamesModification checks if a generator needs mutable access to w.ResourceNames.
 // This is used when resources are spontaneously pushed during Delta XDS
 func requiresResourceNamesModification(url string) bool {
@@ -635,15 +634,29 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 }
 
 // deltaWatchedResources returns current watched resources of delta xds
-func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) ([]string, bool) {
-	res := sets.New(existing...)
-	res.InsertAll(request.ResourceNamesSubscribe...)
+func deltaWatchedResources(existing sets.String, request *discovery.DeltaDiscoveryRequest) (sets.String, bool, bool) {
+	res := existing
+	if res == nil {
+		res = sets.New[string]()
+	}
+	changed := false
+	for _, r := range request.ResourceNamesSubscribe {
+		if !res.InsertContains(r) {
+			changed = true
+		}
+	}
 	// This is set by Envoy on first request on reconnection so that we are aware of what Envoy knows
 	// and can continue the xDS session properly.
-	for k := range request.InitialResourceVersions {
-		res.Insert(k)
+	for r := range request.InitialResourceVersions {
+		if !res.InsertContains(r) {
+			changed = true
+		}
 	}
-	res.DeleteAll(request.ResourceNamesUnsubscribe...)
+	for _, r := range request.ResourceNamesUnsubscribe {
+		if res.DeleteContains(r) {
+			changed = true
+		}
+	}
 	wildcard := false
 	// A request is wildcard if they explicitly subscribe to "*" or subscribe to nothing
 	if res.Contains("*") {
@@ -658,5 +671,5 @@ func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryR
 	if len(request.ResourceNamesSubscribe) == 0 {
 		wildcard = true
 	}
-	return res.UnsortedList(), wildcard
+	return res, wildcard, changed
 }

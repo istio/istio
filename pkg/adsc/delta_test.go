@@ -28,7 +28,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/grpc"
 
 	authn_model "istio.io/istio/pilot/pkg/security/model"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/wellknown"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -224,6 +224,7 @@ func TestDeltaClient(t *testing.T) {
 		serverResponses []*discovery.DeltaDiscoveryResponse
 		expectedRecv    []string
 		expectedTree    string
+		expectSynced    bool
 	}{
 		{
 			desc: "initial request cluster with no secret",
@@ -305,7 +306,8 @@ LDS/:
 `,
 		},
 		{
-			desc: "put things together",
+			desc:         "put things together",
+			expectSynced: true,
 			serverResponses: []*discovery.DeltaDiscoveryResponse{
 				{
 					TypeUrl: v3.ClusterType,
@@ -400,7 +402,7 @@ LDS/:
 					log.Error(err)
 				}
 			}()
-			defer xds.GracefulStop()
+			defer l.Close()
 			if err != nil {
 				t.Errorf("Could not start serving ads server %v", err)
 				return
@@ -423,6 +425,9 @@ LDS/:
 			}))
 			tracker.WaitUnordered(wantRecv...)
 			tracker.Empty()
+			if tt.expectSynced {
+				assert.ChannelIsClosed(t, client.synced)
+			}
 			// Close the listener and wait for things to gracefully close down
 			cancel()
 			assert.NoError(t, l.Close())

@@ -1434,7 +1434,6 @@ func describePeerAuthentication(
 
 	var cfgs []*config.Config
 	for _, pa := range allPAs {
-		pa := pa
 		cfg := crdclient.TranslateObject(pa, config.GroupVersionKind(pa.GroupVersionKind()), "")
 		cfgs = append(cfgs, &cfg)
 	}
@@ -1463,7 +1462,6 @@ func findMatchedConfigs(podsLabels klabels.Set, configs []*config.Config) []*con
 	var cfgs []*config.Config
 
 	for _, cfg := range configs {
-		cfg := cfg
 		labels := cfg.Spec.(Workloader).GetSelector().GetMatchLabels()
 		selector := klabels.SelectorFromSet(labels)
 		if selector.Matches(podsLabels) {

@@ -15,10 +15,12 @@
 package features
 
 import (
+	"strings"
 	"time"
 
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Define telemetry related features here.
@@ -50,6 +52,21 @@ var (
 	MetadataExchange = env.Register("PILOT_ENABLE_METADATA_EXCHANGE", true,
 		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
 	).Get()
+
+	MetadataExchangeAdditionalLabels = func() []any {
+		v := env.Register("PILOT_MX_ADDITIONAL_LABELS", "",
+			"Comma separated list of additional labels to be added to metadata exchange filter.",
+		).Get()
+		if v == "" {
+			return nil
+		}
+		labels := sets.SortedList(sets.New(strings.Split(v, ",")...))
+		res := make([]any, 0, len(labels))
+		for _, lb := range labels {
+			res = append(res, lb)
+		}
+		return res
+	}()
 
 	// This is an experimental feature flag, can be removed once it became stable, and should introduced to Telemetry API.
 	MetricRotationInterval = env.Register("METRIC_ROTATION_INTERVAL", 0*time.Second,

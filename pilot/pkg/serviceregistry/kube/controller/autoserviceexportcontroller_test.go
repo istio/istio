@@ -29,7 +29,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/mcs"
@@ -53,7 +53,7 @@ func TestServiceExportController(t *testing.T) {
 			},
 		},
 	}
-	env := model.Environment{Watcher: mesh.NewFixedWatcher(&m)}
+	env := model.Environment{Watcher: meshwatcher.NewTestWatcher(&m)}
 	env.Init()
 
 	sc := newAutoServiceExportController(autoServiceExportOptions{

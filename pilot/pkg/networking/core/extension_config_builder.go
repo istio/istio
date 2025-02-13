@@ -34,7 +34,7 @@ func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	extensions := envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
 	wasmPlugins := push.WasmPluginsByName(proxy, parseExtensionName(extensionConfigNames))
-	extensions = append(extensions, extension.InsertedExtensionConfigurations(wasmPlugins, extensionConfigNames, pullSecrets)...)
+	extensions = append(extensions, extension.InsertedExtensionConfigurations(proxy, wasmPlugins, extensionConfigNames, pullSecrets)...)
 	return extensions
 }
 
@@ -42,12 +42,12 @@ func parseExtensionName(names []string) []types.NamespacedName {
 	res := make([]types.NamespacedName, 0, len(names))
 	for _, n := range names {
 		if !strings.HasPrefix(n, model.WasmPluginResourceNamePrefix) {
-			log.Warnf("ignoring unknown ECDS: %v", n)
+			log.Debugf("ignoring unknown ECDS: %v", n)
 			continue
 		}
 		ns, name, ok := strings.Cut(n[len(model.WasmPluginResourceNamePrefix):], ".")
 		if !ok {
-			log.Warnf("ignoring unknown ECDS: %v", n)
+			log.Debugf("ignoring unknown ECDS: %v", n)
 			continue
 		}
 		res = append(res, types.NamespacedName{Namespace: ns, Name: name})

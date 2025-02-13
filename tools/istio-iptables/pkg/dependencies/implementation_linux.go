@@ -16,6 +16,7 @@ package dependencies
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -203,8 +204,8 @@ func mount(src, dst string) error {
 	return syscall.Mount(src, dst, "", syscall.MS_BIND|syscall.MS_RDONLY, "")
 }
 
-func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion,
-	ignoreErrors bool, stdin io.ReadSeeker, args ...string,
+func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion,
+	silenceErrors bool, stdin io.ReadSeeker, args ...string,
 ) (*bytes.Buffer, error) {
 	mode := "without lock"
 	stdout := &bytes.Buffer{}
@@ -219,7 +220,16 @@ func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, i
 	run := func(c *exec.Cmd) error {
 		return c.Run()
 	}
-	if r.HostFilesystemPodNetwork {
+	if needLock {
+		// For _any_ mode where we need a lock (sandboxed or not)
+		// use the wait flag. In sandbox mode we use the container's netns itself
+		// as the lockfile, if one is needed, to avoid lock contention 99% of the time.
+		// But a container netns is just a file, and like any Linux file,
+		// we can't guarantee no other process has it locked.
+		args = append(args, "--wait=30")
+	}
+
+	if r.UsePodScopedXtablesLock {
 		c = exec.Command(cmdBin, args...)
 		// In CNI, we are running the pod network namespace, but the host filesystem, so we need to do some tricks
 		// Call our binary again, but with <original binary> "unshare (subcommand to trigger mounts)" --lock-file=<network namespace> <original command...>
@@ -227,14 +237,14 @@ func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, i
 		var lockFile string
 		if needLock {
 			if iptVer.Version.LessThan(IptablesLockfileEnv) {
-				mode = "without lock by mount and nss"
+				mode = "sandboxed local lock by mount and nss"
 				lockFile = r.NetworkNamespace
 			} else {
-				mode = "without lock by env and nss"
+				mode = "sandboxed local lock by env and nss"
 				c.Env = append(c.Env, "XTABLES_LOCKFILE="+r.NetworkNamespace)
 			}
 		} else {
-			mode = "without nss"
+			mode = "sandboxed without lock"
 		}
 
 		run = func(c *exec.Cmd) error {
@@ -244,42 +254,40 @@ func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, i
 		}
 	} else {
 		if needLock {
-			// We want the lock. Wait up to 30s for it.
-			args = append(args, "--wait=30")
 			c = exec.Command(cmdBin, args...)
 			log.Debugf("running with lock")
-			mode = "with wait lock"
+			mode = "with global lock"
 		} else {
 			// No locking supported/needed, just run as is. Nothing special
 			c = exec.Command(cmdBin, args...)
 		}
 	}
-	log.Infof("Running command (%s): %s %s", mode, cmdBin, strings.Join(args, " "))
+	log.Debugf("Running command (%s): %s %s", mode, cmdBin, strings.Join(args, " "))
 
 	c.Stdout = stdout
 	c.Stderr = stderr
 	c.Stdin = stdin
 	err := run(c)
 	if len(stdout.String()) != 0 {
-		log.Infof("Command output: \n%v", stdout.String())
+		log.Debugf("Command output: \n%v", stdout.String())
 	}
 
-	// TODO Check naming and redirection logic
-	if (err != nil || len(stderr.String()) != 0) && !ignoreErrors {
-		stderrStr := stderr.String()
+	stderrStr := stderr.String()
 
-		// Transform to xtables-specific error messages with more useful and actionable hints.
-		if err != nil {
-			stderrStr = transformToXTablesErrorMessage(stderrStr, err)
+	if err != nil {
+		// Transform to xtables-specific error messages
+		transformedErr := transformToXTablesErrorMessage(stderrStr, err)
+
+		if !silenceErrors {
+			log.Errorf("Command error: %v", transformedErr)
+		} else {
+			// Log ignored errors for debugging purposes
+			log.Debugf("Ignoring iptables command error: %v", transformedErr)
 		}
-
-		log.Errorf("Command error output: %v", stderrStr)
+		err = errors.Join(err, errors.New(stderrStr))
+	} else if len(stderrStr) > 0 {
+		log.Debugf("Command stderr output: %s", stderrStr)
 	}
 
 	return stdout, err
-}
-
-func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
-	_, err := r.executeXTablesWithOutput(cmd, iptVer, ignoreErrors, stdin, args...)
-	return err
 }

@@ -21,7 +21,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 	xdsserver "istio.io/istio/pkg/xds"
 )
@@ -59,7 +59,16 @@ func makeSecret(name string, data map[string]string) *corev1.Secret {
 }
 
 var (
-	certDir     = filepath.Join(env.IstioSrc, "./tests/testdata/certs")
+	certDir      = filepath.Join(env.IstioSrc, "./tests/testdata/certs")
+	simpleCaCert = makeSecret("ca-only", map[string]string{
+		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "dns/root-cert.pem")),
+	})
+	// A secret with -cacert in the suffix, referenced directly in the credential
+	trickyCaCert = makeSecret("tricky-cacert", map[string]string{
+		credentials.GenericScrtCert:   readFile(filepath.Join(certDir, "dns/cert-chain.pem")),
+		credentials.GenericScrtKey:    readFile(filepath.Join(certDir, "dns/key.pem")),
+		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "dns/root-cert.pem")),
+	})
 	genericCert = makeSecret("generic", map[string]string{
 		credentials.GenericScrtCert: readFile(filepath.Join(certDir, "default/cert-chain.pem")),
 		credentials.GenericScrtKey:  readFile(filepath.Join(certDir, "default/key.pem")),
@@ -97,7 +106,7 @@ func TestGenerateSDS(t *testing.T) {
 		CaCrl  string
 	}
 	allResources := []string{
-		"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert",
+		"kubernetes://generic", "kubernetes://generic-mtls", "kubernetes://generic-mtls-cacert", "kubernetes://ca-only-cacert",
 		"kubernetes://generic-mtls-split", "kubernetes://generic-mtls-split-cacert", "kubernetes://generic-mtls-crl",
 		"kubernetes://generic-mtls-crl-cacert",
 	}
@@ -108,6 +117,7 @@ func TestGenerateSDS(t *testing.T) {
 		request              *model.PushRequest
 		expect               map[string]Expected
 		accessReviewResponse func(action k8stesting.Action) (bool, runtime.Object, error)
+		objects              []runtime.Object
 	}{
 		{
 			name:      "simple",
@@ -153,6 +163,9 @@ func TestGenerateSDS(t *testing.T) {
 				"kubernetes://generic-mtls": {
 					Key:  string(genericMtlsCert.Data[credentials.GenericScrtKey]),
 					Cert: string(genericMtlsCert.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://ca-only-cacert": {
+					CaCert: string(simpleCaCert.Data[credentials.GenericScrtCaCert]),
 				},
 				"kubernetes://generic-mtls-cacert": {
 					CaCert: string(genericMtlsCert.Data[credentials.GenericScrtCaCert]),
@@ -307,15 +320,77 @@ func TestGenerateSDS(t *testing.T) {
 				return true, nil, errors.New("not authorized")
 			},
 		},
+		{
+			// proxy without authorization -- can get CA certs only
+			name:      "partially unauthorized",
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			resources: allResources,
+			request:   &model.PushRequest{Full: true},
+			// Should get a response, but it will be empty
+			expect: map[string]Expected{
+				"kubernetes://ca-only-cacert": {
+					CaCert: string(simpleCaCert.Data[credentials.GenericScrtCaCert]),
+				},
+				// Note: below are a little strange, since we split a mTLS secret (with 3 parts) into 2 resources
+				// We allow only the public part.
+				// Ultimately it doesn't matter that we allow this; the client will need both parts to do anything
+				"kubernetes://generic-mtls-split-cacert": {
+					CaCert: string(genericMtlsCertSplitCa.Data[credentials.GenericScrtCaCert]),
+				},
+				"kubernetes://generic-mtls-crl-cacert": {
+					CaCert: string(genericMtlsCertCrl.Data[credentials.GenericScrtCaCert]),
+					CaCrl:  string(genericMtlsCertCrl.Data[credentials.GenericScrtCRL]),
+				},
+				"kubernetes://generic-mtls-cacert": {
+					CaCert: string(genericMtlsCert.Data[credentials.GenericScrtCaCert]),
+				},
+			},
+			accessReviewResponse: func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, nil, errors.New("not authorized")
+			},
+		},
+		{
+			// proxy without authorization -- can get CA certs only.
+			// If a credential name is poorly named with a -cacert suffix, we shouldn't let that be accesses
+			name:      "tricky cacert name",
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			resources: []string{"kubernetes://tricky-cacert", "kubernetes://tricky-cacert-cacert"},
+			request:   &model.PushRequest{Full: true},
+			expect: map[string]Expected{
+				// They should NOT be able to get the private key material
+				"kubernetes://tricky-cacert": {
+					CaCert: string(trickyCaCert.Data[credentials.GenericScrtCaCert]),
+				},
+				"kubernetes://tricky-cacert-cacert": {
+					CaCert: string(trickyCaCert.Data[credentials.GenericScrtCaCert]),
+				},
+			},
+			objects: []runtime.Object{trickyCaCert},
+			accessReviewResponse: func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, nil, errors.New("not authorized")
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.proxy.Metadata == nil {
 				tt.proxy.Metadata = &model.NodeMetadata{}
 			}
+			obj := tt.objects
+			if obj == nil {
+				// Default set
+				obj = []runtime.Object{
+					genericCert,
+					genericMtlsCert,
+					simpleCaCert,
+					genericMtlsCertCrl,
+					genericMtlsCertSplit,
+					genericMtlsCertSplitCa,
+				}
+			}
 			tt.proxy.Metadata.ClusterID = constants.DefaultClusterName
 			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertCrl, genericMtlsCertSplit, genericMtlsCertSplitCa},
+				KubernetesObjects: obj,
 			})
 			cc := s.KubeClient().Kube().(*fake.Clientset)
 
@@ -329,7 +404,7 @@ func TestGenerateSDS(t *testing.T) {
 
 			gen := s.Discovery.Generators[v3.SecretType]
 			tt.request.Start = time.Now()
-			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: tt.resources}, tt.request)
+			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: sets.New(tt.resources...)}, tt.request)
 			raw := xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 
 			got := map[string]Expected{}
@@ -341,9 +416,7 @@ func TestGenerateSDS(t *testing.T) {
 					CaCrl:  string(scrt.GetValidationContext().GetCrl().GetInlineBytes()),
 				}
 			}
-			if diff := cmp.Diff(got, tt.expect); diff != "" {
-				t.Fatal(diff)
-			}
+			assert.Equal(t, got, tt.expect)
 		})
 	}
 }
@@ -375,14 +448,14 @@ func TestCaching(t *testing.T) {
 		ConfigNamespace:  "other-namespace",
 	}
 
-	secrets, _, _ := gen.Generate(s.SetupProxy(istiosystem), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ := gen.Generate(s.SetupProxy(istiosystem), &model.WatchedResource{ResourceNames: sets.New("kubernetes://generic")}, fullPush)
 	raw := xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	if len(raw) != 1 {
 		t.Fatalf("failed to get expected secrets for authorized proxy: %v", raw)
 	}
 
 	// We should not get secret returned, even though we are asking for the same one
-	secrets, _, _ = gen.Generate(s.SetupProxy(otherNamespace), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ = gen.Generate(s.SetupProxy(otherNamespace), &model.WatchedResource{ResourceNames: sets.New("kubernetes://generic")}, fullPush)
 	raw = xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	if len(raw) != 0 {
 		t.Fatalf("failed to get expected secrets for unauthorized proxy: %v", raw)
@@ -423,7 +496,7 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	})
 	gen := s.Discovery.Generators[v3.SecretType]
 	fullPush := &model.PushRequest{Full: true, Start: time.Now()}
-	secrets, _, _ := gen.Generate(s.SetupProxy(rawProxy), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ := gen.Generate(s.SetupProxy(rawProxy), &model.WatchedResource{ResourceNames: sets.New("kubernetes://generic")}, fullPush)
 	raw := xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	for _, scrt := range raw {
 		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {
@@ -432,7 +505,7 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	}
 
 	// add private key provider in proxy-config
-	secrets, _, _ = gen.Generate(s.SetupProxy(pkpProxy), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ = gen.Generate(s.SetupProxy(pkpProxy), &model.WatchedResource{ResourceNames: sets.New("kubernetes://generic")}, fullPush)
 	raw = xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	for _, scrt := range raw {
 		privateKeyProvider := scrt.GetTlsCertificate().GetPrivateKeyProvider()
@@ -445,7 +518,7 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	}
 
 	// erase private key provider in proxy-config
-	secrets, _, _ = gen.Generate(s.SetupProxy(rawProxy), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
+	secrets, _, _ = gen.Generate(s.SetupProxy(rawProxy), &model.WatchedResource{ResourceNames: sets.New("kubernetes://generic")}, fullPush)
 	raw = xdstest.ExtractTLSSecrets(t, xdsserver.ResourcesToAny(secrets))
 	for _, scrt := range raw {
 		if scrt.GetTlsCertificate().GetPrivateKeyProvider() != nil {

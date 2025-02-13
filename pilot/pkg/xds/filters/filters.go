@@ -40,6 +40,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/wellknown"
@@ -51,19 +52,25 @@ const (
 
 	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
 	AlpnFilterName = "istio.alpn"
-
+	// MxFilterName TCP MX is an Istio filter defined in https://github.com/istio/proxy/tree/master/source/extensions/filters/network/metadata_exchange.
 	MxFilterName = "istio.metadata_exchange"
-
-	// AuthnFilterName is the name for the Istio AuthN filter. This should be the same
-	// as the name defined in
-	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
-	AuthnFilterName = "istio_authn"
 
 	// EnvoyJwtFilterName is the name of the Envoy JWT filter.
 	EnvoyJwtFilterName = "envoy.filters.http.jwt_authn"
 
 	// EnvoyJwtFilterPayload is the struct field for the payload in dynamic metadata in Envoy JWT filter.
 	EnvoyJwtFilterPayload = "payload"
+
+	PeerMetadataTypeURL     = "type.googleapis.com/io.istio.http.peer_metadata.Config"
+	MetadataExchangeTypeURL = "type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange"
+	// OriginalDstFilterStateKey is a filter state key where we store the :authority. This has traditionally been an
+	// IP address, but it can also be a hostname if the incoming CONNECT tunnel was sent via double-HBONE.
+	// It will fail if the value is not a valid IP address.
+	OriginalDstFilterStateKey = "envoy.filters.listener.original_dst.local_ip"
+
+	// Authority Key is another filter state key where we store :authority. Because this is not a
+	// well-known filter state key, we can store non-IP address :authorities in here
+	AuthorityFilterStateKey = "io.istio.connect_authority"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -172,27 +179,10 @@ var (
 		},
 	}
 
-	// TCP MX is an Istio filter defined in https://github.com/istio/proxy/tree/master/source/extensions/filters/network/metadata_exchange.
-	tcpMx = protoconv.TypedStructWithFields("type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange",
-		map[string]any{
-			"protocol":         "istio-peer-exchange",
-			"enable_discovery": true,
-		})
-
-	TCPListenerMx = &listener.Filter{
-		Name:       MxFilterName,
-		ConfigType: &listener.Filter_TypedConfig{TypedConfig: tcpMx},
-	}
-
-	TCPClusterMx = &cluster.Filter{
-		Name:        MxFilterName,
-		TypedConfig: tcpMx,
-	}
-
 	WaypointDownstreamMetadataFilter = &hcm.HttpFilter{
 		Name: "waypoint_downstream_peer_metadata",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL,
 				map[string]any{
 					"downstream_discovery": []any{
 						map[string]any{
@@ -207,81 +197,11 @@ var (
 	WaypointUpstreamMetadataFilter = &hcm.HttpFilter{
 		Name: "waypoint_upstream_peer_metadata",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+			TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL,
 				map[string]any{
 					"upstream_discovery": []any{
 						map[string]any{
 							"workload_discovery": map[string]any{},
-						},
-					},
-				}),
-		},
-	}
-
-	SidecarInboundMetadataFilter = &hcm.HttpFilter{
-		Name: MxFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
-				map[string]any{
-					"downstream_discovery": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
-					"downstream_propagation": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-					},
-				}),
-		},
-	}
-
-	SidecarOutboundMetadataFilter = &hcm.HttpFilter{
-		Name: MxFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
-				map[string]any{
-					"upstream_discovery": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
-					"upstream_propagation": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-					},
-				}),
-		},
-	}
-	// TODO https://github.com/istio/istio/issues/46740
-	// false values can be omitted in protobuf, results in diff JSON values between control plane and envoy config dumps
-	// long term fix will be to add the metadata config to istio/api and use that over TypedStruct
-	SidecarOutboundMetadataFilterSkipHeaders = &hcm.HttpFilter{
-		Name: MxFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
-				map[string]any{
-					"upstream_discovery": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
-					"upstream_propagation": []any{
-						map[string]any{
-							"istio_headers": map[string]any{
-								"skip_external_clusters": true,
-							},
 						},
 					},
 				}),
@@ -295,7 +215,7 @@ var (
 				OnRequestHeaders: []*sfsvalue.FilterStateValue{
 					{
 						Key: &sfsvalue.FilterStateValue_ObjectKey{
-							ObjectKey: "envoy.filters.listener.original_dst.local_ip",
+							ObjectKey: OriginalDstFilterStateKey,
 						},
 						Value: &sfsvalue.FilterStateValue_FormatString{
 							FormatString: &core.SubstitutionFormatString{
@@ -308,6 +228,23 @@ var (
 								},
 							},
 						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: AuthorityFilterStateKey,
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%REQ(:AUTHORITY)%",
+										},
+									},
+								},
+							},
+						},
+						FactoryKey:         "envoy.string",
 						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
 					}, {
 						Key: &sfsvalue.FilterStateValue_ObjectKey{
@@ -371,7 +308,7 @@ var (
 			TypedConfig: protoconv.MessageToAny(&sfsnetwork.Config{
 				OnNewConnection: []*sfsvalue.FilterStateValue{{
 					Key: &sfsvalue.FilterStateValue_ObjectKey{
-						ObjectKey: "envoy.filters.listener.original_dst.local_ip",
+						ObjectKey: OriginalDstFilterStateKey,
 					},
 					Value: &sfsvalue.FilterStateValue_FormatString{
 						FormatString: &core.SubstitutionFormatString{
@@ -441,3 +378,122 @@ var (
 		TypedConfig: protoconv.MessageToAny(&resourcedetectors.DynatraceResourceDetectorConfig{}),
 	}
 )
+
+var (
+	TCPClusterMx = func() *cluster.Filter {
+		cfg := map[string]any{
+			"protocol":         "istio-peer-exchange",
+			"enable_discovery": true,
+		}
+		additionalLabels(cfg)
+
+		return &cluster.Filter{
+			Name:        MxFilterName,
+			TypedConfig: protoconv.TypedStructWithFields(MetadataExchangeTypeURL, cfg),
+		}
+	}()
+
+	TCPListenerMx = func() *listener.Filter {
+		cfg := map[string]any{
+			"protocol":         "istio-peer-exchange",
+			"enable_discovery": true,
+		}
+		additionalLabels(cfg)
+
+		return &listener.Filter{
+			Name: MxFilterName,
+			ConfigType: &listener.Filter_TypedConfig{
+				TypedConfig: protoconv.TypedStructWithFields(MetadataExchangeTypeURL, cfg),
+			},
+		}
+	}()
+
+	SidecarInboundMetadataFilter = func() *hcm.HttpFilter {
+		cfg := map[string]any{
+			"downstream_discovery": []any{
+				map[string]any{
+					"istio_headers": map[string]any{},
+				},
+				map[string]any{
+					"workload_discovery": map[string]any{},
+				},
+			},
+			"downstream_propagation": []any{
+				map[string]any{
+					"istio_headers": map[string]any{},
+				},
+			},
+		}
+		additionalLabels(cfg)
+
+		return &hcm.HttpFilter{
+			Name: MxFilterName,
+			ConfigType: &hcm.HttpFilter_TypedConfig{
+				TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL, cfg),
+			},
+		}
+	}()
+
+	SidecarOutboundMetadataFilter = func() *hcm.HttpFilter {
+		cfg := map[string]any{
+			"upstream_discovery": []any{
+				map[string]any{
+					"istio_headers": map[string]any{},
+				},
+				map[string]any{
+					"workload_discovery": map[string]any{},
+				},
+			},
+			"upstream_propagation": []any{
+				map[string]any{
+					"istio_headers": map[string]any{},
+				},
+			},
+		}
+		additionalLabels(cfg)
+
+		return &hcm.HttpFilter{
+			Name: MxFilterName,
+			ConfigType: &hcm.HttpFilter_TypedConfig{
+				TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL, cfg),
+			},
+		}
+	}()
+
+	SidecarOutboundMetadataFilterSkipHeaders = func() *hcm.HttpFilter {
+		// TODO https://github.com/istio/istio/issues/46740
+		// false values can be omitted in protobuf, results in diff JSON values between control plane and envoy config dumps
+		// long term fix will be to add the metadata config to istio/api and use that over TypedStruct
+		cfg := map[string]any{
+			"upstream_discovery": []any{
+				map[string]any{
+					"istio_headers": map[string]any{},
+				},
+				map[string]any{
+					"workload_discovery": map[string]any{},
+				},
+			},
+			"upstream_propagation": []any{
+				map[string]any{
+					"istio_headers": map[string]any{
+						"skip_external_clusters": true,
+					},
+				},
+			},
+		}
+		additionalLabels(cfg)
+
+		return &hcm.HttpFilter{
+			Name: MxFilterName,
+			ConfigType: &hcm.HttpFilter_TypedConfig{
+				TypedConfig: protoconv.TypedStructWithFields(PeerMetadataTypeURL, cfg),
+			},
+		}
+	}()
+)
+
+func additionalLabels(cfg map[string]any) {
+	if additionalLabels := features.MetadataExchangeAdditionalLabels; len(additionalLabels) != 0 {
+		cfg["additional_labels"] = additionalLabels
+	}
+}

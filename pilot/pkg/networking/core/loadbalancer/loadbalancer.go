@@ -24,9 +24,11 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	registrylabel "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -37,30 +39,36 @@ const (
 func GetLocalityLbSetting(
 	mesh *v1alpha3.LocalityLoadBalancerSetting,
 	destrule *v1alpha3.LocalityLoadBalancerSetting,
-) *v1alpha3.LocalityLoadBalancerSetting {
-	var enabled bool
-	// Locality lb is enabled if its not explicitly disabled in mesh global config
-	if mesh != nil && (mesh.Enabled == nil || mesh.Enabled.Value) {
-		enabled = true
-	}
-	// Unless we explicitly override this in destination rule
+	service *model.Service,
+) (*v1alpha3.LocalityLoadBalancerSetting, bool) {
 	if destrule != nil {
 		if destrule.Enabled != nil && !destrule.Enabled.Value {
-			enabled = false
-		} else {
-			enabled = true
+			return nil, false
+		}
+		return destrule, false
+	}
+	if service != nil && service.Attributes.TrafficDistribution != model.TrafficDistributionAny {
+		switch service.Attributes.TrafficDistribution {
+		case model.TrafficDistributionPreferClose:
+			return &v1alpha3.LocalityLoadBalancerSetting{
+				Enabled: wrappers.Bool(true),
+				// Prefer same network, region, zone, subzone
+				FailoverPriority: []string{
+					label.TopologyNetwork.Name,
+					registrylabel.LabelTopologyRegion,
+					registrylabel.LabelTopologyZone,
+					label.TopologySubzone.Name,
+				},
+			}, true
+		case model.TrafficDistributionAny:
+			// fallthrough
 		}
 	}
-	if !enabled {
-		return nil
+	msh := mesh.GetEnabled()
+	if msh != nil && !msh.Value {
+		return nil, false
 	}
-
-	// Destination Rule overrides mesh config. If its defined, use that
-	if destrule != nil {
-		return destrule
-	}
-	// Otherwise fall back to mesh default
-	return mesh
+	return mesh, false
 }
 
 func ApplyLocalityLoadBalancer(

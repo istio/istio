@@ -27,16 +27,12 @@ import (
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/yaml"
 
-	"istio.io/api/label"
-	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	istiocluster "istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -102,10 +98,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			}
 
 			if len(outputMsgs) == 0 {
-				fmt.Println(cmd.ErrOrStderr(), color.New(color.FgGreen).Sprint("✔")+" No issues found when checking the cluster. Istio is safe to install or upgrade!\n"+
-					"  To get started, check out https://istio.io/latest/docs/setup/getting-started/")
+				message := " No issues found when checking the cluster. Istio is safe to install or upgrade!"
+				message += "\n  To get started, check out https://istio.io/latest/docs/setup/getting-started/."
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), color.New(color.FgGreen).Sprint("✔")+message)
 			} else {
-				fmt.Fprintln(cmd.OutOrStdout(), output)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), output)
 			}
 			for _, m := range msgs {
 				if m.Type.Level().IsWorseThanOrEqualTo(diag.Warning) {
@@ -148,15 +145,6 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 	var messages diag.Messages = make([]diag.Message, 0)
 
 	if minor <= 21 {
-		// ENHANCED_RESOURCE_SCOPING
-		if err := checkPilot(cli, ctx.IstioNamespace(), &messages); err != nil {
-			return nil, err
-		}
-	}
-	if minor <= 21 {
-		if err := checkPassthroughTargetPorts(cli, &messages); err != nil {
-			return nil, err
-		}
 		if err := checkTracing(cli, &messages); err != nil {
 			return nil, err
 		}
@@ -182,92 +170,6 @@ func checkTracing(cli kube.CLIClient, messages *diag.Messages) error {
 		"tracing is no longer by default enabled to send to 'zipkin.istio-system.svc'; "+
 			"follow https://istio.io/latest/docs/tasks/observability/distributed-tracing/telemetry-api/",
 		"1.21"))
-	return nil
-}
-
-func checkPassthroughTargetPorts(cli kube.CLIClient, messages *diag.Messages) error {
-	ses, err := cli.Istio().NetworkingV1().ServiceEntries(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	for _, se := range ses.Items {
-		if se.Spec.Resolution != networking.ServiceEntry_NONE {
-			continue
-		}
-		changed := false
-		for _, p := range se.Spec.Ports {
-			if p.TargetPort != 0 && p.Number != p.TargetPort {
-				changed = true
-			}
-		}
-		if changed {
-			res := ObjectToInstance(se)
-			messages.Add(msg.NewUpdateIncompatibility(res,
-				"ENABLE_RESOLUTION_NONE_TARGET_PORT", "1.21",
-				"ServiceEntry with resolution NONE and a targetPort set previously did nothing but now is respected", "1.21"))
-		}
-	}
-	return nil
-}
-
-func checkPilot(cli kube.CLIClient, namespace string, messages *diag.Messages) error {
-	deployments, err := cli.Kube().AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: "app=istiod",
-	})
-	if err != nil {
-		return err
-	}
-	for _, deployment := range deployments.Items {
-		scopingImpacted := false
-
-		// Obtain configmap to verify if affected features are used
-		configMapName := "istio"
-		if rev := deployment.Labels[label.IoIstioRev.Name]; rev != "default" {
-			configMapName += fmt.Sprintf("-%s", rev)
-		}
-		configMap, err := cli.Kube().CoreV1().ConfigMaps(namespace).Get(context.TODO(), configMapName, metav1.GetOptions{})
-		if err != nil {
-			fmt.Printf("Error getting configmap %s: %v\n", configMapName, err)
-		}
-		meshData := make(map[string]interface{})
-		if data, exists := configMap.Data["mesh"]; exists {
-			if err := yaml.Unmarshal([]byte(data), &meshData); err != nil {
-				fmt.Printf("Error parsing meshConfig: %v\n", err)
-				return err
-			}
-		}
-		if scopingImpacted = meshData["discoverySelectors"] != nil; !scopingImpacted {
-			continue
-		}
-		// Check if mitigation is already in place
-		for _, container := range deployment.Spec.Template.Spec.Containers {
-			if container.Name == "discovery" {
-				for _, envVar := range container.Env {
-					if envVar.Name == "ENHANCED_RESOURCE_SCOPING" && envVar.Value == "true" {
-						scopingImpacted = false
-						break
-					}
-				}
-			}
-		}
-		if scopingImpacted {
-			res := &resource.Instance{
-				Origin: &legacykube.Origin{
-					Type: config.GroupVersionKind(deployment.GroupVersionKind()),
-					FullName: resource.FullName{
-						Namespace: resource.Namespace(deployment.GetNamespace()),
-						Name:      resource.LocalName(deployment.GetName()),
-					},
-					ResourceVersion: resource.Version(deployment.GetResourceVersion()),
-					Ref:             nil,
-					FieldsMap:       nil,
-				},
-			}
-			messages.Add(msg.NewUpdateIncompatibility(res,
-				"ENHANCED_RESOURCE_SCOPING", "1.22",
-				"previously, the enhanced scoping of custom resources was disabled by default; now it will be enabled by default", "1.21"))
-		}
-	}
 	return nil
 }
 

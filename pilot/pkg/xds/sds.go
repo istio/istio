@@ -136,7 +136,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	// Filter down to resources we can access. We do not return an error if they attempt to access a Secret
 	// they cannot; instead we just exclude it. This ensures that a single bad reference does not break the whole
 	// SDS flow. The pilotSDSCertificateErrors metric and logs handle visibility into invalid references.
-	resources := filterAuthorizedResources(s.parseResources(w.ResourceNames, proxy), proxy, proxyClusterSecrets)
+	resources := filterAuthorizedResources(s.parseResources(w.ResourceNames.UnsortedList(), proxy), proxy, proxyClusterSecrets)
 
 	var results model.Resources
 	cached, regenerated := 0, 0
@@ -270,9 +270,12 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 				deniedResources = append(deniedResources, r.Name)
 			}
 		case credentials.KubernetesSecretType:
+			// CA Certs are public information, so we allows allow these to be accessed (from the same namespace)
+			isCAOnlySecret := strings.HasSuffix(r.Name, securitymodel.SdsCaSuffix)
 			// For Kubernetes, we require the secret to be in the same namespace as the proxy and for it to be
 			// authorized for access.
-			if sameNamespace && isAuthorized() {
+			if sameNamespace && (isCAOnlySecret || isAuthorized()) {
+				// if sameNamespace && isAuthorized() {
 				allowedResources = append(allowedResources, r)
 			} else {
 				deniedResources = append(deniedResources, r.Name)

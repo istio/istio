@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2024-09-19T19-01-03
+BASE_VERSION ?= master-2025-02-07T19-01-40
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -291,8 +291,14 @@ refresh-goldens:
 	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/... \
 		./pkg/bootstrap/... \
 		./pkg/kube/inject/... \
+		./pilot/pkg/config/kube/gateway/... \
 		./pilot/pkg/security/authz/builder/... \
-		./cni/pkg/plugin/...
+		./pilot/pkg/serviceregistry/kube/controller/ambient/... \
+		./cni/pkg/iptables/... \
+		./cni/pkg/plugin/... \
+		./istioctl/pkg/workload/... \
+		./istioctl/pkg/writer/envoy/configdump/... \
+		./istioctl/pkg/writer/ztunnel/configdump/...
 
 update-golden: refresh-goldens
 
@@ -331,7 +337,7 @@ copy-templates:
 		for profile in manifests/helm-profiles/*.yaml ; do \
 			sed "1s|^|$${warning}\n\n|" $$profile > manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
 		done; \
-		[[ "$$chart" == "ztunnel" ]] && flatten="true" || flatten="false" ; \
+		[[ "$$chart" == "ztunnel" ]] || [[ "$$chart" == "gateway" ]] && flatten="true" || flatten="false" ; \
 		cat manifests/zzz_profile.yaml | \
 		  sed "s/FLATTEN_GLOBALS_REPLACEMENT/$${flatten}/g" \
 		  > manifests/charts/$$chart/templates/zzz_profile.yaml ; \

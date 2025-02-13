@@ -72,6 +72,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.ClusterID = s.clusterID
 	args.RegistryOptions.KubeOptions.Revision = args.Revision
+	args.RegistryOptions.KubeOptions.KrtDebugger = args.KrtDebugger
 	args.RegistryOptions.KubeOptions.Metrics = s.environment
 	args.RegistryOptions.KubeOptions.XDSUpdater = s.XDSServer
 	args.RegistryOptions.KubeOptions.MeshNetworksWatcher = s.environment.NetworksWatcher
@@ -80,11 +81,8 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
 	// pass namespace to k8s service registry
 	kubecontroller.NewMulticluster(args.PodName,
-		s.kubeClient.Kube(),
-		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
 		s.serviceEntryController,
-		s.configController,
 		s.istiodCertBundleWatcher,
 		args.Revision,
 		s.shouldStartNsController(),

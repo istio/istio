@@ -16,15 +16,13 @@ _internal_defaults_do_not_set:
   # Example
   # cniConfFileName: 10-calico.conflist
 
-  # CNI bin and conf dir override settings
-  # defaults:
-  cniBinDir: "" # Auto-detected based on version; defaults to /opt/cni/bin.
+  # CNI-and-platform specific path defaults.
+  # These may need to be set to platform-specific values, consult
+  # overrides for your platform in `manifests/helm-profiles/platform-*.yaml`
+  cniBinDir: /opt/cni/bin
   cniConfDir: /etc/cni/net.d
   cniConfFileName: ""
-  # This directory must exist on the node, if it does not, consult your container runtime
-  # documentation for the appropriate path.
-  cniNetnsDir: # Defaults to '/var/run/netns', in minikube/docker/others can be '/var/run/docker/netns'.
-
+  cniNetnsDir: "/var/run/netns"
 
   excludeNamespaces:
     - kube-system
@@ -50,9 +48,12 @@ _internal_defaults_do_not_set:
     # Set ambient config dir path: defaults to /etc/ambient-config
     configDir: ""
     # If enabled, and ambient is enabled, DNS redirection will be enabled
-    dnsCapture: false
+    dnsCapture: true
     # If enabled, and ambient is enabled, enables ipv6 support
     ipv6: true
+    # If enabled, and ambient is enabled, the CNI agent will reconcile incompatible iptables rules and chains at startup.
+    # This will eventually be enabled by default
+    reconcileIptablesOnStartup: false
 
 
   repair:
@@ -82,6 +83,9 @@ _internal_defaults_do_not_set:
 
   # Set to `type: RuntimeDefault` to use the default profile if available.
   seccompProfile: {}
+
+  # SELinux options to set in the istio-cni-node pods. You may need to set this to `type: spc_t` for some platforms.
+  seLinuxOptions: {}
 
   resources:
     requests:
@@ -141,3 +145,6 @@ _internal_defaults_do_not_set:
       requests:
         cpu: 100m
         memory: 100Mi
+
+  # A `key: value` mapping of environment variables to add to the pod
+  env: {}

@@ -23,7 +23,6 @@ import (
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -98,7 +98,6 @@ func TestListenerAccessLog(t *testing.T) {
 			wantFormat: model.EnvoyTextLogFormat,
 		},
 	} {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			accessLogBuilder.reset()
 			// Update MeshConfig
@@ -161,7 +160,7 @@ func TestListenerAccessLog(t *testing.T) {
 }
 
 func verify(t *testing.T, encoding meshconfig.MeshConfig_AccessLogEncoding, got *accesslog.AccessLog, wantFormat string) {
-	cfg, _ := conversion.MessageToStruct(got.GetTypedConfig())
+	cfg, _ := protomarshal.MessageToStructSlow(got.GetTypedConfig())
 	if encoding == meshconfig.MeshConfig_JSON {
 		jsonFormat := cfg.GetFields()["log_format"].GetStructValue().GetFields()["json_format"]
 		jsonFormatString, _ := protomarshal.ToJSON(jsonFormat)
@@ -331,7 +330,7 @@ func newTestEnviroment() *model.Environment {
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
-	env.Watcher = mesh.NewFixedWatcher(meshConfig)
+	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
 
 	pushContext := model.NewPushContext()
 	env.Init()

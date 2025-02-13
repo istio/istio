@@ -1,17 +1,3 @@
-// Copyright Istio Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //go:build integ
 // +build integ
 
@@ -32,6 +18,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -120,6 +107,44 @@ defaultProviders:
 				ist.PatchMeshConfigOrFail(t, cfg)
 				runAccessLogsTests(t, true, false)
 			})
+		})
+}
+
+func TestAccessLogWithFilterState(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			t.ConfigIstio().File(apps.Namespace.Name(), "./testdata/accesslog/enable-filter-state-log.yaml").ApplyOrFail(t)
+			to := GetTarget()
+			from := GetClientInstances()[0]
+			err := retry.UntilSuccess(func() error {
+				from.CallOrFail(t, echo.CallOptions{
+					To: to,
+					Port: echo.Port{
+						Name: "http",
+					},
+					HTTP: echo.HTTP{
+						Path: "/filter-state-test",
+					},
+				})
+				lines := logs(t, to, "filter-state-test")
+				if len(lines) == 0 {
+					return errors.New("no logs found")
+				}
+				// if FILTER_STATE is not working, then the log will look like this:
+				// `/filter-state-test - -`
+				target := fmt.Sprintf("/%s - -", "filter-state-test")
+				for _, line := range lines {
+					t.Logf("line: %s", line)
+					if line == target {
+						t.Logf("FILTER_STATE is not working, logs: %s", line)
+						return errors.New("FILTER_STATE is not working")
+					}
+				}
+				return nil
+			}, retry.Timeout(framework.TelemetryRetryTimeout))
+			if err != nil {
+				t.Fatalf("expected FILTER_STATE but got nil, err: %v", err)
+			}
 		})
 }
 
@@ -245,6 +270,24 @@ func runAccessLogsTests(t framework.TestContext, expectLogs bool, hasTargetRef b
 			return nil
 		})
 	}
+}
+
+func logs(t test.Failer, to echo.Target, testID string) []string {
+	var result []string
+	for _, w := range to.WorkloadsOrFail(t) {
+		l, err := w.Sidecar().Logs()
+		if err != nil {
+			t.Fatalf("failed getting logs: %v", err)
+		}
+		split := strings.Split(l, "\n")
+		for _, line := range split {
+			if c := float64(strings.Count(line, testID)); c > 0 {
+				result = append(result, line)
+			}
+		}
+	}
+
+	return result
 }
 
 func logCount(t test.Failer, to echo.Target, testID string) float64 {

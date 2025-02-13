@@ -129,6 +129,8 @@ spec:
           value: kubernetes://apis/apps/v1/namespaces/default/deployments/namespace
         - name: ISTIO_META_MESH_ID
           value: cluster.local
+        - name: TRUST_DOMAIN
+          value: cluster.local
         image: test/proxyv2:test
         name: istio-proxy
         ports:
@@ -222,11 +224,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations: {}
+  annotations:
+    networking.istio.io/traffic-distribution: PreferClose
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
     gateway.networking.k8s.io/gateway-name: namespace
-    networking.istio.io/traffic-distribution: PreferClose
     topology.istio.io/network: network-1
   name: namespace
   namespace: default

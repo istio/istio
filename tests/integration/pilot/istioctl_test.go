@@ -444,7 +444,6 @@ func TestRemoteClusters(t *testing.T) {
 	framework.NewTest(t).RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
 			for _, cluster := range t.Clusters().Primaries() {
-				cluster := cluster
 				t.NewSubTest(cluster.StableName()).Run(func(t framework.TestContext) {
 					istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: cluster})
 					var output string

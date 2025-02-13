@@ -28,7 +28,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/proto"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
@@ -46,6 +45,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/cache"
 )
@@ -153,11 +153,6 @@ type Agent struct {
 // Eventually most non-test settings should graduate to ProxyConfig
 // Please don't add 100 parameters to the NewAgent function (or any other)!
 type AgentOptions struct {
-	// ProxyXDSDebugViaAgent if true will listen on 15004 and forward queries
-	// to XDS istio.io/debug.
-	ProxyXDSDebugViaAgent bool
-	// Port value for the debugging endpoint.
-	ProxyXDSDebugViaAgentPort int
 	// DNSCapture indicates if the XDS proxy has dns capture enabled or not
 	DNSCapture bool
 	// Enables DNS server at Gateways.
@@ -226,7 +221,7 @@ type AgentOptions struct {
 	WASMOptions wasm.Options
 
 	// Enable metadata discovery bootstrap extension
-	MetadataDiscovery bool
+	MetadataDiscovery *bool
 
 	SDSFactory func(options *security.Options, workloadSecretCache security.SecretManager, pkpConf *mesh.PrivateKeyProvider) SDSService
 
@@ -235,6 +230,8 @@ type AgentOptions struct {
 	// by Istio's default SDS server, the socket file must be present.
 	// Note that the path is not configurable by design - only the socket file name.
 	WorkloadIdentitySocketFile string
+
+	EnvoySkipDeprecatedLogs bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -290,6 +287,8 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
 		XDSRootCert:                 a.cfg.XDSRootCerts,
 		MetadataDiscovery:           a.cfg.MetadataDiscovery,
+		EnvoySkipDeprecatedLogs:     a.cfg.EnvoySkipDeprecatedLogs,
+		WorkloadIdentitySocketFile:  a.cfg.WorkloadIdentitySocketFile,
 	})
 }
 
@@ -326,6 +325,7 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 	a.envoyOpts.AdminPort = a.proxyConfig.ProxyAdminPort
 	a.envoyOpts.DrainDuration = a.proxyConfig.DrainDuration
 	a.envoyOpts.Concurrency = a.proxyConfig.Concurrency.GetValue()
+	a.envoyOpts.SkipDeprecatedLogs = a.cfg.EnvoySkipDeprecatedLogs
 
 	// Checking only uid should be sufficient - but tests also run as root and
 	// will break due to permission errors if we start envoy as 1337.
@@ -398,12 +398,6 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	a.xdsProxy, err = initXdsProxy(a)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start xds proxy: %v", err)
-	}
-	if a.cfg.ProxyXDSDebugViaAgent {
-		err = a.xdsProxy.initDebugInterface(a.cfg.ProxyXDSDebugViaAgentPort)
-		if err != nil {
-			return nil, fmt.Errorf("failed to start istio tap server: %v", err)
-		}
 	}
 
 	if a.cfg.GRPCBootstrapPath != "" {
@@ -596,7 +590,7 @@ func (a *Agent) isDNSServerEnabled() bool {
 func (a *Agent) GetDNSTable() *dnsProto.NameTable {
 	if a.localDNSServer != nil && a.localDNSServer.NameTable() != nil {
 		nt := a.localDNSServer.NameTable()
-		nt = proto.Clone(nt).(*dnsProto.NameTable)
+		nt = protomarshal.Clone(nt)
 		a.localDNSServer.BuildAlternateHosts(nt, func(althosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, _ []string) {
 			for host := range althosts {
 				if _, exists := nt.Table[host]; !exists {

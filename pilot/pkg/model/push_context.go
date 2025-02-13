@@ -371,6 +371,8 @@ type PushRequest struct {
 	// The kind of resources are defined in pkg/config/schemas.
 	ConfigsUpdated sets.Set[ConfigKey]
 
+	AddressesUpdated sets.Set[string]
+
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
 	Push *PushContext
@@ -475,6 +477,8 @@ const (
 	NamespaceUpdate TriggerReason = "namespace"
 	// ClusterUpdate describes a push triggered by a Cluster change
 	ClusterUpdate TriggerReason = "cluster"
+	// TagUpdate occurs when the revision's tags change, and all resources must be recalculated.
+	TagUpdate TriggerReason = "tag"
 )
 
 // Merge two update requests together
@@ -506,7 +510,6 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	if other.Push != nil {
 		pr.Push = other.Push
 	}
-
 	// Do not merge when any one is empty
 	if len(pr.ConfigsUpdated) == 0 || len(other.ConfigsUpdated) == 0 {
 		pr.ConfigsUpdated = nil
@@ -514,6 +517,12 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 		for conf := range other.ConfigsUpdated {
 			pr.ConfigsUpdated.Insert(conf)
 		}
+	}
+
+	if pr.AddressesUpdated == nil {
+		pr.AddressesUpdated = other.AddressesUpdated
+	} else {
+		pr.AddressesUpdated.Merge(other.AddressesUpdated)
 	}
 
 	return pr
@@ -555,6 +564,12 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 		merged.ConfigsUpdated = make(sets.Set[ConfigKey], len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
 		merged.ConfigsUpdated.Merge(pr.ConfigsUpdated)
 		merged.ConfigsUpdated.Merge(other.ConfigsUpdated)
+	}
+
+	if len(pr.AddressesUpdated) > 0 || len(other.AddressesUpdated) > 0 {
+		merged.AddressesUpdated = make(sets.Set[string], len(pr.AddressesUpdated)+len(other.AddressesUpdated))
+		merged.AddressesUpdated.Merge(pr.AddressesUpdated)
+		merged.AddressesUpdated.Merge(other.AddressesUpdated)
 	}
 
 	return merged
@@ -839,7 +854,7 @@ func virtualServiceDestinationsFilteredBySourceNamespace(v *networking.VirtualSe
 	return out
 }
 
-func (ps *PushContext) ExtraWaypointServices(proxy *Proxy) sets.String {
+func (ps *PushContext) ExtraWaypointServices(proxy *Proxy) (sets.Set[NamespacedHostname], sets.String) {
 	return ps.extraServicesForProxy(proxy)
 }
 
@@ -847,16 +862,14 @@ func (ps *PushContext) ExtraWaypointServices(proxy *Proxy) sets.String {
 func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	svcs := proxy.SidecarScope.services
 
+	// host set.
+	namespacedHostsFromGateways, hostsFromGateways := ps.extraServicesForProxy(proxy)
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
-	if proxy.MergedGateway == nil {
-		return nil
-	}
-
-	// host set.
-	hostsFromGateways := ps.extraServicesForProxy(proxy)
-	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
+	if proxy.MergedGateway != nil {
+		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
+			hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
+		}
 	}
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
 
@@ -864,8 +877,10 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 
 	for _, s := range svcs {
 		svcHost := string(s.Hostname)
-
-		if _, ok := hostsFromGateways[svcHost]; ok {
+		if hostsFromGateways.Contains(svcHost) || namespacedHostsFromGateways.Contains(NamespacedHostname{
+			Hostname:  s.Hostname,
+			Namespace: s.Attributes.Namespace,
+		}) {
 			gwSvcs = append(gwSvcs, s)
 		}
 	}
@@ -879,7 +894,7 @@ func (ps *PushContext) ServicesAttachedToMesh() map[string]sets.String {
 	return ps.virtualServiceIndex.referencedDestinations
 }
 
-func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
+func (ps *PushContext) ServiceAttachedToGateway(hostname string, namespace string, proxy *Proxy) bool {
 	gw := proxy.MergedGateway
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
@@ -896,7 +911,8 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) b
 			}
 		}
 	}
-	return ps.extraServicesForProxy(proxy).Contains(hostname)
+	namespaced, hosts := ps.extraServicesForProxy(proxy)
+	return hosts.Contains(hostname) || namespaced.Contains(NamespacedHostname{Hostname: host.Name(hostname), Namespace: namespace})
 }
 
 // wellknownProviders is a list of all known providers.
@@ -933,35 +949,46 @@ const addHostsFromMeshConfigProvidersHandled = 14
 // 1. MeshConfig.ExtensionProviders
 // 2. RequestAuthentication.JwtRules.JwksUri
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func (ps *PushContext) extraServicesForProxy(proxy *Proxy) sets.String {
+func (ps *PushContext) extraServicesForProxy(proxy *Proxy) (sets.Set[NamespacedHostname], sets.String) {
 	hosts := sets.String{}
+	namespaceScoped := sets.New[NamespacedHostname]()
+	addService := func(s string) {
+		if ns, h, ok := strings.Cut(s, "/"); ok {
+			namespaceScoped.Insert(NamespacedHostname{
+				Hostname:  host.Name(h),
+				Namespace: ns,
+			})
+		} else {
+			hosts.Insert(s)
+		}
+	}
 	// add services from MeshConfig.ExtensionProviders
 	for _, prov := range ps.Mesh.ExtensionProviders {
 		switch p := prov.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			hosts.Insert(p.EnvoyExtAuthzHttp.Service)
+			addService(p.EnvoyExtAuthzHttp.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			hosts.Insert(p.EnvoyExtAuthzGrpc.Service)
+			addService(p.EnvoyExtAuthzGrpc.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
-			hosts.Insert(p.Zipkin.Service)
+			addService(p.Zipkin.Service)
 		//nolint: staticcheck  // Lightstep deprecated
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
-			hosts.Insert(p.Lightstep.Service)
+			addService(p.Lightstep.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
-			hosts.Insert(p.Datadog.Service)
+			addService(p.Datadog.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-			hosts.Insert(p.Skywalking.Service)
+			addService(p.Skywalking.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
 			//nolint: staticcheck
-			hosts.Insert(p.Opencensus.Service)
+			addService(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
-			hosts.Insert(p.Opentelemetry.Service)
+			addService(p.Opentelemetry.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
-			hosts.Insert(p.EnvoyHttpAls.Service)
+			addService(p.EnvoyHttpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
-			hosts.Insert(p.EnvoyTcpAls.Service)
+			addService(p.EnvoyTcpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
-			hosts.Insert(p.EnvoyOtelAls.Service)
+			addService(p.EnvoyOtelAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog: // No services
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus: // No services
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver: // No services
@@ -983,7 +1010,7 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy) sets.String {
 			}
 		}
 	}
-	return hosts
+	return namespaceScoped, hosts
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
@@ -1280,13 +1307,13 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
-func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
+func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) {
 	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
 	// If this does happen, one thread will block then exit early from InitDone=true
 	ps.initializeMutex.Lock()
 	defer ps.initializeMutex.Unlock()
 	if ps.InitDone.Load() {
-		return nil
+		return
 	}
 
 	ps.Mesh = env.Mesh()
@@ -1298,13 +1325,9 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	// create new or incremental update
 	if pushReq == nil || oldPushContext == nil || !oldPushContext.InitDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
-		if err := ps.createNewContext(env); err != nil {
-			return err
-		}
+		ps.createNewContext(env)
 	} else {
-		if err := ps.updateContext(env, oldPushContext, pushReq); err != nil {
-			return err
-		}
+		ps.updateContext(env, oldPushContext, pushReq)
 	}
 
 	ps.networkMgr = env.NetworkManager
@@ -1312,15 +1335,12 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
 	ps.InitDone.Store(true)
-	return nil
 }
 
-func (ps *PushContext) createNewContext(env *Environment) error {
+func (ps *PushContext) createNewContext(env *Environment) {
 	ps.initServiceRegistry(env, nil)
 
-	if err := ps.initKubernetesGateways(env); err != nil {
-		return err
-	}
+	ps.initKubernetesGateways(env)
 
 	ps.initVirtualServices(env)
 
@@ -1337,14 +1357,13 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 
 	// Must be initialized in the end
 	ps.initSidecarScopes(env)
-	return nil
 }
 
 func (ps *PushContext) updateContext(
 	env *Environment,
 	oldPushContext *PushContext,
 	pushReq *PushRequest,
-) error {
+) {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool
@@ -1396,9 +1415,7 @@ func (ps *PushContext) updateContext(
 
 	if servicesChanged || gatewayAPIChanged {
 		// Gateway status depends on services, so recompute if they change as well
-		if err := ps.initKubernetesGateways(env); err != nil {
-			return err
-		}
+		ps.initKubernetesGateways(env)
 	}
 
 	if virtualServicesChanged {
@@ -1467,8 +1484,6 @@ func (ps *PushContext) updateContext(
 		ps.sidecarIndex = oldPushContext.sidecarIndex
 		oldPushContext.sidecarIndex.derivedSidecarMutex.RUnlock()
 	}
-
-	return nil
 }
 
 // Caches list of services in the registry, and creates a map
@@ -2109,8 +2124,24 @@ func (ps *PushContext) initWasmPlugins(env *Environment) {
 }
 
 // WasmPlugins return the WasmPluginWrappers of a proxy.
+// For most proxy types, we include only the root namespace and same-namespace objects.
+// However, waypoints allow cross-namespace access based on attached Service objects.
+// In this case, include all referenced services in the selection criteria
 func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*WasmPluginWrapper {
-	return ps.WasmPluginsByListenerInfo(proxy, anyListener, WasmPluginTypeAny)
+	listenerInfo := WasmPluginListenerInfo{}
+	if proxy.IsWaypointProxy() {
+		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
+		for _, si := range servicesInfo {
+			s := si.Service
+			svc, exist := ps.ServiceIndex.HostnameAndNamespace[host.Name(s.Hostname)][s.Namespace]
+			if !exist {
+				log.Warnf("cannot find waypoint service in serviceindex, namespace/hostname: %s/%s", s.Namespace, s.Hostname)
+				continue
+			}
+			listenerInfo = listenerInfo.WithService(svc)
+		}
+	}
+	return ps.WasmPluginsByListenerInfo(proxy, listenerInfo, WasmPluginTypeAny)
 }
 
 func (ps *PushContext) WasmPluginsByName(proxy *Proxy, names []types.NamespacedName) []*WasmPluginWrapper {
@@ -2138,19 +2169,13 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 		return nil
 	}
 
-	var lookupInNamespaces []string
 	matchedPlugins := make(map[extensions.PluginPhase][]*WasmPluginWrapper)
-
-	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
-		// Only check the root namespace if the (workload) namespace is not already the root namespace
-		// to avoid double inclusion.
-		lookupInNamespaces = []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
-	} else {
-		lookupInNamespaces = []string{proxy.ConfigNamespace}
+	lookupInNamespaces := []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
+	for i := range info.Services {
+		lookupInNamespaces = append(lookupInNamespaces, info.Services[i].NamespacedName().Namespace)
 	}
-
-	selectionOpts := PolicyMatcherForProxy(proxy).WithService(info.Service)
-	for _, ns := range lookupInNamespaces {
+	selectionOpts := PolicyMatcherForProxy(proxy).WithServices(info.Services).WithRootNamespace(ps.Mesh.GetRootNamespace())
+	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
 		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
 			for _, plugin := range wasmPlugins {
 				if plugin.MatchListener(selectionOpts, info) && plugin.MatchType(pluginType) {
@@ -2222,8 +2247,12 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 	}
 }
 
+type MergedEnvoyFilterWrapper struct {
+	Patches map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
+}
+
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
-func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
+func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
 	// this should never happen
 	if proxy == nil {
 		return nil
@@ -2260,9 +2289,9 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		jn := jfilter.Name + "." + jfilter.Namespace
 		return in < jn
 	})
-	var out *EnvoyFilterWrapper
+	var out *MergedEnvoyFilterWrapper
 	if len(matchedEnvoyFilters) > 0 {
-		out = &EnvoyFilterWrapper{
+		out = &MergedEnvoyFilterWrapper{
 			// no need populate workloadSelector, as it is not used later.
 			Patches: make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper),
 		}
@@ -2461,12 +2490,11 @@ func (ps *PushContext) ServiceEndpoints(svcKey string) map[int][]*IstioEndpoint 
 }
 
 // initKubernetesGateways initializes Kubernetes gateway-api objects
-func (ps *PushContext) initKubernetesGateways(env *Environment) error {
+func (ps *PushContext) initKubernetesGateways(env *Environment) {
 	if env.GatewayAPIController != nil {
 		ps.GatewayAPIController = env.GatewayAPIController
-		return env.GatewayAPIController.Reconcile(ps)
+		env.GatewayAPIController.Reconcile(ps)
 	}
-	return nil
 }
 
 // ReferenceAllowed determines if a given resource (of type `kind` and name `resourceName`) can be
@@ -2500,7 +2528,7 @@ func (ps *PushContext) SupportsTunnel(n network.ID, ip string) bool {
 	// We should get 0 or 1 workloads, so just return the first.
 	infos, _ := ps.ambientIndex.AddressInformation(sets.New(n.String() + "/" + ip))
 	for _, wl := range ExtractWorkloadsFromAddresses(infos) {
-		if wl.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
+		if wl.Workload.TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
 			return true
 		}
 	}
@@ -2517,4 +2545,10 @@ func (ps *PushContext) WorkloadsForWaypoint(key WaypointKey) []WorkloadInfo {
 // Used when calculating the services which should be configured for a specific waypoint proxy
 func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
 	return ps.ambientIndex.ServicesForWaypoint(key)
+}
+
+// ServicesWithWaypoint returns all services associated with any waypoint.
+// Key can optionally be provided in the form 'namespace/hostname'. If unset, all are returned
+func (ps *PushContext) ServicesWithWaypoint(key string) []ServiceWaypointInfo {
+	return ps.ambientIndex.ServicesWithWaypoint(key)
 }

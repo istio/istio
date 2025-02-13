@@ -100,7 +100,6 @@ func WarmBase(ctx context.Context, architectures []string, baseImages ...string)
 
 	t0 := time.Now()
 	for i, b := range keys {
-		b, i := b, i
 		go func() {
 			defer wg.Done()
 			ref, err := name.ParseReference(b.name)

@@ -137,6 +137,42 @@ spec:
         kind: Secret
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: udp-protocol
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: udp
+      port: 1234
+      protocol: UDP
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: unknown-protocol
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: unknown
+      port: 1234
+      protocol: unknown
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: protocol-lower-case
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  listeners:
+    - name: http
+      port: 1234
+      protocol: http
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: invalid-backendRef-kind

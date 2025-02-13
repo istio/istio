@@ -65,6 +65,17 @@ func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceI
 	return res
 }
 
+func (c *Controller) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
+	if !features.EnableAmbient {
+		return nil
+	}
+	var res []model.ServiceWaypointInfo
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.ServicesWithWaypoint(key)...)
+	}
+	return res
+}
+
 func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
 	if !features.EnableAmbientWaypoints {
 		return nil
@@ -99,21 +110,35 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []model.Workl
 }
 
 func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressInfo, sets.String) {
-	i := []model.AddressInfo{}
 	if !features.EnableAmbient {
-		return i, nil
+		return nil, nil
 	}
-	removed := sets.String{}
+	var i []model.AddressInfo
+	var removed sets.String
+	foundRegistryCount := 0
 	for _, p := range c.GetRegistries() {
 		wis, r := p.AddressInformation(addresses)
-		i = append(i, wis...)
-		removed.Merge(r)
+		if len(wis) == 0 && len(r) == 0 {
+			continue
+		}
+		foundRegistryCount++
+		if foundRegistryCount == 1 {
+			// first registry: use the data structures they provided, to avoid a copy
+			removed = r
+			i = wis
+		} else {
+			i = append(i, wis...)
+			removed.Merge(r)
+		}
 	}
-	// We may have 'removed' it in one registry but found it in another
-	for _, wl := range i {
-		// TODO(@hzxuzhonghu) This is not right for workload, we may search workload by ip, but the resource name is uid.
-		if removed.Contains(wl.ResourceName()) {
-			removed.Delete(wl.ResourceName())
+	if foundRegistryCount > 1 {
+		// We may have 'removed' it in one registry but found it in another
+		// As an optimization, we skip this in the common case of only one registry
+		for _, wl := range i {
+			// TODO(@hzxuzhonghu) This is not right for workload, we may search workload by ip, but the resource name is uid.
+			if removed.Contains(wl.ResourceName()) {
+				removed.Delete(wl.ResourceName())
+			}
 		}
 	}
 	return i, removed

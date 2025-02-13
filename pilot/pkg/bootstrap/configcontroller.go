@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // URL schemes supported by the config store
@@ -85,11 +86,6 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	// If running in ingress mode (requires k8s), wrap the config controller.
 	if hasKubeRegistry(args.RegistryOptions.Registries) && meshConfig.IngressControllerMode != meshconfig.MeshConfig_OFF {
 		// Wrap the config controller with a cache.
-		// Supporting only Ingress/v1 means we lose support of Kubernetes 1.18
-		// Supporting only Ingress/v1beta1 means we lose support of Kubernetes 1.22
-		// Since supporting both in a monolith controller is painful due to lack of usable conversion logic between
-		// the two versions.
-		// As a compromise, we instead just fork the controller. Once 1.18 support is no longer needed, we can drop the old controller
 		s.ConfigStores = append(s.ConfigStores,
 			ingress.NewController(s.kubeClient, s.environment.Watcher, args.RegistryOptions.KubeOptions))
 
@@ -137,6 +133,17 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	}
 	configController := s.makeKubeConfigController(args)
 	s.ConfigStores = append(s.ConfigStores, configController)
+	tw := revisions.NewTagWatcher(s.kubeClient, args.Revision)
+	s.addStartFunc("tag-watcher", func(stop <-chan struct{}) error {
+		go tw.Run(stop)
+		return nil
+	})
+	tw.AddHandler(func(sets.String) {
+		s.XDSServer.ConfigUpdate(&model.PushRequest{
+			Full:   true,
+			Reason: model.NewReasonStats(model.TagUpdate),
+		})
+	})
 	if features.EnableGatewayAPI {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)

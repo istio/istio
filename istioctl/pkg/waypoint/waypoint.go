@@ -313,23 +313,23 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Use:   "delete",
 		Short: "Delete a waypoint configuration",
 		Long:  "Delete a waypoint configuration from the cluster",
-		Example: `  # Delete a waypoint from the default namespace
-  istioctl waypoint delete
-
-  # Delete a waypoint by name, which can obtain from istioctl waypoint list
+		Example: `# Delete a waypoint by name, which can obtain from istioctl waypoint list
   istioctl waypoint delete waypoint-name --namespace default
 
   # Delete several waypoints by name
   istioctl waypoint delete waypoint-name1 waypoint-name2 --namespace default
 
   # Delete all waypoints in a specific namespace
-  istioctl waypoint delete --all --namespace default`,
+  istioctl waypoint delete --all --namespace default
+
+  # Delete specific revision waypoints in a namespace
+  istioctl waypoint delete --revision v1 --namespace default`,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if deleteAll && len(args) > 0 {
+			if (deleteAll || revision != "") && len(args) > 0 {
 				return fmt.Errorf("cannot specify waypoint names when deleting all waypoints")
 			}
-			if !deleteAll && len(args) == 0 {
-				return fmt.Errorf("must either specify a waypoint name or delete all using --all")
+			if !(deleteAll || revision != "") && len(args) == 0 {
+				return fmt.Errorf("must specify a waypoint name or delete all using --all or delete specific revision using --revision")
 			}
 			return nil
 		},
@@ -341,15 +341,16 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			ns := ctx.NamespaceOrDefault(ctx.Namespace())
 
 			// Delete all waypoints if the --all flag is set
-			if deleteAll {
-				return deleteWaypoints(cmd, kubeClient, ns, nil)
+			if deleteAll || revision != "" {
+				return deleteWaypoints(cmd, kubeClient, ns, nil, revision)
 			}
 
 			// Delete waypoints by names if provided
-			return deleteWaypoints(cmd, kubeClient, ns, args)
+			return deleteWaypoints(cmd, kubeClient, ns, args, revision)
 		},
 	}
 	waypointDeleteCmd.Flags().BoolVar(&deleteAll, "all", false, "Delete all waypoints in the namespace")
+	waypointDeleteCmd.Flags().StringVarP(&revision, "revision", "r", "", "Delete the specified version of the waypoint in the namespace")
 
 	waypointListCmd := &cobra.Command{
 		Use:   "list",
@@ -460,16 +461,25 @@ func Cmd(ctx cli.Context) *cobra.Command {
 }
 
 // deleteWaypoints handles the deletion of waypoints based on the provided names, or all if names is nil
-func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace string, names []string) error {
+func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace string, names []string, revision string) error {
 	var multiErr *multierror.Error
 	if names == nil {
-		// If names is nil, delete all waypoints
+		var selector string
+		if revision != "" {
+			selector = "istio.io/rev=" + revision
+		}
+		// If names is nil, delete all or the specified revision waypoints
 		waypoints, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).
-			List(context.Background(), metav1.ListOptions{})
+			List(context.Background(), metav1.ListOptions{
+				LabelSelector: selector,
+			})
 		if err != nil {
 			return err
 		}
 		for _, gw := range waypoints.Items {
+			if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
+				continue
+			}
 			names = append(names, gw.Name)
 		}
 	}

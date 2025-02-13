@@ -60,7 +60,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		// We are deploying two isolated environments, which CNI doesn't support.
 		// We could deploy one of the usergroups as the CNI owner, but for now we skip
-		SkipIf("CNI is not suppored", func(ctx resource.Context) bool {
+		SkipIf("CNI is not supported", func(ctx resource.Context) bool {
 			c, _ := istio.DefaultConfig(ctx)
 			return c.EnableCNI
 		}).

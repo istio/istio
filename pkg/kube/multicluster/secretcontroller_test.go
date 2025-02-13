@@ -27,7 +27,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -73,7 +73,7 @@ func TestKubeConfigOverride(t *testing.T) {
 	fakeRestConfig := &rest.Config{}
 	client := kube.NewFakeClient()
 	stopCh := test.NewStop(t)
-	c := NewController(client, secretNamespace, "", mesh.NewFixedWatcher(nil), func(cfg *rest.Config) {
+	c := NewController(client, secretNamespace, "", meshwatcher.NewTestWatcher(nil), func(cfg *rest.Config) {
 		cfg.QPS = expectedQPS
 		cfg.Burst = expectedBurst
 	})
@@ -118,7 +118,7 @@ func buildTestController(t *testing.T, synced bool) testController {
 		t:      t,
 	}
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
-	tc.controller = NewController(tc.client, secretNamespace, "config", mesh.NewFixedWatcher(nil))
+	tc.controller = NewController(tc.client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
 	tc.controller.ClientBuilder = TestingBuildClientsFromConfig
 	iter := atomic.NewInt32(0)
 	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
@@ -251,7 +251,7 @@ func TestObjectFilter(t *testing.T) {
 		client: clientWithNamespace(),
 		t:      t,
 	}
-	mesh := mesh.NewFixedWatcher(&meshconfig.MeshConfig{
+	mesh := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
 		DiscoverySelectors: []*meshconfig.LabelSelector{
 			{
 				MatchLabels: map[string]string{
@@ -491,7 +491,7 @@ func TestSecretController(t *testing.T) {
 
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
-	c := NewController(client, secretNamespace, "config", mesh.NewFixedWatcher(nil))
+	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
 	c.ClientBuilder = TestingBuildClientsFromConfig
 	client.RunAndWait(stopCh)
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)

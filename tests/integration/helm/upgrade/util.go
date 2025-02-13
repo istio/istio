@@ -140,13 +140,7 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 			helmtest.DeleteIstio(t, h, cs, nsConfig, isAmbient)
 		})
 		s := t.Settings()
-		prevVariant := s.Image.Variant
-		// Istio 1.21 ambient did not support distroless, always use debug.
-		// TODO(https://github.com/istio/istio/issues/50387) remove this, always use s.Image.Variant
-		if isAmbient {
-			prevVariant = "debug"
-		}
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", prevVariant, "", isAmbient)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", isAmbient)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
@@ -165,6 +159,64 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 
 		// now check that we are compatible with N-1 proxy with N proxy
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
+	}
+}
+
+// upgradeAllButZtunnel returns the provided function necessary to run inside an integration test
+// for upgrading everythying but the ztunnel
+func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
+	return func(t framework.TestContext) {
+		isAmbient := true
+		cs := t.Clusters().Default().(*kubecluster.Cluster)
+		h := helm.New(cs.Filename())
+		nsConfig := helmtest.DefaultNamespaceConfig
+		t.CleanupConditionally(func() {
+			// only need to do call this once as helm doesn't need to remove
+			// all versions
+			helmtest.DeleteIstio(t, h, cs, nsConfig, isAmbient)
+		})
+		s := t.Settings()
+		prevVariant := s.Image.Variant
+		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", prevVariant, "", isAmbient)
+		// todo tag version is not helm version
+		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
+		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
+
+		_, oldClient, oldServer := sanitycheck.SetupTrafficTestAmbient(t, "")
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
+
+		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", isAmbient)
+
+		helmtest.AdoptPre123CRDResourcesIfNeeded()
+
+		// Upgrade everything but Ztunnel and CNI
+		upgradeCharts(t, h, overrideValuesFile, nsConfig, false)
+
+		// Upgrade CNI
+		err := h.UpgradeChart(helmtest.CniReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.CniChartsDir),
+			nsConfig.Get(helmtest.CniReleaseName), overrideValuesFile, helmtest.Timeout)
+		if err != nil {
+			t.Fatalf("failed to upgrade istio %s chart", helmtest.CniReleaseName)
+		}
+		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
+
+		newNS, newClient, newServer := sanitycheck.SetupTrafficTestAmbient(t, "")
+		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
+
+		// now check that we are compatible with N-1 proxy with N proxy
+		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
+
+		// write policy to block sanity Check
+		sanitycheck.BlockTestWithPolicy(t, newClient, newServer)
+
+		// verify sanity check fails
+		sanitycheck.RunTrafficTestClientServerExpectFail(t, newClient, newServer)
+
+		// label pods to remove from mesh
+		newNS.RemoveLabel(label.IoIstioDataplaneMode.Name)
+
+		// verify sanity check passes
+		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 	}
 }
 

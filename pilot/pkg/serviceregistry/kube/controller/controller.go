@@ -43,12 +43,14 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
@@ -124,7 +126,7 @@ type Options struct {
 	MeshNetworksWatcher mesh.NetworksWatcher
 
 	// MeshWatcher observes changes to the mesh config
-	MeshWatcher mesh.Watcher
+	MeshWatcher meshwatcher.WatcherCollection
 
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32
@@ -145,6 +147,8 @@ type Options struct {
 	// StatusWritingEnabled determines if status writing is enabled. This may be set to `nil`, in which case status
 	// writing will never be enabled
 	StatusWritingEnabled *activenotifier.ActiveNotifier
+
+	KrtDebugger *krt.DebugHandler
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -260,7 +264,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
 
-	registerHandlers[*v1.Service](c, c.services, "Services", c.onServiceEvent, nil)
+	registerHandlers(c, c.services, "Services", c.onServiceEvent, nil)
 
 	c.endpoints = newEndpointSliceController(c)
 
@@ -277,19 +281,29 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			return c.endpoints.podArrived(key.Name, key.Namespace)
 		})
 	})
-	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
+	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
 	if features.EnableAmbient {
 		c.ambientIndex = ambient.New(ambient.Options{
-			Client:                kubeClient,
-			SystemNamespace:       options.SystemNamespace,
-			DomainSuffix:          options.DomainSuffix,
-			ClusterID:             options.ClusterID,
-			Revision:              options.Revision,
-			XDSUpdater:            options.XDSUpdater,
-			LookupNetwork:         c.Network,
-			LookupNetworkGateways: c.NetworkGateways,
-			StatusNotifier:        options.StatusWritingEnabled,
+			Client:          kubeClient,
+			SystemNamespace: options.SystemNamespace,
+			DomainSuffix:    options.DomainSuffix,
+			ClusterID:       options.ClusterID,
+			Revision:        options.Revision,
+			XDSUpdater:      options.XDSUpdater,
+			MeshConfig:      options.MeshWatcher,
+			LookupNetwork:   c.Network,
+			LookupNetworkGateways: func() []model.NetworkGateway {
+				return slices.Filter(c.NetworkGateways(), func(g model.NetworkGateway) bool {
+					return g.HBONEPort != 0
+				})
+			},
+			StatusNotifier: options.StatusWritingEnabled,
+			Debugger:       options.KrtDebugger,
+			Flags: ambient.FeatureFlags{
+				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
+			},
 		})
 	}
 	c.exports = newServiceExportCache(c)
@@ -302,13 +316,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			c.onNetworkChange()
 		})
 		c.reloadMeshNetworks()
-	}
-	if c.ambientIndex != nil {
-		c.networkManager.NetworkGatewaysHandler.AppendNetworkGatewayHandler(func() {
-			// This is to ensure the ambient workloads are updated dynamically, aligning them with the current network settings.
-			// With this, the pod do not need to restart when the network configuration changes.
-			c.ambientIndex.SyncAll()
-		})
 	}
 	return c
 }
@@ -404,10 +411,12 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.Lock()
 	delete(c.servicesMap, svc.Hostname)
 	delete(c.nodeSelectorsForServices, svc.Hostname)
-	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
-	delete(c.networkGatewaysBySvc, svc.Hostname)
 	c.Unlock()
 
+	c.networkManager.Lock()
+	_, isNetworkGateway := c.networkGatewaysBySvc[svc.Hostname]
+	delete(c.networkGatewaysBySvc, svc.Hostname)
+	c.networkManager.Unlock()
 	if isNetworkGateway {
 		c.NotifyGatewayHandlers()
 		// TODO trigger push via handler
@@ -418,8 +427,9 @@ func (c *Controller) deleteService(svc *model.Service) {
 	shard := model.ShardKeyFromRegistry(c)
 	event := model.EventDelete
 	c.opts.XDSUpdater.SvcUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, event)
-
-	c.handlers.NotifyServiceHandlers(nil, svc, event)
+	if !svc.Attributes.ExportTo.Contains(visibility.None) {
+		c.handlers.NotifyServiceHandlers(nil, svc, event)
+	}
 }
 
 // recomputeServiceForPod is called when a pod changes and service endpoints need to be recomputed.
@@ -479,7 +489,7 @@ func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.S
 	prevConv := c.servicesMap[currConv.Hostname]
 	c.servicesMap[currConv.Hostname] = currConv
 	c.Unlock()
-	// This full push needed to update ALL ends endpoints, even though we do a full push on service add/update
+	// This full push needed to update all endpoints, even though we do a full push on service add/update
 	// as that full push is only triggered for the specific service.
 	if needsFullPush {
 		// networks are different, we need to update all eds endpoints
@@ -498,13 +508,11 @@ func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.S
 		}
 	}
 
-	// filter out same service event
-	if event == model.EventUpdate && !serviceUpdateNeedsPush(pre, curr, prevConv, currConv) {
-		return
-	}
-
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
-	c.handlers.NotifyServiceHandlers(prevConv, currConv, event)
+	if serviceUpdateNeedsPush(pre, curr, prevConv, currConv) {
+		log.Debugf("Service %s in namespace %s updated and needs push", currConv.Hostname, ns)
+		c.handlers.NotifyServiceHandlers(prevConv, currConv, event)
+	}
 }
 
 func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bool) []*model.IstioEndpoint {
@@ -655,20 +663,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
+	if c.ambientIndex != nil {
+		go c.ambientIndex.Run(stop)
+	}
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
-	if c.ambientIndex != nil {
-		go func() {
-			// Wait until we have everything ready, then we can notify ambient everything is ready
-			// This ensures it gets the initial network state.
-			kubelib.WaitForCacheSync("kube controller queue", stop, func() bool {
-				return c.queue.HasSynced() || c.initialSyncTimedout.Load()
-			})
-
-			c.ambientIndex.NetworksSynced()
-			c.ambientIndex.Run(stop)
-		}()
-	}
 
 	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
@@ -1114,18 +1113,9 @@ func (c *Controller) GetProxyServiceTargetsByPod(pod *v1.Pod, service *v1.Servic
 func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance {
 	pod := c.pods.getPodByProxy(proxy)
 	if pod != nil {
-		var locality, nodeName string
-		locality = c.getPodLocality(pod)
-		if len(proxy.GetNodeName()) == 0 {
-			// this can happen for an "old" proxy with no `Metadata.NodeName` set
-			// in this case we set the node name in labels on the fly
-			// TODO: remove this when 1.16 is EOL?
-			nodeName = pod.Spec.NodeName
-		}
-		if len(locality) == 0 && len(nodeName) == 0 {
-			return pod.Labels
-		}
-		return labelutil.AugmentLabels(pod.Labels, c.clusterID, locality, nodeName, c.network)
+		locality := c.getPodLocality(pod)
+		nodeName := proxy.GetNodeName()
+		return labelutil.AugmentLabels(pod.Labels, c.clusterID, locality, nodeName, c.Network(pod.Status.PodIP, pod.Labels))
 	}
 	return nil
 }
@@ -1193,10 +1183,11 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 }
 
 func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Service) bool {
+	// New Service - If it is not exported, no need to push.
 	if preConv == nil {
 		return !currConv.Attributes.ExportTo.Contains(visibility.None)
 	}
-	// if service are not exported, no need to push
+	// if service Visibility is None and has not changed in the update/delete, no need to push.
 	if preConv.Attributes.ExportTo.Contains(visibility.None) &&
 		currConv.Attributes.ExportTo.Contains(visibility.None) {
 		return false

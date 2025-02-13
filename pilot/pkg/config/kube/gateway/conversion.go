@@ -197,7 +197,6 @@ func convertVirtualService(r configContext) []config.Config {
 func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 	obj config.Config, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *ConfigError) {
-	// TODO: implement rewrite, corspolicy, retries
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
 		vs.Name = string(*r.Name)
@@ -269,6 +268,28 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 		}
 	}
 
+	if r.Retry != nil {
+		// "Implementations SHOULD retry on connection errors (disconnect, reset, timeout,
+		// TCP failure) if a retry stanza is configured."
+		retryOn := []string{"connect-failure", "refused-stream", "unavailable", "cancelled"}
+		for _, codes := range r.Retry.Codes {
+			retryOn = append(retryOn, strconv.Itoa(int(codes)))
+		}
+		vs.Retries = &istio.HTTPRetry{
+			// If unset, default is implementation specific.
+			// VirtualService.retry has no default when set -- users are expected to set it if they customize `retry`.
+			// However, the default retry if none are set is "2", so we use that as the default.
+			Attempts:      int32(ptr.OrDefault(r.Retry.Attempts, 2)),
+			PerTryTimeout: nil,
+			RetryOn:       strings.Join(retryOn, ","),
+		}
+		if vs.Retries.Attempts == 0 {
+			// Invalid to set this when there are no attempts
+			vs.Retries.RetryOn = ""
+		}
+		// Istio does not currently implement the Backoff field due to lack of support in VirtualService
+	}
+
 	if r.Timeouts != nil {
 		if r.Timeouts.Request != nil {
 			request, _ := time.ParseDuration(string(*r.Timeouts.Request))
@@ -288,7 +309,6 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 			}
 		}
 	}
-
 	if weightSum(r.BackendRefs) == 0 && vs.Redirect == nil {
 		// The spec requires us to return 500 when there are no >0 weight backends
 		vs.DirectResponse = &istio.HTTPDirectResponse{
@@ -309,7 +329,6 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 	obj config.Config, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *ConfigError) {
-	// TODO: implement rewrite, timeout, mirror, corspolicy, retries
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
 		vs.Name = string(*r.Name)
@@ -1616,7 +1635,7 @@ func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, 
 	}
 	var percent *istio.Percent
 	if f := filter.Fraction; f != nil {
-		percent = &istio.Percent{Value: float64(f.Numerator) / float64(ptr.OrDefault(f.Denominator, int32(100)))}
+		percent = &istio.Percent{Value: (100 * float64(f.Numerator)) / float64(ptr.OrDefault(f.Denominator, int32(100)))}
 	} else if p := filter.Percent; p != nil {
 		percent = &istio.Percent{Value: float64(*p)}
 	}
@@ -2048,7 +2067,6 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 	namespaceLabelReferences := sets.New[string]()
 	classes := getGatewayClasses(r.GatewayResources)
 	for _, obj := range r.Gateway {
-		obj := obj
 		kgw := obj.Spec.(*k8s.GatewaySpec)
 		controllerName, f := classes[string(kgw.GatewayClassName)]
 		if !f {
@@ -2075,7 +2093,6 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 			continue
 		}
 		for i, l := range kgw.Listeners {
-			i := i
 			namespaceLabelReferences.InsertAll(getNamespaceLabelReferences(l.AllowedRoutes)...)
 			server, programmed := buildListener(r, obj, l, i, controllerName)
 
@@ -2223,11 +2240,11 @@ func reportGatewayStatus(
 
 	if len(internal) > 0 {
 		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
-		gatewayConditions[string(k8s.GatewayReasonProgrammed)].message = msg
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].message = msg
 	}
 
 	if len(gatewayServices) == 0 {
-		gatewayConditions[string(k8s.GatewayReasonProgrammed)].error = &ConfigError{
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
 			Reason:  InvalidAddress,
 			Message: "Failed to assign to any requested addresses",
 		}
@@ -2461,15 +2478,13 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 		ok = false
 	}
 	hostnames := buildHostnameMatch(obj.Namespace, r.GatewayResources, l)
-	server := &istio.Server{
-		Port: &istio.Port{
-			// Name is required. We only have one server per Gateway, so we can just name them all the same
-			Name:     "default",
-			Number:   uint32(l.Port),
-			Protocol: listenerProtocolToIstio(l.Protocol),
-		},
-		Hosts: hostnames,
-		Tls:   tls,
+	protocol, perr := listenerProtocolToIstio(controllerName, l.Protocol)
+	if perr != nil {
+		listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+			Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
+			Message: perr.Error(),
+		}
+		ok = false
 	}
 	if controllerName == constants.ManagedGatewayMeshController {
 		if unexpectedWaypointListener(l) {
@@ -2479,14 +2494,53 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 			}
 		}
 	}
+	server := &istio.Server{
+		Port: &istio.Port{
+			// Name is required. We only have one server per Gateway, so we can just name them all the same
+			Name:     "default",
+			Number:   uint32(l.Port),
+			Protocol: protocol,
+		},
+		Hosts: hostnames,
+		Tls:   tls,
+	}
 
 	reportListenerCondition(listenerIndex, l, obj, listenerConditions)
 	return server, ok
 }
 
-func listenerProtocolToIstio(protocol k8s.ProtocolType) string {
-	// Currently, all gateway-api protocols are valid Istio protocols.
-	return string(protocol)
+var supportedProtocols = sets.New(
+	k8s.HTTPProtocolType,
+	k8s.HTTPSProtocolType,
+	k8s.TLSProtocolType,
+	k8s.TCPProtocolType,
+	k8s.ProtocolType(protocol.HBONE))
+
+func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (string, error) {
+	switch p {
+	// Standard protocol types
+	case k8s.HTTPProtocolType:
+		return string(p), nil
+	case k8s.HTTPSProtocolType:
+		return string(p), nil
+	case k8s.TLSProtocolType, k8s.TCPProtocolType:
+		if !features.EnableAlphaGatewayAPI {
+			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
+		}
+		return string(p), nil
+	// Our own custom types
+	case k8s.ProtocolType(protocol.HBONE):
+		if name != constants.ManagedGatewayMeshController {
+			return "", fmt.Errorf("protocol %q is only supported for waypoint proxies", p)
+		}
+		return string(p), nil
+	}
+	up := k8s.ProtocolType(strings.ToUpper(string(p)))
+	if supportedProtocols.Contains(up) {
+		return "", fmt.Errorf("protocol %q is unsupported. hint: %q (uppercase) may be supported", p, up)
+	}
+	// Note: the k8s.UDPProtocolType is explicitly left to hit this path
+	return "", fmt.Errorf("protocol %q is unsupported", p)
 }
 
 func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, isAutoPassthrough bool) (*istio.ServerTLSSettings, *ConfigError) {

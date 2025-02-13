@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/smallset"
 )
 
 type statusConditions struct {
@@ -42,31 +41,40 @@ type conditions struct {
 // translateToPatch converts a ConditionSet to a patch
 // The ConditionSet is expected to contain all Types owned by this controller; if they should be unset, they should nil.
 // Failure to do so means the status may not properly get pruned.
-func translateToPatch(object model.TypedObject, status model.ConditionSet, currentConditionsList []string) []byte {
-	currentConditions := smallset.New(currentConditionsList...)
+// currentConditions must be set to the current conditions. This is used to determine if we need a write.
+// Note: we do not simply rely on SSA to tell us if a change is needed, because every write does a mutation due to LastTransitionTime.
+func translateToPatch(object model.TypedObject, status model.ConditionSet, currentConditions map[string]model.Condition) []byte {
 	conds := make([]any, 0, len(status))
 
-	needsDelete := false
+	changesNeeded := false
 
-	for t, values := range status {
-		if currentConditions.Contains(string(t)) {
-			needsDelete = true
+	for t, v := range status {
+		nowExists := v != nil
+		cc, curExists := currentConditions[string(t)]
+		if nowExists != curExists {
+			changesNeeded = true
 		}
-		for _, v := range values {
-			s := string(metav1.ConditionFalse)
-			if v.Status {
-				s = string(metav1.ConditionTrue)
-			}
-			conds = append(conds, &v1alpha1.IstioCondition{
-				Type:               string(t),
-				Status:             s,
-				LastTransitionTime: timestamppb.Now(),
-				Reason:             v.Reason,
-				Message:            v.Message,
-			})
+		if !nowExists {
+			continue
 		}
+		if !cc.Equals(v) {
+			changesNeeded = true
+		}
+
+		s := string(metav1.ConditionFalse)
+		if v.Status {
+			s = string(metav1.ConditionTrue)
+		}
+		conds = append(conds, &v1alpha1.IstioCondition{
+			Type:               string(t),
+			Status:             s,
+			LastTransitionTime: timestamppb.Now(),
+			Reason:             v.Reason,
+			Message:            v.Message,
+			ObservedGeneration: v.ObservedGeneration,
+		})
 	}
-	if len(conds) == 0 && !needsDelete {
+	if !changesNeeded {
 		return nil
 	}
 	// TODO: it would be nice to have a more direct kind -> GVK mapping

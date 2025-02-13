@@ -22,23 +22,15 @@ import (
 	"errors"
 	"io"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 // ErrNotImplemented is returned when a requested feature is not implemented.
 var ErrNotImplemented = errors.New("not implemented")
 
-func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reader, args ...string) error {
-	return ErrNotImplemented
-}
-
-func (r *RealDependencies) executeXTables(cmd constants.IptablesCmd, iptVer *IptablesVersion, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
-	_, err := r.executeXTablesWithOutput(cmd, iptVer, ignoreErrors, stdin, args...)
-	return err
-}
-
-func (r *RealDependencies) executeXTablesWithOutput(cmd constants.IptablesCmd, iptVer *IptablesVersion,
-	ignoreErrors bool, stdin io.ReadSeeker, args ...string,
+func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion,
+	silenceErrors bool, stdin io.ReadSeeker, args ...string,
 ) (*bytes.Buffer, error) {
 	return nil, ErrNotImplemented
 }

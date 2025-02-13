@@ -32,13 +32,14 @@ import (
 )
 
 func TestIndex(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
 	c := kube.NewFakeClient()
 	kpc := kclient.New[*corev1.Pod](c)
 	pc := clienttest.Wrap(t, kpc)
-	pods := krt.WrapClient[*corev1.Pod](kpc)
-	stop := test.NewStop(t)
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
 	c.RunAndWait(stop)
-	SimplePods := SimplePodCollection(pods)
+	SimplePods := SimplePodCollection(pods, opts)
 	tt := assert.NewTracker[string](t)
 	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
 		return []string{o.IP}
@@ -89,13 +90,14 @@ func TestIndex(t *testing.T) {
 }
 
 func TestIndexCollection(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
 	c := kube.NewFakeClient()
 	kpc := kclient.New[*corev1.Pod](c)
 	pc := clienttest.Wrap(t, kpc)
-	pods := krt.WrapClient[*corev1.Pod](kpc)
-	stop := test.NewStop(t)
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
 	c.RunAndWait(stop)
-	SimplePods := SimplePodCollection(pods)
+	SimplePods := SimplePodCollection(pods, opts)
 	tt := assert.NewTracker[string](t)
 	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
 		return []string{o.IP}
@@ -104,8 +106,8 @@ func TestIndexCollection(t *testing.T) {
 		pods := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "1.2.3.5"))
 		names := slices.Sort(slices.Map(pods, SimplePod.ResourceName))
 		return ptr.Of(strings.Join(names, ","))
-	})
-	Collection.AsCollection().Synced().WaitUntilSynced(stop)
+	}, opts.WithName("Collection")...)
+	Collection.AsCollection().WaitUntilSynced(stop)
 	fetchSorted := func(ip string) []SimplePod {
 		return slices.SortBy(IPIndex.Lookup(ip), func(t SimplePod) string {
 			return t.ResourceName()
@@ -128,7 +130,7 @@ func TestIndexCollection(t *testing.T) {
 	pod.Status.PodIP = "1.2.3.5"
 	pc.UpdateStatus(pod)
 	tt.WaitUnordered("update/namespace/name")
-	assert.Equal(t, Collection.Get(), ptr.Of("namespace/name"))
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name"))
 
 	pod2 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -139,7 +141,7 @@ func TestIndexCollection(t *testing.T) {
 	}
 	pc.CreateOrUpdateStatus(pod2)
 	tt.WaitUnordered("add/namespace/name2")
-	assert.Equal(t, Collection.Get(), ptr.Of("namespace/name,namespace/name2"))
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name,namespace/name2"))
 
 	pc.Delete(pod.Name, pod.Namespace)
 	pc.Delete(pod2.Name, pod2.Namespace)
