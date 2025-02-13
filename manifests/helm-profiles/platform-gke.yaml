@@ -1,2 +1,2 @@
 cni:
-  cniBinDir: ""
+  cniBinDir: "" # intentionally unset for gke to allow template-based autodetection to work
