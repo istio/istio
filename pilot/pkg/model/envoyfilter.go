@@ -92,6 +92,9 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
 	}
 
+	// For Waypoint/Gateway with filtering, we need to explicitly opt-in to included services.
+	// This annotation allows doing so.
+	// Note: sidecar use cases should make sure to use Sidecar to include them; this will not override exclusions by sidecar
 	svcRefs := local.Annotations["envoyfilter.istio.io/referenced-services"]
 	for _, ref := range strings.Split(svcRefs, ",") {
 		ns, h, ok := strings.Cut(ref, "/")
