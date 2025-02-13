@@ -288,7 +288,7 @@ go-gen:
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
 refresh-goldens:
-	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/... \
+	REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/... \
 		./pkg/bootstrap/... \
 		./pkg/kube/inject/... \
 		./pilot/pkg/config/kube/gateway/... \
