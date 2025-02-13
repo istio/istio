@@ -273,7 +273,7 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 		// regardless of ztunnel's current status.
 		// So annotate indicating that this pod was injected (and thus needs to be either retried
 		// or uninjected on removal) but is not fully captured yet.
-		log.Errorf("failed to add pod to ztunnel: pod partially added, annotating with pending status")
+		log.Error("failed to add pod to ztunnel: pod partially added, annotating with pending status")
 		if err := util.AnnotatePartiallyEnrolledPod(s.kubeClient, &pod.ObjectMeta); err != nil {
 			// If we have an error annotating the partial status - that is itself retryable.
 			return err
