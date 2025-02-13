@@ -59,9 +59,11 @@ func NewStaticCollection[T any](vals []T, opts ...CollectionOption) StaticCollec
 		syncer:         alwaysSynced{},
 	}
 
-	return StaticCollection[T]{
+	c := StaticCollection[T]{
 		staticList: sl,
 	}
+	maybeRegisterCollectionForDebugging[T](c, o.debugger)
+	return c
 }
 
 // DeleteObject deletes an object from the collection.
