@@ -376,6 +376,10 @@ func (sd *ServiceDiscovery) ServicesForWaypoint(model.WaypointKey) []model.Servi
 	return nil
 }
 
+func (sd *ServiceDiscovery) ServicesForNetworkGateway(model.WaypointKey) []model.ServiceInfo {
+	return nil
+}
+
 func (sd *ServiceDiscovery) ServicesWithWaypoint(string) []model.ServiceWaypointInfo {
 	return nil
 }

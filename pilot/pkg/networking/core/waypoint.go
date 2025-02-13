@@ -15,10 +15,13 @@
 package core
 
 import (
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 const (
@@ -31,6 +34,9 @@ const (
 	// ConnectOriginate is the name for the resources associated with the origination of HTTP CONNECT.
 	ConnectOriginate = "connect_originate"
 
+	// ForwardInnerConnect is the name for resources associated with the forwarding of an inner CONNECT tunnel.
+	ForwardInnerConnect = "forward_inner_connect"
+
 	// EncapClusterName is the name of the cluster used for traffic to the connect_originate listener.
 	EncapClusterName = "encap"
 
@@ -41,6 +47,42 @@ const (
 type waypointServices struct {
 	services        map[host.Name]*model.Service
 	orderedServices []*model.Service
+	hostToWaypoint  map[host.Name]*workloadapi.GatewayAddress
+}
+
+// findNetworkGatewayResources returns the services associated with the network gateway
+// TODO: Add support for workloads
+func findNetworkGatewayResources(node *model.Proxy, push *model.PushContext) *waypointServices {
+	key := model.WaypointKeyForNetworkGatewayProxy(node)
+	serviceInfos := push.ServicesForNetworkGateway(key)
+
+	waypointServices := &waypointServices{}
+
+	for _, s := range serviceInfos {
+		hostName := host.Name(s.Service.Hostname)
+		svc, ok := push.ServiceIndex.HostnameAndNamespace[hostName][s.Service.Namespace]
+		if !ok {
+			continue
+		}
+		if waypointServices.services == nil {
+			waypointServices.services = map[host.Name]*model.Service{}
+		}
+		waypointServices.services[hostName] = svc
+		// If the service has a waypoint, store it so we can route to it later
+		if s.Service.Waypoint != nil {
+			if waypointServices.hostToWaypoint == nil {
+				waypointServices.hostToWaypoint = map[host.Name]*workloadapi.GatewayAddress{}
+			}
+			waypointServices.hostToWaypoint[hostName] = s.Service.Waypoint
+		}
+	}
+
+	unorderedServices := maps.Values(waypointServices.services)
+	if len(serviceInfos) > 0 {
+		waypointServices.orderedServices = model.SortServicesByCreationTime(unorderedServices)
+	}
+
+	return waypointServices
 }
 
 // findWaypointResources returns workloads and services associated with the waypoint proxy
@@ -108,4 +150,13 @@ func filterWaypointOutboundServices(
 		}
 	}
 	return res
+}
+
+func isEastWestGateway(node *model.Proxy) bool {
+	if node == nil || node.Type != model.Waypoint {
+		return false
+	}
+	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
+
+	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
 }
