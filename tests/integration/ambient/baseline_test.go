@@ -197,6 +197,12 @@ func TestServices(t *testing.T) {
 			t.Skip("https://github.com/istio/istio/pull/50182")
 		}
 
+		// Ensure we are not leaking metadata exchange headers
+		if !dst.Config().IsUncaptured() {
+			// Probably we shouldn't do it to uncaptured workloads either but ... not an ambient problem.
+			opt.Check = check.And(opt.Check, check.RequestHeader("X-Envoy-Peer-Metadata", ""))
+		}
+
 		// TODO test from all source workloads as well
 		src.CallOrFail(t, opt)
 	})

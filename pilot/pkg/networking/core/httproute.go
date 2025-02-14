@@ -314,7 +314,7 @@ func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetwo
 		ForwardedClientCert:        hcm.HttpConnectionManager_APPEND_FORWARD,
 		IncludeRequestAttemptCount: true,
 		SuppressDebugHeaders:       false,
-		GenerateRequestID:          nil,  // Envoy default is to enable them, so set nil
+		GenerateRequestID:          nil, // Envoy default is to enable them, so set nil
 		SkipIstioMXHeaders:         false,
 	}
 	if class == istionetworking.ListenerClassSidecarOutbound {
