@@ -89,7 +89,7 @@ func TestZtunnelServerHandleConn(t *testing.T) {
 	}).Return(nil)
 	conn.On("CheckAlive", mock.Anything).Return(nil)
 
-	srv := createStoppedServer(cache, uuid.New())
+	srv := createStoppedServer(cache, uuid.New(), time.Second/100)
 
 	go func() {
 		srv.ztunServer.handleConn(ctx, conn)
@@ -169,7 +169,7 @@ func TestZtunnelServerHandleConnWhenConnDies(t *testing.T) {
 		wg.Done()
 	}).Return(nil)
 
-	srv := createStoppedServer(cache, uuid.New())
+	srv := createStoppedServer(cache, uuid.New(), time.Second/100)
 
 	go func() {
 		srv.ztunServer.handleConn(ctx, conn)
@@ -198,6 +198,65 @@ func TestZtunnelServerHandleConnWhenConnDies(t *testing.T) {
 	}
 
 	wg.Wait()
+	conn.AssertExpectations(t)
+}
+
+func TestZtunnelServerHandleConnWhenKeepaliveFails(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	conn := FakeZtunnelConnection()
+
+	cache := &fakePodCache{}
+	cacheCloser := fillCacheWithFakePods(cache, 2)
+	defer cacheCloser()
+
+	ch := make(chan UpdateRequest)
+	myUUID := uuid.New()
+
+	helloResp := &zdsapi.ZdsHello{}
+
+	respData := &zdsapi.WorkloadResponse{}
+
+	for uid, info := range cache.pods {
+		add := &zdsapi.AddWorkload{
+			WorkloadInfo: info.Workload,
+			Uid:          uid,
+		}
+		req := &zdsapi.WorkloadRequest{
+			Payload: &zdsapi.WorkloadRequest_Add{
+				Add: add,
+			},
+		}
+		locFD := int(info.Netns.Fd())
+		conn.On("SendMsgAndWaitForAck", req, &locFD).Times(1).Return(respData, nil)
+	}
+
+	snapReq := &zdsapi.WorkloadRequest{
+		Payload: &zdsapi.WorkloadRequest_SnapshotSent{
+			SnapshotSent: &zdsapi.SnapshotSent{},
+		},
+	}
+
+	conn.On("SendMsgAndWaitForAck", snapReq, (*int)(nil)).Times(1).Return(respData, nil)
+
+	conn.On("ReadHello").Return(helloResp, nil)
+	var updates <-chan UpdateRequest = ch
+	conn.On("Updates").Return(updates)
+	conn.On("UUID").Return(myUUID)
+	var doneWG sync.WaitGroup
+	doneWG.Add(1)
+	conn.On("Close").Run(func(args mock.Arguments) {
+		doneWG.Done()
+	}).Return(nil)
+	conn.On("CheckAlive", mock.Anything).Return(fmt.Errorf("not alive"))
+
+	srv := createStoppedServer(cache, uuid.New(), time.Second*1)
+
+	go func() {
+		srv.ztunServer.handleConn(ctx, conn)
+	}()
+
+	doneWG.Wait()
 	conn.AssertExpectations(t)
 }
 
@@ -690,13 +749,13 @@ func startServerWithPodCache(ctx context.Context, podCache PodNetnsCache) struct
 	}{ztunServer: ztServ, addr: addr}
 }
 
-func createStoppedServer(podCache PodNetnsCache, uuid uuid.UUID) struct {
+func createStoppedServer(podCache PodNetnsCache, uuid uuid.UUID, keepalive time.Duration) struct {
 	ztunServer *ztunnelServer
 	addr       string
 } {
 	// go uses @ instead of \0 for abstract unix sockets
 	addr := fmt.Sprintf("@testaddr%d", uuid)
-	ztServ, err := newZtunnelServer(addr, podCache, time.Second/10)
+	ztServ, err := newZtunnelServer(addr, podCache, keepalive)
 	if err != nil {
 		panic(err)
 	}
