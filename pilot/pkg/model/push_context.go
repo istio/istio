@@ -2421,7 +2421,11 @@ func (ps *PushContext) NetworkManager() *NetworkManager {
 	return ps.networkMgr
 }
 
-func (ps *PushContext) BestEffortInferHBONE(service *Service, port *Port) bool {
+// AllInstancesSupportHBONE checks whether all instances of a service support HBONE. This is used in cases where we need
+// to decide if we are always going to send HBONE, so we can set service-level properties.
+// Mostly this works around limitations in the dataplane that don't support per-endpoint properties we would want to be
+// per-endpoint.
+func (ps *PushContext) AllInstancesSupportHBONE(service *Service, port *Port) bool {
 	instances := ps.ServiceEndpointsByPort(service, port.Port, nil)
 	if len(instances) == 0 {
 		return false

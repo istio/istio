@@ -198,8 +198,9 @@ func TestServices(t *testing.T) {
 		}
 
 		// Ensure we are not leaking metadata exchange headers
+		// We skip uncaptured workloads, as there is a pre-existing issue around Sidecar-->Uncaptured leaking the headers.
+		// Since this is not really related to ambient we just skip this for now; the case we really care about is Sidecar-->Ztunnel.
 		if !dst.Config().IsUncaptured() {
-			// Probably we shouldn't do it to uncaptured workloads either but ... not an ambient problem.
 			opt.Check = check.And(opt.Check, check.RequestHeader("X-Envoy-Peer-Metadata", ""))
 		}
 
