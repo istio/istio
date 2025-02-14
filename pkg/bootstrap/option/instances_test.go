@@ -621,6 +621,12 @@ func TestOptions(t *testing.T) {
 			expected: 5555,
 		},
 		{
+			testName: "workload identity socket file",
+			key:      "workload_identity_socket_file",
+			option:   option.WorkloadIdentitySocketFile("sheboygan.sock"),
+			expected: "sheboygan.sock",
+		},
+		{
 			testName: "project id",
 			key:      "gcp_project_id",
 			option:   option.GCPProjectID("project"),

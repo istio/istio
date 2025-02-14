@@ -2247,8 +2247,12 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 	}
 }
 
+type MergedEnvoyFilterWrapper struct {
+	Patches map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
+}
+
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
-func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
+func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
 	// this should never happen
 	if proxy == nil {
 		return nil
@@ -2285,9 +2289,9 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		jn := jfilter.Name + "." + jfilter.Namespace
 		return in < jn
 	})
-	var out *EnvoyFilterWrapper
+	var out *MergedEnvoyFilterWrapper
 	if len(matchedEnvoyFilters) > 0 {
-		out = &EnvoyFilterWrapper{
+		out = &MergedEnvoyFilterWrapper{
 			// no need populate workloadSelector, as it is not used later.
 			Patches: make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper),
 		}
@@ -2415,6 +2419,34 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 
 func (ps *PushContext) NetworkManager() *NetworkManager {
 	return ps.networkMgr
+}
+
+// AllInstancesSupportHBONE checks whether all instances of a service support HBONE. This is used in cases where we need
+// to decide if we are always going to send HBONE, so we can set service-level properties.
+// Mostly this works around limitations in the dataplane that don't support per-endpoint properties we would want to be
+// per-endpoint.
+func (ps *PushContext) AllInstancesSupportHBONE(service *Service, port *Port) bool {
+	instances := ps.ServiceEndpointsByPort(service, port.Port, nil)
+	if len(instances) == 0 {
+		return false
+	}
+	for _, e := range instances {
+		addressSupportsTunnel := false
+		if SupportsTunnel(e.Labels, TunnelHTTP) {
+			addressSupportsTunnel = true
+		} else {
+			for _, addr := range e.Addresses {
+				if ps.SupportsTunnel(e.Network, addr) {
+					addressSupportsTunnel = true
+					break
+				}
+			}
+		}
+		if !addressSupportsTunnel {
+			return false
+		}
+	}
+	return true
 }
 
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication

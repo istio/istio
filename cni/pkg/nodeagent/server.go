@@ -273,7 +273,7 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 		// regardless of ztunnel's current status.
 		// So annotate indicating that this pod was injected (and thus needs to be either retried
 		// or uninjected on removal) but is not fully captured yet.
-		log.Errorf("failed to add pod to ztunnel: %v, pod partially added, annotating with pending status")
+		log.Error("failed to add pod to ztunnel: pod partially added, annotating with pending status")
 		if err := util.AnnotatePartiallyEnrolledPod(s.kubeClient, &pod.ObjectMeta); err != nil {
 			// If we have an error annotating the partial status - that is itself retryable.
 			return err
@@ -371,7 +371,7 @@ func (s *meshDataplane) syncHostIPSets(ambientPods []*corev1.Pod) error {
 		} else {
 			addedIps, err := s.addPodToHostNSIpset(pod, podIPs)
 			if err != nil {
-				log.Errorf("pod %s has IP collision, pod will be skipped and will fail healthchecks", pod.Name, podIPs)
+				log.Errorf("pod %s has IP collision (%v), pod will be skipped and will fail healthchecks: %v", pod.Name, podIPs, err)
 			}
 			addedIPSnapshot = append(addedIPSnapshot, addedIps...)
 		}
@@ -418,8 +418,7 @@ func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr
 		log.Debugf("adding probe ip %s to set", pip)
 		if err := s.hostsideProbeIPSet.AddIP(pip, ipProto, podUID, true); err != nil {
 			ipsetAddrErrs = append(ipsetAddrErrs, err)
-			log.Errorf("failed adding ip %s to set, error was %s",
-				pod.Name, &s.hostsideProbeIPSet.Prefix, pip, podUID, err)
+			log.Errorf("failed adding ip %s to set, error was %s", pip, err)
 		} else {
 			addedIps = append(addedIps, pip)
 		}

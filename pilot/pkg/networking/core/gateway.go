@@ -730,6 +730,10 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
 		httpConnManager.CodecType = hcm.HttpConnectionManager_HTTP3
 	}
+	// As of Envoy 1.33, the default internalAddressConfig is set to an empty set. In previous versions
+	// the default was all private IPs. To preserve internal headers, we must set ENABLE_HCM_INTERNAL_NETWORKS
+	// to true and explicitly set MeshNetworks to configure Envoy's internal_address_config.
+	// MeshNetwork configuration docs can be found here: https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks
 	if features.EnableHCMInternalNetworks && push.Networks != nil {
 		httpConnManager.InternalAddressConfig = util.MeshNetworksToEnvoyInternalAddressConfig(push.Networks)
 	}

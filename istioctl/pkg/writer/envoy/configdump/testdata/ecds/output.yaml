@@ -55,3 +55,4 @@ ecdsFilters:
     '@type': type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig
     name: istio.io/telemetry/stats/prometheus/sidecar/Outbound/TCP
   lastUpdated: "2023-12-23T13:46:00.699Z"
+

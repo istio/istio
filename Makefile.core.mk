@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2024-12-17T19-00-43
+BASE_VERSION ?= master-2025-02-07T19-01-40
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -288,11 +288,17 @@ go-gen:
 	@PATH="${PATH}":/tmp/bin go generate ./...
 
 refresh-goldens:
-	@REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/... \
+	REFRESH_GOLDEN=true go test ${GOBUILDFLAGS} ./operator/... \
 		./pkg/bootstrap/... \
 		./pkg/kube/inject/... \
+		./pilot/pkg/config/kube/gateway/... \
 		./pilot/pkg/security/authz/builder/... \
-		./cni/pkg/plugin/...
+		./pilot/pkg/serviceregistry/kube/controller/ambient/... \
+		./cni/pkg/iptables/... \
+		./cni/pkg/plugin/... \
+		./istioctl/pkg/workload/... \
+		./istioctl/pkg/writer/envoy/configdump/... \
+		./istioctl/pkg/writer/ztunnel/configdump/...
 
 update-golden: refresh-goldens
 

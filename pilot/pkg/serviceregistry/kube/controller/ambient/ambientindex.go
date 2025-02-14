@@ -301,9 +301,10 @@ func New(options Options) Index {
 		}
 	}, opts.WithName("NamespacesInfo")...)
 
+	NodeLocality := NodesCollection(Nodes, opts.WithName("NodeLocality")...)
 	Workloads := a.WorkloadsCollection(
 		Pods,
-		Nodes,
+		NodeLocality,
 		MeshConfig,
 		AuthorizationPolicies,
 		PeerAuths,

@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/sys/unix"
 	"golang.org/x/time/rate"
 	"google.golang.org/protobuf/proto"
@@ -59,11 +60,12 @@ To clean up stale ztunnels
 */
 
 type connMgr struct {
-	connectionSet []*ZtunnelConnection
+	connectionSet []ZtunnelConnection
 	mu            sync.Mutex
 }
 
-func (c *connMgr) addConn(conn *ZtunnelConnection) {
+func (c *connMgr) addConn(conn ZtunnelConnection) {
+	log := log.WithLabels("conn_uuid", conn.uuid)
 	log.Info("ztunnel connected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -71,25 +73,26 @@ func (c *connMgr) addConn(conn *ZtunnelConnection) {
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
-func (c *connMgr) LatestConn() *ZtunnelConnection {
+func (c *connMgr) LatestConn() (ZtunnelConnection, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.connectionSet) == 0 {
-		return nil
+		return ZtunnelConnection{}, fmt.Errorf("no connection")
 	}
-	return c.connectionSet[len(c.connectionSet)-1]
+	return c.connectionSet[len(c.connectionSet)-1], nil
 }
 
-func (c *connMgr) deleteConn(conn *ZtunnelConnection) {
+func (c *connMgr) deleteConn(conn ZtunnelConnection) {
+	log := log.WithLabels("conn_uuid", conn.uuid)
 	log.Info("ztunnel disconnected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Loop over the slice, keeping non-deleted conn pointers
-	// but filtering out the deleted one.
-	var retainedConns []*ZtunnelConnection
+	// Loop over the slice, keeping non-deleted conn but
+	// filtering out the deleted one.
+	var retainedConns []ZtunnelConnection
 	for _, existingConn := range c.connectionSet {
-		// Not conn-by-pointer that was deleted? Keep it.
+		// Not conn that was deleted? Keep it.
 		if existingConn != conn {
 			retainedConns = append(retainedConns, existingConn)
 		}
@@ -143,7 +146,7 @@ func newZtunnelServer(addr string, pods PodNetnsCache, keepaliveInterval time.Du
 	return &ztunnelServer{
 		listener: l,
 		conns: &connMgr{
-			connectionSet: []*ZtunnelConnection{},
+			connectionSet: []ZtunnelConnection{},
 		},
 		pods:              pods,
 		keepaliveInterval: keepaliveInterval,
@@ -192,7 +195,7 @@ func (z *ztunnelServer) Run(ctx context.Context) {
 // All this to say, that we want to make sure that message to ztunnel are sent from a single goroutine
 // so we don't mix messages and acks.
 // nolint: unparam
-func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection) error {
+func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) error {
 	defer conn.Close()
 
 	context.AfterFunc(ctx, func() {
@@ -203,6 +206,8 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 	// before doing anything, add the connection to the list of active connections
 	z.conns.addConn(conn)
 	defer z.conns.deleteConn(conn)
+
+	log := log.WithLabels("conn_uuid", conn.uuid)
 
 	// get hello message from ztunnel
 	m, _, err := readProto[zdsapi.ZdsHello](conn.u, readWriteDeadline, nil)
@@ -294,7 +299,7 @@ func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 		return err
 	}
 
-	log.Debugf("sending delete pod to ztunnel: %s %v", uid, r)
+	log.Debugf("sending delete pod to all ztunnels: %s %v", uid, r)
 
 	var delErr []error
 
@@ -321,8 +326,8 @@ func podToWorkload(pod *v1.Pod) *zdsapi.WorkloadInfo {
 }
 
 func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) error {
-	latestConn := z.conns.LatestConn()
-	if latestConn == nil {
+	latestConn, err := z.conns.LatestConn()
+	if err != nil {
 		return fmt.Errorf("no ztunnel connection")
 	}
 	uid := string(pod.ObjectMeta.UID)
@@ -341,6 +346,7 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 		"name", add.WorkloadInfo.Name,
 		"namespace", add.WorkloadInfo.Namespace,
 		"serviceAccount", add.WorkloadInfo.ServiceAccount,
+		"conn_uuid", latestConn.uuid,
 	)
 
 	log.Infof("sending pod add to ztunnel")
@@ -365,7 +371,7 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 
 // TODO ctx is unused here
 // nolint: unparam
-func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn *ZtunnelConnection) error {
+func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn ZtunnelConnection) error {
 	snap := z.pods.ReadCurrentPodSnapshot()
 	for uid, wl := range snap {
 		var resp *zdsapi.WorkloadResponse
@@ -421,11 +427,11 @@ func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn *ZtunnelConnectio
 	return nil
 }
 
-func (z *ztunnelServer) accept() (*ZtunnelConnection, error) {
+func (z *ztunnelServer) accept() (ZtunnelConnection, error) {
 	log.Debug("accepting unix conn")
 	conn, err := z.listener.AcceptUnix()
 	if err != nil {
-		return nil, fmt.Errorf("failed to accept unix: %w", err)
+		return ZtunnelConnection{}, fmt.Errorf("failed to accept unix: %w", err)
 	}
 	log.Debug("accepted conn")
 	return newZtunnelConnection(conn), nil
@@ -444,12 +450,13 @@ type updateRequest struct {
 }
 
 type ZtunnelConnection struct {
+	uuid    uuid.UUID
 	u       *net.UnixConn
 	Updates chan updateRequest
 }
 
-func newZtunnelConnection(u *net.UnixConn) *ZtunnelConnection {
-	return &ZtunnelConnection{u: u, Updates: make(chan updateRequest, 100)}
+func newZtunnelConnection(u *net.UnixConn) ZtunnelConnection {
+	return ZtunnelConnection{uuid: uuid.New(), u: u, Updates: make(chan updateRequest, 100)}
 }
 
 func (z *ZtunnelConnection) Close() {

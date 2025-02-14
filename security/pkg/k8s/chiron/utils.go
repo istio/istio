@@ -253,6 +253,7 @@ func readSignedCsr(client clientset.Interface, csr string, watchTimeout time.Dur
 	if err != nil {
 		return nil, fmt.Errorf("failed to watch CSR %v", csr)
 	}
+	defer watcher.Stop()
 
 	// Set a timeout
 	timer := time.After(watchTimeout)

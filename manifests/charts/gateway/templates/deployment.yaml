@@ -11,8 +11,8 @@ metadata:
     {{- .Values.annotations | toYaml | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
-  {{- with .Values.replicaCount }}
-  replicas: {{ . }}
+  {{- if and (hasKey .Values "replicaCount") (ne .Values.replicaCount nil) }}
+  replicas: {{ .Values.replicaCount }}
   {{- end }}
   {{- end }}
   {{- with .Values.strategy }}

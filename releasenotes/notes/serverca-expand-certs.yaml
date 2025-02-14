@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: security
+
+issue:
+- https://github.com/istio/ztunnel/issues/1061
+
+releaseNotes:
+- |
+  **Fixed** `IstioCertificateService` to ensure `IstioCertificateResponse.CertChain` contains only a single cert per element in the array.

@@ -15,13 +15,19 @@
 package bootstrap
 
 import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/url"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
@@ -29,6 +35,8 @@ import (
 	ingress "istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
+	istioCredentials "istio.io/istio/pilot/pkg/credentials"
+	"istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
@@ -251,6 +259,10 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			s.ConfigStores = append(s.ConfigStores, configController)
 			log.Infof("Started File configSource %s", configSource.Address)
 		case XDS:
+			transportCredentials, err := s.getTransportCredentials(args, configSource.TlsSettings)
+			if err != nil {
+				return fmt.Errorf("failed to read transport credentials from config: %v", err)
+			}
 			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.ADSConfig{
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
 				Config: adsc.Config{
@@ -264,11 +276,7 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 					}.ToStruct(),
 					GrpcOpts: []grpc.DialOption{
 						args.KeepaliveOptions.ConvertToClientOption(),
-						// Because we use the custom grpc options for adsc, here we should
-						// explicitly set transport credentials.
-						// TODO: maybe we should use the tls settings within ConfigSource
-						// to secure the connection between istiod and remote xds server.
-						grpc.WithTransportCredentials(insecure.NewCredentials()),
+						grpc.WithTransportCredentials(transportCredentials),
 					},
 				},
 			})
@@ -349,4 +357,52 @@ func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configCont
 	})
 
 	return nil
+}
+
+// getTransportCredentials attempts to create credentials.TransportCredentials from ClientTLSSettings in mesh config
+// Implemented only for SIMPLE_TLS mode
+// TODO:
+//
+//	Implement CRL and SANs override for cert verification
+//	Implement for MUTUAL_TLS/ISTIO_MUTUAL_TLS modes
+func (s *Server) getTransportCredentials(args *PilotArgs, tlsSettings *v1alpha3.ClientTLSSettings) (credentials.TransportCredentials, error) {
+	switch tlsSettings.GetMode() {
+	case v1alpha3.ClientTLSSettings_SIMPLE:
+		if len(tlsSettings.GetCredentialName()) > 0 {
+			if len(tlsSettings.GetCaCertificates()) > 0 {
+				return nil, fmt.Errorf("only one of caCertificates or credentialName can be specified")
+			}
+			rootCert, err := s.getRootCertFromSecret(tlsSettings.GetCredentialName(), args.Namespace)
+			if err != nil {
+				return nil, err
+			}
+			tlsSettings.CaCertificates = string(rootCert.Cert)
+		}
+		if tlsSettings.GetInsecureSkipVerify().GetValue() || len(tlsSettings.GetCaCertificates()) == 0 {
+			return credentials.NewTLS(&tls.Config{
+				ServerName:         tlsSettings.GetSni(),
+				InsecureSkipVerify: tlsSettings.GetInsecureSkipVerify().GetValue(), //nolint
+			}), nil
+		}
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM([]byte(tlsSettings.GetCaCertificates())) {
+			return nil, fmt.Errorf("failed to add ca certificate from configSource.tlsSettings to pool")
+		}
+		return credentials.NewTLS(&tls.Config{
+			ServerName:         tlsSettings.GetSni(),
+			InsecureSkipVerify: tlsSettings.GetInsecureSkipVerify().GetValue(), //nolint
+			RootCAs:            certPool,
+		}), nil
+	default:
+		return insecure.NewCredentials(), nil
+	}
+}
+
+// getRootCertFromSecret fetches a map of keys and values from a secret with name in namespace
+func (s *Server) getRootCertFromSecret(name, namespace string) (*istioCredentials.CertInfo, error) {
+	secret, err := s.kubeClient.Kube().CoreV1().Secrets(namespace).Get(context.Background(), name, v1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get credential with name %v: %v", name, err)
+	}
+	return kube.ExtractRoot(secret)
 }
