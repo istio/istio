@@ -65,11 +65,11 @@ type connMgr struct {
 }
 
 func (c *connMgr) addConn(conn ZtunnelConnection) {
-	log := log.WithLabels("conn_uuid", conn.uuid)
-	log.Info("ztunnel connected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	log := log.WithLabels("conn_uuid", conn.uuid)
 	c.connectionSet = append(c.connectionSet, conn)
+	log.Infof("new ztunnel connected, total connected %s", len(c.connectionSet))
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
@@ -79,14 +79,15 @@ func (c *connMgr) LatestConn() (ZtunnelConnection, error) {
 	if len(c.connectionSet) == 0 {
 		return ZtunnelConnection{}, fmt.Errorf("no connection")
 	}
-	return c.connectionSet[len(c.connectionSet)-1], nil
+	lConn := c.connectionSet[len(c.connectionSet)-1]
+	log.Debugf("latest ztunnel connection is %s, total connected %s", lConn.uuid, len(c.connectionSet))
+	return lConn, nil
 }
 
 func (c *connMgr) deleteConn(conn ZtunnelConnection) {
-	log := log.WithLabels("conn_uuid", conn.uuid)
-	log.Info("ztunnel disconnected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	log := log.WithLabels("conn_uuid", conn.uuid)
 
 	// Loop over the slice, keeping non-deleted conn but
 	// filtering out the deleted one.
@@ -98,6 +99,7 @@ func (c *connMgr) deleteConn(conn ZtunnelConnection) {
 		}
 	}
 	c.connectionSet = retainedConns
+	log.Infof("ztunnel disconnected, total connected %s", len(c.connectionSet))
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
@@ -182,6 +184,7 @@ func (z *ztunnelServer) Run(ctx context.Context) {
 		}
 		log.Debug("connection accepted")
 		go func() {
+			log := log.WithLabels("conn_uuid", conn.uuid)
 			log.Debug("handling conn")
 			if err := z.handleConn(ctx, conn); err != nil {
 				log.Errorf("failed to handle conn: %v", err)
@@ -235,6 +238,10 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 				// (annoyingly, go's `net.OpErr` is not convertible?)
 				if strings.Contains(err.Error(), "sendmsg: broken pipe") {
 					log.Error("ztunnel connection broken/unwritable, disposing of this connection")
+					update.Resp <- updateResponse{
+						err:  err,
+						resp: nil,
+					}
 					return err
 				}
 				// if we timed out waiting for a (valid) response, mention and continue, connection may not be trashed
@@ -306,6 +313,8 @@ func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 	z.conns.mu.Lock()
 	defer z.conns.mu.Unlock()
 	for _, conn := range z.conns.connectionSet {
+		log := log.WithLabels("conn_uuid", conn.uuid)
+		log.Debug("sending msg to connected ztunnel")
 		_, err := conn.send(ctx, data, nil)
 		if err != nil {
 			delErr = append(delErr, err)
@@ -330,6 +339,7 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 	if err != nil {
 		return fmt.Errorf("no ztunnel connection")
 	}
+
 	uid := string(pod.ObjectMeta.UID)
 
 	add := &zdsapi.AddWorkload{
