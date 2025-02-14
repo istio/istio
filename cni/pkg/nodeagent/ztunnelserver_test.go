@@ -49,7 +49,7 @@ func TestZtunnelServerHandleConn(t *testing.T) {
 	cacheCloser := fillCacheWithFakePods(cache, 2)
 	defer cacheCloser()
 
-	ch := make(chan updateRequest)
+	ch := make(chan UpdateRequest)
 	myUUID := uuid.New()
 
 	helloResp := &zdsapi.ZdsHello{}
@@ -81,14 +81,15 @@ func TestZtunnelServerHandleConn(t *testing.T) {
 	conn.On("SendMsgAndWaitForAck", snapReq, (*int)(nil)).Times(1).Return(respData, nil)
 
 	conn.On("ReadHello").Return(helloResp, nil)
-	conn.On("Updates").Return((<-chan updateRequest)(ch))
+	var updates <-chan UpdateRequest = ch
+	conn.On("Updates").Return(updates)
 	conn.On("UUID").Return(myUUID)
 	conn.On("Close").Run(func(args mock.Arguments) {
 		wg.Done()
 	}).Return(nil)
 	conn.On("CheckAlive", mock.Anything).Return(nil)
 
-	srv := createStoppedServer(ctx, cache, uuid.New())
+	srv := createStoppedServer(cache, uuid.New())
 
 	go func() {
 		srv.ztunServer.handleConn(ctx, conn)
@@ -104,22 +105,15 @@ func TestZtunnelServerHandleConn(t *testing.T) {
 		}
 		ret := make(chan updateResponse, 1)
 		fdF := int(info.Netns.Fd())
-		req := updateRequest{
+		req := UpdateRequest{
 			Update: r,
 			Fd:     &fdF,
 			Resp:   ret,
 		}
 
 		conn.On("SendMsgAndWaitForAck", r, &fdF).Times(1).Return(respData, nil)
-
-		select {
-		case ch <- req:
-
-			select {
-			case resp := <-ret:
-				fmt.Printf("%+v", resp)
-			}
-		}
+		ch <- req
+		<-ret
 	}
 
 	wg.Wait()
@@ -135,7 +129,7 @@ func TestZtunnelServerHandleConnWhenConnDies(t *testing.T) {
 	cacheCloser := fillCacheWithFakePods(cache, 2)
 	defer cacheCloser()
 
-	ch := make(chan updateRequest)
+	ch := make(chan UpdateRequest)
 	myUUID := uuid.New()
 
 	helloResp := &zdsapi.ZdsHello{}
@@ -167,13 +161,15 @@ func TestZtunnelServerHandleConnWhenConnDies(t *testing.T) {
 	conn.On("SendMsgAndWaitForAck", snapReq, (*int)(nil)).Times(1).Return(respData, nil)
 
 	conn.On("ReadHello").Return(helloResp, nil)
-	conn.On("Updates").Return((<-chan updateRequest)(ch))
+
+	var updates <-chan UpdateRequest = ch
+	conn.On("Updates").Return(updates)
 	conn.On("UUID").Return(myUUID)
 	conn.On("Close").Run(func(args mock.Arguments) {
 		wg.Done()
 	}).Return(nil)
 
-	srv := createStoppedServer(ctx, cache, uuid.New())
+	srv := createStoppedServer(cache, uuid.New())
 
 	go func() {
 		srv.ztunServer.handleConn(ctx, conn)
@@ -189,7 +185,7 @@ func TestZtunnelServerHandleConnWhenConnDies(t *testing.T) {
 		}
 		ret := make(chan updateResponse, 1)
 		fdF := int(info.Netns.Fd())
-		req := updateRequest{
+		req := UpdateRequest{
 			Update: r,
 			Fd:     &fdF,
 			Resp:   ret,
@@ -694,7 +690,7 @@ func startServerWithPodCache(ctx context.Context, podCache PodNetnsCache) struct
 	}{ztunServer: ztServ, addr: addr}
 }
 
-func createStoppedServer(ctx context.Context, podCache PodNetnsCache, uuid uuid.UUID) struct {
+func createStoppedServer(podCache PodNetnsCache, uuid uuid.UUID) struct {
 	ztunServer *ztunnelServer
 	addr       string
 } {
