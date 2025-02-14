@@ -463,6 +463,9 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig, proxy
 		}
 	case meshconfig.MeshConfig_JSON:
 		jsonLogStruct := EnvoyJSONLogFormatIstio
+		if !versionGE123(proxyVersion) {
+			jsonLogStruct = LegacyEnvoyJSONLogFormatIstio
+		}
 		if len(mesh.AccessLogFormat) > 0 {
 			parsedJSONLogStruct := structpb.Struct{}
 			if err := protomarshal.UnmarshalAllowUnknown([]byte(mesh.AccessLogFormat), &parsedJSONLogStruct); err != nil {
