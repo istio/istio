@@ -238,11 +238,11 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 		if k8sErr == nil {
 			break
 		}
-		log.Debugf("Failed to get %s/%s pod info: %v", podNamespace, podName, k8sErr)
+		log.Debugf("Failed to get pod info: %v", k8sErr)
 		time.Sleep(podRetrievalInterval)
 	}
 	if k8sErr != nil {
-		log.Errorf("Failed to get %s/%s pod info: %v", podNamespace, podName, k8sErr)
+		log.Errorf("Failed to get pod info: %v", k8sErr)
 		return k8sErr
 	}
 
@@ -254,7 +254,7 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 
 	if val, ok := pi.ProxyEnvironments["DISABLE_ENVOY"]; ok {
 		if val, err := strconv.ParseBool(val); err == nil && val {
-			log.Infof("excluded due to DISABLE_ENVOY on istio-proxy", podNamespace, podName)
+			log.Infof("excluded due to DISABLE_ENVOY on istio-proxy")
 			return nil
 		}
 	}

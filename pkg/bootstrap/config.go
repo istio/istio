@@ -292,7 +292,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 				return buckets[i].Match.Prefix < buckets[j].Match.Prefix
 			})
 		} else {
-			log.Warnf("Failed to unmarshal histogram buckets: %v", bucketsAnno, err)
+			log.Warnf("Failed to unmarshal histogram buckets %v: %v", bucketsAnno, err)
 		}
 	}
 
@@ -718,7 +718,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	if meta.MetadataDiscovery == nil {
 		// If it's disabled, set it if ambient is enabled
 		meta.MetadataDiscovery = ptr.Of(meta.EnableHBONE)
-		log.Debugf("metadata discovery is disabled, setting it to %s based on if ambient HBONE is enabled", meta.MetadataDiscovery)
+		log.Debugf("metadata discovery is disabled, setting it to %s based on if ambient HBONE is enabled", meta.EnableHBONE)
 	}
 
 	return &model.Node{

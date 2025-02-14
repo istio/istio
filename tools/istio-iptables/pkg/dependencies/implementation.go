@@ -155,7 +155,7 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 		return nftVer, nil
 	}
 	// not critical, may find another.
-	log.Debugf("did not find (or cannot use) iptables binary, error was %w: %+v", err, nftVer)
+	log.Debugf("did not find (or cannot use) iptables binary, error was %v: %+v", err, nftVer)
 
 	// Check again
 	// does the legacy binary set exist, and are legacy rules present?
@@ -165,7 +165,7 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 		return legVer, nil
 	}
 	// not critical, may find another.
-	log.Debugf("did not find (or cannot use) iptables binary, error was %w: %+v", err, legVer)
+	log.Debugf("did not find (or cannot use) iptables binary, error was %v: %+v", err, legVer)
 
 	// regular non-suffixed binary set is our last resort.
 	//
