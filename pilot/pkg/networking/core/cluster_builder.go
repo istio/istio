@@ -257,6 +257,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
 		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
+		opts.allInstancesHBONE = cb.req.Push.AllInstancesSupportHBONE(service, port)
 	}
 
 	if destRule != nil {
@@ -271,9 +272,15 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 
 	cb.applyMetadataExchange(opts.mutable.cluster)
 
-	if service.MeshExternal {
+	if service.MeshExternal || opts.allInstancesHBONE {
+		// Conditionally skips based on config
+		key := "external"
+		if opts.allInstancesHBONE {
+			// Unconditionally skips
+			key = "disable_mx"
+		}
 		im := getOrCreateIstioMetadata(mc.cluster)
-		im.Fields["external"] = &structpb.Value{
+		im.Fields[key] = &structpb.Value{
 			Kind: &structpb.Value_BoolValue{
 				BoolValue: true,
 			},

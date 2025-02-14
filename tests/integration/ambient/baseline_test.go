@@ -197,6 +197,13 @@ func TestServices(t *testing.T) {
 			t.Skip("https://github.com/istio/istio/pull/50182")
 		}
 
+		// Ensure we are not leaking metadata exchange headers
+		// We skip uncaptured workloads, as there is a pre-existing issue around Sidecar-->Uncaptured leaking the headers.
+		// Since this is not really related to ambient we just skip this for now; the case we really care about is Sidecar-->Ztunnel.
+		if !dst.Config().IsUncaptured() {
+			opt.Check = check.And(opt.Check, check.RequestHeader("X-Envoy-Peer-Metadata", ""))
+		}
+
 		// TODO test from all source workloads as well
 		src.CallOrFail(t, opt)
 	})
