@@ -41,9 +41,9 @@ func (m *MockedZtunnelConnection) UUID() uuid.UUID {
 	return args.Get(0).(uuid.UUID)
 }
 
-func (m *MockedZtunnelConnection) Updates() <-chan updateRequest {
+func (m *MockedZtunnelConnection) Updates() <-chan UpdateRequest {
 	args := m.Called()
-	return args.Get(0).(<-chan updateRequest)
+	return args.Get(0).(<-chan UpdateRequest)
 }
 
 func (m *MockedZtunnelConnection) CheckAlive(timeout time.Duration) error {

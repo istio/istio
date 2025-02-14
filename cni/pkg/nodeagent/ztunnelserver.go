@@ -439,7 +439,7 @@ type updateResponse struct {
 	resp *zdsapi.WorkloadResponse
 }
 
-type updateRequest struct {
+type UpdateRequest struct {
 	Update *zdsapi.WorkloadRequest
 	Fd     *int
 
@@ -449,7 +449,7 @@ type updateRequest struct {
 type ZtunnelConnection interface {
 	Close()
 	UUID() uuid.UUID
-	Updates() <-chan updateRequest
+	Updates() <-chan UpdateRequest
 	CheckAlive(timeout time.Duration) error
 	ReadHello() (*zdsapi.ZdsHello, error)
 	Send(ctx context.Context, data *zdsapi.WorkloadRequest, fd *int) (*zdsapi.WorkloadResponse, error)
@@ -459,11 +459,11 @@ type ZtunnelConnection interface {
 type ZtunnelUDSConnection struct {
 	uuid    uuid.UUID
 	u       *net.UnixConn
-	updates chan updateRequest
+	updates chan UpdateRequest
 }
 
 func newZtunnelConnection(u *net.UnixConn) ZtunnelConnection {
-	return ZtunnelUDSConnection{uuid: uuid.New(), u: u, updates: make(chan updateRequest, 100)}
+	return ZtunnelUDSConnection{uuid: uuid.New(), u: u, updates: make(chan UpdateRequest, 100)}
 }
 
 func (z ZtunnelUDSConnection) Close() {
@@ -474,7 +474,7 @@ func (z ZtunnelUDSConnection) UUID() uuid.UUID {
 	return z.uuid
 }
 
-func (z ZtunnelUDSConnection) Updates() <-chan updateRequest {
+func (z ZtunnelUDSConnection) Updates() <-chan UpdateRequest {
 	return z.updates
 }
 
@@ -496,7 +496,7 @@ func (z ZtunnelUDSConnection) ReadHello() (*zdsapi.ZdsHello, error) {
 
 func (z ZtunnelUDSConnection) Send(ctx context.Context, data *zdsapi.WorkloadRequest, fd *int) (*zdsapi.WorkloadResponse, error) {
 	ret := make(chan updateResponse, 1)
-	req := updateRequest{
+	req := UpdateRequest{
 		Update: data,
 		Fd:     fd,
 		Resp:   ret,
