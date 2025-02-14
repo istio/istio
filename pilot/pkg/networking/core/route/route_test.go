@@ -2988,11 +2988,13 @@ func TestInboundHTTPRoute(t *testing.T) {
 	testCases := []struct {
 		name        string
 		enableRetry bool
+		protocol    protocol.Instance
 		expected    *envoyroute.Route
 	}{
 		{
-			name:        "enable retry",
+			name:        "enable retry, http protocol",
 			enableRetry: true,
+			protocol:    protocol.HTTP,
 			expected: &envoyroute.Route{
 				Name:  "default",
 				Match: route.TranslateRouteMatch(config.Config{}, nil),
@@ -3018,8 +3020,31 @@ func TestInboundHTTPRoute(t *testing.T) {
 			},
 		},
 		{
+			name:        "enable retry, grpc protocol",
+			enableRetry: true,
+			protocol:    protocol.GRPC,
+			expected: &envoyroute.Route{
+				Name:  "default",
+				Match: route.TranslateRouteMatch(config.Config{}, nil),
+				Action: &envoyroute.Route_Route{
+					Route: &envoyroute.RouteAction{
+						ClusterSpecifier: &envoyroute.RouteAction_Cluster{Cluster: "cluster"},
+						Timeout:          route.Notimeout,
+						MaxStreamDuration: &envoyroute.RouteAction_MaxStreamDuration{
+							MaxStreamDuration:    route.Notimeout,
+							GrpcTimeoutHeaderMax: route.Notimeout,
+						},
+					},
+				},
+				Decorator: &envoyroute.Decorator{
+					Operation: "operation",
+				},
+			},
+		},
+		{
 			name:        "disable retry",
 			enableRetry: false,
+			protocol:    protocol.HTTP,
 			expected: &envoyroute.Route{
 				Name:  "default",
 				Match: route.TranslateRouteMatch(config.Config{}, nil),
@@ -3043,7 +3068,7 @@ func TestInboundHTTPRoute(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableInboundRetryPolicy, tc.enableRetry)
 			inroute := route.BuildDefaultHTTPInboundRoute(&model.Proxy{IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: -1}},
-				"cluster", "operation")
+				"cluster", "operation", tc.protocol)
 			if !reflect.DeepEqual(tc.expected, inroute) {
 				t.Errorf("error in inbound routes. Got: %v, Want: %v", inroute, tc.expected)
 			}
