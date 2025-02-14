@@ -19,10 +19,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +39,171 @@ import (
 )
 
 var ztunnelTestCounter atomic.Uint32
+
+func TestZtunnelServerHandleConn(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	conn := FakeZtunnelConnection()
+
+	cache := &fakePodCache{}
+	cacheCloser := fillCacheWithFakePods(cache, 2)
+	defer cacheCloser()
+
+	ch := make(chan updateRequest)
+	myUUID := uuid.New()
+
+	helloResp := &zdsapi.ZdsHello{}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	respData := &zdsapi.WorkloadResponse{}
+
+	for uid, info := range cache.pods {
+		add := &zdsapi.AddWorkload{
+			WorkloadInfo: info.Workload,
+			Uid:          uid,
+		}
+		req := &zdsapi.WorkloadRequest{
+			Payload: &zdsapi.WorkloadRequest_Add{
+				Add: add,
+			},
+		}
+		locFD := int(info.Netns.Fd())
+		conn.On("SendMsgAndWaitForAck", req, &locFD).Times(1).Return(respData, nil)
+	}
+
+	snapReq := &zdsapi.WorkloadRequest{
+		Payload: &zdsapi.WorkloadRequest_SnapshotSent{
+			SnapshotSent: &zdsapi.SnapshotSent{},
+		},
+	}
+
+	conn.On("SendMsgAndWaitForAck", snapReq, (*int)(nil)).Times(1).Return(respData, nil)
+
+	conn.On("ReadHello").Return(helloResp, nil)
+	conn.On("Updates").Return((<-chan updateRequest)(ch))
+	conn.On("UUID").Return(myUUID)
+	conn.On("Close").Run(func(args mock.Arguments) {
+		wg.Done()
+	}).Return(nil)
+	conn.On("CheckAlive", mock.Anything).Return(nil)
+
+	srv := createStoppedServer(ctx, cache, uuid.New())
+
+	go func() {
+		srv.ztunServer.handleConn(ctx, conn)
+	}()
+
+	for uid, info := range cache.pods {
+		r := &zdsapi.WorkloadRequest{
+			Payload: &zdsapi.WorkloadRequest_Del{
+				Del: &zdsapi.DelWorkload{
+					Uid: uid,
+				},
+			},
+		}
+		ret := make(chan updateResponse, 1)
+		fdF := int(info.Netns.Fd())
+		req := updateRequest{
+			Update: r,
+			Fd:     &fdF,
+			Resp:   ret,
+		}
+
+		conn.On("SendMsgAndWaitForAck", r, &fdF).Times(1).Return(respData, nil)
+
+		select {
+		case ch <- req:
+
+			select {
+			case resp := <-ret:
+				fmt.Printf("%+v", resp)
+			}
+		}
+	}
+
+	wg.Wait()
+	conn.AssertExpectations(t)
+}
+
+func TestZtunnelServerHandleConnWhenConnDies(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	conn := FakeZtunnelConnection()
+
+	cache := &fakePodCache{}
+	cacheCloser := fillCacheWithFakePods(cache, 2)
+	defer cacheCloser()
+
+	ch := make(chan updateRequest)
+	myUUID := uuid.New()
+
+	helloResp := &zdsapi.ZdsHello{}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	respData := &zdsapi.WorkloadResponse{}
+
+	for uid, info := range cache.pods {
+		add := &zdsapi.AddWorkload{
+			WorkloadInfo: info.Workload,
+			Uid:          uid,
+		}
+		req := &zdsapi.WorkloadRequest{
+			Payload: &zdsapi.WorkloadRequest_Add{
+				Add: add,
+			},
+		}
+		locFD := int(info.Netns.Fd())
+		conn.On("SendMsgAndWaitForAck", req, &locFD).Times(1).Return(respData, nil)
+	}
+
+	snapReq := &zdsapi.WorkloadRequest{
+		Payload: &zdsapi.WorkloadRequest_SnapshotSent{
+			SnapshotSent: &zdsapi.SnapshotSent{},
+		},
+	}
+
+	conn.On("SendMsgAndWaitForAck", snapReq, (*int)(nil)).Times(1).Return(respData, nil)
+
+	conn.On("ReadHello").Return(helloResp, nil)
+	conn.On("Updates").Return((<-chan updateRequest)(ch))
+	conn.On("UUID").Return(myUUID)
+	conn.On("Close").Run(func(args mock.Arguments) {
+		wg.Done()
+	}).Return(nil)
+
+	srv := createStoppedServer(ctx, cache, uuid.New())
+
+	go func() {
+		srv.ztunServer.handleConn(ctx, conn)
+	}()
+
+	for uid, info := range cache.pods {
+		r := &zdsapi.WorkloadRequest{
+			Payload: &zdsapi.WorkloadRequest_Del{
+				Del: &zdsapi.DelWorkload{
+					Uid: uid,
+				},
+			},
+		}
+		ret := make(chan updateResponse, 1)
+		fdF := int(info.Netns.Fd())
+		req := updateRequest{
+			Update: r,
+			Fd:     &fdF,
+			Resp:   ret,
+		}
+
+		conn.On("SendMsgAndWaitForAck", r, &fdF).Times(1).Return(nil, fmt.Errorf("sendmsg: broken pipe"))
+		ch <- req
+		<-ret
+		break
+	}
+
+	wg.Wait()
+	conn.AssertExpectations(t)
+}
 
 func TestZtunnelSendsPodSnapshot(t *testing.T) {
 	mt := monitortest.New(t)
@@ -520,6 +688,22 @@ func startServerWithPodCache(ctx context.Context, podCache PodNetnsCache) struct
 	}
 	go ztServ.Run(ctx)
 
+	return struct {
+		ztunServer *ztunnelServer
+		addr       string
+	}{ztunServer: ztServ, addr: addr}
+}
+
+func createStoppedServer(ctx context.Context, podCache PodNetnsCache, uuid uuid.UUID) struct {
+	ztunServer *ztunnelServer
+	addr       string
+} {
+	// go uses @ instead of \0 for abstract unix sockets
+	addr := fmt.Sprintf("@testaddr%d", uuid)
+	ztServ, err := newZtunnelServer(addr, podCache, time.Second/10)
+	if err != nil {
+		panic(err)
+	}
 	return struct {
 		ztunServer *ztunnelServer
 		addr       string
