@@ -313,13 +313,11 @@ func TestPodWorkloads(t *testing.T) {
 		{
 			name: "simple pod with locality",
 			inputs: []any{
-				&v1.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node",
-						Labels: map[string]string{
-							v1.LabelTopologyRegion: "region",
-							v1.LabelTopologyZone:   "zone",
-						},
+				Node{
+					Name: "node",
+					Locality: &workloadapi.Locality{
+						Region: "region",
+						Zone:   "zone",
 					},
 				},
 			},
@@ -790,7 +788,7 @@ func TestPodWorkloads(t *testing.T) {
 				EndpointSlices,
 				EndpointSlicesAddressIndex,
 				krttest.GetMockCollection[*v1.Namespace](mock),
-				krttest.GetMockCollection[*v1.Node](mock),
+				krttest.GetMockCollection[Node](mock),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.pod)
 			var res *workloadapi.Workload

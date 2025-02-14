@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/annotation"
-	"istio.io/api/label"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
@@ -55,7 +54,7 @@ import (
 // Workloads can come from a variety of sources; these are joined together to build one complete `Collection[WorkloadInfo]`.
 func (a *index) WorkloadsCollection(
 	pods krt.Collection[*v1.Pod],
-	nodes krt.Collection[*v1.Node],
+	nodes krt.Collection[Node],
 	meshConfig krt.Singleton[MeshConfig],
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
 	peerAuths krt.Collection[*securityclient.PeerAuthentication],
@@ -230,7 +229,7 @@ func (a *index) podWorkloadBuilder(
 	endpointSlices krt.Collection[*discovery.EndpointSlice],
 	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
 	namespaces krt.Collection[*v1.Namespace],
-	nodes krt.Collection[*v1.Node],
+	nodes krt.Collection[Node],
 ) krt.TransformationSingle[*v1.Pod, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, p *v1.Pod) *model.WorkloadInfo {
 		// Pod Is Pending but have a pod IP should be a valid workload, we should build it ,
@@ -767,30 +766,17 @@ func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*work
 	return res
 }
 
-func getPodLocality(ctx krt.HandlerContext, Nodes krt.Collection[*v1.Node], pod *v1.Pod) *workloadapi.Locality {
+func getPodLocality(ctx krt.HandlerContext, Nodes krt.Collection[Node], pod *v1.Pod) *workloadapi.Locality {
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#late-initialization
-	node := ptr.Flatten(krt.FetchOne(ctx, Nodes, krt.FilterKey(pod.Spec.NodeName)))
+	node := krt.FetchOne(ctx, Nodes, krt.FilterKey(pod.Spec.NodeName))
 	if node == nil {
 		if pod.Spec.NodeName != "" {
 			log.Warnf("unable to get node %q for pod %q/%q", pod.Spec.NodeName, pod.Namespace, pod.Name)
 		}
 		return nil
 	}
-
-	region := node.GetLabels()[v1.LabelTopologyRegion]
-	zone := node.GetLabels()[v1.LabelTopologyZone]
-	subzone := node.GetLabels()[label.TopologySubzone.Name]
-
-	if region == "" && zone == "" && subzone == "" {
-		return nil
-	}
-
-	return &workloadapi.Locality{
-		Region:  region,
-		Zone:    zone,
-		Subzone: subzone,
-	}
+	return node.Locality
 }
 
 func getWorkloadEntryLocality(p *networkingv1alpha3.WorkloadEntry) *workloadapi.Locality {
