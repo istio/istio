@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 55116
+releaseNotes:
+- |
+  **Fixed** Istiod sending an incompatible access log format to <1.23 proxies when meshConfig.accessLogEncoding is set to JSON
