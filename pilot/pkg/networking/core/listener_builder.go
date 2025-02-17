@@ -163,6 +163,10 @@ func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking
 }
 
 func (lb *ListenerBuilder) patchListeners() {
+	if lb.node.IsWaypointProxy() {
+		// EnvoyFilter is not implemented for waypoints
+		return
+	}
 	lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node)
 	if lb.envoyFilterWrapper == nil {
 		return
