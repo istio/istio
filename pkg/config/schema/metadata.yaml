@@ -121,6 +121,8 @@ resources:
     builtin: true
     proto: "k8s.io.api.core.v1.ServiceSpec"
     protoPackage: "k8s.io/api/core/v1"
+    statusProto: "k8s.io.api.core.v1.ServiceStatus"
+    statusProtoPackage: "k8s.io/api/core/v1"
 
   - kind: "ConfigMap"
     plural: "configmaps"

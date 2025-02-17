@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/annotations"
 	"istio.io/istio/pkg/config/analysis/analyzers/authz"
+	"istio.io/istio/pkg/config/analysis/analyzers/conditions"
 	"istio.io/istio/pkg/config/analysis/analyzers/deployment"
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
@@ -986,6 +987,19 @@ var testGrid = []testCase{
 		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
 		expected: []message{
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-uppercase"},
+		},
+	},
+	{
+		name:       "Condition Analyzer",
+		inputFiles: []string{"testdata/condition-analyzer.yaml"},
+		analyzer:   &conditions.ConditionAnalyzer{},
+		expected: []message{
+			{msg.NegativeConditionStatus, "Service default/negative-condition-svc"},
+			{msg.NegativeConditionStatus, "ServiceEntry default/negative-condition-svcEntry"},
+			{msg.NegativeConditionStatus, "AuthorizationPolicy default/negative-condition-authz"},
+			{msg.NegativeConditionStatus, "Gateway default/negative-condition-gateway"},
+			{msg.NegativeConditionStatus, "HTTPRoute default/negative-condition-httproute"},
+			{msg.NegativeConditionStatus, "GRPCRoute default/negative-condition-grpcroute"},
 		},
 	},
 }
