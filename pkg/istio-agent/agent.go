@@ -355,9 +355,10 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 
 	// There are a couple of things we have to do here
 	//
-	// 1. Use a custom SDS workload socket if one is found+healthy at the configured path
-	// 3. Error out if a custom SDS socket path is configured but no socket is found there.
-	// 4. Do NOT error out, but just start and use the default Istio SDS server, if no socket
+	// 1. Use a custom SDS workload socket if one is found+healthy at the configured path.
+	//      If we do find one, we will still bind a local SDS server, but it will be used only to serve file certificates.
+	// 2. Error out if a custom SDS socket path is configured but no socket is found there.
+	// 3. Do NOT error out, but just start and use the default Istio SDS server, if no socket
 	// is found AND no custom SDS socket path is configured.
 	//
 	//

@@ -75,6 +75,7 @@ func (s *Server) Stop() {
 	}
 }
 
+// initWorkloadSdsService initializes the SDS service, bound to a UDS. The path may be configured.
 func (s *Server) initWorkloadSdsService(opts *security.Options) {
 	s.grpcWorkloadServer = grpc.NewServer(s.grpcServerOptions()...)
 	s.workloadSds.register(s.grpcWorkloadServer)
@@ -102,9 +103,9 @@ func (s *Server) initWorkloadSdsService(opts *security.Options) {
 			}
 			if s.grpcWorkloadListener != nil {
 				if opts.ServeOnlyFiles {
-					sdsServiceLog.Infof("Starting SDS server for workload certificates, will listen on %q", path)
-				} else {
 					sdsServiceLog.Infof("Starting SDS server for file certificates only, will listen on %q", path)
+				} else {
+					sdsServiceLog.Infof("Starting SDS server for workload certificates, will listen on %q", path)
 				}
 				if err = s.grpcWorkloadServer.Serve(s.grpcWorkloadListener); err != nil {
 					sdsServiceLog.Errorf("SDS grpc server for workload proxies failed to start: %v", err)
