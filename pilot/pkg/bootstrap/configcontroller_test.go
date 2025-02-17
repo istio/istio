@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -23,6 +24,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -37,6 +39,8 @@ import (
 )
 
 func TestGetTransportCredentials(t *testing.T) {
+	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	caCertStr := testCert(1, priv, nil, []string{"example.com"})
 	cases := []struct {
 		name                       string
 		args                       *PilotArgs
@@ -56,7 +60,7 @@ func TestGetTransportCredentials(t *testing.T) {
 			args: &PilotArgs{Namespace: testNamespace},
 			tlsSettings: &v1alpha3.ClientTLSSettings{
 				Mode:           v1alpha3.ClientTLSSettings_SIMPLE,
-				CaCertificates: testCert(),
+				CaCertificates: caCertStr,
 			},
 			credentialSecurityProtocol: "tls",
 			expectedError:              nil,
@@ -84,7 +88,7 @@ func TestGetTransportCredentials(t *testing.T) {
 					Namespace: testNamespace,
 				},
 				Data: map[string][]byte{
-					"cacert": []byte(testCert()),
+					"cacert": []byte(caCertStr),
 				},
 				Type: corev1.SecretTypeOpaque,
 			},
@@ -104,7 +108,7 @@ func TestGetTransportCredentials(t *testing.T) {
 					Namespace: testNamespace,
 				},
 				Data: map[string][]byte{
-					"ca.crt": []byte(testCert()),
+					"ca.crt": []byte(caCertStr),
 				},
 				Type: corev1.SecretTypeOpaque,
 			},
@@ -135,7 +139,7 @@ func TestGetTransportCredentials(t *testing.T) {
 			tlsSettings: &v1alpha3.ClientTLSSettings{
 				Mode:           v1alpha3.ClientTLSSettings_SIMPLE,
 				CredentialName: "test-secret",
-				CaCertificates: testCert(),
+				CaCertificates: caCertStr,
 			},
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -143,12 +147,12 @@ func TestGetTransportCredentials(t *testing.T) {
 					Namespace: testNamespace,
 				},
 				Data: map[string][]byte{
-					"cacert": []byte(base64.StdEncoding.EncodeToString([]byte(testCert()))),
+					"cacert": []byte(base64.StdEncoding.EncodeToString([]byte(caCertStr))),
 				},
 				Type: corev1.SecretTypeOpaque,
 			},
 			credentialSecurityProtocol: "tls",
-			expectedError:              errors.New("only one of caCertificates or credentialName can be specified"),
+			expectedError:              errors.New("cannot specify client certificates or CA certificate or CA CRL If credentialName is set"),
 		},
 		{
 			name: "MUTUAL TLS",
@@ -184,22 +188,112 @@ func TestGetTransportCredentials(t *testing.T) {
 	}
 }
 
-func testCert() string {
+func TestVerifyCert(t *testing.T) {
 	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	caCertStr := testCert(1, priv, nil, []string{"example.com"})
+	block, _ := pem.Decode([]byte(caCertStr))
+	caCert, _ := x509.ParseCertificate(block.Bytes)
+	cases := []struct {
+		name             string
+		sans             []string
+		certDomainNames  []string
+		crlNums          []int64
+		certSerialNumber int64
+		expectedErr      error
+	}{
+		{
+			name:             "Cert serial number in revoked list",
+			sans:             nil,
+			certDomainNames:  []string{"example.com"},
+			crlNums:          []int64{5, 7},
+			certSerialNumber: 5,
+			expectedErr:      fmt.Errorf("certificate is revoked"),
+		},
+		{
+			name:             "Cert serial number not in revoked list",
+			sans:             nil,
+			certDomainNames:  []string{"example.com"},
+			crlNums:          []int64{5, 7},
+			certSerialNumber: 3,
+			expectedErr:      nil,
+		},
+		{
+			name:             "Cert domain names not in SANs list",
+			sans:             []string{"google.com", "istio.io"},
+			certDomainNames:  []string{"example.com"},
+			crlNums:          nil,
+			certSerialNumber: 3,
+			expectedErr:      fmt.Errorf("no matching SAN found"),
+		},
+		{
+			name:             "Cert domain name in SANs list",
+			sans:             []string{"example.com", "istio.io"},
+			certDomainNames:  []string{"example.com"},
+			crlNums:          nil,
+			certSerialNumber: 3,
+			expectedErr:      nil,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			crl := testCRL(caCert, priv, c.crlNums)
+			certStr := testCert(c.certSerialNumber, priv, caCert, c.certDomainNames)
+			s := Server{}
+			block, _ = pem.Decode([]byte(certStr))
+			actualErr := s.verifyCert([][]byte{block.Bytes}, &v1alpha3.ClientTLSSettings{SubjectAltNames: c.sans, CaCrl: crl})
+			if actualErr == nil && c.expectedErr != nil {
+				t.Errorf("expected verifyCert error: %v", c.expectedErr.Error())
+			} else if c.expectedErr == nil && actualErr != nil {
+				t.Errorf("unexpected verifyCert error: %v", actualErr.Error())
+			} else if actualErr != nil && c.expectedErr != nil && actualErr.Error() != c.expectedErr.Error() {
+				t.Errorf("expected error: %v, got error: %v", c.expectedErr.Error(), actualErr.Error())
+			}
+		})
+	}
+}
+
+func testCert(sno int64, priv *ecdsa.PrivateKey, issuer *x509.Certificate, dnsNames []string) string {
 	cert := &x509.Certificate{
-		SerialNumber: big.NewInt(1),
+		SerialNumber: big.NewInt(sno),
 		Subject: pkix.Name{
 			Organization: []string{"Test Organization"},
 			CommonName:   "localhost",
 		},
+		SubjectKeyId:          []byte("local"),
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(24 * time.Hour),
-		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCRLSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
-		DNSNames:              []string{"example.com"},
+		DNSNames:              dnsNames,
 	}
-	certDER, _ := x509.CreateCertificate(rand.Reader, cert, cert, &priv.PublicKey, priv)
+	if issuer == nil {
+		issuer = cert
+	}
+	certDER, _ := x509.CreateCertificate(rand.Reader, cert, issuer, &priv.PublicKey, priv)
 	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
 	return string(certPEM)
+}
+
+func testCRL(caCert *x509.Certificate, caKey crypto.Signer, revokedSerials []int64) string {
+	var revokedCerts []x509.RevocationListEntry
+	for _, revokedSerial := range revokedSerials {
+		revokedCerts = append(revokedCerts, x509.RevocationListEntry{
+			SerialNumber:   big.NewInt(revokedSerial),
+			RevocationTime: time.Now(),
+		})
+	}
+	crlTemplate := x509.RevocationList{
+		SignatureAlgorithm:        x509.ECDSAWithSHA256,
+		RevokedCertificateEntries: revokedCerts,
+		Number:                    big.NewInt(1),
+		ThisUpdate:                time.Now(),
+		NextUpdate:                time.Now().Add(365 * 24 * time.Hour),
+	}
+	crlBytes, err := x509.CreateRevocationList(rand.Reader, &crlTemplate, caCert, caKey)
+	if err != nil {
+		panic(err)
+	}
+	crlPEM := pem.EncodeToMemory(&pem.Block{Type: "X509 CRL", Bytes: crlBytes})
+	return string(crlPEM)
 }
