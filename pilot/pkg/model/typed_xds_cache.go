@@ -156,6 +156,8 @@ func (l *lruCache[K]) FlushStats() {
 }
 
 func (l *lruCache[K]) Close() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	l.store.Close()
 }
 
