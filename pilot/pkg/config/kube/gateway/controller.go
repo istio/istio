@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -102,7 +103,8 @@ type Controller struct {
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
 	outputs    Outputs
 
-	gatewayContext *atomic.Pointer[GatewayContext]
+	gatewayContext        *atomic.Pointer[GatewayContext]
+	gatewayContextTrigger *krt.RecomputeTrigger
 }
 
 type GatewayClass struct {
@@ -273,11 +275,13 @@ func GatewayCollection(
 	grants ReferenceGrants,
 	DomainSuffix string,
 	UnstableContext *atomic.Pointer[GatewayContext],
+	UnstableContextTrigger *krt.RecomputeTrigger,
 	statusWriter StatusWriter,
+	opts krt.OptionsBuilder,
 ) krt.Collection[Gateway] {
 	statusCol, gw := krt.NewStatusCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
+		UnstableContextTrigger.MarkDependant(ctx)
 		context := UnstableContext.Load()
-		// TODO this is basically broken, we don't get triggered when it syncs..
 		if context == nil {
 			return nil, nil
 		}
@@ -366,7 +370,13 @@ func GatewayCollection(
 
 		// reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
 		return status.Status, result
-	})
+	}, opts.WithName("Gateway")...)
+	go func() {
+		for {
+			time.Sleep(time.Second * 5)
+			log.Errorf("howardjohn: %v", statusCol.List())
+		}
+	}()
 	statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]]) {
 		l := o.Latest()
 		EnqueueStatus2(statusWriter, l.Obj, l.Status)
@@ -662,7 +672,8 @@ func NewController(
 ) *Controller {
 	var ctl *status.Controller
 	stop := make(chan struct{})
-	opts := krt.NewOptionsBuilder(stop, krt.GlobalDebugHandler)
+	log.Errorf("howardjohn: DEBUGGER %v", options.KrtDebugger)
+	opts := krt.NewOptionsBuilder(stop, options.KrtDebugger)
 
 	statusWriter := StatusWriter{statusController: atomic.NewPointer(ctl)}
 	gatewayController := &Controller{
@@ -674,6 +685,7 @@ func NewController(
 		statusWriter:          statusWriter,
 		waitForCRD:            waitForCRD,
 		gatewayContext:        atomic.NewPointer[GatewayContext](nil),
+		gatewayContextTrigger: krt.NewRecomputeTrigger(false, opts.WithName("gatewayContextTrigger")...),
 	}
 
 	inputs := Inputs{
@@ -697,7 +709,9 @@ func NewController(
 		ReferenceGrants,
 		options.DomainSuffix,
 		gatewayController.gatewayContext,
+		gatewayController.gatewayContextTrigger,
 		statusWriter,
+		opts,
 	)
 
 	Parents := BuildParents(Gateways)
@@ -787,7 +801,10 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 // Any status updates required will be enqueued as well.
 func (c *Controller) Reconcile(ps *model.PushContext) {
 	ctx := NewGatewayContext(ps, c.cluster)
-	c.gatewayContext.Store(&ctx)
+	old := c.gatewayContext.Swap(&ctx)
+	if old == nil {
+		c.gatewayContextTrigger.MarkSynced()
+	}
 	return
 	/*
 		t0 := time.Now()
@@ -898,6 +915,7 @@ func EnqueueStatus2[T any](sw StatusWriter, obj controllers.Object, ws T) {
 		Name:                 obj.GetName(),
 		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
 	}
+	log.Errorf("howardjohn: ENQUEUE2", res)
 	statusController.EnqueueStatusUpdateResource(ws, res)
 }
 
