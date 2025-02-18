@@ -16,11 +16,6 @@ package gateway
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
-
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +24,9 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	"strconv"
+	"strings"
+	"sync"
 
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -96,7 +94,7 @@ type Controller struct {
 
 	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
-	statusWriter StatusWriter
+	statusWriter *StatusWriter
 
 	tagWatcher revisions.TagWatcher
 
@@ -276,7 +274,7 @@ func GatewayCollection(
 	DomainSuffix string,
 	UnstableContext *atomic.Pointer[GatewayContext],
 	UnstableContextTrigger *krt.RecomputeTrigger,
-	statusWriter StatusWriter,
+	statusWriter *StatusWriter,
 	opts krt.OptionsBuilder,
 ) krt.Collection[Gateway] {
 	statusCol, gw := krt.NewStatusCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
@@ -368,20 +366,33 @@ func GatewayCollection(
 			result = append(result, res)
 		}
 
-		// reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)
 		return status.Status, result
 	}, opts.WithName("Gateway")...)
-	go func() {
-		for {
-			time.Sleep(time.Second * 5)
-			log.Errorf("howardjohn: %v", statusCol.List())
-		}
-	}()
-	statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]]) {
-		l := o.Latest()
-		EnqueueStatus2(statusWriter, l.Obj, l.Status)
-	})
+
+	registerStatus(statusCol, statusWriter)
 	return gw
+}
+
+func registerStatus[I controllers.Object, IS any](statusCol krt.Collection[krt.ObjectWithStatus[I, IS]], statusWriter *StatusWriter) krt.Syncer {
+	mu := sync.Mutex{}
+	resync := func() {
+		mu.Lock()
+		defer mu.Unlock()
+		items := statusCol.List()
+		log.Errorf("howardjohn: resync %v items %v", ptr.TypeName[IS](), len(items))
+		for _, l := range items {
+			EnqueueStatus2(statusWriter, l.Obj, &l.Status)
+		}
+	}
+	statusWriter.resyncers = append(statusWriter.resyncers, resync)
+	return statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[I, IS]]) {
+		mu.Lock()
+		defer mu.Unlock()
+		l := o.Latest()
+		log.Errorf("howardjohn: GOT STATUS OBJ")
+		EnqueueStatus2(statusWriter, l.Obj, &l.Status)
+	})
 }
 
 type Parents struct {
@@ -538,7 +549,7 @@ func TCPRouteCollection(
 	Parents Parents,
 	grants ReferenceGrants,
 	DomainSuffix string,
-	statusWriter StatusWriter,
+	statusWriter *StatusWriter,
 ) krt.Collection[config.Config] {
 	return krt.NewManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []config.Config {
 		ctx := RouteContext{
@@ -556,7 +567,7 @@ func TCPRouteCollection(
 			status.MutateInPlace(func(rs *gatewayalpha.TCPRouteStatus) {
 				rs.Parents = createRouteStatus(results, obj.Generation, rs.Parents)
 			})
-			EnqueueStatus(statusWriter, obj, status)
+			EnqueueStatus(*statusWriter, obj, status)
 		}
 		type conversionResult struct {
 			error  *ConfigError
@@ -672,10 +683,9 @@ func NewController(
 ) *Controller {
 	var ctl *status.Controller
 	stop := make(chan struct{})
-	log.Errorf("howardjohn: DEBUGGER %v", options.KrtDebugger)
 	opts := krt.NewOptionsBuilder(stop, options.KrtDebugger)
 
-	statusWriter := StatusWriter{statusController: atomic.NewPointer(ctl)}
+	statusWriter := &StatusWriter{statusController: atomic.NewPointer(ctl)}
 	gatewayController := &Controller{
 		client:                kc,
 		credentialsController: credsController,
@@ -792,6 +802,10 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 				status.SetInner(context)
 			}),
 		)
+		log.Errorf("howardjohn: run resync %v", len(c.statusWriter.resyncers))
+		for _, rs := range c.statusWriter.resyncers {
+			rs()
+		}
 	} else {
 		c.statusWriter.statusController.Store(nil)
 	}
@@ -879,6 +893,7 @@ type StatusWriter struct {
 	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
 	statusController *atomic.Pointer[status.Controller]
+	resyncers        []func()
 }
 
 func EnqueueStatus[T comparable](sw StatusWriter, obj controllers.Object, ws *kstatus.WrappedStatusTyped[T]) {
@@ -901,9 +916,10 @@ func EnqueueStatus[T comparable](sw StatusWriter, obj controllers.Object, ws *ks
 	statusController.EnqueueStatusUpdateResource(ws.Unwrap(), res)
 }
 
-func EnqueueStatus2[T any](sw StatusWriter, obj controllers.Object, ws T) {
+func EnqueueStatus2[T any](sw *StatusWriter, obj controllers.Object, ws T) {
 	statusController := sw.statusController.Load()
 	if statusController == nil {
+		log.Errorf("howardjohn: no controller")
 		return
 	}
 
@@ -915,7 +931,7 @@ func EnqueueStatus2[T any](sw StatusWriter, obj controllers.Object, ws T) {
 		Name:                 obj.GetName(),
 		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
 	}
-	log.Errorf("howardjohn: ENQUEUE2", res)
+	log.Errorf("howardjohn: ENQUEUE2 %v", res)
 	statusController.EnqueueStatusUpdateResource(ws, res)
 }
 
