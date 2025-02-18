@@ -104,11 +104,15 @@ func (x XdsCacheImpl) Run(stop <-chan struct{}) {
 		for {
 			select {
 			case <-ticker.C:
-				x.cds.Flush()
-				x.eds.Flush()
-				x.rds.Flush()
-				x.sds.Flush()
+				x.cds.FlushStats()
+				x.eds.FlushStats()
+				x.rds.FlushStats()
+				x.sds.FlushStats()
 			case <-stop:
+				x.cds.Close()
+				x.eds.Close()
+				x.rds.Close()
+				x.sds.Close()
 				return
 			}
 		}
