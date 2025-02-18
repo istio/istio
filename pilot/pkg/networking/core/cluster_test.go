@@ -2545,12 +2545,16 @@ func TestEnvoyFilterPatching(t *testing.T) {
 		Resolution: model.Passthrough,
 	}
 
+	test.SetForTest(t, &features.EnableAmbient, true)
+	test.SetForTest(t, &features.EnableAmbientWaypoints, true)
+
 	cases := []struct {
-		name  string
-		want  []string
-		efs   []*networking.EnvoyFilter
-		proxy model.NodeType
-		svc   *model.Service
+		name          string
+		want          []string
+		efs           []*networking.EnvoyFilter
+		nType         model.NodeType
+		svc           *model.Service
+		assertCluster map[string]func(*testing.T, *cluster.Cluster)
 	}{
 		{
 			"no config",
@@ -2558,9 +2562,10 @@ func TestEnvoyFilterPatching(t *testing.T) {
 			nil,
 			model.SidecarProxy,
 			service,
+			nil,
 		},
 		{
-			"add cluster",
+			"add cluster to sidecar proxy - outbound",
 			[]string{"outbound|8080||static.test", "BlackHoleCluster", "PassthroughCluster", "InboundPassthroughCluster", "new-cluster1"},
 			[]*networking.EnvoyFilter{{
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
@@ -2576,9 +2581,10 @@ func TestEnvoyFilterPatching(t *testing.T) {
 			}},
 			model.SidecarProxy,
 			service,
+			nil,
 		},
 		{
-			"remove cluster",
+			"remove cluster from sidecar proxy - outbound",
 			[]string{"outbound|8080||static.test", "PassthroughCluster", "InboundPassthroughCluster"},
 			[]*networking.EnvoyFilter{{
 				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
@@ -2598,6 +2604,79 @@ func TestEnvoyFilterPatching(t *testing.T) {
 			}},
 			model.SidecarProxy,
 			service,
+			nil,
+		},
+		{
+			"add cluster to waypoint proxy - inbound",
+			[]string{"connect_originate", "encap", "inbound-vip|8080|http|static.test", "main_internal", "new-cluster1"},
+			[]*networking.EnvoyFilter{{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_ADD,
+						Value:     buildPatchStruct(`{"name":"new-cluster1"}`),
+					},
+				}},
+			}},
+			model.Waypoint,
+			service,
+			nil,
+		},
+		{
+			"remove cluster from waypoint proxy - inbound",
+			[]string{"connect_originate", "encap", "inbound-vip|8080|http|static.test"},
+			[]*networking.EnvoyFilter{{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{
+								Name: "main_internal",
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				}},
+			}},
+			model.Waypoint,
+			service,
+			nil,
+		},
+		{
+			"patch cluster in waypoint proxy - inbound",
+			[]string{"connect_originate", "encap", "inbound-vip|8080|http|static.test", "main_internal"},
+			[]*networking.EnvoyFilter{{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{{
+					ApplyTo: networking.EnvoyFilter_CLUSTER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Cluster{
+							Cluster: &networking.EnvoyFilter_ClusterMatch{
+								Name: "inbound-vip|8080|http|static.test",
+							},
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_MERGE,
+						Value:     buildPatchStruct(`{"lb_policy": "MAGLEV"}`),
+					},
+				}},
+			}},
+			model.Waypoint,
+			service,
+			map[string]func(*testing.T, *cluster.Cluster){
+				"inbound-vip|8080|http|static.test": func(t *testing.T, c *cluster.Cluster) {
+					if c.LbPolicy != cluster.Cluster_MAGLEV {
+						t.Errorf("cluster LbPolicy %s != %s", c.LbPolicy, cluster.Cluster_MAGLEV)
+					}
+				},
+			},
 		},
 	}
 	for _, tt := range cases {
@@ -2614,11 +2693,17 @@ func TestEnvoyFilterPatching(t *testing.T) {
 				})
 			}
 			cg := NewConfigGenTest(t, TestOptions{Configs: cfgs, Services: []*model.Service{tt.svc}})
-			clusters := cg.Clusters(cg.SetupProxy(nil))
-			clusterNames := xdstest.MapKeys(xdstest.ExtractClusters(clusters))
+			p := model.Proxy{Type: tt.nType}
+			clusters := cg.Clusters(cg.SetupProxy(&p))
+			clusterMap := xdstest.ExtractClusters(clusters)
+			clusterNames := xdstest.MapKeys(clusterMap)
 			sort.Strings(tt.want)
 			if !cmp.Equal(clusterNames, tt.want) {
 				t.Fatalf("want %v got %v", tt.want, clusterNames)
+			}
+
+			for clusterName, assert := range tt.assertCluster {
+				assert(t, clusterMap[clusterName])
 			}
 		})
 	}

@@ -247,7 +247,9 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		resources = append(resources, ob...)
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, wps.services)...)
+		waypointClusters := configgen.buildWaypointInboundClusters(cb, proxy, req.Push, wps.services)
+		// Apply inbound patches to waypoint clusters since they handle incoming traffic similar to inbound
+		clusters = inboundPatcher.conditionallyAppend(clusters, nil, waypointClusters...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}

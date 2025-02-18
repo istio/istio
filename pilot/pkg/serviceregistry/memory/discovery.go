@@ -373,7 +373,19 @@ func (sd *ServiceDiscovery) Policies(sets.Set[model.ConfigKey]) []model.Workload
 }
 
 func (sd *ServiceDiscovery) ServicesForWaypoint(model.WaypointKey) []model.ServiceInfo {
-	return nil
+	ss := sd.Services()
+	services := make([]model.ServiceInfo, 0, len(ss))
+
+	for _, s := range ss {
+		si := model.ServiceInfo{
+			Service: &workloadapi.Service{
+				Hostname: string(s.Hostname),
+			},
+		}
+		services = append(services, si)
+	}
+
+	return services
 }
 
 func (sd *ServiceDiscovery) ServicesWithWaypoint(string) []model.ServiceWaypointInfo {
