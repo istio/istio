@@ -1,2 +1,2 @@
 cni:
-  cniBinDir: /home/kubernetes/bin
+  cniBinDir: "" # intentionally unset for gke to allow template-based autodetection to work
