@@ -57,9 +57,10 @@ func (f *fakeZtunnel) Close() error {
 
 // fakeNs is a mock struct for testing
 type fakeNs struct {
-	closed *atomic.Bool
-	fd     uintptr
-	inode  uint64
+	closed    *atomic.Bool
+	fd        uintptr
+	inode     uint64
+	starttime uint64
 }
 
 func newFakeNs(fd uintptr) *fakeNs {
@@ -78,6 +79,10 @@ func (f *fakeNs) Fd() uintptr {
 
 func (f *fakeNs) Inode() uint64 {
 	return f.inode
+}
+
+func (f *fakeNs) OwnerProcStarttime() uint64 {
+	return f.starttime
 }
 
 // Close simulates closing the file descriptor and returns nil for no error
