@@ -1121,6 +1121,7 @@ func extractParentReferenceInfo2(ctx krt.HandlerContext, parents Parents, routeR
 				DeniedReason:      referenceAllowed(pr, kind, pk, hostnames, localNamespace),
 				OriginalReference: ref,
 				BannedHostnames:   bannedHostnames.Copy().Delete(pr.OriginalHostname),
+				ParentKey:         ir,
 			}
 			if rpi.DeniedReason == nil {
 				// Record that we were able to bind to the parent
@@ -1954,6 +1955,7 @@ type routeParentReference struct {
 	// Hostname is the hostname match of the parent, if any
 	Hostname        string
 	BannedHostnames sets.Set[string]
+	ParentKey       parentKey
 }
 
 func (r routeParentReference) IsMesh() bool {

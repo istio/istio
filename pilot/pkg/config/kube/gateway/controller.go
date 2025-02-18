@@ -543,14 +543,49 @@ func TLSRouteCollection(
 	})
 }
 
-func TCPRouteCollection(
-	TCPRoutes krt.Collection[*gatewayalpha.TCPRoute],
-	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
-	Parents Parents,
-	grants ReferenceGrants,
-	DomainSuffix string,
-	statusWriter *StatusWriter,
-) krt.Collection[config.Config] {
+type TypedResource struct {
+	Kind config.GroupVersionKind
+	Name types.NamespacedName
+}
+
+type RouteAttachment struct {
+	From TypedResource
+	// To is assumed to be a Gateway
+	To types.NamespacedName
+}
+
+func (r RouteAttachment) ResourceName() string {
+	return r.From.Kind.String() + "/" + r.From.Name.String() + "/" + r.To.String()
+}
+
+func (r RouteAttachment) Equals(other RouteAttachment) bool {
+	return r.From == other.From && r.To == other.To
+}
+
+func TCPRouteCollection(TCPRoutes krt.Collection[*gatewayalpha.TCPRoute], ServiceEntries krt.Collection[*networkingclient.ServiceEntry], Parents Parents, grants ReferenceGrants, DomainSuffix string, statusWriter *StatusWriter, opts krt.OptionsBuilder) krt.Collection[config.Config] {
+	routeCount := krt.NewManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []RouteAttachment {
+		from := TypedResource{
+			Kind: gvk.TCPRoute,
+			Name: config.NamespacedName(obj),
+		}
+		parentRefs := extractParentReferenceInfo2(krtctx, Parents, obj.Spec.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
+		gateways := sets.New[types.NamespacedName]()
+		for _, p := range parentRefs {
+			if p.ParentKey.Kind == gvk.KubernetesGateway {
+				gateways.Insert(types.NamespacedName{
+					Name:      p.ParentKey.Name,
+					Namespace: p.ParentKey.Namespace,
+				})
+			}
+		}
+		return slices.Map(gateways.UnsortedList(), func(e types.NamespacedName) RouteAttachment {
+			return RouteAttachment{
+				From: from,
+				To:   e,
+			}
+		})
+	}, opts.WithName("TCPRoute/count")...)
+	_ = routeCount // TODO plumb this through
 	return krt.NewManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []config.Config {
 		ctx := RouteContext{
 			Krt:     krtctx,
@@ -560,7 +595,9 @@ func TCPRouteCollection(
 		}
 		route := obj.Spec
 		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
-
+		for _, p := range parentRefs {
+			log.Errorf("howardjohn: got p %+v", p)
+		}
 		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
 		status := kstatus.WrapT(&obj.Status)
 		reportStatus := func(results []RouteParentResult) {
@@ -652,7 +689,7 @@ func TCPRouteCollection(
 			}
 		}
 		return vs
-	})
+	}, opts.WithName("TCPRoute")...)
 }
 
 type Outputs struct {
@@ -732,6 +769,7 @@ func NewController(
 		ReferenceGrants,
 		options.DomainSuffix,
 		statusWriter,
+		opts,
 	)
 	outputs := Outputs{
 		Gateways:        Gateways,
