@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 )
@@ -41,6 +42,8 @@ import (
 func TestGetTransportCredentials(t *testing.T) {
 	priv, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	caCertStr := testCert(1, priv, nil, []string{"example.com"})
+	block, _ := pem.Decode([]byte(caCertStr))
+	caCert, _ := x509.ParseCertificate(block.Bytes)
 	cases := []struct {
 		name                       string
 		args                       *PilotArgs
@@ -66,7 +69,7 @@ func TestGetTransportCredentials(t *testing.T) {
 			expectedError:              nil,
 		},
 		{
-			name: "Fail SIMPLE TLS with InsecureSkipVerify",
+			name: "SIMPLE TLS with InsecureSkipVerify",
 			args: &PilotArgs{Namespace: testNamespace},
 			tlsSettings: &v1alpha3.ClientTLSSettings{
 				Mode:               v1alpha3.ClientTLSSettings_SIMPLE,
@@ -158,10 +161,65 @@ func TestGetTransportCredentials(t *testing.T) {
 			name: "MUTUAL TLS",
 			args: &PilotArgs{Namespace: testNamespace},
 			tlsSettings: &v1alpha3.ClientTLSSettings{
-				Mode: v1alpha3.ClientTLSSettings_MUTUAL,
+				Mode:              v1alpha3.ClientTLSSettings_MUTUAL,
+				CaCertificates:    caCertStr,
+				ClientCertificate: testCert(5, priv, caCert, []string{"example.com"}),
+				PrivateKey:        priv.D.String(),
 			},
-			credentialSecurityProtocol: "insecure",
+			credentialSecurityProtocol: "tls",
 			expectedError:              nil,
+		},
+		{
+			name: "Fail MUTUAL TLS without client cert and key",
+			args: &PilotArgs{Namespace: testNamespace},
+			tlsSettings: &v1alpha3.ClientTLSSettings{
+				Mode:           v1alpha3.ClientTLSSettings_MUTUAL,
+				CaCertificates: caCertStr,
+			},
+			credentialSecurityProtocol: "tls",
+			expectedError:              agent.AppendErrors(fmt.Errorf("client certificate required for mutual tls"), fmt.Errorf("private key required for mutual tls")),
+		},
+		{
+			name: "MUTUAL TLS from secrets",
+			args: &PilotArgs{Namespace: testNamespace},
+			tlsSettings: &v1alpha3.ClientTLSSettings{
+				Mode:           v1alpha3.ClientTLSSettings_MUTUAL,
+				CredentialName: "test-secret",
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-secret",
+					Namespace: testNamespace,
+				},
+				Data: map[string][]byte{
+					"cacert": []byte(caCertStr),
+					"cert":   []byte(testCert(5, priv, caCert, []string{"example.com"})),
+					"key":    []byte(priv.D.String()),
+				},
+				Type: corev1.SecretTypeOpaque,
+			},
+			credentialSecurityProtocol: "tls",
+			expectedError:              nil,
+		},
+		{
+			name: "Fail MUTUAL TLS from secrets without client cert and key",
+			args: &PilotArgs{Namespace: testNamespace},
+			tlsSettings: &v1alpha3.ClientTLSSettings{
+				Mode:           v1alpha3.ClientTLSSettings_MUTUAL,
+				CredentialName: "test-secret",
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-secret",
+					Namespace: testNamespace,
+				},
+				Data: map[string][]byte{
+					"cacert": []byte(caCertStr),
+				},
+				Type: corev1.SecretTypeOpaque,
+			},
+			credentialSecurityProtocol: "tls",
+			expectedError:              fmt.Errorf("found secret, but didn't have expected keys (cert and key) or (tls.crt and tls.key); found: cacert"),
 		},
 	}
 	for _, c := range cases {

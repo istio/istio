@@ -370,22 +370,22 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 // Implemented only for SIMPLE_TLS mode
 // TODO:
 //
-//	Implement for MUTUAL_TLS/ISTIO_MUTUAL_TLS modes
+//	Implement for ISTIO_MUTUAL_TLS mode
 func (s *Server) getTransportCredentials(args *PilotArgs, tlsSettings *v1alpha3.ClientTLSSettings) (credentials.TransportCredentials, error) {
-	if err := agent.ValidateTLS(args.Namespace, tlsSettings); err != nil && tlsSettings.GetMode() == v1alpha3.ClientTLSSettings_SIMPLE {
+	if err := agent.ValidateTLS(args.Namespace, tlsSettings); err != nil {
 		return nil, err
 	}
 	switch tlsSettings.GetMode() {
 	case v1alpha3.ClientTLSSettings_SIMPLE:
 		if len(tlsSettings.GetCredentialName()) > 0 {
-			rootCert, err := s.getRootCertFromSecret(tlsSettings.GetCredentialName(), args.Namespace)
-			if err != nil {
+			rootCert, _, err := s.getCertInfoFromSecret(tlsSettings.GetCredentialName(), args.Namespace)
+			if rootCert == nil {
 				return nil, err
 			}
 			tlsSettings.CaCertificates = string(rootCert.Cert)
 			tlsSettings.CaCrl = string(rootCert.CRL)
 		}
-		if tlsSettings.GetInsecureSkipVerify().GetValue() || len(tlsSettings.GetCaCertificates()) == 0 {
+		if tlsSettings.GetInsecureSkipVerify().GetValue() {
 			return credentials.NewTLS(&tls.Config{
 				ServerName:         tlsSettings.GetSni(),
 				InsecureSkipVerify: tlsSettings.GetInsecureSkipVerify().GetValue(), //nolint
@@ -399,6 +399,41 @@ func (s *Server) getTransportCredentials(args *PilotArgs, tlsSettings *v1alpha3.
 			ServerName:         tlsSettings.GetSni(),
 			InsecureSkipVerify: tlsSettings.GetInsecureSkipVerify().GetValue(), //nolint
 			RootCAs:            certPool,
+			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+				return s.verifyCert(rawCerts, tlsSettings)
+			},
+		}), nil
+	case v1alpha3.ClientTLSSettings_MUTUAL:
+		if len(tlsSettings.GetCredentialName()) > 0 {
+			rootCert, clientCert, err := s.getCertInfoFromSecret(tlsSettings.GetCredentialName(), args.Namespace)
+			if err != nil {
+				return nil, err
+			}
+			tlsSettings.CaCertificates = string(rootCert.Cert)
+			tlsSettings.CaCrl = string(rootCert.CRL)
+			tlsSettings.ClientCertificate = string(clientCert.Cert)
+			tlsSettings.PrivateKey = string(clientCert.Key)
+		}
+		if tlsSettings.GetInsecureSkipVerify().GetValue() {
+			return credentials.NewTLS(&tls.Config{
+				ServerName:         tlsSettings.GetSni(),
+				InsecureSkipVerify: tlsSettings.GetInsecureSkipVerify().GetValue(), //nolint
+			}), nil
+		}
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM([]byte(tlsSettings.GetCaCertificates())) {
+			return nil, fmt.Errorf("failed to add ca certificate from configSource.tlsSettings to pool")
+		}
+		return credentials.NewTLS(&tls.Config{
+			ServerName:         tlsSettings.GetSni(),
+			InsecureSkipVerify: tlsSettings.GetInsecureSkipVerify().GetValue(), //nolint
+			RootCAs:            certPool,
+			Certificates: []tls.Certificate{
+				{
+					Certificate: [][]byte{[]byte(tlsSettings.GetClientCertificate())},
+					PrivateKey:  []byte(tlsSettings.GetPrivateKey()),
+				},
+			},
 			VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 				return s.verifyCert(rawCerts, tlsSettings)
 			},
@@ -456,11 +491,19 @@ func (s *Server) verifyCert(certs [][]byte, tlsSettings *v1alpha3.ClientTLSSetti
 	return nil
 }
 
-// getRootCertFromSecret fetches a map of keys and values from a secret with name in namespace
-func (s *Server) getRootCertFromSecret(name, namespace string) (*istioCredentials.CertInfo, error) {
+// getCertInfoFromSecret fetches root cert and client cert info from a secret with name in namespace
+// returns only root cert info if client cert info is not available
+func (s *Server) getCertInfoFromSecret(name, namespace string) (*istioCredentials.CertInfo, *istioCredentials.CertInfo, error) {
 	secret, err := s.kubeClient.Kube().CoreV1().Secrets(namespace).Get(context.Background(), name, v1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get credential with name %v: %v", name, err)
+		return nil, nil, fmt.Errorf("failed to get credential with name %v: %v", name, err)
 	}
-	return kube.ExtractRoot(secret.Data)
+
+	var rootCertInfo, clientCertInfo *istioCredentials.CertInfo
+	if rootCertInfo, err = kube.ExtractRoot(secret.Data); err != nil {
+		return nil, nil, err
+	} else if clientCertInfo, err = kube.ExtractCertInfo(secret); err != nil {
+		return rootCertInfo, nil, err
+	}
+	return rootCertInfo, clientCertInfo, nil
 }
