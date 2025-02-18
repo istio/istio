@@ -130,7 +130,12 @@ func buildSidecarInboundHTTPRouteConfig(lb *ListenerBuilder, cc inboundChainConf
 		ValidateClusters: proto.BoolFalse,
 	}
 	efw := lb.push.EnvoyFilters(lb.node)
-	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node, efw, r)
+
+	pc := networking.EnvoyFilter_SIDECAR_INBOUND
+	if lb.node.IsWaypointProxy() {
+		pc = networking.EnvoyFilter_WAYPOINT
+	}
+	r = envoyfilter.ApplyRouteConfigurationPatches(pc, lb.node, efw, r)
 	return r
 }
 
@@ -200,8 +205,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		IgnorePortInHostMatching:       true,
 	}
 
+	pc := networking.EnvoyFilter_SIDECAR_OUTBOUND
+	if node.IsWaypointProxy() {
+		pc = networking.EnvoyFilter_WAYPOINT
+	}
 	// apply envoy filter patches
-	out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
+	out = envoyfilter.ApplyRouteConfigurationPatches(pc, node, efw, out)
 
 	resource = &discovery.Resource{
 		Name:     out.Name,
