@@ -85,11 +85,26 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 		if res == nil {
 			continue
 		}
+
+		// Check if we found another procfs entry for this UID already
+		// if we did, and it's older than this one, continue.
+		// Otherwise replace it with the one we just found
+		if existingNetns, exists := podUIDNetns[string(res.uid)]; exists {
+			log.Warnf("found more than one netns for the same pod: %s, will use oldest process netns", res.uid)
+			if existingNetns.Netns.OwnerProcStarttime() < res.ownerProcStarttime {
+				continue
+			}
+		}
+
+		// TODO it would be nice to check that the netns we get from this is *definitely not* the host netns,
+		// as an extra safeguard
+
 		pod := pods[res.uid]
 		netns := &NetnsWithFd{
-			netns: res.netns,
-			fd:    res.netnsfd,
-			inode: res.inode,
+			netns:              res.netns,
+			fd:                 res.netnsfd,
+			inode:              res.inode,
+			ownerProcStarttime: res.ownerProcStarttime,
 		}
 		workload := WorkloadInfo{
 			Workload: podToWorkload(pod),
@@ -102,10 +117,11 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 }
 
 type PodNetnsEntry struct {
-	uid     types.UID
-	netns   fs.File
-	netnsfd uintptr
-	inode   uint64
+	uid                types.UID
+	netns              fs.File
+	netnsfd            uintptr
+	inode              uint64
+	ownerProcStarttime uint64
 }
 
 func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uint64], filter sets.Set[types.UID], entry fs.DirEntry) (*PodNetnsEntry, error) {
@@ -115,6 +131,14 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 
 	netnsName := path.Join(entry.Name(), "ns", "net")
 	fi, err := fs.Stat(proc, netnsName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check the starttime of the proc in question,
+	// in case there are multiple procs with different netnamespaces
+	// in the same pod - we want the oldest in all cases.
+	ownerProcStarttime, err := GetStarttime(proc, entry)
 	if err != nil {
 		return nil, err
 	}
@@ -161,10 +185,11 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 	log.Debugf("found pod to netns: %s %d", uid, inode)
 
 	return &PodNetnsEntry{
-		uid:     uid,
-		netns:   netns,
-		netnsfd: fd,
-		inode:   inode,
+		uid,
+		netns,
+		fd,
+		inode,
+		ownerProcStarttime,
 	}, nil
 }
 
