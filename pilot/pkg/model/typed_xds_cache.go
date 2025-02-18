@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -122,8 +121,9 @@ type lruCache[K comparable] struct {
 	store            otter.Cache[K, cacheValue]
 	// token stores the latest token of the store, used to prevent stale data overwrite.
 	// It is refreshed when Clear or ClearAll are called
-	token       CacheToken
-	mu          sync.RWMutex
+	token CacheToken
+	// we need this mutex to protect operations which require unsafe modifications
+	mu          xsync.RBMutex
 	configIndex *xsync.MapOf[ConfigHash, sets.Set[K]]
 }
 
@@ -161,6 +161,8 @@ func (l *lruCache[K]) recordDependentConfigSize() {
 		return
 	}
 
+	// Range allows for concurrent modifications while iterating, this would cause a race reading values,
+	// so we need to obtain a write lock
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	dsize := 0
@@ -180,8 +182,8 @@ func (l *lruCache[K]) onEvict(k K, v cacheValue, cause otter.DeletionCause) {
 		xdsCacheEvictionsOnClear.Increment()
 	}
 
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	rtoken := l.mu.RLock()
+	defer l.mu.RUnlock(rtoken)
 	l.clearConfigIndex(k, v.dependentConfigs)
 }
 
@@ -192,6 +194,9 @@ func (l *lruCache[K]) updateConfigIndex(k K, dependentConfigs []ConfigHash) {
 				return sets.New(k), false
 			}
 
+			// we can safely modify the set in place because
+			// xsync.MapOf ensures that no concurrent modifications are happening
+			// over the same key at the same time
 			return oldValue.Insert(k), false
 		})
 	}
@@ -206,6 +211,9 @@ func (l *lruCache[K]) clearConfigIndex(k K, dependentConfigs []ConfigHash) {
 			return nil, true
 		}
 
+		// we can safely modify the set in place because
+		// xsync.MapOf ensures that no concurrent modifications are happening
+		// over the same key at the same time
 		set := oldValue.Delete(k)
 		if !set.IsEmpty() {
 			return set, false
@@ -264,8 +272,8 @@ func (l *lruCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *di
 	}
 	// It will not overflow until year 2262
 	token := CacheToken(pushReq.Start.UnixNano())
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	rtoken := l.mu.RLock()
+	defer l.mu.RUnlock(rtoken)
 	if token < l.token {
 		// entry may be stale, we need to drop it. This can happen when the cache is invalidated
 		// after we call Clear or ClearAll.
@@ -301,8 +309,8 @@ type cacheValue struct {
 
 // Get return the cached value if it exists.
 func (l *lruCache[K]) Get(key K) *discovery.Resource {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	rtoken := l.mu.RLock()
+	defer l.mu.RUnlock(rtoken)
 	cv, ok := l.store.Get(key)
 	if !ok || cv.value == nil {
 		miss()
@@ -314,10 +322,12 @@ func (l *lruCache[K]) Get(key K) *discovery.Resource {
 }
 
 func (l *lruCache[K]) Clear(configs sets.Set[ConfigKey]) {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	rtoken := l.mu.RLock()
+	defer l.mu.RUnlock(rtoken)
 	for ckey := range configs {
 		hc := ckey.HashCode()
+		// we can safely use the returned value because it's no longer referenced anywhere
+		// because we deleted it
 		referenced, ok := l.configIndex.LoadAndDelete(hc)
 		if ok {
 			for key := range referenced {
@@ -342,8 +352,8 @@ func (l *lruCache[K]) ClearAll() {
 }
 
 func (l *lruCache[K]) Keys() []K {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	rtoken := l.mu.RLock()
+	defer l.mu.RUnlock(rtoken)
 	keys := make([]K, 0, l.store.Size())
 	l.store.Range(func(k K, v cacheValue) bool {
 		keys = append(keys, k)
@@ -353,8 +363,8 @@ func (l *lruCache[K]) Keys() []K {
 }
 
 func (l *lruCache[K]) Snapshot() []*discovery.Resource {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
+	rtoken := l.mu.RLock()
+	defer l.mu.RUnlock(rtoken)
 
 	res := make([]*discovery.Resource, 0, l.store.Size())
 	l.store.Range(func(k K, v cacheValue) bool {
@@ -366,12 +376,14 @@ func (l *lruCache[K]) Snapshot() []*discovery.Resource {
 }
 
 func (l *lruCache[K]) indexLength() int {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+	rtoken := l.mu.RLock()
+	defer l.mu.RUnlock(rtoken)
 	return l.configIndex.Size()
 }
 
 func (l *lruCache[K]) configIndexSnapshot() map[ConfigHash]sets.Set[K] {
+	// Range allows for concurrent modifications while iterating, this would cause a race reading values,
+	// so we need to obtain a write lock
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	res := make(map[ConfigHash]sets.Set[K], l.configIndex.Size())
