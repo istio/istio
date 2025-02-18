@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -353,6 +354,9 @@ func TestSeparateV4V6(t *testing.T) {
 }
 
 func TestIdempotentEquivalentRerun(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping test: Not running on Linux")
+	}
 	setup(t)
 	commonCases := getCommonTestCases()
 	ext := &dep.RealDependencies{
@@ -435,6 +439,9 @@ func setup(t *testing.T) {
 }
 
 func TestIdempotentUnequaledRerun(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Skipping test: Not running on Linux")
+	}
 	setup(t)
 	commonCases := getCommonTestCases()
 	ext := &dep.RealDependencies{
