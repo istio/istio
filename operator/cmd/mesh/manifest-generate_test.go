@@ -239,10 +239,10 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 	}
 }
 
-func TestSetGatewayTagNoLabels(t *testing.T) {
+func TestSetGatewayCustomTagsAndNoLabels(t *testing.T) {
 	g := NewWithT(t)
 
-	objss := runManifestCommands(t, "gateways-with-custom-tags", "", liveCharts, nil)
+	objss := runManifestCommands(t, "gateways-with-custom-tags-and-no-labels", "", liveCharts, nil)
 
 	for _, objs := range objss {
 		{
@@ -257,6 +257,7 @@ func TestSetGatewayTagNoLabels(t *testing.T) {
 		}
 	}
 }
+
 func TestManifestGenerateGateways(t *testing.T) {
 	g := NewWithT(t)
 
