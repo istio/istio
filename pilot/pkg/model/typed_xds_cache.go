@@ -112,7 +112,7 @@ func newTypedXdsCache[K comparable]() typedXdsCache[K] {
 		enableAssertions: features.EnableUnsafeAssertions,
 		configIndex:      xsync.NewMapOf[ConfigHash, sets.Set[K]](),
 	}
-	cache.store = newLru2(cache.onEvict)
+	cache.store = newLru(cache.onEvict)
 	return cache
 }
 
@@ -129,7 +129,7 @@ type lruCache[K comparable] struct {
 
 var _ typedXdsCache[uint64] = &lruCache[uint64]{}
 
-func newLru2[K comparable](evictCallback func(key K, value cacheValue, cause otter.DeletionCause)) otter.Cache[K, cacheValue] {
+func newLru[K comparable](evictCallback func(key K, value cacheValue, cause otter.DeletionCause)) otter.Cache[K, cacheValue] {
 	sz := features.XDSCacheMaxSize
 	if sz <= 0 {
 		sz = 20000
@@ -345,7 +345,7 @@ func (l *lruCache[K]) ClearAll() {
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
 	l.store.Close()
-	l.store = newLru2(l.onEvict)
+	l.store = newLru(l.onEvict)
 	l.configIndex = xsync.NewMapOf[ConfigHash, sets.Set[K]]()
 
 	size(l.store.Size())
