@@ -51,6 +51,8 @@ type XdsCache interface {
 	Keys(t string) []any
 	// Snapshot returns a snapshot of all values. This is for testing/debug only
 	Snapshot() []*discovery.Resource
+	// Close closes the cache and releases any resources.
+	Close()
 }
 
 // XdsCacheEntry interface defines functions that should be implemented by
@@ -109,14 +111,18 @@ func (x XdsCacheImpl) Run(stop <-chan struct{}) {
 				x.rds.FlushStats()
 				x.sds.FlushStats()
 			case <-stop:
-				x.cds.Close()
-				x.eds.Close()
-				x.rds.Close()
-				x.sds.Close()
+				x.Close()
 				return
 			}
 		}
 	}()
+}
+
+func (x XdsCacheImpl) Close() {
+	x.cds.Close()
+	x.eds.Close()
+	x.rds.Close()
+	x.sds.Close()
 }
 
 func (x XdsCacheImpl) Add(entry XdsCacheEntry, pushRequest *PushRequest, value *discovery.Resource) {
@@ -247,6 +253,9 @@ func (d DisabledCache) Keys(t string) []any {
 
 func (d DisabledCache) Snapshot() []*discovery.Resource {
 	return nil
+}
+
+func (d DisabledCache) Close() {
 }
 
 var _ XdsCache = &DisabledCache{}

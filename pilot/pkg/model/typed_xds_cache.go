@@ -145,6 +145,7 @@ func newLru[K comparable](evictCallback func(key K, value cacheValue, cause otte
 	if err != nil {
 		panic(fmt.Errorf("invalid lru configuration: %v", err))
 	}
+
 	return cache
 }
 

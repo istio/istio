@@ -137,6 +137,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 
 	env := model.NewEnvironment()
+	defer env.Close()
 	env.Watcher = meshwatcher.NewTestWatcher(m)
 
 	xdsUpdater := opts.XDSUpdater

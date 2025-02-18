@@ -2725,6 +2725,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
 			env := NewEnvironment()
+			defer env.Close()
 			env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
 			ps.Mesh = env.Mesh()
 

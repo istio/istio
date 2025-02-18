@@ -1291,6 +1291,7 @@ func TestWasmPlugins(t *testing.T) {
 func TestServiceIndex(t *testing.T) {
 	g := NewWithT(t)
 	env := NewEnvironment()
+	defer env.Close()
 	env.ConfigStore = NewFakeStore()
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{

@@ -907,7 +907,9 @@ func testShards() *model.EndpointIndex {
 		}
 	}
 	// convert to EndpointIndex
-	index := model.NewEndpointIndex(model.NewXdsCache())
+	cache := model.NewXdsCache()
+	defer cache.Close()
+	index := model.NewEndpointIndex(cache)
 	for shardKey, testEps := range shards.Shards {
 		svc, _ := index.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
 		svc.Lock()
