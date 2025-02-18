@@ -189,7 +189,7 @@ func (l *lruCache[K]) onEvict(k K, v cacheValue, cause otter.DeletionCause) {
 
 func (l *lruCache[K]) updateConfigIndex(k K, dependentConfigs []ConfigHash) {
 	for _, cfg := range dependentConfigs {
-		l.configIndex.Compute(cfg, func(oldValue sets.Set[K], loaded bool) (newValue sets.Set[K], delete bool) {
+		l.configIndex.Compute(cfg, func(oldValue sets.Set[K], loaded bool) (sets.Set[K], bool) {
 			if !loaded {
 				return sets.New(k), false
 			}
@@ -205,7 +205,7 @@ func (l *lruCache[K]) updateConfigIndex(k K, dependentConfigs []ConfigHash) {
 func (l *lruCache[K]) clearConfigIndex(k K, dependentConfigs []ConfigHash) {
 	c, exists := l.store.Get(k)
 
-	computeFunc := func(oldValue sets.Set[K], loaded bool) (newValue sets.Set[K], delete bool) {
+	computeFunc := func(oldValue sets.Set[K], loaded bool) (sets.Set[K], bool) {
 		// value is not present, we don't have anything to delete
 		if !loaded {
 			return nil, true
