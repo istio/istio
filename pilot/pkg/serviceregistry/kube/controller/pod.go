@@ -149,7 +149,14 @@ func (pc *PodCache) onEvent(old, pod *v1.Pod, ev model.Event) error {
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.
 	if len(ip) == 0 {
-		return nil
+		// However, in the case of an Eviction, the event that marks the pod as Failed may *also* have removed the IP.
+		// If the pod *used to* have an IP, then we need to actually delete it.
+		ip = pc.getIPByPod(config.NamespacedName(pod))
+		if len(ip) == 0 {
+			log.Debugf("Pod %s has no IP", config.NamespacedName(pod).String())
+			return nil
+		}
+		log.Debugf("Pod %s has no IP, but was in the cache (%s), continue so we can delete it", config.NamespacedName(pod).String(), ip)
 	}
 
 	key := config.NamespacedName(pod)
@@ -180,19 +187,19 @@ func (pc *PodCache) onEvent(old, pod *v1.Pod, ev model.Event) error {
 			return nil
 		}
 	}
-	pc.notifyWorkloadHandlers(pod, ev)
+	pc.notifyWorkloadHandlers(pod, ev, ip)
 	return nil
 }
 
 // notifyWorkloadHandlers fire workloadInstance handlers for pod
-func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
+func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event, ip string) {
 	// if no workload handler registered, skip building WorkloadInstance
 	if len(pc.c.handlers.GetWorkloadHandlers()) == 0 {
 		return
 	}
 	// fire instance handles for workload
 	ep := pc.c.NewEndpointBuilder(pod).buildIstioEndpoint(
-		pod.Status.PodIP,
+		ip,
 		0,
 		"",
 		model.AlwaysDiscoverable,
@@ -307,6 +314,13 @@ func (pc *PodCache) getPodKeys(addr string) []types.NamespacedName {
 	pc.RLock()
 	defer pc.RUnlock()
 	return pc.podsByIP[addr].UnsortedList()
+}
+
+// getIPByPod returns the pod IP or empty string if pod not found.
+func (pc *PodCache) getIPByPod(key types.NamespacedName) string {
+	pc.RLock()
+	defer pc.RUnlock()
+	return pc.ipByPods[key]
 }
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred
