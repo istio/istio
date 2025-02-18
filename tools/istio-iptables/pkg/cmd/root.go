@@ -117,6 +117,9 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 	// Allow binding to a different var, for consistency with other components
 	flag.AdditionalEnv(fs, constants.RedirectDNS, "ISTIO_META_DNS_CAPTURE")
 
+	flag.BindEnv(fs, constants.DNSResolverIPPort, "", "Specified environment DNS resolver.", &cfg.DNSResolverIPPort)
+	flag.AdditionalEnv(fs, constants.DNSResolverIPPort, "ISTIO_META_DNS_RESOLVER_IP_PORT")
+
 	flag.BindEnv(fs, constants.DropInvalid, "", "Enable invalid drop in the iptables rules.", &cfg.DropInvalid)
 	// This could have just used the default but for backwards compat we support the old env.
 	flag.AdditionalEnv(fs, constants.DropInvalid, InvalidDropByIptables)
