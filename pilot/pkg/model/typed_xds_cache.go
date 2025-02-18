@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -113,6 +114,7 @@ func newTypedXdsCache[K comparable]() typedXdsCache[K] {
 		configIndex:      xsync.NewMapOf[ConfigHash, sets.Set[K]](),
 	}
 	cache.store = newLru(cache.onEvict)
+	cache.token.Store(0)
 	return cache
 }
 
@@ -121,7 +123,7 @@ type lruCache[K comparable] struct {
 	store            otter.Cache[K, cacheValue]
 	// token stores the latest token of the store, used to prevent stale data overwrite.
 	// It is refreshed when Clear or ClearAll are called
-	token CacheToken
+	token atomic.Uint64
 	// we need this mutex to protect operations which require unsafe modifications
 	mu          xsync.RBMutex
 	configIndex *xsync.MapOf[ConfigHash, sets.Set[K]]
@@ -272,10 +274,11 @@ func (l *lruCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *di
 		return
 	}
 	// It will not overflow until year 2262
-	token := CacheToken(pushReq.Start.UnixNano())
+	newToken := CacheToken(pushReq.Start.UnixNano())
+	currentToken := CacheToken(l.token.Load())
 	rtoken := l.mu.RLock()
 	defer l.mu.RUnlock(rtoken)
-	if token < l.token {
+	if newToken < currentToken {
 		// entry may be stale, we need to drop it. This can happen when the cache is invalidated
 		// after we call Clear or ClearAll.
 		return
@@ -283,7 +286,7 @@ func (l *lruCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *di
 	cur, f := l.store.Get(k)
 	if f {
 		// This is the stale or same resource
-		if token <= cur.token {
+		if newToken <= cur.token {
 			return
 		}
 		if l.enableAssertions {
@@ -292,11 +295,11 @@ func (l *lruCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *di
 	}
 
 	dependentConfigs := entry.DependentConfigs()
-	toWrite := cacheValue{value: value, token: token, dependentConfigs: dependentConfigs}
+	toWrite := cacheValue{value: value, token: newToken, dependentConfigs: dependentConfigs}
 	// replacing a value that already exists triggers the deletion callback for the previous value,
 	// this automatically cleans the config indexes
 	l.store.Set(k, toWrite)
-	l.token = token
+	l.token.Store(uint64(newToken))
 	l.updateConfigIndex(k, dependentConfigs)
 
 	size(l.store.Size())
@@ -325,6 +328,7 @@ func (l *lruCache[K]) Get(key K) *discovery.Resource {
 func (l *lruCache[K]) Clear(configs sets.Set[ConfigKey]) {
 	rtoken := l.mu.RLock()
 	defer l.mu.RUnlock(rtoken)
+	l.token.Store(uint64(time.Now().UnixNano()))
 	for ckey := range configs {
 		hc := ckey.HashCode()
 		// we can safely use the returned value because it's no longer referenced anywhere
@@ -342,6 +346,7 @@ func (l *lruCache[K]) Clear(configs sets.Set[ConfigKey]) {
 func (l *lruCache[K]) ClearAll() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.token.Store(uint64(time.Now().UnixNano()))
 	// Purge with an evict function would turn up to be pretty slow since
 	// it runs the function for every key in the store, might be better to just
 	// create a new store.
