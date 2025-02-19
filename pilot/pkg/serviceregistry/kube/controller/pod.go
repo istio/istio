@@ -39,9 +39,9 @@ type PodCache struct {
 	// this allows us to retrieve the latest status by pod IP.
 	// This should only contain RUNNING or PENDING pods with an allocated IP.
 	podsByIP map[string]sets.Set[types.NamespacedName]
-	// IPByPods is a reverse map of podsByIP. This exists to allow us to prune stale entries in the
+	// ipByPods is a reverse map of podsByIP. This exists to allow us to prune stale entries in the
 	// pod cache if a pod changes IP.
-	IPByPods map[types.NamespacedName]string
+	ipByPods map[types.NamespacedName]string
 
 	// needResync is map of IP to endpoint namespace/name. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
@@ -57,7 +57,7 @@ func newPodCache(c *Controller, pods kclient.Client[*v1.Pod], queueEndpointEvent
 		pods:               pods,
 		c:                  c,
 		podsByIP:           make(map[string]sets.Set[types.NamespacedName]),
-		IPByPods:           make(map[types.NamespacedName]string),
+		ipByPods:           make(map[types.NamespacedName]string),
 		needResync:         make(map[string]sets.Set[types.NamespacedName]),
 		queueEndpointEvent: queueEndpointEvent,
 	}
@@ -237,7 +237,7 @@ func (pc *PodCache) deleteIP(ip string, podKey types.NamespacedName) bool {
 	defer pc.Unlock()
 	if pc.podsByIP[ip].Contains(podKey) {
 		sets.DeleteCleanupLast(pc.podsByIP, ip, podKey)
-		delete(pc.IPByPods, podKey)
+		delete(pc.ipByPods, podKey)
 		return true
 	}
 	return false
@@ -253,12 +253,12 @@ func (pc *PodCache) addPod(pod *v1.Pod, ip string, key types.NamespacedName, lab
 		}
 		return
 	}
-	if current, f := pc.IPByPods[key]; f {
+	if current, f := pc.ipByPods[key]; f {
 		// The pod already exists, but with another IP Address. We need to clean up that
 		sets.DeleteCleanupLast(pc.podsByIP, current, key)
 	}
 	sets.InsertOrNew(pc.podsByIP, ip, key)
-	pc.IPByPods[key] = ip
+	pc.ipByPods[key] = ip
 
 	if endpointsToUpdate, f := pc.needResync[ip]; f {
 		delete(pc.needResync, ip)
