@@ -288,6 +288,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		XDSRootCert:                 a.cfg.XDSRootCerts,
 		MetadataDiscovery:           a.cfg.MetadataDiscovery,
 		EnvoySkipDeprecatedLogs:     a.cfg.EnvoySkipDeprecatedLogs,
+		WorkloadIdentitySocketFile:  a.cfg.WorkloadIdentitySocketFile,
 	})
 }
 
