@@ -81,8 +81,7 @@ type Controller struct {
 	namespaceHandler model.EventHandler
 
 	// Gateway-api types reference secrets directly, so we need access to these
-	credentialsController credentials.MulticlusterController
-	secretHandler         model.EventHandler
+	secretHandler model.EventHandler
 
 	// the cluster where the gateway-api controller runs
 	cluster cluster.ID
@@ -733,9 +732,7 @@ var _ model.GatewayController = &Controller{}
 
 func NewController(
 	kc kube.Client,
-	c model.ConfigStoreController,
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool,
-	credsController credentials.MulticlusterController,
 	options controller.Options,
 ) *Controller {
 	var ctl *status.Controller
@@ -745,7 +742,6 @@ func NewController(
 	statusWriter := &StatusWriter{statusController: atomic.NewPointer(ctl)}
 	gatewayController := &Controller{
 		client:                kc,
-		credentialsController: credsController,
 		cluster:               options.ClusterID,
 		domain:                options.DomainSuffix,
 		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision),
@@ -801,14 +797,11 @@ func NewController(
 		for _, r := range tcpRoutes {
 			counts[r.ListenerName] = counts[r.ListenerName] + 1
 		}
-		log.Errorf("howardjohn: counts %+v", counts)
 		status := i.Status.DeepCopy()
 		for i, s := range status.Listeners {
-			log.Errorf("howardjohn: l %v: %v", s.Name, counts[string(s.Name)])
 			s.AttachedRoutes = counts[string(s.Name)]
 			status.Listeners[i] = s
 		}
-		log.Errorf("howardjohn: %+v", status)
 		return &krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]{
 			Obj:    i.Obj,
 			Status: *status,
@@ -816,19 +809,13 @@ func NewController(
 	}, opts.WithName("GatewayFinalStatus")...)
 	registerStatus(statusCol, statusWriter)
 
+	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{TCPRoutes}, opts.WithName("DerivedVirtualServices")...)
+
 	outputs := Outputs{
 		Gateways:        Gateways,
-		VirtualServices: TCPRoutes,
+		VirtualServices: VirtualServices,
 	}
 	gatewayController.outputs = outputs
-
-	//namespaces.AddEventHandler(controllers.EventHandler[*corev1.Namespace]{
-	//	UpdateFunc: func(oldNs, newNs *corev1.Namespace) {
-	//		if !labels.Instance(oldNs.Labels).Equals(newNs.Labels) {
-	//			gatewayController.namespaceEvent(oldNs, newNs)
-	//		}
-	//	},
-	//})
 
 	if credsController != nil {
 		credsController.AddSecretHandler(gatewayController.secretEvent)
