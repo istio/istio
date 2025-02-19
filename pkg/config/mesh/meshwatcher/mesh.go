@@ -57,15 +57,16 @@ func (a adapter) AddMeshHandler(h func()) *mesh.WatcherHandlerRegistration {
 	active := uatomic.NewBool(true)
 	// The mesh.Watcher allows unregistering, while krt currently doesn't
 	// When we remove, mark this as "not active" so we skip events.
-	reg := mesh.NewWatcherHandlerRegistration(func() {
-		active.Store(false)
-	})
+
 	// Do not run initial state to match existing semantics
-	a.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshConfigResource], initialSync bool) {
+	colReg := a.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshConfigResource], initialSync bool) {
 		if active.Load() {
 			h()
 		}
 	}, false)
+	reg := mesh.NewWatcherHandlerRegistration(func() {
+		colReg.UnregisterHandler()
+	})
 	return reg
 }
 

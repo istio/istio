@@ -18,7 +18,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -32,10 +31,8 @@ import (
 )
 
 func TestWatcherShouldNotifyHandlers(t *testing.T) {
-	watcherShouldNotifyHandlers(t)
-}
-
-func watcherShouldNotifyHandlers(t *testing.T) {
+	tracker := assert.NewTracker[string](t)
+	removeTracker := assert.NewTracker[string](t)
 	path := newTempFile(t)
 
 	m := mesh.DefaultMeshConfig()
@@ -44,26 +41,34 @@ func watcherShouldNotifyHandlers(t *testing.T) {
 	w := newWatcher(t, path)
 	assert.Equal(t, w.Mesh(), m)
 
-	doneCh := make(chan struct{}, 1)
-
 	var newM *meshconfig.MeshConfig
 	w.AddMeshHandler(func() {
 		newM = w.Mesh()
-		close(doneCh)
+		tracker.Record("event")
 	})
+	removeReg := w.AddMeshHandler(func() {
+		removeTracker.Record("event")
+	})
+	tracker.Empty()
 
 	// Change the file to trigger the update.
 	m.IngressClass = "foo"
 	writeMessage(t, path, m)
 
-	select {
-	case <-doneCh:
-		assert.Equal(t, newM, m)
-		assert.Equal(t, w.Mesh(), newM)
-		break
-	case <-time.After(time.Second * 5):
-		t.Fatal("timed out waiting for update")
-	}
+	tracker.WaitOrdered("event")
+	assert.Equal(t, newM, m)
+	assert.Equal(t, w.Mesh(), newM)
+	removeTracker.WaitOrdered("event")
+
+	// Remove the tracker
+	removeReg.Remove()
+
+	// Change the file to trigger the update.
+	m.IngressClass = "not-foo"
+	writeMessage(t, path, m)
+
+	tracker.WaitOrdered("event")
+	removeTracker.Empty()
 }
 
 func newWatcher(t testing.TB, filename string) mesh.Watcher {
