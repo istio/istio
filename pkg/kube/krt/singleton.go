@@ -99,9 +99,18 @@ func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExi
 			}}, true)
 		}
 	}
-	panic("TODO")
-	return nil
+
+	return staticHandler{d.syncer}
 	// return d.syncer
+}
+
+type staticHandler struct {
+	Syncer
+}
+
+func (s staticHandler) UnregisterHandler() {
+	// TODO!
+	panic("TODO")
 }
 
 func (d *static[T]) Synced() Syncer {
