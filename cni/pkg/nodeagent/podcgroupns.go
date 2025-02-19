@@ -96,9 +96,6 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 			}
 		}
 
-		// TODO it would be nice to check that the netns we get from this is *definitely not* the host netns,
-		// as an extra safeguard
-
 		pod := pods[res.uid]
 		netns := &NetnsWithFd{
 			netns:              res.netns,
@@ -148,6 +145,9 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 		return nil, err
 	}
 
+	// It is possible (but unlikely, see https://github.com/istio/istio/issues/55139) that we may get a pod netns
+	// that is == the hostnetns. This might lead to us breaking the host, so ignore everything that looks like
+	// the host netns.
 	if host, err := isHostNetns(proc, inode, dev); host || err != nil {
 		log.Warnf("netns: ignoring host netns (ino %d and dev %d) %s", inode, dev, err)
 		return nil, err
