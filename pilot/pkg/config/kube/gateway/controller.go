@@ -16,6 +16,10 @@ package gateway
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,9 +28,6 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"strconv"
-	"strings"
-	"sync"
 
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -276,7 +277,7 @@ func GatewayCollection(
 	UnstableContextTrigger *krt.RecomputeTrigger,
 	statusWriter *StatusWriter,
 	opts krt.OptionsBuilder,
-) krt.Collection[Gateway] {
+) (krt.Collection[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]], krt.Collection[Gateway]) {
 	statusCol, gw := krt.NewStatusCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
 		UnstableContextTrigger.MarkDependant(ctx)
 		context := UnstableContext.Load()
@@ -370,8 +371,7 @@ func GatewayCollection(
 		return status.Status, result
 	}, opts.WithName("Gateway")...)
 
-	registerStatus(statusCol, statusWriter)
-	return gw
+	return statusCol, gw
 }
 
 func registerStatus[I controllers.Object, IS any](statusCol krt.Collection[krt.ObjectWithStatus[I, IS]], statusWriter *StatusWriter) krt.Syncer {
@@ -551,24 +551,35 @@ type TypedResource struct {
 type RouteAttachment struct {
 	From TypedResource
 	// To is assumed to be a Gateway
-	To types.NamespacedName
+	To           types.NamespacedName
+	ListenerName string
 }
 
 func (r RouteAttachment) ResourceName() string {
-	return r.From.Kind.String() + "/" + r.From.Name.String() + "/" + r.To.String()
+	return r.From.Kind.String() + "/" + r.From.Name.String() + "/" + r.To.String() + "/" + r.ListenerName
 }
 
 func (r RouteAttachment) Equals(other RouteAttachment) bool {
-	return r.From == other.From && r.To == other.To
+	return r.From == other.From && r.To == other.To && r.ListenerName == other.ListenerName
 }
 
-func TCPRouteCollection(TCPRoutes krt.Collection[*gatewayalpha.TCPRoute], ServiceEntries krt.Collection[*networkingclient.ServiceEntry], Parents Parents, grants ReferenceGrants, DomainSuffix string, statusWriter *StatusWriter, opts krt.OptionsBuilder) krt.Collection[config.Config] {
+func TCPRouteCollection(
+	TCPRoutes krt.Collection[*gatewayalpha.TCPRoute],
+	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
+	Parents Parents,
+	grants ReferenceGrants,
+	DomainSuffix string,
+	statusWriter *StatusWriter,
+	opts krt.OptionsBuilder,
+) (krt.Collection[config.Config], krt.Collection[RouteAttachment]) {
 	routeCount := krt.NewManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []RouteAttachment {
 		from := TypedResource{
 			Kind: gvk.TCPRoute,
 			Name: config.NamespacedName(obj),
 		}
+		log.Errorf("howardjohn: EXTRACTS")
 		parentRefs := extractParentReferenceInfo2(krtctx, Parents, obj.Spec.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
+		log.Errorf("howardjohn: /EXTRACTS")
 		gateways := sets.New[types.NamespacedName]()
 		for _, p := range parentRefs {
 			if p.ParentKey.Kind == gvk.KubernetesGateway {
@@ -578,10 +589,17 @@ func TCPRouteCollection(TCPRoutes krt.Collection[*gatewayalpha.TCPRoute], Servic
 				})
 			}
 		}
-		return slices.Map(gateways.UnsortedList(), func(e types.NamespacedName) RouteAttachment {
-			return RouteAttachment{
+		return slices.MapFilter(parentRefs, func(e routeParentReference) *RouteAttachment {
+			if e.ParentKey.Kind != gvk.KubernetesGateway {
+				return nil
+			}
+			return &RouteAttachment{
 				From: from,
-				To:   e,
+				To: types.NamespacedName{
+					Name:      e.ParentKey.Name,
+					Namespace: e.ParentKey.Namespace,
+				},
+				ListenerName: string(e.ParentSection),
 			}
 		})
 	}, opts.WithName("TCPRoute/count")...)
@@ -594,7 +612,9 @@ func TCPRouteCollection(TCPRoutes krt.Collection[*gatewayalpha.TCPRoute], Servic
 			Domain:  DomainSuffix,
 		}
 		route := obj.Spec
+		log.Errorf("howardjohn: extract for %v", config.NamespacedName(obj))
 		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
+		log.Errorf("howardjohn: done extract")
 		for _, p := range parentRefs {
 			log.Errorf("howardjohn: got p %+v", p)
 		}
@@ -689,7 +709,7 @@ func TCPRouteCollection(TCPRoutes krt.Collection[*gatewayalpha.TCPRoute], Servic
 			}
 		}
 		return vs
-	}, opts.WithName("TCPRoute")...)
+	}, opts.WithName("TCPRoute")...), routeCount
 }
 
 type Outputs struct {
@@ -749,7 +769,7 @@ func NewController(
 
 	GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses)
 	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants))
-	Gateways := GatewayCollection(
+	GatewaysStatus, Gateways := GatewayCollection(
 		inputs.Gateways,
 		GatewayClasses,
 		inputs.Namespaces,
@@ -762,7 +782,7 @@ func NewController(
 	)
 
 	Parents := BuildParents(Gateways)
-	TCPRoutes := TCPRouteCollection(
+	TCPRoutes, TCPRouteAttachments := TCPRouteCollection(
 		inputs.TCPRoutes,
 		inputs.ServiceEntries,
 		Parents,
@@ -771,6 +791,31 @@ func NewController(
 		statusWriter,
 		opts,
 	)
+	TCPRouteAttachmentsIndex := krt.NewIndex(TCPRouteAttachments, func(o RouteAttachment) []types.NamespacedName {
+		return []types.NamespacedName{o.To}
+	})
+
+	statusCol := krt.NewCollection(GatewaysStatus, func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]) *krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus] {
+		tcpRoutes := krt.Fetch(ctx, TCPRouteAttachments, krt.FilterIndex(TCPRouteAttachmentsIndex, config.NamespacedName(i.Obj)))
+		counts := map[string]int32{}
+		for _, r := range tcpRoutes {
+			counts[r.ListenerName] = counts[r.ListenerName] + 1
+		}
+		log.Errorf("howardjohn: counts %+v", counts)
+		status := i.Status.DeepCopy()
+		for i, s := range status.Listeners {
+			log.Errorf("howardjohn: l %v: %v", s.Name, counts[string(s.Name)])
+			s.AttachedRoutes = counts[string(s.Name)]
+			status.Listeners[i] = s
+		}
+		log.Errorf("howardjohn: %+v", status)
+		return &krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]{
+			Obj:    i.Obj,
+			Status: *status,
+		}
+	}, opts.WithName("GatewayFinalStatus")...)
+	registerStatus(statusCol, statusWriter)
+
 	outputs := Outputs{
 		Gateways:        Gateways,
 		VirtualServices: TCPRoutes,

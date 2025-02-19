@@ -1122,6 +1122,7 @@ func extractParentReferenceInfo2(ctx krt.HandlerContext, parents Parents, routeR
 				OriginalReference: ref,
 				BannedHostnames:   bannedHostnames.Copy().Delete(pr.OriginalHostname),
 				ParentKey:         ir,
+				ParentSection:     pr.SectionName,
 			}
 			if rpi.DeniedReason == nil {
 				// Record that we were able to bind to the parent
@@ -1130,6 +1131,7 @@ func extractParentReferenceInfo2(ctx krt.HandlerContext, parents Parents, routeR
 			parentRefs = append(parentRefs, rpi)
 		}
 		for _, gw := range currentParents {
+			log.Errorf("howardjohn: pk=%+v gw=%+v", pk, gw)
 			// Append all matches. Note we may be adding mismatch section or ports; this is handled later
 			appendParent(gw, pk)
 		}
@@ -1956,6 +1958,7 @@ type routeParentReference struct {
 	Hostname        string
 	BannedHostnames sets.Set[string]
 	ParentKey       parentKey
+	ParentSection   k8s.SectionName
 }
 
 func (r routeParentReference) IsMesh() bool {
