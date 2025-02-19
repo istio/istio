@@ -1099,6 +1099,9 @@ func extractParentReferenceInfo2(ctx krt.HandlerContext, parents Parents, routeR
 		}
 		currentParents := parents.Fetch(ctx, gk)
 		appendParent := func(pr *parentInfo, pk parentReference) {
+			if pk.SectionName != "" && pr.SectionName != pk.SectionName {
+				return
+			}
 			bannedHostnames := sets.New[string]()
 			for _, gw := range currentParents {
 				if gw == pr {
