@@ -25,7 +25,7 @@ import (
 )
 
 func TestWithProcFs(t *testing.T) {
-	n := NewPodNetnsProcFinder(fakeFs())
+	n := NewPodNetnsProcFinder(fakeFs(true))
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 		Name:      "foo",
 		Namespace: "bar",
@@ -52,6 +52,26 @@ func TestWithProcFs(t *testing.T) {
 	// See testdata/cgroupns/1/stat
 	if foundStart != 70298968 {
 		t.Fatalf("didn't find expected starttime, found %d", foundStart)
+	}
+}
+
+func TestHostNetnsWithSameIno(t *testing.T) {
+	n := NewPodNetnsProcFinder(fakeFs(false))
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+	}}
+	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{
+		pod.UID: pod,
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer podUIDNetns.Close()
+
+	if len(podUIDNetns) != 0 {
+		t.Fatal("expected to find no pod netns")
 	}
 }
 

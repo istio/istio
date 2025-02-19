@@ -91,7 +91,7 @@ func (f *fakeNs) Close() error {
 	return nil
 }
 
-func fakeFs() fs.FS {
+func fakeFs(uniqueInos bool) fs.FS {
 	subFs, err := fs.Sub(fakeProc, "testdata")
 	if err != nil {
 		panic(err)
@@ -100,35 +100,13 @@ func fakeFs() fs.FS {
 	if err != nil {
 		panic(err)
 	}
-	return &fakeFsWithFakeFds{ReadDirFS: subFs.(fs.ReadDirFS)}
+	return &fakeFsWithFakeFds{ReadDirFS: subFs.(fs.ReadDirFS), uniqueInos: uniqueInos}
 }
 
 type fakeFsWithFakeFds struct {
 	fs.ReadDirFS
-}
-type fakeFileFakeFds struct {
-	fs.File
-	fd uintptr
-}
-
-func (f *fakeFileFakeFds) Fd() uintptr {
-	return f.fd
-}
-
-func (f *fakeFileFakeFds) Stat() (fs.FileInfo, error) {
-	fi, err := f.File.Stat()
-	if err != nil {
-		return nil, err
-	}
-	return &fakeFileFakeFI{FileInfo: fi}, nil
-}
-
-type fakeFileFakeFI struct {
-	fs.FileInfo
-}
-
-func (f *fakeFileFakeFI) Sys() any {
-	return &syscall.Stat_t{Ino: 1}
+	inoCounter int
+	uniqueInos bool
 }
 
 // Open opens the named file.
@@ -144,11 +122,41 @@ func (ffs *fakeFsWithFakeFds) Open(name string) (fs.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return wrapFile(f), nil
+	if ffs.uniqueInos {
+		ffs.inoCounter++
+	}
+	return wrapFile(f, ffs.inoCounter), nil
 }
 
-func wrapFile(f fs.File) fs.File {
-	return &fakeFileFakeFds{File: f, fd: 0}
+func wrapFile(f fs.File, ino int) fs.File {
+	return &fakeFileFakeFds{File: f, fd: 0, ino: ino}
+}
+
+type fakeFileFakeFds struct {
+	fs.File
+	fd  uintptr
+	ino int
+}
+
+func (f *fakeFileFakeFds) Fd() uintptr {
+	return f.fd
+}
+
+func (f *fakeFileFakeFds) Stat() (fs.FileInfo, error) {
+	fi, err := f.File.Stat()
+	if err != nil {
+		return nil, err
+	}
+	return &fakeFileFakeFI{FileInfo: fi, ino: f.ino}, nil
+}
+
+type fakeFileFakeFI struct {
+	fs.FileInfo
+	ino int
+}
+
+func (f *fakeFileFakeFI) Sys() any {
+	return &syscall.Stat_t{Ino: uint64(f.ino), Dev: 3}
 }
 
 type fakeIptablesDeps struct {
