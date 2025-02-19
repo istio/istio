@@ -124,8 +124,7 @@ func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runE
 	return informerHandlerRegistration{
 		Syncer: sync,
 		remove: func() {
-			// TODO we cannot do all of them!!
-			i.inf.ShutdownHandlers()
+			i.inf.ShutdownHandler(synced)
 		},
 	}
 }

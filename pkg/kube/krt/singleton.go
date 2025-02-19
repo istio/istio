@@ -89,7 +89,7 @@ func (d *static[T]) Register(f func(o Event[T])) HandlerRegistration {
 }
 
 func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) HandlerRegistration {
-	d.eventHandlers.Insert(f)
+	reg := d.eventHandlers.Insert(f)
 	if runExistingState {
 		v := d.val.Load()
 		if v != nil {
@@ -100,17 +100,18 @@ func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExi
 		}
 	}
 
-	return staticHandler{d.syncer}
-	// return d.syncer
+	return staticHandler{Syncer: d.syncer, remove: func() {
+		d.eventHandlers.Delete(reg)
+	}}
 }
 
 type staticHandler struct {
 	Syncer
+	remove func()
 }
 
 func (s staticHandler) UnregisterHandler() {
-	// TODO!
-	panic("TODO")
+	s.remove()
 }
 
 func (d *static[T]) Synced() Syncer {
