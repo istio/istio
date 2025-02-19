@@ -65,11 +65,11 @@ type connMgr struct {
 }
 
 func (c *connMgr) addConn(conn ZtunnelConnection) {
-	log := log.WithLabels("conn_uuid", conn.uuid)
-	log.Info("ztunnel connected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	log := log.WithLabels("conn_uuid", conn.UUID())
 	c.connectionSet = append(c.connectionSet, conn)
+	log.Infof("new ztunnel connected, total connected %s", len(c.connectionSet))
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
@@ -77,16 +77,17 @@ func (c *connMgr) LatestConn() (ZtunnelConnection, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.connectionSet) == 0 {
-		return ZtunnelConnection{}, fmt.Errorf("no connection")
+		return nil, fmt.Errorf("no connection")
 	}
-	return c.connectionSet[len(c.connectionSet)-1], nil
+	lConn := c.connectionSet[len(c.connectionSet)-1]
+	log.Debugf("latest ztunnel connection is %s, total connected %s", lConn.UUID(), len(c.connectionSet))
+	return lConn, nil
 }
 
 func (c *connMgr) deleteConn(conn ZtunnelConnection) {
-	log := log.WithLabels("conn_uuid", conn.uuid)
-	log.Info("ztunnel disconnected")
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	log := log.WithLabels("conn_uuid", conn.UUID())
 
 	// Loop over the slice, keeping non-deleted conn but
 	// filtering out the deleted one.
@@ -98,6 +99,7 @@ func (c *connMgr) deleteConn(conn ZtunnelConnection) {
 		}
 	}
 	c.connectionSet = retainedConns
+	log.Infof("ztunnel disconnected, total connected %s", len(c.connectionSet))
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
@@ -182,6 +184,7 @@ func (z *ztunnelServer) Run(ctx context.Context) {
 		}
 		log.Debug("connection accepted")
 		go func() {
+			log := log.WithLabels("conn_uuid", conn.UUID())
 			log.Debug("handling conn")
 			if err := z.handleConn(ctx, conn); err != nil {
 				log.Errorf("failed to handle conn: %v", err)
@@ -198,22 +201,17 @@ func (z *ztunnelServer) Run(ctx context.Context) {
 func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) error {
 	defer conn.Close()
 
-	context.AfterFunc(ctx, func() {
-		log.Debug("context cancelled, closing ztunnel server")
-		conn.Close()
-	})
-
 	// before doing anything, add the connection to the list of active connections
 	z.conns.addConn(conn)
 	defer z.conns.deleteConn(conn)
 
-	log := log.WithLabels("conn_uuid", conn.uuid)
+	log := log.WithLabels("conn_uuid", conn.UUID())
 
-	// get hello message from ztunnel
-	m, _, err := readProto[zdsapi.ZdsHello](conn.u, readWriteDeadline, nil)
+	m, err := conn.ReadHello()
 	if err != nil {
 		return err
 	}
+
 	log.WithLabels("version", m.Version).Infof("received hello from ztunnel")
 	log.Debug("sending snapshot to ztunnel")
 	if err := z.sendSnapshot(ctx, conn); err != nil {
@@ -222,19 +220,23 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 	for {
 		// listen for updates:
 		select {
-		case update, ok := <-conn.Updates:
+		case update, ok := <-conn.Updates():
 			if !ok {
 				log.Debug("update channel closed - returning")
 				return nil
 			}
 			log.Debugf("got update to send to ztunnel")
-			resp, err := conn.sendDataAndWaitForAck(update.Update, update.Fd)
+			resp, err := conn.SendMsgAndWaitForAck(update.Update, update.Fd)
 			if err != nil {
 				// Two possibilities
 				// - we couldn't _write_ to the connection (in which case, this conn is dead)
 				// (annoyingly, go's `net.OpErr` is not convertible?)
 				if strings.Contains(err.Error(), "sendmsg: broken pipe") {
 					log.Error("ztunnel connection broken/unwritable, disposing of this connection")
+					update.Resp <- updateResponse{
+						err:  err,
+						resp: nil,
+					}
 					return err
 				}
 				// if we timed out waiting for a (valid) response, mention and continue, connection may not be trashed
@@ -258,7 +260,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 			// something first, we expect to get an os.ErrDeadlineExceeded error
 			// here if the connection is still alive.
 			// note that unlike tcp connections, reading is a good enough test here.
-			_, err := conn.readMessage(time.Second / 100)
+			err := conn.CheckAlive(time.Second / 100)
 			switch {
 			case !errors.Is(err, os.ErrDeadlineExceeded):
 				log.Debugf("ztunnel keepalive failed: %v", err)
@@ -294,10 +296,6 @@ func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 			},
 		},
 	}
-	data, err := proto.Marshal(r)
-	if err != nil {
-		return err
-	}
 
 	log.Debugf("sending delete pod to all ztunnels: %s %v", uid, r)
 
@@ -306,7 +304,9 @@ func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 	z.conns.mu.Lock()
 	defer z.conns.mu.Unlock()
 	for _, conn := range z.conns.connectionSet {
-		_, err := conn.send(ctx, data, nil)
+		log := log.WithLabels("conn_uuid", conn.UUID())
+		log.Debug("sending msg to connected ztunnel")
+		_, err := conn.Send(ctx, r, nil)
 		if err != nil {
 			delErr = append(delErr, err)
 		}
@@ -330,6 +330,7 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 	if err != nil {
 		return fmt.Errorf("no ztunnel connection")
 	}
+
 	uid := string(pod.ObjectMeta.UID)
 
 	add := &zdsapi.AddWorkload{
@@ -346,17 +347,13 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 		"name", add.WorkloadInfo.Name,
 		"namespace", add.WorkloadInfo.Namespace,
 		"serviceAccount", add.WorkloadInfo.ServiceAccount,
-		"conn_uuid", latestConn.uuid,
+		"conn_uuid", latestConn.UUID(),
 	)
 
 	log.Infof("sending pod add to ztunnel")
-	data, err := proto.Marshal(r)
-	if err != nil {
-		return err
-	}
 
 	fd := int(netns.Fd())
-	resp, err := latestConn.send(ctx, data, &fd)
+	resp, err := latestConn.Send(ctx, r, &fd)
 	if err != nil {
 		return err
 	}
@@ -386,7 +383,7 @@ func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn ZtunnelConnection
 		if wl.Netns != nil {
 			fd := int(wl.Netns.Fd())
 			log.Infof("sending pod to ztunnel as part of snapshot")
-			resp, err = conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
+			resp, err = conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 				Payload: &zdsapi.WorkloadRequest_Add{
 					Add: &zdsapi.AddWorkload{
 						Uid:          uid,
@@ -396,7 +393,7 @@ func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn ZtunnelConnection
 			}, &fd)
 		} else {
 			log.Infof("netns is not available for pod, sending 'keep' to ztunnel")
-			resp, err = conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
+			resp, err = conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 				Payload: &zdsapi.WorkloadRequest_Keep{
 					Keep: &zdsapi.KeepWorkload{
 						Uid: uid,
@@ -411,7 +408,7 @@ func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn ZtunnelConnection
 			log.Errorf("add-workload: got ack error: %s", resp.GetAck().GetError())
 		}
 	}
-	resp, err := conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
+	resp, err := conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 		Payload: &zdsapi.WorkloadRequest_SnapshotSent{
 			SnapshotSent: &zdsapi.SnapshotSent{},
 		},
@@ -431,7 +428,7 @@ func (z *ztunnelServer) accept() (ZtunnelConnection, error) {
 	log.Debug("accepting unix conn")
 	conn, err := z.listener.AcceptUnix()
 	if err != nil {
-		return ZtunnelConnection{}, fmt.Errorf("failed to accept unix: %w", err)
+		return nil, fmt.Errorf("failed to accept unix: %w", err)
 	}
 	log.Debug("accepted conn")
 	return newZtunnelConnection(conn), nil
@@ -442,36 +439,70 @@ type updateResponse struct {
 	resp *zdsapi.WorkloadResponse
 }
 
-type updateRequest struct {
-	Update []byte
+type UpdateRequest struct {
+	Update *zdsapi.WorkloadRequest
 	Fd     *int
 
 	Resp chan updateResponse
 }
 
-type ZtunnelConnection struct {
+type ZtunnelConnection interface {
+	Close()
+	UUID() uuid.UUID
+	Updates() <-chan UpdateRequest
+	CheckAlive(timeout time.Duration) error
+	ReadHello() (*zdsapi.ZdsHello, error)
+	Send(ctx context.Context, data *zdsapi.WorkloadRequest, fd *int) (*zdsapi.WorkloadResponse, error)
+	SendMsgAndWaitForAck(msg *zdsapi.WorkloadRequest, fd *int) (*zdsapi.WorkloadResponse, error)
+}
+
+type ZtunnelUDSConnection struct {
 	uuid    uuid.UUID
 	u       *net.UnixConn
-	Updates chan updateRequest
+	updates chan UpdateRequest
 }
 
 func newZtunnelConnection(u *net.UnixConn) ZtunnelConnection {
-	return ZtunnelConnection{uuid: uuid.New(), u: u, Updates: make(chan updateRequest, 100)}
+	return ZtunnelUDSConnection{uuid: uuid.New(), u: u, updates: make(chan UpdateRequest, 100)}
 }
 
-func (z *ZtunnelConnection) Close() {
+func (z ZtunnelUDSConnection) Close() {
 	z.u.Close()
 }
 
-func (z *ZtunnelConnection) send(ctx context.Context, data []byte, fd *int) (*zdsapi.WorkloadResponse, error) {
+func (z ZtunnelUDSConnection) UUID() uuid.UUID {
+	return z.uuid
+}
+
+func (z ZtunnelUDSConnection) Updates() <-chan UpdateRequest {
+	return z.updates
+}
+
+// do a short read, just to see if the connection to ztunnel is
+// still alive. As ztunnel shouldn't send anything unless we send
+// something first, we expect to get an os.ErrDeadlineExceeded error
+// here if the connection is still alive.
+// note that unlike tcp connections, reading is a good enough test here.
+func (z ZtunnelUDSConnection) CheckAlive(timeout time.Duration) error {
+	_, err := z.readMessage(timeout)
+	return err
+}
+
+func (z ZtunnelUDSConnection) ReadHello() (*zdsapi.ZdsHello, error) {
+	// get hello message from ztunnel
+	m, _, err := readProto[zdsapi.ZdsHello](z.u, readWriteDeadline, nil)
+	return m, err
+}
+
+func (z ZtunnelUDSConnection) Send(ctx context.Context, data *zdsapi.WorkloadRequest, fd *int) (*zdsapi.WorkloadResponse, error) {
 	ret := make(chan updateResponse, 1)
-	req := updateRequest{
+	req := UpdateRequest{
 		Update: data,
 		Fd:     fd,
 		Resp:   ret,
 	}
 	select {
-	case z.Updates <- req:
+	case z.updates <- req:
 	case <-ctx.Done():
 		return nil, fmt.Errorf("context expired before request sent: %v", ctx.Err())
 	}
@@ -484,7 +515,7 @@ func (z *ZtunnelConnection) send(ctx context.Context, data []byte, fd *int) (*zd
 	}
 }
 
-func (z *ZtunnelConnection) sendMsgAndWaitForAck(msg *zdsapi.WorkloadRequest, fd *int) (*zdsapi.WorkloadResponse, error) {
+func (z ZtunnelUDSConnection) SendMsgAndWaitForAck(msg *zdsapi.WorkloadRequest, fd *int) (*zdsapi.WorkloadResponse, error) {
 	data, err := proto.Marshal(msg)
 	if err != nil {
 		return nil, err
@@ -492,7 +523,7 @@ func (z *ZtunnelConnection) sendMsgAndWaitForAck(msg *zdsapi.WorkloadRequest, fd
 	return z.sendDataAndWaitForAck(data, fd)
 }
 
-func (z *ZtunnelConnection) sendDataAndWaitForAck(data []byte, fd *int) (*zdsapi.WorkloadResponse, error) {
+func (z ZtunnelUDSConnection) sendDataAndWaitForAck(data []byte, fd *int) (*zdsapi.WorkloadResponse, error) {
 	var rights []byte
 	if fd != nil {
 		rights = unix.UnixRights(*fd)
@@ -511,7 +542,7 @@ func (z *ZtunnelConnection) sendDataAndWaitForAck(data []byte, fd *int) (*zdsapi
 	return z.readMessage(readWriteDeadline)
 }
 
-func (z *ZtunnelConnection) readMessage(timeout time.Duration) (*zdsapi.WorkloadResponse, error) {
+func (z ZtunnelUDSConnection) readMessage(timeout time.Duration) (*zdsapi.WorkloadResponse, error) {
 	m, _, err := readProto[zdsapi.WorkloadResponse](z.u, timeout, nil)
 	return m, err
 }
