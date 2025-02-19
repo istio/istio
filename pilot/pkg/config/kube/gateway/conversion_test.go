@@ -23,9 +23,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
@@ -418,6 +420,7 @@ func TestConvertResources(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator, nil)
+			kc := kube.NewFakeClient(input...)
 			// Setup a few preconfigured services
 			instances := []*model.ServiceInstance{}
 			for _, svc := range services {
@@ -439,6 +442,9 @@ func TestConvertResources(t *testing.T) {
 				Services:  services,
 				Instances: instances,
 			})
+			ctrl := NewController(kc, func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
+				return true
+			}, controller.Options{DomainSuffix: "domain.suffix"})
 			kr := splitInput(t, input)
 			kr.Context = NewGatewayContext(cg.PushContext(), "Kubernetes")
 			output := convertResources(kr)
@@ -1216,7 +1222,7 @@ func splitInput(t test.Failer, configs []config.Config) GatewayResources {
 	return out
 }
 
-func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator, ignorer *crdvalidation.ValidationIgnorer) []config.Config {
+func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator, ignorer *crdvalidation.ValidationIgnorer) []runtime.Object {
 	t.Helper()
 
 	data, err := os.ReadFile(filename)
@@ -1227,15 +1233,16 @@ func readConfig(t testing.TB, filename string, validator *crdvalidation.Validato
 }
 
 func readConfigString(t testing.TB, data string, validator *crdvalidation.Validator, ignorer *crdvalidation.ValidationIgnorer,
-) []config.Config {
+) []runtime.Object {
 	if err := validator.ValidateCustomResourceYAML(data, ignorer); err != nil {
 		t.Error(err)
 	}
-	c, _, err := crd.ParseInputs(data)
+
+	c, err := kubernetesObjectsFromString(data)
 	if err != nil {
 		t.Fatalf("failed to parse CRD: %v", err)
 	}
-	return insertDefaults(c)
+	return c
 }
 
 // insertDefaults sets default values that would be present when reading from Kubernetes but not from
@@ -1452,3 +1459,20 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 //		})
 //	}
 //}
+
+func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
+	var objects []runtime.Object
+	decode := kube.IstioCodec.UniversalDeserializer().Decode
+	objectStrs := strings.Split(s, "---")
+	for _, s := range objectStrs {
+		if len(strings.TrimSpace(s)) == 0 {
+			continue
+		}
+		o, _, err := decode([]byte(s), nil, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed deserializing kubernetes object: %v (%v)", err, s)
+		}
+		objects = append(objects, o)
+	}
+	return objects, nil
+}
