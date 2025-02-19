@@ -48,7 +48,12 @@ func newHandlerSet[O any]() *handlerSet[O] {
 	}
 }
 
-func (o *handlerSet[O]) Insert(f func(o []Event[O], initialSync bool), parentSynced Syncer, initialEvents []Event[O], stopCh <-chan struct{}) HandlerRegistration {
+func (o *handlerSet[O]) Insert(
+	f func(o []Event[O], initialSync bool),
+	parentSynced Syncer,
+	initialEvents []Event[O],
+	stopCh <-chan struct{},
+) HandlerRegistration {
 	o.mu.Lock()
 	l := newProcessListener(f, parentSynced, stopCh)
 	o.handlers.Insert(l)
