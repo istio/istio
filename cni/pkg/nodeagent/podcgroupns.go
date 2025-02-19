@@ -143,10 +143,16 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 		return nil, err
 	}
 
-	inode, err := GetInode(fi)
+	inode, dev, err := GetInodeDev(fi)
 	if err != nil {
 		return nil, err
 	}
+
+	if host, err := isHostNetns(proc, inode, dev); host || err != nil {
+		log.Warnf("netns: ignoring host netns (ino %d and dev %d) %s", inode, dev, err)
+		return nil, err
+	}
+
 	if _, ok := netnsObserved[inode]; ok {
 		log.Debugf("netns: %d already processed. skipping", inode)
 		return nil, nil
@@ -397,4 +403,26 @@ func getPodUIDAndContainerIDFromCGroups(cgroups []Cgroup) (types.UID, string, er
 	}
 
 	return podUID, containerID, nil
+}
+
+func isHostNetns(proc fs.FS, foundIno, foundDev uint64) (bool, error) {
+	hf, err := fs.Stat(proc, path.Join("1", "ns", "net"))
+	if err != nil {
+		fmt.Printf("BOOP 1")
+		return false, err
+	}
+
+	hInode, hDev, err := GetInodeDev(hf)
+	if err != nil {
+		fmt.Printf("BOOP 2")
+		return false, err
+	}
+
+	if hInode == foundIno && hDev == foundDev {
+		fmt.Printf("BOOP 3")
+		return true, nil
+	}
+
+	fmt.Printf("BOOP 4")
+	return false, nil
 }

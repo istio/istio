@@ -66,7 +66,7 @@ func getTestFixureWithIptablesConfig(ctx context.Context, fakeDeps *dependencies
 
 	ztunnelServer := &fakeZtunnel{}
 
-	netServer := newNetServer(ztunnelServer, podNsMap, podIptC, NewPodNetnsProcFinder(fakeFs()))
+	netServer := newNetServer(ztunnelServer, podNsMap, podIptC, NewPodNetnsProcFinder(fakeFs(false)))
 
 	netServer.netnsRunner = func(fdable NetnsFd, toRun func() error) error {
 		return toRun()
