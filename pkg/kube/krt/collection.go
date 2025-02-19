@@ -527,7 +527,7 @@ func newManyCollection[I, O any](
 			outputs:  map[Key[O]]O{},
 			mappings: map[Key[I]]sets.Set[Key[O]]{},
 		},
-		eventHandlers:              &handlerSet[O]{},
+		eventHandlers:              newHandlerSet[O](),
 		augmentation:               opts.augmentation,
 		synced:                     make(chan struct{}),
 		stop:                       opts.stop,
@@ -638,11 +638,11 @@ func (h *manyCollection[I, O]) List() (res []O) {
 	return maps.Values(h.collectionState.outputs)
 }
 
-func (h *manyCollection[I, O]) Register(f func(o Event[O])) Syncer {
+func (h *manyCollection[I, O]) Register(f func(o Event[O])) HandlerRegistration {
 	return registerHandlerAsBatched[O](h, f)
 }
 
-func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bool), runExistingState bool) Syncer {
+func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bool), runExistingState bool) HandlerRegistration {
 	if !runExistingState {
 		// If we don't to run the initial state this is simple, we just register the handler.
 		return h.eventHandlers.Insert(f, h, nil, h.stop)

@@ -29,7 +29,7 @@ import (
 
 // registerHandlerAsBatched is a helper to register the provided handler as a batched handler. This allows collections to
 // only implement RegisterBatch.
-func registerHandlerAsBatched[T any](c internalCollection[T], f func(o Event[T])) Syncer {
+func registerHandlerAsBatched[T any](c internalCollection[T], f func(o Event[T])) HandlerRegistration {
 	return c.RegisterBatch(func(events []Event[T], initialSync bool) {
 		for _, o := range events {
 			f(o)
