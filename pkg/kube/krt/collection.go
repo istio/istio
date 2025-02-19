@@ -502,7 +502,12 @@ func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 	return newManyCollection[I, O](c, hf, o, nil)
 }
 
-func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O], opts collectionOptions, onPrimaryInputEventHandler func([]Event[I])) Collection[O] {
+func newManyCollection[I, O any](
+	cc Collection[I],
+	hf TransformationMulti[I, O],
+	opts collectionOptions,
+	onPrimaryInputEventHandler func([]Event[I]),
+) Collection[O] {
 	c := cc.(internalCollection[I])
 
 	h := &manyCollection[I, O]{

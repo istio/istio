@@ -25,7 +25,11 @@ import (
 // For example: with a Service input and []Endpoint output, I might report (ServiceStatus, []Endpoint) where ServiceStatus counts
 // the number of attached endpoints.
 // Two collections will be output: the status collection and the original output collection.
-func NewStatusManyCollection[I, IStatus, O any](c Collection[I], hf TransformationMultiStatus[I, IStatus, O], opts ...CollectionOption) (Collection[ObjectWithStatus[I, IStatus]], Collection[O]) {
+func NewStatusManyCollection[I, IStatus, O any](
+	c Collection[I],
+	hf TransformationMultiStatus[I, IStatus, O],
+	opts ...CollectionOption,
+) (Collection[ObjectWithStatus[I, IStatus]], Collection[O]) {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("NewStatusManyCollection[%v,%v,%v]", ptr.TypeName[I](), ptr.TypeName[IStatus](), ptr.TypeName[O]())
@@ -59,7 +63,11 @@ func NewStatusManyCollection[I, IStatus, O any](c Collection[I], hf Transformati
 	return status, primary
 }
 
-func NewStatusCollection[I, IStatus, O any](c Collection[I], hf TransformationSingleStatus[I, IStatus, O], opts ...CollectionOption) (Collection[ObjectWithStatus[I, IStatus]], Collection[O]) {
+func NewStatusCollection[I, IStatus, O any](
+	c Collection[I],
+	hf TransformationSingleStatus[I, IStatus, O],
+	opts ...CollectionOption,
+) (Collection[ObjectWithStatus[I, IStatus]], Collection[O]) {
 	hm := func(ctx HandlerContext, i I) (*IStatus, []O) {
 		status, res := hf(ctx, i)
 		if res == nil {
