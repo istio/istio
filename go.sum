@@ -115,6 +115,8 @@ github.com/emicklei/go-restful/v3 v3.12.1/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRr
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
+github.com/envoyproxy/go-control-plane v0.13.5-0.20250114143102-4eb1955954fa h1:hKkXohR1YL4YGPNB/CfVUS07I1uF4uc1qvPNfILlex8=
+github.com/envoyproxy/go-control-plane v0.13.5-0.20250114143102-4eb1955954fa/go.mod h1:kDfuBlDVsSj2MjrLEtRWtHlsWIFcGyB2RMO44Dc5GZA=
 github.com/envoyproxy/go-control-plane v0.13.5-0.20250123154839-2a6715911fec h1:JSSbRTQjlgxvbu742IwK/v3mrNWRz2U1GjY66DqogNo=
 github.com/envoyproxy/go-control-plane v0.13.5-0.20250123154839-2a6715911fec/go.mod h1:yz4MTDY0h9ObVlfP15ykR737j5tP/z64qu0OzSRoobk=
 github.com/envoyproxy/go-control-plane/contrib v1.32.4-0.20250124152931-009f366fdf49 h1:GibP3W2AIwgBjvdyCcn6rTgaDaVEBKtPoR/CxlFf/Hw=
