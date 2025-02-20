@@ -123,7 +123,7 @@ func (c *Caller) CallEcho(from echo.Caller, opts echo.CallOptions) (echo.CallRes
 }
 
 func newForwardRequest(opts echo.CallOptions) *proto.ForwardEchoRequest {
-	r := &proto.ForwardEchoRequest{
+	return &proto.ForwardEchoRequest{
 		Url:                     getTargetURL(opts),
 		Count:                   int32(opts.Count),
 		Headers:                 common.HTTPToProtoHeaders(opts.HTTP.Headers),
@@ -171,8 +171,6 @@ func newForwardRequest(opts echo.CallOptions) *proto.ForwardEchoRequest {
 		},
 		ProxyProtocolVersion: getProxyProtoVersion(opts.ProxyProtocolVersion),
 	}
-
-	return r
 }
 
 func getProxyProtoVersion(protoVer int) proto.ProxyProtoVersion {

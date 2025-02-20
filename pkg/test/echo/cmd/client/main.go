@@ -251,7 +251,8 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		if innerHboneInsecureSkipVerify != hboneInsecureSkipVerify {
 			request.Hbone.InsecureSkipVerify = innerHboneInsecureSkipVerify
 		}
-	} else if len(hboneAddress) > 0 {
+	}
+	if len(hboneAddress) > 0 {
 		request.Hbone = &proto.HBONE{
 			Address:            hboneAddress,
 			CertFile:           hboneClientCert,
