@@ -65,7 +65,6 @@ func (c doubleConnectInstance) Start(onReady OnReadyFunc) error {
 				epLog.Infof("TLS connection with alpn: %v", info.SupportedProtos)
 				return nil, nil
 			},
-			MinVersion: tls.VersionTLS12,
 		}
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnAddressTLS(c.ListenerIP, c.Port.Port, config)

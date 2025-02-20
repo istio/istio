@@ -158,34 +158,18 @@ func newForwardRequest(opts echo.CallOptions) *proto.ForwardEchoRequest {
 			CaCertFile:         opts.HBONE.CaCertFile,
 			InsecureSkipVerify: opts.HBONE.InsecureSkipVerify,
 		},
+		DoubleHbone: &proto.HBONE{
+			Address:            opts.DoubleHBONE.Address,
+			Headers:            common.HTTPToProtoHeaders(opts.DoubleHBONE.Headers),
+			Cert:               opts.DoubleHBONE.Cert,
+			Key:                opts.DoubleHBONE.Key,
+			CaCert:             opts.DoubleHBONE.CaCert,
+			CertFile:           opts.DoubleHBONE.CertFile,
+			KeyFile:            opts.DoubleHBONE.KeyFile,
+			CaCertFile:         opts.DoubleHBONE.CaCertFile,
+			InsecureSkipVerify: opts.DoubleHBONE.InsecureSkipVerify,
+		},
 		ProxyProtocolVersion: getProxyProtoVersion(opts.ProxyProtocolVersion),
-	}
-
-	if len(opts.DoubleHBONE) == 2 {
-		r.DoubleHbone = []*proto.HBONE{
-			{
-				Address:            opts.DoubleHBONE[0].Address,
-				Headers:            common.HTTPToProtoHeaders(opts.DoubleHBONE[0].Headers),
-				Cert:               opts.DoubleHBONE[0].Cert,
-				Key:                opts.DoubleHBONE[0].Key,
-				CaCert:             opts.DoubleHBONE[0].CaCert,
-				CertFile:           opts.DoubleHBONE[0].CertFile,
-				KeyFile:            opts.DoubleHBONE[0].KeyFile,
-				CaCertFile:         opts.DoubleHBONE[0].CaCertFile,
-				InsecureSkipVerify: opts.DoubleHBONE[0].InsecureSkipVerify,
-			},
-			{
-				Address:            opts.DoubleHBONE[1].Address,
-				Headers:            common.HTTPToProtoHeaders(opts.DoubleHBONE[1].Headers),
-				Cert:               opts.DoubleHBONE[1].Cert,
-				Key:                opts.DoubleHBONE[1].Key,
-				CaCert:             opts.DoubleHBONE[1].CaCert,
-				CertFile:           opts.DoubleHBONE[1].CertFile,
-				KeyFile:            opts.DoubleHBONE[1].KeyFile,
-				CaCertFile:         opts.DoubleHBONE[1].CaCertFile,
-				InsecureSkipVerify: opts.DoubleHBONE[1].InsecureSkipVerify,
-			},
-		}
 	}
 
 	return r

@@ -275,8 +275,11 @@ type ForwardEchoRequest struct {
 	ForceIpFamily string `protobuf:"bytes,26,opt,name=force_ip_family,json=forceIpFamily,proto3" json:"force_ip_family,omitempty"`
 	// HBONE communication settings. If provided, requests will be tunnelled.
 	Hbone *HBONE `protobuf:"bytes,24,opt,name=hbone,proto3" json:"hbone,omitempty"`
-	// S
-	DoubleHbone          []*HBONE          `protobuf:"bytes,27,rep,name=double_hbone,json=doubleHbone,proto3" json:"double_hbone,omitempty"`
+	// Double HBONE communication settings. The settings here represent the outer
+	// tunnel and the inner tunnel settigns are specified in the hbone field.
+	// If the inner tunnel is not specified, the inner tunnel will
+	// be the same as the outer tunnel.
+	DoubleHbone          *HBONE            `protobuf:"bytes,27,opt,name=double_hbone,json=doubleHbone,proto3" json:"double_hbone,omitempty"`
 	ProxyProtocolVersion ProxyProtoVersion `protobuf:"varint,25,opt,name=proxyProtocolVersion,proto3,enum=proto.ProxyProtoVersion" json:"proxyProtocolVersion,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
@@ -487,7 +490,7 @@ func (x *ForwardEchoRequest) GetHbone() *HBONE {
 	return nil
 }
 
-func (x *ForwardEchoRequest) GetDoubleHbone() []*HBONE {
+func (x *ForwardEchoRequest) GetDoubleHbone() *HBONE {
 	if x != nil {
 		return x.DoubleHbone
 	}
