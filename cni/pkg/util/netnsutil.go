@@ -27,7 +27,7 @@ func RunAsHost(f func() error) error {
 	}
 
 	// A network namespace switch is definitely not required in this case, which helps with testing
-	if pconstants.HostNetNSPath == "/proc/self/ns/net" {
+	if pconstants.HostNetNSPath == pconstants.SelfNetNSPath {
 		return f()
 	}
 	return netns.WithNetNSPath(pconstants.HostNetNSPath, func(_ netns.NetNS) error {

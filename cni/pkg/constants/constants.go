@@ -69,6 +69,7 @@ const (
 	ReadinessEndpoint  = "/readyz"
 	ReadinessPort      = "8000"
 	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
+	SelfNetNSPath      = "/proc/self/ns/net"
 )
 
 // Exposed for testing "constants"
@@ -78,5 +79,9 @@ var (
 	// Well-known subpath we will mount any needed host-mounts under,
 	// to preclude shadowing or breaking any pod-internal mounts
 	HostMountsPath = "/host"
-	HostNetNSPath  = HostMountsPath + "/proc/1/ns/net"
+	// HostNetNSPath needs to be overridden at runtime. By default, it is set to "/proc/self/ns/net"
+	// to prevent accidental execution on the host, even during test development.
+	// In production, it is explicitly overridden in nodeagent/server.go to
+	// "/host/proc/1/ns/net" to align with the actual host network namespace.
+	HostNetNSPath = SelfNetNSPath
 )
