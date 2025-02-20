@@ -58,6 +58,7 @@ func (c doubleConnectInstance) Start(onReady OnReadyFunc) error {
 		config = &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			NextProtos:   []string{"h2"},
+			MinVersion:   tls.VersionTLS12,
 			GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
 				// There isn't a way to pass through all ALPNs presented by the client down to the
 				// HTTP server to return in the response. However, for debugging, we can at least log

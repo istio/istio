@@ -98,7 +98,7 @@ func (d dialer) Dial(network, address string) (c net.Conn, err error) {
 	return d.DialContext(context.Background(), network, address)
 }
 
-func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http2.Transport, copy bool) (*http.Response, io.WriteCloser, error) {
+func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http2.Transport, shouldCopy bool) (*http.Response, io.WriteCloser, error) {
 	t0 := time.Now()
 
 	url := "http://" + req.ProxyAddress
@@ -116,7 +116,7 @@ func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http2
 	log.Infof("initiate CONNECT to %v via %v", r.Host, url)
 
 	wg := sync.WaitGroup{}
-	if copy {
+	if shouldCopy {
 		wg.Add(1)
 
 		go func() {
@@ -143,7 +143,7 @@ func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http2
 	}
 	log.WithLabels("host", r.Host, "remote", remoteID).Info("CONNECT established")
 
-	if copy {
+	if shouldCopy {
 		go func() {
 			defer conn.Close()
 			defer resp.Body.Close()
