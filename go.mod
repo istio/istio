@@ -17,8 +17,8 @@ require (
 	github.com/coreos/go-oidc/v3 v3.12.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v27.5.1+incompatible
-	github.com/envoyproxy/go-control-plane/contrib v1.32.4-0.20250124152931-009f366fdf49
-	github.com/envoyproxy/go-control-plane/envoy v1.32.4-0.20250124152931-009f366fdf49
+	github.com/envoyproxy/go-control-plane/contrib v1.32.4-0.20250114143102-4eb1955954fa
+	github.com/envoyproxy/go-control-plane/envoy v1.32.4-0.20250114143102-4eb1955954fa
 	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/fatih/color v1.18.0
 	github.com/felixge/fgprof v0.9.5
@@ -131,7 +131,7 @@ require (
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
-	github.com/envoyproxy/go-control-plane v0.13.5-0.20250123154839-2a6715911fec // indirect
+	github.com/envoyproxy/go-control-plane v0.13.5-0.20250114143102-4eb1955954fa // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.1.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
