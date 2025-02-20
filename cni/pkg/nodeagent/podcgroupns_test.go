@@ -25,7 +25,9 @@ import (
 )
 
 func TestWithProcFs(t *testing.T) {
-	n := NewPodNetnsProcFinder(fakeFs(true))
+	n, err := NewPodNetnsProcFinder(fakeFs(true))
+	assert.NoError(t, err)
+
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 		Name:      "foo",
 		Namespace: "bar",
@@ -56,7 +58,9 @@ func TestWithProcFs(t *testing.T) {
 }
 
 func TestHostNetnsWithSameIno(t *testing.T) {
-	n := NewPodNetnsProcFinder(fakeFs(false))
+	n, err := NewPodNetnsProcFinder(fakeFs(false))
+	assert.NoError(t, err)
+
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 		Name:      "foo",
 		Namespace: "bar",
