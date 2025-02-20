@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 54997
+releaseNotes:
+- |
+  **Fixed** an issue where ServiceEntry endpoints are leaked when a pod is evicted.
