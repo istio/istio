@@ -788,6 +788,51 @@ spec:
 	})
 }
 
+func TestTCPRoute(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: tcproute
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: service-addressed-waypoint
+  rules:
+    - backendRefs:
+        - name: captured
+          port: 9090
+        - name: uncaptured
+          port: 9090
+        - name: service-addressed-waypoint
+          port: 9093`).ApplyOrFail(t)
+		apps.Captured[0].CallOrFail(t, echo.CallOptions{
+			To:    apps.ServiceAddressedWaypoint,
+			Port:  ports.TCP,
+			Count: 20,
+			Check: check.And(check.OK(), func(result echo.CallResult, err error) error {
+				gotCaptured, gotUncaptured, gotWaypoint := false, false, false
+				for _, r := range result.Responses {
+					if strings.HasPrefix(r.Hostname, "captured-") && r.Port == "19090" {
+						gotCaptured = true
+					}
+					if strings.HasPrefix(r.Hostname, "uncaptured-") && r.Port == "19090" {
+						gotUncaptured = true
+					}
+					if strings.HasPrefix(r.Hostname, "service-addressed-waypoint-") && r.Port == "16061" {
+						gotWaypoint = true
+					}
+				}
+				if !gotCaptured || !gotUncaptured || !gotWaypoint {
+					return fmt.Errorf("didn't hit all expected backends (%v, %v, %v)", gotCaptured, gotUncaptured, gotWaypoint)
+				}
+				return nil
+			}),
+		})
+	})
+}
+
 func SetIngressUseWaypoint(t framework.TestContext, name, ns string) {
 	for _, c := range t.Clusters() {
 		set := func(service bool) error {
