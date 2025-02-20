@@ -24,11 +24,11 @@ import (
 	"syscall"
 )
 
-func GetInodeDev(fi fs.FileInfo) (uint64, uint64, error) {
+func GetStat(fi fs.FileInfo) (*syscall.Stat_t, error) {
 	if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
-		return stat.Ino, stat.Dev, nil
+		return stat, nil
 	}
-	return 0, 0, fmt.Errorf("unable to get inode/dev")
+	return nil, fmt.Errorf("unable to stat %s", fi.Name())
 }
 
 // Gets the `starttime` field from `/proc/<pid>/stat`.

@@ -23,6 +23,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"syscall"
 	"unicode"
 
 	corev1 "k8s.io/api/core/v1"
@@ -45,11 +46,17 @@ type PodNetnsFinder interface {
 }
 
 type PodNetnsProcFinder struct {
-	proc fs.FS
+	proc          fs.FS
+	hostNetnsStat *syscall.Stat_t
 }
 
-func NewPodNetnsProcFinder(proc fs.FS) *PodNetnsProcFinder {
-	return &PodNetnsProcFinder{proc: proc}
+func NewPodNetnsProcFinder(proc fs.FS) (*PodNetnsProcFinder, error) {
+	hostNetnsStat, err := statHostNetns(proc)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PodNetnsProcFinder{proc: proc, hostNetnsStat: hostNetnsStat}, nil
 }
 
 func isNotNumber(r rune) bool {
@@ -142,21 +149,24 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 		return nil, err
 	}
 
-	inode, dev, err := GetInodeDev(fi)
+	entryNetnsStat, err := GetStat(fi)
 	if err != nil {
 		return nil, err
 	}
 
+	// Now that we've stat'ed the PID netns, capture it in logging context from here out
+	log = log.WithLabels("PID netns inode", entryNetnsStat.Ino, "PID netns dev", entryNetnsStat.Dev)
+
 	// It is possible (but unlikely, see https://github.com/istio/istio/issues/55139) that we may get a pod netns
 	// that is == the hostnetns. This might lead to us breaking the host, so ignore everything that looks like
 	// the host netns.
-	if host, err := isHostNetns(proc, inode, dev); host || err != nil {
-		log.Debugf("netns: ignoring host netns (ino %d and dev %d) %v", inode, dev, err)
-		return nil, err
+	if host := p.isHostNetns(entryNetnsStat.Ino, entryNetnsStat.Dev); host {
+		log.Debugf("netns: ignoring host netns")
+		return nil, nil
 	}
 
-	if _, ok := netnsObserved[inode]; ok {
-		log.Debugf("netns: %d already processed. skipping", inode)
+	if _, ok := netnsObserved[entryNetnsStat.Ino]; ok {
+		log.Debug("netns already processed. skipping")
 		return nil, nil
 	}
 
@@ -189,14 +199,14 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 		netns.Close()
 		return nil, err
 	}
-	netnsObserved[inode] = struct{}{}
-	log.Debugf("found pod to netns: %s %d", uid, inode)
+	netnsObserved[entryNetnsStat.Ino] = struct{}{}
+	log.Debugf("found pod to netns: %s", uid)
 
 	return &PodNetnsEntry{
 		uid,
 		netns,
 		fd,
-		inode,
+		entryNetnsStat.Ino,
 		ownerProcStarttime,
 	}, nil
 }
@@ -407,20 +417,22 @@ func getPodUIDAndContainerIDFromCGroups(cgroups []Cgroup) (types.UID, string, er
 	return podUID, containerID, nil
 }
 
-func isHostNetns(proc fs.FS, foundIno, foundDev uint64) (bool, error) {
+func statHostNetns(proc fs.FS) (*syscall.Stat_t, error) {
 	hf, err := fs.Stat(proc, path.Join("1", "ns", "net"))
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
-	hInode, hDev, err := GetInodeDev(hf)
+	hStat, err := GetStat(hf)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
+	return hStat, nil
+}
 
-	if hInode == foundIno && hDev == foundDev {
-		return true, nil
+func (p *PodNetnsProcFinder) isHostNetns(foundIno, foundDev uint64) bool {
+	if p.hostNetnsStat.Ino == foundIno && p.hostNetnsStat.Dev == foundDev {
+		return true
 	}
-
-	return false, nil
+	return false
 }
