@@ -16,7 +16,7 @@
 
 set -e
 
-UPDATE_BRANCH=${UPDATE_BRANCH:-"master"}
+UPDATE_BRANCH=${UPDATE_BRANCH:-"release-1.25"}
 
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
@@ -35,4 +35,4 @@ function getSha() {
   echo "${result}"
 }
 
-sed -i '/ZTUNNEL_REPO_SHA/,/lastStableSHA/ { s/"lastStableSHA":.*/"lastStableSHA": "'"$(getSha ztunnel)"'"/  }' istio.deps
+sed -i'.bak' '/ZTUNNEL_REPO_SHA/,/lastStableSHA/ { s/"lastStableSHA":.*/"lastStableSHA": "'"$(getSha ztunnel)"'"/  }' istio.deps
