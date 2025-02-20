@@ -43,6 +43,19 @@ status:
     message: 'ztunnel does not support the CUSTOM action'
     lastTransitionTime: "2023-01-01T00:00:00Z"
 ---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: negative-condition-authz-partially-invalid
+  namespace: default  
+status:
+  conditions:
+  - type: WaypointAccepted
+    status: "True"
+    reason: PartiallyInvalid
+    message: 'Invalid targetRefs: default/doesnt-exist'
+    lastTransitionTime: "2023-01-01T00:00:00Z"
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:

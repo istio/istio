@@ -1000,6 +1000,7 @@ var testGrid = []testCase{
 			{msg.NegativeConditionStatus, "Gateway default/negative-condition-gateway"},
 			{msg.NegativeConditionStatus, "HTTPRoute default/negative-condition-httproute"},
 			{msg.NegativeConditionStatus, "GRPCRoute default/negative-condition-grpcroute"},
+			{msg.NegativeConditionStatus, "AuthorizationPolicy default/negative-condition-authz-partially-invalid"},
 		},
 	},
 }
