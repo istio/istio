@@ -67,15 +67,6 @@ type Server struct {
 }
 
 func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, args AmbientArgs) (*Server, error) {
-	var err error
-	// HostNetNSPath needs to be overridden at runtime; see constants package for details.
-	pconstants.HostNetNSPath = pconstants.HostMountsPath + "/proc/1/ns/net"
-	defer func() {
-		if err != nil { // Only revert if an error occurred, otherwise revert at Stop()
-			pconstants.HostNetNSPath = pconstants.SelfNetNSPath
-		}
-	}()
-
 	client, err := buildKubeClient(args.KubeConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %w", err)
@@ -185,9 +176,6 @@ func (s *Server) Start() {
 func (s *Server) Stop(skipCleanup bool) {
 	s.cniServerStopFunc()
 	s.dataplane.Stop(skipCleanup)
-
-	// Revert HostNetNSPath to the "safe" value
-	pconstants.HostNetNSPath = pconstants.SelfNetNSPath
 }
 
 func (s *Server) ShouldStopForUpgrade(selfName, selfNamespace string) bool {

@@ -14,6 +14,11 @@
 
 package constants
 
+import (
+	"os"
+	"strconv"
+)
+
 // Command line arguments
 const (
 	// Install
@@ -79,9 +84,15 @@ var (
 	// Well-known subpath we will mount any needed host-mounts under,
 	// to preclude shadowing or breaking any pod-internal mounts
 	HostMountsPath = "/host"
-	// HostNetNSPath needs to be overridden at runtime. By default, it is set to "/proc/self/ns/net"
-	// to prevent accidental execution on the host, even during test development.
-	// In production, it is explicitly overridden in nodeagent/server.go to
-	// "/host/proc/1/ns/net" to align with the actual host network namespace.
+	// HostNetNSPath is set to "/proc/self/ns/net" by default to prevent unintended execution on the host,
+	// even during test development. At runtime, it is overridden when the ALLOW_SWITCH_TO_HOST_NS
+	// environment variable is set to true (see CNI daemonset), which updates it to "/host/proc/1/ns/net" to align with the actual
+	// host network namespace.
 	HostNetNSPath = SelfNetNSPath
 )
+
+func init() {
+	if allowSwitch, err := strconv.ParseBool(os.Getenv("ALLOW_SWITCH_TO_HOST_NS")); err == nil && allowSwitch {
+		HostNetNSPath = HostMountsPath + "/proc/1/ns/net"
+	}
+}
