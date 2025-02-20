@@ -122,6 +122,8 @@ type PodNetnsEntry struct {
 }
 
 func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uint64], filter sets.Set[types.UID], entry fs.DirEntry) (*PodNetnsEntry, error) {
+	log := log.WithLabels("PID", entry.Name())
+
 	if !isProcess(entry) {
 		return nil, nil
 	}
@@ -149,7 +151,7 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 	// that is == the hostnetns. This might lead to us breaking the host, so ignore everything that looks like
 	// the host netns.
 	if host, err := isHostNetns(proc, inode, dev); host || err != nil {
-		log.Warnf("netns: ignoring host netns (ino %d and dev %d) %s", inode, dev, err)
+		log.Debugf("netns: ignoring host netns (ino %d and dev %d) %v", inode, dev, err)
 		return nil, err
 	}
 
@@ -408,21 +410,17 @@ func getPodUIDAndContainerIDFromCGroups(cgroups []Cgroup) (types.UID, string, er
 func isHostNetns(proc fs.FS, foundIno, foundDev uint64) (bool, error) {
 	hf, err := fs.Stat(proc, path.Join("1", "ns", "net"))
 	if err != nil {
-		fmt.Printf("BOOP 1")
 		return false, err
 	}
 
 	hInode, hDev, err := GetInodeDev(hf)
 	if err != nil {
-		fmt.Printf("BOOP 2")
 		return false, err
 	}
 
 	if hInode == foundIno && hDev == foundDev {
-		fmt.Printf("BOOP 3")
 		return true, nil
 	}
 
-	fmt.Printf("BOOP 4")
 	return false, nil
 }
