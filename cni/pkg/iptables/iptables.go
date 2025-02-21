@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/scopes"
+	"istio.io/istio/cni/pkg/util"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
@@ -604,16 +605,19 @@ func (cfg *IptablesConfigurator) delInpodMarkIPRule() error {
 // - kubelet (node-local healthchecks, which we do not capture)
 // - kube-proxy (fowarded/proxied traffic from LoadBalancer-backed services, potentially with public IPs, which we must capture)
 func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks() error {
+	log.Info("configuring host-level iptables rules (healthchecks, etc)")
 	// Append our rules here
 	builder := cfg.AppendHostRules()
 
 	log.Info("Adding host netnamespace iptables rules")
 
-	if err := cfg.executeCommands(log.WithLabels("component", "host"), builder); err != nil {
-		log.Errorf("failed to add host netnamespace iptables rules: %v", err)
-		return err
-	}
-	return nil
+	return util.RunAsHost(func() error {
+		if err := cfg.executeCommands(log.WithLabels("component", "host"), builder); err != nil {
+			log.Errorf("failed to add host netnamespace iptables rules: %v", err)
+			return err
+		}
+		return nil
+	})
 }
 
 func (cfg *IptablesConfigurator) DeleteHostRules() {
@@ -626,16 +630,20 @@ func (cfg *IptablesConfigurator) DeleteHostRules() {
 		}
 	}
 
-	runCommands(builder.BuildCleanupV4(), &cfg.iptV)
+	err := util.RunAsHost(func() error {
+		runCommands(builder.BuildCleanupV4(), &cfg.iptV)
 
-	if cfg.cfg.EnableIPv6 {
-		runCommands(builder.BuildCleanupV6(), &cfg.ipt6V)
+		if cfg.cfg.EnableIPv6 {
+			runCommands(builder.BuildCleanupV6(), &cfg.ipt6V)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Can't switch to host namespace: %v", err)
 	}
 }
 
 func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder {
-	log.Info("configuring host-level iptables rules (healthchecks, etc)")
-
 	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
 
 	// For easier cleanup, insert a jump into an owned chain
