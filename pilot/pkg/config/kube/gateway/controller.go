@@ -31,7 +31,6 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
-	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	creds "istio.io/istio/pilot/pkg/model/credentials"
@@ -103,6 +102,7 @@ type Controller struct {
 
 	gatewayContext        *atomic.Pointer[GatewayContext]
 	gatewayContextTrigger *krt.RecomputeTrigger
+	stop                  chan struct{}
 }
 
 type GatewayClass struct {
@@ -114,19 +114,21 @@ func (g GatewayClass) ResourceName() string {
 	return g.Name
 }
 
-func GatewayClassesCollection(
-	GatewayClasses krt.Collection[*gateway.GatewayClass],
-) krt.Collection[GatewayClass] {
+func GatewayClassesCollection(GatewayClasses krt.Collection[*gateway.GatewayClass], opts krt.OptionsBuilder) krt.Collection[GatewayClass] {
 	return krt.NewCollection(GatewayClasses, func(ctx krt.HandlerContext, obj *gateway.GatewayClass) *GatewayClass {
 		return &GatewayClass{
 			Name:       obj.Name,
 			Controller: obj.Spec.ControllerName,
 		}
-	})
+	}, opts.WithName("GatewayClasses")...)
 }
 
 type ReferencePair struct {
 	To, From Reference
+}
+
+func (r ReferencePair) String() string {
+	return fmt.Sprintf("%s->%s", r.To, r.From)
 }
 
 type ReferenceGrants struct {
@@ -202,9 +204,7 @@ type RouteContext struct {
 	Domain  string
 }
 
-func ReferenceGrantsCollection(
-	ReferenceGrants krt.Collection[*gateway.ReferenceGrant],
-) krt.Collection[ReferenceGrant] {
+func ReferenceGrantsCollection(ReferenceGrants krt.Collection[*gateway.ReferenceGrant], opts krt.OptionsBuilder) krt.Collection[ReferenceGrant] {
 	return krt.NewManyCollection(ReferenceGrants, func(ctx krt.HandlerContext, obj *gateway.ReferenceGrant) []ReferenceGrant {
 		rp := obj.Spec
 		results := make([]ReferenceGrant, 0, len(rp.From)*len(rp.To))
@@ -252,7 +252,7 @@ func ReferenceGrantsCollection(
 			}
 		}
 		return results
-	})
+	}, opts.WithName("ReferenceGrants")...)
 }
 
 type Gateway struct {
@@ -368,7 +368,7 @@ func GatewayCollection(
 
 		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)
 		return status.Status, result
-	}, opts.WithName("Gateway")...)
+	}, opts.WithName("KubernetesGateway")...)
 
 	return statusCol, gw
 }
@@ -735,11 +735,10 @@ func NewController(
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool,
 	options controller.Options,
 ) *Controller {
-	var ctl *status.Controller
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, options.KrtDebugger)
 
-	statusWriter := &StatusWriter{statusController: atomic.NewPointer(ctl)}
+	statusWriter := &StatusWriter{statusController: atomic.NewPointer[status.Queue](nil)}
 	gatewayController := &Controller{
 		client:                kc,
 		cluster:               options.ClusterID,
@@ -749,22 +748,23 @@ func NewController(
 		waitForCRD:            waitForCRD,
 		gatewayContext:        atomic.NewPointer[GatewayContext](nil),
 		gatewayContextTrigger: krt.NewRecomputeTrigger(false, opts.WithName("gatewayContextTrigger")...),
+		stop:                  stop,
 	}
 
 	inputs := Inputs{
 		Namespaces:      krt.NewInformer[*corev1.Namespace](kc, opts.WithName("Namespaces")...),
 		GatewayClasses:  buildClient[*gateway.GatewayClass](kc, gvr.GatewayClass, opts, "GatewayClasses"),
 		Gateways:        buildClient[*gateway.Gateway](kc, gvr.KubernetesGateway, opts, "Gateways"),
-		HTTPRoutes:      buildClient[*gateway.HTTPRoute](kc, gvr.HTTPRoute, opts, "Gateways"),
-		GRPCRoutes:      buildClient[*gatewayv1.GRPCRoute](kc, gvr.GRPCRoute, opts, "Gateways"),
-		TCPRoutes:       buildClient[*gatewayalpha.TCPRoute](kc, gvr.TCPRoute, opts, "Gateways"),
-		TLSRoutes:       buildClient[*gatewayalpha.TLSRoute](kc, gvr.TLSRoute, opts, "Gateways"),
-		ReferenceGrants: buildClient[*gateway.ReferenceGrant](kc, gvr.ReferenceGrant, opts, "Gateways"),
-		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](kc, gvr.ServiceEntry, opts, "Gateways"),
+		HTTPRoutes:      buildClient[*gateway.HTTPRoute](kc, gvr.HTTPRoute, opts, "HTTPRoutes"),
+		GRPCRoutes:      buildClient[*gatewayv1.GRPCRoute](kc, gvr.GRPCRoute, opts, "GRPCRoutes"),
+		TCPRoutes:       buildClient[*gatewayalpha.TCPRoute](kc, gvr.TCPRoute, opts, "TCPRoutes"),
+		TLSRoutes:       buildClient[*gatewayalpha.TLSRoute](kc, gvr.TLSRoute, opts, "TLSRoutes"),
+		ReferenceGrants: buildClient[*gateway.ReferenceGrant](kc, gvr.ReferenceGrant, opts, "ReferenceGrants"),
+		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](kc, gvr.ServiceEntry, opts, "ServiceEntries"),
 	}
 
-	GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses)
-	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants))
+	GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
+	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
 	GatewaysStatus, Gateways := GatewayCollection(
 		inputs.Gateways,
 		GatewayClasses,
@@ -817,9 +817,9 @@ func NewController(
 	}
 	gatewayController.outputs = outputs
 
-	if credsController != nil {
-		credsController.AddSecretHandler(gatewayController.secretEvent)
-	}
+	//if credsController != nil {
+	//	credsController.AddSecretHandler(gatewayController.secretEvent)
+	//}
 
 	return gatewayController
 }
@@ -867,17 +867,19 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 
 func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
 	if enabled && features.EnableGatewayAPIStatus && statusManager != nil {
-		c.statusWriter.statusController.Store(
-			statusManager.CreateGenericController(func(status status.Manipulator, context any) {
-				status.SetInner(context)
-			}),
-		)
-		log.Errorf("howardjohn: run resync %v", len(c.statusWriter.resyncers))
-		for _, rs := range c.statusWriter.resyncers {
-			rs()
-		}
+		c.setStatusQueue(statusManager.CreateGenericController(func(status status.Manipulator, context any) {
+			status.SetInner(context)
+		}))
 	} else {
 		c.statusWriter.statusController.Store(nil)
+	}
+}
+
+func (c *Controller) setStatusQueue(queue status.Queue) {
+	c.statusWriter.statusController.Store(&queue)
+	log.Errorf("howardjohn: run resync %v", len(c.statusWriter.resyncers))
+	for _, rs := range c.statusWriter.resyncers {
+		rs()
 	}
 }
 
@@ -962,7 +964,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) {
 type StatusWriter struct {
 	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
-	statusController *atomic.Pointer[status.Controller]
+	statusController *atomic.Pointer[status.Queue]
 	resyncers        []func()
 }
 
@@ -983,7 +985,7 @@ func EnqueueStatus[T comparable](sw StatusWriter, obj controllers.Object, ws *ks
 		Name:                 obj.GetName(),
 		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
 	}
-	statusController.EnqueueStatusUpdateResource(ws.Unwrap(), res)
+	(*statusController).EnqueueStatusUpdateResource(ws.Unwrap(), res)
 }
 
 func EnqueueStatus2[T any](sw *StatusWriter, obj controllers.Object, ws T) {
@@ -1002,7 +1004,7 @@ func EnqueueStatus2[T any](sw *StatusWriter, obj controllers.Object, ws T) {
 		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
 	}
 	log.Errorf("howardjohn: ENQUEUE2 %v", res)
-	statusController.EnqueueStatusUpdateResource(ws, res)
+	(*statusController).EnqueueStatusUpdateResource(ws, res)
 }
 
 func (c *Controller) Create(config config.Config) (revision string, err error) {
@@ -1046,6 +1048,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		}()
 	}
 	go c.tagWatcher.Run(stop)
+	<-stop
+	close(c.stop)
 }
 
 func (c *Controller) HasSynced() bool {
