@@ -160,7 +160,7 @@ spec:
               value: "true"
             - name: REPAIR_SIDECAR_ANNOTATION
               value: "sidecar.istio.io/status"
-            {{- if and .Values.ambient.enabled .Values.ambient.shareHostNetworkNamespace }}
+            {{- if not (and .Values.ambient.enabled .Values.ambient.shareHostNetworkNamespace) }}
             - name: ALLOW_SWITCH_TO_HOST_NS
               value: "true"
             {{- end }}
