@@ -271,10 +271,6 @@ func MetricsLocalhostAccessOnly(proxyMetadata map[string]string) Instance {
 	return newOption("metrics_localhost_access_only", false)
 }
 
-func DeferredClusterCreation(deferred bool) Instance {
-	return newOption("deferred_cluster_creation", deferred)
-}
-
 func DeferredStatsCreation(deferred bool) Instance {
 	return newOption("deferred_stats_creation", deferred)
 }
