@@ -113,7 +113,6 @@ func TestApplyDestinationRule(t *testing.T) {
 		proxyView              model.ProxyView
 		destRule               *networking.DestinationRule
 		meshConfig             *meshconfig.MeshConfig
-		disableDelimitedStats  bool
 		expectedSubsetClusters []*cluster.Cluster
 	}{
 		// TODO(ramaraochavali): Add more tests to cover additional conditions.
@@ -317,14 +316,6 @@ func TestApplyDestinationRule(t *testing.T) {
 						Name:   "foobar",
 						Labels: map[string]string{"foo": "bar"},
 					},
-				},
-			},
-			disableDelimitedStats: true,
-			meshConfig: &meshconfig.MeshConfig{
-				OutboundClusterStatName: "%SERVICE%_%SUBSET_NAME%_%SERVICE_PORT_NAME%_%SERVICE_PORT%",
-				InboundTrafficPolicy:    &meshconfig.MeshConfig_InboundTrafficPolicy{},
-				EnableAutoMtls: &wrappers.BoolValue{
-					Value: false,
 				},
 			},
 			expectedSubsetClusters: []*cluster.Cluster{
@@ -825,7 +816,6 @@ func TestApplyDestinationRule(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableDelimitedStatsTagRegex, !tt.disableDelimitedStats)
 			instances := []*model.ServiceInstance{
 				{
 					Service:     tt.service,
