@@ -25,7 +25,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/gvk"
+	groupVersionKind "istio.io/istio/pkg/config/schema/gvk"
 )
 
 // ConditionAnalyzer checks for negative status conditions on services
@@ -39,12 +39,12 @@ func (c *ConditionAnalyzer) Metadata() analysis.Metadata {
 		Name:        "conditions.ConditionAnalyzer",
 		Description: "Checks for negative status conditions on resources",
 		Inputs: []config.GroupVersionKind{
-			gvk.Service,
-			gvk.ServiceEntry,
-			gvk.AuthorizationPolicy,
-			gvk.KubernetesGateway,
-			gvk.HTTPRoute,
-			gvk.GRPCRoute,
+			groupVersionKind.Service,
+			groupVersionKind.ServiceEntry,
+			groupVersionKind.AuthorizationPolicy,
+			groupVersionKind.KubernetesGateway,
+			groupVersionKind.HTTPRoute,
+			groupVersionKind.GRPCRoute,
 		},
 	}
 }
@@ -52,11 +52,27 @@ func (c *ConditionAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (c *ConditionAnalyzer) Analyze(ctx analysis.Context) {
 	// Check conditions for all supported types
-	for _, gvk := range []config.GroupVersionKind{gvk.Service, gvk.ServiceEntry, gvk.AuthorizationPolicy, gvk.KubernetesGateway, gvk.HTTPRoute, gvk.GRPCRoute} {
+	for _, gvk := range []config.GroupVersionKind{
+		groupVersionKind.Service,
+		groupVersionKind.ServiceEntry,
+		groupVersionKind.AuthorizationPolicy,
+		groupVersionKind.KubernetesGateway,
+		groupVersionKind.HTTPRoute, groupVersionKind.GRPCRoute,
+	} {
 		ctx.ForEach(gvk, func(r *resource.Instance) bool {
 			conditions := extractConditions(r)
 			for _, condition := range conditions {
 				if shouldReportCondition(gvk, condition.Type, condition.Status) {
+					ctx.Report(gvk, msg.NewNegativeConditionStatus(
+						r,
+						condition.Type,
+						condition.Reason,
+						condition.Message,
+					))
+				}
+				// Special case for AuthorizationPolicy to report PartiallyInvalid
+				// This is a WaypointAccepted condition which is partially negative but will be reported as status=true
+				if gvk == groupVersionKind.AuthorizationPolicy && condition.Type == "WaypointAccepted" && condition.Reason == "PartiallyInvalid" {
 					ctx.Report(gvk, msg.NewNegativeConditionStatus(
 						r,
 						condition.Type,
@@ -73,27 +89,27 @@ func (c *ConditionAnalyzer) Analyze(ctx analysis.Context) {
 // negativeConditionsToReport maps GVK to condition type to what we consider the "negative" status
 // if we cannot find the condition type, we will not report the condition
 var negativeConditionsToReport = map[config.GroupVersionKind]map[string]metav1.ConditionStatus{
-	gvk.Service: {
+	groupVersionKind.Service: {
 		"istio.io/WaypointBound": metav1.ConditionFalse,
 	},
-	gvk.ServiceEntry: {
+	groupVersionKind.ServiceEntry: {
 		"istio.io/WaypointBound": metav1.ConditionFalse,
 	},
-	gvk.AuthorizationPolicy: {
+	groupVersionKind.AuthorizationPolicy: {
 		"ZtunnelAccepted":  metav1.ConditionFalse,
 		"WaypointAccepted": metav1.ConditionFalse,
 	},
-	gvk.KubernetesGateway: {
+	groupVersionKind.KubernetesGateway: {
 		"Accepted":     metav1.ConditionFalse,
 		"Programmed":   metav1.ConditionFalse,
 		"ResolvedRefs": metav1.ConditionFalse,
 	},
-	gvk.HTTPRoute: {
+	groupVersionKind.HTTPRoute: {
 		"Accepted":     metav1.ConditionFalse,
 		"Programmed":   metav1.ConditionFalse,
 		"ResolvedRefs": metav1.ConditionFalse,
 	},
-	gvk.GRPCRoute: {
+	groupVersionKind.GRPCRoute: {
 		"Accepted":     metav1.ConditionFalse,
 		"Programmed":   metav1.ConditionFalse,
 		"ResolvedRefs": metav1.ConditionFalse,

@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,7 +47,7 @@ func TestWithProcFs(t *testing.T) {
 	}
 
 	expectedUID := "863b91d4-4b68-4efa-917f-4b560e3e86aa"
-	if podUIDNetns[expectedUID] == (WorkloadInfo{}) {
+	if podUIDNetns[expectedUID] == (workloadInfo{}) {
 		t.Fatal("expected to find pod netns under pod uid")
 	}
 }
