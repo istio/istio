@@ -69,7 +69,7 @@ func (c *connMgr) addConn(conn ZtunnelConnection) {
 	defer c.mu.Unlock()
 	log := log.WithLabels("conn_uuid", conn.UUID())
 	c.connectionSet = append(c.connectionSet, conn)
-	log.Infof("new ztunnel connected, total connected %s", len(c.connectionSet))
+	log.Infof("new ztunnel connected, total connected: %v", len(c.connectionSet))
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
@@ -80,7 +80,7 @@ func (c *connMgr) LatestConn() (ZtunnelConnection, error) {
 		return nil, fmt.Errorf("no connection")
 	}
 	lConn := c.connectionSet[len(c.connectionSet)-1]
-	log.Debugf("latest ztunnel connection is %s, total connected %s", lConn.UUID(), len(c.connectionSet))
+	log.Debugf("latest ztunnel connection is %s, total connected: %v", lConn.UUID(), len(c.connectionSet))
 	return lConn, nil
 }
 
