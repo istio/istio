@@ -4,7 +4,7 @@ metadata:
   name: istio-cni-windows-node
   namespace: istio-system
   labels:
-    k8s-app: istio-cni--windowsnode
+    k8s-app: istio-cni-windows-node
     release: istio-cni-windows
     istio.io/rev: 1-23-0
     install.operator.istio.io/owning-resource: unknown
@@ -65,7 +65,7 @@ spec:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
         - name: install-cni
-          image: "istiolocaltesting.azurecr.io/istio-cni-windows:test-37"
+          image: "istiolocaltesting.azurecr.io/istio-cni-windows:test-39"
           ports:
           - containerPort: 15014
             name: metrics
