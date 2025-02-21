@@ -1,0 +1,3 @@
+ambient:
+  # 1.26 behavioral changes
+  shareHostNetworkNamespace: true
