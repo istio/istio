@@ -310,7 +310,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyExtraStatTags(extraStatTags),
 		option.EnvoyHistogramBuckets(buckets),
 		option.EnvoyStatsCompression(compression),
-		option.DelimitedStatsTagsEnabled(features.EnableDelimitedStatsTagRegex),
 	}
 }
 
