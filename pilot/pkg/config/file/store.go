@@ -348,7 +348,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		for _, resourceChunk := range resourceChunks {
 			lr, err := s.parseChunk(r, name, resourceChunk.lineNum+lineNum, resourceChunk.yamlChunk)
 			if err != nil {
-				return resources, fmt.Errorf("failed parsing resource chunk: %v", err)
+				return resources, fmt.Errorf("failed parsing resource chunk: %w", err)
 			}
 			resources = append(resources, lr...)
 		}
