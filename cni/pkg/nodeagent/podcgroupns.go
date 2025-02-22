@@ -23,6 +23,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"syscall"
 	"unicode"
 
 	corev1 "k8s.io/api/core/v1"
@@ -45,11 +46,17 @@ type PodNetnsFinder interface {
 }
 
 type PodNetnsProcFinder struct {
-	proc fs.FS
+	proc          fs.FS
+	hostNetnsStat *syscall.Stat_t
 }
 
-func NewPodNetnsProcFinder(proc fs.FS) *PodNetnsProcFinder {
-	return &PodNetnsProcFinder{proc: proc}
+func NewPodNetnsProcFinder(proc fs.FS) (*PodNetnsProcFinder, error) {
+	hostNetnsStat, err := statHostNetns(proc)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PodNetnsProcFinder{proc: proc, hostNetnsStat: hostNetnsStat}, nil
 }
 
 func isNotNumber(r rune) bool {
@@ -85,11 +92,23 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 		if res == nil {
 			continue
 		}
+
+		// Check if we found another procfs entry for this UID already
+		// if we did, and it's older than this one, continue.
+		// Otherwise replace it with the one we just found
+		if existingNetns, exists := podUIDNetns[string(res.uid)]; exists {
+			log.Warnf("found more than one netns for the same pod: %s, will use oldest process netns", res.uid)
+			if existingNetns.Netns.OwnerProcStarttime() < res.ownerProcStarttime {
+				continue
+			}
+		}
+
 		pod := pods[res.uid]
 		netns := &NetnsWithFd{
-			netns: res.netns,
-			fd:    res.netnsfd,
-			inode: res.inode,
+			netns:              res.netns,
+			fd:                 res.netnsfd,
+			inode:              res.inode,
+			ownerProcStarttime: res.ownerProcStarttime,
 		}
 		workload := WorkloadInfo{
 			Workload: podToWorkload(pod),
@@ -102,13 +121,16 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 }
 
 type PodNetnsEntry struct {
-	uid     types.UID
-	netns   fs.File
-	netnsfd uintptr
-	inode   uint64
+	uid                types.UID
+	netns              fs.File
+	netnsfd            uintptr
+	inode              uint64
+	ownerProcStarttime uint64
 }
 
 func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uint64], filter sets.Set[types.UID], entry fs.DirEntry) (*PodNetnsEntry, error) {
+	log := log.WithLabels("PID", entry.Name())
+
 	if !isProcess(entry) {
 		return nil, nil
 	}
@@ -119,12 +141,32 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 		return nil, err
 	}
 
-	inode, err := GetInode(fi)
+	// Check the starttime of the proc in question,
+	// in case there are multiple procs with different netnamespaces
+	// in the same pod - we want the oldest in all cases.
+	ownerProcStarttime, err := GetStarttime(proc, entry)
 	if err != nil {
 		return nil, err
 	}
-	if _, ok := netnsObserved[inode]; ok {
-		log.Debugf("netns: %d already processed. skipping", inode)
+
+	entryNetnsStat, err := GetStat(fi)
+	if err != nil {
+		return nil, err
+	}
+
+	// Now that we've stat'ed the PID netns, capture it in logging context from here out
+	log = log.WithLabels("PID netns inode", entryNetnsStat.Ino, "PID netns dev", entryNetnsStat.Dev)
+
+	// It is possible (but unlikely, see https://github.com/istio/istio/issues/55139) that we may get a pod netns
+	// that is == the hostnetns. This might lead to us breaking the host, so ignore everything that looks like
+	// the host netns.
+	if host := p.isHostNetns(entryNetnsStat.Ino, entryNetnsStat.Dev); host {
+		log.Debugf("netns: ignoring host netns")
+		return nil, nil
+	}
+
+	if _, ok := netnsObserved[entryNetnsStat.Ino]; ok {
+		log.Debug("netns already processed. skipping")
 		return nil, nil
 	}
 
@@ -157,14 +199,15 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 		netns.Close()
 		return nil, err
 	}
-	netnsObserved[inode] = struct{}{}
-	log.Debugf("found pod to netns: %s %d", uid, inode)
+	netnsObserved[entryNetnsStat.Ino] = struct{}{}
+	log.Debugf("found pod to netns: %s", uid)
 
 	return &PodNetnsEntry{
-		uid:     uid,
-		netns:   netns,
-		netnsfd: fd,
-		inode:   inode,
+		uid,
+		netns,
+		fd,
+		entryNetnsStat.Ino,
+		ownerProcStarttime,
 	}, nil
 }
 
@@ -372,4 +415,24 @@ func getPodUIDAndContainerIDFromCGroups(cgroups []Cgroup) (types.UID, string, er
 	}
 
 	return podUID, containerID, nil
+}
+
+func statHostNetns(proc fs.FS) (*syscall.Stat_t, error) {
+	hf, err := fs.Stat(proc, path.Join("1", "ns", "net"))
+	if err != nil {
+		return nil, err
+	}
+
+	hStat, err := GetStat(hf)
+	if err != nil {
+		return nil, err
+	}
+	return hStat, nil
+}
+
+func (p *PodNetnsProcFinder) isHostNetns(foundIno, foundDev uint64) bool {
+	if p.hostNetnsStat.Ino == foundIno && p.hostNetnsStat.Dev == foundDev {
+		return true
+	}
+	return false
 }

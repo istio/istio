@@ -25,7 +25,9 @@ import (
 )
 
 func TestWithProcFs(t *testing.T) {
-	n := NewPodNetnsProcFinder(fakeFs())
+	n, err := NewPodNetnsProcFinder(fakeFs(true))
+	assert.NoError(t, err)
+
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 		Name:      "foo",
 		Namespace: "bar",
@@ -46,6 +48,34 @@ func TestWithProcFs(t *testing.T) {
 	expectedUID := "863b91d4-4b68-4efa-917f-4b560e3e86aa"
 	if podUIDNetns[expectedUID] == (WorkloadInfo{}) {
 		t.Fatal("expected to find pod netns under pod uid")
+	}
+
+	foundStart := podUIDNetns[expectedUID].Netns.OwnerProcStarttime()
+	// See testdata/cgroupns/1/stat
+	if foundStart != 70298968 {
+		t.Fatalf("didn't find expected starttime, found %d", foundStart)
+	}
+}
+
+func TestHostNetnsWithSameIno(t *testing.T) {
+	n, err := NewPodNetnsProcFinder(fakeFs(false))
+	assert.NoError(t, err)
+
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+	}}
+	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{
+		pod.UID: pod,
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer podUIDNetns.Close()
+
+	if len(podUIDNetns) != 0 {
+		t.Fatal("expected to find no pod netns")
 	}
 }
 
