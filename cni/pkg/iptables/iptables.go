@@ -134,23 +134,28 @@ func NewIptablesConfigurator(
 	// `nft`, we would still inject our rules in-pod into nft tables, which is a bit wonky.
 	//
 	// But that's stunningly unlikely (and would still work either way)
-	iptVer, err := hostDeps.DetectIptablesVersion(false)
+	err := util.RunAsHost(func() error {
+		iptVer, err := hostDeps.DetectIptablesVersion(false)
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("found iptables binary: %+v", iptVer)
+
+		configurator.iptV = iptVer
+
+		ipt6Ver, err := hostDeps.DetectIptablesVersion(true)
+		if err != nil {
+			return err
+		}
+		log.Debugf("found iptables v6 binary: %+v", iptVer)
+
+		configurator.ipt6V = ipt6Ver
+		return nil
+	})
 	if err != nil {
 		return nil, nil, err
 	}
-
-	log.Debugf("found iptables binary: %+v", iptVer)
-
-	configurator.iptV = iptVer
-
-	ipt6Ver, err := hostDeps.DetectIptablesVersion(true)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	log.Debugf("found iptables v6 binary: %+v", iptVer)
-
-	configurator.ipt6V = ipt6Ver
 
 	// Setup another configurator with inpod configuration. Basically this will just change how locking is done.
 	inPodConfigurator := ptr.Of(*configurator)
