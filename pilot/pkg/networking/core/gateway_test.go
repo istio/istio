@@ -4444,7 +4444,6 @@ func TestGatewayHCMInternalAddressConfig(t *testing.T) {
 }
 
 func TestListenerTransportSocketConnectTimeoutForGateway(t *testing.T) {
-
 	wantTimeout := durationpb.New(defaultGatewayTransportSocketConnectTimeout).GetSeconds()
 	cg := NewConfigGenTest(t, TestOptions{
 		Configs: []config.Config{
@@ -4482,5 +4481,4 @@ func TestListenerTransportSocketConnectTimeoutForGateway(t *testing.T) {
 		t.Errorf("expected transport socket connect timeout to be %v on gateway listern's filter chain %v, got %v",
 			wantTimeout, fc.Name, fc.TransportSocketConnectTimeout)
 	}
-
 }
