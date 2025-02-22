@@ -4442,3 +4442,45 @@ func TestGatewayHCMInternalAddressConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestListenerTransportSocketConnectTimeoutForGateway(t *testing.T) {
+
+	wantTimeout := durationpb.New(defaultGatewayTransportSocketConnectTimeout).GetSeconds()
+	cg := NewConfigGenTest(t, TestOptions{
+		Configs: []config.Config{
+			{
+				Meta: config.Meta{Name: "http-server", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+				Spec: &networking.Gateway{
+					Servers: []*networking.Server{
+						{
+							Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+						},
+					},
+				},
+			},
+		},
+		MeshConfig: mesh.DefaultMeshConfig(),
+	})
+	cg.PushContext().ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*pilot_model.Service{
+		"example.local": {
+			"foo": &pilot_model.Service{
+				Hostname: "example.local",
+			},
+		},
+	}
+	proxy := cg.SetupProxy(&proxyGateway)
+	metadata := proxyGatewayMetadata
+	metadata.ProxyConfig = &pilot_model.NodeMetaProxyConfig{
+		GatewayTopology: &meshconfig.Topology{ProxyProtocol: &meshconfig.Topology_ProxyProtocolConfiguration{}},
+	}
+	proxy.Metadata = &metadata
+
+	lb := NewListenerBuilder(proxy, cg.PushContext())
+	builder := cg.ConfigGen.buildGatewayListeners(lb)
+	fc := builder.gatewayListeners[0].FilterChains[0]
+	if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != wantTimeout {
+		t.Errorf("expected transport socket connect timeout to be %v on gateway listern's filter chain %v, got %v",
+			wantTimeout, fc.Name, fc.TransportSocketConnectTimeout)
+	}
+
+}

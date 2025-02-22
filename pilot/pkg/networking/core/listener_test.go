@@ -3101,7 +3101,7 @@ func TestOutboundListenerConfig_WithAutoAllocatedAddress(t *testing.T) {
 	}
 }
 
-func TestListenerTransportSocketConnectTimeoutWithSidecar(t *testing.T) {
+func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
 	services := []*model.Service{
 		buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
 	}
