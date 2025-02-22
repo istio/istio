@@ -59,6 +59,7 @@ func TestCheckGkeWorkloadCertificate(t *testing.T) {
 		}
 	}
 }
+
 func TestExtractCAHeadersFromEnv(t *testing.T) {
 	tests := []struct {
 		name              string
