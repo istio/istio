@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/vishvananda/netlink"
@@ -461,6 +462,12 @@ func (cfg *IptablesConfigurator) Run() error {
 			cfg.ruleBuilder, cfg.cfg.ProxyUID, cfg.cfg.ProxyGID,
 			cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6, cfg.cfg.CaptureAllDNS,
 			ownerGroupsFilter)
+	} else if len(cfg.cfg.DNSResolverIPPort) > 0 && strings.Contains(cfg.cfg.DNSResolverIPPort, ":") {
+		// If dns capture not enabled and environment dns resolver configured,
+		// adding the env dns resolver iptable configurations to dnat the dns request.
+		ConfigDNSResolver(
+			cfg.ruleBuilder, cfg.cfg.DNSServersV4, cfg.cfg.DNSServersV6,
+			cfg.cfg.DNSResolverIPPort, "random")
 	}
 
 	// Skip redirection for Envoy-aware applications and
@@ -602,6 +609,64 @@ func SetupDNSRedir(iptables *builder.IptablesRuleBuilder, proxyUID, proxyGID str
 	}
 	// Split UDP DNS traffic to separate conntrack zones
 	addDNSConntrackZones(iptables, proxyUID, proxyGID, dnsServersV4, dnsServersV6, captureAllDNS)
+}
+
+func ConfigDNSResolver(iptables *builder.IptablesRuleBuilder, dnsServersV4 []string, dnsServersV6 []string,
+	dnsResolverIPPort string, lbmode string,
+) {
+	// Uniquely for DNS (at this time) we need a jump in "raw:OUTPUT", so this jump is conditional on that setting.
+	// And, unlike nat/OUTPUT, we have no shared rules, so no need to do a 2-level jump at this time
+	iptables.AppendRule("OUTPUT", "raw", "-j", constants.ISTIOOUTPUTDNSRESOLVER)
+
+	// Insert jumps for V6 and V4
+	if len(dnsServersV4) > 0 {
+		iptables.AppendRuleV4(constants.ISTIOOUTPUT, "nat", "-j", constants.ISTIOOUTPUTDNSRESOLVER)
+	}
+
+	if len(dnsServersV6) > 0 {
+		iptables.AppendRuleV6(constants.ISTIOOUTPUT, "nat", "-j", constants.ISTIOOUTPUTDNSRESOLVER)
+	}
+
+	resolvers := strings.Split(dnsResolverIPPort, ",")
+	rtotal := len(resolvers)
+	// Redirect all TCP and UDP dns traffic on port 53 to the specific DNS resolvers
+	// Load balance traffic to different DNS resolvers with random or round robin way
+	for idx, resolver := range resolvers {
+		if last := rtotal - 1; idx == last {
+			// TCP DNS traffic nat to target dns resolver
+			iptables.AppendRule(
+				constants.ISTIOOUTPUTDNSRESOLVER, "nat", "-p", "tcp", "--dport", "53",
+				"-j", "DNAT", "--to-destination", resolver)
+			// UDP DNS traffic nat to target dns resolver
+			iptables.AppendRule(
+				constants.ISTIOOUTPUTDNSRESOLVER, "nat", "-p", "udp", "--dport", "53",
+				"-j", "DNAT", "--to-destination", resolver)
+		} else if lbmode == "random" {
+			// TCP DNS traffic nat to target dns resolver with random loadbance
+			iptables.AppendRule(
+				constants.ISTIOOUTPUTDNSRESOLVER, "nat", "-p", "tcp", "--dport", "53",
+				"-m", "statistic", "--mode", "random",
+				"--probability", fmt.Sprintf("%.2f", 1.0/float32(rtotal-idx)),
+				"-j", "DNAT", "--to-destination", resolver)
+			// UDP DNS traffic nat to target dns resolver with random loadbance
+			iptables.AppendRule(
+				constants.ISTIOOUTPUTDNSRESOLVER, "nat", "-p", "udp", "--dport", "53",
+				"-m", "statistic", "--mode", "random",
+				"--probability", fmt.Sprintf("%.2f", 1.0/float32(rtotal-idx)),
+				"-j", "DNAT", "--to-destination", resolver)
+		} else if lbmode == "round" {
+			// TCP DNS traffic nat to target dns resolver with round robin loadbance
+			iptables.AppendRule(
+				constants.ISTIOOUTPUTDNSRESOLVER, "nat", "-p", "tcp", "--dport", "53",
+				"-m", "statistic", "--mode", "nth", "--every", strconv.Itoa(rtotal-idx), "--packet", "0",
+				"-j", "DNAT", "--to-destination", resolver)
+			// UDP DNS traffic nat to target dns resolver with round robin loadbance
+			iptables.AppendRule(
+				constants.ISTIOOUTPUTDNSRESOLVER, "nat", "-p", "udp", "--dport", "53",
+				"-m", "statistic", "--mode", "nth", "--every", strconv.Itoa(rtotal-idx), "--packet", "0",
+				"-j", "DNAT", "--to-destination", resolver)
+		}
+	}
 }
 
 // addDNSConntrackZones is a helper function to add iptables rules to split DNS traffic
