@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 55235
+releaseNotes:
+- |
+  **Fixed** `istioctl waypoint delete` will delete the Gateway resource that is not a waypoint when specifying a name.
