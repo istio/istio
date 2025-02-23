@@ -174,11 +174,19 @@ func (lb *ListenerBuilder) patchListeners() {
 		return
 	}
 
-	lb.virtualOutboundListener = lb.patchOneListener(lb.virtualOutboundListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
-	lb.virtualInboundListener = lb.patchOneListener(lb.virtualInboundListener, networking.EnvoyFilter_SIDECAR_INBOUND)
-	lb.httpProxyListener = lb.patchOneListener(lb.httpProxyListener, networking.EnvoyFilter_SIDECAR_OUTBOUND)
-	lb.inboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.envoyFilterWrapper, lb.inboundListeners, false)
-	lb.outboundListeners = envoyfilter.ApplyListenerPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, lb.envoyFilterWrapper, lb.outboundListeners, false)
+	pcIn := networking.EnvoyFilter_SIDECAR_INBOUND
+	pcOut := networking.EnvoyFilter_SIDECAR_OUTBOUND
+
+	if lb.node.IsWaypointProxy() {
+		pcIn = networking.EnvoyFilter_WAYPOINT
+		pcOut = networking.EnvoyFilter_WAYPOINT
+	}
+
+	lb.virtualOutboundListener = lb.patchOneListener(lb.virtualOutboundListener, pcOut)
+	lb.virtualInboundListener = lb.patchOneListener(lb.virtualInboundListener, pcIn)
+	lb.httpProxyListener = lb.patchOneListener(lb.httpProxyListener, pcOut)
+	lb.inboundListeners = envoyfilter.ApplyListenerPatches(pcIn, lb.envoyFilterWrapper, lb.inboundListeners, false)
+	lb.outboundListeners = envoyfilter.ApplyListenerPatches(pcOut, lb.envoyFilterWrapper, lb.outboundListeners, false)
 }
 
 func (lb *ListenerBuilder) getListeners() []*listener.Listener {
