@@ -216,6 +216,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/custom_response/local_response_policy/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/custom_response/redirect_policy/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/early_header_mutation/header_mutation/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/ext_proc/response_processors/save_processing_response/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/header_formatters/preserve_case/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/header_validators/envoy_default/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/injected_credentials/generic/v3"
