@@ -318,9 +318,17 @@ gen: \
 	proto \
 	copy-templates \
 	gen-addons \
+	helm-gen \
 	update-golden ## Update all generated code.
 
 gen-check: gen check-clean-repo
+
+helm-gen:
+	@for file in $(wildcard tests/helm-template/gateway/*.in.yaml); do \
+		filename=$$(basename $${file}); \
+		output="$${filename%.in.*}.out.yaml"; \
+		helm template gateway manifests/charts/gateway -f $${file} > tests/helm-template/gateway/$$output --namespace=istio-system; \
+	done
 
 CHARTS = gateway default ztunnel base "gateways/istio-ingress" "gateways/istio-egress" "istio-control/istio-discovery" istio-cni
 copy-templates:
