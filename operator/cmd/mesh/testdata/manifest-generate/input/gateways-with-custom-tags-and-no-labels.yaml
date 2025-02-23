@@ -1,0 +1,13 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: install
+spec:
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        tag: "special-tag"
+    egressGateways:
+      - enabled: true
+        name: istio-egressgateway
+        tag: "special-tag2"
