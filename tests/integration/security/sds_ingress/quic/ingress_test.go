@@ -78,6 +78,14 @@ func TestTlsGatewaysWithQUIC(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
+			// Some cloud platform may throw the following error during creation of the service with mixed TCP/UDP protocols:
+			// "Error syncing load balancer: failed to ensure load balancer: mixed protocol is not supported for LoadBalancer".
+			// Make sure the service is up and running before proceeding with the test.
+			err := ingressutil.UntilIngressQUICSvcReady(t, istio.DefaultSystemNamespace)
+			if err != nil {
+				t.Skip("the QUIC mixed service is not supported - ", err)
+			}
+
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				ingressutil.RunTestMultiTLSGateways(t, inst, namespace.Future(&echo1NS))
 			})
@@ -96,6 +104,14 @@ func TestMtlsGatewaysWithQUIC(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
+			// Some cloud platform may throw the following error during creation of the service with mixed TCP/UDP protocols:
+			// "Error syncing load balancer: failed to ensure load balancer: mixed protocol is not supported for LoadBalancer".
+			// Make sure the service is up and running before proceeding with the test.
+			err := ingressutil.UntilIngressQUICSvcReady(t, istio.DefaultSystemNamespace)
+			if err != nil {
+				t.Skip("the QUIC mixed service is not supported - ", err)
+			}
+
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				ingressutil.RunTestMultiTLSGateways(t, inst, namespace.Future(&echo1NS))
 			})
