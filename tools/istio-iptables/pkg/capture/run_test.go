@@ -17,7 +17,6 @@ package capture
 import (
 	"bytes"
 	"net/netip"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
@@ -414,7 +413,6 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 			cfg.ForceApply = false
 		})
 	}
-	teardown()
 }
 
 var initialized = &sync.Once{}
@@ -430,12 +428,7 @@ func setup(t *testing.T) {
 	tempDir := t.TempDir()
 	xtables := filepath.Join(tempDir, "xtables.lock")
 	// Override lockfile directory so that we don't need to unshare the mount namespace
-	assert.NoError(t, os.Setenv("XTABLES_LOCKFILE", xtables))
-}
-
-func teardown() {
-	// Remove xtables override
-	_ = os.Unsetenv("XTABLES_LOCKFILE")
+	t.Setenv("XTABLES_LOCKFILE", xtables)
 }
 
 func TestIdempotentUnequaledRerun(t *testing.T) {
@@ -534,7 +527,6 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 			assert.NoError(t, iptConfigurator.Run())
 		})
 	}
-	teardown()
 }
 
 func compareToGolden(t *testing.T, name string, actual []string) {

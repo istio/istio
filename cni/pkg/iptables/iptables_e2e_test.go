@@ -16,7 +16,6 @@ package iptables
 
 import (
 	"bytes"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"sync"
@@ -101,7 +100,6 @@ func TestIdempotentEquivalentInPodRerun(t *testing.T) {
 			assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
 		})
 	}
-	teardown()
 }
 
 func TestIdempotentUnequalInPodRerun(t *testing.T) {
@@ -212,7 +210,6 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 			assert.Equal(t, deltaExists, false)
 		})
 	}
-	teardown()
 }
 
 func TestIptablesHostCleanRoundTrip(t *testing.T) {
@@ -281,7 +278,6 @@ func TestIptablesHostCleanRoundTrip(t *testing.T) {
 			assert.NoError(t, iptConfigurator.CreateHostRulesForHealthChecks())
 		})
 	}
-	teardown()
 }
 
 var initialized = &sync.Once{}
@@ -297,10 +293,5 @@ func setup(t *testing.T) {
 	tempDir := t.TempDir()
 	xtables := filepath.Join(tempDir, "xtables.lock")
 	// Override lockfile directory so that we don't need to unshare the mount namespace
-	assert.NoError(t, os.Setenv("XTABLES_LOCKFILE", xtables))
-}
-
-func teardown() {
-	// Remove xtables override
-	_ = os.Unsetenv("XTABLES_LOCKFILE")
+	t.Setenv("XTABLES_LOCKFILE", xtables)
 }
