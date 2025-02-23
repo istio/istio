@@ -259,7 +259,7 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 			}
 			vs.Mirrors = append(vs.Mirrors, mirror)
 		case k8s.HTTPRouteFilterURLRewrite:
-			vs.Rewrite = createRewriteFilter(filter.URLRewrite)
+			vs.Rewrite = createRewriteFilter(r.Matches, filter.URLRewrite)
 		default:
 			return nil, &ConfigError{
 				Reason:  InvalidFilter,
@@ -1642,7 +1642,7 @@ func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, 
 	return &istio.HTTPMirrorPolicy{Destination: dst, Percentage: percent}, nil
 }
 
-func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
+func createRewriteFilter(matches []k8s.HTTPRouteMatch, filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 	if filter == nil {
 		return nil
 	}
@@ -1650,10 +1650,25 @@ func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 	if filter.Path != nil {
 		switch filter.Path.Type {
 		case k8s.PrefixMatchHTTPPathModifier:
+			prefixMatchAll := false
+			for _, match := range matches {
+				if p := match.Path; p != nil {
+					if v := p.Value; v != nil && *v == "/" {
+						prefixMatchAll = true
+						break
+					}
+				}
+			}
 			rewrite.Uri = strings.TrimSuffix(*filter.Path.ReplacePrefixMatch, "/")
 			if rewrite.Uri == "" {
 				// `/` means removing the prefix
 				rewrite.Uri = "/"
+			} else if prefixMatchAll {
+				rewrite.UriRegexRewrite = &istio.RegexRewrite{
+					Match:   "(^/$)|(.*)",
+					Rewrite: strings.TrimSuffix(*filter.Path.ReplacePrefixMatch, "/") + "\\2",
+				}
+				rewrite.Uri = ""
 			}
 		case k8s.FullPathHTTPPathModifier:
 			rewrite.UriRegexRewrite = &istio.RegexRewrite{

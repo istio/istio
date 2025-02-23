@@ -5239,3 +5239,133 @@ func getSupportedIPFamilies(t framework.TestContext, instace echo.Instance) (v4 
 	}
 	return
 }
+
+func HTTPRouteRewrite(t TrafficContext, gatewayName string) {
+	tmpl := `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: rewrite
+spec:
+  parentRefs:
+  - name: {{.gatewayName}}
+  hostnames: ["rewrite.example.com"]
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          replacePrefixMatch: "{{.replace}}"
+          type: ReplacePrefixMatch
+    matches:
+    - path:
+        type: PathPrefix
+        value: "{{.match}}"
+`
+
+	type config struct {
+		replace, match string
+	}
+	type request struct {
+		send, expect string
+	}
+	cases := []struct {
+		config   config
+		requests []request
+	}{
+		// Cases from Gateway API spec
+		{
+			config: config{match: "/foo", replace: "/xyz"},
+			requests: []request{
+				{"/foo/bar", "/xyz/bar"},
+				{"/foo", "/xyz"},
+				{"/foo/", "/xyz/"},
+			},
+		},
+		{
+			config: config{match: "/foo", replace: "/xyz/"},
+			requests: []request{
+				{"/foo/bar", "/xyz/bar"},
+			},
+		},
+		{
+			config: config{match: "/foo/", replace: "/xyz"},
+			requests: []request{
+				{"/foo/bar", "/xyz/bar"},
+			},
+		},
+		{
+			config: config{match: "/foo/", replace: "/xyz/"},
+			requests: []request{
+				{"/foo/bar", "/xyz/bar"},
+			},
+		},
+		{
+			config: config{match: "/foo", replace: ""},
+			requests: []request{
+				{"/foo/bar", "/bar"},
+				{"/foo/", "/"},
+				{"/foo", "/"},
+			},
+		},
+		{
+			config: config{match: "/foo", replace: "/"},
+			requests: []request{
+				{"/foo/", "/"},
+				{"/foo", "/"},
+			},
+		},
+		// Cases not in the spec (yet?)
+		{
+			config: config{match: "/", replace: "/"},
+			requests: []request{
+				{"/foo/", "/foo/"},
+				{"/foo", "/foo"},
+				{"/", "/"},
+			},
+		},
+		{
+			config: config{match: "/", replace: "/prefix"},
+			requests: []request{
+				{"/foo/", "/prefix/foo/"},
+				{"/foo", "/prefix/foo"},
+				{"/", "/prefix"},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		children := []TrafficCall{}
+		for _, c := range tt.requests {
+			children = append(children,
+				TrafficCall{
+					name: c.send,
+					call: t.Apps.A[0].CallOrFail,
+					opts: echo.CallOptions{
+						Count: 1,
+						Port:  echo.Port{Protocol: protocol.HTTP, ServicePort: 80},
+						HTTP: echo.HTTP{
+							Headers: headers.New().WithHost("rewrite.example.com").Build(),
+							Path:    c.send,
+						},
+						Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", t.Apps.Namespace.Name()),
+						Check:   check.And(check.OK(), check.URL(c.expect)),
+					},
+				})
+		}
+		t.RunTraffic(TrafficTestCase{
+			name:     fmt.Sprintf("%v -> %v", tt.config.match, tt.config.replace),
+			config:   tmpl,
+			children: children,
+			templateVars: func(src echo.Callers, dest echo.Instances) map[string]any {
+				return map[string]any{
+					"replace":     tt.config.replace,
+					"match":       tt.config.match,
+					"gatewayName": gatewayName,
+				}
+			},
+		})
+	}
+}
