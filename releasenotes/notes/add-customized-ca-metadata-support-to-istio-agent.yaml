@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 55064
+releaseNotes:
+- |
+  **Added** an environment variable prefix `CA_HEADER_` (similar to `XDS_HEADER_``) that can be added to CA requests for different purposes, such as routing to appropriate external Istiods. Istio sidecar proxy, router, and waypoint now support this feature.

@@ -255,6 +255,9 @@ type Options struct {
 	KeyFilePath string
 	// The path for an existing root certificate bundle
 	RootCertFilePath string
+
+	// Extra headers to add to the CA connection.
+	CAHeaders map[string]string
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.
