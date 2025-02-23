@@ -155,7 +155,7 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 		return w, nil
 	}
 	// Waypoint does not support Service traffic
-	log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported for %s/%s",
+	log.Debugf("Unable to add service waypoint %s/%s; traffic type %s not supported for %s/%s",
 		w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
 	return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
 }
@@ -171,7 +171,7 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 		return w, nil
 	}
 	// Waypoint does not support Workload traffic
-	log.Debugf("Unable to add waypoint %s/%s; traffic type %s not supported for %s/%s",
+	log.Debugf("Unable to add workload waypoint %s/%s; traffic type %s not supported for %s/%s",
 		w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
 	return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.WorkloadTraffic)
 }

@@ -9,3 +9,5 @@ pilot:
 ambient:
   dnsCapture: false
   reconcileIptablesOnStartup: false
+  # 1.26 behavioral changes
+  shareHostNetworkNamespace: true

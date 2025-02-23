@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,8 +27,9 @@ import (
 )
 
 type NetnsWrapper struct {
-	innerNetns netns.NetNS
-	inode      uint64
+	innerNetns         netns.NetNS
+	inode              uint64
+	ownerProcStarttime uint64
 }
 
 func (n *NetnsWrapper) Inode() uint64 {
@@ -38,6 +42,10 @@ func (n *NetnsWrapper) Close() error {
 
 func (n *NetnsWrapper) Fd() uintptr {
 	return n.innerNetns.Fd()
+}
+
+func (n *NetnsWrapper) OwnerProcStarttime() uint64 {
+	return n.ownerProcStarttime
 }
 
 func inodeForFd(n NetnsFd) (uint64, error) {

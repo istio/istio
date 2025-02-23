@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 55139
+releaseNotes:
+  - |
+    **Fixed** an issue in `istio-cni` where if a pod being enrolled in ambient has more than one network namespace, we (incorrectly) selected the
+    netns belonging to the newest PID, rather than the oldest PID.
