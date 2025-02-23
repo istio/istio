@@ -158,6 +158,10 @@ type (
 	TransformationSingle[I, O any] func(ctx HandlerContext, i I) *O
 	// TransformationMulti represents a one-to-many relationship between I and O.
 	TransformationMulti[I, O any] func(ctx HandlerContext, i I) []O
+	// TransformationMultiStatus represents a one-to-many relationship between I and O, along with an output Status about I.
+	TransformationMultiStatus[I, IStatus, O any] func(ctx HandlerContext, i I) (*IStatus, []O)
+	// TransformationSingleStatus represents a one-to-one relationship between I and O, along with an output Status about I.
+	TransformationSingleStatus[I, IStatus, O any] func(ctx HandlerContext, i I) (*IStatus, *O)
 	// TransformationEmptyToMulti represents a singleton operator that returns a set of objects. There are no inputs.
 	TransformationEmptyToMulti[T any] func(ctx HandlerContext) []T
 )

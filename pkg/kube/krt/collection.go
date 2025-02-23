@@ -165,6 +165,9 @@ type manyCollection[I, O any] struct {
 	stop         <-chan struct{}
 	queue        queue.Instance
 
+	// onPrimaryInputEventHandler is a specialized internal handler that runs synchronously when a primary input changes
+	onPrimaryInputEventHandler func(o []Event[I])
+
 	syncer Syncer
 }
 
@@ -485,7 +488,7 @@ func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opt
 	if o.name == "" {
 		o.name = fmt.Sprintf("Collection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
 	}
-	return newManyCollection[I, O](c, hm, o)
+	return newManyCollection[I, O](c, hm, o, nil)
 }
 
 // NewManyCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
@@ -496,10 +499,15 @@ func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 	if o.name == "" {
 		o.name = fmt.Sprintf("ManyCollection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
 	}
-	return newManyCollection[I, O](c, hf, o)
+	return newManyCollection[I, O](c, hf, o, nil)
 }
 
-func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O], opts collectionOptions) Collection[O] {
+func newManyCollection[I, O any](
+	cc Collection[I],
+	hf TransformationMulti[I, O],
+	opts collectionOptions,
+	onPrimaryInputEventHandler func([]Event[I]),
+) Collection[O] {
 	c := cc.(internalCollection[I])
 
 	h := &manyCollection[I, O]{
@@ -519,10 +527,11 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 			outputs:  map[Key[O]]O{},
 			mappings: map[Key[I]]sets.Set[Key[O]]{},
 		},
-		eventHandlers: &handlerSet[O]{},
-		augmentation:  opts.augmentation,
-		synced:        make(chan struct{}),
-		stop:          opts.stop,
+		eventHandlers:              &handlerSet[O]{},
+		augmentation:               opts.augmentation,
+		synced:                     make(chan struct{}),
+		stop:                       opts.stop,
+		onPrimaryInputEventHandler: onPrimaryInputEventHandler,
 	}
 	h.syncer = channelSyncer{
 		name:   h.collectionName,
@@ -552,6 +561,9 @@ func (h *manyCollection[I, O]) runQueue() {
 	}
 	// Now register to our primary collection. On any event, we will enqueue the update.
 	syncer := c.RegisterBatch(func(o []Event[I], initialSync bool) {
+		if h.onPrimaryInputEventHandler != nil {
+			h.onPrimaryInputEventHandler(o)
+		}
 		h.queue.Push(func() error {
 			h.onPrimaryInputEvent(o)
 			return nil
