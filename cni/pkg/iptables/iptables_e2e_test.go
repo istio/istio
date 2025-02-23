@@ -22,8 +22,6 @@ import (
 	"sync"
 	"testing"
 
-	// Create a new mount namespace.
-	"github.com/howardjohn/unshare-go/mountns"
 	// Create a new network namespace. This will have the 'lo' interface ready but nothing else.
 	_ "github.com/howardjohn/unshare-go/netns"
 	"github.com/howardjohn/unshare-go/userns"
@@ -103,6 +101,7 @@ func TestIdempotentEquivalentInPodRerun(t *testing.T) {
 			assert.NoError(t, iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
 		})
 	}
+	teardown()
 }
 
 func TestIdempotentUnequalInPodRerun(t *testing.T) {
@@ -213,6 +212,7 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 			assert.Equal(t, deltaExists, false)
 		})
 	}
+	teardown()
 }
 
 func TestIptablesHostCleanRoundTrip(t *testing.T) {
@@ -281,6 +281,7 @@ func TestIptablesHostCleanRoundTrip(t *testing.T) {
 			assert.NoError(t, iptConfigurator.CreateHostRulesForHealthChecks())
 		})
 	}
+	teardown()
 }
 
 var initialized = &sync.Once{}
@@ -291,11 +292,15 @@ func setup(t *testing.T) {
 		assert.NoError(t, userns.WriteGroupMap(map[uint32]uint32{userns.OriginalGID(): 0}))
 		// Istio iptables expects to find a non-localhost IP in some interface
 		assert.NoError(t, exec.Command("ip", "addr", "add", "240.240.240.240/32", "dev", "lo").Run())
-		// Put a new file we have permission to access over xtables.lock
-		xtables := filepath.Join(t.TempDir(), "xtables.lock")
-		_, err := os.Create(xtables)
-		assert.NoError(t, err)
-		_ = os.Mkdir("/run", 0o777)
-		_ = mountns.BindMount(xtables, "/run/xtables.lock")
 	})
+
+	tempDir := t.TempDir()
+	xtables := filepath.Join(tempDir, "xtables.lock")
+	// Override lockfile directory so that we don't need to unshare the mount namespace
+	assert.NoError(t, os.Setenv("XTABLES_LOCKFILE", xtables))
+}
+
+func teardown() {
+	// Remove xtables override
+	_ = os.Unsetenv("XTABLES_LOCKFILE")
 }
