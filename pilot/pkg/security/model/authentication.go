@@ -129,6 +129,7 @@ func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
 	subjectAltNames []string, crl string, trustDomainAliases []string, validateClient bool,
 ) {
+	customFileSDSServer := proxy.Metadata.Raw[security.CredentialFileMetaDataName] == "true"
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
 	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
@@ -160,14 +161,23 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         defaultValidationContext,
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfig(model.GetOrDefault(res.GetRootResourceName(), SDSRootResourceName)),
+				ValidationContextSdsSecretConfig: constructSdsSecretConfig(res.GetRootResourceName(), SDSRootResourceName, customFileSDSServer),
 			},
 		}
 
 	}
 	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		ConstructSdsSecretConfig(model.GetOrDefault(res.GetResourceName(), SDSDefaultResourceName)),
+		constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer),
 	}
+}
+
+// constructSdsSecretConfig allows passing a file name and a fallback.
+// If the filename is set, it is used and the customFileSDSServer flag is respected.
+func constructSdsSecretConfig(maybeFileName string, fallbackName string, customFileSDSServer bool) *tls.SdsSecretConfig {
+	if maybeFileName != "" && customFileSDSServer {
+		return pm.ConstructSdsFilesSecretConfig(maybeFileName)
+	}
+	return pm.ConstructSdsSecretConfig(model.GetOrDefault(maybeFileName, fallbackName))
 }
 
 // ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext

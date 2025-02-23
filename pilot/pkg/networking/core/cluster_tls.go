@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/log"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -212,7 +213,7 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 			res.CertificatePath = tls.ClientCertificate
 			res.PrivateKeyPath = tls.PrivateKey
 			tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
-				sec_model.ConstructSdsSecretConfig(res.GetResourceName()))
+				constructSdsSecretConfigFromFile(res.GetResourceName(), opts.fileCredentialSocketExist))
 		}
 		// If tls.CaCertificate or CaCertificate in Metadata isn't configured, or tls.InsecureSkipVerify is true,
 		// don't set up SdsSecretConfig
@@ -230,7 +231,7 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 			tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_CombinedValidationContext{
 				CombinedValidationContext: &tlsv3.CommonTlsContext_CombinedCertificateValidationContext{
 					DefaultValidationContext:         defaultValidationContext,
-					ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(res.GetRootResourceName()),
+					ValidationContextSdsSecretConfig: constructSdsSecretConfigFromFile(res.GetRootResourceName(), opts.fileCredentialSocketExist),
 				},
 			}
 		}
@@ -243,6 +244,13 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
 	}
 	return tlsContext, nil
+}
+
+func constructSdsSecretConfigFromFile(filename string, customFileSDSCluster bool) *tlsv3.SdsSecretConfig {
+	if customFileSDSCluster {
+		return pm.ConstructSdsFilesSecretConfig(filename)
+	}
+	return pm.ConstructSdsSecretConfig(filename)
 }
 
 // applyTLSDefaults applies tls default settings from mesh config to UpstreamTlsContext.
