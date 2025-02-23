@@ -133,6 +133,9 @@ const (
 	InternalGatewaySemantics = "internal.istio.io/gateway-semantics"
 	GatewaySemanticsGateway  = "gateway"
 
+	InternalServiceSemantics      = "internal.istio.io/service-semantics"
+	ServiceSemanticsInferencePool = "inferencepool"
+
 	// ThirdPartyJwtPath is the default 3P token to authenticate with third party services
 	ThirdPartyJwtPath = "./var/run/secrets/tokens/istio-token"
 
@@ -194,4 +197,9 @@ const (
 	AllTraffic = "all"
 	// NoTraffic indicates that no traffic should go through the intended waypoint.
 	NoTraffic = "none"
+
+	// envoy namespace used for subset selection
+	EnvoySubsetNamespace string = "envoy.lb"
+	// The metadata key used for endpoint selection. This key is set from the InferencePool EPP (Endpoint Picker)
+	GatewayInferenceExtensionEndpointHintKey string = "x-gateway-destination-endpoint"
 )

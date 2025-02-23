@@ -63,6 +63,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+	gatewayapiinferenceclient "sigs.k8s.io/gateway-api-inference-extension/client-go/clientset/versioned"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -124,6 +125,9 @@ type Client interface {
 
 	// GatewayAPI returns the gateway-api kube client.
 	GatewayAPI() gatewayapiclient.Interface
+
+	// GatewayAPIInference returns the gateway-api kube client.
+	GatewayAPIInference() gatewayapiinferenceclient.Interface
 
 	// Informers returns an informer factory
 	Informers() informerfactory.InformerFactory
@@ -379,12 +383,13 @@ type client struct {
 
 	informerFactory informerfactory.InformerFactory
 
-	extSet     kubeExtClient.Interface
-	kube       kubernetes.Interface
-	dynamic    dynamic.Interface
-	metadata   metadata.Interface
-	istio      istioclient.Interface
-	gatewayapi gatewayapiclient.Interface
+	extSet              kubeExtClient.Interface
+	kube                kubernetes.Interface
+	dynamic             dynamic.Interface
+	metadata            metadata.Interface
+	istio               istioclient.Interface
+	gatewayapi          gatewayapiclient.Interface
+	gatewayapiinference gatewayapiinferenceclient.Interface
 
 	started atomic.Bool
 	// If enabled, will wait for cache syncs with extremely short delay. This should be used only for tests
@@ -459,6 +464,11 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 	}
 
 	c.gatewayapi, err = gatewayapiclient.NewForConfig(c.config)
+	if err != nil {
+		return nil, err
+	}
+
+	c.gatewayapiinference, err = gatewayapiinferenceclient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
@@ -569,6 +579,10 @@ func (c *client) Istio() istioclient.Interface {
 
 func (c *client) GatewayAPI() gatewayapiclient.Interface {
 	return c.gatewayapi
+}
+
+func (c *client) GatewayAPIInference() gatewayapiinferenceclient.Interface {
+	return c.gatewayapiinference
 }
 
 func (c *client) Informers() informerfactory.InformerFactory {
