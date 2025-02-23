@@ -35,6 +35,8 @@ message WorkloadInfo {
   string name = 1;
   string namespace = 2;
   string service_account = 3;
+  // The namespace for the workload. Windows only.
+  optional WindowsNamespace windows_namespace = 5;
 }
 
 message WindowsNamespace {
@@ -47,8 +49,6 @@ message WindowsNamespace {
 message AddWorkload {
   string uid = 1;
   WorkloadInfo workload_info = 2;
-  // The namespace for the workload. Windows only.
-  WindowsNamespace windows_namespace = 3;
 }
 
 // Keep workload that we can't find in the fd cache. This can only be sent before SnapshotSent is sent

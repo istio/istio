@@ -95,20 +95,6 @@ func (c *Controller) ReconcilePod(pod *corev1.Pod) (err error) {
 	return nil
 }
 
-// redirectRunningPod dynamically enters the provided pod, that is already running, and programs it's networking configuration.
-func redirectRunningPod(pod *corev1.Pod, netns string) error {
-	pi := plugin.ExtractPodInfo(pod)
-	redirect, err := plugin.NewRedirect(pi)
-	if err != nil {
-		return fmt.Errorf("setup redirect: %v", err)
-	}
-	rulesMgr := plugin.IptablesInterceptRuleMgr()
-	if err := rulesMgr.Program(pod.Name, netns, redirect); err != nil {
-		return fmt.Errorf("program redirection: %v", err)
-	}
-	return nil
-}
-
 const (
 	ReasonDeleteBrokenPod = "DeleteBrokenPod"
 	ReasonLabelBrokenPod  = "LabelBrokenPod"

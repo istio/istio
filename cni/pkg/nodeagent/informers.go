@@ -182,7 +182,7 @@ func (s *InformerHandlers) enqueueNamespace(o controllers.Object) {
 		// spurious events for them to avoid triggering extra
 		// ztunnel node reconciliation checks.
 		if !util.IsZtunnelPod(s.systemNamespace, pod) {
-			log.Infof("Enqueuing pod %s/%s", pod.Namespace, pod.Name)
+			log.Debugf("Enqueuing pod %s/%s", pod.Namespace, pod.Name)
 			s.queue.Add(controllers.Event{
 				New:   pod,
 				Old:   pod,
@@ -214,7 +214,7 @@ func (s *InformerHandlers) reconcileNamespace(input any) {
 
 	switch event.Event {
 	case controllers.EventAdd:
-		log.Infof("Namespace %s added", ns.Name)
+		log.Debugf("Namespace %s added", ns.Name)
 		s.enqueueNamespace(ns)
 
 	case controllers.EventUpdate:
@@ -360,7 +360,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 				return err
 			}
 		} else {
-			log.Infof("skipped deleting from mesh for pod, pod not in mesh")
+			log.Debugf("skipped deleting from mesh for pod, pod not in mesh")
 		}
 	}
 	return nil

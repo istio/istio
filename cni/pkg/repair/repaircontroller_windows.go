@@ -23,3 +23,7 @@ import corev1 "k8s.io/api/core/v1"
 func redirectRunningPod(pod *corev1.Pod, namespaceID string) error {
 	panic("not implemented")
 }
+
+func (c *Controller) repairPod(pod *corev1.Pod) error {
+	panic("not implemented")
+}

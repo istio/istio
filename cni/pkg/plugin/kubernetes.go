@@ -51,7 +51,7 @@ func newK8sClient(conf Config) (kubernetes.Interface, error) {
 		return nil, err
 	}
 
-	log.Infof("istio-cni set up kubernetes client with kubeconfig %s", kubeconfig)
+	log.Debugf("istio-cni set up kubernetes client with kubeconfig %s", kubeconfig)
 
 	// Create the client
 	return kubernetes.NewForConfig(config)

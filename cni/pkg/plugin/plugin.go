@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -90,7 +91,7 @@ func parseConfig(stdin []byte) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse network configuration: %v", err)
 	}
 
-	log.Infof("istio-cni: Config is: %+v", conf)
+	log.Debugf("istio-cni: Config is: %+v", conf)
 	// Parse previous result. Remove this if your plugin is not chained.
 	if conf.RawPrevResult != nil {
 		resultBytes, err := json.Marshal(conf.RawPrevResult)
@@ -116,7 +117,10 @@ func parseConfig(stdin []byte) (*Config, error) {
 // So, we log to a rolling logfile, and also forward logs via UDS to the node agent (if available)
 func GetLoggingOptions(cfg *Config) *log.Options {
 	loggingOptions := log.DefaultOptions()
-	loggingOptions.OutputPaths = []string{"stderr", "/k/istio-cni.log"}
+	loggingOptions.OutputPaths = []string{"stderr"}
+	if runtime.GOOS == "windows" {
+		loggingOptions.OutputPaths = append(loggingOptions.OutputPaths, "/k/istio-cni.log")
+	}
 	loggingOptions.JSONEncoding = true
 	if cfg != nil {
 
@@ -188,7 +192,7 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 		loggedPrevResult = conf.PrevResult
 	}
 	log.WithLabels("if", args.IfName).Debugf("istio-cni CmdAdd config: %+v", conf)
-	log.Infof("istio-cni CmdAdd previous result: %+v", loggedPrevResult)
+	log.Debugf("istio-cni CmdAdd previous result: %+v", loggedPrevResult)
 
 	// Determine if running under k8s by checking the CNI args
 	k8sArgs := K8sArgs{}
@@ -238,7 +242,7 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 			}
 			return nil
 		}
-		log.Infof("istio-cni ambient cmdAdd podName: %s - not ambient enabled, ignoring", podName)
+		log.Debugf("istio-cni ambient cmdAdd podName: %s - not ambient enabled, ignoring", podName)
 	}
 	// End ambient plugin logic
 

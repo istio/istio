@@ -273,7 +273,6 @@ func (z *ztunnelServer) sendSnapshot(_ context.Context, conn ZtunnelConnection) 
 				"serviceAccount", wl.Workload().ServiceAccount)
 		}
 		resp, err = z.handleWorkloadInfo(wl, uid, conn)
-
 		if err != nil {
 			return err
 		}

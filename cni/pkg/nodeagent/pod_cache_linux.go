@@ -23,9 +23,10 @@ import (
 	"runtime"
 	"sync"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/zdsapi"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // Hold a cache of node local pods with their netns
@@ -74,30 +75,24 @@ func (p *podNetnsCache) UpsertPodCache(pod *corev1.Pod, nspath string) (Netns, e
 // Update the cache with the given Netns. If there is already a Netns for the given uid, we return it, and close the one provided.
 func (p *podNetnsCache) UpsertPodCacheWithNetns(uid string, workload WorkloadInfo) Netns {
 	// lock current snapshot pod map
-	// TODO: find some way to fail gracefully?
-	workloadNetns := workload.NetnsCloser()
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if existing := p.currentPodCache[uid]; existing.NetnsCloser() != nil {
-		existingNetns := existing.NetnsCloser()
-		if existingNetns != nil {
-			if existingNetns.Inode() == workloadNetns.Inode() {
-				workloadNetns.Close()
-				// Replace the workload, but keep the old Netns
-				p.currentPodCache[uid] = workloadInfo{
-					workload: workload.Workload(),
-					netns:    existingNetns,
-				}
-				// already in cache
-				return existingNetns
+	if existing := p.currentPodCache[uid]; existing != nil && existing.NetnsCloser() != nil {
+		if existing.NetnsCloser().Inode() == workload.NetnsCloser().Inode() {
+			workload.NetnsCloser().Close()
+			// Replace the workload, but keep the old Netns
+			p.currentPodCache[uid] = workloadInfo{
+				workload: workload.Workload(),
+				netns:    existing.NetnsCloser(),
 			}
-			log.Debug("netns inode mismatch, using the new one")
+			// already in cache
+			return existing.NetnsCloser()
 		}
+		log.Debug("netns inode mismatch, using the new one")
 	}
 
-	// Doesn't exist yet
 	p.addToCacheUnderLock(uid, workload)
-	return workloadNetns
+	return workload.NetnsCloser()
 }
 
 // Get the netns if it's in the cache

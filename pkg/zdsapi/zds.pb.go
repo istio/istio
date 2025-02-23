@@ -133,8 +133,10 @@ type WorkloadInfo struct {
 	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Namespace      string                 `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	ServiceAccount string                 `protobuf:"bytes,3,opt,name=service_account,json=serviceAccount,proto3" json:"service_account,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The namespace for the workload. Windows only.
+	WindowsNamespace *WindowsNamespace `protobuf:"bytes,5,opt,name=windows_namespace,json=windowsNamespace,proto3,oneof" json:"windows_namespace,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *WorkloadInfo) Reset() {
@@ -186,6 +188,13 @@ func (x *WorkloadInfo) GetServiceAccount() string {
 		return x.ServiceAccount
 	}
 	return ""
+}
+
+func (x *WorkloadInfo) GetWindowsNamespace() *WindowsNamespace {
+	if x != nil {
+		return x.WindowsNamespace
+	}
+	return nil
 }
 
 type WindowsNamespace struct {
@@ -243,13 +252,11 @@ func (x *WindowsNamespace) GetGuid() string {
 // Add a workload to the ztunnel. this will be accompanied by ancillary data contianing
 // the workload's netns file descriptor.
 type AddWorkload struct {
-	state        protoimpl.MessageState `protogen:"open.v1"`
-	Uid          string                 `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
-	WorkloadInfo *WorkloadInfo          `protobuf:"bytes,2,opt,name=workload_info,json=workloadInfo,proto3" json:"workload_info,omitempty"`
-	// The namespace for the workload. Windows only.
-	WindowsNamespace *WindowsNamespace `protobuf:"bytes,3,opt,name=windows_namespace,json=windowsNamespace,proto3" json:"windows_namespace,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Uid           string                 `protobuf:"bytes,1,opt,name=uid,proto3" json:"uid,omitempty"`
+	WorkloadInfo  *WorkloadInfo          `protobuf:"bytes,2,opt,name=workload_info,json=workloadInfo,proto3" json:"workload_info,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AddWorkload) Reset() {
@@ -292,13 +299,6 @@ func (x *AddWorkload) GetUid() string {
 func (x *AddWorkload) GetWorkloadInfo() *WorkloadInfo {
 	if x != nil {
 		return x.WorkloadInfo
-	}
-	return nil
-}
-
-func (x *AddWorkload) GetWindowsNamespace() *WindowsNamespace {
-	if x != nil {
-		return x.WindowsNamespace
 	}
 	return nil
 }
@@ -723,8 +723,8 @@ var file_zdsapi_zds_proto_goTypes = []any{
 }
 var file_zdsapi_zds_proto_depIdxs = []int32{
 	0, // 0: istio.workload.zds.ZdsHello.version:type_name -> istio.workload.zds.Version
-	2, // 1: istio.workload.zds.AddWorkload.workload_info:type_name -> istio.workload.zds.WorkloadInfo
-	3, // 2: istio.workload.zds.AddWorkload.windows_namespace:type_name -> istio.workload.zds.WindowsNamespace
+	3, // 1: istio.workload.zds.WorkloadInfo.windows_namespace:type_name -> istio.workload.zds.WindowsNamespace
+	2, // 2: istio.workload.zds.AddWorkload.workload_info:type_name -> istio.workload.zds.WorkloadInfo
 	4, // 3: istio.workload.zds.WorkloadRequest.add:type_name -> istio.workload.zds.AddWorkload
 	5, // 4: istio.workload.zds.WorkloadRequest.keep:type_name -> istio.workload.zds.KeepWorkload
 	6, // 5: istio.workload.zds.WorkloadRequest.del:type_name -> istio.workload.zds.DelWorkload
@@ -742,6 +742,7 @@ func file_zdsapi_zds_proto_init() {
 	if File_zdsapi_zds_proto != nil {
 		return
 	}
+	file_zdsapi_zds_proto_msgTypes[1].OneofWrappers = []any{}
 	file_zdsapi_zds_proto_msgTypes[8].OneofWrappers = []any{
 		(*WorkloadRequest_Add)(nil),
 		(*WorkloadRequest_Keep)(nil),

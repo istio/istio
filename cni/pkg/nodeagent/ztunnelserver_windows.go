@@ -215,22 +215,13 @@ func (z *ztunnelServer) timeoutError() error {
 }
 
 func (z *ztunnelServer) handleWorkloadInfo(wl WorkloadInfo, uid string, conn ZtunnelConnection) (*zdsapi.WorkloadResponse, error) {
-	if wl.NetnsCloser() != nil {
-		nc, ok := wl.NetnsCloser().(NamespaceCloser)
-		if !ok {
-			return nil, fmt.Errorf("failed to convert to NamespaceCloser")
-		}
-		namespace := nc.Namespace()
+	if wl != nil {
 		log.Infof("sending pod to ztunnel as part of snapshot")
 		return conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 			Payload: &zdsapi.WorkloadRequest_Add{
 				Add: &zdsapi.AddWorkload{
 					Uid:          uid,
 					WorkloadInfo: wl.Workload(),
-					WindowsNamespace: &zdsapi.WindowsNamespace{
-						Guid: namespace.GUID,
-						Id:   namespace.ID,
-					},
 				},
 			},
 		}, nil)
@@ -258,13 +249,15 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 	}
 	uid := string(pod.ObjectMeta.UID)
 
+	wi := podToWorkload(pod)
+	wi.WindowsNamespace = &zdsapi.WindowsNamespace{
+		Guid: namespaceCloser.Namespace().GUID,
+		Id:   namespaceCloser.Namespace().ID,
+	}
+
 	add := &zdsapi.AddWorkload{
-		WorkloadInfo: podToWorkload(pod),
+		WorkloadInfo: wi,
 		Uid:          uid,
-		WindowsNamespace: &zdsapi.WindowsNamespace{
-			Guid: namespaceCloser.Namespace().GUID,
-			Id:   namespaceCloser.Namespace().ID,
-		},
 	}
 
 	r := &zdsapi.WorkloadRequest{
@@ -277,8 +270,8 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 		"name", add.WorkloadInfo.Name,
 		"namespace", add.WorkloadInfo.Namespace,
 		"serviceAccount", add.WorkloadInfo.ServiceAccount,
-		"namespaceGuid", add.WindowsNamespace.Guid,
-		"namespaceId", add.WindowsNamespace.Id,
+		"namespaceGuid", add.WorkloadInfo.WindowsNamespace.Guid,
+		"namespaceId", add.WorkloadInfo.WindowsNamespace.Id,
 	)
 
 	log.Infof("sending pod add to ztunnel")

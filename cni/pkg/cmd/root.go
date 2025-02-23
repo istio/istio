@@ -220,7 +220,8 @@ func init() {
 
 	// Not configurable in CNI helm charts
 	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
-	registerStringParameter(constants.MountedCNIBinDir, constants.HostCNIBinDir, "Directory on the host where CNI binaries are installed. Should only be used with Windows HostProcess pods")
+	registerStringParameter(constants.MountedCNIBinDir, constants.HostCNIBinDir,
+		"Directory on the host where CNI binaries are installed. Should only be used with Windows HostProcess pods")
 	registerStringParameter(constants.CNIAgentRunDir, "/var/run/istio-cni", "Location of the node agent writable path on the node (used for sockets, etc)")
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
 	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
