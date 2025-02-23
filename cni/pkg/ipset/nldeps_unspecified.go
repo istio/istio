@@ -52,6 +52,10 @@ func (m *realDeps) clearEntriesWithComment(name, comment string) error {
 	return errors.New("not implemented on this platform")
 }
 
+func (m *realDeps) clearEntriesWithIPAndComment(name string, ip netip.Addr, comment string) (string, error) {
+	return "", errors.New("not implemented on this platform")
+}
+
 func (m *realDeps) clearEntriesWithIP(name string, ip netip.Addr) error {
 	return errors.New("not implemented on this platform")
 }
