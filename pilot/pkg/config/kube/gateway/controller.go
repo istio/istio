@@ -443,8 +443,10 @@ func TLSRouteCollection(
 	Parents Parents,
 	grants ReferenceGrants,
 	DomainSuffix string,
-	statusWriter StatusWriter,
-) krt.Collection[config.Config] {
+	statusWriter *StatusWriter,
+	opts krt.OptionsBuilder,
+) (krt.Collection[config.Config], krt.Collection[RouteAttachment]) {
+	routeCount := routeAttachmentCollection(Parents, TLSRoutes, gvk.TLSRoute, opts)
 	return krt.NewManyCollection(TLSRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) []config.Config {
 		ctx := RouteContext{
 			Krt:     krtctx,
@@ -453,11 +455,7 @@ func TLSRouteCollection(
 			Domain:  DomainSuffix,
 		}
 		route := obj.Spec
-		// TODO: take this and make a num of attached routes.. hm, not number. more like pkey set
-		// return is []ConfigWrapper {config.Config, parents []PK}
-		// Make a join of all routes, index by pk. Gateway does Attached:=len(Fetch(index))
-		// The problem is its circular, we need to split 'Parents' probably
-		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
+		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
 
 		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
 		status := kstatus.WrapT(&obj.Status)
@@ -465,7 +463,7 @@ func TLSRouteCollection(
 			status.MutateInPlace(func(s *gatewayalpha.TLSRouteStatus) {
 				s.Parents = createRouteStatus(results, obj.Generation, s.Parents)
 			})
-			EnqueueStatus(statusWriter, obj, status)
+			EnqueueStatus(*statusWriter, obj, status)
 		}
 		type conversionResult struct {
 			error  *ConfigError
@@ -550,7 +548,7 @@ func TLSRouteCollection(
 			}
 		}
 		return vs
-	})
+	}, opts.WithName("TLSRoute")...), routeCount
 }
 
 type TypedResource struct {
@@ -573,22 +571,20 @@ func (r RouteAttachment) Equals(other RouteAttachment) bool {
 	return r.From == other.From && r.To == other.To && r.ListenerName == other.ListenerName
 }
 
-func TCPRouteCollection(
-	TCPRoutes krt.Collection[*gatewayalpha.TCPRoute],
-	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
+func routeAttachmentCollection[T controllers.Object](
 	Parents Parents,
-	grants ReferenceGrants,
-	DomainSuffix string,
-	statusWriter *StatusWriter,
+	col krt.Collection[T],
+	kind config.GroupVersionKind,
 	opts krt.OptionsBuilder,
-) (krt.Collection[config.Config], krt.Collection[RouteAttachment]) {
-	routeCount := krt.NewManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []RouteAttachment {
+) krt.Collection[RouteAttachment] {
+	return krt.NewManyCollection(col, func(krtctx krt.HandlerContext, obj T) []RouteAttachment {
 		from := TypedResource{
-			Kind: gvk.TCPRoute,
+			Kind: kind,
 			Name: config.NamespacedName(obj),
 		}
 		log.Errorf("howardjohn: EXTRACTS")
-		parentRefs := extractParentReferenceInfo2(krtctx, Parents, obj.Spec.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
+		parents, hostnames := GetCommonRouteInfo(obj)
+		parentRefs := extractParentReferenceInfo2(krtctx, Parents, parents, hostnames, kind, obj.GetNamespace())
 		log.Errorf("howardjohn: /EXTRACTS")
 		gateways := sets.New[types.NamespacedName]()
 		for _, p := range parentRefs {
@@ -612,8 +608,19 @@ func TCPRouteCollection(
 				ListenerName: string(e.ParentSection),
 			}
 		})
-	}, opts.WithName("TCPRoute/count")...)
-	_ = routeCount // TODO plumb this through
+	}, opts.WithName(kind.Kind+"/count")...)
+}
+
+func TCPRouteCollection(
+	TCPRoutes krt.Collection[*gatewayalpha.TCPRoute],
+	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
+	Parents Parents,
+	grants ReferenceGrants,
+	DomainSuffix string,
+	statusWriter *StatusWriter,
+	opts krt.OptionsBuilder,
+) (krt.Collection[config.Config], krt.Collection[RouteAttachment]) {
+	routeCount := routeAttachmentCollection(Parents, TCPRoutes, gvk.TCPRoute, opts)
 	return krt.NewManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []config.Config {
 		ctx := RouteContext{
 			Krt:     krtctx,
@@ -747,7 +754,7 @@ func NewController(
 	options controller.Options,
 ) *Controller {
 	stop := make(chan struct{})
-	opts := krt.NewOptionsBuilder(stop, options.KrtDebugger)
+	opts := krt.NewOptionsBuilder(stop, "gateway", options.KrtDebugger)
 
 	statusWriter := &StatusWriter{statusController: atomic.NewPointer[status.Queue](nil)}
 	gatewayController := &Controller{
@@ -798,12 +805,22 @@ func NewController(
 		statusWriter,
 		opts,
 	)
-	TCPRouteAttachmentsIndex := krt.NewIndex(TCPRouteAttachments, func(o RouteAttachment) []types.NamespacedName {
+	TLSRoutes, TLSRouteAttachments := TLSRouteCollection(
+		inputs.TLSRoutes,
+		inputs.ServiceEntries,
+		Parents,
+		ReferenceGrants,
+		options.DomainSuffix,
+		statusWriter,
+		opts,
+	)
+	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{TCPRouteAttachments, TLSRouteAttachments})
+	RouteAttachmentsIndex := krt.NewIndex(RouteAttachments, func(o RouteAttachment) []types.NamespacedName {
 		return []types.NamespacedName{o.To}
 	})
 
 	statusCol := krt.NewCollection(GatewaysStatus, func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]) *krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus] {
-		tcpRoutes := krt.Fetch(ctx, TCPRouteAttachments, krt.FilterIndex(TCPRouteAttachmentsIndex, config.NamespacedName(i.Obj)))
+		tcpRoutes := krt.Fetch(ctx, RouteAttachments, krt.FilterIndex(RouteAttachmentsIndex, config.NamespacedName(i.Obj)))
 		counts := map[string]int32{}
 		for _, r := range tcpRoutes {
 			counts[r.ListenerName] = counts[r.ListenerName] + 1
@@ -820,7 +837,7 @@ func NewController(
 	}, opts.WithName("GatewayFinalStatus")...)
 	registerStatus(statusCol, statusWriter)
 
-	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{TCPRoutes}, opts.WithName("DerivedVirtualServices")...)
+	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{TCPRoutes, TLSRoutes}, opts.WithName("DerivedVirtualServices")...)
 
 	outputs := Outputs{
 		Gateways:        Gateways,
