@@ -702,9 +702,7 @@ func HTTPRouteCollection(
 		return &status, virtualServices
 	}, opts.WithName("HTTPRoute")...)
 
-	//keyIndex := krt.NewIndex(baseVirtualServices, func(o config.Config) []string {
-	//	return []string{o.Annotations["TODO"]}
-	//})
+	// TODO: this needs to be more efficient. An index as the input perhaps
 	finalVirtualServices := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []config.Config {
 		vs := krt.Fetch(ctx, baseVirtualServices)
 		byKey := slices.Group(vs, func(o config.Config) string {
