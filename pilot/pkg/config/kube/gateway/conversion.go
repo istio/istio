@@ -63,6 +63,11 @@ func sortConfigByCreationTime(configs []config.Config) {
 	})
 }
 
+func sortedConfigByCreationTime(configs []config.Config) []config.Config {
+	sortConfigByCreationTime(configs)
+	return configs
+}
+
 // convertResources is the top level entrypoint to our conversion logic, computing the full state based
 // on KubernetesResources inputs.
 func convertResources(r GatewayResources) IstioResources {

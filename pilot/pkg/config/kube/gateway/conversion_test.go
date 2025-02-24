@@ -19,7 +19,6 @@ import (
 	"os"
 	"reflect"
 	"regexp"
-	"sort"
 	"strings"
 	"testing"
 
@@ -449,22 +448,25 @@ func TestConvertResources(t *testing.T) {
 			output.ResourceReferences = nil                // Not tested here
 
 			// sort virtual services to make the order deterministic
-			sort.Slice(output.VirtualService, func(i, j int) bool {
-				return output.VirtualService[i].Namespace+"/"+output.VirtualService[i].Name < output.VirtualService[j].Namespace+"/"+output.VirtualService[j].Name
-			})
+			sortConfigByCreationTime(output.VirtualService)
+			sortConfigByCreationTime(output.Gateway)
+
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)
 			res := append(output.Gateway, output.VirtualService...)
 			util.CompareContent(t, marshalYaml(t, res), goldenFile)
+
 			golden := splitOutput(readConfig(t, goldenFile, validator, tt.validationIgnorer))
-
-			// sort virtual services to make the order deterministic
-			sort.Slice(golden.VirtualService, func(i, j int) bool {
-				return golden.VirtualService[i].Namespace+"/"+golden.VirtualService[i].Name < golden.VirtualService[j].Namespace+"/"+golden.VirtualService[j].Name
-			})
-
 			assert.Equal(t, golden, output)
 
-			outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.GRPCRoute, kr.TLSRoute, kr.TCPRoute)
+			outputStatus := getStatus(
+				t,
+				sortedConfigByCreationTime(kr.GatewayClass),
+				sortedConfigByCreationTime(kr.Gateway),
+				sortedConfigByCreationTime(kr.HTTPRoute),
+				sortedConfigByCreationTime(kr.GRPCRoute),
+				sortedConfigByCreationTime(kr.TLSRoute),
+				sortedConfigByCreationTime(kr.TCPRoute),
+			)
 			goldenStatusFile := fmt.Sprintf("testdata/%s.status.yaml.golden", tt.name)
 			if util.Refresh() {
 				if err := os.WriteFile(goldenStatusFile, outputStatus, 0o644); err != nil {
