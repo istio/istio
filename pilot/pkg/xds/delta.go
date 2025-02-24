@@ -392,6 +392,8 @@ func shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryReques
 		res, wildcard, _ := deltaWatchedResources(nil, request)
 		skip := request.TypeUrl == v3.AddressType && wildcard
 		if skip {
+			// Due to the high resource count in WDS at scale, we do not store ResourceName.
+			// See the workload generator for more information on why we don't use this.
 			res = nil
 		}
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
