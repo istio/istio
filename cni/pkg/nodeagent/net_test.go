@@ -58,8 +58,11 @@ func getTestFixure(ctx context.Context) netTestFixture {
 
 	ztunnelServer := &fakeZtunnel{}
 
-	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, NewPodNetnsProcFinder(fakeFs()))
-
+	procFinder, err := NewPodNetnsProcFinder(fakeFs(true))
+	if err != nil {
+		panic("couldn't create mocked procfinder")
+	}
+	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, procFinder)
 	netServer.netnsRunner = func(fdable NetnsFd, toRun func() error) error {
 		return toRun()
 	}
