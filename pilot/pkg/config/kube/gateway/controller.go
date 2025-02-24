@@ -437,17 +437,23 @@ func BuildParents(
 	}
 }
 
+type RouteResult[I, IStatus any] struct {
+	VirtualServices  krt.Collection[config.Config]
+	RouteAttachments krt.Collection[RouteAttachment]
+	Status           krt.Collection[krt.ObjectWithStatus[I, IStatus]]
+}
+
 func TLSRouteCollection(
 	TLSRoutes krt.Collection[*gatewayalpha.TLSRoute],
 	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
 	Parents Parents,
 	grants ReferenceGrants,
 	DomainSuffix string,
-	statusWriter *StatusWriter,
 	opts krt.OptionsBuilder,
-) (krt.Collection[config.Config], krt.Collection[RouteAttachment]) {
+) RouteResult[*gatewayalpha.TLSRoute, *gatewayalpha.TLSRouteStatus] {
 	routeCount := routeAttachmentCollection(Parents, TLSRoutes, gvk.TLSRoute, opts)
-	return krt.NewManyCollection(TLSRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) []config.Config {
+	status, virtualServices := krt.NewStatusManyCollection(TLSRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (**gatewayalpha.TLSRouteStatus, []config.Config) {
+		status := obj.Status.DeepCopy()
 		ctx := RouteContext{
 			Krt:     krtctx,
 			Grants:  grants,
@@ -458,13 +464,7 @@ func TLSRouteCollection(
 		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
 
 		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
-		status := kstatus.WrapT(&obj.Status)
-		reportStatus := func(results []RouteParentResult) {
-			status.MutateInPlace(func(s *gatewayalpha.TLSRouteStatus) {
-				s.Parents = createRouteStatus(results, obj.Generation, s.Parents)
-			})
-			EnqueueStatus(*statusWriter, obj, status)
-		}
+
 		type conversionResult struct {
 			error  *ConfigError
 			routes []*istio.TLSRoute
@@ -487,7 +487,8 @@ func TLSRouteCollection(
 			return res
 		}
 		meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
-		reportStatus(slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
+
+		rpResults := slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
 			res := RouteParentResult{
 				OriginalReference: r.OriginalReference,
 				DeniedReason:      r.DeniedReason,
@@ -497,7 +498,8 @@ func TLSRouteCollection(
 				res.RouteError = meshResult.error
 			}
 			return res
-		}))
+		})
+		status.Parents = createRouteStatus(rpResults, obj.Generation, status.Parents)
 
 		vs := []config.Config{}
 		for _, parent := range filteredReferences(parentRefs) {
@@ -547,8 +549,13 @@ func TLSRouteCollection(
 				})
 			}
 		}
-		return vs
-	}, opts.WithName("TLSRoute")...), routeCount
+		return &status, vs
+	}, opts.WithName("TLSRoute")...)
+	return RouteResult[*gatewayalpha.TLSRoute, *gatewayalpha.TLSRouteStatus]{
+		VirtualServices:  virtualServices,
+		RouteAttachments: routeCount,
+		Status:           status,
+	}
 }
 
 type TypedResource struct {
@@ -608,11 +615,11 @@ func TCPRouteCollection(
 	Parents Parents,
 	grants ReferenceGrants,
 	DomainSuffix string,
-	statusWriter *StatusWriter,
 	opts krt.OptionsBuilder,
-) (krt.Collection[config.Config], krt.Collection[RouteAttachment]) {
+) RouteResult[*gatewayalpha.TCPRoute, *gatewayalpha.TCPRouteStatus] {
 	routeCount := routeAttachmentCollection(Parents, TCPRoutes, gvk.TCPRoute, opts)
-	return krt.NewManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []config.Config {
+	status, virtualServices := krt.NewStatusManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (**gatewayalpha.TCPRouteStatus, []config.Config) {
+		status := obj.Status.DeepCopy()
 		ctx := RouteContext{
 			Krt:     krtctx,
 			Grants:  grants,
@@ -627,13 +634,7 @@ func TCPRouteCollection(
 			log.Errorf("howardjohn: got p %+v", p)
 		}
 		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
-		status := kstatus.WrapT(&obj.Status)
-		reportStatus := func(results []RouteParentResult) {
-			status.MutateInPlace(func(rs *gatewayalpha.TCPRouteStatus) {
-				rs.Parents = createRouteStatus(results, obj.Generation, rs.Parents)
-			})
-			EnqueueStatus(*statusWriter, obj, status)
-		}
+
 		type conversionResult struct {
 			error  *ConfigError
 			routes []*istio.TCPRoute
@@ -656,7 +657,8 @@ func TCPRouteCollection(
 			return res
 		}
 		meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
-		reportStatus(slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
+
+		rpResults := slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
 			res := RouteParentResult{
 				OriginalReference: r.OriginalReference,
 				DeniedReason:      r.DeniedReason,
@@ -666,7 +668,8 @@ func TCPRouteCollection(
 				res.RouteError = meshResult.error
 			}
 			return res
-		}))
+		})
+		status.Parents = createRouteStatus(rpResults, obj.Generation, status.Parents)
 
 		vs := []config.Config{}
 		for _, parent := range filteredReferences(parentRefs) {
@@ -716,8 +719,14 @@ func TCPRouteCollection(
 				})
 			}
 		}
-		return vs
-	}, opts.WithName("TCPRoute")...), routeCount
+		return &status, vs
+	}, opts.WithName("TCPRoute")...)
+
+	return RouteResult[*gatewayalpha.TCPRoute, *gatewayalpha.TCPRouteStatus]{
+		VirtualServices:  virtualServices,
+		RouteAttachments: routeCount,
+		Status:           status,
+	}
 }
 
 type Outputs struct {
@@ -773,7 +782,12 @@ func NewController(
 	}
 
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
+	registerStatus(GatewayClassStatus, statusWriter)
+
 	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
+
+	// GatewaysStatus cannot is not fully complete until its join with route attachments to report attachedRoutes.
+	// Do not register yet.
 	GatewaysStatus, Gateways := GatewayCollection(
 		inputs.Gateways,
 		GatewayClasses,
@@ -784,33 +798,38 @@ func NewController(
 		gatewayController.gatewayContextTrigger,
 		opts,
 	)
-	registerStatus(GatewayClassStatus, statusWriter)
 
+	// TODO add mesh
 	Parents := BuildParents(Gateways)
-	TCPRoutes, TCPRouteAttachments := TCPRouteCollection(
+
+	tcpRoutes := TCPRouteCollection(
 		inputs.TCPRoutes,
 		inputs.ServiceEntries,
 		Parents,
 		ReferenceGrants,
 		options.DomainSuffix,
-		statusWriter,
 		opts,
 	)
-	TLSRoutes, TLSRouteAttachments := TLSRouteCollection(
+	registerStatus(tcpRoutes.Status, statusWriter)
+	tlsRoutes := TLSRouteCollection(
 		inputs.TLSRoutes,
 		inputs.ServiceEntries,
 		Parents,
 		ReferenceGrants,
 		options.DomainSuffix,
-		statusWriter,
 		opts,
 	)
-	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{TCPRouteAttachments, TLSRouteAttachments})
+	registerStatus(tlsRoutes.Status, statusWriter)
+
+	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
+		tcpRoutes.RouteAttachments,
+		tlsRoutes.RouteAttachments,
+	})
 	RouteAttachmentsIndex := krt.NewIndex(RouteAttachments, func(o RouteAttachment) []types.NamespacedName {
 		return []types.NamespacedName{o.To}
 	})
 
-	statusCol := krt.NewCollection(GatewaysStatus, func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]) *krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus] {
+	GatewayFinalStatus := krt.NewCollection(GatewaysStatus, func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]) *krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus] {
 		tcpRoutes := krt.Fetch(ctx, RouteAttachments, krt.FilterIndex(RouteAttachmentsIndex, config.NamespacedName(i.Obj)))
 		counts := map[string]int32{}
 		for _, r := range tcpRoutes {
@@ -826,19 +845,18 @@ func NewController(
 			Status: *status,
 		}
 	}, opts.WithName("GatewayFinalStatus")...)
-	registerStatus(statusCol, statusWriter)
+	registerStatus(GatewayFinalStatus, statusWriter)
 
-	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{TCPRoutes, TLSRoutes}, opts.WithName("DerivedVirtualServices")...)
+	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{
+		tcpRoutes.VirtualServices,
+		tlsRoutes.VirtualServices,
+	}, opts.WithName("DerivedVirtualServices")...)
 
 	outputs := Outputs{
 		Gateways:        Gateways,
 		VirtualServices: VirtualServices,
 	}
 	gatewayController.outputs = outputs
-
-	//if credsController != nil {
-	//	credsController.AddSecretHandler(gatewayController.secretEvent)
-	//}
 
 	return gatewayController
 }
