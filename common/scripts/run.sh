@@ -47,6 +47,7 @@ read -ra DOCKER_RUN_OPTIONS <<< "${DOCKER_RUN_OPTIONS:-}"
     "${DOCKER_RUN_OPTIONS[@]}" \
     --init \
     --sig-proxy=true \
+    --cap-add=SYS_ADMIN \
     ${DOCKER_SOCKET_MOUNT:--v /var/run/docker.sock:/var/run/docker.sock} \
     $CONTAINER_OPTIONS \
     --env-file <(env | grep -v ${ENV_BLOCKLIST}) \
