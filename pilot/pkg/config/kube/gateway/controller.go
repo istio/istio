@@ -504,7 +504,7 @@ func TLSRouteCollection(
 		vs := []config.Config{}
 		for _, parent := range filteredReferences(parentRefs) {
 			routes := gwResult.routes
-			vsHosts := []string{"*"}
+			vsHosts := hostnameToStringList(route.Hostnames)
 			if parent.IsMesh() {
 				routes = meshResult.routes
 				ref := types.NamespacedName{
@@ -678,6 +678,7 @@ func HTTPRouteCollection(
 				//	cfg.Annotations[constants.InternalParentNames], obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
 				//} else {
 				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
+				sortHTTPRoutes(routes)
 				virtualServices = append(virtualServices, config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
