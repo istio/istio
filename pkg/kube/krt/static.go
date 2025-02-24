@@ -120,6 +120,30 @@ func (s *staticList[T]) UpdateObject(obj T) {
 	}
 }
 
+// ConditionalUpdateObject adds or updates an object into the collection.
+func (s *staticList[T]) ConditionalUpdateObject(obj T) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	k := GetKey(obj)
+	old, f := s.vals[k]
+	s.vals[k] = obj
+	if f {
+		if equal(old, obj) {
+			return
+		}
+		s.eventHandlers.Distribute([]Event[T]{{
+			Old:   &old,
+			New:   &obj,
+			Event: controllers.EventUpdate,
+		}}, false)
+	} else {
+		s.eventHandlers.Distribute([]Event[T]{{
+			New:   &obj,
+			Event: controllers.EventAdd,
+		}}, false)
+	}
+}
+
 func (s *staticList[T]) GetKey(k string) *T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
