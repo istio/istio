@@ -102,7 +102,11 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing the host rules for health checks: %w", err)
 	}
 
-	podNetns := NewPodNetnsProcFinder(os.DirFS(filepath.Join(pconstants.HostMountsPath, "proc")))
+	podNetns, err := NewPodNetnsProcFinder(os.DirFS(filepath.Join(pconstants.HostMountsPath, "proc")))
+	if err != nil {
+		return nil, err
+	}
+
 	netServer := newNetServer(ztunnelServer, podNsMap, podIptables, podNetns)
 
 	// Set some defaults

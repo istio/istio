@@ -15,14 +15,45 @@
 package nodeagent
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/fs"
+	"path"
+	"strconv"
 	"syscall"
 )
 
-func GetInode(fi fs.FileInfo) (uint64, error) {
+func GetStat(fi fs.FileInfo) (*syscall.Stat_t, error) {
 	if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
-		return stat.Ino, nil
+		return stat, nil
 	}
-	return 0, fmt.Errorf("unable to get inode")
+	return nil, fmt.Errorf("unable to stat %s", fi.Name())
+}
+
+// Gets the `starttime` field from `/proc/<pid>/stat`.
+// Note that this value is ticks since boot, and is not wallclock time
+func GetStarttime(proc fs.FS, pidDir fs.DirEntry) (uint64, error) {
+	statFile, err := proc.Open(path.Join(pidDir.Name(), "stat"))
+	if err != nil {
+		return 0, err
+	}
+	defer statFile.Close()
+
+	data, err := io.ReadAll(statFile)
+	if err != nil {
+		return 0, err
+	}
+
+	lastParen := bytes.LastIndex(data, []byte(")"))
+	if lastParen == -1 {
+		return 0, fmt.Errorf("invalid stat format")
+	}
+
+	fields := bytes.Fields(data[lastParen+1:])
+	if len(fields) < 20 {
+		return 0, fmt.Errorf("not enough fields in stat")
+	}
+
+	return strconv.ParseUint(string(fields[19]), 10, 64)
 }
