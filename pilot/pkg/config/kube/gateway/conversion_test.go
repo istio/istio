@@ -466,6 +466,10 @@ func (t *TestStatusQueue) Dump() string {
 		return slices.Index(ord, a.Kind)
 	})
 	for _, obj := range objs {
+		if obj.Name == "istio-remote" || obj.Name == "istio-waypoint" {
+			// Legacy alignment with the old tests
+			continue
+		}
 		b, err := yaml.Marshal(obj)
 		if err != nil {
 			panic(err.Error())
