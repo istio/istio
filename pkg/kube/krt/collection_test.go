@@ -36,7 +36,7 @@ import (
 )
 
 func testOptions(t test.Failer) krt.OptionsBuilder {
-	return krt.NewOptionsBuilder(test.NewStop(t), krt.GlobalDebugHandler)
+	return krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler)
 }
 
 type SimplePod struct {
