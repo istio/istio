@@ -23,6 +23,7 @@ type NetnsFd interface {
 type Netns interface {
 	NetnsFd
 	Inode() uint64
+	OwnerProcStarttime() uint64
 }
 type NetnsCloser interface {
 	io.Closer
@@ -30,9 +31,10 @@ type NetnsCloser interface {
 }
 
 type NetnsWithFd struct {
-	netns io.Closer
-	fd    uintptr
-	inode uint64
+	netns              io.Closer
+	fd                 uintptr
+	inode              uint64
+	ownerProcStarttime uint64
 }
 
 func (n *NetnsWithFd) Close() error {
@@ -53,4 +55,8 @@ func (n *NetnsWithFd) Fd() uintptr {
 
 func (n *NetnsWithFd) Inode() uint64 {
 	return n.inode
+}
+
+func (n *NetnsWithFd) OwnerProcStarttime() uint64 {
+	return n.ownerProcStarttime
 }
