@@ -34,15 +34,16 @@ func (n networksAdapter) Networks() *meshconfig.MeshNetworks {
 // AddNetworksHandler registers a callback handler for changes to the networks config.
 func (n networksAdapter) AddNetworksHandler(h func()) *mesh.WatcherHandlerRegistration {
 	active := uatomic.NewBool(true)
-	reg := mesh.NewWatcherHandlerRegistration(func() {
-		active.Store(false)
-	})
 	// Do not run initial state to match existing semantics
-	n.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshNetworksResource], initialSync bool) {
+	colReg := n.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshNetworksResource], initialSync bool) {
 		if active.Load() {
 			h()
 		}
 	}, false)
+
+	reg := mesh.NewWatcherHandlerRegistration(func() {
+		colReg.UnregisterHandler()
+	})
 	return reg
 }
 
