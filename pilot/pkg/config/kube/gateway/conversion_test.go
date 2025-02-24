@@ -24,8 +24,11 @@ import (
 	"sync"
 	"testing"
 
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -36,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/yaml"
@@ -47,9 +51,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/test/util"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	crdvalidation "istio.io/istio/pkg/config/crd"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
@@ -301,6 +303,59 @@ var services = []*model.Service{
 	},
 }
 
+var svcPorts = []corev1.ServicePort{
+	{
+		Name:     "http",
+		Port:     80,
+		Protocol: "HTTP",
+	},
+	{
+		Name:     "tcp",
+		Port:     34000,
+		Protocol: "TCP",
+	},
+	{
+		Name:     "tcp-other",
+		Port:     34001,
+		Protocol: "TCP",
+	},
+}
+
+var knownServices = sets.New(
+	types.NamespacedName{Name: "httpbin", Namespace: "default"},
+	types.NamespacedName{Name: "httpbin-apple", Namespace: "apple"},
+	types.NamespacedName{Name: "httpbin-banana", Namespace: "banana"},
+	types.NamespacedName{Name: "httpbin-second", Namespace: "default"},
+	types.NamespacedName{Name: "httpbin-wildcard", Namespace: "default"},
+	types.NamespacedName{Name: "foo-svc", Namespace: "default"},
+	types.NamespacedName{Name: "httpbin-other", Namespace: "default"},
+	types.NamespacedName{Name: "example", Namespace: "default"},
+	types.NamespacedName{Name: "echo", Namespace: "default"},
+	types.NamespacedName{Name: "echo", Namespace: "default"},
+	types.NamespacedName{Name: "httpbin", Namespace: "cert"},
+	types.NamespacedName{Name: "my-svc", Namespace: "service"},
+	types.NamespacedName{Name: "svc2", Namespace: "allowed-1"},
+	types.NamespacedName{Name: "svc2", Namespace: "allowed-2"},
+	types.NamespacedName{Name: "svc1", Namespace: "allowed-1"},
+	types.NamespacedName{Name: "svc3", Namespace: "allowed-2"},
+	types.NamespacedName{Name: "svc4", Namespace: "default"},
+	types.NamespacedName{Name: "httpbin", Namespace: "group-namespace1"},
+	types.NamespacedName{Name: "httpbin", Namespace: "group-namespace2"},
+	types.NamespacedName{Name: "httpbin-zero", Namespace: "default"},
+	types.NamespacedName{Name: "httpbin", Namespace: "istio-system"},
+	types.NamespacedName{Name: "httpbin-mirror", Namespace: "default"},
+	types.NamespacedName{Name: "httpbin-foo", Namespace: "default"},
+	types.NamespacedName{Name: "httpbin-alt", Namespace: "default"},
+	types.NamespacedName{Name: "istiod", Namespace: "istio-system"},
+	types.NamespacedName{Name: "istiod", Namespace: "istio-system"},
+	types.NamespacedName{Name: "echo", Namespace: "istio-system"},
+	types.NamespacedName{Name: "httpbin-bad", Namespace: "default"})
+
+var knownServiceEntries = sets.New(
+	types.NamespacedName{Name: "example.com", Namespace: "istio-system"},
+	types.NamespacedName{Name: "google.com", Namespace: "istio-system"},
+)
+
 var (
 	// https://github.com/kubernetes/kubernetes/blob/v1.25.4/staging/src/k8s.io/kubectl/pkg/cmd/create/create_secret_tls_test.go#L31
 	rsaCertPEM = `-----BEGIN CERTIFICATE-----
@@ -507,6 +562,10 @@ func TestConvertResources(t *testing.T) {
 					Endpoint:    &model.IstioEndpoint{},
 				})
 			}
+			cg := core.NewConfigGenTest(t, core.TestOptions{
+				Services:  services,
+				Instances: instances,
+			})
 
 			dbg := &krt.DebugHandler{}
 			dumpOnFailure(t, dbg)
@@ -523,7 +582,7 @@ func TestConvertResources(t *testing.T) {
 			ctrl.setStatusQueue(sq)
 			go ctrl.Run(stop)
 			kc.RunAndWait(stop)
-			ctrl.Reconcile(model.NewPushContext())
+			ctrl.Reconcile(cg.PushContext())
 			kube.WaitForCacheSync("test", stop, ctrl.HasSynced)
 
 			res := slices.Map(ctrl.outputs.Gateways.List(), func(e Gateway) config.Config {
@@ -1304,7 +1363,20 @@ func readConfig(t testing.TB, filename string, validator *crdvalidation.Validato
 	if err != nil {
 		t.Fatalf("failed to read input yaml file: %v", err)
 	}
-	return readConfigString(t, string(data), validator, ignorer)
+	objs := readConfigString(t, string(data), validator, ignorer)
+	for svc := range knownServices {
+		svcObj := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: svc.Namespace,
+				Name:      svc.Name,
+			},
+			Spec: corev1.ServiceSpec{
+				Ports: svcPorts,
+			},
+		}
+		objs = append(objs, svcObj)
+	}
+	return objs
 }
 
 func readConfigString(t testing.TB, data string, validator *crdvalidation.Validator, ignorer *crdvalidation.ValidationIgnorer,
