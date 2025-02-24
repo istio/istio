@@ -4495,5 +4495,4 @@ func TestListenerTransportSocketConnectTimeoutForGateway(t *testing.T) {
 			}
 		})
 	}
-
 }

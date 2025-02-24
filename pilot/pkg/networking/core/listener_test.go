@@ -3136,5 +3136,4 @@ func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
 			}
 		})
 	}
-
 }
