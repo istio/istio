@@ -558,6 +558,153 @@ func TLSRouteCollection(
 	}
 }
 
+func HTTPRouteCollection(
+	HTTPRoutes krt.Collection[*gateway.HTTPRoute],
+	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
+	Parents Parents,
+	grants ReferenceGrants,
+	DomainSuffix string,
+	opts krt.OptionsBuilder,
+) RouteResult[*gateway.HTTPRoute, *gateway.HTTPRouteStatus] {
+	routeCount := routeAttachmentCollection(Parents, HTTPRoutes, gvk.HTTPRoute, opts)
+	status, virtualServices := krt.NewStatusManyCollection(HTTPRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (**gateway.HTTPRouteStatus, []config.Config) {
+		status := obj.Status.DeepCopy()
+		ctx := RouteContext{
+			Krt:     krtctx,
+			Grants:  grants,
+			Parents: Parents,
+			Domain:  DomainSuffix,
+		}
+		route := obj.Spec
+		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, obj.Namespace)
+
+		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
+
+		type conversionResult struct {
+			error  *ConfigError
+			routes []*istio.HTTPRoute
+		}
+		convertRules := func(mesh bool) conversionResult {
+			res := conversionResult{}
+			for n, r := range route.Rules {
+				// split the rule to make sure each rule has up to one match
+				matches := slices.Reference(r.Matches)
+				if len(matches) == 0 {
+					matches = append(matches, nil)
+				}
+				for _, m := range matches {
+					if m != nil {
+						r.Matches = []gateway.HTTPRouteMatch{*m}
+					}
+					vs, err := convertHTTPRoute(ctx, r, obj, n, !mesh)
+					// This was a hard error
+					if vs == nil {
+						res.error = err
+						return conversionResult{error: err}
+					}
+					// Got an error but also routes
+					if err != nil {
+						res.error = err
+					}
+
+					res.routes = append(res.routes, vs)
+				}
+			}
+			return res
+		}
+		meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
+
+		rpResults := slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
+			res := RouteParentResult{
+				OriginalReference: r.OriginalReference,
+				DeniedReason:      r.DeniedReason,
+				RouteError:        gwResult.error,
+			}
+			if r.IsMesh() {
+				res.RouteError = meshResult.error
+			}
+			return res
+		})
+		status.Parents = createRouteStatus(rpResults, obj.Generation, status.Parents)
+
+		count := 0
+		virtualServices := []config.Config{}
+		for _, parent := range filteredReferences(parentRefs) {
+			// for gateway routes, build one VS per gateway+host
+			routeKey := parent.InternalName
+			vsHosts := hostnameToStringList(route.Hostnames)
+			routes := gwResult.routes
+			if parent.IsMesh() {
+				routes = meshResult.routes
+				// for mesh routes, build one VS per namespace/port->host
+				routeKey = obj.Namespace
+				if parent.OriginalReference.Port != nil {
+					routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
+					routeKey += fmt.Sprintf("/%d", *parent.OriginalReference.Port)
+				}
+				ref := types.NamespacedName{
+					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))),
+					Name:      string(parent.OriginalReference.Name),
+				}
+				if parent.InternalKind == gvk.ServiceEntry {
+					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ServiceEntries, krt.FilterKey(ref.String())))
+					if ses != nil {
+						vsHosts = ses.Spec.Hosts
+					} else {
+						// TODO: report an error
+						vsHosts = []string{}
+					}
+				} else {
+					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
+						parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace)), ctx.Domain)}
+				}
+			}
+			if len(routes) == 0 {
+				continue
+			}
+			// Create one VS per hostname with a single hostname.
+			// This ensures we can treat each hostname independently, as the spec requires
+			for _, h := range vsHosts {
+				if !parent.hostnameAllowedByIsolation(h) {
+					// TODO: standardize a status message for this upstream and report
+					continue
+				}
+				//if cfg := routeMap[routeKey][h]; cfg != nil {
+				//	merge http routes
+				//vs := cfg.Spec.(*istio.VirtualService)
+				//vs.Http = append(vs.Http, routes...)
+				//append parents
+				//cfg.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s/%s.%s",
+				//	cfg.Annotations[constants.InternalParentNames], obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
+				//} else {
+				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
+				virtualServices = append(virtualServices, config.Config{
+					Meta: config.Meta{
+						CreationTimestamp: obj.CreationTimestamp.Time,
+						GroupVersionKind:  gvk.VirtualService,
+						Name:              name,
+						Annotations:       routeMeta2(obj),
+						Namespace:         obj.Namespace,
+						Domain:            ctx.Domain,
+					},
+					Spec: &istio.VirtualService{
+						Hosts:    []string{h},
+						Gateways: []string{parent.InternalName},
+						Http:     routes,
+					},
+				})
+				count++
+			}
+		}
+		return &status, virtualServices
+	}, opts.WithName("HTTPRoute")...)
+	return RouteResult[*gateway.HTTPRoute, *gateway.HTTPRouteStatus]{
+		VirtualServices:  virtualServices,
+		RouteAttachments: routeCount,
+		Status:           status,
+	}
+}
+
 type TypedResource struct {
 	Kind config.GroupVersionKind
 	Name types.NamespacedName
@@ -820,10 +967,20 @@ func NewController(
 		opts,
 	)
 	registerStatus(tlsRoutes.Status, statusWriter)
+	httpRoutes := HTTPRouteCollection(
+		inputs.HTTPRoutes,
+		inputs.ServiceEntries,
+		Parents,
+		ReferenceGrants,
+		options.DomainSuffix,
+		opts,
+	)
+	registerStatus(httpRoutes.Status, statusWriter)
 
 	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
 		tcpRoutes.RouteAttachments,
 		tlsRoutes.RouteAttachments,
+		httpRoutes.RouteAttachments,
 	})
 	RouteAttachmentsIndex := krt.NewIndex(RouteAttachments, func(o RouteAttachment) []types.NamespacedName {
 		return []types.NamespacedName{o.To}
@@ -850,6 +1007,7 @@ func NewController(
 	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{
 		tcpRoutes.VirtualServices,
 		tlsRoutes.VirtualServices,
+		httpRoutes.VirtualServices,
 	}, opts.WithName("DerivedVirtualServices")...)
 
 	outputs := Outputs{

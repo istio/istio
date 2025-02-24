@@ -175,9 +175,6 @@ func convertVirtualService(r configContext) []config.Config {
 	gatewayRoutes := make(map[string]map[string]*config.Config)
 	// for mesh routes, build one VS per namespace+host
 	meshRoutes := make(map[string]map[string]*config.Config)
-	for _, obj := range r.HTTPRoute {
-		buildHTTPVirtualServices(r, obj, gatewayRoutes, meshRoutes)
-	}
 	for _, obj := range r.GRPCRoute {
 		buildGRPCVirtualServices(r, obj, gatewayRoutes, meshRoutes)
 	}
@@ -194,8 +191,8 @@ func convertVirtualService(r configContext) []config.Config {
 	return result
 }
 
-func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
-	obj config.Config, pos int, enforceRefGrant bool,
+func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
+	obj *k8sbeta.HTTPRoute, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *ConfigError) {
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
@@ -373,11 +370,11 @@ func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 			}
 			vs.Headers.Response = h
 		case k8s.GRPCRouteFilterRequestMirror:
-			mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, enforceRefGrant, gvk.GRPCRoute)
-			if err != nil {
-				return nil, err
-			}
-			vs.Mirrors = append(vs.Mirrors, mirror)
+			//mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, enforceRefGrant, gvk.GRPCRoute)
+			//if err != nil {
+			//	return nil, err
+			//}
+			//vs.Mirrors = append(vs.Mirrors, mirror)
 		default:
 			return nil, &ConfigError{
 				Reason:  InvalidFilter,
@@ -412,148 +409,6 @@ func parentTypes(rpi []routeParentReference) (mesh, gateway bool) {
 		}
 	}
 	return
-}
-
-func buildHTTPVirtualServices(
-	ctx configContext,
-	obj config.Config,
-	gatewayRoutes map[string]map[string]*config.Config,
-	meshRoutes map[string]map[string]*config.Config,
-) {
-	route := obj.Spec.(*k8s.HTTPRouteSpec)
-	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, obj.Namespace)
-	reportStatus := func(results []RouteParentResult) {
-		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-			rs := s.(*k8s.HTTPRouteStatus)
-			rs.Parents = createRouteStatus(results, obj.Generation, rs.Parents)
-			return rs
-		})
-	}
-
-	type conversionResult struct {
-		error  *ConfigError
-		routes []*istio.HTTPRoute
-	}
-	convertRules := func(mesh bool) conversionResult {
-		res := conversionResult{}
-		for n, r := range route.Rules {
-			// split the rule to make sure each rule has up to one match
-			matches := slices.Reference(r.Matches)
-			if len(matches) == 0 {
-				matches = append(matches, nil)
-			}
-			for _, m := range matches {
-				if m != nil {
-					r.Matches = []k8s.HTTPRouteMatch{*m}
-				}
-				vs, err := convertHTTPRoute(r, ctx, obj, n, !mesh)
-				// This was a hard error
-				if vs == nil {
-					res.error = err
-					return conversionResult{error: err}
-				}
-				// Got an error but also routes
-				if err != nil {
-					res.error = err
-				}
-
-				res.routes = append(res.routes, vs)
-			}
-		}
-		return res
-	}
-	meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
-
-	reportStatus(slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
-		res := RouteParentResult{
-			OriginalReference: r.OriginalReference,
-			DeniedReason:      r.DeniedReason,
-			RouteError:        gwResult.error,
-		}
-		if r.IsMesh() {
-			res.RouteError = meshResult.error
-		}
-		return res
-	}))
-	count := 0
-	for _, parent := range filteredReferences(parentRefs) {
-		// for gateway routes, build one VS per gateway+host
-		routeMap := gatewayRoutes
-		routeKey := parent.InternalName
-		vsHosts := hostnameToStringList(route.Hostnames)
-		routes := gwResult.routes
-		if parent.IsMesh() {
-			routes = meshResult.routes
-			// for mesh routes, build one VS per namespace/port->host
-			routeMap = meshRoutes
-			routeKey = obj.Namespace
-			if parent.OriginalReference.Port != nil {
-				routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
-				routeKey += fmt.Sprintf("/%d", *parent.OriginalReference.Port)
-			}
-			if parent.InternalKind == gvk.ServiceEntry {
-				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
-					string(parent.OriginalReference.Name),
-					string(ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace))))
-			} else {
-				vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
-					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
-			}
-		}
-		if len(routes) == 0 {
-			continue
-		}
-		if _, f := routeMap[routeKey]; !f {
-			routeMap[routeKey] = make(map[string]*config.Config)
-		}
-
-		// Create one VS per hostname with a single hostname.
-		// This ensures we can treat each hostname independently, as the spec requires
-		for _, h := range vsHosts {
-			if !parent.hostnameAllowedByIsolation(h) {
-				// TODO: standardize a status message for this upstream and report
-				continue
-			}
-			if cfg := routeMap[routeKey][h]; cfg != nil {
-				// merge http routes
-				vs := cfg.Spec.(*istio.VirtualService)
-				vs.Http = append(vs.Http, routes...)
-				// append parents
-				cfg.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s/%s.%s",
-					cfg.Annotations[constants.InternalParentNames], obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
-			} else {
-				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
-				routeMap[routeKey][h] = &config.Config{
-					Meta: config.Meta{
-						CreationTimestamp: obj.CreationTimestamp,
-						GroupVersionKind:  gvk.VirtualService,
-						Name:              name,
-						Annotations:       routeMeta(obj),
-						Namespace:         obj.Namespace,
-						Domain:            ctx.Domain,
-					},
-					Spec: &istio.VirtualService{
-						Hosts:    []string{h},
-						Gateways: []string{parent.InternalName},
-						Http:     routes,
-					},
-				}
-				count++
-			}
-		}
-	}
-	for _, vsByHost := range gatewayRoutes {
-		for _, cfg := range vsByHost {
-			vs := cfg.Spec.(*istio.VirtualService)
-			sortHTTPRoutes(vs.Http)
-		}
-	}
-	for _, vsByHost := range meshRoutes {
-		for _, cfg := range vsByHost {
-			vs := cfg.Spec.(*istio.VirtualService)
-			sortHTTPRoutes(vs.Http)
-		}
-	}
 }
 
 func serviceEntryHosts(ses []config.Config, name, namespace string) []string {
@@ -1283,7 +1138,7 @@ func tcpWeightSum(forwardTo []k8s.BackendRef) int {
 }
 
 func buildHTTPDestination(
-	ctx configContext,
+	ctx RouteContext,
 	forwardTo []k8s.HTTPBackendRef,
 	ns string,
 	enforceRefGrant bool,
@@ -1308,7 +1163,7 @@ func buildHTTPDestination(
 	var invalidBackendErr *ConfigError
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		dst, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.HTTPRoute)
+		dst, err := buildDestination2(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.HTTPRoute)
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1604,14 +1459,14 @@ func headerListToMap(hl []k8s.HTTPHeader) map[string]string {
 	return res
 }
 
-func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, ns string,
+func createMirrorFilter(ctx RouteContext, filter *k8s.HTTPRequestMirrorFilter, ns string,
 	enforceRefGrant bool, k config.GroupVersionKind,
 ) (*istio.HTTPMirrorPolicy, *ConfigError) {
 	if filter == nil {
 		return nil, nil
 	}
 	var weightOne int32 = 1
-	dst, err := buildDestination(ctx, k8s.BackendRef{
+	dst, err := buildDestination2(ctx, k8s.BackendRef{
 		BackendObjectReference: filter.BackendRef,
 		Weight:                 &weightOne,
 	}, ns, enforceRefGrant, k)
@@ -2610,7 +2465,7 @@ func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname) {
 		return t.Spec.ParentRefs, nil
 	case *k8salpha.TLSRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames
-	case *k8s.HTTPRoute:
+	case *k8sbeta.HTTPRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames
 	case *k8s.GRPCRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames
