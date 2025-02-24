@@ -270,3 +270,124 @@ func TestParseValue(t *testing.T) {
 		})
 	}
 }
+
+func TestMergeFrom(t *testing.T) {
+	fromJSON := func(s string) Map {
+		m, err := fromJSON[Map]([]byte(s))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	cases := []struct {
+		name     string
+		base     Map
+		other    Map
+		expected Map
+	}{
+		{
+			name:     "empty base and other",
+			base:     fromJSON(`{}`),
+			other:    fromJSON(`{}`),
+			expected: fromJSON(`{}`),
+		},
+		{
+			name:     "simple key overwrite",
+			base:     fromJSON(`{"key1": "value1"}`),
+			other:    fromJSON(`{"key1": "newValue"}`),
+			expected: fromJSON(`{"key1": "newValue"}`),
+		},
+		{
+			name:     "simple bool overwrite",
+			base:     fromJSON(`{"key1": false}`),
+			other:    fromJSON(`{"key1": true}`),
+			expected: fromJSON(`{"key1": true}`),
+		},
+		{
+			name:     "new key addition",
+			base:     fromJSON(`{"key1": "value1"}`),
+			other:    fromJSON(`{"key2": "value2"}`),
+			expected: fromJSON(`{"key1": "value1", "key2": "value2"}`),
+		},
+		{
+			name:     "nested map merge",
+			base:     fromJSON(`{"nested": {"key1": "value1"}}`),
+			other:    fromJSON(`{"nested": {"key2": "value2"}}`),
+			expected: fromJSON(`{"nested": {"key1": "value1", "key2": "value2"}}`),
+		},
+		{
+			name:     "nested map overwrite",
+			base:     fromJSON(`{"nested": {"key1": "value1"}}`),
+			other:    fromJSON(`{"nested": {"key1": "newValue"}}`),
+			expected: fromJSON(`{"nested": {"key1": "newValue"}}`),
+		},
+		{
+			name:     "nested map bool overwrite",
+			base:     fromJSON(`{"nested": {"key1": false}}`),
+			other:    fromJSON(`{"nested": {"key1": true}}`),
+			expected: fromJSON(`{"nested": {"key1": true}}`),
+		},
+		{
+			name:     "overwrite primitive with map",
+			base:     fromJSON(`{"key": "value"}`),
+			other:    fromJSON(`{"key": {"nestedKey": "nestedValue"}}`),
+			expected: fromJSON(`{"key": {"nestedKey": "nestedValue"}}`),
+		},
+		{
+			name:     "overwrite map with primitive",
+			base:     fromJSON(`{"key": {"nestedKey": "nestedValue"}}`),
+			other:    fromJSON(`{"key": "primitiveValue"}`),
+			expected: fromJSON(`{"key": "primitiveValue"}`),
+		},
+		{
+			name:     "deeply nested merge",
+			base:     fromJSON(`{"a": {"b": {"c": "value1"}}}`),
+			other:    fromJSON(`{"a": {"b": {"d": "value2"}}}`),
+			expected: fromJSON(`{"a": {"b": {"c": "value1", "d": "value2"}}}`),
+		},
+		{
+			name:     "list replacement",
+			base:     fromJSON(`{"key": [1, 2, 3]}`),
+			other:    fromJSON(`{"key": [4, 5]}`),
+			expected: fromJSON(`{"key": [4, 5]}`), // Lists are replaced, not merged.
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.base.MergeFrom(tt.other)
+			assert.Equal(t, tt.expected, tt.base)
+		})
+	}
+}
+
+func TestMergeFromDoesNotModifyOther(t *testing.T) {
+	var (
+		base = Map{
+			"a": Map{
+				"b": Map{
+					"c": false,
+				},
+			},
+		}
+		other = Map{
+			"a": Map{
+				"b": Map{
+					"c": true,
+				},
+			},
+		}
+	)
+
+	// Clone `other` before merging
+	originalOther := other.DeepClone()
+
+	// Perform merge
+	base.MergeFrom(other)
+
+	// Update `c` in `base`
+	base.SetPath("a.b.c", false)
+
+	// Ensure `other` remains unchanged
+	assert.Equal(t, originalOther, other.DeepClone() /* DeepClone() changes the type to map[string]any */)
+}
