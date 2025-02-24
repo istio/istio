@@ -668,8 +668,8 @@ honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 istio.io/api v1.25.0-alpha.0.0.20250222071153-e40a0163c7c3 h1:jp6cU3ci+n4ixsD8MsNXpU7IRByBRvJNmjocYVI46Ag=
 istio.io/api v1.25.0-alpha.0.0.20250222071153-e40a0163c7c3/go.mod h1:QFzEXv/IT582T0FHZVp1QoolvE4ws0zz/vVO55blmlE=
-istio.io/client-go v1.25.0-alpha.0.0.20250222071552-76576de71e4a h1:JKvYr1+dsew13VZQMW4qTam14s0ABaLommEo7BgwQic=
-istio.io/client-go v1.25.0-alpha.0.0.20250222071552-76576de71e4a/go.mod h1:Vwq7dXJrRDcTbZ/OpCp/tv/o8mG7nMjHyK/dr71tNbs=
+istio.io/client-go v1.25.0-alpha.0.0.20250224192329-b8673ff41f60 h1:jDzeE9lCdvQuXm3/GDUq4yqHnw5BZWplVX9+e+C6pcg=
+istio.io/client-go v1.25.0-alpha.0.0.20250224192329-b8673ff41f60/go.mod h1:Vwq7dXJrRDcTbZ/OpCp/tv/o8mG7nMjHyK/dr71tNbs=
 k8s.io/api v0.32.1 h1:f562zw9cy+GvXzXf0CKlVQ7yHJVYzLfL6JAS4kOAaOc=
 k8s.io/api v0.32.1/go.mod h1:/Yi/BqkuueW1BgpoePYBRdDYfjPF5sgTr5+YqDZra5k=
 k8s.io/apiextensions-apiserver v0.32.1 h1:hjkALhRUeCariC8DiVmb5jj0VjIc1N0DREP32+6UXZw=
