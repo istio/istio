@@ -109,7 +109,7 @@ func ConvertPolicy(in *networking.HTTPRetry, hashPolicy bool) *route.RetryPolicy
 		out.PerTryTimeout = in.PerTryTimeout
 	}
 
-	// User has specified RetryIgnorePreviousHosts, so honour it.
+	// User has specified RetryIgnorePreviousHosts, so honor it.
 	if in.RetryIgnorePreviousHosts != nil {
 		var retryHostPredicate []*route.RetryPolicy_RetryHostPredicate
 		if in.RetryIgnorePreviousHosts.GetValue() {
