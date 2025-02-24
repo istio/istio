@@ -586,16 +586,7 @@ func routeAttachmentCollection[T controllers.Object](
 		parents, hostnames := GetCommonRouteInfo(obj)
 		parentRefs := extractParentReferenceInfo2(krtctx, Parents, parents, hostnames, kind, obj.GetNamespace())
 		log.Errorf("howardjohn: /EXTRACTS")
-		gateways := sets.New[types.NamespacedName]()
-		for _, p := range parentRefs {
-			if p.ParentKey.Kind == gvk.KubernetesGateway {
-				gateways.Insert(types.NamespacedName{
-					Name:      p.ParentKey.Name,
-					Namespace: p.ParentKey.Namespace,
-				})
-			}
-		}
-		return slices.MapFilter(parentRefs, func(e routeParentReference) *RouteAttachment {
+		return slices.MapFilter(filteredReferences(parentRefs), func(e routeParentReference) *RouteAttachment {
 			if e.ParentKey.Kind != gvk.KubernetesGateway {
 				return nil
 			}
