@@ -114,9 +114,21 @@ func (g GatewayClass) ResourceName() string {
 	return g.Name
 }
 
-func GatewayClassesCollection(GatewayClasses krt.Collection[*gateway.GatewayClass], opts krt.OptionsBuilder) krt.Collection[GatewayClass] {
-	return krt.NewCollection(GatewayClasses, func(ctx krt.HandlerContext, obj *gateway.GatewayClass) *GatewayClass {
-		return &GatewayClass{
+func GatewayClassesCollection(
+	GatewayClasses krt.Collection[*gateway.GatewayClass],
+	opts krt.OptionsBuilder,
+) (
+	krt.Collection[krt.ObjectWithStatus[*gateway.GatewayClass, *gateway.GatewayClassStatus]],
+	krt.Collection[GatewayClass],
+) {
+	return krt.NewStatusCollection(GatewayClasses, func(ctx krt.HandlerContext, obj *gateway.GatewayClass) (**gateway.GatewayClassStatus, *GatewayClass) {
+		log.Errorf("howardjohn: have GC %+v", obj)
+		_, known := classInfos[obj.Spec.ControllerName]
+		if !known {
+			return nil, nil
+		}
+		status := GetClassStatus(&obj.Status, obj.Generation)
+		return ptr.Of(&status), &GatewayClass{
 			Name:       obj.Name,
 			Controller: obj.Spec.ControllerName,
 		}
@@ -276,7 +288,7 @@ func GatewayCollection(
 	UnstableContextTrigger *krt.RecomputeTrigger,
 	opts krt.OptionsBuilder,
 ) (krt.Collection[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]], krt.Collection[Gateway]) {
-	statusCol, gw := krt.NewStatusCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
+	statusCol, gw := krt.NewStatusManyCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
 		UnstableContextTrigger.MarkDependant(ctx)
 		context := UnstableContext.Load()
 		if context == nil {
@@ -774,6 +786,7 @@ func NewController(
 		gatewayController.gatewayContextTrigger,
 		opts,
 	)
+	registerStatus(GatewayClassStatus, statusWriter)
 
 	Parents := BuildParents(Gateways)
 	TCPRoutes, TCPRouteAttachments := TCPRouteCollection(
