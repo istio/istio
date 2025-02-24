@@ -2603,3 +2603,19 @@ func (kr GatewayResources) FuzzValidate() bool {
 	}
 	return true
 }
+
+func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname) {
+	switch t := spec.(type) {
+	case *k8salpha.TCPRoute:
+		return t.Spec.ParentRefs, nil
+	case *k8salpha.TLSRoute:
+		return t.Spec.ParentRefs, t.Spec.Hostnames
+	case *k8s.HTTPRoute:
+		return t.Spec.ParentRefs, t.Spec.Hostnames
+	case *k8s.GRPCRoute:
+		return t.Spec.ParentRefs, t.Spec.Hostnames
+	default:
+		log.Fatalf("unknown type %T", t)
+		return nil, nil
+	}
+}
