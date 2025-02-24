@@ -567,7 +567,7 @@ func HTTPRouteCollection(
 	opts krt.OptionsBuilder,
 ) RouteResult[*gateway.HTTPRoute, *gateway.HTTPRouteStatus] {
 	routeCount := routeAttachmentCollection(Parents, HTTPRoutes, gvk.HTTPRoute, opts)
-	status, virtualServices := krt.NewStatusManyCollection(HTTPRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (**gateway.HTTPRouteStatus, []config.Config) {
+	status, baseVirtualServices := krt.NewStatusManyCollection(HTTPRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (**gateway.HTTPRouteStatus, []config.Config) {
 		status := obj.Status.DeepCopy()
 		ctx := RouteContext{
 			Krt:     krtctx,
@@ -679,12 +679,14 @@ func HTTPRouteCollection(
 				//} else {
 				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
 				sortHTTPRoutes(routes)
+				annos := routeMeta2(obj)
+				annos["TODO"] = fmt.Sprintf(routeKey + "/" + h)
 				virtualServices = append(virtualServices, config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
 						Name:              name,
-						Annotations:       routeMeta2(obj),
+						Annotations:       annos,
 						Namespace:         obj.Namespace,
 						Domain:            ctx.Domain,
 					},
@@ -699,8 +701,35 @@ func HTTPRouteCollection(
 		}
 		return &status, virtualServices
 	}, opts.WithName("HTTPRoute")...)
+
+	//keyIndex := krt.NewIndex(baseVirtualServices, func(o config.Config) []string {
+	//	return []string{o.Annotations["TODO"]}
+	//})
+	finalVirtualServices := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []config.Config {
+		vs := krt.Fetch(ctx, baseVirtualServices)
+		byKey := slices.Group(vs, func(o config.Config) string {
+			return o.Annotations["TODO"]
+		})
+		final := []config.Config{}
+		for _, configs := range byKey {
+			sortConfigByCreationTime(configs)
+			base := configs[0]
+			baseVS := base.Spec.(*istio.VirtualService)
+			for _, config := range configs[1:] {
+				thisVS := config.Spec.(*istio.VirtualService)
+				baseVS.Http = append(baseVS.Http, thisVS.Http...)
+				// append parents
+				base.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s",
+					base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
+			}
+			delete(base.Annotations, "TODO")
+			sortHTTPRoutes(baseVS.Http)
+			final = append(final, base)
+		}
+		return final
+	}, opts.WithName("HTTPRouteMerged")...)
 	return RouteResult[*gateway.HTTPRoute, *gateway.HTTPRouteStatus]{
-		VirtualServices:  virtualServices,
+		VirtualServices:  finalVirtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
 	}
