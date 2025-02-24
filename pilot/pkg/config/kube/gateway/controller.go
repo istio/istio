@@ -274,7 +274,6 @@ func GatewayCollection(
 	DomainSuffix string,
 	UnstableContext *atomic.Pointer[GatewayContext],
 	UnstableContextTrigger *krt.RecomputeTrigger,
-	statusWriter *StatusWriter,
 	opts krt.OptionsBuilder,
 ) (krt.Collection[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]], krt.Collection[Gateway]) {
 	statusCol, gw := krt.NewStatusCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
@@ -763,7 +762,7 @@ func NewController(
 		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](kc, gvr.ServiceEntry, opts, "ServiceEntries"),
 	}
 
-	GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
+	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
 	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
 	GatewaysStatus, Gateways := GatewayCollection(
 		inputs.Gateways,
@@ -773,7 +772,6 @@ func NewController(
 		options.DomainSuffix,
 		gatewayController.gatewayContext,
 		gatewayController.gatewayContextTrigger,
-		statusWriter,
 		opts,
 	)
 
