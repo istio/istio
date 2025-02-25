@@ -490,6 +490,7 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 				return err
 			}
 			if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
+				fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
 				continue
 			}
 			nameList = append(nameList, gw.Name)
