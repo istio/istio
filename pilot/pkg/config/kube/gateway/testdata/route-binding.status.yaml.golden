@@ -3,7 +3,6 @@ kind: GatewayClass
 metadata:
   creationTimestamp: null
   name: istio
-  namespace: default
 spec: null
 status:
   conditions:
@@ -142,7 +141,7 @@ status:
       type: ResolvedRefs
     name: scope-route
     supportedKinds: []
-  - attachedRoutes: 2
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -170,7 +169,7 @@ status:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
-  - attachedRoutes: 1
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -226,7 +225,7 @@ status:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
-  - attachedRoutes: 2
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -254,7 +253,7 @@ status:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
-  - attachedRoutes: 1
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -282,7 +281,7 @@ status:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
-  - attachedRoutes: 2
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -338,7 +337,7 @@ status:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
-  - attachedRoutes: 2
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -394,7 +393,7 @@ status:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
-  - attachedRoutes: 1
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -462,7 +461,7 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid, bound to 6 parents
+      message: Route was valid, bound to 2 parents
       reason: Accepted
       status: "True"
       type: Accepted
@@ -593,9 +592,10 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
+      message: hostnames matched parent hostname "*.slctr-labels.example", but namespace
+        "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -609,9 +609,10 @@ status:
       sectionName: slctr-labels
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
+      message: hostnames matched parent hostname "*.slctr-expr-notin-yes.example",
+        but namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -625,9 +626,27 @@ status:
       sectionName: slctr-expr-notin-yes
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
+      message: hostnames matched parent hostname "*.slctr-expr-notin-no.example",
+        but namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
       status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-notin-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: hostnames matched parent hostname "*.slctr-expr-in-yes.example", but
+        namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -641,9 +660,27 @@ status:
       sectionName: slctr-expr-in-yes
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
+      message: hostnames matched parent hostname "*.slctr-expr-in-no.example", but
+        namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
       status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-in-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: hostnames matched parent hostname "*.slctr-expr-exists-yes.example",
+        but namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -657,9 +694,27 @@ status:
       sectionName: slctr-expr-exists-yes
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
+      message: hostnames matched parent hostname "*.slctr-expr-exists-no.example",
+        but namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
       status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-exists-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: hostnames matched parent hostname "*.slctr-expr-dne-yes.example", but
+        namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -673,9 +728,27 @@ status:
       sectionName: slctr-expr-dne-yes
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
+      message: hostnames matched parent hostname "*.slctr-expr-dne-no.example", but
+        namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
       status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-dne-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: hostnames matched parent hostname "*.slctr-combined-yes.example", but
+        namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -687,6 +760,23 @@ status:
       name: gateway
       namespace: istio-system
       sectionName: slctr-combined-yes
+  - conditions:
+    - lastTransitionTime: fake
+      message: hostnames matched parent hostname "*.slctr-combined-no.example", but
+        namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-combined-no
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -699,9 +789,10 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
+      message: hostnames matched parent hostname "*.slctr-labels.example", but namespace
+        "group-namespace2" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved

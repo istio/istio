@@ -52,10 +52,7 @@ spec:
   - '*'
   tcp:
   - route:
-    - destination:
-        host: my-svc.service.svc.domain.suffix
-        port:
-          number: 34000
+    - destination: {}
 ---
 apiVersion: networking.istio.io/v1
 kind: VirtualService

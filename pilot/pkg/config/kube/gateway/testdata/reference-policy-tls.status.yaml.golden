@@ -3,7 +3,6 @@ kind: GatewayClass
 metadata:
   creationTimestamp: null
   name: istio
-  namespace: default
 spec: null
 status:
   conditions:
@@ -34,7 +33,7 @@ status:
     status: "False"
     type: Programmed
   listeners:
-  - attachedRoutes: 1
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -47,14 +46,15 @@ status:
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
       type: Programmed
     - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
+      message: certificateRef cert/cert not accessible to a Gateway in namespace "istio-system"
+        (missing a ReferenceGrant?)
+      reason: RefNotPermitted
+      status: "False"
       type: ResolvedRefs
     name: cross
     supportedKinds:
@@ -71,20 +71,5 @@ metadata:
   namespace: cert
 spec: null
 status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      name: gateway
-      namespace: istio-system
+  parents: []
 ---
