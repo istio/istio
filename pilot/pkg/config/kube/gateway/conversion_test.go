@@ -476,10 +476,6 @@ func (t *TestStatusQueue) Dump() string {
 		return cmp.Compare(a.Name, b.Name)
 	})
 	for _, obj := range objs {
-		if obj.Name == "istio-remote" || obj.Name == "istio-waypoint" {
-			// Legacy alignment with the old tests
-			continue
-		}
 		b, err := yaml.Marshal(obj)
 		if err != nil {
 			panic(err.Error())
@@ -544,6 +540,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "waypoint"},
 		{name: "isolation"},
 	}
+	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			stop := test.NewStop(t)
