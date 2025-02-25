@@ -416,7 +416,6 @@ func registerStatus[I controllers.Object, IS any](statusCol krt.Collection[krt.O
 		mu.Lock()
 		defer mu.Unlock()
 		l := o.Latest()
-		log.Errorf("howardjohn: GOT STATUS OBJ")
 		EnqueueStatus2(statusWriter, l.Obj, &l.Status)
 	})
 }
@@ -668,6 +667,7 @@ func HTTPRouteCollection(
 					if ses != nil {
 						vsHosts = ses.Spec.Hosts
 					} else {
+						log.Errorf("howardjohn: NO SE FOUNd %v", ref.String())
 						// TODO: report an error
 						vsHosts = []string{}
 					}
@@ -695,7 +695,7 @@ func HTTPRouteCollection(
 				//	cfg.Annotations[constants.InternalParentNames], obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
 				//} else {
 				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
-				sortHTTPRoutes(routes)
+				sortHTTPRoutes(routes) // TODO: howardjohn: remove dup
 				annos := routeMeta2(obj)
 				annos["TODO"] = fmt.Sprintf(routeKey + "/" + h)
 				virtualServices = append(virtualServices, config.Config{
