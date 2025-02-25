@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 55243
+releaseNotes:
+- |
+  **Fixed** `istioctl experimental describe` ignores `--namespace` flag.

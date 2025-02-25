@@ -114,7 +114,7 @@ the configuration objects that affect that pod.`,
 				return fmt.Errorf("expecting pod name")
 			}
 
-			podName, ns := handlers.InferPodInfo(args[0], ctx.NamespaceOrDefault(""))
+			podName, ns := handlers.InferPodInfo(args[0], describeNamespace)
 
 			client, err := ctx.CLIClient()
 			if err != nil {
