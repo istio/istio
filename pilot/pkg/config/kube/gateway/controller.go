@@ -311,9 +311,8 @@ func GatewayCollection(
 		result := []Gateway{}
 		kgw := obj.Spec
 		status := kstatus.WrapT(&obj.Status)
-		class := krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(kgw.GatewayClassName)))
+		class := fetchClass(ctx, GatewayClasses, kgw.GatewayClassName)
 		if class == nil {
-			// No gateway class found, this may be meant for another controller; should be skipped.
 			return nil, nil
 		}
 		controllerName := class.Controller
@@ -398,6 +397,22 @@ func GatewayCollection(
 	}, opts.WithName("KubernetesGateway")...)
 
 	return statusCol, gw
+}
+
+func fetchClass(ctx krt.HandlerContext, GatewayClasses krt.Collection[GatewayClass], gc gatewayv1.ObjectName) *GatewayClass {
+	class := krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(gc)))
+	if class == nil {
+		if bc, f := builtinClasses[gc]; f {
+			// We allow some classes to exist without being in the cluster
+			return &GatewayClass{
+				Name:       string(gc),
+				Controller: bc,
+			}
+		}
+		// No gateway class found, this may be meant for another controller; should be skipped.
+		return nil
+	}
+	return class
 }
 
 func registerStatus[I controllers.Object, IS any](statusCol krt.Collection[krt.ObjectWithStatus[I, IS]], statusWriter *StatusWriter) krt.Syncer {
