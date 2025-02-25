@@ -5,7 +5,7 @@ metadata:
   namespace: istio-system
   labels:
     topology.istio.io/network: "network-1"
-    networking.istio.io/gatewayPort: 35443
+    networking.istio.io/gatewayPort: "35443"
 spec:
   gatewayClassName: istio
   listeners:
