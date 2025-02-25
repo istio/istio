@@ -72,39 +72,6 @@ func sortedConfigByCreationTime(configs []config.Config) []config.Config {
 	return configs
 }
 
-// convertResources is the top level entrypoint to our conversion logic, computing the full state based
-// on KubernetesResources inputs.
-func convertResources(r GatewayResources) IstioResources {
-	// sort HTTPRoutes by creation timestamp and namespace/name
-	sortConfigByCreationTime(r.HTTPRoute)
-	sortConfigByCreationTime(r.GRPCRoute)
-
-	result := IstioResources{}
-	ctx := configContext{
-		GatewayResources:   r,
-		AllowedReferences:  convertReferencePolicies(r),
-		resourceReferences: make(map[model.ConfigKey][]model.ConfigKey),
-	}
-
-	gw, gwMap, nsReferences := convertGateways(ctx)
-	ctx.GatewayReferences = gwMap
-	result.Gateway = gw
-
-	// Once we have gone through all route computation, we will know how many routes bound to each gateway.
-	// Report this in the status.
-	for _, dm := range gwMap {
-		for _, pri := range dm {
-			if pri.ReportAttachedRoutes != nil {
-				pri.ReportAttachedRoutes()
-			}
-		}
-	}
-	result.AllowedReferences = ctx.AllowedReferences
-	result.ReferencedNamespaceKeys = nsReferences
-	result.ResourceReferences = ctx.resourceReferences
-	return result
-}
-
 // convertReferencePolicies extracts all ReferencePolicy into an easily accessibly index.
 func convertReferencePolicies(r GatewayResources) AllowedReferences {
 	res := map[Reference]map[Reference]*Grants{}
@@ -388,34 +355,6 @@ func parentTypes(rpi []routeParentReference) (mesh, gateway bool) {
 	return
 }
 
-func serviceEntryHosts(ses []config.Config, name, namespace string) []string {
-	for _, obj := range ses {
-		if obj.Meta.Name == name {
-			ns := obj.Meta.Namespace
-			if ns == "" {
-				ns = metav1.NamespaceDefault
-			}
-			if ns == namespace {
-				se := obj.Spec.(*istio.ServiceEntry)
-				return se.Hosts
-			}
-		}
-	}
-	return []string{}
-}
-
-func buildMeshAndGatewayRoutes[T any](parentRefs []routeParentReference, convertRules func(mesh bool) T) (T, T) {
-	var meshResult, gwResult T
-	needMesh, needGw := parentTypes(parentRefs)
-	if needMesh {
-		meshResult = convertRules(true)
-	}
-	if needGw {
-		gwResult = convertRules(false)
-	}
-	return meshResult, gwResult
-}
-
 func augmentPortMatch(routes []*istio.HTTPRoute, port k8s.PortNumber) []*istio.HTTPRoute {
 	res := make([]*istio.HTTPRoute, 0, len(routes))
 	for _, r := range routes {
@@ -695,68 +634,7 @@ func referenceAllowed(
 	return nil
 }
 
-func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs []k8s.ParentReference,
-	hostnames []k8s.Hostname, kind config.GroupVersionKind, localNamespace string,
-) []routeParentReference {
-	parentRefs := []routeParentReference{}
-	for _, ref := range routeRefs {
-		ir, err := toInternalParentReference(ref, localNamespace)
-		if err != nil {
-			// Cannot handle the reference. Maybe it is for another controller, so we just ignore it
-			continue
-		}
-		pk := parentReference{
-			parentKey:   ir,
-			SectionName: ptr.OrEmpty(ref.SectionName),
-			Port:        ptr.OrEmpty(ref.Port),
-		}
-		gk := ir
-		if ir.Kind == gvk.Service || ir.Kind == gvk.ServiceEntry {
-			gk = meshParentKey
-		}
-		appendParent := func(pr *parentInfo, pk parentReference) {
-			bannedHostnames := sets.New[string]()
-			for _, gw := range gateways[gk] {
-				if gw == pr {
-					continue // do not ban ourself
-				}
-				if gw.Port != pr.Port {
-					// We only care about listeners on the same port
-					continue
-				}
-				if gw.Protocol != pr.Protocol {
-					// We only care about listeners on the same protocol
-					continue
-				}
-				bannedHostnames.Insert(gw.OriginalHostname)
-			}
-			rpi := routeParentReference{
-				InternalName:      pr.InternalName,
-				InternalKind:      ir.Kind,
-				Hostname:          pr.OriginalHostname,
-				DeniedReason:      referenceAllowed(pr, kind, pk, hostnames, localNamespace),
-				OriginalReference: ref,
-				BannedHostnames:   bannedHostnames.Copy().Delete(pr.OriginalHostname),
-			}
-			if rpi.DeniedReason == nil {
-				// Record that we were able to bind to the parent
-				pr.AttachedRoutes++
-			}
-			parentRefs = append(parentRefs, rpi)
-		}
-		for _, gw := range gateways[gk] {
-			// Append all matches. Note we may be adding mismatch section or ports; this is handled later
-			appendParent(gw, pk)
-		}
-	}
-	// Ensure stable order
-	slices.SortBy(parentRefs, func(a routeParentReference) string {
-		return parentRefString(a.OriginalReference)
-	})
-	return parentRefs
-}
-
-func extractParentReferenceInfo2(ctx krt.HandlerContext, parents RouteParents, routeRefs []k8s.ParentReference,
+func extractParentReferenceInfo(ctx krt.HandlerContext, parents RouteParents, routeRefs []k8s.ParentReference,
 	hostnames []k8s.Hostname, kind config.GroupVersionKind, localNamespace string,
 ) []routeParentReference {
 	parentRefs := []routeParentReference{}
@@ -1619,12 +1497,9 @@ type parentInfo struct {
 	// AttachedRoutes keeps track of how many routes are attached to this parent. This is tracked for status.
 	// Because this is mutate in the route generation, parentInfo must be passed as a pointer
 	AttachedRoutes int32
-	// ReportAttachedRoutes is a callback that should be triggered once all AttachedRoutes are computed, to
-	// actually store the attached route count in the status
-	ReportAttachedRoutes func()
-	SectionName          k8s.SectionName
-	Port                 k8s.PortNumber
-	Protocol             k8s.ProtocolType
+	SectionName    k8s.SectionName
+	Port           k8s.PortNumber
+	Protocol       k8s.ProtocolType
 }
 
 // routeParentReference holds information about a route's parent reference
