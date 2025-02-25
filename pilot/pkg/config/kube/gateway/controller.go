@@ -210,10 +210,23 @@ func (g ReferenceGrant) ResourceName() string {
 }
 
 type RouteContext struct {
-	Krt     krt.HandlerContext
-	Grants  ReferenceGrants
-	Parents Parents
-	Domain  string
+	Krt krt.HandlerContext
+	RouteContextInputs
+}
+
+type RouteContextInputs struct {
+	Grants         ReferenceGrants
+	RouteParents   RouteParents
+	Domain         string
+	Services       krt.Collection[*corev1.Service]
+	ServiceEntries krt.Collection[*networkingclient.ServiceEntry]
+}
+
+func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {
+	return RouteContext{
+		Krt:                krtctx,
+		RouteContextInputs: i,
+	}
 }
 
 func ReferenceGrantsCollection(ReferenceGrants krt.Collection[*gateway.ReferenceGrant], opts krt.OptionsBuilder) krt.Collection[ReferenceGrant] {
@@ -283,6 +296,7 @@ func GatewayCollection(
 	GatewayClasses krt.Collection[GatewayClass],
 	Namespaces krt.Collection[*corev1.Namespace],
 	grants ReferenceGrants,
+	secrets krt.Collection[*corev1.Secret],
 	DomainSuffix string,
 	UnstableContext *atomic.Pointer[GatewayContext],
 	UnstableContextTrigger *krt.RecomputeTrigger,
@@ -323,7 +337,7 @@ func GatewayCollection(
 		}
 
 		for i, l := range kgw.Listeners {
-			server, programmed := buildListener(ctx, grants, Namespaces, obj, status, l, i, controllerName)
+			server, programmed := buildListener(ctx, secrets, grants, Namespaces, obj, status, l, i, controllerName)
 
 			servers = append(servers, server)
 			if controllerName == constants.ManagedGatewayMeshController {
@@ -374,7 +388,9 @@ func GatewayCollection(
 				parent:     ref,
 				parentInfo: pri,
 			}
-			result = append(result, res)
+			if res.Valid {
+				result = append(result, res)
+			}
 		}
 
 		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)
@@ -405,12 +421,12 @@ func registerStatus[I controllers.Object, IS any](statusCol krt.Collection[krt.O
 	})
 }
 
-type Parents struct {
+type RouteParents struct {
 	gateways     krt.Collection[Gateway]
 	gatewayIndex krt.Index[parentKey, Gateway]
 }
 
-func (p Parents) Fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo {
+func (p RouteParents) Fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo {
 	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw Gateway) *parentInfo {
 		return &gw.parentInfo
 	})
@@ -427,11 +443,11 @@ func (pi ParentInfo) ResourceName() string {
 
 func BuildParents(
 	Gateways krt.Collection[Gateway],
-) Parents {
+) RouteParents {
 	idx := krt.NewIndex(Gateways, func(o Gateway) []parentKey {
 		return []parentKey{o.parent}
 	})
-	return Parents{
+	return RouteParents{
 		gateways:     Gateways,
 		gatewayIndex: idx,
 	}
@@ -445,23 +461,15 @@ type RouteResult[I, IStatus any] struct {
 
 func TLSRouteCollection(
 	TLSRoutes krt.Collection[*gatewayalpha.TLSRoute],
-	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
-	Parents Parents,
-	grants ReferenceGrants,
-	DomainSuffix string,
+	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayalpha.TLSRoute, *gatewayalpha.TLSRouteStatus] {
-	routeCount := routeAttachmentCollection(Parents, TLSRoutes, gvk.TLSRoute, opts)
+	routeCount := routeAttachmentCollection(inputs.RouteParents, TLSRoutes, gvk.TLSRoute, opts)
 	status, virtualServices := krt.NewStatusManyCollection(TLSRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (**gatewayalpha.TLSRouteStatus, []config.Config) {
 		status := obj.Status.DeepCopy()
-		ctx := RouteContext{
-			Krt:     krtctx,
-			Grants:  grants,
-			Parents: Parents,
-			Domain:  DomainSuffix,
-		}
+		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
-		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
+		parentRefs := extractParentReferenceInfo2(ctx.Krt, inputs.RouteParents, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
 
 		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
 
@@ -512,7 +520,7 @@ func TLSRouteCollection(
 					Name:      string(parent.OriginalReference.Name),
 				}
 				if parent.InternalKind == gvk.ServiceEntry {
-					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ServiceEntries, krt.FilterKey(ref.String())))
+					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(ref.String())))
 					if ses != nil {
 						vsHosts = ses.Spec.Hosts
 					} else {
@@ -520,7 +528,7 @@ func TLSRouteCollection(
 						vsHosts = []string{}
 					}
 				} else {
-					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, DomainSuffix)}
+					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, ctx.Domain)}
 				}
 				routes = augmentTLSPortMatch(routes, parent.OriginalReference.Port, vsHosts)
 			}
@@ -560,23 +568,17 @@ func TLSRouteCollection(
 
 func HTTPRouteCollection(
 	HTTPRoutes krt.Collection[*gateway.HTTPRoute],
-	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
-	Parents Parents,
-	grants ReferenceGrants,
-	DomainSuffix string,
+	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gateway.HTTPRoute, *gateway.HTTPRouteStatus] {
-	routeCount := routeAttachmentCollection(Parents, HTTPRoutes, gvk.HTTPRoute, opts)
+	routeCount := routeAttachmentCollection(inputs.RouteParents, HTTPRoutes, gvk.HTTPRoute, opts)
 	status, baseVirtualServices := krt.NewStatusManyCollection(HTTPRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (**gateway.HTTPRouteStatus, []config.Config) {
 		status := obj.Status.DeepCopy()
-		ctx := RouteContext{
-			Krt:     krtctx,
-			Grants:  grants,
-			Parents: Parents,
-			Domain:  DomainSuffix,
-		}
+		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
-		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, obj.Namespace)
+		log.Errorf("howardjohn: compute %v", config.NamespacedName(obj))
+		parentRefs := extractParentReferenceInfo2(ctx.Krt, ctx.RouteParents, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, obj.Namespace)
+		log.Errorf("howardjohn: got refs %v", parentRefs)
 
 		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
 
@@ -647,7 +649,7 @@ func HTTPRouteCollection(
 					Name:      string(parent.OriginalReference.Name),
 				}
 				if parent.InternalKind == gvk.ServiceEntry {
-					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ServiceEntries, krt.FilterKey(ref.String())))
+					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(ref.String())))
 					if ses != nil {
 						vsHosts = ses.Spec.Hosts
 					} else {
@@ -711,7 +713,7 @@ func HTTPRouteCollection(
 		final := []config.Config{}
 		for _, configs := range byKey {
 			sortConfigByCreationTime(configs)
-			base := configs[0]
+			base := configs[0].DeepCopy()
 			baseVS := base.Spec.(*istio.VirtualService)
 			for _, config := range configs[1:] {
 				thisVS := config.Spec.(*istio.VirtualService)
@@ -754,7 +756,7 @@ func (r RouteAttachment) Equals(other RouteAttachment) bool {
 }
 
 func routeAttachmentCollection[T controllers.Object](
-	Parents Parents,
+	Parents RouteParents,
 	col krt.Collection[T],
 	kind config.GroupVersionKind,
 	opts krt.OptionsBuilder,
@@ -786,24 +788,16 @@ func routeAttachmentCollection[T controllers.Object](
 
 func TCPRouteCollection(
 	TCPRoutes krt.Collection[*gatewayalpha.TCPRoute],
-	ServiceEntries krt.Collection[*networkingclient.ServiceEntry],
-	Parents Parents,
-	grants ReferenceGrants,
-	DomainSuffix string,
+	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayalpha.TCPRoute, *gatewayalpha.TCPRouteStatus] {
-	routeCount := routeAttachmentCollection(Parents, TCPRoutes, gvk.TCPRoute, opts)
+	routeCount := routeAttachmentCollection(inputs.RouteParents, TCPRoutes, gvk.TCPRoute, opts)
 	status, virtualServices := krt.NewStatusManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (**gatewayalpha.TCPRouteStatus, []config.Config) {
 		status := obj.Status.DeepCopy()
-		ctx := RouteContext{
-			Krt:     krtctx,
-			Grants:  grants,
-			Parents: Parents,
-			Domain:  DomainSuffix,
-		}
+		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
 		log.Errorf("howardjohn: extract for %v", config.NamespacedName(obj))
-		parentRefs := extractParentReferenceInfo2(ctx.Krt, Parents, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
+		parentRefs := extractParentReferenceInfo2(ctx.Krt, ctx.RouteParents, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
 		log.Errorf("howardjohn: done extract")
 		for _, p := range parentRefs {
 			log.Errorf("howardjohn: got p %+v", p)
@@ -860,7 +854,7 @@ func TCPRouteCollection(
 					Name:      string(parent.OriginalReference.Name),
 				}
 				if parent.InternalKind == gvk.ServiceEntry {
-					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ServiceEntries, krt.FilterKey(ref.String())))
+					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(ref.String())))
 					if ses != nil {
 						vsHosts = ses.Spec.Hosts
 					} else {
@@ -868,7 +862,7 @@ func TCPRouteCollection(
 						vsHosts = []string{}
 					}
 				} else {
-					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, DomainSuffix)}
+					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, ctx.Domain)}
 				}
 			}
 			for i, host := range vsHosts {
@@ -882,7 +876,7 @@ func TCPRouteCollection(
 						Name:              name,
 						Annotations:       routeMeta2(obj),
 						Namespace:         obj.Namespace,
-						Domain:            DomainSuffix,
+						Domain:            ctx.Domain,
 					},
 					Spec: &istio.VirtualService{
 						// We can use wildcard here since each listener can have at most one route bound to it, so we have
@@ -910,7 +904,11 @@ type Outputs struct {
 }
 
 type Inputs struct {
-	Namespaces      krt.Collection[*corev1.Namespace]
+	Namespaces krt.Collection[*corev1.Namespace]
+
+	Services krt.Collection[*corev1.Service]
+	Secrets  krt.Collection[*corev1.Secret]
+
 	GatewayClasses  krt.Collection[*gateway.GatewayClass]
 	Gateways        krt.Collection[*gateway.Gateway]
 	HTTPRoutes      krt.Collection[*gateway.HTTPRoute]
@@ -945,7 +943,15 @@ func NewController(
 	}
 
 	inputs := Inputs{
-		Namespaces:      krt.NewInformer[*corev1.Namespace](kc, opts.WithName("Namespaces")...),
+		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("Namespaces")...),
+		Secrets: krt.WrapClient[*corev1.Secret](
+			kclient.NewFiltered[*corev1.Secret](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
+			opts.WithName("Secrets")...,
+		),
+		Services: krt.WrapClient[*corev1.Service](
+			kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
+			opts.WithName("Services")...,
+		),
 		GatewayClasses:  buildClient[*gateway.GatewayClass](kc, gvr.GatewayClass, opts, "GatewayClasses"),
 		Gateways:        buildClient[*gateway.Gateway](kc, gvr.KubernetesGateway, opts, "Gateways"),
 		HTTPRoutes:      buildClient[*gateway.HTTPRoute](kc, gvr.HTTPRoute, opts, "HTTPRoutes"),
@@ -968,6 +974,7 @@ func NewController(
 		GatewayClasses,
 		inputs.Namespaces,
 		ReferenceGrants,
+		inputs.Secrets,
 		options.DomainSuffix,
 		gatewayController.gatewayContext,
 		gatewayController.gatewayContextTrigger,
@@ -977,30 +984,28 @@ func NewController(
 	// TODO add mesh
 	Parents := BuildParents(Gateways)
 
+	routeInputs := RouteContextInputs{
+		Grants:         ReferenceGrants,
+		RouteParents:   Parents,
+		Domain:         options.DomainSuffix,
+		Services:       inputs.Services,
+		ServiceEntries: inputs.ServiceEntries,
+	}
 	tcpRoutes := TCPRouteCollection(
 		inputs.TCPRoutes,
-		inputs.ServiceEntries,
-		Parents,
-		ReferenceGrants,
-		options.DomainSuffix,
+		routeInputs,
 		opts,
 	)
 	registerStatus(tcpRoutes.Status, statusWriter)
 	tlsRoutes := TLSRouteCollection(
 		inputs.TLSRoutes,
-		inputs.ServiceEntries,
-		Parents,
-		ReferenceGrants,
-		options.DomainSuffix,
+		routeInputs,
 		opts,
 	)
 	registerStatus(tlsRoutes.Status, statusWriter)
 	httpRoutes := HTTPRouteCollection(
 		inputs.HTTPRoutes,
-		inputs.ServiceEntries,
-		Parents,
-		ReferenceGrants,
-		options.DomainSuffix,
+		routeInputs,
 		opts,
 	)
 	registerStatus(httpRoutes.Status, statusWriter)
@@ -1214,7 +1219,6 @@ func EnqueueStatus[T comparable](sw StatusWriter, obj controllers.Object, ws *ks
 func EnqueueStatus2[T any](sw *StatusWriter, obj controllers.Object, ws T) {
 	statusController := sw.statusController.Load()
 	if statusController == nil {
-		log.Errorf("howardjohn: no controller")
 		return
 	}
 
@@ -1226,7 +1230,6 @@ func EnqueueStatus2[T any](sw *StatusWriter, obj controllers.Object, ws T) {
 		Name:                 obj.GetName(),
 		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
 	}
-	log.Errorf("howardjohn: ENQUEUE2 %v", res)
 	(*statusController).EnqueueStatusUpdateResource(ws, res)
 }
 

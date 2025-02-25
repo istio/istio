@@ -3,7 +3,6 @@ kind: GatewayClass
 metadata:
   creationTimestamp: null
   name: istio
-  namespace: default
 spec: null
 status:
   conditions:
@@ -642,21 +641,5 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      group: ""
-      kind: Service
-      name: httpbin
+  parents: []
 ---

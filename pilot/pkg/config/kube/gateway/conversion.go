@@ -16,6 +16,7 @@ package gateway
 
 import (
 	"cmp"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/netip"
@@ -34,6 +35,7 @@ import (
 
 	"istio.io/api/annotation"
 	istio "istio.io/api/networking/v1alpha3"
+	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	creds "istio.io/istio/pilot/pkg/model/credentials"
@@ -313,6 +315,7 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 		}
 	} else {
 		route, backendErr, err := buildHTTPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
+		log.Errorf("howardjohn: backendErr %v %v", backendErr, err)
 		if err != nil {
 			return nil, err
 		}
@@ -933,7 +936,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 	return parentRefs
 }
 
-func extractParentReferenceInfo2(ctx krt.HandlerContext, parents Parents, routeRefs []k8s.ParentReference,
+func extractParentReferenceInfo2(ctx krt.HandlerContext, parents RouteParents, routeRefs []k8s.ParentReference,
 	hostnames []k8s.Hostname, kind config.GroupVersionKind, localNamespace string,
 ) []routeParentReference {
 	parentRefs := []routeParentReference{}
@@ -954,20 +957,24 @@ func extractParentReferenceInfo2(ctx krt.HandlerContext, parents Parents, routeR
 		}
 		currentParents := parents.Fetch(ctx, gk)
 		appendParent := func(pr *parentInfo, pk parentReference) {
-			if pk.SectionName != "" && pr.SectionName != pk.SectionName {
-				return
-			}
+			//if pk.SectionName != "" && pr.SectionName != pk.SectionName {
+			//	log.Errorf("howardjohn: skip 1 %+v %+v", pk.SectionName, pr.SectionName)
+			//	return
+			//}
 			bannedHostnames := sets.New[string]()
 			for _, gw := range currentParents {
 				if gw == pr {
+					log.Errorf("howardjohn: skip 2")
 					continue // do not ban ourself
 				}
 				if gw.Port != pr.Port {
 					// We only care about listeners on the same port
+					log.Errorf("howardjohn: skip 3")
 					continue
 				}
 				if gw.Protocol != pr.Protocol {
 					// We only care about listeners on the same protocol
+					log.Errorf("howardjohn: skip 4")
 					continue
 				}
 				bannedHostnames.Insert(gw.OriginalHostname)
@@ -1380,9 +1387,11 @@ func buildDestination2(ctx RouteContext, to k8s.BackendRef, ns string, enforceRe
 			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
 		}
 		hostname := fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.Domain)
-		//if ctx.Context.GetService(hostname, namespace) == nil {
-		//	invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
-		//}
+		key := namespace + "/" + string(to.Name)
+		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
+		if svc == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+		}
 		return &istio.Destination{
 			// TODO: implement ReferencePolicy for cross namespace
 			Host: hostname,
@@ -1758,6 +1767,10 @@ type parentReference struct {
 	Port        k8s.PortNumber
 }
 
+func (p parentReference) String() string {
+	return p.parentKey.String() + "/" + string(p.SectionName) + "/" + fmt.Sprint(p.Port)
+}
+
 var meshGVK = config.GroupVersionKind{
 	Group:   gvk.KubernetesGateway.Group,
 	Version: gvk.KubernetesGateway.Version,
@@ -2117,16 +2130,7 @@ func extractGatewayServices(domainSuffix string, kgw *k8sbeta.Gateway, info clas
 	return gatewayServices, nil
 }
 
-func buildListener(
-	ctx krt.HandlerContext,
-	grants ReferenceGrants,
-	Namespaces krt.Collection[*corev1.Namespace],
-	obj *k8sbeta.Gateway,
-	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus],
-	l k8s.Listener,
-	listenerIndex int,
-	controllerName k8s.GatewayController,
-) (*istio.Server, bool) {
+func buildListener(ctx krt.HandlerContext, secrets krt.Collection[*corev1.Secret], grants ReferenceGrants, Namespaces krt.Collection[*corev1.Namespace], obj *k8sbeta.Gateway, status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus], l k8s.Listener, listenerIndex int, controllerName k8s.GatewayController) (*istio.Server, bool) {
 	listenerConditions := map[string]*condition{
 		string(k8s.ListenerConditionAccepted): {
 			reason:  string(k8s.ListenerReasonAccepted),
@@ -2148,7 +2152,7 @@ func buildListener(
 	}
 
 	ok := true
-	tls, err := buildTLS(ctx, grants, l.TLS, obj, kube.IsAutoPassthrough(obj.Labels, l))
+	tls, err := buildTLS(ctx, secrets, grants, l.TLS, obj, kube.IsAutoPassthrough(obj.Labels, l))
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
 		listenerConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
@@ -2223,7 +2227,7 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 	return "", fmt.Errorf("protocol %q is unsupported", p)
 }
 
-func buildTLS(ctx krt.HandlerContext, grants ReferenceGrants, tls *k8s.GatewayTLSConfig, gw *k8sbeta.Gateway, isAutoPassthrough bool) (*istio.ServerTLSSettings, *ConfigError) {
+func buildTLS(ctx krt.HandlerContext, secrets krt.Collection[*corev1.Secret], grants ReferenceGrants, tls *k8s.GatewayTLSConfig, gw *k8sbeta.Gateway, isAutoPassthrough bool) (*istio.ServerTLSSettings, *ConfigError) {
 	if tls == nil {
 		return nil, nil
 	}
@@ -2253,7 +2257,7 @@ func buildTLS(ctx krt.HandlerContext, grants ReferenceGrants, tls *k8s.GatewayTL
 			// This is required in the API, should be rejected in validation
 			return out, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
 		}
-		cred, err := buildSecretReference(tls.CertificateRefs[0], gw)
+		cred, err := buildSecretReference(ctx, tls.CertificateRefs[0], gw, secrets)
 		if err != nil {
 			return out, err
 		}
@@ -2278,7 +2282,7 @@ func buildTLS(ctx krt.HandlerContext, grants ReferenceGrants, tls *k8s.GatewayTL
 	return out, nil
 }
 
-func buildSecretReference(ref k8s.SecretObjectReference, gw *k8sbeta.Gateway) (string, *ConfigError) {
+func buildSecretReference(ctx krt.HandlerContext, ref k8s.SecretObjectReference, gw *k8sbeta.Gateway, secrets krt.Collection[*corev1.Secret]) (string, *ConfigError) {
 	if !nilOrEqual((*string)(ref.Group), gvk.Secret.Group) || !nilOrEqual((*string)(ref.Kind), gvk.Secret.Kind) {
 		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", objectReferenceString(ref))}
 	}
@@ -2289,21 +2293,28 @@ func buildSecretReference(ref k8s.SecretObjectReference, gw *k8sbeta.Gateway) (s
 		Namespace: ptr.OrDefault((*string)(ref.Namespace), gw.Namespace),
 	}
 
-	// TODO
-	//if ctx.Credentials != nil {
-	//	if certInfo, err := ctx.Credentials.GetCertInfo(secret.Name, secret.Namespace); err != nil {
-	//		return "", &ConfigError{
-	//			Reason:  InvalidTLS,
-	//			Message: fmt.Sprintf("invalid certificate reference %v, %v", objectReferenceString(ref), err),
-	//		}
-	//	} else if _, err = tls.X509KeyPair(certInfo.Cert, certInfo.Key); err != nil {
-	//		return "", &ConfigError{
-	//			Reason:  InvalidTLS,
-	//			Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", objectReferenceString(ref), err),
-	//		}
-	//	}
-	//}
-
+	key := secret.Namespace + "/" + secret.Name
+	scrt := ptr.Flatten(krt.FetchOne(ctx, secrets, krt.FilterKey(key)))
+	if scrt == nil {
+		return "", &ConfigError{
+			Reason:  InvalidTLS,
+			Message: fmt.Sprintf("invalid certificate reference %v, secret %v not found", objectReferenceString(ref), key),
+		}
+	} else {
+		certInfo, err := kubecreds.ExtractCertInfo(scrt)
+		if err != nil {
+			return "", &ConfigError{
+				Reason:  InvalidTLS,
+				Message: fmt.Sprintf("invalid certificate reference %v, %v", objectReferenceString(ref), err),
+			}
+		}
+		if _, err = tls.X509KeyPair(certInfo.Cert, certInfo.Key); err != nil {
+			return "", &ConfigError{
+				Reason:  InvalidTLS,
+				Message: fmt.Sprintf("invalid certificate reference %v, the certificate is malformed: %v", objectReferenceString(ref), err),
+			}
+		}
+	}
 	return creds.ToKubernetesGatewayResource(secret.Namespace, secret.Name), nil
 }
 
