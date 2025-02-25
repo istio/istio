@@ -644,11 +644,10 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: fcc.clusterName},
 	}
 	var destinationRule *networking.DestinationRule
-	// var vs *config.Config
 	if svc != nil {
 		svcHostname = svc.Hostname
 		vs := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
-		routes := getWaypointTcpRoutes(vs, fcc.port.Port)
+		routes := getWaypointTCPRoutes(vs, fcc.port.Port)
 		if len(routes) > 0 {
 			// Existing (slightly incorrect, but best we can do) semantics.
 			// We are routing to multiple destinations, but want TCPProxy level configuration which is shared.
@@ -702,7 +701,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 
 var meshGateways = sets.New(constants.IstioMeshGateway)
 
-func getWaypointTcpRoutes(vs *config.Config, port int) []*networking.RouteDestination {
+func getWaypointTCPRoutes(vs *config.Config, port int) []*networking.RouteDestination {
 	if vs == nil {
 		return nil
 	}
