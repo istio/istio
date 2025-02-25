@@ -1,0 +1,72 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package gateway
+
+import (
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/ptr"
+)
+
+type GatewayClass struct {
+	Name       string
+	Controller gateway.GatewayController
+}
+
+func (g GatewayClass) ResourceName() string {
+	return g.Name
+}
+
+func GatewayClassesCollection(
+	GatewayClasses krt.Collection[*gateway.GatewayClass],
+	opts krt.OptionsBuilder,
+) (
+	krt.Collection[krt.ObjectWithStatus[*gateway.GatewayClass, *gateway.GatewayClassStatus]],
+	krt.Collection[GatewayClass],
+) {
+	return krt.NewStatusCollection(GatewayClasses, func(ctx krt.HandlerContext, obj *gateway.GatewayClass) (**gateway.GatewayClassStatus, *GatewayClass) {
+		log.Errorf("howardjohn: have GC %+v", obj)
+		_, known := classInfos[obj.Spec.ControllerName]
+		if !known {
+			return nil, nil
+		}
+		status := GetClassStatus(&obj.Status, obj.Generation)
+		return ptr.Of(&status), &GatewayClass{
+			Name:       obj.Name,
+			Controller: obj.Spec.ControllerName,
+		}
+	}, opts.WithName("GatewayClasses")...)
+}
+
+func fetchClass(ctx krt.HandlerContext, GatewayClasses krt.Collection[GatewayClass], gc gatewayv1.ObjectName) *GatewayClass {
+	class := krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(gc)))
+	log.Errorf("howardjohn: class %v", class)
+	if class == nil {
+		if bc, f := builtinClasses[gc]; f {
+			log.Errorf("howardjohn: builtin")
+			// We allow some classes to exist without being in the cluster
+			return &GatewayClass{
+				Name:       string(gc),
+				Controller: bc,
+			}
+		}
+		log.Errorf("howardjohn: nope")
+		// No gateway class found, this may be meant for another controller; should be skipped.
+		return nil
+	}
+	return class
+}
