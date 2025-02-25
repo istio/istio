@@ -37,6 +37,7 @@ type Gateway struct {
 	config.Config
 	parent     parentKey
 	parentInfo parentInfo
+	Valid      bool
 }
 
 func (g Gateway) ResourceName() string {
@@ -132,12 +133,11 @@ func GatewayCollection(
 
 			res := Gateway{
 				Config:     gatewayConfig,
+				Valid:      programmed,
 				parent:     ref,
 				parentInfo: pri,
 			}
-			if programmed {
-				result = append(result, res)
-			}
+			result = append(result, res)
 		}
 
 		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)

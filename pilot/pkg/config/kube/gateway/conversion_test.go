@@ -600,11 +600,9 @@ func TestConvertResources(t *testing.T) {
 			ctrl.Reconcile(cg.PushContext())
 			kube.WaitForCacheSync("test", stop, ctrl.HasSynced)
 
-			res := slices.Map(ctrl.outputs.Gateways.List(), func(e Gateway) config.Config {
-				return e.Config
-			})
+			res := ctrl.List(gvk.Gateway, "")
 			sortConfigByCreationTime(res)
-			vs := ctrl.outputs.VirtualServices.List()
+			vs := ctrl.List(gvk.VirtualService, "")
 			res = append(res, sortedConfigByCreationTime(vs)...)
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)

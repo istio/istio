@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -327,8 +328,11 @@ func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 func (c *Controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	switch typ {
 	case gvk.Gateway:
-		return slices.Map(c.outputs.Gateways.List(), func(g Gateway) config.Config {
-			return g.Config
+		return slices.MapFilter(c.outputs.Gateways.List(), func(g Gateway) *config.Config {
+			if g.Valid {
+				return &g.Config
+			}
+			return nil
 		})
 	case gvk.VirtualService:
 		return c.outputs.VirtualServices.List()
@@ -361,6 +365,13 @@ func (c *Controller) Reconcile(ps *model.PushContext) {
 	ctx := NewGatewayContext(ps, c.cluster)
 	old := c.gatewayContext.Swap(&ctx)
 	if old == nil {
+		go func() {
+			// Terrible hack!!
+			for {
+				time.Sleep(time.Second)
+				c.gatewayContextTrigger.TriggerRecomputation()
+			}
+		}()
 		c.gatewayContextTrigger.MarkSynced()
 	}
 	c.gatewayContextTrigger.TriggerRecomputation()
