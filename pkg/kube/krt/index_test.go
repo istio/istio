@@ -148,3 +148,75 @@ func TestIndexCollection(t *testing.T) {
 	tt.WaitUnordered("delete/namespace/name", "delete/namespace/name2")
 	assert.Equal(t, fetchSorted("1.2.3.4"), []SimplePod{})
 }
+
+type PodCount struct {
+	IP    string
+	Count int
+}
+
+func (p PodCount) ResourceName() string {
+	return p.IP
+}
+
+func TestIndexAsCollection(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	kpc := kclient.New[*corev1.Pod](c)
+	pc := clienttest.Wrap(t, kpc)
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	c.RunAndWait(stop)
+	SimplePods := SimplePodCollection(pods, opts)
+	tt := assert.NewTracker[string](t)
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+		return []string{o.IP}
+	})
+
+	Collection := krt.NewCollection(IPIndex.AsCollection(), func(ctx krt.HandlerContext, i krt.IndexObject[string, SimplePod]) *PodCount {
+		return &PodCount{
+			IP:    i.Key,
+			Count: len(i.Objects),
+		}
+	}, opts.WithName("Collection")...)
+	Collection.WaitUntilSynced(stop)
+
+	SimplePods.Register(TrackerHandler[SimplePod](tt))
+
+	assertion := func(ip string, want int) {
+		var wo *PodCount
+		if want > 0 {
+			wo = &PodCount{IP: ip, Count: want}
+		}
+		assert.EventuallyEqual(t, func() *PodCount {
+			return Collection.GetKey(ip)
+		}, wo)
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "name",
+			Namespace: "namespace",
+		},
+		Status: corev1.PodStatus{PodIP: "1.2.3.4"},
+	}
+	pc.CreateOrUpdateStatus(pod)
+	tt.WaitUnordered("add/namespace/name")
+	assertion("1.2.3.4", 1)
+
+	pod2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "name2",
+			Namespace: "namespace",
+		},
+		Status: corev1.PodStatus{PodIP: "1.2.3.5"},
+	}
+	pc.CreateOrUpdateStatus(pod2)
+	tt.WaitUnordered("add/namespace/name2")
+	assertion("1.2.3.5", 1)
+
+	pod.Status.PodIP = "1.2.3.5"
+	pc.UpdateStatus(pod)
+	tt.WaitUnordered("update/namespace/name")
+	assertion("1.2.3.4", 0)
+	assertion("1.2.3.5", 2)
+}
