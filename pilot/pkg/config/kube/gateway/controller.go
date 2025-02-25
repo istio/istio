@@ -345,7 +345,7 @@ func GatewayCollection(
 				// Waypoint doesn't actually convert the routes to VirtualServices
 				continue
 			}
-			meta := parentMeta2(obj, &l.Name)
+			meta := parentMeta(obj, &l.Name)
 			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 
@@ -579,7 +579,7 @@ func TLSRouteCollection(
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
 						Name:              name,
-						Annotations:       routeMeta2(obj),
+						Annotations:       routeMeta(obj),
 						Namespace:         obj.Namespace,
 						Domain:            ctx.Domain,
 					},
@@ -712,7 +712,7 @@ func HTTPRouteCollection(
 				//} else {
 				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
 				sortHTTPRoutes(routes) // TODO: howardjohn: remove dup
-				annos := routeMeta2(obj)
+				annos := routeMeta(obj)
 				annos["TODO"] = fmt.Sprintf(routeKey + "/" + h)
 				virtualServices = append(virtualServices, config.Config{
 					Meta: config.Meta{
@@ -762,6 +762,174 @@ func HTTPRouteCollection(
 		return final
 	}, opts.WithName("HTTPRouteMerged")...)
 	return RouteResult[*gateway.HTTPRoute, *gateway.HTTPRouteStatus]{
+		VirtualServices:  finalVirtualServices,
+		RouteAttachments: routeCount,
+		Status:           status,
+	}
+}
+
+func GRPCRouteCollection(
+	GRPCRoutes krt.Collection[*gatewayv1.GRPCRoute],
+	inputs RouteContextInputs,
+	opts krt.OptionsBuilder,
+) RouteResult[*gatewayv1.GRPCRoute, *gatewayv1.GRPCRouteStatus] {
+	routeCount := routeAttachmentCollection(inputs.RouteParents, GRPCRoutes, gvk.GRPCRoute, opts)
+	status, baseVirtualServices := krt.NewStatusManyCollection(GRPCRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) (**gatewayv1.GRPCRouteStatus, []config.Config) {
+		status := obj.Status.DeepCopy()
+		ctx := inputs.WithCtx(krtctx)
+		route := obj.Spec
+		parentRefs := extractParentReferenceInfo2(ctx.Krt, ctx.RouteParents, route.ParentRefs, route.Hostnames, gvk.GRPCRoute, obj.Namespace)
+
+		type conversionResult struct {
+			error  *ConfigError
+			routes []*istio.HTTPRoute
+		}
+		convertRules := func(mesh bool) conversionResult {
+			res := conversionResult{}
+			for n, r := range route.Rules {
+				// split the rule to make sure each rule has up to one match
+				matches := slices.Reference(r.Matches)
+				if len(matches) == 0 {
+					matches = append(matches, nil)
+				}
+				for _, m := range matches {
+					if m != nil {
+						r.Matches = []gatewayv1.GRPCRouteMatch{*m}
+					}
+					vs, err := convertGRPCRoute(ctx, r, obj, n, !mesh)
+					// This was a hard error
+					if vs == nil {
+						res.error = err
+						return conversionResult{error: err}
+					}
+					// Got an error but also routes
+					if err != nil {
+						res.error = err
+					}
+
+					res.routes = append(res.routes, vs)
+				}
+			}
+			return res
+		}
+		meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
+
+		rpResults := slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
+			res := RouteParentResult{
+				OriginalReference: r.OriginalReference,
+				DeniedReason:      r.DeniedReason,
+				RouteError:        gwResult.error,
+			}
+			if r.IsMesh() {
+				res.RouteError = meshResult.error
+			}
+			return res
+		})
+		status.Parents = createRouteStatus(rpResults, obj.Generation, status.Parents)
+
+		count := 0
+		virtualServices := []config.Config{}
+		for _, parent := range filteredReferences(parentRefs) {
+			// for gateway routes, build one VS per gateway+host
+			routeKey := parent.InternalName
+			vsHosts := hostnameToStringList(route.Hostnames)
+			routes := gwResult.routes
+			if parent.IsMesh() {
+				routes = meshResult.routes
+				// for mesh routes, build one VS per namespace/port->host
+				routeKey = obj.Namespace
+				if parent.OriginalReference.Port != nil {
+					routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
+					routeKey += fmt.Sprintf("/%d", *parent.OriginalReference.Port)
+				}
+				ref := types.NamespacedName{
+					Namespace: string(ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace))),
+					Name:      string(parent.OriginalReference.Name),
+				}
+				if parent.InternalKind == gvk.ServiceEntry {
+					ses := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(ref.String())))
+					if ses != nil {
+						vsHosts = ses.Spec.Hosts
+					} else {
+						log.Errorf("howardjohn: NO SE FOUNd %v", ref.String())
+						// TODO: report an error
+						vsHosts = []string{}
+					}
+				} else {
+					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
+						parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace)), ctx.Domain)}
+				}
+			}
+			if len(routes) == 0 {
+				continue
+			}
+			// Create one VS per hostname with a single hostname.
+			// This ensures we can treat each hostname independently, as the spec requires
+			for _, h := range vsHosts {
+				if !parent.hostnameAllowedByIsolation(h) {
+					// TODO: standardize a status message for this upstream and report
+					continue
+				}
+				//if cfg := routeMap[routeKey][h]; cfg != nil {
+				//	merge http routes
+				//vs := cfg.Spec.(*istio.VirtualService)
+				//vs.Http = append(vs.Http, routes...)
+				//append parents
+				//cfg.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s/%s.%s",
+				//	cfg.Annotations[constants.InternalParentNames], obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
+				//} else {
+				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
+				sortHTTPRoutes(routes) // TODO: howardjohn: remove dup
+				annos := routeMeta(obj)
+				annos["TODO"] = fmt.Sprintf(routeKey + "/" + h)
+				virtualServices = append(virtualServices, config.Config{
+					Meta: config.Meta{
+						CreationTimestamp: obj.CreationTimestamp.Time,
+						GroupVersionKind:  gvk.VirtualService,
+						Name:              name,
+						Annotations:       annos,
+						Namespace:         obj.Namespace,
+						Domain:            ctx.Domain,
+					},
+					Spec: &istio.VirtualService{
+						Hosts:    []string{h},
+						Gateways: []string{parent.InternalName},
+						Http:     routes,
+					},
+				})
+				count++
+			}
+		}
+		return &status, virtualServices
+	}, opts.WithName("GRPCRoute")...)
+
+	// TODO: this needs to be more efficient. An index as the input perhaps
+	finalVirtualServices := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []config.Config {
+		vs := krt.Fetch(ctx, baseVirtualServices)
+		byKey := slices.Group(vs, func(o config.Config) string {
+			return o.Annotations["TODO"]
+		})
+		final := []config.Config{}
+		for _, configs := range byKey {
+			sortConfigByCreationTime(configs)
+			base := configs[0].DeepCopy()
+			log.Errorf("howardjohn: base: %v %v", base.Name, base.Namespace)
+			baseVS := base.Spec.(*istio.VirtualService)
+			for _, config := range configs[1:] {
+				log.Errorf("howardjohn: merge in %v %v", config.Name, config.Namespace)
+				thisVS := config.Spec.(*istio.VirtualService)
+				baseVS.Http = append(baseVS.Http, thisVS.Http...)
+				// append parents
+				base.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s",
+					base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
+			}
+			delete(base.Annotations, "TODO")
+			sortHTTPRoutes(baseVS.Http)
+			final = append(final, base)
+		}
+		return final
+	}, opts.WithName("GRPCRouteMerged")...)
+	return RouteResult[*gatewayv1.GRPCRoute, *gatewayv1.GRPCRouteStatus]{
 		VirtualServices:  finalVirtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
@@ -907,7 +1075,7 @@ func TCPRouteCollection(
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
 						Name:              name,
-						Annotations:       routeMeta2(obj),
+						Annotations:       routeMeta(obj),
 						Namespace:         obj.Namespace,
 						Domain:            ctx.Domain,
 					},
@@ -1042,11 +1210,18 @@ func NewController(
 		opts,
 	)
 	registerStatus(httpRoutes.Status, statusWriter)
+	grpcRoutes := GRPCRouteCollection(
+		inputs.GRPCRoutes,
+		routeInputs,
+		opts,
+	)
+	registerStatus(grpcRoutes.Status, statusWriter)
 
 	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
 		tcpRoutes.RouteAttachments,
 		tlsRoutes.RouteAttachments,
 		httpRoutes.RouteAttachments,
+		grpcRoutes.RouteAttachments,
 	})
 	RouteAttachmentsIndex := krt.NewIndex(RouteAttachments, func(o RouteAttachment) []types.NamespacedName {
 		return []types.NamespacedName{o.To}
@@ -1074,6 +1249,7 @@ func NewController(
 		tcpRoutes.VirtualServices,
 		tlsRoutes.VirtualServices,
 		httpRoutes.VirtualServices,
+		grpcRoutes.VirtualServices,
 	}, opts.WithName("DerivedVirtualServices")...)
 
 	outputs := Outputs{
