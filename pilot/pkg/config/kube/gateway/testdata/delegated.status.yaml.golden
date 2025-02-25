@@ -35,7 +35,7 @@ status:
     status: "True"
     type: Programmed
   listeners:
-  - attachedRoutes: 0
+  - attachedRoutes: 1
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -63,7 +63,7 @@ status:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
-  - attachedRoutes: 0
+  - attachedRoutes: 1
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -103,11 +103,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: hostnames matched parent hostname "apple.example", but namespace "apple"
-        is not allowed by the parent; hostnames matched parent hostname "banana.example",
-        but namespace "apple" is not allowed by the parent
-      reason: NotAllowedByListeners
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -130,11 +128,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: hostnames matched parent hostname "apple.example", but namespace "banana"
-        is not allowed by the parent; hostnames matched parent hostname "banana.example",
-        but namespace "banana" is not allowed by the parent
-      reason: NotAllowedByListeners
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved

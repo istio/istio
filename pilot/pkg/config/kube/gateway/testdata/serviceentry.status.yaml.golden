@@ -70,7 +70,23 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents: []
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: egress
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -105,7 +121,23 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents: []
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: egress
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
@@ -115,5 +147,21 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents: []
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: egress
 ---

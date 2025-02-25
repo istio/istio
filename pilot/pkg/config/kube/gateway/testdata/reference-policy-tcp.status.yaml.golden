@@ -105,10 +105,9 @@ status:
       status: "True"
       type: Accepted
     - lastTransitionTime: fake
-      message: backendRef my-svc/service not accessible to a TCPRoute in namespace
-        "istio-system" (missing a ReferenceGrant?)
-      reason: RefNotPermitted
-      status: "False"
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:

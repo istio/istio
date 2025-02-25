@@ -34,7 +34,10 @@ spec:
   http:
   - name: istio-system.backend-not-allowed.0
     route:
-    - destination: {}
+    - destination:
+        host: my-svc.service.svc.domain.suffix
+        port:
+          number: 80
       weight: 1
     - destination: {}
       weight: 1
@@ -56,5 +59,8 @@ spec:
   http:
   - name: istio-system.http.0
     route:
-    - destination: {}
+    - destination:
+        host: my-svc.service.svc.domain.suffix
+        port:
+          number: 80
 ---

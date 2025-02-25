@@ -35,7 +35,7 @@ status:
     status: "True"
     type: Programmed
   listeners:
-  - attachedRoutes: 0
+  - attachedRoutes: 2
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -75,10 +75,41 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: hostnames matched parent hostname "*.domain.example", but namespace
-        "allowed-1" is not allowed by the parent
-      reason: NotAllowedByListeners
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: b-example
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: a-example
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -101,10 +132,25 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: hostnames matched parent hostname "*.domain.example", but namespace
-        "allowed-2" is not allowed by the parent
-      reason: NotAllowedByListeners
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: a-example
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
