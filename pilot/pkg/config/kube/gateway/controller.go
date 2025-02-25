@@ -363,6 +363,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) {
 	if old == nil {
 		c.gatewayContextTrigger.MarkSynced()
 	}
+	c.gatewayContextTrigger.TriggerRecomputation()
 	return
 }
 

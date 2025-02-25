@@ -19,7 +19,6 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/ptr"
 )
 
 type GatewayClass struct {
@@ -35,17 +34,17 @@ func GatewayClassesCollection(
 	GatewayClasses krt.Collection[*gateway.GatewayClass],
 	opts krt.OptionsBuilder,
 ) (
-	krt.Collection[krt.ObjectWithStatus[*gateway.GatewayClass, *gateway.GatewayClassStatus]],
+	krt.Collection[krt.ObjectWithStatus[*gateway.GatewayClass, gateway.GatewayClassStatus]],
 	krt.Collection[GatewayClass],
 ) {
-	return krt.NewStatusCollection(GatewayClasses, func(ctx krt.HandlerContext, obj *gateway.GatewayClass) (**gateway.GatewayClassStatus, *GatewayClass) {
+	return krt.NewStatusCollection(GatewayClasses, func(ctx krt.HandlerContext, obj *gateway.GatewayClass) (*gateway.GatewayClassStatus, *GatewayClass) {
 		log.Errorf("howardjohn: have GC %+v", obj)
 		_, known := classInfos[obj.Spec.ControllerName]
 		if !known {
 			return nil, nil
 		}
 		status := GetClassStatus(&obj.Status, obj.Generation)
-		return ptr.Of(&status), &GatewayClass{
+		return &status, &GatewayClass{
 			Name:       obj.Name,
 			Controller: obj.Spec.ControllerName,
 		}
