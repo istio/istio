@@ -241,6 +241,8 @@ func ReferenceGrantsCollection(ReferenceGrants krt.Collection[*gateway.Reference
 				fromKey.Kind = gvk.KubernetesGateway
 			} else if string(from.Group) == gvk.HTTPRoute.Group && string(from.Kind) == gvk.HTTPRoute.Kind {
 				fromKey.Kind = gvk.HTTPRoute
+			} else if string(from.Group) == gvk.GRPCRoute.Group && string(from.Kind) == gvk.GRPCRoute.Kind {
+				fromKey.Kind = gvk.GRPCRoute
 			} else if string(from.Group) == gvk.TLSRoute.Group && string(from.Kind) == gvk.TLSRoute.Kind {
 				fromKey.Kind = gvk.TLSRoute
 			} else if string(from.Group) == gvk.TCPRoute.Group && string(from.Kind) == gvk.TCPRoute.Kind {

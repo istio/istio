@@ -550,6 +550,7 @@ func TestConvertResources(t *testing.T) {
 			kc := kube.NewFakeClient(input...)
 			for _, crd := range []schema.GroupVersionResource{
 				gvr.KubernetesGateway,
+				gvr.ReferenceGrant,
 				gvr.GatewayClass,
 				gvr.HTTPRoute,
 				gvr.GRPCRoute,
@@ -1392,6 +1393,20 @@ func readConfig(t testing.TB, filename string, validator *crdvalidation.Validato
 		objs = append(objs, svcObj)
 	}
 	objs = append(objs, secrets...)
+	namespaces := sets.New[string](slices.Map(objs, func(e runtime.Object) string {
+		return e.(controllers.Object).GetNamespace()
+	})...)
+	for ns := range namespaces {
+		objs = append(objs, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: ns,
+				Labels: map[string]string{
+					"istio.io/test-name-part": strings.Split(ns, "-")[0],
+				},
+			},
+		})
+	}
+	objs = append(objs)
 	return objs
 }
 
