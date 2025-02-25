@@ -123,7 +123,7 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 	for k, gw := range report {
 		msg := "Route was valid"
 		if successCount[k] > 1 {
-			msg = fmt.Sprintf("Route was valid, bound to %d parents", successCount[k])
+			msg = fmt.Sprintf("Route was valid, bound to %d parents listeners", successCount[k])
 		}
 		conds := map[string]*condition{
 			string(k8s.RouteConditionAccepted): {
