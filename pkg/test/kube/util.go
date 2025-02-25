@@ -17,6 +17,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -339,4 +340,44 @@ func checkAllNamesExist(names []string, haystack []string) bool {
 	}
 
 	return true
+}
+
+// Resolve domain name and return ip address.
+// By default, return ipv4 address and if missing, return ipv6.
+func resolveHostDomainToIP(hostDomain string) (string, error) {
+	ips, err := net.LookupIP(hostDomain)
+	if err != nil {
+		return "", err
+	}
+
+	var ipv6Addr string
+
+	for _, ip := range ips {
+		if ip.To4() != nil {
+			return ip.String(), nil
+		} else if ipv6Addr == "" {
+			ipv6Addr = ip.String()
+		}
+	}
+
+	if ipv6Addr != "" {
+		return ipv6Addr, nil
+	}
+
+	return "", fmt.Errorf("no IP address found for hostname: %s", hostDomain)
+}
+
+// When the Ingress is a domain name (in public cloud), it might take a bit of time to make it reachable.
+func WaitUntilReachableIngress(hostDomain string) (string, error) {
+	var ip string
+	err := retry.UntilSuccess(func() error {
+		ipAddr, err := resolveHostDomainToIP(hostDomain)
+		if err != nil {
+			return err
+		}
+		ip = ipAddr
+		return nil
+	}, retry.Timeout(90*time.Second), retry.BackoffDelay(1*time.Second))
+
+	return ip, err
 }
