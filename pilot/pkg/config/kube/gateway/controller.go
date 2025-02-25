@@ -146,6 +146,7 @@ type TypedResource struct {
 type Outputs struct {
 	Gateways        krt.Collection[Gateway]
 	VirtualServices krt.Collection[config.Config]
+	ReferenceGrants ReferenceGrants
 }
 
 type Inputs struct {
@@ -295,6 +296,7 @@ func NewController(
 	}, opts.WithName("DerivedVirtualServices")...)
 
 	outputs := Outputs{
+		ReferenceGrants: ReferenceGrants,
 		Gateways:        Gateways,
 		VirtualServices: VirtualServices,
 	}
@@ -438,6 +440,7 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
+	c.outputs.ReferenceGrants.SecretAllowed(nil, resourceName, namespace)
 	panic("TODO")
 	// return c.state.AllowedReferences.SecretAllowed(resourceName, namespace)
 }

@@ -126,7 +126,7 @@ func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, resourceName s
 	from := Reference{Kind: gvk.KubernetesGateway, Namespace: gateway.Namespace(namespace)}
 	to := Reference{Kind: gvk.Secret, Namespace: gateway.Namespace(p.Namespace)}
 	pair := ReferencePair{From: from, To: to}
-	grants := krt.Fetch(ctx, refs.collection, krt.FilterIndex(refs.index, pair))
+	grants := krt.FetchOrList(ctx, refs.collection, krt.FilterIndex(refs.index, pair))
 	for _, g := range grants {
 		if g.AllowAll || g.AllowedName == p.Name {
 			return true
