@@ -427,6 +427,21 @@ type RouteParents struct {
 }
 
 func (p RouteParents) Fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo {
+	if pk == meshParentKey {
+		// Special case
+		return []*parentInfo{
+			{
+				InternalName: "mesh",
+				// Mesh has no configurable AllowedKinds, so allow all supported
+				AllowedKinds: []gateway.RouteGroupKind{
+					{Group: (*gateway.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: gateway.Kind(gvk.HTTPRoute.Kind)},
+					{Group: (*gateway.Group)(ptr.Of(gvk.GRPCRoute.Group)), Kind: gateway.Kind(gvk.GRPCRoute.Kind)},
+					{Group: (*gateway.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: gateway.Kind(gvk.TCPRoute.Kind)},
+					{Group: (*gateway.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: gateway.Kind(gvk.TLSRoute.Kind)},
+				},
+			},
+		}
+	}
 	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw Gateway) *parentInfo {
 		return &gw.parentInfo
 	})

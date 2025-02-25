@@ -3,6 +3,7 @@ kind: GatewayClass
 metadata:
   creationTimestamp: null
   name: istio
+  namespace: default
 spec: null
 status:
   conditions:
