@@ -36,9 +36,9 @@ func HTTPRouteCollection(
 	HTTPRoutes krt.Collection[*gateway.HTTPRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
-) RouteResult[*gateway.HTTPRoute, *gateway.HTTPRouteStatus] {
+) RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, HTTPRoutes, gvk.HTTPRoute, opts)
-	status, baseVirtualServices := krt.NewStatusManyCollection(HTTPRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (**gateway.HTTPRouteStatus, []config.Config) {
+	status, baseVirtualServices := krt.NewStatusManyCollection(HTTPRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (*gateway.HTTPRouteStatus, []config.Config) {
 		status := obj.Status.DeepCopy()
 		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
@@ -164,7 +164,7 @@ func HTTPRouteCollection(
 				count++
 			}
 		}
-		return &status, virtualServices
+		return status, virtualServices
 	}, opts.WithName("HTTPRoute")...)
 
 	// TODO: this needs to be more efficient. An index as the input perhaps
@@ -193,7 +193,7 @@ func HTTPRouteCollection(
 		}
 		return final
 	}, opts.WithName("HTTPRouteMerged")...)
-	return RouteResult[*gateway.HTTPRoute, *gateway.HTTPRouteStatus]{
+	return RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus]{
 		VirtualServices:  finalVirtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
@@ -204,9 +204,9 @@ func GRPCRouteCollection(
 	GRPCRoutes krt.Collection[*gatewayv1.GRPCRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
-) RouteResult[*gatewayv1.GRPCRoute, *gatewayv1.GRPCRouteStatus] {
+) RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, GRPCRoutes, gvk.GRPCRoute, opts)
-	status, baseVirtualServices := krt.NewStatusManyCollection(GRPCRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) (**gatewayv1.GRPCRouteStatus, []config.Config) {
+	status, baseVirtualServices := krt.NewStatusManyCollection(GRPCRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) (*gatewayv1.GRPCRouteStatus, []config.Config) {
 		status := obj.Status.DeepCopy()
 		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
@@ -332,7 +332,7 @@ func GRPCRouteCollection(
 				count++
 			}
 		}
-		return &status, virtualServices
+		return status, virtualServices
 	}, opts.WithName("GRPCRoute")...)
 
 	// TODO: this needs to be more efficient. An index as the input perhaps
@@ -361,7 +361,7 @@ func GRPCRouteCollection(
 		}
 		return final
 	}, opts.WithName("GRPCRouteMerged")...)
-	return RouteResult[*gatewayv1.GRPCRoute, *gatewayv1.GRPCRouteStatus]{
+	return RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus]{
 		VirtualServices:  finalVirtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
@@ -372,9 +372,9 @@ func TCPRouteCollection(
 	TCPRoutes krt.Collection[*gatewayalpha.TCPRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
-) RouteResult[*gatewayalpha.TCPRoute, *gatewayalpha.TCPRouteStatus] {
+) RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, TCPRoutes, gvk.TCPRoute, opts)
-	status, virtualServices := krt.NewStatusManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (**gatewayalpha.TCPRouteStatus, []config.Config) {
+	status, virtualServices := krt.NewStatusManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (*gatewayalpha.TCPRouteStatus, []config.Config) {
 		status := obj.Status.DeepCopy()
 		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
@@ -470,10 +470,10 @@ func TCPRouteCollection(
 				})
 			}
 		}
-		return &status, vs
+		return status, vs
 	}, opts.WithName("TCPRoute")...)
 
-	return RouteResult[*gatewayalpha.TCPRoute, *gatewayalpha.TCPRouteStatus]{
+	return RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus]{
 		VirtualServices:  virtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
@@ -484,9 +484,9 @@ func TLSRouteCollection(
 	TLSRoutes krt.Collection[*gatewayalpha.TLSRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
-) RouteResult[*gatewayalpha.TLSRoute, *gatewayalpha.TLSRouteStatus] {
+) RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, TLSRoutes, gvk.TLSRoute, opts)
-	status, virtualServices := krt.NewStatusManyCollection(TLSRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (**gatewayalpha.TLSRouteStatus, []config.Config) {
+	status, virtualServices := krt.NewStatusManyCollection(TLSRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (*gatewayalpha.TLSRouteStatus, []config.Config) {
 		status := obj.Status.DeepCopy()
 		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
@@ -578,9 +578,9 @@ func TLSRouteCollection(
 				})
 			}
 		}
-		return &status, vs
+		return status, vs
 	}, opts.WithName("TLSRoute")...)
-	return RouteResult[*gatewayalpha.TLSRoute, *gatewayalpha.TLSRouteStatus]{
+	return RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus]{
 		VirtualServices:  virtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
