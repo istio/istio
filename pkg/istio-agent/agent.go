@@ -281,6 +281,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		ProxyConfig:                 a.proxyConfig,
 		PilotSubjectAltName:         pilotSAN,
 		CredentialSocketExists:      credentialSocketExists,
+		CustomCredentialsFileExists: a.secOpts.ServeOnlyFiles,
 		OutlierLogPath:              a.envoyOpts.OutlierLogPath,
 		EnvoyPrometheusPort:         a.cfg.EnvoyPrometheusPort,
 		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
@@ -354,9 +355,10 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 
 	// There are a couple of things we have to do here
 	//
-	// 1. Use a custom SDS workload socket if one is found+healthy at the configured path
-	// 3. Error out if a custom SDS socket path is configured but no socket is found there.
-	// 4. Do NOT error out, but just start and use the default Istio SDS server, if no socket
+	// 1. Use a custom SDS workload socket if one is found+healthy at the configured path.
+	//      If we do find one, we will still bind a local SDS server, but it will be used only to serve file certificates.
+	// 2. Error out if a custom SDS socket path is configured but no socket is found there.
+	// 3. Do NOT error out, but just start and use the default Istio SDS server, if no socket
 	// is found AND no custom SDS socket path is configured.
 	//
 	//
@@ -381,19 +383,18 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		return nil, fmt.Errorf("failed to check SDS socket: %v", err)
 	}
 	if socketExists {
-		log.Infof("Existing workload SDS socket found at %s. Default Istio SDS Server won't be started", configuredAgentSocketPath)
-	} else {
+		log.Infof("Existing workload SDS socket found at %s. Default Istio SDS Server will only serve files", configuredAgentSocketPath)
+		a.secOpts.ServeOnlyFiles = true
+	} else if !isIstioSDS {
 		// If we are configured to use something other than the default Istio SDS server and we can't find a socket at that path, error out.
-		if !isIstioSDS {
-			return nil, fmt.Errorf("agent configured for non-default SDS socket path: %s but no socket found", configuredAgentSocketPath)
-		}
+		return nil, fmt.Errorf("agent configured for non-default SDS socket path: %s but no socket found", configuredAgentSocketPath)
+	}
 
-		// otherwise we are not configured to listen to something else, so just start the Istio SDS server and use it.
-		log.Info("Starting default Istio SDS Server")
-		err = a.initSdsServer()
-		if err != nil {
-			return nil, fmt.Errorf("failed to start default Istio SDS server: %v", err)
-		}
+	// otherwise we are not configured to listen to something else, so just start the Istio SDS server and use it.
+	log.Info("Starting default Istio SDS Server")
+	err = a.initSdsServer()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start default Istio SDS server: %v", err)
 	}
 	a.xdsProxy, err = initXdsProxy(a)
 	if err != nil {
@@ -450,7 +451,10 @@ func (a *Agent) initSdsServer() error {
 		a.secOpts.FileMountedCerts = true
 	}
 
-	a.secretCache, err = a.newSecretManager()
+	// If proxy is using file mounted certs, we do not have to connect to CA.
+	// It can also be explicitly disabled, used when we have an external SDS server for mTLS certs, but still need the file manager.
+	createCaClient := !a.secOpts.FileMountedCerts && !a.secOpts.ServeOnlyFiles
+	a.secretCache, err = a.newSecretManager(createCaClient)
 	if err != nil {
 		return fmt.Errorf("failed to start workload secret manager %v", err)
 	}
@@ -795,9 +799,8 @@ func getKeyCertInner(certPath string) (string, string) {
 }
 
 // newSecretManager creates the SecretManager for workload secrets
-func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
-	// If proxy is using file mounted certs, we do not have to connect to CA.
-	if a.secOpts.FileMountedCerts {
+func (a *Agent) newSecretManager(createCaClient bool) (*cache.SecretManagerClient, error) {
+	if !createCaClient {
 		log.Info("Workload is using file mounted certificates. Skipping connecting to CA")
 		return cache.NewSecretManagerClient(nil, a.secOpts)
 	}

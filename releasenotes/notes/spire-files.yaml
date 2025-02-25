@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issues: [47481]
+releaseNotes:
+  - |
+    **Fixed** an issue causing file-based certificate references (from `DestinationRule` or `Gateway`) to not work when using SPIRE as the CA.
