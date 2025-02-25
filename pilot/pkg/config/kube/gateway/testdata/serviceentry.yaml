@@ -33,6 +33,7 @@ apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: egress
+  namespace: default
 spec:
   hosts:
   - "google.com"
