@@ -1392,6 +1392,7 @@ func readConfig(t testing.TB, filename string, validator *crdvalidation.Validato
 		}
 		objs = append(objs, svcObj)
 	}
+	objs = append(objs, secrets...)
 	return objs
 }
 
