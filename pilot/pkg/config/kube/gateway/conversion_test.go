@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sigs.k8s.io/gateway-api/pkg/consts"
 	"sigs.k8s.io/yaml"
 
 	istio "istio.io/api/networking/v1alpha3"
@@ -556,7 +557,9 @@ func TestConvertResources(t *testing.T) {
 				gvr.TLSRoute,
 				gvr.ServiceEntry,
 			} {
-				clienttest.MakeCRD(t, kc, crd)
+				clienttest.MakeCRDWithAnnotations(t, kc, crd, map[string]string{
+					consts.BundleVersionAnnotation: "v1.1.0",
+				})
 			}
 			// Setup a few preconfigured services
 			instances := []*model.ServiceInstance{}
