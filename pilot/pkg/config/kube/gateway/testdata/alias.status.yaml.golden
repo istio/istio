@@ -3,7 +3,6 @@ kind: GatewayClass
 metadata:
   creationTimestamp: null
   name: istio
-  namespace: default
 spec: null
 status:
   conditions:
@@ -36,7 +35,7 @@ status:
     status: "True"
     type: Programmed
   listeners:
-  - attachedRoutes: 1
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -66,14 +65,6 @@ status:
       kind: GRPCRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: third-party-gateway
-  namespace: istio-system
-spec: null
----
-apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
@@ -81,20 +72,5 @@ metadata:
   namespace: default
 spec: null
 status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      name: third-party-gateway
-      namespace: istio-system
+  parents: []
 ---
