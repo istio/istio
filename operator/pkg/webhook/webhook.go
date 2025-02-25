@@ -152,7 +152,7 @@ func CheckWebhooks(manifests []manifest.ManifestSet, iop values.Map, clt kube.Cl
 		// and we are installing a new IOP with default semantics, the default webhook shifts.
 		if exists && len(mwhs.Items) == 0 && rev == "" {
 			logger.Print("This installation will make default injection and validation pointing to the default revision, and " +
-				"originally it was pointing to the revisioned one.")
+				"originally it was pointing to the revisioned one.\n")
 		}
 	}
 	return nil
