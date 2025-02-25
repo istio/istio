@@ -607,11 +607,7 @@ func HTTPRouteCollection(
 		status := obj.Status.DeepCopy()
 		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
-		log.Errorf("howardjohn: compute %v", config.NamespacedName(obj))
 		parentRefs := extractParentReferenceInfo2(ctx.Krt, ctx.RouteParents, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, obj.Namespace)
-		log.Errorf("howardjohn: got refs %v", parentRefs)
-
-		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
 
 		type conversionResult struct {
 			error  *ConfigError
@@ -746,8 +742,10 @@ func HTTPRouteCollection(
 		for _, configs := range byKey {
 			sortConfigByCreationTime(configs)
 			base := configs[0].DeepCopy()
+			log.Errorf("howardjohn: base: %v %v", base.Name, base.Namespace)
 			baseVS := base.Spec.(*istio.VirtualService)
 			for _, config := range configs[1:] {
+				log.Errorf("howardjohn: merge in %v %v", config.Name, config.Namespace)
 				thisVS := config.Spec.(*istio.VirtualService)
 				baseVS.Http = append(baseVS.Http, thisVS.Http...)
 				// append parents

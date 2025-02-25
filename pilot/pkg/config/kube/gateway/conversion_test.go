@@ -1381,6 +1381,10 @@ func readConfig(t testing.TB, filename string, validator *crdvalidation.Validato
 		t.Fatalf("failed to read input yaml file: %v", err)
 	}
 	objs := readConfigString(t, string(data), validator, ignorer)
+
+	namespaces := sets.New[string](slices.Map(objs, func(e runtime.Object) string {
+		return e.(controllers.Object).GetNamespace()
+	})...)
 	for svc := range knownServices {
 		svcObj := &corev1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1394,9 +1398,7 @@ func readConfig(t testing.TB, filename string, validator *crdvalidation.Validato
 		objs = append(objs, svcObj)
 	}
 	objs = append(objs, secrets...)
-	namespaces := sets.New[string](slices.Map(objs, func(e runtime.Object) string {
-		return e.(controllers.Object).GetNamespace()
-	})...)
+
 	for ns := range namespaces {
 		objs = append(objs, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{

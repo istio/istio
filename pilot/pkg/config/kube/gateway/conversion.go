@@ -957,24 +957,17 @@ func extractParentReferenceInfo2(ctx krt.HandlerContext, parents RouteParents, r
 		}
 		currentParents := parents.Fetch(ctx, gk)
 		appendParent := func(pr *parentInfo, pk parentReference) {
-			//if pk.SectionName != "" && pr.SectionName != pk.SectionName {
-			//	log.Errorf("howardjohn: skip 1 %+v %+v", pk.SectionName, pr.SectionName)
-			//	return
-			//}
 			bannedHostnames := sets.New[string]()
 			for _, gw := range currentParents {
 				if gw == pr {
-					log.Errorf("howardjohn: skip 2")
 					continue // do not ban ourself
 				}
 				if gw.Port != pr.Port {
 					// We only care about listeners on the same port
-					log.Errorf("howardjohn: skip 3")
 					continue
 				}
 				if gw.Protocol != pr.Protocol {
 					// We only care about listeners on the same protocol
-					log.Errorf("howardjohn: skip 4")
 					continue
 				}
 				bannedHostnames.Insert(gw.OriginalHostname)
@@ -996,7 +989,6 @@ func extractParentReferenceInfo2(ctx krt.HandlerContext, parents RouteParents, r
 			parentRefs = append(parentRefs, rpi)
 		}
 		for _, gw := range currentParents {
-			log.Errorf("howardjohn: pk=%+v gw=%+v", pk, gw)
 			// Append all matches. Note we may be adding mismatch section or ports; this is handled later
 			appendParent(gw, pk)
 		}
@@ -2345,6 +2337,7 @@ func buildHostnameMatch(ctx krt.HandlerContext, localNamespace string, Namespace
 	}
 
 	resp := []string{}
+	log.Errorf("howardjohn: call namespacesFromSelector")
 	for _, ns := range namespacesFromSelector(ctx, localNamespace, Namespaces, l.AllowedRoutes) {
 		// This check is necessary to prevent adding a hostname with an invalid empty namespace
 		if len(ns) > 0 {
