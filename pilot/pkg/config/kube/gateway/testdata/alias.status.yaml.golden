@@ -17,14 +17,6 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   creationTimestamp: null
-  name: third-party-gateway
-  namespace: istio-system
-spec: null
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -72,6 +64,14 @@ status:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: third-party-gateway
+  namespace: istio-system
+spec: null
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute

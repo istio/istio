@@ -17,6 +17,26 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   creationTimestamp: null
+  name: invalid-gateway-address
+  namespace: invalid-gateway-address
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: only Hostname is supported, ignoring [1.2.3.4]
+    reason: UnsupportedAddress
+    status: "False"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Failed to assign to any requested addresses
+    reason: UnsupportedAddress
+    status: "False"
+    type: Programmed
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -69,128 +89,6 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   creationTimestamp: null
-  name: invalid-service
-  namespace: istio-system
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Resource accepted
-    reason: Accepted
-    status: "True"
-    type: Accepted
-  - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
-      not found'
-    reason: AddressNotUsable
-    status: "False"
-    type: Programmed
-  listeners:
-  - attachedRoutes: 0
-    conditions:
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
-      type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
-      type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    name: default
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-    - group: gateway.networking.k8s.io
-      kind: GRPCRoute
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: target-port-reference
-  namespace: istio-system
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Resource accepted
-    reason: Accepted
-    status: "True"
-    type: Accepted
-  - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: port 8080 not found for
-      hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
-      port should be specified, not the workload port. Did you mean one of these ports:
-      [80]?)'
-    reason: AddressNotUsable
-    status: "False"
-    type: Programmed
-  listeners:
-  - attachedRoutes: 0
-    conditions:
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
-      type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
-      type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    name: default
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-    - group: gateway.networking.k8s.io
-      kind: GRPCRoute
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: invalid-gateway-address
-  namespace: invalid-gateway-address
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: only Hostname is supported, ignoring [1.2.3.4]
-    reason: UnsupportedAddress
-    status: "False"
-    type: Accepted
-  - lastTransitionTime: fake
-    message: Failed to assign to any requested addresses
-    reason: UnsupportedAddress
-    status: "False"
-    type: Programmed
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  creationTimestamp: null
   name: invalid-cert-kind
   namespace: istio-system
 spec: null
@@ -230,6 +128,57 @@ status:
     - lastTransitionTime: fake
       message: invalid certificate reference core/unknown/my-cert-http., only secret
         is allowed
+      reason: InvalidCertificateRef
+      status: "False"
+      type: ResolvedRefs
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: invalid-cert-malformed
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: port 34002 not found for
+      hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: 'invalid certificate reference /Secret/malformed., the certificate
+        is malformed: tls: failed to find any PEM data in certificate input'
       reason: InvalidCertificateRef
       status: "False"
       type: ResolvedRefs
@@ -297,7 +246,7 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   creationTimestamp: null
-  name: invalid-cert-malformed
+  name: invalid-service
   namespace: istio-system
 spec: null
 status:
@@ -308,8 +257,8 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: port 34002 not found for
-      hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
+      not found'
     reason: AddressNotUsable
     status: "False"
     type: Programmed
@@ -327,15 +276,112 @@ status:
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
-      message: Bad TLS configuration
-      reason: Invalid
-      status: "False"
+      message: No errors found
+      reason: Programmed
+      status: "True"
       type: Programmed
     - lastTransitionTime: fake
-      message: 'invalid certificate reference /Secret/malformed., the certificate
-        is malformed: tls: failed to find any PEM data in certificate input'
-      reason: InvalidCertificateRef
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: default
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: protocol-lower-case
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: hostname "protocol-lower-case-istio.istio-system.svc.domain.suffix"
+      not found'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: 'protocol "http" is unsupported. hint: "HTTP" (uppercase) may be supported'
+      reason: UnsupportedProtocol
       status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: http
+    supportedKinds: []
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: target-port-reference
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: port 8080 not found for
+      hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
+      port should be specified, not the workload port. Did you mean one of these ports:
+      [80]?)'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
       type: ResolvedRefs
     name: default
     supportedKinds:
@@ -434,52 +480,6 @@ status:
       status: "True"
       type: ResolvedRefs
     name: unknown
-    supportedKinds: []
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: protocol-lower-case
-  namespace: istio-system
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Resource accepted
-    reason: Accepted
-    status: "True"
-    type: Accepted
-  - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "protocol-lower-case-istio.istio-system.svc.domain.suffix"
-      not found'
-    reason: AddressNotUsable
-    status: "False"
-    type: Programmed
-  listeners:
-  - attachedRoutes: 0
-    conditions:
-    - lastTransitionTime: fake
-      message: 'protocol "http" is unsupported. hint: "HTTP" (uppercase) may be supported'
-      reason: UnsupportedProtocol
-      status: "False"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
-      type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
-      type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    name: http
     supportedKinds: []
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
