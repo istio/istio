@@ -239,6 +239,25 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 	}
 }
 
+func TestSetGatewayCustomTagsAndNoLabels(t *testing.T) {
+	g := NewWithT(t)
+
+	objss := runManifestCommands(t, "gateways-with-custom-tags-and-no-labels", "", liveCharts, nil)
+
+	for _, objs := range objss {
+		{
+			dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
+			c := getContainer(dobj, "istio-proxy")
+			g.Expect(c).Should(HavePathValueMatchRegex(PathValue{"image", "^.*:special-tag$"}))
+		}
+		{
+			dobj := mustGetDeployment(g, objs, "istio-egressgateway")
+			c := getContainer(dobj, "istio-proxy")
+			g.Expect(c).Should(HavePathValueMatchRegex(PathValue{"image", "^.*:special-tag2$"}))
+		}
+	}
+}
+
 func TestManifestGenerateGateways(t *testing.T) {
 	g := NewWithT(t)
 

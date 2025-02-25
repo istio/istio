@@ -1,0 +1,34 @@
+apiVersion: release-notes/v2
+
+
+# kind describes the type of change that this represents.
+# Valid Values are:
+# - bug-fix -- Used to specify that this change represents a bug fix.
+# - security-fix -- Used to specify that this change represents a vulnerability fix.
+# - feature -- Used to specify a new feature that has been added.
+# - test -- Used to describe additional testing added. This file is optional for
+#   tests, but included for completeness.
+kind: bug-fix
+
+# area describes the area that this change affects.
+# Valid values are:
+# - traffic-management
+# - security
+# - telemetry
+# - installation
+# - istioctl
+# - documentation
+area: istioctl
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue: [54955]
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+  - |
+    **Fixed** istioctl error preventing installation when `IstioOperator.components.gateways.ingressGateways.label` or `IstioOperator.components.gateways.ingressGateways.label` is ommitted.
+  - |
+    **Fixed** istioctl not using `IstioOperator.components.gateways.ingressGateways.tag` and `IstioOperator.components.gateways.egressGateways.tag` when provided.
+
