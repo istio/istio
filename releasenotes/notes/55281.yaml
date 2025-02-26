@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Improved** iptables binary detection to verify a degree of baseline kernel support exists,
+    and prefer `nft` in a `tie` situation where both legacy and nft are available, but neither has any rules.
