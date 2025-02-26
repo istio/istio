@@ -16,11 +16,11 @@ package iptables
 
 import (
 	"bytes"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
-	"fmt"
 
 	// Create a new network namespace. This will have the 'lo' interface ready but nothing else.
 	_ "github.com/howardjohn/unshare-go/netns"

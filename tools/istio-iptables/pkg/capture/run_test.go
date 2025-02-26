@@ -17,8 +17,8 @@ package capture
 import (
 	"bytes"
 	"net/netip"
-	"os/exec"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
