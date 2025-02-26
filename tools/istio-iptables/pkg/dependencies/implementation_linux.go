@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
-var testRuleAdd []string = []string{"-t", "filter", "-A", "INPUT", "-p", "255", "-j", "DROP", "-m", "comment", "--comment", `"Istio no-op iptables capability probe"`}
+var testRuleAdd = []string{"-t", "filter", "-A", "INPUT", "-p", "255", "-j", "DROP", "-m", "comment", "--comment", `"Istio no-op iptables capability probe"`}
 
 // TODO the entire `istio-iptables` package is linux-specific, I'm not sure we really need
 // platform-differentiators for the `dependencies` package itself.
@@ -113,14 +113,15 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 	// If we can't add a rule to the basic `filter` table, we can't use this binary - bail out.
 	// Otherwise, delete the no-op rule and carry on with other checks
 	if testRes != nil || strings.Contains(testStdOut.String(), "does not exist") {
-		return IptablesVersion{}, fmt.Errorf("iptables binary %s has no loaded kernel support and cannot be used, err: %v out: %s", iptablesBin, testRes, testStdOut.String())
-	} else {
-		testRuleDel := append(make([]string, 0, len(testRuleAdd)), testRuleAdd...)
-		testRuleDel[2] = "-D"
-
-		testCmd = exec.Command(iptablesBin, testRuleDel...)
-		testCmd.Run()
+		return IptablesVersion{}, fmt.Errorf("iptables binary %s has no loaded kernel support and cannot be used, err: %v out: %s",
+			iptablesBin, testRes, testStdOut.String())
 	}
+
+	testRuleDel := append(make([]string, 0, len(testRuleAdd)), testRuleAdd...)
+	testRuleDel[2] = "-D"
+
+	testCmd = exec.Command(iptablesBin, testRuleDel...)
+	_ = testCmd.Run()
 
 	// if binary seems to exist, check the dump of rules in our netns, and see if any rules exist there
 	// Note that this is highly dependent on context.
