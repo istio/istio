@@ -21,8 +21,8 @@ import (
 	"strconv"
 	"strings"
 
-	"istio.io/istio/pkg/ptr"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
@@ -96,6 +97,7 @@ type DeploymentController struct {
 	injectConfig    func() inject.WebhookConfig
 	deployments     kclient.Client[*appsv1.Deployment]
 	services        kclient.Client[*corev1.Service]
+	hpas            kclient.Client[*autoscalingv2.HorizontalPodAutoscaler]
 	configMaps      kclient.Client[*corev1.ConfigMap]
 	serviceAccounts kclient.Client[*corev1.ServiceAccount]
 	namespaces      kclient.Client[*corev1.Namespace]
@@ -213,11 +215,11 @@ func NewDeploymentController(
 			}, subresources...)
 			return err
 		},
-		gateways:       gateways,
-		gatewayClasses: gatewayClasses,
-		injectConfig:   webhookConfig,
-		tagWatcher:     tw,
-		revision:       revision,
+		gateways:        gateways,
+		gatewayClasses:  gatewayClasses,
+		injectConfig:    webhookConfig,
+		tagWatcher:      tw,
+		revision:        revision,
 		systemNamespace: systemNamespace,
 	}
 	gatewaysByParamsRef := kclient.CreateIndex(gateways, func(o *gateway.Gateway) []types.NamespacedName {
@@ -269,6 +271,10 @@ func NewDeploymentController(
 	dc.serviceAccounts.AddEventHandler(parentHandler)
 	dc.clients[gvr.ServiceAccount] = NewUntypedWrapper(dc.serviceAccounts)
 
+	dc.hpas = kclient.NewFiltered[*autoscalingv2.HorizontalPodAutoscaler](client, filter)
+	dc.hpas.AddEventHandler(parentHandler)
+	dc.clients[gvr.HorizontalPodAutoscaler] = NewUntypedWrapper(dc.hpas)
+
 	dc.namespaces = kclient.NewFiltered[*corev1.Namespace](client, filter)
 	dc.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		// TODO: make this more intelligent, checking if something we care about has changed
@@ -306,13 +312,24 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.namespaces.HasSynced,
 		d.deployments.HasSynced,
 		d.services.HasSynced,
+		d.configMaps.HasSynced,
 		d.serviceAccounts.HasSynced,
+		d.hpas.HasSynced,
 		d.gateways.HasSynced,
 		d.gatewayClasses.HasSynced,
 		d.tagWatcher.HasSynced,
 	)
 	d.queue.Run(stop)
-	controllers.ShutdownAll(d.namespaces, d.deployments, d.services, d.serviceAccounts, d.gateways, d.gatewayClasses)
+	controllers.ShutdownAll(
+		d.namespaces,
+		d.deployments,
+		d.services,
+		d.configMaps,
+		d.serviceAccounts,
+		d.hpas,
+		d.gateways,
+		d.gatewayClasses,
+	)
 }
 
 // Reconcile takes in the name of a Gateway and ensures the cluster is in the desired state
@@ -600,53 +617,68 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		if err != nil {
 			return nil, err
 		}
-		transformedOutput = append(transformedOutput, to)
+		if to != "" {
+			transformedOutput = append(transformedOutput, to)
+		}
 	}
 	return transformedOutput, nil
 }
 
-var supportedOverlaps = sets.New(
+var supportedOverlays = sets.New(
 	"deployment",
 	"service",
 	"serviceAccount",
-	)
+	"horizontalPodAutoscaler",
+)
+
+var requiredOverlays = sets.New(
+	"horizontalPodAutoscaler",
+)
 
 func applyOverlay(object string, overlaysList []map[string]string) (string, error) {
 	kind, err := yamlserializer.DefaultMetaFactory.Interpret([]byte(object))
 	if err != nil {
 		return "", fmt.Errorf("failed to find kind: %v", err)
 	}
+
+	var data any
+	var key string
+	switch kind.Kind {
+	case gvk.Deployment.Kind:
+		data = &appsv1.Deployment{}
+		key = "deployment"
+	case gvk.Service.Kind:
+		data = &corev1.Service{}
+		key = "service"
+	case gvk.ServiceAccount.Kind:
+		data = &corev1.ServiceAccount{}
+		key = "serviceAccount"
+	case gvk.HorizontalPodAutoscaler.Kind:
+		data = &autoscalingv2.HorizontalPodAutoscaler{}
+		key = "horizontalPodAutoscaler"
+	default:
+		return "", fmt.Errorf("unknown overlay kind %q", kind.Kind)
+	}
+	applied := false
 	for _, overlays := range overlaysList {
 		for k := range overlays {
-			if !supportedOverlaps.Contains(k) {
-				return "", fmt.Errorf("unsupported overlay %q (supported: %v)", k, sets.SortedList(supportedOverlaps))
+			if !supportedOverlays.Contains(k) {
+				return "", fmt.Errorf("unsupported overlay %q (supported: %v)", k, sets.SortedList(supportedOverlays))
 			}
-		}
-		var data any
-		var key string
-		switch kind.Kind {
-		case gvk.Deployment.Kind:
-			data = &appsv1.Deployment{}
-			key = "deployment"
-		case gvk.Service.Kind:
-			data = &corev1.Service{}
-			key = "service"
-		case gvk.ServiceAccount.Kind:
-			data = &corev1.ServiceAccount{}
-			key = "serviceAccount"
-		default:
-			return "", fmt.Errorf("unknown overlay kind %q", kind.Kind)
 		}
 		overlay, f := overlays[key]
 		if !f {
 			continue
 		}
 		b, err := strategicMergePatchYAML([]byte(object), []byte(overlay), data)
-		log.Errorf("howardjohn: apply overlay! otput %v", string(b))
 		if err != nil {
 			return "", fmt.Errorf("strategic merge patch failed: %v", err)
 		}
+		applied = true
 		object = string(b)
+	}
+	if !applied && requiredOverlays.Contains(key) {
+		return "", nil
 	}
 	return object, nil
 }

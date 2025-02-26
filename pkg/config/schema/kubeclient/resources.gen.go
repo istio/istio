@@ -19,6 +19,7 @@ import (
 
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapiautoscalingv2 "k8s.io/api/autoscaling/v2"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
 	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
@@ -67,6 +68,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1beta1.HTTPRoute:
 		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(namespace).(ktypes.WriteAPI[T])
+	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
+		return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapinetworkingv1.Ingress:
 		return c.Kube().NetworkingV1().Ingresses(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapinetworkingv1.IngressClass:
@@ -156,6 +159,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1beta1.HTTPRoute:
 		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
+		return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapinetworkingv1.Ingress:
 		return c.Kube().NetworkingV1().Ingresses(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapinetworkingv1.IngressClass:
@@ -245,6 +250,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &sigsk8siogatewayapiapisv1beta1.GatewayClass{}
 	case gvr.HTTPRoute:
 		return &sigsk8siogatewayapiapisv1beta1.HTTPRoute{}
+	case gvr.HorizontalPodAutoscaler:
+		return &k8sioapiautoscalingv2.HorizontalPodAutoscaler{}
 	case gvr.Ingress:
 		return &k8sioapinetworkingv1.Ingress{}
 	case gvr.IngressClass:
@@ -406,6 +413,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(opts.Namespace).Watch(context.Background(), options)
+		}
+	case gvr.HorizontalPodAutoscaler:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.Ingress:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

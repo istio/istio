@@ -5,6 +5,7 @@ package kubetypes
 import (
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapiautoscalingv2 "k8s.io/api/autoscaling/v2"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
 	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
@@ -69,6 +70,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.GatewayClass, true
 	case *sigsk8siogatewayapiapisv1beta1.HTTPRoute:
 		return gvk.HTTPRoute, true
+	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
+		return gvk.HorizontalPodAutoscaler, true
 	case *k8sioapinetworkingv1.Ingress:
 		return gvk.Ingress, true
 	case *k8sioapinetworkingv1.IngressClass:
