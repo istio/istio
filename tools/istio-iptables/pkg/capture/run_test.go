@@ -295,7 +295,7 @@ func TestIptables(t *testing.T) {
 			tt.config(cfg)
 
 			ext := &dep.DependenciesStub{}
-			iptConfigurator := NewIptablesConfigurator(cfg, ext)
+			iptConfigurator, _ := NewIptablesConfigurator(cfg, ext)
 			iptConfigurator.Run()
 			compareToGolden(t, tt.name, ext.ExecutedAll)
 		})
@@ -340,7 +340,7 @@ func TestSeparateV4V6(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
-			iptConfigurator := NewIptablesConfigurator(cfg, &dep.DependenciesStub{})
+			iptConfigurator, _ := NewIptablesConfigurator(cfg, &dep.DependenciesStub{})
 			v4Range, v6Range, err := iptConfigurator.separateV4V6(tt.cidr)
 			if err != nil {
 				t.Fatal(err)
@@ -362,15 +362,6 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 		UsePodScopedXtablesLock: false,
 		NetworkNamespace:        "",
 	}
-	iptVer, err := ext.DetectIptablesVersion(false)
-	if err != nil {
-		t.Fatalf("Can't detect iptables version: %v", err)
-	}
-
-	ipt6Ver, err := ext.DetectIptablesVersion(true)
-	if err != nil {
-		t.Fatalf("Can't detect ip6tables version")
-	}
 	scope := log.FindScope(log.DefaultScopeName)
 	for _, tt := range commonCases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -390,28 +381,40 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 				// Final Cleanup
 				cfg.CleanupOnly = true
 				cfg.Reconcile = false
-				iptConfigurator := NewIptablesConfigurator(cfg, ext)
+				iptConfigurator, err := NewIptablesConfigurator(cfg, ext)
+				if err != nil {
+					t.Fatal("can't detect iptables")
+				}
 				assert.NoError(t, iptConfigurator.Run())
-				residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
+				residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptConfigurator.iptV, &iptConfigurator.ipt6V)
 				assert.Equal(t, residueExists, false)
 				assert.Equal(t, deltaExists, true)
 			}()
 
 			// First Pass
 			cfg.Reconcile = false
-			iptConfigurator := NewIptablesConfigurator(cfg, ext)
+			iptConfigurator, err := NewIptablesConfigurator(cfg, ext)
+			if err != nil {
+				t.Fatal("can't detect iptables")
+			}
 			assert.NoError(t, iptConfigurator.Run())
-			residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptConfigurator.iptV, &iptConfigurator.ipt6V)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 
 			// Second Pass
-			iptConfigurator = NewIptablesConfigurator(cfg, ext)
+			iptConfigurator, err = NewIptablesConfigurator(cfg, ext)
+			if err != nil {
+				t.Fatal("can't detect iptables")
+			}
 			assert.NoError(t, iptConfigurator.Run())
 
 			// Execution should fail if force-apply is used and chains exists
 			cfg.ForceApply = true
-			iptConfigurator = NewIptablesConfigurator(cfg, ext)
+			iptConfigurator, err = NewIptablesConfigurator(cfg, ext)
+			if err != nil {
+				t.Fatal("can't detect iptables")
+			}
 			assert.Error(t, iptConfigurator.Run())
 			cfg.ForceApply = false
 		})
@@ -421,6 +424,7 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 var initialized = &sync.Once{}
 
 func setup(t *testing.T) {
+
 	initialized.Do(func() {
 		// Setup group namespace so iptables --gid-owner will work
 		assert.NoError(t, userns.WriteGroupMap(map[uint32]uint32{userns.OriginalGID(): 0}))
@@ -439,17 +443,8 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 	setup(t)
 	commonCases := getCommonTestCases()
 	ext := &dep.RealDependencies{
-		UsePodScopedXtablesLock: false,
+		UsePodScopedXtablesLock: true,
 		NetworkNamespace:        "",
-	}
-	iptVer, err := ext.DetectIptablesVersion(false)
-	if err != nil {
-		t.Fatalf("Can't detect iptables version")
-	}
-
-	ipt6Ver, err := ext.DetectIptablesVersion(true)
-	if err != nil {
-		t.Fatalf("Can't detect ip6tables version")
 	}
 	scope := log.FindScope(log.DefaultScopeName)
 	for _, tt := range commonCases {
@@ -466,37 +461,38 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 			if cfg.OwnerGroupsInclude != "" {
 				cfg.OwnerGroupsInclude = "0"
 			}
+			iptConfigurator, err := NewIptablesConfigurator(cfg, ext)
 
 			defer func() {
 				// Final Cleanup
-				cfg.CleanupOnly = true
-				cfg.Reconcile = false
-				iptConfigurator := NewIptablesConfigurator(cfg, ext)
+				iptConfigurator.cfg.CleanupOnly = true
+				iptConfigurator.cfg.Reconcile = false
+				assert.NoError(t, err)
 				assert.NoError(t, iptConfigurator.Run())
-				residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
+				residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptConfigurator.iptV, &iptConfigurator.ipt6V)
 				assert.Equal(t, residueExists, true) // residue found due to extra OUTPUT rule
 				assert.Equal(t, deltaExists, true)
 				// Remove additional rule
-				cmd := exec.Command(iptVer.DetectedBinary, "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
+				cmd := exec.Command(iptConfigurator.iptV.DetectedBinary, "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
 				cmd.Stdout = &stdout
 				cmd.Stderr = &stderr
 				if err := cmd.Run(); err != nil {
 					t.Errorf("iptables cmd (%s %s) failed: %s", cmd.Path, cmd.Args, stderr.String())
 				}
-				residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
+				residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptConfigurator.iptV, &iptConfigurator.ipt6V)
 				assert.Equal(t, residueExists, false, "found unexpected residue on final pass")
 				assert.Equal(t, deltaExists, true, "found no delta on final pass")
 			}()
 
 			// First Pass
-			iptConfigurator := NewIptablesConfigurator(cfg, ext)
+			assert.NoError(t, err)
 			assert.NoError(t, iptConfigurator.Run())
-			residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists := VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptConfigurator.iptV, &iptConfigurator.ipt6V)
 			assert.Equal(t, residueExists, true, "did not find residue on first pass")
 			assert.Equal(t, deltaExists, false, "found delta on first pass")
 
 			// Diverge from installation
-			cmd := exec.Command(iptVer.DetectedBinary, "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
+			cmd := exec.Command(iptConfigurator.iptV.DetectedBinary, "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
 			if err := cmd.Run(); err != nil {
@@ -504,11 +500,11 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 			}
 
 			// Apply not required after tainting non-ISTIO chains with extra rules
-			residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptConfigurator.iptV, &iptConfigurator.ipt6V)
 			assert.Equal(t, residueExists, true, "did not find residue on second pass")
 			assert.Equal(t, deltaExists, false, "found delta on second pass")
 
-			cmd = exec.Command(iptVer.DetectedBinary, "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
+			cmd = exec.Command(iptConfigurator.iptV.DetectedBinary, "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
 			if err := cmd.Run(); err != nil {
@@ -516,18 +512,18 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 			}
 
 			// Apply required after tainting ISTIO chains
-			residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptVer, &ipt6Ver)
+			residueExists, deltaExists = VerifyIptablesState(scope, iptConfigurator.ext, iptConfigurator.ruleBuilder, &iptConfigurator.iptV, &iptConfigurator.ipt6V)
 			assert.Equal(t, residueExists, true, "did not find residue on third pass")
 			assert.Equal(t, deltaExists, true, "found no delta on third pass")
 
 			// Fail is expected if cleanup is skipped
-			cfg.Reconcile = false
-			iptConfigurator = NewIptablesConfigurator(cfg, ext)
+			iptConfigurator.cfg.Reconcile = false
+			assert.NoError(t, err)
 			assert.Error(t, iptConfigurator.Run())
 
 			// Second pass with cleanup
-			cfg.Reconcile = true
-			iptConfigurator = NewIptablesConfigurator(cfg, ext)
+			iptConfigurator.cfg.Reconcile = true
+			assert.NoError(t, err)
 			assert.NoError(t, iptConfigurator.Run())
 		})
 	}
