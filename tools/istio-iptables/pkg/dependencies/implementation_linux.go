@@ -32,6 +32,10 @@ import (
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
+var (
+	testRuleAdd []string = []string{"-t", "filter", "-A", "INPUT", "-p", "255", "-j", "DROP", "-m", "comment", "--comment", `"Istio no-op iptables capability probe"`}
+)
+
 // TODO the entire `istio-iptables` package is linux-specific, I'm not sure we really need
 // platform-differentiators for the `dependencies` package itself.
 
@@ -50,6 +54,7 @@ var (
 )
 
 func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, error) {
+	log := log.WithLabels("binary", iptablesBin)
 	// We assume that whatever `iptablesXXX` binary you pass us also has a `iptablesXXX-save` and `iptablesXXX-restore`
 	// binary - which should always be true for any valid iptables installation
 	// (we use both in our iptables code later on anyway)
@@ -96,6 +101,27 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 		// So assume it's legacy/an unknown version, but assume we can use it since it's in PATH
 		parsedVer = utilversion.MustParseGeneric("0.0.0")
 		isNft = false
+	}
+
+	// `filter` should ALWAYS exist if kernel support for this version is locally present,
+	// so try to add a no-op rule to that table, and make sure it doesn't fail - if it does, we can't use this version
+	// as the host is missing kernel support for it.
+	// (255 is a nonexistent protocol number, IANA reserved, see `cat /etc/protocols`, so this rule will never match anything)
+	testCmd := exec.Command(iptablesBin, testRuleAdd...)
+
+	var testStdOut bytes.Buffer
+	testCmd.Stdout = &testStdOut
+	testRes := testCmd.Run()
+	// If we can't add a rule to the basic `filter` table, we can't use this binary - bail out.
+	// Otherwise, delete the no-op rule and carry on with other checks
+	if testRes != nil || strings.Contains(testStdOut.String(), "does not exist") {
+		return IptablesVersion{}, fmt.Errorf("iptables binary %s has no loaded kernel support and cannot be used, err: %v out: %s", iptablesBin, testRes, testStdOut.String())
+	} else {
+		testRuleDel := append(make([]string, 0, len(testRuleAdd)), testRuleAdd...)
+		testRuleDel[2] = "-D"
+
+		testCmd = exec.Command(iptablesBin, testRuleDel...)
+		testCmd.Run()
 	}
 
 	// if binary seems to exist, check the dump of rules in our netns, and see if any rules exist there
