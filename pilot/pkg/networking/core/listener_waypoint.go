@@ -35,7 +35,6 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	envoymatcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	googleproto "google.golang.org/protobuf/proto"
-	any "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -735,63 +734,34 @@ func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, li
 	return out, nil
 }
 
+var meshGateway = sets.New("mesh")
+
 func (lb *ListenerBuilder) translateWaypointRoute(
 	virtualService config.Config,
 	in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest,
 	listenPort int,
 ) *route.Route {
-	gatewaySemantics := model.UseGatewaySemantics(virtualService)
-	// When building routes, it's okay if the target cluster cannot be
-	// resolved. Traffic to such clusters will blackhole.
-
-	// Match by the destination port specified in the match condition
-	if match != nil && match.Port != 0 && match.Port != uint32(listenPort) {
-		return nil
+	opts := istio_route.RouteOptions{
+		IsTLS:                     false,
+		IsHTTP3AltSvcHeaderNeeded: false,
+		Mesh:                      lb.push.Mesh,
+		LookupService:             lb.serviceForHostname,
+		LookupDestinationCluster:  lb.getWaypointDestinationCluster,
+		LookupHash: func(destination *networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB {
+			lb, _ := istio_route.HashForHTTPDestination(lb.push, lb.node, destination)
+			return lb
+		},
 	}
-
-	routeName := in.Name
-	if match != nil && match.Name != "" {
-		routeName = routeName + "." + match.Name
-	}
-
-	out := &route.Route{
-		Name:     routeName,
-		Match:    istio_route.TranslateRouteMatch(virtualService, match),
-		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
-	}
-	authority := ""
-	if in.Headers != nil {
-		operations := istio_route.TranslateHeadersOperations(in.Headers)
-		out.RequestHeadersToAdd = operations.RequestHeadersToAdd
-		out.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
-		out.RequestHeadersToRemove = operations.RequestHeadersToRemove
-		out.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
-		authority = operations.Authority
-	}
-
-	if in.Redirect != nil {
-		istio_route.ApplyRedirect(out, in.Redirect, listenPort, false, model.UseGatewaySemantics(virtualService))
-	} else if in.DirectResponse != nil {
-		istio_route.ApplyDirectResponse(out, in.DirectResponse)
-	} else {
-		lb.waypointRouteDestination(out, in, authority, listenPort, gatewaySemantics)
-	}
-
-	out.Decorator = &route.Decorator{
-		Operation: istio_route.GetRouteOperation(out, virtualService.Name, listenPort),
-	}
-	if in.Fault != nil || in.CorsPolicy != nil {
-		out.TypedPerFilterConfig = make(map[string]*any.Any)
-	}
-	if in.Fault != nil {
-		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(istio_route.TranslateFault(in.Fault))
-	}
-	if in.CorsPolicy != nil {
-		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(istio_route.TranslateCORSPolicy(lb.node, in.CorsPolicy))
-	}
-
-	return out
+	return istio_route.TranslateRoute(
+		lb.node,
+		in,
+		match,
+		listenPort,
+		virtualService,
+		meshGateway,
+		opts,
+	)
 }
 
 func (lb *ListenerBuilder) waypointRouteDestination(
@@ -863,14 +833,14 @@ func (lb *ListenerBuilder) waypointRouteDestination(
 		if mp := istio_route.MirrorPercent(in); mp != nil {
 			cluster := lb.getWaypointDestinationCluster(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				istio_route.TranslateRequestMirrorPolicyCluster(cluster, mp))
+				istio_route.TranslateRequestMirrorPolicy(cluster, mp))
 		}
 	}
 	for _, mirror := range in.Mirrors {
 		if mp := istio_route.MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
 			cluster := lb.getWaypointDestinationCluster(mirror.Destination, lb.serviceForHostname(host.Name(mirror.Destination.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				istio_route.TranslateRequestMirrorPolicyCluster(cluster, mp))
+				istio_route.TranslateRequestMirrorPolicy(cluster, mp))
 		}
 	}
 
