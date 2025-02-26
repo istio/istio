@@ -18,12 +18,15 @@ import (
 	"bytes"
 	"net/netip"
 	"os/exec"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
 	"testing"
 
+	// Create a new mount namespace.
+	"github.com/howardjohn/unshare-go/mountns"
 	// Create a new network namespace. This will have the 'lo' interface ready but nothing else.
 	_ "github.com/howardjohn/unshare-go/netns"
 	// Create a new user namespace. This will map the current UID/GID to 0.
@@ -423,12 +426,13 @@ func setup(t *testing.T) {
 		assert.NoError(t, userns.WriteGroupMap(map[uint32]uint32{userns.OriginalGID(): 0}))
 		// Istio iptables expects to find a non-localhost IP in some interface
 		assert.NoError(t, exec.Command("ip", "addr", "add", "240.240.240.240/32", "dev", "lo").Run())
+		// Put a new file we have permission to access over xtables.lock
+		xtables := filepath.Join(t.TempDir(), "xtables.lock")
+		_, err := os.Create(xtables)
+		assert.NoError(t, err)
+		_ = os.Mkdir("/run", 0o777)
+		_ = mountns.BindMount(xtables, "/run/xtables.lock")
 	})
-
-	tempDir := t.TempDir()
-	xtables := filepath.Join(tempDir, "xtables.lock")
-	// Override lockfile directory so that we don't need to unshare the mount namespace
-	t.Setenv("XTABLES_LOCKFILE", xtables)
 }
 
 func TestIdempotentUnequaledRerun(t *testing.T) {
@@ -473,7 +477,7 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 				assert.Equal(t, residueExists, true) // residue found due to extra OUTPUT rule
 				assert.Equal(t, deltaExists, true)
 				// Remove additional rule
-				cmd := exec.Command("iptables", "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
+				cmd := exec.Command(iptVer.DetectedBinary, "-t", "nat", "-D", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
 				cmd.Stdout = &stdout
 				cmd.Stderr = &stderr
 				if err := cmd.Run(); err != nil {
@@ -492,7 +496,7 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 			assert.Equal(t, deltaExists, false, "found delta on first pass")
 
 			// Diverge from installation
-			cmd := exec.Command("iptables", "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
+			cmd := exec.Command(iptVer.DetectedBinary, "-t", "nat", "-A", "OUTPUT", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
 			if err := cmd.Run(); err != nil {
@@ -504,7 +508,7 @@ func TestIdempotentUnequaledRerun(t *testing.T) {
 			assert.Equal(t, residueExists, true, "did not find residue on second pass")
 			assert.Equal(t, deltaExists, false, "found delta on second pass")
 
-			cmd = exec.Command("iptables", "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
+			cmd = exec.Command(iptVer.DetectedBinary, "-t", "nat", "-A", "ISTIO_INBOUND", "-p", "tcp", "--dport", "123", "-j", "ACCEPT")
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
 			if err := cmd.Run(); err != nil {
