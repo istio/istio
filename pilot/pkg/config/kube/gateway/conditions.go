@@ -122,8 +122,26 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 	// Now we fill in all the parents we do own
 	for k, gw := range report {
 		msg := "Route was valid"
+
+		parentType := func(kind *k8s.Kind) string {
+			defaultParents := "listeners"
+			if kind == nil {
+				return defaultParents
+			}
+
+			switch string(*kind) {
+			case gvk.Service.Kind:
+				return "services"
+			case gvk.ServiceEntry.Kind:
+				return "service entries"
+			default:
+				return defaultParents
+			}
+		}
+
 		if successCount[k] > 1 {
-			msg = fmt.Sprintf("Route was valid, bound to %d parents listeners", successCount[k])
+			msg = fmt.Sprintf("Route was valid, bound to %d parents %s",
+				successCount[k], parentType(k.Kind))
 		}
 		conds := map[string]*condition{
 			string(k8s.RouteConditionAccepted): {
