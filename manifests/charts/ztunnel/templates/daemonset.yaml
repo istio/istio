@@ -183,8 +183,16 @@ spec:
               expirationSeconds: 43200
               audience: istio-ca
       - name: istiod-ca-cert
+        {{- if (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API }}
+        projected:
+          sources:
+          - clusterTrustBundle:
+              name: istio-ca-root-cert
+              path: root-cert.pem
+        {{- else }}
         configMap:
           name: istio-ca-root-cert
+        {{- end }}
       - name: cni-ztunnel-sock-dir
         hostPath:
           path: /var/run/ztunnel

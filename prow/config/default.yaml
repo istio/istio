@@ -27,3 +27,8 @@ containerdConfigPatches:
   - |-
     [plugins."io.containerd.grpc.v1.cri".registry]
       config_path = "/etc/containerd/certs.d"
+featureGates:
+  "ClusterTrustBundle": true
+  "ClusterTrustBundleProjection": true
+runtimeConfig:
+  "certificates.k8s.io/v1alpha1/clustertrustbundles": true

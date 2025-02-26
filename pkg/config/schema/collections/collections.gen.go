@@ -12,6 +12,7 @@ import (
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapiautoscalingv2 "k8s.io/api/autoscaling/v2"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
+	k8sioapicertificatesv1alpha1 "k8s.io/api/certificates/v1alpha1"
 	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
@@ -63,6 +64,21 @@ var (
 		Proto:      "k8s.io.api.certificates.v1.CertificateSigningRequestSpec", StatusProto: "k8s.io.api.certificates.v1.CertificateSigningRequestStatus",
 		ReflectType: reflect.TypeOf(&k8sioapicertificatesv1.CertificateSigningRequestSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapicertificatesv1.CertificateSigningRequestStatus{}).Elem(),
 		ProtoPackage: "k8s.io/api/certificates/v1", StatusPackage: "k8s.io/api/certificates/v1",
+		ClusterScoped: true,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
+	ClusterTrustBundle = resource.Builder{
+		Identifier:    "ClusterTrustBundle",
+		Group:         "certificates.k8s.io",
+		Kind:          "ClusterTrustBundle",
+		Plural:        "clustertrustbundles",
+		Version:       "v1alpha1",
+		Proto:         "k8s.io.api.certificates.v1alpha1.ClusterTrustBundleSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapicertificatesv1alpha1.ClusterTrustBundleSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/certificates/v1alpha1",
 		ClusterScoped: true,
 		Synthetic:     false,
 		Builtin:       true,
@@ -773,6 +789,7 @@ var (
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
 		MustAdd(CertificateSigningRequest).
+		MustAdd(ClusterTrustBundle).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
 		MustAdd(DaemonSet).
@@ -821,6 +838,7 @@ var (
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
 		MustAdd(CertificateSigningRequest).
+		MustAdd(ClusterTrustBundle).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
 		MustAdd(DaemonSet).

@@ -117,6 +117,12 @@ rules:
 {{- end }}
     verbs: ["approve"]
 {{- end}}
+{{- if (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API }}
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - "clustertrustbundles"
+    verbs: ["update", "create", "delete"]
+{{- end }}
 
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]

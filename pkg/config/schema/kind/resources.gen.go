@@ -11,6 +11,7 @@ const (
 	Address Kind = iota
 	AuthorizationPolicy
 	CertificateSigningRequest
+	ClusterTrustBundle
 	ConfigMap
 	CustomResourceDefinition
 	DNSName
@@ -65,6 +66,8 @@ func (k Kind) String() string {
 		return "AuthorizationPolicy"
 	case CertificateSigningRequest:
 		return "CertificateSigningRequest"
+	case ClusterTrustBundle:
+		return "ClusterTrustBundle"
 	case ConfigMap:
 		return "ConfigMap"
 	case CustomResourceDefinition:
@@ -164,6 +167,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return AuthorizationPolicy
 	case gvk.CertificateSigningRequest:
 		return CertificateSigningRequest
+	case gvk.ClusterTrustBundle:
+		return ClusterTrustBundle
 	case gvk.ConfigMap:
 		return ConfigMap
 	case gvk.CustomResourceDefinition:

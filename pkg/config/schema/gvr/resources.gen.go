@@ -10,6 +10,7 @@ var (
 	AuthorizationPolicy            = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1", Resource: "authorizationpolicies"}
 	AuthorizationPolicy_v1beta1    = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "authorizationpolicies"}
 	CertificateSigningRequest      = schema.GroupVersionResource{Group: "certificates.k8s.io", Version: "v1", Resource: "certificatesigningrequests"}
+	ClusterTrustBundle             = schema.GroupVersionResource{Group: "certificates.k8s.io", Version: "v1alpha1", Resource: "clustertrustbundles"}
 	ConfigMap                      = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	CustomResourceDefinition       = schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
 	DaemonSet                      = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
@@ -91,6 +92,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 	case AuthorizationPolicy_v1beta1:
 		return false
 	case CertificateSigningRequest:
+		return true
+	case ClusterTrustBundle:
 		return true
 	case ConfigMap:
 		return false
