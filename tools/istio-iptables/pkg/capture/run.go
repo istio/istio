@@ -41,10 +41,10 @@ const (
 type IptablesConfigurator struct {
 	ruleBuilder *builder.IptablesRuleBuilder
 	// TODO(abhide): Fix dep.Dependencies with better interface
-	ext dep.Dependencies
-	cfg *config.Config
-	iptV   dep.IptablesVersion
-	ipt6V  dep.IptablesVersion
+	ext   dep.Dependencies
+	cfg   *config.Config
+	iptV  dep.IptablesVersion
+	ipt6V dep.IptablesVersion
 }
 
 func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) (*IptablesConfigurator, error) {
@@ -62,8 +62,8 @@ func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) (*Iptable
 		ruleBuilder: builder.NewIptablesRuleBuilder(cfg),
 		ext:         ext,
 		cfg:         cfg,
-		iptV: iptVer,
-		ipt6V: ipt6Ver,
+		iptV:        iptVer,
+		ipt6V:       ipt6Ver,
 	}, nil
 }
 

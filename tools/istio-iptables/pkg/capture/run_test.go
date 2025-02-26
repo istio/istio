@@ -424,7 +424,6 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 var initialized = &sync.Once{}
 
 func setup(t *testing.T) {
-
 	initialized.Do(func() {
 		// Setup group namespace so iptables --gid-owner will work
 		assert.NoError(t, userns.WriteGroupMap(map[uint32]uint32{userns.OriginalGID(): 0}))
