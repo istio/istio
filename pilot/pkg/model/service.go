@@ -921,7 +921,6 @@ type AmbientIndexes interface {
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
 	ServicesForWaypoint(WaypointKey) []ServiceInfo
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
-	ServicesForNetworkGateway(WaypointKey) []ServiceInfo
 }
 
 // WaypointKey is a multi-address extension of NetworkAddress which is commonly used for lookups in AmbientIndex
@@ -1011,10 +1010,6 @@ func (u NoopAmbientIndexes) ServicesWithWaypoint(string) []ServiceWaypointInfo {
 	return nil
 }
 
-func (u NoopAmbientIndexes) ServicesForNetworkGateway(WaypointKey) []ServiceInfo {
-	return nil
-}
-
 var _ AmbientIndexes = NoopAmbientIndexes{}
 
 type AddressInfo struct {
@@ -1081,9 +1076,8 @@ type ServiceInfo struct {
 	// PortNames provides a mapping of ServicePort -> port names. Note these are only used internally, not sent over XDS
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
-	Source         TypedObject
-	Waypoint       WaypointBindingStatus
-	NetworkGateway WaypointBindingStatus
+	Source   TypedObject
+	Waypoint WaypointBindingStatus
 	// MarshaledAddress contains the pre-marshaled representation.
 	// Note: this is an Address -- not a Service.
 	MarshaledAddress *anypb.Any
