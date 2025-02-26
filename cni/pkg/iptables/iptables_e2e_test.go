@@ -16,7 +16,6 @@ package iptables
 
 import (
 	"bytes"
-	"fmt"
 	"os/exec"
 	"path/filepath"
 	"sync"
