@@ -653,10 +653,6 @@ type Service struct {
 	// Waypoint is the waypoint proxy for this service. When set, all incoming requests must go
 	// through the waypoint.
 	Waypoint *GatewayAddress `protobuf:"bytes,7,opt,name=waypoint,proto3" json:"waypoint,omitempty"`
-	// local_network_gateway is the gateway through which this service
-	// is exposed. When set, this gateways will be programmed
-	// to service cross-network traffic to this service.
-	LocalNetworkGateway *GatewayAddress `protobuf:"bytes,11,opt,name=local_network_gateway,json=localNetworkGateway,proto3" json:"local_network_gateway,omitempty"`
 	// Load balancing policy for selecting endpoints.
 	// Note: this applies only to connecting directly to the workload; when waypoints are used, the waypoint's load_balancing
 	// configuration is used.
@@ -744,13 +740,6 @@ func (x *Service) GetSubjectAltNames() []string {
 func (x *Service) GetWaypoint() *GatewayAddress {
 	if x != nil {
 		return x.Waypoint
-	}
-	return nil
-}
-
-func (x *Service) GetLocalNetworkGateway() *GatewayAddress {
-	if x != nil {
-		return x.LocalNetworkGateway
 	}
 	return nil
 }

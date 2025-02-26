@@ -65,17 +65,6 @@ func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceI
 	return res
 }
 
-func (c *Controller) ServicesForNetworkGateway(key model.WaypointKey) []model.ServiceInfo {
-	if !features.EnableAmbientMultiNetwork {
-		return nil
-	}
-	var res []model.ServiceInfo
-	for _, p := range c.GetRegistries() {
-		res = append(res, p.ServicesForNetworkGateway(key)...)
-	}
-	return res
-}
-
 func (c *Controller) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
 	if !features.EnableAmbient {
 		return nil

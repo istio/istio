@@ -87,11 +87,9 @@ type waypointsCollection struct {
 
 type servicesCollection struct {
 	krt.Collection[model.ServiceInfo]
-	ByAddress                      krt.Index[networkAddress, model.ServiceInfo]
-	ByOwningWaypointHostname       krt.Index[NamespaceHostname, model.ServiceInfo]
-	ByOwningWaypointIP             krt.Index[networkAddress, model.ServiceInfo]
-	ByOwningNetworkGatewayHostname krt.Index[NamespaceHostname, model.ServiceInfo]
-	ByOwningNetworkGatewayIP       krt.Index[networkAddress, model.ServiceInfo]
+	ByAddress                krt.Index[networkAddress, model.ServiceInfo]
+	ByOwningWaypointHostname krt.Index[NamespaceHostname, model.ServiceInfo]
+	ByOwningWaypointIP       krt.Index[networkAddress, model.ServiceInfo]
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -411,68 +409,13 @@ func New(options Options) Index {
 		ByOwningWaypointHostname: WorkloadWaypointIndexHostname,
 		ByOwningWaypointIP:       WorkloadWaypointIndexIP,
 	}
-	serviceCollection := servicesCollection{
+	a.services = servicesCollection{
 		Collection:               WorkloadServices,
 		ByAddress:                ServiceAddressIndex,
 		ByOwningWaypointHostname: ServiceInfosByOwningWaypointHostname,
 		ByOwningWaypointIP:       ServiceInfosByOwningWaypointIP,
 	}
 
-	if features.EnableAmbientMultiNetwork {
-		ServiceInfosByOwningNetworkGatewayHostname := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
-			// Filter out waypoint services
-			// TODO: we are looking at the *selector* -- we should be looking the labels themselves or something equivalent.
-			if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
-				return nil
-			}
-			// Filter out east west gateway services
-			if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
-				return nil
-			}
-
-			gw := s.Service.LocalNetworkGateway
-			if gw == nil {
-				return nil
-			}
-			gwAddress := gw.GetHostname()
-			if gwAddress == nil {
-				return nil
-			}
-
-			return []NamespaceHostname{{
-				Namespace: gwAddress.Namespace,
-				Hostname:  gwAddress.Hostname,
-			}}
-		})
-		ServiceInfosByOwningNetworkGatewayIP := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []networkAddress {
-			// Filter out waypoint services
-			if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
-				return nil
-			}
-			// Filter out east west gateway services
-			if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
-				return nil
-			}
-			gw := s.Service.LocalNetworkGateway
-			if gw == nil {
-				return nil
-			}
-			gwAddress := gw.GetAddress()
-			if gwAddress == nil {
-				return nil
-			}
-			netip, _ := netip.AddrFromSlice(gwAddress.Address)
-			netaddr := networkAddress{
-				network: gwAddress.Network,
-				ip:      netip.String(),
-			}
-			log.Infof("found service %v for network gateway %v", s.ResourceName(), netaddr)
-			return []networkAddress{netaddr}
-		})
-		serviceCollection.ByOwningNetworkGatewayHostname = ServiceInfosByOwningNetworkGatewayHostname
-		serviceCollection.ByOwningNetworkGatewayIP = ServiceInfosByOwningNetworkGatewayIP
-	}
-	a.services = serviceCollection
 	a.waypoints = waypointsCollection{
 		Collection: Waypoints,
 	}
@@ -623,35 +566,6 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 
 	for _, addr := range key.Addresses {
 		for _, res := range a.services.ByOwningWaypointIP.Lookup(networkAddress{
-			network: key.Network,
-			ip:      addr,
-		}) {
-			name := res.ResourceName()
-			if _, f := out[name]; !f {
-				out[name] = res
-			}
-		}
-	}
-	// Response is unsorted; it is up to the caller to sort
-	return maps.Values(out)
-}
-
-func (a *index) ServicesForNetworkGateway(key model.WaypointKey) []model.ServiceInfo {
-	out := map[string]model.ServiceInfo{}
-	for _, host := range key.Hostnames {
-		for _, res := range a.services.ByOwningNetworkGatewayHostname.Lookup(NamespaceHostname{
-			Namespace: key.Namespace,
-			Hostname:  host,
-		}) {
-			name := res.ResourceName()
-			if _, f := out[name]; !f {
-				out[name] = res
-			}
-		}
-	}
-
-	for _, addr := range key.Addresses {
-		for _, res := range a.services.ByOwningNetworkGatewayIP.Lookup(networkAddress{
 			network: key.Network,
 			ip:      addr,
 		}) {

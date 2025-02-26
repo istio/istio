@@ -257,8 +257,6 @@ github.com/jpillora/backoff v1.0.0 h1:uvFg412JmmHBHw7iwprIxkPMI+sGQ4kzOWsMeHnm2E
 github.com/jpillora/backoff v1.0.0/go.mod h1:J/6gKK9jxlEcS3zixgDgUAsiuZ7yrSoa/FX5e0EB2j4=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
-github.com/keithmattix/istio-api v0.0.0-20250202022128-0cf724b60c81 h1:tXqdu3GwdT4eyyZuXqJyBSv1D02sl1dNI8s0BSfelIQ=
-github.com/keithmattix/istio-api v0.0.0-20250202022128-0cf724b60c81/go.mod h1:QFzEXv/IT582T0FHZVp1QoolvE4ws0zz/vVO55blmlE=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.17.11 h1:In6xLpyWOi1+C7tXUUWv2ot1QvBjxevKAaI6IXrJmUc=
@@ -649,14 +647,6 @@ istio.io/api v1.25.0-alpha.0.0.20250222071153-e40a0163c7c3 h1:jp6cU3ci+n4ixsD8Ms
 istio.io/api v1.25.0-alpha.0.0.20250222071153-e40a0163c7c3/go.mod h1:QFzEXv/IT582T0FHZVp1QoolvE4ws0zz/vVO55blmlE=
 istio.io/client-go v1.25.0-alpha.0.0.20250222071552-76576de71e4a h1:JKvYr1+dsew13VZQMW4qTam14s0ABaLommEo7BgwQic=
 istio.io/client-go v1.25.0-alpha.0.0.20250222071552-76576de71e4a/go.mod h1:Vwq7dXJrRDcTbZ/OpCp/tv/o8mG7nMjHyK/dr71tNbs=
-istio.io/api v1.25.0-alpha.0.0.20250219222751-f4ae20b76d6e h1:SVOV+/E653H+T3qag+g4HkKObjVfOEiTYA1BtobtAUY=
-istio.io/api v1.25.0-alpha.0.0.20250219222751-f4ae20b76d6e/go.mod h1:QFzEXv/IT582T0FHZVp1QoolvE4ws0zz/vVO55blmlE=
-istio.io/client-go v1.25.0-alpha.0.0.20250219223050-f56591e7d32b h1:SVcxvxaRNlBVxY2N4ap/dzAoFpYdtGoxiWKnc7GgEfk=
-istio.io/client-go v1.25.0-alpha.0.0.20250219223050-f56591e7d32b/go.mod h1:tup/qOkyTILZNTtuswKaEApJgdLkKAICowBurnPDyNk=
-istio.io/api v1.25.0-alpha.0.0.20250210220544-0b64afd2de85 h1:KF66OoTkvx1Qj5DEQkLVd+X/Ido/P+do17FdpA4ODA8=
-istio.io/api v1.25.0-alpha.0.0.20250210220544-0b64afd2de85/go.mod h1:QFzEXv/IT582T0FHZVp1QoolvE4ws0zz/vVO55blmlE=
-istio.io/client-go v1.25.0-alpha.0.0.20250210220843-5a4065fded65 h1:JikKtnwGCV1hhTqmn5aOkC3CK4jZfpHQk6ZB40r/IMQ=
-istio.io/client-go v1.25.0-alpha.0.0.20250210220843-5a4065fded65/go.mod h1:40cl7CY83rmIUgLHYXNX5uGDhkx4tBZgzxqUpzTjV/A=
 k8s.io/api v0.32.1 h1:f562zw9cy+GvXzXf0CKlVQ7yHJVYzLfL6JAS4kOAaOc=
 k8s.io/api v0.32.1/go.mod h1:/Yi/BqkuueW1BgpoePYBRdDYfjPF5sgTr5+YqDZra5k=
 k8s.io/apiextensions-apiserver v0.32.1 h1:hjkALhRUeCariC8DiVmb5jj0VjIc1N0DREP32+6UXZw=

@@ -130,7 +130,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	policy *networking.TrafficPolicy,
 	drConfig *config.Config,
 ) *cluster.Cluster {
-	// TODO: is this enough? Probably since we validate no extra listeners are present in the conversion later
+	// TODO: is this enough? Probably since we validate no extra listeners are present in the conversion layer
 	terminate := isEastWestGateway(proxy)
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 

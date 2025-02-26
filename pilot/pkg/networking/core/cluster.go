@@ -238,13 +238,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughCluster())
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	case model.Waypoint:
-		isEastWest := isEastWestGateway(proxy)
-		var wps *waypointServices
-		if isEastWest {
-			wps = findNetworkGatewayResources(proxy, req.Push)
-		} else {
-			_, wps = findWaypointResources(proxy, req.Push)
-		}
+		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		emptyPatcher := clusterPatcher{} // EnvoyFilter is not implemented for waypoints
 		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches)
