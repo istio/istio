@@ -77,12 +77,11 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// 1. Decapsulation CONNECT listener.
 	// 2. IP dispatch listener, handling both VIPs and direct pod IPs.
 	// 3. Encapsulation CONNECT listener, originating the tunnel
-	// TODO: is this sufficient to check?
 	var wls []model.WorkloadInfo
 	var wps *waypointServices
 	var forwarder *listener.Listener
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
-		wps = findNetworkGatewayResources(lb.node, lb.push)
+		wps = nil // TODO: implement service export functionality
 		forwarder = buildWaypointForwardInnerConnectListener(lb.push, lb.node)
 	} else {
 		wls, wps = findWaypointResources(lb.node, lb.push)
@@ -229,7 +228,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
-	terminate := isEastWestGateway(lb.node)
+	isEastWestGateway := isEastWestGateway(lb.node)
 	ipMatcher := &matcher.IPMatcher{}
 	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{
 		Map: make(map[string]*matcher.Matcher_OnMatch),
@@ -310,7 +309,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			origDst := svc.GetAddressForProxy(lb.node) + ":" + portString
 			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
 			var filters []*listener.Filter
-			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork && !terminate{
+			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork && !isEastWestGateway {
 				filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
 			}
 			tcpChain = &listener.FilterChain{
@@ -322,10 +321,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				Filters: append(slices.Clone(filters), lb.buildWaypointInboundHTTPFilters(svc, cc)...),
 				Name:    cc.clusterName,
 			}
-			if terminate && features.EnableAmbientMultiNetwork {
-				// First we need to check if this service has a waypoint
-				// If it does, we need to send to the waypoint, not the service
-
+			if isEastWestGateway && features.EnableAmbientMultiNetwork {
 				// We want to send to all ports regardless of protocol, but we want the filter chains to tcp proxy no matter what
 				// (since we're expecting double-hbone). There's no point in sniffing, so we just send to the TCP chain.
 				chains = append(chains, tcpChain)
@@ -392,7 +388,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 	}
 
 	// TODO: is this correct?
-	if !terminate {
+	if !isEastWestGateway {
 		// Direct pod access chain.
 		cc := inboundChainConfig{
 			clusterName: EncapClusterName,
@@ -569,12 +565,12 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 	// Set access logs. These are filtered down to only connection establishment errors, to avoid double logs in most cases.
 	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, class)
 	l := &listener.Listener{
-		Name:           clusterName,
-		UseOriginalDst: wrappers.Bool(false),
+		Name:              clusterName,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
 			xdsfilters.OriginalDestination,
 		},
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
 				Name: wellknown.TCPProxy,
@@ -1021,10 +1017,6 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 		// Ensure TLS 1.3 is used everywhere
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
-	}
-	if isEastWestGateway(proxy) {
-		// The gateway should accept TLS 1.2 for compatibility with older clients.
-		ctx.TlsParams.TlsMinimumProtocolVersion = tls.TlsParameters_TLSv1_2
 	}
 	// Compliance for Envoy tunnel TLS contexts.
 	security.EnforceCompliance(ctx)

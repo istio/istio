@@ -182,9 +182,6 @@ func (this *Service) EqualVT(that *Service) bool {
 			}
 		}
 	}
-	if !this.LocalNetworkGateway.EqualVT(that.LocalNetworkGateway) {
-		return false
-	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -734,16 +731,6 @@ func (m *Service) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
-	}
-	if m.LocalNetworkGateway != nil {
-		size, err := m.LocalNetworkGateway.MarshalToSizedBufferVTStrict(dAtA[:i])
-		if err != nil {
-			return 0, err
-		}
-		i -= size
-		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
-		i--
-		dAtA[i] = 0x5a
 	}
 	if len(m.Extensions) > 0 {
 		for iNdEx := len(m.Extensions) - 1; iNdEx >= 0; iNdEx-- {
@@ -1696,10 +1683,6 @@ func (m *Service) SizeVT() (n int) {
 			l = e.SizeVT()
 			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
-	}
-	if m.LocalNetworkGateway != nil {
-		l = m.LocalNetworkGateway.SizeVT()
-		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n
