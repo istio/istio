@@ -2593,7 +2593,3 @@ func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
 func (ps *PushContext) ServicesWithWaypoint(key string) []ServiceWaypointInfo {
 	return ps.ambientIndex.ServicesWithWaypoint(key)
 }
-
-func (ps *PushContext) ServicesForNetworkGateway(key WaypointKey) []ServiceInfo {
-	return ps.ambientIndex.ServicesForNetworkGateway(key)
-}
