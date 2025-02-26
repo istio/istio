@@ -263,6 +263,9 @@ var (
 
 	EnableGatewayAPIManualDeployment = env.Register("ENABLE_GATEWAY_API_MANUAL_DEPLOYMENT", true,
 		"If true, allows users to bind Gateway API resources to existing gateway deployments.").Get()
+
+	EnableClusterTrustBundles = env.Register("ENABLE_CLUSTER_TRUST_BUNDLE_API", false,
+		"If enabled, uses the ClusterTrustBundle API instead of ConfigMaps to store the root certificate in the cluster.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
