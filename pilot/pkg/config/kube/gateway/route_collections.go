@@ -115,7 +115,6 @@ func HTTPRouteCollection(
 					if ses != nil {
 						vsHosts = ses.Spec.Hosts
 					} else {
-						log.Errorf("howardjohn: NO SE FOUNd %v", ref.String())
 						// TODO: report an error
 						vsHosts = []string{}
 					}
@@ -134,16 +133,7 @@ func HTTPRouteCollection(
 					// TODO: standardize a status message for this upstream and report
 					continue
 				}
-				//if cfg := routeMap[routeKey][h]; cfg != nil {
-				//	merge http routes
-				//vs := cfg.Spec.(*istio.VirtualService)
-				//vs.Http = append(vs.Http, routes...)
-				//append parents
-				//cfg.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s/%s.%s",
-				//	cfg.Annotations[constants.InternalParentNames], obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
-				//} else {
 				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
-				sortHTTPRoutes(routes) // TODO: howardjohn: remove dup
 				annos := routeMeta(obj)
 				annos["TODO"] = fmt.Sprintf(routeKey + "/" + h)
 				virtualServices = append(virtualServices, config.Config{
@@ -177,10 +167,8 @@ func HTTPRouteCollection(
 		for _, configs := range byKey {
 			sortConfigByCreationTime(configs)
 			base := configs[0].DeepCopy()
-			log.Errorf("howardjohn: base: %v %v", base.Name, base.Namespace)
 			baseVS := base.Spec.(*istio.VirtualService)
 			for _, config := range configs[1:] {
-				log.Errorf("howardjohn: merge in %v %v", config.Name, config.Namespace)
 				thisVS := config.Spec.(*istio.VirtualService)
 				baseVS.Http = append(baseVS.Http, thisVS.Http...)
 				// append parents
@@ -283,7 +271,6 @@ func GRPCRouteCollection(
 					if ses != nil {
 						vsHosts = ses.Spec.Hosts
 					} else {
-						log.Errorf("howardjohn: NO SE FOUNd %v", ref.String())
 						// TODO: report an error
 						vsHosts = []string{}
 					}
@@ -302,16 +289,7 @@ func GRPCRouteCollection(
 					// TODO: standardize a status message for this upstream and report
 					continue
 				}
-				//if cfg := routeMap[routeKey][h]; cfg != nil {
-				//	merge http routes
-				//vs := cfg.Spec.(*istio.VirtualService)
-				//vs.Http = append(vs.Http, routes...)
-				//append parents
-				//cfg.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s/%s.%s",
-				//	cfg.Annotations[constants.InternalParentNames], obj.GroupVersionKind.Kind, obj.Name, obj.Namespace)
-				//} else {
 				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
-				sortHTTPRoutes(routes) // TODO: howardjohn: remove dup
 				annos := routeMeta(obj)
 				annos["TODO"] = fmt.Sprintf(routeKey + "/" + h)
 				virtualServices = append(virtualServices, config.Config{
@@ -345,10 +323,8 @@ func GRPCRouteCollection(
 		for _, configs := range byKey {
 			sortConfigByCreationTime(configs)
 			base := configs[0].DeepCopy()
-			log.Errorf("howardjohn: base: %v %v", base.Name, base.Namespace)
 			baseVS := base.Spec.(*istio.VirtualService)
 			for _, config := range configs[1:] {
-				log.Errorf("howardjohn: merge in %v %v", config.Name, config.Namespace)
 				thisVS := config.Spec.(*istio.VirtualService)
 				baseVS.Http = append(baseVS.Http, thisVS.Http...)
 				// append parents
@@ -378,13 +354,7 @@ func TCPRouteCollection(
 		status := obj.Status.DeepCopy()
 		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
-		log.Errorf("howardjohn: extract for %v", config.NamespacedName(obj))
 		parentRefs := extractParentReferenceInfo(ctx.Krt, ctx.RouteParents, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
-		log.Errorf("howardjohn: done extract")
-		for _, p := range parentRefs {
-			log.Errorf("howardjohn: got p %+v", p)
-		}
-		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
 
 		type conversionResult struct {
 			error  *ConfigError
@@ -491,8 +461,6 @@ func TLSRouteCollection(
 		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
 		parentRefs := extractParentReferenceInfo(ctx.Krt, inputs.RouteParents, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
-
-		log.Errorf("howardjohn: compute for %T %v", obj, obj.GroupVersionKind())
 
 		type conversionResult struct {
 			error  *ConfigError

@@ -256,7 +256,6 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 		}
 	} else {
 		route, backendErr, err := buildHTTPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
-		log.Errorf("howardjohn: backendErr %v %v", backendErr, err)
 		if err != nil {
 			return nil, err
 		}
@@ -2032,7 +2031,6 @@ func buildHostnameMatch(ctx krt.HandlerContext, localNamespace string, Namespace
 	}
 
 	resp := []string{}
-	log.Errorf("howardjohn: call namespacesFromSelector")
 	for _, ns := range namespacesFromSelector(ctx, localNamespace, Namespaces, l.AllowedRoutes) {
 		// This check is necessary to prevent adding a hostname with an invalid empty namespace
 		if len(ns) > 0 {

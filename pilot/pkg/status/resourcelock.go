@@ -16,7 +16,6 @@ package status
 
 import (
 	"context"
-	"istio.io/istio/pkg/log"
 	"strconv"
 	"sync"
 
@@ -217,8 +216,6 @@ func (wp *WorkerPool) maybeAddWorker() {
 					cfg.Status = sm.Unwrap()
 					wp.write(cfg)
 				}
-			} else {
-				log.Errorf("howardjohn: no find %v", target)
 			}
 			wp.lock.Lock()
 			wp.currentlyWorking.Delete(convert(target))
