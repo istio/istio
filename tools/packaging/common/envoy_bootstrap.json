@@ -305,6 +305,37 @@
           }]
         }
       },
+      {{- if .custom_file_path }}
+      {
+        "name": "sds-files-grpc",
+        "alt_stat_name": "sds-files-grpc;",
+        "type": "STATIC",
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        },
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "load_assignment": {
+          "cluster_name": "sds-files-grpc",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "pipe": {
+                    "path": "{{ .custom_file_path }}"
+                  }
+                }
+              }
+            }]
+          }]
+        }
+      },
+      {{- end }}
       {
         "name": "xds-grpc",
         "alt_stat_name": "xds-grpc;",
