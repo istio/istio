@@ -38,7 +38,6 @@ func GatewayClassesCollection(
 	krt.Collection[GatewayClass],
 ) {
 	return krt.NewStatusCollection(GatewayClasses, func(ctx krt.HandlerContext, obj *gateway.GatewayClass) (*gateway.GatewayClassStatus, *GatewayClass) {
-		log.Errorf("howardjohn: have GC %+v", obj)
 		_, known := classInfos[obj.Spec.ControllerName]
 		if !known {
 			return nil, nil
@@ -53,17 +52,14 @@ func GatewayClassesCollection(
 
 func fetchClass(ctx krt.HandlerContext, GatewayClasses krt.Collection[GatewayClass], gc gatewayv1.ObjectName) *GatewayClass {
 	class := krt.FetchOne(ctx, GatewayClasses, krt.FilterKey(string(gc)))
-	log.Errorf("howardjohn: class %v", class)
 	if class == nil {
 		if bc, f := builtinClasses[gc]; f {
-			log.Errorf("howardjohn: builtin")
 			// We allow some classes to exist without being in the cluster
 			return &GatewayClass{
 				Name:       string(gc),
 				Controller: bc,
 			}
 		}
-		log.Errorf("howardjohn: nope")
 		// No gateway class found, this may be meant for another controller; should be skipped.
 		return nil
 	}

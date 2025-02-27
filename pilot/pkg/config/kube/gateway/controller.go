@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"time"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -46,7 +45,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 )
@@ -116,7 +114,6 @@ func registerStatus[I controllers.Object, IS any](statusCol krt.Collection[krt.O
 		mu.Lock()
 		defer mu.Unlock()
 		items := statusCol.List()
-		log.Errorf("howardjohn: resync %v items %v", ptr.TypeName[IS](), len(items))
 		for _, l := range items {
 			EnqueueStatus(statusWriter, l.Obj, &l.Status)
 		}
@@ -353,7 +350,6 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 
 func (c *Controller) setStatusQueue(queue status.Queue) {
 	c.statusWriter.statusController.Store(&queue)
-	log.Errorf("howardjohn: run resync %v", len(c.statusWriter.resyncers))
 	for _, rs := range c.statusWriter.resyncers {
 		rs()
 	}
@@ -365,13 +361,6 @@ func (c *Controller) Reconcile(ps *model.PushContext) {
 	ctx := NewGatewayContext(ps, c.cluster)
 	old := c.gatewayContext.Swap(&ctx)
 	if old == nil {
-		go func() {
-			// Terrible hack!!
-			for {
-				time.Sleep(time.Second)
-				c.gatewayContextTrigger.TriggerRecomputation()
-			}
-		}()
 		c.gatewayContextTrigger.MarkSynced()
 	}
 	c.gatewayContextTrigger.TriggerRecomputation()
@@ -452,9 +441,7 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
-	c.outputs.ReferenceGrants.SecretAllowed(nil, resourceName, namespace)
-	panic("TODO")
-	// return c.state.AllowedReferences.SecretAllowed(resourceName, namespace)
+	return c.outputs.ReferenceGrants.SecretAllowed(nil, resourceName, namespace)
 }
 
 // hasResources determines if there are any gateway-api resources created at all.
