@@ -40,6 +40,7 @@ type ZtunnelWorkload struct {
 	Network               string            `json:"network,omitempty"`
 	Status                string            `json:"status"`
 	Hostname              string            `json:"hostname"`
+	Capacity              uint32            `json:"capacity"`
 	ApplicationTunnel     ApplicationTunnel `json:"applicationTunnel,omitempty"`
 	AuthorizationPolicies []string          `json:"authorizationPolicies,omitempty"`
 }
