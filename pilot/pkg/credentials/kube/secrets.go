@@ -76,19 +76,21 @@ type authorizationResponse struct {
 
 var _ credentials.Controller = &CredentialsController{}
 
+// SecretsFieldSelector is an optimization to avoid excessive secret bloat.
+// We only care about TLS certificates and docker config for Wasm image pulling.
+// Unfortunately, it is not as simple as selecting type=kubernetes.io/tls and type=kubernetes.io/dockerconfigjson.
+// Because of legacy reasons and supporting an extra ca.crt, we also support generic types.
+// Its also likely users have started to use random types and expect them to continue working.
+// This makes the assumption we will never care about Helm secrets or SA token secrets - two common
+// large secrets in clusters.
+// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
+var SecretsFieldSelector = fields.AndSelectors(
+	fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
+	fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
+
 func NewCredentialsController(kc kube.Client, handlers []func(name string, namespace string)) *CredentialsController {
-	// We only care about TLS certificates and docker config for Wasm image pulling.
-	// Unfortunately, it is not as simple as selecting type=kubernetes.io/tls and type=kubernetes.io/dockerconfigjson.
-	// Because of legacy reasons and supporting an extra ca.crt, we also support generic types.
-	// Its also likely users have started to use random types and expect them to continue working.
-	// This makes the assumption we will never care about Helm secrets or SA token secrets - two common
-	// large secrets in clusters.
-	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
-	fieldSelector := fields.AndSelectors(
-		fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
-		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
 	secrets := kclient.NewFiltered[*v1.Secret](kc, kclient.Filter{
-		FieldSelector: fieldSelector,
+		FieldSelector: SecretsFieldSelector,
 		ObjectFilter:  kc.ObjectFilter(),
 	})
 
