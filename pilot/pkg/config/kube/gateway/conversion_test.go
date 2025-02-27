@@ -546,20 +546,7 @@ func TestConvertResources(t *testing.T) {
 			stop := test.NewStop(t)
 			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator, nil)
 			kc := kube.NewFakeClient(input...)
-			for _, crd := range []schema.GroupVersionResource{
-				gvr.KubernetesGateway,
-				gvr.ReferenceGrant,
-				gvr.GatewayClass,
-				gvr.HTTPRoute,
-				gvr.GRPCRoute,
-				gvr.TCPRoute,
-				gvr.TLSRoute,
-				gvr.ServiceEntry,
-			} {
-				clienttest.MakeCRDWithAnnotations(t, kc, crd, map[string]string{
-					consts.BundleVersionAnnotation: "v1.1.0",
-				})
-			}
+			setupClientCRDs(t, kc)
 			// Setup a few preconfigured services
 			instances := []*model.ServiceInstance{}
 			for _, svc := range services {
@@ -586,9 +573,7 @@ func TestConvertResources(t *testing.T) {
 			dumpOnFailure(t, dbg)
 			ctrl := NewController(
 				kc,
-				func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
-					return true
-				},
+				AlwaysReady,
 				controller.Options{DomainSuffix: "domain.suffix", KrtDebugger: dbg},
 			)
 			sq := &TestStatusQueue{
@@ -628,12 +613,29 @@ func TestConvertResources(t *testing.T) {
 	}
 }
 
+func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
+	for _, crd := range []schema.GroupVersionResource{
+		gvr.KubernetesGateway,
+		gvr.ReferenceGrant,
+		gvr.GatewayClass,
+		gvr.HTTPRoute,
+		gvr.GRPCRoute,
+		gvr.TCPRoute,
+		gvr.TLSRoute,
+		gvr.ServiceEntry,
+	} {
+		clienttest.MakeCRDWithAnnotations(t, kc, crd, map[string]string{
+			consts.BundleVersionAnnotation: "v1.1.0",
+		})
+	}
+}
+
 func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 	t.Cleanup(func() {
-		if t.Failed() {
-			b, _ := yaml.Marshal(debugger)
-			t.Log(string(b))
-		}
+		// if t.Failed() {
+		b, _ := yaml.Marshal(debugger)
+		t.Log(string(b))
+		//}
 	})
 }
 

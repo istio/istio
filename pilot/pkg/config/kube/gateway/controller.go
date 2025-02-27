@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/config/schema/kind"
 	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -47,6 +48,7 @@ import (
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var log = istiolog.RegisterScope("gateway", "gateway-api controller")
@@ -300,6 +302,25 @@ func NewController(
 	}
 	gatewayController.outputs = outputs
 
+	outputs.VirtualServices.RegisterBatch(pushXds(options.XDSUpdater,
+		func(t config.Config) model.ConfigKey {
+			return model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      t.Name,
+				Namespace: t.Namespace,
+			}
+		}), false)
+
+	outputs.Gateways.RegisterBatch(pushXds(options.XDSUpdater,
+		func(t Gateway) model.ConfigKey {
+			return model.ConfigKey{
+				Kind:      kind.Gateway,
+				Name:      t.Name,
+				Namespace: t.Namespace,
+			}
+		}), false)
+	// TODO: referencegrant update?
+
 	return gatewayController
 }
 
@@ -437,7 +458,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 }
 
 func (c *Controller) HasSynced() bool {
-	return c.outputs.VirtualServices.HasSynced() && c.outputs.Gateways.HasSynced()
+	return c.outputs.VirtualServices.HasSynced() &&
+		c.outputs.Gateways.HasSynced() &&
+		c.outputs.ReferenceGrants.collection.HasSynced()
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
@@ -454,4 +477,26 @@ func (kr GatewayResources) hasResources() bool {
 		len(kr.TCPRoute) > 0 ||
 		len(kr.TLSRoute) > 0 ||
 		len(kr.ReferenceGrant) > 0
+}
+
+func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T], initialSync bool) {
+	return func(events []krt.Event[T], initialSync bool) {
+		cu := sets.New[model.ConfigKey]()
+		for _, e := range events {
+			for _, i := range e.Items() {
+				c := f(i)
+				if c != (model.ConfigKey{}) {
+					cu.Insert(c)
+				}
+			}
+		}
+		if len(cu) == 0 {
+			return
+		}
+		xds.ConfigUpdate(&model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: cu,
+			Reason:         model.NewReasonStats(model.ConfigUpdate),
+		})
+	}
 }
