@@ -107,14 +107,14 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 	// (255 is a nonexistent protocol number, IANA reserved, see `cat /etc/protocols`, so this rule will never match anything)
 	testCmd := exec.Command(iptablesBin, testRuleAdd...)
 
-	var testStdOut bytes.Buffer
-	testCmd.Stdout = &testStdOut
+	var testStdErr bytes.Buffer
+	testCmd.Stderr = &testStdErr
 	testRes := testCmd.Run()
 	// If we can't add a rule to the basic `filter` table, we can't use this binary - bail out.
 	// Otherwise, delete the no-op rule and carry on with other checks
-	if testRes != nil || strings.Contains(testStdOut.String(), "does not exist") {
+	if testRes != nil || strings.Contains(testStdErr.String(), "does not exist") {
 		return IptablesVersion{}, fmt.Errorf("iptables binary %s has no loaded kernel support and cannot be used, err: %v out: %s",
-			iptablesBin, testRes, testStdOut.String())
+			iptablesBin, testRes, testStdErr.String())
 	}
 
 	testRuleDel := append(make([]string, 0, len(testRuleAdd)), testRuleAdd...)
