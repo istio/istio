@@ -621,7 +621,7 @@ func applyHTTPRouteDestination(
 	}
 	for _, mirror := range in.Mirrors {
 		if mp := MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
-			cluster := opts.LookupDestinationCluster(in.Mirror, opts.LookupService(host.Name(in.Mirror.Host)), listenerPort)
+			cluster := opts.LookupDestinationCluster(mirror.Destination, opts.LookupService(host.Name(mirror.Destination.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
 				TranslateRequestMirrorPolicy(cluster, mp))
 		}
@@ -695,7 +695,12 @@ func processDestination(dst *networking.HTTPRouteDestination, opts RouteOptions,
 // processWeightedDestination processes a weighted destination in a route. It specifies to which cluster the route should
 // be routed to. It also sets the headers and hash policy if specified.
 // Returns the hostname of the destination along with its weight.
-func processWeightedDestination(dst *networking.HTTPRouteDestination, opts RouteOptions, listenerPort int, action *route.RouteAction) (*route.WeightedCluster_ClusterWeight, host.Name) {
+func processWeightedDestination(
+	dst *networking.HTTPRouteDestination,
+	opts RouteOptions,
+	listenerPort int,
+	action *route.RouteAction,
+) (*route.WeightedCluster_ClusterWeight, host.Name) {
 	hostname := host.Name(dst.GetDestination().GetHost())
 	clusterWeight := &route.WeightedCluster_ClusterWeight{
 		Name:   opts.LookupDestinationCluster(dst.Destination, opts.LookupService(hostname), listenerPort),

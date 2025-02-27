@@ -17,7 +17,6 @@ package core
 import (
 	"fmt"
 	"net/netip"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -33,7 +32,6 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	envoymatcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	googleproto "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -46,7 +44,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	"istio.io/istio/pilot/pkg/networking/core/match"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/route"
-	"istio.io/istio/pilot/pkg/networking/core/route/retry"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -762,147 +759,6 @@ func (lb *ListenerBuilder) translateWaypointRoute(
 		meshGateway,
 		opts,
 	)
-}
-
-func (lb *ListenerBuilder) waypointRouteDestination(
-	out *route.Route,
-	in *networking.HTTPRoute,
-	authority string,
-	listenerPort int,
-	gatewaySemantics bool,
-) {
-	policy := in.Retries
-	if policy == nil {
-		// No VS policy set, use mesh defaults
-		policy = lb.push.Mesh.GetDefaultHttpRetryPolicy()
-	}
-	action := &route.RouteAction{
-		RetryPolicy: retry.ConvertPolicy(policy, false),
-	}
-
-	// Configure timeouts specified by Virtual Service if they are provided, otherwise set it to defaults.
-	action.Timeout = istio_route.Notimeout
-	if in.Timeout != nil {
-		action.Timeout = in.Timeout
-	}
-	// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-	// TODO: check and see if the replacement has been fixed.
-	// nolint: staticcheck
-	action.MaxGrpcTimeout = action.Timeout
-
-	if gatewaySemantics {
-		// return 500 for invalid backends
-		// https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L204
-		action.ClusterNotFoundResponseCode = route.RouteAction_INTERNAL_SERVER_ERROR
-	}
-	out.Action = &route.Route_Route{Route: action}
-
-	if in.Rewrite != nil {
-		if regexRewrite := in.Rewrite.GetUriRegexRewrite(); regexRewrite != nil {
-			action.RegexRewrite = &envoymatcher.RegexMatchAndSubstitute{
-				Pattern: &envoymatcher.RegexMatcher{
-					Regex: regexRewrite.Match,
-				},
-				Substitution: regexRewrite.Rewrite,
-			}
-		} else if uri := in.Rewrite.GetUri(); uri != "" {
-			if gatewaySemantics && uri == "/" {
-				// remove the prefix
-				action.RegexRewrite = &envoymatcher.RegexMatchAndSubstitute{
-					Pattern: &envoymatcher.RegexMatcher{
-						Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(out.Match.GetPathSeparatedPrefix())),
-					},
-					// hold `/` in case the entire path is removed
-					Substitution: `/\2`,
-				}
-			} else {
-				action.PrefixRewrite = uri
-			}
-		}
-		if in.Rewrite.GetAuthority() != "" {
-			authority = in.Rewrite.GetAuthority()
-		}
-	}
-	if authority != "" {
-		action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
-			HostRewriteLiteral: authority,
-		}
-	}
-
-	if in.Mirror != nil {
-		if mp := istio_route.MirrorPercent(in); mp != nil {
-			cluster := lb.getWaypointDestinationCluster(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort)
-			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				istio_route.TranslateRequestMirrorPolicy(cluster, mp))
-		}
-	}
-	for _, mirror := range in.Mirrors {
-		if mp := istio_route.MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
-			cluster := lb.getWaypointDestinationCluster(mirror.Destination, lb.serviceForHostname(host.Name(mirror.Destination.Host)), listenerPort)
-			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				istio_route.TranslateRequestMirrorPolicy(cluster, mp))
-		}
-	}
-
-	// TODO: eliminate this logic and use the total_weight option in envoy route
-	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
-	for _, dst := range in.Route {
-		weight := &wrappers.UInt32Value{Value: uint32(dst.Weight)}
-		if dst.Weight == 0 {
-			// Ignore 0 weighted clusters if there are other clusters in the route.
-			// But if this is the only cluster in the route, then add it as a cluster with weight 100
-			if len(in.Route) == 1 {
-				weight.Value = uint32(100)
-			} else {
-				continue
-			}
-		}
-		hostname := host.Name(dst.GetDestination().GetHost())
-		n := lb.getWaypointDestinationCluster(dst.Destination, lb.serviceForHostname(hostname), listenerPort)
-		clusterWeight := &route.WeightedCluster_ClusterWeight{
-			Name:   n,
-			Weight: weight,
-		}
-		if dst.Headers != nil {
-			operations := istio_route.TranslateHeadersOperations(dst.Headers)
-			clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
-			clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
-			clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
-			clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
-			if operations.Authority != "" {
-				clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
-					HostRewriteLiteral: operations.Authority,
-				}
-			}
-		}
-
-		weighted = append(weighted, clusterWeight)
-	}
-
-	// rewrite to a single cluster if there is only weighted cluster
-	if len(weighted) == 1 {
-		action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
-		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
-		out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, weighted[0].RequestHeadersToRemove...)
-		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
-		out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
-		if weighted[0].HostRewriteSpecifier != nil && action.HostRewriteSpecifier == nil {
-			// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
-			// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
-			// However, Envoy behavior is different when we set at both cluster level and route level, and we want
-			// behavior to be consistent with a single cluster and multiple clusters.
-			// As a result, we only override if the top level rewrite is not set
-			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
-				HostRewriteLiteral: weighted[0].GetHostRewriteLiteral(),
-			}
-		}
-	} else {
-		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
-			WeightedClusters: &route.WeightedCluster{
-				Clusters: weighted,
-			},
-		}
-	}
 }
 
 // getWaypointDestinationCluster generates a cluster name for the route. If the destination is invalid
