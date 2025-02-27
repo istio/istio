@@ -1,0 +1,216 @@
+---
+# Source: gateway/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gateway
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "gateway"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: gateway-1.0.0
+    app: gateway
+    istio: gateway
+    "istio.io/dataplane-mode": "none"
+---
+# Source: gateway/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gateway
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "gateway"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: gateway-1.0.0
+    app: gateway
+    istio: gateway
+    "istio.io/dataplane-mode": "none"
+  annotations:
+    {}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list"]
+---
+# Source: gateway/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gateway
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "gateway"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: gateway-1.0.0
+    app: gateway
+    istio: gateway
+    "istio.io/dataplane-mode": "none"
+  annotations:
+    {}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gateway
+subjects:
+- kind: ServiceAccount
+  name: gateway
+---
+# Source: gateway/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "gateway"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: gateway-1.0.0
+    app: gateway
+    istio: gateway
+    "istio.io/dataplane-mode": "none"
+  annotations:
+    {}
+spec:
+  type: LoadBalancer
+  ports:
+    - name: status-port
+      port: 15021
+      protocol: TCP
+      targetPort: 15021
+    - name: http2
+      port: 80
+      protocol: TCP
+      targetPort: 80
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: 443
+  selector:
+    app: gateway
+    istio: gateway
+---
+# Source: gateway/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "gateway"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: gateway-1.0.0
+    app: gateway
+    istio: gateway
+    "istio.io/dataplane-mode": "none"
+  annotations:
+    {}
+spec:
+  selector:
+    matchLabels:
+      app: gateway
+      istio: gateway
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: gateway
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/inject: "true"
+      labels:
+        sidecar.istio.io/inject: "true"
+        app: gateway
+        istio: gateway
+        app.kubernetes.io/name: gateway
+        app.kubernetes.io/managed-by: "Helm"
+        app.kubernetes.io/instance: "gateway"
+        app.kubernetes.io/part-of: "istio"
+        app.kubernetes.io/version: "1.0.0"
+        helm.sh/chart: gateway-1.0.0
+        "istio.io/dataplane-mode": "none"
+    spec:
+      serviceAccountName: gateway
+      securityContext:
+        # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      containers:
+        - name: istio-proxy
+          # "auto" will be populated at runtime by the mutating webhook. See https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#customizing-injection
+          image: auto
+          securityContext:
+            capabilities:
+              drop:
+              - ALL
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsUser: 1337
+            runAsGroup: 1337
+            runAsNonRoot: true
+          env:
+          ports:
+          - containerPort: 15090
+            protocol: TCP
+            name: http-envoy-prom
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      terminationGracePeriodSeconds: 30
+---
+# Source: gateway/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: gateway
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "gateway"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: gateway-1.0.0
+    app: gateway
+    istio: gateway
+    "istio.io/dataplane-mode": "none"
+  annotations:
+    {}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: gateway
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          averageUtilization: 80
+          type: Utilization
+---
+# Source: gateway/templates/zzz_profile.yaml
+#  Flatten globals, if defined on a per-chart basis
