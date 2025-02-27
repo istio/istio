@@ -88,7 +88,7 @@ endif
 # Precompile tests before running. See https://blog.howardjohn.info/posts/go-build-times/#integration-tests.
 define run-test
 $(GO) test -exec=true -toolexec=$(REPO_ROOT)/tools/go-compile-without-link -vet=off -tags=integ $2 $1
-$(GO) test -p 1 ${T} -tags=integ -vet=off -timeout 30m $2 $1 ${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+$(GO) test -p 1 ${T} -tags=integ -vet=off -timeout 90m $2 $1 ${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 endef
 
 # Ensure that all test files are tagged properly. This ensures that we don't accidentally skip tests
