@@ -28,6 +28,7 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -74,7 +75,8 @@ type Controller struct {
 	secretHandler model.EventHandler
 
 	// the cluster where the gateway-api controller runs
-	cluster cluster.ID
+	cluster  cluster.ID
+	revision string
 
 	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
@@ -179,32 +181,39 @@ func NewController(
 	gatewayController := &Controller{
 		client:                kc,
 		cluster:               options.ClusterID,
-		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision), // howardjohn: todo
+		revision:              options.Revision,
+		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision),
 		statusWriter:          statusWriter,
 		waitForCRD:            waitForCRD,
 		gatewayContext:        atomic.NewPointer[GatewayContext](nil),
 		gatewayContextTrigger: krt.NewRecomputeTrigger(false, opts.WithName("gatewayContextTrigger")...),
 		stop:                  stop,
 	}
+	gatewayController.tagWatcher.AddHandler(func(s sets.String) {
+		gatewayController.gatewayContextTrigger.TriggerRecomputation()
+	})
 
 	inputs := Inputs{
 		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("Namespaces")...),
 		Secrets: krt.WrapClient[*corev1.Secret](
-			kclient.NewFiltered[*corev1.Secret](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
+			kclient.NewFiltered[*corev1.Secret](kc, kubetypes.Filter{
+				FieldSelector: kubesecrets.SecretsFieldSelector,
+				ObjectFilter:  kc.ObjectFilter(),
+			}),
 			opts.WithName("Secrets")...,
 		),
 		Services: krt.WrapClient[*corev1.Service](
 			kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
 			opts.WithName("Services")...,
 		),
-		GatewayClasses:  buildClient[*gateway.GatewayClass](kc, gvr.GatewayClass, opts, "GatewayClasses"),
-		Gateways:        buildClient[*gateway.Gateway](kc, gvr.KubernetesGateway, opts, "Gateways"),
-		HTTPRoutes:      buildClient[*gateway.HTTPRoute](kc, gvr.HTTPRoute, opts, "HTTPRoutes"),
-		GRPCRoutes:      buildClient[*gatewayv1.GRPCRoute](kc, gvr.GRPCRoute, opts, "GRPCRoutes"),
-		TCPRoutes:       buildClient[*gatewayalpha.TCPRoute](kc, gvr.TCPRoute, opts, "TCPRoutes"),
-		TLSRoutes:       buildClient[*gatewayalpha.TLSRoute](kc, gvr.TLSRoute, opts, "TLSRoutes"),
-		ReferenceGrants: buildClient[*gateway.ReferenceGrant](kc, gvr.ReferenceGrant, opts, "ReferenceGrants"),
-		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](kc, gvr.ServiceEntry, opts, "ServiceEntries"),
+		GatewayClasses:  buildClient[*gateway.GatewayClass](gatewayController, kc, gvr.GatewayClass, opts, "GatewayClasses"),
+		Gateways:        buildClient[*gateway.Gateway](gatewayController, kc, gvr.KubernetesGateway, opts, "Gateways"),
+		HTTPRoutes:      buildClient[*gateway.HTTPRoute](gatewayController, kc, gvr.HTTPRoute, opts, "HTTPRoutes"),
+		GRPCRoutes:      buildClient[*gatewayv1.GRPCRoute](gatewayController, kc, gvr.GRPCRoute, opts, "GRPCRoutes"),
+		TCPRoutes:       buildClient[*gatewayalpha.TCPRoute](gatewayController, kc, gvr.TCPRoute, opts, "TCPRoutes"),
+		TLSRoutes:       buildClient[*gatewayalpha.TLSRoute](gatewayController, kc, gvr.TLSRoute, opts, "TLSRoutes"),
+		ReferenceGrants: buildClient[*gateway.ReferenceGrant](gatewayController, kc, gvr.ReferenceGrant, opts, "ReferenceGrants"),
+		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](gatewayController, kc, gvr.ServiceEntry, opts, "ServiceEntries"),
 	}
 
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
@@ -324,11 +333,23 @@ func NewController(
 	return gatewayController
 }
 
-func buildClient[I controllers.ComparableObject](kc kube.Client, gvr schema.GroupVersionResource, opts krt.OptionsBuilder, name string) krt.Collection[I] {
+func buildClient[I controllers.ComparableObject](
+	c *Controller,
+	kc kube.Client,
+	res schema.GroupVersionResource,
+	opts krt.OptionsBuilder,
+	name string,
+) krt.Collection[I] {
 	filter := kclient.Filter{
-		ObjectFilter: kc.ObjectFilter(),
+		ObjectFilter: kubetypes.ComposeFilters(kc.ObjectFilter(), c.inRevision),
 	}
-	cc := kclient.NewDelayedInformer[I](kc, gvr, kubetypes.StandardInformer, filter)
+
+	// all other types are filtered by revision, but for gateways we need to select tags as well
+	if res == gvr.KubernetesGateway {
+		filter.ObjectFilter = kc.ObjectFilter()
+	}
+
+	cc := kclient.NewDelayedInformer[I](kc, res, kubetypes.StandardInformer, filter)
 	return krt.WrapClient[I](cc, opts.WithName(name)...)
 }
 
@@ -467,20 +488,11 @@ func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
 	return c.outputs.ReferenceGrants.SecretAllowed(nil, resourceName, namespace)
 }
 
-// hasResources determines if there are any gateway-api resources created at all.
-// If not, we can short circuit all processing to avoid excessive work.
-func (kr GatewayResources) hasResources() bool {
-	return len(kr.GatewayClass) > 0 ||
-		len(kr.Gateway) > 0 ||
-		len(kr.HTTPRoute) > 0 ||
-		len(kr.GRPCRoute) > 0 ||
-		len(kr.TCPRoute) > 0 ||
-		len(kr.TLSRoute) > 0 ||
-		len(kr.ReferenceGrant) > 0
-}
-
 func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T], initialSync bool) {
 	return func(events []krt.Event[T], initialSync bool) {
+		if xds == nil {
+			return
+		}
 		cu := sets.New[model.ConfigKey]()
 		for _, e := range events {
 			for _, i := range e.Items() {
@@ -499,4 +511,12 @@ func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		})
 	}
+}
+
+func (c *Controller) inRevision(obj any) bool {
+	object := controllers.ExtractObject(obj)
+	if object == nil {
+		return false
+	}
+	return config.LabelsInRevision(object.GetLabels(), c.revision)
 }
