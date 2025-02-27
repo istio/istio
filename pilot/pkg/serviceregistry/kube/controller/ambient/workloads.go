@@ -19,6 +19,7 @@ import (
 	"net/netip"
 	"strconv"
 
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -173,6 +174,9 @@ func (a *index) workloadEntryWorkloadBuilder(
 			ApplicationTunnel:     appTunnel,
 			TrustDomain:           pickTrustDomain(meshCfg),
 			Locality:              getWorkloadEntryLocality(&wle.Spec),
+		}
+		if wle.Spec.Weight > 0 {
+			w.Capacity = wrappers.UInt32(wle.Spec.Weight)
 		}
 
 		if addr, err := netip.ParseAddr(wle.Spec.Address); err == nil {
@@ -488,6 +492,9 @@ func (a *index) serviceEntryWorkloadBuilder(
 				ApplicationTunnel:     appTunnel,
 				TrustDomain:           pickTrustDomain(meshCfg),
 				Locality:              getWorkloadEntryLocality(wle),
+			}
+			if wle.Weight > 0 {
+				w.Capacity = wrappers.UInt32(wle.Weight)
 			}
 
 			if addr, err := netip.ParseAddr(wle.Address); err == nil {

@@ -16,6 +16,7 @@ syntax = "proto3";
 
 package istio.workload;
 
+import "google/protobuf/wrappers.proto";
 import "google/protobuf/any.proto";
 
 option go_package="pkg/workloadapi";
@@ -266,6 +267,11 @@ message Workload {
 
   // Extension provides a mechanism to attach arbitrary additional configuration to an object.
   repeated Extension extensions = 26;
+
+  // Capacity for this workload.
+  // This represents the amount of traffic the workload can handle, relative to other workloads
+  // If unset, the capacity is default to 1.
+  google.protobuf.UInt32Value capacity = 27;
 
   // Reservations for deleted fields.
   reserved 15;
