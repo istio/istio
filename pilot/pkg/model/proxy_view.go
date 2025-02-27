@@ -48,7 +48,7 @@ func newProxyView(node *Proxy) ProxyView {
 
 	// Restrict the view to the requested networks.
 	return &proxyViewImpl{
-		visible: sets.New(node.Metadata.RequestedNetworkView...).Insert(identifier.Undefined),
+		visible: sets.New[string](node.Metadata.RequestedNetworkView...).Insert(identifier.Undefined),
 		getValue: func(ep *IstioEndpoint) string {
 			return ep.Network.String()
 		},
