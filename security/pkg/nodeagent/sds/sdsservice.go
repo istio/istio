@@ -81,7 +81,7 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 
 	ret.rootCaPath = options.CARootPath
 
-	if options.FileMountedCerts {
+	if options.FileMountedCerts || options.ServeOnlyFiles {
 		return ret
 	}
 

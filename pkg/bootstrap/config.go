@@ -107,11 +107,16 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	if metadataDiscovery != nil && *metadataDiscovery {
 		mDiscovery = true
 	}
+	customSDSPath := ""
+	if _, f := cfg.RawMetadata[security.CredentialFileMetaDataName]; f {
+		customSDSPath = security.FileCredentialNameSocketPath
+	}
 	opts = append(opts,
 		option.NodeID(cfg.ID),
 		option.NodeType(cfg.ID),
 		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
+		option.CustomFileSDSPath(customSDSPath),
 		option.ApplicationLogJSON(cfg.LogAsJSON),
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
@@ -572,6 +577,7 @@ type MetadataOptions struct {
 	ProxyConfig                 *meshAPI.ProxyConfig
 	PilotSubjectAltName         []string
 	CredentialSocketExists      bool
+	CustomCredentialsFileExists bool
 	XDSRootCert                 string
 	OutlierLogPath              string
 	annotationFilePath          string
@@ -711,6 +717,9 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.OutlierLogPath = options.OutlierLogPath
 	if options.CredentialSocketExists {
 		untypedMeta[security.CredentialMetaDataName] = "true"
+	}
+	if options.CustomCredentialsFileExists {
+		untypedMeta[security.CredentialFileMetaDataName] = "true"
 	}
 
 	if meta.MetadataDiscovery == nil {
