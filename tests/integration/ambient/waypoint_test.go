@@ -803,29 +803,37 @@ spec:
     - backendRefs:
         - name: captured
           port: 9090
+          weight: 3
         - name: uncaptured
           port: 9090
+          weight: 1
         - name: service-addressed-waypoint
-          port: 9093`).ApplyOrFail(t)
+          port: 9093
+          weight: 1
+`).ApplyOrFail(t)
 		apps.Captured[0].CallOrFail(t, echo.CallOptions{
 			To:    apps.ServiceAddressedWaypoint,
 			Port:  ports.TCP,
-			Count: 20,
+			Count: 40,
 			Check: check.And(check.OK(), func(result echo.CallResult, err error) error {
-				gotCaptured, gotUncaptured, gotWaypoint := false, false, false
+				gotCaptured, gotUncaptured, gotWaypoint := 0, 0, 0
 				for _, r := range result.Responses {
 					if strings.HasPrefix(r.Hostname, "captured-") && r.Port == "19090" {
-						gotCaptured = true
+						gotCaptured++
 					}
 					if strings.HasPrefix(r.Hostname, "uncaptured-") && r.Port == "19090" {
-						gotUncaptured = true
+						gotUncaptured++
 					}
 					if strings.HasPrefix(r.Hostname, "service-addressed-waypoint-") && r.Port == "16061" {
-						gotWaypoint = true
+						gotWaypoint++
 					}
 				}
-				if !gotCaptured || !gotUncaptured || !gotWaypoint {
+				if gotCaptured == 0 || gotUncaptured == 0 || gotWaypoint == 0 {
 					return fmt.Errorf("didn't hit all expected backends (%v, %v, %v)", gotCaptured, gotUncaptured, gotWaypoint)
+				}
+				if gotCaptured < gotUncaptured || gotCaptured < gotWaypoint {
+					return fmt.Errorf("captured has the highest weight so it should get the most requests (%v, %v, %v)",
+						gotCaptured, gotUncaptured, gotWaypoint)
 				}
 				return nil
 			}),
