@@ -116,20 +116,6 @@ func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http2
 	log.Infof("initiate CONNECT to %v via %v", r.Host, url)
 
 	wg := sync.WaitGroup{}
-	successfulRoundTrip := make(chan bool, 1)
-	if shouldCopy {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-			ok := <-successfulRoundTrip
-			if ok {
-				// Copy from conn into the pipe, which will then be sent as part of the request
-				// handle upstream (hbone server) <-- downstream (app)
-				copyBuffered(pw, conn, log.WithLabels("name", "conn to pipe"))
-			}
-		}()
-	}
 
 	resp, err := transport.RoundTrip(r)
 	if err != nil {
@@ -142,11 +128,21 @@ func hbone(conn io.ReadWriteCloser, address string, req Config, transport *http2
 			remoteID = ids[0]
 		}
 	}
+
 	if resp.StatusCode != http.StatusOK {
-		successfulRoundTrip <- false
 		return nil, nil, fmt.Errorf("round trip failed: %v", resp.Status)
 	}
-	successfulRoundTrip <- true
+
+	if shouldCopy {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			// Copy from conn into the pipe, which will then be sent as part of the request
+			// handle upstream (hbone server) <-- downstream (app)
+			copyBuffered(pw, conn, log.WithLabels("name", "conn to pipe"))
+		}()
+	}
 	log.WithLabels("host", r.Host, "remote", remoteID).Info("CONNECT established")
 
 	if shouldCopy {
