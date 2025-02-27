@@ -44,14 +44,15 @@ const OutboundMark = "1338"
 
 // iptables chains
 const (
-	ISTIOOUTPUT     = "ISTIO_OUTPUT"
-	ISTIOOUTPUTDNS  = "ISTIO_OUTPUT_DNS"
-	ISTIOINBOUND    = "ISTIO_INBOUND"
-	ISTIODIVERT     = "ISTIO_DIVERT"
-	ISTIOTPROXY     = "ISTIO_TPROXY"
-	ISTIOREDIRECT   = "ISTIO_REDIRECT"
-	ISTIOINREDIRECT = "ISTIO_IN_REDIRECT"
-	ISTIODROP       = "ISTIO_DROP"
+	ISTIOOUTPUT            = "ISTIO_OUTPUT"
+	ISTIOOUTPUTDNS         = "ISTIO_OUTPUT_DNS"
+	ISTIOOUTPUTDNSRESOLVER = "ISTIO_OUTPUT_DNS_RESOLVER"
+	ISTIOINBOUND           = "ISTIO_INBOUND"
+	ISTIODIVERT            = "ISTIO_DIVERT"
+	ISTIOTPROXY            = "ISTIO_TPROXY"
+	ISTIOREDIRECT          = "ISTIO_REDIRECT"
+	ISTIOINREDIRECT        = "ISTIO_IN_REDIRECT"
+	ISTIODROP              = "ISTIO_DROP"
 )
 
 // Constants used in cobra/viper CLI
@@ -79,6 +80,7 @@ const (
 	IptablesProbePort         = "iptables-probe-port"
 	ProbeTimeout              = "probe-timeout"
 	RedirectDNS               = "redirect-dns"
+	DNSResolverIPPort         = "dns-resolver-ip-port"
 	DropInvalid               = "drop-invalid"
 	DualStack                 = "dual-stack"
 	CaptureAllDNS             = "capture-all-dns"

@@ -49,6 +49,7 @@ type LocalDNSServer struct {
 	dnsProxies []*dnsProxy
 
 	resolvConfServers []string
+	resolvEnvServers  []string
 	searchNamespaces  []string
 	// The namespace where the proxy resides
 	// determines the hosts used for shortname resolution
@@ -144,6 +145,18 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 
 	log.WithLabels("search", h.searchNamespaces, "servers", h.resolvConfServers).Debugf("initialized DNS")
 
+	// Configure the upstream resolver from environment. The prioirty is:
+	//     ServiceEntry config > environment resolver > local resolv.conf resolver.
+	// Note that, if the parallel query been enabled, the prioirty will not be guaranteed.
+	if v, exists := os.LookupEnv("ISTIO_META_DNS_RESOLVER_IP_PORT"); exists && strings.Contains(v, ":") {
+		resolvers := strings.Split(v, ",")
+		for _, resolver := range resolvers {
+			h.resolvEnvServers = append(h.resolvEnvServers, resolver)
+		}
+	}
+
+	log.WithLabels("search", h.searchNamespaces, "env servers", h.resolvEnvServers).Debugf("initialized env DNS")
+
 	if addr == "" {
 		addr = "localhost:15053"
 	}
@@ -232,7 +245,16 @@ func (h *LocalDNSServer) upstream(proxy *dnsProxy, req *dns.Msg, hostname string
 	start := time.Now()
 	// We did not find the host in our internal cache. Query upstream and return the response as is.
 	log.Debugf("response for hostname %q not found in dns proxy, querying upstream", hostname)
-	response := h.queryUpstream(proxy.upstreamClient, req, log)
+	var response *dns.Msg
+	// Query the environment resolver upstream first
+	if len(h.resolvEnvServers) > 0 {
+		response = h.queryEnvUpstream(proxy.upstreamClient, req, log)
+	}
+	// If environment resolver dose not been configured or can't response with answer,
+	// we will query the local resolv.conf upstream
+	if response == nil || len(response.Answer) == 0 {
+		response = h.queryUpstream(proxy.upstreamClient, req, log)
+	}
 	requestDuration.Record(time.Since(start).Seconds())
 	log.Debugf("upstream response for hostname %q : %v", hostname, response)
 	return response
@@ -412,6 +434,30 @@ func (h *LocalDNSServer) queryUpstream(upstreamClient *dns.Client, req *dns.Msg,
 	return response
 }
 
+func (h *LocalDNSServer) queryEnvUpstream(upstreamClient *dns.Client, req *dns.Msg, scope *istiolog.Scope) *dns.Msg {
+	if h.forwardToUpstreamParallel {
+		return h.queryUpstreamParallel(upstreamClient, req, scope)
+	}
+
+	var response *dns.Msg
+
+	servers := slices.Clone(h.resolvEnvServers)
+	roundRobinShuffle(servers)
+	for _, upstream := range servers {
+		cResponse, _, err := upstreamClient.Exchange(req, upstream)
+		if err == nil {
+			response = cResponse
+			break
+		}
+		scope.Infof("environment ISTIO_META_DNS_RESOLVER_PORT upstream failure: %s, %v", upstream, err)
+	}
+
+	if response == nil {
+		response = serverFailure(req)
+	}
+	return response
+}
+
 // queryUpstreamParallel will send parallel queries to all nameservers and return first successful response immediately.
 // The overall approach of parallel resolution is likely not widespread, but there are already some widely used
 // clients support it:
@@ -448,6 +494,11 @@ func (h *LocalDNSServer) queryUpstreamParallel(upstreamClient *dns.Client, req *
 		}
 	}
 
+	// Note: We can't guaranteen the priority of env/resolv.conf resolvers when doing parallel query
+	for _, upstreamEnv := range h.resolvEnvServers {
+		go queryOne(upstreamEnv)
+	}
+
 	for _, upstream := range h.resolvConfServers {
 		go queryOne(upstream)
 	}
@@ -461,7 +512,7 @@ func (h *LocalDNSServer) queryUpstreamParallel(upstreamClient *dns.Client, req *
 		case <-errCh:
 			errorsCount++
 			// All servers returned error - return failure.
-			if errorsCount == len(h.resolvConfServers) {
+			if errorsCount == len(h.resolvConfServers)+len(h.resolvEnvServers) {
 				scope.Infof("all upstream failed")
 				return serverFailure(req)
 			}
