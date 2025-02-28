@@ -197,8 +197,8 @@ func TestTrafficWithCNIUpgrade(t *testing.T) {
 			// which will stall new pods being scheduled.
 			t.Log("Rollout restart echo instance to get broken app instances")
 			rolloutCmd := fmt.Sprintf("kubectl rollout restart deployment -n %s", ns.Name())
-			if _, err := shell.Execute(true, rolloutCmd); err != nil {
-				t.Fatalf("failed to rollout restart deployments %v", err)
+			if output, err := shell.Execute(true, rolloutCmd); err != nil {
+				t.Fatalf("failed to rollout restart deployments %v. Output: %v", err, output)
 			}
 
 			// Since the CNI plugin is in place but no agent is there, pods should stall infinitely
@@ -216,13 +216,13 @@ func TestTrafficWithCNIUpgrade(t *testing.T) {
 			// (eventually) reschedule naturally now that the node agent is back.
 			// Doing an explicit rollout restart is typically just faster and also helps keep tests reliable.
 			t.Log("Rollout restart echo instance to get a fixed instance")
-			if _, err := shell.Execute(true, rolloutCmd); err != nil {
-				t.Fatalf("failed to rollout restart deployments %v", err)
+			if output, err := shell.Execute(true, rolloutCmd); err != nil {
+				t.Fatalf("failed to rollout restart deployments %v. Output: %v", err, output)
 			}
 			rolloutStatusCmd := fmt.Sprintf("kubectl rollout status deployment -n %s", ns.Name())
 			t.Log("wait for rollouts to finish")
-			if _, err := shell.Execute(true, rolloutStatusCmd); err != nil {
-				t.Fatalf("failed to rollout status deployments %v", err)
+			if output, err := shell.Execute(true, rolloutStatusCmd); err != nil {
+				t.Fatalf("failed to rollout status deployments %v. Output: %v", err, output)
 			}
 
 			// Everyone should be happy
