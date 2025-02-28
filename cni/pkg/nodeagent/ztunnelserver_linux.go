@@ -26,8 +26,9 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
-	"istio.io/istio/pkg/zdsapi"
 	v1 "k8s.io/api/core/v1"
+
+	"istio.io/istio/pkg/zdsapi"
 )
 
 type ztunnelUDSConnection struct {

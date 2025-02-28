@@ -30,10 +30,11 @@ import (
 	"syscall"
 	"unicode"
 
-	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/util/sets"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func GetStat(fi fs.FileInfo) (*syscall.Stat_t, error) {

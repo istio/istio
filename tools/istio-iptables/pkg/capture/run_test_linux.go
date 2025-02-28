@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -296,7 +293,10 @@ func TestIptables(t *testing.T) {
 
 			ext := &dep.DependenciesStub{}
 			iptConfigurator, _ := NewIptablesConfigurator(cfg, ext)
-			iptConfigurator.Run()
+			err := iptConfigurator.Run()
+			if err != nil {
+				t.Fatal(err)
+			}
 			compareToGolden(t, tt.name, ext.ExecutedAll)
 		})
 	}
