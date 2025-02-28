@@ -14,6 +14,8 @@ meshConfig:
       ENABLE_DEFERRED_STATS_CREATION: "false"
       BYPASS_OVERLOAD_MANAGER_FOR_STATIC_LISTENERS: "false"
 
-# Not present in <1.24, defaults to `true` in 1.25+
 ambient:
+  # Not present in <1.24, defaults to `true` in 1.25+
   reconcileIptablesOnStartup: false
+  # 1.26 behavioral changes
+  shareHostNetworkNamespace: true

@@ -889,8 +889,6 @@ func VersionGreaterOrEqual124(proxy *model.Proxy) bool {
 }
 
 func DelimitedStatsPrefix(statPrefix string) string {
-	if features.EnableDelimitedStatsTagRegex {
-		statPrefix += constants.StatPrefixDelimiter
-	}
+	statPrefix += constants.StatPrefixDelimiter
 	return statPrefix
 }
