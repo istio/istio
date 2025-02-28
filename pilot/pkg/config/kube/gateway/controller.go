@@ -103,6 +103,17 @@ type RouteContextInputs struct {
 	Domain         string
 	Services       krt.Collection[*corev1.Service]
 	ServiceEntries krt.Collection[*networkingclient.ServiceEntry]
+	Hostnames      RouteHostnames
+}
+
+type RouteHostnames struct {
+	internalContext        *atomic.Pointer[GatewayContext]
+	internalContextTrigger *krt.RecomputeTrigger
+}
+
+func (r RouteHostnames) Lookup(hostname string, namespace string) *model.Service {
+	r.internalContextTrigger.TriggerRecomputation()
+	return r.internalContext.Load().GetService(hostname, namespace)
 }
 
 func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {
@@ -243,6 +254,10 @@ func NewController(
 		Domain:         options.DomainSuffix,
 		Services:       inputs.Services,
 		ServiceEntries: inputs.ServiceEntries,
+		Hostnames: RouteHostnames{
+			internalContext:        gatewayController.gatewayContext,
+			internalContextTrigger: gatewayController.gatewayContextTrigger,
+		},
 	}
 	tcpRoutes := TCPRouteCollection(
 		inputs.TCPRoutes,

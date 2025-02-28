@@ -975,10 +975,10 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 		if to.Namespace != nil {
 			return nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
 		}
-		//hostname := string(to.Name)
-		//if ctx.Context.GetService(hostname, namespace) == nil {
-		//	invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
-		//}
+		hostname := string(to.Name)
+		if ctx.Hostnames.Lookup(hostname, namespace) == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+		}
 		return &istio.Destination{
 			Host: string(to.Name),
 			Port: &istio.PortSelector{Number: uint32(*to.Port)},
