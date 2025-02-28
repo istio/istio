@@ -30,17 +30,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	k8s "sigs.k8s.io/gateway-api/apis/v1"
-	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/pkg/consts"
 	"sigs.k8s.io/yaml"
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
@@ -353,11 +349,6 @@ var knownServices = sets.New(
 	types.NamespacedName{Name: "echo", Namespace: "istio-system"},
 	types.NamespacedName{Name: "httpbin-bad", Namespace: "default"})
 
-var knownServiceEntries = sets.New(
-	types.NamespacedName{Name: "example.com", Namespace: "istio-system"},
-	types.NamespacedName{Name: "google.com", Namespace: "istio-system"},
-)
-
 var (
 	// https://github.com/kubernetes/kubernetes/blob/v1.25.4/staging/src/k8s.io/kubectl/pkg/cmd/create/create_secret_tls_test.go#L31
 	rsaCertPEM = `-----BEGIN CERTIFICATE-----
@@ -595,21 +586,8 @@ func TestConvertResources(t *testing.T) {
 			util.CompareContent(t, marshalYaml(t, res), goldenFile)
 
 			outputStatus := sq.Dump()
-			// outputStatus := getStatus(t, kr.GatewayClass, kr.Gateway, kr.HTTPRoute, kr.GRPCRoute, kr.TLSRoute, kr.TCPRoute)
 			goldenStatusFile := fmt.Sprintf("testdata/%s.status.yaml.golden", tt.name)
 			util.CompareContent(t, []byte(outputStatus), goldenStatusFile)
-			//if util.Refresh() {
-			//	if err := os.WriteFile(goldenStatusFile, outputStatus, 0o644); err != nil {
-			//		t.Fatal(err)
-			//	}
-			//}
-			//goldenStatus, err := os.ReadFile(goldenStatusFile)
-			//if err != nil {
-			//	t.Fatal(err)
-			//}
-			//if diff := cmp.Diff(string(goldenStatus), string(outputStatus)); diff != "" {
-			//	t.Fatalf("Diff:\n%s", diff)
-			//}
 		})
 	}
 }
@@ -633,10 +611,10 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 
 func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 	t.Cleanup(func() {
-		// if t.Failed() {
-		b, _ := yaml.Marshal(debugger)
-		t.Log(string(b))
-		//}
+		if t.Failed() {
+			b, _ := yaml.Marshal(debugger)
+			t.Log(string(b))
+		}
 	})
 }
 
@@ -1127,251 +1105,166 @@ func TestSortHTTPRoutes(t *testing.T) {
 	}
 }
 
-//func TestReferencePolicy(t *testing.T) {
-//	validator := crdvalidation.NewIstioValidator(t)
-//	type res struct {
-//		name, namespace string
-//		allowed         bool
-//	}
-//	cases := []struct {
-//		name         string
-//		config       string
-//		expectations []res
-//	}{
-//		{
-//			name: "simple",
-//			config: `apiVersion: gateway.networking.k8s.io/v1beta1
-//kind: ReferenceGrant
-//metadata:
-//  name: allow-gateways-to-ref-secrets
-//  namespace: default
-//spec:
-//  from:
-//  - group: gateway.networking.k8s.io
-//    kind: Gateway
-//    namespace: istio-system
-//  to:
-//  - group: ""
-//    kind: Secret
-//`,
-//			expectations: []res{
-//				// allow cross namespace
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "istio-system", true},
-//				// denied same namespace. We do not implicitly allow (in this code - higher level code does)
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "default", false},
-//				// denied namespace
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
-//			},
-//		},
-//		{
-//			name: "multiple in one",
-//			config: `apiVersion: gateway.networking.k8s.io/v1beta1
-//kind: ReferenceGrant
-//metadata:
-//  name: allow-gateways-to-ref-secrets
-//  namespace: default
-//spec:
-//  from:
-//  - group: gateway.networking.k8s.io
-//    kind: Gateway
-//    namespace: ns-1
-//  - group: gateway.networking.k8s.io
-//    kind: Gateway
-//    namespace: ns-2
-//  to:
-//  - group: ""
-//    kind: Secret
-//`,
-//			expectations: []res{
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-1", true},
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-2", true},
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
-//			},
-//		},
-//		{
-//			name: "multiple",
-//			config: `apiVersion: gateway.networking.k8s.io/v1beta1
-//kind: ReferenceGrant
-//metadata:
-//  name: ns1
-//  namespace: default
-//spec:
-//  from:
-//  - group: gateway.networking.k8s.io
-//    kind: Gateway
-//    namespace: ns-1
-//  to:
-//  - group: ""
-//    kind: Secret
-//---
-//apiVersion: gateway.networking.k8s.io/v1beta1
-//kind: ReferenceGrant
-//metadata:
-//  name: ns2
-//  namespace: default
-//spec:
-//  from:
-//  - group: gateway.networking.k8s.io
-//    kind: Gateway
-//    namespace: ns-2
-//  to:
-//  - group: ""
-//    kind: Secret
-//`,
-//			expectations: []res{
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-1", true},
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-2", true},
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
-//			},
-//		},
-//		{
-//			name: "same namespace",
-//			config: `apiVersion: gateway.networking.k8s.io/v1beta1
-//kind: ReferenceGrant
-//metadata:
-//  name: allow-gateways-to-ref-secrets
-//  namespace: default
-//spec:
-//  from:
-//  - group: gateway.networking.k8s.io
-//    kind: Gateway
-//    namespace: default
-//  to:
-//  - group: ""
-//    kind: Secret
-//`,
-//			expectations: []res{
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "istio-system", false},
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "default", true},
-//				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
-//			},
-//		},
-//		{
-//			name: "same name",
-//			config: `apiVersion: gateway.networking.k8s.io/v1beta1
-//kind: ReferenceGrant
-//metadata:
-//  name: allow-gateways-to-ref-secrets
-//  namespace: default
-//spec:
-//  from:
-//  - group: gateway.networking.k8s.io
-//    kind: Gateway
-//    namespace: default
-//  to:
-//  - group: ""
-//    kind: Secret
-//    name: public
-//`,
-//			expectations: []res{
-//				{"kubernetes-gateway://default/public", "istio-system", false},
-//				{"kubernetes-gateway://default/public", "default", true},
-//				{"kubernetes-gateway://default/private", "default", false},
-//			},
-//		},
-//	}
-//	for _, tt := range cases {
-//		t.Run(tt.name, func(t *testing.T) {
-//			input := readConfigString(t, tt.config, validator, nil)
-//			cg := core.NewConfigGenTest(t, core.TestOptions{})
-//			kr := splitInput(t, input)
-//			kr.Context = NewGatewayContext(cg.PushContext(), "Kubernetes")
-//			output := convertResources(kr)
-//			c := &Controller{
-//				state: output,
-//			}
-//			for _, sc := range tt.expectations {
-//				t.Run(fmt.Sprintf("%v/%v", sc.name, sc.namespace), func(t *testing.T) {
-//					got := c.SecretAllowed(sc.name, sc.namespace)
-//					if got != sc.allowed {
-//						t.Fatalf("expected allowed=%v, got allowed=%v", sc.allowed, got)
-//					}
-//				})
-//			}
-//		})
-//	}
-//}
-
-func getStatus(t test.Failer, acfgs ...[]config.Config) []byte {
-	cfgs := []config.Config{}
-	for _, cl := range acfgs {
-		cfgs = append(cfgs, cl...)
+func TestReferencePolicy(t *testing.T) {
+	validator := crdvalidation.NewIstioValidator(t)
+	type res struct {
+		name, namespace string
+		allowed         bool
 	}
-	for i, c := range cfgs {
-		c = c.DeepCopy()
-		c.Spec = nil
-		c.Labels = nil
-		c.Annotations = nil
-		if c.Status.(*kstatus.WrappedStatus) != nil {
-			c.Status = c.Status.(*kstatus.WrappedStatus).Status
-		}
-		cfgs[i] = c
+	cases := []struct {
+		name         string
+		config       string
+		expectations []res
+	}{
+		{
+			name: "simple",
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+ name: allow-gateways-to-ref-secrets
+ namespace: default
+spec:
+ from:
+ - group: gateway.networking.k8s.io
+   kind: Gateway
+   namespace: istio-system
+ to:
+ - group: ""
+   kind: Secret
+`,
+			expectations: []res{
+				// allow cross namespace
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "istio-system", true},
+				// denied same namespace. We do not implicitly allow (in this code - higher level code does)
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "default", false},
+				// denied namespace
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "multiple in one",
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+ name: allow-gateways-to-ref-secrets
+ namespace: default
+spec:
+ from:
+ - group: gateway.networking.k8s.io
+   kind: Gateway
+   namespace: ns-1
+ - group: gateway.networking.k8s.io
+   kind: Gateway
+   namespace: ns-2
+ to:
+ - group: ""
+   kind: Secret
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-1", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-2", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "multiple",
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+ name: ns1
+ namespace: default
+spec:
+ from:
+ - group: gateway.networking.k8s.io
+   kind: Gateway
+   namespace: ns-1
+ to:
+ - group: ""
+   kind: Secret
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+ name: ns2
+ namespace: default
+spec:
+ from:
+ - group: gateway.networking.k8s.io
+   kind: Gateway
+   namespace: ns-2
+ to:
+ - group: ""
+   kind: Secret
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-1", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "ns-2", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "same namespace",
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+ name: allow-gateways-to-ref-secrets
+ namespace: default
+spec:
+ from:
+ - group: gateway.networking.k8s.io
+   kind: Gateway
+   namespace: default
+ to:
+ - group: ""
+   kind: Secret
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "istio-system", false},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "default", true},
+				{"kubernetes-gateway://default/wildcard-example-com-cert", "bad", false},
+			},
+		},
+		{
+			name: "same name",
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+ name: allow-gateways-to-ref-secrets
+ namespace: default
+spec:
+ from:
+ - group: gateway.networking.k8s.io
+   kind: Gateway
+   namespace: default
+ to:
+ - group: ""
+   kind: Secret
+   name: public
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/public", "istio-system", false},
+				{"kubernetes-gateway://default/public", "default", true},
+				{"kubernetes-gateway://default/private", "default", false},
+			},
+		},
 	}
-	return timestampRegex.ReplaceAll(marshalYaml(t, cfgs), []byte("lastTransitionTime: fake"))
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			input := readConfigString(t, tt.config, validator, nil)
+			kr := setupController(t, input...)
+			for _, sc := range tt.expectations {
+				t.Run(fmt.Sprintf("%v/%v", sc.name, sc.namespace), func(t *testing.T) {
+					got := kr.SecretAllowed(sc.name, sc.namespace)
+					if got != sc.allowed {
+						t.Fatalf("expected allowed=%v, got allowed=%v", sc.allowed, got)
+					}
+				})
+			}
+		})
+	}
 }
 
 var timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
-
-func splitOutput(configs []config.Config) IstioResources {
-	out := IstioResources{
-		Gateway:        []config.Config{},
-		VirtualService: []config.Config{},
-	}
-	for _, c := range configs {
-		c.Domain = "domain.suffix"
-		switch c.GroupVersionKind {
-		case gvk.Gateway:
-			out.Gateway = append(out.Gateway, c)
-		case gvk.VirtualService:
-			out.VirtualService = append(out.VirtualService, c)
-		}
-	}
-	return out
-}
-
-func splitInput(t test.Failer, configs []config.Config) GatewayResources {
-	out := GatewayResources{}
-	namespaces := sets.New[string]()
-	for _, c := range configs {
-		namespaces.Insert(c.Namespace)
-		switch c.GroupVersionKind {
-		case gvk.GatewayClass:
-			out.GatewayClass = append(out.GatewayClass, c)
-		case gvk.KubernetesGateway:
-			out.Gateway = append(out.Gateway, c)
-		case gvk.HTTPRoute:
-			out.HTTPRoute = append(out.HTTPRoute, c)
-		case gvk.GRPCRoute:
-			out.GRPCRoute = append(out.GRPCRoute, c)
-		case gvk.TCPRoute:
-			out.TCPRoute = append(out.TCPRoute, c)
-		case gvk.TLSRoute:
-			out.TLSRoute = append(out.TLSRoute, c)
-		case gvk.ReferenceGrant:
-			out.ReferenceGrant = append(out.ReferenceGrant, c)
-		case gvk.ServiceEntry:
-			out.ServiceEntry = append(out.ServiceEntry, c)
-		}
-	}
-	out.Namespaces = map[string]*corev1.Namespace{}
-	for ns := range namespaces {
-		out.Namespaces[ns] = &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: ns,
-				Labels: map[string]string{
-					"istio.io/test-name-part": strings.Split(ns, "-")[0],
-				},
-			},
-		}
-	}
-
-	client := kube.NewFakeClient(secrets...)
-	out.Credentials = credentials.NewCredentialsController(client, nil)
-	client.RunAndWait(test.NewStop(t))
-
-	out.Domain = "domain.suffix"
-	return out
-}
 
 func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator, ignorer *crdvalidation.ValidationIgnorer) []runtime.Object {
 	t.Helper()
@@ -1409,7 +1302,6 @@ func readConfig(t testing.TB, filename string, validator *crdvalidation.Validato
 			},
 		})
 	}
-	objs = append(objs)
 	return objs
 }
 
@@ -1424,45 +1316,6 @@ func readConfigString(t testing.TB, data string, validator *crdvalidation.Valida
 		t.Fatalf("failed to parse CRD: %v", err)
 	}
 	return c
-}
-
-// insertDefaults sets default values that would be present when reading from Kubernetes but not from
-// files
-func insertDefaults(cfgs []config.Config) []config.Config {
-	res := make([]config.Config, 0, len(cfgs))
-	for _, c := range cfgs {
-		switch c.GroupVersionKind {
-		case gvk.GatewayClass:
-			c.Status = kstatus.Wrap(&k8s.GatewayClassStatus{})
-		case gvk.KubernetesGateway:
-			c.Status = kstatus.Wrap(&k8s.GatewayStatus{})
-		case gvk.HTTPRoute:
-			c.Status = kstatus.Wrap(&k8s.HTTPRouteStatus{})
-		case gvk.GRPCRoute:
-			c.Status = kstatus.Wrap(&k8s.GRPCRouteStatus{})
-		case gvk.TCPRoute:
-			c.Status = kstatus.Wrap(&k8salpha.TCPRouteStatus{})
-		case gvk.TLSRoute:
-			c.Status = kstatus.Wrap(&k8salpha.TLSRouteStatus{})
-		}
-		res = append(res, c)
-	}
-	return res
-}
-
-func marshalYamls[T controllers.Object](t test.Failer, cl []T) []byte {
-	t.Helper()
-	result := []byte{}
-	separator := []byte("---\n")
-	for _, obj := range cl {
-		bytes, err := yaml.Marshal(obj)
-		if err != nil {
-			t.Fatalf("Could not convert %v to YAML: %v", obj, err)
-		}
-		result = append(result, bytes...)
-		result = append(result, separator...)
-	}
-	return result
 }
 
 // Print as YAML

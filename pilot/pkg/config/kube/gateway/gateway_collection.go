@@ -44,27 +44,33 @@ func (g Gateway) ResourceName() string {
 	return config.NamespacedName(g.Config).Name
 }
 
+func (g Gateway) Equals(other Gateway) bool {
+	return g.Config.Equals(other.Config) &&
+		g.Valid == other.Valid // TODO: ok to ignore parent/parentInfo?
+}
+
 func GatewayCollection(
-	Gateways krt.Collection[*gateway.Gateway],
-	GatewayClasses krt.Collection[GatewayClass],
-	Namespaces krt.Collection[*corev1.Namespace],
+	gateways krt.Collection[*gateway.Gateway],
+	gatewayClasses krt.Collection[GatewayClass],
+	namespaces krt.Collection[*corev1.Namespace],
 	grants ReferenceGrants,
 	secrets krt.Collection[*corev1.Secret],
-	DomainSuffix string,
-	UnstableContext *atomic.Pointer[GatewayContext],
-	UnstableContextTrigger *krt.RecomputeTrigger,
+	domainSuffix string,
+	gatewayContext *atomic.Pointer[GatewayContext],
+	gatewayContextTrigger *krt.RecomputeTrigger,
 	opts krt.OptionsBuilder,
 ) (krt.Collection[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]], krt.Collection[Gateway]) {
-	statusCol, gw := krt.NewStatusManyCollection(Gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
-		UnstableContextTrigger.MarkDependant(ctx)
-		context := UnstableContext.Load()
+	statusCol, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
+		// We currently depend on service discovery information not know to krt; mark we depend on it.
+		gatewayContextTrigger.MarkDependant(ctx)
+		context := gatewayContext.Load()
 		if context == nil {
 			return nil, nil
 		}
 		result := []Gateway{}
 		kgw := obj.Spec
 		status := kstatus.WrapT(&obj.Status)
-		class := fetchClass(ctx, GatewayClasses, kgw.GatewayClassName)
+		class := fetchClass(ctx, gatewayClasses, kgw.GatewayClassName)
 		if class == nil {
 			return nil, nil
 		}
@@ -81,7 +87,7 @@ func GatewayCollection(
 		servers := []*istio.Server{}
 
 		// Extract the addresses. A gateway will bind to a specific Service
-		gatewayServices, err := extractGatewayServices(DomainSuffix, obj, classInfo)
+		gatewayServices, err := extractGatewayServices(domainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)
@@ -89,7 +95,7 @@ func GatewayCollection(
 		}
 
 		for i, l := range kgw.Listeners {
-			server, programmed := buildListener(ctx, secrets, grants, Namespaces, obj, status, l, i, controllerName)
+			server, programmed := buildListener(ctx, secrets, grants, namespaces, obj, status, l, i, controllerName)
 
 			servers = append(servers, server)
 			if controllerName == constants.ManagedGatewayMeshController {
@@ -108,7 +114,7 @@ func GatewayCollection(
 					Name:              kubeconfig.InternalGatewayName(obj.Name, string(l.Name)),
 					Annotations:       meta,
 					Namespace:         obj.Namespace,
-					Domain:            DomainSuffix,
+					Domain:            domainSuffix,
 				},
 				Spec: &istio.Gateway{
 					Servers: []*istio.Server{server},
@@ -153,7 +159,7 @@ type RouteParents struct {
 	gatewayIndex krt.Index[parentKey, Gateway]
 }
 
-func (p RouteParents) Fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo {
+func (p RouteParents) fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo {
 	if pk == meshParentKey {
 		// Special case
 		return []*parentInfo{
@@ -175,13 +181,13 @@ func (p RouteParents) Fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo 
 }
 
 func BuildRouteParents(
-	Gateways krt.Collection[Gateway],
+	gateways krt.Collection[Gateway],
 ) RouteParents {
-	idx := krt.NewIndex(Gateways, func(o Gateway) []parentKey {
+	idx := krt.NewIndex(gateways, func(o Gateway) []parentKey {
 		return []parentKey{o.parent}
 	})
 	return RouteParents{
-		gateways:     Gateways,
+		gateways:     gateways,
 		gatewayIndex: idx,
 	}
 }

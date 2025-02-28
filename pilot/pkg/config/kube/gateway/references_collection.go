@@ -39,8 +39,8 @@ type ReferenceGrants struct {
 	index      krt.Index[ReferencePair, ReferenceGrant]
 }
 
-func ReferenceGrantsCollection(ReferenceGrants krt.Collection[*gateway.ReferenceGrant], opts krt.OptionsBuilder) krt.Collection[ReferenceGrant] {
-	return krt.NewManyCollection(ReferenceGrants, func(ctx krt.HandlerContext, obj *gateway.ReferenceGrant) []ReferenceGrant {
+func ReferenceGrantsCollection(referenceGrants krt.Collection[*gateway.ReferenceGrant], opts krt.OptionsBuilder) krt.Collection[ReferenceGrant] {
+	return krt.NewManyCollection(referenceGrants, func(ctx krt.HandlerContext, obj *gateway.ReferenceGrant) []ReferenceGrant {
 		rp := obj.Spec
 		results := make([]ReferenceGrant, 0, len(rp.From)*len(rp.To))
 		for _, from := range rp.From {

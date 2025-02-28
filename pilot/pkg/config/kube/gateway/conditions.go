@@ -24,7 +24,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/kstatus"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
@@ -276,19 +275,6 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 		}
 	}
 	return existingConditions
-}
-
-func reportListenerAttachedRoutes(index int, obj config.Config, i int32) {
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		gs := s.(*k8s.GatewayStatus)
-		for index >= len(gs.Listeners) {
-			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
-		}
-		status := gs.Listeners[index]
-		status.AttachedRoutes = i
-		gs.Listeners[index] = status
-		return gs
-	})
 }
 
 func reportListenerCondition(index int, l k8s.Listener, obj *k8sbeta.Gateway,

@@ -76,7 +76,7 @@ var AlwaysReady = func(class schema.GroupVersionResource, stop <-chan struct{}) 
 	return true
 }
 
-func setupController(t *testing.T, objs ...runtime.Object) (kube.Client, *Controller) {
+func setupController(t *testing.T, objs ...runtime.Object) *Controller {
 	kc := kube.NewFakeClient(objs...)
 	setupClientCRDs(t, kc)
 	stop := test.NewStop(t)
@@ -90,11 +90,11 @@ func setupController(t *testing.T, objs ...runtime.Object) (kube.Client, *Contro
 	controller.Reconcile(cg.PushContext())
 	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 
-	return kc, controller
+	return controller
 }
 
 func TestListInvalidGroupVersionKind(t *testing.T) {
-	_, controller := setupController(t)
+	controller := setupController(t)
 
 	typ := config.GroupVersionKind{Kind: "wrong-kind"}
 	c := controller.List(typ, "ns1")
@@ -102,7 +102,7 @@ func TestListInvalidGroupVersionKind(t *testing.T) {
 }
 
 func TestListGatewayResourceType(t *testing.T) {
-	_, controller := setupController(t,
+	controller := setupController(t,
 		&k8sbeta.GatewayClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "gwclass",

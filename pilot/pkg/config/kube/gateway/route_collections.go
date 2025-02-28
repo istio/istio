@@ -33,12 +33,15 @@ import (
 )
 
 func HTTPRouteCollection(
-	HTTPRoutes krt.Collection[*gateway.HTTPRoute],
+	httpRoutes krt.Collection[*gateway.HTTPRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus] {
-	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, HTTPRoutes, gvk.HTTPRoute, opts)
-	status, baseVirtualServices := krt.NewStatusManyCollection(HTTPRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (*gateway.HTTPRouteStatus, []config.Config) {
+	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, httpRoutes, gvk.HTTPRoute, opts)
+	status, baseVirtualServices := krt.NewStatusManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (
+		*gateway.HTTPRouteStatus,
+		[]config.Config,
+	) {
 		status := obj.Status.DeepCopy()
 		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
@@ -189,12 +192,15 @@ func HTTPRouteCollection(
 }
 
 func GRPCRouteCollection(
-	GRPCRoutes krt.Collection[*gatewayv1.GRPCRoute],
+	grpcRoutes krt.Collection[*gatewayv1.GRPCRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus] {
-	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, GRPCRoutes, gvk.GRPCRoute, opts)
-	status, baseVirtualServices := krt.NewStatusManyCollection(GRPCRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) (*gatewayv1.GRPCRouteStatus, []config.Config) {
+	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, grpcRoutes, gvk.GRPCRoute, opts)
+	status, baseVirtualServices := krt.NewStatusManyCollection(grpcRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) (
+		*gatewayv1.GRPCRouteStatus,
+		[]config.Config,
+	) {
 		status := obj.Status.DeepCopy()
 		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
@@ -345,12 +351,15 @@ func GRPCRouteCollection(
 }
 
 func TCPRouteCollection(
-	TCPRoutes krt.Collection[*gatewayalpha.TCPRoute],
+	tcpRoutes krt.Collection[*gatewayalpha.TCPRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus] {
-	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, TCPRoutes, gvk.TCPRoute, opts)
-	status, virtualServices := krt.NewStatusManyCollection(TCPRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (*gatewayalpha.TCPRouteStatus, []config.Config) {
+	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, tcpRoutes, gvk.TCPRoute, opts)
+	status, virtualServices := krt.NewStatusManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (
+		*gatewayalpha.TCPRouteStatus,
+		[]config.Config,
+	) {
 		status := obj.Status.DeepCopy()
 		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
@@ -451,12 +460,15 @@ func TCPRouteCollection(
 }
 
 func TLSRouteCollection(
-	TLSRoutes krt.Collection[*gatewayalpha.TLSRoute],
+	tlsRoutes krt.Collection[*gatewayalpha.TLSRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus] {
-	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, TLSRoutes, gvk.TLSRoute, opts)
-	status, virtualServices := krt.NewStatusManyCollection(TLSRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (*gatewayalpha.TLSRouteStatus, []config.Config) {
+	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, tlsRoutes, gvk.TLSRoute, opts)
+	status, virtualServices := krt.NewStatusManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (
+		*gatewayalpha.TLSRouteStatus,
+		[]config.Config,
+	) {
 		status := obj.Status.DeepCopy()
 		ctx := inputs.WithCtx(krtctx)
 		route := obj.Spec
@@ -589,7 +601,7 @@ func (r RouteAttachment) Equals(other RouteAttachment) bool {
 }
 
 func gatewayRouteAttachmentCountCollection[T controllers.Object](
-	Parents RouteParents,
+	parentsCollection RouteParents,
 	col krt.Collection[T],
 	kind config.GroupVersionKind,
 	opts krt.OptionsBuilder,
@@ -600,7 +612,7 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 			Name: config.NamespacedName(obj),
 		}
 		parents, hostnames := GetCommonRouteInfo(obj)
-		parentRefs := extractParentReferenceInfo(krtctx, Parents, parents, hostnames, kind, obj.GetNamespace())
+		parentRefs := extractParentReferenceInfo(krtctx, parentsCollection, parents, hostnames, kind, obj.GetNamespace())
 		return slices.MapFilter(filteredReferences(parentRefs), func(e routeParentReference) *RouteAttachment {
 			if e.ParentKey.Kind != gvk.KubernetesGateway {
 				return nil
