@@ -497,9 +497,9 @@ status:
       status: "True"
       type: Accepted
     - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
+      message: backend(unknown.example.com) not found
+      reason: BackendNotFound
+      status: "False"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
