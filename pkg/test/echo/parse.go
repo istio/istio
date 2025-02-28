@@ -141,7 +141,7 @@ func parseResponse(output string) Response {
 		if len(sl) != 2 {
 			continue
 		}
-		out.RequestHeaders.Set(sl[0], sl[1])
+		out.RequestHeaders.Add(sl[0], sl[1])
 	}
 
 	matches = responseHeaderFieldRegex.FindAllStringSubmatch(output, -1)
@@ -150,7 +150,7 @@ func parseResponse(output string) Response {
 		if len(sl) != 2 {
 			continue
 		}
-		out.ResponseHeaders.Set(sl[0], sl[1])
+		out.ResponseHeaders.Add(sl[0], sl[1])
 	}
 
 	for _, l := range strings.Split(output, "\n") {
