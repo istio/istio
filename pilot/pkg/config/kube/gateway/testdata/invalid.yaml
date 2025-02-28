@@ -346,3 +346,20 @@ spec:
           group: networking.istio.io
           port: 80
           weight: 1
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: invalid-backendRef-serviceimport
+  namespace: default
+spec:
+  parentRefs:
+    - group: ""
+      kind: Service
+      name: httpbin
+  rules:
+    - backendRefs:
+      - group: multicluster.x-k8s.io
+        kind: ServiceImport
+        name: unknown-service-import
+        port: 80
