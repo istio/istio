@@ -279,22 +279,24 @@ func NewController(
 		return []types.NamespacedName{o.To}
 	})
 
-	GatewayFinalStatus := krt.NewCollection(GatewaysStatus, func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]) *krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus] {
-		tcpRoutes := krt.Fetch(ctx, RouteAttachments, krt.FilterIndex(RouteAttachmentsIndex, config.NamespacedName(i.Obj)))
-		counts := map[string]int32{}
-		for _, r := range tcpRoutes {
-			counts[r.ListenerName] = counts[r.ListenerName] + 1
-		}
-		status := i.Status.DeepCopy()
-		for i, s := range status.Listeners {
-			s.AttachedRoutes = counts[string(s.Name)]
-			status.Listeners[i] = s
-		}
-		return &krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]{
-			Obj:    i.Obj,
-			Status: *status,
-		}
-	}, opts.WithName("GatewayFinalStatus")...)
+	GatewayFinalStatus := krt.NewCollection(
+		GatewaysStatus,
+		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]) *krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus] {
+			tcpRoutes := krt.Fetch(ctx, RouteAttachments, krt.FilterIndex(RouteAttachmentsIndex, config.NamespacedName(i.Obj)))
+			counts := map[string]int32{}
+			for _, r := range tcpRoutes {
+				counts[r.ListenerName]++
+			}
+			status := i.Status.DeepCopy()
+			for i, s := range status.Listeners {
+				s.AttachedRoutes = counts[string(s.Name)]
+				status.Listeners[i] = s
+			}
+			return &krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]{
+				Obj:    i.Obj,
+				Status: *status,
+			}
+		}, opts.WithName("GatewayFinalStatus")...)
 	registerStatus(GatewayFinalStatus, statusWriter)
 
 	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{
@@ -406,7 +408,6 @@ func (c *Controller) Reconcile(ps *model.PushContext) {
 		c.gatewayContextTrigger.MarkSynced()
 	}
 	c.gatewayContextTrigger.TriggerRecomputation()
-	return
 }
 
 type StatusWriter struct {
