@@ -681,8 +681,8 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      group: ""
-      kind: Service
+      group: networking.istio.io
+      kind: ServiceEntry
       name: not-found
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1

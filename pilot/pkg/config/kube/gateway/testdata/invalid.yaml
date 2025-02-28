@@ -304,9 +304,9 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - group: ""
-    kind: Service
-    name: not-found
+    - group: ""
+      kind: Service
+      name: not-found # TODO we do not detect this today
   rules:
     - backendRefs:
         - name: httpbin
@@ -320,9 +320,9 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - group: ""
-    kind: Service
-    name: not-found
+    - group: "networking.istio.io"
+      kind: ServiceEntry
+      name: not-found # TODO we do not detect this today
   rules:
     - backendRefs:
         - name: httpbin
@@ -336,9 +336,9 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - group: ""
-    kind: Service
-    name: httpbin
+    - group: ""
+      kind: Service
+      name: httpbin
   rules:
     - backendRefs:
         - name: unknown.example.com
