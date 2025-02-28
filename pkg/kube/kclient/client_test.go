@@ -374,16 +374,16 @@ func TestShutdown(t *testing.T) {
 	// Shutdown one
 	deployments.ShutdownHandler(removeReg)
 
-	// Update object, should see the update...
+	// Update object, should see the update only one the active handler
 	obj1.Spec.MinReadySeconds = 2
 	tester.Update(obj1)
 	tracker.WaitOrdered("update/1")
 	removeTracker.Empty()
 
-	deployments.ShutdownHandler(removeReg)
+	deployments.ShutdownHandlers()
 
-	// Update object, should see the update...
-	obj1.Spec.MinReadySeconds = 2
+	// Update object, shouldn't see any updates since all handlers are removed
+	obj1.Spec.MinReadySeconds = 3
 	tester.Update(obj1)
 	tracker.Empty()
 	removeTracker.Empty()

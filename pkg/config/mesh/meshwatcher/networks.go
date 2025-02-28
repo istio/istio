@@ -15,8 +15,6 @@
 package meshwatcher
 
 import (
-	uatomic "go.uber.org/atomic"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube/krt"
@@ -33,12 +31,8 @@ func (n networksAdapter) Networks() *meshconfig.MeshNetworks {
 
 // AddNetworksHandler registers a callback handler for changes to the networks config.
 func (n networksAdapter) AddNetworksHandler(h func()) *mesh.WatcherHandlerRegistration {
-	active := uatomic.NewBool(true)
-	// Do not run initial state to match existing semantics
 	colReg := n.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshNetworksResource], initialSync bool) {
-		if active.Load() {
-			h()
-		}
+		h()
 	}, false)
 
 	reg := mesh.NewWatcherHandlerRegistration(func() {
