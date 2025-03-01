@@ -10,6 +10,7 @@ import (
 
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
+	k8sioapiautoscalingv2 "k8s.io/api/autoscaling/v2"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
 	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
@@ -263,6 +264,21 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
+	HorizontalPodAutoscaler = resource.Builder{
+		Identifier: "HorizontalPodAutoscaler",
+		Group:      "autoscaling",
+		Kind:       "HorizontalPodAutoscaler",
+		Plural:     "horizontalpodautoscalers",
+		Version:    "v2",
+		Proto:      "k8s.io.api.autoscaling.v2.HorizontalPodAutoscalerSpec", StatusProto: "k8s.io.api.autoscaling.v2.HorizontalPodAutoscalerStatus",
+		ReflectType: reflect.TypeOf(&k8sioapiautoscalingv2.HorizontalPodAutoscalerSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapiautoscalingv2.HorizontalPodAutoscalerStatus{}).Elem(),
+		ProtoPackage: "k8s.io/api/autoscaling/v2", StatusPackage: "k8s.io/api/autoscaling/v2",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       true,
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
@@ -753,6 +769,7 @@ var (
 		MustAdd(Gateway).
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
+		MustAdd(HorizontalPodAutoscaler).
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
@@ -796,6 +813,7 @@ var (
 		MustAdd(GRPCRoute).
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
+		MustAdd(HorizontalPodAutoscaler).
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
