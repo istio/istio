@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
@@ -194,6 +196,10 @@ var (
 
 	MulticlusterHeadlessEnabled = env.Register("ENABLE_MULTICLUSTER_HEADLESS", true,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
+
+	IncludeAllServicesInDNS = atomic.NewBool(env.Register("INCLUDE_ALL_SERVICES_IN_DNS", false,
+		"If true, include all services in the DNS response, even if they are not in the sidecar scope. "+
+			"In this mode it acts like a true DNS proxy like Kube DNS.").Get())
 
 	ResolveHostnameGateways = env.Register("RESOLVE_HOSTNAME_GATEWAYS", true,
 		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
