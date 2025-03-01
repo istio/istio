@@ -85,6 +85,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	kubeschematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
@@ -242,7 +243,12 @@ func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object)
 	tracker := fc.Tracker()
 	// We got a set of objects... but which client do they apply to? Filter based on the group
 	filterGroup := func(object runtime.Object) bool {
-		g := object.GetObjectKind().GroupVersionKind().Group
+		gk := object.GetObjectKind().GroupVersionKind()
+		g := gk.Group
+		if gk.Kind == "" {
+			gr := kubeschematypes.GvrFromObject(object)
+			g = gr.Group
+		}
 		if strings.Contains(g, "istio.io") {
 			return group == "istio"
 		}
