@@ -15,7 +15,7 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: {{ template "name" . }}-node
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ coalesce .Values.namespace .Release.Namespace }}
   labels:
     k8s-app: {{ template "name" . }}-node
     release: {{ .Release.Name }}
