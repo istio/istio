@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/containernetworking/cni/pkg/skel"
@@ -222,8 +223,9 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 			cniEventAddr := filepath.Join(conf.CNIAgentRunDir, constants.CNIEventSocketName)
 			cniClient := newCNIClient(cniEventAddr, constants.CNIAddEventPath)
 			if err = PushCNIEvent(cniClient, args, prevResIps, podName, podNamespace); err != nil {
-				log.Errorf("istio-cni cmdAdd failed to signal node Istio CNI agent: %s", err)
-				return err
+				// return a more informative error in the pod event log if CNI plugin fails
+				wrapErr := fmt.Errorf("istio-cni cmdAdd failed to contact node Istio CNI agent: %s", err)
+				return wrapErr
 			}
 			return nil
 		}
@@ -241,6 +243,38 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 		log.Debugf("Failed to get pod info: %v", k8sErr)
 		time.Sleep(podRetrievalInterval)
 	}
+
+	// Failsafe - if we get here, we could be in a state where
+	// 1. We are being upgraded - `istio-cni` node agent pod is gone
+	// 2. This plugin was left in place to stall pod spawns until the
+	// replacement arrives.
+	// 3. This plugin can't contact the K8S API server (creds expired/invalid)
+	// 4. The pod this plugin would be blocking by returning this error
+	// *is* our replacement `istio-cni` pod (which would refresh our creds)
+	//
+	// So, if we can't contact the K8S API server at all, fall back to checking the
+	// K8S_POD/K8S_NAMESPACE values from the CNI layer, and let this pod through
+	// if it looks like it might be our `istio-cni` node agent.
+	//
+	// We could do this check unconditionally above, but it seems smarter to only
+	// fall back to this (lightly) relaxed check when we know we are in a degraded state.
+	//
+	// Why not check that the pod is scheduled into only the "system namespace" too?
+	// Because that could change between deployments and we'd only have the stale version
+	// until we let the replacement thru.
+	//
+	// Is this fail open? Not really, the K8S args come from the cluster's CNI and are as-authoritative
+	// as the hard query we would otherwise make against the API.
+	//
+	// TODO NRI could probably give us more identifying information here OOB from k8s.
+	maybeCNIPod := string(k8sArgs.K8S_POD_NAME)
+	if k8sErr != nil &&
+		strings.Contains(k8sErr.Error(), "Unauthorized") &&
+		strings.HasPrefix(string(k8sArgs.K8S_POD_NAME), "istio-cni-node-") {
+		log.Infof("in a degraded state and %v looks like our own agent pod, skipping", maybeCNIPod)
+		return nil
+	}
+
 	if k8sErr != nil {
 		log.Errorf("Failed to get pod info: %v", k8sErr)
 		return k8sErr
