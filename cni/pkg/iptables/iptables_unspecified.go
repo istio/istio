@@ -20,18 +20,18 @@ import (
 	"errors"
 )
 
-func AddInpodMarkIPRule(cfg *Config) error {
+func AddInpodMarkIPRule(cfg *IptablesConfig) error {
 	return errors.New("not implemented on this platform")
 }
 
-func DelInpodMarkIPRule(cfg *Config) error {
+func DelInpodMarkIPRule(cfg *IptablesConfig) error {
 	return errors.New("not implemented on this platform")
 }
 
-func AddLoopbackRoutes(cfg *Config) error {
+func AddLoopbackRoutes(cfg *IptablesConfig) error {
 	return errors.New("not implemented on this platform")
 }
 
-func DelLoopbackRoutes(cfg *Config) error {
+func DelLoopbackRoutes(cfg *IptablesConfig) error {
 	return errors.New("not implemented on this platform")
 }

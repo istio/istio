@@ -293,7 +293,10 @@ func TestIptables(t *testing.T) {
 
 			ext := &dep.DependenciesStub{}
 			iptConfigurator, _ := NewIptablesConfigurator(cfg, ext)
-			iptConfigurator.Run()
+			err := iptConfigurator.Run()
+			if err != nil {
+				t.Fatal(err)
+			}
 			compareToGolden(t, tt.name, ext.ExecutedAll)
 		})
 	}
