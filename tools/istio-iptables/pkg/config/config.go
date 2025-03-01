@@ -74,6 +74,7 @@ type Config struct {
 	SkipRuleApply            bool          `json:"SKIP_RULE_APPLY"`
 	RunValidation            bool          `json:"RUN_VALIDATION"`
 	RedirectDNS              bool          `json:"REDIRECT_DNS"`
+	DNSResolverIPPort        string        `json:"DNS_RESOLVER_IP_PORT"`
 	DropInvalid              bool          `json:"DROP_INVALID"`
 	CaptureAllDNS            bool          `json:"CAPTURE_ALL_DNS"`
 	EnableIPv6               bool          `json:"ENABLE_INBOUND_IPV6"`
@@ -130,6 +131,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("DNS_CAPTURE=%t\n", c.RedirectDNS))
 	b.WriteString(fmt.Sprintf("DROP_INVALID=%t\n", c.DropInvalid))
 	b.WriteString(fmt.Sprintf("CAPTURE_ALL_DNS=%t\n", c.CaptureAllDNS))
+	b.WriteString(fmt.Sprintf("DNS_RESOLVER_IP_PORT=%s\n", c.DNSResolverIPPort))
 	b.WriteString(fmt.Sprintf("DNS_SERVERS=%s,%s\n", c.DNSServersV4, c.DNSServersV6))
 	b.WriteString(fmt.Sprintf("NETWORK_NAMESPACE=%s\n", c.NetworkNamespace))
 	b.WriteString(fmt.Sprintf("CNI_MODE=%s\n", strconv.FormatBool(c.HostFilesystemPodNetwork)))
@@ -187,7 +189,7 @@ func (c *Config) FillConfigFromEnvironment() error {
 	// case where reading /etc/resolv.conf could fail.
 	// If capture all DNS option is enabled, we don't need to read from the dns resolve conf. All
 	// traffic to port 53 will be captured.
-	if c.RedirectDNS && !c.CaptureAllDNS {
+	if (c.RedirectDNS && !c.CaptureAllDNS) || len(c.DNSResolverIPPort) > 0 {
 		dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 		if err != nil {
 			return fmt.Errorf("failed to load /etc/resolv.conf: %v", err)
