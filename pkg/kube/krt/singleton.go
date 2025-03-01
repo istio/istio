@@ -84,12 +84,12 @@ func (d *static[T]) List() []T {
 	return []T{*v}
 }
 
-func (d *static[T]) Register(f func(o Event[T])) Syncer {
+func (d *static[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return registerHandlerAsBatched[T](d, f)
 }
 
-func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer {
-	d.eventHandlers.Insert(f)
+func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) HandlerRegistration {
+	reg := d.eventHandlers.Insert(f)
 	if runExistingState {
 		v := d.val.Load()
 		if v != nil {
@@ -99,7 +99,19 @@ func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExi
 			}}, true)
 		}
 	}
-	return d.syncer
+
+	return staticHandler{Syncer: d.syncer, remove: func() {
+		d.eventHandlers.Delete(reg)
+	}}
+}
+
+type staticHandler struct {
+	Syncer
+	remove func()
+}
+
+func (s staticHandler) UnregisterHandler() {
+	s.remove()
 }
 
 func (d *static[T]) Synced() Syncer {
@@ -201,7 +213,7 @@ func (c collectionAdapter[T]) Get() *T {
 	return &res[0]
 }
 
-func (c collectionAdapter[T]) Register(f func(o Event[T])) Syncer {
+func (c collectionAdapter[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return c.c.Register(f)
 }
 

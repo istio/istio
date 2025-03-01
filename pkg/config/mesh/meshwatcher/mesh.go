@@ -15,7 +15,6 @@
 package meshwatcher
 
 import (
-	uatomic "go.uber.org/atomic"
 	"google.golang.org/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -54,18 +53,13 @@ func (a adapter) Mesh() *meshconfig.MeshConfig {
 // Usually a handler would then call .Mesh() to get the new state.
 // The returned WatcherHandlerRegistration can be used to un-register the handler at a later time.
 func (a adapter) AddMeshHandler(h func()) *mesh.WatcherHandlerRegistration {
-	active := uatomic.NewBool(true)
-	// The mesh.Watcher allows unregistering, while krt currently doesn't
-	// When we remove, mark this as "not active" so we skip events.
-	reg := mesh.NewWatcherHandlerRegistration(func() {
-		active.Store(false)
-	})
 	// Do not run initial state to match existing semantics
-	a.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshConfigResource], initialSync bool) {
-		if active.Load() {
-			h()
-		}
+	colReg := a.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshConfigResource], initialSync bool) {
+		h()
 	}, false)
+	reg := mesh.NewWatcherHandlerRegistration(func() {
+		colReg.UnregisterHandler()
+	})
 	return reg
 }
 

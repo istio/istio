@@ -55,14 +55,14 @@ type EventStream[T any] interface {
 	// * Each handler has its own unbounded event queue. Slow handlers will cause this queue to accumulate, but will not block
 	//   other handlers.
 	// * Events will be sent in order, and will not be dropped or deduplicated.
-	Register(f func(o Event[T])) Syncer
+	Register(f func(o Event[T])) HandlerRegistration
 
 	// RegisterBatch registers a handler that accepts multiple events at once. This can be useful as an optimization.
 	// Otherwise, behaves the same as Register.
 	// Additionally, skipping the default behavior of "send all current state through the handler" can be turned off.
 	// This is important when we register in a handler itself, which would cause duplicative events.
 	// Handlers MUST not mutate the event list.
-	RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer
+	RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) HandlerRegistration
 }
 
 // internalCollection is a superset of Collection for internal usage. All collections must implement this type, but
@@ -91,7 +91,7 @@ type Singleton[T any] interface {
 	// Get returns the object, or nil if there is none.
 	Get() *T
 	// Register adds an event watcher to the object. Any time it changes, the handler will be called
-	Register(f func(o Event[T])) Syncer
+	Register(f func(o Event[T])) HandlerRegistration
 	AsCollection() Collection[T]
 }
 
@@ -123,6 +123,11 @@ func (e Event[T]) Latest() T {
 		return *e.New
 	}
 	return *e.Old
+}
+
+type HandlerRegistration interface {
+	Syncer
+	UnregisterHandler()
 }
 
 // HandlerContext is an opaque type passed into transformation functions.

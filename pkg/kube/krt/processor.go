@@ -23,30 +23,65 @@ import (
 	"k8s.io/utils/buffer"
 
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
+
+type handlerRegistration struct {
+	Syncer
+	remove func()
+}
+
+func (h handlerRegistration) UnregisterHandler() {
+	h.remove()
+}
 
 // handlerSet tracks a set of handlers. Handlers can be added at any time.
 type handlerSet[O any] struct {
 	mu       sync.RWMutex
-	handlers []*processorListener[O]
+	handlers sets.Set[*processorListener[O]]
 	wg       wait.Group
 }
 
-func (o *handlerSet[O]) Insert(f func(o []Event[O], initialSync bool), parentSynced Syncer, initialEvents []Event[O], stopCh <-chan struct{}) Syncer {
+func newHandlerSet[O any]() *handlerSet[O] {
+	return &handlerSet[O]{
+		handlers: sets.New[*processorListener[O]](),
+	}
+}
+
+func (o *handlerSet[O]) Insert(
+	f func(o []Event[O], initialSync bool),
+	parentSynced Syncer,
+	initialEvents []Event[O],
+	stopCh <-chan struct{},
+) HandlerRegistration {
 	o.mu.Lock()
 	l := newProcessListener(f, parentSynced, stopCh)
-	o.handlers = append(o.handlers, l)
+	o.handlers.Insert(l)
 	o.wg.Start(l.run)
 	o.wg.Start(l.pop)
 	o.mu.Unlock()
 	l.send(initialEvents, true)
-	return l.Synced()
+	reg := handlerRegistration{
+		Syncer: l.Synced(),
+		remove: func() {
+			o.remove(l)
+		},
+	}
+	return reg
+}
+
+func (o *handlerSet[O]) remove(p *processorListener[O]) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	delete(o.handlers, p)
+	close(p.addCh)
 }
 
 func (o *handlerSet[O]) Distribute(events []Event[O], initialSync bool) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	for _, listener := range o.handlers {
+	for listener := range o.handlers {
 		listener.send(slices.Clone(events), initialSync)
 	}
 }
@@ -55,7 +90,7 @@ func (o *handlerSet[O]) Distribute(events []Event[O], initialSync bool) {
 func (o *handlerSet[O]) Synced() Syncer {
 	o.mu.RLock()
 	syncer := multiSyncer{syncers: make([]Syncer, 0, len(o.handlers))}
-	for _, listener := range o.handlers {
+	for listener := range o.handlers {
 		syncer.syncers = append(syncer.syncers, listener.Synced())
 	}
 	o.mu.RUnlock()

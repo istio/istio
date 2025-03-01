@@ -51,7 +51,7 @@ func NewStaticCollection[T any](vals []T, opts ...CollectionOption) StaticCollec
 	}
 
 	sl := &staticList[T]{
-		eventHandlers:  &handlerSet[T]{},
+		eventHandlers:  newHandlerSet[T](),
 		vals:           res,
 		id:             nextUID(),
 		stop:           o.stop,
@@ -209,7 +209,7 @@ func (s *staticList[T]) List() []T {
 	return maps.Values(s.vals)
 }
 
-func (s *staticList[T]) Register(f func(o Event[T])) Syncer {
+func (s *staticList[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return registerHandlerAsBatched(s, f)
 }
 
@@ -226,7 +226,7 @@ func (s *staticList[T]) Synced() Syncer {
 	return alwaysSynced{}
 }
 
-func (s *staticList[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer {
+func (s *staticList[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) HandlerRegistration {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var objs []Event[T]

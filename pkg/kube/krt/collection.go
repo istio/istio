@@ -216,28 +216,45 @@ var _ internalCollection[any] = &manyCollection[any, any]{}
 
 type handlers[O any] struct {
 	mu   sync.RWMutex
-	h    []func(o []Event[O], initialSync bool)
+	h    []*singletonHandlerRegistration[O]
 	init bool
+}
+
+type singletonHandlerRegistration[O any] struct {
+	fn func(o []Event[O], initialSync bool)
 }
 
 func (o *handlers[O]) MarkInitialized() []func(o []Event[O], initialSync bool) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.init = true
-	return slices.Clone(o.h)
+	return slices.Map(o.h, func(e *singletonHandlerRegistration[O]) func(o []Event[O], initialSync bool) {
+		return e.fn
+	})
 }
 
-func (o *handlers[O]) Insert(f func(o []Event[O], initialSync bool)) bool {
+func (o *handlers[O]) Insert(f func(o []Event[O], initialSync bool)) *singletonHandlerRegistration[O] {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	o.h = append(o.h, f)
-	return !o.init
+	reg := &singletonHandlerRegistration[O]{fn: f}
+	o.h = append(o.h, reg)
+	return reg
+}
+
+func (o *handlers[O]) Delete(toRemove *singletonHandlerRegistration[O]) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.h = slices.FilterInPlace(o.h, func(s *singletonHandlerRegistration[O]) bool {
+		return s != toRemove
+	})
 }
 
 func (o *handlers[O]) Get() []func(o []Event[O], initialSync bool) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	return slices.Clone(o.h)
+	return slices.Map(o.h, func(e *singletonHandlerRegistration[O]) func(o []Event[O], initialSync bool) {
+		return e.fn
+	})
 }
 
 // multiIndex stores input and output objects.
@@ -527,7 +544,7 @@ func newManyCollection[I, O any](
 			outputs:  map[Key[O]]O{},
 			mappings: map[Key[I]]sets.Set[Key[O]]{},
 		},
-		eventHandlers:              &handlerSet[O]{},
+		eventHandlers:              newHandlerSet[O](),
 		augmentation:               opts.augmentation,
 		synced:                     make(chan struct{}),
 		stop:                       opts.stop,
@@ -638,11 +655,11 @@ func (h *manyCollection[I, O]) List() (res []O) {
 	return maps.Values(h.collectionState.outputs)
 }
 
-func (h *manyCollection[I, O]) Register(f func(o Event[O])) Syncer {
+func (h *manyCollection[I, O]) Register(f func(o Event[O])) HandlerRegistration {
 	return registerHandlerAsBatched[O](h, f)
 }
 
-func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bool), runExistingState bool) Syncer {
+func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bool), runExistingState bool) HandlerRegistration {
 	if !runExistingState {
 		// If we don't to run the initial state this is simple, we just register the handler.
 		return h.eventHandlers.Insert(f, h, nil, h.stop)
