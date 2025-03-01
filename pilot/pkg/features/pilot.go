@@ -160,7 +160,7 @@ var (
 		"PILOT_ENABLE_IP_AUTOALLOCATE",
 		true,
 		"If enabled, pilot will start a controller that assigns IP addresses to ServiceEntry which do not have a user-supplied IP. "+
-			"This, when combined with DNS capture allows for tcp routing of traffic sent to the ServiceEntry.").Get()
+			"This, when combined with DNS capture allows for tcp routing of traffic sent to the ServiceEntry.", env.OptionBinary(env.DISCOVERY)).Get()
 
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
