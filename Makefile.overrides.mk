@@ -21,6 +21,8 @@
 BUILD_WITH_CONTAINER ?= 1
 CONTAINER_OPTIONS = --mount type=bind,source=/tmp,destination=/tmp --net=host
 
+OVERCOVER_BIN ?= $(shell which overcover || echo "")
+
 export COMMONFILES_POSTPROCESS = tools/commonfiles-postprocess.sh
 
 ifeq ($(BUILD_WITH_CONTAINER),1)
@@ -36,3 +38,7 @@ endif
 .PHONY: istioctl-install
 istioctl-install: istioctl-install-container
 	cp out/$(TARGET_OS)_$(TARGET_ARCH)/istioctl ${GOPATH}/bin
+
+.PHONY: coverage
+coverage:
+	prow/coverage.sh
