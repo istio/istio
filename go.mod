@@ -40,10 +40,10 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-version v1.7.0
-	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/howardjohn/unshare-go v0.5.0
 	github.com/lestrrat-go/jwx v1.2.30
 	github.com/mattn/go-isatty v0.0.20
+	github.com/maypok86/otter v1.2.4
 	github.com/miekg/dns v1.1.62
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/moby/buildkit v0.19.0
@@ -57,6 +57,7 @@ require (
 	github.com/prometheus/common v0.62.0
 	github.com/prometheus/procfs v0.15.1
 	github.com/prometheus/prometheus v0.301.0
+	github.com/puzpuzpuz/xsync/v3 v3.5.1
 	github.com/quic-go/quic-go v0.48.2
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spf13/cobra v1.8.1
@@ -130,6 +131,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
+	github.com/dolthub/maphash v0.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/envoyproxy/go-control-plane v0.13.5-0.20250123154839-2a6715911fec // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
@@ -137,6 +139,7 @@ require (
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
+	github.com/gammazero/deque v1.0.0 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
