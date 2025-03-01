@@ -81,6 +81,7 @@ var (
 	ignoreUnknown     bool
 	revisionSpecified string
 	remoteContexts    []string
+	selectedAnalyzers []string
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -168,7 +169,12 @@ func Analyze(ctx cli.Context) *cobra.Command {
 				selectedNamespace = metav1.NamespaceDefault
 			}
 
-			sa := local.NewIstiodAnalyzer(analyzers.AllCombined(),
+			combinedAnalyzers := analyzers.AllCombined()
+			if len(selectedAnalyzers) != 0 {
+				combinedAnalyzers = analyzers.NamedCombined(selectedNamespace)
+			}
+
+			sa := local.NewIstiodAnalyzer(combinedAnalyzers,
 				resource.Namespace(selectedNamespace),
 				resource.Namespace(ctx.IstioNamespace()), nil)
 
@@ -359,6 +365,8 @@ func Analyze(ctx cli.Context) *cobra.Command {
 	analysisCmd.PersistentFlags().StringArrayVar(&remoteContexts, "remote-contexts", []string{},
 		`Kubernetes configuration contexts for remote clusters to be used in multi-cluster analysis. Not to be confused with '--context'. `+
 			"If unspecified, contexts are read from the remote secrets in the cluster.")
+	analysisCmd.PersistentFlags().StringArrayVarP(&selectedAnalyzers, "analyzer", "a", []string{},
+		"Select specific analyzers to run. Can be repeated. If not specified, all analyzers are run.")
 	return analysisCmd
 }
 
