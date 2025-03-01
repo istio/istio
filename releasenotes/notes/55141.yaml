@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue: [55141]
+releaseNotes:
+  - |
+    **Fixed** an issue where secrets references in the env of `istio/gateway` Helm chart incorrectly rendered as a string, instead of injected correctly.
