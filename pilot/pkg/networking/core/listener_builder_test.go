@@ -17,6 +17,7 @@ package core
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -983,4 +984,23 @@ func TestAdditionalAddressesForIPv6(t *testing.T) {
 	if vo.AdditionalAddresses == nil || len(vo.AdditionalAddresses) != 1 {
 		t.Fatal("expected additional ipv4 bind addresse")
 	}
+}
+
+func TestExtProcExistForInfernecePoolEnabledGateway(t *testing.T) {
+	// test.SetForTest(t, &features.EnableAdditionalIpv4OutboundListenerForIpv6Only, true)
+	cg := NewConfigGenTest(t, TestOptions{Services: testServices})
+	proxy := cg.SetupProxy(&model.Proxy{Labels: map[string]string{"istio.io/enable-inference-extproc": "true"}, ConfigNamespace: "not-default"})
+
+	lstnrs := cg.Listeners(proxy)
+	vo := xdstest.ExtractListener("0.0.0.0_8080", lstnrs)
+	if vo == nil {
+		t.Fatal("didn't find virtual outbound listener")
+	}
+	for _, fc := range vo.GetFilterChains() {
+		_, httpFilters := xdstest.ExtractFilterNames(t, fc)
+		if slices.Contains(httpFilters, wellknown.HTTPExternalProcessing) {
+			return
+		}
+	}
+	t.Fatal("expected ext proc filter to be added")
 }
