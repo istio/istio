@@ -481,8 +481,8 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 }
 
 func (d *DeploymentController) setLabelOverrides(gw gateway.Gateway, input TemplateInput) {
-	// TODO: Codify this API (i.e how to know if a specific gateway is an Istio waypoint or east/west gateway)
 	isWaypointGateway := strings.Contains(string(gw.Spec.GatewayClassName), "waypoint")
+	isEastWestGateway := strings.Contains(string(gw.Spec.GatewayClassName), "eastwest")
 
 	var hasAmbientLabel bool
 	if _, ok := gw.Labels[label.IoIstioDataplaneMode.Name]; ok {
@@ -493,13 +493,13 @@ func (d *DeploymentController) setLabelOverrides(gw gateway.Gateway, input Templ
 	}
 	// If no ambient redirection label is set explicitly, explicitly disable.
 	// TODO this sprays ambient annotations/labels all over EVER gateway resource (serviceaccts, services, etc)
-	if features.EnableAmbientWaypoints && !isWaypointGateway && !hasAmbientLabel {
+	if features.EnableAmbientWaypoints && !isWaypointGateway && !isEastWestGateway && !hasAmbientLabel {
 		input.InfrastructureLabels[label.IoIstioDataplaneMode.Name] = constants.DataplaneModeNone
 	}
 
 	// Default the network label for waypoints if not explicitly set in gateway's labels
 	network := d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
-	if _, ok := gw.GetLabels()[label.TopologyNetwork.Name]; !ok && network != "" && isWaypointGateway {
+	if _, ok := gw.GetLabels()[label.TopologyNetwork.Name]; !ok && network != "" && (isWaypointGateway || isEastWestGateway) {
 		input.InfrastructureLabels[label.TopologyNetwork.Name] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
 	}
 }
