@@ -140,6 +140,8 @@ const (
 
 	IngressComponentName Name = "IngressGateways"
 	EgressComponentName  Name = "EgressGateways"
+
+	GatewayComponentName Name = "Gateway"
 )
 
 var AllComponents = []Component{
@@ -212,6 +214,15 @@ var AllComponents = []Component{
 		ContainerName:        "istio-proxy",
 		FlattenValues:        true,
 		ReleaseName:          "ztunnel",
+	},
+	{
+		UserFacingName:       GatewayComponentName,
+		SpecName:             "gateway",
+		ResourceName:         "gateway",
+		HelmSubdir:           "gateway",
+		ToHelmValuesTreeRoot: "gateway",
+		ContainerName:        "istio-proxy",
+		FlattenValues:        true,
 	},
 }
 

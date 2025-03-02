@@ -1,0 +1,13 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio-ingress
+spec:
+  profile: empty # Do not install CRDs or the control plane
+  components:
+    gateway:
+      namespace: istio-ingress
+      enabled: true
+  values:
+    gateway:
+      injectionTemplate: gateway
