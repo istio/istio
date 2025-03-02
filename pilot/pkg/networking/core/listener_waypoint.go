@@ -76,7 +76,9 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// We create 3 listeners:
 	// 1. Decapsulation CONNECT listener.
 	// 2. IP dispatch listener, handling both VIPs and direct pod IPs.
-	// 3. Encapsulation CONNECT listener, originating the tunnel
+	// 3. One of two options based on the type of waypoint:
+	//    a. East-West Gateway: Forward the inner CONNECT to the backend ztunnel or waypoint.
+	//    b. Regular Waypoint: Encapsulate the inner CONNECT and forward to the ztunnel.
 	var wls []model.WorkloadInfo
 	var wps *waypointServices
 	var forwarder *listener.Listener
