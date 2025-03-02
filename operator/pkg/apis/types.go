@@ -44,9 +44,9 @@ import (
 //	    - name: istio-egressgateway
 //	      enabled: true
 type IstioOperator struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta `json:",inline"` // nolint:revive
 	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty""`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Spec defines the implementation of this definition.
 	// +optional
@@ -183,7 +183,7 @@ type KubernetesResources struct {
 // KubernetesOverlay for an existing Kubernetes resource.
 type KubernetesOverlay struct {
 	// Resource API version.
-	ApiVersion string `json:"apiVersion,omitempty"`
+	ApiVersion string `json:"apiVersion,omitempty"` // nolint: revive,stylecheck
 	// Resource kind.
 	Kind string `json:"kind,omitempty"`
 	// Name of resource.
