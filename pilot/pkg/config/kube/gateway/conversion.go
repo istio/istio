@@ -1550,7 +1550,7 @@ func unexpectedEastWestWaypointListener(l k8s.Listener) bool {
 		return true
 	}
 	if l.TLS == nil || *l.TLS.Mode != k8s.TLSModeTerminate {
-		return false
+		return true
 	}
 	// TODO: Should we check that there aren't more things set
 	return false
@@ -1935,9 +1935,17 @@ func buildTLS(
 				return out, nil
 			}
 		}
-		if len(tls.CertificateRefs) != 1 {
+
+		val, ok := tls.Options[constants.GatewayListenerTLSOptionsIstioMeshProvidedTLS]
+		meshTLS := ok && val == "true"
+		if len(tls.CertificateRefs) != 1 && !meshTLS {
 			// This is required in the API, should be rejected in validation
 			return out, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
+		}
+
+		if meshTLS {
+			// The mesh is providing the frontend TLS for this gateway; no need to parse a certificateRef
+			return out, nil
 		}
 		cred, err := buildSecretReference(ctx, tls.CertificateRefs[0], gw, secrets)
 		if err != nil {
