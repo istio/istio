@@ -426,7 +426,7 @@ func buildHTTPVirtualServices(
 	meshRoutes map[string]map[string]*config.Config,
 ) {
 	route := obj.Spec.(*k8s.HTTPRouteSpec)
-	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, obj.Namespace)
+	parentRefs := extractParentReferenceInfo(ctx, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, obj.Namespace)
 	reportStatus := func(results []RouteParentResult) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			rs := s.(*k8s.HTTPRouteStatus)
@@ -666,7 +666,7 @@ func buildGRPCVirtualServices(
 	meshRoutes map[string]map[string]*config.Config,
 ) {
 	route := obj.Spec.(*k8s.GRPCRouteSpec)
-	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, route.Hostnames, gvk.GRPCRoute, obj.Namespace)
+	parentRefs := extractParentReferenceInfo(ctx, route.ParentRefs, route.Hostnames, gvk.GRPCRoute, obj.Namespace)
 	reportStatus := func(results []RouteParentResult) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			rs := s.(*k8s.GRPCRouteStatus)
@@ -914,18 +914,33 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (pa
 }
 
 func referenceAllowed(
+	ctx configContext,
 	parent *parentInfo,
 	routeKind config.GroupVersionKind,
 	parentRef parentReference,
 	hostnames []k8s.Hostname,
 	namespace string,
 ) *ParentError {
-	if parentRef.Kind == gvk.Service || parentRef.Kind == gvk.ServiceEntry {
-		// TODO: check if the service reference is valid
-		if false {
+	if parentRef.Kind == gvk.Service {
+		// check that the referenced svc exists
+		if svc := ctx.Context.GetService(fmt.Sprintf("%s.%s.svc.cluster.local", parentRef.Name, parentRef.Namespace), parentRef.Namespace); svc == nil {
 			return &ParentError{
-				Reason:  ParentErrorParentRefConflict,
-				Message: fmt.Sprintf("parent service: %q is invalid", parentRef.Name),
+				Reason:  ParentErrorNotAccepted,
+				Message: fmt.Sprintf("parent service: %q not found", parentRef.Name),
+			}
+		}
+	} else if parentRef.Kind == gvk.ServiceEntry {
+		// check that the referenced svc entry exists
+		svcEntry := slices.FindFunc(ctx.ServiceEntry, func(cfg config.Config) bool {
+			if cfg.GetName() == parentRef.Name && cfg.GetNamespace() == parentRef.Namespace {
+				return true
+			}
+			return false
+		})
+		if svcEntry == nil {
+			return &ParentError{
+				Reason:  ParentErrorNotAccepted,
+				Message: fmt.Sprintf("parent service entry: %q not found", parentRef.Name),
 			}
 		}
 	} else {
@@ -1006,7 +1021,7 @@ func referenceAllowed(
 	return nil
 }
 
-func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs []k8s.ParentReference,
+func extractParentReferenceInfo(ctx configContext, routeRefs []k8s.ParentReference,
 	hostnames []k8s.Hostname, kind config.GroupVersionKind, localNamespace string,
 ) []routeParentReference {
 	parentRefs := []routeParentReference{}
@@ -1027,7 +1042,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 		}
 		appendParent := func(pr *parentInfo, pk parentReference) {
 			bannedHostnames := sets.New[string]()
-			for _, gw := range gateways[gk] {
+			for _, gw := range ctx.GatewayReferences[gk] {
 				if gw == pr {
 					continue // do not ban ourself
 				}
@@ -1045,7 +1060,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 				InternalName:      pr.InternalName,
 				InternalKind:      ir.Kind,
 				Hostname:          pr.OriginalHostname,
-				DeniedReason:      referenceAllowed(pr, kind, pk, hostnames, localNamespace),
+				DeniedReason:      referenceAllowed(ctx, pr, kind, pk, hostnames, localNamespace),
 				OriginalReference: ref,
 				BannedHostnames:   bannedHostnames.Copy().Delete(pr.OriginalHostname),
 			}
@@ -1055,7 +1070,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 			}
 			parentRefs = append(parentRefs, rpi)
 		}
-		for _, gw := range gateways[gk] {
+		for _, gw := range ctx.GatewayReferences[gk] {
 			// Append all matches. Note we may be adding mismatch section or ports; this is handled later
 			appendParent(gw, pk)
 		}
@@ -1069,7 +1084,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 
 func buildTCPVirtualService(ctx configContext, obj config.Config) []config.Config {
 	route := obj.Spec.(*k8salpha.TCPRouteSpec)
-	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
+	parentRefs := extractParentReferenceInfo(ctx, route.ParentRefs, nil, gvk.TCPRoute, obj.Namespace)
 
 	reportStatus := func(results []RouteParentResult) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
@@ -1158,7 +1173,7 @@ func buildTCPVirtualService(ctx configContext, obj config.Config) []config.Confi
 
 func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Config {
 	route := obj.Spec.(*k8salpha.TLSRouteSpec)
-	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
+	parentRefs := extractParentReferenceInfo(ctx, route.ParentRefs, nil, gvk.TLSRoute, obj.Namespace)
 
 	reportStatus := func(results []RouteParentResult) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
