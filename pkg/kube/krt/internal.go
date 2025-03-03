@@ -53,6 +53,11 @@ func castEvent[I, O any](o Event[I]) Event[O] {
 	return e
 }
 
+func GetStop(opts ...CollectionOption) <-chan struct{} {
+	o := buildCollectionOptions(opts...)
+	return o.stop
+}
+
 func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
 	c := &collectionOptions{}
 	for _, o := range opts {
