@@ -365,9 +365,9 @@ func Analyze(ctx cli.Context) *cobra.Command {
 	analysisCmd.PersistentFlags().StringArrayVar(&remoteContexts, "remote-contexts", []string{},
 		`Kubernetes configuration contexts for remote clusters to be used in multi-cluster analysis. Not to be confused with '--context'. `+
 			"If unspecified, contexts are read from the remote secrets in the cluster.")
-	analysisCmd.PersistentFlags().StringArrayVarP(&selectedAnalyzers, "analyzer", "a", []string{},
+	analysisCmd.PersistentFlags().StringArrayVarP(&selectedAnalyzers, "analyzer", "", []string{},
 		"Select specific analyzers to run. Can be repeated. If not specified, all analyzers are run. "+
-			"(e.g. istioctl analyze -a \"gateway.ConflictingGatewayAnalyzer\")")
+			"(e.g. istioctl analyze --analyzer \"gateway.ConflictingGatewayAnalyzer\")")
 	return analysisCmd
 }
 

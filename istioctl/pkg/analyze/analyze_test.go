@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/testutil"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -99,7 +100,7 @@ func TestRunSpecificAnalyzer(t *testing.T) {
 			caseName: "failed-with-specific-analyzer",
 			TestCase: testutil.TestCase{
 				Args: strings.Split(
-					"-A --use-kube=false -a \"schema.ValidationAnalyzer\" testdata/analyze-file/specific-analyzer.yaml",
+					"-A --use-kube=false --analyzer \"schema.ValidationAnalyzer\" testdata/analyze-file/specific-analyzer.yaml",
 					" "),
 				WantException: false,
 			},
@@ -108,7 +109,7 @@ func TestRunSpecificAnalyzer(t *testing.T) {
 			caseName: "passed-with-specific-analyzer",
 			TestCase: testutil.TestCase{
 				Args: strings.Split(
-					"-A --use-kube=false -a \"gateway.ConflictingGatewayAnalyzer\" testdata/analyze-file/specific-analyzer.yaml",
+					"-A --use-kube=false --analyzer \"gateway.ConflictingGatewayAnalyzer\" testdata/analyze-file/specific-analyzer.yaml",
 					" "),
 				WantException: false,
 			},
