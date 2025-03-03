@@ -81,6 +81,7 @@ var (
 	ignoreUnknown     bool
 	revisionSpecified string
 	remoteContexts    []string
+	selectedAnalyzers []string
 
 	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
@@ -113,7 +114,10 @@ func Analyze(ctx cli.Context) *cobra.Command {
   istioctl analyze -S "IST0103=Pod *.testing" -S "IST0107=Deployment foobar.default"
 
   # List available analyzers
-  istioctl analyze -L`,
+  istioctl analyze -L
+  
+  # Run specific analyzer
+  istioctl analyze --analyzer "gateway.ConflictingGatewayAnalyzer"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msgOutputFormat = strings.ToLower(msgOutputFormat)
 			_, ok := formatting.MsgOutputFormats[msgOutputFormat]
@@ -168,7 +172,12 @@ func Analyze(ctx cli.Context) *cobra.Command {
 				selectedNamespace = metav1.NamespaceDefault
 			}
 
-			sa := local.NewIstiodAnalyzer(analyzers.AllCombined(),
+			combinedAnalyzers := analyzers.AllCombined()
+			if len(selectedAnalyzers) != 0 {
+				combinedAnalyzers = analyzers.NamedCombined(selectedAnalyzers...)
+			}
+
+			sa := local.NewIstiodAnalyzer(combinedAnalyzers,
 				resource.Namespace(selectedNamespace),
 				resource.Namespace(ctx.IstioNamespace()), nil)
 
@@ -359,6 +368,9 @@ func Analyze(ctx cli.Context) *cobra.Command {
 	analysisCmd.PersistentFlags().StringArrayVar(&remoteContexts, "remote-contexts", []string{},
 		`Kubernetes configuration contexts for remote clusters to be used in multi-cluster analysis. Not to be confused with '--context'. `+
 			"If unspecified, contexts are read from the remote secrets in the cluster.")
+	analysisCmd.PersistentFlags().StringArrayVarP(&selectedAnalyzers, "analyzer", "", []string{},
+		"Select specific analyzers to run. Can be repeated. If not specified, all analyzers are run. "+
+			"(e.g. istioctl analyze --analyzer \"gateway.ConflictingGatewayAnalyzer\")")
 	return analysisCmd
 }
 
