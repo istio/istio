@@ -107,5 +107,9 @@ func NamedCombined(names ...string) analysis.CombinedAnalyzer {
 		}
 	}
 
+	if len(selected) == 0 {
+		return AllCombined()
+	}
+
 	return analysis.Combine("named", selected...)
 }

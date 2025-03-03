@@ -174,7 +174,7 @@ func Analyze(ctx cli.Context) *cobra.Command {
 
 			combinedAnalyzers := analyzers.AllCombined()
 			if len(selectedAnalyzers) != 0 {
-				combinedAnalyzers = analyzers.NamedCombined(selectedNamespace)
+				combinedAnalyzers = analyzers.NamedCombined(selectedAnalyzers...)
 			}
 
 			sa := local.NewIstiodAnalyzer(combinedAnalyzers,

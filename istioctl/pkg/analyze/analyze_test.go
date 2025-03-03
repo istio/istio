@@ -91,7 +91,7 @@ func TestRunSpecificAnalyzer(t *testing.T) {
 			caseName: "failed-with-all-analyzers",
 			TestCase: testutil.TestCase{
 				Args: strings.Split(
-					"-A --use-kube=false testdata/analyze-file/specific-analyzer.yaml",
+					"--use-kube=false testdata/analyze-file/specific-analyzer.yaml",
 					" "),
 				WantException: true,
 			},
@@ -100,16 +100,16 @@ func TestRunSpecificAnalyzer(t *testing.T) {
 			caseName: "failed-with-specific-analyzer",
 			TestCase: testutil.TestCase{
 				Args: strings.Split(
-					"-A --use-kube=false --analyzer \"schema.ValidationAnalyzer\" testdata/analyze-file/specific-analyzer.yaml",
+					"--use-kube=false --analyzer schema.ValidationAnalyzer.Gateway testdata/analyze-file/specific-analyzer.yaml",
 					" "),
-				WantException: false,
+				WantException: true,
 			},
 		},
 		{
 			caseName: "passed-with-specific-analyzer",
 			TestCase: testutil.TestCase{
 				Args: strings.Split(
-					"-A --use-kube=false --analyzer \"gateway.ConflictingGatewayAnalyzer\" testdata/analyze-file/specific-analyzer.yaml",
+					"--use-kube=false --analyzer gateway.ConflictingGatewayAnalyzer testdata/analyze-file/specific-analyzer.yaml",
 					" "),
 				WantException: false,
 			},
