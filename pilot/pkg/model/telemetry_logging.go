@@ -145,7 +145,8 @@ func telemetryAccessLog(push *PushContext, proxy *Proxy, fp *meshconfig.MeshConf
 	switch prov := fp.Provider.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog:
 		// For built-in provider, fallback to MeshConfig for formatting options when LogFormat unset.
-		if fp.Name == builtinEnvoyAccessLogProvider && prov.EnvoyFileAccessLog.LogFormat == nil {
+		if fp.Name == builtinEnvoyAccessLogProvider &&
+			prov.EnvoyFileAccessLog.LogFormat == nil && !prov.EnvoyFileAccessLog.OmitEmptyValues {
 			al = FileAccessLogFromMeshConfig(prov.EnvoyFileAccessLog.Path, push.Mesh)
 		} else {
 			al = fileAccessLogFromTelemetry(prov.EnvoyFileAccessLog)
@@ -237,12 +238,12 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 	if prov.LogFormat != nil {
 		switch logFormat := prov.LogFormat.LogFormat.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Text:
-			fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat(logFormat.Text)
+			fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat(logFormat.Text, prov.OmitEmptyValues)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels:
-			fl.AccessLogFormat, needsFormatter = buildFileAccessJSONLogFormat(logFormat)
+			fl.AccessLogFormat, needsFormatter = buildFileAccessJSONLogFormat(logFormat, prov.OmitEmptyValues)
 		}
 	} else {
-		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat("")
+		fl.AccessLogFormat, needsFormatter = buildFileAccessTextLogFormat("", prov.OmitEmptyValues)
 	}
 	if len(needsFormatter) != 0 {
 		fl.GetLogFormat().Formatters = needsFormatter
@@ -256,7 +257,9 @@ func fileAccessLogFromTelemetry(prov *meshconfig.MeshConfig_ExtensionProvider_En
 	return al
 }
 
-func buildFileAccessTextLogFormat(logFormatText string) (*fileaccesslog.FileAccessLog_LogFormat, []*core.TypedExtensionConfig) {
+func buildFileAccessTextLogFormat(
+	logFormatText string, omitEmptyValues bool,
+) (*fileaccesslog.FileAccessLog_LogFormat, []*core.TypedExtensionConfig) {
 	formatString := fileAccessLogFormat(logFormatText)
 	formatters := accessLogTextFormatters(formatString)
 
@@ -269,12 +272,14 @@ func buildFileAccessTextLogFormat(logFormatText string) (*fileaccesslog.FileAcce
 					},
 				},
 			},
+			OmitEmptyValues: omitEmptyValues,
 		},
 	}, formatters
 }
 
 func buildFileAccessJSONLogFormat(
 	logFormat *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels,
+	omitEmptyValues bool,
 ) (*fileaccesslog.FileAccessLog_LogFormat, []*core.TypedExtensionConfig) {
 	jsonLogStruct := EnvoyJSONLogFormatIstio
 	if logFormat.Labels != nil {
@@ -293,6 +298,7 @@ func buildFileAccessJSONLogFormat(
 				JsonFormat: jsonLogStruct,
 			},
 			JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
+			OmitEmptyValues:   omitEmptyValues,
 		},
 	}, formatters
 }
