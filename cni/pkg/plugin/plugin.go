@@ -67,6 +67,7 @@ type Config struct {
 	CNIAgentRunDir    string   `json:"cni_agent_run_dir"`
 	AmbientEnabled    bool     `json:"ambient_enabled"`
 	ExcludeNamespaces []string `json:"exclude_namespaces"`
+	PodNamespace      string   `json:"pod_namespace"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -110,17 +111,24 @@ func parseConfig(stdin []byte) (*Config, error) {
 	return &conf, nil
 }
 
+// Logging with CNI plugins is special - we *cannot* log to stdout, as the CNI spec uses stdin/stdout to pass context between invoked plugins.
+// So, we log to a rolling logfile, and also forward logs via UDS to the node agent (if available)
 func GetLoggingOptions(cfg *Config) *log.Options {
 	loggingOptions := log.DefaultOptions()
 	loggingOptions.OutputPaths = []string{"stderr"}
 	loggingOptions.JSONEncoding = true
 	if cfg != nil {
+
 		udsAddr := filepath.Join(cfg.CNIAgentRunDir, constants.LogUDSSocketName)
 		// Tee all logs to UDS. Stdout will go to kubelet (hard to access, UDS will be read by the CNI DaemonSet and exposed
 		// by normal `kubectl logs`
 		if file.Exists(udsAddr) {
 			loggingOptions.WithTeeToUDS(udsAddr, constants.UDSLogPath)
 		}
+
+		// Also tee to a rolling log on the node's local filesystem, in case the UDS server is down.
+		loggingOptions.WithTeeToRollingLocal(filepath.Join(cfg.CNIAgentRunDir, constants.LocalRollingLogName), constants.RollingLogMaxSizeMB)
+
 		// Override plugin log level based on their config. Not we use "all" (OverrideScopeName) since there is no scoping in the plugin.
 		if cfg.PluginLogLevel != "" {
 			loggingOptions.SetDefaultOutputLevel(log.OverrideScopeName, log.StringToLevel(cfg.PluginLogLevel))
@@ -259,18 +267,15 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 	// We could do this check unconditionally above, but it seems smarter to only
 	// fall back to this (lightly) relaxed check when we know we are in a degraded state.
 	//
-	// Why not check that the pod is scheduled into only the "system namespace" too?
-	// Because that could change between deployments and we'd only have the stale version
-	// until we let the replacement thru.
-	//
 	// Is this fail open? Not really, the K8S args come from the cluster's CNI and are as-authoritative
 	// as the hard query we would otherwise make against the API.
 	//
 	// TODO NRI could probably give us more identifying information here OOB from k8s.
 	maybeCNIPod := string(k8sArgs.K8S_POD_NAME)
+	maybeCNINS := string(k8sArgs.K8S_POD_NAMESPACE)
 	if k8sErr != nil &&
-		strings.Contains(k8sErr.Error(), "Unauthorized") &&
-		strings.HasPrefix(string(k8sArgs.K8S_POD_NAME), "istio-cni-node-") {
+		strings.HasPrefix(maybeCNIPod, "istio-cni-node-") &&
+		maybeCNINS == conf.PodNamespace {
 		log.Infof("in a degraded state and %v looks like our own agent pod, skipping", maybeCNIPod)
 		return nil
 	}
