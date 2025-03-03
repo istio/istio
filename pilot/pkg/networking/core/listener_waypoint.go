@@ -646,8 +646,8 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 	var destinationRule *networking.DestinationRule
 	if svc != nil {
 		svcHostname = svc.Hostname
-		vs := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
-		routes := getWaypointTCPRoutes(vs, fcc.port.Port)
+		virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+		routes := getWaypointTCPRoutes(virtualServices, svcHostname.String(), fcc.port.Port)
 		if len(routes) > 0 {
 			// Existing (slightly incorrect, but best we can do) semantics.
 			// We are routing to multiple destinations, but want TCPProxy level configuration which is shared.
@@ -701,11 +701,49 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 
 var meshGateways = sets.New(constants.IstioMeshGateway)
 
-func getWaypointTCPRoutes(vs *config.Config, port int) []*networking.RouteDestination {
-	if vs == nil {
-		return nil
+func getWaypointTCPRoutes(configs []config.Config, svcHostname string, port int) []*networking.RouteDestination {
+	for _, vs := range configs {
+		// Per https://gateway-api.sigs.k8s.io/geps/gep-1294/?h=xroute#route-types, respect TLS routes before TCP routes
+		if match := getTLSRouteMatch(vs.Spec.(*networking.VirtualService).GetTls(), svcHostname, port); match != nil {
+			return match
+		}
 	}
-	for _, rule := range vs.Spec.(*networking.VirtualService).GetTcp() {
+	for _, vs := range configs {
+		if match := getTCPRouteMatch(vs.Spec.(*networking.VirtualService).GetTcp(), port); match != nil {
+			return match
+		}
+	}
+	return nil
+}
+
+func getTLSRouteMatch(tls []*networking.TLSRoute, svcHostname string, port int) []*networking.RouteDestination {
+	for _, rule := range tls {
+		if len(rule.Match) == 0 {
+			return rule.Route
+		}
+		for _, m := range rule.Match {
+			// Waypoint does not currently support SNI matches. This could be done, but would require more extensive refactoring
+			// of filter chains. Given TLSRoute does not support a config *not* matching this check (though VirtualService does)
+			// there is still some value in respecting the routes
+			if len(m.SniHosts) != 1 || m.SniHosts[0] != svcHostname {
+				continue
+			}
+			if matchTLS(
+				m,
+				nil, // No source labels support
+				meshGateways,
+				port,
+				"", // No source namespace support
+			) {
+				return rule.Route
+			}
+		}
+	}
+	return nil
+}
+
+func getTCPRouteMatch(tcp []*networking.TCPRoute, port int) []*networking.RouteDestination {
+	for _, rule := range tcp {
 		if len(rule.Match) == 0 {
 			return rule.Route
 		}
@@ -730,7 +768,11 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
 
-	vs := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+	vs := slices.FindFunc(virtualServices, func(c config.Config) bool {
+		// Find the first HTTP virtual service
+		return c.Spec.(*networking.VirtualService).Http != nil
+	})
 	if vs == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
@@ -757,20 +799,23 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 }
 
 // Select the config pertaining to the service being processed.
-func getVirtualServiceForWaypoint(configNamespace string, svc *model.Service, configs []config.Config) *config.Config {
+func getVirtualServiceForWaypoint(configNamespace string, svc *model.Service, configs []config.Config) []config.Config {
+	var matching []config.Config
 	for _, cfg := range configs {
 		if cfg.Namespace != configNamespace && cfg.Namespace != svc.Attributes.Namespace {
 			// We only allow routes in the same namespace as the service or in the waypoint's own namespace
 			continue
 		}
 		virtualService := cfg.Spec.(*networking.VirtualService)
+
 		for _, vsHost := range virtualService.Hosts {
 			if host.Name(vsHost).Matches(svc.Hostname) {
-				return &cfg
+				matching = append(matching, cfg)
+				break
 			}
 		}
 	}
-	return nil
+	return matching
 }
 
 func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, listenPort int) ([]*route.Route, error) {
