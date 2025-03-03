@@ -118,7 +118,6 @@ func TestRunSpecificAnalyzer(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.caseName, func(t *testing.T) {
-
 			analyze := Analyze(ctx)
 			testutil.VerifyOutput(t, analyze, tc.TestCase)
 		})

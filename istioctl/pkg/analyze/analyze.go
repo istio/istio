@@ -114,7 +114,10 @@ func Analyze(ctx cli.Context) *cobra.Command {
   istioctl analyze -S "IST0103=Pod *.testing" -S "IST0107=Deployment foobar.default"
 
   # List available analyzers
-  istioctl analyze -L`,
+  istioctl analyze -L
+  
+  # Run specific analyzer
+  istioctl analyze --analyzer "gateway.ConflictingGatewayAnalyzer"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msgOutputFormat = strings.ToLower(msgOutputFormat)
 			_, ok := formatting.MsgOutputFormats[msgOutputFormat]
