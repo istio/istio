@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package krt
+package files
 
 import (
 	"fmt"
@@ -26,6 +26,8 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -197,17 +199,17 @@ func (m recursiveWatcher) watchRecursive(path string) error {
 }
 
 type FileCollection[T any] struct {
-	StaticCollection[T]
+	krt.StaticCollection[T]
 	read func() []T
 }
 
-func NewFileCollection[F any, O any](w *FolderWatch[F], transform func(F) *O, opts ...CollectionOption) FileCollection[O] {
+func NewFileCollection[F any, O any](w *FolderWatch[F], transform func(F) *O, opts ...krt.CollectionOption) FileCollection[O] {
 	res := FileCollection[O]{
 		read: func() []O {
 			return readSnapshot[F, O](w, transform)
 		},
 	}
-	sc := NewStaticCollection[O](res.read(), opts...)
+	sc := krt.NewStaticCollection[O](res.read(), opts...)
 	w.subscribe(func() {
 		now := res.read()
 		sc.Reset(now)
@@ -222,7 +224,7 @@ func readSnapshot[F any, O any](w *FolderWatch[F], transform func(F) *O) []O {
 }
 
 type FileSingleton[T any] struct {
-	Singleton[T]
+	krt.Singleton[T]
 }
 
 // NewFileSingleton returns a collection that reads and watches a single file
@@ -232,23 +234,23 @@ func NewFileSingleton[T any](
 	fileWatcher filewatcher.FileWatcher,
 	filename string,
 	readFile func(filename string) (T, error),
-	opts ...CollectionOption,
+	opts ...krt.CollectionOption,
 ) (FileSingleton[T], error) {
 	cfg, err := readFile(filename)
 	if err != nil {
 		return FileSingleton[T]{}, err
 	}
 
-	o := buildCollectionOptions(opts...)
+	stop := krt.GetStop(opts...)
 
 	cur := atomic.NewPointer(&cfg)
-	trigger := NewRecomputeTrigger(true, opts...)
-	sc := NewSingleton[T](func(ctx HandlerContext) *T {
+	trigger := krt.NewRecomputeTrigger(true, opts...)
+	sc := krt.NewSingleton[T](func(ctx krt.HandlerContext) *T {
 		trigger.MarkDependant(ctx)
 		return cur.Load()
 	}, opts...)
-	sc.AsCollection().WaitUntilSynced(o.stop)
-	watchFile(fileWatcher, filename, o.stop, func() {
+	sc.AsCollection().WaitUntilSynced(stop)
+	watchFile(fileWatcher, filename, stop, func() {
 		cfg, err := readFile(filename)
 		if err != nil {
 			log.Warnf("failed to update: %v", err)

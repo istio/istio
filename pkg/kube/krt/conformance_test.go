@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
+	krtfiles "istio.io/istio/pkg/kube/krt/files"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -90,7 +91,7 @@ func (r *manyRig) CreateObject(key string) {
 }
 
 type fileRig struct {
-	krt.FileCollection[Named]
+	krtfiles.FileCollection[Named]
 	rootPath string
 	t        test.Failer
 }
@@ -161,11 +162,11 @@ func TestConformance(t *testing.T) {
 	t.Run("files", func(t *testing.T) {
 		stop := test.NewStop(t)
 		root := t.TempDir()
-		fw, err := krt.NewFolderWatch[[]byte](root, func(bytes []byte) ([][]byte, error) {
+		fw, err := krtfiles.NewFolderWatch[[]byte](root, func(bytes []byte) ([][]byte, error) {
 			return [][]byte{bytes}, nil
 		}, stop)
 		assert.NoError(t, err)
-		col := krt.NewFileCollection[[]byte, Named](fw, func(f []byte) *Named {
+		col := krtfiles.NewFileCollection[[]byte, Named](fw, func(f []byte) *Named {
 			var res Named
 			err := yaml.Unmarshal(f, &res)
 			if err != nil {
