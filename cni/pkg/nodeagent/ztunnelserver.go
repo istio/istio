@@ -261,8 +261,6 @@ func podToWorkload(pod *v1.Pod) *zdsapi.WorkloadInfo {
 	}
 }
 
-// TODO ctx is unused here
-// nolint: unparam
 func (z *ztunnelServer) sendSnapshot(_ context.Context, conn ZtunnelConnection) error {
 	snap := z.pods.ReadCurrentPodSnapshot()
 	for uid, wl := range snap {

@@ -1,0 +1,38 @@
+name: Build CNI
+
+on:
+  pull_request:
+    branches:
+      - master
+      - 'release-*'
+    paths:
+      - 'cni/**'
+  push:
+    branches:
+      - master
+      - 'release-*'
+    paths:
+      - 'cni/**'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        path:
+          - ./cni/cmd/install-cni
+          - ./cni/cmd/istio-cni
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: '1.23'
+
+    - name: Build ${{ matrix.path }}
+      run: go build ${{ matrix.path }}
+      working-directory: ${{ github.workspace }}
