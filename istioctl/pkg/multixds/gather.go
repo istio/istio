@@ -105,7 +105,7 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 		return nil, err
 	}
 
-	for _, pod := range pods {
+	for idx, pod := range pods {
 		fw, err := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "localhost", 0, centralOpts.XdsPodPort)
 		if err != nil {
 			return nil, err
@@ -121,7 +121,9 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
 		}
 
-		if proxyNotConnectedToThisPilotInstanceResponse(response) {
+		if idx != len(pods)-1 && proxyNotConnectedToThisPilotInstanceResponse(response) {
+			// if it's not the last pod and the response is "Proxy not connected to this Pilot instance",
+			// we should continue to the next pod
 			continue
 		}
 
