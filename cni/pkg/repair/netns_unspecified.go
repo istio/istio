@@ -15,23 +15,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagent
+package repair
 
-import "errors"
+import corev1 "k8s.io/api/core/v1"
 
-func inodeForFd(_ NetnsFd) (uint64, error) {
-	return 0, errors.New("not implemented")
+func runInHost[T any](f func() (T, error)) (T, error) {
+	panic("not implemented")
+	// return f()
 }
 
-func NetnsSet(n NetnsFd) error {
-	return errors.New("not implemented")
-}
-
-func OpenNetns(nspath string) (NetnsCloser, error) {
-	return nil, errors.New("not implemented")
-}
-
-// inspired by netns.Do() but with an existing fd.
-func NetnsDo(fdable NetnsFd, toRun func() error) error {
-	return errors.New("not implemented")
+// getPodNetNs returns the network namespace of the pod.
+// On windows, we can look at the pod ip address and enumerate all of the
+// networks to find the one that corresponds with this pod. From there,
+// we return the network namespace guid.
+func getPodNetNs(pod *corev1.Pod) (string, error) {
+	panic("not implemented")
 }

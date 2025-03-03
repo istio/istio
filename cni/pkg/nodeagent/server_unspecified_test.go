@@ -17,21 +17,11 @@
 
 package nodeagent
 
-import "errors"
+import (
+	"k8s.io/client-go/kubernetes"
+)
 
-func inodeForFd(_ NetnsFd) (uint64, error) {
-	return 0, errors.New("not implemented")
-}
-
-func NetnsSet(n NetnsFd) error {
-	return errors.New("not implemented")
-}
-
-func OpenNetns(nspath string) (NetnsCloser, error) {
-	return nil, errors.New("not implemented")
-}
-
-// inspired by netns.Do() but with an existing fd.
-func NetnsDo(fdable NetnsFd, toRun func() error) error {
-	return errors.New("not implemented")
+func getFakeDP(fs *fakeServer, fakeClient kubernetes.Interface) *meshDataplane {
+	// not supported
+	return nil
 }

@@ -15,23 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagent
+package repair
 
-import "errors"
+import corev1 "k8s.io/api/core/v1"
 
-func inodeForFd(_ NetnsFd) (uint64, error) {
-	return 0, errors.New("not implemented")
-}
-
-func NetnsSet(n NetnsFd) error {
-	return errors.New("not implemented")
-}
-
-func OpenNetns(nspath string) (NetnsCloser, error) {
-	return nil, errors.New("not implemented")
-}
-
-// inspired by netns.Do() but with an existing fd.
-func NetnsDo(fdable NetnsFd, toRun func() error) error {
-	return errors.New("not implemented")
+func (c *Controller) repairPod(pod *corev1.Pod) error {
+	panic("not implemented")
 }
