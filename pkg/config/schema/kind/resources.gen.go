@@ -24,6 +24,7 @@ const (
 	Gateway
 	GatewayClass
 	HTTPRoute
+	HorizontalPodAutoscaler
 	Ingress
 	IngressClass
 	KubernetesGateway
@@ -89,6 +90,8 @@ func (k Kind) String() string {
 		return "GatewayClass"
 	case HTTPRoute:
 		return "HTTPRoute"
+	case HorizontalPodAutoscaler:
+		return "HorizontalPodAutoscaler"
 	case Ingress:
 		return "Ingress"
 	case IngressClass:
@@ -182,6 +185,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return GatewayClass
 	case gvk.HTTPRoute:
 		return HTTPRoute
+	case gvk.HorizontalPodAutoscaler:
+		return HorizontalPodAutoscaler
 	case gvk.Ingress:
 		return Ingress
 	case gvk.IngressClass:

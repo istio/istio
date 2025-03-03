@@ -22,12 +22,16 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	yamlserializer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/mergepatch"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
@@ -38,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -49,6 +54,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
@@ -91,10 +97,13 @@ type DeploymentController struct {
 	injectConfig    func() inject.WebhookConfig
 	deployments     kclient.Client[*appsv1.Deployment]
 	services        kclient.Client[*corev1.Service]
+	hpas            kclient.Client[*autoscalingv2.HorizontalPodAutoscaler]
+	configMaps      kclient.Client[*corev1.ConfigMap]
 	serviceAccounts kclient.Client[*corev1.ServiceAccount]
 	namespaces      kclient.Client[*corev1.Namespace]
 	tagWatcher      revisions.TagWatcher
 	revision        string
+	systemNamespace string
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -179,8 +188,15 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
-func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *model.Environment,
-	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher, revision string,
+func NewDeploymentController(
+	client kube.Client,
+	clusterID cluster.ID,
+	env *model.Environment,
+	webhookConfig func() inject.WebhookConfig,
+	injectionHandler func(fn func()),
+	tw revisions.TagWatcher,
+	revision string,
+	systemNamespace string,
 ) *DeploymentController {
 	filter := kclient.Filter{ObjectFilter: client.ObjectFilter()}
 	gateways := kclient.NewFiltered[*gateway.Gateway](client, filter)
@@ -199,12 +215,20 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *mode
 			}, subresources...)
 			return err
 		},
-		gateways:       gateways,
-		gatewayClasses: gatewayClasses,
-		injectConfig:   webhookConfig,
-		tagWatcher:     tw,
-		revision:       revision,
+		gateways:        gateways,
+		gatewayClasses:  gatewayClasses,
+		injectConfig:    webhookConfig,
+		tagWatcher:      tw,
+		revision:        revision,
+		systemNamespace: systemNamespace,
 	}
+	gatewaysByParamsRef := kclient.CreateIndex(gateways, func(o *gateway.Gateway) []types.NamespacedName {
+		p, err := fetchParameters(o)
+		if p == nil || err != nil {
+			return nil
+		}
+		return []types.NamespacedName{*p}
+	})
 	dc.queue = controllers.NewQueue("gateway deployment",
 		controllers.WithReconciler(dc.Reconcile),
 		controllers.WithMaxAttempts(5))
@@ -218,6 +242,27 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *mode
 	dc.services.AddEventHandler(parentHandler)
 	dc.clients[gvr.Service] = NewUntypedWrapper(dc.services)
 
+	dc.configMaps = kclient.NewFiltered[*corev1.ConfigMap](client, filter)
+	dc.configMaps.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		// This could be a configmap referenced by a Gateway paramsRef
+		impacted := gatewaysByParamsRef.Lookup(config.NamespacedName(o))
+		for _, gw := range impacted {
+			dc.queue.AddObject(gw)
+		}
+		// Or it could also be a global GatewayClass config
+		if o.GetNamespace() == dc.systemNamespace {
+			classPrefix := fmt.Sprintf("istio-%v-gatewayclass-", ptr.NonEmptyOrDefault(dc.revision, "default"))
+			_, class, ok := strings.Cut(o.GetName(), classPrefix)
+			if ok {
+				for _, gw := range dc.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
+					if string(gw.Spec.GatewayClassName) == class {
+						dc.queue.AddObject(gw)
+					}
+				}
+			}
+		}
+	}))
+
 	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, filter)
 	dc.deployments.AddEventHandler(parentHandler)
 	dc.clients[gvr.Deployment] = NewUntypedWrapper(dc.deployments)
@@ -225,6 +270,10 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *mode
 	dc.serviceAccounts = kclient.NewFiltered[*corev1.ServiceAccount](client, filter)
 	dc.serviceAccounts.AddEventHandler(parentHandler)
 	dc.clients[gvr.ServiceAccount] = NewUntypedWrapper(dc.serviceAccounts)
+
+	dc.hpas = kclient.NewFiltered[*autoscalingv2.HorizontalPodAutoscaler](client, filter)
+	dc.hpas.AddEventHandler(parentHandler)
+	dc.clients[gvr.HorizontalPodAutoscaler] = NewUntypedWrapper(dc.hpas)
 
 	dc.namespaces = kclient.NewFiltered[*corev1.Namespace](client, filter)
 	dc.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
@@ -263,13 +312,24 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.namespaces.HasSynced,
 		d.deployments.HasSynced,
 		d.services.HasSynced,
+		d.configMaps.HasSynced,
 		d.serviceAccounts.HasSynced,
+		d.hpas.HasSynced,
 		d.gateways.HasSynced,
 		d.gatewayClasses.HasSynced,
 		d.tagWatcher.HasSynced,
 	)
 	d.queue.Run(stop)
-	controllers.ShutdownAll(d.namespaces, d.deployments, d.services, d.serviceAccounts, d.gateways, d.gatewayClasses)
+	controllers.ShutdownAll(
+		d.namespaces,
+		d.deployments,
+		d.services,
+		d.configMaps,
+		d.serviceAccounts,
+		d.hpas,
+		d.gateways,
+		d.gatewayClasses,
+	)
 }
 
 // Reconcile takes in the name of a Gateway and ensures the cluster is in the desired state
@@ -514,6 +574,24 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
 
+	var templateOverlays []map[string]string
+
+	classOverlayName := fmt.Sprintf("istio-%v-gatewayclass-%v", ptr.NonEmptyOrDefault(d.revision, "default"), mi.Spec.GatewayClassName)
+	if classOverlayConfigMap := d.configMaps.Get(classOverlayName, d.systemNamespace); classOverlayConfigMap != nil {
+		templateOverlays = append(templateOverlays, classOverlayConfigMap.Data)
+	}
+	params, err := fetchParameters(mi.Gateway)
+	if err != nil {
+		return nil, fmt.Errorf("invalid parameters: %v", err)
+	}
+	if params != nil {
+		cm := d.configMaps.Get(params.Name, params.Namespace)
+		if cm == nil {
+			return nil, fmt.Errorf("parametersRef targetting configmap %q, but configmap does not exist", params)
+		}
+		templateOverlays = append(templateOverlays, cm.Data)
+	}
+
 	labelToMatch := map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: mi.Name}
 	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
 	input := derivedInput{
@@ -532,7 +610,94 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		return nil, err
 	}
 
-	return yml.SplitString(results), nil
+	rawOutput := yml.SplitString(results)
+	transformedOutput := make([]string, 0, len(rawOutput))
+	for _, output := range rawOutput {
+		to, err := applyOverlay(output, templateOverlays)
+		if err != nil {
+			return nil, err
+		}
+		if to != "" {
+			transformedOutput = append(transformedOutput, to)
+		}
+	}
+	return transformedOutput, nil
+}
+
+var supportedOverlays = sets.New(
+	"deployment",
+	"service",
+	"serviceAccount",
+	"horizontalPodAutoscaler",
+)
+
+var requiredOverlays = sets.New(
+	"horizontalPodAutoscaler",
+)
+
+func applyOverlay(object string, overlaysList []map[string]string) (string, error) {
+	kind, err := yamlserializer.DefaultMetaFactory.Interpret([]byte(object))
+	if err != nil {
+		return "", fmt.Errorf("failed to find kind: %v", err)
+	}
+
+	var data any
+	var key string
+	switch kind.Kind {
+	case gvk.Deployment.Kind:
+		data = &appsv1.Deployment{}
+		key = "deployment"
+	case gvk.Service.Kind:
+		data = &corev1.Service{}
+		key = "service"
+	case gvk.ServiceAccount.Kind:
+		data = &corev1.ServiceAccount{}
+		key = "serviceAccount"
+	case gvk.HorizontalPodAutoscaler.Kind:
+		data = &autoscalingv2.HorizontalPodAutoscaler{}
+		key = "horizontalPodAutoscaler"
+	default:
+		return "", fmt.Errorf("unknown overlay kind %q", kind.Kind)
+	}
+	applied := false
+	for _, overlays := range overlaysList {
+		for k := range overlays {
+			if !supportedOverlays.Contains(k) {
+				return "", fmt.Errorf("unsupported overlay %q (supported: %v)", k, sets.SortedList(supportedOverlays))
+			}
+		}
+		overlay, f := overlays[key]
+		if !f {
+			continue
+		}
+		b, err := strategicMergePatchYAML([]byte(object), []byte(overlay), data)
+		if err != nil {
+			return "", fmt.Errorf("strategic merge patch failed: %v", err)
+		}
+		applied = true
+		object = string(b)
+	}
+	if !applied && requiredOverlays.Contains(key) {
+		return "", nil
+	}
+	return object, nil
+}
+
+// fetchParameters returns the infrastructure parameters for the Gateway. This is currently always a local configmap so we return the name only.
+// An error is returned if the parameter is invalid. This does not check the configmap exists, though.
+// If no parameter is specified, no name or error is returned.
+func fetchParameters(gw *gateway.Gateway) (*types.NamespacedName, error) {
+	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.ParametersRef != nil {
+		pr := gw.Spec.Infrastructure.ParametersRef
+		if string(pr.Kind) == gvk.ConfigMap.Kind && string(pr.Group) == gvk.ConfigMap.Group {
+			return &types.NamespacedName{
+				Namespace: gw.Namespace,
+				Name:      pr.Name,
+			}, nil
+		}
+		return nil, fmt.Errorf("unknown infrastructure parameters type %v/%v", pr.Group, pr.Kind)
+	}
+	return nil, nil
 }
 
 func (d *DeploymentController) setGatewayControllerVersion(gws gateway.Gateway) error {
@@ -701,3 +866,45 @@ func (u UntypedWrapper[T]) Get(name, namespace string) controllers.Object {
 }
 
 var _ getter = UntypedWrapper[*corev1.Service]{}
+
+// strategicMergePatchYAML is a small fork of strategicpatch.StrategicMergePatch to allow YAML patches
+// This avoids expensive conversion from YAML to JSON
+func strategicMergePatchYAML(originalYAML []byte, patchYAML []byte, dataStruct any) ([]byte, error) {
+	schema, err := strategicpatch.NewPatchMetaFromStruct(dataStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	originalMap, err := patchHandleUnmarshal(originalYAML, func(data []byte, v any) error {
+		return yaml.Unmarshal(data, v)
+	})
+	if err != nil {
+		return nil, err
+	}
+	patchMap, err := patchHandleUnmarshal(patchYAML, func(data []byte, v any) error {
+		return yaml.Unmarshal(data, v)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := strategicpatch.StrategicMergeMapPatchUsingLookupPatchMeta(originalMap, patchMap, schema)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(result)
+}
+
+func patchHandleUnmarshal(j []byte, unmarshal func(data []byte, v any) error) (map[string]any, error) {
+	if j == nil {
+		j = []byte("{}")
+	}
+
+	m := map[string]any{}
+	err := unmarshal(j, &m)
+	if err != nil {
+		return nil, mergepatch.ErrBadJSONDoc
+	}
+	return m, nil
+}
