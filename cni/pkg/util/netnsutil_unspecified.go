@@ -15,23 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nodeagent
+package util
 
 import "errors"
 
-func inodeForFd(_ NetnsFd) (uint64, error) {
-	return 0, errors.New("not implemented")
-}
+var errNotImplemented = errors.New("not implemented on this OS platform")
 
-func NetnsSet(n NetnsFd) error {
-	return errors.New("not implemented")
-}
-
-func OpenNetns(nspath string) (NetnsCloser, error) {
-	return nil, errors.New("not implemented")
-}
-
-// inspired by netns.Do() but with an existing fd.
-func NetnsDo(fdable NetnsFd, toRun func() error) error {
-	return errors.New("not implemented")
+// RunAsHost executes the given function `f` within the host network namespace
+func RunAsHost(f func() error) error {
+	return errNotImplemented
 }

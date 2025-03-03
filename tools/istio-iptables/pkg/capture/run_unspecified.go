@@ -27,10 +27,11 @@ var ErrNotImplemented = errors.New("not implemented")
 
 // configureTProxyRoutes configures ip firewall rules to enable TPROXY support.
 // See https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/original_src_filter
-func configureTProxyRoutes(cfg *config.Config) error {
+// nolint:unused
+func configureTProxyRoutes(_ *config.Config) error {
 	return ErrNotImplemented
 }
 
-func ConfigureRoutes(cfg *config.Config) error {
+func ConfigureRoutes(_ *config.Config) error {
 	return ErrNotImplemented
 }
