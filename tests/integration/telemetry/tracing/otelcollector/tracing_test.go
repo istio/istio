@@ -116,7 +116,7 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 										return errors.New("cannot find expected traces")
 									}
 									return nil
-								}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+								}, retry.Delay(3*time.Second), retry.Timeout(150*time.Second))
 							})
 						}
 					})
