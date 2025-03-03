@@ -180,6 +180,16 @@ func (n *informerClient[T]) ShutdownHandlers() {
 	for _, c := range n.registeredHandlers {
 		_ = n.informer.RemoveEventHandler(c.registration)
 	}
+	n.registeredHandlers = nil
+}
+
+func (n *informerClient[T]) ShutdownHandler(registration cache.ResourceEventHandlerRegistration) {
+	n.handlerMu.Lock()
+	defer n.handlerMu.Unlock()
+	n.registeredHandlers = slices.FilterInPlace(n.registeredHandlers, func(h handlerRegistration) bool {
+		return h.registration != registration
+	})
+	_ = n.informer.RemoveEventHandler(registration)
 }
 
 type neverReady struct{}

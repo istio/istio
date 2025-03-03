@@ -84,16 +84,33 @@ func (j *join[T]) List() []T {
 	return res
 }
 
-func (j *join[T]) Register(f func(o Event[T])) Syncer {
+func (j *join[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return registerHandlerAsBatched[T](j, f)
 }
 
-func (j *join[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) Syncer {
+func (j *join[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) HandlerRegistration {
 	sync := multiSyncer{}
+	removes := []func(){}
 	for _, c := range j.collections {
-		sync.syncers = append(sync.syncers, c.RegisterBatch(f, runExistingState))
+		reg := c.RegisterBatch(f, runExistingState)
+		removes = append(removes, reg.UnregisterHandler)
+		sync.syncers = append(sync.syncers, reg)
 	}
-	return sync
+	return joinHandlerRegistration{
+		Syncer:  sync,
+		removes: removes,
+	}
+}
+
+type joinHandlerRegistration struct {
+	Syncer
+	removes []func()
+}
+
+func (j joinHandlerRegistration) UnregisterHandler() {
+	for _, remover := range j.removes {
+		remover()
+	}
 }
 
 // nolint: unused // (not true, its to implement an interface)

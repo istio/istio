@@ -103,11 +103,11 @@ func (i *informer[I]) GetKey(k string) *I {
 	return nil
 }
 
-func (i *informer[I]) Register(f func(o Event[I])) Syncer {
+func (i *informer[I]) Register(f func(o Event[I])) HandlerRegistration {
 	return registerHandlerAsBatched[I](i, f)
 }
 
-func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runExistingState bool) Syncer {
+func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runExistingState bool) HandlerRegistration {
 	// Note: runExistingState is NOT respected here.
 	// Informer doesn't expose a way to do that. However, due to the runtime model of informers, this isn't a dealbreaker;
 	// the handlers are all called async, so we don't end up with the same deadlocks we would have in the other collection types.
@@ -120,7 +120,22 @@ func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runE
 		name: fmt.Sprintf("%v handler", i.name()),
 		f:    synced.HasSynced,
 	}
-	return multiSyncer{syncers: []Syncer{base, handler}}
+	sync := multiSyncer{syncers: []Syncer{base, handler}}
+	return informerHandlerRegistration{
+		Syncer: sync,
+		remove: func() {
+			i.inf.ShutdownHandler(synced)
+		},
+	}
+}
+
+type informerHandlerRegistration struct {
+	Syncer
+	remove func()
+}
+
+func (i informerHandlerRegistration) UnregisterHandler() {
+	i.remove()
 }
 
 // nolint: unused // (not true)

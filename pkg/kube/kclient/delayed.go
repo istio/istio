@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 )
 
 // delayedClient is a client wrapper that initially starts with an "empty client",
@@ -145,6 +146,18 @@ func (s *delayedClient[T]) ShutdownHandlers() {
 		s.hm.Lock()
 		defer s.hm.Unlock()
 		s.handlers = nil
+	}
+}
+
+func (s *delayedClient[T]) ShutdownHandler(registration cache.ResourceEventHandlerRegistration) {
+	if c := s.inf.Load(); c != nil {
+		(*c).ShutdownHandlers()
+	} else {
+		s.hm.Lock()
+		defer s.hm.Unlock()
+		s.handlers = slices.FilterInPlace(s.handlers, func(handler delayedHandler) bool {
+			return handler.hasSynced != registration
+		})
 	}
 }
 
