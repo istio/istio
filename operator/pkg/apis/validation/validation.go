@@ -125,6 +125,22 @@ func detectCniIncompatibility(client kube.Client, cniEnabled bool, ztunnelEnable
 			errs = util.AppendErr(errs,
 				errors.New("detected Cilium CNI with 'bpf-lb-sock=true'; this requires 'bpf-lb-sock-hostns-only=true' to be set"))
 		}
+		// Cilium version differences:
+		// * Older versions of Cilium (<v0.16) used "kube-proxy-replacement=strict" and
+		//   defaulted to "bpf-lb-sock-hostns-only=false". This could cause compatibility
+		//   issues with Istio, as traffic might bypass the sidecar proxy.
+		//
+		// * Newer versions of Cilium (>=v0.16) no longer support "strict". Instead, they
+		//   use "kube-proxy-replacement=true/false", where the default behavior is
+		//   "bpf-lb-sock-hostns-only=true".
+		kpr := cilium.Data["kube-proxy-replacement"]
+		if kpr == "strict" {
+			if !bpfLbHostnsOnly {
+				errs = util.AppendErr(errs,
+					errors.New("detected Cilium CNI with 'kube-proxy-replacement=strict' and 'bpf-lb-sock-hostns-only=false'; "+
+						"please set 'bpf-lb-sock-hostns-only=true' to avoid conflicts with Istio"))
+			}
+		}
 	}
 	return errs
 }
