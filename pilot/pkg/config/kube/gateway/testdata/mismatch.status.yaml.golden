@@ -3,7 +3,6 @@ kind: GatewayClass
 metadata:
   creationTimestamp: null
   name: istio
-  namespace: default
 spec: null
 status:
   conditions:
@@ -12,12 +11,4 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  creationTimestamp: null
-  name: gateway
-  namespace: istio-system
-spec: null
 ---

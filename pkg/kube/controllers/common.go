@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 )
 
 var log = istiolog.RegisterScope("controllers", "common controller logic")
@@ -275,7 +276,7 @@ func Extract[T Object](obj any) T {
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
-			log.Errorf("couldn't get object from tombstone: %+v", obj)
+			log.Errorf("couldn't get object from tombstone: (%T vs %T) %+v", obj, ptr.Empty[T](), obj)
 			return empty
 		}
 		o, ok = tombstone.Obj.(T)
