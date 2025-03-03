@@ -477,6 +477,7 @@ func buildHTTPVirtualServices(
 		}
 		if r.IsMesh() {
 			res.RouteError = meshResult.error
+			res.WaypointError = r.WaypointError
 		}
 		return res
 	}))
@@ -920,17 +921,37 @@ func referenceAllowed(
 	parentRef parentReference,
 	hostnames []k8s.Hostname,
 	namespace string,
-) *ParentError {
+) (*ParentError, *WaypointError) {
 	if parentRef.Kind == gvk.Service {
+		var svc *model.Service
+
 		// check that the referenced svc exists
-		if svc := ctx.Context.GetService(fmt.Sprintf("%s.%s.svc.cluster.local", parentRef.Name, parentRef.Namespace), parentRef.Namespace); svc == nil {
+		if svc = ctx.Context.GetService(fmt.Sprintf("%s.%s.svc.cluster.local", parentRef.Name, parentRef.Namespace), parentRef.Namespace); svc == nil {
 			return &ParentError{
-				Reason:  ParentErrorNotAccepted,
-				Message: fmt.Sprintf("parent service: %q not found", parentRef.Name),
+					Reason:  ParentErrorNotAccepted,
+					Message: fmt.Sprintf("parent service: %q not found", parentRef.Name),
+				}, &WaypointError{
+					Reason:  WaypointErrorReasonNoMatchingParent,
+					Message: WaypointErrorMsgNoMatchingParent,
+				}
+		}
+
+		// check that the reference or its corresponding ns has the use-waypoint label
+		if _, ok := svc.Attributes.Labels["istio.io/use-waypoint"]; !ok {
+			// ns should exist if svc exists
+			if ns, ok := ctx.Namespaces[svc.Attributes.Namespace]; ok {
+				if _, exists := ns.Labels["istio.io/use-waypoint"]; !exists {
+					return nil, &WaypointError{
+						Reason:  WaypointErrorReasonMissingLabel,
+						Message: WaypointErrorMsgMissingLabel,
+					}
+				}
+
 			}
 		}
 	} else if parentRef.Kind == gvk.ServiceEntry {
 		// check that the referenced svc entry exists
+		// TODO (conradhanson) - improve se lookup efficiency (existing index?)
 		svcEntry := slices.FindFunc(ctx.ServiceEntry, func(cfg config.Config) bool {
 			if cfg.GetName() == parentRef.Name && cfg.GetNamespace() == parentRef.Namespace {
 				return true
@@ -939,8 +960,25 @@ func referenceAllowed(
 		})
 		if svcEntry == nil {
 			return &ParentError{
-				Reason:  ParentErrorNotAccepted,
-				Message: fmt.Sprintf("parent service entry: %q not found", parentRef.Name),
+					Reason:  ParentErrorNotAccepted,
+					Message: fmt.Sprintf("parent service entry: %q not found", parentRef.Name),
+				}, &WaypointError{
+					Reason:  WaypointErrorReasonNoMatchingParent,
+					Message: WaypointErrorMsgNoMatchingParent,
+				}
+		}
+
+		// check that the reference or its corresponding ns has the use-waypoint label
+		if _, ok := svcEntry.Labels["istio.io/use-waypoint"]; !ok {
+			// ns should exist if svc entry exists
+			if ns, ok := ctx.Namespaces[svcEntry.Namespace]; ok {
+				if _, exists := ns.Labels["istio.io/use-waypoint"]; !exists {
+					return nil, &WaypointError{
+						Reason:  WaypointErrorReasonMissingLabel,
+						Message: WaypointErrorMsgMissingLabel,
+					}
+				}
+
 			}
 		}
 	} else {
@@ -949,13 +987,13 @@ func referenceAllowed(
 			return &ParentError{
 				Reason:  ParentErrorNotAccepted,
 				Message: fmt.Sprintf("port %v not found", parentRef.Port),
-			}
+			}, nil
 		}
 		if len(parentRef.SectionName) > 0 && parentRef.SectionName != parent.SectionName {
 			return &ParentError{
 				Reason:  ParentErrorNotAccepted,
 				Message: fmt.Sprintf("sectionName %q not found", parentRef.SectionName),
-			}
+			}, nil
 		}
 
 		// Next check the hostnames are a match. This is a bi-directional wildcard match. Only one route
@@ -992,7 +1030,7 @@ func referenceAllowed(
 							"hostnames matched parent hostname %q, but namespace %q is not allowed by the parent",
 							parent.OriginalHostname, namespace,
 						),
-					}
+					}, nil
 				}
 				return &ParentError{
 					Reason: ParentErrorNoHostname,
@@ -1000,7 +1038,7 @@ func referenceAllowed(
 						"no hostnames matched parent hostname %q",
 						parent.OriginalHostname,
 					),
-				}
+				}, nil
 			}
 		}
 	}
@@ -1016,9 +1054,9 @@ func referenceAllowed(
 		return &ParentError{
 			Reason:  ParentErrorNotAllowed,
 			Message: fmt.Sprintf("kind %v is not allowed", routeKind),
-		}
+		}, nil
 	}
-	return nil
+	return nil, nil
 }
 
 func extractParentReferenceInfo(ctx configContext, routeRefs []k8s.ParentReference,
@@ -1056,13 +1094,15 @@ func extractParentReferenceInfo(ctx configContext, routeRefs []k8s.ParentReferen
 				}
 				bannedHostnames.Insert(gw.OriginalHostname)
 			}
+			deniedReason, waypointError := referenceAllowed(ctx, pr, kind, pk, hostnames, localNamespace)
 			rpi := routeParentReference{
 				InternalName:      pr.InternalName,
 				InternalKind:      ir.Kind,
 				Hostname:          pr.OriginalHostname,
-				DeniedReason:      referenceAllowed(ctx, pr, kind, pk, hostnames, localNamespace),
+				DeniedReason:      deniedReason,
 				OriginalReference: ref,
 				BannedHostnames:   bannedHostnames.Copy().Delete(pr.OriginalHostname),
+				WaypointError:     waypointError,
 			}
 			if rpi.DeniedReason == nil {
 				// Record that we were able to bind to the parent
@@ -2018,6 +2058,8 @@ type routeParentReference struct {
 	// Hostname is the hostname match of the parent, if any
 	Hostname        string
 	BannedHostnames sets.Set[string]
+	// WaypointError, if present, indicates why the reference does not have valid configuration for generating a Waypoint
+	WaypointError *WaypointError
 }
 
 func (r routeParentReference) IsMesh() bool {
