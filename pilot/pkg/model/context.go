@@ -220,6 +220,10 @@ func (e *Environment) Init() {
 	e.clusterLocalServices = NewClusterLocalProvider(e)
 }
 
+func (e *Environment) Close() {
+	e.Cache.Close()
+}
+
 func (e *Environment) InitNetworksManager(updater XDSUpdater) (err error) {
 	e.NetworkManager, err = NewNetworkManager(e, updater)
 	return

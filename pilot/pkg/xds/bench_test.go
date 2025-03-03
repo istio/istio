@@ -709,6 +709,9 @@ func BenchmarkCache(b *testing.B) {
 		}
 
 		c := model.NewXdsCache()
+		stop := make(chan struct{})
+		defer close(stop)
+		c.Run(stop)
 		keys := []model.XdsCacheEntry{}
 		for n := range features.XDSCacheMaxSize {
 			key := makeCacheKey(n)
@@ -783,6 +786,9 @@ func BenchmarkCache(b *testing.B) {
 	})
 	b.Run("get", func(b *testing.B) {
 		c := model.NewXdsCache()
+		stop := make(chan struct{})
+		defer close(stop)
+		c.Run(stop)
 		key := makeCacheKey(1)
 		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(1))}
 		c.Add(key, req, res)
