@@ -446,14 +446,20 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			vskey := virtualService.Name + "/" + virtualService.Namespace
 
 			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
+				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService)
 				opts := istio_route.RouteOptions{
 					IsTLS:                     server.Tls != nil,
 					IsHTTP3AltSvcHeaderNeeded: isH3DiscoveryNeeded,
 					Mesh:                      push.Mesh,
+					LookupService: func(name host.Name) *model.Service {
+						return nameToServiceMap[name]
+					},
+					LookupDestinationCluster: istio_route.GetDestinationCluster,
+					LookupHash: func(destination *networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB {
+						return hashByDestination[destination]
+					},
 				}
-				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService)
-				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, nameToServiceMap,
-					hashByDestination, port, sets.New(gatewayName), opts)
+				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, port, sets.New(gatewayName), opts)
 				if err != nil {
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
 					continue
