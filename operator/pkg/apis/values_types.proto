@@ -1323,7 +1323,6 @@ message TracerStackdriverConfig {
   uint32 maxNumberOfMessageEvents = 4;
 }
 
-
 message BaseConfig {
   // For Helm2 use, adds the CRDs to templates.
   google.protobuf.BoolValue enableCRDTemplates = 1;
