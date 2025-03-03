@@ -19,7 +19,6 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/testutil"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -76,4 +75,51 @@ func TestSkipPodsInFiles(t *testing.T) {
 	}
 	analyze := Analyze(cli.NewFakeContext(nil))
 	testutil.VerifyOutput(t, analyze, c)
+}
+
+func TestRunSpecificAnalyzer(t *testing.T) {
+	ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+		IstioNamespace: "istio-system",
+	})
+
+	cases := []struct {
+		caseName string
+		testutil.TestCase
+	}{
+		{
+			caseName: "failed-with-all-analyzers",
+			TestCase: testutil.TestCase{
+				Args: strings.Split(
+					"-A --use-kube=false testdata/analyze-file/specific-analyzer.yaml",
+					" "),
+				WantException: true,
+			},
+		},
+		{
+			caseName: "failed-with-specific-analyzer",
+			TestCase: testutil.TestCase{
+				Args: strings.Split(
+					"-A --use-kube=false -a \"schema.ValidationAnalyzer\" testdata/analyze-file/specific-analyzer.yaml",
+					" "),
+				WantException: false,
+			},
+		},
+		{
+			caseName: "passed-with-specific-analyzer",
+			TestCase: testutil.TestCase{
+				Args: strings.Split(
+					"-A --use-kube=false -a \"gateway.ConflictingGatewayAnalyzer\" testdata/analyze-file/specific-analyzer.yaml",
+					" "),
+				WantException: false,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.caseName, func(t *testing.T) {
+
+			analyze := Analyze(ctx)
+			testutil.VerifyOutput(t, analyze, tc.TestCase)
+		})
+	}
 }
