@@ -121,7 +121,7 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
 		}
 
-		if idx != len(pods)-1 && proxyNotConnectedToThisPilotInstanceResponse(response) {
+		if idx < len(pods)-1 && proxyNotConnectedToThisPilotInstanceResponse(response) {
 			// if it's not the last pod and the response is "Proxy not connected to this Pilot instance",
 			// we should continue to the next pod
 			continue
