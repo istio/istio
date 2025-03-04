@@ -121,9 +121,11 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
 		}
 
-		if idx < len(pods)-1 && proxyNotConnectedToThisPilotInstanceResponse(response) {
-			// if it's not the last pod and the response is "Proxy not connected to this Pilot instance",
-			// we should continue to the next pod
+		// If we are not getting response from all istiod pods, and this response is not from the last one istiod pod,
+		// and it is a response that indicates the proxy is not connected to this current istiod instance,
+		// we should skip this response and try the next istiod pod.
+		// This is very useful to get response from a multi replicas istiod cluster and short the time cost than `all=true`.
+		if !all && idx < len(pods)-1 && proxyNotConnectedToThisPilotInstanceResponse(response) {
 			continue
 		}
 
