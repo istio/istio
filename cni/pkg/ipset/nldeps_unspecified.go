@@ -28,11 +28,6 @@ func RealNlDeps() NetlinkIpsetDeps {
 
 type realDeps struct{}
 
-// clearEntriesWithIPAndComment implements NetlinkIpsetDeps.
-func (m *realDeps) clearEntriesWithIPAndComment(name string, ip netip.Addr, comment string) (string, error) {
-	return "", errors.New("not implemented on this platform")
-}
-
 func (m *realDeps) ipsetIPHashCreate(name string, v6 bool) error {
 	return errors.New("not implemented on this platform")
 }
