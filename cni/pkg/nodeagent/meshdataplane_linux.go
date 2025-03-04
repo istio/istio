@@ -63,12 +63,14 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 
 		log.Debug("removing host iptables rules")
 		s.hostIptables.DeleteHostRules()
-
-		log.Debug("destroying host ipset")
-		s.hostsideProbeIPSet.Flush()
-		if err := s.hostsideProbeIPSet.DestroySet(); err != nil {
-			log.Warnf("could not destroy host ipset on shutdown")
-		}
+		_ = util.RunAsHost(func() error {
+			log.Debug("destroying host ipset")
+			s.hostsideProbeIPSet.Flush()
+			if err := s.hostsideProbeIPSet.DestroySet(); err != nil {
+				log.Warnf("could not destroy host ipset on shutdown")
+			}
+			return nil
+		})
 	}
 
 	s.netServer.Stop(skipCleanup)
@@ -295,16 +297,17 @@ func removePodFromHostNSIpset(pod *corev1.Pod, hostsideProbeSet *ipset.IPSet) er
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name, "podUID", podUID, "ipset", hostsideProbeSet.Prefix)
 
 	podIPs := util.GetPodIPsIfPresent(pod)
-	for _, pip := range podIPs {
-		if uidMismatch, err := hostsideProbeSet.ClearEntriesWithIPAndComment(pip, podUID); err != nil {
-			return err
-		} else if uidMismatch != "" {
-			log.Warnf("pod ip %s could not be removed from ipset, found entry with pod UID %s instead", pip, uidMismatch)
+	return util.RunAsHost(func() error {
+		for _, pip := range podIPs {
+			if uidMismatch, err := hostsideProbeSet.ClearEntriesWithIPAndComment(pip, podUID); err != nil {
+				return err
+			} else if uidMismatch != "" {
+				log.Warnf("pod ip %s could not be removed from ipset, found entry with pod UID %s instead", pip, uidMismatch)
+			}
+			log.Debugf("removed pod from host ipset by ip %s", pip)
 		}
-		log.Debugf("removed pod from host ipset by ip %s", pip)
-	}
-
-	return nil
+		return nil
+	})
 }
 
 func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPSet) error {
