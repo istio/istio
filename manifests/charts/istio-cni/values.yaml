@@ -55,8 +55,7 @@ _internal_defaults_do_not_set:
     # This will eventually be enabled by default
     reconcileIptablesOnStartup: false
     # If enabled, and ambient is enabled, the CNI agent will always share the network namespace of the host node it is running on
-    # TODO this breaks some envs and tests, disabling for now, tracking: https://github.com/istio/istio/issues/55215
-    shareHostNetworkNamespace: true
+    shareHostNetworkNamespace: false
 
 
   repair:

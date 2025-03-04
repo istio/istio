@@ -63,12 +63,14 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 
 		log.Debug("removing host iptables rules")
 		s.hostIptables.DeleteHostRules()
-
-		log.Debug("destroying host ipset")
-		s.hostsideProbeIPSet.Flush()
-		if err := s.hostsideProbeIPSet.DestroySet(); err != nil {
-			log.Warnf("could not destroy host ipset on shutdown")
-		}
+		_ = util.RunAsHost(func() error {
+			log.Debug("destroying host ipset")
+			s.hostsideProbeIPSet.Flush()
+			if err := s.hostsideProbeIPSet.DestroySet(); err != nil {
+				log.Warnf("could not destroy host ipset on shutdown")
+			}
+			return nil
+		})
 	}
 
 	s.netServer.Stop(skipCleanup)
@@ -247,16 +249,22 @@ func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr
 	var ipsetAddrErrs []error
 	var addedIps []netip.Addr
 
-	// For each pod IP
-	for _, pip := range podIPs {
-		// Add to host ipset
-		log.Debugf("adding probe ip %s to set", pip)
-		if err := s.hostsideProbeIPSet.AddIP(pip, ipProto, podUID, true); err != nil {
-			ipsetAddrErrs = append(ipsetAddrErrs, err)
-			log.Errorf("failed adding ip %s to set, error was %s", pip, err)
-		} else {
-			addedIps = append(addedIps, pip)
+	err := util.RunAsHost(func() error {
+		// For each pod IP
+		for _, pip := range podIPs {
+			// Add to host ipset
+			log.Debugf("adding probe ip %s to set", pip)
+			if err := s.hostsideProbeIPSet.AddIP(pip, ipProto, podUID, true); err != nil {
+				ipsetAddrErrs = append(ipsetAddrErrs, err)
+				log.Errorf("failed adding ip %s to set, error was %s", pip, err)
+			} else {
+				addedIps = append(addedIps, pip)
+			}
 		}
+		return nil
+	})
+	if err != nil {
+		ipsetAddrErrs = append(ipsetAddrErrs, err)
 	}
 
 	return addedIps, errors.Join(ipsetAddrErrs...)
@@ -267,13 +275,18 @@ func (s *meshDataplane) addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr
 //
 // We will unconditionally flush our set before use here, so it shouldn't matter.
 func createHostsideProbeIpset(isV6 bool) (ipset.IPSet, error) {
-	linDeps := ipset.RealNlDeps()
-	probeSet, err := ipset.NewIPSet(iptables.ProbeIPSet, isV6, linDeps)
-	if err != nil {
-		return probeSet, err
-	}
-	probeSet.Flush()
-	return probeSet, nil
+	var probeSet ipset.IPSet
+	runErr := util.RunAsHost(func() error {
+		var err error
+		linDeps := ipset.RealNlDeps()
+		probeSet, err = ipset.NewIPSet(iptables.ProbeIPSet, isV6, linDeps)
+		if err != nil {
+			return err
+		}
+		probeSet.Flush()
+		return nil
+	})
+	return probeSet, runErr
 }
 
 // removePodFromHostNSIpset will remove (v4, v6) pod IPs from the host IP set(s).
@@ -284,32 +297,35 @@ func removePodFromHostNSIpset(pod *corev1.Pod, hostsideProbeSet *ipset.IPSet) er
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name, "podUID", podUID, "ipset", hostsideProbeSet.Prefix)
 
 	podIPs := util.GetPodIPsIfPresent(pod)
-	for _, pip := range podIPs {
-		if uidMismatch, err := hostsideProbeSet.ClearEntriesWithIPAndComment(pip, podUID); err != nil {
-			return err
-		} else if uidMismatch != "" {
-			log.Warnf("pod ip %s could not be removed from ipset, found entry with pod UID %s instead", pip, uidMismatch)
+	return util.RunAsHost(func() error {
+		for _, pip := range podIPs {
+			if uidMismatch, err := hostsideProbeSet.ClearEntriesWithIPAndComment(pip, podUID); err != nil {
+				return err
+			} else if uidMismatch != "" {
+				log.Warnf("pod ip %s could not be removed from ipset, found entry with pod UID %s instead", pip, uidMismatch)
+			}
+			log.Debugf("removed pod from host ipset by ip %s", pip)
 		}
-		log.Debugf("removed pod from host ipset by ip %s", pip)
-	}
-
-	return nil
+		return nil
+	})
 }
 
 func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPSet) error {
-	actualIPSetContents, err := hostsideProbeSet.ListEntriesByIP()
-	if err != nil {
-		log.Warnf("unable to list IPSet: %v", err)
-		return err
-	}
-	actual := sets.New(actualIPSetContents...)
-	stales := actual.DifferenceInPlace(expected)
-
-	for staleIP := range stales {
-		if err := hostsideProbeSet.ClearEntriesWithIP(staleIP); err != nil {
+	return util.RunAsHost(func() error {
+		actualIPSetContents, err := hostsideProbeSet.ListEntriesByIP()
+		if err != nil {
+			log.Warnf("unable to list IPSet: %v", err)
 			return err
 		}
-		log.Debugf("removed stale ip %s from host ipset %s", staleIP, hostsideProbeSet.Prefix)
-	}
-	return nil
+		actual := sets.New(actualIPSetContents...)
+		stales := actual.DifferenceInPlace(expected)
+
+		for staleIP := range stales {
+			if err := hostsideProbeSet.ClearEntriesWithIP(staleIP); err != nil {
+				return err
+			}
+			log.Debugf("removed stale ip %s from host ipset %s", staleIP, hostsideProbeSet.Prefix)
+		}
+		return nil
+	})
 }
