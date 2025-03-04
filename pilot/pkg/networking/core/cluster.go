@@ -54,14 +54,15 @@ var deltaConfigTypes = sets.New(kind.ServiceEntry.String(), kind.DestinationRule
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
 func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *model.PushRequest) ([]*discovery.Resource, model.XdsLogDetails) {
+	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
 	// In Sotw, we care about all services.
 	var services []*model.Service
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		services = req.Push.GatewayServices(proxy)
+		services = req.Push.GatewayServices(proxy, envoyFilterPatches)
 	} else {
 		services = proxy.SidecarScope.Services()
 	}
-	return configgen.buildClusters(proxy, req, services)
+	return configgen.buildClusters(proxy, req, services, envoyFilterPatches)
 }
 
 // BuildDeltaClusters generates the deltas (add and delete) for a given proxy. Currently, only service changes are reflected with deltas.
@@ -128,7 +129,8 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 		deletedClusters.InsertAll(deleted...)
 	}
-	clusters, log := configgen.buildClusters(proxy, updates, services)
+	envoyFilterPatches := updates.Push.EnvoyFilters(proxy)
+	clusters, log := configgen.buildClusters(proxy, updates, services, envoyFilterPatches)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
 	// When clusters are rebuilt, we rebuild the subset clusters as well. So, we know what
 	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
@@ -209,11 +211,10 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 
 // buildClusters builds clusters for the proxy with the services passed.
 func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *model.PushRequest,
-	services []*model.Service,
+	services []*model.Service, envoyFilterPatches *model.MergedEnvoyFilterWrapper,
 ) ([]*discovery.Resource, model.XdsLogDetails) {
 	clusters := make([]*cluster.Cluster, 0)
 	resources := model.Resources{}
-	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
 	cb := NewClusterBuilder(proxy, req, configgen.Cache)
 	instances := proxy.ServiceTargets
 	cacheStats := cacheStats{}
@@ -240,8 +241,9 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
+		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches)
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(
-			req.Push.ServicesAttachedToMesh(), wps.services, req.Push.ExtraWaypointServices(proxy), services))
+			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services))
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Setup inbound clusters
@@ -270,10 +272,11 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
 		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
 	}
+	// Dedupte the inbound clusters added by Envoy filters.
+	clusters = cb.normalizeClusters(clusters)
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
-	resources = cb.normalizeClusters(resources)
 
 	if cacheStats.empty() {
 		return resources, model.DefaultXdsLogDetails
@@ -375,7 +378,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 }
 
 type clusterPatcher struct {
-	efw  *model.EnvoyFilterWrapper
+	efw  *model.MergedEnvoyFilterWrapper
 	pctx networking.EnvoyFilter_PatchContext
 }
 
@@ -729,16 +732,18 @@ type buildClusterOpts struct {
 	// Used for traffic across multiple network clusters
 	// the east-west gateway in a remote cluster will use this value to route
 	// traffic to the appropriate service
-	istioMtlsSni    string
-	clusterMode     ClusterMode
-	direction       model.TrafficDirection
-	meshExternal    bool
-	serviceMTLSMode model.MutualTLSMode
+	istioMtlsSni      string
+	clusterMode       ClusterMode
+	direction         model.TrafficDirection
+	meshExternal      bool
+	serviceMTLSMode   model.MutualTLSMode
+	allInstancesHBONE bool
 	// Indicates the service registry of the cluster being built.
 	serviceRegistry provider.ID
 	// Indicates if the destinationRule has a workloadSelector
-	isDrWithSelector      bool
-	credentialSocketExist bool
+	isDrWithSelector          bool
+	credentialSocketExist     bool
+	fileCredentialSocketExist bool
 }
 
 func applyTCPKeepalive(mesh *meshconfig.MeshConfig, c *cluster.Cluster, tcp *networking.ConnectionPoolSettings_TCPSettings) {

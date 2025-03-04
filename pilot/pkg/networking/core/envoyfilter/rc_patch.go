@@ -34,12 +34,12 @@ import (
 func ApplyRouteConfigurationPatches(
 	patchContext networking.EnvoyFilter_PatchContext,
 	proxy *model.Proxy,
-	efw *model.EnvoyFilterWrapper,
+	efw *model.MergedEnvoyFilterWrapper,
 	routeConfiguration *route.RouteConfiguration,
 ) (out *route.RouteConfiguration) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		IncrementEnvoyFilterErrorMetric(Route)
-		log.Errorf("route patch %s/%s caused panic, so the patches did not take effect", efw.Namespace, efw.Name)
+		log.Errorf("route patch caused panic, so the patches did not take effect")
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.
 	out = routeConfiguration
@@ -340,8 +340,10 @@ func virtualHostMatch(vh *route.VirtualHost, rp *model.EnvoyFilterConfigPatchWra
 		// we do not have a virtual host to match.
 		return false
 	}
-	// check if virtual host names match
-	return match.Name == "" || match.Name == vh.Name
+
+	// check if virtual host name and a domain name matches
+	return (match.Name == "" || match.Name == vh.Name) &&
+		(match.DomainName == "" || slices.Contains(vh.Domains, match.DomainName))
 }
 
 func routeMatch(httpRoute *route.Route, rp *model.EnvoyFilterConfigPatchWrapper) bool {

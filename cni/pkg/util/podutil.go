@@ -29,6 +29,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/log"
 )
 
 var annotationEnabledPatch = []byte(fmt.Sprintf(
@@ -181,20 +182,23 @@ func GetPodIPsIfPresent(pod *corev1.Pod) []netip.Addr {
 }
 
 // CheckBooleanAnnotation checks for the named boolean-style (as per strcov.ParseBool)
-// annotation on the pod. If not present, or the annotation value is unparsable, returns false.
-// Otherwise, returns true. Returns a non-nil error if annotation value could not be parsed.
-func CheckBooleanAnnotation(pod *corev1.Pod, annotationName string) (bool, error) {
+// annotation on the pod. Returns the bool value, and a bool indicating annotation presence
+// on the pod.
+//
+// If the bool value is false, not present, or unparsable, returns a false value.
+// If the annotation is not present or unparsable, returns false for presence.
+func CheckBooleanAnnotation(pod *corev1.Pod, annotationName string) (bool, bool) {
 	val, isPresent := pod.Annotations[annotationName]
 
-	if !isPresent {
-		return false, nil
+	if isPresent {
+		var err error
+		parsedVal, err := strconv.ParseBool(val)
+		if err != nil {
+			log.Warnf("annotation %v=%q found, but only boolean values are supported, ignoring", annotationName, val)
+			return false, false
+		}
+		return parsedVal, isPresent
 	}
 
-	var err error
-	parsedVal, err := strconv.ParseBool(val)
-	if err != nil {
-		return false, fmt.Errorf("annotation %v=%q found, but only boolean values are supported", annotationName, val)
-	}
-
-	return parsedVal, nil
+	return false, false
 }

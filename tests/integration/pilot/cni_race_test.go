@@ -73,35 +73,13 @@ func TestCNIRaceRepair(t *testing.T) {
 			if _, err := shell.Execute(true, rolloutCmd); err != nil {
 				t.Fatalf("failed to rollout restart deployments %v", err)
 			}
-			waitForBrokenPodOrFail(t, c, ns)
+			util.WaitForStalledPodOrFail(t, c, ns)
 
 			t.Log("Redeploy CNI and verify repair takes effect by evicting the broken pod")
 			// Now bring back CNI Daemonset, and pod in the echo namespace should be repaired.
 			util.DeployCNIDaemonset(t, c, cniDaemonSet)
 			waitForRepairOrFail(t, c, ns)
 		})
-}
-
-func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {
-	retry.UntilSuccessOrFail(t, func() error {
-		pods, err := cluster.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			return err
-		}
-		if len(pods.Items) == 0 {
-			return fmt.Errorf("still waiting the pod in namespace %v to start", ns.Name())
-		}
-		// Verify that at least one pod is in broken state due to the race condition.
-		for _, p := range pods.Items {
-			for _, container := range p.Status.InitContainerStatuses {
-				if state := container.LastTerminationState.Terminated; state != nil && state.ExitCode ==
-					constants.ValidationErrorCode {
-					return nil
-				}
-			}
-		}
-		return fmt.Errorf("cannot find any pod with wanted exit code %v", constants.ValidationErrorCode)
-	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 }
 
 func waitForRepairOrFail(t framework.TestContext, cluster cluster.Cluster, ns namespace.Instance) {

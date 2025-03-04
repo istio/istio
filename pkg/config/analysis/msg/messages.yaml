@@ -657,3 +657,16 @@ messages:
       type: "[]string"
     - name: error
       type: string
+
+  - name: "NegativeConditionStatus"
+    code: IST0171
+    level: Warning
+    description: "A condition with a negative status is present"
+    template: "A condition with a negative status is present: type=%s, reason=%s, message=%s."
+    args:
+      - name: conditionType
+        type: string
+      - name: reason
+        type: string
+      - name: message
+        type: string

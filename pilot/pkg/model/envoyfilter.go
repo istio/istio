@@ -23,6 +23,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/util/sets"
@@ -30,12 +31,14 @@ import (
 
 // EnvoyFilterWrapper is a wrapper for the EnvoyFilter api object with pre-processed data
 type EnvoyFilterWrapper struct {
-	Name             string
-	Namespace        string
-	workloadSelector labels.Instance
-	Patches          map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
-	Priority         int32
-	creationTime     time.Time
+	Name                         string
+	Namespace                    string
+	ReferencedNamespacedServices sets.Set[NamespacedHostname]
+	ReferencedServices           sets.String
+	workloadSelector             labels.Instance
+	Patches                      map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
+	Priority                     int32
+	creationTime                 time.Time
 }
 
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
@@ -75,9 +78,37 @@ var wellKnownVersions = map[string]string{
 func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 	localEnvoyFilter := local.Spec.(*networking.EnvoyFilter)
 
-	out := &EnvoyFilterWrapper{Name: local.Name, Namespace: local.Namespace, Priority: localEnvoyFilter.Priority, creationTime: local.CreationTimestamp}
+	out := &EnvoyFilterWrapper{
+		Name:                         local.Name,
+		Namespace:                    local.Namespace,
+		ReferencedNamespacedServices: nil,
+		ReferencedServices:           nil,
+		workloadSelector:             nil,
+		Patches:                      nil,
+		Priority:                     localEnvoyFilter.Priority,
+		creationTime:                 local.CreationTimestamp,
+	}
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
+	}
+
+	// For Waypoint/Gateway with filtering, we need to explicitly opt-in to included services.
+	// This annotation allows doing so.
+	// Note: sidecar use cases should make sure to use Sidecar to include them; this will not override exclusions by sidecar
+	svcRefs := local.Annotations["envoyfilter.istio.io/referenced-services"]
+	for _, ref := range strings.Split(svcRefs, ",") {
+		ns, h, ok := strings.Cut(ref, "/")
+		if ok {
+			if out.ReferencedNamespacedServices == nil {
+				out.ReferencedNamespacedServices = sets.New[NamespacedHostname]()
+			}
+			out.ReferencedNamespacedServices.Insert(NamespacedHostname{Hostname: host.Name(h), Namespace: ns})
+		} else {
+			if out.ReferencedServices == nil {
+				out.ReferencedServices = sets.New[string]()
+			}
+			out.ReferencedServices.Insert(ref)
+		}
 	}
 	out.Patches = make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper)
 	for _, cp := range localEnvoyFilter.ConfigPatches {
@@ -185,7 +216,7 @@ func (efw *EnvoyFilterWrapper) Keys() []string {
 }
 
 // Returns the keys of all the wrapped envoyfilters.
-func (efw *EnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_ApplyTo) []string {
+func (efw *MergedEnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_ApplyTo) []string {
 	if efw == nil {
 		return nil
 	}

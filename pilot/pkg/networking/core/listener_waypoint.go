@@ -140,26 +140,33 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		},
 	}
 
+	var filters []*hcm.HttpFilter
+
+	if features.WaypointLayeredAuthorizationPolicies {
+		authzBuilder := authz.NewWaypointTerminationBuilder(authz.Local, lb.push, lb.node)
+		// We want L4 semantics, but applied to an HTTP filter.
+		// If we put them as a network filter, we get poor logs and cannot return an error at the CONNECT level
+		filters = authzBuilder.BuildTCPRulesAsHTTPFilter()
+	}
 	// Filters needed to propagate the tunnel metadata to the inner streams.
-	h.HttpFilters = []*hcm.HttpFilter{
+	h.HttpFilters = append(filters,
 		xdsfilters.WaypointDownstreamMetadataFilter,
 		xdsfilters.ConnectAuthorityFilter,
 		xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
 			StartChildSpan:       false,
 			SuppressDebugHeaders: ph.SuppressDebugHeaders,
 		}),
-	}
-	return []*listener.Filter{
-		{
-			Name:       wellknown.HTTPConnectionManager,
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
-		},
-	}
+	)
+	return []*listener.Filter{{
+		Name:       wellknown.HTTPConnectionManager,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
+	}}
 }
 
 func (lb *ListenerBuilder) buildConnectTerminateListener(routes []*route.Route) *listener.Listener {
 	actualWildcard, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 	bind := actualWildcard
+
 	l := &listener.Listener{
 		Name:    ConnectTerminate,
 		Address: util.BuildAddress(bind[0], model.HBoneInboundListenPort),
@@ -190,6 +197,7 @@ func (lb *ListenerBuilder) buildConnectTerminateListener(routes []*route.Route) 
 			},
 		},
 	}
+	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	if len(actualWildcard) > 1 {
 		l.AdditionalAddresses = util.BuildAdditionalAddresses(bind[1:], model.HBoneInboundListenPort)
 	}

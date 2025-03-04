@@ -124,7 +124,7 @@ func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *mes
 
 	pushContext := model.NewPushContext()
 	e.Init()
-	_ = pushContext.InitContext(e, nil, nil)
+	pushContext.InitContext(e, nil, nil)
 	e.SetPushContext(pushContext)
 	return e
 }
@@ -2237,12 +2237,12 @@ func TestApplyListenerPatches(t *testing.T) {
 	serviceDiscovery := memregistry.NewServiceDiscovery()
 	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
-	_ = push.InitContext(e, nil, nil)
+	push.InitContext(e, nil, nil)
 
 	// Test different priorities
 	ep := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStoreWithPriorities(configPatchesPriorities, priorities))
 	pushPriorities := model.NewPushContext()
-	_ = pushPriorities.InitContext(ep, nil, nil)
+	pushPriorities.InitContext(ep, nil, nil)
 
 	type args struct {
 		patchContext networking.EnvoyFilter_PatchContext

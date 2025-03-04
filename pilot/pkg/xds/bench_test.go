@@ -448,7 +448,7 @@ func setupTest(t testing.TB, config ConfigInput) (*xds.FakeDiscoveryServer, *mod
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    constants.DefaultClusterName,
-			IstioVersion: "1.25.0",
+			IstioVersion: "1.26.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},

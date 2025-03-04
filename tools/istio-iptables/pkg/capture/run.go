@@ -15,12 +15,9 @@ package capture
 
 import (
 	"fmt"
-	"net"
 	"net/netip"
 	"os"
 	"strings"
-
-	"github.com/vishvananda/netlink"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
@@ -41,16 +38,30 @@ const (
 type IptablesConfigurator struct {
 	ruleBuilder *builder.IptablesRuleBuilder
 	// TODO(abhide): Fix dep.Dependencies with better interface
-	ext dep.Dependencies
-	cfg *config.Config
+	ext   dep.Dependencies
+	cfg   *config.Config
+	iptV  dep.IptablesVersion
+	ipt6V dep.IptablesVersion
 }
 
-func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) *IptablesConfigurator {
+func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) (*IptablesConfigurator, error) {
+	iptVer, err := ext.DetectIptablesVersion(false)
+	if err != nil {
+		return nil, err
+	}
+
+	ipt6Ver, err := ext.DetectIptablesVersion(true)
+	if err != nil {
+		return nil, err
+	}
+
 	return &IptablesConfigurator{
 		ruleBuilder: builder.NewIptablesRuleBuilder(cfg),
 		ext:         ext,
 		cfg:         cfg,
-	}
+		iptV:        iptVer,
+		ipt6V:       ipt6Ver,
+	}, nil
 }
 
 type NetworkRange struct {
@@ -239,51 +250,14 @@ func ignoreExists(err error) error {
 	return err
 }
 
-// configureIPv6Addresses sets up a new IP address on local interface. This is used as the source IP
-// for inbound traffic to distinguish traffic we want to capture vs traffic we do not. This is needed
-// for IPv6 but not IPv4, as IPv4 defaults to `netmask 255.0.0.0`, which allows binding to addresses
-// in the 127.x.y.z range, while IPv6 defaults to `prefixlen 128` which allows binding only to ::1.
-// Equivalent to `ip -6 addr add "::6/128" dev lo`
-func configureIPv6Addresses(cfg *config.Config) error {
-	if !cfg.EnableIPv6 {
-		return nil
-	}
-	link, err := netlink.LinkByName("lo")
-	if err != nil {
-		return fmt.Errorf("failed to find 'lo' link: %v", err)
-	}
-	// Setup a new IP address on local interface. This is used as the source IP for inbound traffic
-	// to distinguish traffic we want to capture vs traffic we do not.
-	// Equivalent to `ip -6 addr add "::6/128" dev lo`
-	address := &net.IPNet{IP: net.ParseIP("::6"), Mask: net.CIDRMask(128, 128)}
-	addr := &netlink.Addr{IPNet: address}
-
-	err = netlink.AddrAdd(link, addr)
-	if ignoreExists(err) != nil {
-		return fmt.Errorf("failed to add IPv6 inbound address: %v", err)
-	}
-	log.Infof("Added ::6 address")
-	return nil
-}
-
 func (cfg *IptablesConfigurator) Run() error {
-	iptVer, err := cfg.ext.DetectIptablesVersion(false)
-	if err != nil {
-		return err
-	}
-
-	ipt6Ver, err := cfg.ext.DetectIptablesVersion(true)
-	if err != nil {
-		return err
-	}
-
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &iptVer, nil); err == nil {
+		if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &cfg.iptV, nil); err == nil {
 			log.Infof("Final iptables state (IPv4):\n%s", state)
 		}
 		if cfg.cfg.EnableIPv6 {
-			if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &ipt6Ver, nil); err == nil {
+			if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &cfg.ipt6V, nil); err == nil {
 				log.Infof("Final iptables state (IPv6):\n%s", state)
 			}
 		}
@@ -517,7 +491,7 @@ func (cfg *IptablesConfigurator) Run() error {
 		cfg.ruleBuilder.InsertRule(constants.ISTIOINBOUND, "mangle", 3,
 			"-p", "tcp", "-i", "lo", "-m", "mark", "!", "--mark", constants.OutboundMark, "-j", "RETURN")
 	}
-	return cfg.executeCommands(&iptVer, &ipt6Ver)
+	return cfg.executeCommands(&cfg.iptV, &cfg.ipt6V)
 }
 
 // SetupDNSRedir is a helper function to tackle with DNS UDP specific operations.

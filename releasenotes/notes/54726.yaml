@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 54726
+releaseNotes:
+- |
+  **Improved** The CNI agent to no longer require `hostNetwork`, improving compatibility. Dynamic switching to the host network is now performed whenever necessary.
+  The old behavior can temporarily be restored by setting the `ambient.shareHostNetworkNamespace` field in the `istio-cni` chart.

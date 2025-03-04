@@ -71,6 +71,7 @@ var rootCmd = &cobra.Command{
 		if cfg, err = constructConfig(); err != nil {
 			return
 		}
+		log.Infof("CNI version: %v", version.Info.String())
 		log.Infof("CNI logging level: %+v", istiolog.LevelToString(log.GetOutputLevel()))
 		log.Infof("CNI install configuration: \n%+v", cfg.InstallConfig)
 		log.Infof("CNI race repair configuration: \n%+v", cfg.RepairConfig)
@@ -293,6 +294,7 @@ func constructConfig() (*config.Config, error) {
 		MonitoringPort:   viper.GetInt(constants.MonitoringPort),
 
 		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
+		PodNamespace:      viper.GetString(constants.PodNamespace),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
 		AmbientEnabled:                    viper.GetBool(constants.AmbientEnabled),

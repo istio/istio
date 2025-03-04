@@ -282,7 +282,7 @@ func (c *kubeComponent) createHTTPClient(limit int, spanName, annotationQuery, h
 		return url, http.Client{Timeout: httpTimeout}, nil
 	}
 
-	ip, err := resolveHostDomainToIP(hostDomain)
+	ip, err := testKube.WaitUntilReachableIngress(hostDomain)
 	if err != nil {
 		return "", http.Client{}, fmt.Errorf("failed to resolve host domain %s: %w", hostDomain, err)
 	}
@@ -370,18 +370,4 @@ func buildSpan(obj any) Span {
 		s.Name = name.(string)
 	}
 	return s
-}
-
-func resolveHostDomainToIP(hostDomain string) (string, error) {
-	ips, err := net.LookupIP(hostDomain)
-	if err != nil {
-		return "", err
-	}
-	// Use the first resolved IP address
-	for _, ip := range ips {
-		if ipv4 := ip.To4(); ipv4 != nil {
-			return ipv4.String(), nil
-		}
-	}
-	return "", fmt.Errorf("no IPv4 address found for hostname: %s", hostDomain)
 }

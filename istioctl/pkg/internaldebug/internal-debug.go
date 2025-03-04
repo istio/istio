@@ -15,9 +15,11 @@
 package internaldebug
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -177,7 +179,14 @@ func (s *DebugWriter) PrintAll(drs map[string]*discovery.DiscoveryResponse) erro
 			if s.InternalDebugAllIstiod {
 				mappedResp[id] = string(resource.Value) + "\n"
 			} else {
-				_, _ = s.Writer.Write(resource.Value)
+				var out bytes.Buffer
+				if err := json.Indent(&out, resource.Value, "", "  "); err != nil {
+					// resource.Value is not a json, fallback to raw output
+					_, _ = s.Writer.Write(resource.Value)
+				} else {
+					_, _ = out.WriteTo(os.Stdout)
+				}
+
 				_, _ = s.Writer.Write([]byte("\n"))
 			}
 		}

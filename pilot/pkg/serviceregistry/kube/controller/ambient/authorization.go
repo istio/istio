@@ -280,7 +280,7 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 					(nsCfg != nil && isMtlsModeStrict(nsCfg.Spec.Mtls)) || // #2
 					// #3
 					((nsCfg == nil || isMtlsModeUnset(nsCfg.Spec.Mtls)) && rootCfg != nil && isMtlsModeStrict(rootCfg.Spec.Mtls))) {
-				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s",
+				log.Debugf("skipping port %d/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s",
 					port, portMtlsMode, cfg.Namespace, cfg.Name, mode)
 				continue
 			}
@@ -305,7 +305,7 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 			// Check top-level mode
 			if mode == v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE || mode == v1beta1.PeerAuthentication_MutualTLS_DISABLE {
 				// we don't care; log and continue
-				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s",
+				log.Debugf("skipping port %d/%s for PeerAuthentication %s/%s for ambient since the parent mTLS mode is %s",
 					port, portMtlsMode, cfg.Namespace, cfg.Name, mode)
 				continue
 			}
@@ -314,7 +314,7 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 				(nsCfg == nil && rootCfg != nil && !isMtlsModeStrict(rootCfg.Spec.Mtls)) ||
 				(nsCfg == nil && rootCfg == nil)) {
 				// we don't care; log and continue
-				log.Debugf("skipping port %s/%s for PeerAuthentication %s/%s for ambient since it's not STRICT and the effective policy is not STRICT",
+				log.Debugf("skipping port %d/%s for PeerAuthentication %s/%s for ambient since it's not STRICT and the effective policy is not STRICT",
 					port, portMtlsMode, cfg.Namespace, cfg.Name)
 				continue
 			}
@@ -330,7 +330,7 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 				},
 			})
 		default:
-			log.Debugf("skipping port %s for PeerAuthentication %s/%s for ambient since it is %s", port, cfg.Namespace, cfg.Name, portMtlsMode)
+			log.Debugf("skipping port %d for PeerAuthentication %s/%s for ambient since it is %s", port, cfg.Namespace, cfg.Name, portMtlsMode)
 			continue
 		}
 	}

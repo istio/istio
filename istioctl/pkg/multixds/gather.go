@@ -25,6 +25,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strings"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -119,12 +120,31 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 		if err != nil {
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
 		}
+
+		if proxyNotConnectedToThisPilotInstanceResponse(response) {
+			continue
+		}
+
 		responses = append(responses, response)
 		if !all && len(responses) > 0 {
 			break
 		}
 	}
 	return responses, nil
+}
+
+func proxyNotConnectedToThisPilotInstanceResponse(resp *discovery.DiscoveryResponse) bool {
+	if resp == nil || len(resp.Resources) != 1 {
+		return false
+	}
+	for _, res := range resp.Resources {
+		if strings.Contains(string(res.GetValue()),
+			"Proxy not connected to this Pilot instance. It may be connected to another instance.") {
+			return true
+		}
+	}
+
+	return false
 }
 
 func mergeShards(responses map[string]*discovery.DiscoveryResponse) (*discovery.DiscoveryResponse, error) {

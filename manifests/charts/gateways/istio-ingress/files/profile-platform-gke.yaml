@@ -3,4 +3,4 @@
 # If you want to make a change in this file, edit the original one and run "make gen".
 
 cni:
-  cniBinDir: /home/kubernetes/bin
+  cniBinDir: "" # intentionally unset for gke to allow template-based autodetection to work

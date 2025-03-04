@@ -10,7 +10,8 @@ COPY certs/                           /var/lib/istio/
 COPY certs/default/                   /var/run/secrets/istio/
 
 # Install the sidecar components
-COPY istio-sidecar.rpm  /tmp/istio-sidecar.rpm
+ARG TARGETARCH
+COPY ${TARGETARCH:-amd64}/istio-sidecar.rpm  /tmp/istio-sidecar.rpm
 RUN rpm -vi /tmp/istio-sidecar.rpm && rm /tmp/istio-sidecar.rpm
 
 # Sudoers used to allow tcpdump and other debug utilities.
@@ -18,7 +19,6 @@ COPY sudoers /etc/sudoers
 
 # Install the Echo application
 COPY echo-start.sh /usr/local/bin/echo-start.sh
-ARG TARGETARCH
 COPY ${TARGETARCH:-amd64}/client /usr/local/bin/client
 COPY ${TARGETARCH:-amd64}/server /usr/local/bin/server
 

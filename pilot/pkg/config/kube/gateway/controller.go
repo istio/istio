@@ -175,7 +175,7 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 
 // Reconcile takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
 // Any status updates required will be enqueued as well.
-func (c *Controller) Reconcile(ps *model.PushContext) error {
+func (c *Controller) Reconcile(ps *model.PushContext) {
 	t0 := time.Now()
 	defer func() {
 		log.Debugf("reconcile complete in %v", time.Since(t0))
@@ -213,7 +213,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 		defer c.stateMu.Unlock()
 		// make sure we clear out the state, to handle the last gateway-api resource being removed
 		c.state = IstioResources{}
-		return nil
+		return
 	}
 
 	nsl := c.namespaces.List("", klabels.Everything())
@@ -226,9 +226,10 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	if c.credentialsController != nil {
 		credentials, err := c.credentialsController.ForCluster(c.cluster)
 		if err != nil {
-			return fmt.Errorf("failed to get credentials: %v", err)
+			log.Warnf("failed to get credentials: %v", err)
+		} else {
+			input.Credentials = credentials
 		}
-		input.Credentials = credentials
 	}
 
 	output := convertResources(input)
@@ -239,7 +240,6 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	c.state = output
-	return nil
 }
 
 func (c *Controller) QueueStatusUpdates(r GatewayResources) {

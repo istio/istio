@@ -3122,7 +3122,7 @@ spec:
 						}
 					}
 					if sessionCookie != nil {
-						scopes.Framework.Infof("setting the request cookie back in the request: %v %b",
+						scopes.Framework.Infof("setting the request cookie back in the request: %v %v",
 							sessionCookie.Value, sessionCookie.Expires)
 						req.AddCookie(sessionCookie)
 					} else {
@@ -3952,7 +3952,7 @@ func testServiceEntryWithMultipleVIPsAndResolutionNone(t TrafficContext) {
 	var cidrs []string
 	for _, clusterIP := range clusterIPs {
 		if ip, err := netip.ParseAddr(clusterIP); err != nil {
-			t.Errorf("failed to parse cluster IP address '%s': %s", err)
+			t.Errorf("failed to parse cluster IP address '%s': %v", clusterIP, err)
 		} else if ip.Is4() {
 			cidrs = append(cidrs, fmt.Sprintf("%s/24", clusterIP))
 		} else if ip.Is6() {

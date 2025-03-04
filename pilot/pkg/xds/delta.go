@@ -83,12 +83,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	}
 
 	// InitContext returns immediately if the context was already initialized.
-	if err = s.globalPushContext().InitContext(s.Env, nil, nil); err != nil {
-		// Error accessing the data - log and close, maybe a different pilot replica
-		// has more luck
-		deltaLog.Warnf("Error reading config %v", err)
-		return status.Error(codes.Unavailable, "error reading config")
-	}
+	s.globalPushContext().InitContext(s.Env, nil, nil)
 	con := newDeltaConnection(peerAddr, stream)
 
 	// Do not call: defer close(con.pushChannel). The push channel will be garbage collected
@@ -390,6 +385,12 @@ func shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryReques
 		}
 
 		res, wildcard, _ := deltaWatchedResources(nil, request)
+		skip := request.TypeUrl == v3.AddressType && wildcard
+		if skip {
+			// Due to the high resource count in WDS at scale, we do not store ResourceName.
+			// See the workload generator for more information on why we don't use this.
+			res = nil
+		}
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
 			ResourceNames: res,

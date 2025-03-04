@@ -28,12 +28,14 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/route/retry"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 )
 
 func TestRetry(t *testing.T) {
 	testCases := []struct {
 		name       string
 		route      *networking.HTTPRoute
+		hashPolicy bool
 		assertFunc func(g *WithT, policy *envoyroute.RetryPolicy)
 	}{
 		{
@@ -76,7 +78,12 @@ func TestRetry(t *testing.T) {
 				g.Expect(policy.RetriableStatusCodes).To(Equal(make([]uint32, 0)))
 				g.Expect(policy.RetryPriority).To(BeNil())
 				g.Expect(policy.HostSelectionRetryMaxAttempts).To(Equal(retry.DefaultPolicy().HostSelectionRetryMaxAttempts))
-				g.Expect(policy.RetryHostPredicate).To(Equal(retry.DefaultPolicy().RetryHostPredicate))
+				retryHostPredicate := []*envoyroute.RetryPolicy_RetryHostPredicate{
+					// to configure retries to prefer hosts that haven’t been attempted already,
+					// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
+					xdsfilters.RetryPreviousHosts,
+				}
+				g.Expect(policy.RetryHostPredicate).To(Equal(retryHostPredicate))
 			},
 		},
 		{
@@ -227,11 +234,83 @@ func TestRetry(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "TestRetryPreviousHostsDefault",
+			route: &networking.HTTPRoute{
+				Retries: &networking.HTTPRetry{
+					Attempts: 2,
+				},
+			},
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(Not(BeNil()))
+				g.Expect(policy.NumRetries.Value).To(Equal(uint32(2)))
+				g.Expect(policy.RetryPriority).To(BeNil())
+				g.Expect(policy.HostSelectionRetryMaxAttempts).To(Equal(retry.DefaultPolicy().HostSelectionRetryMaxAttempts))
+				retryHostPredicate := []*envoyroute.RetryPolicy_RetryHostPredicate{
+					xdsfilters.RetryPreviousHosts,
+				}
+				g.Expect(policy.RetryHostPredicate).To(Equal(retryHostPredicate))
+			},
+		},
+		{
+			name: "TestRetryPreviousHostsDefaultWithHashPolicy",
+			route: &networking.HTTPRoute{
+				Retries: &networking.HTTPRetry{
+					Attempts: 2,
+				},
+			},
+			hashPolicy: true,
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(Not(BeNil()))
+				g.Expect(policy.NumRetries.Value).To(Equal(uint32(2)))
+				g.Expect(policy.RetryPriority).To(BeNil())
+				g.Expect(policy.HostSelectionRetryMaxAttempts).To(Equal(retry.DefaultPolicy().HostSelectionRetryMaxAttempts))
+			},
+		},
+		{
+			name: "TestRetryPreviousHostsForHashPolicyWithRetryIgnorePreviousHosts",
+			route: &networking.HTTPRoute{
+				Retries: &networking.HTTPRetry{
+					Attempts: 2,
+					RetryIgnorePreviousHosts: &wrappers.BoolValue{
+						Value: true,
+					},
+				},
+			},
+			hashPolicy: true,
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(Not(BeNil()))
+				g.Expect(policy.NumRetries.Value).To(Equal(uint32(2)))
+				g.Expect(policy.RetryPriority).To(BeNil())
+				g.Expect(policy.HostSelectionRetryMaxAttempts).To(Equal(retry.DefaultPolicy().HostSelectionRetryMaxAttempts))
+				retryHostPredicate := []*envoyroute.RetryPolicy_RetryHostPredicate{
+					xdsfilters.RetryPreviousHosts,
+				}
+				g.Expect(policy.RetryHostPredicate).To(Equal(retryHostPredicate))
+			},
+		},
+		{
+			name: "TestRetryPreviousHostsDisabled",
+			route: &networking.HTTPRoute{
+				Retries: &networking.HTTPRetry{
+					Attempts: 2,
+					RetryIgnorePreviousHosts: &wrappers.BoolValue{
+						Value: false,
+					},
+				},
+			},
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(Not(BeNil()))
+				g.Expect(policy.NumRetries.Value).To(Equal(uint32(2)))
+				g.Expect(policy.RetryPriority).To(BeNil())
+				g.Expect(policy.HostSelectionRetryMaxAttempts).To(Equal(retry.DefaultPolicy().HostSelectionRetryMaxAttempts))
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
-			policy := retry.ConvertPolicy(tc.route.Retries, false)
+			policy := retry.ConvertPolicy(tc.route.Retries, tc.hashPolicy)
 			if tc.assertFunc != nil {
 				tc.assertFunc(g, policy)
 			}

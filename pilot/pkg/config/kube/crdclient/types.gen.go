@@ -1296,7 +1296,8 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				UID:               string(obj.UID),
 				Generation:        obj.Generation,
 			},
-			Spec: &obj.Spec,
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
 		}
 	},
 	gvk.ServiceAccount: func(r runtime.Object) config.Config {

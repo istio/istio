@@ -56,8 +56,15 @@ const (
 	// CredentialNameSocketPath is the well-known path to the Unix Domain Socket for Credential Name.
 	CredentialNameSocketPath = "./var/run/secrets/credential-uds/socket"
 
+	// FileCredentialNameSocketPath is the well-known path to the Unix Domain Socket used for loading files.
+	// This is only used when there is a custom SDS server, otherwise WorkloadIdentityPath is used.
+	FileCredentialNameSocketPath = "./var/run/secrets/credential-uds/files-socket"
+
 	// CredentialMetaDataName is the name in node meta data.
 	CredentialMetaDataName = "credential"
+	// CredentialFileMetaDataName is the name in node metadata indicating we should use a custom SDS cluster, sds-files-grpc,
+	// for file-based certificates.
+	CredentialFileMetaDataName = "file-credential"
 
 	// SDSExternalClusterName is the name of the cluster for external SDS connections which is defined via CredentialNameSocketPath
 	SDSExternalClusterName = "sds-external"
@@ -199,6 +206,10 @@ type Options struct {
 	// well-known ./etc/certs location.
 	FileMountedCerts bool
 
+	// ServeOnlyFiles indicates we should run the local SDS server, but only to serve file certificates.
+	// This is used when an external SDS server is used only for mTLS certificates.
+	ServeOnlyFiles bool
+
 	// PilotCertProvider is the provider of the Pilot certificate (PILOT_CERT_PROVIDER env)
 	// Determines the root CA file to use for connecting to CA gRPC:
 	// - istiod
@@ -255,6 +266,9 @@ type Options struct {
 	KeyFilePath string
 	// The path for an existing root certificate bundle
 	RootCertFilePath string
+
+	// Extra headers to add to the CA connection.
+	CAHeaders map[string]string
 }
 
 // Client interface defines the clients need to implement to talk to CA for CSR.

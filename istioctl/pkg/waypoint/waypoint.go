@@ -117,10 +117,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Short: "Show the status of waypoints in a namespace",
 		Long:  "Show the status of waypoints for the namespace provided or default namespace if none is provided",
 		Example: `  # Show the status of the waypoint in the default namespace
-		 istioctl waypoint status
-		  
-		 # Show the status of the waypoint in a specific namespace
-  		 istioctl waypoint status --namespace default`,
+  istioctl waypoint status
+
+  # Show the status of the waypoint in a specific namespace
+  istioctl waypoint status --namespace default`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown subcommand %q", args[0])
@@ -313,10 +313,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Use:   "delete",
 		Short: "Delete a waypoint configuration",
 		Long:  "Delete a waypoint configuration from the cluster",
-		Example: `  # Delete a waypoint from the default namespace
-  istioctl waypoint delete
-
-  # Delete a waypoint by name, which can obtain from istioctl waypoint list
+		Example: `# Delete a waypoint by name, which can obtain from istioctl waypoint list
   istioctl waypoint delete waypoint-name --namespace default
 
   # Delete several waypoints by name

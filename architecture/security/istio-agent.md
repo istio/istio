@@ -84,7 +84,7 @@ a new one will be generated on demand.
 |CA_ADDR|Address of CA, defaults to discoveryAddress|
 |CA_PROVIDER|Type of CA; supported values are GoogleCA or Citadel (although anything but GoogleCA will use Citadel); defaults to Citadel|
 |PROV_CERT|certificates to be used for mTLS communication with control plane only; NOT for workload mTLS|
-|OUTPUT_CERT|write all fetched certificates to some directory. Used to support applications that need certificates (Prometheus) as well as rotating mTLS control plane authentication.|
+|OUTPUT_CERTS|write all fetched certificates to some directory. Used to support applications that need certificates (Prometheus) as well as rotating mTLS control plane authentication.|
 |FILE_MOUNTED_CERTS|completely disable CA path, exclusively use certs mounted into the pod with set certificate file locations|
 |CREDENTIAL_FETCHER_TYPE|allows using custom credential fetcher, for VMs with existing identity|
 |CREDENTIAL_IDENTITY_PROVIDER|just used to control the audience for VMs with existing identity|

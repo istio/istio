@@ -109,6 +109,19 @@ func ConvertPolicy(in *networking.HTTPRetry, hashPolicy bool) *route.RetryPolicy
 		out.PerTryTimeout = in.PerTryTimeout
 	}
 
+	// User has specified RetryIgnorePreviousHosts, so honor it.
+	if in.RetryIgnorePreviousHosts != nil {
+		var retryHostPredicate []*route.RetryPolicy_RetryHostPredicate
+		if in.RetryIgnorePreviousHosts.GetValue() {
+			retryHostPredicate = []*route.RetryPolicy_RetryHostPredicate{
+				// to configure retries to prefer hosts that haven’t been attempted already,
+				// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
+				xdsfilters.RetryPreviousHosts,
+			}
+		}
+		out.RetryHostPredicate = retryHostPredicate
+	}
+
 	if in.RetryRemoteLocalities != nil && in.RetryRemoteLocalities.GetValue() {
 		out.RetryPriority = &route.RetryPolicy_RetryPriority{
 			Name: "envoy.retry_priorities.previous_priorities",

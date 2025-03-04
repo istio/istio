@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: []
+releaseNotes:
+  - |
+    **Fixed** an issue that `gateway` injection template didn't respect the `kubectl.kubernetes.io/default-logs-container`
+    and `kubectl.kubernetes.io/default-container` annotations. 

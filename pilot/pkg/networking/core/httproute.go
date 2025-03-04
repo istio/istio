@@ -116,7 +116,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 // TODO: trace decorators, inbound timeouts
 func buildSidecarInboundHTTPRouteConfig(lb *ListenerBuilder, cc inboundChainConfig) *route.RouteConfiguration {
 	traceOperation := telemetry.TraceOperation(string(cc.telemetryMetadata.InstanceHostname), cc.port.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(lb.node, cc.clusterName, traceOperation)
+	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(lb.node, cc.clusterName, traceOperation, cc.port.Protocol)
 
 	inboundVHost := &route.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
@@ -141,7 +141,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	req *model.PushRequest,
 	routeName string,
 	vHostCache map[int][]*route.VirtualHost,
-	efw *model.EnvoyFilterWrapper,
+	efw *model.MergedEnvoyFilterWrapper,
 	efKeys []string,
 ) (*discovery.Resource, bool) {
 	listenerPort, useSniffing, err := extractListenerPort(routeName)

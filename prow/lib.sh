@@ -156,9 +156,13 @@ function setup_kind_registry() {
   # https://docs.tilt.dev/choosing_clusters.html#discovering-the-registry
   for cluster in $(kind get clusters); do
     # TODO get context/config from existing variables
-    kind export kubeconfig --name="${cluster}"
+    if [[ "${DEVCONTAINER}" ]]; then
+      kind export kubeconfig --name="${cluster}" --internal
+    else
+      kind export kubeconfig --name="${cluster}"
+    fi
     for node in $(kind get nodes --name="${cluster}"); do
-      kubectl annotate node "${node}" "kind.x-k8s.io/registry=localhost:${KIND_REGISTRY_PORT}" --overwrite;
+      kubectl annotate node "${node}" "kind.x-k8s.io/registry=kind-registry:${KIND_REGISTRY_PORT}" --overwrite;
     done
   done
 }

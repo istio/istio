@@ -56,8 +56,6 @@ func (e WorkloadGenerator) GenerateDeltas(
 		return e.generateDeltasOndemand(proxy, req, w)
 	}
 
-	subs := w.ResourceNames
-
 	reqAddresses := addresses
 	if isReq {
 		reqAddresses = nil
@@ -74,14 +72,16 @@ func (e WorkloadGenerator) GenerateDeltas(
 	if isReq {
 		// If it's a full push, AddressInformation won't have info to compute the full set of removals.
 		// Instead, we need can see what resources are missing that we were subscribe to; those were removed.
-		removed = subs.Difference(have).Merge(removed)
+		// During a request, a client will send a subscription request with its current state, so our removals will be:
+		// ZtunnelCurrentResources - IstiodCurrentResources (+ empty `removed`).
+		removed = req.Delta.Subscribed.Difference(have).Merge(removed)
 	}
 
-	proxy.Lock()
-	defer proxy.Unlock()
-	// For wildcard, we record all resources that have been pushed and not removed
-	// It was to correctly calculate removed resources during full push alongside with specific address removed.
-	w.ResourceNames = subs.Merge(have).DeleteAllSet(removed)
+	// Due to the high resource count in WDS at scale, we elide updating ResourceNames here.
+	// A name will be ~50-100 bytes. So 50k pods would be 5MB per XDS client (plus overheads around GC, sets, fragmentation, etc).
+	// Fortunately, we do not actually need this: the only time we need to know the state in Ztunnel is on reconnection which we handle from
+	// `req.Delta.Subscribed`.
+
 	return resources, removed.UnsortedList(), model.XdsLogDetails{}, true, nil
 }
 

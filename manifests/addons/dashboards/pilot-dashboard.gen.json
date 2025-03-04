@@ -665,14 +665,6 @@
                },
                "expr": "pilot_total_xds_internal_errors",
                "legendFormat": "Internal Errors"
-            },
-            {
-               "datasource": {
-                  "type": "prometheus",
-                  "uid": "$datasource"
-               },
-               "expr": "pilot_xds_push_context_errors",
-               "legendFormat": "Push Context Errors"
             }
          ],
          "title": "Push Errors",

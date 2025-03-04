@@ -136,6 +136,44 @@ func TestPodWorkloads(t *testing.T) {
 			},
 		},
 		{
+			name:   "pod from replicaset",
+			inputs: []any{},
+			pod: &v1.Pod{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:         "rs-xvnqd",
+					Namespace:    "ns",
+					GenerateName: "rs-",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							Kind:       "ReplicaSet",
+							APIVersion: "apps/v1",
+							Name:       "rs",
+							Controller: ptr.Of(true),
+						},
+					},
+				},
+				Spec: v1.PodSpec{},
+				Status: v1.PodStatus{
+					Phase: v1.PodRunning,
+					PodIP: "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/ns/rs-xvnqd",
+				Name:              "rs-xvnqd",
+				Namespace:         "ns",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "rs",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "rs",
+				Status:            workloadapi.WorkloadStatus_UNHEALTHY,
+				ClusterId:         testC,
+			},
+		},
+		{
 			name: "pod with service",
 			inputs: []any{
 				model.ServiceInfo{
@@ -275,13 +313,11 @@ func TestPodWorkloads(t *testing.T) {
 		{
 			name: "simple pod with locality",
 			inputs: []any{
-				&v1.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node",
-						Labels: map[string]string{
-							v1.LabelTopologyRegion: "region",
-							v1.LabelTopologyZone:   "zone",
-						},
+				Node{
+					Name: "node",
+					Locality: &workloadapi.Locality{
+						Region: "region",
+						Zone:   "zone",
 					},
 				},
 			},
@@ -752,7 +788,7 @@ func TestPodWorkloads(t *testing.T) {
 				EndpointSlices,
 				EndpointSlicesAddressIndex,
 				krttest.GetMockCollection[*v1.Namespace](mock),
-				krttest.GetMockCollection[*v1.Node](mock),
+				krttest.GetMockCollection[Node](mock),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.pod)
 			var res *workloadapi.Workload
@@ -1654,7 +1690,7 @@ func newAmbientUnitTest(t test.Failer) *index {
 		Options{
 			SystemNamespace: systemNS,
 			ClusterID:       testC,
-		}, krt.NewOptionsBuilder(test.NewStop(t), nil))
+		}, krt.NewOptionsBuilder(test.NewStop(t), "", nil))
 	idx := &index{
 		networks:        networks,
 		SystemNamespace: systemNS,

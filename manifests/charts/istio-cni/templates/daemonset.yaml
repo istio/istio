@@ -4,14 +4,20 @@
 #
 # $detectedBinDir exists to support a GKE-specific platform override,
 # and is deprecated in favor of using the explicit `gke` platform profile.
-{{- $detectedBinDir :=
-    (.Capabilities.KubeVersion.GitVersion | contains "-gke") | ternary
-      "/home/kubernetes/bin"
-      .Values.cniBinDir
+{{- $detectedBinDir := (.Capabilities.KubeVersion.GitVersion | contains "-gke") | ternary
+    "/home/kubernetes/bin"
+    "/opt/cni/bin"
 }}
+{{- if .Values.cniBinDir }}
+{{ $detectedBinDir = .Values.cniBinDir }}
+{{- end }}
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
+  # Note that this is templated but evaluates to a fixed name
+  # which the CNI plugin may fall back onto in some failsafe scenarios.
+  # if this name is changed, CNI plugin logic that checks for this name
+  # format should also be updated.
   name: {{ template "name" . }}-node
   namespace: {{ .Release.Namespace }}
   labels:
@@ -55,10 +61,10 @@ spec:
 {{ toYaml .Values.podAnnotations | indent 8 }}
         {{- end }}
     spec:
-{{if .Values.ambient.enabled }}
+{{- if and .Values.ambient.enabled .Values.ambient.shareHostNetworkNamespace }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-{{ end }}
+{{- end }}
       nodeSelector:
         kubernetes.io/os: linux
       # Can be configured to allow for excluding istio-cni from being scheduled on specified nodes
@@ -158,6 +164,10 @@ spec:
               value: "true"
             - name: REPAIR_SIDECAR_ANNOTATION
               value: "sidecar.istio.io/status"
+            {{- if not (and .Values.ambient.enabled .Values.ambient.shareHostNetworkNamespace) }}
+            - name: ALLOW_SWITCH_TO_HOST_NS
+              value: "true"
+            {{- end }}
             - name: NODE_NAME
               valueFrom:
                 fieldRef:

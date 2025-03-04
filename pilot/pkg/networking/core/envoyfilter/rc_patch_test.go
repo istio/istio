@@ -94,6 +94,129 @@ func Test_virtualHostMatch(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "domain name match",
+			args: args{
+				vh: &route.VirtualHost{
+					Domains: []string{
+						"*.scooby",
+						"*.com",
+					},
+					Name: "scoobydoo",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									DomainName: "*.scooby",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "vhost name match and domain name match",
+			args: args{
+				vh: &route.VirtualHost{
+					Domains: []string{
+						"*.scooby",
+						"*.com",
+					},
+					Name: "scoobydoo",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									DomainName: "*.scooby",
+									Name:       "scoobydoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "domain name mismatch",
+			args: args{
+				vh: &route.VirtualHost{
+					Domains: []string{
+						"*.scooby",
+						"*.com",
+					},
+					Name: "scoobydoo",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									DomainName: "*.in",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "vhost name mismatch and domain name match",
+			args: args{
+				vh: &route.VirtualHost{
+					Domains: []string{
+						"*.scooby",
+						"*.com",
+					},
+					Name: "scoobydoo",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									DomainName: "*.scooby",
+									Name:       "scooby",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "vhost name match but domain name mismatch",
+			args: args{
+				vh: &route.VirtualHost{
+					Domains: []string{
+						"*.scooby",
+						"*.com",
+					},
+					Name: "scoobydoo",
+				},
+				cp: &model.EnvoyFilterConfigPatchWrapper{
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+							RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+								Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+									DomainName: "*.in",
+									Name:       "scoobydoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -451,7 +451,7 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy, svc *Service) computed
 		Tracing:      ts,
 	}
 
-	matcher := PolicyMatcherForProxy(proxy).WithService(svc)
+	matcher := PolicyMatcherForProxy(proxy).WithService(svc).WithRootNamespace(t.RootNamespace)
 	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
 		spec := telemetry.Spec
 		// Namespace wide policy; already handled above

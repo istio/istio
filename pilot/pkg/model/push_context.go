@@ -854,24 +854,22 @@ func virtualServiceDestinationsFilteredBySourceNamespace(v *networking.VirtualSe
 	return out
 }
 
-func (ps *PushContext) ExtraWaypointServices(proxy *Proxy) sets.String {
-	return ps.extraServicesForProxy(proxy)
+func (ps *PushContext) ExtraWaypointServices(proxy *Proxy, patches *MergedEnvoyFilterWrapper) (sets.Set[NamespacedHostname], sets.String) {
+	return ps.extraServicesForProxy(proxy, patches)
 }
 
 // GatewayServices returns the set of services which are referred from the proxy gateways.
-func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
+func (ps *PushContext) GatewayServices(proxy *Proxy, patches *MergedEnvoyFilterWrapper) []*Service {
 	svcs := proxy.SidecarScope.services
 
+	// host set.
+	namespacedHostsFromGateways, hostsFromGateways := ps.extraServicesForProxy(proxy, patches)
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
-	if proxy.MergedGateway == nil {
-		return nil
-	}
-
-	// host set.
-	hostsFromGateways := ps.extraServicesForProxy(proxy)
-	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-		hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
+	if proxy.MergedGateway != nil {
+		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
+			hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
+		}
 	}
 	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
 
@@ -879,8 +877,10 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 
 	for _, s := range svcs {
 		svcHost := string(s.Hostname)
-
-		if _, ok := hostsFromGateways[svcHost]; ok {
+		if hostsFromGateways.Contains(svcHost) || namespacedHostsFromGateways.Contains(NamespacedHostname{
+			Hostname:  s.Hostname,
+			Namespace: s.Attributes.Namespace,
+		}) {
 			gwSvcs = append(gwSvcs, s)
 		}
 	}
@@ -894,7 +894,7 @@ func (ps *PushContext) ServicesAttachedToMesh() map[string]sets.String {
 	return ps.virtualServiceIndex.referencedDestinations
 }
 
-func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) bool {
+func (ps *PushContext) ServiceAttachedToGateway(hostname string, namespace string, proxy *Proxy) bool {
 	gw := proxy.MergedGateway
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
@@ -911,7 +911,9 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) b
 			}
 		}
 	}
-	return ps.extraServicesForProxy(proxy).Contains(hostname)
+	patches := ps.EnvoyFilters(proxy)
+	namespaced, hosts := ps.extraServicesForProxy(proxy, patches)
+	return hosts.Contains(hostname) || namespaced.Contains(NamespacedHostname{Hostname: host.Name(hostname), Namespace: namespace})
 }
 
 // wellknownProviders is a list of all known providers.
@@ -947,36 +949,47 @@ const addHostsFromMeshConfigProvidersHandled = 14
 // extraServicesForProxy returns a subset of services referred from the proxy gateways, including:
 // 1. MeshConfig.ExtensionProviders
 // 2. RequestAuthentication.JwtRules.JwksUri
-// TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func (ps *PushContext) extraServicesForProxy(proxy *Proxy) sets.String {
+// 3. EnvoyFilters with explicitly annotated references
+func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyFilterWrapper) (sets.Set[NamespacedHostname], sets.String) {
 	hosts := sets.String{}
+	namespaceScoped := sets.New[NamespacedHostname]()
+	addService := func(s string) {
+		if ns, h, ok := strings.Cut(s, "/"); ok {
+			namespaceScoped.Insert(NamespacedHostname{
+				Hostname:  host.Name(h),
+				Namespace: ns,
+			})
+		} else {
+			hosts.Insert(s)
+		}
+	}
 	// add services from MeshConfig.ExtensionProviders
 	for _, prov := range ps.Mesh.ExtensionProviders {
 		switch p := prov.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
-			hosts.Insert(p.EnvoyExtAuthzHttp.Service)
+			addService(p.EnvoyExtAuthzHttp.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc:
-			hosts.Insert(p.EnvoyExtAuthzGrpc.Service)
+			addService(p.EnvoyExtAuthzGrpc.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
-			hosts.Insert(p.Zipkin.Service)
+			addService(p.Zipkin.Service)
 		//nolint: staticcheck  // Lightstep deprecated
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
-			hosts.Insert(p.Lightstep.Service)
+			addService(p.Lightstep.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
-			hosts.Insert(p.Datadog.Service)
+			addService(p.Datadog.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
-			hosts.Insert(p.Skywalking.Service)
+			addService(p.Skywalking.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
 			//nolint: staticcheck
-			hosts.Insert(p.Opencensus.Service)
+			addService(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
-			hosts.Insert(p.Opentelemetry.Service)
+			addService(p.Opentelemetry.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
-			hosts.Insert(p.EnvoyHttpAls.Service)
+			addService(p.EnvoyHttpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
-			hosts.Insert(p.EnvoyTcpAls.Service)
+			addService(p.EnvoyTcpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
-			hosts.Insert(p.EnvoyOtelAls.Service)
+			addService(p.EnvoyOtelAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog: // No services
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus: // No services
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver: // No services
@@ -998,7 +1011,12 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy) sets.String {
 			}
 		}
 	}
-	return hosts
+
+	if patches != nil {
+		namespaceScoped.Merge(patches.ReferencedNamespacedServices)
+		hosts.Merge(patches.ReferencedServices)
+	}
+	return namespaceScoped, hosts
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
@@ -1295,13 +1313,13 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
-func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) error {
+func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) {
 	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
 	// If this does happen, one thread will block then exit early from InitDone=true
 	ps.initializeMutex.Lock()
 	defer ps.initializeMutex.Unlock()
 	if ps.InitDone.Load() {
-		return nil
+		return
 	}
 
 	ps.Mesh = env.Mesh()
@@ -1313,13 +1331,9 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 
 	// create new or incremental update
 	if pushReq == nil || oldPushContext == nil || !oldPushContext.InitDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
-		if err := ps.createNewContext(env); err != nil {
-			return err
-		}
+		ps.createNewContext(env)
 	} else {
-		if err := ps.updateContext(env, oldPushContext, pushReq); err != nil {
-			return err
-		}
+		ps.updateContext(env, oldPushContext, pushReq)
 	}
 
 	ps.networkMgr = env.NetworkManager
@@ -1327,15 +1341,12 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
 	ps.InitDone.Store(true)
-	return nil
 }
 
-func (ps *PushContext) createNewContext(env *Environment) error {
+func (ps *PushContext) createNewContext(env *Environment) {
 	ps.initServiceRegistry(env, nil)
 
-	if err := ps.initKubernetesGateways(env); err != nil {
-		return err
-	}
+	ps.initKubernetesGateways(env)
 
 	ps.initVirtualServices(env)
 
@@ -1352,14 +1363,13 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 
 	// Must be initialized in the end
 	ps.initSidecarScopes(env)
-	return nil
 }
 
 func (ps *PushContext) updateContext(
 	env *Environment,
 	oldPushContext *PushContext,
 	pushReq *PushRequest,
-) error {
+) {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool
@@ -1411,9 +1421,7 @@ func (ps *PushContext) updateContext(
 
 	if servicesChanged || gatewayAPIChanged {
 		// Gateway status depends on services, so recompute if they change as well
-		if err := ps.initKubernetesGateways(env); err != nil {
-			return err
-		}
+		ps.initKubernetesGateways(env)
 	}
 
 	if virtualServicesChanged {
@@ -1482,8 +1490,6 @@ func (ps *PushContext) updateContext(
 		ps.sidecarIndex = oldPushContext.sidecarIndex
 		oldPushContext.sidecarIndex.derivedSidecarMutex.RUnlock()
 	}
-
-	return nil
 }
 
 // Caches list of services in the registry, and creates a map
@@ -2174,7 +2180,7 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 	for i := range info.Services {
 		lookupInNamespaces = append(lookupInNamespaces, info.Services[i].NamespacedName().Namespace)
 	}
-	selectionOpts := PolicyMatcherForProxy(proxy).WithServices(info.Services)
+	selectionOpts := PolicyMatcherForProxy(proxy).WithServices(info.Services).WithRootNamespace(ps.Mesh.GetRootNamespace())
 	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
 		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
 			for _, plugin := range wasmPlugins {
@@ -2247,8 +2253,15 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 	}
 }
 
+type MergedEnvoyFilterWrapper struct {
+	Patches map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
+
+	ReferencedNamespacedServices sets.Set[NamespacedHostname]
+	ReferencedServices           sets.String
+}
+
 // EnvoyFilters return the merged EnvoyFilterWrapper of a proxy
-func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
+func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
 	// this should never happen
 	if proxy == nil {
 		return nil
@@ -2285,14 +2298,18 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *EnvoyFilterWrapper {
 		jn := jfilter.Name + "." + jfilter.Namespace
 		return in < jn
 	})
-	var out *EnvoyFilterWrapper
+	var out *MergedEnvoyFilterWrapper
 	if len(matchedEnvoyFilters) > 0 {
-		out = &EnvoyFilterWrapper{
+		out = &MergedEnvoyFilterWrapper{
+			ReferencedNamespacedServices: sets.New[NamespacedHostname](),
+			ReferencedServices:           sets.New[string](),
 			// no need populate workloadSelector, as it is not used later.
 			Patches: make(map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper),
 		}
 		// merge EnvoyFilterWrapper
 		for _, efw := range matchedEnvoyFilters {
+			out.ReferencedNamespacedServices.Merge(efw.ReferencedNamespacedServices)
+			out.ReferencedServices.Merge(efw.ReferencedServices)
 			for applyTo, cps := range efw.Patches {
 				for _, cp := range cps {
 					if proxyMatch(proxy, cp) {
@@ -2417,6 +2434,34 @@ func (ps *PushContext) NetworkManager() *NetworkManager {
 	return ps.networkMgr
 }
 
+// AllInstancesSupportHBONE checks whether all instances of a service support HBONE. This is used in cases where we need
+// to decide if we are always going to send HBONE, so we can set service-level properties.
+// Mostly this works around limitations in the dataplane that don't support per-endpoint properties we would want to be
+// per-endpoint.
+func (ps *PushContext) AllInstancesSupportHBONE(service *Service, port *Port) bool {
+	instances := ps.ServiceEndpointsByPort(service, port.Port, nil)
+	if len(instances) == 0 {
+		return false
+	}
+	for _, e := range instances {
+		addressSupportsTunnel := false
+		if SupportsTunnel(e.Labels, TunnelHTTP) {
+			addressSupportsTunnel = true
+		} else {
+			for _, addr := range e.Addresses {
+				if ps.SupportsTunnel(e.Network, addr) {
+					addressSupportsTunnel = true
+					break
+				}
+			}
+		}
+		if !addressSupportsTunnel {
+			return false
+		}
+	}
+	return true
+}
+
 // BestEffortInferServiceMTLSMode infers the mTLS mode for the service + port from all authentication
 // policies (both alpha and beta) in the system. The function always returns MTLSUnknown for external service.
 // The result is a best effort. It is because the PeerAuthentication is workload-based, this function is unable
@@ -2486,12 +2531,11 @@ func (ps *PushContext) ServiceEndpoints(svcKey string) map[int][]*IstioEndpoint 
 }
 
 // initKubernetesGateways initializes Kubernetes gateway-api objects
-func (ps *PushContext) initKubernetesGateways(env *Environment) error {
+func (ps *PushContext) initKubernetesGateways(env *Environment) {
 	if env.GatewayAPIController != nil {
 		ps.GatewayAPIController = env.GatewayAPIController
-		return env.GatewayAPIController.Reconcile(ps)
+		env.GatewayAPIController.Reconcile(ps)
 	}
-	return nil
 }
 
 // ReferenceAllowed determines if a given resource (of type `kind` and name `resourceName`) can be

@@ -56,7 +56,7 @@ var (
 
 	debounceTime = monitoring.NewDistribution(
 		"pilot_debounce_time",
-		"Delay in seconds between the first config enters debouncing and the merged push request is pushed into the push queue.",
+		"Delay in seconds between the first config enters debouncing and the merged push request is pushed into the push queue (includes pushcontext_init_seconds).",
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
 	)
 
@@ -87,11 +87,6 @@ var (
 		"pilot_proxy_convergence_time",
 		"Delay in seconds between config change and a proxy receiving all required configuration.",
 		[]float64{.1, .5, 1, 3, 5, 10, 20, 30},
-	)
-
-	pushContextErrors = monitoring.NewSum(
-		"pilot_xds_push_context_errors",
-		"Number of errors (timeouts) initiating push context.",
 	)
 
 	inboundUpdates = monitoring.NewSum(

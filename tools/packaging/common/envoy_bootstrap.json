@@ -76,7 +76,6 @@
   "stats_config": {
     "use_all_default_tags": false,
     "stats_tags": [
-      {{- if .delimited_stats_tags_enabled }}
       {
         "tag_name": "cluster_name",
         "regex": "^cluster(\\.(.+);)"
@@ -85,16 +84,6 @@
         "tag_name": "http_conn_manager_prefix",
         "regex": "^http\\.(((?:[_.[:digit:]\\w]*|[_\\[\\]aAbBcCdDeEfF[:digit:]\\w\\:]*));\\.)"
       },
-      {{- else }}
-      {
-        "tag_name": "cluster_name",
-        "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
-      },
-      {
-        "tag_name": "http_conn_manager_prefix",
-        "regex": "^http\\.(((?:[_.[:digit:]]*|[_\\[\\]aAbBcCdDeEfF[:digit:]]*))\\.)"
-      },
-      {{- end }}
       {
         "tag_name": "thread_name",
         "regex": "^server(\\.(.+))\\.watchdog"
@@ -308,7 +297,7 @@
               "endpoint": {
                 "address":{
                   "pipe": {
-                    "path": "./var/run/secrets/workload-spiffe-uds/socket"
+                    "path": "./var/run/secrets/workload-spiffe-uds/{{ .workload_identity_socket_file }}"
                   }
                 }
               }
@@ -316,6 +305,37 @@
           }]
         }
       },
+      {{- if .custom_file_path }}
+      {
+        "name": "sds-files-grpc",
+        "alt_stat_name": "sds-files-grpc;",
+        "type": "STATIC",
+        "typed_extension_protocol_options": {
+          "envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {
+           "@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+           "explicit_http_config": {
+            "http2_protocol_options": {}
+           }
+          }
+        },
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "load_assignment": {
+          "cluster_name": "sds-files-grpc",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "pipe": {
+                    "path": "{{ .custom_file_path }}"
+                  }
+                }
+              }
+            }]
+          }]
+        }
+      },
+      {{- end }}
       {
         "name": "xds-grpc",
         "alt_stat_name": "xds-grpc;",
@@ -788,9 +808,7 @@
   {{ if or .outlier_log_path .load_stats_config_json_str .deferred_cluster_creation}}
   ,
   "cluster_manager": {
-    {{- if .deferred_cluster_creation}}
     "enable_deferred_cluster_creation": true,
-    {{- end}}
     {{- if .outlier_log_path}}
     "outlier_detection": {
       "event_log_path": "{{ .outlier_log_path }}"

@@ -107,18 +107,22 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	if metadataDiscovery != nil && *metadataDiscovery {
 		mDiscovery = true
 	}
+	customSDSPath := ""
+	if _, f := cfg.RawMetadata[security.CredentialFileMetaDataName]; f {
+		customSDSPath = security.FileCredentialNameSocketPath
+	}
 	opts = append(opts,
 		option.NodeID(cfg.ID),
 		option.NodeType(cfg.ID),
 		option.PilotSubjectAltName(cfg.Metadata.PilotSubjectAltName),
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
+		option.CustomFileSDSPath(customSDSPath),
 		option.ApplicationLogJSON(cfg.LogAsJSON),
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
 		option.XdsType(xdsType),
 		option.MetadataDiscovery(mDiscovery),
 		option.MetricsLocalhostAccessOnly(cfg.Metadata.ProxyConfig.ProxyMetadata),
-		option.DeferredClusterCreation(features.EnableDeferredClusterCreation),
 		option.DeferredStatsCreation(features.EnableDeferredStatsCreation),
 		option.BypassOverloadManagerForStaticListeners(features.BypassOverloadManagerForStaticListeners),
 	)
@@ -141,6 +145,8 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 			}
 		}
 	}
+
+	opts = append(opts, option.WorkloadIdentitySocketFile(cfg.Metadata.WorkloadIdentitySocketFile))
 
 	// Support passing extra info from node environment as metadata
 	opts = append(opts, getNodeMetadataOptions(cfg.Node, cfg.CompliancePolicy)...)
@@ -290,7 +296,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 				return buckets[i].Match.Prefix < buckets[j].Match.Prefix
 			})
 		} else {
-			log.Warnf("Failed to unmarshal histogram buckets: %v", bucketsAnno, err)
+			log.Warnf("Failed to unmarshal histogram buckets %v: %v", bucketsAnno, err)
 		}
 	}
 
@@ -309,7 +315,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyExtraStatTags(extraStatTags),
 		option.EnvoyHistogramBuckets(buckets),
 		option.EnvoyStatsCompression(compression),
-		option.DelimitedStatsTagsEnabled(features.EnableDelimitedStatsTagRegex),
 	}
 }
 
@@ -572,6 +577,7 @@ type MetadataOptions struct {
 	ProxyConfig                 *meshAPI.ProxyConfig
 	PilotSubjectAltName         []string
 	CredentialSocketExists      bool
+	CustomCredentialsFileExists bool
 	XDSRootCert                 string
 	OutlierLogPath              string
 	annotationFilePath          string
@@ -580,6 +586,7 @@ type MetadataOptions struct {
 	ExitOnZeroActiveConnections bool
 	MetadataDiscovery           *bool
 	EnvoySkipDeprecatedLogs     bool
+	WorkloadIdentitySocketFile  string
 }
 
 const (
@@ -641,6 +648,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		meta.MetadataDiscovery = ptr.Of(model.StringBool(*options.MetadataDiscovery))
 	}
 	meta.EnvoySkipDeprecatedLogs = model.StringBool(options.EnvoySkipDeprecatedLogs)
+
+	meta.WorkloadIdentitySocketFile = options.WorkloadIdentitySocketFile
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
@@ -709,11 +718,14 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	if options.CredentialSocketExists {
 		untypedMeta[security.CredentialMetaDataName] = "true"
 	}
+	if options.CustomCredentialsFileExists {
+		untypedMeta[security.CredentialFileMetaDataName] = "true"
+	}
 
 	if meta.MetadataDiscovery == nil {
 		// If it's disabled, set it if ambient is enabled
 		meta.MetadataDiscovery = ptr.Of(meta.EnableHBONE)
-		log.Debugf("metadata discovery is disabled, setting it to %s based on if ambient HBONE is enabled", meta.MetadataDiscovery)
+		log.Debugf("metadata discovery is disabled, setting it to %s based on if ambient HBONE is enabled", meta.EnableHBONE)
 	}
 
 	return &model.Node{

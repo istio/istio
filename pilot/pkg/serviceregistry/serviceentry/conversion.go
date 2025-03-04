@@ -18,14 +18,12 @@ import (
 	"net/netip"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
-
-	"istio.io/api/annotation"
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
@@ -181,10 +179,7 @@ func convertServices(cfg config.Config) []*model.Service {
 		resolution = model.ClientSideLB
 	}
 
-	trafficDistribution := model.TrafficDistributionAny
-	if strings.EqualFold(cfg.Annotations[annotation.NetworkingTrafficDistribution.Name], corev1.ServiceTrafficDistributionPreferClose) {
-		trafficDistribution = model.TrafficDistributionPreferClose
-	}
+	trafficDistribution := kube.GetTrafficDistribution(nil, cfg.Annotations)
 
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
 	var portOverrides map[uint32]uint32

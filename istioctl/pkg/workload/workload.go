@@ -73,6 +73,7 @@ var (
 	annotations    []string
 	namespace      string
 	network        string
+	locality       string
 )
 
 const (
@@ -153,6 +154,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 					Ports:          convertToUnsignedInt32Map(ports),
 					ServiceAccount: serviceAccount,
 					Network:        network,
+					Locality:       locality,
 				},
 			}
 			wgYAML, err := generateWorkloadGroupYAML(u, spec)
@@ -170,6 +172,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 	createCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
 	createCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
 	createCmd.PersistentFlags().StringVar(&network, "network", "", "Network enables Istio to group endpoints resident in the same L3 domain/network.")
+	createCmd.PersistentFlags().StringVar(&locality, "locality", "", "The locality associated with the endpoint.")
 	_ = createCmd.RegisterFlagCompletionFunc("serviceAccount", func(
 		cmd *cobra.Command, args []string, toComplete string,
 	) ([]string, cobra.ShellCompDirective) {

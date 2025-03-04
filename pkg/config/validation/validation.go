@@ -1250,6 +1250,7 @@ var allowedTargetRefs = []config.GroupVersionKind{
 	gvk.Service,
 	gvk.ServiceEntry,
 	gvk.KubernetesGateway,
+	gvk.GatewayClass,
 }
 
 func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
@@ -2865,7 +2866,7 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 			if len(serviceEntry.Addresses) == 0 && !autoAllocation {
 				if port.Protocol == "" || port.Protocol == "TCP" {
 					errs = AppendValidation(errs, WrapWarning(fmt.Errorf("addresses are required for ports serving TCP (or unset) protocol "+
-						"when ISTIO_META_DNS_AUTO_ALLOCATE is not set on a proxy")))
+						"when IP Autoallocation is not enabled")))
 				}
 			}
 			errs = AppendValidation(errs,

@@ -54,6 +54,20 @@ func GetCommonInPodTestCases() []struct {
 				VirtualInterfaces: []string{"fake1s0f0", "fake1s0f1"},
 			},
 		},
+		{
+			name: "dns_pod_enabled_and_off_globally",
+			config: func(cfg *IptablesConfig) {
+				cfg.RedirectDNS = false
+			},
+			podOverrides: PodLevelOverrides{DNSProxy: PodDNSEnabled},
+		},
+		{
+			name: "dns_pod_disabled_and_on_globally",
+			config: func(cfg *IptablesConfig) {
+				cfg.RedirectDNS = true
+			},
+			podOverrides: PodLevelOverrides{DNSProxy: PodDNSDisabled},
+		},
 	}
 }
 

@@ -1357,9 +1357,7 @@ func TestServiceIndex(t *testing.T) {
 
 	// Init a new push context
 	pc := NewPushContext()
-	if err := pc.InitContext(env, nil, nil); err != nil {
-		t.Fatal(err)
-	}
+	pc.InitContext(env, nil, nil)
 	si := pc.ServiceIndex
 
 	// Should have all 5 services
@@ -1621,20 +1619,16 @@ func TestInitPushContext(t *testing.T) {
 
 	// Init a new push context
 	old := NewPushContext()
-	if err := old.InitContext(env, nil, nil); err != nil {
-		t.Fatal(err)
-	}
+	old.InitContext(env, nil, nil)
 
 	// Create a new one, copying from the old one
 	// Pass a ConfigsUpdated otherwise we would just copy it directly
 	newPush := NewPushContext()
-	if err := newPush.InitContext(env, old, &PushRequest{
+	newPush.InitContext(env, old, &PushRequest{
 		ConfigsUpdated: sets.Set[ConfigKey]{
 			{Kind: kind.Secret}: {},
 		},
-	}); err != nil {
-		t.Fatal(err)
-	}
+	})
 
 	// Check to ensure the update is identical to the old one
 	// There is probably a better way to do this.
@@ -1846,15 +1840,13 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 	newPush = NewPushContext()
 	newPush.Mesh = env.Mesh()
 	svcName := "svc6.foo.cluster.local"
-	if err := newPush.InitContext(env, oldPush, &PushRequest{
+	newPush.InitContext(env, oldPush, &PushRequest{
 		ConfigsUpdated: sets.Set[ConfigKey]{
 			{Kind: kind.Service, Name: svcName, Namespace: "foo"}: {},
 		},
 		Reason: nil,
 		Full:   true,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	})
 	when = "updateContext(with no changes)"
 	verifyServices(true, fmt.Sprintf(testDesc, otherNS, when), otherNS, newPush)
 	verifyServices(true, fmt.Sprintf(testDesc, defaultNS, when), defaultNS, newPush)
@@ -3201,7 +3193,8 @@ func TestInstancesByPort(t *testing.T) {
 
 func TestGetHostsFromMeshConfig(t *testing.T) {
 	ps := NewPushContext()
-	env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
+	env := NewEnvironment()
+	env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
 		RootNamespace: "istio-system",
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
@@ -3213,11 +3206,29 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 					},
 				},
 			},
+			{
+				Name: "otel-ns-scoped",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
+					EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+						Service: "bar/otel.example.com",
+						Port:    9811,
+					},
+				},
+			},
+			{
+				Name: "otel-missing-ns-scoped",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls{
+					EnvoyOtelAls: &meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider{
+						Service: "wrong-ns/otel-wrong.example.com",
+						Port:    9811,
+					},
+				},
+			},
 		},
 		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{
 			AccessLogging: []string{"otel"},
 		},
-	})}
+	})
 	ps.Mesh = env.Mesh()
 	configStore := NewFakeStore()
 	gatewayName := "ns1/gateway"
@@ -3269,8 +3280,17 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 			},
 		},
 	}
+	ef := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.EnvoyFilter,
+			Annotations:      map[string]string{"envoyfilter.istio.io/referenced-services": "envoyfilter.example.com"},
+			Name:             "ef",
+			Namespace:        "istio-system",
+		},
+		Spec: &networking.EnvoyFilter{},
+	}
 
-	for _, c := range []config.Config{vs1, vs2} {
+	for _, c := range []config.Config{vs1, vs2, ef} {
 		if _, err := configStore.Create(c); err != nil {
 			t.Fatalf("could not create %v", c.Name)
 		}
@@ -3281,8 +3301,38 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	ps.initTelemetry(env)
 	ps.initDefaultExportMaps()
 	ps.initVirtualServices(env)
-	assert.Equal(t, ps.virtualServiceIndex.destinationsByGateway[gatewayName], sets.String{})
-	assert.Equal(t, ps.extraServicesForProxy(nil), sets.New("otel.foo.svc.cluster.local"))
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{
+			{
+				Hostname:   "otel.foo.svc.cluster.local",
+				Attributes: ServiceAttributes{Namespace: "foo"},
+			},
+			{
+				Hostname:   "otel.example.com",
+				Attributes: ServiceAttributes{Namespace: "bar"},
+			},
+			{
+				Hostname:   "otel-wrong.example.com",
+				Attributes: ServiceAttributes{Namespace: "some-ns"},
+			},
+			{
+				Hostname:   "envoyfilter.example.com",
+				Attributes: ServiceAttributes{Namespace: "some-ns"},
+			},
+		},
+	}
+	ps.initDefaultExportMaps()
+	ps.initEnvoyFilters(env, nil, nil)
+	ps.initServiceRegistry(env, nil)
+	proxy := &Proxy{Type: Router}
+	proxy.SetSidecarScope(ps)
+	proxy.SetGatewaysForProxy(ps)
+	patches := ps.EnvoyFilters(proxy)
+	got := sets.New(slices.Map(ps.GatewayServices(proxy, patches), func(e *Service) string {
+		return e.Hostname.String()
+	})...)
+	// Should match 2 of the 3 providers; one has a mismatched namespace though
+	assert.Equal(t, got, sets.New("otel.foo.svc.cluster.local", "otel.example.com", "envoyfilter.example.com"))
 }
 
 func TestWellKnownProvidersCount(t *testing.T) {

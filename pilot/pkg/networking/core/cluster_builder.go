@@ -117,9 +117,10 @@ type ClusterBuilder struct {
 	proxyIPAddresses   []string              // IP addresses on which proxy is listening on.
 	configNamespace    string                // Proxy config namespace.
 	// PushRequest to look for updates.
-	req                   *model.PushRequest
-	cache                 model.XdsCache
-	credentialSocketExist bool
+	req                       *model.PushRequest
+	cache                     model.XdsCache
+	credentialSocketExist     bool
+	fileCredentialSocketExist bool
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
@@ -154,6 +155,9 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 		cb.clusterID = string(proxy.Metadata.ClusterID)
 		if proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
 			cb.credentialSocketExist = true
+		}
+		if proxy.Metadata.Raw[security.CredentialFileMetaDataName] == "true" {
+			cb.fileCredentialSocketExist = true
 		}
 	}
 	return cb
@@ -241,14 +245,15 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	// merge applicable port level traffic policy settings
 	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
-		mesh:                  cb.req.Push.Mesh,
-		serviceTargets:        cb.serviceTargets,
-		mutable:               mc,
-		policy:                trafficPolicy,
-		port:                  port,
-		clusterMode:           clusterMode,
-		direction:             model.TrafficDirectionOutbound,
-		credentialSocketExist: cb.credentialSocketExist,
+		mesh:                      cb.req.Push.Mesh,
+		serviceTargets:            cb.serviceTargets,
+		mutable:                   mc,
+		policy:                    trafficPolicy,
+		port:                      port,
+		clusterMode:               clusterMode,
+		direction:                 model.TrafficDirectionOutbound,
+		credentialSocketExist:     cb.credentialSocketExist,
+		fileCredentialSocketExist: cb.fileCredentialSocketExist,
 	}
 
 	if clusterMode == DefaultClusterMode {
@@ -257,6 +262,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
 		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
+		opts.allInstancesHBONE = cb.req.Push.AllInstancesSupportHBONE(service, port)
 	}
 
 	if destRule != nil {
@@ -271,9 +277,15 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 
 	cb.applyMetadataExchange(opts.mutable.cluster)
 
-	if service.MeshExternal {
+	if service.MeshExternal || opts.allInstancesHBONE {
+		// Conditionally skips based on config
+		key := "external"
+		if opts.allInstancesHBONE {
+			// Unconditionally skips
+			key = "disable_mx"
+		}
 		im := getOrCreateIstioMetadata(mc.cluster)
-		im.Fields["external"] = &structpb.Value{
+		im.Fields[key] = &structpb.Value{
 			Kind: &structpb.Value_BoolValue{
 				BoolValue: true,
 			},
@@ -668,11 +680,11 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 
 // normalizeClusters normalizes clusters to avoid duplicate clusters. This should be called
 // at the end before adding the cluster to list of clusters.
-func (cb *ClusterBuilder) normalizeClusters(clusters []*discovery.Resource) []*discovery.Resource {
+func (cb *ClusterBuilder) normalizeClusters(clusters []*cluster.Cluster) []*cluster.Cluster {
 	// resolve cluster name conflicts. there can be duplicate cluster names if there are conflicting service definitions.
 	// for any clusters that share the same name the first cluster is kept and the others are discarded.
 	have := sets.String{}
-	out := make([]*discovery.Resource, 0, len(clusters))
+	out := make([]*cluster.Cluster, 0, len(clusters))
 	for _, c := range clusters {
 		if !have.InsertContains(c.Name) {
 			out = append(out, c)

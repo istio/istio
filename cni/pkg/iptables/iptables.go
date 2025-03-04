@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/scopes"
+	"istio.io/istio/cni/pkg/util"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
@@ -70,7 +71,16 @@ type IptablesConfig struct {
 type PodLevelOverrides struct {
 	VirtualInterfaces []string
 	IngressMode       bool
+	DNSProxy          PodDNSOverride
 }
+
+type PodDNSOverride int
+
+const (
+	PodDNSUnset PodDNSOverride = iota
+	PodDNSEnabled
+	PodDNSDisabled
+)
 
 type IptablesConfigurator struct {
 	ext    dep.Dependencies
@@ -124,23 +134,28 @@ func NewIptablesConfigurator(
 	// `nft`, we would still inject our rules in-pod into nft tables, which is a bit wonky.
 	//
 	// But that's stunningly unlikely (and would still work either way)
-	iptVer, err := hostDeps.DetectIptablesVersion(false)
+	err := util.RunAsHost(func() error {
+		iptVer, err := hostDeps.DetectIptablesVersion(false)
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("found iptables binary: %+v", iptVer)
+
+		configurator.iptV = iptVer
+
+		ipt6Ver, err := hostDeps.DetectIptablesVersion(true)
+		if err != nil {
+			return err
+		}
+		log.Debugf("found iptables v6 binary: %+v", iptVer)
+
+		configurator.ipt6V = ipt6Ver
+		return nil
+	})
 	if err != nil {
 		return nil, nil, err
 	}
-
-	log.Debugf("found iptables binary: %+v", iptVer)
-
-	configurator.iptV = iptVer
-
-	ipt6Ver, err := hostDeps.DetectIptablesVersion(true)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	log.Debugf("found iptables v6 binary: %+v", iptVer)
-
-	configurator.ipt6V = ipt6Ver
 
 	// Setup another configurator with inpod configuration. Basically this will just change how locking is done.
 	inPodConfigurator := ptr.Of(*configurator)
@@ -220,7 +235,16 @@ func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverri
 }
 
 func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides PodLevelOverrides) *builder.IptablesRuleBuilder {
-	redirectDNS := cfg.cfg.RedirectDNS
+	var redirectDNS bool
+
+	switch podOverrides.DNSProxy {
+	case PodDNSUnset:
+		redirectDNS = cfg.cfg.RedirectDNS
+	case PodDNSEnabled:
+		redirectDNS = true
+	case PodDNSDisabled:
+		redirectDNS = false
+	}
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodTProxyMask)
@@ -586,16 +610,19 @@ func (cfg *IptablesConfigurator) delInpodMarkIPRule() error {
 // - kubelet (node-local healthchecks, which we do not capture)
 // - kube-proxy (fowarded/proxied traffic from LoadBalancer-backed services, potentially with public IPs, which we must capture)
 func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks() error {
+	log.Info("configuring host-level iptables rules (healthchecks, etc)")
 	// Append our rules here
 	builder := cfg.AppendHostRules()
 
 	log.Info("Adding host netnamespace iptables rules")
 
-	if err := cfg.executeCommands(log.WithLabels("component", "host"), builder); err != nil {
-		log.Errorf("failed to add host netnamespace iptables rules: %v", err)
-		return err
-	}
-	return nil
+	return util.RunAsHost(func() error {
+		if err := cfg.executeCommands(log.WithLabels("component", "host"), builder); err != nil {
+			log.Errorf("failed to add host netnamespace iptables rules: %v", err)
+			return err
+		}
+		return nil
+	})
 }
 
 func (cfg *IptablesConfigurator) DeleteHostRules() {
@@ -608,16 +635,20 @@ func (cfg *IptablesConfigurator) DeleteHostRules() {
 		}
 	}
 
-	runCommands(builder.BuildCleanupV4(), &cfg.iptV)
+	err := util.RunAsHost(func() error {
+		runCommands(builder.BuildCleanupV4(), &cfg.iptV)
 
-	if cfg.cfg.EnableIPv6 {
-		runCommands(builder.BuildCleanupV6(), &cfg.ipt6V)
+		if cfg.cfg.EnableIPv6 {
+			runCommands(builder.BuildCleanupV6(), &cfg.ipt6V)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("Can't switch to host namespace: %v", err)
 	}
 }
 
 func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder {
-	log.Info("configuring host-level iptables rules (healthchecks, etc)")
-
 	iptablesBuilder := builder.NewIptablesRuleBuilder(ipbuildConfig(cfg.cfg))
 
 	// For easier cleanup, insert a jump into an owned chain

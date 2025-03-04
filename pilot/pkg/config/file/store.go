@@ -348,7 +348,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		for _, resourceChunk := range resourceChunks {
 			lr, err := s.parseChunk(r, name, resourceChunk.lineNum+lineNum, resourceChunk.yamlChunk)
 			if err != nil {
-				return resources, fmt.Errorf("failed parsing resource chunk: %v", err)
+				return resources, fmt.Errorf("failed parsing resource chunk: %w", err)
 			}
 			resources = append(resources, lr...)
 		}
@@ -531,7 +531,7 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 	}
 
 	m := obj
-	return &config.Config{
+	result := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind:  schema.GroupVersionKind(),
 			UID:               string(m.GetUID()),
@@ -547,6 +547,20 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 		},
 		Spec: mv2,
 	}
+
+	// attempt to handle status if we know the type
+	statusStruct, err := schema.Status()
+	if err == nil {
+		if status, ok := obj.UnstructuredContent()["status"]; ok {
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(status.(map[string]any), statusStruct); err != nil {
+				scope.Warnf("failed to parse status field: %v", err)
+			} else {
+				result.Status = statusStruct
+			}
+		}
+	}
+
+	return result
 }
 
 // BuildFieldPathMap builds the flat map for each field of the YAML resource

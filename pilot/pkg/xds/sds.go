@@ -282,7 +282,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			}
 		default:
 			// Should never happen
-			log.Warnf("unknown credential type %q", r.Type)
+			log.Warnf("unknown credential type %q", r.Type())
 			pilotSDSCertificateErrors.Increment()
 		}
 	}

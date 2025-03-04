@@ -15,7 +15,7 @@ architecture and a code overview, see [ARCHITECTURE.md](../architecture/environm
 The operator formerly acted as an in-cluster operator, dynamically reconciling and Istio installation.
 This mode has now been removed, and it only serves as a client-side CLI tool to install Istio.
 
-The operator uses the [IstioOperator API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto), which has
+The operator uses the [IstioOperator API](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto), which has
 three main components:
 
 - [MeshConfig](https://github.com/istio/api/blob/master/mesh/v1alpha1/config.proto) for runtime config consumed directly by Istio
@@ -48,7 +48,7 @@ spec:
 
 If you don't specify a configuration profile, Istio is installed using the `default` configuration profile. All
 profiles listed in istio.io are available by default, or `profile:` can point to a local file path to reference a custom
-profile base to use as a starting point for customization. See the [API reference](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto)
+profile base to use as a starting point for customization. See the [API reference](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto)
 for details.
 
 ## Developer quick start
@@ -208,9 +208,9 @@ istioctl manifest diff ./out/helm-template/manifest.yaml ./out/mesh-manifest/man
 
 ### New API customization
 
-The [new platform level installation API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto)
+The [new platform level installation API](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto)
 defines install time parameters like component and enablement and namespace, and K8s settings like resources, HPA spec etc. in a structured way.
-The simplest customization is to turn components on and off. For example, to turn on cni ([samples/cni-on.yaml](samples/cni-on.yaml):
+The simplest customization is to turn components on and off. For example, to turn on cni ([samples/cni-on.yaml](samples/cni-on.yaml)):
 
 ```yaml
 apiVersion: install.istio.io/v1alpha1
@@ -252,7 +252,7 @@ spec:
 ```
 
 The K8s settings are defined in detail in the
-[operator API](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.proto).
+[operator API](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto).
 The settings are the same for all components, so a user can configure pilot K8s settings in exactly the same, consistent
 way as galley settings. Supported K8s settings currently include:
 

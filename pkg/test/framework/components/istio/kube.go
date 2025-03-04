@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/netip"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sync"
@@ -278,6 +279,15 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		ctx.RecordTraceEvent("istio-deploy", time.Since(t0).Seconds())
 	}()
 	i.id = ctx.TrackResource(i)
+
+	// Execute External Control Plane Installer Script
+	if cfg.ControlPlaneInstaller != "" && !cfg.DeployIstio {
+		scopes.Framework.Infof("============= Execute Control Plane Installer =============")
+		cmd := exec.Command(cfg.ControlPlaneInstaller, "install", workDir)
+		if err := cmd.Run(); err != nil {
+			scopes.Framework.Errorf("failed to run external control plane installer: %v", err)
+		}
+	}
 
 	if !cfg.DeployIstio {
 		scopes.Framework.Info("skipping deployment as specified in the config")

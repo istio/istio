@@ -3100,3 +3100,40 @@ func TestOutboundListenerConfig_WithAutoAllocatedAddress(t *testing.T) {
 		})
 	}
 }
+
+func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
+	cases := []struct {
+		name            string
+		expectedTimeout int64
+		services        []*model.Service
+	}{
+		{
+			name:            "should set timeout",
+			expectedTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout).GetSeconds(),
+			services: []*model.Service{
+				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			p := getProxy()
+			listeners := buildOutboundListeners(t, p, nil, nil, tt.services...)
+			for _, l := range listeners {
+				for _, fc := range l.FilterChains {
+					if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+						t.Errorf("expected transport socket connect timeout to be %v for listener %s filter chain %s, got %v",
+							tt.expectedTimeout, l.Name, fc.Name, fc.TransportSocketConnectTimeout)
+					}
+				}
+				if l.DefaultFilterChain != nil {
+					fc := l.DefaultFilterChain
+					if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+						t.Errorf("expected transport socket connect timeout to be %v for listener %s default filter chain, got %v",
+							tt.expectedTimeout, l.Name, fc.TransportSocketConnectTimeout)
+					}
+				}
+			}
+		})
+	}
+}

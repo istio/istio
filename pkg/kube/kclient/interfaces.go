@@ -53,6 +53,9 @@ type Informer[T controllers.Object] interface {
 	// Warning: this only applies to handlers called via AddEventHandler; any handlers directly added
 	// to the underlying informer are not touched
 	ShutdownHandlers()
+	// ShutdownHandler shuts down a single handler added by AddEventHandler.
+	// ShutdownHandlers can also be used to shutdown everything.
+	ShutdownHandler(registration cache.ResourceEventHandlerRegistration)
 	// Start starts just this informer. Typically, this is not used. Instead, the `kube.Client.Run()` is
 	// used to start all informers at once.
 	// However, in some cases we need to run individual informers directly.

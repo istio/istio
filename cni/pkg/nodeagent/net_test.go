@@ -17,6 +17,7 @@ package nodeagent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/netip"
 	"runtime"
 	"sync/atomic"
@@ -28,20 +29,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/cni/pkg/iptables"
-	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
-
-func setupLogging() {
-	opts := istiolog.DefaultOptions()
-	opts.SetDefaultOutputLevel(istiolog.OverrideScopeName, istiolog.DebugLevel)
-	istiolog.Configure(opts)
-	for _, scope := range istiolog.Scopes() {
-		scope.SetOutputLevel(istiolog.DebugLevel)
-	}
-}
 
 type netTestFixture struct {
 	netServer               *NetServer
@@ -64,7 +56,12 @@ func getTestFixureWithIptablesConfig(ctx context.Context, fakeDeps *dependencies
 
 	ztunnelServer := &fakeZtunnel{}
 
-	netServer := newNetServer(ztunnelServer, podNsMap, podIptC, NewPodNetnsProcFinder(fakeFs()))
+	procFinder, err := NewPodNetnsProcFinder(fakeFs(true))
+	if err != nil {
+		panic("couldn't create mocked procfinder")
+	}
+
+	netServer := newNetServer(ztunnelServer, podNsMap, podIptC, procFinder)
 
 	netServer.netnsRunner = func(fdable NetnsFd, toRun func() error) error {
 		return toRun()
@@ -502,6 +499,107 @@ func TestReconcilePodReturnsNoErrorIfPodReconciles(t *testing.T) {
 	// If no error, we should have executed some iptables rule insertions
 	// on this pod (since it is a faked pod, it had none to start with)
 	assert.Equal(t, (len(fakeDeps.ExecutedAll) != 0), true)
+}
+
+var overrideTests = map[string]struct {
+	in  corev1.Pod
+	out iptables.PodLevelOverrides
+}{
+	"pod dns override": {
+		in: corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test",
+				Namespace:   "test",
+				UID:         "12345",
+				Annotations: map[string]string{annotation.AmbientDnsCapture.Name: "true"},
+			},
+		},
+		out: iptables.PodLevelOverrides{
+			VirtualInterfaces: []string{},
+			IngressMode:       false,
+			DNSProxy:          iptables.PodDNSEnabled,
+		},
+	},
+
+	"no pod dns set": {
+		in: corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test",
+				UID:       "12345",
+			},
+		},
+		out: iptables.PodLevelOverrides{
+			VirtualInterfaces: []string{},
+			IngressMode:       false,
+			DNSProxy:          iptables.PodDNSUnset,
+		},
+	},
+
+	"pod dns disabled": {
+		in: corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test",
+				Namespace:   "test",
+				UID:         "12345",
+				Annotations: map[string]string{annotation.AmbientDnsCapture.Name: "false"},
+			},
+		},
+		out: iptables.PodLevelOverrides{
+			VirtualInterfaces: []string{},
+			IngressMode:       false,
+			DNSProxy:          iptables.PodDNSDisabled,
+		},
+	},
+
+	"pod dns disabled, ingress mode enabled, two virt interfaces": {
+		in: corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test",
+				UID:       "12345",
+				Annotations: map[string]string{
+					annotation.AmbientDnsCapture.Name:               "true",
+					annotation.AmbientBypassInboundCapture.Name:     "true",
+					annotation.IoIstioRerouteVirtualInterfaces.Name: "en0ps1, en1ps1",
+				},
+			},
+		},
+		out: iptables.PodLevelOverrides{
+			VirtualInterfaces: []string{"en0ps1", "en1ps1"},
+			IngressMode:       true,
+			DNSProxy:          iptables.PodDNSEnabled,
+		},
+	},
+
+	"various manglings": {
+		in: corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test",
+				UID:       "12345",
+				Annotations: map[string]string{
+					annotation.AmbientDnsCapture.Name:               "tweedledum",
+					annotation.AmbientBypassInboundCapture.Name:     "tweedledee",
+					annotation.IoIstioRerouteVirtualInterfaces.Name: "asd^&&*$&*(#$&*(#&$*())),   ",
+				},
+			},
+		},
+		out: iptables.PodLevelOverrides{
+			VirtualInterfaces: []string{"asd^&&*$&*(#$&*(#&$*()))"},
+			IngressMode:       false,
+			DNSProxy:          iptables.PodDNSUnset,
+		},
+	},
+}
+
+func TestGetPodLevelOverrides(t *testing.T) {
+	for name, test := range overrideTests {
+		t.Run(name, func(t *testing.T) {
+			res := getPodLevelTrafficOverrides(&test.in)
+			assert.Equal(t, res, test.out, fmt.Sprintf("test '%s' failed", name))
+		})
+	}
 }
 
 // for tests that call `runtime.GC()` - we have no control over when the GC is actually scheduled,

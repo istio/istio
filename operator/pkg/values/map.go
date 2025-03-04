@@ -133,7 +133,7 @@ func (m Map) MergeFrom(other Map) {
 	for k, v := range other {
 		// Might be a Map or map, possibly recurse
 		if vm, ok := v.(Map); ok {
-			v = map[string]any(vm)
+			v = map[string]any(vm.DeepClone())
 		}
 		if v, ok := v.(map[string]any); ok {
 			// It's a map...

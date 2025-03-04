@@ -335,7 +335,7 @@ func (e *gcpEnv) Locality() *core.Locality {
 	}
 	r, err := zoneToRegion(z)
 	if err != nil {
-		log.Warnf("Error fetching GCP region from zone: %v", z, err)
+		log.Warnf("Error fetching GCP region from zone %v: %v", z, err)
 		return &l
 	}
 	return &core.Locality{
