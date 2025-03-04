@@ -113,7 +113,10 @@ type RouteHostnames struct {
 
 func (r RouteHostnames) Lookup(hostname string, namespace string) *model.Service {
 	r.internalContextTrigger.TriggerRecomputation()
-	return r.internalContext.Load().GetService(hostname, namespace)
+	if c := r.internalContext.Load(); c != nil {
+		return c.GetService(hostname, namespace)
+	}
+	return nil
 }
 
 func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {
