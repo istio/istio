@@ -47,7 +47,7 @@ spec:
       affinity:
 {{ toYaml .Values.affinity | trim | indent 8 }}
 {{- end }}
-      serviceAccountName: ztunnel
+      serviceAccountName: {{ include "ztunnel.release-name" . }}
       tolerations:
         - effect: NoSchedule
           operator: Exists
