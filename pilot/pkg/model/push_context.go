@@ -1403,6 +1403,14 @@ func (ps *PushContext) updateContext(
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true
 			gatewayChanged = true
+		case kind.InferencePool:
+			log.Info("LIOR88: INFERENCE POOL CHANGED")
+			servicesChanged = true
+
+			// TODO: havent decided if below needed or not
+			gatewayAPIChanged = true
+			virtualServicesChanged = true
+			gatewayChanged = true
 		case kind.Telemetry:
 			telemetryChanged = true
 		case kind.ProxyConfig:
@@ -1497,6 +1505,10 @@ func (ps *PushContext) updateContext(
 func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.Set[ConfigKey]) {
 	// Sort the services in order of creation.
 	allServices := SortServicesByCreationTime(env.Services())
+
+	log.Infof("LIOR1: %v", allServices[len(allServices)-1])
+	log.Infof("LIOR2: %v", allServices[len(allServices)-2])
+	log.Infof("LIOR3: %v", allServices[len(allServices)-3])
 	resolveServiceAliases(allServices, configsUpdate)
 
 	for _, s := range allServices {

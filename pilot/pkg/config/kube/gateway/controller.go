@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -137,11 +138,26 @@ func (c *Controller) Schemas() collection.Schemas {
 	return collection.SchemasFor(
 		collections.VirtualService,
 		collections.Gateway,
+		//TODO: not sure if this needed
+		collections.Service,
 	)
 }
 
 func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
 	return nil
+}
+
+// Services implements discovery interface
+// Each call to Services() should return a list of new *model.Service
+func (c *Controller) Services() []*model.Service {
+	log.Infof("LIOR66: %v", c.state.Services)
+	c.stateMu.Lock()
+	defer c.stateMu.Unlock()
+	out := make([]*model.Service, 0, len(c.state.Services))
+	out = append(out, c.state.Services...)
+	// c.stateMu.Unlock()
+	log.Infof("LIOR77: %v", out)
+	return out
 }
 
 func (c *Controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
@@ -183,6 +199,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) {
 	gatewayClass := c.cache.List(gvk.GatewayClass, metav1.NamespaceAll)
 	gateway := c.cache.List(gvk.KubernetesGateway, metav1.NamespaceAll)
 	httpRoute := c.cache.List(gvk.HTTPRoute, metav1.NamespaceAll)
+	inferencePool := c.cache.List(gvk.InferencePool, metav1.NamespaceAll)
 	grpcRoute := c.cache.List(gvk.GRPCRoute, metav1.NamespaceAll)
 	tcpRoute := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
 	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
@@ -198,6 +215,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) {
 		GatewayClass:   deepCopyStatus(gatewayClass),
 		Gateway:        deepCopyStatus(gateway),
 		HTTPRoute:      deepCopyStatus(httpRoute),
+		InferencePool:  deepCopyStatus(inferencePool),
 		GRPCRoute:      deepCopyStatus(grpcRoute),
 		TCPRoute:       deepCopyStatus(tcpRoute),
 		TLSRoute:       deepCopyStatus(tlsRoute),
@@ -233,6 +251,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) {
 	}
 
 	output := convertResources(input)
+	log.Infof("LIOR22: %v", output.Services)
 
 	// Handle all status updates
 	c.QueueStatusUpdates(input)
@@ -246,6 +265,7 @@ func (c *Controller) QueueStatusUpdates(r GatewayResources) {
 	c.handleStatusUpdates(r.GatewayClass)
 	c.handleStatusUpdates(r.Gateway)
 	c.handleStatusUpdates(r.HTTPRoute)
+	c.handleStatusUpdates(r.InferencePool)
 	c.handleStatusUpdates(r.GRPCRoute)
 	c.handleStatusUpdates(r.TCPRoute)
 	c.handleStatusUpdates(r.TLSRoute)
@@ -405,8 +425,34 @@ func (kr GatewayResources) hasResources() bool {
 	return len(kr.GatewayClass) > 0 ||
 		len(kr.Gateway) > 0 ||
 		len(kr.HTTPRoute) > 0 ||
+		len(kr.InferencePool) > 0 ||
 		len(kr.GRPCRoute) > 0 ||
 		len(kr.TCPRoute) > 0 ||
 		len(kr.TLSRoute) > 0 ||
 		len(kr.ReferenceGrant) > 0
+}
+
+func (c *Controller) GetService(host.Name) *model.Service {
+	panic("implement me")
+}
+
+func (c *Controller) GetProxyServiceTargets(*model.Proxy) []model.ServiceTarget {
+	panic("implement me")
+}
+
+func (c *Controller) GetProxyWorkloadLabels(*model.Proxy) labels.Instance {
+	panic("implement me")
+}
+
+func (c *Controller) GetIstioServiceAccounts(*model.Service) []string {
+	return nil
+}
+
+func (c *Controller) NetworkGateways() []model.NetworkGateway {
+	// TODO implement fromRegistry logic from kube controller if needed
+	return nil
+}
+
+func (c *Controller) MCSServices() []model.MCSServiceInfo {
+	return nil
 }

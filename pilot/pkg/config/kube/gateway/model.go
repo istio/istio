@@ -37,6 +37,7 @@ type GatewayResources struct {
 	GatewayClass   []config.Config
 	Gateway        []config.Config
 	HTTPRoute      []config.Config
+	InferencePool  []config.Config
 	GRPCRoute      []config.Config
 	TCPRoute       []config.Config
 	TLSRoute       []config.Config
@@ -93,6 +94,9 @@ func (refs AllowedReferences) BackendAllowed(
 type IstioResources struct {
 	Gateway        []config.Config
 	VirtualService []config.Config
+
+	Services []*model.Service
+
 	// AllowedReferences stores all allowed references, from Reference -> to Reference(s)
 	AllowedReferences AllowedReferences
 	// ReferencedNamespaceKeys stores the label key of all namespace selections. This allows us to quickly

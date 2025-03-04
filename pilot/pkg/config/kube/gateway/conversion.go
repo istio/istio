@@ -28,6 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	inferencegateway "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -39,6 +40,7 @@ import (
 	creds "istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	kubeconfig "istio.io/istio/pkg/config/gateway/kube"
@@ -83,6 +85,8 @@ func convertResources(r GatewayResources) IstioResources {
 
 	result.VirtualService = convertVirtualService(ctx)
 
+	result.Services = convertInferencePools(ctx)
+
 	// Once we have gone through all route computation, we will know how many routes bound to each gateway.
 	// Report this in the status.
 	for _, dm := range gwMap {
@@ -96,6 +100,93 @@ func convertResources(r GatewayResources) IstioResources {
 	result.ReferencedNamespaceKeys = nsReferences
 	result.ResourceReferences = ctx.resourceReferences
 	return result
+}
+
+// ServiceHostname produces FQDN for a k8s service
+func InfServiceHostname(name, namespace, domainSuffix string) host.Name {
+	return host.Name(name + "." + namespace + "." + "inf-svc" + "." + domainSuffix) // Format: "%s.%s.svc.%s"
+}
+
+func convertInferencePools(r configContext) []*model.Service {
+	result := []*model.Service{}
+	for _, obj := range r.InferencePool {
+		log.Infof("LIOR33: %v", obj)
+		// need to add inferencePool to extProc mapping
+		result = append(result, buildServiceFromInferencePool(obj))
+	}
+	return result
+
+}
+
+// convertServices transforms a ServiceEntry config to a list of internal Service objects.
+func buildServiceFromInferencePool(cfg config.Config) *model.Service {
+	inferencePool := cfg.Spec.(*inferencegateway.InferencePoolSpec)
+	log.Infof("LIOR44: %v", inferencePool)
+
+	creationTime := cfg.CreationTimestamp
+
+	var resolution model.Resolution
+	resolution = model.ClientSideLB
+
+	// switch serviceEntry.Resolution {
+	// case networking.ServiceEntry_NONE:
+	// 	resolution = model.Passthrough
+	// case networking.ServiceEntry_DNS:
+	// 	resolution = model.DNSLB
+	// case networking.ServiceEntry_DNS_ROUND_ROBIN:
+	// 	resolution = model.DNSRoundRobinLB
+	// case networking.ServiceEntry_STATIC:
+	// 	resolution = model.ClientSideLB
+	// }
+
+	port := &model.Port{
+		Protocol: "TCP",
+		// Or 54321?
+		Port: int(inferencePool.TargetPortNumber),
+	}
+	svcPorts := make(model.PortList, 0, 1)
+	svcPorts = append(svcPorts, port)
+	// if resolution == model.Passthrough && port.TargetPort != 0 {
+	// 	if portOverrides == nil {
+	// 		portOverrides = map[uint32]uint32{}
+	// 	}
+	// 	portOverrides[port.Number] = port.TargetPort
+
+	// }
+
+	labelSelectors := map[string]string{}
+	for k, v := range inferencePool.Selector {
+		labelSelectors[string(k)] = string(v)
+	}
+
+	lbls := cfg.Labels
+	if lbls == nil {
+		lbls = map[string]string{}
+	}
+	lbls[constants.InternalServiceSemantics] = constants.ServiceSemanticsInferencePool
+	// if features.CanonicalServiceForMeshExternalServiceEntry && serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL {
+	// 	lbls = ensureCanonicalServiceLabels(cfg.Name, cfg.Labels)
+	// }
+	// for _, ha := range hostAddresses {
+	svc := &model.Service{
+		CreationTime: creationTime,
+		Hostname:     InfServiceHostname(cfg.Name, cfg.Namespace, "cluster.local"),
+		// DefaultAddress: ha.address,
+		Ports:      svcPorts,
+		Resolution: resolution,
+		Attributes: model.ServiceAttributes{
+			ServiceRegistry: provider.External,
+			// PassthroughTargetPorts: portOverrides,
+			Name:           cfg.Name + "LIOR",
+			Namespace:      cfg.Namespace,
+			Labels:         lbls,
+			LabelSelectors: labelSelectors,
+			K8sAttributes:  model.K8sAttributes{ObjectName: cfg.Name},
+		},
+	}
+	// out = append(out, svc)
+	// }
+	return svc
 }
 
 // convertReferencePolicies extracts all ReferencePolicy into an easily accessibly index.

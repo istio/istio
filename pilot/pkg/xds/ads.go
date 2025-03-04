@@ -418,7 +418,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 			switch conf.Kind {
 			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.Sidecar, kind.HTTPRoute, kind.TCPRoute, kind.TLSRoute, kind.GRPCRoute:
 				shouldResetSidecarScope = true
-			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferenceGrant:
+			case kind.Gateway, kind.KubernetesGateway, kind.GatewayClass, kind.ReferenceGrant, kind.InferencePool:
 				shouldResetGateway = true
 			case kind.Ingress:
 				shouldResetSidecarScope = true
