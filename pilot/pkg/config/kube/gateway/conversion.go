@@ -979,7 +979,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 			return nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
 		}
 		hostname := string(to.Name)
-		if ctx.Hostnames.Lookup(hostname, namespace) == nil {
+		if ctx.LookupHostname(hostname, namespace) == nil {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 		return &istio.Destination{

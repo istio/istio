@@ -68,12 +68,6 @@ type Controller struct {
 	// client for accessing Kubernetes
 	client kube.Client
 
-	// Gateway-api types reference namespace labels directly, so we need access to these
-	namespaceHandler model.EventHandler
-
-	// Gateway-api types reference secrets directly, so we need access to these
-	secretHandler model.EventHandler
-
 	// the cluster where the gateway-api controller runs
 	cluster  cluster.ID
 	revision string
@@ -82,14 +76,13 @@ type Controller struct {
 	// is only the case when we are the leader.
 	statusWriter *StatusWriter
 
-	tagWatcher revisions.TagWatcher
-
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
 	outputs    Outputs
 
-	gatewayContext        *atomic.Pointer[GatewayContext]
-	gatewayContextTrigger *krt.RecomputeTrigger
-	stop                  chan struct{}
+	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
+	tagWatcher     krt.RecomputeProtected[revisions.TagWatcher]
+
+	stop chan struct{}
 }
 
 type RouteContext struct {
@@ -97,26 +90,20 @@ type RouteContext struct {
 	RouteContextInputs
 }
 
-type RouteContextInputs struct {
-	Grants         ReferenceGrants
-	RouteParents   RouteParents
-	Domain         string
-	Services       krt.Collection[*corev1.Service]
-	ServiceEntries krt.Collection[*networkingclient.ServiceEntry]
-	Hostnames      RouteHostnames
-}
-
-type RouteHostnames struct {
-	internalContext        *atomic.Pointer[GatewayContext]
-	internalContextTrigger *krt.RecomputeTrigger
-}
-
-func (r RouteHostnames) Lookup(hostname string, namespace string) *model.Service {
-	r.internalContextTrigger.TriggerRecomputation()
-	if c := r.internalContext.Load(); c != nil {
+func (r RouteContext) LookupHostname(hostname string, namespace string) *model.Service {
+	if c := r.internalContext.Get(r.Krt).Load(); c != nil {
 		return c.GetService(hostname, namespace)
 	}
 	return nil
+}
+
+type RouteContextInputs struct {
+	Grants          ReferenceGrants
+	RouteParents    RouteParents
+	Domain          string
+	Services        krt.Collection[*corev1.Service]
+	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
+	internalContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
 }
 
 func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {
@@ -192,19 +179,19 @@ func NewController(
 	opts := krt.NewOptionsBuilder(stop, "gateway", options.KrtDebugger)
 
 	statusWriter := &StatusWriter{statusController: atomic.NewPointer[status.Queue](nil)}
-	gatewayController := &Controller{
-		client:                kc,
-		cluster:               options.ClusterID,
-		revision:              options.Revision,
-		tagWatcher:            revisions.NewTagWatcher(kc, options.Revision),
-		statusWriter:          statusWriter,
-		waitForCRD:            waitForCRD,
-		gatewayContext:        atomic.NewPointer[GatewayContext](nil),
-		gatewayContextTrigger: krt.NewRecomputeTrigger(false, opts.WithName("gatewayContextTrigger")...),
-		stop:                  stop,
+	tw := revisions.NewTagWatcher(kc, options.Revision)
+	c := &Controller{
+		client:         kc,
+		cluster:        options.ClusterID,
+		revision:       options.Revision,
+		tagWatcher:     krt.NewRecomputeProtected(tw, false, opts.WithName("tagWatcher")...),
+		statusWriter:   statusWriter,
+		waitForCRD:     waitForCRD,
+		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[GatewayContext](nil), false, opts.WithName("gatewayContext")...),
+		stop:           stop,
 	}
-	gatewayController.tagWatcher.AddHandler(func(s sets.String) {
-		gatewayController.gatewayContextTrigger.TriggerRecomputation()
+	tw.AddHandler(func(s sets.String) {
+		c.tagWatcher.TriggerRecomputation()
 	})
 
 	inputs := Inputs{
@@ -220,14 +207,14 @@ func NewController(
 			kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
 			opts.WithName("Services")...,
 		),
-		GatewayClasses:  buildClient[*gateway.GatewayClass](gatewayController, kc, gvr.GatewayClass, opts, "GatewayClasses"),
-		Gateways:        buildClient[*gateway.Gateway](gatewayController, kc, gvr.KubernetesGateway, opts, "Gateways"),
-		HTTPRoutes:      buildClient[*gateway.HTTPRoute](gatewayController, kc, gvr.HTTPRoute, opts, "HTTPRoutes"),
-		GRPCRoutes:      buildClient[*gatewayv1.GRPCRoute](gatewayController, kc, gvr.GRPCRoute, opts, "GRPCRoutes"),
-		TCPRoutes:       buildClient[*gatewayalpha.TCPRoute](gatewayController, kc, gvr.TCPRoute, opts, "TCPRoutes"),
-		TLSRoutes:       buildClient[*gatewayalpha.TLSRoute](gatewayController, kc, gvr.TLSRoute, opts, "TLSRoutes"),
-		ReferenceGrants: buildClient[*gateway.ReferenceGrant](gatewayController, kc, gvr.ReferenceGrant, opts, "ReferenceGrants"),
-		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](gatewayController, kc, gvr.ServiceEntry, opts, "ServiceEntries"),
+		GatewayClasses:  buildClient[*gateway.GatewayClass](c, kc, gvr.GatewayClass, opts, "GatewayClasses"),
+		Gateways:        buildClient[*gateway.Gateway](c, kc, gvr.KubernetesGateway, opts, "Gateways"),
+		HTTPRoutes:      buildClient[*gateway.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "HTTPRoutes"),
+		GRPCRoutes:      buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "GRPCRoutes"),
+		TCPRoutes:       buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "TCPRoutes"),
+		TLSRoutes:       buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "TLSRoutes"),
+		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "ReferenceGrants"),
+		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "ServiceEntries"),
 	}
 
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
@@ -244,23 +231,20 @@ func NewController(
 		ReferenceGrants,
 		inputs.Secrets,
 		options.DomainSuffix,
-		gatewayController.gatewayContext,
-		gatewayController.gatewayContextTrigger,
+		c.gatewayContext,
+		c.tagWatcher,
 		opts,
 	)
 
 	RouteParents := BuildRouteParents(Gateways)
 
 	routeInputs := RouteContextInputs{
-		Grants:         ReferenceGrants,
-		RouteParents:   RouteParents,
-		Domain:         options.DomainSuffix,
-		Services:       inputs.Services,
-		ServiceEntries: inputs.ServiceEntries,
-		Hostnames: RouteHostnames{
-			internalContext:        gatewayController.gatewayContext,
-			internalContextTrigger: gatewayController.gatewayContextTrigger,
-		},
+		Grants:          ReferenceGrants,
+		RouteParents:    RouteParents,
+		Domain:          options.DomainSuffix,
+		Services:        inputs.Services,
+		ServiceEntries:  inputs.ServiceEntries,
+		internalContext: c.gatewayContext,
 	}
 	tcpRoutes := TCPRouteCollection(
 		inputs.TCPRoutes,
@@ -329,7 +313,7 @@ func NewController(
 		Gateways:        Gateways,
 		VirtualServices: VirtualServices,
 	}
-	gatewayController.outputs = outputs
+	c.outputs = outputs
 
 	outputs.VirtualServices.RegisterBatch(pushXds(options.XDSUpdater,
 		func(t config.Config) model.ConfigKey {
@@ -350,7 +334,7 @@ func NewController(
 		}), false)
 	// TODO: referencegrant update?
 
-	return gatewayController
+	return c
 }
 
 func buildClient[I controllers.ComparableObject](
@@ -421,11 +405,10 @@ func (c *Controller) setStatusQueue(queue status.Queue) {
 // Any status updates required will be enqueued as well.
 func (c *Controller) Reconcile(ps *model.PushContext) {
 	ctx := NewGatewayContext(ps, c.cluster)
-	old := c.gatewayContext.Swap(&ctx)
-	if old == nil {
-		c.gatewayContextTrigger.MarkSynced()
-	}
-	c.gatewayContextTrigger.TriggerRecomputation()
+	c.gatewayContext.Modify(func(i **atomic.Pointer[GatewayContext]) {
+		(*i).Store(&ctx)
+	})
+	c.gatewayContext.MarkSynced()
 }
 
 type StatusWriter struct {
@@ -473,13 +456,6 @@ func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string,
 }
 
 func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler model.EventHandler) {
-	switch typ {
-	case gvk.Namespace:
-		c.namespaceHandler = handler
-	case gvk.Secret:
-		c.secretHandler = handler
-	}
-	// For all other types, do nothing as c.cache has been registered
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
@@ -492,12 +468,20 @@ func (c *Controller) Run(stop <-chan struct{}) {
 			}
 		}()
 	}
-	go c.tagWatcher.Run(stop)
+
+	tw := c.tagWatcher.AccessUnprotected()
+	go tw.Run(stop)
+	go func() {
+		kube.WaitForCacheSync("gateway tag watcher", stop, tw.HasSynced)
+		c.tagWatcher.MarkSynced()
+	}()
+
 	<-stop
 	close(c.stop)
 }
 
 func (c *Controller) HasSynced() bool {
+
 	return c.outputs.VirtualServices.HasSynced() &&
 		c.outputs.Gateways.HasSynced() &&
 		c.outputs.ReferenceGrants.collection.HasSynced()

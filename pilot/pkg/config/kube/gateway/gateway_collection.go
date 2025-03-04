@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"go.uber.org/atomic"
+	"istio.io/istio/pkg/revisions"
 	corev1 "k8s.io/api/core/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -56,15 +57,17 @@ func GatewayCollection(
 	grants ReferenceGrants,
 	secrets krt.Collection[*corev1.Secret],
 	domainSuffix string,
-	gatewayContext *atomic.Pointer[GatewayContext],
-	gatewayContextTrigger *krt.RecomputeTrigger,
+	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]],
+	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
 ) (krt.Collection[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]], krt.Collection[Gateway]) {
 	statusCol, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
 		// We currently depend on service discovery information not know to krt; mark we depend on it.
-		gatewayContextTrigger.MarkDependant(ctx)
-		context := gatewayContext.Load()
+		context := gatewayContext.Get(ctx).Load()
 		if context == nil {
+			return nil, nil
+		}
+		if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
 			return nil, nil
 		}
 		result := []Gateway{}
