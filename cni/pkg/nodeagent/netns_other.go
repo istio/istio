@@ -19,7 +19,7 @@ package nodeagent
 
 import "errors"
 
-func inodeForFd(n NetnsFd) (uint64, error) {
+func inodeForFd(_ NetnsFd) (uint64, error) {
 	return 0, errors.New("not implemented")
 }
 

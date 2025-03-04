@@ -350,6 +350,45 @@ func TestClient(t *testing.T) {
 	assert.Equal(t, tester.Get(obj3.Name, obj3.Namespace), nil)
 }
 
+func TestShutdown(t *testing.T) {
+	tracker := assert.NewTracker[string](t)
+	removeTracker := assert.NewTracker[string](t)
+	c := kube.NewFakeClient()
+	deployments := kclient.NewFiltered[*appsv1.Deployment](c, kclient.Filter{})
+	deployments.AddEventHandler(clienttest.TrackerHandler(tracker))
+	removeReg := deployments.AddEventHandler(clienttest.TrackerHandler(removeTracker))
+	tester := clienttest.Wrap(t, deployments)
+
+	c.RunAndWait(test.NewStop(t))
+	obj1 := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "1", Namespace: "default"},
+		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 1},
+	}
+
+	// Create object, make sure we can see it
+	tester.Create(obj1)
+	// Client is cached, so its only eventually consistent
+	tracker.WaitUnordered("add/1")
+	removeTracker.WaitUnordered("add/1")
+
+	// Shutdown one
+	deployments.ShutdownHandler(removeReg)
+
+	// Update object, should see the update only one the active handler
+	obj1.Spec.MinReadySeconds = 2
+	tester.Update(obj1)
+	tracker.WaitOrdered("update/1")
+	removeTracker.Empty()
+
+	deployments.ShutdownHandlers()
+
+	// Update object, shouldn't see any updates since all handlers are removed
+	obj1.Spec.MinReadySeconds = 3
+	tester.Update(obj1)
+	tracker.Empty()
+	removeTracker.Empty()
+}
+
 func TestErrorHandler(t *testing.T) {
 	mt := monitortest.New(t)
 	c := kube.NewFakeClient()
@@ -456,6 +495,7 @@ func TestFilterNamespace(t *testing.T) {
 
 func TestFilter(t *testing.T) {
 	tracker := assert.NewTracker[string](t)
+	removeTracker := assert.NewTracker[string](t)
 	c := kube.NewFakeClient()
 	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 	testns := clienttest.NewWriter[*corev1.Namespace](t, c)
@@ -471,6 +511,7 @@ func TestFilter(t *testing.T) {
 		ObjectFilter: discoveryNamespacesFilter,
 	})
 	deployments.AddEventHandler(clienttest.TrackerHandler(tracker))
+	removeReg := deployments.AddEventHandler(clienttest.TrackerHandler(removeTracker))
 
 	// Create two dynamic informers: one with CRD initially ready, one later
 	// Ready now
@@ -498,6 +539,9 @@ func TestFilter(t *testing.T) {
 	}
 	tester.Create(obj1)
 	tracker.WaitOrdered("add/1")
+	removeTracker.WaitOrdered("add/1")
+	deployments.ShutdownHandler(removeReg)
+
 	obj2 := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "2", Namespace: "selected"},
 		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 1},
@@ -529,6 +573,14 @@ func TestFilter(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "name4", Namespace: "selected"},
 	})
 	tracker.WaitOrdered("add/name4")
+
+	// Ensure we didn't get any events
+	removeTracker.Empty()
+	// Remove the other handler through ShutdownHandlers
+	deployments.ShutdownHandlers()
+	// We should get no event
+	meshWatcher.Set(&meshconfig.MeshConfig{DiscoverySelectors: []*meshconfig.LabelSelector{}})
+	tracker.Empty()
 }
 
 func TestFilterClusterScoped(t *testing.T) {

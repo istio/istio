@@ -181,6 +181,12 @@ func runConformance[T any](t *testing.T, collection Rig[T]) {
 	// It should get the initial state
 	lateHandler.WaitOrdered("add/a/b")
 
+	// Handler that will be removed later
+	removeHandler := assert.NewTracker[string](t)
+	removeHandlerRegistration := collection.Register(TrackerHandler[T](removeHandler))
+	assert.Equal(t, removeHandlerRegistration.WaitUntilSynced(stop), true)
+	removeHandler.WaitOrdered("add/a/b")
+
 	// Add a new handler that blocks events. This should not block the other handlers
 	delayedSynced := collection.Register(func(o krt.Event[T]) {
 		<-stop
@@ -192,9 +198,12 @@ func runConformance[T any](t *testing.T, collection Rig[T]) {
 	collection.CreateObject("a/c")
 	earlyHandler.WaitOrdered("add/a/c")
 	lateHandler.WaitOrdered("add/a/c")
+	removeHandler.WaitOrdered("add/a/c")
 	assert.Equal(t, len(collection.List()), 2)
 	assert.Equal(t, collection.GetKey("a/b") != nil, true)
 	assert.Equal(t, collection.GetKey("a/c") != nil, true)
+
+	removeHandlerRegistration.UnregisterHandler()
 
 	// Add another object. Some bad implementations could handle 1 event with a blocked handler, but not >1, so make sure we catch that
 	collection.CreateObject("a/d")
@@ -233,4 +242,6 @@ func runConformance[T any](t *testing.T, collection Rig[T]) {
 	// We should get every event exactly one time
 	raceHandler.WaitUnordered(want...)
 	raceHandler.Empty()
+
+	removeHandler.Empty()
 }
