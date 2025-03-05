@@ -1,0 +1,31 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: eastwestgateway
+  namespace: istio-system
+  labels:
+    topology.istio.io/network: "network-1"
+spec:
+  gatewayClassName: istio-eastwest
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+    tls:
+      mode: Terminate # represents double-HBONE
+      options:
+        istio.io/mesh-provided-tls: "true"
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: invalid
+  namespace: istio-system
+  labels:
+    topology.istio.io/network: "network-1"
+spec:
+  gatewayClassName: istio-eastwest
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE # No TLS mode terminatew
