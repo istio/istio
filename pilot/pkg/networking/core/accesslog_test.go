@@ -328,6 +328,7 @@ func newTestEnviroment() *model.Environment {
 	})
 
 	env := model.NewEnvironment()
+	defer env.Close()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
 	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)

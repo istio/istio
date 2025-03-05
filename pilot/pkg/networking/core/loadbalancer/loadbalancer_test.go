@@ -1120,6 +1120,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	configStore := memory.Make(collections.Pilot)
 
 	env := model.NewEnvironment()
+	defer env.Close()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
 	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
@@ -1177,6 +1178,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	configStore := memory.Make(collections.Pilot)
 
 	env := model.NewEnvironment()
+	defer env.Close()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
 	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
@@ -1229,6 +1231,7 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 	configStore := memory.Make(collections.Pilot)
 
 	env := model.NewEnvironment()
+	defer env.Close()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
 	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
@@ -1287,6 +1290,7 @@ func buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(failoverPri
 	configStore := memory.Make(collections.Pilot)
 
 	env := model.NewEnvironment()
+	defer env.Close()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
 	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
