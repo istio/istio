@@ -78,6 +78,11 @@ func TestTlsGatewaysWithQUIC(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
+			err := ingressutil.WaitForIngressQUICService(t, istio.DefaultSystemNamespace)
+			if err != nil {
+				t.Skip("the QUIC mixed service is not supported - ", err)
+			}
+
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				ingressutil.RunTestMultiTLSGateways(t, inst, namespace.Future(&echo1NS))
 			})
@@ -96,6 +101,11 @@ func TestMtlsGatewaysWithQUIC(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
+			err := ingressutil.WaitForIngressQUICService(t, istio.DefaultSystemNamespace)
+			if err != nil {
+				t.Skip("the QUIC mixed service is not supported - ", err)
+			}
+
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				ingressutil.RunTestMultiTLSGateways(t, inst, namespace.Future(&echo1NS))
 			})
