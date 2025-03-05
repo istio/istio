@@ -462,7 +462,7 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid, bound to 6 parents
+      message: Route was valid, bound to 6 parents listeners
       reason: Accepted
       status: "True"
       type: Accepted
