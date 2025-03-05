@@ -27,7 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/resource"
@@ -40,7 +39,6 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/xds"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -129,16 +127,16 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 			name: "proxyID not found",
 			testcase: execTestCase{
 				args:           []string{"config_dump?proxyID=sleep-77ccf74cb-m6jcb"},
-				expectedOutput: "\nTProxy not connected to this Pilot instance. It may be connected to another instance.\n",
+				expectedOutput: "Proxy not connected to this Pilot instance. It may be connected to another instance.\n",
 			},
 			getXdsResponse: func(_ *discovery.DiscoveryRequest, _ string, _ string, _ clioptions.CentralControlPlaneOptions, _ []grpc.DialOption,
 			) (*discovery.DiscoveryResponse, error) {
 				getXdsResponseCall++
 				return &discovery.DiscoveryResponse{
 					Resources: []*anypb.Any{
-						protoconv.MessageToAny(&wrapperspb.StringValue{
-							Value: "Proxy not connected to this Pilot instance. It may be connected to another instance.",
-						}),
+						{
+							Value: []byte("Proxy not connected to this Pilot instance. It may be connected to another instance."),
+						},
 					},
 				}, nil
 			},
@@ -148,16 +146,16 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 			name: "proxyID found when first call",
 			testcase: execTestCase{
 				args:           []string{"config_dump?proxyID=sleep-77ccf74cb-m6jcb"},
-				expectedOutput: "\n*fake config_dump for sleep-77ccf74cb-m6jcb\n",
+				expectedOutput: "fake config_dump for sleep-77ccf74cb-m6jcb\n",
 			},
 			getXdsResponse: func(_ *discovery.DiscoveryRequest, _ string, _ string, _ clioptions.CentralControlPlaneOptions, _ []grpc.DialOption,
 			) (*discovery.DiscoveryResponse, error) {
 				getXdsResponseCall++
 				return &discovery.DiscoveryResponse{
 					Resources: []*anypb.Any{
-						protoconv.MessageToAny(&wrapperspb.StringValue{
-							Value: "fake config_dump for sleep-77ccf74cb-m6jcb",
-						}),
+						{
+							Value: []byte("fake config_dump for sleep-77ccf74cb-m6jcb"),
+						},
 					},
 				}, nil
 			},
@@ -167,7 +165,7 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 			name: "proxyID found when second call",
 			testcase: execTestCase{
 				args:           []string{"config_dump?proxyID=sleep-77ccf74cb-m6jcb"},
-				expectedOutput: "\n9fake config_dump for sleep-77ccf74cb-m6jcb in second call\n",
+				expectedOutput: "fake config_dump for sleep-77ccf74cb-m6jcb in second call\n",
 			},
 			getXdsResponse: func(_ *discovery.DiscoveryRequest, _ string, _ string, _ clioptions.CentralControlPlaneOptions, _ []grpc.DialOption,
 			) (*discovery.DiscoveryResponse, error) {
@@ -175,17 +173,17 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 				if getXdsResponseCall == 1 {
 					return &discovery.DiscoveryResponse{
 						Resources: []*anypb.Any{
-							protoconv.MessageToAny(&wrapperspb.StringValue{
-								Value: "Proxy not connected to this Pilot instance. It may be connected to another instance.",
-							}),
+							{
+								Value: []byte("Proxy not connected to this Pilot instance. It may be connected to another instance."),
+							},
 						},
 					}, nil
 				}
 				return &discovery.DiscoveryResponse{
 					Resources: []*anypb.Any{
-						protoconv.MessageToAny(&wrapperspb.StringValue{
-							Value: "fake config_dump for sleep-77ccf74cb-m6jcb in second call",
-						}),
+						{
+							Value: []byte("fake config_dump for sleep-77ccf74cb-m6jcb in second call"),
+						},
 					},
 				}, nil
 			},
