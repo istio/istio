@@ -1564,6 +1564,77 @@ func TestTelemetryAccessLog(t *testing.T) {
 			},
 		},
 		{
+			name: "enable-omit-empty-values",
+			ctx:  ctx,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			},
+			fp: &meshconfig.MeshConfig_ExtensionProvider{
+				Name: "envoy",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path:            "/dev/stdout",
+						OmitEmptyValues: true,
+					},
+				},
+			},
+			expected: &accesslog.AccessLog{
+				Name: wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(&fileaccesslog.FileAccessLog{
+					Path: DevStdout,
+					AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+						LogFormat: &core.SubstitutionFormatString{
+							Format: &core.SubstitutionFormatString_TextFormatSource{
+								TextFormatSource: &core.DataSource{
+									Specifier: &core.DataSource_InlineString{
+										InlineString: EnvoyTextLogFormat,
+									},
+								},
+							},
+							OmitEmptyValues: true,
+						},
+					},
+				})},
+			},
+		},
+		{
+			name: "json-enable-omit-empty-values",
+			ctx:  ctx,
+			meshConfig: &meshconfig.MeshConfig{
+				AccessLogEncoding: meshconfig.MeshConfig_JSON,
+				AccessLogFormat:   defaultFormatJSON,
+			},
+			fp: &meshconfig.MeshConfig_ExtensionProvider{
+				Name: "envoy",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog{
+					EnvoyFileAccessLog: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+						Path: "/dev/stdout",
+						LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+							LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
+								Labels: &structpb.Struct{},
+							},
+						},
+						OmitEmptyValues: true,
+					},
+				},
+			},
+			expected: &accesslog.AccessLog{
+				Name: wellknown.FileAccessLog,
+				ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(&fileaccesslog.FileAccessLog{
+					Path: "/dev/stdout",
+					AccessLogFormat: &fileaccesslog.FileAccessLog_LogFormat{
+						LogFormat: &core.SubstitutionFormatString{
+							Format: &core.SubstitutionFormatString_JsonFormat{
+								JsonFormat: EnvoyJSONLogFormatIstio,
+							},
+							JsonFormatOptions: &core.JsonFormatOptions{SortProperties: false},
+							OmitEmptyValues:   true,
+						},
+					},
+				})},
+			},
+		},
+		{
 			name: "builtin-not-fallback",
 			ctx:  ctx,
 			meshConfig: &meshconfig.MeshConfig{
