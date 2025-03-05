@@ -251,8 +251,15 @@ func buildSidecarVirtualHostsForVirtualService(
 		// Sidecar is never doing H3 (yet)
 		IsHTTP3AltSvcHeaderNeeded: false,
 		Mesh:                      mesh,
+		LookupService: func(name host.Name) *model.Service {
+			return serviceRegistry[name]
+		},
+		LookupDestinationCluster: GetDestinationCluster,
+		LookupHash: func(destination *networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB {
+			return hashByDestination[destination]
+		},
 	}
-	routes, err := BuildHTTPRoutesForVirtualService(node, virtualService, serviceRegistry, hashByDestination,
+	routes, err := BuildHTTPRoutesForVirtualService(node, virtualService,
 		listenPort, meshGateway, opts)
 	if err != nil || len(routes) == 0 {
 		return nil
@@ -365,6 +372,9 @@ type RouteOptions struct {
 	// IsHTTP3AltSvcHeaderNeeded indicates if HTTP3 alt-svc header needs to be inserted
 	IsHTTP3AltSvcHeaderNeeded bool
 	Mesh                      *meshconfig.MeshConfig
+	LookupService             func(name host.Name) *model.Service
+	LookupDestinationCluster  func(destination *networking.Destination, service *model.Service, listenerPort int) string
+	LookupHash                func(*networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB
 }
 
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
@@ -378,8 +388,6 @@ type RouteOptions struct {
 func BuildHTTPRoutesForVirtualService(
 	node *model.Proxy,
 	virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service,
-	hashByDestination DestinationHashMap,
 	listenPort int,
 	gatewayNames sets.String,
 	opts RouteOptions,
@@ -394,15 +402,13 @@ func BuildHTTPRoutesForVirtualService(
 	catchall := false
 	for _, http := range vs.Http {
 		if len(http.Match) == 0 {
-			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry,
-				hashByDestination, gatewayNames, opts); r != nil {
+			if r := TranslateRoute(node, http, nil, listenPort, virtualService, gatewayNames, opts); r != nil {
 				out = append(out, r)
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
-				if r := translateRoute(node, http, match, listenPort, virtualService, serviceRegistry,
-					hashByDestination, gatewayNames, opts); r != nil {
+				if r := TranslateRoute(node, http, match, listenPort, virtualService, gatewayNames, opts); r != nil {
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just stop sending any more routes here.
@@ -445,15 +451,13 @@ func sourceMatchHTTP(match *networking.HTTPMatchRequest, proxyLabels labels.Inst
 	return false
 }
 
-// translateRoute translates HTTP routes
-func translateRoute(
+// TranslateRoute translates HTTP routes
+func TranslateRoute(
 	node *model.Proxy,
 	in *networking.HTTPRoute,
 	match *networking.HTTPMatchRequest,
 	listenPort int,
 	virtualService config.Config,
-	serviceRegistry map[host.Name]*model.Service,
-	hashByDestination DestinationHashMap,
 	gatewayNames sets.String,
 	opts RouteOptions,
 ) *route.Route {
@@ -500,7 +504,7 @@ func translateRoute(
 	} else if in.DirectResponse != nil {
 		ApplyDirectResponse(out, in.DirectResponse)
 	} else {
-		hostnames = applyHTTPRouteDestination(out, node, virtualService, in, opts.Mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		hostnames = applyHTTPRouteDestination(out, node, virtualService, in, opts, authority, listenPort)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -517,7 +521,8 @@ func translateRoute(
 	}
 	var statefulConfig *statefulsession.StatefulSession
 	for _, hostname := range hostnames {
-		perSvcStatefulConfig := util.MaybeBuildStatefulSessionFilterConfig(serviceRegistry[hostname])
+		svc := opts.LookupService(hostname)
+		perSvcStatefulConfig := util.MaybeBuildStatefulSessionFilterConfig(svc)
 		// This means we have more than one stateful config for the same route because of weighed destinations.
 		// We should just pick the first and give a warning.
 		if perSvcStatefulConfig != nil && statefulConfig != nil {
@@ -555,11 +560,9 @@ func applyHTTPRouteDestination(
 	node *model.Proxy,
 	vs config.Config,
 	in *networking.HTTPRoute,
-	mesh *meshconfig.MeshConfig,
+	opts RouteOptions,
 	authority string,
-	serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
-	hashByDestination DestinationHashMap,
 ) []host.Name {
 	action := &route.RouteAction{}
 
@@ -611,14 +614,16 @@ func applyHTTPRouteDestination(
 
 	if in.Mirror != nil {
 		if mp := MirrorPercent(in); mp != nil {
+			cluster := opts.LookupDestinationCluster(in.Mirror, opts.LookupService(host.Name(in.Mirror.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				TranslateRequestMirrorPolicy(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort, mp))
+				TranslateRequestMirrorPolicy(cluster, mp))
 		}
 	}
 	for _, mirror := range in.Mirrors {
 		if mp := MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
+			cluster := opts.LookupDestinationCluster(mirror.Destination, opts.LookupService(host.Name(mirror.Destination.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				TranslateRequestMirrorPolicy(mirror.Destination, serviceRegistry[host.Name(mirror.Destination.Host)], listenerPort, mp))
+				TranslateRequestMirrorPolicy(cluster, mp))
 		}
 	}
 
@@ -626,12 +631,12 @@ func applyHTTPRouteDestination(
 	policy := in.Retries
 	if policy == nil {
 		// No VS policy set, use mesh defaults
-		policy = mesh.GetDefaultHttpRetryPolicy()
+		policy = opts.Mesh.GetDefaultHttpRetryPolicy()
 	}
 	consistentHash := false
 	if len(in.Route) == 1 {
-		hostnames = append(hostnames, processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action))
-		hash := hashByDestination[in.Route[0]]
+		hostnames = append(hostnames, processDestination(in.Route[0], opts, listenerPort, out, action))
+		hash := opts.LookupHash(in.Route[0])
 		consistentHash = hash != nil
 	} else {
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
@@ -640,7 +645,7 @@ func applyHTTPRouteDestination(
 				// Ignore 0 weighted clusters if there are other clusters in the route.
 				continue
 			}
-			destinationweight, hostname := processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action)
+			destinationweight, hostname := processWeightedDestination(dst, opts, listenerPort, action)
 			weighted = append(weighted, destinationweight)
 			hostnames = append(hostnames, hostname)
 		}
@@ -657,15 +662,10 @@ func applyHTTPRouteDestination(
 // processDestination processes a single destination in a route. It specifies to which cluster the route should
 // be routed to. It also sets the headers and hash policy if specified.
 // Returns the hostname of the destination.
-func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
-	listenerPort int,
-	hashByDestination DestinationHashMap,
-	out *route.Route,
-	action *route.RouteAction,
-) host.Name {
+func processDestination(dst *networking.HTTPRouteDestination, opts RouteOptions, listenerPort int, out *route.Route, action *route.RouteAction) host.Name {
 	hostname := host.Name(dst.GetDestination().GetHost())
 	action.ClusterSpecifier = &route.RouteAction_Cluster{
-		Cluster: GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
+		Cluster: opts.LookupDestinationCluster(dst.Destination, opts.LookupService(hostname), listenerPort),
 	}
 	if dst.Headers != nil {
 		operations := TranslateHeadersOperations(dst.Headers)
@@ -684,7 +684,7 @@ func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry ma
 			}
 		}
 	}
-	hash := hashByDestination[dst]
+	hash := opts.LookupHash(dst)
 	hashPolicy := consistentHashToHashPolicy(hash)
 	if hashPolicy != nil {
 		action.HashPolicy = append(action.HashPolicy, hashPolicy)
@@ -695,14 +695,15 @@ func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry ma
 // processWeightedDestination processes a weighted destination in a route. It specifies to which cluster the route should
 // be routed to. It also sets the headers and hash policy if specified.
 // Returns the hostname of the destination along with its weight.
-func processWeightedDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
+func processWeightedDestination(
+	dst *networking.HTTPRouteDestination,
+	opts RouteOptions,
 	listenerPort int,
-	hashByDestination DestinationHashMap,
 	action *route.RouteAction,
 ) (*route.WeightedCluster_ClusterWeight, host.Name) {
 	hostname := host.Name(dst.GetDestination().GetHost())
 	clusterWeight := &route.WeightedCluster_ClusterWeight{
-		Name:   GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
+		Name:   opts.LookupDestinationCluster(dst.Destination, opts.LookupService(hostname), listenerPort),
 		Weight: &wrapperspb.UInt32Value{Value: uint32(dst.Weight)},
 	}
 	if dst.Headers != nil {
@@ -718,7 +719,7 @@ func processWeightedDestination(dst *networking.HTTPRouteDestination, serviceReg
 			}
 		}
 	}
-	hash := hashByDestination[dst]
+	hash := opts.LookupHash(dst)
 	hashPolicy := consistentHashToHashPolicy(hash)
 	if hashPolicy != nil {
 		action.HashPolicy = append(action.HashPolicy, hashPolicy)
@@ -1389,13 +1390,7 @@ func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	return &out
 }
 
-func TranslateRequestMirrorPolicy(dst *networking.Destination, service *model.Service,
-	listenerPort int, mp *core.RuntimeFractionalPercent,
-) *route.RouteAction_RequestMirrorPolicy {
-	return TranslateRequestMirrorPolicyCluster(GetDestinationCluster(dst, service, listenerPort), mp)
-}
-
-func TranslateRequestMirrorPolicyCluster(cluster string, mp *core.RuntimeFractionalPercent,
+func TranslateRequestMirrorPolicy(cluster string, mp *core.RuntimeFractionalPercent,
 ) *route.RouteAction_RequestMirrorPolicy {
 	return &route.RouteAction_RequestMirrorPolicy{
 		Cluster:         cluster,
@@ -1502,7 +1497,7 @@ func hashForVirtualService(push *model.PushContext,
 	destinationRules := make([]*model.ConsolidatedDestRule, 0)
 	for _, httpRoute := range virtualService.Spec.(*networking.VirtualService).Http {
 		for _, destination := range httpRoute.Route {
-			hash, dr := hashForHTTPDestination(push, node, destination)
+			hash, dr := HashForHTTPDestination(push, node, destination)
 			if hash != nil {
 				hashByDestination[destination] = hash
 				destinationRules = append(destinationRules, dr)
@@ -1517,8 +1512,8 @@ func GetConsistentHashForVirtualService(push *model.PushContext, node *model.Pro
 	return hashByDestination
 }
 
-// hashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
-func hashForHTTPDestination(push *model.PushContext, node *model.Proxy,
+// HashForHTTPDestination return the ConsistentHashLB and the DestinationRule associated with HTTP route destination.
+func HashForHTTPDestination(push *model.PushContext, node *model.Proxy,
 	dst *networking.HTTPRouteDestination,
 ) (*networking.LoadBalancerSettings_ConsistentHashLB, *model.ConsolidatedDestRule) {
 	if push == nil {
