@@ -108,8 +108,6 @@ func NewIstiodAnalyzer(analyzer analysis.CombinedAnalyzer, namespace,
 	// Get the closure of all input collections for our analyzer, paying attention to transforms
 	kubeResources := kuberesource.ConvertInputsToSchemas(analyzer.Metadata().Inputs)
 
-	kubeResources = kubeResources.Union(kuberesource.DefaultExcludedSchemas())
-
 	mcfg := mesh.DefaultMeshConfig()
 	sa := &IstiodAnalyzer{
 		meshCfg:            mcfg,
