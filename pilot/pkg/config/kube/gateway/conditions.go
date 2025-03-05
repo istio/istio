@@ -39,6 +39,8 @@ type RouteParentResult struct {
 	DeniedReason *ParentError
 	// RouteError, if present, indicates why the reference was not valid
 	RouteError *ConfigError
+	// WaypointError, if present, indicates why the reference was does not have a waypoint
+	WaypointError *WaypointError
 }
 
 func createRouteStatus(parentResults []RouteParentResult, obj config.Config, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
@@ -134,6 +136,10 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 				reason:  string(k8s.RouteReasonResolvedRefs),
 				message: "All references resolved",
 			},
+			string(RouteConditionResolvedWaypoints): {
+				reason:  string(RouteReasonResolvedWaypoints),
+				message: "All waypoints resolved",
+			},
 		}
 		if gw.RouteError != nil {
 			// Currently, the spec is not clear on where errors should be reported. The provided resources are:
@@ -147,6 +153,12 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 			conds[string(k8s.RouteConditionAccepted)].error = &ConfigError{
 				Reason:  ConfigErrorReason(gw.DeniedReason.Reason),
 				Message: gw.DeniedReason.Message,
+			}
+		}
+		if gw.WaypointError != nil {
+			conds[string(RouteConditionResolvedWaypoints)].error = &ConfigError{
+				Reason:  ConfigErrorReason(gw.WaypointError.Reason),
+				Message: gw.WaypointError.Message,
 			}
 		}
 
@@ -205,6 +217,23 @@ const (
 	DeprecateFieldUsage  ConfigErrorReason = "DeprecatedField"
 )
 
+const (
+	// This condition indicates whether a route's parent reference has
+	// a waypoint configured by resolving the "istio.io/use-waypoint" label
+	// on either the referenced parent or the parent's namespace.
+	RouteConditionResolvedWaypoints k8s.RouteConditionType   = "ResolvedWaypoints"
+	RouteReasonResolvedWaypoints    k8s.RouteConditionReason = "ResolvedWaypoints"
+)
+
+type WaypointErrorReason string
+
+const (
+	WaypointErrorReasonMissingLabel     = WaypointErrorReason("MissingUseWaypointLabel")
+	WaypointErrorMsgMissingLabel        = "istio.io/use-waypoint label missing from parent and parent namespace"
+	WaypointErrorReasonNoMatchingParent = WaypointErrorReason("NoMatchingParent")
+	WaypointErrorMsgNoMatchingParent    = "parent not found"
+)
+
 // ParentError represents that a parent could not be referenced
 type ParentError struct {
 	Reason  ParentErrorReason
@@ -214,6 +243,11 @@ type ParentError struct {
 // ConfigError represents an invalid configuration that will be reported back to the user.
 type ConfigError struct {
 	Reason  ConfigErrorReason
+	Message string
+}
+
+type WaypointError struct {
+	Reason  WaypointErrorReason
 	Message string
 }
 
