@@ -26,7 +26,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-jose/go-jose/v3"
+	"github.com/go-jose/go-jose/v4"
 	"google.golang.org/grpc/metadata"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
