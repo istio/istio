@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/krt"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -58,7 +59,7 @@ func newNodeUntainterTestServer(t *testing.T) *nodeTainterTestServer {
 	t.Cleanup(func() { close(stop) })
 	client := kubelib.NewFakeClient()
 
-	nodeUntainter := NewNodeUntainter(stop, client, systemNS, systemNS, nil)
+	nodeUntainter := NewNodeUntainter(stop, client, systemNS, systemNS, krt.GlobalDebugHandler)
 	go nodeUntainter.Run(stop)
 	client.RunAndWait(stop)
 	kubelib.WaitForCacheSync("test", stop, nodeUntainter.HasSynced)

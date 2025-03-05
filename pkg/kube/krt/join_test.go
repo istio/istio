@@ -33,10 +33,14 @@ import (
 )
 
 func TestJoinCollection(t *testing.T) {
+	opts := testOptions(t)
 	c1 := krt.NewStatic[Named](nil, true)
 	c2 := krt.NewStatic[Named](nil, true)
 	c3 := krt.NewStatic[Named](nil, true)
-	j := krt.JoinCollection([]krt.Collection[Named]{c1.AsCollection(), c2.AsCollection(), c3.AsCollection()})
+	j := krt.JoinCollection(
+		[]krt.Collection[Named]{c1.AsCollection(), c2.AsCollection(), c3.AsCollection()},
+		opts.WithName("Join")...,
+	)
 	last := atomic.NewString("")
 	j.Register(func(o krt.Event[Named]) {
 		last.Store(o.Latest().ResourceName())
@@ -87,8 +91,14 @@ func TestCollectionJoin(t *testing.T) {
 	}, true)
 	SimpleServices := SimpleServiceCollection(services, opts)
 	SimpleServiceEntries := SimpleServiceCollectionFromEntries(serviceEntries, opts)
-	AllServices := krt.JoinCollection([]krt.Collection[SimpleService]{SimpleServices, SimpleServiceEntries})
-	AllPods := krt.JoinCollection([]krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection()})
+	AllServices := krt.JoinCollection(
+		[]krt.Collection[SimpleService]{SimpleServices, SimpleServiceEntries},
+		opts.WithName("AllServices")...,
+	)
+	AllPods := krt.JoinCollection(
+		[]krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection()},
+		opts.WithName("AllPods")...,
+	)
 	SimpleEndpoints := SimpleEndpointsCollection(AllPods, AllServices, opts)
 
 	fetch := func() []SimpleEndpoint {
@@ -185,7 +195,10 @@ func TestCollectionJoinSync(t *testing.T) {
 		Labeled: Labeled{map[string]string{"app": "foo"}},
 		IP:      "9.9.9.9",
 	}, true)
-	AllPods := krt.JoinCollection([]krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection()})
+	AllPods := krt.JoinCollection(
+		[]krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection()},
+		opts.WithName("AllPods")...,
+	)
 	assert.Equal(t, AllPods.WaitUntilSynced(stop), true)
 	// Assert Equal -- not EventuallyEqual -- to ensure our WaitForCacheSync is proper
 	assert.Equal(t, fetcherSorted(AllPods)(), []SimplePod{

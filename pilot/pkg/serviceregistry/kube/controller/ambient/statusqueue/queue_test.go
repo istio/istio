@@ -60,7 +60,9 @@ func TestQueue(t *testing.T) {
 	q := statusqueue.NewQueue(activenotifier.New(true))
 	c := kube.NewFakeClient()
 	svc := kclient.New[*v1.Service](c)
-	svcs := krt.WrapClient[*v1.Service](svc)
+	stop := test.NewStop(t)
+	opts := krt.NewOptionsBuilder(stop, "", krt.GlobalDebugHandler)
+	svcs := krt.WrapClient[*v1.Service](svc, opts.WithName("Services")...)
 	col := krt.NewCollection(svcs, func(ctx krt.HandlerContext, i *v1.Service) *serviceStatus {
 		conds := model.ConditionSet{
 			model.ConditionType("t1"): nil,
@@ -81,7 +83,7 @@ func TestQueue(t *testing.T) {
 			},
 			Conditions: conds,
 		}
-	})
+	}, opts.WithName("col")...)
 	statusqueue.Register(q, "services", col, func(status serviceStatus) (kclient.Patcher, map[string]model.Condition) {
 		return kclient.ToPatcher(svc), nil
 	})
@@ -91,7 +93,6 @@ func TestQueue(t *testing.T) {
 		Namespace:   "default",
 		Annotations: map[string]string{"conditions": "t1=true"},
 	}})
-	stop := test.NewStop(t)
 	c.RunAndWait(stop)
 	go q.Run(stop)
 
@@ -134,11 +135,13 @@ func TestQueue(t *testing.T) {
 }
 
 func TestQueueLeaderElection(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := krt.NewOptionsBuilder(stop, "", krt.GlobalDebugHandler)
 	notifier := activenotifier.New(false)
 	q := statusqueue.NewQueue(notifier)
 	c := kube.NewFakeClient()
 	svc := kclient.New[*v1.Service](c)
-	svcs := krt.WrapClient[*v1.Service](svc)
+	svcs := krt.WrapClient[*v1.Service](svc, opts.WithName("Services")...)
 	col := krt.NewCollection(svcs, func(ctx krt.HandlerContext, i *v1.Service) *serviceStatus {
 		conds := model.ConditionSet{
 			model.ConditionType("t1"): nil,
@@ -154,7 +157,7 @@ func TestQueueLeaderElection(t *testing.T) {
 			},
 			Conditions: conds,
 		}
-	})
+	}, opts.WithName("col")...)
 	statusqueue.Register(q, "services", col, func(status serviceStatus) (kclient.Patcher, map[string]model.Condition) {
 		return kclient.ToPatcher(svc), nil
 	})
@@ -164,7 +167,6 @@ func TestQueueLeaderElection(t *testing.T) {
 		Namespace:   "default",
 		Annotations: map[string]string{"conditions": "t1=true"},
 	}})
-	stop := test.NewStop(t)
 	c.RunAndWait(stop)
 	go q.Run(stop)
 
