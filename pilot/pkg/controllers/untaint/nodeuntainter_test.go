@@ -58,7 +58,7 @@ func newNodeUntainterTestServer(t *testing.T) *nodeTainterTestServer {
 	t.Cleanup(func() { close(stop) })
 	client := kubelib.NewFakeClient()
 
-	nodeUntainter := NewNodeUntainter(stop, client, systemNS, systemNS)
+	nodeUntainter := NewNodeUntainter(stop, client, systemNS, systemNS, nil)
 	go nodeUntainter.Run(stop)
 	client.RunAndWait(stop)
 	kubelib.WaitForCacheSync("test", stop, nodeUntainter.HasSynced)

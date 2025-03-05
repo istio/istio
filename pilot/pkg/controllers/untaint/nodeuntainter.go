@@ -59,7 +59,7 @@ func filterNamespace(ns string) func(any) bool {
 	}
 }
 
-func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sysNs string) *NodeUntainter {
+func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sysNs string, debugger *krt.DebugHandler) *NodeUntainter {
 	log.Debugf("starting node untainter with labels %v", istioCniLabels)
 	ns := cniNs
 	if ns == "" {
@@ -76,13 +76,14 @@ func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sy
 		cnilabels:   labels.Instance(istioCniLabels),
 		ourNs:       ns,
 	}
-	nt.setup(stop)
+	nt.setup(stop, debugger)
 	return nt
 }
 
-func (n *NodeUntainter) setup(stop <-chan struct{}) {
-	nodes := krt.WrapClient[*v1.Node](n.nodesClient)
-	pods := krt.WrapClient[*v1.Pod](n.podsClient)
+func (n *NodeUntainter) setup(stop <-chan struct{}, debugger *krt.DebugHandler) {
+	opts := krt.NewOptionsBuilder(stop, "node-untaint", debugger)
+	nodes := krt.WrapClient[*v1.Node](n.nodesClient, opts.WithName("nodes")...)
+	pods := krt.WrapClient[*v1.Pod](n.podsClient, opts.WithName("pods")...)
 
 	readyCniPods := krt.NewCollection(pods, func(ctx krt.HandlerContext, p *v1.Pod) **v1.Pod {
 		log.Debugf("cniPods event: %s", p.Name)
@@ -97,7 +98,7 @@ func (n *NodeUntainter) setup(stop <-chan struct{}) {
 		}
 		log.Debugf("pod %s on node %s ready!", p.Name, p.Spec.NodeName)
 		return &p
-	}, krt.WithStop(stop))
+	}, opts.WithName("cni-pods")...)
 
 	// these are all the nodes that have a ready cni pod. if the cni pod is ready,
 	// it means we are ok scheduling pods to it.
@@ -111,7 +112,7 @@ func (n *NodeUntainter) setup(stop <-chan struct{}) {
 			return nil
 		}
 		return &node
-	}, krt.WithStop(stop))
+	}, opts.WithName("ready-cni-nodes")...)
 
 	n.queue = controllers.NewQueue("untaint nodes",
 		controllers.WithReconciler(n.reconcileNode),
