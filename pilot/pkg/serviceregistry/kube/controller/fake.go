@@ -31,6 +31,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test"
@@ -108,6 +109,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		ConfigCluster:         opts.ConfigCluster,
 		SystemNamespace:       opts.SystemNamespace,
 		StatusWritingEnabled:  activenotifier.New(false),
+		KrtDebugger:           new(krt.DebugHandler),
 	}
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)

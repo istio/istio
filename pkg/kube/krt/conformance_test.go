@@ -104,7 +104,7 @@ func TestConformance(t *testing.T) {
 	t.Run("informer", func(t *testing.T) {
 		fc := kube.NewFakeClient()
 		kc := kclient.New[*corev1.ConfigMap](fc)
-		col := krt.WrapClient(kc, krt.WithStop(test.NewStop(t)))
+		col := krt.WrapClient(kc, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
 		rig := &informerRig{
 			Collection: col,
 			client:     kc,
@@ -113,16 +113,16 @@ func TestConformance(t *testing.T) {
 		runConformance[*corev1.ConfigMap](t, rig)
 	})
 	t.Run("static list", func(t *testing.T) {
-		col := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)))
+		col := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
 		rig := &staticRig{
 			StaticCollection: col,
 		}
 		runConformance[Named](t, rig)
 	})
 	t.Run("join", func(t *testing.T) {
-		col1 := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)))
-		col2 := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)))
-		j := krt.JoinCollection[Named]([]krt.Collection[Named]{col1, col2})
+		col1 := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		col2 := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		j := krt.JoinCollection[Named]([]krt.Collection[Named]{col1, col2}, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
 		rig := &joinRig{
 			Collection: j,
 			inner:      [2]krt.StaticCollection[Named]{col1, col2},
@@ -130,14 +130,14 @@ func TestConformance(t *testing.T) {
 		runConformance[Named](t, rig)
 	})
 	t.Run("manyCollection", func(t *testing.T) {
-		namespaces := krt.NewStaticCollection[string](nil, krt.WithStop(test.NewStop(t)))
-		names := krt.NewStaticCollection[string](nil, krt.WithStop(test.NewStop(t)))
+		namespaces := krt.NewStaticCollection[string](nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		names := krt.NewStaticCollection[string](nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
 		col := krt.NewManyCollection(namespaces, func(ctx krt.HandlerContext, ns string) []Named {
 			names := krt.Fetch[string](ctx, names)
 			return slices.Map(names, func(e string) Named {
 				return Named{Namespace: ns, Name: e}
 			})
-		}, krt.WithStop(test.NewStop(t)))
+		}, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
 		rig := &manyRig{
 			Collection: col,
 			namespaces: namespaces,
@@ -147,7 +147,7 @@ func TestConformance(t *testing.T) {
 	})
 	t.Run("files", func(t *testing.T) {
 		t.Skip("https://github.com/istio/istio/issues/54731")
-		col := krt.NewFileCollection[Named](krt.WithStop(test.NewStop(t)))
+		col := krt.NewFileCollection[Named](krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
 		rig := &fileRig{
 			FileCollection: col,
 			rootPath:       t.TempDir(),

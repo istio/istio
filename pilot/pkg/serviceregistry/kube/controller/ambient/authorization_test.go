@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/workloadapi"
@@ -215,24 +216,26 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 }
 
 func TestWaypointPolicyStatusCollection(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := krt.NewOptionsBuilder(stop, "", krt.GlobalDebugHandler)
 	c := kube.NewFakeClient()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	clientAuthzPol := kclient.New[*securityclient.AuthorizationPolicy](c)
-	authzPolCol := krt.WrapClient(clientAuthzPol)
+	authzPolCol := krt.WrapClient(clientAuthzPol, opts.WithName("authzPolCol")...)
 
 	clientSvc := kclient.New[*v1.Service](c)
-	svcCol := krt.WrapClient(clientSvc)
+	svcCol := krt.WrapClient(clientSvc, opts.WithName("svcCol")...)
 
 	clientSe := kclient.New[*networkingclient.ServiceEntry](c)
-	seCol := krt.WrapClient(clientSe)
+	seCol := krt.WrapClient(clientSe, opts.WithName("seCol")...)
 
 	clientNs := kclient.New[*v1.Namespace](c)
-	nsCol := krt.WrapClient(clientNs)
+	nsCol := krt.WrapClient(clientNs, opts.WithName("nsCol")...)
 
 	clientGtw := kclient.New[*gtwapiv1beta1.Gateway](c)
-	gtwCol := krt.WrapClient(clientGtw)
+	gtwCol := krt.WrapClient(clientGtw, opts.WithName("gtwCol")...)
 	waypointCol := krt.NewCollection(gtwCol, func(ctx krt.HandlerContext, i *gtwapiv1beta1.Gateway) *Waypoint {
 		if i == nil {
 			return nil
@@ -256,9 +259,9 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			},
 			TrafficType: constants.ServiceTraffic,
 		}
-	})
+	}, opts.WithName("waypoint")...)
 
-	wpsCollection := WaypointPolicyStatusCollection(authzPolCol, waypointCol, svcCol, seCol, nsCol, krt.OptionsBuilder{})
+	wpsCollection := WaypointPolicyStatusCollection(authzPolCol, waypointCol, svcCol, seCol, nsCol, opts)
 	c.RunAndWait(ctx.Done())
 
 	_, err := clientNs.Create(&v1.Namespace{

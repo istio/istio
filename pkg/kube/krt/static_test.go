@@ -18,13 +18,12 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestStaticCollection(t *testing.T) {
-	stop := test.NewStop(t)
-	c := krt.NewStaticCollection[Named]([]Named{{"ns", "a"}}, krt.WithStop(stop))
+	opts := testOptions(t)
+	c := krt.NewStaticCollection[Named]([]Named{{"ns", "a"}}, opts.WithName("c")...)
 	assert.Equal(t, c.Synced().HasSynced(), true, "should start synced")
 	assert.Equal(t, c.List(), []Named{{"ns", "a"}})
 
