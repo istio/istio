@@ -20,11 +20,11 @@ type OptionsBuilder struct {
 	// namePrefix, if set, will prefix every name with the common prefix.
 	// For example `<namePrefix>/<name>`.
 	namePrefix string
-	stop       chan struct{}
+	stop       <-chan struct{}
 	debugger   *DebugHandler
 }
 
-func NewOptionsBuilder(stop chan struct{}, namePrefix string, debugger *DebugHandler) OptionsBuilder {
+func NewOptionsBuilder(stop <-chan struct{}, namePrefix string, debugger *DebugHandler) OptionsBuilder {
 	return OptionsBuilder{
 		namePrefix: namePrefix,
 		stop:       stop,

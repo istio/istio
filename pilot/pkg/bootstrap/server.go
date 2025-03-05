@@ -1173,7 +1173,7 @@ func (s *Server) initNodeUntaintController(args *PilotArgs) {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.NodeUntaintController, args.Revision, s.kubeClient).
 			AddRunFunction(func(leaderStop <-chan struct{}) {
-				nodeUntainter := untaint.NewNodeUntainter(leaderStop, s.kubeClient, args.CniNamespace, args.Namespace)
+				nodeUntainter := untaint.NewNodeUntainter(leaderStop, s.kubeClient, args.CniNamespace, args.Namespace, args.KrtDebugger)
 				nodeUntainter.Run(leaderStop)
 			}).Run(stop)
 		return nil
