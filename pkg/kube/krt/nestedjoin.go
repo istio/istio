@@ -126,6 +126,10 @@ func (j *nestedjoin[T]) List() []T {
 	return j.quickList()
 }
 
+func (j *nestedjoin[T]) Metadata() Metadata {
+	return j.metadata
+}
+
 // nolint: unused // (not true, its to implement an interface)
 func (j *nestedjoin[T]) index(name string, extract func(o T) []string) indexer[T] {
 	ji := &dynamicJoinIndexer[T]{indexers: make(map[collectionUID]indexer[T])}
@@ -165,10 +169,6 @@ func (j *nestedjoin[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return registerHandlerAsBatched(j, f)
 }
 
-func (j *nestedjoin[T]) Metadata() Metadata {
-	return j.metadata
-}
-
 // handleCollectionChangeEventLocked is run every time there is a modification to
 // the set of collections we have (e.g. a collection is added, deleted, or updated).
 // It is run while holding the lock on j, so we can safely mutate state within the
@@ -197,7 +197,21 @@ func (j *nestedjoin[T]) handleCollectionChangeEventLocked(djhr *dynamicJoinHandl
 		remover := djhr.removes[e.collectionValue.uid()]
 		syncer := djhr.syncers[e.collectionValue.uid()]
 		if remover == nil {
-			log.Warnf("Collection %v not found in %v", e.collectionValue.uid(), j.name())
+			keys := maps.Keys(djhr.removes)
+			log.Warnf("Collection %v (uid %v) not found in %v's remover list. Removes: %#v", e.collectionValue.name(), e.collectionValue.uid(), j.name(), keys)
+			return
+		}
+		if syncer == nil {
+			keys := maps.Keys(djhr.syncers)
+			log.Warnf("Collection %v (uid %v) not found in %v's syncer list. Syncers: %#v", e.collectionValue.name(), e.collectionValue.uid(), j.name(), keys)
+			return
+		}
+		// krt schedules a callback to notify the event handler machinery that a collection is synced
+		// if a handler is registered before then. If the collection is removed before the callback
+		// is called, we can get a panic for trying to send on a closed channel, so wait for the collection
+		// to be synced before unregistering the handler.
+		if !syncer.WaitUntilSynced(j.stop) {
+			log.Warnf("Collection %v (uid %v) was not synced before unregistering", e.collectionValue.name(), e.collectionValue.uid())
 			return
 		}
 		if syncer == nil {
@@ -386,8 +400,23 @@ func (j *nestedjoin[T]) registerBatchUnmerged(f func(o []Event[T]), runExistingS
 		case collectionMembershipEventDelete:
 			// Unregister the handler for this collection
 			remover := djhr.removes[e.collectionValue.uid()]
+			syncer := djhr.syncers[e.collectionValue.uid()]
 			if remover == nil {
-				log.Warnf("Collection %v not found in %v", e.collectionValue.uid(), j.name())
+				keys := maps.Keys(djhr.removes)
+				log.Warnf("Collection %v (uid %v) not found in %v's unregister list. Removes: %#v", e.collectionValue.name(), e.collectionValue.uid(), j.name(), keys)
+				return
+			}
+			if syncer == nil {
+				keys := maps.Keys(djhr.syncers)
+				log.Warnf("Collection %v (uid %v) not found in %v's syncer list. Syncers: %#v", e.collectionValue.name(), e.collectionValue.uid(), j.name(), keys)
+				return
+			}
+			// krt schedules a callback to notify the event handler machinery that a collection is synced
+			// if a handler is registered before then. If the collection is removed before the callback
+			// is called, we can get a panic for trying to send on a closed channel, so wait for the collection
+			// to be synced before unregistering the handler.
+			if !syncer.WaitUntilSynced(j.stop) {
+				log.Warnf("Collection %v (uid %v) was not synced before unregistering", e.collectionValue.name(), e.collectionValue.uid())
 				return
 			}
 			remover()
@@ -503,6 +532,10 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 		merge:              merge,
 		seenFirstAddForKey: make(map[string]struct{}),
 		stop:               o.stop,
+	}
+
+	if o.metadata != nil {
+		j.metadata = o.metadata
 	}
 
 	if o.metadata != nil {
