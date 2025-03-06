@@ -33,6 +33,7 @@ import (
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -914,8 +915,9 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (pa
 	}, nil
 }
 
+// waypointConfigured returns true if a waypoint is configured via expected label's key-value pair.
 func waypointConfigured(labels map[string]string) bool {
-	if _, ok := labels["istio.io/use-waypoint"]; ok {
+	if val, ok := labels[label.IoIstioUseWaypoint.Name]; ok && len(val) > 0 && strings.ToLower(val) != "none" {
 		return true
 	}
 	return false
@@ -943,9 +945,9 @@ func referenceAllowed(
 				}
 		}
 
-		// check that the reference or its corresponding ns has the use-waypoint label
+		// check that the reference has the use-waypoint label
 		if !waypointConfigured(svc.Attributes.Labels) {
-			// ns should exist if svc exists
+			// if reference does not have use-waypoint label, check the namespace of the reference
 			if ns, ok := ctx.Namespaces[svc.Attributes.Namespace]; ok {
 				if !waypointConfigured(ns.Labels) {
 					return nil, &WaypointError{
@@ -974,9 +976,9 @@ func referenceAllowed(
 				}
 		}
 
-		// check that the reference or its corresponding ns has the use-waypoint label
+		// check that the reference has the use-waypoint label
 		if !waypointConfigured(svcEntry.Labels) {
-			// ns should exist if svc entry exists
+			// if reference does not have use-waypoint label, check the namespace of the reference
 			if ns, ok := ctx.Namespaces[svcEntry.Namespace]; ok {
 				if !waypointConfigured(ns.Labels) {
 					return nil, &WaypointError{
