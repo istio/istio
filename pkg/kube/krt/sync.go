@@ -14,7 +14,11 @@
 
 package krt
 
-import "istio.io/istio/pkg/kube"
+import (
+	"sync/atomic"
+
+	"istio.io/istio/pkg/kube"
+)
 
 type Syncer interface {
 	WaitUntilSynced(stop <-chan struct{}) bool
@@ -25,6 +29,7 @@ var (
 	_ Syncer = channelSyncer{}
 	_ Syncer = pollSyncer{}
 	_ Syncer = multiSyncer{}
+	_ Syncer = nestedMultiSyncer{}
 )
 
 type channelSyncer struct {
@@ -84,6 +89,39 @@ func (c multiSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
 func (c multiSyncer) HasSynced() bool {
 	for _, s := range c.syncers {
 		if !s.HasSynced() {
+			return false
+		}
+	}
+	return true
+}
+
+type nestedMultiSyncer struct {
+	syncers Collection[Syncer]
+	// Because syncing describes the initial sync semantically, we shouldn't
+	// see flip-flopping of the value, so use the atomic bool once the
+	// initial sync is done.
+	synced *atomic.Bool
+}
+
+func (s nestedMultiSyncer) HasSynced() bool {
+	if s.synced.Load() {
+		return true
+	}
+	for _, syncer := range s.syncers.List() {
+		if !syncer.HasSynced() {
+			return false
+		}
+	}
+	s.synced.Store(true)
+	return true
+}
+
+func (s nestedMultiSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
+	if s.synced.Load() {
+		return true
+	}
+	for _, syncer := range s.syncers.List() {
+		if !syncer.WaitUntilSynced(stop) {
 			return false
 		}
 	}
