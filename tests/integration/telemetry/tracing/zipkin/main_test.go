@@ -35,11 +35,18 @@ func TestMain(m *testing.M) {
 		Run()
 }
 
-func setupConfig(ctx resource.Context, cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.Values["meshConfig.enableTracing"] = "true"
-	cfg.Values["pilot.traceSampling"] = "100.0"
-	cfg.Values["global.proxy.tracer"] = "zipkin"
+	cfg.ControlPlaneValues = `
+values:
+  meshConfig:
+    enableTracing: true
+  pilot:
+    traceSampling: 100.0
+  global:
+    proxy:
+      tracer: zipkin
+`
 }

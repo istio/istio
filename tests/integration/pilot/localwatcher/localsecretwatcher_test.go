@@ -43,15 +43,20 @@ func TestMain(m *testing.M) {
 		RequireExternalControlPlaneTopology().
 		RequireMinVersion(17).
 		RequireMinClusters(2).
-		Setup(istio.Setup(&i, func(t resource.Context, cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
+		Setup(istio.Setup(&i,setupConfig)).
+		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
+		Run()
+}
+
+func setupConfig(t resource.Context, cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.ControlPlaneValues = `
 values:
   pilot:
     env:
       LOCAL_CLUSTER_SECRET_WATCHER: "true"`
-		})).
-		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
-		Run()
 }
 
 func TestTraffic(t *testing.T) {
