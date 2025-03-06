@@ -14,7 +14,9 @@
 
 package krt
 
-import "istio.io/istio/pkg/kube"
+import (
+	"istio.io/istio/pkg/kube"
+)
 
 type Syncer interface {
 	WaitUntilSynced(stop <-chan struct{}) bool
