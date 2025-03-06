@@ -113,11 +113,17 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	return importedVirtualServices
 }
 
-func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
-	// Kubernetes Gateway API semantics support shortnames
-	if UseGatewaySemantics(config.Config{Meta: meta}) {
-		return
+func resolveVirtualServiceShortnames(config config.Config) config.Config {
+	// Kubernetes Gateway API semantics do not support shortnames
+	if UseGatewaySemantics(config) {
+		return config
 	}
+
+	// values returned from ConfigStore.List are immutable.
+	// Therefore, we make a copy
+	r := config.DeepCopy()
+	rule := r.Spec.(*networking.VirtualService)
+	meta := r.Meta
 
 	// resolve top level hosts
 	for i, h := range rule.Hosts {
@@ -182,6 +188,7 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 			}
 		}
 	}
+	return r
 }
 
 // Return merged virtual services and the root->delegate vs map
