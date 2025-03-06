@@ -100,7 +100,16 @@ type index struct {
 	waypoints waypointsCollection
 	networks  networkCollections
 
-	namespaces krt.Collection[model.NamespaceInfo]
+	// The global collections include the data from the local cluster and all remote clusters.
+	// When we're in multi-cluster mode, we should use these collections instead of the above ones.
+	globalServices  servicesCollection
+	globalWorkloads workloadsCollection
+	globalWaypoints waypointsCollection
+	globalNetworks  globalNetworkCollections
+
+	namespaces       krt.Collection[model.NamespaceInfo]
+	remoteNamespaces krt.Collection[model.NamespaceInfo] // TODO: Do we actually want merged namespaces?
+	remoteClusters   krt.Collection[Cluster]
 
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
 
@@ -123,15 +132,13 @@ type FeatureFlags struct {
 type Options struct {
 	Client kubeclient.Client
 
-	Revision              string
-	SystemNamespace       string
-	DomainSuffix          string
-	ClusterID             cluster.ID
-	XDSUpdater            model.XDSUpdater
-	LookupNetwork         LookupNetwork
-	LookupNetworkGateways LookupNetworkGateways
-	StatusNotifier        *activenotifier.ActiveNotifier
-	Flags                 FeatureFlags
+	Revision        string
+	SystemNamespace string
+	DomainSuffix    string
+	ClusterID       cluster.ID
+	XDSUpdater      model.XDSUpdater
+	StatusNotifier  *activenotifier.ActiveNotifier
+	Flags           FeatureFlags
 
 	MeshConfig krt.Singleton[MeshConfig]
 
@@ -420,6 +427,10 @@ func New(options Options) Index {
 		Collection: Waypoints,
 	}
 	a.authorizationPolicies = AllPolicies
+
+	if features.EnableAmbientMultiNetwork {
+		a.buildGlobalCollections(options, opts)
+	}
 
 	return a
 }

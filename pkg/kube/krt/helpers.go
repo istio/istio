@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
 )
@@ -34,9 +35,9 @@ func getTypedKey[O any](a O) Key[O] {
 	return Key[O](GetKey(a))
 }
 
-// GetKey returns the key for the provided object.
-// If there is none, this will panic.
-func GetKey[O any](a O) string {
+// Needed to separate this out since Go generics doesn't allow for
+// recursion and we need to support collections of ObjectWithCluster
+func getKeyInner[O any](a O) string {
 	as, ok := any(a).(string)
 	if ok {
 		return as
@@ -63,11 +64,27 @@ func GetKey[O any](a O) string {
 		return strconv.FormatUint(uint64(auid.uid()), 10)
 	}
 
+	akclient, ok := any(a).(kube.Client)
+	if ok {
+		return string(akclient.ClusterID())
+	}
+
 	ack := GetApplyConfigKey(a)
 	if ack != nil {
 		return *ack
 	}
 	panic(fmt.Sprintf("Cannot get Key, got %T", a))
+}
+
+// GetKey returns the key for the provided object.
+// If there is none, this will panic.
+func GetKey[O any](a O) string {
+	acluster, ok := any(a).(config.ObjectWithCluster[O])
+	if ok {
+		return getKeyInner(acluster.Object)
+	}
+
+	return getKeyInner(a)
 }
 
 // Named is a convenience struct. It is ideal to be embedded into a type that has a name and namespace,
