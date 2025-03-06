@@ -126,6 +126,10 @@ func (j *nestedjoin[T]) List() []T {
 	return j.quickList()
 }
 
+func (j *nestedjoin[T]) Metadata() Metadata {
+	return j.metadata
+}
+
 // nolint: unused // (not true, its to implement an interface)
 func (j *nestedjoin[T]) index(name string, extract func(o T) []string) indexer[T] {
 	ji := &dynamicJoinIndexer[T]{indexers: make(map[collectionUID]indexer[T])}
@@ -503,6 +507,10 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 		merge:              merge,
 		seenFirstAddForKey: make(map[string]struct{}),
 		stop:               o.stop,
+	}
+
+	if o.metadata != nil {
+		j.metadata = o.metadata
 	}
 
 	if o.metadata != nil {

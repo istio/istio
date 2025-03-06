@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -80,8 +81,12 @@ func (a *index) toNetworkAddress(ctx krt.HandlerContext, vip string) (*workloada
 }
 
 func (a *index) toNetworkAddressFromIP(ctx krt.HandlerContext, ip netip.Addr) *workloadapi.NetworkAddress {
+	return toNetworkAddressFromIP(ctx, ip, a.Network(ctx))
+}
+
+func toNetworkAddressFromIP(ctx krt.HandlerContext, ip netip.Addr, netw network.ID) *workloadapi.NetworkAddress {
 	return &workloadapi.NetworkAddress{
-		Network: a.Network(ctx).String(),
+		Network: netw.String(),
 		Address: ip.AsSlice(),
 	}
 }

@@ -101,7 +101,15 @@ type index struct {
 	waypoints waypointsCollection
 	networks  networkCollections
 
-	namespaces krt.Collection[model.NamespaceInfo]
+	// The global collections include the data from the local cluster and all remote clusters.
+	// When we're in multi-cluster mode, we should use these collections instead of the above ones.
+	globalServices  servicesCollection
+	globalWorkloads workloadsCollection
+	globalWaypoints waypointsCollection
+	globalNetworks  globalNetworkCollections
+
+	namespaces       krt.Collection[model.NamespaceInfo]
+	remoteNamespaces krt.Collection[model.NamespaceInfo] // TODO: Do we actually want merged namespaces?
 
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
 
@@ -479,6 +487,10 @@ func New(options Options) Index {
 		Collection: Waypoints,
 	}
 	a.authorizationPolicies = AllPolicies
+
+	if features.EnableAmbientMultiNetwork {
+		a.buildGlobalCollections(options, opts)
+	}
 
 	return a
 }
