@@ -136,10 +136,6 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 				reason:  string(k8s.RouteReasonResolvedRefs),
 				message: "All references resolved",
 			},
-			string(RouteConditionResolvedWaypoints): {
-				reason:  string(RouteReasonResolvedWaypoints),
-				message: "All waypoints resolved",
-			},
 		}
 		if gw.RouteError != nil {
 			// Currently, the spec is not clear on where errors should be reported. The provided resources are:
@@ -155,11 +151,17 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 				Message: gw.DeniedReason.Message,
 			}
 		}
-		if gw.WaypointError != nil {
-			conds[string(RouteConditionResolvedWaypoints)].error = &ConfigError{
-				Reason:  ConfigErrorReason(gw.WaypointError.Reason),
-				Message: gw.WaypointError.Message,
+
+		// when ambient is enabled, report the waypoints resolved condition for HTTPRoute types
+		if features.EnableAmbient == true && obj.GroupVersionKind.Kind == gvk.HTTPRoute.Kind {
+			cond := &condition{
+				reason:  string(RouteReasonResolvedWaypoints),
+				message: "All waypoints resolved",
 			}
+			if gw.WaypointError != nil {
+				cond.message = gw.WaypointError.Message
+			}
+			conds[string(RouteConditionResolvedWaypoints)] = cond
 		}
 
 		var currentConditions []metav1.Condition
@@ -229,7 +231,7 @@ type WaypointErrorReason string
 
 const (
 	WaypointErrorReasonMissingLabel     = WaypointErrorReason("MissingUseWaypointLabel")
-	WaypointErrorMsgMissingLabel        = "istio.io/use-waypoint label missing from parent and parent namespace"
+	WaypointErrorMsgMissingLabel        = "istio.io/use-waypoint label missing from parent and parent namespace; in ambient mode, route will not be respected"
 	WaypointErrorReasonNoMatchingParent = WaypointErrorReason("NoMatchingParent")
 	WaypointErrorMsgNoMatchingParent    = "parent not found"
 )

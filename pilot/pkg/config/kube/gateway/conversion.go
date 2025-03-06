@@ -914,6 +914,13 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (pa
 	}, nil
 }
 
+func waypointConfigured(labels map[string]string) bool {
+	if _, ok := labels["istio.io/use-waypoint"]; ok {
+		return true
+	}
+	return false
+}
+
 func referenceAllowed(
 	ctx configContext,
 	parent *parentInfo,
@@ -937,16 +944,15 @@ func referenceAllowed(
 		}
 
 		// check that the reference or its corresponding ns has the use-waypoint label
-		if _, ok := svc.Attributes.Labels["istio.io/use-waypoint"]; !ok {
+		if !waypointConfigured(svc.Attributes.Labels) {
 			// ns should exist if svc exists
 			if ns, ok := ctx.Namespaces[svc.Attributes.Namespace]; ok {
-				if _, exists := ns.Labels["istio.io/use-waypoint"]; !exists {
+				if !waypointConfigured(ns.Labels) {
 					return nil, &WaypointError{
 						Reason:  WaypointErrorReasonMissingLabel,
 						Message: WaypointErrorMsgMissingLabel,
 					}
 				}
-
 			}
 		}
 	} else if parentRef.Kind == gvk.ServiceEntry {
@@ -969,16 +975,15 @@ func referenceAllowed(
 		}
 
 		// check that the reference or its corresponding ns has the use-waypoint label
-		if _, ok := svcEntry.Labels["istio.io/use-waypoint"]; !ok {
+		if !waypointConfigured(svcEntry.Labels) {
 			// ns should exist if svc entry exists
 			if ns, ok := ctx.Namespaces[svcEntry.Namespace]; ok {
-				if _, exists := ns.Labels["istio.io/use-waypoint"]; !exists {
+				if !waypointConfigured(ns.Labels) {
 					return nil, &WaypointError{
 						Reason:  WaypointErrorReasonMissingLabel,
 						Message: WaypointErrorMsgMissingLabel,
 					}
 				}
-
 			}
 		}
 	} else {

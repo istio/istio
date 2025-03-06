@@ -87,38 +87,6 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      group: ""
-      kind: Service
-      name: b-example
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      group: ""
-      kind: Service
-      name: a-example
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
       name: gateway
       namespace: istio-system
 ---
@@ -131,22 +99,6 @@ metadata:
 spec: null
 status:
   parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      group: ""
-      kind: Service
-      name: a-example
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid
