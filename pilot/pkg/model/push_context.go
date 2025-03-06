@@ -1739,7 +1739,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 	totalVirtualServices.Record(float64(len(virtualServices)))
 
 	// convert all shortnames in virtual services into FQDNs
-	for i, r := range vservices {
+	for i, r := range virtualServices {
 		vservices[i] = resolveVirtualServiceShortnames(r)
 	}
 

@@ -46,7 +46,7 @@ type ComparableObject interface {
 }
 
 // IsNil works around comparing generic types
-func IsNil[O ComparableObject](o O) bool {
+func IsNil[O comparable](o O) bool {
 	var t O
 	return o == t
 }

@@ -583,9 +583,9 @@ func referenceAllowed(
 	return nil
 }
 
-func extractParentReferenceInfo(ctx krt.HandlerContext, parents RouteParents, routeRefs []k8s.ParentReference,
-	hostnames []k8s.Hostname, kind config.GroupVersionKind, localNamespace string,
-) []routeParentReference {
+func extractParentReferenceInfo(ctx krt.HandlerContext, parents RouteParents, obj controllers.Object) []routeParentReference {
+	routeRefs, hostnames, kind := GetCommonRouteInfo(obj)
+	localNamespace := obj.GetNamespace()
 	parentRefs := []routeParentReference{}
 	for _, ref := range routeRefs {
 		ir, err := toInternalParentReference(ref, localNamespace)
@@ -2035,18 +2035,34 @@ func (kr GatewayResources) FuzzValidate() bool {
 	return true
 }
 
-func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname) {
+func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config.GroupVersionKind) {
 	switch t := spec.(type) {
 	case *k8salpha.TCPRoute:
-		return t.Spec.ParentRefs, nil
+		return t.Spec.ParentRefs, nil, gvk.TCPRoute
 	case *k8salpha.TLSRoute:
-		return t.Spec.ParentRefs, t.Spec.Hostnames
+		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.TLSRoute
 	case *k8sbeta.HTTPRoute:
-		return t.Spec.ParentRefs, t.Spec.Hostnames
+		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.HTTPRoute
 	case *k8s.GRPCRoute:
-		return t.Spec.ParentRefs, t.Spec.Hostnames
+		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.GRPCRoute
 	default:
 		log.Fatalf("unknown type %T", t)
-		return nil, nil
+		return nil, nil, config.GroupVersionKind{}
+	}
+}
+
+func GetCommonRouteStateParents(spec any) ([]k8s.RouteParentStatus) {
+	switch t := spec.(type) {
+	case *k8salpha.TCPRoute:
+		return t.Status.Parents
+	case *k8salpha.TLSRoute:
+		return t.Status.Parents
+	case *k8sbeta.HTTPRoute:
+		return t.Status.Parents
+	case *k8s.GRPCRoute:
+		return t.Status.Parents
+	default:
+		log.Fatalf("unknown type %T", t)
+		return nil
 	}
 }

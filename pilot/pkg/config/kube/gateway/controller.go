@@ -246,36 +246,36 @@ func NewController(
 		ServiceEntries:  inputs.ServiceEntries,
 		internalContext: c.gatewayContext,
 	}
-	//tcpRoutes := TCPRouteCollection(
-	//	inputs.TCPRoutes,
-	//	routeInputs,
-	//	opts,
-	//)
-	//registerStatus(tcpRoutes.Status, statusWriter)
-	//tlsRoutes := TLSRouteCollection(
-	//	inputs.TLSRoutes,
-	//	routeInputs,
-	//	opts,
-	//)
-	//registerStatus(tlsRoutes.Status, statusWriter)
+	tcpRoutes := TCPRouteCollection(
+		inputs.TCPRoutes,
+		routeInputs,
+		opts,
+	)
+	registerStatus(tcpRoutes.Status, statusWriter)
+	tlsRoutes := TLSRouteCollection(
+		inputs.TLSRoutes,
+		routeInputs,
+		opts,
+	)
+	registerStatus(tlsRoutes.Status, statusWriter)
 	httpRoutes := HTTPRouteCollection(
 		inputs.HTTPRoutes,
 		routeInputs,
 		opts,
 	)
 	registerStatus(httpRoutes.Status, statusWriter)
-	//grpcRoutes := GRPCRouteCollection(
-	//	inputs.GRPCRoutes,
-	//	routeInputs,
-	//	opts,
-	//)
-	//registerStatus(grpcRoutes.Status, statusWriter)
+	grpcRoutes := GRPCRouteCollection(
+		inputs.GRPCRoutes,
+		routeInputs,
+		opts,
+	)
+	registerStatus(grpcRoutes.Status, statusWriter)
 
 	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
-		//tcpRoutes.RouteAttachments,
-		//tlsRoutes.RouteAttachments,
+		tcpRoutes.RouteAttachments,
+		tlsRoutes.RouteAttachments,
 		httpRoutes.RouteAttachments,
-		//grpcRoutes.RouteAttachments,
+		grpcRoutes.RouteAttachments,
 	})
 	RouteAttachmentsIndex := krt.NewIndex(RouteAttachments, func(o RouteAttachment) []types.NamespacedName {
 		return []types.NamespacedName{o.To}
@@ -302,10 +302,10 @@ func NewController(
 	registerStatus(GatewayFinalStatus, statusWriter)
 
 	VirtualServices := krt.JoinCollection([]krt.Collection[*config.Config]{
-		//tcpRoutes.VirtualServices,
-		//tlsRoutes.VirtualServices,
+		tcpRoutes.VirtualServices,
+		tlsRoutes.VirtualServices,
 		httpRoutes.VirtualServices,
-		//grpcRoutes.VirtualServices,
+		grpcRoutes.VirtualServices,
 	}, opts.WithName("DerivedVirtualServices")...)
 
 	outputs := Outputs{
