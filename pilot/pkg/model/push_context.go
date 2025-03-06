@@ -1734,19 +1734,13 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 
 	virtualServices := env.List(gvk.VirtualService, NamespaceAll)
 
-	// values returned from ConfigStore.List are immutable.
-	// Therefore, we make a copy
 	vservices := make([]config.Config, len(virtualServices))
-
-	for i := range vservices {
-		vservices[i] = virtualServices[i].DeepCopy()
-	}
 
 	totalVirtualServices.Record(float64(len(virtualServices)))
 
 	// convert all shortnames in virtual services into FQDNs
-	for _, r := range vservices {
-		resolveVirtualServiceShortnames(r.Spec.(*networking.VirtualService), r.Meta)
+	for i, r := range virtualServices {
+		vservices[i] = resolveVirtualServiceShortnames(r)
 	}
 
 	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
