@@ -148,6 +148,7 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 				for _, ns := range nsConfig.AllNamespaces() {
 					namespace.Dump(t, ns)
 				}
+				namespace.Dump(t, helmtest.IstioNamespace)
 			}
 		})
 		s := t.Settings()
@@ -200,6 +201,7 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 				for _, ns := range nsConfig.AllNamespaces() {
 					namespace.Dump(t, ns)
 				}
+				namespace.Dump(t, helmtest.IstioNamespace)
 			}
 		})
 		s := t.Settings()
@@ -271,6 +273,7 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 				for _, ns := range nsConfig.AllNamespaces() {
 					namespace.Dump(t, ns)
 				}
+				namespace.Dump(t, helmtest.IstioNamespace)
 			}
 		})
 
