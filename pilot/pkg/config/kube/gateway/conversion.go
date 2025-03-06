@@ -926,7 +926,7 @@ func referenceAllowed(
 		var svc *model.Service
 
 		// check that the referenced svc exists
-		if svc = ctx.Context.GetService(fmt.Sprintf("%s.%s.svc.cluster.local", parentRef.Name, parentRef.Namespace), parentRef.Namespace); svc == nil {
+		if svc = ctx.Context.GetService(fmt.Sprintf("%s.%s.svc.%s", parentRef.Name, parentRef.Namespace, ctx.Domain), parentRef.Namespace); svc == nil {
 			return &ParentError{
 					Reason:  ParentErrorNotAccepted,
 					Message: fmt.Sprintf("parent service: %q not found", parentRef.Name),
