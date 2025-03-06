@@ -301,6 +301,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			},
 		})
 	}
+
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 

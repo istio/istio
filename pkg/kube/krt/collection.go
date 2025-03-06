@@ -368,6 +368,8 @@ func (h *manyCollection[I, O]) augment(a any) any {
 
 // nolint: unused // (not true)
 func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) indexer[O] {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	if idx, ok := h.indexes[name]; ok {
 		return idx
 	}
@@ -377,8 +379,6 @@ func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) in
 		index:   make(map[string]sets.Set[Key[O]]),
 		parent:  h,
 	}
-	h.mu.RLock()
-	defer h.mu.RUnlock()
 	for k, v := range h.collectionState.outputs {
 		idx.update(Event[O]{
 			Old:   nil,
@@ -615,7 +615,7 @@ func newManyCollection[I, O any](
 	// Create our queue. When it syncs (that is, all items that were present when Run() was called), we mark ourselves as synced.
 	h.queue = queue.NewWithSync(func() {
 		close(h.synced)
-		h.log.Infof("%v synced", h.name())
+		h.log.Infof("%v synced (uid %v)", h.name(), h.uid())
 	}, h.collectionName)
 
 	// Finally, async wait for the primary to be synced. Once it has, we know it has enqueued the initial state.
