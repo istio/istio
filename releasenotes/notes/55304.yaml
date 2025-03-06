@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 55215
+releaseNotes:
+  - |
+    **Fixed** Corner cases where `istio-cni` might block its own upgrade. Added fallback logging (in case agent is down) to a fixed-size node-local logfile.
