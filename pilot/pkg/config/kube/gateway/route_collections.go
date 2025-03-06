@@ -18,8 +18,8 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
-	//gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	//gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	// gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	// gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	istio "istio.io/api/networking/v1alpha3"
@@ -31,6 +31,19 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 )
+
+type RouteWithKey struct {
+	*config.Config
+	Key string
+}
+
+func (r RouteWithKey) ResourceName() string {
+	return config.NamespacedName(r.Config).String()
+}
+
+func (r RouteWithKey) Equals(o RouteWithKey) bool {
+	return r.Config.Equals(o.Config)
+}
 
 func HTTPRouteCollection(
 	httpRoutes krt.Collection[*gateway.HTTPRoute],
@@ -44,11 +57,11 @@ func HTTPRouteCollection(
 	Avoid the clones when we merge.
 
 	equals() happens a lot, probably due to status write
-	 */
+	*/
 	routeCount := gatewayRouteAttachmentCountCollection(inputs.RouteParents, httpRoutes, gvk.HTTPRoute, opts)
 	status, baseVirtualServices := krt.NewStatusManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (
 		*gateway.HTTPRouteStatus,
-		[]*config.Config,
+		[]RouteWithKey,
 	) {
 		status := obj.Status.DeepCopy()
 		ctx := inputs.WithCtx(krtctx)
@@ -103,7 +116,7 @@ func HTTPRouteCollection(
 		status.Parents = createRouteStatus(rpResults, obj.Generation, status.Parents)
 
 		count := 0
-		virtualServices := []*config.Config{}
+		virtualServices := []RouteWithKey{}
 		for _, parent := range filteredReferences(parentRefs) {
 			// for gateway routes, build one VS per gateway+host
 			routeKey := parent.InternalName
@@ -145,14 +158,13 @@ func HTTPRouteCollection(
 					continue
 				}
 				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
-				annos := routeMeta(obj)
-				annos["TODO"] = fmt.Sprintf(routeKey + "/" + h)
-				virtualServices = append(virtualServices, &config.Config{
+				sortHTTPRoutes(routes)
+				cfg := &config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
 						GroupVersionKind:  gvk.VirtualService,
 						Name:              name,
-						Annotations:       annos,
+						Annotations:       routeMeta(obj),
 						Namespace:         obj.Namespace,
 						Domain:            ctx.Domain,
 					},
@@ -161,6 +173,10 @@ func HTTPRouteCollection(
 						Gateways: []string{parent.InternalName},
 						Http:     routes,
 					},
+				}
+				virtualServices = append(virtualServices, RouteWithKey{
+					Config: cfg,
+					Key:    routeKey + "/" + h,
 				})
 				count++
 			}
@@ -168,34 +184,27 @@ func HTTPRouteCollection(
 		return status, virtualServices
 	}, opts.WithName("HTTPRoute")...)
 
-	// TODO: this needs to be more efficient. An index as the input perhaps
-	finalVirtualServices := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []*config.Config {
-		vs := krt.Fetch(ctx, baseVirtualServices)
-		byKey := slices.Group(vs, func(o *config.Config) string {
-			return o.Annotations["TODO"]
-		})
-		final := []*config.Config{}
-		for k, configs := range byKey {
-			log.Errorf("howardjohn: recompute final %v", k)
-			if len(configs) == 1 {
-				final = append(final, configs[0])
-				continue
-			}
-			sortConfigpByCreationTime(configs)
-			base := configs[0].DeepCopy() //!!!
-			baseVS := base.Spec.(*istio.VirtualService)
-			for _, config := range configs[1:] {
-				thisVS := config.Spec.(*istio.VirtualService)
-				baseVS.Http = append(baseVS.Http, thisVS.Http...)
-				// append parents
-				base.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s",
-					base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
-			}
-			delete(base.Annotations, "TODO")
-			sortHTTPRoutes(baseVS.Http)
-			final = append(final, &base)
+	idx := krt.NewIndex(baseVirtualServices, func(o RouteWithKey) []string {
+		return []string{o.Key}
+	}).AsCollection()
+	finalVirtualServices := krt.NewCollection(idx, func(ctx krt.HandlerContext, object krt.IndexObject[string, RouteWithKey]) **config.Config {
+		log.Errorf("howardjohn: recompute final %v", object.Key)
+		configs := object.Objects
+		if len(configs) == 1 {
+			return &configs[0].Config
 		}
-		return final
+		sortRoutesByCreationTime(configs)
+		base := configs[0].DeepCopy()
+		baseVS := base.Spec.(*istio.VirtualService)
+		for _, config := range configs[1:] {
+			thisVS := config.Spec.(*istio.VirtualService)
+			baseVS.Http = append(baseVS.Http, thisVS.Http...)
+			// append parents
+			base.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s",
+				base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
+		}
+		sortHTTPRoutes(baseVS.Http)
+		return ptr.Of(&base)
 	}, opts.WithName("HTTPRouteMerged")...)
 	return RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus]{
 		VirtualServices:  finalVirtualServices,

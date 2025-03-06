@@ -67,7 +67,7 @@ func sortConfigByCreationTime(configs []config.Config) {
 	})
 }
 
-func sortConfigpByCreationTime(configs []*config.Config) {
+func sortRoutesByCreationTime(configs []RouteWithKey) {
 	sort.Slice(configs, func(i, j int) bool {
 		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
 			return r == -1 // -1 means i is less than j, so return true
