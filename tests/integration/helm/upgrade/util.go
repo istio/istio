@@ -135,6 +135,11 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
 		nsConfig := helmtest.DefaultNamespaceConfig
+		t.CleanupConditionally(func() {
+			// only need to do call this once as helm doesn't need to remove
+			// all versions
+			helmtest.DeleteIstio(t, h, cs, nsConfig, isAmbient)
+		})
 		t.Cleanup(func() {
 			if !t.Failed() {
 				return
@@ -144,11 +149,6 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 					namespace.Dump(t, ns)
 				}
 			}
-		})
-		t.CleanupConditionally(func() {
-			// only need to do call this once as helm doesn't need to remove
-			// all versions
-			helmtest.DeleteIstio(t, h, cs, nsConfig, isAmbient)
 		})
 		s := t.Settings()
 		prevVariant := s.Image.Variant
@@ -187,6 +187,11 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
 		nsConfig := helmtest.DefaultNamespaceConfig
+		t.CleanupConditionally(func() {
+			// only need to do call this once as helm doesn't need to remove
+			// all versions
+			helmtest.DeleteIstio(t, h, cs, nsConfig, isAmbient)
+		})
 		t.Cleanup(func() {
 			if !t.Failed() {
 				return
@@ -196,11 +201,6 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 					namespace.Dump(t, ns)
 				}
 			}
-		})
-		t.CleanupConditionally(func() {
-			// only need to do call this once as helm doesn't need to remove
-			// all versions
-			helmtest.DeleteIstio(t, h, cs, nsConfig, isAmbient)
 		})
 		s := t.Settings()
 		prevVariant := s.Image.Variant
@@ -253,16 +253,6 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
-		t.Cleanup(func() {
-			if !t.Failed() {
-				return
-			}
-			if t.Settings().CIMode {
-				for _, ns := range nsConfig.AllNamespaces() {
-					namespace.Dump(t, ns)
-				}
-			}
-		})
 		t.CleanupConditionally(func() {
 			err := deleteIstioRevision(h, canaryTag)
 			if err != nil {
@@ -271,6 +261,16 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 			err = deleteIstio(cs, h, nsConfig, false)
 			if err != nil {
 				t.Fatalf("could not delete istio: %v", err)
+			}
+		})
+		t.Cleanup(func() {
+			if !t.Failed() {
+				return
+			}
+			if t.Settings().CIMode {
+				for _, ns := range nsConfig.AllNamespaces() {
+					namespace.Dump(t, ns)
+				}
 			}
 		})
 
@@ -309,14 +309,6 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
-		t.Cleanup(func() {
-			if !t.Failed() {
-				return
-			}
-			if t.Settings().CIMode {
-				namespace.Dump(t, helmtest.IstioNamespace)
-			}
-		})
 		t.CleanupConditionally(func() {
 			err := deleteIstioRevision(h, latestRevisionTag)
 			if err != nil {
@@ -330,6 +322,14 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 			err = cleanupIstio(cs, h)
 			if err != nil {
 				t.Fatalf("could not cleanup istio: %v", err)
+			}
+		})
+		t.Cleanup(func() {
+			if !t.Failed() {
+				return
+			}
+			if t.Settings().CIMode {
+				namespace.Dump(t, helmtest.IstioNamespace)
 			}
 		})
 		s := t.Settings()
