@@ -917,7 +917,7 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (pa
 
 // waypointConfigured returns true if a waypoint is configured via expected label's key-value pair.
 func waypointConfigured(labels map[string]string) bool {
-	if val, ok := labels[label.IoIstioUseWaypoint.Name]; ok && len(val) > 0 && strings.ToLower(val) != "none" {
+	if val, ok := labels[label.IoIstioUseWaypoint.Name]; ok && len(val) > 0 && !strings.EqualFold(val, "none") {
 		return true
 	}
 	return false
