@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -134,13 +135,29 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
 		nsConfig := helmtest.DefaultNamespaceConfig
+		t.Cleanup(func() {
+			if !t.Failed() {
+				return
+			}
+			if t.Settings().CIMode {
+				for _, ns := range nsConfig.AllNamespaces() {
+					namespace.Dump(t, ns)
+				}
+			}
+		})
 		t.CleanupConditionally(func() {
 			// only need to do call this once as helm doesn't need to remove
 			// all versions
 			helmtest.DeleteIstio(t, h, cs, nsConfig, isAmbient)
 		})
 		s := t.Settings()
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", isAmbient)
+		prevVariant := s.Image.Variant
+		// Istio 1.21 ambient did not support distroless, always use debug.
+		// TODO(https://github.com/istio/istio/issues/50387) remove this, always use s.Image.Variant
+		if isAmbient {
+			prevVariant = "debug"
+		}
+		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", prevVariant, "", isAmbient)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
@@ -170,6 +187,16 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
 		nsConfig := helmtest.DefaultNamespaceConfig
+		t.Cleanup(func() {
+			if !t.Failed() {
+				return
+			}
+			if t.Settings().CIMode {
+				for _, ns := range nsConfig.AllNamespaces() {
+					namespace.Dump(t, ns)
+				}
+			}
+		})
 		t.CleanupConditionally(func() {
 			// only need to do call this once as helm doesn't need to remove
 			// all versions
@@ -226,6 +253,16 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
+		t.Cleanup(func() {
+			if !t.Failed() {
+				return
+			}
+			if t.Settings().CIMode {
+				for _, ns := range nsConfig.AllNamespaces() {
+					namespace.Dump(t, ns)
+				}
+			}
+		})
 		t.CleanupConditionally(func() {
 			err := deleteIstioRevision(h, canaryTag)
 			if err != nil {
@@ -272,6 +309,14 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
+		t.Cleanup(func() {
+			if !t.Failed() {
+				return
+			}
+			if t.Settings().CIMode {
+				namespace.Dump(t, helmtest.IstioNamespace)
+			}
+		})
 		t.CleanupConditionally(func() {
 			err := deleteIstioRevision(h, latestRevisionTag)
 			if err != nil {
