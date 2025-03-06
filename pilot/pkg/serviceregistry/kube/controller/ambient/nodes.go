@@ -19,7 +19,10 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -35,6 +38,52 @@ func (n Node) ResourceName() string {
 func (n Node) Equals(o Node) bool {
 	return n.Name == o.Name &&
 		protoconv.Equals(n.Locality, o.Locality)
+}
+
+func GlobalNodesCollection(
+	nodes krt.Collection[krt.Collection[config.ObjectWithCluster[*v1.Node]]],
+	stop <-chan struct{},
+	opts ...krt.CollectionOption,
+) krt.Collection[krt.Collection[config.ObjectWithCluster[Node]]] {
+	return krt.NewCollection(
+		nodes,
+		func(ctx krt.HandlerContext, col krt.Collection[config.ObjectWithCluster[*v1.Node]]) *krt.Collection[config.ObjectWithCluster[Node]] {
+			clusterID := col.Metadata()[ClusterKRTMetadataKey]
+			if clusterID == nil {
+				log.Warnf("ClusterID is nil, skipping")
+				return nil
+			}
+			nc := krt.NewCollection(col, func(ctx krt.HandlerContext, obj config.ObjectWithCluster[*v1.Node]) *config.ObjectWithCluster[Node] {
+				k := ptr.Flatten(obj.Object)
+				if k == nil {
+					log.Warnf("Node %s is nil, skipping", obj.ClusterID)
+					return nil
+				}
+				node := &Node{
+					Name: k.Name,
+				}
+				region := k.GetLabels()[v1.LabelTopologyRegion]
+				zone := k.GetLabels()[v1.LabelTopologyZone]
+				subzone := k.GetLabels()[label.TopologySubzone.Name]
+
+				if region != "" || zone != "" || subzone != "" {
+					node.Locality = &workloadapi.Locality{
+						Region:  region,
+						Zone:    zone,
+						Subzone: subzone,
+					}
+				}
+
+				return &config.ObjectWithCluster[Node]{
+					ClusterID: obj.ClusterID,
+					Object:    node,
+				}
+			}, append(opts, krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: clusterID,
+			}))...)
+			return ptr.Of(nc)
+		},
+		opts...)
 }
 
 // NodesCollection maps a node to it's locality.
