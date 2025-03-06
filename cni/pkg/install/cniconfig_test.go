@@ -366,6 +366,7 @@ const (
   "name": "istio-cni",
   "type": "istio-cni",
   "plugin_log_level": "__LOG_LEVEL__",
+  "pod_namespace": "__POD_NAMESPACE__",
   "kubernetes": {
       "kubeconfig": "__KUBECONFIG_FILENAME__",
       "cni_bin_dir": "/path/cni/bin"
@@ -451,6 +452,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			ChainedCNIPlugin: c.chainedCNIPlugin,
 			PluginLogLevel:   "debug",
 			CNIAgentRunDir:   kubeconfigFilename,
+			PodNamespace:     "my-namespace",
 		}
 
 		cfg := config.InstallConfig{
@@ -458,6 +460,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			ChainedCNIPlugin: c.chainedCNIPlugin,
 			PluginLogLevel:   "debug",
 			CNIAgentRunDir:   kubeconfigFilename,
+			PodNamespace:     "my-namespace",
 		}
 		test := func(cfg config.InstallConfig) func(t *testing.T) {
 			return func(t *testing.T) {

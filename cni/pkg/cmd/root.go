@@ -262,6 +262,7 @@ func constructConfig() (*config.Config, error) {
 		MonitoringPort:   viper.GetInt(constants.MonitoringPort),
 
 		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
+		PodNamespace:      viper.GetString(constants.PodNamespace),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
 		AmbientEnabled:           viper.GetBool(constants.AmbientEnabled),
