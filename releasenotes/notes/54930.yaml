@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 54930
+releaseNotes:
+  - |
+    **Added** support `omit_empty_values` for `EnvoyFileAccessLog` provider in Telemetry API.
