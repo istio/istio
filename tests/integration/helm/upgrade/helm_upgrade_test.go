@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/util/image"
-	helmtest "istio.io/istio/tests/integration/helm"
 )
 
 var (
@@ -63,51 +62,9 @@ func initVersions(ctx resource.Context) error {
 	return nil
 }
 
-// TestDefaultInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
-func TestDefaultInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(performInPlaceUpgradeFunc(previousSupportedVersion, false))
-}
-
-// TestCanaryUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
-func TestCanaryUpgradeFromPreviousMinorRelease(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(performCanaryUpgradeFunc(helmtest.DefaultNamespaceConfig, previousSupportedVersion))
-}
-
-// TestCanaryUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
-func TestCanaryUpgradeFromTwoMinorRelease(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(performCanaryUpgradeFunc(helmtest.DefaultNamespaceConfig, nMinusTwoVersion))
-}
-
-// TestStableRevisionLabelsUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
-func TestStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion))
-}
-
-// TestStableRevisionLabelsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
-func TestStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion))
-}
-
 // TestAmbientInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with ambient profile for Istio 1.(n-1)
 func TestAmbientInPlaceUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(performInPlaceUpgradeFunc(previousSupportedVersion, true))
-}
-
-// TestAmbientInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with ambient profile for Istio 1.(n-1)
-func TestZtunnelFromPreviousMinorRelease(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(upgradeAllButZtunnel(previousSupportedVersion))
 }

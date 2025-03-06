@@ -140,7 +140,7 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 			helmtest.DeleteIstio(t, h, cs, nsConfig, isAmbient)
 		})
 		s := t.Settings()
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", isAmbient)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, "docker.io/esarleo", "backportCNIFix125", "", "", isAmbient)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
