@@ -35,7 +35,7 @@ import (
 )
 
 type Gateway struct {
-	config.Config
+	*config.Config
 	parent     parentKey
 	parentInfo parentInfo
 	Valid      bool
@@ -141,7 +141,7 @@ func GatewayCollection(
 			}
 
 			res := Gateway{
-				Config:     gatewayConfig,
+				Config:     &gatewayConfig,
 				Valid:      programmed,
 				parent:     ref,
 				parentInfo: pri,

@@ -67,6 +67,18 @@ func sortConfigByCreationTime(configs []config.Config) {
 	})
 }
 
+func sortConfigpByCreationTime(configs []*config.Config) {
+	sort.Slice(configs, func(i, j int) bool {
+		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
+			return r == -1 // -1 means i is less than j, so return true
+		}
+		if r := cmp.Compare(configs[i].Namespace, configs[j].Namespace); r != 0 {
+			return r == -1
+		}
+		return cmp.Compare(configs[i].Name, configs[j].Name) == -1
+	})
+}
+
 func sortedConfigByCreationTime(configs []config.Config) []config.Config {
 	sortConfigByCreationTime(configs)
 	return configs

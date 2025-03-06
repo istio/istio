@@ -330,7 +330,7 @@ func DeepCopy(s any) any {
 	return data
 }
 
-func (c Config) Equals(other Config) bool {
+func (c *Config) Equals(other *Config) bool {
 	am, bm := c.Meta, other.Meta
 	if am.GroupVersionKind != bm.GroupVersionKind {
 		return false

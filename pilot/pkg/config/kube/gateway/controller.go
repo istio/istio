@@ -148,7 +148,7 @@ type TypedResource struct {
 
 type Outputs struct {
 	Gateways        krt.Collection[Gateway]
-	VirtualServices krt.Collection[config.Config]
+	VirtualServices krt.Collection[*config.Config]
 	ReferenceGrants ReferenceGrants
 }
 
@@ -246,36 +246,36 @@ func NewController(
 		ServiceEntries:  inputs.ServiceEntries,
 		internalContext: c.gatewayContext,
 	}
-	tcpRoutes := TCPRouteCollection(
-		inputs.TCPRoutes,
-		routeInputs,
-		opts,
-	)
-	registerStatus(tcpRoutes.Status, statusWriter)
-	tlsRoutes := TLSRouteCollection(
-		inputs.TLSRoutes,
-		routeInputs,
-		opts,
-	)
-	registerStatus(tlsRoutes.Status, statusWriter)
+	//tcpRoutes := TCPRouteCollection(
+	//	inputs.TCPRoutes,
+	//	routeInputs,
+	//	opts,
+	//)
+	//registerStatus(tcpRoutes.Status, statusWriter)
+	//tlsRoutes := TLSRouteCollection(
+	//	inputs.TLSRoutes,
+	//	routeInputs,
+	//	opts,
+	//)
+	//registerStatus(tlsRoutes.Status, statusWriter)
 	httpRoutes := HTTPRouteCollection(
 		inputs.HTTPRoutes,
 		routeInputs,
 		opts,
 	)
 	registerStatus(httpRoutes.Status, statusWriter)
-	grpcRoutes := GRPCRouteCollection(
-		inputs.GRPCRoutes,
-		routeInputs,
-		opts,
-	)
-	registerStatus(grpcRoutes.Status, statusWriter)
+	//grpcRoutes := GRPCRouteCollection(
+	//	inputs.GRPCRoutes,
+	//	routeInputs,
+	//	opts,
+	//)
+	//registerStatus(grpcRoutes.Status, statusWriter)
 
 	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
-		tcpRoutes.RouteAttachments,
-		tlsRoutes.RouteAttachments,
+		//tcpRoutes.RouteAttachments,
+		//tlsRoutes.RouteAttachments,
 		httpRoutes.RouteAttachments,
-		grpcRoutes.RouteAttachments,
+		//grpcRoutes.RouteAttachments,
 	})
 	RouteAttachmentsIndex := krt.NewIndex(RouteAttachments, func(o RouteAttachment) []types.NamespacedName {
 		return []types.NamespacedName{o.To}
@@ -301,11 +301,11 @@ func NewController(
 		}, opts.WithName("GatewayFinalStatus")...)
 	registerStatus(GatewayFinalStatus, statusWriter)
 
-	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{
-		tcpRoutes.VirtualServices,
-		tlsRoutes.VirtualServices,
+	VirtualServices := krt.JoinCollection([]krt.Collection[*config.Config]{
+		//tcpRoutes.VirtualServices,
+		//tlsRoutes.VirtualServices,
 		httpRoutes.VirtualServices,
-		grpcRoutes.VirtualServices,
+		//grpcRoutes.VirtualServices,
 	}, opts.WithName("DerivedVirtualServices")...)
 
 	outputs := Outputs{
@@ -316,7 +316,7 @@ func NewController(
 	c.outputs = outputs
 
 	outputs.VirtualServices.RegisterBatch(pushXds(options.XDSUpdater,
-		func(t config.Config) model.ConfigKey {
+		func(t *config.Config) model.ConfigKey {
 			return model.ConfigKey{
 				Kind:      kind.VirtualService,
 				Name:      t.Name,
@@ -373,12 +373,14 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 	case gvk.Gateway:
 		return slices.MapFilter(c.outputs.Gateways.List(), func(g Gateway) *config.Config {
 			if g.Valid {
-				return &g.Config
+				return g.Config
 			}
 			return nil
 		})
 	case gvk.VirtualService:
-		return c.outputs.VirtualServices.List()
+		return slices.Map(c.outputs.VirtualServices.List(), func(e *config.Config) config.Config {
+			return *e
+		})
 	default:
 		return nil
 	}
