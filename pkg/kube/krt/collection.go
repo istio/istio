@@ -622,7 +622,7 @@ func newManyCollection[I, O any](
 	// Create our queue. When it syncs (that is, all items that were present when Run() was called), we mark ourselves as synced.
 	h.queue = queue.NewWithSync(func() {
 		close(h.synced)
-		h.log.Infof("%v synced", h.name())
+		h.log.Infof("%v synced (uid %v)", h.name(), h.uid())
 	}, h.collectionName)
 
 	// Finally, async wait for the primary to be synced. Once it has, we know it has enqueued the initial state.

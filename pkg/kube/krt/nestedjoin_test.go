@@ -43,10 +43,18 @@ func TestNestedJoinCollection(t *testing.T) {
 		c3.AsCollection(),
 	}, opts.WithName("joined")...)
 
+	meta := krt.Metadata{
+		"foo": "bar",
+	}
 	nj := krt.NestedJoinCollection(
 		joined,
-		opts.WithName("NestedJoin")...,
+		opts.With(
+			krt.WithName("NestedJoin"),
+			krt.WithMetadata(meta),
+		)...,
 	)
+
+	assert.Equal(t, nj.Metadata(), meta)
 
 	last := atomic.NewString("")
 	tt := assert.NewTracker[string](t)
@@ -269,7 +277,6 @@ func TestNestedJoinCollectionTransform(t *testing.T) {
 		}
 	}, opts.WithName("SimplePods")...)
 
-	tt := assert.NewTracker[string](t)
 	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ips", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
@@ -280,6 +287,7 @@ func TestNestedJoinCollectionTransform(t *testing.T) {
 		})
 	}
 
+	tt := assert.NewTracker[string](t)
 	SimplePods.Register(TrackerHandler[SimplePod](tt))
 
 	pod := &corev1.Pod{
@@ -316,7 +324,7 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 	opts := testOptions(t)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "svc",
+			Name:      "name",
 			Namespace: "namespace",
 		},
 		Spec: corev1.ServiceSpec{
