@@ -152,13 +152,7 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 			}
 		})
 		s := t.Settings()
-		prevVariant := s.Image.Variant
-		// Istio 1.21 ambient did not support distroless, always use debug.
-		// TODO(https://github.com/istio/istio/issues/50387) remove this, always use s.Image.Variant
-		if isAmbient {
-			prevVariant = "debug"
-		}
-		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", prevVariant, "", isAmbient)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", isAmbient)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
