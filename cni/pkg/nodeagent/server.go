@@ -70,7 +70,7 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 
 	s.dataplane, err = initMeshDataplane(client, args)
 	if err != nil {
-		return nil, fmt.Errorf("error initializing mesh dataplane")
+		return nil, fmt.Errorf("error initializing mesh dataplane: %w", err)
 	}
 
 	s.NotReady()
