@@ -90,6 +90,14 @@ message ForwardEchoRequest {
   // HBONE communication settings. If provided, requests will be tunnelled.
   HBONE hbone = 24;
 
+  // Double HBONE communication settings. The settings here represent the outer
+  // tunnel and the inner tunnel settigns are specified in the hbone field.
+  // If the inner tunnel is not specified, the inner tunnel will
+  // be the same as the outer tunnel.
+  HBONE double_hbone = 27;
+
+  // If set, the proxy protocol will be used to send the request. This is automatically set for TCP and TLS protocols.
+
   ProxyProtoVersion proxyProtocolVersion = 25;
 }
 

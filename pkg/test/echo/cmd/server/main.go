@@ -39,6 +39,7 @@ var (
 	udpPorts           []int
 	tlsPorts           []int
 	hbonePorts         []int
+	doubleHbonePorts   []int
 	instanceIPPorts    []int
 	localhostIPPorts   []int
 	serverFirstPorts   []int
@@ -63,7 +64,7 @@ var (
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
 			shutdown := NewShutdown()
-			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts))
+			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts)+len(doubleHbonePorts))
 			tlsByPort := map[int]bool{}
 			for _, p := range tlsPorts {
 				tlsByPort[p] = true
@@ -132,6 +133,16 @@ var (
 				}
 				portIndex++
 			}
+			for i, p := range doubleHbonePorts {
+				ports[portIndex] = &common.Port{
+					Name:     "double-hbone-" + strconv.Itoa(i),
+					Protocol: protocol.DoubleHBONE,
+					Port:     p,
+					TLS:      tlsByPort[p],
+				}
+				portIndex++
+			}
+
 			instanceIPByPort := map[int]struct{}{}
 			for _, p := range instanceIPPorts {
 				instanceIPByPort[p] = struct{}{}
@@ -219,6 +230,7 @@ func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&tcpPorts, "tcp", []int{9090}, "TCP ports")
 	rootCmd.PersistentFlags().IntSliceVar(&udpPorts, "udp", []int{}, "UDP ports")
 	rootCmd.PersistentFlags().IntSliceVar(&hbonePorts, "hbone", []int{}, "HBONE ports")
+	rootCmd.PersistentFlags().IntSliceVar(&doubleHbonePorts, "double-hbone", []int{}, "Double HBONE ports")
 	rootCmd.PersistentFlags().IntSliceVar(&tlsPorts, "tls", []int{}, "Ports that are using TLS. These must be defined as http/grpc/tcp.")
 	rootCmd.PersistentFlags().IntSliceVar(&instanceIPPorts, "bind-ip", []int{}, "Ports that are bound to INSTANCE_IP rather than wildcard IP.")
 	rootCmd.PersistentFlags().IntSliceVar(&localhostIPPorts, "bind-localhost", []int{}, "Ports that are bound to localhost rather than wildcard IP.")
