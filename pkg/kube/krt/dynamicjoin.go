@@ -19,6 +19,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
@@ -171,14 +172,22 @@ func (j *dynamicjoin[T]) RegisterBatch(f func(o []Event[T], initialSync bool), r
 			djhr.removes[e.collectionName] = reg.UnregisterHandler
 			djhr.syncers[e.collectionName] = reg
 		case indexEventCollectionDelete:
+			// Unregister the handler for this collection
 			remover := djhr.removes[e.collectionName]
 			if remover == nil {
-				log.Warnf("Collection %v not found in %v", e.collectionName, j.name)
+				log.Warnf("Collection %v not found in %v", e.collectionName, j.name())
 				return
 			}
 			remover()
 			delete(djhr.removes, e.collectionName)
 			delete(djhr.syncers, e.collectionName)
+
+			// Now send a final set of remove events for each object in the collection
+			var events []Event[T]
+			for _, elem := range e.collectionValue.List() {
+				events = append(events, Event[T]{Old: &elem, Event: controllers.EventDelete})
+			}
+			f(events, false)
 		}
 	})
 	return djhr
@@ -305,7 +314,7 @@ func (j *dynamicjoin[T]) AddOrUpdateCollection(c Collection[T]) {
 				return
 			}
 			j.synced.Store(true)
-			log.Infof("%v re-synced", j.name)
+			log.Infof("%v re-synced", j.name())
 		}()
 	}
 
@@ -313,7 +322,7 @@ func (j *dynamicjoin[T]) AddOrUpdateCollection(c Collection[T]) {
 	go func(c internalCollection[T]) {
 		stop := make(chan struct{})
 		if !c.WaitUntilSynced(stop) {
-			log.Warnf("%v never synced, not notifying indexer", ic.name)
+			log.Warnf("%v never synced, not notifying indexer", ic.name())
 			return
 		}
 		j.RLock()
@@ -334,7 +343,8 @@ func (j *dynamicjoin[T]) RemoveCollection(c Collection[T]) {
 	name := c.(internalCollection[T]).name()
 	j.Lock()
 
-	if _, ok := j.collectionsByKey[name]; !ok {
+	oldCollection, ok := j.collectionsByKey[name]
+	if !ok {
 		log.Warnf("Collection %v not found in %v", name, j.name())
 		return
 	}
@@ -342,13 +352,18 @@ func (j *dynamicjoin[T]) RemoveCollection(c Collection[T]) {
 	handlers := j.collectionChangeHandlers
 	j.Unlock() // don't defer so we don't have to wait for handler execution
 
-	for _, h := range handlers {
-		h(collectionChangeEvent[T]{
-			eventType:       indexEventCollectionDelete,
-			collectionName:  name,
-			collectionValue: nil,
-		})
-	}
+	// Run inside a goroutine because we don't want to block the caller
+	// when executing handlers (which may perform slow operations like
+	// creating remove events for each item in the collection)
+	go func() {
+		for _, h := range handlers {
+			h(collectionChangeEvent[T]{
+				eventType:       indexEventCollectionDelete,
+				collectionName:  name,
+				collectionValue: oldCollection,
+			})
+		}
+	}()
 }
 
 // JoinCollection combines multiple Collection[T] into a single
@@ -377,10 +392,7 @@ func DynamicJoinCollection[T any](cs []Collection[T], opts ...CollectionOption) 
 	}()
 	// Create a shallow copy of the collection map before returning it
 	// to avoid data races or locking in the waituntilsync goroutine
-	collections := make(map[string]internalCollection[T], len(c))
-	for k, v := range c {
-		collections[k] = v
-	}
+	collections := maps.Clone(c)
 	return &dynamicjoin[T]{
 		collectionName:   o.name,
 		id:               nextUID(),
