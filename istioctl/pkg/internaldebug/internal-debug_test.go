@@ -24,7 +24,9 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/anypb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/resource"
@@ -104,6 +106,134 @@ func TestInternalDebug(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			verifyExecTestOutput(t, DebugCommand(ctx), c)
+		})
+	}
+}
+
+func TestInternalDebugWithMultiIstiod(t *testing.T) {
+	t.Cleanup(func() {
+		multixds.GetXdsResponse = xds.GetXdsResponse
+	})
+
+	getXdsResponseCall := 0
+	cases := []struct {
+		name           string
+		testcase       execTestCase
+		getXdsResponse func(_ *discovery.DiscoveryRequest, _ string, _ string,
+			_ clioptions.CentralControlPlaneOptions, _ []grpc.DialOption) (*discovery.DiscoveryResponse, error)
+		ExceptGetXdsResponseCall int
+	}{
+		{
+			name: "proxyID not found",
+			testcase: execTestCase{
+				args:           []string{"config_dump?proxyID=sleep-77ccf74cb-m6jcb"},
+				expectedOutput: "Proxy not connected to this Pilot instance. It may be connected to another instance.\n",
+			},
+			getXdsResponse: func(_ *discovery.DiscoveryRequest, _ string, _ string, _ clioptions.CentralControlPlaneOptions, _ []grpc.DialOption,
+			) (*discovery.DiscoveryResponse, error) {
+				getXdsResponseCall++
+				return &discovery.DiscoveryResponse{
+					Resources: []*anypb.Any{
+						{
+							Value: []byte("Proxy not connected to this Pilot instance. It may be connected to another instance."),
+						},
+					},
+				}, nil
+			},
+			ExceptGetXdsResponseCall: 2,
+		},
+		{
+			name: "proxyID found when first call",
+			testcase: execTestCase{
+				args:           []string{"config_dump?proxyID=sleep-77ccf74cb-m6jcb"},
+				expectedOutput: "fake config_dump for sleep-77ccf74cb-m6jcb\n",
+			},
+			getXdsResponse: func(_ *discovery.DiscoveryRequest, _ string, _ string, _ clioptions.CentralControlPlaneOptions, _ []grpc.DialOption,
+			) (*discovery.DiscoveryResponse, error) {
+				getXdsResponseCall++
+				return &discovery.DiscoveryResponse{
+					Resources: []*anypb.Any{
+						{
+							Value: []byte("fake config_dump for sleep-77ccf74cb-m6jcb"),
+						},
+					},
+				}, nil
+			},
+			ExceptGetXdsResponseCall: 1,
+		},
+		{
+			name: "proxyID found when second call",
+			testcase: execTestCase{
+				args:           []string{"config_dump?proxyID=sleep-77ccf74cb-m6jcb"},
+				expectedOutput: "fake config_dump for sleep-77ccf74cb-m6jcb in second call\n",
+			},
+			getXdsResponse: func(_ *discovery.DiscoveryRequest, _ string, _ string, _ clioptions.CentralControlPlaneOptions, _ []grpc.DialOption,
+			) (*discovery.DiscoveryResponse, error) {
+				getXdsResponseCall++
+				if getXdsResponseCall == 1 {
+					return &discovery.DiscoveryResponse{
+						Resources: []*anypb.Any{
+							{
+								Value: []byte("Proxy not connected to this Pilot instance. It may be connected to another instance."),
+							},
+						},
+					}, nil
+				}
+				return &discovery.DiscoveryResponse{
+					Resources: []*anypb.Any{
+						{
+							Value: []byte("fake config_dump for sleep-77ccf74cb-m6jcb in second call"),
+						},
+					},
+				}, nil
+			},
+			ExceptGetXdsResponseCall: 2,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			defer func() {
+				getXdsResponseCall = 0
+			}()
+			multixds.GetXdsResponse = c.getXdsResponse
+
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+				IstioNamespace: "istio-system",
+			})
+			client, err := ctx.CLIClient()
+			require.NoError(t, err)
+
+			_, err = client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "istiod-test-1",
+					Namespace: "istio-system",
+					Labels: map[string]string{
+						"app": "istiod",
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+				},
+			}, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			_, err = client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "istiod-test-2",
+					Namespace: "istio-system",
+					Labels: map[string]string{
+						"app": "istiod",
+					},
+				},
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+				},
+			}, metav1.CreateOptions{})
+			require.NoError(t, err)
+
+			verifyExecTestOutput(t, DebugCommand(ctx), c.testcase)
+			require.Equal(t, c.ExceptGetXdsResponseCall, getXdsResponseCall)
 		})
 	}
 }
