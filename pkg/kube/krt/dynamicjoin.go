@@ -375,10 +375,16 @@ func DynamicJoinCollection[T any](cs []Collection[T], opts ...CollectionOption) 
 		synced.Store(true)
 		log.Infof("%v synced", o.name)
 	}()
+	// Create a shallow copy of the collection map before returning it
+	// to avoid data races or locking in the waituntilsync goroutine
+	collections := make(map[string]internalCollection[T], len(c))
+	for k, v := range c {
+		collections[k] = v
+	}
 	return &dynamicjoin[T]{
 		collectionName:   o.name,
 		id:               nextUID(),
-		collectionsByKey: c,
+		collectionsByKey: collections,
 		synced:           &synced,
 		uncheckedOverlap: o.joinUnchecked,
 		syncer: pollSyncer{
