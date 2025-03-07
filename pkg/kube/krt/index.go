@@ -116,8 +116,9 @@ func toString(rk any) string {
 }
 
 type indexCollection[K comparable, O any] struct {
-	idx            index[K, O]
-	id             collectionUID
+	idx index[K, O]
+	id  collectionUID
+	// nolint: unused // (not true, its to implement an interface)
 	collectionName string
 }
 
