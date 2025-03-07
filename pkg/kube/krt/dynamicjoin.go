@@ -183,11 +183,14 @@ func (j *dynamicjoin[T]) RegisterBatch(f func(o []Event[T], initialSync bool), r
 			delete(djhr.syncers, e.collectionName)
 
 			// Now send a final set of remove events for each object in the collection
-			var events []Event[T]
-			for _, elem := range e.collectionValue.List() {
-				events = append(events, Event[T]{Old: &elem, Event: controllers.EventDelete})
-			}
-			f(events, false)
+			// do this in a goroutine so we don't block running expensive handlers
+			go func() {
+				var events []Event[T]
+				for _, elem := range e.collectionValue.List() {
+					events = append(events, Event[T]{Old: &elem, Event: controllers.EventDelete})
+				}
+				f(events, false)
+			}()
 		}
 	})
 	return djhr
@@ -278,7 +281,7 @@ func (j *dynamicjoin[T]) Synced() Syncer {
 	// change; it's not a one-and-done sync check, so channels are inappropriate.
 	return pollSyncer{
 		name: j.collectionName,
-		f:    func() bool { return j.synced.Load() },
+		f:    j.synced.Load,
 	}
 }
 
@@ -298,12 +301,25 @@ func (j *dynamicjoin[T]) registerCollectionChangeHandlerLocked(h func(e collecti
 	j.collectionChangeHandlers = append(j.collectionChangeHandlers, h)
 }
 
+// AddOrUpdateCollection adds a collection to the join. When this function returns
+// the passed collection will start influencing event handling
 func (j *dynamicjoin[T]) AddOrUpdateCollection(c Collection[T]) {
 	j.Lock()
 	ic := c.(internalCollection[T])
 	j.collectionsByKey[ic.name()] = ic
+
+	// Add the new collection to the other handler logic
+	for _, h := range j.collectionChangeHandlers {
+		h(collectionChangeEvent[T]{
+			eventType:       indexEventCollectionAddOrUpdate,
+			collectionName:  ic.name(),
+			collectionValue: ic,
+		})
+	}
 	j.Unlock()
 
+	// Change the sync status of our join collection if the new
+	// collection isn't synced
 	jSynced := j.synced.Load()
 	if jSynced && !ic.HasSynced() {
 		j.synced.Store(false)
@@ -317,28 +333,10 @@ func (j *dynamicjoin[T]) AddOrUpdateCollection(c Collection[T]) {
 			log.Infof("%v re-synced", j.name())
 		}()
 	}
-
-	// Notify the indexer of the new collection once syncing is complete
-	go func(c internalCollection[T]) {
-		stop := make(chan struct{})
-		if !c.WaitUntilSynced(stop) {
-			log.Warnf("%v never synced, not notifying indexer", ic.name())
-			return
-		}
-		j.RLock()
-		handlers := j.collectionChangeHandlers
-		j.RUnlock() // don't defer so we don't have to wait for handler execution
-
-		for _, h := range handlers {
-			h(collectionChangeEvent[T]{
-				eventType:       indexEventCollectionAddOrUpdate,
-				collectionName:  c.name(),
-				collectionValue: c,
-			})
-		}
-	}(ic)
 }
 
+// RemoveCollection removes a collection from the join. When this function returns
+// the passed collection will no longer influence any event handling
 func (j *dynamicjoin[T]) RemoveCollection(c Collection[T]) {
 	name := c.(internalCollection[T]).name()
 	j.Lock()
@@ -352,18 +350,13 @@ func (j *dynamicjoin[T]) RemoveCollection(c Collection[T]) {
 	handlers := j.collectionChangeHandlers
 	j.Unlock() // don't defer so we don't have to wait for handler execution
 
-	// Run inside a goroutine because we don't want to block the caller
-	// when executing handlers (which may perform slow operations like
-	// creating remove events for each item in the collection)
-	go func() {
-		for _, h := range handlers {
-			h(collectionChangeEvent[T]{
-				eventType:       indexEventCollectionDelete,
-				collectionName:  name,
-				collectionValue: oldCollection,
-			})
-		}
-	}()
+	for _, h := range handlers {
+		h(collectionChangeEvent[T]{
+			eventType:       indexEventCollectionDelete,
+			collectionName:  name,
+			collectionValue: oldCollection,
+		})
+	}
 }
 
 // JoinCollection combines multiple Collection[T] into a single
@@ -401,7 +394,7 @@ func DynamicJoinCollection[T any](cs []Collection[T], opts ...CollectionOption) 
 		uncheckedOverlap: o.joinUnchecked,
 		syncer: pollSyncer{
 			name: o.name,
-			f:    func() bool { return synced.Load() },
+			f:    synced.Load,
 		},
 	}
 }
