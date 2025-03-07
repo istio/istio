@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -138,6 +139,17 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 			// only need to do call this once as helm doesn't need to remove
 			// all versions
 			helmtest.DeleteIstio(t, h, cs, nsConfig, isAmbient)
+		})
+		t.Cleanup(func() {
+			if !t.Failed() {
+				return
+			}
+			if t.Settings().CIMode {
+				for _, ns := range nsConfig.AllNamespaces() {
+					namespace.Dump(t, ns)
+				}
+				namespace.Dump(t, helmtest.IstioNamespace)
+			}
 		})
 		s := t.Settings()
 		overrideValuesFile := helmtest.GetValuesOverrides(t, "docker.io/esarleo", "backportCNIFix125", "", "", isAmbient)
