@@ -105,7 +105,6 @@ func (r *fileRig) CreateObject(key string) {
 		Name:      name,
 	})
 	err := os.WriteFile(fp, contents, 0o600)
-	log.Errorf("howardjohn: wrote %v", fp)
 	assert.NoError(r.t, err)
 }
 

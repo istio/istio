@@ -219,7 +219,7 @@ func NewFileCollection[F any, O any](w *FolderWatch[F], transform func(F) *O, op
 }
 
 func readSnapshot[F any, O any](w *FolderWatch[F], transform func(F) *O) []O {
-	res := w.state
+	res := w.get()
 	return slices.MapFilter(res, transform)
 }
 

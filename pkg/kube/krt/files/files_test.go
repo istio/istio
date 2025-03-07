@@ -28,7 +28,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	yamlserializer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
@@ -40,7 +39,6 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	krtfiles "istio.io/istio/pkg/kube/krt/files"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -117,13 +115,11 @@ func parseInputs(f io.Reader) ([]controllers.Object, error) {
 				return err
 			}
 
-			var defaultGVK *schema.GroupVersionKind
 			var obj runtime.Object
 
 			// We want to normalize types to a single version
 			s, exists := collections.PilotGatewayAPI().FindByGroupVersionAliasesKind(resource.FromKubernetesGVK(gvk))
 			if exists {
-				defaultGVK = ptr.Of(s.GroupVersionKind().Kubernetes())
 				raw, err := kube.IstioScheme.New(s.GroupVersionKind().Kubernetes())
 				if err != nil {
 					return err
@@ -138,13 +134,12 @@ func parseInputs(f io.Reader) ([]controllers.Object, error) {
 				tm.SetAPIVersion(s.APIVersion())
 				obj = raw
 			} else {
-				obj, _, err = deserializer.Decode(chunk, defaultGVK, obj)
+				obj, _, err = deserializer.Decode(chunk, nil, obj)
 				if err != nil {
 					if strings.Contains(err.Error(), "no kind") {
 						return nil
-					} else {
-						return fmt.Errorf("cannot parse message: %v", err)
 					}
+					return fmt.Errorf("cannot parse message: %v", err)
 				}
 			}
 
