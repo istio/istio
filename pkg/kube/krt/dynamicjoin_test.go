@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"go.uber.org/atomic"
+
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
