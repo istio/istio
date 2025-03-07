@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 39079
+releaseNotes:
+- |
+  **Added** Support for configuring service `loadBalancerClass` on the Gateway Helm Chart.

@@ -21,6 +21,9 @@ spec:
   {{- if hasKey .Values.service "allocateLoadBalancerNodePorts" }}
   allocateLoadBalancerNodePorts: {{ .Values.service.allocateLoadBalancerNodePorts }}
   {{- end }}
+  {{- if hasKey .Values.service "loadBalancerClass" }}
+  loadBalancerClass: {{ .Values.service.loadBalancerClass }}
+  {{- end }}
 {{- end }}
 {{- if .Values.service.ipFamilyPolicy }}
   ipFamilyPolicy: {{ .Values.service.ipFamilyPolicy }}

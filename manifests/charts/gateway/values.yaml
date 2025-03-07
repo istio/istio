@@ -64,6 +64,8 @@ _internal_defaults_do_not_set:
     ipFamilies: []
     ## Whether to automatically allocate NodePorts (only for LoadBalancers).
     # allocateLoadBalancerNodePorts: false
+    ## Set LoadBalancer class (only for LoadBalancers).
+    # loadBalancerClass: ""
 
   resources:
     requests:
