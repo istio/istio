@@ -48,6 +48,9 @@ type InstallConfig struct {
 	// Comma-separated list of K8S namespaces that CNI should ignore
 	ExcludeNamespaces string
 
+	// Singular namespace that the istio CNI node agent resides in
+	PodNamespace string
+
 	// KUBERNETES_SERVICE_PROTOCOL
 	K8sServiceProtocol string
 	// KUBERNETES_SERVICE_HOST
@@ -130,6 +133,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("SkipTLSVerify: " + fmt.Sprint(c.SkipTLSVerify) + "\n")
 
 	b.WriteString("ExcludeNamespaces: " + fmt.Sprint(c.ExcludeNamespaces) + "\n")
+	b.WriteString("PodNamespace: " + fmt.Sprint(c.PodNamespace) + "\n")
 	b.WriteString("K8sServiceProtocol: " + c.K8sServiceProtocol + "\n")
 	b.WriteString("K8sServiceHost: " + c.K8sServiceHost + "\n")
 	b.WriteString("K8sServicePort: " + fmt.Sprint(c.K8sServicePort) + "\n")
