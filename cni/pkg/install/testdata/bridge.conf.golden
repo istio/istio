@@ -27,6 +27,7 @@
       "ipam": {},
       "name": "istio-cni",
       "plugin_log_level": "debug",
+      "pod_namespace": "my-namespace",
       "type": "istio-cni"
     }
   ]
