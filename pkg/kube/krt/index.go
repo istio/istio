@@ -121,14 +121,17 @@ type indexCollection[K comparable, O any] struct {
 	collectionName string
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (i indexCollection[K, O]) name() string {
 	return i.collectionName
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (i indexCollection[K, O]) uid() collectionUID {
 	return i.id
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (i indexCollection[K, O]) dump() CollectionDump {
 	return CollectionDump{
 		Outputs:         nil,
@@ -137,10 +140,12 @@ func (i indexCollection[K, O]) dump() CollectionDump {
 	}
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (i indexCollection[K, O]) augment(a any) any {
 	return a
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (i indexCollection[K, O]) index(extract func(o IndexObject[K, O]) []string) kclient.RawIndexer {
 	panic("an index cannot be indexed")
 }
