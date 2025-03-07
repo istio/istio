@@ -15,18 +15,23 @@
 package krt
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
 )
 
+// DynamicCollection is the interface for a collection that can have
+// other collections added or removed at runtime. Member collections
+// are keyed by the collection name.
 type DynamicCollection[T any] interface {
 	Collection[T]
-	AddOrUpdateCollection(key string, c Collection[T])
-	RemoveCollection(key string)
+	AddOrUpdateCollection(c Collection[T])
+	RemoveCollection(c Collection[T])
 }
 
 type dynamicjoin[T any] struct {
@@ -34,9 +39,10 @@ type dynamicjoin[T any] struct {
 	id               collectionUID
 	collectionsByKey map[string]internalCollection[T]
 	sync.RWMutex
-	synced           *atomic.Bool
-	uncheckedOverlap bool
-	syncer           Syncer
+	synced                   *atomic.Bool
+	uncheckedOverlap         bool
+	syncer                   Syncer
+	collectionChangeHandlers []func(collectionChangeEvent[T])
 }
 
 func (j *dynamicjoin[T]) GetKey(k string) *T {
@@ -72,6 +78,7 @@ func (j *dynamicjoin[T]) List() []T {
 	}
 	var found sets.String
 	first := true
+
 	for _, c := range maps.SeqStable(j.collectionsByKey) {
 		objs := c.List()
 		// As an optimization, take the first (non-empty) result as-is without copying
@@ -97,22 +104,84 @@ func (j *dynamicjoin[T]) List() []T {
 	return res
 }
 
+type dynamicMultiSyncer struct {
+	syncers map[string]Syncer
+}
+
+func (s *dynamicMultiSyncer) HasSynced() bool {
+	for _, syncer := range s.syncers {
+		if !syncer.HasSynced() {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *dynamicMultiSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
+	for _, syncer := range s.syncers {
+		if !syncer.WaitUntilSynced(stop) {
+			return false
+		}
+	}
+	return true
+}
+
+type dynamicJoinHandlerRegistration struct {
+	dynamicMultiSyncer
+	removes map[string]func()
+	sync.RWMutex
+}
+
+func (hr *dynamicJoinHandlerRegistration) UnregisterHandler() {
+	hr.RLock()
+	removes := hr.removes
+	hr.RUnlock()
+	// Unregister all the handlers
+	for _, remover := range removes {
+		remover()
+	}
+}
+
 func (j *dynamicjoin[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return registerHandlerAsBatched[T](j, f)
 }
 
 func (j *dynamicjoin[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) HandlerRegistration {
-	sync := multiSyncer{}
-	removes := []func(){}
+	j.RLock()
+	defer j.RUnlock()
+	sync := dynamicMultiSyncer{
+		syncers: make(map[string]Syncer, len(j.collectionsByKey)),
+	}
+	removes := map[string]func(){}
 	for _, c := range maps.SeqStable(j.collectionsByKey) {
 		reg := c.RegisterBatch(f, runExistingState)
-		removes = append(removes, reg.UnregisterHandler)
-		sync.syncers = append(sync.syncers, reg)
+		removes[c.name()] = reg.UnregisterHandler
+		sync.syncers[c.name()] = reg
 	}
-	return joinHandlerRegistration{
-		Syncer:  sync,
-		removes: removes,
+	djhr := &dynamicJoinHandlerRegistration{
+		dynamicMultiSyncer: sync,
+		removes:            removes,
 	}
+	j.registerCollectionChangeHandlerLocked(func(e collectionChangeEvent[T]) {
+		djhr.Lock()
+		defer djhr.Unlock()
+		switch e.eventType {
+		case indexEventCollectionAddOrUpdate:
+			reg := e.collectionValue.RegisterBatch(f, runExistingState)
+			djhr.removes[e.collectionName] = reg.UnregisterHandler
+			djhr.syncers[e.collectionName] = reg
+		case indexEventCollectionDelete:
+			remover := djhr.removes[e.collectionName]
+			if remover == nil {
+				log.Warnf("Collection %v not found in %v", e.collectionName, j.name)
+				return
+			}
+			remover()
+			delete(djhr.removes, e.collectionName)
+			delete(djhr.syncers, e.collectionName)
+		}
+	})
+	return djhr
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -133,19 +202,37 @@ func (j *dynamicjoin[I]) dump() CollectionDump {
 	return CollectionDump{}
 }
 
-// nolint: unused // (not true)
-type dynamicJoinIndexer struct {
-	indexers []kclient.RawIndexer
+type indexEventType int
+
+const (
+	indexEventCollectionAddOrUpdate indexEventType = iota
+	indexEventCollectionDelete
+)
+
+type collectionChangeEvent[T any] struct {
+	eventType       indexEventType
+	collectionName  string
+	collectionValue internalCollection[T]
 }
 
 // nolint: unused // (not true)
-func (j dynamicJoinIndexer) Lookup(key string) []any {
+type dynamicJoinIndexer struct {
+	indexers map[string]kclient.RawIndexer
+	sync.RWMutex
+}
+
+// nolint: unused // (not true)
+func (j *dynamicJoinIndexer) Lookup(key string) []any {
 	var res []any
 	first := true
+	j.RLock()
+	defer j.RUnlock() // keithmattix: we're probably fine to defer as long as we don't have nested dynamic indexers
 	for _, i := range j.indexers {
 		l := i.Lookup(key)
 		if len(l) > 0 && first {
 			// TODO: add option to merge slices
+			// This is probably not going to be performant if we need
+			// to do lots of merges. Benchmark and optimize later.
 			// Optimization: re-use the first returned slice
 			res = l
 			first = false
@@ -158,10 +245,22 @@ func (j dynamicJoinIndexer) Lookup(key string) []any {
 
 // nolint: unused // (not true, its to implement an interface)
 func (j *dynamicjoin[T]) index(extract func(o T) []string) kclient.RawIndexer {
-	ji := joinIndexer{indexers: make([]kclient.RawIndexer, 0, len(j.collectionsByKey))}
+	j.Lock() // Take a write lock since we're also updating the collection change handlers
+	defer j.Unlock()
+	ji := &dynamicJoinIndexer{indexers: make(map[string]kclient.RawIndexer, len(j.collectionsByKey))}
 	for _, c := range maps.SeqStable(j.collectionsByKey) {
-		ji.indexers = append(ji.indexers, c.index(extract))
+		ji.indexers[c.name()] = c.index(extract)
 	}
+	j.registerCollectionChangeHandlerLocked(func(e collectionChangeEvent[T]) {
+		ji.Lock()
+		defer ji.Unlock()
+		switch e.eventType {
+		case indexEventCollectionAddOrUpdate:
+			ji.indexers[e.collectionName] = e.collectionValue.index(extract)
+		case indexEventCollectionDelete:
+			delete(ji.indexers, e.collectionName)
+		}
+	})
 	return ji
 }
 
@@ -182,32 +281,109 @@ func (j *dynamicjoin[T]) WaitUntilSynced(stop <-chan struct{}) bool {
 	return j.syncer.WaitUntilSynced(stop)
 }
 
-func (j *dynamicjoin[T]) AddOrUpdateCollection(key string, c Collection[T], stop <-chan struct{}) {
+// The caller MUST have the lock when executing this function
+func (j *dynamicjoin[T]) registerCollectionChangeHandlerLocked(h func(e collectionChangeEvent[T])) {
+	if j.collectionChangeHandlers == nil {
+		j.collectionChangeHandlers = make([]func(collectionChangeEvent[T]), 0)
+	}
+	j.collectionChangeHandlers = append(j.collectionChangeHandlers, h)
+}
+
+func (j *dynamicjoin[T]) AddOrUpdateCollection(c Collection[T]) {
 	j.Lock()
 	ic := c.(internalCollection[T])
-	j.collectionsByKey[key] = ic
+	j.collectionsByKey[ic.name()] = ic
 	j.Unlock()
 
 	jSynced := j.synced.Load()
 	if jSynced && !ic.HasSynced() {
 		j.synced.Store(false)
-		go func(s <-chan struct{}) {
+		// Wait for the new collection to finish syncing
+		go func() {
+			stop := make(chan struct{}) // we're in a separate goroutine so the stop channel isn't the most relevant
 			if !ic.WaitUntilSynced(stop) {
 				return
 			}
 			j.synced.Store(true)
 			log.Infof("%v re-synced", j.name)
-		}(stop)
+		}()
+	}
+
+	// Notify the indexer of the new collection once syncing is complete
+	go func(c internalCollection[T]) {
+		stop := make(chan struct{})
+		if !c.WaitUntilSynced(stop) {
+			log.Warnf("%v never synced, not notifying indexer", ic.name)
+			return
+		}
+		j.RLock()
+		handlers := j.collectionChangeHandlers
+		j.RUnlock() // don't defer so we don't have to wait for handler execution
+
+		for _, h := range handlers {
+			h(collectionChangeEvent[T]{
+				eventType:       indexEventCollectionAddOrUpdate,
+				collectionName:  c.name(),
+				collectionValue: c,
+			})
+		}
+	}(ic)
+}
+
+func (j *dynamicjoin[T]) RemoveCollection(c Collection[T]) {
+	name := c.(internalCollection[T]).name()
+	j.Lock()
+
+	if _, ok := j.collectionsByKey[name]; !ok {
+		log.Warnf("Collection %v not found in %v", name, j.name())
+		return
+	}
+	delete(j.collectionsByKey, name)
+	handlers := j.collectionChangeHandlers
+	j.Unlock() // don't defer so we don't have to wait for handler execution
+
+	for _, h := range handlers {
+		h(collectionChangeEvent[T]{
+			eventType:       indexEventCollectionDelete,
+			collectionName:  name,
+			collectionValue: nil,
+		})
 	}
 }
 
-func (j *dynamicjoin[T]) RemoveCollection(key string) {
-	j.Lock()
-	defer j.Unlock()
-
-	if _, ok := j.collectionsByKey[key]; !ok {
-		log.Warnf("Collection %v not found in %v", key, j.name)
-		return
+// JoinCollection combines multiple Collection[T] into a single
+// Collection[T] merging equal objects into one record
+// in the resulting Collection
+func DynamicJoinCollection[T any](cs []Collection[T], opts ...CollectionOption) DynamicCollection[T] {
+	o := buildCollectionOptions(opts...)
+	if o.name == "" {
+		o.name = fmt.Sprintf("DynamicJoin[%v]", ptr.TypeName[T]())
 	}
-	delete(j.collectionsByKey, key)
+	synced := atomic.Bool{}
+	synced.Store(false)
+	c := make(map[string]internalCollection[T], len(cs))
+	for _, collection := range cs {
+		ic := collection.(internalCollection[T])
+		c[ic.name()] = ic
+	}
+	go func() {
+		for _, c := range c {
+			if !c.WaitUntilSynced(o.stop) {
+				return
+			}
+		}
+		synced.Store(true)
+		log.Infof("%v synced", o.name)
+	}()
+	return &dynamicjoin[T]{
+		collectionName:   o.name,
+		id:               nextUID(),
+		collectionsByKey: c,
+		synced:           &synced,
+		uncheckedOverlap: o.joinUnchecked,
+		syncer: pollSyncer{
+			name: o.name,
+			f:    func() bool { return synced.Load() },
+		},
+	}
 }
