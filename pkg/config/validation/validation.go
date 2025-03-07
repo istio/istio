@@ -1078,7 +1078,10 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 			errs = appendErrors(errs, agent.ValidateDuration(tcp.MaxConnectionDuration))
 		}
 		if tcp.IdleTimeout != nil {
-			errs = appendErrors(errs, agent.ValidateDuration(tcp.IdleTimeout))
+			// Skip validation if value is 0s since it is a valid input
+			if tcp.IdleTimeout.AsDuration().Milliseconds() != 0 {
+				errs = appendErrors(errs, agent.ValidateDuration(tcp.IdleTimeout))
+			}
 		}
 		if ka := tcp.TcpKeepalive; ka != nil {
 			if ka.Time != nil {

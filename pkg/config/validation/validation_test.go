@@ -3152,6 +3152,13 @@ func TestValidateConnectionPool(t *testing.T) {
 		},
 
 		{
+			name: "valid connection pool, tcp timeout disabled", in: &networking.ConnectionPoolSettings{
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{IdleTimeout: &durationpb.Duration{Seconds: 0}},
+			},
+			valid: true,
+		},
+
+		{
 			name: "invalid connection pool, bad max concurrent streams", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxConcurrentStreams: -1},
 			},
