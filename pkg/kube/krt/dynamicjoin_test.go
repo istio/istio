@@ -76,3 +76,7 @@ func TestDynamicJoinCollection(t *testing.T) {
 	c1.Set(&Named{"c1", "c"})
 	assert.EventuallyEqual(t, last.Load, "c4/a") // Test that events from removed collections do not make it to the join
 }
+
+func TestDynamicJoinCollectionIndex(t *testing.T) {
+
+}
