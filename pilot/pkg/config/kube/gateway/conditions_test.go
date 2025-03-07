@@ -55,6 +55,13 @@ func TestCreateRouteStatus(t *testing.T) {
 					LastTransitionTime: lastTransitionTime,
 					Message:            "All references resolved",
 				},
+				{
+					Type:               string(RouteConditionResolvedWaypoints),
+					Status:             metav1.ConditionTrue,
+					ObservedGeneration: 1,
+					LastTransitionTime: lastTransitionTime,
+					Message:            "All waypoints resolved",
+				},
 			},
 		},
 	}
