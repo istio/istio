@@ -63,4 +63,5 @@ var/
 .DS_Store
 /manifests/charts/**/charts/
 /manifests/charts/**/Chart.lock
+coverage.out
 /cni/pkg/plugin/istio-cni.log
