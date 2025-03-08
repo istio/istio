@@ -54,13 +54,13 @@ Due to this logic the wrapper will perform the apply and/or a cleanup of iptable
 
 The following behaviors can normally occurr:
 1. **No Delta Detection**: If iptables execution detects no difference between the current and expected/desired state, it skips the apply step unless the `ForceApply` flag is set to true.
-2. **First-Time Installation**: If a delta is detected and no "residue" of previous Istio-related rules exists, it initiates a clean installation of the rules which involves only the apply step.
-3. **Update Existing Rules**: If the current state differs from the desired state and previous Istio executions are detected, the wrapper:
+1. **First-Time Installation**: If a delta is detected and no "residue" of previous Istio-related rules exists, it initiates a clean installation of the rules which involves only the apply step.
+1. **Update Existing Rules**: If the current state differs from the desired state and previous Istio executions are detected, the wrapper:
    - Sets up guardrails (iptables rules that drop all inbound and outbound traffic to prevent traffic escape during the update)
    - Performs cleanup of existing rules
    - Applies new rules
    - Removes guardrails
-4. **Cleanup-Only Mode**: If the `CleanupOnly` flag is set to true, only cleanup operations are performed, without applying new rules or setting up guardrails.
+1. **Cleanup-Only Mode**: If the `CleanupOnly` flag is set to true, only cleanup operations are performed, without applying new rules or setting up guardrails.
 
 ### CNI vs. non-CNI Cleanup Differences
 
@@ -69,21 +69,21 @@ For the CNI, a two-pass cleanup logic is needed to ensure the correctness of the
 - **First Pass**: Reverses all rules in the expected/desired state. This may delete non-jump rules in non-Istio chains.
 - **Second Pass**: Only performed if `Reconcile=true`. The wrapper:
   1. Rechecks the current iptables state
-  2. Attempts to delete any jump rule to an Istio chain
-  3. Removes any remaining `ISTIO_*` chains
-  4. Uses parsing of the `--jump` field in iptables-save output
- 
+  1. Attempts to delete any jump rule to an Istio chain
+  1. Removes any remaining `ISTIO_*` chains
+  1. Uses parsing of the `--jump` field in iptables-save output
+
 The second pass is essential for CNI because workloads might have been enrolled by different Istio versions or instances with different iptables configurations.
 For non-CNI use cases, only the first pass is performed as in `istio-init` only reruns can occur and those always involve a current state that's a subset of the expected state.
 
 ### Limitations and guidelines
 
 1. **Order Insensitivity**: States are considered identical if they share the same rules, even if these rules appear in different orders.
-2. **Non-Istio Chain Rules**: Two states are considered identical if the only difference is that the current state has rules in non-ISTIO chains that are absent in the expected/desired state. This includes jump rules pointing to `ISTIO_*` chains in `OUTPUT`, `INPUT`, etc.
-3. **Cleanup Scope**: Second-pass cleanup can only remove leftover Istio chains and jumps to those chains. Any other non-jump rule in non-Istio chains will remain, as there's no reliable way to determine if it was created by Istio or the user.
+1. **Non-Istio Chain Rules**: Two states are considered identical if the only difference is that the current state has rules in non-ISTIO chains that are absent in the expected/desired state. This includes jump rules pointing to `ISTIO_*` chains in `OUTPUT`, `INPUT`, etc.
+1. **Cleanup Scope**: Second-pass cleanup can only remove leftover Istio chains and jumps to those chains. Any other non-jump rule in non-Istio chains will remain, as there's no reliable way to determine if it was created by Istio or the user.
 
 To avoid issues with the limitations above, the following guidelines needs to be kept in mind:
 1. Avoid using non-jump rules in non-ISTIO chains, as these can be difficult ```
 (or rather impossible...) to clean if they exist in some configurations but not others.
-2. Ensure that differences between configurations involve more than just rules in non-ISTIO chains (including jump rules to `ISTIO_*` chains).
-3. Make sure that configuration differences are more than just the order of the rules.
+1. Ensure that differences between configurations involve more than just rules in non-ISTIO chains (including jump rules to `ISTIO_*` chains).
+1. Make sure that configuration differences are more than just the order of the rules.
