@@ -68,6 +68,9 @@ type Config struct {
 	// Custom echo instances will be accessible from the `All` field in the namespace(s) under which they
 	// were created.
 	Configs echo.ConfigGetter
+
+	// ServiceNamePrefix allows setting a common prefix for all Services in the Configs
+	ServiceNamePrefix string
 }
 
 // AddConfigs appends to the configs to be deployed
@@ -99,8 +102,16 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 		c.Configs = echo.ConfigFuture(&defaultConfigs)
 	}
 
+	configs := c.Configs.Get()
+
+	if c.ServiceNamePrefix != "" {
+		for i := 0; i < len(configs); i++ {
+			configs[i].Service = c.ServiceNamePrefix + configs[i].Service
+		}
+	}
+
 	// Verify the namespace for any custom deployments.
-	for _, config := range c.Configs.Get() {
+	for _, config := range configs {
 		if config.Namespace != nil {
 			found := false
 			for _, ns := range c.Namespaces {
@@ -446,6 +457,7 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 	apps.NS = make([]EchoNamespace, len(cfg.Namespaces))
 	for i, ns := range cfg.Namespaces {
 		apps.NS[i].Namespace = ns.Get()
+		apps.NS[i].ServiceNamePrefix = cfg.ServiceNamePrefix
 	}
 	if !cfg.NoExternalNamespace {
 		apps.External.Namespace = cfg.ExternalNamespace.Get()

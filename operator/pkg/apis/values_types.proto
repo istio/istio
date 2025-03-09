@@ -617,7 +617,10 @@ message GlobalConfig {
 
   // Specifies how waypoints are configured within Istio.
   WaypointConfig waypoint = 72;
-  // The next available key is 73
+
+  // Select a custom name for istiod's CA Root Cert ConfigMap.
+  string trustBundleName = 73;
+  // The next available key is 74
 }
 
 // Configuration for Security Token Service (STS) server.
