@@ -241,10 +241,10 @@ func TestInboundListenerConfig(t *testing.T) {
 			// Ext auth makes 2 filters
 			wellknown.HTTPRoleBasedAccessControl,
 			wellknown.HTTPExternalAuthorization,
-			"extenstions.istio.io/wasmplugin/istio-system.wasm-authn",
-			"extenstions.istio.io/wasmplugin/istio-system.wasm-authz",
+			"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
+			"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
 			wellknown.HTTPRoleBasedAccessControl,
-			"extenstions.istio.io/wasmplugin/istio-system.wasm-stats",
+			"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
 			wellknown.HTTPGRPCStats,
 			xdsfilters.Fault.Name,
 			xdsfilters.Cors.Name,
@@ -253,9 +253,9 @@ func TestInboundListenerConfig(t *testing.T) {
 		}
 		httpNetworkFilters := []string{
 			xdsfilters.MxFilterName,
-			"extenstions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-			"extenstions.istio.io/wasmplugin/istio-system.wasm-network-authz",
-			"extenstions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
+			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
+			"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
 			wellknown.HTTPConnectionManager,
 		}
 		tcpNetworkFilters := []string{
@@ -263,10 +263,10 @@ func TestInboundListenerConfig(t *testing.T) {
 			// Ext auth makes 2 filters
 			wellknown.RoleBasedAccessControl,
 			wellknown.ExternalAuthorization,
-			"extenstions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-			"extenstions.istio.io/wasmplugin/istio-system.wasm-network-authz",
+			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
+			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
 			wellknown.RoleBasedAccessControl,
-			"extenstions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+			"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
 			xds.StatsFilterName,
 			wellknown.TCPProxy,
 		}
@@ -1178,9 +1178,9 @@ func TestOutboundFilters(t *testing.T) {
 					TotalMatch: true,
 					HTTPFilters: []string{
 						xdsfilters.MxFilterName,
-						"extenstions.istio.io/wasmplugin/istio-system.wasm-authn",
-						"extenstions.istio.io/wasmplugin/istio-system.wasm-authz",
-						"extenstions.istio.io/wasmplugin/istio-system.wasm-stats",
+						"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
+						"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
+						"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
 						wellknown.HTTPGRPCStats,
 						xdsfilters.AlpnFilterName,
 						xdsfilters.Fault.Name,
@@ -1189,9 +1189,9 @@ func TestOutboundFilters(t *testing.T) {
 						wellknown.Router,
 					},
 					NetworkFilters: []string{
-						"extenstions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-						"extenstions.istio.io/wasmplugin/istio-system.wasm-network-authz",
-						"extenstions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
+						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
+						"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
 						wellknown.HTTPConnectionManager,
 					},
 				},
@@ -1214,9 +1214,9 @@ func TestOutboundFilters(t *testing.T) {
 				{
 					TotalMatch: true,
 					NetworkFilters: []string{
-						"extenstions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-						"extenstions.istio.io/wasmplugin/istio-system.wasm-network-authz",
-						"extenstions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
+						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
+						"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
 						xds.StatsFilterName,
 						wellknown.TCPProxy,
 					},
