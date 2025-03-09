@@ -309,6 +309,13 @@ func TestManifestGenerateGateways(t *testing.T) {
 
 		checkRoleBindingsReferenceRoles(g, objs)
 	}
+
+	runTestGroup(t, testGroup{
+		{
+			desc:       "ingressgateway_k8s_settings",
+			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
+		},
+	})
 }
 
 func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
@@ -571,8 +578,8 @@ func TestManifestGeneratePilot(t *testing.T) {
 func TestManifestGenerateGateway(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
-			desc:       "ingressgateway_k8s_settings",
-			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
+			desc:       "gateway",
+			diffSelect: "Deployment:*:istio-ingress, Service:*:istio-ingress, HorizontalPodAutoscaler:*:istio-ingress, PodDisruptionBudget:*:istio-ingress",
 		},
 	})
 }

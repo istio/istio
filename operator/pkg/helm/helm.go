@@ -43,6 +43,7 @@ import (
 // Any warnings are also propagated up.
 // Note: this is the direct result of the Helm call. Postprocessing steps are done later.
 func Render(namespace string, directory string, iop values.Map, kubernetesVersion *version.Info) ([]manifest.Manifest, util.Errors, error) {
+	iopName := iop.GetPathStringOr("metadata.name", "istio")
 	vals, _ := iop.GetPathMap("spec.values")
 	installPackagePath := iop.GetPathString("spec.installPackagePath")
 	f := manifests.BuiltinOrDir(installPackagePath)
@@ -52,7 +53,7 @@ func Render(namespace string, directory string, iop values.Map, kubernetesVersio
 		return nil, nil, fmt.Errorf("load chart: %v", err)
 	}
 
-	output, warnings, err := renderChart(namespace, vals, chrt, kubernetesVersion)
+	output, warnings, err := renderChart(iopName, namespace, vals, chrt, kubernetesVersion)
 	if err != nil {
 		return nil, nil, fmt.Errorf("render chart: %v", err)
 	}
@@ -66,9 +67,9 @@ type TemplateFilterFunc func(string) bool
 type Warnings = util.Errors
 
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
-func renderChart(namespace string, vals values.Map, chrt *chart.Chart, version *version.Info) ([]string, Warnings, error) {
+func renderChart(iopName, namespace string, vals values.Map, chrt *chart.Chart, version *version.Info) ([]string, Warnings, error) {
 	options := chartutil.ReleaseOptions{
-		Name:      "istio", // TODO: this should probably have been the component name. However, its a bit late to change it.
+		Name:      iopName,
 		Namespace: namespace,
 	}
 
