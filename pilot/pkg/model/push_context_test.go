@@ -1291,6 +1291,7 @@ func TestWasmPlugins(t *testing.T) {
 func TestServiceIndex(t *testing.T) {
 	g := NewWithT(t)
 	env := NewEnvironment()
+	defer env.Close()
 	env.ConfigStore = NewFakeStore()
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
@@ -1542,6 +1543,7 @@ func serviceNames(svcs []*Service) []string {
 
 func TestInitPushContext(t *testing.T) {
 	env := NewEnvironment()
+	defer env.Close()
 	configStore := NewFakeStore()
 	_, _ = configStore.Create(config.Config{
 		Meta: config.Meta{
@@ -1766,6 +1768,7 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 	}
 
 	env := NewEnvironment()
+	defer env.Close()
 	configStore := NewFakeStore()
 
 	m := mesh.DefaultMeshConfig()
@@ -3035,6 +3038,7 @@ func TestInitVirtualService(t *testing.T) {
 func TestServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := NewEnvironment()
+	defer env.Close()
 	env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
 	ps.Mesh = env.Mesh()
 
@@ -3131,6 +3135,7 @@ func TestServiceWithExportTo(t *testing.T) {
 func TestInstancesByPort(t *testing.T) {
 	ps := NewPushContext()
 	env := NewEnvironment()
+	defer env.Close()
 	env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
 	ps.Mesh = env.Mesh()
 
@@ -3194,6 +3199,7 @@ func TestInstancesByPort(t *testing.T) {
 func TestGetHostsFromMeshConfig(t *testing.T) {
 	ps := NewPushContext()
 	env := NewEnvironment()
+	defer env.Close()
 	env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
 		RootNamespace: "istio-system",
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
