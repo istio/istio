@@ -334,7 +334,7 @@ message ApplicationTunnel {
     PROXY = 1;
   }
 
-  // A target natively handles this type of traffic.  
+  // A target natively handles this type of traffic.
   Protocol protocol = 1;
 
   // optional: if set, traffic should be sent to this port after the last zTunnel hop
