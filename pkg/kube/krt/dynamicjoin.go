@@ -43,25 +43,31 @@ type dynamicjoin[T any] struct {
 	synced                   *atomic.Bool
 	uncheckedOverlap         bool
 	syncer                   Syncer
+	merge                    func(ts []T) T
 	collectionChangeHandlers []func(collectionChangeEvent[T])
 }
 
 func (j *dynamicjoin[T]) GetKey(k string) *T {
 	j.RLock()
-	defer j.RUnlock()
-
-	for _, c := range maps.SeqStable(j.collectionsByKey) {
+	collections := j.collectionsByKey
+	j.RUnlock()
+	var found []T
+	for _, c := range maps.SeqStable(collections) {
 		if r := c.GetKey(k); r != nil {
-			return r
+			if j.merge == nil {
+				return r
+			}
+			found = append(found, *r)
 		}
 	}
-	return nil
+	if len(found) == 0 {
+		return nil
+	}
+	return ptr.Of(j.merge(found))
 }
 
-func (j *dynamicjoin[T]) List() []T {
+func (j *dynamicjoin[T]) quickListLocked() []T {
 	var res []T
-	j.RLock()
-	defer j.RUnlock()
 	if j.uncheckedOverlap {
 		first := true
 		for _, c := range maps.SeqStable(j.collectionsByKey) {
@@ -103,6 +109,31 @@ func (j *dynamicjoin[T]) List() []T {
 		}
 	}
 	return res
+}
+
+func (j *dynamicjoin[T]) mergeListLocked() []T {
+	res := map[Key[T]][]T{}
+	for _, c := range maps.SeqStable(j.collectionsByKey) {
+		for _, i := range c.List() {
+			key := getTypedKey(i)
+			res[key] = append(res[key], i)
+		}
+	}
+
+	var l []T
+	for _, ts := range res {
+		l = append(l, j.merge(ts))
+	}
+	return l
+}
+
+func (j *dynamicjoin[T]) List() []T {
+	j.RLock()
+	defer j.RUnlock()
+	if j.merge != nil {
+		return j.mergeListLocked()
+	}
+	return j.quickListLocked()
 }
 
 type dynamicMultiSyncer struct {
@@ -242,9 +273,6 @@ func (j *dynamicJoinIndexer) Lookup(key string) []any {
 	for _, i := range j.indexers {
 		l := i.Lookup(key)
 		if len(l) > 0 && first {
-			// TODO: add option to merge slices
-			// This is probably not going to be performant if we need
-			// to do lots of merges. Benchmark and optimize later.
 			// Optimization: re-use the first returned slice
 			res = l
 			first = false
@@ -358,10 +386,15 @@ func (j *dynamicjoin[T]) RemoveCollection(c Collection[T]) {
 	}
 }
 
-// JoinCollection combines multiple Collection[T] into a single
-// Collection[T] merging equal objects into one record
-// in the resulting Collection
+// DynamicJoinCollection is similar to a join collection, but
+// it allows for dynamic addition and removal of collections.
 func DynamicJoinCollection[T any](cs []Collection[T], opts ...CollectionOption) DynamicCollection[T] {
+	return DynamicJoinWithMergeCollection(cs, nil, opts...)
+}
+
+// DynamicJoinCollectionWithMerge allows the caller to specify a custom merge
+// function
+func DynamicJoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) T, opts ...CollectionOption) DynamicCollection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("DynamicJoin[%v]", ptr.TypeName[T]())
@@ -382,6 +415,9 @@ func DynamicJoinCollection[T any](cs []Collection[T], opts ...CollectionOption) 
 		synced.Store(true)
 		log.Infof("%v synced", o.name)
 	}()
+	if o.joinUnchecked && merge != nil {
+		log.Warn("DynamicJoinWithMergeCollection: unchecked overlap is ineffective with a merge function")
+	}
 	// Create a shallow copy of the collection map before returning it
 	// to avoid data races or locking in the waituntilsync goroutine
 	collections := maps.Clone(c)
@@ -395,5 +431,6 @@ func DynamicJoinCollection[T any](cs []Collection[T], opts ...CollectionOption) 
 			name: o.name,
 			f:    synced.Load,
 		},
+		merge: merge,
 	}
 }
