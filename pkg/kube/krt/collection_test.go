@@ -46,6 +46,10 @@ type SimplePod struct {
 }
 
 func SimplePodCollection(pods krt.Collection[*corev1.Pod], opts krt.OptionsBuilder) krt.Collection[SimplePod] {
+	return NamedSimplePodCollection(pods, opts, "SimplePods")
+}
+
+func NamedSimplePodCollection(pods krt.Collection[*corev1.Pod], opts krt.OptionsBuilder, name string) krt.Collection[SimplePod] {
 	return krt.NewCollection(pods, func(ctx krt.HandlerContext, i *corev1.Pod) *SimplePod {
 		if i.Status.PodIP == "" {
 			return nil
@@ -55,7 +59,7 @@ func SimplePodCollection(pods krt.Collection[*corev1.Pod], opts krt.OptionsBuild
 			Labeled: NewLabeled(i.Labels),
 			IP:      i.Status.PodIP,
 		}
-	}, opts.WithName("SimplePods")...)
+	}, opts.WithName(name)...)
 }
 
 type SizedPod struct {
