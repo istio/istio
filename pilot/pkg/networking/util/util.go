@@ -486,17 +486,11 @@ func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetada
 			canonicalRevision = ""
 		}
 
-		var sb strings.Builder
-		sb.WriteString(istioMetadata.WorkloadName)
-		sb.WriteString(";")
-		sb.WriteString(istioMetadata.Namespace)
-		sb.WriteString(";")
-		sb.WriteString(canonicalName)
-		sb.WriteString(";")
-		sb.WriteString(canonicalRevision)
-		sb.WriteString(";")
-		sb.WriteString(istioMetadata.ClusterID.String())
-		addIstioEndpointLabel(envoyMetadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
+		addIstioEndpointLabel(envoyMetadata, "destination_workload_name", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: istioMetadata.WorkloadName}})
+		addIstioEndpointLabel(envoyMetadata, "destination_workload_namespace", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: istioMetadata.Namespace}})
+		addIstioEndpointLabel(envoyMetadata, "destination_workload_canonical_name", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: canonicalName}})
+		addIstioEndpointLabel(envoyMetadata, "destination_workload_canonical_revision", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: canonicalRevision}})
+		addIstioEndpointLabel(envoyMetadata, "destination_workload_cluster_id", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: istioMetadata.ClusterID.String()}})
 	}
 }
 
