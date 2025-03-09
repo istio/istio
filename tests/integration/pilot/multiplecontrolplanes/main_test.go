@@ -68,48 +68,10 @@ func TestMain(m *testing.M) {
 			namespace.Setup(&userGroup1NS, namespace.Config{Prefix: "usergroup-1", Labels: map[string]string{"usergroup": "usergroup-1"}}),
 			namespace.Setup(&userGroup2NS, namespace.Config{Prefix: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}})).
 		Setup(istio.Setup(nil, func(ctx resource.Context, cfg *istio.Config) {
-			s := ctx.Settings()
-			// TODO test framework has to be enhanced to use istioNamespace in istioctl commands used for VM config
-			s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, echo.VM)
-			s.DisableDefaultExternalServiceConnectivity = true
-
-			cfg.Values["global.istioNamespace"] = userGroup1NS.Name()
-			cfg.SystemNamespace = userGroup1NS.Name()
-			cfg.ControlPlaneValues = fmt.Sprintf(`
-namespace: %s
-revision: usergroup-1
-meshConfig:
-  # REGISTRY_ONLY on one control plane is used to verify custom resources scoping
-  outboundTrafficPolicy:
-    mode: REGISTRY_ONLY
-  # CR scoping requires discoverySelectors to be configured
-  discoverySelectors:
-    - matchLabels:
-        usergroup: usergroup-1
-values:
-  global:
-    istioNamespace: %s`,
-				userGroup1NS.Name(), userGroup1NS.Name())
+			setupConfig(ctx, cfg, "usergroup-1")
 		})).
 		Setup(istio.Setup(nil, func(ctx resource.Context, cfg *istio.Config) {
-			s := ctx.Settings()
-			// TODO test framework has to be enhanced to use istioNamespace in istioctl commands used for VM config
-			s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, echo.VM)
-
-			cfg.Values["global.istioNamespace"] = userGroup2NS.Name()
-			cfg.SystemNamespace = userGroup2NS.Name()
-			cfg.ControlPlaneValues = fmt.Sprintf(`
-namespace: %s
-revision: usergroup-2
-meshConfig:
-  # CR scoping requires discoverySelectors to be configured
-  discoverySelectors:
-    - matchLabels:
-        usergroup: usergroup-2
-values:
-  global:
-    istioNamespace: %s`,
-				userGroup2NS.Name(), userGroup2NS.Name())
+			setupConfig(ctx, cfg, "usergroup-2")
 		})).
 		SetupParallel(
 			// application namespaces are labeled according to the required control plane ownership.
@@ -127,6 +89,41 @@ values:
 				ExternalNamespace: namespace.Future(&externalNS),
 			})).
 		Run()
+}
+
+func setupConfig(ctx resource.Context, cfg *istio.Config, userGroup string) {
+	if cfg == nil {
+		return
+	}
+	s := ctx.Settings()
+	// TODO test framework has to be enhanced to use istioNamespace in istioctl commands used for VM config
+	s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, echo.VM)
+	s.DisableDefaultExternalServiceConnectivity = true
+
+	// Determine the correct namespace
+	var namespace string
+	if userGroup == "usergroup-2" {
+		namespace = userGroup2NS.Name()
+	} else {
+		namespace = userGroup1NS.Name()
+	}
+
+	cfg.SystemNamespace = namespace
+	cfg.ControlPlaneValues = fmt.Sprintf(`
+namespace: %s
+revision: %s
+meshConfig:
+  # REGISTRY_ONLY on one control plane is used to verify custom resources scoping
+  outboundTrafficPolicy:
+    mode: REGISTRY_ONLY
+  # CR scoping requires discoverySelectors to be configured
+  discoverySelectors:
+    - matchLabels:
+        usergroup: %s
+values:
+  global:
+    istioNamespace: %s`,
+	namespace, userGroup, userGroup, namespace)
 }
 
 // TestMultiControlPlane sets up two distinct istio control planes and verify if resources and traffic are properly isolated

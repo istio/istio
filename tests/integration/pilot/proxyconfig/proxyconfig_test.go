@@ -42,8 +42,20 @@ func TestMain(m *testing.M) {
 		NewSuite(m).
 		Skip("used for feature development, no need to run in CI").
 		Label(label.CustomSetup).
-		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
+		Setup(istio.Setup(&i, setupConfig)).
+		Run()
+}
+
+type proxyConfigInstance struct {
+	namespace string
+	config    string
+}
+
+func setupConfig(ctx resource.Context, cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.ControlPlaneValues = `
 values:
   meshConfig:
     defaultConfig:
@@ -51,13 +63,6 @@ values:
         A: "1"
         B: "2"
       `
-		})).
-		Run()
-}
-
-type proxyConfigInstance struct {
-	namespace string
-	config    string
 }
 
 func TestProxyConfig(t *testing.T) {
