@@ -140,6 +140,7 @@ type Options struct {
 	PrometheusRegistry prometheus.Gatherer
 	Shutdown           context.CancelCauseFunc
 	TriggerDrain       func()
+	DisableDrain       func()
 }
 
 // Server provides an endpoint for handling status probes.
@@ -161,6 +162,7 @@ type Server struct {
 	registry              prometheus.Gatherer
 	shutdown              context.CancelCauseFunc
 	drain                 func()
+	disableDrain          func()
 }
 
 func initializeMonitoring() (prometheus.Gatherer, error) {
@@ -228,6 +230,7 @@ func NewServer(config Options) (*Server, error) {
 		registry:              registry,
 		shutdown:              config.Shutdown,
 		drain:                 config.TriggerDrain,
+		disableDrain:          config.DisableDrain,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -699,6 +702,8 @@ func (s *Server) handleQuit(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 	log.Infof("handling %s, notifying pilot-agent to exit", quitPath)
+	s.disableDrain()
+	// Notify the agent to exit.
 	s.shutdown(fmt.Errorf("%v called", quitPath))
 }
 

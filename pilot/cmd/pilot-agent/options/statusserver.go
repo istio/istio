@@ -37,5 +37,8 @@ func NewStatusServerOptions(ipv6 bool, t model.NodeType, proxyConfig *meshconfig
 		TriggerDrain: func() {
 			agent.DrainNow()
 		},
+		DisableDrain: func() {
+			agent.SkipDrain()
+		},
 	}
 }
