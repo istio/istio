@@ -71,7 +71,6 @@ For the CNI, a two-pass cleanup logic is needed to ensure the correctness of the
   1. Rechecks the current iptables state
   1. Attempts to delete any jump rule to an Istio chain
   1. Removes any remaining `ISTIO_*` chains
-  1. Uses parsing of the `--jump` field in iptables-save output
 
 The second pass is essential for CNI because workloads might have been enrolled by different Istio versions or instances with different iptables configurations.
 For non-CNI use cases, only the first pass is performed as in `istio-init` only reruns can occur and those always involve a current state that's a subset of the expected state.
