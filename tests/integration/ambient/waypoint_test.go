@@ -645,7 +645,7 @@ spec:
 		t.NewSubTest("sidecar-service").Run(func(t framework.TestContext) {
 			for _, src := range apps.Sidecar {
 				for _, dst := range apps.ServiceAddressedWaypoint {
-					for _, opt := range callOptions {
+					for _, opt := range basicCalls {
 						t.NewSubTestf("%v", opt.Scheme).Run(func(t framework.TestContext) {
 							opt = opt.DeepCopy()
 							opt.To = dst
@@ -661,7 +661,7 @@ spec:
 			for _, src := range apps.Sidecar {
 				for _, dst := range apps.WorkloadAddressedWaypoint {
 					for _, dstWl := range dst.WorkloadsOrFail(t) {
-						for _, opt := range callOptions {
+						for _, opt := range basicCalls {
 							t.NewSubTestf("%v-%v", opt.Scheme, dstWl.Address()).Run(func(t framework.TestContext) {
 								opt = opt.DeepCopy()
 								opt.Address = dstWl.Address()
