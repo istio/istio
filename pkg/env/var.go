@@ -22,6 +22,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,6 +47,33 @@ const (
 	OTHER
 )
 
+type UsedBy byte
+
+const (
+	ALL UsedBy = iota
+	DISCOVERY
+	CNI
+	AGENT
+	ISTIOCTL
+)
+
+func (u UsedBy) IsUsedBy(s string) bool {
+	switch u {
+	case ALL:
+		return true
+	case DISCOVERY:
+		return strings.EqualFold("pilot-discover", s)
+	case AGENT:
+		return strings.EqualFold("pilot-agent", s)
+	case CNI:
+		return strings.EqualFold("install-cni", s)
+	case ISTIOCTL:
+		return strings.EqualFold("istioctl", s)
+	default:
+		panic(fmt.Sprintf("unexpected env.UsedBy: %#v", u))
+	}
+}
+
 // Var describes a single environment variable
 type Var struct {
 	// The name of the environment variable.
@@ -68,6 +96,8 @@ type Var struct {
 
 	// The underlying Go type of the variable
 	GoType string
+
+	Binary UsedBy
 }
 
 // StringVar represents a single string environment variable.
@@ -125,71 +155,83 @@ type GenericVar[T Parseable] struct {
 	delegate specializedVar[T]
 }
 
-func Register[T Parseable](name string, defaultValue T, description string) GenericVar[T] {
+type VarOption func(*Var)
+
+func OptionBinary(binary UsedBy) VarOption {
+	return func(v *Var) {
+		v.Binary = binary
+	}
+}
+
+func Register[T Parseable](name string, defaultValue T, description string, opts ...VarOption) GenericVar[T] {
 	// Specialized cases
 	// In the future, once only Register() remains, we can likely drop most of these.
 	// however, time.Duration is needed still as it doesn't implement json
 	switch d := any(defaultValue).(type) {
 	case time.Duration:
-		v := RegisterDurationVar(name, d, description)
+		v := RegisterDurationVar(name, d, description, opts...)
 		return GenericVar[T]{v.Var, any(v).(specializedVar[T])}
 	case string:
-		v := RegisterStringVar(name, d, description)
+		v := RegisterStringVar(name, d, description, opts...)
 		return GenericVar[T]{v.Var, any(v).(specializedVar[T])}
 	case float64:
-		v := RegisterFloatVar(name, d, description)
+		v := RegisterFloatVar(name, d, description, opts...)
 		return GenericVar[T]{v.Var, any(v).(specializedVar[T])}
 	case int:
-		v := RegisterIntVar(name, d, description)
+		v := RegisterIntVar(name, d, description, opts...)
 		return GenericVar[T]{v.Var, any(v).(specializedVar[T])}
 	case bool:
-		v := RegisterBoolVar(name, d, description)
+		v := RegisterBoolVar(name, d, description, opts...)
 		return GenericVar[T]{v.Var, any(v).(specializedVar[T])}
 	}
 	b, _ := json.Marshal(defaultValue)
 	v := Var{Name: name, DefaultValue: string(b), Description: description, Type: STRING, GoType: fmt.Sprintf("%T", defaultValue)}
-	RegisterVar(v)
+	RegisterVar(v, opts...)
 	return GenericVar[T]{getVar(name), nil}
 }
 
 // RegisterStringVar registers a new string environment variable.
-func RegisterStringVar(name string, defaultValue string, description string) StringVar {
+func RegisterStringVar(name string, defaultValue string, description string, opts ...VarOption) StringVar {
 	v := Var{Name: name, DefaultValue: defaultValue, Description: description, Type: STRING}
-	RegisterVar(v)
+	RegisterVar(v, opts...)
 	return StringVar{getVar(name)}
 }
 
 // RegisterBoolVar registers a new boolean environment variable.
-func RegisterBoolVar(name string, defaultValue bool, description string) BoolVar {
+func RegisterBoolVar(name string, defaultValue bool, description string, opts ...VarOption) BoolVar {
 	v := Var{Name: name, DefaultValue: strconv.FormatBool(defaultValue), Description: description, Type: BOOL}
-	RegisterVar(v)
+	RegisterVar(v, opts...)
 	return BoolVar{getVar(name)}
 }
 
 // RegisterIntVar registers a new integer environment variable.
-func RegisterIntVar(name string, defaultValue int, description string) IntVar {
+func RegisterIntVar(name string, defaultValue int, description string, opts ...VarOption) IntVar {
 	v := Var{Name: name, DefaultValue: strconv.FormatInt(int64(defaultValue), 10), Description: description, Type: INT}
-	RegisterVar(v)
+	RegisterVar(v, opts...)
 	return IntVar{getVar(name)}
 }
 
 // RegisterFloatVar registers a new floating-point environment variable.
-func RegisterFloatVar(name string, defaultValue float64, description string) FloatVar {
+func RegisterFloatVar(name string, defaultValue float64, description string, opts ...VarOption) FloatVar {
 	v := Var{Name: name, DefaultValue: strconv.FormatFloat(defaultValue, 'G', -1, 64), Description: description, Type: FLOAT}
-	RegisterVar(v)
+	RegisterVar(v, opts...)
 	return FloatVar{v}
 }
 
 // RegisterDurationVar registers a new duration environment variable.
-func RegisterDurationVar(name string, defaultValue time.Duration, description string) DurationVar {
+func RegisterDurationVar(name string, defaultValue time.Duration, description string, opts ...VarOption) DurationVar {
 	v := Var{Name: name, DefaultValue: defaultValue.String(), Description: description, Type: DURATION}
-	RegisterVar(v)
+	RegisterVar(v, opts...)
 	return DurationVar{getVar(name)}
 }
 
 // RegisterVar registers a generic environment variable.
-func RegisterVar(v Var) {
+func RegisterVar(v Var, opts ...VarOption) {
 	mutex.Lock()
+
+	for _, o := range opts {
+		o(&v)
+	}
 
 	if old, ok := allVars[v.Name]; ok {
 		if v.Description != "" {
