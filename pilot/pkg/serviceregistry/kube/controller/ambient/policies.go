@@ -17,10 +17,12 @@ package ambient
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/model"
@@ -132,6 +134,10 @@ func PolicyCollections(
 	flags FeatureFlags,
 ) (krt.Collection[model.WorkloadAuthorization], krt.Collection[model.WorkloadAuthorization]) {
 	AuthzDerivedPolicies := krt.NewCollection(authzPolicies, func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WorkloadAuthorization {
+		dryRun, _ := strconv.ParseBool(i.Annotations[annotation.IoIstioDryRun.Name])
+		if dryRun {
+			return nil
+		}
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		pol, status := convertAuthorizationPolicy(meshCfg.GetRootNamespace(), i)
 		if status == nil && pol == nil {
