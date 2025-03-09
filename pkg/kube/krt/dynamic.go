@@ -65,6 +65,7 @@ type collectionMembershipEvent int
 const (
 	collectionMembershipEventAdd collectionMembershipEvent = iota
 	collectionMembershipEventDelete
+	collectionMembershipEventUpdate
 )
 
 type collectionChangeEvent[T any] struct {

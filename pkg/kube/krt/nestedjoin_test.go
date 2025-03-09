@@ -15,29 +15,21 @@
 package krt_test
 
 import (
-	"net/netip"
 	"testing"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	istio "istio.io/api/networking/v1alpha3"
-	istioclient "istio.io/client-go/pkg/apis/networking/v1"
-	"istio.io/istio/pilot/pkg/model"
-	srkube "istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
-	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestNestedJoinCollection(t *testing.T) {
@@ -244,87 +236,84 @@ func TestNestedJoinCollectionSync(t *testing.T) {
 	})
 }
 
+// This differes from the previous index test in that it passes a
+// nested join to a regular collection to ensure that nested collections
+// work as expected.
 func TestNestedJoinCollectionTransform(t *testing.T) {
 	stop := test.NewStop(t)
 	opts := testOptions(t)
 	c := kube.NewFakeClient()
-	services1 := krt.NewInformer[*corev1.Service](c, opts.WithName("Services")...)
-	serviceEntries1 := krt.NewInformer[*istioclient.ServiceEntry](c, opts.WithName("ServiceEntries")...)
-	allServices := krt.NewStaticCollection(nil, []krt.Collection[*corev1.Service]{
-		services1,
-	}, opts.WithName("services")...)
-	allServiceEntries := krt.NewStaticCollection(nil, []krt.Collection[*istioclient.ServiceEntry]{
-		serviceEntries1,
-	}, opts.WithName("ServiceEntries1")...)
 
-	AllServices := krt.NestedJoinCollection(
-		allServices,
-		opts.WithName("AllServices")...)
-	AllServiceEntries := krt.NestedJoinCollection(
-		allServiceEntries,
-		opts.WithName("AllServiceEntries")...,
+	pods := krt.NewInformer[*corev1.Pod](c, opts.WithName("Pods")...)
+	MultiPods := krt.NewStaticCollection(
+		nil,
+		[]krt.Collection[*corev1.Pod]{pods},
+		opts.WithName("MultiPods")...,
 	)
-
+	AllPods := krt.NestedJoinCollection(
+		MultiPods,
+		opts.WithName("AllPods")...,
+	)
 	c.RunAndWait(stop)
-	sc := clienttest.Wrap(t, kclient.New[*corev1.Service](c))
+	assert.EventuallyEqual(t, func() bool {
+		return AllPods.WaitUntilSynced(opts.Stop())
+	}, true)
 
-	serviceBuilder := func() krt.TransformationSingle[*corev1.Service, model.ServiceInfo] {
-		return func(ctx krt.HandlerContext, s *corev1.Service) *model.ServiceInfo {
-			if s.Spec.Type == corev1.ServiceTypeExternalName {
-				// ExternalName services are not implemented by ambient (but will still work).
-				// The DNS requests will forward to the upstream DNS server, then Ztunnel can handle the request based on the target
-				// hostname.
-				// In theory we could add support for native 'DNS alias' into Ztunnel's DNS proxy. This would give the same behavior
-				// but let the DNS proxy handle it instead of forwarding upstream. However, at this time we do not do so.
-				return nil
-			}
-			portNames := map[int32]model.ServicePortName{}
-			for _, p := range s.Spec.Ports {
-				portNames[p.Port] = model.ServicePortName{
-					PortName:       p.Name,
-					TargetPortName: p.TargetPort.StrVal,
-				}
-			}
-			svc := constructService(ctx, s)
-			return &model.ServiceInfo{
-				Service:       svc,
-				PortNames:     portNames,
-				LabelSelector: model.NewSelector(s.Spec.Selector),
-				Source:        ambient.MakeSource(s),
-			}
+	pc := clienttest.Wrap(t, kclient.New[*corev1.Pod](c))
+
+	SimplePods := krt.NewCollection(AllPods, func(ctx krt.HandlerContext, o *corev1.Pod) *SimplePod {
+		return &SimplePod{
+			Named:   Named{o.Namespace, o.Name},
+			Labeled: Labeled{o.Labels},
+			IP:      o.Status.PodIP,
 		}
+	}, opts.WithName("SimplePods")...)
+
+	tt := assert.NewTracker[string](t)
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+		return []string{o.IP}
+	})
+
+	fetchSorted := func(ip string) []SimplePod {
+		return slices.SortBy(IPIndex.Lookup(ip), func(t SimplePod) string {
+			return t.ResourceName()
+		})
 	}
 
-	serviceEntriesBuilder := func() krt.TransformationMulti[*istioclient.ServiceEntry, model.ServiceInfo] {
-		return func(ctx krt.HandlerContext, se *istioclient.ServiceEntry) []model.ServiceInfo {
-			sel := model.NewSelector(se.Spec.GetWorkloadSelector().GetLabels())
-			portNames := map[int32]model.ServicePortName{}
-			for _, p := range se.Spec.Ports {
-				portNames[int32(p.Number)] = model.ServicePortName{
-					PortName: p.Name,
-				}
-			}
-			return slices.Map(constructServiceEntries(ctx, se), func(e *workloadapi.Service) model.ServiceInfo {
-				return model.ServiceInfo{
-					Service:       e,
-					PortNames:     portNames,
-					LabelSelector: sel,
-					Source:        ambient.MakeSource(se),
-				}
-			})
-		}
+	SimplePods.Register(TrackerHandler[SimplePod](tt))
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "name",
+			Namespace: "namespace",
+		},
+		Status: corev1.PodStatus{PodIP: "1.2.3.4"},
 	}
-	ServicesInfo := krt.NewCollection(AllServices, serviceBuilder(), opts.WithName("ServicesInfo")...)
-	ServiceEntriesInfo := krt.NewManyCollection(AllServiceEntries, serviceEntriesBuilder(), opts.WithName("ServiceEntriesInfo")...)
-	WorkloadServices := krt.JoinCollection(
-		[]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo},
-		opts.WithName("WorkloadServices")...,
-	)
+	pc.CreateOrUpdateStatus(pod)
+	tt.WaitUnordered("add/namespace/name")
+	assert.Equal(t, fetchSorted("1.2.3.4"), []SimplePod{{NewNamed(pod), Labeled{}, "1.2.3.4"}})
 
-	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](WorkloadServices, networkAddressFromService)
-	assert.Equal(t, ServiceAddressIndex.Lookup(networkAddress{"testnetwork", "1.2.3.4"}), nil)
+	c2 := kube.NewFakeClient()
+	kpc2 := kclient.New[*corev1.Pod](c2)
+	pc2 := clienttest.Wrap(t, kpc2)
+	pods2 := krt.WrapClient[*corev1.Pod](kpc2, opts.WithName("Pods2")...)
+	c2.RunAndWait(stop)
+	MultiPods.UpdateObject(pods2)
 
-	// Create a new service
+	pod2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "name2",
+			Namespace: "namespace",
+		},
+		Status: corev1.PodStatus{PodIP: "1.2.3.5"},
+	}
+	pc2.CreateOrUpdateStatus(pod2)
+	tt.WaitUnordered("add/namespace/name2")
+	assert.Equal(t, fetchSorted("1.2.3.5"), []SimplePod{{NewNamed(pod2), Labeled{}, "1.2.3.5"}})
+}
+
+func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
+	opts := testOptions(t)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "svc",
@@ -333,126 +322,118 @@ func TestNestedJoinCollectionTransform(t *testing.T) {
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{"app": "foo"},
 			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       80,
-					TargetPort: intstr.FromInt(8080),
-					Protocol:   corev1.ProtocolTCP,
-				},
+				{Name: "http", Port: 80, TargetPort: intstr.FromInt(8080)},
 			},
 			ClusterIP: "1.2.3.4",
 		},
 	}
-	sc.Create(svc)
 
-	// The ServiceInfo should arrive in the index
-	assert.EventuallyEqual(t, func() []model.ServiceInfo {
-		return slices.SortBy(ServiceAddressIndex.Lookup(networkAddress{"testnetwork", "1.2.3.4"}), func(s model.ServiceInfo) string {
-			return s.Service.Hostname
-		})
-	}, []model.ServiceInfo{
-		{
-			Service: &workloadapi.Service{
-				Name:      "svc",
-				Namespace: "namespace",
-				Hostname:  string(srkube.ServiceHostname("svc", "namespace", "test.local")),
-				Addresses: []*workloadapi.NetworkAddress{
-					{
-						Network: "testnetwork",
-						Address: netip.MustParseAddr("1.2.3.4").AsSlice(),
-					},
-				},
-				Ports: []*workloadapi.Port{
-					{
-						ServicePort: uint32(80),
-						TargetPort:  uint32(8080),
-					},
-				},
-			},
-			LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-			PortNames: map[int32]model.ServicePortName{
-				80: {
-					PortName: "http",
-				},
-			},
-			Source: model.TypedObject{
-				Kind: kind.Service,
-				NamespacedName: types.NamespacedName{
-					Name:      "svc",
-					Namespace: "namespace",
-				},
-			},
+	c := kube.NewFakeClient(svc)
+	services1 := krt.NewInformer[*corev1.Service](c, opts.WithName("Services")...)
+	SimpleServices := krt.NewCollection(services1, func(ctx krt.HandlerContext, o *corev1.Service) *SimpleService {
+		return &SimpleService{
+			Named:    Named{o.Namespace, o.Name},
+			Selector: o.Spec.Selector,
+		}
+	}, opts.WithName("SimpleServices")...)
+	MultiServices := krt.NewStaticCollection(
+		nil,
+		[]krt.Collection[SimpleService]{SimpleServices},
+		opts.WithName("MultiServices")...,
+	)
+
+	AllServices := krt.NestedJoinWithMergeCollection(
+		MultiServices,
+		func(ts []SimpleService) *SimpleService {
+			if len(ts) == 0 {
+				return nil
+			}
+
+			simpleService := ts[0]
+
+			for i, t := range ts {
+				if i == 0 {
+					continue
+				}
+				// SimpleService values always take precedence
+				newSelector := maps.MergeCopy(t.Selector, simpleService.Selector)
+				simpleService.Selector = newSelector
+			}
+
+			return &simpleService
 		},
-	})
-	assert.Equal(t, ServiceAddressIndex.Lookup(networkAddress{"testnetwork", "1.2.3.5"}), nil)
+		opts.With(
+			krt.WithName("AllServices"),
+		)...,
+	)
+	tt := assert.NewTracker[string](t)
+	AllServices.Register(TrackerHandler[SimpleService](tt))
+	c.RunAndWait(opts.Stop())
+	assert.EventuallyEqual(t, func() bool {
+		return AllServices.WaitUntilSynced(opts.Stop())
+	}, true)
 
-	// Add new fake client
-	c2 := kube.NewFakeClient()
-	serviceEntries2 := krt.NewInformer[*istioclient.ServiceEntry](c2, opts.WithName("ServiceEntries2")...)
-	c2.RunAndWait(stop)
-
-	allServiceEntries.UpdateObject(serviceEntries2)
-	sec2 := clienttest.Wrap(t, kclient.New[*istioclient.ServiceEntry](c2))
-	se2 := &istioclient.ServiceEntry{
+	svc2 := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "svc-entry",
+			Name:      "svc",
 			Namespace: "namespace",
 		},
-		Spec: istio.ServiceEntry{
-			WorkloadSelector: &istio.WorkloadSelector{
-				Labels: map[string]string{"app": "foo"},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"app": "bar", "version": "v1"},
+			Ports: []corev1.ServicePort{
+				{Name: "http", Port: 80, TargetPort: intstr.FromInt(8080)},
 			},
-			Hosts:     []string{"svc-entry.namespace.svc.test.local"},
-			Addresses: []string{"1.2.3.5"},
-			Ports: []*istio.ServicePort{
-				{
-					Number:     80,
-					Name:       "http",
-					Protocol:   "http",
-					TargetPort: 8080,
-				},
-			},
+			ClusterIP: "1.2.3.4",
 		},
 	}
-	sec2.Create(se2)
-	// We should see new ServiceInfo in the index
-	assert.EventuallyEqual(t, func() []model.ServiceInfo {
-		return slices.SortBy(ServiceAddressIndex.Lookup(networkAddress{"testnetwork", "1.2.3.5"}), func(s model.ServiceInfo) string {
-			return s.Service.Hostname
-		})
-	}, []model.ServiceInfo{
-		{
-			Service: &workloadapi.Service{
-				Name:      "svc-entry",
-				Namespace: "namespace",
-				Hostname:  string(srkube.ServiceHostname("svc-entry", "namespace", "test.local")),
-				Addresses: []*workloadapi.NetworkAddress{
-					{
-						Network: "testnetwork",
-						Address: netip.MustParseAddr("1.2.3.5").AsSlice(),
-					},
-				},
-				Ports: []*workloadapi.Port{
-					{
-						ServicePort: uint32(80),
-						TargetPort:  uint32(8080),
-					},
-				},
-				LoadBalancing: &workloadapi.LoadBalancing{},
-			},
-			LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-			PortNames: map[int32]model.ServicePortName{
-				80: {
-					PortName: "http",
-				},
-			},
-			Source: model.TypedObject{
-				Kind: kind.ServiceEntry,
-				NamespacedName: types.NamespacedName{
-					Name:      "svc-entry",
-					Namespace: "namespace",
-				},
-			},
-		},
+
+	c2 := kube.NewFakeClient(svc2)
+	services2 := krt.NewInformer[*corev1.Service](c2, opts.WithName("Services")...)
+	SimpleServices2 := krt.NewCollection(services2, func(ctx krt.HandlerContext, o *corev1.Service) *SimpleService {
+		return &SimpleService{
+			Named:    Named{o.Namespace, o.Name},
+			Selector: o.Spec.Selector,
+		}
+	}, opts.WithName("SimpleServices2")...)
+	c2.RunAndWait(opts.Stop())
+
+	MultiServices.UpdateObject(SimpleServices2)
+
+	assert.EventuallyEqual(t, func() *SimpleService {
+		return AllServices.GetKey("namespace/svc")
+	}, &SimpleService{
+		Named:    Named{"namespace", "svc"},
+		Selector: map[string]string{"app": "foo", "version": "v1"},
 	})
+
+	// Have to wait a bit for the events to propagate due to client syncing
+	// But what we want is the original add and then an update because the
+	// merged value changed
+	tt.WaitOrdered("add/namespace/svc", "update/namespace/svc")
+
+	svc3 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc",
+			Namespace: "namespace",
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"app": "bar", "version": "v1"},
+			Ports: []corev1.ServicePort{
+				{Name: "http", Port: 80, TargetPort: intstr.FromInt(8080)},
+			},
+			ClusterIP: "1.2.3.4",
+		},
+	}
+
+	c3 := kube.NewFakeClient(svc3)
+	services3 := krt.NewInformer[*corev1.Service](c3, opts.WithName("Services")...)
+	SimpleServices3 := krt.NewCollection(services3, func(ctx krt.HandlerContext, o *corev1.Service) *SimpleService {
+		return &SimpleService{
+			Named:    Named{o.Namespace, o.Name},
+			Selector: o.Spec.Selector,
+		}
+	}, opts.WithName("SimpleServices3")...)
+	c2.RunAndWait(opts.Stop())
+
+	MultiServices.UpdateObject(SimpleServices3)
 }
