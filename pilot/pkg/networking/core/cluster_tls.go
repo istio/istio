@@ -332,7 +332,7 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 				if tls.Mode == networking.ClientTLSSettings_ISTIO_MUTUAL {
 					// If a user sets ISTIO_MUTUAL, then HBONE is replacing it. So we will do HBONE or mTLS, depending on backend support.
 					c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
-						hboneTransportSocket(ts),
+						hboneTransportSocket(xdsfilters.RawBufferTransportSocket),
 						{
 							Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
 							TransportSocket: ts,
