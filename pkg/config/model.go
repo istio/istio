@@ -36,6 +36,8 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/gogoprotomarshal"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -326,6 +328,82 @@ func DeepCopy(s any) any {
 	}
 	data = reflect.ValueOf(data).Elem().Interface()
 	return data
+}
+
+func (c *Config) Equals(other *Config) bool {
+	am, bm := c.Meta, other.Meta
+	if am.GroupVersionKind != bm.GroupVersionKind {
+		return false
+	}
+	if am.UID != bm.UID {
+		return false
+	}
+	if am.Name != bm.Name {
+		return false
+	}
+	if am.Namespace != bm.Namespace {
+		return false
+	}
+	if am.Domain != bm.Domain {
+		return false
+	}
+	if !maps.Equal(am.Labels, bm.Labels) {
+		return false
+	}
+	if !maps.Equal(am.Annotations, bm.Annotations) {
+		return false
+	}
+	if am.ResourceVersion != bm.ResourceVersion {
+		return false
+	}
+	if am.CreationTimestamp != bm.CreationTimestamp {
+		return false
+	}
+	if !slices.EqualFunc(am.OwnerReferences, bm.OwnerReferences, func(a metav1.OwnerReference, b metav1.OwnerReference) bool {
+		if a.APIVersion != b.APIVersion {
+			return false
+		}
+		if a.Kind != b.Kind {
+			return false
+		}
+		if a.Name != b.Name {
+			return false
+		}
+		if a.UID != b.UID {
+			return false
+		}
+		if !ptr.Equal(a.Controller, b.Controller) {
+			return false
+		}
+		if !ptr.Equal(a.BlockOwnerDeletion, b.BlockOwnerDeletion) {
+			return false
+		}
+		return true
+	}) {
+		return false
+	}
+	if am.Generation != bm.Generation {
+		return false
+	}
+
+	if !equals(c.Spec, other.Spec) {
+		return false
+	}
+	if !equals(c.Status, other.Status) {
+		return false
+	}
+	return true
+}
+
+func equals(a any, b any) bool {
+	if _, ok := a.(protoreflect.ProtoMessage); ok {
+		if pb, ok := a.(proto.Message); ok {
+			return proto.Equal(pb, b.(proto.Message))
+		}
+	}
+	// We do NOT do gogo here. The reason is Kubernetes has hacked up almost-gogo types that do not allow Equals() calls
+
+	return reflect.DeepEqual(a, b)
 }
 
 type Status any
