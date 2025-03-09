@@ -1,4 +1,4 @@
-// Copyright Your Company
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +17,12 @@ package gateway
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
-	"strings"
+	"strconv"
 
 	istiolog "istio.io/istio/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -40,6 +38,8 @@ import (
 const maxServiceNameLength = 63
 const hashSize = 8
 const InferencePoolRefLabel = "inference.x-k8s.io/inference-pool-name"
+const InferencePoolExtensionRefSvc = "inference.x-k8s.io/extension-service"
+const InferencePoolExtensionRefPort = "inference.x-k8s.io/extension-port"
 
 // // ManagedLabel is the label used to identify resources managed by this controller
 // const ManagedLabel = "inference.x-k8s.io/managed-by"
@@ -114,9 +114,7 @@ func (ic *InferencePoolController) Reconcile(req types.NamespacedName) error {
 	pool := ic.pools.Get(req.Name, req.Namespace)
 	if pool == nil {
 		log.Debugf("inference pool no longer exists")
-		// we'll ignore not-found errors, since they can't be fixed by an immediate
-		// requeue (we'll need to wait for a new notification), and we can get them
-		// on deleted requests.
+		// TODO
 		return nil
 	}
 
@@ -130,8 +128,6 @@ func (ic *InferencePoolController) Reconcile(req types.NamespacedName) error {
 
 // // isManaged checks if the controller should manage this InferencePool
 // func isManaged(pool *inferencev1alpha2.InferencePool) bool {
-// 	// Implement your logic to determine if this pool should be managed
-// 	// For example, you might check for a specific annotation or condition
 // 	return true
 // }
 
@@ -165,11 +161,9 @@ func generateHash(input string, length int) string {
 	return hashString[:length]                 // Truncate to desired length
 }
 
-// translateInferencePoolToService converts an InferencePool to a Service
-// This is a placeholder - you'll implement this function
-func translateInferencePoolToService(pool *inferencev1alpha2.InferencePool) (*corev1.Service, error) {
-	hash := generateHash(pool.Name, hashSize)
-	svcName := fmt.Sprintf("%s-ip-%s", pool.Name, hash)
+func InferencePoolServiceName(poolName string) string {
+	hash := generateHash(poolName, hashSize)
+	svcName := fmt.Sprintf("%s-ip-%s", poolName, hash)
 	// Truncate if necessary to meet the Kubernetes naming constraints
 	if len(svcName) > maxServiceNameLength {
 		// Calculate the maximum allowed base name length
@@ -179,9 +173,15 @@ func translateInferencePoolToService(pool *inferencev1alpha2.InferencePool) (*co
 		// }
 
 		// Truncate the base name and reconstruct the service name
-		truncatedBase := pool.Name[:maxBaseLength]
+		truncatedBase := poolName[:maxBaseLength]
 		svcName = fmt.Sprintf("%s-ip-%s", truncatedBase, hash)
 	}
+	return svcName
+}
+
+// translateInferencePoolToService converts an InferencePool to a Service
+func translateInferencePoolToService(pool *inferencev1alpha2.InferencePool) (*corev1.Service, error) {
+	svcName := InferencePoolServiceName(pool.Name)
 
 	// if err != nil {
 	// 	retErr := fmt.Errorf("cannot generate service name for InferencePool %s/%s: %w", inferPool.GetNamespace(), inferPool.GetName(), err)
@@ -200,6 +200,14 @@ func translateInferencePoolToService(pool *inferencev1alpha2.InferencePool) (*co
 		shadowSvc.Labels = map[string]string{}
 	}
 	shadowSvc.Labels[InferencePoolRefLabel] = pool.GetName()
+	//TODO: for now, supporting only service
+	extRef := pool.Spec.ExtensionRef
+	shadowSvc.Labels[InferencePoolExtensionRefSvc] = string(extRef.Name)
+	if extRef.PortNumber != nil {
+		shadowSvc.Labels[InferencePoolExtensionRefPort] = strconv.Itoa(int(*extRef.PortNumber))
+	} else {
+		shadowSvc.Labels[InferencePoolExtensionRefPort] = "9002"
+	}
 	shadowSvc.Labels["internal.istio.io/service-semantics"] = "inferencepool"
 	shadowSvc.Spec.Ports = []corev1.ServicePort{
 		{
@@ -305,45 +313,4 @@ func (ic *InferencePoolController) canManage(gvr schema.GroupVersionResource, na
 	_, inferencePoolManaged := obj.GetLabels()[InferencePoolRefLabel]
 	// We can manage if it has no manager or if we are the manager
 	return inferencePoolManaged, obj.GetResourceVersion()
-}
-
-// toUnstructured converts an object to an Unstructured
-func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
-	// Convert to map
-	jsonBytes, err := json.Marshal(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	data := make(map[string]interface{})
-	if err := json.Unmarshal(jsonBytes, &data); err != nil {
-		return nil, err
-	}
-
-	return &unstructured.Unstructured{Object: data}, nil
-}
-
-// getGVRFromObject extracts the GVR from an Unstructured object
-func getGVRFromObject(obj *unstructured.Unstructured) (schema.GroupVersionResource, error) {
-	gvk := obj.GroupVersionKind()
-	log.Infof("LIOR222: %v", gvk)
-
-	// Map GVK to GVR
-	// For core types like Service, the mapping is straightforward
-	if gvk.Kind == "Service" && gvk.Group == "" {
-		return schema.GroupVersionResource{
-			Group:    "",
-			Version:  "v1",
-			Resource: "services",
-		}, nil
-	}
-
-	// For custom resources, you might need a more sophisticated mapping
-	// You could use a RESTMapper from the discovery client
-	// For now, this is a simple implementation
-	return schema.GroupVersionResource{
-		Group:    gvk.Group,
-		Version:  gvk.Version,
-		Resource: strings.ToLower(gvk.Kind) + "s", // Simple pluralization
-	}, nil
 }
