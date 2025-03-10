@@ -35,7 +35,12 @@ func NewStatusManyCollection[I, IStatus, O any](
 		o.name = fmt.Sprintf("NewStatusManyCollection[%v,%v,%v]", ptr.TypeName[I](), ptr.TypeName[IStatus](), ptr.TypeName[O]())
 	}
 	statusOpts := append(opts, WithName(o.name+"/status"))
-	status := NewStaticCollection[ObjectWithStatus[I, IStatus]](nil, statusOpts...)
+	statusCh := make(chan struct{})
+	statusSynced := channelSyncer{
+		name:   o.name + " status",
+		synced: statusCh,
+	}
+	status := NewStaticCollection[ObjectWithStatus[I, IStatus]](statusSynced, nil, statusOpts...)
 	// When input is deleted, the transformation function wouldn't run.
 	// So we need to handle that explicitly
 	cleanupOnRemoval := func(i []Event[I]) {
@@ -59,6 +64,13 @@ func NewStatusManyCollection[I, IStatus, O any](
 		}
 		return objs
 	}, o, cleanupOnRemoval)
+	go func() {
+		// Status collection is not synced until the parent is synced.
+		// We could almost just pass the primary.Syncer(), but that is circular so doesn't really work.
+		if primary.WaitUntilSynced(o.stop) {
+			close(statusCh)
+		}
+	}()
 
 	return status, primary
 }

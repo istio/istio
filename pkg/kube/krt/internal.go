@@ -30,7 +30,7 @@ import (
 // registerHandlerAsBatched is a helper to register the provided handler as a batched handler. This allows collections to
 // only implement RegisterBatch.
 func registerHandlerAsBatched[T any](c internalCollection[T], f func(o Event[T])) HandlerRegistration {
-	return c.RegisterBatch(func(events []Event[T], initialSync bool) {
+	return c.RegisterBatch(func(events []Event[T]) {
 		for _, o := range events {
 			f(o)
 		}
@@ -58,9 +58,6 @@ func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
 	for _, o := range opts {
 		o(c)
 	}
-	if c.stop == nil {
-		c.stop = make(chan struct{})
-	}
 	return *c
 }
 
@@ -86,7 +83,7 @@ type dependency struct {
 	filter *filter
 }
 
-type erasedEventHandler = func(o []Event[any], initialSync bool)
+type erasedEventHandler = func(o []Event[any])
 
 // registerDependency is an internal interface for things that can register dependencies.
 // This is called from Fetch to Collections, generally.

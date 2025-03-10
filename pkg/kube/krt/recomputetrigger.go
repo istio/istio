@@ -20,6 +20,49 @@ import (
 	"istio.io/istio/pkg/ptr"
 )
 
+type RecomputeProtected[T any] struct {
+	trigger *RecomputeTrigger
+	data    T
+}
+
+// Get marks us as dependent on the value and fetches it.
+func (c RecomputeProtected[T]) Get(ctx HandlerContext) T {
+	c.trigger.MarkDependant(ctx)
+	return c.data
+}
+
+// TriggerRecomputation tells all dependants to recompute
+func (c RecomputeProtected[T]) TriggerRecomputation() {
+	c.trigger.TriggerRecomputation()
+}
+
+// MarkSynced marks this trigger as ready. Before this is called, dependant collections will be blocked.
+// This ensures initial state is populated.
+func (c RecomputeProtected[T]) MarkSynced() {
+	c.trigger.MarkSynced()
+}
+
+// Modify modifies the object and triggers a recompution.
+func (c RecomputeProtected[T]) Modify(fn func(*T)) {
+	fn(&c.data)
+	c.TriggerRecomputation()
+}
+
+// AccessUnprotected returns the data without marking as dependant. This must be used with caution; any use within a collection
+// is likely broken
+func (c RecomputeProtected[T]) AccessUnprotected() T {
+	return c.data
+}
+
+// NewRecomputeProtected builds a RecomputeProtected which wraps some data, ensuring it is always MarkDependant when accessed
+func NewRecomputeProtected[T any](initialData T, startSynced bool, opts ...CollectionOption) RecomputeProtected[T] {
+	trigger := NewRecomputeTrigger(startSynced, opts...)
+	return RecomputeProtected[T]{
+		trigger: trigger,
+		data:    initialData,
+	}
+}
+
 // RecomputeTrigger trigger provides an escape hatch to allow krt transformations to depend on external state and recompute
 // correctly when those change.
 // Typically, all state is registered and fetched through krt.Fetch. Through this mechanism, any changes are automatically

@@ -49,6 +49,10 @@ func GetKey[O any](a O) string {
 	if ok {
 		return keyFunc(ac.Name, ac.Namespace)
 	}
+	acp, ok := any(a).(*config.Config)
+	if ok {
+		return keyFunc(acp.Name, acp.Namespace)
+	}
 	arn, ok := any(a).(ResourceNamer)
 	if ok {
 		return arn.ResourceName()
