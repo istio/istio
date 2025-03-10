@@ -306,7 +306,7 @@ spec:
   parentRefs:
     - group: ""
       kind: Service
-      name: not-found # TODO we do not detect this today
+      name: not-found
   rules:
     - backendRefs:
         - name: httpbin
@@ -322,7 +322,7 @@ spec:
   parentRefs:
     - group: "networking.istio.io"
       kind: ServiceEntry
-      name: not-found # TODO we do not detect this today
+      name: not-found
   rules:
     - backendRefs:
         - name: httpbin

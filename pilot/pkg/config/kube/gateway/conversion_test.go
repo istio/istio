@@ -467,6 +467,12 @@ func TestConvertResources(t *testing.T) {
 		{name: "route-precedence"},
 		{name: "waypoint"},
 		{name: "isolation"},
+		{
+			name: "valid-invalid-parent-ref",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"default/^valid-invalid-parent-ref-",
+			),
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
