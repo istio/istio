@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	"istio.io/istio/pilot/pkg/networking/core/match"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/route"
+	"istio.io/istio/pilot/pkg/networking/core/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -52,6 +53,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/proto"
@@ -296,27 +298,18 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			var tcpChain, httpChain *listener.FilterChain
 			origDst := svc.GetAddressForProxy(lb.node) + ":" + portString
 			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
+			var filters []*listener.Filter
 			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork {
-				setOrigDstForCluster := []*listener.Filter{getOrigDstSfs(origDst, false)}
-				tcpChain = &listener.FilterChain{
-					Filters: append(setOrigDstForCluster, lb.buildInboundNetworkFilters(cc)...),
-					Name:    cc.clusterName,
-				}
-				cc.clusterName = httpClusterName
-				httpChain = &listener.FilterChain{
-					Filters: append(setOrigDstForCluster, lb.buildWaypointInboundHTTPFilters(svc, cc)...),
-					Name:    cc.clusterName,
-				}
-			} else {
-				tcpChain = &listener.FilterChain{
-					Filters: lb.buildInboundNetworkFilters(cc),
-					Name:    cc.clusterName,
-				}
-				cc.clusterName = httpClusterName
-				httpChain = &listener.FilterChain{
-					Filters: lb.buildWaypointInboundHTTPFilters(svc, cc),
-					Name:    cc.clusterName,
-				}
+				filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
+			}
+			tcpChain = &listener.FilterChain{
+				Filters: append(slices.Clone(filters), lb.buildWaypointNetworkFilters(svc, cc)...),
+				Name:    cc.clusterName,
+			}
+			cc.clusterName = httpClusterName
+			httpChain = &listener.FilterChain{
+				Filters: append(slices.Clone(filters), lb.buildWaypointInboundHTTPFilters(svc, cc)...),
+				Name:    cc.clusterName,
 			}
 			if port.Protocol.IsUnsupported() {
 				// If we need to sniff, insert two chains and the protocol detector
@@ -389,7 +382,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			Filters: append([]*listener.Filter{
 				xdsfilters.ConnectAuthorityNetworkFilter,
 			},
-				lb.buildInboundNetworkFilters(cc)...),
+				lb.buildWaypointNetworkFilters(nil, cc)...),
 			Name: "direct-tcp",
 		}
 		// TODO: maintains undesirable persistent HTTP connections to "encap"
@@ -636,13 +629,150 @@ func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, c
 	return filters
 }
 
+// buildInboundNetworkFilters generates a TCP proxy network filter on the inbound path
+func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc inboundChainConfig) []*listener.Filter {
+	var svcHostname host.Name
+	var subsetName string
+
+	statPrefix := fcc.clusterName
+	// If stat name is configured, build the stat prefix from configured pattern.
+	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
+		statPrefix = telemetry.BuildInboundStatPrefix(lb.push.Mesh.InboundClusterStatName, fcc.telemetryMetadata, "", uint32(fcc.port.Port), fcc.port.Name)
+	}
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:       statPrefix,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: fcc.clusterName},
+	}
+	var destinationRule *networking.DestinationRule
+	if svc != nil {
+		svcHostname = svc.Hostname
+		virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+		routes := getWaypointTCPRoutes(virtualServices, svcHostname.String(), fcc.port.Port)
+		if len(routes) > 0 {
+			// Existing (slightly incorrect, but best we can do) semantics.
+			// We are routing to multiple destinations, but want TCPProxy level configuration which is shared.
+			// We have to just pick one to use as the settings.
+			svcHostname = host.Name(routes[0].Destination.Host)
+		}
+		if len(routes) == 1 {
+			// Similar to above, we have to pick one subset. Not sure why this logic is different but this aligns with sidecars.
+			subsetName = routes[0].Destination.Subset
+		}
+		destinationRule = CastDestinationRule(lb.node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, lb.node, svcHostname).GetRule())
+
+		if len(routes) == 1 {
+			route := routes[0]
+			service := lb.push.ServiceForHostname(lb.node, host.Name(route.Destination.Host))
+			clusterName := lb.getWaypointDestinationCluster(route.Destination, service, fcc.port.Port)
+			tcpProxy.ClusterSpecifier = &tcp.TcpProxy_Cluster{Cluster: clusterName}
+		} else if len(routes) > 1 {
+			clusterSpecifier := &tcp.TcpProxy_WeightedClusters{
+				WeightedClusters: &tcp.TcpProxy_WeightedCluster{},
+			}
+			for _, route := range routes {
+				service := lb.push.ServiceForHostname(lb.node, host.Name(route.Destination.Host))
+				if route.Weight > 0 {
+					clusterName := lb.getWaypointDestinationCluster(route.Destination, service, fcc.port.Port)
+					clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp.TcpProxy_WeightedCluster_ClusterWeight{
+						Name:   clusterName,
+						Weight: uint32(route.Weight),
+					})
+				}
+			}
+			tcpProxy.ClusterSpecifier = clusterSpecifier
+		}
+	}
+
+	// To align with sidecars, subsets are ignored here...?
+	conPool := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp()
+	tcpProxy.IdleTimeout = conPool.GetIdleTimeout()
+	if tcpProxy.IdleTimeout == nil {
+		tcpProxy.IdleTimeout = parseDuration(lb.node.Metadata.IdleTimeout)
+	}
+	tcpProxy.MaxDownstreamConnectionDuration = conPool.GetMaxConnectionDuration()
+
+	maybeSetHashPolicy(destinationRule, tcpProxy, subsetName)
+	tunnelingconfig.Apply(tcpProxy, destinationRule, subsetName)
+
+	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound, fcc.policyService)
+	networkFilterstack := buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)
+	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService)
+}
+
+var meshGateways = sets.New(constants.IstioMeshGateway)
+
+func getWaypointTCPRoutes(configs []config.Config, svcHostname string, port int) []*networking.RouteDestination {
+	for _, vs := range configs {
+		// Per https://gateway-api.sigs.k8s.io/geps/gep-1294/?h=xroute#route-types, respect TLS routes before TCP routes
+		if match := getTLSRouteMatch(vs.Spec.(*networking.VirtualService).GetTls(), svcHostname, port); match != nil {
+			return match
+		}
+	}
+	for _, vs := range configs {
+		if match := getTCPRouteMatch(vs.Spec.(*networking.VirtualService).GetTcp(), port); match != nil {
+			return match
+		}
+	}
+	return nil
+}
+
+func getTLSRouteMatch(tls []*networking.TLSRoute, svcHostname string, port int) []*networking.RouteDestination {
+	for _, rule := range tls {
+		if len(rule.Match) == 0 {
+			return rule.Route
+		}
+		for _, m := range rule.Match {
+			// Waypoint does not currently support SNI matches. This could be done, but would require more extensive refactoring
+			// of filter chains. Given TLSRoute does not support a config *not* matching this check (though VirtualService does)
+			// there is still some value in respecting the routes
+			if len(m.SniHosts) != 1 || m.SniHosts[0] != svcHostname {
+				continue
+			}
+			if matchTLS(
+				m,
+				nil, // No source labels support
+				meshGateways,
+				port,
+				"", // No source namespace support
+			) {
+				return rule.Route
+			}
+		}
+	}
+	return nil
+}
+
+func getTCPRouteMatch(tcp []*networking.TCPRoute, port int) []*networking.RouteDestination {
+	for _, rule := range tcp {
+		if len(rule.Match) == 0 {
+			return rule.Route
+		}
+		for _, m := range rule.Match {
+			if matchTCP(
+				m,
+				nil, // No source labels support
+				meshGateways,
+				port,
+				"", // No source namespace support
+			) {
+				return rule.Route
+			}
+		}
+	}
+	return nil
+}
+
 func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service, cc inboundChainConfig) *route.RouteConfiguration {
 	// TODO: Policy binding via VIP+Host is inapplicable for direct pod access.
 	if svc == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
 
-	vs := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+	vs := slices.FindFunc(virtualServices, func(c config.Config) bool {
+		// Find the first HTTP virtual service
+		return c.Spec.(*networking.VirtualService).Http != nil
+	})
 	if vs == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
@@ -669,20 +799,23 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 }
 
 // Select the config pertaining to the service being processed.
-func getVirtualServiceForWaypoint(configNamespace string, svc *model.Service, configs []config.Config) *config.Config {
+func getVirtualServiceForWaypoint(configNamespace string, svc *model.Service, configs []config.Config) []config.Config {
+	var matching []config.Config
 	for _, cfg := range configs {
 		if cfg.Namespace != configNamespace && cfg.Namespace != svc.Attributes.Namespace {
 			// We only allow routes in the same namespace as the service or in the waypoint's own namespace
 			continue
 		}
 		virtualService := cfg.Spec.(*networking.VirtualService)
+
 		for _, vsHost := range virtualService.Hosts {
 			if host.Name(vsHost).Matches(svc.Hostname) {
-				return &cfg
+				matching = append(matching, cfg)
+				break
 			}
 		}
 	}
-	return nil
+	return matching
 }
 
 func (lb *ListenerBuilder) waypointInboundRoute(virtualService config.Config, listenPort int) ([]*route.Route, error) {
