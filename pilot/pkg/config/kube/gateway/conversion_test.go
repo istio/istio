@@ -185,6 +185,27 @@ var services = []*model.Service{
 			Namespace: "allowed-1",
 		},
 		Ports:    ports,
+		Hostname: "a-example.allowed-1.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "allowed-2",
+		},
+		Ports:    ports,
+		Hostname: "a-example.allowed-2.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "allowed-1",
+		},
+		Ports:    ports,
+		Hostname: "b-example.allowed-1.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "allowed-1",
+		},
+		Ports:    ports,
 		Hostname: "svc2.allowed-1.svc.domain.suffix",
 	},
 	{
@@ -291,6 +312,38 @@ var services = []*model.Service{
 		},
 		Ports:    ports,
 		Hostname: "httpbin-bad.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Name:      "echo-1",
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "echo-1.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Name:      "echo-2",
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "echo-2.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Name:      "echo-port",
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "echo-port.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Name:      "not-found",
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "not-found.default.svc.domain.suffix",
 	},
 }
 

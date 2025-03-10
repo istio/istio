@@ -171,9 +171,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: 'parent service: "echo-port" not found'
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -224,9 +224,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: 'parent service: "echo-2" not found'
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -240,9 +240,9 @@ status:
       name: echo-2
   - conditions:
     - lastTransitionTime: fake
-      message: 'parent service: "echo-1" not found'
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -257,9 +257,9 @@ status:
       port: 8080
   - conditions:
     - lastTransitionTime: fake
-      message: 'parent service: "echo-1" not found'
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -284,9 +284,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: 'parent service: "echo-1" not found'
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -310,9 +310,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: 'parent service: "echo-1" not found'
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved

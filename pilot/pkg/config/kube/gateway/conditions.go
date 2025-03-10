@@ -152,8 +152,8 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 			}
 		}
 
-		// when ambient is enabled, report the waypoints resolved condition for HTTPRoute types
-		if features.EnableAmbient && obj.GroupVersionKind.Kind == gvk.HTTPRoute.Kind {
+		// when ambient is enabled, report the waypoints resolved condition
+		if features.EnableAmbient {
 			cond := &condition{
 				reason:  string(RouteReasonResolvedWaypoints),
 				message: "All waypoints resolved",
