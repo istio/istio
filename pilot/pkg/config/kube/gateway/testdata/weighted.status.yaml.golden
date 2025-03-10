@@ -128,9 +128,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: kind gateway.networking.k8s.io/v1alpha2/TCPRoute is not allowed
-      reason: NotAllowedByListeners
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved

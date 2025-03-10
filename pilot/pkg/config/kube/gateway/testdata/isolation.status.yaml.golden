@@ -143,9 +143,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: sectionName "abc-foo-example-com" not found
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: backend(infra-backend-v1.gateway-conformance-infra.svc.domain.suffix)
@@ -197,9 +197,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: sectionName "wildcard-example-com" not found
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: backend(infra-backend-v1.gateway-conformance-infra.svc.domain.suffix)
@@ -224,9 +224,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: sectionName "wildcard-foo-example-com" not found
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: backend(infra-backend-v1.gateway-conformance-infra.svc.domain.suffix)

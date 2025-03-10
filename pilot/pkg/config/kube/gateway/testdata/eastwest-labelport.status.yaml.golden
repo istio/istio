@@ -135,9 +135,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: sectionName "istiod-webhook" not found
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved

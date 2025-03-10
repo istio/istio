@@ -112,9 +112,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: sectionName "echo" not found
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: backendRef echo/default not accessible to a TCPRoute in namespace "istio-system"

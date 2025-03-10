@@ -129,10 +129,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: hostnames matched parent hostname "apple.example", but namespace "banana"
-        is not allowed by the parent
-      reason: NotAllowedByListeners
-      status: "False"
+      message: Route was valid
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
