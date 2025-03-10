@@ -184,7 +184,7 @@ spec:
               audience: istio-ca
       - name: istiod-ca-cert
         configMap:
-          name: istio-ca-root-cert
+          name: {{ .Values.trustBundleName | default "istio-ca-root-cert" }}
       - name: cni-ztunnel-sock-dir
         hostPath:
           path: /var/run/ztunnel
