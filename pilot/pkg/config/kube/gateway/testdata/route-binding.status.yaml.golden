@@ -487,8 +487,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: no hostnames matched parent hostname "*.foobar.example"
-      reason: NoMatchingListenerHostname
+      message: sectionName "foobar" not found; no hostnames matched parent hostname
+        "*.foobar.example"
+      reason: NoMatchingParent
       status: "False"
       type: Accepted
     - lastTransitionTime: fake
@@ -513,9 +514,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: hostnames matched parent hostname "*.slctr-labels.example", but namespace
-        "default" is not allowed by the parent
-      reason: NotAllowedByListeners
+      message: sectionName "slctr-labels" not found; hostnames matched parent hostname
+        "*.slctr-labels.example", but namespace "default" is not allowed by the parent
+      reason: NoMatchingParent
       status: "False"
       type: Accepted
     - lastTransitionTime: fake
@@ -540,8 +541,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: no hostnames matched parent hostname "*.same-namespace.example"
-      reason: NoMatchingListenerHostname
+      message: sectionName "same-namespace" not found; no hostnames matched parent
+        hostname "*.same-namespace.example"
+      reason: NoMatchingParent
       status: "False"
       type: Accepted
     - lastTransitionTime: fake
@@ -567,9 +569,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
+      message: sectionName "foobar" not found
+      reason: NoMatchingParent
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -593,9 +595,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
+      message: sectionName "slctr-labels" not found
+      reason: NoMatchingParent
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -609,9 +611,9 @@ status:
       sectionName: slctr-labels
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
+      message: sectionName "slctr-expr-notin-yes" not found
+      reason: NoMatchingParent
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -625,9 +627,25 @@ status:
       sectionName: slctr-expr-notin-yes
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
+      message: sectionName "slctr-expr-notin-no" not found
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
       status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-notin-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: sectionName "slctr-expr-in-yes" not found
+      reason: NoMatchingParent
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -641,9 +659,25 @@ status:
       sectionName: slctr-expr-in-yes
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
+      message: sectionName "slctr-expr-in-no" not found
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
       status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-in-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: sectionName "slctr-expr-exists-yes" not found
+      reason: NoMatchingParent
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -657,9 +691,25 @@ status:
       sectionName: slctr-expr-exists-yes
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
+      message: sectionName "slctr-expr-exists-no" not found
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
       status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-exists-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: sectionName "slctr-expr-dne-yes" not found
+      reason: NoMatchingParent
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -673,9 +723,25 @@ status:
       sectionName: slctr-expr-dne-yes
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
+      message: sectionName "slctr-expr-dne-no" not found
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
       status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-expr-dne-no
+  - conditions:
+    - lastTransitionTime: fake
+      message: sectionName "slctr-combined-yes" not found
+      reason: NoMatchingParent
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -687,6 +753,23 @@ status:
       name: gateway
       namespace: istio-system
       sectionName: slctr-combined-yes
+  - conditions:
+    - lastTransitionTime: fake
+      message: hostnames matched parent hostname "*.slctr-combined-no.example", but
+        namespace "group-namespace1" is not allowed by the parent
+      reason: NotAllowedByListeners
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: slctr-combined-no
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -699,9 +782,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
+      message: sectionName "slctr-labels" not found
+      reason: NoMatchingParent
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -725,9 +808,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
+      message: sectionName "same-namespace" not found
+      reason: NoMatchingParent
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -741,9 +824,9 @@ status:
       sectionName: same-namespace
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
+      message: sectionName "foobar" not found
+      reason: NoMatchingParent
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -767,8 +850,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: kind gateway.networking.k8s.io/v1alpha2/TCPRoute is not allowed
-      reason: NotAllowedByListeners
+      message: sectionName "foobar" not found; kind gateway.networking.k8s.io/v1alpha2/TCPRoute
+        is not allowed
+      reason: NoMatchingParent
       status: "False"
       type: Accepted
     - lastTransitionTime: fake

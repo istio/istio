@@ -31,8 +31,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
-      and istio-ingressgateway.istio-system.svc.domain.suffix:80
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
     status: "True"
     type: Programmed
@@ -65,38 +64,12 @@ status:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
-  - attachedRoutes: 1
-    conditions:
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
-      type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
-      type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    name: tcp
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: TCPRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: http
+  name: mixed-parent-ref-validity
   namespace: default
 spec: null
 status:
@@ -114,22 +87,46 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      name: gateway
-      namespace: istio-system
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TCPRoute
-metadata:
-  creationTimestamp: null
-  name: tcp
-  namespace: default
-spec: null
-status:
-  parents:
+      group: networking.istio.io
+      kind: ServiceEntry
+      name: egress
   - conditions:
     - lastTransitionTime: fake
-      message: kind gateway.networking.k8s.io/v1alpha2/TCPRoute is not allowed
-      reason: NotAllowedByListeners
+      message: 'parent service: "random" not found'
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: random
+      namespace: nonexistent
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      port: 80
+  - conditions:
+    - lastTransitionTime: fake
+      message: port 1234 not found
+      reason: NoMatchingParent
       status: "False"
       type: Accepted
     - lastTransitionTime: fake
@@ -141,4 +138,5 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
+      port: 1234
 ---

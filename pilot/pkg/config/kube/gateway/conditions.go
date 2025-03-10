@@ -39,6 +39,8 @@ type RouteParentResult struct {
 	DeniedReason *ParentError
 	// RouteError, if present, indicates why the reference was not valid
 	RouteError *ConfigError
+	// WaypointError, if present, indicates why the reference was does not have a waypoint
+	WaypointError *WaypointError
 }
 
 func createRouteStatus(parentResults []RouteParentResult, obj config.Config, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
@@ -95,11 +97,11 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 				if ref.DeniedReason != nil {
 					reason = ref.DeniedReason.Reason
 				}
-				if wantReason != reason {
-					// Skip this one, it is for a less relevant reason
+				exist, f := report[k]
+				if f && wantReason != reason {
+					// Skip this one, the same ref has already been reported with a higher priority reason
 					continue
 				}
-				exist, f := report[k]
 				if f {
 					if ref.DeniedReason != nil {
 						if exist.DeniedReason != nil {
@@ -148,6 +150,18 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 				Reason:  ConfigErrorReason(gw.DeniedReason.Reason),
 				Message: gw.DeniedReason.Message,
 			}
+		}
+
+		// when ambient is enabled, report the waypoints resolved condition
+		if features.EnableAmbient {
+			cond := &condition{
+				reason:  string(RouteReasonResolvedWaypoints),
+				message: "All waypoints resolved",
+			}
+			if gw.WaypointError != nil {
+				cond.message = gw.WaypointError.Message
+			}
+			conds[string(RouteConditionResolvedWaypoints)] = cond
 		}
 
 		var currentConditions []metav1.Condition
@@ -205,6 +219,23 @@ const (
 	DeprecateFieldUsage  ConfigErrorReason = "DeprecatedField"
 )
 
+const (
+	// This condition indicates whether a route's parent reference has
+	// a waypoint configured by resolving the "istio.io/use-waypoint" label
+	// on either the referenced parent or the parent's namespace.
+	RouteConditionResolvedWaypoints k8s.RouteConditionType   = "ResolvedWaypoints"
+	RouteReasonResolvedWaypoints    k8s.RouteConditionReason = "ResolvedWaypoints"
+)
+
+type WaypointErrorReason string
+
+const (
+	WaypointErrorReasonMissingLabel     = WaypointErrorReason("MissingUseWaypointLabel")
+	WaypointErrorMsgMissingLabel        = "istio.io/use-waypoint label missing from parent and parent namespace; in ambient mode, route will not be respected"
+	WaypointErrorReasonNoMatchingParent = WaypointErrorReason("NoMatchingParent")
+	WaypointErrorMsgNoMatchingParent    = "parent not found"
+)
+
 // ParentError represents that a parent could not be referenced
 type ParentError struct {
 	Reason  ParentErrorReason
@@ -214,6 +245,11 @@ type ParentError struct {
 // ConfigError represents an invalid configuration that will be reported back to the user.
 type ConfigError struct {
 	Reason  ConfigErrorReason
+	Message string
+}
+
+type WaypointError struct {
+	Reason  WaypointErrorReason
 	Message string
 }
 
