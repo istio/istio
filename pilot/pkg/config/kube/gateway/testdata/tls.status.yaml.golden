@@ -158,9 +158,9 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
+      message: kind gateway.networking.k8s.io/v1beta1/HTTPRoute is not allowed
+      reason: NotAllowedByListeners
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved

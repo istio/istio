@@ -97,11 +97,11 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 				if ref.DeniedReason != nil {
 					reason = ref.DeniedReason.Reason
 				}
-				if wantReason != reason {
-					// Skip this one, it is for a less relevant reason
+				exist, f := report[k]
+				if f && wantReason != reason {
+					// Skip this one, the same ref has already been reported with a higher priority reason
 					continue
 				}
-				exist, f := report[k]
 				if f {
 					if ref.DeniedReason != nil {
 						if exist.DeniedReason != nil {
