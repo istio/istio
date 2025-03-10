@@ -62,7 +62,7 @@ type EventStream[T any] interface {
 	// Additionally, skipping the default behavior of "send all current state through the handler" can be turned off.
 	// This is important when we register in a handler itself, which would cause duplicative events.
 	// Handlers MUST not mutate the event list.
-	RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) HandlerRegistration
+	RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration
 }
 
 // internalCollection is a superset of Collection for internal usage. All collections must implement this type, but

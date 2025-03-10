@@ -31,7 +31,7 @@ func (n networksAdapter) Networks() *meshconfig.MeshNetworks {
 
 // AddNetworksHandler registers a callback handler for changes to the networks config.
 func (n networksAdapter) AddNetworksHandler(h func()) *mesh.WatcherHandlerRegistration {
-	colReg := n.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshNetworksResource], initialSync bool) {
+	colReg := n.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshNetworksResource]) {
 		h()
 	}, false)
 

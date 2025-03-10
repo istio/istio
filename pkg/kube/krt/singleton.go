@@ -88,7 +88,7 @@ func (d *static[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return registerHandlerAsBatched[T](d, f)
 }
 
-func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) HandlerRegistration {
+func (d *static[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
 	reg := d.eventHandlers.Insert(f)
 	if runExistingState {
 		v := d.val.Load()
@@ -96,7 +96,7 @@ func (d *static[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExi
 			f([]Event[T]{{
 				New:   v,
 				Event: controllers.EventAdd,
-			}}, true)
+			}})
 		}
 	}
 
@@ -137,7 +137,7 @@ func (d *static[T]) Set(now *T) {
 		return
 	}
 	for _, h := range d.eventHandlers.Get() {
-		h([]Event[T]{toEvent[T](old, now)}, false)
+		h([]Event[T]{toEvent[T](old, now)})
 	}
 }
 

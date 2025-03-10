@@ -107,13 +107,13 @@ func (i *informer[I]) Register(f func(o Event[I])) HandlerRegistration {
 	return registerHandlerAsBatched[I](i, f)
 }
 
-func (i *informer[I]) RegisterBatch(f func(o []Event[I], initialSync bool), runExistingState bool) HandlerRegistration {
+func (i *informer[I]) RegisterBatch(f func(o []Event[I]), runExistingState bool) HandlerRegistration {
 	// Note: runExistingState is NOT respected here.
 	// Informer doesn't expose a way to do that. However, due to the runtime model of informers, this isn't a dealbreaker;
 	// the handlers are all called async, so we don't end up with the same deadlocks we would have in the other collection types.
 	// While this is quite kludgy, this is an internal interface so its not too bad.
 	synced := i.inf.AddEventHandler(informerEventHandler[I](func(o Event[I], initialSync bool) {
-		f([]Event[I]{o}, initialSync)
+		f([]Event[I]{o})
 	}))
 	base := i.baseSyncer
 	handler := pollSyncer{

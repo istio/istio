@@ -47,7 +47,12 @@ func NewMock(t test.Failer, inputs []any) *MockCollection {
 }
 
 func GetMockCollection[T any](mc *MockCollection) krt.Collection[T] {
-	return krt.NewStaticCollection(extractType[T](&mc.inputs), krt.WithStop(test.NewStop(mc.t)), krt.WithDebugging(krt.GlobalDebugHandler))
+	return krt.NewStaticCollection(
+		nil, // Always synced
+		extractType[T](&mc.inputs),
+		krt.WithStop(test.NewStop(mc.t)),
+		krt.WithDebugging(krt.GlobalDebugHandler),
+	)
 }
 
 func GetMockSingleton[T any](mc *MockCollection) krt.StaticSingleton[T] {
