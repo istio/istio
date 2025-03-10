@@ -432,10 +432,6 @@ spec:
                                 idleTimeout:
                                   description: The idle timeout for TCP connections.
                                   type: string
-                                  x-kubernetes-validations:
-                                  - message: must be a valid duration greater than
-                                      1ms
-                                    rule: duration(self) >= duration('1ms')
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
                                   type: string
@@ -774,10 +770,6 @@ spec:
                                       idleTimeout:
                                         description: The idle timeout for TCP connections.
                                         type: string
-                                        x-kubernetes-validations:
-                                        - message: must be a valid duration greater
-                                            than 1ms
-                                          rule: duration(self) >= duration('1ms')
                                       maxConnectionDuration:
                                         description: The maximum duration of a connection.
                                         type: string
@@ -1279,9 +1271,6 @@ spec:
                           idleTimeout:
                             description: The idle timeout for TCP connections.
                             type: string
-                            x-kubernetes-validations:
-                            - message: must be a valid duration greater than 1ms
-                              rule: duration(self) >= duration('1ms')
                           maxConnectionDuration:
                             description: The maximum duration of a connection.
                             type: string
@@ -1612,10 +1601,6 @@ spec:
                                 idleTimeout:
                                   description: The idle timeout for TCP connections.
                                   type: string
-                                  x-kubernetes-validations:
-                                  - message: must be a valid duration greater than
-                                      1ms
-                                    rule: duration(self) >= duration('1ms')
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
                                   type: string
@@ -2180,10 +2165,6 @@ spec:
                                 idleTimeout:
                                   description: The idle timeout for TCP connections.
                                   type: string
-                                  x-kubernetes-validations:
-                                  - message: must be a valid duration greater than
-                                      1ms
-                                    rule: duration(self) >= duration('1ms')
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
                                   type: string
@@ -2522,10 +2503,6 @@ spec:
                                       idleTimeout:
                                         description: The idle timeout for TCP connections.
                                         type: string
-                                        x-kubernetes-validations:
-                                        - message: must be a valid duration greater
-                                            than 1ms
-                                          rule: duration(self) >= duration('1ms')
                                       maxConnectionDuration:
                                         description: The maximum duration of a connection.
                                         type: string
@@ -3027,9 +3004,6 @@ spec:
                           idleTimeout:
                             description: The idle timeout for TCP connections.
                             type: string
-                            x-kubernetes-validations:
-                            - message: must be a valid duration greater than 1ms
-                              rule: duration(self) >= duration('1ms')
                           maxConnectionDuration:
                             description: The maximum duration of a connection.
                             type: string
@@ -3360,10 +3334,6 @@ spec:
                                 idleTimeout:
                                   description: The idle timeout for TCP connections.
                                   type: string
-                                  x-kubernetes-validations:
-                                  - message: must be a valid duration greater than
-                                      1ms
-                                    rule: duration(self) >= duration('1ms')
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
                                   type: string
@@ -3928,10 +3898,6 @@ spec:
                                 idleTimeout:
                                   description: The idle timeout for TCP connections.
                                   type: string
-                                  x-kubernetes-validations:
-                                  - message: must be a valid duration greater than
-                                      1ms
-                                    rule: duration(self) >= duration('1ms')
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
                                   type: string
@@ -4270,10 +4236,6 @@ spec:
                                       idleTimeout:
                                         description: The idle timeout for TCP connections.
                                         type: string
-                                        x-kubernetes-validations:
-                                        - message: must be a valid duration greater
-                                            than 1ms
-                                          rule: duration(self) >= duration('1ms')
                                       maxConnectionDuration:
                                         description: The maximum duration of a connection.
                                         type: string
@@ -4775,9 +4737,6 @@ spec:
                           idleTimeout:
                             description: The idle timeout for TCP connections.
                             type: string
-                            x-kubernetes-validations:
-                            - message: must be a valid duration greater than 1ms
-                              rule: duration(self) >= duration('1ms')
                           maxConnectionDuration:
                             description: The maximum duration of a connection.
                             type: string
@@ -5108,10 +5067,6 @@ spec:
                                 idleTimeout:
                                   description: The idle timeout for TCP connections.
                                   type: string
-                                  x-kubernetes-validations:
-                                  - message: must be a valid duration greater than
-                                      1ms
-                                    rule: duration(self) >= duration('1ms')
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
                                   type: string
@@ -7193,9 +7148,6 @@ spec:
                       idleTimeout:
                         description: The idle timeout for TCP connections.
                         type: string
-                        x-kubernetes-validations:
-                        - message: must be a valid duration greater than 1ms
-                          rule: duration(self) >= duration('1ms')
                       maxConnectionDuration:
                         description: The maximum duration of a connection.
                         type: string
@@ -7319,9 +7271,6 @@ spec:
                             idleTimeout:
                               description: The idle timeout for TCP connections.
                               type: string
-                              x-kubernetes-validations:
-                              - message: must be a valid duration greater than 1ms
-                                rule: duration(self) >= duration('1ms')
                             maxConnectionDuration:
                               description: The maximum duration of a connection.
                               type: string
@@ -7657,9 +7606,6 @@ spec:
                       idleTimeout:
                         description: The idle timeout for TCP connections.
                         type: string
-                        x-kubernetes-validations:
-                        - message: must be a valid duration greater than 1ms
-                          rule: duration(self) >= duration('1ms')
                       maxConnectionDuration:
                         description: The maximum duration of a connection.
                         type: string
@@ -7783,9 +7729,6 @@ spec:
                             idleTimeout:
                               description: The idle timeout for TCP connections.
                               type: string
-                              x-kubernetes-validations:
-                              - message: must be a valid duration greater than 1ms
-                                rule: duration(self) >= duration('1ms')
                             maxConnectionDuration:
                               description: The maximum duration of a connection.
                               type: string
@@ -8121,9 +8064,6 @@ spec:
                       idleTimeout:
                         description: The idle timeout for TCP connections.
                         type: string
-                        x-kubernetes-validations:
-                        - message: must be a valid duration greater than 1ms
-                          rule: duration(self) >= duration('1ms')
                       maxConnectionDuration:
                         description: The maximum duration of a connection.
                         type: string
@@ -8247,9 +8187,6 @@ spec:
                             idleTimeout:
                               description: The idle timeout for TCP connections.
                               type: string
-                              x-kubernetes-validations:
-                              - message: must be a valid duration greater than 1ms
-                                rule: duration(self) >= duration('1ms')
                             maxConnectionDuration:
                               description: The maximum duration of a connection.
                               type: string
