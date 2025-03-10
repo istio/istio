@@ -30,8 +30,18 @@ func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *
 	}
 }
 
+// FetchOrList runs a query against the provided collection and subscribes to updates if ctx is set.
+// If unset, this will just be a one time list operation.
+func FetchOrList[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T {
+	return fetch[T](ctx, cc, true, opts...)
+}
+
+// Fetch runs a query against the provided collection and subscribes to updates.
 func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T {
-	h := ctx.(registerDependency)
+	return fetch[T](ctx, cc, false, opts...)
+}
+
+func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool, opts ...FetchOption) []T {
 	c := cc.(internalCollection[T])
 	d := &dependency{
 		id:             c.uid(),
@@ -41,15 +51,22 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 	for _, o := range opts {
 		o(d)
 	}
-	// Important: register before we List(), so we cannot miss any events
-	h.registerDependency(d, c, func(f erasedEventHandler) Syncer {
-		ff := func(o []Event[T], initialSync bool) {
-			f(slices.Map(o, castEvent[T, any]), initialSync)
-		}
-		// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
-		// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
-		return c.RegisterBatch(ff, false)
-	})
+	var parent string
+	if ctx != nil {
+		h := ctx.(registerDependency)
+		// Important: register before we List(), so we cannot miss any events
+		h.registerDependency(d, c, func(f erasedEventHandler) Syncer {
+			ff := func(o []Event[T]) {
+				f(slices.Map(o, castEvent[T, any]))
+			}
+			// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
+			// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
+			return c.RegisterBatch(ff, false)
+		})
+		parent = h.name()
+	} else if !allowMissingContext {
+		panic("Fetch() requires a valid context")
+	}
 
 	// Now we can do the real fetching
 	// Compute our list of all possible objects that can match. Then we will filter them later.
@@ -76,7 +93,7 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 	})
 	if log.DebugEnabled() {
 		log.WithLabels(
-			"parent", h.name(),
+			"parent", parent,
 			"fetch", c.name(),
 			"filter", d.filter,
 			"size", len(list),

@@ -664,8 +664,8 @@ type (
 	LookupNetworkGateways func() []model.NetworkGateway
 )
 
-func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T], initialSync bool) {
-	return func(events []krt.Event[T], initialSync bool) {
+func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {
+	return func(events []krt.Event[T]) {
 		cu := sets.New[model.ConfigKey]()
 		for _, e := range events {
 			for _, i := range e.Items() {
@@ -686,8 +686,8 @@ func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 	}
 }
 
-func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string) func(events []krt.Event[T], initialSync bool) {
-	return func(events []krt.Event[T], initialSync bool) {
+func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string) func(events []krt.Event[T]) {
+	return func(events []krt.Event[T]) {
 		au := sets.New[string]()
 		for _, e := range events {
 			for _, i := range e.Items() {
