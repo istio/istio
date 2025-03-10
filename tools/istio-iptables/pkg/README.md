@@ -49,10 +49,13 @@ Fundamentally, calling code should _never_ make assumptions about which specific
 
 ## Reconciliation and Idempotency handling
 
-This wrapper implements reconciliation logic to ensure that iptables rules are applied correctly and idempotently across different scenarios (e.g., upgrade and istio-init reruns).
-Due to this logic the wrapper will perform the apply and/or a cleanup of iptables depending on the current scenario that has been detected.
+This wrapper implements reconciliation logic to ensure that iptables rules are applied correctly and idempotently across two primary scenarios:
 
-The following behaviors can normally occurr:
+- When Istio `iptables` rules are applied to a preexisting, running pod that already has (potentially outdated or incomplete) in-pod rules from a previous version or instance of Istio
+- When Istio `iptables` rules are applied to a pod that has preexisting in-pod `iptables` rules from a component other than Istio
+The reconciliation logic _only_ mutates rules in chains prefixed with ISTIO_, and jumps from primary tables to those chains. It will not remove or rewrite any other rules.
+
+The following modes of operation are supported:
 1. **No Delta Detection**: If iptables execution detects no difference between the current and expected/desired state, it skips the apply step unless the `ForceApply` flag is set to true.
 1. **First-Time Installation**: If a delta is detected and no "residue" of previous Istio-related rules exists, it initiates a clean installation of the rules which involves only the apply step.
 1. **Update Existing Rules**: If the current state differs from the desired state and previous Istio executions are detected, the wrapper:
@@ -62,10 +65,13 @@ The following behaviors can normally occurr:
    - Removes guardrails
 1. **Cleanup-Only Mode**: If the `CleanupOnly` flag is set to true, only cleanup operations are performed, without applying new rules or setting up guardrails.
 
-### CNI vs. non-CNI Cleanup Differences
+### `istio-cni` Node Agent vs. Privileged Init Container Cleanup Differences
 
-The cleanup logic differs between the CNI and non-CNI use cases.
-For the CNI, a two-pass cleanup logic is needed to ensure the correctness of the final outcome:
+Istio supports two different mechanisms for applying `iptables` rules inside pods
+
+1. A privileged init container injected into all pods with an Istio sidecar, via mutating webhook (used only in sidecars, not recommended if privileged init containers are a security concern) which runs on pod startup and inserts the rules.
+2. A privileged node agent daemonset, that steps into pod network namespaces and inserts/removes the rules (if optionally used with sidecar dataplane mode, replaces the privileged init container approach. Required/non-optional for ambient dataplane mode)
+For the `istio-cni` mode, a two-pass cleanup logic is needed to ensure the correctness of the final outcome:
 - **First Pass**: Reverses all rules in the expected/desired state. This may delete non-jump rules in non-Istio chains.
 - **Second Pass**: Only performed if `Reconcile=true`. The wrapper:
   1. Rechecks the current iptables state
@@ -77,12 +83,11 @@ For non-CNI use cases, only the first pass is performed as in `istio-init` only 
 
 ### Limitations and guidelines
 
-1. **Order Insensitivity**: States are considered identical if they share the same rules, even if these rules appear in different orders.
+1. **Order Insensitivity**:  Two `iptables` rules snapshots are considered identical if they share exactly the same rules, even if these rules appear in different orders.
 1. **Non-Istio Chain Rules**: Two states are considered identical if the only difference is that the current state has rules in non-ISTIO chains that are absent in the expected/desired state. This includes jump rules pointing to `ISTIO_*` chains in `OUTPUT`, `INPUT`, etc.
 1. **Cleanup Scope**: Second-pass cleanup can only remove leftover Istio chains and jumps to those chains. Any other non-jump rule in non-Istio chains will remain, as there's no reliable way to determine if it was created by Istio or the user.
 
 To avoid issues with the limitations above, the following guidelines needs to be kept in mind:
-1. Avoid using non-jump rules in non-ISTIO chains, as these can be difficult ```
-(or rather impossible...) to clean if they exist in some configurations but not others.
+1. Istio rules should ALWAYS be added to a chain prefixed with ISTIO_ - even if it's just for one rule. Istio code should not insert `iptables` rules into main tables, or non-prefixed chains. The sole exception to this are the required JUMP rules from the main tables to the recommended `ISTIO_` prefixed custom chains.
 1. Ensure that differences between configurations involve more than just rules in non-ISTIO chains (including jump rules to `ISTIO_*` chains).
 1. Make sure that configuration differences are more than just the order of the rules.
