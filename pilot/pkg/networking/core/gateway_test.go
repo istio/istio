@@ -4051,10 +4051,10 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							// Ext auth makes 2 filters
 							wellknown.RoleBasedAccessControl,
 							wellknown.ExternalAuthorization,
-							"extenstions.istio.io/wasmplugin/istio-system.wasm-authn",
-							"extenstions.istio.io/wasmplugin/istio-system.wasm-authz",
+							"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
+							"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
 							wellknown.RoleBasedAccessControl,
-							"extenstions.istio.io/wasmplugin/istio-system.wasm-stats",
+							"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
 							xds.StatsFilterName,
 							wellknown.TCPProxy,
 						},
@@ -4157,9 +4157,9 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					{
 						TotalMatch: true,
 						NetworkFilters: []string{
-							"extenstions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-							"extenstions.istio.io/wasmplugin/istio-system.wasm-network-authz",
-							"extenstions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+							"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
+							"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
+							"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
 							wellknown.HTTPConnectionManager,
 						},
 						HTTPFilters: []string{
@@ -4167,10 +4167,10 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							// Ext auth makes 2 filters
 							wellknown.HTTPRoleBasedAccessControl,
 							wellknown.HTTPExternalAuthorization,
-							"extenstions.istio.io/wasmplugin/istio-system.wasm-authn",
-							"extenstions.istio.io/wasmplugin/istio-system.wasm-authz",
+							"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
+							"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
 							wellknown.HTTPRoleBasedAccessControl,
-							"extenstions.istio.io/wasmplugin/istio-system.wasm-stats",
+							"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
 							wellknown.HTTPGRPCStats,
 							xdsfilters.Alpn.Name,
 							xdsfilters.Fault.Name,

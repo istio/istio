@@ -50,7 +50,7 @@ const (
 
 	// WasmPluginResourceNamePrefix is the prefix of the resource name of WasmPlugin,
 	// preventing the name collision with other resources.
-	WasmPluginResourceNamePrefix = "extenstions.istio.io/wasmplugin/"
+	WasmPluginResourceNamePrefix = "extensions.istio.io/wasmplugin/"
 )
 
 // WasmPluginType defines the type of wasm plugin
