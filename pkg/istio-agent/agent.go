@@ -346,6 +346,10 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 	return nil
 }
 
+func (a *Agent) SkipDrain() {
+	a.envoyAgent.DisableDraining()
+}
+
 // Run is a non-blocking call which returns either an error or a function to await for completion.
 func (a *Agent) Run(ctx context.Context) (func(), error) {
 	var err error
