@@ -111,7 +111,16 @@ spec:
 }
 
 func setupWasmExtension(t framework.TestContext) {
-	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:0.0.1", registry.Address())
+	isKind := t.Clusters().IsKindCluster()
+
+	// By default, for any platform, the test will pull the test image from public "gcr.io" registry.
+	// For "Kind" environment, it will pull the images from the "kind-registry".
+	// For "Kind", this is due to DNS issues in IPv6 cluster
+	attrGenImageTag := "359dcd3a19f109c50e97517fe6b1e2676e870c4d"
+	if isKind {
+		attrGenImageTag = "0.0.1"
+	}
+	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:%v", registry.Address(), attrGenImageTag)
 	args := map[string]any{
 		"AttributeGenURL": attrGenImageURL,
 	}
