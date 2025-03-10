@@ -24,12 +24,10 @@ import (
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"istio.io/api/networking/v1alpha3"
 	istio "istio.io/api/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
@@ -253,7 +251,7 @@ func TestDynamicJoinTransform(t *testing.T) {
 
 	serviceBuilder := func() krt.TransformationSingle[*corev1.Service, model.ServiceInfo] {
 		return func(ctx krt.HandlerContext, s *corev1.Service) *model.ServiceInfo {
-			if s.Spec.Type == v1.ServiceTypeExternalName {
+			if s.Spec.Type == corev1.ServiceTypeExternalName {
 				// ExternalName services are not implemented by ambient (but will still work).
 				// The DNS requests will forward to the upstream DNS server, then Ztunnel can handle the request based on the target
 				// hostname.
@@ -439,7 +437,11 @@ func TestDynamicJoinTransform(t *testing.T) {
 	})
 }
 
-func constructService(ctx krt.HandlerContext, svc *corev1.Service) *workloadapi.Service {
+func TestDynamicJoinMerge(t *testing.T) {
+	
+}
+
+func constructService(_ krt.HandlerContext, svc *corev1.Service) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
 		ports = append(ports, &workloadapi.Port{
@@ -473,7 +475,7 @@ func constructService(ctx krt.HandlerContext, svc *corev1.Service) *workloadapi.
 	}
 }
 
-func constructServiceEntries(ctx krt.HandlerContext, svc *istioclient.ServiceEntry) []*workloadapi.Service {
+func constructServiceEntries(_ krt.HandlerContext, svc *istioclient.ServiceEntry) []*workloadapi.Service {
 	var autoassignedHostAddresses map[string][]netip.Addr
 	addresses, err := slices.MapErr(svc.Spec.Addresses, func(vip string) (*workloadapi.NetworkAddress, error) {
 		ip, err := parseCidrOrIP(vip)
@@ -511,7 +513,7 @@ func constructServiceEntries(ctx krt.HandlerContext, svc *istioclient.ServiceEnt
 		// if we have no user-provided hostsAddresses and h is not wildcarded and we have hostsAddresses supported resolution
 		// we can try to use autoassigned hostsAddresses
 		hostsAddresses := addresses
-		if len(hostsAddresses) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
+		if len(hostsAddresses) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != istio.ServiceEntry_NONE {
 			if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
 				hostsAddresses = slices.Map(hostsAddrs, func(ip netip.Addr) *workloadapi.NetworkAddress {
 					return &workloadapi.NetworkAddress{
@@ -541,7 +543,7 @@ func getVIPs(svc *corev1.Service) []string {
 		cips = []string{svc.Spec.ClusterIP}
 	}
 	for _, cip := range cips {
-		if cip != "" && cip != v1.ClusterIPNone {
+		if cip != "" && cip != corev1.ClusterIPNone {
 			res = append(res, cip)
 		}
 	}
