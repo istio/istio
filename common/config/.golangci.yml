@@ -94,7 +94,7 @@ linters-settings:
       - name: constant-logical-expr
       - name: bool-literal-in-expr
       - name: redefines-builtin-id
-      - name: imports-blacklist
+      - name: imports-blocklist
       - name: range-val-in-closure
       - name: range-val-address
       - name: waitgroup-by-value
