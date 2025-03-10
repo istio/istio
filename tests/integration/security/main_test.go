@@ -49,21 +49,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&i, func(c resource.Context, cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-values:
-  global:
-    logging:
-      level: delta:debug
-  pilot: 
-    env: 
-      PILOT_JWT_ENABLE_REMOTE_JWKS: true
-meshConfig:
-  defaultConfig:
-    gatewayTopology:
-      numTrustedProxies: 1 # Needed for X-Forwarded-For (See https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/)
-`
-		})).
+		Setup(istio.Setup(&i, setupConfig)).
 		// Create namespaces first. This way, echo can correctly configure egress to all namespaces.
 		SetupParallel(
 			namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true}),
@@ -86,4 +72,23 @@ meshConfig:
 			return ingressutil.SetInstances(apps.Ns1.All)
 		}).
 		Run()
+}
+
+func setupConfig(ctx resource.Context, cfg *istio.Config){
+	if cfg == nil {
+		return
+	}
+	cfg.ControlPlaneValues = `
+values:
+  global:
+    logging:
+      level: delta:debug
+  pilot: 
+    env: 
+      PILOT_JWT_ENABLE_REMOTE_JWKS: true
+meshConfig:
+  defaultConfig:
+    gatewayTopology:
+      numTrustedProxies: 1 # Needed for X-Forwarded-For (See https://istio.io/latest/docs/ops/configuration/traffic-management/network-topologies/)
+`
 }

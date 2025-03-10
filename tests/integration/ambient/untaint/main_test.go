@@ -48,11 +48,19 @@ func TestMain(m *testing.M) {
 			t.Settings().Ambient = true
 			return nil
 		}).
-		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
-			// can't deploy VMs without eastwest gateway
-			ctx.Settings().SkipVMs()
-			cfg.DeployEastWestGW = false
-			cfg.ControlPlaneValues = fmt.Sprintf(`
+		Setup(istio.Setup(&i, setupConfig, cert.CreateCASecretAlt)).
+		Teardown(untaintNodes).
+		Run()
+}
+
+func setupConfig(ctx resource.Context, cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	// can't deploy VMs without eastwest gateway
+	ctx.Settings().SkipVMs()
+	cfg.DeployEastWestGW = false
+	cfg.ControlPlaneValues = fmt.Sprintf(`
 values:
   pilot:
     taint:
@@ -72,9 +80,6 @@ values:
       enabled: false
 
 `, cfg.SystemNamespace)
-		}, cert.CreateCASecretAlt)).
-		Teardown(untaintNodes).
-		Run()
 }
 
 func taintNodes(t resource.Context) error {
