@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
-
 	// gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	// gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -176,7 +175,8 @@ type conversionResult[O any] struct {
 func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, translator func(
 	mesh bool,
 	obj T,
-) iter.Seq2[O, *ConfigError]) ([]gateway.RouteParentStatus, []routeParentReference, conversionResult[O], conversionResult[O]) {
+) iter.Seq2[O, *ConfigError],
+) ([]gateway.RouteParentStatus, []routeParentReference, conversionResult[O], conversionResult[O]) {
 	parentRefs := extractParentReferenceInfo(ctx.Krt, ctx.RouteParents, obj)
 
 	convertRules := func(mesh bool) conversionResult[O] {

@@ -478,7 +478,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	if h.log.DebugEnabled() {
 		h.log.WithLabels("events", len(events)).Debugf("calling handlers")
 	}
-	h.eventHandlers.Distribute(events, false)
+	h.eventHandlers.Distribute(events, !h.HasSynced())
 }
 
 // WithJoinUnchecked enables an optimization for join collections, where keys are not deduplicated across collections.

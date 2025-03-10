@@ -17,7 +17,6 @@ package gateway
 import (
 	"fmt"
 	"strconv"
-	"sync"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -74,7 +73,7 @@ type Controller struct {
 
 	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
-	statusWriter *StatusWriter
+	status *StatusCollections
 
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
 	outputs    Outputs
@@ -82,7 +81,10 @@ type Controller struct {
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
 	tagWatcher     krt.RecomputeProtected[revisions.TagWatcher]
 
-	stop chan struct{}
+	stop       chan struct{}
+	xdsUpdater model.XDSUpdater
+
+	handlers []krt.HandlerRegistration
 }
 
 type RouteContext struct {
@@ -111,25 +113,6 @@ func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {
 		Krt:                krtctx,
 		RouteContextInputs: i,
 	}
-}
-
-func registerStatus[I controllers.Object, IS any](statusCol krt.Collection[krt.ObjectWithStatus[I, IS]], statusWriter *StatusWriter) krt.Syncer {
-	mu := sync.Mutex{}
-	resync := func() {
-		mu.Lock()
-		defer mu.Unlock()
-		items := statusCol.List()
-		for _, l := range items {
-			EnqueueStatus(statusWriter, l.Obj, &l.Status)
-		}
-	}
-	statusWriter.resyncers = append(statusWriter.resyncers, resync)
-	return statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[I, IS]]) {
-		mu.Lock()
-		defer mu.Unlock()
-		l := o.Latest()
-		EnqueueStatus(statusWriter, l.Obj, &l.Status)
-	})
 }
 
 type ParentInfo struct {
@@ -174,51 +157,54 @@ func NewController(
 	kc kube.Client,
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool,
 	options controller.Options,
+	xdsUpdater model.XDSUpdater,
 ) *Controller {
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "gateway", options.KrtDebugger)
 
-	statusWriter := &StatusWriter{statusController: atomic.NewPointer[status.Queue](nil)}
 	tw := revisions.NewTagWatcher(kc, options.Revision)
 	c := &Controller{
 		client:         kc,
 		cluster:        options.ClusterID,
 		revision:       options.Revision,
+		status:         &StatusCollections{},
 		tagWatcher:     krt.NewRecomputeProtected(tw, false, opts.WithName("tagWatcher")...),
-		statusWriter:   statusWriter,
 		waitForCRD:     waitForCRD,
 		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[GatewayContext](nil), false, opts.WithName("gatewayContext")...),
 		stop:           stop,
+		xdsUpdater:     xdsUpdater,
 	}
 	tw.AddHandler(func(s sets.String) {
 		c.tagWatcher.TriggerRecomputation()
 	})
 
 	inputs := Inputs{
-		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("Namespaces")...),
+		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("informer/Namespaces")...),
 		Secrets: krt.WrapClient[*corev1.Secret](
 			kclient.NewFiltered[*corev1.Secret](kc, kubetypes.Filter{
 				FieldSelector: kubesecrets.SecretsFieldSelector,
 				ObjectFilter:  kc.ObjectFilter(),
 			}),
-			opts.WithName("Secrets")...,
+			opts.WithName("informer/Secrets")...,
 		),
 		Services: krt.WrapClient[*corev1.Service](
 			kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
-			opts.WithName("Services")...,
+			opts.WithName("informer/Services")...,
 		),
-		GatewayClasses:  buildClient[*gateway.GatewayClass](c, kc, gvr.GatewayClass, opts, "GatewayClasses"),
-		Gateways:        buildClient[*gateway.Gateway](c, kc, gvr.KubernetesGateway, opts, "Gateways"),
-		HTTPRoutes:      buildClient[*gateway.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "HTTPRoutes"),
-		GRPCRoutes:      buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "GRPCRoutes"),
-		TCPRoutes:       buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "TCPRoutes"),
-		TLSRoutes:       buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "TLSRoutes"),
-		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "ReferenceGrants"),
-		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "ServiceEntries"),
+		GatewayClasses:  buildClient[*gateway.GatewayClass](c, kc, gvr.GatewayClass, opts, "informer/GatewayClasses"),
+		Gateways:        buildClient[*gateway.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
+		HTTPRoutes:      buildClient[*gateway.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
+		GRPCRoutes:      buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "informer/GRPCRoutes"),
+		TCPRoutes:       buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes"),
+		TLSRoutes:       buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes"),
+		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
+		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
 	}
 
+	handlers := []krt.HandlerRegistration{}
+
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
-	registerStatus(GatewayClassStatus, statusWriter)
+	registerStatus(c, GatewayClassStatus)
 
 	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
 
@@ -251,32 +237,32 @@ func NewController(
 		routeInputs,
 		opts,
 	)
-	registerStatus(tcpRoutes.Status, statusWriter)
+	registerStatus(c, tcpRoutes.Status)
 	tlsRoutes := TLSRouteCollection(
 		inputs.TLSRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(tlsRoutes.Status, statusWriter)
+	registerStatus(c, tlsRoutes.Status)
 	httpRoutes := HTTPRouteCollection(
 		inputs.HTTPRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(httpRoutes.Status, statusWriter)
+	registerStatus(c, httpRoutes.Status)
 	grpcRoutes := GRPCRouteCollection(
 		inputs.GRPCRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(grpcRoutes.Status, statusWriter)
+	registerStatus(c, grpcRoutes.Status)
 
 	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
 		tcpRoutes.RouteAttachments,
 		tlsRoutes.RouteAttachments,
 		httpRoutes.RouteAttachments,
 		grpcRoutes.RouteAttachments,
-	})
+	}, opts.WithName("RouteAttachments")...)
 	RouteAttachmentsIndex := krt.NewIndex(RouteAttachments, func(o RouteAttachment) []types.NamespacedName {
 		return []types.NamespacedName{o.To}
 	})
@@ -299,7 +285,7 @@ func NewController(
 				Status: *status,
 			}
 		}, opts.WithName("GatewayFinalStatus")...)
-	registerStatus(GatewayFinalStatus, statusWriter)
+	registerStatus(c, GatewayFinalStatus)
 
 	VirtualServices := krt.JoinCollection([]krt.Collection[*config.Config]{
 		tcpRoutes.VirtualServices,
@@ -315,24 +301,24 @@ func NewController(
 	}
 	c.outputs = outputs
 
-	outputs.VirtualServices.RegisterBatch(pushXds(options.XDSUpdater,
+	handlers = append(handlers, outputs.VirtualServices.RegisterBatch(pushXds(xdsUpdater,
 		func(t *config.Config) model.ConfigKey {
 			return model.ConfigKey{
 				Kind:      kind.VirtualService,
 				Name:      t.Name,
 				Namespace: t.Namespace,
 			}
-		}), false)
+		}), false))
 
-	outputs.Gateways.RegisterBatch(pushXds(options.XDSUpdater,
+	handlers = append(handlers, outputs.Gateways.RegisterBatch(pushXds(xdsUpdater,
 		func(t Gateway) model.ConfigKey {
 			return model.ConfigKey{
 				Kind:      kind.Gateway,
 				Name:      t.Name,
 				Namespace: t.Namespace,
 			}
-		}), false)
-	// TODO: referencegrant update?
+		}), false))
+	c.handlers = handlers
 
 	return c
 }
@@ -371,12 +357,13 @@ func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 func (c *Controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	switch typ {
 	case gvk.Gateway:
-		return slices.MapFilter(c.outputs.Gateways.List(), func(g Gateway) *config.Config {
+		res := slices.MapFilter(c.outputs.Gateways.List(), func(g Gateway) *config.Config {
 			if g.Valid {
 				return g.Config
 			}
 			return nil
 		})
+		return res
 	case gvk.VirtualService:
 		return slices.Map(c.outputs.VirtualServices.List(), func(e *config.Config) config.Config {
 			return *e
@@ -388,18 +375,12 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 
 func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
 	if enabled && features.EnableGatewayAPIStatus && statusManager != nil {
-		c.setStatusQueue(statusManager.CreateGenericController(func(status status.Manipulator, context any) {
+		var q status.Queue = statusManager.CreateGenericController(func(status status.Manipulator, context any) {
 			status.SetInner(context)
-		}))
+		})
+		c.status.SetQueue(q)
 	} else {
-		c.statusWriter.statusController.Store(nil)
-	}
-}
-
-func (c *Controller) setStatusQueue(queue status.Queue) {
-	c.statusWriter.statusController.Store(&queue)
-	for _, rs := range c.statusWriter.resyncers {
-		rs()
+		c.status.UnsetQueue()
 	}
 }
 
@@ -420,12 +401,7 @@ type StatusWriter struct {
 	resyncers        []func()
 }
 
-func EnqueueStatus[T any](sw *StatusWriter, obj controllers.Object, ws T) {
-	statusController := sw.statusController.Load()
-	if statusController == nil {
-		return
-	}
-
+func EnqueueStatus[T any](sw status.Queue, obj controllers.Object, ws T) {
 	// TODO: this is a bit awkward since the status controller is reading from crdstore. I suppose it works -- it just means
 	// we cannot remove Gateway API types from there.
 	res := status.Resource{
@@ -434,7 +410,7 @@ func EnqueueStatus[T any](sw *StatusWriter, obj controllers.Object, ws T) {
 		Name:                 obj.GetName(),
 		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
 	}
-	(*statusController).EnqueueStatusUpdateResource(ws, res)
+	sw.EnqueueStatusUpdateResource(ws, res)
 }
 
 func (c *Controller) Create(config config.Config) (revision string, err error) {
@@ -483,10 +459,17 @@ func (c *Controller) Run(stop <-chan struct{}) {
 }
 
 func (c *Controller) HasSynced() bool {
-
-	return c.outputs.VirtualServices.HasSynced() &&
+	if !(c.outputs.VirtualServices.HasSynced() &&
 		c.outputs.Gateways.HasSynced() &&
-		c.outputs.ReferenceGrants.collection.HasSynced()
+		c.outputs.ReferenceGrants.collection.HasSynced()) {
+		return false
+	}
+	for _, h := range c.handlers {
+		if !h.HasSynced() {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {

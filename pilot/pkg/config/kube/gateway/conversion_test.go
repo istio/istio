@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -432,6 +433,12 @@ func (t *TestStatusQueue) EnqueueStatusUpdateResource(context any, target status
 	t.state[target] = context
 }
 
+func (t *TestStatusQueue) Statuses() []any {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return maps.Values(t.state)
+}
+
 func (t *TestStatusQueue) Dump() string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -566,15 +573,20 @@ func TestConvertResources(t *testing.T) {
 				kc,
 				AlwaysReady,
 				controller.Options{DomainSuffix: "domain.suffix", KrtDebugger: dbg},
+				nil,
 			)
 			sq := &TestStatusQueue{
 				state: map[status.Resource]any{},
 			}
-			ctrl.setStatusQueue(sq)
 			go ctrl.Run(stop)
 			kc.RunAndWait(stop)
 			ctrl.Reconcile(cg.PushContext())
 			kube.WaitForCacheSync("test", stop, ctrl.HasSynced)
+			// Normally we don't care to block on status being written, but here we need to since we want to test output
+			statusSynced := ctrl.status.SetQueue(sq)
+			for _, st := range statusSynced {
+				st.WaitUntilSynced(stop)
+			}
 
 			res := ctrl.List(gvk.Gateway, "")
 			sortConfigByCreationTime(res)

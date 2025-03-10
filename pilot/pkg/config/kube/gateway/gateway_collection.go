@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"go.uber.org/atomic"
-	"istio.io/istio/pkg/revisions"
 	corev1 "k8s.io/api/core/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -31,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 )
 

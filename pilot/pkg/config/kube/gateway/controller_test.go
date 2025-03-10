@@ -83,7 +83,8 @@ func setupController(t *testing.T, objs ...runtime.Object) *Controller {
 	controller := NewController(
 		kc,
 		AlwaysReady,
-		controller.Options{KrtDebugger: krt.GlobalDebugHandler})
+		controller.Options{KrtDebugger: krt.GlobalDebugHandler},
+		nil)
 	kc.RunAndWait(stop)
 	go controller.Run(stop)
 	cg := core.NewConfigGenTest(t, core.TestOptions{})

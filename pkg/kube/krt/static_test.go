@@ -24,7 +24,7 @@ import (
 
 func TestStaticCollection(t *testing.T) {
 	stop := test.NewStop(t)
-	c := krt.NewStaticCollection[Named]([]Named{{"ns", "a"}}, krt.WithStop(stop))
+	c := krt.NewStaticCollection[Named](nil, []Named{{"ns", "a"}}, krt.WithStop(stop))
 	assert.Equal(t, c.Synced().HasSynced(), true, "should start synced")
 	assert.Equal(t, c.List(), []Named{{"ns", "a"}})
 

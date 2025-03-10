@@ -22,7 +22,7 @@ import (
 
 type RecomputeProtected[T any] struct {
 	trigger *RecomputeTrigger
-	data T
+	data    T
 }
 
 // Get marks us as dependent on the value and fetches it.
@@ -43,14 +43,14 @@ func (c RecomputeProtected[T]) MarkSynced() {
 }
 
 // Modify modifies the object and triggers a recompution.
-func (c RecomputeProtected[T]) Modify(fn func (*T))  {
+func (c RecomputeProtected[T]) Modify(fn func(*T)) {
 	fn(&c.data)
 	c.TriggerRecomputation()
 }
 
 // AccessUnprotected returns the data without marking as dependant. This must be used with caution; any use within a collection
 // is likely broken
-func (c RecomputeProtected[T]) AccessUnprotected() T  {
+func (c RecomputeProtected[T]) AccessUnprotected() T {
 	return c.data
 }
 
@@ -62,6 +62,7 @@ func NewRecomputeProtected[T any](initialData T, startSynced bool, opts ...Colle
 		data:    initialData,
 	}
 }
+
 // RecomputeTrigger trigger provides an escape hatch to allow krt transformations to depend on external state and recompute
 // correctly when those change.
 // Typically, all state is registered and fetched through krt.Fetch. Through this mechanism, any changes are automatically

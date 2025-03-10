@@ -113,15 +113,15 @@ func TestConformance(t *testing.T) {
 		runConformance[*corev1.ConfigMap](t, rig)
 	})
 	t.Run("static list", func(t *testing.T) {
-		col := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)))
+		col := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)))
 		rig := &staticRig{
 			StaticCollection: col,
 		}
 		runConformance[Named](t, rig)
 	})
 	t.Run("join", func(t *testing.T) {
-		col1 := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)))
-		col2 := krt.NewStaticCollection[Named](nil, krt.WithStop(test.NewStop(t)))
+		col1 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)))
+		col2 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)))
 		j := krt.JoinCollection[Named]([]krt.Collection[Named]{col1, col2})
 		rig := &joinRig{
 			Collection: j,
@@ -130,8 +130,8 @@ func TestConformance(t *testing.T) {
 		runConformance[Named](t, rig)
 	})
 	t.Run("manyCollection", func(t *testing.T) {
-		namespaces := krt.NewStaticCollection[string](nil, krt.WithStop(test.NewStop(t)))
-		names := krt.NewStaticCollection[string](nil, krt.WithStop(test.NewStop(t)))
+		namespaces := krt.NewStaticCollection[string](nil, nil, krt.WithStop(test.NewStop(t)))
+		names := krt.NewStaticCollection[string](nil, nil, krt.WithStop(test.NewStop(t)))
 		col := krt.NewManyCollection(namespaces, func(ctx krt.HandlerContext, ns string) []Named {
 			names := krt.Fetch[string](ctx, names)
 			return slices.Map(names, func(e string) Named {

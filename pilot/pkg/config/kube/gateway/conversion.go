@@ -950,7 +950,6 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 		return &istio.Destination{
-			// TODO: implement ReferencePolicy for cross namespace
 			Host: hostname,
 			Port: &istio.PortSelector{Number: uint32(*to.Port)},
 		}, invalidBackendErr
@@ -1469,7 +1468,6 @@ func reportGatewayStatus(
 	gatewayErr *ConfigError,
 ) {
 	// TODO: we lose address if servers is empty due to an error
-	// TODO: this is not updated
 	internal, internalIP, external, pending, warnings, allUsable := r.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
@@ -2051,7 +2049,7 @@ func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config
 	}
 }
 
-func GetCommonRouteStateParents(spec any) ([]k8s.RouteParentStatus) {
+func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 	switch t := spec.(type) {
 	case *k8salpha.TCPRoute:
 		return t.Status.Parents

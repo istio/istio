@@ -39,7 +39,7 @@ type staticList[T any] struct {
 	syncer         Syncer
 }
 
-func NewStaticCollection[T any](vals []T, opts ...CollectionOption) StaticCollection[T] {
+func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) StaticCollection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("Static[%v]", ptr.TypeName[T]())
@@ -50,13 +50,17 @@ func NewStaticCollection[T any](vals []T, opts ...CollectionOption) StaticCollec
 		res[GetKey(v)] = v
 	}
 
+	if synced == nil {
+		synced = alwaysSynced{}
+	}
+
 	sl := &staticList[T]{
 		eventHandlers:  newHandlerSet[T](),
 		vals:           res,
 		id:             nextUID(),
 		stop:           o.stop,
 		collectionName: o.name,
-		syncer:         alwaysSynced{},
+		syncer:         synced,
 	}
 
 	c := StaticCollection[T]{
