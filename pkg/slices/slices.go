@@ -125,6 +125,12 @@ func Max[S ~[]E, E cmp.Ordered](x S) E {
 	return slices.Max(x)
 }
 
+// Index returns the index of the first occurrence of v in s,
+// or -1 if not present.
+func Index[S ~[]E, E comparable](s S, v E) int {
+	return slices.Index(s, v)
+}
+
 // FindFunc finds the first element matching the function, or nil if none do
 func FindFunc[E any](s []E, f func(E) bool) *E {
 	idx := slices.IndexFunc(s, f)
