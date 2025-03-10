@@ -101,9 +101,14 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 									if err != nil {
 										return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
 									}
+									hostDomain := ""
+									if ctx.Settings().OpenShift {
+										ingressAddr, _ := tracing.GetIngressInstance().HTTPAddresses()
+										hostDomain = ingressAddr[0]
+									}
 
 									// the OTel collector exports to Zipkin
-									traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", tc.customAttribute)
+									traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", tc.customAttribute, hostDomain)
 									t.Logf("got traces %v from %s", traces, cluster)
 									if err != nil {
 										return fmt.Errorf("cannot get traces from zipkin: %v", err)

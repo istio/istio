@@ -27,7 +27,7 @@ type Instance interface {
 
 	// QueryTraces gets at most number of limit most recent available traces from zipkin.
 	// spanName filters that only trace with the given span name will be included.
-	QueryTraces(limit int, spanName, annotationQuery string) ([]Trace, error)
+	QueryTraces(limit int, spanName, annotationQuery, hostDomain string) ([]Trace, error)
 }
 
 type Config struct {
