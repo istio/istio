@@ -92,6 +92,13 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 		}
 		// We found our highest priority ranking, now we need to collapse this into a single message
 		for k, refs := range seen {
+			// can report and continue early if only single result for parentRef.
+			// this ensures that we do not skip a parentRef when there is only one result.
+			if len(refs) == 1 {
+				report[k] = refs[0]
+				continue
+			}
+			// otherwise, we need to collapse the results into a single message
 			for _, ref := range refs {
 				reason := ParentNoError
 				if ref.DeniedReason != nil {
