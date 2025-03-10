@@ -408,6 +408,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 			kclient.NewWriteClient[*appsv1.Deployment](client).Create(upgradeDeployment)
 			stop := test.NewStop(t)
 			env := model.NewEnvironment()
+			defer env.Close()
 			env.PushContext().ProxyConfigs = tt.pcs
 			tw := revisions.NewTagWatcher(client, "")
 			go tw.Run(stop)
