@@ -179,10 +179,6 @@ func (a *Agent) terminate() {
 				log.Infof("Envoy exited with status %v", status.err)
 				log.Infof("Graceful termination logic ended prematurely, envoy process terminated early")
 				return
-			case <-time.After(a.terminationDrainDuration - a.minDrainDuration):
-				log.Infof("Graceful termination period complete, terminating remaining proxies.")
-				a.abortCh <- errAbort
-				return
 			default:
 				if err != nil {
 					log.Errorf(err.Error())
