@@ -670,7 +670,7 @@ func (cb *ClusterBuilder) setUpstreamProtocol(cluster *clusterWrapper, port *mod
 	// h2. Clients would then connect with h2, while the upstream may not support it. This is not a
 	// concern for plaintext, but we do not have a way to distinguish https vs http here. If users of
 	// gateway want this behavior, they can configure UseClientProtocol explicitly.
-	if cb.sidecarProxy() && isAutoProtocol {
+	if (cb.sidecarProxy() || cb.proxyType == model.Waypoint) && isAutoProtocol {
 		// Use downstream protocol. If the incoming traffic use HTTP 1.1, the
 		// upstream cluster will use HTTP 1.1, if incoming traffic use HTTP2,
 		// the upstream cluster will use HTTP2.
