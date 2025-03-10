@@ -134,7 +134,10 @@ func SimpleServiceCollection(services krt.Collection[*corev1.Service], opts krt.
 	return NamedSimpleServiceCollection(services, opts, "SimpleService")
 }
 
-func NamedSimpleServiceCollectionFromEntries(entries krt.Collection[*istioclient.ServiceEntry], opts krt.OptionsBuilder, name string) krt.Collection[SimpleService] {
+func NamedSimpleServiceCollectionFromEntries(
+	entries krt.Collection[*istioclient.ServiceEntry],
+	opts krt.OptionsBuilder,
+	name string) krt.Collection[SimpleService] {
 	return krt.NewCollection(entries, func(ctx krt.HandlerContext, i *istioclient.ServiceEntry) *SimpleService {
 		l := i.Spec.WorkloadSelector.GetLabels()
 		if l == nil {
