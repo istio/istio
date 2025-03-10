@@ -169,6 +169,7 @@ func (i indexCollection[K, O]) List() []IndexObject[K, O] {
 
 // dumpOutput dumps the current state. This has no synchronization, so it's not perfect.
 // This will not result in a Go level data-race, but can give incorrect information so is best-effort only.
+// nolint: unused // (not true...)
 func (i indexCollection[K, O]) dumpOutput() map[string]any {
 	o := i.idx.c.List()
 	keys := sets.New[K]()
