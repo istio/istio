@@ -349,7 +349,6 @@ func (j *dynamicjoin[T]) RemoveCollection(c Collection[T]) {
 	delete(j.collectionsByKey, name)
 	handlers := j.collectionChangeHandlers
 	j.Unlock() // don't defer so we don't have to wait for handler execution
-
 	for _, h := range handlers {
 		h(collectionChangeEvent[T]{
 			eventType:       indexEventCollectionDelete,
