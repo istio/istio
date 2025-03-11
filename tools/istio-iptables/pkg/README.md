@@ -54,7 +54,7 @@ This wrapper implements reconciliation logic to ensure that `iptables` rules are
 - When Istio `iptables` rules are applied to a preexisting, running pod that already has (potentially outdated or incomplete) in-pod rules from a previous version or instance of Istio
 - When Istio `iptables` rules are applied to a pod that has preexisting in-pod `iptables` rules from a component other than Istio
 
-The reconciliation logic _primarily_ modifies rules in chains prefixed with `ISTIO_` and manages jumps from primary tables to those chains. In some rare cases, it may also remove some non-jump rules from non-ISTIO chains since there are some istio-iptables configurations that use them (e.g., tproxy). However, this is the exception rather than the norm, as we are actively working to update Istio to eliminate the use of non-jump rules in non-ISTIO chains moving forward.
+The reconciliation logic _primarily_ modifies rules in chains prefixed with `ISTIO_` and manages jumps from primary tables to those chains. In some rare cases, it may also modify some non-jump rules from non-ISTIO chains that were deployed by certain istio-iptables configurations (e.g., tproxy). However, this is the exception rather than the norm, as we are actively working to update Istio to eliminate the use of non-jump rules in non-ISTIO chains moving forward.
 
 The logic of istio-iptables is primarily controlled by the `Reconcile` flag, which determines whether preexisting, incompatible iptables rules need to be reconciled when a drift from the desired state is detected.
 Depending on the value of the flag, different behaviors can be observed:
