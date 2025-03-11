@@ -25,7 +25,7 @@ import (
 
 type Index[K comparable, O any] interface {
 	Lookup(k K) []O
-	AsCollection() Collection[IndexObject[K, O]]
+	AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]]
 	objectHasKey(obj O, k K) bool
 	extractKeys(o O) []K
 }
@@ -74,11 +74,15 @@ type index[K comparable, O any] struct {
 // * Building an index is not allowed
 // * Events are not 100% precise; only Add and Delete events are triggered. Updates will be `Add` events.
 // The intended use case for this is to do merging within a collection (like a SQL 'group by').
-func (i index[K, O]) AsCollection() Collection[IndexObject[K, O]] {
-	return indexCollection[K, O]{
-		idx: i,
-		id:  nextUID(),
+func (i index[K, O]) AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]] {
+	o := buildCollectionOptions(opts...)
+	c := indexCollection[K, O]{
+		idx:            i,
+		id:             nextUID(),
+		collectionName: fmt.Sprintf("index/%s", o.name),
 	}
+	maybeRegisterCollectionForDebugging(c, o.debugger)
+	return c
 }
 
 // nolint: unused // (not true)
@@ -135,9 +139,8 @@ func (i indexCollection[K, O]) uid() collectionUID {
 // nolint: unused // (not true, its to implement an interface)
 func (i indexCollection[K, O]) dump() CollectionDump {
 	return CollectionDump{
-		Outputs:         nil,
-		InputCollection: "",
-		Inputs:          nil,
+		Outputs:         i.dumpOutput(),
+		InputCollection: i.idx.c.(internalCollection[O]).name(),
 	}
 }
 
@@ -162,6 +165,23 @@ func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
 
 func (i indexCollection[K, O]) List() []IndexObject[K, O] {
 	panic("an index collection cannot be listed")
+}
+
+// dumpOutput dumps the current state. This has no synchronization, so it's not perfect.
+// This will not result in a Go level data-race, but can give incorrect information so is best-effort only.
+// nolint: unused // (not true...)
+func (i indexCollection[K, O]) dumpOutput() map[string]any {
+	o := i.idx.c.List()
+	keys := sets.New[K]()
+	for _, oo := range o {
+		keys.InsertAll(i.idx.extractKeys(oo)...)
+	}
+	res := map[string]any{}
+	for k := range keys {
+		ks := any(k).(string)
+		res[ks] = *i.GetKey(ks)
+	}
+	return res
 }
 
 func (i indexCollection[K, O]) WaitUntilSynced(stop <-chan struct{}) bool {
