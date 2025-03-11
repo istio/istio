@@ -262,6 +262,7 @@ var wdsCases = []ConfigInput{
 		KubernetesClient: true,
 		PushRequest: &model.PushRequest{
 			Reason: model.NewReasonStats(model.ProxyRequest),
+			Forced: true,
 		},
 	},
 }
@@ -391,7 +392,7 @@ func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 func runBenchmarkCase(t testing.TB, tt ConfigInput, tpe string, n int, reset func()) model.Resources {
 	s, proxy := setupAndInitializeTest(t, tt)
 	wr := getWatchedResources(tpe, tt, s, proxy)
-	pr := &model.PushRequest{Full: true, Push: s.PushContext()}
+	pr := &model.PushRequest{Full: true, Push: s.PushContext(), Forced: true}
 	if tt.PushRequest != nil {
 		// Some types get watched resources populated on the first run. So generate with a full push first
 		_, _, _ = s.Discovery.Generators[tpe].Generate(proxy, wr, pr)

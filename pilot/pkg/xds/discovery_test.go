@@ -91,7 +91,7 @@ func TestSendPushesManyPushes(t *testing.T) {
 
 	for push := 0; push < 100; push++ {
 		for _, proxy := range proxies {
-			queue.Enqueue(proxy, &model.PushRequest{Push: &model.PushContext{}})
+			queue.Enqueue(proxy, &model.PushRequest{Push: &model.PushContext{}, Forced: true})
 		}
 		time.Sleep(time.Millisecond * 10)
 	}
@@ -144,7 +144,7 @@ func TestSendPushesSinglePush(t *testing.T) {
 	go doSendPushes(stopCh, semaphore, queue)
 
 	for _, proxy := range proxies {
-		queue.Enqueue(proxy, &model.PushRequest{Push: &model.PushContext{}})
+		queue.Enqueue(proxy, &model.PushRequest{Push: &model.PushContext{}, Forced: true})
 	}
 
 	if !wgDoneOrTimeout(wg, time.Second) {
@@ -195,42 +195,42 @@ func TestDebounce(t *testing.T) {
 		{
 			name: "Should not debounce partial pushes",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(1, 0)
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(2, 0)
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(3, 0)
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(4, 0)
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(5, 0)
 			},
 		},
 		{
 			name: "Should debounce full pushes",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
 				expect(0, 0)
 			},
 		},
 		{
 			name: "Should send full updates in batches",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true}
-				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
 				expect(0, 1)
 			},
 		},
 		{
 			name: "Should send full updates in batches, partial updates immediately",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true}
-				updateCh <- &model.PushRequest{Full: true}
-				updateCh <- &model.PushRequest{Full: false}
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(2, 1)
-				updateCh <- &model.PushRequest{Full: false}
+				updateCh <- &model.PushRequest{Full: false, Forced: true}
 				expect(3, 1)
 			},
 		},
@@ -238,13 +238,13 @@ func TestDebounce(t *testing.T) {
 			name: "Should force a push after DebounceMax",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				// Send many requests within debounce window
-				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
 				time.Sleep(opts.DebounceAfter / 2)
-				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
 				time.Sleep(opts.DebounceAfter / 2)
-				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
 				time.Sleep(opts.DebounceAfter / 2)
-				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
 				time.Sleep(opts.DebounceAfter / 2)
 				expect(0, 1)
 			},
@@ -252,9 +252,9 @@ func TestDebounce(t *testing.T) {
 		{
 			name: "Should push synchronously after debounce",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
 				time.Sleep(opts.DebounceAfter + 10*time.Millisecond)
-				updateCh <- &model.PushRequest{Full: true}
+				updateCh <- &model.PushRequest{Full: true, Forced: true}
 				expect(0, 2)
 			},
 		},
@@ -355,6 +355,7 @@ func BenchmarkPushRequest(b *testing.B) {
 			nreq := &model.PushRequest{
 				ConfigsUpdated: sets.New[model.ConfigKey](),
 				Reason:         model.NewReasonStats(trigger),
+				Forced:         true,
 			}
 			for c := 0; c < configs; c++ {
 				nreq.ConfigsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"})

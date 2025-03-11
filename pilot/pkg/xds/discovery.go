@@ -182,7 +182,7 @@ func (s *DiscoveryServer) initJwksResolver() {
 
 	// Flush cached discovery responses when detecting jwt public key change.
 	s.JwtKeyResolver.PushFunc = func() {
-		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.UnknownTrigger)})
+		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.UnknownTrigger), Forced: true})
 	}
 }
 
@@ -246,7 +246,7 @@ func (s *DiscoveryServer) periodicRefreshMetrics(stopCh <-chan struct{}) {
 // dropCacheForRequest clears the cache in response to a push request
 func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 	// If we don't know what updated, cannot safely cache. Clear the whole cache
-	if len(req.ConfigsUpdated) == 0 {
+	if req.Forced {
 		s.Cache.ClearAll()
 	} else {
 		// Otherwise, just clear the updated configs
