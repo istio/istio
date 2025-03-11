@@ -15,14 +15,18 @@
 package krt_test
 
 import (
+	"net/netip"
 	"testing"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	istio "istio.io/api/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/model"
+	srkube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -30,6 +34,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestJoinCollection(t *testing.T) {
@@ -204,5 +209,145 @@ func TestCollectionJoinSync(t *testing.T) {
 	assert.Equal(t, fetcherSorted(AllPods)(), []SimplePod{
 		{Named{"namespace", "name"}, NewLabeled(map[string]string{"app": "foo"}), "1.2.3.4"},
 		{Named{"namespace", "name-static"}, NewLabeled(map[string]string{"app": "foo"}), "9.9.9.9"},
+	})
+}
+
+func TestJoinWithMergeCollection(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc",
+			Namespace: "namespace",
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"app": "foo"},
+			Ports: []corev1.ServicePort{
+				{Name: "http", Port: 80, TargetPort: intstr.FromInt(8080)},
+			},
+			ClusterIP: "1.2.3.4",
+		},
+	}
+	se := &istioclient.ServiceEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc",
+			Namespace: "namespace",
+		},
+		Spec: istio.ServiceEntry{
+			Hosts: []string{"svc.namespace.svc.test.local"},
+			Ports: []*istio.ServicePort{
+				{Name: "http", Number: 80, Protocol: "HTTP", TargetPort: 8080},
+			},
+			Addresses: []string{"1.2.3.5"},
+			SubjectAltNames: []string{
+				"foo.namespace.svc.cluster.local",
+			},
+		},
+	}
+	c := kube.NewFakeClient(svc)
+
+	sec := clienttest.Wrap(t, kclient.New[*istioclient.ServiceEntry](c))
+	sec.Create(se)
+	services := krt.NewInformer[*corev1.Service](c, opts.WithName("Services")...)
+	serviceEntries := krt.NewInformer[*istioclient.ServiceEntry](c, opts.WithName("ServiceEntries")...)
+	c.RunAndWait(stop)
+
+	ServicesInfo := krt.NewCollection(services, serviceBuilder(), opts.WithName("ServicesInfo")...)
+	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, serviceEntriesBuilder(), opts.WithName("ServiceEntriesInfo")...)
+	AllServices := krt.JoinWithMergeCollection(
+		[]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo},
+		func(serviceInfos []model.ServiceInfo) model.ServiceInfo {
+			if len(serviceInfos) == 1 {
+				return serviceInfos[0]
+			}
+			type port struct {
+				port       uint32
+				targetPort uint32
+			}
+			ports := map[port]struct{}{}
+			addresses := []*workloadapi.NetworkAddress{}
+			sans := []string{}
+			first := true
+			for _, si := range serviceInfos {
+				for _, p := range si.Service.Ports {
+					miniPort := port{
+						port:       p.ServicePort,
+						targetPort: p.TargetPort,
+					}
+					if first {
+						ports[miniPort] = struct{}{}
+					} else {
+						if _, ok := ports[miniPort]; !ok {
+							// The port doesn't exist in other services, so remove it
+							delete(ports, miniPort)
+						}
+					}
+				}
+				if first {
+					addresses = si.Service.GetAddresses()
+					sans = si.Service.GetSubjectAltNames()
+					first = false
+					continue
+				}
+				addresses = append(addresses, si.Service.GetAddresses()...)
+				sans = append(sans, si.Service.GetSubjectAltNames()...)
+			}
+
+			if len(ports) == 0 {
+				// No ports in common, so return nothing
+				return model.ServiceInfo{}
+			}
+
+			finalServiceInfo := model.ServiceInfo{
+				Service: &workloadapi.Service{
+					Addresses:       addresses,
+					Ports:           make([]*workloadapi.Port, 0, len(ports)),
+					Name:            serviceInfos[0].Service.Name,
+					Namespace:       serviceInfos[0].Service.Namespace,
+					Hostname:        srkube.ServiceHostname(serviceInfos[0].Service.Name, serviceInfos[0].Service.Namespace, "test.local").String(),
+					SubjectAltNames: sans,
+				},
+				LabelSelector: model.LabelSelector{
+					Labels: map[string]string{"app": "foo"},
+				},
+			}
+
+			for p := range ports {
+				finalServiceInfo.Service.Ports = append(finalServiceInfo.Service.Ports, &workloadapi.Port{
+					ServicePort: p.port,
+					TargetPort:  uint32(p.targetPort),
+				})
+			}
+
+			return finalServiceInfo
+		}, opts.WithName("AllServices")...,
+	)
+
+	assert.EventuallyEqual(t, func() *model.ServiceInfo { return AllServices.GetKey("namespace/svc.namespace.svc.test.local") }, &model.ServiceInfo{
+		LabelSelector: model.LabelSelector{
+			Labels: map[string]string{"app": "foo"},
+		},
+		Service: &workloadapi.Service{
+			Name:      "svc",
+			Namespace: "namespace",
+			Hostname:  srkube.ServiceHostname("svc", "namespace", "test.local").String(),
+			Addresses: []*workloadapi.NetworkAddress{
+				{
+					Address: netip.MustParseAddr("1.2.3.4").AsSlice(),
+					Network: "testnetwork",
+				},
+				{
+					Address: netip.MustParseAddr("1.2.3.5").AsSlice(),
+					Network: "testnetwork",
+				},
+			},
+			Ports: []*workloadapi.Port{
+				{
+					ServicePort: 80,
+					TargetPort:  8080,
+				},
+			},
+			SubjectAltNames: []string{"foo.namespace.svc.cluster.local"},
+		},
 	})
 }
