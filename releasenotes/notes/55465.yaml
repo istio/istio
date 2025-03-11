@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 55437
+releaseNotes:
+- |
+  **Fixed** `istio.io/waypoint-for` and `istio.io/rev` labels cannot be generated simultaneously when creating Waypoint Proxy with istioctl.
