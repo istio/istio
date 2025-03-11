@@ -88,7 +88,7 @@ When `istio-cni` Node Agent is in charge of applying the `iptables` rules, a two
   1. Removes any remaining `ISTIO_*` chains
 
 The second pass is crucial when the `istio-cni` Node Agent manages iptables because workloads may have been configured by different versions of the Node Agent, or with different `iptables` configurations.
-For all other use cases, only the first pass is performed, as reruns in istio-init/VM can only occur and those always involve a current state that's a subset of the expected state.
+For all other use cases, only the first pass is performed, as reruns in `istio-init`/VM can only occur and those always involve a current state that's a subset of the expected state.
 
 ### Limitations and guidelines
 
