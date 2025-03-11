@@ -93,7 +93,7 @@ For all other use cases, only the first pass is performed, as reruns in `istio-i
 ### Limitations and guidelines
 
 1. **Order Insensitivity**:  Two `iptables` rules snapshots are considered identical if they share exactly the same rules, even if these rules appear in different orders.
-1. **Non-Istio Chain Rules**: Two states are considered identical if the only difference is that the current state has rules in non-ISTIO chains that are absent in the expected/desired state. This includes jump rules pointing to `ISTIO_*` chains in `OUTPUT`, `INPUT`, etc.
+1. **Non-Istio Chain Rules**: Two `iptables` rules snapshots are considered identical if the only difference is that the current snapshot has rules in non-ISTIO chains that are absent in the expected/desired snapshot. This includes jump rules pointing to `ISTIO_*` chains in `OUTPUT`, `INPUT`, etc.
 1. **Cleanup Scope**: Second-pass cleanup can only remove leftover Istio chains and jumps to those chains. Any other non-jump rule in non-Istio chains will remain, as there's no reliable way to determine if it was created by Istio or the user.
 
 To avoid issues with the limitations above, the maintainers needs to keep the following guidelines when reviewing changes regarding `iptables` configurations:
