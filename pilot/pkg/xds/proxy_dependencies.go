@@ -31,7 +31,8 @@ var UnAffectedConfigKinds = map[model.NodeType]sets.Set[kind.Kind]{
 }
 
 // filterRelevantUpdates filters PushRequest.ConfigsUpdated so that only configs relevant to the proxy are included,
-// and returns a new PushRequest with the filtered configs.
+// returning the original PushRequest if no filtering was needed or a new PushRequest if some config filtering was performed.
+// The returned PushRequest should not be modified since it might be the original global PushRequest.
 func filterRelevantUpdates(proxy *model.Proxy, req *model.PushRequest) *model.PushRequest {
 	if len(req.ConfigsUpdated) == 0 {
 		return req
