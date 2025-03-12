@@ -555,7 +555,7 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 func mergeHttpRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...krt.CollectionOption) krt.Collection[*config.Config] {
 	idx := krt.NewIndex(baseVirtualServices, func(o RouteWithKey) []string {
 		return []string{o.Key}
-	}).AsCollection()
+	}).AsCollection(opts...)
 	finalVirtualServices := krt.NewCollection(idx, func(ctx krt.HandlerContext, object krt.IndexObject[string, RouteWithKey]) **config.Config {
 		configs := object.Objects
 		if len(configs) == 1 {
