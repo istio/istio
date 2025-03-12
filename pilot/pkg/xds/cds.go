@@ -63,46 +63,66 @@ var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 	return s
 }()
 
-func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+// cdsNeedsPush may return a new PushRequest with ConfigsUpdated filtered to only include configs that impact CDS,
+// this is done because cluster generator checks if only some specific types of configs are present to enable delta generation.
+func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushRequest, bool) {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
-		return res
+		return req, res
 	}
 	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
-		return true
+		return req, true
 	}
 	if !req.Full {
-		return false
+		return req, false
 	}
+
+	relevantUpdates := make(sets.Set[model.ConfigKey])
+	filtered := false
 	checkGateway := false
 	for config := range req.ConfigsUpdated {
 		if proxy.Type == model.Router {
-			if features.FilterGatewayClusterConfig {
-				if _, f := pushCdsGatewayConfig[config.Kind]; f {
-					return true
-				}
-			}
 			if config.Kind == kind.Gateway {
 				// Do the check outside of the loop since its slow; just trigger we need it
 				checkGateway = true
 			}
+			if features.FilterGatewayClusterConfig {
+				if _, f := pushCdsGatewayConfig[config.Kind]; f {
+					relevantUpdates.Insert(config)
+					continue
+				}
+			}
 		}
 
 		if _, f := skippedCdsConfigs[config.Kind]; !f {
-			return true
+			relevantUpdates.Insert(config)
+		} else {
+			// we filtered a config
+			filtered = true
 		}
 	}
+
+	needsPush := false
+
 	if checkGateway {
 		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
 		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
 		if autoPassthroughModeChanged || autoPassthroughHostsChanged {
-			return true
+			needsPush = true
 		}
 	}
-	return false
+
+	if filtered {
+		newPushRequest := *req
+		newPushRequest.ConfigsUpdated = relevantUpdates
+		req = &newPushRequest
+	}
+
+	return req, needsPush || len(req.ConfigsUpdated) > 0
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !cdsNeedsPush(req, proxy) {
+	req, needsPush := cdsNeedsPush(req, proxy)
+	if !needsPush {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	clusters, logs := c.ConfigGenerator.BuildClusters(proxy, req)
@@ -113,7 +133,8 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req
 func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	if !cdsNeedsPush(req, proxy) {
+	req, needsPush := cdsNeedsPush(req, proxy)
+	if !needsPush {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 	updatedClusters, removedClusters, logs, usedDelta := c.ConfigGenerator.BuildDeltaClusters(proxy, req, w)
