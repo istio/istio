@@ -130,6 +130,15 @@ func (o *Options) WithTeeToUDS(addr, path string) *Options {
 	})
 }
 
+// WithTeeToRolling configures a parallel logging pipeline that writes logs to a local rolling log of fixed size.
+// This is mainly used by the CNI plugin, and so the size and rollover is intentionally kept small.
+// rollingPath is the path the rolling log(s) will be written to.
+func (o *Options) WithTeeToRollingLocal(rollingPath string, maxSizeInMB int) *Options {
+	return o.WithExtension(func(c zapcore.Core) (zapcore.Core, func() error, error) {
+		return teeToRollingLocal(c, rollingPath, maxSizeInMB), func() error { return nil }, nil
+	})
+}
+
 // Extension provides an extension mechanism for logs.
 // This is essentially like https://pkg.go.dev/golang.org/x/exp/slog#Handler.
 // This interface should be considered unstable; we will likely swap it for slog in the future and not expose zap internals.
