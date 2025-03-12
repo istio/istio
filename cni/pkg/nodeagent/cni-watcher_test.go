@@ -139,6 +139,9 @@ func TestCNIPluginServer(t *testing.T) {
 	assertPodAnnotated(t, client, pod)
 	// Assert expected calls actually made
 	fs.AssertExpectations(t)
+	// Weird to start at the end of a test, but we want to manually run things in the test, while the actual handlers MUST
+	// be started to avoid leaks
+	handlers.Start()
 }
 
 func TestGetPodWithRetry(t *testing.T) {
@@ -214,6 +217,9 @@ func TestGetPodWithRetry(t *testing.T) {
 		assert.Equal(t, true, strings.Contains(err.Error(), "unexpectedly not eligible for ambient enrollment"))
 		assert.Equal(t, p, nil)
 	})
+	// Weird to start at the end of a test, but we want to manually run things in the test, while the actual handlers MUST
+	// be started to avoid leaks
+	handlers.Start()
 }
 
 func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
@@ -287,4 +293,7 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 	assertPodAnnotated(t, client, pod)
 	// Assert expected calls actually made
 	fs.AssertExpectations(t)
+	// Weird to start at the end of a test, but we want to manually run things in the test, while the actual handlers MUST
+	// be started to avoid leaks
+	handlers.Start()
 }

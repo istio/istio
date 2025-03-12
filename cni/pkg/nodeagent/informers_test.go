@@ -841,6 +841,9 @@ func TestInformerGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) 
 	// not pods that are just scheduled to be enrolled.
 	assert.Equal(t, len(pods), 1)
 	assert.Equal(t, pods[0], redirectedNotEnrolled)
+	// Weird to start at the end of a test, but we want to manually run things in the test, while the actual handlers MUST
+	// be started to avoid leaks
+	handlers.Start()
 }
 
 func TestInformerGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T) {
@@ -899,6 +902,9 @@ func TestInformerGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T)
 
 	// Should skip both pods - the one that's labeled but not annotated, and the one that's annotated but terminated.
 	assert.Equal(t, len(pods), 0)
+	// Weird to start at the end of a test, but we want to manually run things in the test, while the actual handlers MUST
+	// be started to avoid leaks
+	handlers.Start()
 }
 
 func TestInformerAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
@@ -939,6 +945,9 @@ func TestInformerAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 	_, err := handlers.GetPodIfAmbientEnabled(pod.Name, ns.Name)
 
 	assert.NoError(t, err)
+	// Weird to start at the end of a test, but we want to manually run things in the test, while the actual handlers MUST
+	// be started to avoid leaks
+	handlers.Start()
 }
 
 func TestInformerAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
@@ -1020,6 +1029,9 @@ func TestInformerAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, disabledPod, nil)
+	// Weird to start at the end of a test, but we want to manually run things in the test, while the actual handlers MUST
+	// be started to avoid leaks
+	handlers.Start()
 }
 
 func TestInformerExistingPodAddedWhenItPreExists(t *testing.T) {
