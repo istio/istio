@@ -164,7 +164,6 @@ type RouteParents struct {
 
 func (p RouteParents) fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo {
 	if pk == meshParentKey {
-		log.Errorf("howardjohn: MESH parent")
 		// Special case
 		return []*parentInfo{
 			{
@@ -179,7 +178,6 @@ func (p RouteParents) fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo 
 			},
 		}
 	}
-	log.Errorf("howardjohn: non-mesh")
 	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw Gateway) *parentInfo {
 		return &gw.parentInfo
 	})
