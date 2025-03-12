@@ -1697,6 +1697,45 @@ spec:
 				Scheme: scheme.HTTP,
 			},
 		},
+		{
+			name: "ISTIO_MUTUAL",
+			config: `
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: "{{.Host}}"
+spec:
+  host: "{{.Host}}"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+`,
+			call: echo.CallOptions{
+				// Should just do HBONE
+				Port:   ports.HTTP,
+				Scheme: scheme.HTTP,
+			},
+		},
+		{
+			name: "ISTIO_MUTUAL and PROXY",
+			config: `
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: "{{.Host}}"
+spec:
+  host: "{{.Host}}"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    proxyProtocol:
+      version: V1
+`,
+			call: echo.CallOptions{
+				Port:   ports.HTTPWithProxy,
+				Scheme: scheme.HTTP,
+			},
+		},
 	}
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		for _, tt := range cases {
@@ -1706,16 +1745,18 @@ spec:
 						continue
 					}
 					t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+						dst := dst
 						if src.Config().HasSidecar() && dst.Config().HasAnyWaypointProxy() {
-							// TODO: sidecar -> workload waypoint support
-							t.Skip("https://github.com/istio/istio/issues/51445")
+							// Let the DR be enforced by the client
+							// TODO(https://github.com/istio/istio/issues/51445): sidecar -> workload waypoint support
+							dst = apps.Captured
 						}
 						t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 							"Host": dst.Config().Service,
 						}, tt.config).ApplyOrFail(t)
 						call := tt.call
 						call.To = dst
-						t.Log(src.CallOrFail(t, call))
+						src.CallOrFail(t, call)
 					})
 				}
 			})
