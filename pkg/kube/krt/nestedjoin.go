@@ -128,7 +128,7 @@ func (j *nestedjoin[T]) WaitUntilSynced(stop <-chan struct{}) bool {
 
 // Register and RegisterAsBatch are public interfaces for dealing with events from the inner collection.
 // This function is for registering event handlers for the outer collection.
-func (j *nestedjoin[T]) registerBatchForOuterCollection(f func(o []Event[Collection[T]], initialSync bool), runExistingState bool) HandlerRegistration {
+func (j *nestedjoin[T]) registerBatchForOuterCollection(f func(o []Event[Collection[T]]), runExistingState bool) HandlerRegistration {
 	return j.collections.RegisterBatch(f, runExistingState)
 }
 
@@ -136,7 +136,7 @@ func (j *nestedjoin[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return registerHandlerAsBatched[T](j, f)
 }
 
-func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T], initialSync bool), runExistingState bool) HandlerRegistration {
+func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
 	j.Lock() // Take a write lock since we're also updating the collection change handlers
 	defer j.Unlock()
 	sync := dynamicMultiSyncer{
@@ -180,7 +180,7 @@ func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T], initialSync bool), ru
 				for _, elem := range e.collectionValue.List() {
 					events = append(events, Event[T]{Old: &elem, Event: controllers.EventDelete})
 				}
-				f(events, false)
+				f(events)
 			}()
 		}
 	})
@@ -248,7 +248,7 @@ func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...
 		},
 	}
 
-	j.registerBatchForOuterCollection(func(o []Event[Collection[T]], initialSync bool) {
+	j.registerBatchForOuterCollection(func(o []Event[Collection[T]]) {
 		j.RLock()
 		defer j.RUnlock()
 

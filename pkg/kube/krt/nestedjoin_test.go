@@ -268,10 +268,10 @@ func TestNestedJoinCollectionTransform(t *testing.T) {
 	c := kube.NewFakeClient()
 	services1 := krt.NewInformer[*corev1.Service](c, opts.WithName("Services")...)
 	serviceEntries1 := krt.NewInformer[*istioclient.ServiceEntry](c, opts.WithName("ServiceEntries")...)
-	allServices := krt.NewStaticCollection([]krt.Collection[*corev1.Service]{
+	allServices := krt.NewStaticCollection(nil, []krt.Collection[*corev1.Service]{
 		services1,
 	}, opts.WithName("services")...)
-	allServiceEntries := krt.NewStaticCollection([]krt.Collection[*istioclient.ServiceEntry]{
+	allServiceEntries := krt.NewStaticCollection(nil, []krt.Collection[*istioclient.ServiceEntry]{
 		serviceEntries1,
 	}, opts.WithName("ServiceEntries1")...)
 
