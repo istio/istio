@@ -169,9 +169,10 @@ spec:
           # Also, check for an explicit ENV override (legacy approach) and prefer that
           # if present
           {{ $ztTrustedNS := or .Values.trustedZtunnelNamespace .Release.Namespace }}
+          {{ $ztTrustedName := or .Values.trustedZtunnelName "ztunnel" }}
           {{- if not .Values.env.CA_TRUSTED_NODE_ACCOUNTS }}
           - name: CA_TRUSTED_NODE_ACCOUNTS
-            value: "{{ $ztTrustedNS }}/ztunnel"
+            value: "{{ $ztTrustedNS }}/{{ $ztTrustedName }}"
           {{- end }}
           {{- if .Values.env }}
           {{- range $key, $val := .Values.env }}
