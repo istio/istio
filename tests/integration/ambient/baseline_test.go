@@ -102,36 +102,44 @@ func IsL4() echo.Checker {
 var (
 	httpValidator = check.And(check.OK(), IsL7())
 	tcpValidator  = check.And(check.OK(), IsL4())
-	callOptions   = []echo.CallOptions{
+	basicCalls    = []echo.CallOptions{
 		{
 			Port:   echo.Port{Name: "http"},
 			Scheme: scheme.HTTP,
 			Count:  10, // TODO use more
 		},
-		//{
-		//	Port: echo.Port{Name: "http"},
-		//	Scheme:   scheme.WebSocket,
-		//	Count:    4,
-		//	Timeout:  time.Second * 2,
-		//},
 		{
 			Port:   echo.Port{Name: "tcp"},
 			Scheme: scheme.TCP,
 			Count:  1,
 		},
-		//{
-		//	Port: echo.Port{Name: "grpc"},
-		//	Scheme:   scheme.GRPC,
-		//	Count:    4,
-		//	Timeout:  time.Second * 2,
-		//},
-		//{
-		//	Port: echo.Port{Name: "https"},
-		//	Scheme:   scheme.HTTPS,
-		//	Count:    4,
-		//	Timeout:  time.Second * 2,
-		//},
 	}
+	allCalls = func() (res []echo.CallOptions) {
+		cases := []struct {
+			Port echo.Port
+			HTTP echo.HTTP
+		}{
+			{Port: ports.HTTP},
+			{Port: ports.GRPC},
+			{Port: ports.HTTP2},
+			{Port: ports.TCP},
+			{Port: ports.HTTPS},
+			{Port: ports.TCPServer},
+			{Port: ports.AutoTCP},
+			{Port: ports.AutoHTTP},
+			{Port: ports.AutoHTTP},
+			{Port: ports.AutoGRPC},
+			{Port: ports.AutoHTTPS},
+			{Port: ports.AutoHTTPS},
+			{Port: ports.HTTPInstance},
+			{Port: ports.HTTPLocalHost},
+			{Port: ports.TCPForHTTP},
+		}
+		for _, c := range cases {
+			res = append(res, echo.CallOptions{Port: c.Port})
+		}
+		return
+	}()
 )
 
 func OriginalSourceCheck(t framework.TestContext, src echo.Instance) echo.Checker {
@@ -148,7 +156,14 @@ func OriginalSourceCheck(t framework.TestContext, src echo.Instance) echo.Checke
 func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
 	s := src.Config().HasSidecar()
 	d := dst.Config().HasSidecar() || dst.Config().HasAnyWaypointProxy()
-	isL7Scheme := opt.Scheme == scheme.HTTP || opt.Scheme == scheme.GRPC || opt.Scheme == scheme.WebSocket
+	sch := opt.Scheme
+	if sch == "" {
+		sch, _ = opt.Port.Scheme()
+	}
+	isL7Scheme := sch == scheme.HTTP || sch == scheme.GRPC || sch == scheme.WebSocket
+	if opt.Port.Name == ports.TCPForHTTP.Name {
+		isL7Scheme = false
+	}
 	return (s || d) && isL7Scheme
 }
 
@@ -159,7 +174,7 @@ func hboneClient(instance echo.Instance) bool {
 }
 
 func TestServices(t *testing.T) {
-	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+	runAllCallsTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		if supportsL7(opt, src, dst) {
 			opt.Check = httpValidator
 		} else {
@@ -197,6 +212,22 @@ func TestServices(t *testing.T) {
 			t.Skip("https://github.com/istio/istio/pull/50182")
 		}
 
+		// Applications listening on localhost cannot receive traffic
+		if opt.Port.LocalhostIP {
+			opt.Check = check.Or(check.Error(), check.Status(503))
+		}
+
+		if dst.Config().HasServiceAddressedWaypointProxy() && opt.Port.ServerFirst {
+			// This is a testing gap, not a functional gap. Server first protocols only work for service-only waypoints.
+			// We use a single waypoint for service+workloads, though, which makes this not work
+			t.Skip("https://github.com/istio/istio/issues/55420")
+		}
+
+		if !src.Config().HasProxyCapabilities() && dst.Config().HasSidecar() && opt.Port.ServerFirst {
+			// This is expected to be broken (src clause is because mTLS makes it work)
+			return
+		}
+
 		// TODO test from all source workloads as well
 		src.CallOrFail(t, opt)
 	})
@@ -214,7 +245,7 @@ func TestPodIP(t *testing.T) {
 								if src.Config().HasSidecar() {
 									t.Skip("not supported yet")
 								}
-								for _, opt := range callOptions {
+								for _, opt := range basicCalls {
 									opt := opt.DeepCopy()
 									selfSend := dstWl.Address() == srcWl.Address()
 									if supportsL7(opt, src, dst) {
@@ -2390,7 +2421,7 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 			t.NewSubTestf("from %v", src.Config().Service).RunParallel(func(t framework.TestContext) {
 				for _, dst := range svcs {
 					t.NewSubTestf("to %v", dst.Config().Service).RunParallel(func(t framework.TestContext) {
-						for _, opt := range callOptions {
+						for _, opt := range basicCalls {
 							t.NewSubTestf("%v", opt.Scheme).RunParallel(func(t framework.TestContext) {
 								opt := opt.DeepCopy()
 								opt.To = dst
@@ -2558,9 +2589,9 @@ var CheckDeny = check.Or(
 )
 
 // runTest runs a given function against every src/dst pair
-func runTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		runTestContext(t, f)
+		runAllTests(t, f)
 	})
 }
 
@@ -2583,13 +2614,25 @@ func runTestToServiceWaypoint(t framework.TestContext, f func(t framework.TestCo
 }
 
 func runTestContext(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+	runTestContextForCalls(t, basicCalls, f)
+}
+
+func runAllTests(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+	runTestContextForCalls(t, allCalls, f)
+}
+
+func runTestContextForCalls(
+	t framework.TestContext,
+	callOptions []echo.CallOptions,
+	f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions),
+) {
 	svcs := apps.All
 	for _, src := range svcs {
 		t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
 			for _, dst := range svcs {
 				t.NewSubTestf("to %v", dst.Config().Service).Run(func(t framework.TestContext) {
 					for _, opt := range callOptions {
-						t.NewSubTestf("%v", opt.Scheme).Run(func(t framework.TestContext) {
+						t.NewSubTestf("%v", opt.Port.Name).Run(func(t framework.TestContext) {
 							opt := opt.DeepCopy()
 							opt.To = dst
 							opt.Check = check.OK()
