@@ -237,6 +237,33 @@ func TestCollectionInitialState(t *testing.T) {
 	assert.Equal(t, fetcherSorted(SimpleEndpoints)(), []SimpleEndpoint{{"pod", "svc", "namespace", "1.2.3.4"}})
 }
 
+func TestCollectionHandlerSync(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	c := kube.NewFakeClient(
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod",
+				Namespace: "namespace",
+				Labels:    map[string]string{"app": "foo"},
+			},
+			Status: corev1.PodStatus{PodIP: "1.2.3.4"},
+		},
+	)
+	pods := krt.NewInformer[*corev1.Pod](c, opts.WithName("Pods")...)
+	SimplePods := SimplePodCollection(pods, opts)
+	gotEvent := atomic.NewBool(false)
+	var reg krt.HandlerRegistration
+	reg = SimplePods.Register(func(o krt.Event[SimplePod]) {
+		assert.Equal(t, reg.HasSynced(), false)
+		gotEvent.Store(true)
+	})
+	c.RunAndWait(stop)
+	reg.WaitUntilSynced(stop)
+	// reg synced means the event handler was call, so this must be true immediately.
+	assert.Equal(t, gotEvent.Load(), true)
+}
+
 func TestCollectionMerged(t *testing.T) {
 	stop := test.NewStop(t)
 	opts := testOptions(t)

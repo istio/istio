@@ -221,19 +221,19 @@ type handlers[O any] struct {
 }
 
 type singletonHandlerRegistration[O any] struct {
-	fn func(o []Event[O], initialSync bool)
+	fn func(o []Event[O])
 }
 
-func (o *handlers[O]) MarkInitialized() []func(o []Event[O], initialSync bool) {
+func (o *handlers[O]) MarkInitialized() []func(o []Event[O]) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.init = true
-	return slices.Map(o.h, func(e *singletonHandlerRegistration[O]) func(o []Event[O], initialSync bool) {
+	return slices.Map(o.h, func(e *singletonHandlerRegistration[O]) func(o []Event[O]) {
 		return e.fn
 	})
 }
 
-func (o *handlers[O]) Insert(f func(o []Event[O], initialSync bool)) *singletonHandlerRegistration[O] {
+func (o *handlers[O]) Insert(f func(o []Event[O])) *singletonHandlerRegistration[O] {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	reg := &singletonHandlerRegistration[O]{fn: f}
@@ -249,10 +249,10 @@ func (o *handlers[O]) Delete(toRemove *singletonHandlerRegistration[O]) {
 	})
 }
 
-func (o *handlers[O]) Get() []func(o []Event[O], initialSync bool) {
+func (o *handlers[O]) Get() []func(o []Event[O]) {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	return slices.Map(o.h, func(e *singletonHandlerRegistration[O]) func(o []Event[O], initialSync bool) {
+	return slices.Map(o.h, func(e *singletonHandlerRegistration[O]) func(o []Event[O]) {
 		return e.fn
 	})
 }
@@ -478,7 +478,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	if h.log.DebugEnabled() {
 		h.log.WithLabels("events", len(events)).Debugf("calling handlers")
 	}
-	h.eventHandlers.Distribute(events, false)
+	h.eventHandlers.Distribute(events, !h.HasSynced())
 }
 
 // WithJoinUnchecked enables an optimization for join collections, where keys are not deduplicated across collections.
@@ -577,7 +577,7 @@ func (h *manyCollection[I, O]) runQueue() {
 		return
 	}
 	// Now register to our primary collection. On any event, we will enqueue the update.
-	syncer := c.RegisterBatch(func(o []Event[I], initialSync bool) {
+	syncer := c.RegisterBatch(func(o []Event[I]) {
 		if h.onPrimaryInputEventHandler != nil {
 			h.onPrimaryInputEventHandler(o)
 		}
@@ -659,7 +659,7 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) HandlerRegistration 
 	return registerHandlerAsBatched[O](h, f)
 }
 
-func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O], initialSync bool), runExistingState bool) HandlerRegistration {
+func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingState bool) HandlerRegistration {
 	if !runExistingState {
 		// If we don't to run the initial state this is simple, we just register the handler.
 		return h.eventHandlers.Insert(f, h, nil, h.stop)
@@ -723,7 +723,7 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(
 	if !i.dependencyState.collectionDependencies.InsertContains(d.id) {
 		i.log.WithLabels("collection", d.collectionName).Debugf("register new dependency")
 		syncer.WaitUntilSynced(i.stop)
-		register(func(o []Event[any], initialSync bool) {
+		register(func(o []Event[any]) {
 			i.queue.Push(func() error {
 				i.onSecondaryDependencyEvent(d.id, o)
 				return nil

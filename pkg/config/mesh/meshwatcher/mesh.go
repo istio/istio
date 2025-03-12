@@ -54,7 +54,7 @@ func (a adapter) Mesh() *meshconfig.MeshConfig {
 // The returned WatcherHandlerRegistration can be used to un-register the handler at a later time.
 func (a adapter) AddMeshHandler(h func()) *mesh.WatcherHandlerRegistration {
 	// Do not run initial state to match existing semantics
-	colReg := a.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshConfigResource], initialSync bool) {
+	colReg := a.Singleton.AsCollection().RegisterBatch(func(o []krt.Event[MeshConfigResource]) {
 		h()
 	}, false)
 	reg := mesh.NewWatcherHandlerRegistration(func() {

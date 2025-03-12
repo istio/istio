@@ -193,15 +193,15 @@ func (i indexCollection[K, O]) HasSynced() bool {
 }
 
 func (i indexCollection[K, O]) Register(f func(o Event[IndexObject[K, O]])) HandlerRegistration {
-	return i.RegisterBatch(func(events []Event[IndexObject[K, O]], initialSync bool) {
+	return i.RegisterBatch(func(events []Event[IndexObject[K, O]]) {
 		for _, o := range events {
 			f(o)
 		}
 	}, true)
 }
 
-func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]], initialSync bool), runExistingState bool) HandlerRegistration {
-	return i.idx.c.RegisterBatch(func(o []Event[O], initialSync bool) {
+func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]), runExistingState bool) HandlerRegistration {
+	return i.idx.c.RegisterBatch(func(o []Event[O]) {
 		allKeys := sets.New[K]()
 		for _, ev := range o {
 			if ev.Old != nil {
@@ -230,6 +230,6 @@ func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]
 				})
 			}
 		}
-		f(downstream, initialSync)
+		f(downstream)
 	}, runExistingState)
 }

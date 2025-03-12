@@ -157,7 +157,7 @@ func Register[T StatusWriter](q *StatusQueue, name string, col krt.Collection[T]
 			}
 		},
 		start: func() {
-			col.RegisterBatch(func(events []krt.Event[T], initialSync bool) {
+			col.RegisterBatch(func(events []krt.Event[T]) {
 				if !q.statusEnabled.CurrentlyActive() {
 					return
 				}
