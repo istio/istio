@@ -20,11 +20,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 )
 
-type dynamicMultiSyncer struct {
-	syncers map[collectionUID]Syncer
-}
-
-func (s *dynamicMultiSyncer) HasSynced() bool {
+func (s *dynamicJoinHandlerRegistration) HasSynced() bool {
 	for _, syncer := range s.syncers {
 		if !syncer.HasSynced() {
 			return false
@@ -33,7 +29,7 @@ func (s *dynamicMultiSyncer) HasSynced() bool {
 	return true
 }
 
-func (s *dynamicMultiSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
+func (s *dynamicJoinHandlerRegistration) WaitUntilSynced(stop <-chan struct{}) bool {
 	for _, syncer := range s.syncers {
 		if !syncer.WaitUntilSynced(stop) {
 			return false
@@ -43,7 +39,7 @@ func (s *dynamicMultiSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
 }
 
 type dynamicJoinHandlerRegistration struct {
-	dynamicMultiSyncer
+	syncers map[collectionUID]Syncer
 	removes map[collectionUID]func()
 	sync.RWMutex
 }

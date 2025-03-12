@@ -45,21 +45,19 @@ func TestNestedJoinCollection(t *testing.T) {
 	c1 := krt.NewStatic[Named](nil, true, opts.WithName("c1")...)
 	c2 := krt.NewStatic[Named](nil, true, opts.WithName("c2")...)
 	c3 := krt.NewStatic[Named](nil, true, opts.WithName("c3")...)
-	joined := krt.JoinCollection([]krt.Collection[Named]{
+	joined := krt.NewStaticCollection(nil, []krt.Collection[Named]{
 		c1.AsCollection(),
 		c2.AsCollection(),
 		c3.AsCollection(),
 	}, opts.WithName("joined")...)
 
-	all := krt.NewStatic[krt.Collection[Named]](&joined, true, opts.WithName("all")...)
-
-	dj := krt.NestedJoinCollection(
-		all.AsCollection(),
+	nj := krt.NestedJoinCollection(
+		joined,
 		opts.WithName("NestedJoin")...,
 	)
 
 	last := atomic.NewString("")
-	dj.Register(func(o krt.Event[Named]) {
+	nj.Register(func(o krt.Event[Named]) {
 		last.Store(o.Latest().ResourceName())
 	})
 
@@ -81,7 +79,7 @@ func TestNestedJoinCollection(t *testing.T) {
 	}
 	assert.Equal(
 		t,
-		slices.SortBy(dj.List(), sortf),
+		slices.SortBy(nj.List(), sortf),
 		slices.SortBy([]Named{
 			{"c1", "b"},
 			{"c2", "a"},
@@ -91,28 +89,12 @@ func TestNestedJoinCollection(t *testing.T) {
 
 	// add c4
 	c4 := krt.NewStatic[Named](nil, true, opts.WithName("c4")...)
-	newJoined := krt.JoinCollection([]krt.Collection[Named]{
-		c1.AsCollection(),
-		c2.AsCollection(),
-		c3.AsCollection(),
-		c4.AsCollection(),
-	}, opts.WithName("joined")...)
-	all.Set(&newJoined)
-
+	joined.UpdateObject(c4.AsCollection())
 	c4.Set(&Named{"c4", "a"})
 	assert.EventuallyEqual(t, last.Load, "c4/a") // Test that events from the new collection make it to the join
 
 	// remove c1
-	noc1 := krt.JoinCollection([]krt.Collection[Named]{
-		c2.AsCollection(),
-		c3.AsCollection(),
-		c4.AsCollection(),
-	}, opts.WithName("joined")...)
-	all.Set(&noc1)
-	// Wait for c1 to be removed
-	assert.EventuallyEqual(t, func() int {
-		return len(dj.List())
-	}, 3)
+	joined.DeleteObject(krt.GetKey(c1.AsCollection()))
 	c1.Set(&Named{"c1", "c"})
 	assert.EventuallyEqual(t, last.Load, "c4/a") // Test that events from absent collections do not make it to the join
 }
@@ -126,12 +108,7 @@ func TestNestedJoinCollectionIndex(t *testing.T) {
 	pods := krt.WrapClient[*corev1.Pod](kpc1, opts.WithName("Pods1")...)
 	c1.RunAndWait(stop)
 	SimplePods1 := NamedSimplePodCollection(pods, opts, "Pods1")
-	collections := []krt.Collection[SimplePod]{SimplePods1}
-	trigger := krt.NewRecomputeTrigger(true, opts.WithName("CollectionsTrigger")...)
-	simplePods := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []krt.Collection[SimplePod] {
-		trigger.MarkDependant(ctx)
-		return collections
-	}, opts.WithName("SimplePodManualTrigger")...)
+	simplePods := krt.NewStaticCollection(nil, []krt.Collection[SimplePod]{SimplePods1}, opts.WithName("SimplePods")...)
 	SimpleGlobalPods := krt.NestedJoinCollection(
 		simplePods,
 		opts.WithName("GlobalPods")...,
@@ -147,6 +124,9 @@ func TestNestedJoinCollectionIndex(t *testing.T) {
 	}
 
 	SimpleGlobalPods.Register(TrackerHandler[SimplePod](tt))
+	assert.EventuallyEqual(t, func() bool {
+		return SimpleGlobalPods.WaitUntilSynced(opts.Stop())
+	}, true)
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -165,8 +145,7 @@ func TestNestedJoinCollectionIndex(t *testing.T) {
 	pods2 := krt.WrapClient[*corev1.Pod](kpc2, opts.WithName("Pods2")...)
 	c2.RunAndWait(stop)
 	SimplePods2 := NamedSimplePodCollection(pods2, opts, "Pods2")
-	collections = append(collections, SimplePods2)
-	trigger.TriggerRecomputation()
+	simplePods.UpdateObject(SimplePods2)
 
 	pod2 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -180,8 +159,7 @@ func TestNestedJoinCollectionIndex(t *testing.T) {
 	assert.Equal(t, fetchSorted("1.2.3.5"), []SimplePod{{NewNamed(pod2), Labeled{}, "1.2.3.5"}})
 
 	// remove c1
-	collections = collections[1:]
-	trigger.TriggerRecomputation()
+	simplePods.DeleteObject(krt.GetKey(SimplePods1))
 	tt.WaitUnordered("delete/namespace/name")
 	assert.Equal(t, fetchSorted("1.2.3.4"), []SimplePod{})
 }
@@ -205,12 +183,7 @@ func TestNestedJoinCollectionSync(t *testing.T) {
 		Labeled: Labeled{map[string]string{"app": "foo"}},
 		IP:      "9.9.9.9",
 	}, true, opts.WithName("Simple")...)
-	collections := []krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection()}
-	trigger := krt.NewRecomputeTrigger(true, opts.WithName("CollectionsTrigger")...)
-	simplePods := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []krt.Collection[SimplePod] {
-		trigger.MarkDependant(ctx)
-		return collections
-	}, opts.WithName("SimplePodManualTrigger")...)
+	simplePods := krt.NewStaticCollection(nil, []krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection()}, opts.WithName("SimplePods")...)
 	AllPods := krt.NestedJoinCollection(
 		simplePods,
 		opts.WithName("AllPods")...,
@@ -238,8 +211,8 @@ func TestNestedJoinCollectionSync(t *testing.T) {
 		Labeled: Labeled{map[string]string{"app": "bar"}},
 		IP:      "9.9.9.8",
 	}, true, opts.WithName("Simple2")...)
-	collections = append(collections, SimplePods2, ExtraSimplePods2.AsCollection())
-	trigger.TriggerRecomputation()
+	simplePods.UpdateObject(SimplePods2)
+	simplePods.UpdateObject(ExtraSimplePods2.AsCollection())
 	// The collection sync == initial sync so this should be true despite the fact
 	// that we haven't run the client yet
 	assert.Equal(t, AllPods.WaitUntilSynced(stop), true)
@@ -253,8 +226,7 @@ func TestNestedJoinCollectionSync(t *testing.T) {
 		{Named{"namespace", "name2-static"}, NewLabeled(map[string]string{"app": "bar"}), "9.9.9.8"},
 	})
 
-	collections = []krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection(), ExtraSimplePods2.AsCollection()}
-	trigger.TriggerRecomputation()
+	simplePods.DeleteObject(krt.GetKey(SimplePods2))
 	assert.EventuallyEqual(t, fetcherSorted(AllPods), []SimplePod{
 		{Named{"namespace", "name"}, NewLabeled(map[string]string{"app": "foo"}), "1.2.3.4"},
 		{Named{"namespace", "name-static"}, NewLabeled(map[string]string{"app": "foo"}), "9.9.9.9"},

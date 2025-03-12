@@ -126,32 +126,24 @@ func (j *nestedjoin[T]) WaitUntilSynced(stop <-chan struct{}) bool {
 	return j.syncer.WaitUntilSynced(stop)
 }
 
-// Register and RegisterAsBatch are public interfaces for dealing with events from the inner collection.
-// This function is for registering event handlers for the outer collection.
-func (j *nestedjoin[T]) registerBatchForOuterCollection(f func(o []Event[Collection[T]]), runExistingState bool) HandlerRegistration {
-	return j.collections.RegisterBatch(f, runExistingState)
-}
-
 func (j *nestedjoin[T]) Register(f func(o Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched[T](j, f)
+	return registerHandlerAsBatched(j, f)
 }
 
 func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
 	j.Lock() // Take a write lock since we're also updating the collection change handlers
 	defer j.Unlock()
-	sync := dynamicMultiSyncer{
-		syncers: make(map[collectionUID]Syncer),
-	}
+	syncers := make(map[collectionUID]Syncer)
 	removes := map[collectionUID]func(){}
 	for _, c := range j.collections.List() {
 		reg := c.RegisterBatch(f, runExistingState)
 		ic := c.(internalCollection[T])
 		removes[ic.uid()] = reg.UnregisterHandler
-		sync.syncers[ic.uid()] = reg
+		syncers[ic.uid()] = reg
 	}
 	djhr := &dynamicJoinHandlerRegistration{
-		dynamicMultiSyncer: sync,
-		removes:            removes,
+		syncers: syncers,
+		removes: removes,
 	}
 
 	j.registerCollectionChangeHandlerLocked(func(e collectionChangeEvent[T]) {
@@ -220,22 +212,6 @@ func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...
 	ics := collections.(internalCollection[Collection[T]])
 	synced := make(chan struct{})
 
-	go func() {
-		// Need to make sure the outer collection is synced first
-		if !collections.WaitUntilSynced(o.stop) {
-			return
-		}
-		// keithmattix: Can we assume that all inner collections are synced
-		// if the outer one is?
-		for _, c := range collections.List() {
-			if !c.WaitUntilSynced(o.stop) {
-				return
-			}
-		}
-		close(synced)
-		log.Infof("%v synced", o.name)
-	}()
-
 	j := &nestedjoin[T]{
 		collectionName:   o.name,
 		id:               nextUID(),
@@ -248,7 +224,7 @@ func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...
 		},
 	}
 
-	j.registerBatchForOuterCollection(func(o []Event[Collection[T]]) {
+	collections.RegisterBatch(func(o []Event[Collection[T]]) {
 		j.RLock()
 		defer j.RUnlock()
 
@@ -262,6 +238,10 @@ func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...
 					}
 					h(collectionChangeEvent[T]{eventType: collectionMembershipEventAdd, collectionValue: any(*e.New).(internalCollection[T])})
 				case controllers.EventUpdate:
+					if e.New == nil || e.Old == nil {
+						log.Warnf("Event %v either has no New value or no Old value", e.Event)
+						continue
+					}
 					// Send a delete and then an add
 					h(collectionChangeEvent[T]{
 						eventType:       collectionMembershipEventDelete,
@@ -281,6 +261,22 @@ func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...
 			}
 		}
 	}, false)
+
+	go func() {
+		// Need to make sure the outer collection is synced first
+		if !collections.WaitUntilSynced(o.stop) {
+			return
+		}
+		// keithmattix: Can we assume that all inner collections are synced
+		// if the outer one is?
+		for _, c := range collections.List() {
+			if !c.WaitUntilSynced(o.stop) {
+				return
+			}
+		}
+		close(synced)
+		log.Infof("%v synced", o.name)
+	}()
 
 	return j
 }
