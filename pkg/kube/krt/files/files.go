@@ -91,9 +91,10 @@ func (f *FolderWatch[T]) readOnce() error {
 	}
 
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.state = result
-	for _, c := range f.callbacks {
+	cb := slices.Clone(f.callbacks)
+	f.mu.Unlock()
+	for _, c := range cb {
 		c()
 	}
 	return nil
@@ -209,7 +210,7 @@ func NewFileCollection[F any, O any](w *FolderWatch[F], transform func(F) *O, op
 			return readSnapshot[F, O](w, transform)
 		},
 	}
-	sc := krt.NewStaticCollection[O](res.read(), opts...)
+	sc := krt.NewStaticCollection[O](nil, res.read(), opts...)
 	w.subscribe(func() {
 		now := res.read()
 		sc.Reset(now)
