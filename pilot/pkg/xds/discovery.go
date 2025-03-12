@@ -75,7 +75,7 @@ type DiscoveryServer struct {
 
 	// ProxyNeedsPush is a function that determines whether a push can be completely skipped. Individual generators
 	// may also choose to not send any updates.
-	ProxyNeedsPush func(proxy *model.Proxy, req *model.PushRequest) bool
+	ProxyNeedsPush func(proxy *model.Proxy, req *model.PushRequest) (*model.PushRequest, bool)
 
 	// concurrentPushLimit is a semaphore that limits the amount of concurrent XDS pushes.
 	concurrentPushLimit chan struct{}
