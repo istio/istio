@@ -253,7 +253,9 @@ func TestCollectionHandlerSync(t *testing.T) {
 	pods := krt.NewInformer[*corev1.Pod](c, opts.WithName("Pods")...)
 	SimplePods := SimplePodCollection(pods, opts)
 	gotEvent := atomic.NewBool(false)
-	reg := SimplePods.Register(func(o krt.Event[SimplePod]) {
+	var reg krt.HandlerRegistration
+	reg = SimplePods.Register(func(o krt.Event[SimplePod]) {
+		assert.Equal(t, reg.HasSynced(), false)
 		gotEvent.Store(true)
 	})
 	c.RunAndWait(stop)
