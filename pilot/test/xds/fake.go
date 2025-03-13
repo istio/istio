@@ -199,8 +199,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 				// Install all CRDs used (mostly in Ambient)
 				gvr.AuthorizationPolicy,
 				gvr.PeerAuthentication,
-				gvr.KubernetesGateway,
 				gvr.WorkloadEntry,
+				gvr.GatewayClass,
+				gvr.KubernetesGateway,
+				gvr.HTTPRoute,
+				gvr.GRPCRoute,
+				gvr.TCPRoute,
+				gvr.TLSRoute,
+				gvr.ReferenceGrant,
 				gvr.ServiceEntry,
 			},
 		})
