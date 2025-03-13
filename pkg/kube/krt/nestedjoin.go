@@ -20,6 +20,7 @@ import (
 
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -29,7 +30,6 @@ type nestedjoin[T any] struct {
 	id                       collectionUID
 	collections              internalCollection[Collection[T]]
 	synced                   <-chan struct{}
-	uncheckedOverlap         bool
 	syncer                   Syncer
 	collectionChangeHandlers []func(collectionChangeEvent[T])
 	sync.RWMutex
@@ -46,25 +46,19 @@ func (j *nestedjoin[T]) GetKey(k string) *T {
 
 func (j *nestedjoin[T]) List() []T {
 	var res []T
-	if j.uncheckedOverlap {
-		first := true
-		for _, c := range j.collections.List() {
-			objs := c.List()
-			// As an optimization, take the first (non-empty) result as-is without copying
-			if len(objs) > 0 && first {
-				res = objs
-				first = false
-			} else {
-				// After the first, safely merge into the result
-				res = append(res, objs...)
-			}
-		}
-		return res
-	}
 	var found sets.String
 	first := true
 
+	// We need stable ordering so we'll loop through the outer collections first
+	// saving state as we go
+	collectionsByUID := make(map[collectionUID]Collection[T])
 	for _, c := range j.collections.List() {
+		ic := c.(internalCollection[T])
+		collectionsByUID[ic.uid()] = ic
+	}
+
+	// Now loop through the collections in UID order
+	for _, c := range maps.SeqStable(collectionsByUID) {
 		objs := c.List()
 		// As an optimization, take the first (non-empty) result as-is without copying
 		// TODO: Implement custom merge out of the hot path
@@ -86,6 +80,7 @@ func (j *nestedjoin[T]) List() []T {
 			}
 		}
 	}
+
 	return res
 }
 
@@ -213,18 +208,17 @@ func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...
 	synced := make(chan struct{})
 
 	j := &nestedjoin[T]{
-		collectionName:   o.name,
-		id:               nextUID(),
-		synced:           synced,
-		uncheckedOverlap: o.joinUnchecked,
-		collections:      ics,
+		collectionName: o.name,
+		id:             nextUID(),
+		synced:         synced,
+		collections:    ics,
 		syncer: channelSyncer{
 			name:   o.name,
 			synced: synced,
 		},
 	}
 
-	collections.RegisterBatch(func(o []Event[Collection[T]]) {
+	reg := collections.RegisterBatch(func(o []Event[Collection[T]]) {
 		j.RLock()
 		defer j.RUnlock()
 
@@ -264,15 +258,8 @@ func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...
 
 	go func() {
 		// Need to make sure the outer collection is synced first
-		if !collections.WaitUntilSynced(o.stop) {
+		if !collections.WaitUntilSynced(o.stop) || !reg.WaitUntilSynced(o.stop) {
 			return
-		}
-		// keithmattix: Can we assume that all inner collections are synced
-		// if the outer one is?
-		for _, c := range collections.List() {
-			if !c.WaitUntilSynced(o.stop) {
-				return
-			}
 		}
 		close(synced)
 		log.Infof("%v synced", o.name)
