@@ -1419,6 +1419,8 @@ func (ps *PushContext) updateContext(
 	if servicesChanged {
 		// Gateway status depends on services, so recompute if they change as well
 		ps.initKubernetesGateways(env)
+	} else {
+		ps.GatewayAPIController = oldPushContext.GatewayAPIController
 	}
 
 	if virtualServicesChanged {
