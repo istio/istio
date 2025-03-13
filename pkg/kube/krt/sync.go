@@ -125,5 +125,6 @@ func (s nestedMultiSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
 			return false
 		}
 	}
+	s.synced.Store(true)
 	return true
 }

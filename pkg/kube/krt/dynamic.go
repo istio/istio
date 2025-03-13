@@ -27,7 +27,10 @@ type dynamicJoinHandlerRegistration struct {
 }
 
 func (hr *dynamicJoinHandlerRegistration) HasSynced() bool {
-	for _, syncer := range hr.syncers {
+	hr.RLock()
+	syncers := hr.syncers
+	hr.RUnlock()
+	for _, syncer := range syncers {
 		if !syncer.HasSynced() {
 			return false
 		}
@@ -36,7 +39,10 @@ func (hr *dynamicJoinHandlerRegistration) HasSynced() bool {
 }
 
 func (hr *dynamicJoinHandlerRegistration) WaitUntilSynced(stop <-chan struct{}) bool {
-	for _, syncer := range hr.syncers {
+	hr.RLock()
+	syncers := hr.syncers
+	hr.RUnlock()
+	for _, syncer := range syncers {
 		if !syncer.WaitUntilSynced(stop) {
 			return false
 		}
