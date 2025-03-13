@@ -20,8 +20,14 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 )
 
-func (s *dynamicJoinHandlerRegistration) HasSynced() bool {
-	for _, syncer := range s.syncers {
+type dynamicJoinHandlerRegistration struct {
+	syncers map[collectionUID]Syncer
+	removes map[collectionUID]func()
+	sync.RWMutex
+}
+
+func (hr *dynamicJoinHandlerRegistration) HasSynced() bool {
+	for _, syncer := range hr.syncers {
 		if !syncer.HasSynced() {
 			return false
 		}
@@ -29,19 +35,13 @@ func (s *dynamicJoinHandlerRegistration) HasSynced() bool {
 	return true
 }
 
-func (s *dynamicJoinHandlerRegistration) WaitUntilSynced(stop <-chan struct{}) bool {
-	for _, syncer := range s.syncers {
+func (hr *dynamicJoinHandlerRegistration) WaitUntilSynced(stop <-chan struct{}) bool {
+	for _, syncer := range hr.syncers {
 		if !syncer.WaitUntilSynced(stop) {
 			return false
 		}
 	}
 	return true
-}
-
-type dynamicJoinHandlerRegistration struct {
-	syncers map[collectionUID]Syncer
-	removes map[collectionUID]func()
-	sync.RWMutex
 }
 
 func (hr *dynamicJoinHandlerRegistration) UnregisterHandler() {
