@@ -159,7 +159,7 @@ func HTTPRouteCollection(
 		return status, virtualServices
 	}, opts.WithName("HTTPRoute")...)
 
-	finalVirtualServices := mergeHttpRoutes(baseVirtualServices, opts.WithName("HTTPRouteMerged")...)
+	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("HTTPRouteMerged")...)
 	return RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus]{
 		VirtualServices:  finalVirtualServices,
 		RouteAttachments: routeCount,
@@ -316,7 +316,7 @@ func GRPCRouteCollection(
 		return status, virtualServices
 	}, opts.WithName("GRPCRoute")...)
 
-	finalVirtualServices := mergeHttpRoutes(baseVirtualServices, opts.WithName("GRPCRouteMerged")...)
+	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("GRPCRouteMerged")...)
 	return RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus]{
 		VirtualServices:  finalVirtualServices,
 		RouteAttachments: routeCount,
@@ -550,9 +550,9 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 	}, opts.WithName(kind.Kind+"/count")...)
 }
 
-// mergeHttpRoutes merges HTTProutes by key. Gateway API has semantics for the ordering of `match` rules, that merges across resource.
+// mergeHTTPRoutes merges HTTProutes by key. Gateway API has semantics for the ordering of `match` rules, that merges across resource.
 // So we merge everything (by key) following that ordering logic, and sort into a linear list (how VirtualService semantics work).
-func mergeHttpRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...krt.CollectionOption) krt.Collection[*config.Config] {
+func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...krt.CollectionOption) krt.Collection[*config.Config] {
 	idx := krt.NewIndex(baseVirtualServices, func(o RouteWithKey) []string {
 		return []string{o.Key}
 	}).AsCollection(opts...)
