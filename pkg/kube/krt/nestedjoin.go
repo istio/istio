@@ -32,7 +32,7 @@ type nestedjoin[T any] struct {
 	synced                   <-chan struct{}
 	syncer                   Syncer
 	collectionChangeHandlers []func(collectionChangeEvent[T])
-	merge                    func(ts []T) T
+	merge                    func(ts []T) *T
 
 	sync.RWMutex
 }
@@ -50,7 +50,7 @@ func (j *nestedjoin[T]) GetKey(k string) *T {
 	if len(found) == 0 {
 		return nil
 	}
-	return ptr.Of(j.merge(found))
+	return j.merge(found)
 }
 
 func (j *nestedjoin[T]) quickList() []T {
@@ -103,7 +103,10 @@ func (j *nestedjoin[T]) mergeList() []T {
 
 	var l []T
 	for _, ts := range res {
-		l = append(l, j.merge(ts))
+		m := j.merge(ts)
+		if m != nil {
+			l = append(l, *m)
+		}
 	}
 
 	return l
@@ -197,10 +200,35 @@ func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState boo
 			// do this in a goroutine so we don't block running expensive handlers
 			go func() {
 				var events []Event[T]
-				for _, elem := range e.collectionValue.List() {
-					events = append(events, Event[T]{Old: &elem, Event: controllers.EventDelete})
+				if j.merge == nil {
+					for _, elem := range e.collectionValue.List() {
+						events = append(events, Event[T]{Old: &elem, Event: controllers.EventDelete})
+					}
+					f(events)
+					return
 				}
-				f(events)
+				// We're merging so this is a bit more complicated
+				items := make(map[Key[T]][]T)
+				// First loop through the collection to get the items by their keys
+				for _, c := range e.collectionValue.List() {
+					key := getTypedKey(c)
+					items[key] = append(items[key], c)
+				}
+				// Now loop through the keys and compare them to our current list of collections
+				// to see if it's actually deleted
+				for key, ts := range items {
+					res := j.GetKey(string(key))
+					m := j.merge(ts)
+					// If the result is nil, then it was deleted
+					if res == nil {
+						// Send a delete event for the merged versio nof this key
+						events = append(events, Event[T]{Old: m, Event: controllers.EventDelete})
+						continue
+					}
+					// There are some versions of this key still in the overall collection
+					// send an update with the new merged version
+					events = append(events, Event[T]{Old: m, New: res, Event: controllers.EventUpdate})
+				}
 			}()
 		}
 	})
@@ -235,7 +263,7 @@ func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...
 	return NestedJoinWithMergeCollection(collections, nil, opts...)
 }
 
-func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]], merge func(ts []T) T, opts ...CollectionOption) Collection[T] {
+func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]], merge func(ts []T) *T, opts ...CollectionOption) Collection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("NestedJoin[%v]", ptr.TypeName[T]())
@@ -298,6 +326,11 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 		// Need to make sure the outer collection is synced first
 		if !collections.WaitUntilSynced(o.stop) || !reg.WaitUntilSynced(o.stop) {
 			return
+		}
+		for _, c := range collections.List() {
+			if !c.WaitUntilSynced(o.stop) {
+				return
+			}
 		}
 		close(synced)
 		log.Infof("%v synced", o.name)

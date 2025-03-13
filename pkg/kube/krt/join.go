@@ -30,7 +30,7 @@ type join[T any] struct {
 	synced           <-chan struct{}
 	uncheckedOverlap bool
 	syncer           Syncer
-	merge            func(ts []T) T
+	merge            func(ts []T) *T
 }
 
 func (j *join[T]) GetKey(k string) *T {
@@ -46,7 +46,7 @@ func (j *join[T]) GetKey(k string) *T {
 	if len(found) == 0 {
 		return nil
 	}
-	return ptr.Of(j.merge(found))
+	return j.merge(found)
 }
 
 func (j *join[T]) quickList() []T {
@@ -103,7 +103,10 @@ func (j *join[T]) mergeList() []T {
 
 	var l []T
 	for _, ts := range res {
-		l = append(l, j.merge(ts))
+		m := j.merge(ts)
+		if m != nil {
+			l = append(l, *m)
+		}
 	}
 
 	return l
@@ -220,7 +223,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 // JoinWithMergeCollection combines multiple Collection[T] into a single
 // Collection[T] merging equal objects into one record
 // in the resulting Collection based on the provided merge function.
-func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) T, opts ...CollectionOption) Collection[T] {
+func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, opts ...CollectionOption) Collection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("Join[%v]", ptr.TypeName[T]())
