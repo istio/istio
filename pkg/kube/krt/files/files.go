@@ -48,7 +48,7 @@ func NewFolderWatch[T any](fileDir string, parse func([]byte) ([]T, error), stop
 	if err := fw.readOnce(); err != nil {
 		return nil, err
 	}
-	go fw.watch(stop)
+	fw.watch(stop)
 	return fw, nil
 }
 
