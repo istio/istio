@@ -517,7 +517,7 @@ func TestNestedJoinWithMergeCollection(t *testing.T) {
 			for p := range ports {
 				finalServiceInfo.Service.Ports = append(finalServiceInfo.Service.Ports, &workloadapi.Port{
 					ServicePort: p.port,
-					TargetPort:  uint32(p.targetPort),
+					TargetPort:  p.targetPort,
 				})
 			}
 
