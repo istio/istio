@@ -57,6 +57,8 @@ func TestNestedJoinCollection(t *testing.T) {
 	)
 
 	last := atomic.NewString("")
+	tt := assert.NewTracker[string](t)
+	nj.Register(TrackerHandler[Named](tt))
 	nj.Register(func(o krt.Event[Named]) {
 		last.Store(o.Latest().ResourceName())
 	})
@@ -73,6 +75,8 @@ func TestNestedJoinCollection(t *testing.T) {
 
 	c1.Set(&Named{"c1", "b"})
 	assert.EventuallyEqual(t, last.Load, "c1/b")
+
+	tt.WaitOrdered("add/c1/a", "add/c2/a", "add/c3/a", "update/c1/b")
 	// ordered by c1, c2, c3
 	sortf := func(a Named) string {
 		return a.ResourceName()
@@ -92,11 +96,17 @@ func TestNestedJoinCollection(t *testing.T) {
 	joined.UpdateObject(c4.AsCollection())
 	c4.Set(&Named{"c4", "a"})
 	assert.EventuallyEqual(t, last.Load, "c4/a") // Test that events from the new collection make it to the join
+	tt.WaitOrdered("add/c4/a")
 
 	// remove c1
 	joined.DeleteObject(krt.GetKey(c1.AsCollection()))
-	c1.Set(&Named{"c1", "c"})
-	assert.EventuallyEqual(t, last.Load, "c4/a") // Test that events from absent collections do not make it to the join
+	assert.EventuallyEqual(t, func() int {
+		return len(nj.List())
+	}, 3)
+	// Wait for c1 to be removed
+	// We use the event tracker since
+	// we can't guarantee the order of events
+	tt.WaitUnordered("delete/c1/b")
 }
 
 func TestNestedJoinCollectionIndex(t *testing.T) {

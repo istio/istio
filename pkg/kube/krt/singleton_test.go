@@ -90,7 +90,8 @@ func TestNewStatic(t *testing.T) {
 // TrackerHandler returns an object handler that records each event
 func TrackerHandler[T any](tracker *assert.Tracker[string]) func(krt.Event[T]) {
 	return func(o krt.Event[T]) {
-		tracker.Record(fmt.Sprintf("%v/%v", o.Event, krt.GetKey(o.Latest())))
+		e := fmt.Sprintf("%v/%v", o.Event, krt.GetKey(o.Latest()))
+		tracker.Record(e)
 	}
 }
 
