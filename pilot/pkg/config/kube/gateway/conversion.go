@@ -554,7 +554,7 @@ func referenceAllowed(
 		}
 	} else if parentRef.Kind == gvk.ServiceEntry {
 		// check that the referenced svc entry exists
-		key := parentRef.Namespace + "/" + string(parentRef.Name)
+		key := parentRef.Namespace + "/" + parentRef.Name
 		svcEntry := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(key)))
 		if svcEntry == nil {
 			return &ParentError{
