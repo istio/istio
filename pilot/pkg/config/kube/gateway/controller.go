@@ -320,6 +320,15 @@ func NewController(
 				Namespace: t.Namespace,
 			}
 		}), false))
+
+	handlers = append(handlers, outputs.ReferenceGrants.collection.RegisterBatch(pushXds(xdsUpdater,
+		func(t ReferenceGrant) model.ConfigKey {
+			return model.ConfigKey{
+				Kind:      kind.KubernetesGateway,
+				Name:      t.Source.Name,
+				Namespace: t.Source.Namespace,
+			}
+		}), false))
 	c.handlers = handlers
 
 	return c
