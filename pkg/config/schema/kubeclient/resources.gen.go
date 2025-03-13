@@ -25,6 +25,7 @@ import (
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
+	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -88,6 +89,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Istio().SecurityV1().PeerAuthentications(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.Pod:
 		return c.Kube().CoreV1().Pods(namespace).(ktypes.WriteAPI[T])
+	case *k8sioapipolicyv1.PodDisruptionBudget:
+		return c.Kube().PolicyV1().PodDisruptionBudgets(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1beta1.ProxyConfig:
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1beta1.ReferenceGrant:
@@ -179,6 +182,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Istio().SecurityV1().PeerAuthentications(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicorev1.Pod:
 		return c.Kube().CoreV1().Pods(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapipolicyv1.PodDisruptionBudget:
+		return c.Kube().PolicyV1().PodDisruptionBudgets(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1beta1.ProxyConfig:
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1beta1.ReferenceGrant:
@@ -270,6 +275,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &apiistioioapisecurityv1.PeerAuthentication{}
 	case gvr.Pod:
 		return &k8sioapicorev1.Pod{}
+	case gvr.PodDisruptionBudget:
+		return &k8sioapipolicyv1.PodDisruptionBudget{}
 	case gvr.ProxyConfig:
 		return &apiistioioapinetworkingv1beta1.ProxyConfig{}
 	case gvr.ReferenceGrant:
@@ -483,6 +490,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().CoreV1().Pods(opts.Namespace).Watch(context.Background(), options)
+		}
+	case gvr.PodDisruptionBudget:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().PolicyV1().PodDisruptionBudgets(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().PolicyV1().PodDisruptionBudgets(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.ProxyConfig:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

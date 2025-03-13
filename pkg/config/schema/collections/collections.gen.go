@@ -16,6 +16,7 @@ import (
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
+	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -454,6 +455,21 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
+	PodDisruptionBudget = resource.Builder{
+		Identifier: "PodDisruptionBudget",
+		Group:      "policy",
+		Kind:       "PodDisruptionBudget",
+		Plural:     "poddisruptionbudgets",
+		Version:    "v1",
+		Proto:      "k8s.io.api.policy.v1.PodDisruptionBudgetSpec", StatusProto: "k8s.io.api.policy.v1.PodDisruptionBudgetStatus",
+		ReflectType: reflect.TypeOf(&k8sioapipolicyv1.PodDisruptionBudgetSpec{}).Elem(), StatusType: reflect.TypeOf(&k8sioapipolicyv1.PodDisruptionBudgetStatus{}).Elem(),
+		ProtoPackage: "k8s.io/api/policy/v1", StatusPackage: "k8s.io/api/policy/v1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	ProxyConfig = resource.Builder{
 		Identifier: "ProxyConfig",
 		Group:      "networking.istio.io",
@@ -781,6 +797,7 @@ var (
 		MustAdd(Node).
 		MustAdd(PeerAuthentication).
 		MustAdd(Pod).
+		MustAdd(PodDisruptionBudget).
 		MustAdd(ProxyConfig).
 		MustAdd(ReferenceGrant).
 		MustAdd(RequestAuthentication).
@@ -822,6 +839,7 @@ var (
 		MustAdd(Namespace).
 		MustAdd(Node).
 		MustAdd(Pod).
+		MustAdd(PodDisruptionBudget).
 		MustAdd(ReferenceGrant).
 		MustAdd(Secret).
 		MustAdd(Service).

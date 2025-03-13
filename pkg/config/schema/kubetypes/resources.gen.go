@@ -11,6 +11,7 @@ import (
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
+	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -96,6 +97,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.PeerAuthentication, true
 	case *k8sioapicorev1.Pod:
 		return gvk.Pod, true
+	case *k8sioapipolicyv1.PodDisruptionBudget:
+		return gvk.PodDisruptionBudget, true
 	case *istioioapinetworkingv1beta1.ProxyConfig:
 		return gvk.ProxyConfig, true
 	case *apiistioioapinetworkingv1beta1.ProxyConfig:

@@ -18,17 +18,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	yamlserializer "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -39,6 +40,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
@@ -56,6 +58,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/sets"
@@ -98,6 +101,7 @@ type DeploymentController struct {
 	deployments     kclient.Client[*appsv1.Deployment]
 	services        kclient.Client[*corev1.Service]
 	hpas            kclient.Client[*autoscalingv2.HorizontalPodAutoscaler]
+	pdbs            kclient.Client[*policyv1.PodDisruptionBudget]
 	configMaps      kclient.Client[*corev1.ConfigMap]
 	serviceAccounts kclient.Client[*corev1.ServiceAccount]
 	namespaces      kclient.Client[*corev1.Namespace]
@@ -274,6 +278,10 @@ func NewDeploymentController(
 	dc.hpas = kclient.NewFiltered[*autoscalingv2.HorizontalPodAutoscaler](client, filter)
 	dc.hpas.AddEventHandler(parentHandler)
 	dc.clients[gvr.HorizontalPodAutoscaler] = NewUntypedWrapper(dc.hpas)
+
+	dc.pdbs = kclient.NewFiltered[*policyv1.PodDisruptionBudget](client, filter)
+	dc.pdbs.AddEventHandler(parentHandler)
+	dc.clients[gvr.PodDisruptionBudget] = NewUntypedWrapper(dc.pdbs)
 
 	dc.namespaces = kclient.NewFiltered[*corev1.Namespace](client, filter)
 	dc.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
@@ -629,17 +637,24 @@ var supportedOverlays = sets.New(
 	"service",
 	"serviceAccount",
 	"horizontalPodAutoscaler",
+	"podDisruptionBudget",
 )
 
 var requiredOverlays = sets.New(
 	"horizontalPodAutoscaler",
+	"podDisruptionBudget",
 )
 
 func applyOverlay(object string, overlaysList []map[string]string) (string, error) {
-	kind, err := yamlserializer.DefaultMetaFactory.Interpret([]byte(object))
+	var ik crd.IstioKind
+	if err := yaml.Unmarshal([]byte(object), &ik); err != nil {
+		return "", fmt.Errorf("failed to find kind: %v", err)
+	}
+	gv, err := schema.ParseGroupVersion(ik.TypeMeta.APIVersion)
 	if err != nil {
 		return "", fmt.Errorf("failed to find kind: %v", err)
 	}
+	kind := &schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: ik.TypeMeta.Kind}
 
 	var data any
 	var key string
@@ -656,6 +671,9 @@ func applyOverlay(object string, overlaysList []map[string]string) (string, erro
 	case gvk.HorizontalPodAutoscaler.Kind:
 		data = &autoscalingv2.HorizontalPodAutoscaler{}
 		key = "horizontalPodAutoscaler"
+	case gvk.PodDisruptionBudget.Kind:
+		data = &policyv1.PodDisruptionBudget{}
+		key = "podDisruptionBudget"
 	default:
 		return "", fmt.Errorf("unknown overlay kind %q", kind.Kind)
 	}
@@ -680,6 +698,31 @@ func applyOverlay(object string, overlaysList []map[string]string) (string, erro
 	if !applied && requiredOverlays.Contains(key) {
 		return "", nil
 	}
+
+	var finalIK crd.IstioKind
+	if err := yaml.Unmarshal([]byte(object), &finalIK); err != nil {
+		return "", fmt.Errorf("failed to find final kind: %v", err)
+	}
+
+	a, b := ik.ObjectMeta, finalIK.ObjectMeta
+	if !(a.Name == b.Name &&
+		a.GenerateName == b.GenerateName &&
+		a.Namespace == b.Namespace &&
+		a.UID == b.UID &&
+		a.ResourceVersion == b.ResourceVersion &&
+		a.Generation == b.Generation &&
+		a.CreationTimestamp == b.CreationTimestamp &&
+		a.DeletionTimestamp == b.DeletionTimestamp &&
+		a.DeletionGracePeriodSeconds == b.DeletionGracePeriodSeconds &&
+		reflect.DeepEqual(a.OwnerReferences, b.OwnerReferences) &&
+		slices.Equal(a.Finalizers, b.Finalizers)) {
+		return "", fmt.Errorf("illegal metadata change")
+	}
+	// We could deep equal here but its a bit more tedious, so just never allow setting it
+	if len(a.ManagedFields) != 0 || len(b.ManagedFields) != 0 {
+		return "", fmt.Errorf("illegal metadata change")
+	}
+
 	return object, nil
 }
 

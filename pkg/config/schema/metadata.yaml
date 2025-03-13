@@ -187,16 +187,16 @@ resources:
     protoPackage: "k8s.io/api/autoscaling/v2"
     statusProto: "k8s.io.api.autoscaling.v2.HorizontalPodAutoscalerStatus"
     statusProtoPackage: "k8s.io/api/autoscaling/v2"
-#
-#  - kind: "PodDisruptionBudget"
-#    plural: "poddisruptionbudgets"
-#    group: "policy"
-#    version: "v1"
-#    builtin: true
-#    proto: "k8s.io.api.policy.v1.PodDisruptionBudgetSpec"
-#    protoPackage: "k8s.io/api/policy/v1"
-#    statusProto: "k8s.io.api.policy.v1.PodDisruptionBudgetStatus"
-#    statusProtoPackage: "k8s.io/api/policy/v1"
+
+  - kind: "PodDisruptionBudget"
+    plural: "poddisruptionbudgets"
+    group: "policy"
+    version: "v1"
+    builtin: true
+    proto: "k8s.io.api.policy.v1.PodDisruptionBudgetSpec"
+    protoPackage: "k8s.io/api/policy/v1"
+    statusProto: "k8s.io.api.policy.v1.PodDisruptionBudgetStatus"
+    statusProtoPackage: "k8s.io/api/policy/v1"
 #
 #  - kind: "ClusterRole"
 #    plural: "clusterroles"

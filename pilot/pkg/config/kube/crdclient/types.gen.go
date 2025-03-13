@@ -22,6 +22,7 @@ import (
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
+	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -1225,6 +1226,25 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 				Generation:        obj.Generation,
 			},
 			Spec: &obj.Spec,
+		}
+	},
+	gvk.PodDisruptionBudget: func(r runtime.Object) config.Config {
+		obj := r.(*k8sioapipolicyv1.PodDisruptionBudget)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.PodDisruptionBudget,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
 		}
 	},
 	gvk.ProxyConfig: func(r runtime.Object) config.Config {

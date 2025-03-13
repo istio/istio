@@ -46,6 +46,7 @@ var (
 	PeerAuthentication             = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1", Resource: "peerauthentications"}
 	PeerAuthentication_v1beta1     = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}
 	Pod                            = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	PodDisruptionBudget            = schema.GroupVersionResource{Group: "policy", Version: "v1", Resource: "poddisruptionbudgets"}
 	ProxyConfig                    = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "proxyconfigs"}
 	ReferenceGrant                 = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "referencegrants"}
 	ReferenceGrant_v1alpha2        = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "referencegrants"}
@@ -158,6 +159,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 	case PeerAuthentication_v1beta1:
 		return false
 	case Pod:
+		return false
+	case PodDisruptionBudget:
 		return false
 	case ProxyConfig:
 		return false

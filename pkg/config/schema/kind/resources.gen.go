@@ -36,6 +36,7 @@ const (
 	Node
 	PeerAuthentication
 	Pod
+	PodDisruptionBudget
 	ProxyConfig
 	ReferenceGrant
 	RequestAuthentication
@@ -114,6 +115,8 @@ func (k Kind) String() string {
 		return "PeerAuthentication"
 	case Pod:
 		return "Pod"
+	case PodDisruptionBudget:
+		return "PodDisruptionBudget"
 	case ProxyConfig:
 		return "ProxyConfig"
 	case ReferenceGrant:
@@ -209,6 +212,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return PeerAuthentication
 	case gvk.Pod:
 		return Pod
+	case gvk.PodDisruptionBudget:
+		return PodDisruptionBudget
 	case gvk.ProxyConfig:
 		return ProxyConfig
 	case gvk.ReferenceGrant:
