@@ -50,14 +50,18 @@ func getKeyExtractor(o any) []string {
 	return []string{GetKey(o)}
 }
 
-func (f *filter) reverseIndexKey() (string, objectKeyExtractor, bool) {
-	if f.keys.Len() == 1 {
-		return f.keys.List()[0], getKeyExtractor, true
+// reverseIndexKey
+func (f *filter) reverseIndexKey() ([]string, indexedDependencyType, objectKeyExtractor, bool) {
+	if f.keys.Len() > 0 {
+		if f.index != nil {
+			panic("cannot filter by index and key")
+		}
+		return f.keys.List(), getKeyType, getKeyExtractor, true
 	}
 	if f.index != nil {
-		return f.index.key, f.index.extractKeys, true
+		return []string{f.index.key}, indexType, f.index.extractKeys, true
 	}
-	return "", nil, false
+	return nil, unknownIndexType, nil, false
 }
 
 func (f *filter) String() string {
