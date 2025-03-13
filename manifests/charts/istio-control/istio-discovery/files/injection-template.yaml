@@ -214,6 +214,10 @@ spec:
           command:
           - pilot-agent
           - wait
+          {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/holdApplicationTimeoutSeconds`) -}}
+          - "--timeoutSeconds"
+          - "{{ index .ObjectMeta.Annotations `sidecar.istio.io/holdApplicationTimeoutSeconds` }}"
+          {{ end -}}
   {{- else if $nativeSidecar }}
     {{- /* preStop is called when the pod starts shutdown. Initialize drain. We will get SIGTERM once applications are torn down. */}}
     lifecycle:
