@@ -15,6 +15,7 @@
 package gateway
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -56,7 +57,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -254,14 +254,11 @@ func NewDeploymentController(
 			dc.queue.AddObject(gw)
 		}
 		// Or it could also be a global GatewayClass config
-		if o.GetNamespace() == dc.systemNamespace {
-			classPrefix := fmt.Sprintf("istio-%v-gatewayclass-", ptr.NonEmptyOrDefault(dc.revision, "default"))
-			_, class, ok := strings.Cut(o.GetName(), classPrefix)
-			if ok {
-				for _, gw := range dc.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
-					if string(gw.Spec.GatewayClassName) == class {
-						dc.queue.AddObject(gw)
-					}
+		classDefaults, classDefaultsF := o.GetLabels()[gatewayClassDefaults]
+		if classDefaultsF && o.GetNamespace() == dc.systemNamespace {
+			for _, gw := range dc.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
+				if string(gw.Spec.GatewayClassName) == classDefaults {
+					dc.queue.AddObject(gw)
 				}
 			}
 		}
@@ -584,9 +581,12 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 
 	var templateOverlays []map[string]string
 
-	classOverlayName := fmt.Sprintf("istio-%v-gatewayclass-%v", ptr.NonEmptyOrDefault(d.revision, "default"), mi.Spec.GatewayClassName)
-	if classOverlayConfigMap := d.configMaps.Get(classOverlayName, d.systemNamespace); classOverlayConfigMap != nil {
-		templateOverlays = append(templateOverlays, classOverlayConfigMap.Data)
+	classConfigs := d.configMaps.List(d.systemNamespace, klabels.SelectorFromValidatedSet(map[string]string{
+		gatewayClassDefaults: string(mi.Spec.GatewayClassName),
+	}))
+	if len(classConfigs) > 0 {
+		classConfig := oldestConfig(classConfigs)
+		templateOverlays = append(templateOverlays, classConfig.Data)
 	}
 	params, err := fetchParameters(mi.Gateway)
 	if err != nil {
@@ -630,6 +630,21 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		}
 	}
 	return transformedOutput, nil
+}
+
+func oldestConfig[T controllers.Object](configs []T) T {
+	return slices.MinFunc(configs, func(i, j T) int {
+		if r := i.GetCreationTimestamp().Compare(j.GetCreationTimestamp().Time); r != 0 {
+			return r
+		}
+		// If creation time is the same, then behavior is nondeterministic. In this case, we can
+		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		if r := cmp.Compare(i.GetName(), j.GetName()); r != 0 {
+			return r
+		}
+		return cmp.Compare(i.GetNamespace(), j.GetNamespace())
+	})
 }
 
 var supportedOverlays = sets.New(
