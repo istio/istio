@@ -303,32 +303,31 @@ func NewController(
 	}
 	c.outputs = outputs
 
-	handlers = append(handlers, outputs.VirtualServices.RegisterBatch(pushXds(xdsUpdater,
-		func(t *config.Config) model.ConfigKey {
-			return model.ConfigKey{
-				Kind:      kind.VirtualService,
-				Name:      t.Name,
-				Namespace: t.Namespace,
-			}
-		}), false))
-
-	handlers = append(handlers, outputs.Gateways.RegisterBatch(pushXds(xdsUpdater,
-		func(t Gateway) model.ConfigKey {
-			return model.ConfigKey{
-				Kind:      kind.Gateway,
-				Name:      t.Name,
-				Namespace: t.Namespace,
-			}
-		}), false))
-
-	handlers = append(handlers, outputs.ReferenceGrants.collection.RegisterBatch(pushXds(xdsUpdater,
-		func(t ReferenceGrant) model.ConfigKey {
-			return model.ConfigKey{
-				Kind:      kind.KubernetesGateway,
-				Name:      t.Source.Name,
-				Namespace: t.Source.Namespace,
-			}
-		}), false))
+	handlers = append(handlers,
+		outputs.VirtualServices.RegisterBatch(pushXds(xdsUpdater,
+			func(t *config.Config) model.ConfigKey {
+				return model.ConfigKey{
+					Kind:      kind.VirtualService,
+					Name:      t.Name,
+					Namespace: t.Namespace,
+				}
+			}), false),
+		outputs.Gateways.RegisterBatch(pushXds(xdsUpdater,
+			func(t Gateway) model.ConfigKey {
+				return model.ConfigKey{
+					Kind:      kind.Gateway,
+					Name:      t.Name,
+					Namespace: t.Namespace,
+				}
+			}), false),
+		outputs.ReferenceGrants.collection.RegisterBatch(pushXds(xdsUpdater,
+			func(t ReferenceGrant) model.ConfigKey {
+				return model.ConfigKey{
+					Kind:      kind.KubernetesGateway,
+					Name:      t.Source.Name,
+					Namespace: t.Source.Namespace,
+				}
+			}), false))
 	c.handlers = handlers
 
 	return c
@@ -403,13 +402,6 @@ func (c *Controller) Reconcile(ps *model.PushContext) {
 		(*i).Store(&ctx)
 	})
 	c.gatewayContext.MarkSynced()
-}
-
-type StatusWriter struct {
-	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
-	// is only the case when we are the leader.
-	statusController *atomic.Pointer[status.Queue]
-	resyncers        []func()
 }
 
 func EnqueueStatus[T any](sw status.Queue, obj controllers.Object, ws T) {
