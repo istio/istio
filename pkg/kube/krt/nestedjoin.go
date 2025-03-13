@@ -32,19 +32,28 @@ type nestedjoin[T any] struct {
 	synced                   <-chan struct{}
 	syncer                   Syncer
 	collectionChangeHandlers []func(collectionChangeEvent[T])
+	merge                    func(ts []T) T
+
 	sync.RWMutex
 }
 
 func (j *nestedjoin[T]) GetKey(k string) *T {
+	var found []T
 	for _, c := range j.collections.List() {
 		if r := c.GetKey(k); r != nil {
-			return r
+			if j.merge == nil {
+				return r
+			}
+			found = append(found, *r)
 		}
 	}
-	return nil
+	if len(found) == 0 {
+		return nil
+	}
+	return ptr.Of(j.merge(found))
 }
 
-func (j *nestedjoin[T]) List() []T {
+func (j *nestedjoin[T]) quickList() []T {
 	var res []T
 	var found sets.String
 	first := true
@@ -61,7 +70,6 @@ func (j *nestedjoin[T]) List() []T {
 	for _, c := range maps.SeqStable(collectionsByUID) {
 		objs := c.List()
 		// As an optimization, take the first (non-empty) result as-is without copying
-		// TODO: Implement custom merge out of the hot path
 		if len(objs) > 0 && first {
 			res = objs
 			first = false
@@ -82,6 +90,31 @@ func (j *nestedjoin[T]) List() []T {
 	}
 
 	return res
+}
+
+func (j *nestedjoin[T]) mergeList() []T {
+	res := map[Key[T]][]T{}
+	for _, c := range j.collections.List() {
+		for _, i := range c.List() {
+			key := getTypedKey(i)
+			res[key] = append(res[key], i)
+		}
+	}
+
+	var l []T
+	for _, ts := range res {
+		l = append(l, j.merge(ts))
+	}
+
+	return l
+}
+
+func (j *nestedjoin[T]) List() []T {
+	if j.merge != nil {
+		j.mergeList()
+	}
+
+	return j.quickList()
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -199,6 +232,10 @@ func (j *nestedjoin[T]) registerCollectionChangeHandlerLocked(h func(e collectio
 }
 
 func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...CollectionOption) Collection[T] {
+	return NestedJoinWithMergeCollection(collections, nil, opts...)
+}
+
+func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]], merge func(ts []T) T, opts ...CollectionOption) Collection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("NestedJoin[%v]", ptr.TypeName[T]())
@@ -216,6 +253,7 @@ func NestedJoinCollection[T any](collections Collection[Collection[T]], opts ...
 			name:   o.name,
 			synced: synced,
 		},
+		merge: merge,
 	}
 
 	reg := collections.RegisterBatch(func(o []Event[Collection[T]]) {

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	srkube "istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/krt"
@@ -33,6 +34,53 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/workloadapi"
 )
+
+func serviceBuilder() krt.TransformationSingle[*corev1.Service, model.ServiceInfo] {
+	return func(ctx krt.HandlerContext, s *corev1.Service) *model.ServiceInfo {
+		if s.Spec.Type == corev1.ServiceTypeExternalName {
+			// ExternalName services are not implemented by ambient (but will still work).
+			// The DNS requests will forward to the upstream DNS server, then Ztunnel can handle the request based on the target
+			// hostname.
+			// In theory we could add support for native 'DNS alias' into Ztunnel's DNS proxy. This would give the same behavior
+			// but let the DNS proxy handle it instead of forwarding upstream. However, at this time we do not do so.
+			return nil
+		}
+		portNames := map[int32]model.ServicePortName{}
+		for _, p := range s.Spec.Ports {
+			portNames[p.Port] = model.ServicePortName{
+				PortName:       p.Name,
+				TargetPortName: p.TargetPort.StrVal,
+			}
+		}
+		svc := constructService(ctx, s)
+		return &model.ServiceInfo{
+			Service:       svc,
+			PortNames:     portNames,
+			LabelSelector: model.NewSelector(s.Spec.Selector),
+			Source:        ambient.MakeSource(s),
+		}
+	}
+}
+
+func serviceEntriesBuilder() krt.TransformationMulti[*istioclient.ServiceEntry, model.ServiceInfo] {
+	return func(ctx krt.HandlerContext, se *istioclient.ServiceEntry) []model.ServiceInfo {
+		sel := model.NewSelector(se.Spec.GetWorkloadSelector().GetLabels())
+		portNames := map[int32]model.ServicePortName{}
+		for _, p := range se.Spec.Ports {
+			portNames[int32(p.Number)] = model.ServicePortName{
+				PortName: p.Name,
+			}
+		}
+		return slices.Map(constructServiceEntries(ctx, se), func(e *workloadapi.Service) model.ServiceInfo {
+			return model.ServiceInfo{
+				Service:       e,
+				PortNames:     portNames,
+				LabelSelector: sel,
+				Source:        ambient.MakeSource(se),
+			}
+		})
+	}
+}
 
 // This function has a copy of some functionality from the ambient controller so that we
 // can test that some of the krt functionality works the way we expect
