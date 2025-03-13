@@ -245,7 +245,6 @@ func TestReverseIndex(t *testing.T) {
 	})
 	Collection := krt.NewSingleton(func(ctx krt.HandlerContext) *PodCounts {
 		idxPods := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "1.2.3.5"))
-		// namePods := krt.Fetch(ctx, SimplePods, krt.FilterKey("namespace/name"))
 		namePods := krt.Fetch(ctx, SimplePods, krt.FilterKeys("namespace/name", "namespace/name3"))
 		return &PodCounts{
 			ByIP:   len(idxPods),
