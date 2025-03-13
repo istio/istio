@@ -15,7 +15,6 @@
 package krt_test
 
 import (
-	"net/netip"
 	"testing"
 
 	"go.uber.org/atomic"
@@ -25,16 +24,14 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/apis/networking/v1"
-	"istio.io/istio/pilot/pkg/model"
-	srkube "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestJoinCollection(t *testing.T) {
@@ -213,7 +210,6 @@ func TestCollectionJoinSync(t *testing.T) {
 }
 
 func TestJoinWithMergeCollection(t *testing.T) {
-	stop := test.NewStop(t)
 	opts := testOptions(t)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -228,126 +224,73 @@ func TestJoinWithMergeCollection(t *testing.T) {
 			ClusterIP: "1.2.3.4",
 		},
 	}
-	se := &istioclient.ServiceEntry{
+
+	svc2 := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "svc",
 			Namespace: "namespace",
 		},
-		Spec: istio.ServiceEntry{
-			Hosts: []string{"svc.namespace.svc.test.local"},
-			Ports: []*istio.ServicePort{
-				{Name: "http", Number: 80, Protocol: "HTTP", TargetPort: 8080},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"version": "v1"},
+			Ports: []corev1.ServicePort{
+				{Name: "http", Port: 80, TargetPort: intstr.FromInt(8080)},
 			},
-			Addresses: []string{"1.2.3.5"},
-			SubjectAltNames: []string{
-				"foo.namespace.svc.cluster.local",
-			},
+			ClusterIP: "1.2.3.4",
 		},
 	}
+
 	c := kube.NewFakeClient(svc)
+	services1 := krt.NewInformer[*corev1.Service](c, opts.WithName("Services")...)
+	SimpleServices := krt.NewCollection(services1, func(ctx krt.HandlerContext, o *corev1.Service) *SimpleService {
+		return &SimpleService{
+			Named:    Named{o.Namespace, o.Name},
+			Selector: o.Spec.Selector,
+		}
+	}, opts.WithName("SimpleServices")...)
 
-	sec := clienttest.Wrap(t, kclient.New[*istioclient.ServiceEntry](c))
-	sec.Create(se)
-	services := krt.NewInformer[*corev1.Service](c, opts.WithName("Services")...)
-	serviceEntries := krt.NewInformer[*istioclient.ServiceEntry](c, opts.WithName("ServiceEntries")...)
-	c.RunAndWait(stop)
+	c2 := kube.NewFakeClient(svc2)
+	services2 := krt.NewInformer[*corev1.Service](c2, opts.WithName("Services")...)
+	SimpleServices2 := krt.NewCollection(services2, func(ctx krt.HandlerContext, o *corev1.Service) *SimpleService {
+		return &SimpleService{
+			Named:    Named{o.Namespace, o.Name},
+			Selector: o.Spec.Selector,
+		}
+	}, opts.WithName("SimpleServices2")...)
+	c2.RunAndWait(opts.Stop())
 
-	ServicesInfo := krt.NewCollection(services, serviceBuilder(), opts.WithName("ServicesInfo")...)
-	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, serviceEntriesBuilder(), opts.WithName("ServiceEntriesInfo")...)
 	AllServices := krt.JoinWithMergeCollection(
-		[]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo},
-		func(serviceInfos []model.ServiceInfo) model.ServiceInfo {
-			if len(serviceInfos) == 1 {
-				return serviceInfos[0]
+		[]krt.Collection[SimpleService]{SimpleServices, SimpleServices2},
+		func(ts []SimpleService) *SimpleService {
+			if len(ts) == 0 {
+				return nil
 			}
-			type port struct {
-				port       uint32
-				targetPort uint32
-			}
-			ports := map[port]struct{}{}
-			addresses := []*workloadapi.NetworkAddress{}
-			sans := []string{}
-			first := true
-			for _, si := range serviceInfos {
-				for _, p := range si.Service.Ports {
-					miniPort := port{
-						port:       p.ServicePort,
-						targetPort: p.TargetPort,
-					}
-					if first {
-						ports[miniPort] = struct{}{}
-					} else {
-						if _, ok := ports[miniPort]; !ok {
-							// The port doesn't exist in other services, so remove it
-							delete(ports, miniPort)
-						}
-					}
-				}
-				if first {
-					addresses = si.Service.GetAddresses()
-					sans = si.Service.GetSubjectAltNames()
-					first = false
+
+			simpleService := ts[0]
+
+			for i, t := range ts {
+				if i == 0 {
 					continue
 				}
-				addresses = append(addresses, si.Service.GetAddresses()...)
-				sans = append(sans, si.Service.GetSubjectAltNames()...)
+				// Existing labels take precedence
+				newSelector := maps.MergeCopy(t.Selector, simpleService.Selector)
+				simpleService.Selector = newSelector
 			}
 
-			if len(ports) == 0 {
-				// No ports in common, so return nothing
-				return model.ServiceInfo{}
-			}
-
-			finalServiceInfo := model.ServiceInfo{
-				Service: &workloadapi.Service{
-					Addresses:       addresses,
-					Ports:           make([]*workloadapi.Port, 0, len(ports)),
-					Name:            serviceInfos[0].Service.Name,
-					Namespace:       serviceInfos[0].Service.Namespace,
-					Hostname:        srkube.ServiceHostname(serviceInfos[0].Service.Name, serviceInfos[0].Service.Namespace, "test.local").String(),
-					SubjectAltNames: sans,
-				},
-				LabelSelector: model.LabelSelector{
-					Labels: map[string]string{"app": "foo"},
-				},
-			}
-
-			for p := range ports {
-				finalServiceInfo.Service.Ports = append(finalServiceInfo.Service.Ports, &workloadapi.Port{
-					ServicePort: p.port,
-					TargetPort:  p.targetPort,
-				})
-			}
-
-			return finalServiceInfo
-		}, opts.WithName("AllServices")...,
+			return &simpleService
+		},
+		opts.With(
+			krt.WithName("AllServices"),
+		)...,
 	)
+	c.RunAndWait(opts.Stop())
+	assert.EventuallyEqual(t, func() bool {
+		return AllServices.WaitUntilSynced(opts.Stop())
+	}, true)
 
-	assert.EventuallyEqual(t, func() *model.ServiceInfo { return AllServices.GetKey("namespace/svc.namespace.svc.test.local") }, &model.ServiceInfo{
-		LabelSelector: model.LabelSelector{
-			Labels: map[string]string{"app": "foo"},
-		},
-		Service: &workloadapi.Service{
-			Name:      "svc",
-			Namespace: "namespace",
-			Hostname:  srkube.ServiceHostname("svc", "namespace", "test.local").String(),
-			Addresses: []*workloadapi.NetworkAddress{
-				{
-					Address: netip.MustParseAddr("1.2.3.4").AsSlice(),
-					Network: "testnetwork",
-				},
-				{
-					Address: netip.MustParseAddr("1.2.3.5").AsSlice(),
-					Network: "testnetwork",
-				},
-			},
-			Ports: []*workloadapi.Port{
-				{
-					ServicePort: 80,
-					TargetPort:  8080,
-				},
-			},
-			SubjectAltNames: []string{"foo.namespace.svc.cluster.local"},
-		},
+	assert.EventuallyEqual(t, func() *SimpleService {
+		return AllServices.GetKey("namespace/svc")
+	}, &SimpleService{
+		Named:    Named{"namespace", "svc"},
+		Selector: map[string]string{"app": "foo", "version": "v1"},
 	})
 }
