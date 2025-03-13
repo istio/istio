@@ -439,7 +439,9 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 
 	rendered, err := d.render(gi.templates, input)
 	if err != nil {
-		return fmt.Errorf("failed to render template: %v", err)
+		// Just log error, we do not need to retry since rendering errors are not ephemeral errors
+		log.Errorf("error rendering templates: %v", err)
+		return nil
 	}
 	for _, t := range rendered {
 		if err := d.apply(gi.controller, t); err != nil {
@@ -595,7 +597,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 	if params != nil {
 		cm := d.configMaps.Get(params.Name, params.Namespace)
 		if cm == nil {
-			return nil, fmt.Errorf("parametersRef targetting configmap %q, but configmap does not exist", params)
+			return nil, fmt.Errorf("parametersRef targeting configmap %q, but configmap does not exist", params)
 		}
 		templateOverlays = append(templateOverlays, cm.Data)
 	}
