@@ -158,7 +158,13 @@ func ConvertConfig(cfg config.Config) (IstioObject, error) {
 	}
 	namespace := cfg.Namespace
 	if namespace == "" {
-		namespace = metav1.NamespaceDefault
+		clusterScoped := false
+		if s, ok := collections.All.FindByGroupVersionAliasesKind(cfg.GroupVersionKind); ok {
+			clusterScoped = s.IsClusterScoped()
+		}
+		if !clusterScoped {
+			namespace = metav1.NamespaceDefault
+		}
 	}
 	return &IstioKind{
 		TypeMeta: metav1.TypeMeta{
