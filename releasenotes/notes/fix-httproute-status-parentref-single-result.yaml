@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where HTTPRoute status was not reporting a parentRef associated with a single result 
+  due to complex logic for collapsing parentRefs of the same reference but different sectionNames.

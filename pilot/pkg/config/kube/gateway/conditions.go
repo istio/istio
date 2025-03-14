@@ -73,52 +73,59 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 			seenReasons.Insert(ParentNoError)
 		}
 	}
-	reasonRanking := []ParentErrorReason{
-		// No errors is preferred
-		ParentNoError,
-		// All route level errors
-		ParentErrorNotAllowed,
-		ParentErrorNoHostname,
-		ParentErrorParentRefConflict,
-		// Failures to match the Port or SectionName. These are last so that if we bind to 1 listener we
-		// just report errors for that 1 listener instead of for all sections we didn't bind to
-		ParentErrorNotAccepted,
+
+	const (
+		rankParentNoErrors = iota
+		rankParentErrorNotAllowed
+		rankParentErrorNoHostname
+		rankParentErrorParentRefConflict
+		rankParentErrorNotAccepted
+	)
+
+	rankParentError := func(result RouteParentResult) int {
+		if result.DeniedReason == nil {
+			return rankParentNoErrors
+		}
+		switch result.DeniedReason.Reason {
+		case ParentErrorNotAllowed:
+			return rankParentErrorNotAllowed
+		case ParentErrorNoHostname:
+			return rankParentErrorNoHostname
+		case ParentErrorParentRefConflict:
+			return rankParentErrorParentRefConflict
+		case ParentErrorNotAccepted:
+			return rankParentErrorNotAccepted
+		}
+		return rankParentNoErrors
 	}
+
 	// Next we want to collapse these. We need to report 1 type of error, or none.
 	report := map[k8s.ParentReference]RouteParentResult{}
-	for _, wantReason := range reasonRanking {
-		if !seenReasons.Contains(wantReason) {
+	for ref, results := range seen {
+		if len(results) == 0 {
 			continue
 		}
-		// We found our highest priority ranking, now we need to collapse this into a single message
-		for k, refs := range seen {
-			for _, ref := range refs {
-				reason := ParentNoError
-				if ref.DeniedReason != nil {
-					reason = ref.DeniedReason.Reason
-				}
-				if wantReason != reason {
-					// Skip this one, it is for a less relevant reason
-					continue
-				}
-				exist, f := report[k]
-				if f {
-					if ref.DeniedReason != nil {
-						if exist.DeniedReason != nil {
-							// join the error
-							exist.DeniedReason.Message += "; " + ref.DeniedReason.Message
-						} else {
-							exist.DeniedReason = ref.DeniedReason
-						}
-					}
+
+		toReport := results[0]
+		mostSevereRankSeen := rankParentError(toReport)
+
+		for _, result := range results[1:] {
+			resultRank := rankParentError(result)
+			// lower number means more severe
+			if resultRank < mostSevereRankSeen {
+				mostSevereRankSeen = resultRank
+				toReport = result
+			} else if resultRank == mostSevereRankSeen {
+				// join the error messages
+				if toReport.DeniedReason == nil {
+					toReport.DeniedReason = result.DeniedReason
 				} else {
-					exist = ref
+					toReport.DeniedReason.Message += "; " + result.DeniedReason.Message
 				}
-				report[k] = exist
 			}
 		}
-		// Once we find the best reason, do not consider any others
-		break
+
+		report[ref] = toReport
 	}
 
 	// Now we fill in all the parents we do own
