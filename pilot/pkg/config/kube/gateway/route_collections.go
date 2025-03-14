@@ -21,8 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	// gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	// gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	istio "istio.io/api/networking/v1alpha3"
@@ -337,15 +335,16 @@ func TCPRouteCollection(
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
-		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(mesh bool, obj *gatewayalpha.TCPRoute) iter.Seq2[*istio.TCPRoute, *ConfigError] {
-			return func(yield func(*istio.TCPRoute, *ConfigError) bool) {
-				for _, r := range route.Rules {
-					if !yield(convertTCPRoute(ctx, r, obj, !mesh)) {
-						return
+		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj,
+			func(mesh bool, obj *gatewayalpha.TCPRoute) iter.Seq2[*istio.TCPRoute, *ConfigError] {
+				return func(yield func(*istio.TCPRoute, *ConfigError) bool) {
+					for _, r := range route.Rules {
+						if !yield(convertTCPRoute(ctx, r, obj, !mesh)) {
+							return
+						}
 					}
 				}
-			}
-		})
+			})
 		status.Parents = parentStatus
 
 		vs := []*config.Config{}
@@ -419,15 +418,16 @@ func TLSRouteCollection(
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
-		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(mesh bool, obj *gatewayalpha.TLSRoute) iter.Seq2[*istio.TLSRoute, *ConfigError] {
-			return func(yield func(*istio.TLSRoute, *ConfigError) bool) {
-				for _, r := range route.Rules {
-					if !yield(convertTLSRoute(ctx, r, obj, !mesh)) {
-						return
+		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx,
+			obj, func(mesh bool, obj *gatewayalpha.TLSRoute) iter.Seq2[*istio.TLSRoute, *ConfigError] {
+				return func(yield func(*istio.TLSRoute, *ConfigError) bool) {
+					for _, r := range route.Rules {
+						if !yield(convertTLSRoute(ctx, r, obj, !mesh)) {
+							return
+						}
 					}
 				}
-			}
-		})
+			})
 		status.Parents = parentStatus
 
 		vs := []*config.Config{}
