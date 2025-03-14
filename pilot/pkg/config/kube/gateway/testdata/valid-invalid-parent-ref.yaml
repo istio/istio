@@ -1,0 +1,69 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "*.domain.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: mixed-parent-ref-validity
+  namespace: default
+spec:
+  parentRefs:
+  # valid refs
+  - name: gateway
+    namespace: istio-system
+    port: 80
+  - kind: ServiceEntry
+    group: networking.istio.io
+    name: egress
+  # invalid refs
+  - name: gateway
+    namespace: istio-system
+    port: 1234 # invalid port
+  - group: ''
+    kind: Service # service does not exist
+    name: random
+    namespace: nonexistent
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 80
+      weight: 1
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: egress
+  namespace: default
+spec:
+  hosts:
+  - "google.com"
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 443
+    name: tls
+    protocol: TLS
