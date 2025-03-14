@@ -3102,52 +3102,6 @@ func TestTelemetryMetadata(t *testing.T) {
 	}
 }
 
-func TestVerifyCertAtClient(t *testing.T) {
-	testCases := []struct {
-		name               string
-		policy             *networking.TrafficPolicy
-		expectedCARootPath string
-	}{
-		{
-			name: "Check that certs are verfied against the OS CA certificate bundle",
-			policy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 10,
-					},
-				},
-				Tls: &networking.ClientTLSSettings{
-					CaCertificates: "",
-				},
-			},
-			expectedCARootPath: "system",
-		},
-		{
-			name: "Check that CaCertificates has priority over OS CA certificate bundle",
-			policy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 10,
-					},
-				},
-				Tls: &networking.ClientTLSSettings{
-					CaCertificates: "file-root:certPath",
-				},
-			},
-			expectedCARootPath: "file-root:certPath",
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			selectTrafficPolicyComponents(testCase.policy)
-			if testCase.policy.Tls.CaCertificates != testCase.expectedCARootPath {
-				t.Errorf("%v got %v when expecting %v", testCase.name, testCase.policy.Tls.CaCertificates, testCase.expectedCARootPath)
-			}
-		})
-	}
-}
-
 func TestBuildDeltaClusters(t *testing.T) {
 	testService1 := &model.Service{
 		Hostname: host.Name("test.com"),

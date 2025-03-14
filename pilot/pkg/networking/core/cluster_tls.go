@@ -34,6 +34,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/log"
 	pm "istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -201,7 +202,7 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		// Rather than reading directly in Envoy, which does not support rotation, we will
 		// serve them over SDS by reading the files.
 		res := security.SdsCertificateConfig{
-			CaCertificatePath: tls.CaCertificates,
+			CaCertificatePath: ptr.NonEmptyOrDefault(tls.CaCertificates, "system"),
 		}
 		// If CredentialName is not set fallback to file based approach
 		if mutual {
