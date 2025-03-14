@@ -220,3 +220,76 @@ func TestIndexAsCollection(t *testing.T) {
 	assertion("1.2.3.4", 0)
 	assertion("1.2.3.5", 2)
 }
+
+type PodCounts struct {
+	ByIP   int
+	ByName int
+}
+
+func (p PodCounts) ResourceName() string {
+	return "singleton"
+}
+
+func TestReverseIndex(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	kpc := kclient.New[*corev1.Pod](c)
+	pc := clienttest.Wrap(t, kpc)
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	c.RunAndWait(stop)
+	SimplePods := SimplePodCollection(pods, opts)
+	tt := assert.NewTracker[string](t)
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+		return []string{o.IP}
+	})
+	Collection := krt.NewSingleton(func(ctx krt.HandlerContext) *PodCounts {
+		idxPods := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "1.2.3.5"))
+		namePods := krt.Fetch(ctx, SimplePods, krt.FilterKeys("namespace/name", "namespace/name3"))
+		return &PodCounts{
+			ByIP:   len(idxPods),
+			ByName: len(namePods),
+		}
+	}, opts.WithName("Collection")...)
+	Collection.AsCollection().WaitUntilSynced(stop)
+
+	SimplePods.Register(TrackerHandler[SimplePod](tt))
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "name",
+			Namespace: "namespace",
+		},
+		Status: corev1.PodStatus{PodIP: "1.2.3.4"},
+	}
+	pc.CreateOrUpdateStatus(pod)
+	assert.EventuallyEqual(t, Collection.Get, &PodCounts{ByIP: 0, ByName: 1})
+
+	pod.Status.PodIP = "1.2.3.5"
+	pc.UpdateStatus(pod)
+	assert.EventuallyEqual(t, Collection.Get, &PodCounts{ByIP: 1, ByName: 1})
+
+	pod2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "name2",
+			Namespace: "namespace",
+		},
+		Status: corev1.PodStatus{PodIP: "1.2.3.5"},
+	}
+	pc.CreateOrUpdateStatus(pod2)
+	assert.EventuallyEqual(t, Collection.Get, &PodCounts{ByIP: 2, ByName: 1})
+
+	pod3 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "name3",
+			Namespace: "namespace",
+		},
+		Status: corev1.PodStatus{PodIP: "1.2.3.7"},
+	}
+	pc.CreateOrUpdateStatus(pod3)
+	assert.EventuallyEqual(t, Collection.Get, &PodCounts{ByIP: 2, ByName: 2})
+
+	pc.Delete(pod.Name, pod.Namespace)
+	pc.Delete(pod2.Name, pod2.Namespace)
+	assert.EventuallyEqual(t, Collection.Get, &PodCounts{ByIP: 0, ByName: 1})
+}
