@@ -4,3 +4,7 @@
 
 cni:
   cniBinDir: "" # intentionally unset for gke to allow template-based autodetection to work
+  resourceQuotas:
+    enabled: true
+resourceQuotas:
+  enabled: true

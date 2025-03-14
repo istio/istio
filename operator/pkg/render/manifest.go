@@ -431,7 +431,14 @@ func clusterSpecificSettings(client kube.Client) []string {
 	// https://istio.io/latest/docs/setup/additional-setup/cni/#hosted-kubernetes-settings
 	// GKE requires deployment in kube-system namespace.
 	if strings.Contains(ver.GitVersion, "-gke") {
-		return []string{"components.cni.namespace=kube-system"}
+		return []string{
+			// This could be in istio-system with ResourceQuotas, but for backwards compatibility we move it to kube-system still
+			"components.cni.namespace=kube-system",
+			// Enable GKE profile, which ensures CNI Bin Dir is set appropriately
+			"values.global.platform=gke",
+			// Since we already put it in kube-system, don't bother deploying a resource quota
+			"values.cni.resourceQuotas.enabled=false",
+		}
 	}
 	return nil
 }
