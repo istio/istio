@@ -74,22 +74,7 @@ func TestMain(m *testing.M) {
 			t.Settings().Ambient = true
 			return nil
 		}).
-		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
-			// can't deploy VMs without eastwest gateway
-			ctx.Settings().SkipVMs()
-			cfg.EnableCNI = true
-			cfg.DeployEastWestGW = false
-			cfg.ControlPlaneValues = `
-values:
-  cni:
-    repair:
-      enabled: true
-  ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
-`
-		}, cert.CreateCASecretAlt)).
+		Setup(istio.Setup(&i, setupConfig, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
@@ -100,6 +85,26 @@ const (
 	Captured   = "captured"
 	Uncaptured = "uncaptured"
 )
+
+func setupConfig(ctx resource.Context, cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	// can't deploy VMs without eastwest gateway
+	ctx.Settings().SkipVMs()
+	cfg.EnableCNI = true
+	cfg.DeployEastWestGW = false
+	cfg.ControlPlaneValues = `
+values:
+  cni:
+    repair:
+      enabled: true
+  ztunnel:
+    terminationGracePeriodSeconds: 5
+    env:
+      SECRET_TTL: 5m
+`
+}
 
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
 	var err error
