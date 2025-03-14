@@ -5,13 +5,6 @@
 #
 set -e
 
-# This script can only produce desired results on Linux systems.
-ENVOS=$(uname 2>/dev/null || true)
-if [[ "${ENVOS}" != "Linux" ]]; then
-  echo "Your system is not supported by this script. Only Linux is supported"
-  exit 1
-fi
-
 # Check prerequisites
 REQUISITES=("kubectl" "kind" "docker")
 for item in "${REQUISITES[@]}"; do
@@ -49,6 +42,7 @@ NUMNODES=""
 PODSUBNET=""
 SERVICESUBNET=""
 IPV6GW=false
+API_SERVER_ADDRESS=""
 
 # Handling parameters
 while [[ $# -gt 0 ]]; do
@@ -85,9 +79,6 @@ done
 # connect it to the docker network where kind nodes are running on
 # which normally will be called kind
 FEATURES=$(cat << EOF
-featureGates:
-  MixedProtocolLBService: true
-  GRPCContainerProbe: true
 kubeadmConfigPatches:
   - |
     apiVersion: kubeadm.k8s.io/v1beta2
@@ -145,6 +136,19 @@ for _ in $(seq 1 "${NUMNODES}"); do
 done
 fi
 
+OS=$(uname -s)
+case $OS in
+    Darwin)
+        if [ -z "${API_SERVER_ADDRESS}" ]; then
+            # If you are using Docker on Windows or Mac,
+            # you will need to use an IPv4 port forward for the API Server
+            # from the host because IPv6 port forwards don’t work on these platforms.
+            API_SERVER_ADDRESS="127.0.0.1"
+            echo "Using API server address: ${API_SERVER_ADDRESS} Darwin"
+        fi
+        ;;
+esac
+
 CONFIG=$(cat <<-EOM
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -152,6 +156,7 @@ ${FEATURES}
 name: ${CLUSTERNAME}
 ${NODES}
 networking:
+  apiServerAddress: ${API_SERVER_ADDRESS}
   ipFamily: ${IPFAMILY}
 EOM
 )
