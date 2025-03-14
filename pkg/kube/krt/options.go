@@ -91,10 +91,19 @@ func WithDebugging(handler *DebugHandler) CollectionOption {
 	}
 }
 
-// WithPrimaryCollection sets the primary collection for a join collection.
-// This has an impact for merging semantics.
-func WithPrimaryCollection(key string) CollectionOption {
-	return func(co *collectionOptions) {
-		co.primaryCollectionKey = key
+// WithJoinUnchecked enables an optimization for join collections, where keys are not deduplicated across collections.
+// This option can only be used when joined collections are disjoint: keys overlapping between collections is undefined behavior
+func WithJoinUnchecked() CollectionOption {
+	return func(c *collectionOptions) {
+		c.joinUnchecked = true
+	}
+}
+
+// WithMetadata adds metadata to the collection. This is mainly useful
+// for creating collections of collections where the metadata is needed to
+// fetch a specific collection.
+func WithMetadata(metadata Metadata) CollectionOption {
+	return func(c *collectionOptions) {
+		c.metadata = metadata
 	}
 }

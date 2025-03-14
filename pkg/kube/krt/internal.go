@@ -71,9 +71,7 @@ type collectionOptions struct {
 	stop          <-chan struct{}
 	debugger      *DebugHandler
 	joinUnchecked bool
-
-	// Options for nested collections only
-	primaryCollectionKey string
+	metadata      Metadata
 }
 
 type indexedDependency struct {
