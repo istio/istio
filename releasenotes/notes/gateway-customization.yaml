@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issues:
+  - 53964
+  - 46594
+  - 53473
+  - 54453
+releaseNotes:
+  - |
+    **Added** support for customizations to [Gateway API Automated Deployments](https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#automated-deployment).
+    This includes both `istio` Gateway types (used for ingress and egress) as well as `istio-waypoint` Gateway types used for ambient mode waypoints.
+    Users can now customize arbitrary elements of the generated Service, Deployment, ServiceAccount, HorizontalPodAutoscaler, and PodDisruptionBudget.
