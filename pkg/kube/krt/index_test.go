@@ -220,3 +220,19 @@ func TestIndexAsCollection(t *testing.T) {
 	assertion("1.2.3.4", 0)
 	assertion("1.2.3.5", 2)
 }
+
+func TestIndexAsCollectionMetadata(t *testing.T) {
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	kpc := kclient.New[*corev1.Pod](c)
+	meta := krt.Metadata{
+		"key1": "value1",
+	}
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	SimplePods := SimplePodCollection(pods, opts)
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+		return []string{o.IP}
+	})
+	c.RunAndWait(opts.Stop())
+	assert.Equal(t, IPIndex.AsCollection(krt.WithMetadata(meta)).Metadata(), meta)
+}

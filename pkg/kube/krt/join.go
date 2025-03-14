@@ -31,6 +31,7 @@ type join[T any] struct {
 	uncheckedOverlap bool
 	syncer           Syncer
 	merge            func(ts []T) *T
+	metadata         Metadata
 }
 
 func (j *join[T]) GetKey(k string) *T {
@@ -214,6 +215,10 @@ func (j *join[T]) WaitUntilSynced(stop <-chan struct{}) bool {
 	return j.syncer.WaitUntilSynced(stop)
 }
 
+func (j *join[T]) Metadata() Metadata {
+	return j.metadata
+}
+
 // JoinCollection combines multiple Collection[T] into a single
 // Collection[T], picking the first object found when duplicates are found.
 func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collection[T] {
@@ -243,9 +248,11 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 	}()
 
 	if o.joinUnchecked && merge != nil {
+		o.joinUnchecked = false
 		log.Warn("JoinWithMergeCollection: unchecked overlap is ineffective with a merge function")
 	}
-	return &join[T]{
+	// TODO: in the future, we could have a custom merge function. For now, since we just take the first, we optimize around that case
+	j := &join[T]{
 		collectionName:   o.name,
 		id:               nextUID(),
 		synced:           synced,
@@ -257,4 +264,10 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 		},
 		merge: merge,
 	}
+
+	if o.metadata != nil {
+		j.metadata = o.metadata
+	}
+
+	return j
 }
