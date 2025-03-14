@@ -59,6 +59,10 @@ func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 	// and we harm no one by doing so.
 	copiedFiles, err := copyBinaries(in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs)
 	if err != nil {
+		if strings.Contains(err.Error(), "read-only file system") {
+			log.Warnf("hint: some Kubernetes environments require customization of the CNI directory." +
+				" Ensure you properly set global.platform=<name> during installation")
+		}
 		cniInstalls.With(resultLabel.Value(resultCopyBinariesFailure)).Increment()
 		return copiedFiles, fmt.Errorf("copy binaries: %v", err)
 	}
