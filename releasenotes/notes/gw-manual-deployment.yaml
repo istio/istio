@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** an environment variable `ENABLE_GATEWAY_API_MANUAL_DEPLOYMENT` to istiod that, if set to `false`, will disable the attachment of Gateway API resources to existing gateway deployments. The default setting is `true` to not change existing behavior.

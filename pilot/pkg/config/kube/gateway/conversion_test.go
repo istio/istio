@@ -1427,12 +1427,13 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 
 func TestExtractGatewayServices(t *testing.T) {
 	tests := []struct {
-		name            string
-		r               GatewayResources
-		kgw             *k8s.GatewaySpec
-		obj             config.Config
-		gatewayServices []string
-		err             *ConfigError
+		name                   string
+		r                      GatewayResources
+		kgw                    *k8s.GatewaySpec
+		obj                    config.Config
+		gatewayServices        []string
+		err                    *ConfigError
+		enableManualDeployment bool
 	}{
 		{
 			name: "managed gateway",
@@ -1446,7 +1447,8 @@ func TestExtractGatewayServices(t *testing.T) {
 					Namespace: "default",
 				},
 			},
-			gatewayServices: []string{"foo-istio.default.svc.cluster.local"},
+			gatewayServices:        []string{"foo-istio.default.svc.cluster.local"},
+			enableManualDeployment: true,
 		},
 		{
 			name: "managed gateway with name overridden",
@@ -1463,7 +1465,8 @@ func TestExtractGatewayServices(t *testing.T) {
 					},
 				},
 			},
-			gatewayServices: []string{"bar.default.svc.cluster.local"},
+			gatewayServices:        []string{"bar.default.svc.cluster.local"},
+			enableManualDeployment: true,
 		},
 		{
 			name: "unmanaged gateway",
@@ -1501,10 +1504,46 @@ func TestExtractGatewayServices(t *testing.T) {
 				Reason:  InvalidAddress,
 				Message: "only Hostname is supported, ignoring [1.2.3.4]",
 			},
+			enableManualDeployment: true,
+		},
+		{
+			name: "manual deployment disabled",
+			r:    GatewayResources{Domain: "domain"},
+			kgw: &k8s.GatewaySpec{
+				GatewayClassName: "istio",
+				Addresses: []k8s.GatewayAddress{
+					{
+						Value: "abc",
+					},
+					{
+						Type: func() *k8s.AddressType {
+							t := k8s.HostnameAddressType
+							return &t
+						}(),
+						Value: "example.com",
+					},
+					{
+						Type: func() *k8s.AddressType {
+							t := k8s.IPAddressType
+							return &t
+						}(),
+						Value: "1.2.3.4",
+					},
+				},
+			},
+			obj: config.Config{
+				Meta: config.Meta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+			},
+			gatewayServices:        []string{"foo-istio.default.svc.domain"},
+			enableManualDeployment: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableGatewayAPIManualDeployment, tt.enableManualDeployment)
 			gatewayServices, err := extractGatewayServices(tt.r, tt.kgw, tt.obj, classInfo{})
 			assert.Equal(t, gatewayServices, tt.gatewayServices)
 			assert.Equal(t, err, tt.err)

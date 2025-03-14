@@ -2431,7 +2431,12 @@ func reportUnmanagedGatewayStatus(obj config.Config) {
 // NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations,
 //
 //	which users can add to the Gateway.
+//
+// If manual deployments are disabled, IsManaged() always returns true.
 func IsManaged(gw *k8s.GatewaySpec) bool {
+	if !features.EnableGatewayAPIManualDeployment {
+		return true
+	}
 	if len(gw.Addresses) == 0 {
 		return true
 	}
