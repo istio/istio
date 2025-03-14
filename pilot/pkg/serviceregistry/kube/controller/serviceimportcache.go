@@ -215,8 +215,7 @@ func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
 	pushReq := &model.PushRequest{
 		Full:           true,
 		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: mcsHost.String(), Namespace: ns}),
-
-		Reason: model.NewReasonStats(model.ServiceUpdate),
+		Reason:         model.NewReasonStats(model.ServiceUpdate),
 	}
 	ic.opts.XDSUpdater.ConfigUpdate(pushReq)
 }

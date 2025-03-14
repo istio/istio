@@ -156,7 +156,8 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		s.computeProxyState(con.proxy, pushRequest)
 	}
 
-	if !s.ProxyNeedsPush(con.proxy, pushRequest) {
+	pushRequest, needsPush := s.ProxyNeedsPush(con.proxy, pushRequest)
+	if !needsPush {
 		deltaLog.Debugf("Skipping push to %v, no updates required", con.ID())
 		return nil
 	}
@@ -274,7 +275,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
 		return s.pushDeltaXds(con,
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: sets.New(req.ResourceNamesSubscribe...)},
-			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
+			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext, Forced: true})
 	}
 
 	shouldRespond := shouldRespondDelta(con, req)
@@ -297,6 +298,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 			Subscribed:   subs,
 			Unsubscribed: sets.New(req.ResourceNamesUnsubscribe...).Delete("*"),
 		},
+		Forced: true,
 	}
 	// SidecarScope for the proxy may has not been updated based on this pushContext.
 	// It can happen when `processRequest` comes after push context has been updated(s.initPushContext),
@@ -338,6 +340,7 @@ func (s *DiscoveryServer) forceEDSPush(con *Connection) error {
 			Push:   con.proxy.LastPushContext,
 			Reason: model.NewReasonStats(model.DependentResource),
 			Start:  con.proxy.LastPushTime,
+			Forced: true,
 		}
 		deltaLog.Infof("ADS:%s: FORCE %s PUSH for warming.", v3.GetShortType(v3.EndpointType), con.ID())
 		return s.pushDeltaXds(con, dwr, request)

@@ -75,14 +75,14 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"left nil",
 			nil,
-			&PushRequest{Full: true},
-			PushRequest{Full: true},
+			&PushRequest{Full: true, Forced: true},
+			PushRequest{Full: true, Forced: true},
 		},
 		{
 			"right nil",
-			&PushRequest{Full: true},
+			&PushRequest{Full: true, Forced: true},
 			nil,
-			PushRequest{Full: true},
+			PushRequest{Full: true, Forced: true},
 		},
 		{
 			"simple merge",
@@ -94,6 +94,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 					{Kind: kind.Kind(1), Namespace: "ns1"}: {},
 				},
 				Reason: NewReasonStats(ServiceUpdate, ServiceUpdate),
+				Forced: true,
 			},
 			&PushRequest{
 				Full:  false,
@@ -103,6 +104,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
 				Reason: NewReasonStats(EndpointUpdate),
+				Forced: false,
 			},
 			PushRequest{
 				Full:  true,
@@ -113,15 +115,18 @@ func TestMergeUpdateRequest(t *testing.T) {
 					{Kind: kind.Kind(2), Namespace: "ns2"}: {},
 				},
 				Reason: NewReasonStats(ServiceUpdate, ServiceUpdate, EndpointUpdate),
+				Forced: true,
 			},
 		},
 		{
 			"skip config type merge: one empty",
-			&PushRequest{Full: true, ConfigsUpdated: nil},
+			&PushRequest{Full: true, ConfigsUpdated: nil, Forced: true},
 			&PushRequest{Full: true, ConfigsUpdated: sets.Set[ConfigKey]{{
 				Kind: kind.Kind(2),
 			}: {}}},
-			PushRequest{Full: true, ConfigsUpdated: nil, Reason: nil},
+			PushRequest{Full: true, ConfigsUpdated: sets.Set[ConfigKey]{{
+				Kind: kind.Kind(2),
+			}: {}}, Reason: nil, Forced: true},
 		},
 	}
 

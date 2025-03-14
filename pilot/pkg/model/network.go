@@ -128,7 +128,7 @@ func (mgr *NetworkManager) reloadGateways() {
 
 	if changed && mgr.xdsUpdater != nil {
 		log.Infof("gateways changed, triggering push")
-		mgr.xdsUpdater.ConfigUpdate(&PushRequest{Full: true, Reason: NewReasonStats(NetworksTrigger)})
+		mgr.xdsUpdater.ConfigUpdate(&PushRequest{Full: true, Reason: NewReasonStats(NetworksTrigger), Forced: true})
 	}
 }
 

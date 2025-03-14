@@ -72,7 +72,7 @@ func TestIncrementalPush(t *testing.T) {
 	})
 	ads := s.Connect(nil, nil, watchAll)
 	t.Run("Full Push", func(t *testing.T) {
-		s.Discovery.Push(&model.PushRequest{Full: true})
+		s.Discovery.Push(&model.PushRequest{Full: true, Forced: true})
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
@@ -763,7 +763,7 @@ func TestDeleteService(t *testing.T) {
 }
 
 func fullPush(s *xdsfake.FakeDiscoveryServer) {
-	s.Discovery.Push(&model.PushRequest{Full: true})
+	s.Discovery.Push(&model.PushRequest{Full: true, Forced: true})
 }
 
 func addTestClientEndpoints(m *memory.ServiceDiscovery) {
@@ -1198,6 +1198,7 @@ func addUdsEndpoint(s *xds.DiscoveryServer, m *memory.ServiceDiscovery) {
 	pushReq := &model.PushRequest{
 		Full:   true,
 		Reason: model.NewReasonStats(model.ConfigUpdate),
+		Forced: true,
 	}
 	s.ConfigUpdate(pushReq)
 }

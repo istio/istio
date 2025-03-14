@@ -44,7 +44,7 @@ func pcdsNeedsPush(req *model.PushRequest) bool {
 		return false
 	}
 
-	if len(req.ConfigsUpdated) == 0 {
+	if req.Forced {
 		// This needs to be better optimized
 		return true
 	}

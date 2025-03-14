@@ -184,25 +184,23 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	var updatedPolicies sets.Set[model.ConfigKey]
-	if len(req.ConfigsUpdated) != 0 {
+	expected := sets.New[string]()
+	if req.Forced {
+		// Full update, expect everything
+		expected.Merge(w.ResourceNames)
+	} else {
 		// The ambient store will send all of these as kind.AuthorizationPolicy, even if generated from PeerAuthentication,
 		// so we can only fetch these ones.
 		updatedPolicies = model.ConfigsOfKind(req.ConfigsUpdated, kind.AuthorizationPolicy)
-	}
-	if len(req.ConfigsUpdated) != 0 && len(updatedPolicies) == 0 {
-		// This was a incremental push for a resource we don't watch... skip
-		return nil, nil, model.DefaultXdsLogDetails, false, nil
-	}
 
-	expected := sets.New[string]()
-	if len(updatedPolicies) > 0 {
-		// Partial update. Removes are ones we request but didn't get back when querying the policies
+		if len(updatedPolicies) == 0 {
+			// This was a incremental push for a resource we don't watch... skip
+			return nil, nil, model.DefaultXdsLogDetails, false, nil
+		}
+
 		for k := range updatedPolicies {
 			expected.Insert(k.Namespace + "/" + k.Name)
 		}
-	} else {
-		// Full update, expect everything
-		expected.Merge(w.ResourceNames)
 	}
 
 	resources := make(model.Resources, 0)

@@ -30,26 +30,46 @@ var UnAffectedConfigKinds = map[model.NodeType]sets.Set[kind.Kind]{
 	model.SidecarProxy: sets.New(kind.Gateway, kind.KubernetesGateway),
 }
 
-// ConfigAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
-// towards the proxy.
-func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
-	// Empty changes means "all" to get a backward compatibility.
+// filterRelevantUpdates filters PushRequest.ConfigsUpdated so that only configs relevant to the proxy are included,
+// returning the original PushRequest if no filtering was needed or a new PushRequest if some config filtering was performed.
+// The returned PushRequest should not be modified since it might be the original global PushRequest.
+func filterRelevantUpdates(proxy *model.Proxy, req *model.PushRequest) *model.PushRequest {
 	if len(req.ConfigsUpdated) == 0 {
-		return true
-	}
-	if proxy.IsWaypointProxy() || proxy.IsZTunnel() {
-		// Optimizations do not apply since scoping uses different mechanism
-		// TODO: implement ambient aware scoping
-		return true
+		return req
 	}
 
+	relevantUpdates := make(sets.Set[model.ConfigKey])
+	changed := false
 	for config := range req.ConfigsUpdated {
 		if proxyDependentOnConfig(proxy, config, req.Push) {
-			return true
+			relevantUpdates.Insert(config)
+		} else {
+			// we have filtered out a config
+			changed = true
 		}
 	}
 
-	return false
+	// If the proxy's service updated, need push for it.
+	if len(proxy.ServiceTargets) > 0 && req.ConfigsUpdated != nil {
+		for _, svc := range proxy.ServiceTargets {
+			key := model.ConfigKey{
+				Kind:      kind.ServiceEntry,
+				Name:      string(svc.Service.Hostname),
+				Namespace: svc.Service.Attributes.Namespace,
+			}
+			if req.ConfigsUpdated.Contains(key) {
+				relevantUpdates.Insert(key)
+			}
+		}
+	}
+
+	if changed {
+		newPushRequest := *req
+		newPushRequest.ConfigsUpdated = relevantUpdates
+		return &newPushRequest
+	}
+
+	return req
 }
 
 func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *model.PushContext) bool {
@@ -89,24 +109,19 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	return false
 }
 
-// DefaultProxyNeedsPush check if a proxy needs push for this push event.
-func DefaultProxyNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
-	if ConfigAffectsProxy(req, proxy) {
-		return true
+// DefaultProxyNeedsPush check if a proxy needs push for this push event and returns a new PushRequest in the case
+// it needs to filter relevant updates for this proxy.
+func DefaultProxyNeedsPush(proxy *model.Proxy, req *model.PushRequest) (*model.PushRequest, bool) {
+	if req.Forced {
+		return req, true
 	}
 
-	// If the proxy's service updated, need push for it.
-	if len(proxy.ServiceTargets) > 0 && req.ConfigsUpdated != nil {
-		for _, svc := range proxy.ServiceTargets {
-			if _, ok := req.ConfigsUpdated[model.ConfigKey{
-				Kind:      kind.ServiceEntry,
-				Name:      string(svc.Service.Hostname),
-				Namespace: svc.Service.Attributes.Namespace,
-			}]; ok {
-				return true
-			}
-		}
+	if proxy.IsWaypointProxy() || proxy.IsZTunnel() {
+		// Optimizations do not apply since scoping uses different mechanism
+		// TODO: implement ambient aware scoping
+		return req, true
 	}
 
-	return false
+	req = filterRelevantUpdates(proxy, req)
+	return req, len(req.ConfigsUpdated) > 0
 }
