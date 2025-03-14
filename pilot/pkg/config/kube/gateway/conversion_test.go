@@ -545,6 +545,8 @@ func TestConvertResources(t *testing.T) {
 		{name: "route-precedence"},
 		{name: "waypoint"},
 		{name: "isolation"},
+		{name: "backend-lb-policy"},
+		{name: "backend-tls-policy"},
 		{
 			name: "valid-invalid-parent-ref",
 			validationIgnorer: crdvalidation.NewValidationIgnorer(
