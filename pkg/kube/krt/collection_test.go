@@ -119,6 +119,7 @@ func (l Labeled) GetLabels() map[string]string {
 type SimpleService struct {
 	Named
 	Selector map[string]string
+	IP       string
 }
 
 func NamedSimpleServiceCollection(services krt.Collection[*corev1.Service], opts krt.OptionsBuilder, name string) krt.Collection[SimpleService] {

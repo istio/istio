@@ -35,6 +35,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -108,6 +109,11 @@ type Config struct {
 
 	// Status holds long-running status.
 	Status Status
+}
+
+type ObjectWithCluster[T any] struct {
+	ClusterID cluster.ID
+	Object    *T
 }
 
 func LabelsInRevision(lbls map[string]string, rev string) bool {
