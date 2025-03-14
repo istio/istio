@@ -90,3 +90,11 @@ func WithDebugging(handler *DebugHandler) CollectionOption {
 		c.debugger = handler
 	}
 }
+
+// WithPrimaryCollection sets the primary collection for a join collection.
+// This has an impact for merging semantics.
+func WithPrimaryCollection(key string) CollectionOption {
+	return func(co *collectionOptions) {
+		co.primaryCollectionKey = key
+	}
+}

@@ -45,7 +45,6 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -1651,16 +1650,10 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		DomainSuffix:    "company.com",
 		ClusterID:       clusterID,
 		XDSUpdater:      up,
-		LookupNetwork: func(endpointIP string, labels labels.Instance) network.ID {
-			return networkID
-		},
-		LookupNetworkGateways: func() []model.NetworkGateway {
-			return nil
-		},
-		StatusNotifier: activenotifier.New(true),
-		Debugger:       debugger,
-		Flags:          flags,
-		MeshConfig:     meshwatcher.NewTestWatcher(nil),
+		StatusNotifier:  activenotifier.New(true),
+		Debugger:        debugger,
+		Flags:           flags,
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
 	})
 
 	dumpOnFailure(t, debugger)
