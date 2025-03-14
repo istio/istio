@@ -608,6 +608,8 @@ func TestConvertResources(t *testing.T) {
 			sortConfigByCreationTime(res)
 			vs := ctrl.List(gvk.VirtualService, "")
 			res = append(res, sortedConfigByCreationTime(vs)...)
+			dr := ctrl.List(gvk.DestinationRule, "")
+			res = append(res, sortedConfigByCreationTime(dr)...)
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)
 			util.CompareContent(t, marshalYaml(t, res), goldenFile)
@@ -629,6 +631,8 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 		gvr.TCPRoute,
 		gvr.TLSRoute,
 		gvr.ServiceEntry,
+		gvr.BackendLBPolicy,
+		gvr.BackendTLSPolicy,
 	} {
 		clienttest.MakeCRDWithAnnotations(t, kc, crd, map[string]string{
 			consts.BundleVersionAnnotation: "v1.1.0",

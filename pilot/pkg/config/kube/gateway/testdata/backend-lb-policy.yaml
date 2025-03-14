@@ -5,8 +5,8 @@ metadata:
   namespace: default
 spec:
   targetRefs:
-  - group: core
-    kind: service
+  - group: ""
+    kind: Service
     name: echo-service
   sessionPersistence:
     sessionName: foo

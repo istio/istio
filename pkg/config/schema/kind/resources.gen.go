@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	Address Kind = iota
+	Unknown Kind = iota
+	Address
 	AuthorizationPolicy
 	BackendLBPolicy
 	BackendTLSPolicy
@@ -100,7 +101,7 @@ func (k Kind) String() string {
 	case IngressClass:
 		return "IngressClass"
 	case KubernetesGateway:
-		return "Gateway"
+		return "KubernetesGateway"
 	case Lease:
 		return "Lease"
 	case MeshConfig:
@@ -155,6 +156,107 @@ func (k Kind) String() string {
 		return "WorkloadGroup"
 	default:
 		return "Unknown"
+	}
+}
+
+func FromString(s string) Kind {
+	switch s {
+	case "Address":
+		return Address
+	case "AuthorizationPolicy":
+		return AuthorizationPolicy
+	case "BackendLBPolicy":
+		return BackendLBPolicy
+	case "BackendTLSPolicy":
+		return BackendTLSPolicy
+	case "CertificateSigningRequest":
+		return CertificateSigningRequest
+	case "ConfigMap":
+		return ConfigMap
+	case "CustomResourceDefinition":
+		return CustomResourceDefinition
+	case "DNSName":
+		return DNSName
+	case "DaemonSet":
+		return DaemonSet
+	case "Deployment":
+		return Deployment
+	case "DestinationRule":
+		return DestinationRule
+	case "EndpointSlice":
+		return EndpointSlice
+	case "Endpoints":
+		return Endpoints
+	case "EnvoyFilter":
+		return EnvoyFilter
+	case "GRPCRoute":
+		return GRPCRoute
+	case "Gateway":
+		return Gateway
+	case "GatewayClass":
+		return GatewayClass
+	case "HTTPRoute":
+		return HTTPRoute
+	case "Ingress":
+		return Ingress
+	case "IngressClass":
+		return IngressClass
+	case "KubernetesGateway":
+		return KubernetesGateway
+	case "Lease":
+		return Lease
+	case "MeshConfig":
+		return MeshConfig
+	case "MeshNetworks":
+		return MeshNetworks
+	case "MutatingWebhookConfiguration":
+		return MutatingWebhookConfiguration
+	case "Namespace":
+		return Namespace
+	case "Node":
+		return Node
+	case "PeerAuthentication":
+		return PeerAuthentication
+	case "Pod":
+		return Pod
+	case "ProxyConfig":
+		return ProxyConfig
+	case "ReferenceGrant":
+		return ReferenceGrant
+	case "RequestAuthentication":
+		return RequestAuthentication
+	case "Secret":
+		return Secret
+	case "Service":
+		return Service
+	case "ServiceAccount":
+		return ServiceAccount
+	case "ServiceEntry":
+		return ServiceEntry
+	case "Sidecar":
+		return Sidecar
+	case "StatefulSet":
+		return StatefulSet
+	case "TCPRoute":
+		return TCPRoute
+	case "TLSRoute":
+		return TLSRoute
+	case "Telemetry":
+		return Telemetry
+	case "UDPRoute":
+		return UDPRoute
+	case "ValidatingWebhookConfiguration":
+		return ValidatingWebhookConfiguration
+	case "VirtualService":
+		return VirtualService
+	case "WasmPlugin":
+		return WasmPlugin
+	case "WorkloadEntry":
+		return WorkloadEntry
+	case "WorkloadGroup":
+		return WorkloadGroup
+	default:
+		return Unknown
 	}
 }
 

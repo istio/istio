@@ -71,6 +71,8 @@ type collectionOptions struct {
 	stop          <-chan struct{}
 	debugger      *DebugHandler
 	joinUnchecked bool
+
+	indexCollectionFromString func(string) any
 }
 
 type indexedDependency struct {

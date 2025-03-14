@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -131,9 +132,10 @@ type TypedResource struct {
 }
 
 type Outputs struct {
-	Gateways        krt.Collection[Gateway]
-	VirtualServices krt.Collection[*config.Config]
-	ReferenceGrants ReferenceGrants
+	Gateways         krt.Collection[Gateway]
+	VirtualServices  krt.Collection[*config.Config]
+	ReferenceGrants  ReferenceGrants
+	DestinationRules krt.Collection[*config.Config]
 }
 
 type Inputs struct {
@@ -142,14 +144,16 @@ type Inputs struct {
 	Services krt.Collection[*corev1.Service]
 	Secrets  krt.Collection[*corev1.Secret]
 
-	GatewayClasses  krt.Collection[*gateway.GatewayClass]
-	Gateways        krt.Collection[*gateway.Gateway]
-	HTTPRoutes      krt.Collection[*gateway.HTTPRoute]
-	GRPCRoutes      krt.Collection[*gatewayv1.GRPCRoute]
-	TCPRoutes       krt.Collection[*gatewayalpha.TCPRoute]
-	TLSRoutes       krt.Collection[*gatewayalpha.TLSRoute]
-	ReferenceGrants krt.Collection[*gateway.ReferenceGrant]
-	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
+	GatewayClasses     krt.Collection[*gateway.GatewayClass]
+	Gateways           krt.Collection[*gateway.Gateway]
+	HTTPRoutes         krt.Collection[*gateway.HTTPRoute]
+	GRPCRoutes         krt.Collection[*gatewayv1.GRPCRoute]
+	TCPRoutes          krt.Collection[*gatewayalpha.TCPRoute]
+	TLSRoutes          krt.Collection[*gatewayalpha.TLSRoute]
+	ReferenceGrants    krt.Collection[*gateway.ReferenceGrant]
+	BackendLBPolicies  krt.Collection[*gatewayalpha.BackendLBPolicy]
+	BackendTLSPolicies krt.Collection[*gatewayalpha3.BackendTLSPolicy]
+	ServiceEntries     krt.Collection[*networkingclient.ServiceEntry]
 }
 
 var _ model.GatewayController = &Controller{}
@@ -192,14 +196,16 @@ func NewController(
 			kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
 			opts.WithName("informer/Services")...,
 		),
-		GatewayClasses:  buildClient[*gateway.GatewayClass](c, kc, gvr.GatewayClass, opts, "informer/GatewayClasses"),
-		Gateways:        buildClient[*gateway.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
-		HTTPRoutes:      buildClient[*gateway.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
-		GRPCRoutes:      buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "informer/GRPCRoutes"),
-		TCPRoutes:       buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes"),
-		TLSRoutes:       buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes"),
-		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
-		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
+		GatewayClasses:     buildClient[*gateway.GatewayClass](c, kc, gvr.GatewayClass, opts, "informer/GatewayClasses"),
+		Gateways:           buildClient[*gateway.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
+		HTTPRoutes:         buildClient[*gateway.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
+		GRPCRoutes:         buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "informer/GRPCRoutes"),
+		TCPRoutes:          buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes"),
+		TLSRoutes:          buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes"),
+		ReferenceGrants:    buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
+		BackendTLSPolicies: buildClient[*gatewayalpha3.BackendTLSPolicy](c, kc, gvr.BackendTLSPolicy, opts, "informer/BackendTLSPolicies"),
+		BackendLBPolicies:  buildClient[*gatewayalpha.BackendLBPolicy](c, kc, gvr.BackendLBPolicy, opts, "informer/BackendLBPolicies"),
+		ServiceEntries:     buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
 	}
 
 	handlers := []krt.HandlerRegistration{}
@@ -208,6 +214,8 @@ func NewController(
 	registerStatus(c, GatewayClassStatus)
 
 	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
+
+	DestinationRules := DestinationRuleCollection(inputs.BackendLBPolicies, inputs.BackendTLSPolicies, options.DomainSuffix, opts)
 
 	// GatewaysStatus cannot is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
@@ -300,6 +308,7 @@ func NewController(
 		ReferenceGrants: ReferenceGrants,
 		Gateways:        Gateways,
 		VirtualServices: VirtualServices,
+		DestinationRules: DestinationRules,
 	}
 	c.outputs = outputs
 
@@ -308,6 +317,14 @@ func NewController(
 			func(t *config.Config) model.ConfigKey {
 				return model.ConfigKey{
 					Kind:      kind.VirtualService,
+					Name:      t.Name,
+					Namespace: t.Namespace,
+				}
+			}), false),
+		outputs.DestinationRules.RegisterBatch(pushXds(xdsUpdater,
+			func(t *config.Config) model.ConfigKey {
+				return model.ConfigKey{
+					Kind:      kind.DestinationRule,
 					Name:      t.Name,
 					Namespace: t.Namespace,
 				}
@@ -357,6 +374,7 @@ func (c *Controller) Schemas() collection.Schemas {
 	return collection.SchemasFor(
 		collections.VirtualService,
 		collections.Gateway,
+		collections.DestinationRule,
 	)
 }
 
@@ -376,6 +394,10 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 		return res
 	case gvk.VirtualService:
 		return slices.Map(c.outputs.VirtualServices.List(), func(e *config.Config) config.Config {
+			return *e
+		})
+	case gvk.DestinationRule:
+		return slices.Map(c.outputs.DestinationRules.List(), func(e *config.Config) config.Config {
 			return *e
 		})
 	default:
@@ -463,6 +485,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 func (c *Controller) HasSynced() bool {
 	if !(c.outputs.VirtualServices.HasSynced() &&
+		c.outputs.DestinationRules.HasSynced() &&
 		c.outputs.Gateways.HasSynced() &&
 		c.outputs.ReferenceGrants.collection.HasSynced()) {
 		return false
