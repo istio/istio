@@ -77,7 +77,7 @@ func TestSplitHorizonEds(t *testing.T) {
 	initRegistry(s, 4, []string{}, 4)
 
 	// Push contexts needs to be updated
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, Forced: true})
 	time.Sleep(time.Millisecond * 200) // give time for cache to clear
 
 	tests := []struct {

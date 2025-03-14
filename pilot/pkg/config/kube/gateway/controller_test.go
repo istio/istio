@@ -157,6 +157,7 @@ func TestNamespaceEvent(t *testing.T) {
 		s.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: model.NewReasonStats(model.NamespaceUpdate),
+			Forced: true,
 		})
 	})
 

@@ -33,8 +33,7 @@ var UnAffectedConfigKinds = map[model.NodeType]sets.Set[kind.Kind]{
 // ConfigAffectsProxy checks if a pushEv will affect a specified proxy. That means whether the push will be performed
 // towards the proxy.
 func ConfigAffectsProxy(req *model.PushRequest, proxy *model.Proxy) bool {
-	// Empty changes means "all" to get a backward compatibility.
-	if len(req.ConfigsUpdated) == 0 {
+	if req.Forced {
 		return true
 	}
 	if proxy.IsWaypointProxy() || proxy.IsZTunnel() {

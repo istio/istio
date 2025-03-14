@@ -530,8 +530,7 @@ func (s *Server) initSDSServer() {
 			s.XDSServer.ConfigUpdate(&model.PushRequest{
 				Full:           false,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: name, Namespace: namespace}),
-
-				Reason: model.NewReasonStats(model.SecretTrigger),
+				Reason:         model.NewReasonStats(model.SecretTrigger),
 			})
 		})
 		s.environment.CredentialsController = creds
@@ -927,6 +926,7 @@ func (s *Server) initRegistryEventHandlers() {
 				s.XDSServer.ConfigUpdate(&model.PushRequest{
 					Full:   true,
 					Reason: model.NewReasonStats(model.NamespaceUpdate),
+					Forced: true,
 				})
 			})
 			s.environment.GatewayAPIController.RegisterEventHandler(gvk.Secret, func(_ config.Config, gw config.Config, _ model.Event) {
@@ -1289,6 +1289,7 @@ func (s *Server) initMeshHandlers(changeHandler func(_ *meshconfig.MeshConfig)) 
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: model.NewReasonStats(model.GlobalUpdate),
+			Forced: true,
 		})
 	})
 }
@@ -1322,6 +1323,7 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 		pushReq := &model.PushRequest{
 			Full:   true,
 			Reason: model.NewReasonStats(model.GlobalUpdate),
+			Forced: true,
 		}
 		s.XDSServer.ConfigUpdate(pushReq)
 	})

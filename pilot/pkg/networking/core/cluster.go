@@ -282,7 +282,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
-	return updates != nil && deltaAwareConfigTypes(updates.ConfigsUpdated) && len(updates.ConfigsUpdated) > 0
+	return updates != nil && !updates.Forced && deltaAwareConfigTypes(updates.ConfigsUpdated)
 }
 
 // deltaAwareConfigTypes returns true if all updated configs are delta enabled.
