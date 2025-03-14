@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 55333
+
+releaseNotes:
+- |
+  **Improved** istio-agent health probe rewrite to not re-use connections, mirring Kubernetes' probing behavior.

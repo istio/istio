@@ -249,6 +249,11 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			// Verifies that HoldApplicationUntilProxyStarts in proxyconfig sets lifecycle hook
+			in:   "hello-probes-proxyHoldApplication-ProxyConfig-timeout.yaml",
+			want: "hello-probes-proxyHoldApplication-ProxyConfig-timeout.yaml.injected",
+		},
+		{
 			// A test with no pods is not relevant for webhook
 			in:          "hello-service.yaml",
 			want:        "hello-service.yaml.injected",
