@@ -40,6 +40,7 @@ type informer[I controllers.ComparableObject] struct {
 	augmentation  func(a any) any
 	synced        chan struct{}
 	baseSyncer    Syncer
+	metadata      Metadata
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -102,6 +103,10 @@ func (i *informer[I]) GetKey(k string) *I {
 		return &got
 	}
 	return nil
+}
+
+func (i *informer[I]) Metadata() Metadata {
+	return i.metadata
 }
 
 func (i *informer[I]) Register(f func(o Event[I])) HandlerRegistration {
@@ -191,6 +196,10 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 	h.baseSyncer = channelSyncer{
 		name:   h.collectionName,
 		synced: h.synced,
+	}
+
+	if o.metadata != nil {
+		h.metadata = o.metadata
 	}
 
 	go func() {
