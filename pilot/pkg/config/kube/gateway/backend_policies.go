@@ -7,6 +7,7 @@ import (
 	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -118,7 +119,7 @@ func DestinationRuleCollection(
 			ref := s.Validation.CACertificateRefs[0]
 			if string(ref.Kind) == gvk.ConfigMap.Kind && ref.Group == "" {
 				// TODO: implement the control plane side
-				tls.CredentialName = "configmap://" + string(ref.Name)
+				tls.CredentialName = credentials.KubernetesConfigMapTypeURI  + i.Namespace + "/" + string(ref.Name)
 			} else if string(ref.Kind) == gvk.Secret.Kind && ref.Group == "" {
 				tls.CredentialName = string(ref.Name)
 			}

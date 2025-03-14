@@ -173,14 +173,26 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	// Fetch the appropriate cluster's secret, based on the credential type
 	var secretController credscontroller.Controller
 	switch sr.ResourceType {
-	case credentials.KubernetesGatewaySecretType:
+	case credentials.KubernetesGatewaySecretType, credentials.KubernetesConfigMapType:
 		secretController = configClusterSecrets
 	default:
 		secretController = proxyClusterSecrets
 	}
 
 	isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
-	if isCAOnlySecret {
+	if sr.ResourceType == credentials.KubernetesConfigMapType {
+		caCertInfo, err := secretController.GetConfigMapCaCert(sr.Name, sr.Namespace)
+		if err != nil {
+			pilotSDSCertificateErrors.Increment()
+			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
+			return nil
+		}
+		if err := ValidateCertificate(caCertInfo.Cert); err != nil {
+			recordInvalidCertificate(sr.ResourceName, err)
+		}
+		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
+		return res
+	} else if isCAOnlySecret {
 		caCertInfo, err := secretController.GetCaCert(sr.Name, sr.Namespace)
 		if err != nil {
 			pilotSDSCertificateErrors.Increment()
@@ -269,6 +281,10 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			} else {
 				deniedResources = append(deniedResources, r.Name)
 			}
+		case credentials.KubernetesConfigMapType:
+			// TODO: query exposed configmaps
+			allowedResources = append(allowedResources, r)
+
 		case credentials.KubernetesSecretType:
 			// CA Certs are public information, so we allows allow these to be accessed (from the same namespace)
 			isCAOnlySecret := strings.HasSuffix(r.Name, securitymodel.SdsCaSuffix)
