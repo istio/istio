@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations: {}
+  labels:
+    app: istio-ingress
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-ingress
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: gateway-1.0.0
+    istio: ingress
+  name: istio-ingress
+  namespace: istio-ingress
+spec:
+  selector:
+    matchLabels:
+      app: istio-ingress
+      istio: ingress
+  template:
+    metadata:
+      annotations:
+        inject.istio.io/templates: gateway
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: istio-ingress
+        app.kubernetes.io/name: istio-ingress
+        app.kubernetes.io/version: 1.0.0
+        istio: ingress
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+      - env: null
+        image: auto
+        name: istio-proxy
+        ports:
+        - containerPort: 15090
+          name: http-envoy-prom
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
+      serviceAccountName: istio-ingress
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  annotations: {}
+  labels:
+    app: istio-ingress
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-ingress
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: gateway-1.0.0
+    istio: ingress
+  name: istio-ingress
+  namespace: istio-ingress
+spec:
+  maxReplicas: 5
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 80
+        type: Utilization
+    type: Resource
+  minReplicas: 1
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: istio-ingress
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations: {}
+  labels:
+    app: istio-ingress
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-ingress
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: gateway-1.0.0
+    istio: ingress
+  name: istio-ingress
+  namespace: istio-ingress
+spec:
+  ports:
+  - name: status-port
+    port: 15021
+    protocol: TCP
+    targetPort: 15021
+  - name: http2
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    app: istio-ingress
+    istio: ingress
+  type: LoadBalancer
