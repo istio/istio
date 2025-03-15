@@ -133,7 +133,7 @@ func buildRemoteClustersCollection(
 					Network: network.ID(nw),
 				}
 			}),
-			filter: filter, // TODO:
+			filter: filter.ObjectFilter, // TODO: is this correct?
 		}
 	})
 	Clusters := krt.NewManyCollection(Secrets, func(ctx krt.HandlerContext, s *corev1.Secret) []*Cluster {

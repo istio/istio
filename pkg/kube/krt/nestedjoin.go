@@ -33,6 +33,7 @@ type nestedjoin[T any] struct {
 	syncer                   Syncer
 	collectionChangeHandlers []func(collectionChangeEvent[T])
 	merge                    func(ts []T) *T
+	metadata                 Metadata
 
 	sync.RWMutex
 }
@@ -118,6 +119,10 @@ func (j *nestedjoin[T]) List() []T {
 	}
 
 	return j.quickList()
+}
+
+func (j *nestedjoin[T]) Metadata() Metadata {
+	return j.metadata
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -282,6 +287,10 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 			synced: synced,
 		},
 		merge: merge,
+	}
+
+	if o.metadata != nil {
+		j.metadata = o.metadata
 	}
 
 	reg := collections.RegisterBatch(func(o []Event[Collection[T]]) {
