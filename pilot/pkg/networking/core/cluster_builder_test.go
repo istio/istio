@@ -15,7 +15,6 @@
 package core
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -2708,34 +2707,9 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
-			proxy := cg.SetupProxy(nil)
-			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
-
-			tt.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
-
-			ec := newClusterWrapper(tt.cluster)
-			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname)
-
-			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push, tt.cluster.Name,
-				model.TrafficDirectionOutbound, "", service.Hostname, tt.port.Port,
-				service, destRule)
-
-			// ACT
-			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, eb, destRule.GetRule(), nil)
-
-			byteArray, err := config.ToJSON(destRule.GetRule().Spec)
-			if err != nil {
-				t.Errorf("Could not parse destination rule: %v", err)
-			}
-			dr := &networking.DestinationRule{}
-			err = json.Unmarshal(byteArray, dr)
-			if err != nil {
-				t.Errorf("Could not unmarshal destination rule: %v", err)
-			}
-			ca := dr.TrafficPolicy.Tls.CaCertificates
-			if ca != tt.expectedCaCertificateName {
-				t.Errorf("%v: got unexpected caCertitifcates field. Expected (%v), received (%v)", tt.name, tt.expectedCaCertificateName, ca)
-			}
+			cl := xdstest.ExtractCluster("outbound|8080||foo.default.svc.cluster.local", cg.Clusters(cg.SetupProxy(nil)))
+			_, ca, _ := strings.Cut(xdstest.ExtractClusterSecretResources(t, cl)[0], "file-root:")
+			assert.Equal(t, ca, tt.expectedCaCertificateName)
 		})
 	}
 }
