@@ -33,6 +33,7 @@ type CertInfo struct {
 type Controller interface {
 	GetCertInfo(name, namespace string) (certInfo *CertInfo, err error)
 	GetCaCert(name, namespace string) (certInfo *CertInfo, err error)
+	GetConfigMapCaCert(name, namespace string) (certInfo *CertInfo, err error)
 	GetDockerCredential(name, namespace string) (cred []byte, err error)
 	Authorize(serviceAccount, namespace string) error
 }

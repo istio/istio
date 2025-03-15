@@ -65,6 +65,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayapialpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
@@ -242,7 +243,12 @@ func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object)
 	tracker := fc.Tracker()
 	// We got a set of objects... but which client do they apply to? Filter based on the group
 	filterGroup := func(object runtime.Object) bool {
-		g := object.GetObjectKind().GroupVersionKind().Group
+		gk := object.GetObjectKind().GroupVersionKind()
+		g := gk.Group
+		if gk.Kind == "" {
+			gvks, _, _ := IstioScheme.ObjectKinds(object)
+			g = config.FromKubernetesGVK(gvks[0]).Group
+		}
 		if strings.Contains(g, "istio.io") {
 			return group == "istio"
 		}
@@ -1313,6 +1319,7 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(clienttelemetryalpha.AddToScheme(scheme))
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.Install(scheme))
+	utilruntime.Must(gatewayapialpha3.Install(scheme))
 	utilruntime.Must(gatewayapibeta.Install(scheme))
 	utilruntime.Must(gatewayapiv1.Install(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
