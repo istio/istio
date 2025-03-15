@@ -206,3 +206,28 @@ func TestCollectionJoinSync(t *testing.T) {
 		{Named{"namespace", "name-static"}, NewLabeled(map[string]string{"app": "foo"}), "9.9.9.9"},
 	})
 }
+
+func TestCollectionJoinMetadata(t *testing.T) {
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	pods := krt.NewInformer[*corev1.Pod](c, opts.WithName("Pods")...)
+	c.RunAndWait(opts.Stop())
+	meta := krt.Metadata{
+		"key1": "value1",
+	}
+	SimplePods := SimplePodCollection(pods, opts)
+	ExtraSimplePods := krt.NewStatic(&SimplePod{
+		Named:   Named{"namespace", "name-static"},
+		Labeled: Labeled{map[string]string{"app": "foo"}},
+		IP:      "9.9.9.9",
+	}, true)
+	AllPods := krt.JoinCollection(
+		[]krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection()},
+		opts.With(
+			krt.WithName("AllPods"),
+			krt.WithMetadata(meta),
+		)...,
+	)
+
+	assert.Equal(t, AllPods.Metadata(), meta)
+}

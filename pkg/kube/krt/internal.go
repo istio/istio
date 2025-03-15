@@ -71,6 +71,7 @@ type collectionOptions struct {
 	stop          <-chan struct{}
 	debugger      *DebugHandler
 	joinUnchecked bool
+	metadata      Metadata
 }
 
 type indexedDependency struct {
