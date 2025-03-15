@@ -135,9 +135,6 @@ const (
 	CNIComponentName     Name = "Cni"
 	ZtunnelComponentName Name = "Ztunnel"
 
-	// Deprecated: istiod remote component
-	IstiodRemoteComponentName Name = "IstiodRemote"
-
 	IngressComponentName Name = "IngressGateways"
 	EgressComponentName  Name = "EgressGateways"
 )
@@ -196,13 +193,6 @@ var AllComponents = []Component{
 		ReleaseName:          "cni",
 	},
 	{
-		UserFacingName:       IstiodRemoteComponentName,
-		SpecName:             "istiodRemote",
-		HelmSubdir:           "istiod-remote",
-		ToHelmValuesTreeRoot: "global",
-		ReleaseName:          "istiod-remote",
-	},
-	{
 		UserFacingName:       ZtunnelComponentName,
 		SpecName:             "ztunnel",
 		ResourceType:         "DaemonSet",
@@ -217,13 +207,12 @@ var AllComponents = []Component{
 
 var (
 	userFacingComponentNames = map[Name]string{
-		BaseComponentName:         "Istio core",
-		PilotComponentName:        "Istiod",
-		CNIComponentName:          "CNI",
-		ZtunnelComponentName:      "Ztunnel",
-		IngressComponentName:      "Ingress gateways",
-		EgressComponentName:       "Egress gateways",
-		IstiodRemoteComponentName: "Istiod remote",
+		BaseComponentName:    "Istio core",
+		PilotComponentName:   "Istiod",
+		CNIComponentName:     "CNI",
+		ZtunnelComponentName: "Ztunnel",
+		IngressComponentName: "Ingress gateways",
+		EgressComponentName:  "Egress gateways",
 	}
 
 	Icons = map[Name]string{
