@@ -105,6 +105,7 @@ type index struct {
 	globalServices  servicesCollection
 	globalWorkloads workloadsCollection
 	globalWaypoints waypointsCollection
+	globalNetworks  globalNetworkCollections
 
 	namespaces       krt.Collection[model.NamespaceInfo]
 	remoteNamespaces krt.Collection[model.NamespaceInfo] // TODO: Do we actually want merged namespaces?

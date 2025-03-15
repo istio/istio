@@ -293,6 +293,8 @@ func TestJoinWithMergeCollection(t *testing.T) {
 		Named:    Named{"namespace", "svc"},
 		Selector: map[string]string{"app": "foo", "version": "v1"},
 	})
+}
+
 func TestCollectionJoinMetadata(t *testing.T) {
 	opts := testOptions(t)
 	c := kube.NewFakeClient()

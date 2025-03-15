@@ -221,6 +221,11 @@ func (c collectionAdapter[T]) Get() *T {
 	return &res[0]
 }
 
+func (c collectionAdapter[T]) Metadata() Metadata {
+	// The metadata is passed to the internal dummy collection so just return that
+	return c.c.Metadata()
+}
+
 func (c collectionAdapter[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return c.c.Register(f)
 }

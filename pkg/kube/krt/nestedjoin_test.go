@@ -43,10 +43,18 @@ func TestNestedJoinCollection(t *testing.T) {
 		c3.AsCollection(),
 	}, opts.WithName("joined")...)
 
+	meta := krt.Metadata{
+		"foo": "bar",
+	}
 	nj := krt.NestedJoinCollection(
 		joined,
-		opts.WithName("NestedJoin")...,
+		opts.With(
+			krt.WithName("NestedJoin"),
+			krt.WithMetadata(meta),
+		)...,
 	)
+
+	assert.Equal(t, nj.Metadata(), meta)
 
 	last := atomic.NewString("")
 	tt := assert.NewTracker[string](t)
