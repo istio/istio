@@ -161,6 +161,7 @@ const (
 
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
+	EastWestGatewayClassName = "istio-eastwest"
 
 	// TODO formalize this API
 	// TODO additional values to represent passthrough and hbone or both
