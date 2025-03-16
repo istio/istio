@@ -20,6 +20,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
@@ -29,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 )
@@ -49,7 +51,9 @@ type networkCollections struct {
 }
 
 type globalNetworkCollections struct {
-	SystemNamespaceNetwork krt.Collection[krt.Singleton[string]]
+	// SystemNamespaceNetworkByCluster is an index of cluster ID to the system namespace network
+	// for that cluster.
+	SystemNamespaceNetworkByCluster krt.Index[cluster.ID, krt.Singleton[string]]
 	// NetworkGateways contains all the network gateways we know of in the mesh
 	NetworkGateways krt.Collection[config.ObjectWithCluster[NetworkGateway]]
 	// GatewaysByNetwork is a map of network ID to all the gateways in that network
@@ -72,7 +76,7 @@ func buildGlobalNetworkCollections(
 		clusters,
 		func(ctx krt.HandlerContext, c *Cluster) *krt.Singleton[string] {
 			namespacesCollection := namespacesByCluster.Lookup(c.ID)
-			if namespacesCollection == nil || len(namespacesCollection) < 1 {
+			if len(namespacesCollection) < 1 {
 				return nil
 			}
 			namespaces := namespacesCollection[0]
@@ -87,11 +91,30 @@ func buildGlobalNetworkCollections(
 			}
 			s := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
 				return &nw
-			}, opts.WithName(fmt.Sprintf("SystemNamespaceNetwork[%s]", c.ID))...)
+			}, opts.With(
+				krt.WithName(fmt.Sprintf("SystemNamespaceNetwork[%s]", c.ID)),
+				krt.WithMetadata(krt.Metadata{
+					ClusterKRTMetadataKey: c.ID,
+				}),
+			)...)
 
 			return &s
 		},
 	)
+
+	SystemNamespaceNetworkByCluster := krt.NewIndex(SystemNamespaceNetwork, func(o krt.Singleton[string]) []cluster.ID {
+		val, ok := o.Metadata()[ClusterKRTMetadataKey]
+		if !ok {
+			log.Warnf("Cluster metadata not set on collection %v", o)
+			return nil
+		}
+		id, ok := val.(cluster.ID)
+		if !ok {
+			log.Warnf("Invalid cluster metadata set on collection %v: %v", o, val)
+			return nil
+		}
+		return []cluster.ID{id}
+	})
 
 	GlobalNetworkGateways := krt.NewCollection(
 		clusters,
@@ -108,7 +131,7 @@ func buildGlobalNetworkCollections(
 					if innerGw == nil {
 						return nil
 					}
-					return k8sGatewayWithClusterToNetworkGateways(c.ID, innerGw)
+					return k8sGatewayWithClusterToNetworkGateways(c.ID, innerGw, options.ClusterID)
 				},
 				opts.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID))...,
 			)
@@ -143,9 +166,9 @@ func buildGlobalNetworkCollections(
 	})
 
 	return globalNetworkCollections{
-		SystemNamespaceNetwork: SystemNamespaceNetwork,
-		NetworkGateways:        MergedNetworkGateways,
-		GatewaysByNetwork:      GatewaysByNetwork,
+		SystemNamespaceNetworkByCluster: SystemNamespaceNetworkByCluster,
+		NetworkGateways:                 MergedNetworkGateways,
+		GatewaysByNetwork:               GatewaysByNetwork,
 	}
 }
 
@@ -168,7 +191,7 @@ func buildNetworkCollections(
 	}, opts.WithName("SystemNamespaceNetwork")...)
 	NetworkGateways := krt.NewManyCollection(
 		gateways,
-		fromGatewayBuilder(options.ClusterID),
+		fromGatewayBuilder(options.ClusterID, options.ClusterID),
 		opts.WithName("NetworkGateways")...,
 	)
 	GatewaysByNetwork := krt.NewIndex(NetworkGateways, "network", func(o NetworkGateway) []network.ID {
@@ -185,8 +208,9 @@ func buildNetworkCollections(
 func k8sGatewayWithClusterToNetworkGateways(
 	clusterID cluster.ID,
 	gw *v1beta1.Gateway,
+	localClusterID cluster.ID,
 ) []config.ObjectWithCluster[NetworkGateway] {
-	gateways := k8sGatewayToNetworkGateways(clusterID, gw)
+	gateways := k8sGatewayToNetworkGateways(clusterID, gw, localClusterID)
 	var networkGateways []config.ObjectWithCluster[NetworkGateway]
 	for _, gateway := range gateways {
 		networkGateways = append(networkGateways, config.ObjectWithCluster[NetworkGateway]{
@@ -198,7 +222,56 @@ func k8sGatewayWithClusterToNetworkGateways(
 	return networkGateways
 }
 
-func k8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway) []NetworkGateway {
+func remoteK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway) []NetworkGateway {
+	netLabel := gw.GetLabels()[label.TopologyNetwork.Name]
+	if netLabel == "" {
+		return nil
+	}
+
+	// This is a remote east/west gateway, so check that the gateway class is correct
+	if gw.Spec.GatewayClassName != constants.EastWestGatewayClassName {
+		return nil
+	}
+
+	base := model.NetworkGateway{
+		Network: network.ID(netLabel),
+		Cluster: clusterID,
+		ServiceAccount: types.NamespacedName{
+			Namespace: gw.Namespace,
+			Name:      kube.GatewaySA(gw),
+		},
+	}
+	gateways := []NetworkGateway{}
+	source := config.NamespacedName(gw)
+	for _, addr := range gw.Spec.Addresses {
+		if addr.Type == nil {
+			continue
+		}
+		if addrType := *addr.Type; addrType != v1beta1.IPAddressType && addrType != v1beta1.HostnameAddressType {
+			continue
+		}
+		for _, l := range gw.Spec.Listeners {
+			tlsModeTerminate := l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == gatewayv1.TLSModeTerminate
+			if l.Protocol == "HBONE" && tlsModeTerminate {
+				networkGateway := base
+				networkGateway.Addr = addr.Value
+				gateways = append(gateways, NetworkGateway{
+					NetworkGateway: networkGateway,
+					Source:         source,
+				})
+				break
+			}
+		}
+	}
+	return gateways
+}
+
+func k8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway, localClusterID cluster.ID) []NetworkGateway {
+	if clusterID != localClusterID {
+		// This is a gateway in a remote cluster, use differnet logic
+		return remoteK8sGatewayToNetworkGateways(clusterID, gw)
+	}
+
 	netLabel := gw.GetLabels()[label.TopologyNetwork.Name]
 	if netLabel == "" {
 		return nil
@@ -242,8 +315,8 @@ func k8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway) []Ne
 	return gateways
 }
 
-func fromGatewayBuilder(clusterID cluster.ID) krt.TransformationMulti[*v1beta1.Gateway, NetworkGateway] {
+func fromGatewayBuilder(clusterID, localClusterID cluster.ID) krt.TransformationMulti[*v1beta1.Gateway, NetworkGateway] {
 	return func(ctx krt.HandlerContext, gw *v1beta1.Gateway) []NetworkGateway {
-		return k8sGatewayToNetworkGateways(clusterID, gw)
+		return k8sGatewayToNetworkGateways(clusterID, gw, localClusterID)
 	}
 }
