@@ -257,6 +257,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/path/rewrite/uri_template/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/connection_debug_visitor/quic_stats/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/connection_debug_visitor/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/connection_id_generator/quic_lb/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/connection_id_generator/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/crypto_stream/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/quic/proof_source/v3"
