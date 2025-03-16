@@ -19,6 +19,7 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/ptr"
@@ -47,6 +48,13 @@ func (i IndexObject[K, O]) ResourceName() string {
 func NewNamespaceIndex[O Namespacer](c Collection[O]) Index[string, O] {
 	return NewIndex(c, cache.NamespaceIndex, func(o O) []string {
 		return []string{o.GetNamespace()}
+	})
+}
+
+func ObjectWithClusterNamespaceIndex[O Namespacer](c Collection[config.ObjectWithCluster[O]]) Index[string, config.ObjectWithCluster[O]] {
+	return NewIndex(c, func(o config.ObjectWithCluster[O]) []string {
+		obj := any(o.Object).(Namespacer)
+		return []string{obj.GetNamespace()}
 	})
 }
 
