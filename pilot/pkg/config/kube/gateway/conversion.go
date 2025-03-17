@@ -1015,7 +1015,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 		if strings.Contains(string(to.Name), ".") {
 			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
 		}
-		hostname := fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.Domain)
+		hostname := fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.DomainSuffix)
 		key := namespace + "/" + string(to.Name)
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
 		if svc == nil {
@@ -1039,7 +1039,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 		if !features.EnableMCSHost {
 			// They asked for ServiceImport, but actually don't have full support enabled...
 			// No problem, we can just treat it as Service, which is already cross-cluster in this mode anyways
-			hostname = fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.Domain)
+			hostname = fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.DomainSuffix)
 		}
 		// TODO: currently we are always looking for Service. We should be looking for ServiceImport when features.EnableMCSHost
 		key := namespace + "/" + string(to.Name)

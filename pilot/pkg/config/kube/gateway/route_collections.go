@@ -18,6 +18,10 @@ import (
 	"fmt"
 	"iter"
 
+	"go.uber.org/atomic"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/model"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -33,32 +37,11 @@ import (
 	"istio.io/istio/pkg/slices"
 )
 
-type RouteWithKey struct {
-	*config.Config
-	Key string
-}
-
-func (r RouteWithKey) ResourceName() string {
-	return config.NamespacedName(r.Config).String()
-}
-
-func (r RouteWithKey) Equals(o RouteWithKey) bool {
-	return r.Config.Equals(o.Config)
-}
-
 func HTTPRouteCollection(
 	httpRoutes krt.Collection[*gateway.HTTPRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gateway.HTTPRoute, gateway.HTTPRouteStatus] {
-	/* TODO: performance
-	 We recompute on each status write. There may be a lot of status writes, especially since we can have multiple controllers owning one object.
-	Can we skip updates only to status? maybe but comes with some risk
-
-	Avoid the clones when we merge.
-
-	equals() happens a lot, probably due to status write
-	*/
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, httpRoutes, gvk.HTTPRoute, opts)
 	status, baseVirtualServices := krt.NewStatusManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gateway.HTTPRoute) (
 		*gateway.HTTPRouteStatus,
@@ -117,7 +100,7 @@ func HTTPRouteCollection(
 					}
 				} else {
 					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
-						parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace)), ctx.Domain)}
+						parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace)), ctx.DomainSuffix)}
 				}
 			}
 			if len(routes) == 0 {
@@ -139,7 +122,7 @@ func HTTPRouteCollection(
 						Name:              name,
 						Annotations:       routeMeta(obj),
 						Namespace:         obj.Namespace,
-						Domain:            ctx.Domain,
+						Domain:            ctx.DomainSuffix,
 					},
 					Spec: &istio.VirtualService{
 						Hosts:    []string{h},
@@ -168,47 +151,6 @@ func HTTPRouteCollection(
 type conversionResult[O any] struct {
 	error  *ConfigError
 	routes []O
-}
-
-func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, translator func(
-	mesh bool,
-	obj T,
-) iter.Seq2[O, *ConfigError],
-) ([]gateway.RouteParentStatus, []routeParentReference, conversionResult[O], conversionResult[O]) {
-	parentRefs := extractParentReferenceInfo(ctx, ctx.RouteParents, obj)
-
-	convertRules := func(mesh bool) conversionResult[O] {
-		res := conversionResult[O]{}
-		for vs, err := range translator(mesh, obj) {
-			// This was a hard error
-			if controllers.IsNil(vs) {
-				res.error = err
-				return conversionResult[O]{error: err}
-			}
-			// Got an error but also routes
-			if err != nil {
-				res.error = err
-			}
-			res.routes = append(res.routes, vs)
-		}
-		return res
-	}
-	meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
-
-	rpResults := slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
-		res := RouteParentResult{
-			OriginalReference: r.OriginalReference,
-			DeniedReason:      r.DeniedReason,
-			RouteError:        gwResult.error,
-		}
-		if r.IsMesh() {
-			res.RouteError = meshResult.error
-			res.WaypointError = r.WaypointError
-		}
-		return res
-	})
-	parents := createRouteStatus(rpResults, obj.GetGeneration(), GetCommonRouteStateParents(obj))
-	return parents, parentRefs, meshResult, gwResult
 }
 
 func GRPCRouteCollection(
@@ -274,7 +216,7 @@ func GRPCRouteCollection(
 					}
 				} else {
 					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
-						parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace)), ctx.Domain)}
+						parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, gateway.Namespace(obj.Namespace)), ctx.DomainSuffix)}
 				}
 			}
 			if len(routes) == 0 {
@@ -296,7 +238,7 @@ func GRPCRouteCollection(
 						Name:              name,
 						Annotations:       routeMeta(obj),
 						Namespace:         obj.Namespace,
-						Domain:            ctx.Domain,
+						Domain:            ctx.DomainSuffix,
 					},
 					Spec: &istio.VirtualService{
 						Hosts:    []string{h},
@@ -369,7 +311,7 @@ func TCPRouteCollection(
 						vsHosts = []string{}
 					}
 				} else {
-					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, ctx.Domain)}
+					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, ctx.DomainSuffix)}
 				}
 			}
 			for i, host := range vsHosts {
@@ -383,7 +325,7 @@ func TCPRouteCollection(
 						Name:              name,
 						Annotations:       routeMeta(obj),
 						Namespace:         obj.Namespace,
-						Domain:            ctx.Domain,
+						Domain:            ctx.DomainSuffix,
 					},
 					Spec: &istio.VirtualService{
 						// We can use wildcard here since each listener can have at most one route bound to it, so we have
@@ -449,7 +391,7 @@ func TLSRouteCollection(
 						vsHosts = []string{}
 					}
 				} else {
-					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, ctx.Domain)}
+					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, ctx.DomainSuffix)}
 				}
 				routes = augmentTLSPortMatch(routes, parent.OriginalReference.Port, vsHosts)
 			}
@@ -468,7 +410,7 @@ func TLSRouteCollection(
 						Name:              name,
 						Annotations:       routeMeta(obj),
 						Namespace:         obj.Namespace,
-						Domain:            ctx.Domain,
+						Domain:            ctx.DomainSuffix,
 					},
 					Spec: &istio.VirtualService{
 						Hosts:    []string{host},
@@ -487,6 +429,94 @@ func TLSRouteCollection(
 	}
 }
 
+// computeRoute holds the common route building logic shared amongst all types
+func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, translator func(
+	mesh bool,
+	obj T,
+) iter.Seq2[O, *ConfigError],
+) ([]gateway.RouteParentStatus, []routeParentReference, conversionResult[O], conversionResult[O]) {
+	parentRefs := extractParentReferenceInfo(ctx, ctx.RouteParents, obj)
+
+	convertRules := func(mesh bool) conversionResult[O] {
+		res := conversionResult[O]{}
+		for vs, err := range translator(mesh, obj) {
+			// This was a hard error
+			if controllers.IsNil(vs) {
+				res.error = err
+				return conversionResult[O]{error: err}
+			}
+			// Got an error but also routes
+			if err != nil {
+				res.error = err
+			}
+			res.routes = append(res.routes, vs)
+		}
+		return res
+	}
+	meshResult, gwResult := buildMeshAndGatewayRoutes(parentRefs, convertRules)
+
+	rpResults := slices.Map(parentRefs, func(r routeParentReference) RouteParentResult {
+		res := RouteParentResult{
+			OriginalReference: r.OriginalReference,
+			DeniedReason:      r.DeniedReason,
+			RouteError:        gwResult.error,
+		}
+		if r.IsMesh() {
+			res.RouteError = meshResult.error
+			res.WaypointError = r.WaypointError
+		}
+		return res
+	})
+	parents := createRouteStatus(rpResults, obj.GetGeneration(), GetCommonRouteStateParents(obj))
+	return parents, parentRefs, meshResult, gwResult
+}
+
+// RouteContext defines a common set of inputs to a route collection. This should be built once per route translation and
+// not shared outside of that.
+// The embedded RouteContextInputs is typically based into a collection, then translated to a RouteContext with RouteContextInputs.WithCtx().
+type RouteContext struct {
+	Krt krt.HandlerContext
+	RouteContextInputs
+}
+
+func (r RouteContext) LookupHostname(hostname string, namespace string) *model.Service {
+	if c := r.internalContext.Get(r.Krt).Load(); c != nil {
+		return c.GetService(hostname, namespace)
+	}
+	return nil
+}
+
+type RouteContextInputs struct {
+	Grants          ReferenceGrants
+	RouteParents    RouteParents
+	DomainSuffix    string
+	Services        krt.Collection[*corev1.Service]
+	Namespaces      krt.Collection[*corev1.Namespace]
+	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
+	internalContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
+}
+
+func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {
+	return RouteContext{
+		Krt:                krtctx,
+		RouteContextInputs: i,
+	}
+}
+
+type RouteWithKey struct {
+	*config.Config
+	Key string
+}
+
+func (r RouteWithKey) ResourceName() string {
+	return config.NamespacedName(r.Config).String()
+}
+
+func (r RouteWithKey) Equals(o RouteWithKey) bool {
+	return r.Config.Equals(o.Config)
+}
+
+// buildMeshAndGatewayRoutes contains common logic to build a set of routes with mesh and/or gateway semantics
 func buildMeshAndGatewayRoutes[T any](parentRefs []routeParentReference, convertRules func(mesh bool) T) (T, T) {
 	var meshResult, gwResult T
 	needMesh, needGw := parentTypes(parentRefs)
@@ -499,10 +529,14 @@ func buildMeshAndGatewayRoutes[T any](parentRefs []routeParentReference, convert
 	return meshResult, gwResult
 }
 
+// RouteResult holds the result of a route collection
 type RouteResult[I, IStatus any] struct {
-	VirtualServices  krt.Collection[*config.Config]
+	// VirtualServices are the primary output that configures the internal routing logic
+	VirtualServices krt.Collection[*config.Config]
+	// RouteAttachments holds information about parent attachment to routes, used for computed the `attachedRoutes` count.
 	RouteAttachments krt.Collection[RouteAttachment]
-	Status           krt.Collection[krt.ObjectWithStatus[I, IStatus]]
+	// Status stores the status reports for the incoming object
+	Status krt.Collection[krt.ObjectWithStatus[I, IStatus]]
 }
 
 type RouteAttachment struct {
@@ -520,6 +554,8 @@ func (r RouteAttachment) Equals(other RouteAttachment) bool {
 	return r.From == other.From && r.To == other.To && r.ListenerName == other.ListenerName
 }
 
+// gatewayRouteAttachmentCountCollection holds the generic logic to determine the parents a route is attached to, used for
+// computing the aggregated `attachedRoutes` status in Gateway.
 func gatewayRouteAttachmentCountCollection[T controllers.Object](
 	inputs RouteContextInputs,
 	col krt.Collection[T],

@@ -55,65 +55,52 @@ var log = istiolog.RegisterScope("gateway", "gateway-api controller")
 
 var errUnsupportedOp = fmt.Errorf("unsupported operation: the gateway config store is a read-only view")
 
-// Controller defines the controller for the gateway-api. The controller acts a bit different from most.
-// Rather than watching the CRs directly, we depend on the existing model.ConfigStoreController which
-// already watches all CRs. When there are updates, a new PushContext will be computed, which will eventually
-// call Controller.Reconcile(). Once this happens, we will inspect the current state of the world, and transform
-// gateway-api types into Istio types (Gateway/VirtualService). Future calls to Get/List will return these
-// Istio types. These are not stored in the cluster at all, and are purely internal; they can be seen on /debug/configz.
-// During Reconcile(), the status on all gateway-api types is also tracked. Once completed, if the status
-// has changed at all, it is queued to asynchronously update the status of the object in Kubernetes.
+// Controller defines the controller for the gateway-api. The controller reads a variety of resources (Gateway types, as well
+// as adjacent types like Namespace and Service), and through `krt`, translates them into Istio types (Gateway/VirtualService).
+//
+// Most resources are fully "self-contained" with krt, but there are a few usages breaking out of `krt`; these are managed by `krt.RecomputeProtected`.
+// These are recomputed on each new PushContext initialization, which will call Controller.Reconcile().
+//
+// The generated Istio types are not stored in the cluster at all and are purely internal. Calls to List() (from PushContext)
+// will expose these. They can be introspected at /debug/configz.
+//
+// The status on all gateway-api types is also tracked. Each collection emits downstream objects, but also status about the
+// input type. If the status changes, it is queued to asynchronously update the status of the object in Kubernetes.
 type Controller struct {
 	// client for accessing Kubernetes
 	client kube.Client
 
 	// the cluster where the gateway-api controller runs
-	cluster  cluster.ID
+	cluster cluster.ID
+	// revision the controller is running under
 	revision string
 
-	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
+	// status controls the status writing queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
 	status *StatusCollections
 
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
-	outputs    Outputs
 
+	// gatewayContext exposes us to the internal Istio service registry. This is outside krt knowledge (currently), so,
+	// so we wrap it in a RecomputeProtected.
+	// Most usages in the API are directly referenced typed objects (Service, ServiceEntry, etc) so this is not needed typically.
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
-	tagWatcher     krt.RecomputeProtected[revisions.TagWatcher]
+	// tagWatcher allows us to check which tags are ours. Unlike most Istio codepaths, we read istio.io/rev=<tag> and not just
+	// revisions for Gateways. This is because a Gateway is sort of a mix of a Deployment and Config.
+	// Since the TagWatcher is not yet krt-aware, we wrap this in RecomputeProtected.
+	tagWatcher krt.RecomputeProtected[revisions.TagWatcher]
 
-	stop       chan struct{}
+	stop chan struct{}
+
 	xdsUpdater model.XDSUpdater
 
+	// Handlers tracks all registered handlers, so that syncing can be detected
 	handlers []krt.HandlerRegistration
-}
 
-type RouteContext struct {
-	Krt krt.HandlerContext
-	RouteContextInputs
-}
-
-func (r RouteContext) LookupHostname(hostname string, namespace string) *model.Service {
-	if c := r.internalContext.Get(r.Krt).Load(); c != nil {
-		return c.GetService(hostname, namespace)
-	}
-	return nil
-}
-
-type RouteContextInputs struct {
-	Grants          ReferenceGrants
-	RouteParents    RouteParents
-	Domain          string
-	Services        krt.Collection[*corev1.Service]
-	Namespaces      krt.Collection[*corev1.Namespace]
-	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
-	internalContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
-}
-
-func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {
-	return RouteContext{
-		Krt:                krtctx,
-		RouteContextInputs: i,
-	}
+	// outputs contains all the output collections for this controller.
+	// Currently, the only usage of this controller is from non-krt things (PushContext) so this is not exposed directly.
+	// If desired in the future, it could be.
+	outputs Outputs
 }
 
 type ParentInfo struct {
@@ -235,7 +222,7 @@ func NewController(
 	routeInputs := RouteContextInputs{
 		Grants:          ReferenceGrants,
 		RouteParents:    RouteParents,
-		Domain:          options.DomainSuffix,
+		DomainSuffix:    options.DomainSuffix,
 		Services:        inputs.Services,
 		Namespaces:      inputs.Namespaces,
 		ServiceEntries:  inputs.ServiceEntries,
@@ -276,24 +263,7 @@ func NewController(
 		return []types.NamespacedName{o.To}
 	})
 
-	GatewayFinalStatus := krt.NewCollection(
-		GatewaysStatus,
-		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]) *krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus] {
-			tcpRoutes := krt.Fetch(ctx, RouteAttachments, krt.FilterIndex(RouteAttachmentsIndex, config.NamespacedName(i.Obj)))
-			counts := map[string]int32{}
-			for _, r := range tcpRoutes {
-				counts[r.ListenerName]++
-			}
-			status := i.Status.DeepCopy()
-			for i, s := range status.Listeners {
-				s.AttachedRoutes = counts[string(s.Name)]
-				status.Listeners[i] = s
-			}
-			return &krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]{
-				Obj:    i.Obj,
-				Status: *status,
-			}
-		}, opts.WithName("GatewayFinalStatus")...)
+	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
 	registerStatus(c, GatewayFinalStatus)
 
 	VirtualServices := krt.JoinCollection([]krt.Collection[*config.Config]{
