@@ -26,7 +26,7 @@ ADDONS="${WD}/../../samples/addons"
 DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
 TMP=$(mktemp -d)
-LOKI_VERSION=${LOKI_VERSION:-"6.27.0"}
+LOKI_VERSION=${LOKI_VERSION:-"6.28.0"}
 GRAFANA_VERSION=${GRAFANA_VERSION:-"8.6.3"}
 
 # Set up kiali
