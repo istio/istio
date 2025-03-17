@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
-	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 
 	"istio.io/istio/pkg/log"
 )
@@ -170,7 +169,7 @@ func (f *forwarder) buildK8sPortForwarder(readyCh chan struct{}) (*portforward.P
 	}
 
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, serverURL)
-	if !cmdutil.PortForwardWebsockets.IsDisabled() {
+	if !portForwardWebsockets.IsDisabled() {
 		tunnelingDialer, err := portforward.NewSPDYOverWebsocketDialer(serverURL, f.restConfig)
 		if err != nil {
 			return nil, err
