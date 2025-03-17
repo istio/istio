@@ -15,9 +15,11 @@
 package gateway
 
 import (
+	"strconv"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/status"
+	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
@@ -54,6 +56,7 @@ func (s *StatusCollections) SetQueue(queue status.Queue) []krt.Syncer {
 	defer s.mu.Unlock()
 	// Now we are enabled!
 	s.queue = queue
+	// Register all constructors
 	s.active = slices.Map(s.constructors, func(reg StatusRegistration) krt.HandlerRegistration {
 		return reg(queue)
 	})
@@ -62,13 +65,26 @@ func (s *StatusCollections) SetQueue(queue status.Queue) []krt.Syncer {
 	})
 }
 
+// registerStatus takes a status collection and registers it to be managed by the status queue.
 func registerStatus[I controllers.Object, IS any](c *Controller, statusCol krt.StatusCollection[I, IS]) {
 	reg := func(statusWriter status.Queue) krt.HandlerRegistration {
 		h := statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[I, IS]]) {
 			l := o.Latest()
-			EnqueueStatus(statusWriter, l.Obj, &l.Status)
+			enqueueStatus(statusWriter, l.Obj, &l.Status)
 		})
 		return h
 	}
 	c.status.Register(reg)
+}
+
+func enqueueStatus[T any](sw status.Queue, obj controllers.Object, ws T) {
+	// TODO: this is a bit awkward since the status controller is reading from crdstore. I suppose it works -- it just means
+	// we cannot remove Gateway API types from there.
+	res := status.Resource{
+		GroupVersionResource: schematypes.GvrFromObject(obj),
+		Namespace:            obj.GetNamespace(),
+		Name:                 obj.GetName(),
+		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
+	}
+	sw.EnqueueStatusUpdateResource(ws, res)
 }

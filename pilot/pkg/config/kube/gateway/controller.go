@@ -310,6 +310,7 @@ func NewController(
 	return c
 }
 
+// buildClient is a small wrapper to build a krt collection based on a delayed informer.
 func buildClient[I controllers.ComparableObject](
 	c *Controller,
 	kc kube.Client,
@@ -371,26 +372,13 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 	}
 }
 
-// Reconcile takes in a current snapshot of the gateway-api configs, and regenerates our internal state.
-// Any status updates required will be enqueued as well.
+// Reconcile is called each time the `gatewayContext` may change. We use this to mark it as updated.
 func (c *Controller) Reconcile(ps *model.PushContext) {
 	ctx := NewGatewayContext(ps, c.cluster)
 	c.gatewayContext.Modify(func(i **atomic.Pointer[GatewayContext]) {
 		(*i).Store(&ctx)
 	})
 	c.gatewayContext.MarkSynced()
-}
-
-func EnqueueStatus[T any](sw status.Queue, obj controllers.Object, ws T) {
-	// TODO: this is a bit awkward since the status controller is reading from crdstore. I suppose it works -- it just means
-	// we cannot remove Gateway API types from there.
-	res := status.Resource{
-		GroupVersionResource: schematypes.GvrFromObject(obj),
-		Namespace:            obj.GetNamespace(),
-		Name:                 obj.GetName(),
-		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
-	}
-	sw.EnqueueStatusUpdateResource(ws, res)
 }
 
 func (c *Controller) Create(config config.Config) (revision string, err error) {
