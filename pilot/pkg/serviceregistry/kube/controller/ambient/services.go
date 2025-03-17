@@ -16,6 +16,7 @@
 package ambient
 
 import (
+	"fmt"
 	"net/netip"
 	"strings"
 
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -35,6 +37,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/workloadapi"
@@ -55,9 +58,86 @@ func (a *index) ServicesCollection(
 	return WorkloadServices
 }
 
-func (a *index) serviceServiceBuilder(
+func GlobalMergedServicesCollection(
+	clusters krt.Collection[*Cluster],
+	servicesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Service]]],
+	serviceEntriesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*networkingclient.ServiceEntry]]],
+	waypointsByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[Waypoint]]],
+	namespacesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Namespace]]],
+	networksByCluster krt.Index[cluster.ID, krt.Singleton[string]],
+	domainSuffix string,
+	localClusterID cluster.ID,
+	opts krt.OptionsBuilder,
+) krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
+	// This will contain the serviceinfos derived from Services AND ServiceEntries
+	GlobalServiceInfos := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, cluster *Cluster) []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
+		networks := networksByCluster.Lookup(cluster.ID)
+		if len(networks) == 0 {
+			log.Warnf("could not find network for cluster %s", cluster.ID)
+			return nil
+		}
+		nw := networks[0]
+		if nw == nil {
+			log.Warnf("could not find network for cluster %s", cluster.ID)
+			return nil
+		}
+		serviceCollections := servicesByCluster.Lookup(cluster.ID)
+		serviceEntryCollections := serviceEntriesByCluster.Lookup(cluster.ID)
+		if len(serviceCollections) == 0 || len(serviceEntryCollections) == 0 {
+			return nil
+		}
+		waypointCollections := waypointsByCluster.Lookup(cluster.ID)
+		namespaceCollections := namespacesByCluster.Lookup(cluster.ID)
+		if len(waypointCollections) == 0 || len(namespaceCollections) == 0 {
+			return nil
+		}
+		clusteredServices := serviceCollections[0]
+		clusteredServiceEntries := serviceEntryCollections[0]
+		clusteredWaypoints := waypointCollections[0]
+		clusteredNamespaces := namespaceCollections[0]
+		services := krt.MapCollection(clusteredServices, func(o config.ObjectWithCluster[*v1.Service]) *v1.Service {
+			return ptr.Flatten(o.Object)
+		})
+		serviceEntries := krt.MapCollection(clusteredServiceEntries, func(o config.ObjectWithCluster[*networkingclient.ServiceEntry]) *networkingclient.ServiceEntry {
+			return ptr.Flatten(o.Object)
+		})
+		waypoints := krt.MapCollection(clusteredWaypoints, func(o config.ObjectWithCluster[Waypoint]) Waypoint {
+			// TODO: should figure out/confirm nils never get here
+			if o.Object == nil {
+				return Waypoint{}
+			}
+			return *o.Object
+		})
+		namespaces := krt.MapCollection(clusteredNamespaces, func(o config.ObjectWithCluster[*v1.Namespace]) *v1.Namespace {
+			return ptr.Flatten(o.Object)
+		})
+		servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {
+			return network.ID(*nw.Get())
+		}))
+		servicesInfoWithCluster := krt.MapCollection(servicesInfo, func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {
+			return config.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
+		}, opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID))...)
+		serviceEntriesInfo := krt.NewManyCollection(serviceEntries, serviceEntryServiceBuilder(waypoints, namespaces, func(ctx krt.HandlerContext) network.ID {
+			return network.ID(*nw.Get())
+		}))
+		serviceEntriesWithCluster := krt.MapCollection(serviceEntriesInfo, func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {
+			return config.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
+		}, opts.WithName(fmt.Sprintf("ServiceEntryServiceInfosWithCluster[%s]", cluster.ID))...)
+
+		return []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]{servicesInfoWithCluster, serviceEntriesWithCluster}
+	}, opts.WithName("GlobalServiceInfos")...)
+	return krt.NestedJoinWithMergeCollection(
+		GlobalServiceInfos,
+		mergeServiceInfosWithCluster(localClusterID),
+		opts.WithName("GlobalMergedServiceInfos")...,
+	)
+}
+
+func serviceServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	domainSuffix string,
+	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
 		if s.Spec.Type == v1.ServiceTypeExternalName {
@@ -88,7 +168,7 @@ func (a *index) serviceServiceBuilder(
 		}
 		waypointStatus.Error = wperr
 
-		svc := a.constructService(ctx, s, waypoint)
+		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
 		return precomputeServicePtr(&model.ServiceInfo{
 			Service:       svc,
 			PortNames:     portNames,
@@ -97,6 +177,15 @@ func (a *index) serviceServiceBuilder(
 			Waypoint:      waypointStatus,
 		})
 	}
+}
+
+func (a *index) serviceServiceBuilder(
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
+) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
+	return serviceServiceBuilder(waypoints, namespaces, a.DomainSuffix, func(ctx krt.HandlerContext) network.ID {
+		return a.Network(ctx)
+	})
 }
 
 // MakeSource is a helper to turn an Object into a model.TypedObject.
@@ -113,11 +202,30 @@ func (a *index) serviceEntryServiceBuilder(
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
-		return a.serviceEntriesInfo(ctx, s, waypoint, waypointError)
+		return serviceEntriesInfo(ctx, s, waypoint, waypointError, func(ctx krt.HandlerContext) network.ID {
+			return a.Network(ctx)
+		})
 	}
 }
 
-func (a *index) serviceEntriesInfo(ctx krt.HandlerContext, s *networkingclient.ServiceEntry, w *Waypoint, wperr *model.StatusMessage) []model.ServiceInfo {
+func serviceEntryServiceBuilder(
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
+	networkGetter func(ctx krt.HandlerContext) network.ID,
+) krt.TransformationMulti[*networkingclient.ServiceEntry, model.ServiceInfo] {
+	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
+		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
+		return serviceEntriesInfo(ctx, s, waypoint, waypointError, networkGetter)
+	}
+}
+
+func serviceEntriesInfo(
+	ctx krt.HandlerContext,
+	s *networkingclient.ServiceEntry,
+	w *Waypoint,
+	wperr *model.StatusMessage,
+	networkGetter func(ctx krt.HandlerContext) network.ID,
+) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
 	portNames := map[int32]model.ServicePortName{}
 	for _, p := range s.Spec.Ports {
@@ -136,7 +244,7 @@ func (a *index) serviceEntriesInfo(ctx krt.HandlerContext, s *networkingclient.S
 	if wperr != nil {
 		waypoint.Error = wperr
 	}
-	return slices.Map(a.constructServiceEntries(ctx, s, w), func(e *workloadapi.Service) model.ServiceInfo {
+	return slices.Map(constructServiceEntries(ctx, s, w, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
@@ -147,10 +255,15 @@ func (a *index) serviceEntriesInfo(ctx krt.HandlerContext, s *networkingclient.S
 	})
 }
 
-func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
+func constructServiceEntries(
+	ctx krt.HandlerContext,
+	svc *networkingclient.ServiceEntry,
+	w *Waypoint,
+	networkGetter func(ctx krt.HandlerContext) network.ID,
+) []*workloadapi.Service {
 	var autoassignedHostAddresses map[string][]netip.Addr
 	addresses, err := slices.MapErr(svc.Spec.Addresses, func(e string) (*workloadapi.NetworkAddress, error) {
-		return a.toNetworkAddressFromCidr(ctx, e)
+		return toNetworkAddressFromCidr(ctx, e, networkGetter(ctx))
 	})
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
@@ -187,7 +300,7 @@ func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingc
 		if len(hostsAddresses) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
 			if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
 				hostsAddresses = slices.Map(hostsAddrs, func(e netip.Addr) *workloadapi.NetworkAddress {
-					return a.toNetworkAddressFromIP(ctx, e)
+					return toNetworkAddressFromIP(ctx, e, networkGetter(ctx))
 				})
 			}
 		}
@@ -205,7 +318,13 @@ func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingc
 	return res
 }
 
-func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Waypoint) *workloadapi.Service {
+func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
+	return constructServiceEntries(ctx, svc, w, func(ctx krt.HandlerContext) network.ID {
+		return a.Network(ctx)
+	})
+}
+
+func constructService(ctx krt.HandlerContext, svc *v1.Service, w *Waypoint, domainSuffix string, networkGetter func(krt.HandlerContext) network.ID) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
 		ports = append(ports, &workloadapi.Port{
@@ -215,7 +334,7 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 	}
 
 	addresses, err := slices.MapErr(getVIPs(svc), func(e string) (*workloadapi.NetworkAddress, error) {
-		return a.toNetworkAddress(ctx, e)
+		return toNetworkAddress(ctx, e, networkGetter)
 	})
 	if err != nil {
 		log.Warnf("fail to parse service %v: %v", config.NamespacedName(svc), err)
@@ -259,11 +378,12 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 			ipFamily = workloadapi.IPFamilies_IPV6_ONLY
 		}
 	}
-	// TODO: this is only checking one controller - we may be missing service vips for instances in another cluster
+	// This is only checking one cluster - we'll merge later in the nested join to make sure
+	// we get service VIPs from other clusters
 	return &workloadapi.Service{
 		Name:          svc.Name,
 		Namespace:     svc.Namespace,
-		Hostname:      string(kube.ServiceHostname(svc.Name, svc.Namespace, a.DomainSuffix)),
+		Hostname:      string(kube.ServiceHostname(svc.Name, svc.Namespace, domainSuffix)),
 		Addresses:     addresses,
 		Ports:         ports,
 		Waypoint:      w.GetAddress(),

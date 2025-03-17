@@ -216,8 +216,6 @@ func (w Waypoint) ResourceName() string {
 	return w.GetNamespace() + "/" + w.GetName()
 }
 
-func gatewayToClusterWaypointTransform()
-
 func gatewayToWaypointTransform(
 	pods krt.Collection[*v1.Pod],
 	gateways krt.Collection[*v1beta1.Gateway],
@@ -335,7 +333,10 @@ func GlobalWaypointsCollection(
 				ClusterID: c.ID,
 				Object:    w,
 			}
-		}, opts.WithName(fmt.Sprintf("Waypoints[%s]", c.ID))...)
+		}, opts.With(
+			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
+			krt.WithMetadata(krt.Metadata{ClusterKRTMetadataKey: c.ID}),
+		)...)
 
 		return ptr.Of(waypointCollection)
 	}, opts.WithName("GlobalWaypoints")...)
