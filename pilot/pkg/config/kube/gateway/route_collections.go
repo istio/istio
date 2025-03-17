@@ -536,7 +536,7 @@ type RouteResult[I, IStatus any] struct {
 	// RouteAttachments holds information about parent attachment to routes, used for computed the `attachedRoutes` count.
 	RouteAttachments krt.Collection[RouteAttachment]
 	// Status stores the status reports for the incoming object
-	Status krt.Collection[krt.ObjectWithStatus[I, IStatus]]
+	Status krt.StatusCollection[I, IStatus]
 }
 
 type RouteAttachment struct {
