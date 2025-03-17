@@ -434,7 +434,9 @@ func (a *index) serviceEntryWorkloadBuilder(
 		}
 		// here we don't care about the *service* waypoint (hence it is nil); we are only going to use a subset of the info in
 		// `allServices` (since we are building workloads here, not services).
-		allServices := a.serviceEntriesInfo(ctx, se, nil, nil)
+		allServices := serviceEntriesInfo(ctx, se, nil, nil, func(ctx krt.HandlerContext) network.ID {
+			return a.Network(ctx)
+		})
 		if implicitEndpoints {
 			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
 				return &networkingv1alpha3.WorkloadEntry{Address: si.Service.Hostname}
