@@ -321,28 +321,26 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 }
 
 func reportListenerCondition(index int, l k8s.Listener, obj *k8sbeta.Gateway,
-	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus], conditions map[string]*condition,
+	gs *k8sbeta.GatewayStatus, conditions map[string]*condition,
 ) {
-	status.MutateInPlace(func(gs *k8sbeta.GatewayStatus) {
-		for index >= len(gs.Listeners) {
-			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
+	for index >= len(gs.Listeners) {
+		gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
+	}
+	cond := gs.Listeners[index].Conditions
+	supported, valid := generateSupportedKinds(l)
+	if !valid {
+		conditions[string(k8s.ListenerConditionResolvedRefs)] = &condition{
+			reason:  string(k8s.ListenerReasonInvalidRouteKinds),
+			status:  metav1.ConditionFalse,
+			message: "Invalid route kinds",
 		}
-		cond := gs.Listeners[index].Conditions
-		supported, valid := generateSupportedKinds(l)
-		if !valid {
-			conditions[string(k8s.ListenerConditionResolvedRefs)] = &condition{
-				reason:  string(k8s.ListenerReasonInvalidRouteKinds),
-				status:  metav1.ConditionFalse,
-				message: "Invalid route kinds",
-			}
-		}
-		gs.Listeners[index] = k8s.ListenerStatus{
-			Name:           l.Name,
-			AttachedRoutes: 0, // this will be reported later
-			SupportedKinds: supported,
-			Conditions:     setConditions(obj.Generation, cond, conditions),
-		}
-	})
+	}
+	gs.Listeners[index] = k8s.ListenerStatus{
+		Name:           l.Name,
+		AttachedRoutes: 0, // this will be reported later
+		SupportedKinds: supported,
+		Conditions:     setConditions(obj.Generation, cond, conditions),
+	}
 }
 
 func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {

@@ -1532,7 +1532,7 @@ func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
 func reportGatewayStatus(
 	r *GatewayContext,
 	obj *k8sbeta.Gateway,
-	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus],
+	gs *k8sbeta.GatewayStatus,
 	classInfo classInfo,
 	gatewayServices []string,
 	servers []*istio.Server,
@@ -1591,62 +1591,61 @@ func reportGatewayStatus(
 			Message: msg,
 		}
 	}
-	status.MutateInPlace(func(gs *k8sbeta.GatewayStatus) {
-		addressesToReport := external
-		if len(addressesToReport) == 0 {
-			wantAddressType := classInfo.addressType
-			if override, ok := obj.Annotations[addressTypeOverride]; ok {
-				wantAddressType = k8s.AddressType(override)
-			}
-			// There are no external addresses, so report the internal ones
-			// This can be IP, Hostname, or both (indicated by empty wantAddressType)
-			if wantAddressType != k8s.HostnameAddressType {
-				addressesToReport = internalIP
-			}
-			if wantAddressType != k8s.IPAddressType {
-				for _, hostport := range internal {
-					svchost, _, _ := net.SplitHostPort(hostport)
-					if !slices.Contains(pending, svchost) && !slices.Contains(addressesToReport, svchost) {
-						addressesToReport = append(addressesToReport, svchost)
-					}
+
+	addressesToReport := external
+	if len(addressesToReport) == 0 {
+		wantAddressType := classInfo.addressType
+		if override, ok := obj.Annotations[addressTypeOverride]; ok {
+			wantAddressType = k8s.AddressType(override)
+		}
+		// There are no external addresses, so report the internal ones
+		// This can be IP, Hostname, or both (indicated by empty wantAddressType)
+		if wantAddressType != k8s.HostnameAddressType {
+			addressesToReport = internalIP
+		}
+		if wantAddressType != k8s.IPAddressType {
+			for _, hostport := range internal {
+				svchost, _, _ := net.SplitHostPort(hostport)
+				if !slices.Contains(pending, svchost) && !slices.Contains(addressesToReport, svchost) {
+					addressesToReport = append(addressesToReport, svchost)
 				}
 			}
 		}
-		// Do not report an address until we are ready. But once we are ready, never remove the address.
-		if len(addressesToReport) > 0 {
-			gs.Addresses = make([]k8s.GatewayStatusAddress, 0, len(addressesToReport))
-			for _, addr := range addressesToReport {
-				var addrType k8s.AddressType
-				if _, err := netip.ParseAddr(addr); err == nil {
-					addrType = k8s.IPAddressType
-				} else {
-					addrType = k8s.HostnameAddressType
-				}
-				gs.Addresses = append(gs.Addresses, k8s.GatewayStatusAddress{
-					Value: addr,
-					Type:  &addrType,
-				})
+	}
+	// Do not report an address until we are ready. But once we are ready, never remove the address.
+	if len(addressesToReport) > 0 {
+		gs.Addresses = make([]k8s.GatewayStatusAddress, 0, len(addressesToReport))
+		for _, addr := range addressesToReport {
+			var addrType k8s.AddressType
+			if _, err := netip.ParseAddr(addr); err == nil {
+				addrType = k8s.IPAddressType
+			} else {
+				addrType = k8s.HostnameAddressType
 			}
+			gs.Addresses = append(gs.Addresses, k8s.GatewayStatusAddress{
+				Value: addr,
+				Type:  &addrType,
+			})
 		}
-		// Prune listeners that have been removed
-		haveListeners := getListenerNames(&obj.Spec)
-		listeners := make([]k8s.ListenerStatus, 0, len(gs.Listeners))
-		for _, l := range gs.Listeners {
-			if haveListeners.Contains(l.Name) {
-				haveListeners.Delete(l.Name)
-				listeners = append(listeners, l)
-			}
+	}
+	// Prune listeners that have been removed
+	haveListeners := getListenerNames(&obj.Spec)
+	listeners := make([]k8s.ListenerStatus, 0, len(gs.Listeners))
+	for _, l := range gs.Listeners {
+		if haveListeners.Contains(l.Name) {
+			haveListeners.Delete(l.Name)
+			listeners = append(listeners, l)
 		}
-		gs.Listeners = listeners
-		gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
-	})
+	}
+	gs.Listeners = listeners
+	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 }
 
 // reportUnmanagedGatewayStatus reports a status message for an unmanaged gateway.
 // For these gateways, we don't deploy them. However, all gateways ought to have a status message, even if its basically
 // just to say something read it
 func reportUnmanagedGatewayStatus(
-	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus],
+	status *k8sbeta.GatewayStatus,
 	obj *k8sbeta.Gateway,
 ) {
 	gatewayConditions := map[string]*condition{
@@ -1661,13 +1660,11 @@ func reportUnmanagedGatewayStatus(
 		},
 	}
 
-	status.MutateInPlace(func(s *k8sbeta.GatewayStatus) {
-		s.Addresses = slices.Map(obj.Spec.Addresses, func(e k8s.GatewayAddress) k8s.GatewayStatusAddress {
-			return k8s.GatewayStatusAddress(e)
-		})
-		s.Listeners = nil
-		s.Conditions = setConditions(obj.Generation, s.Conditions, gatewayConditions)
+	status.Addresses = slices.Map(obj.Spec.Addresses, func(e k8s.GatewayAddress) k8s.GatewayStatusAddress {
+		return k8s.GatewayStatusAddress(e)
 	})
+	status.Listeners = nil
+	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
 }
 
 // IsManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
@@ -1754,7 +1751,7 @@ func buildListener(
 	grants ReferenceGrants,
 	namespaces krt.Collection[*corev1.Namespace],
 	obj *k8sbeta.Gateway,
-	status *kstatus.WrappedStatusTyped[*k8sbeta.GatewayStatus],
+	status *k8sbeta.GatewayStatus,
 	l k8s.Listener,
 	listenerIndex int,
 	controllerName k8s.GatewayController,
