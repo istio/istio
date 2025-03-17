@@ -91,7 +91,7 @@ func certificatesConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"certificates", "certs", "cert"},
 		Args:    common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+		RunE: runConfigDump(ctx, common, true, func(cw *ztunnelDump.ConfigWriter) error {
 			switch common.outputFormat {
 			case summaryOutput:
 				return cw.PrintSecretSummary()
@@ -124,7 +124,7 @@ func servicesCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"services", "s", "svc"},
 		Args:    common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+		RunE: runConfigDump(ctx, common, false, func(cw *ztunnelDump.ConfigWriter) error {
 			filter := ztunnelDump.ServiceFilter{
 				Namespace: serviceNamespace,
 			}
@@ -162,7 +162,7 @@ func policiesCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"policies", "p", "pol"},
 		Args:    common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+		RunE: runConfigDump(ctx, common, false, func(cw *ztunnelDump.ConfigWriter) error {
 			filter := ztunnelDump.PolicyFilter{
 				Namespace: policyNamespace,
 			}
@@ -198,7 +198,7 @@ func allCmd(ctx cli.Context) *cobra.Command {
   istioctl ztunnel-config all <ztunnel-name[.namespace]> -o json
 `,
 		Args: common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+		RunE: runConfigDump(ctx, common, false, func(cw *ztunnelDump.ConfigWriter) error {
 			switch common.outputFormat {
 			case summaryOutput:
 				return cw.PrintFullSummary()
@@ -245,7 +245,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"w", "workloads"},
 		Args:    common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+		RunE: runConfigDump(ctx, common, false, func(cw *ztunnelDump.ConfigWriter) error {
 			filter := ztunnelDump.WorkloadFilter{
 				Namespace: workloadsNamespace,
 				Address:   address,
@@ -280,10 +280,9 @@ func connectionsCmd(ctx cli.Context) *cobra.Command {
 
 	common := new(commonFlags)
 	cmd := &cobra.Command{
-		Use:    "connections [<type>/]<name>[.<namespace>]",
-		Hidden: true,
-		Short:  "Retrieves connections for the specified Ztunnel pod.",
-		Long:   `Retrieve information about connections for the Ztunnel instance.`,
+		Use:   "connections [<type>/]<name>[.<namespace>]",
+		Short: "Retrieves connections for the specified Ztunnel pod.",
+		Long:  `Retrieve information about connections for the Ztunnel instance.`,
 		Example: `  # Retrieve summary about connections for the ztunnel on a specific node.
   istioctl ztunnel-config connections --node ambient-worker
 
@@ -292,7 +291,7 @@ func connectionsCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"cons"},
 		Args:    common.validateArgs,
-		RunE: runConfigDump(ctx, common, func(cw *ztunnelDump.ConfigWriter) error {
+		RunE: runConfigDump(ctx, common, true, func(cw *ztunnelDump.ConfigWriter) error {
 			filter := ztunnelDump.ConnectionsFilter{
 				Namespace: workloadsNamespace,
 				Direction: direction,
@@ -421,7 +420,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 			var podNames []string
 			var podNamespace string
 			if len(args) == 1 {
-				podName, ns, err := getComponentPodName(ctx, args[0])
+				podName, ns, err := getComponentPodName(ctx, args[0], false)
 				if err != nil {
 					return err
 				}
@@ -522,13 +521,22 @@ func setupZtunnelLogs(kubeClient kube.CLIClient, param, podName, podNamespace st
 }
 
 // getComponentPodName returns the pod name and namespace of the Istio component
-func getComponentPodName(ctx cli.Context, podflag string) (string, string, error) {
+func getComponentPodName(ctx cli.Context, podflag string, enforceSinglePod bool) (string, string, error) {
 	// If user passed --namespace, respect it. Else fallback to --istio-namespace (which is typically defaulted, to istio-system).
-	return getPodNameWithNamespace(ctx, podflag, model.GetOrDefault(ctx.Namespace(), ctx.IstioNamespace()))
+	return getPodNameWithNamespace(ctx, podflag, enforceSinglePod, model.GetOrDefault(ctx.Namespace(), ctx.IstioNamespace()))
 }
 
-func getPodNameWithNamespace(ctx cli.Context, podflag, ns string) (string, string, error) {
-	var podName, podNamespace string
+func getPodNameWithNamespace(ctx cli.Context, podflag string, enforceSinglePod bool, ns string) (string, string, error) {
+	if enforceSinglePod {
+		pods, podNamespace, err := ctx.InferPodsFromTypedResource(podflag, ns)
+		if err != nil {
+			return "", "", err
+		}
+		if len(pods) != 1 {
+			return "", "", fmt.Errorf("ztunnel pod name or --node must be set")
+		}
+		return pods[0], podNamespace, nil
+	}
 	podName, podNamespace, err := ctx.InferPodInfoFromTypedResource(podflag, ns)
 	if err != nil {
 		return "", "", err
@@ -587,7 +595,15 @@ func setupFileZtunnelConfigdumpWriter(filename string, out io.Writer) (*ztunnelD
 	return setupConfigdumpZtunnelConfigWriter(data, out)
 }
 
-func runConfigDump(ctx cli.Context, common *commonFlags, f func(cw *ztunnelDump.ConfigWriter) error) func(c *cobra.Command, args []string) error {
+// runConfigDump runs a function that acts on a configdump.
+// enforceSinglePod can be set for commands where we enforce a user to explicitly specify a pod. This should be 'true' when
+// the content is specific to a single Ztunnel pod, but 'false' if it is the same across all pods.
+func runConfigDump(
+	ctx cli.Context,
+	common *commonFlags,
+	enforceSinglePod bool,
+	f func(cw *ztunnelDump.ConfigWriter) error,
+) func(c *cobra.Command, args []string) error {
 	return func(c *cobra.Command, args []string) error {
 		var podName, podNamespace string
 		kubeClient, err := ctx.CLIClient()
@@ -601,6 +617,8 @@ func runConfigDump(ctx cli.Context, common *commonFlags, f func(cw *ztunnelDump.
 			lookup := "daemonset/ztunnel"
 			if len(args) > 0 {
 				lookup = args[0]
+				// If they explicitly asked for an unreliable container, allow it
+				enforceSinglePod = false
 			}
 			if common.node != "" {
 				nsn, err := PodOnNodeFromDaemonset(common.node, "ztunnel", ctx.IstioNamespace(), kubeClient)
@@ -609,7 +627,7 @@ func runConfigDump(ctx cli.Context, common *commonFlags, f func(cw *ztunnelDump.
 				}
 				podName, podNamespace = nsn.Name, nsn.Namespace
 			} else {
-				if podName, podNamespace, err = getComponentPodName(ctx, lookup); err != nil {
+				if podName, podNamespace, err = getComponentPodName(ctx, lookup, enforceSinglePod); err != nil {
 					return err
 				}
 			}
