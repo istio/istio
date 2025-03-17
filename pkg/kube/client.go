@@ -44,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/httpstream"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
@@ -63,6 +64,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -768,6 +770,21 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 	exec, err := remotecommand.NewSPDYExecutorForTransports(wrapper, upgrader, "POST", req.URL())
 	if err != nil {
 		return "", "", err
+	}
+
+	// Fallback executor is default, unless feature flag is explicitly disabled.
+	if !cmdutil.RemoteCommandWebsockets.IsDisabled() {
+		// WebSocketExecutor must be "GET" method as described in RFC 6455 Sec. 4.1 (page 17).
+		websocketExec, err := remotecommand.NewWebSocketExecutor(c.config, "GET", req.URL().String())
+		if err != nil {
+			return "", "", err
+		}
+		exec, err = remotecommand.NewFallbackExecutor(websocketExec, exec, func(err error) bool {
+			return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
+		})
+		if err != nil {
+			return "", "", err
+		}
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
