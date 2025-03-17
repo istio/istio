@@ -598,7 +598,12 @@ func setupFileZtunnelConfigdumpWriter(filename string, out io.Writer) (*ztunnelD
 // runConfigDump runs a function that acts on a configdump.
 // enforceSinglePod can be set for commands where we enforce a user to explicitly specify a pod. This should be 'true' when
 // the content is specific to a single Ztunnel pod, but 'false' if it is the same across all pods.
-func runConfigDump(ctx cli.Context, common *commonFlags, enforceSinglePod bool, f func(cw *ztunnelDump.ConfigWriter) error) func(c *cobra.Command, args []string) error {
+func runConfigDump(
+	ctx cli.Context,
+	common *commonFlags,
+	enforceSinglePod bool,
+	f func(cw *ztunnelDump.ConfigWriter) error,
+) func(c *cobra.Command, args []string) error {
 	return func(c *cobra.Command, args []string) error {
 		var podName, podNamespace string
 		kubeClient, err := ctx.CLIClient()
