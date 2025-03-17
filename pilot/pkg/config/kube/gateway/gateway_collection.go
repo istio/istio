@@ -60,7 +60,10 @@ func GatewayCollection(
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	opts krt.OptionsBuilder,
-) (krt.Collection[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]], krt.Collection[Gateway]) {
+) (
+	krt.StatusCollection[*gateway.Gateway, gateway.GatewayStatus],
+	krt.Collection[Gateway],
+) {
 	statusCol, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
 		// We currently depend on service discovery information not know to krt; mark we depend on it.
 		context := gatewayContext.Get(ctx).Load()
@@ -156,8 +159,15 @@ func GatewayCollection(
 	return statusCol, gw
 }
 
-// FinalGatewayStatusCollection finalizes a Gateway status
-func FinalGatewayStatusCollection(GatewaysStatus krt.Collection[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]], RouteAttachments krt.Collection[RouteAttachment], RouteAttachmentsIndex krt.Index[types.NamespacedName, RouteAttachment], opts krt.OptionsBuilder) krt.Collection[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]] {
+// FinalGatewayStatusCollection finalizes a Gateway status. There is a circular logic between Gateways and Routes to determine
+// the attachedRoute count, so we first build a partial Gateway status, then once routes are computed we finalize it with
+// the attachedRoute count.
+func FinalGatewayStatusCollection(
+	GatewaysStatus krt.StatusCollection[*gateway.Gateway, gateway.GatewayStatus],
+	RouteAttachments krt.Collection[RouteAttachment],
+	RouteAttachmentsIndex krt.Index[types.NamespacedName, RouteAttachment],
+	opts krt.OptionsBuilder,
+) krt.StatusCollection[*gateway.Gateway, gateway.GatewayStatus] {
 	return krt.NewCollection(
 		GatewaysStatus,
 		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]) *krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus] {

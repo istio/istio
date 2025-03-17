@@ -34,7 +34,7 @@ func GatewayClassesCollection(
 	gatewayClasses krt.Collection[*gateway.GatewayClass],
 	opts krt.OptionsBuilder,
 ) (
-	krt.Collection[krt.ObjectWithStatus[*gateway.GatewayClass, gateway.GatewayClassStatus]],
+	krt.StatusCollection[*gateway.GatewayClass, gateway.GatewayClassStatus],
 	krt.Collection[GatewayClass],
 ) {
 	return krt.NewStatusCollection(gatewayClasses, func(ctx krt.HandlerContext, obj *gateway.GatewayClass) (*gateway.GatewayClassStatus, *GatewayClass) {

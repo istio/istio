@@ -62,7 +62,7 @@ func (s *StatusCollections) SetQueue(queue status.Queue) []krt.Syncer {
 	})
 }
 
-func registerStatus[I controllers.Object, IS any](c *Controller, statusCol krt.Collection[krt.ObjectWithStatus[I, IS]]) {
+func registerStatus[I controllers.Object, IS any](c *Controller, statusCol krt.StatusCollection[I, IS]) {
 	reg := func(statusWriter status.Queue) krt.HandlerRegistration {
 		h := statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[I, IS]]) {
 			l := o.Latest()
