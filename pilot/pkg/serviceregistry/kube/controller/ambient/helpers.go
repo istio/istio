@@ -69,6 +69,17 @@ func mustByteIPToString(b []byte) string {
 	return ip.String()
 }
 
+func toNetworkAddress(ctx krt.HandlerContext, vip string, networkGetter func(krt.HandlerContext) network.ID) (*workloadapi.NetworkAddress, error) {
+	ip, err := netip.ParseAddr(vip)
+	if err != nil {
+		return nil, fmt.Errorf("parse %v: %v", vip, err)
+	}
+	return &workloadapi.NetworkAddress{
+		Network: networkGetter(ctx).String(),
+		Address: ip.AsSlice(),
+	}, nil
+}
+
 func (a *index) toNetworkAddress(ctx krt.HandlerContext, vip string) (*workloadapi.NetworkAddress, error) {
 	ip, err := netip.ParseAddr(vip)
 	if err != nil {
@@ -98,6 +109,17 @@ func (a *index) toNetworkAddressFromCidr(ctx krt.HandlerContext, vip string) (*w
 	}
 	return &workloadapi.NetworkAddress{
 		Network: a.Network(ctx).String(),
+		Address: ip.AsSlice(),
+	}, nil
+}
+
+func toNetworkAddressFromCidr(ctx krt.HandlerContext, vip string, nw network.ID) (*workloadapi.NetworkAddress, error) {
+	ip, err := parseCidrOrIP(vip)
+	if err != nil {
+		return nil, err
+	}
+	return &workloadapi.NetworkAddress{
+		Network: nw.String(),
 		Address: ip.AsSlice(),
 	}, nil
 }

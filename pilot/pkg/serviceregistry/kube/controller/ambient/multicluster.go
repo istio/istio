@@ -22,6 +22,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -31,6 +32,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func (a *index) buildGlobalCollections(
@@ -176,9 +178,20 @@ func (a *index) buildGlobalCollections(
 		GlobalNetworks.SystemNamespaceNetworkByCluster,
 		opts,
 	)
+	WaypointsPerCluster := nestedCollectionIndexByCluster(GlobalWaypoints)
 
 	// Now we get to collections where we can actually merge duplicate keys, so we can use nested collections
-
+	GlobalWorkloadServices := GlobalMergedServicesCollection(
+		clusters,
+		globalServicesByCluster,
+		globalServiceEntriesByCluster,
+		WaypointsPerCluster,
+		globalNamespacesByCluster,
+		GlobalNetworks.SystemNamespaceNetworkByCluster,
+		options.DomainSuffix,
+		options.ClusterID,
+		opts,
+	)
 }
 
 func informerForCluster[T controllers.ComparableObject](
@@ -236,7 +249,7 @@ func informerIndexByCluster[T controllers.ComparableObject](
 	})
 }
 
-func nestedCollectionIndexByCluster[T controllers.ComparableObject](
+func nestedCollectionIndexByCluster[T any](
 	collection krt.Collection[krt.Collection[config.ObjectWithCluster[T]]],
 ) krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[T]]] {
 	return krt.NewIndex[cluster.ID, krt.Collection[config.ObjectWithCluster[T]]](
@@ -255,4 +268,36 @@ func nestedCollectionIndexByCluster[T controllers.ComparableObject](
 			}
 			return []cluster.ID{id}
 		})
+}
+
+func mergeServiceInfosWithCluster(localClusterID cluster.ID) func(serviceInfos []config.ObjectWithCluster[model.ServiceInfo]) *config.ObjectWithCluster[model.ServiceInfo] {
+	return func(serviceInfos []config.ObjectWithCluster[model.ServiceInfo]) *config.ObjectWithCluster[model.ServiceInfo] {
+
+		if len(serviceInfos) == 0 {
+			return nil
+		}
+		if len(serviceInfos) == 1 {
+			return &serviceInfos[0]
+		}
+
+		var vips []*workloadapi.NetworkAddress
+		var base config.ObjectWithCluster[model.ServiceInfo]
+		for _, obj := range serviceInfos {
+			if obj.Object == nil {
+				continue
+			}
+			// This is the base object that we'll add to
+			if obj.ClusterID == localClusterID {
+				base = obj
+				vips = append(vips, obj.Object.Service.Addresses...)
+				continue
+			}
+			vips = append(vips, obj.Object.Service.Addresses...)
+		}
+
+		// TODO: merge the rest of the fields
+		base.Object.Service.Addresses = vips
+
+		return &base
+	}
 }
