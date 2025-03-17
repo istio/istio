@@ -23,7 +23,6 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	kubeconfig "istio.io/istio/pkg/config/gateway/kube"
@@ -72,7 +71,7 @@ func GatewayCollection(
 		}
 		result := []Gateway{}
 		kgw := obj.Spec
-		status := kstatus.WrapT(&obj.Status)
+		status := obj.Status.DeepCopy()
 		class := fetchClass(ctx, gatewayClasses, kgw.GatewayClassName)
 		if class == nil {
 			return nil, nil
@@ -85,7 +84,7 @@ func GatewayCollection(
 		if classInfo.disableRouteGeneration {
 			reportUnmanagedGatewayStatus(status, obj)
 			// We found it, but don't want to handle this class
-			return status.Status, nil
+			return status, nil
 		}
 		servers := []*istio.Server{}
 
@@ -94,7 +93,7 @@ func GatewayCollection(
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)
-			return status.Status, nil
+			return status, nil
 		}
 
 		for i, l := range kgw.Listeners {
@@ -150,7 +149,7 @@ func GatewayCollection(
 		}
 
 		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)
-		return status.Status, result
+		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
 	return statusCol, gw
