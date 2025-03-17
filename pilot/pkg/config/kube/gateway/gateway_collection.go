@@ -19,6 +19,7 @@ import (
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	istio "istio.io/api/networking/v1alpha3"
@@ -153,6 +154,28 @@ func GatewayCollection(
 	}, opts.WithName("KubernetesGateway")...)
 
 	return statusCol, gw
+}
+
+// FinalGatewayStatusCollection finalizes a Gateway status
+func FinalGatewayStatusCollection(GatewaysStatus krt.Collection[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]], RouteAttachments krt.Collection[RouteAttachment], RouteAttachmentsIndex krt.Index[types.NamespacedName, RouteAttachment], opts krt.OptionsBuilder) krt.Collection[krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]] {
+	return krt.NewCollection(
+		GatewaysStatus,
+		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]) *krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus] {
+			tcpRoutes := krt.Fetch(ctx, RouteAttachments, krt.FilterIndex(RouteAttachmentsIndex, config.NamespacedName(i.Obj)))
+			counts := map[string]int32{}
+			for _, r := range tcpRoutes {
+				counts[r.ListenerName]++
+			}
+			status := i.Status.DeepCopy()
+			for i, s := range status.Listeners {
+				s.AttachedRoutes = counts[string(s.Name)]
+				status.Listeners[i] = s
+			}
+			return &krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]{
+				Obj:    i.Obj,
+				Status: *status,
+			}
+		}, opts.WithName("GatewayFinalStatus")...)
 }
 
 // RouteParents holds information about things routes can reference as parents.
