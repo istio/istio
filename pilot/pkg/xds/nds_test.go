@@ -127,19 +127,19 @@ func TestGenerate(t *testing.T) {
 		{
 			name:      "partial push with headless endpoint update",
 			proxy:     &model.Proxy{Type: model.SidecarProxy},
-			request:   &model.PushRequest{Reason: model.NewReasonStats(model.HeadlessEndpointUpdate)},
+			request:   &model.PushRequest{Reason: model.NewReasonStats(model.HeadlessEndpointUpdate), Forced: true},
 			nameTable: emptyNameTable,
 		},
 		{
 			name:      "full push",
 			proxy:     &model.Proxy{Type: model.SidecarProxy},
-			request:   &model.PushRequest{Full: true},
+			request:   &model.PushRequest{Full: true, Forced: true},
 			nameTable: emptyNameTable,
 		},
 		{
 			name:      "partial push with no headless endpoint update",
 			proxy:     &model.Proxy{Type: model.SidecarProxy},
-			request:   &model.PushRequest{},
+			request:   &model.PushRequest{Forced: true},
 			nameTable: emptyNameTable,
 		},
 	}

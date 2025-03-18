@@ -203,7 +203,7 @@ func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (needsPush, defini
 		return true, true
 	}
 	// If none set, we will always push
-	if len(req.ConfigsUpdated) == 0 {
+	if req.Forced {
 		return true, true
 	}
 

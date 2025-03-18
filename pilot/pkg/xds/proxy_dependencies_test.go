@@ -50,10 +50,12 @@ func TestProxyNeedsPush(t *testing.T) {
 	)
 
 	type Case struct {
-		name    string
-		proxy   *model.Proxy
-		configs sets.Set[model.ConfigKey]
-		want    bool
+		name        string
+		proxy       *model.Proxy
+		configs     sets.Set[model.ConfigKey]
+		forced      bool
+		want        bool
+		wantConfigs sets.Set[model.ConfigKey]
 	}
 
 	sidecar := &model.Proxy{
@@ -82,50 +84,104 @@ func TestProxyNeedsPush(t *testing.T) {
 	}
 
 	cases := []Case{
-		{"no namespace or configs", sidecar, nil, true},
+		{"no namespace or configs", sidecar, nil, false, false, nil},
+		{"forced push with no namespace or configs", sidecar, nil, true, true, nil},
 		{
-			"gateway config for sidecar", sidecar, sets.New(model.ConfigKey{Kind: kind.Gateway, Name: generalName, Namespace: nsName}),
-
+			"gateway config for sidecar", sidecar,
+			sets.New(model.ConfigKey{Kind: kind.Gateway, Name: generalName, Namespace: nsName}),
 			false,
+			false,
+			sets.New[model.ConfigKey](),
 		},
 		{
-			"gateway config for gateway", gateway, sets.New(model.ConfigKey{Kind: kind.Gateway, Name: generalName, Namespace: nsName}),
-
+			"gateway config for gateway", gateway,
+			sets.New(model.ConfigKey{Kind: kind.Gateway, Name: generalName, Namespace: nsName}),
+			false,
 			true,
+			sets.New(model.ConfigKey{Kind: kind.Gateway, Name: generalName, Namespace: nsName}),
 		},
 		{
 			"sidecar config for gateway", gateway, sets.New(model.ConfigKey{Kind: kind.Sidecar, Name: scName, Namespace: nsName}),
-
 			false,
+			false,
+			sets.New[model.ConfigKey](),
 		},
 		{
 			"invalid config for sidecar", sidecar,
 			sets.New(model.ConfigKey{Kind: kind.Kind(255), Name: generalName, Namespace: nsName}),
-
+			false,
 			true,
+			sets.New(model.ConfigKey{Kind: kind.Kind(255), Name: generalName, Namespace: nsName}),
 		},
-		{"mixture matched and unmatched config for sidecar", sidecar, sets.New(
-			model.ConfigKey{Kind: kind.DestinationRule, Name: drName, Namespace: nsName},
-			model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName},
-		), true},
-		{"mixture unmatched and unmatched config for sidecar", sidecar, sets.New(
-			model.ConfigKey{Kind: kind.DestinationRule, Name: drName + invalidNameSuffix, Namespace: nsName},
-			model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName},
-		), false},
-		{"empty configsUpdated for sidecar", sidecar, nil, true},
+		{
+			"mixture matched and unmatched config for sidecar",
+			sidecar,
+			sets.New(
+				model.ConfigKey{Kind: kind.DestinationRule, Name: drName, Namespace: nsName},
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName},
+			),
+			false,
+			true,
+			sets.New(
+				model.ConfigKey{Kind: kind.DestinationRule, Name: drName, Namespace: nsName},
+			),
+		},
+		{
+			"mixture unmatched and unmatched config for sidecar",
+			sidecar,
+			sets.New(
+				model.ConfigKey{Kind: kind.DestinationRule, Name: drName + invalidNameSuffix, Namespace: nsName},
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName},
+			),
+			false,
+			false,
+			sets.New[model.ConfigKey](),
+		},
+		{
+			"forced push with mixture unmatched and unmatched config for sidecar",
+			sidecar,
+			sets.New(
+				model.ConfigKey{Kind: kind.DestinationRule, Name: drName + invalidNameSuffix, Namespace: nsName},
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName},
+			),
+			true,
+			true,
+			sets.New(
+				model.ConfigKey{Kind: kind.DestinationRule, Name: drName + invalidNameSuffix, Namespace: nsName},
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName + invalidNameSuffix, Namespace: nsName},
+			),
+		},
+		{
+			"empty configsUpdated for sidecar",
+			sidecar,
+			nil,
+			false,
+			false,
+			nil,
+		},
+		{
+			"forced push with empty configsUpdated for sidecar",
+			sidecar,
+			nil,
+			true,
+			true,
+			nil,
+		},
 	}
 
 	for k, name := range sidecarScopeKindNames {
 		cases = append(cases, Case{ // valid name
-			name:    fmt.Sprintf("%s config for sidecar", k.String()),
-			proxy:   sidecar,
-			configs: sets.New(model.ConfigKey{Kind: k, Name: name, Namespace: nsName}),
-			want:    true,
+			name:        fmt.Sprintf("%s config for sidecar", k.String()),
+			proxy:       sidecar,
+			configs:     sets.New(model.ConfigKey{Kind: k, Name: name, Namespace: nsName}),
+			want:        true,
+			wantConfigs: sets.New(model.ConfigKey{Kind: k, Name: name, Namespace: nsName}),
 		}, Case{ // invalid name
-			name:    fmt.Sprintf("%s unmatched config for sidecar", k.String()),
-			proxy:   sidecar,
-			configs: sets.New(model.ConfigKey{Kind: k, Name: name + invalidNameSuffix, Namespace: nsName}),
-			want:    false,
+			name:        fmt.Sprintf("%s unmatched config for sidecar", k.String()),
+			proxy:       sidecar,
+			configs:     sets.New(model.ConfigKey{Kind: k, Name: name + invalidNameSuffix, Namespace: nsName}),
+			want:        false,
+			wantConfigs: sets.New[model.ConfigKey](),
 		})
 	}
 
@@ -135,22 +191,25 @@ func TestProxyNeedsPush(t *testing.T) {
 	for _, k := range sidecarNamespaceScopeTypes {
 		cases = append(cases,
 			Case{
-				name:    fmt.Sprintf("%s config for sidecar in same namespace", k.String()),
-				proxy:   sidecar,
-				configs: sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: nsName}),
-				want:    true,
+				name:        fmt.Sprintf("%s config for sidecar in same namespace", k.String()),
+				proxy:       sidecar,
+				configs:     sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: nsName}),
+				want:        true,
+				wantConfigs: sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: nsName}),
 			},
 			Case{
-				name:    fmt.Sprintf("%s config for sidecar in different namespace", k.String()),
-				proxy:   sidecar,
-				configs: sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: "invalid-namespace"}),
-				want:    false,
+				name:        fmt.Sprintf("%s config for sidecar in different namespace", k.String()),
+				proxy:       sidecar,
+				configs:     sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: "invalid-namespace"}),
+				want:        false,
+				wantConfigs: sets.New[model.ConfigKey](),
 			},
 			Case{
-				name:    fmt.Sprintf("%s config in the root namespace", k.String()),
-				proxy:   sidecar,
-				configs: sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: nsRoot}),
-				want:    true,
+				name:        fmt.Sprintf("%s config in the root namespace", k.String()),
+				proxy:       sidecar,
+				configs:     sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: nsRoot}),
+				want:        true,
+				wantConfigs: sets.New(model.ConfigKey{Kind: k, Name: generalName, Namespace: nsRoot}),
 			},
 		)
 	}
@@ -163,11 +222,11 @@ func TestProxyNeedsPush(t *testing.T) {
 		}
 		for k := range UnAffectedConfigKinds[proxy.Type] {
 			cases = append(cases, Case{
-				name:    fmt.Sprintf("kind %s not affect %s", k.String(), nodeType),
-				proxy:   proxy,
-				configs: sets.New(model.ConfigKey{Kind: k, Name: generalName + invalidNameSuffix, Namespace: nsName}),
-
-				want: false,
+				name:        fmt.Sprintf("kind %s not affect %s", k.String(), nodeType),
+				proxy:       proxy,
+				configs:     sets.New(model.ConfigKey{Kind: k, Name: generalName + invalidNameSuffix, Namespace: nsName}),
+				want:        false,
+				wantConfigs: sets.New[model.ConfigKey](),
 			})
 		}
 	}
@@ -231,31 +290,40 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	cases = append(cases,
 		Case{
-			name:    "service with public visibility for gateway",
-			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName, Namespace: nsName}),
-			want:    true,
+			name:        "service with public visibility for gateway",
+			proxy:       gateway,
+			configs:     sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName, Namespace: nsName}),
+			want:        true,
+			wantConfigs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName, Namespace: nsName}),
 		},
 		Case{
-			name:    "service with none visibility for gateway",
-			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: privateSvcName, Namespace: nsName}),
-			want:    false,
+			name:        "service with none visibility for gateway",
+			proxy:       gateway,
+			configs:     sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: privateSvcName, Namespace: nsName}),
+			want:        false,
+			wantConfigs: sets.New[model.ConfigKey](),
 		},
 		Case{
-			name:    "service visibility changed from public to none",
-			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo", Namespace: nsName}),
-			want:    true,
+			name:        "service visibility changed from public to none",
+			proxy:       gateway,
+			configs:     sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo", Namespace: nsName}),
+			want:        true,
+			wantConfigs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "foo", Namespace: nsName}),
 		},
 	)
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			cg.PushContext().Mesh.RootNamespace = nsRoot
-			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
+			newReq, got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext(), Forced: tt.forced})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
+			}
+			if tt.wantConfigs == nil && newReq.ConfigsUpdated != nil {
+				t.Fatalf("Got configs updated = %v, expected none", newReq.ConfigsUpdated)
+			}
+			if tt.wantConfigs != nil && !tt.wantConfigs.Equals(newReq.ConfigsUpdated) {
+				t.Fatalf("Got configs updated = %v, expected %v", newReq.ConfigsUpdated, tt.wantConfigs)
 			}
 		})
 	}
@@ -370,36 +438,46 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	cases = []Case{
 		{
-			name:    "service without vs attached to gateway",
-			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: fooSvc, Namespace: nsName}),
-			want:    false,
+			name:        "service without vs attached to gateway",
+			proxy:       gateway,
+			configs:     sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: fooSvc, Namespace: nsName}),
+			want:        false,
+			wantConfigs: sets.New[model.ConfigKey](),
 		},
 		{
-			name:    "service with vs attached to gateway",
-			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName, Namespace: nsName}),
-			want:    true,
+			name:        "service with vs attached to gateway",
+			proxy:       gateway,
+			configs:     sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName, Namespace: nsName}),
+			want:        true,
+			wantConfigs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: svcName, Namespace: nsName}),
 		},
 		{
-			name:    "mesh config extensions",
-			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: extensionSvc, Namespace: nsName}),
-			want:    true,
+			name:        "mesh config extensions",
+			proxy:       gateway,
+			configs:     sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: extensionSvc, Namespace: nsName}),
+			want:        true,
+			wantConfigs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: extensionSvc, Namespace: nsName}),
 		},
 		{
-			name:    "jwks servers",
-			proxy:   gateway,
-			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: jwksSvc, Namespace: nsName}),
-			want:    true,
+			name:        "jwks servers",
+			proxy:       gateway,
+			configs:     sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: jwksSvc, Namespace: nsName}),
+			want:        true,
+			wantConfigs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: jwksSvc, Namespace: nsName}),
 		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
+			newReq, got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
+			}
+			if tt.wantConfigs == nil && newReq.ConfigsUpdated != nil {
+				t.Fatalf("Got configs updated = %v, expected none", newReq.ConfigsUpdated)
+			}
+			if tt.wantConfigs != nil && !tt.wantConfigs.Equals(newReq.ConfigsUpdated) {
+				t.Fatalf("Got configs updated = %v, expected %v", newReq.ConfigsUpdated, tt.wantConfigs)
 			}
 		})
 	}
@@ -407,9 +485,12 @@ func TestProxyNeedsPush(t *testing.T) {
 	gateway.MergedGateway.ContainsAutoPassthroughGateways = true
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			push := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
+			newReq, push := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
 			if !push {
 				t.Fatalf("Got needs push = %v, expected %v", push, true)
+			}
+			if !tt.configs.Equals(newReq.ConfigsUpdated) {
+				t.Fatalf("Got configs updated = %v, expected %v", newReq.ConfigsUpdated, tt.configs)
 			}
 		})
 	}

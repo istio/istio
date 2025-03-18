@@ -155,7 +155,7 @@ func (c *Controller) onNetworkChange() {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
 	if c.reloadNetworkGateways() {
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
 	}
 	c.NotifyGatewayHandlers()
 }

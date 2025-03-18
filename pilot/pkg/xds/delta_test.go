@@ -283,7 +283,7 @@ func TestDeltaReconnectRequests(t *testing.T) {
 	}
 
 	// A push should get a response
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
+	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, Forced: true})
 	ads.ExpectResponse()
 
 	// Close the connection

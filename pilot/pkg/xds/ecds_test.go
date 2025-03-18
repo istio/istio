@@ -129,7 +129,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "simple",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true},
+			request:          &model.PushRequest{Full: true, Forced: true},
 			watchedResources: []string{"extensions.istio.io/wasmplugin/default.default-plugin"},
 			wantExtensions:   sets.String{"extensions.istio.io/wasmplugin/default.default-plugin": {}},
 			wantSecrets:      sets.String{},
@@ -137,7 +137,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "simple_with_secret",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true},
+			request:          &model.PushRequest{Full: true, Forced: true},
 			watchedResources: []string{"extensions.istio.io/wasmplugin/default.default-plugin-with-sec"},
 			wantExtensions:   sets.String{"extensions.istio.io/wasmplugin/default.default-plugin-with-sec": {}},
 			wantSecrets:      sets.String{"default-docker-credential": {}},
@@ -145,7 +145,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "miss_secret",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true},
+			request:          &model.PushRequest{Full: true, Forced: true},
 			watchedResources: []string{"extensions.istio.io/wasmplugin/default.default-plugin-wrong-sec"},
 			wantExtensions:   sets.String{"extensions.istio.io/wasmplugin/default.default-plugin-wrong-sec": {}},
 			wantSecrets:      sets.String{},
@@ -153,7 +153,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "wrong_secret_type",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true},
+			request:          &model.PushRequest{Full: true, Forced: true},
 			watchedResources: []string{"extensions.istio.io/wasmplugin/default.default-plugin-wrong-sec-type"},
 			wantExtensions:   sets.String{"extensions.istio.io/wasmplugin/default.default-plugin-wrong-sec-type": {}},
 			wantSecrets:      sets.String{},
@@ -161,7 +161,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:           "root_and_default",
 			proxyNamespace: "default",
-			request:        &model.PushRequest{Full: true},
+			request:        &model.PushRequest{Full: true, Forced: true},
 			watchedResources: []string{
 				"extensions.istio.io/wasmplugin/default.default-plugin-with-sec",
 				"extensions.istio.io/wasmplugin/istio-system.root-plugin",
@@ -175,7 +175,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "only_root",
 			proxyNamespace:   "somenamespace",
-			request:          &model.PushRequest{Full: true},
+			request:          &model.PushRequest{Full: true, Forced: true},
 			watchedResources: []string{"extensions.istio.io/wasmplugin/istio-system.root-plugin"},
 			wantExtensions:   sets.String{"extensions.istio.io/wasmplugin/istio-system.root-plugin": {}},
 			wantSecrets:      sets.String{"root-docker-credential": {}},

@@ -390,6 +390,9 @@ type PushRequest struct {
 	// Delta defines the resources that were added or removed as part of this push request.
 	// This is set only on requests from the client which change the set of resources they (un)subscribe from.
 	Delta ResourceDelta
+
+	// Forced defines that configs should be generated and pushed regardless if they have changed or not.
+	Forced bool
 }
 
 type ResourceDelta = xds.ResourceDelta
@@ -506,17 +509,18 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 	// If either is full we need a full push
 	pr.Full = pr.Full || other.Full
 
+	// If either is forced we need a forced push
+	pr.Forced = pr.Forced || other.Forced
+
 	// The other push context is presumed to be later and more up to date
 	if other.Push != nil {
 		pr.Push = other.Push
 	}
-	// Do not merge when any one is empty
-	if len(pr.ConfigsUpdated) == 0 || len(other.ConfigsUpdated) == 0 {
-		pr.ConfigsUpdated = nil
+
+	if pr.ConfigsUpdated == nil {
+		pr.ConfigsUpdated = other.ConfigsUpdated
 	} else {
-		for conf := range other.ConfigsUpdated {
-			pr.ConfigsUpdated.Insert(conf)
-		}
+		pr.ConfigsUpdated.Merge(other.ConfigsUpdated)
 	}
 
 	if pr.AddressesUpdated == nil {
@@ -552,6 +556,9 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 		// If either is full we need a full push
 		Full: pr.Full || other.Full,
 
+		// If either is forced we need a forced push
+		Forced: pr.Forced || other.Forced,
+
 		// The other push context is presumed to be later and more up to date
 		Push: other.Push,
 
@@ -559,8 +566,9 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 		Reason: reason,
 	}
 
-	// Do not merge when any one is empty
-	if len(pr.ConfigsUpdated) > 0 && len(other.ConfigsUpdated) > 0 {
+	if pr.ConfigsUpdated == nil && other.ConfigsUpdated == nil {
+		merged.ConfigsUpdated = nil
+	} else {
 		merged.ConfigsUpdated = make(sets.Set[ConfigKey], len(pr.ConfigsUpdated)+len(other.ConfigsUpdated))
 		merged.ConfigsUpdated.Merge(pr.ConfigsUpdated)
 		merged.ConfigsUpdated.Merge(other.ConfigsUpdated)
@@ -1330,7 +1338,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.initDefaultExportMaps()
 
 	// create new or incremental update
-	if pushReq == nil || oldPushContext == nil || !oldPushContext.InitDone.Load() || len(pushReq.ConfigsUpdated) == 0 {
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.InitDone.Load() || pushReq.Forced {
 		ps.createNewContext(env)
 	} else {
 		ps.updateContext(env, oldPushContext, pushReq)
