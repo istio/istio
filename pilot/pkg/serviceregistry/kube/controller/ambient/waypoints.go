@@ -272,6 +272,7 @@ func GlobalWaypointsCollection(
 			return nil
 		}
 		pods := podsList[0]
+		// TODO: Is this going to work correctly since we're creating an index within a transformation?
 		podsByNamespace := krt.ObjectWithClusterNamespaceIndex(pods)
 		gatewaysCollection := gatewaysByCluster.Lookup(c.ID)
 		if len(gatewaysCollection) == 0 {

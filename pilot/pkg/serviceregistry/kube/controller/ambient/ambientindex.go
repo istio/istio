@@ -488,6 +488,8 @@ func New(options Options) Index {
 	}
 	a.authorizationPolicies = AllPolicies
 
+	// TODO: We should probably do this earlier in the New function because
+	// otherwise, we'll double register event handling for XDS pushes for example
 	if features.EnableAmbientMultiNetwork {
 		a.buildGlobalCollections(options, opts)
 	}
