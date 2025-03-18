@@ -51,8 +51,11 @@ func NewNamespaceIndex[O Namespacer](c Collection[O]) Index[string, O] {
 }
 
 func ObjectWithClusterNamespaceIndex[O Namespacer](c Collection[config.ObjectWithCluster[O]]) Index[string, config.ObjectWithCluster[O]] {
-	return NewIndex(c, func(o config.ObjectWithCluster[O]) []string {
-		obj := any(o.Object).(Namespacer)
+	return NewIndex(c, "namespace", func(o config.ObjectWithCluster[O]) []string {
+		if o.Object == nil {
+			return nil
+		}
+		obj := any(*o.Object).(Namespacer)
 		return []string{obj.GetNamespace()}
 	})
 }

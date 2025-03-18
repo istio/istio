@@ -31,13 +31,17 @@ import (
 	"istio.io/istio/pkg/ptr"
 )
 
+type ObjectDecorator interface {
+	GetObjectKeyable() any
+}
+
 func getTypedKey[O any](a O) Key[O] {
 	return Key[O](GetKey(a))
 }
 
-// Needed to separate this out since Go generics doesn't allow for
-// recursion and we need to support collections of ObjectWithCluster
-func getKeyInner[O any](a O) string {
+// GetKey returns the key for the provided object.
+// If there is none, this will panic.
+func GetKey[O any](a O) string {
 	as, ok := any(a).(string)
 	if ok {
 		return as
@@ -69,22 +73,16 @@ func getKeyInner[O any](a O) string {
 		return string(akclient.ClusterID())
 	}
 
+	aobjDecorator, ok := any(a).(ObjectDecorator)
+	if ok {
+		return GetKey(aobjDecorator.GetObjectKeyable())
+	}
+
 	ack := GetApplyConfigKey(a)
 	if ack != nil {
 		return *ack
 	}
 	panic(fmt.Sprintf("Cannot get Key, got %T", a))
-}
-
-// GetKey returns the key for the provided object.
-// If there is none, this will panic.
-func GetKey[O any](a O) string {
-	acluster, ok := any(a).(config.ObjectWithCluster[O])
-	if ok {
-		return getKeyInner(acluster.Object)
-	}
-
-	return getKeyInner(a)
 }
 
 // Named is a convenience struct. It is ideal to be embedded into a type that has a name and namespace,

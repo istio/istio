@@ -17,6 +17,7 @@ package ambient
 import (
 	"net/netip"
 	"strings"
+	"sync/atomic"
 
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -214,7 +215,43 @@ func New(options Options) Index {
 
 	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
-	}, opts.WithName("informer/EndpointSlices")...)
+	}, opts.With(
+		append(opts.WithName("informer/EndpointSlices"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
+
+	// In the multicluster use-case, we populate the collections with global, dynamically changing data
+	if features.EnableAmbientMultiNetwork {
+		LocalCluster := &Cluster{
+			ID:                 options.ClusterID,
+			Client:             options.Client,
+			stop:               opts.Stop(),
+			initialSync:        &atomic.Bool{},
+			initialSyncTimeout: &atomic.Bool{},
+			namespaces:         Namespaces,
+			gateways:           Gateways,
+			services:           Services,
+			pods:               Pods,
+			nodes:              Nodes,
+			endpointSlices:     EndpointSlices,
+		}
+		a.buildGlobalCollections(
+			LocalCluster,
+			AuthzPolicies,
+			PeerAuths,
+			GatewayClasses,
+			WorkloadEntries,
+			ServiceEntries,
+			serviceEntries,
+			servicesClient,
+			authzPolicies,
+			options,
+			opts)
+		return a
+	}
 
 	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](options.Client, kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
@@ -276,7 +313,7 @@ func New(options Options) Index {
 		}), false)
 
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces, opts)
+	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, opts)
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
@@ -487,12 +524,6 @@ func New(options Options) Index {
 		Collection: Waypoints,
 	}
 	a.authorizationPolicies = AllPolicies
-
-	// TODO: We should probably do this earlier in the New function because
-	// otherwise, we'll double register event handling for XDS pushes for example
-	if features.EnableAmbientMultiNetwork {
-		a.buildGlobalCollections(options, opts)
-	}
 
 	return a
 }
@@ -764,7 +795,7 @@ func (a *index) HasSynced() bool {
 }
 
 func (a *index) Network(ctx krt.HandlerContext) network.ID {
-	net := krt.FetchOne(ctx, a.networks.SystemNamespace.AsCollection())
+	net := krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection())
 	return network.ID(ptr.OrEmpty(net))
 }
 
