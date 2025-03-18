@@ -428,6 +428,8 @@ func New(options Options) Index {
 	}
 	a.authorizationPolicies = AllPolicies
 
+	// TODO: We should probably do this earlier in the New function because
+	// otherwise, we'll double register event handling for XDS pushes for example
 	if features.EnableAmbientMultiNetwork {
 		a.buildGlobalCollections(options, opts)
 	}
@@ -658,12 +660,28 @@ func (a *index) AdditionalPodSubscriptions(
 	return shouldSubscribe
 }
 
+func LookupNetworkGateway(
+	ctx krt.HandlerContext,
+	id network.ID,
+	networkGateways krt.Collection[NetworkGateway],
+	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
+) []NetworkGateway {
+	return krt.Fetch(ctx, networkGateways, krt.FilterIndex(gatewaysByNetwork, id))
+}
+
+func LookupAllNetworkGateway(
+	ctx krt.HandlerContext,
+	networkGateways krt.Collection[NetworkGateway],
+) []NetworkGateway {
+	return krt.Fetch(ctx, networkGateways)
+}
+
 func (a *index) LookupNetworkGateway(ctx krt.HandlerContext, id network.ID) []NetworkGateway {
-	return krt.Fetch(ctx, a.networks.NetworkGateways, krt.FilterIndex(a.networks.GatewaysByNetwork, id))
+	return LookupNetworkGateway(ctx, id, a.networks.NetworkGateways, a.networks.GatewaysByNetwork)
 }
 
 func (a *index) LookupAllNetworkGateway(ctx krt.HandlerContext) []NetworkGateway {
-	return krt.Fetch(ctx, a.networks.NetworkGateways)
+	return LookupAllNetworkGateway(ctx, a.networks.NetworkGateways)
 }
 
 func (a *index) Run(stop <-chan struct{}) {
