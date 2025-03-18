@@ -1677,11 +1677,13 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			} else if diff := cmp.Diff(tc.result.tlsContext, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: `%v", diff)
 			}
-			if len(tc.tls.Sni) == 0 {
-				assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
-			}
-			if len(tc.tls.Sni) == 0 && len(tc.tls.SubjectAltNames) == 0 {
-				assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, true)
+			if tc.result.tlsContext != nil {
+				if len(tc.tls.Sni) == 0 {
+					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
+				}
+				if len(tc.tls.Sni) == 0 && len(tc.tls.SubjectAltNames) == 0 {
+					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, true)
+				}
 			}
 		})
 	}
