@@ -4,4 +4,4 @@ area: installation
 
 releaseNotes:
   - |
-    **Removed** deprecated `ENABLE_AUTO_SNI` flag and relative codepaths.
+    **Removed** deprecated `ENABLE_AUTO_SNI` flag and related codepaths.
