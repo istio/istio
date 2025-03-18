@@ -32,7 +32,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
@@ -256,26 +255,25 @@ func gatewayToWaypointTransform(
 
 func GlobalWaypointsCollection(
 	clusters krt.Collection[Cluster],
-	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]]],
-	gatewayClassesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1beta1.GatewayClass]]],
-	podsByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Pod]]],
+	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
+	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[*v1beta1.Gateway]],
+	podsByCluster krt.Index[cluster.ID, krt.Collection[*v1.Pod]],
 	networksByCluster krt.Index[cluster.ID, krt.Singleton[string]],
 	opts krt.OptionsBuilder,
-) krt.Collection[krt.Collection[config.ObjectWithCluster[Waypoint]]] {
-	return krt.NewCollection(clusters, func(ctx krt.HandlerContext, c Cluster) *krt.Collection[config.ObjectWithCluster[Waypoint]] {
+) krt.Collection[krt.Collection[Waypoint]] {
+	return krt.NewCollection(clusters, func(ctx krt.HandlerContext, c Cluster) *krt.Collection[Waypoint] {
 		podsList := podsByCluster.Lookup(c.ID)
 		if len(podsList) == 0 {
 			return nil
 		}
 		pods := podsList[0]
 		// TODO: Is this going to work correctly since we're creating an index within a transformation?
-		podsByNamespace := krt.ObjectWithClusterNamespaceIndex(pods)
+		podsByNamespace := krt.NewNamespaceIndex(pods)
 		gatewaysCollection := gatewaysByCluster.Lookup(c.ID)
 		if len(gatewaysCollection) == 0 {
 			return nil
 		}
-		waypointCollection := krt.NewCollection(gatewaysCollection[0], func(ctx krt.HandlerContext, obj config.ObjectWithCluster[*v1beta1.Gateway]) *config.ObjectWithCluster[Waypoint] {
-			gateway := ptr.Flatten(obj.Object)
+		waypointCollection := krt.NewCollection(gatewaysCollection[0], func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
 			if len(gateway.Status.Addresses) == 0 {
 				// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 				// ignore Kubernetes Gateways which aren't waypoints
@@ -286,25 +284,16 @@ func GlobalWaypointsCollection(
 				label.IoK8sNetworkingGatewayGatewayName.Name: gateway.Name,
 			}), krt.FilterIndex(podsByNamespace, gateway.Namespace))
 
-			serviceAccounts := slices.Map(instances, func(o config.ObjectWithCluster[*v1.Pod]) string {
-				p := ptr.Flatten(o.Object)
+			serviceAccounts := slices.Map(instances, func(p *v1.Pod) string {
 				return p.Spec.ServiceAccountName
 			})
 
 			// default traffic type if neither GatewayClass nor Gateway specify a type
 			trafficType := constants.ServiceTraffic
 
-			gatewayClassesList := gatewayClassesByCluster.Lookup(c.ID)
-			if len(gatewayClassesList) == 0 {
-				// No gatewayclasses in the cluster but we have a gateway?
-				// Shouldn't happen
-				return nil
-			}
-			gatewayClasses := gatewayClassesList[0]
-			gatewayClassObject := ptr.OrEmpty(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
-			gatewayClass := ptr.Flatten(gatewayClassObject.Object)
+			gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
 			if gatewayClass == nil {
-				log.Warnf("could not find GatewayClass %s for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
+				log.Warnf("could not find GatewayClass %s in local cluster for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
 			} else if tt, found := gatewayClass.Labels[label.IoIstioWaypointFor.Name]; found {
 				// Check for a declared traffic type that is allowed to pass through the Waypoint's GatewayClass
 				trafficType = tt
@@ -326,10 +315,7 @@ func GlobalWaypointsCollection(
 				return nil
 			}
 			w := makeWaypoint(ctx, gateway, gatewayClass, serviceAccounts, trafficType, network.ID(*nw))
-			return &config.ObjectWithCluster[Waypoint]{
-				ClusterID: c.ID,
-				Object:    w,
-			}
+			return w
 		}, opts.With(
 			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
 			krt.WithMetadata(krt.Metadata{ClusterKRTMetadataKey: c.ID}),

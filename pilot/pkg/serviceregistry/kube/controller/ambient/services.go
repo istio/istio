@@ -58,12 +58,12 @@ func (a *index) ServicesCollection(
 	return WorkloadServices
 }
 
-func GlobalMergedServicesCollection(
+func GlobalMergedWorkloadServicesCollection(
 	clusters krt.Collection[Cluster],
-	servicesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Service]]],
-	serviceEntriesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*networkingclient.ServiceEntry]]],
-	waypointsByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[Waypoint]]],
-	namespacesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Namespace]]],
+	localServiceEntries krt.Collection[*networkingclient.ServiceEntry],
+	servicesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Service]],
+	waypointsByCluster krt.Index[cluster.ID, krt.Collection[Waypoint]],
+	namespacesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Namespace]],
 	networksByCluster krt.Index[cluster.ID, krt.Singleton[string]],
 	domainSuffix string,
 	localClusterID cluster.ID,
@@ -72,18 +72,14 @@ func GlobalMergedServicesCollection(
 	// This will contain the serviceinfos derived from Services AND ServiceEntries
 	GlobalServiceInfos := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, cluster Cluster) []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
 		networks := networksByCluster.Lookup(cluster.ID)
-		if len(networks) == 0 {
+		if len(networks) == 0 || networks[0] == nil {
 			log.Warnf("could not find network for cluster %s", cluster.ID)
 			return nil
 		}
+		// TODO: Consider scenarios with multiple networks
 		nw := networks[0]
-		if nw == nil {
-			log.Warnf("could not find network for cluster %s", cluster.ID)
-			return nil
-		}
 		serviceCollections := servicesByCluster.Lookup(cluster.ID)
-		serviceEntryCollections := serviceEntriesByCluster.Lookup(cluster.ID)
-		if len(serviceCollections) == 0 || len(serviceEntryCollections) == 0 {
+		if len(serviceCollections) == 0 || serviceCollections[0] == nil {
 			return nil
 		}
 		waypointCollections := waypointsByCluster.Lookup(cluster.ID)
@@ -91,33 +87,18 @@ func GlobalMergedServicesCollection(
 		if len(waypointCollections) == 0 || len(namespaceCollections) == 0 {
 			return nil
 		}
-		clusteredServices := serviceCollections[0]
-		clusteredServiceEntries := serviceEntryCollections[0]
-		clusteredWaypoints := waypointCollections[0]
-		clusteredNamespaces := namespaceCollections[0]
-		services := krt.MapCollection(clusteredServices, func(o config.ObjectWithCluster[*v1.Service]) *v1.Service {
-			return ptr.Flatten(o.Object)
-		})
-		serviceEntries := krt.MapCollection(clusteredServiceEntries, func(o config.ObjectWithCluster[*networkingclient.ServiceEntry]) *networkingclient.ServiceEntry {
-			return ptr.Flatten(o.Object)
-		})
-		waypoints := krt.MapCollection(clusteredWaypoints, func(o config.ObjectWithCluster[Waypoint]) Waypoint {
-			// TODO: should figure out/confirm nils never get here
-			if o.Object == nil {
-				return Waypoint{}
-			}
-			return *o.Object
-		})
-		namespaces := krt.MapCollection(clusteredNamespaces, func(o config.ObjectWithCluster[*v1.Namespace]) *v1.Namespace {
-			return ptr.Flatten(o.Object)
-		})
+		services := serviceCollections[0]
+		waypoints := waypointCollections[0]
+		namespaces := namespaceCollections[0]
+
 		servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {
 			return network.ID(*nw.Get())
 		}))
 		servicesInfoWithCluster := krt.MapCollection(servicesInfo, func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {
 			return config.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
 		}, opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID))...)
-		serviceEntriesInfo := krt.NewManyCollection(serviceEntries, serviceEntryServiceBuilder(waypoints, namespaces, func(ctx krt.HandlerContext) network.ID {
+
+		serviceEntriesInfo := krt.NewManyCollection(localServiceEntries, serviceEntryServiceBuilder(waypoints, namespaces, func(ctx krt.HandlerContext) network.ID {
 			return network.ID(*nw.Get())
 		}))
 		serviceEntriesWithCluster := krt.MapCollection(serviceEntriesInfo, func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {

@@ -125,7 +125,7 @@ func MapCollection[T, U any](
 ) Collection[U] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
-		o.name = fmt.Sprintf("Join[%v]", ptr.TypeName[T]())
+		o.name = fmt.Sprintf("Map[%v]", ptr.TypeName[T]())
 	}
 	return &mapCollection[T, U]{
 		collectionName: o.name,
