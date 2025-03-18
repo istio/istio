@@ -1611,6 +1611,7 @@ type ambientTestServer struct {
 	fx        *xdsfake.Updater
 	pc        clienttest.TestClient[*corev1.Pod]
 	sc        clienttest.TestClient[*corev1.Service]
+	sec       clienttest.TestWriter[*corev1.Secret]
 	ns        clienttest.TestWriter[*corev1.Namespace]
 	grc       clienttest.TestWriter[*k8sbeta.Gateway]
 	gwcls     clienttest.TestWriter[*k8sbeta.GatewayClass]
@@ -1672,6 +1673,7 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		we:        clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
 		pa:        clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
 		authz:     clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
+		sec:       clienttest.NewWriter[*corev1.Secret](t, cl),
 	}
 
 	// assume this is installed with istio

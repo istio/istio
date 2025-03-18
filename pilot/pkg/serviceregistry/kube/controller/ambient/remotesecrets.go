@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
@@ -40,36 +39,20 @@ const (
 var (
 	clusterLabel = monitoring.CreateLabel("cluster")
 	timeouts     = monitoring.NewSum(
-		"remote_cluster_sync_timeouts_total",
+		"ambient_remote_cluster_sync_timeouts_total",
 		"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
 	)
 
-	clusterType = monitoring.CreateLabel("cluster_type")
+	clusterType = monitoring.CreateLabel("ambient_cluster_type")
 
 	clustersCount = monitoring.NewGauge(
-		"istiod_managed_clusters",
+		"ambient_istiod_managed_clusters",
 		"Number of clusters managed by istiod",
 	)
 
 	localClusters  = clustersCount.With(clusterType.Value("local"))
 	remoteClusters = clustersCount.With(clusterType.Value("remote"))
 )
-
-type Cluster struct {
-	// ID of the cluster.
-	ID cluster.ID
-	// Client for accessing the cluster.
-	Client kube.Client
-
-	// TODO: Figure out if we really need this and how to use it in krt
-	kubeConfigSha  [sha256.Size]byte
-	clusterDetails krt.Singleton[ClusterDetails]
-	filter         kubetypes.DynamicObjectFilter
-}
-
-type ClusterDetails struct {
-	Network network.ID
-}
 
 // ClientBuilder builds a new kube.Client from a kubeconfig. Mocked out for testing
 type ClientBuilder = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error)
@@ -116,75 +99,69 @@ func buildRemoteClustersCollection(
 	namespaces := kclient.NewFiltered[*corev1.Namespace](informerClient, filter)
 	Namespaces := krt.WrapClient(namespaces, opts.WithName("Namespaces")...)
 
-	LocalCluster := krt.NewSingleton(func(ctx krt.HandlerContext) *Cluster {
-		return &Cluster{
-			ID:     options.ClusterID,
-			Client: informerClient,
-			clusterDetails: krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterDetails {
-				ns := ptr.Flatten(krt.FetchOne(ctx, Namespaces, krt.FilterKey(options.SystemNamespace)))
-				if ns == nil {
-					return nil
-				}
-				nw, f := ns.Labels[label.TopologyNetwork.Name]
-				if !f {
-					nw = ""
-				}
-				return &ClusterDetails{
-					Network: network.ID(nw),
-				}
-			}),
-			filter: filter.ObjectFilter, // TODO: is this correct?
+	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []Cluster {
+		clusters := []Cluster{
+			{
+				ID:     options.ClusterID,
+				Client: informerClient,
+				ClusterDetails: krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterDetails {
+					ns := ptr.Flatten(krt.FetchOne(ctx, Namespaces, krt.FilterKey(options.SystemNamespace)))
+					if ns == nil {
+						return nil
+					}
+					nw, f := ns.Labels[label.TopologyNetwork.Name]
+					if !f {
+						nw = ""
+					}
+					return &ClusterDetails{
+						SystemNamespace: options.SystemNamespace,
+						Network:         network.ID(nw),
+					}
+				}),
+				Filter: filter.ObjectFilter, // TODO: is this correct?
+			},
 		}
-	})
-	Clusters := krt.NewManyCollection(Secrets, func(ctx krt.HandlerContext, s *corev1.Secret) []Cluster {
-		secretKey := krt.GetKey(s)
-		var clusters []Cluster
-		for clusterID, kubeConfig := range s.Data {
-			logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
-			if cluster.ID(clusterID) == options.ClusterID {
-				logger.Infof("ignoring cluster as it would overwrite the config cluster")
-				continue
-			}
-			client, err := builder(kubeConfig, cluster.ID(clusterID), configOverrides...)
-			if err != nil {
-				log.Errorf("Failed to create client for cluster %s from secret %s: %v", clusterID, secretKey, err)
-				continue
-			}
-			remoteNamespaces := kclient.NewFiltered[*corev1.Namespace](client, filter)
-			RemoteNamespaces := krt.WrapClient(remoteNamespaces, opts.WithName("RemoteNamespaces")...)
-			details := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterDetails {
-				ns := ptr.Flatten(krt.FetchOne(ctx, RemoteNamespaces, krt.FilterKey(options.SystemNamespace)))
-				if ns == nil {
-					return nil
+		secrets := krt.Fetch(ctx, Secrets)
+		for _, s := range secrets {
+			secretKey := krt.GetKey(s)
+			for clusterID, kubeConfig := range s.Data {
+				logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
+				if cluster.ID(clusterID) == options.ClusterID {
+					logger.Infof("ignoring cluster as it would overwrite the config cluster")
+					continue
 				}
-				nw, f := ns.Labels[label.TopologyNetwork.Name]
-				if !f {
-					nw = ""
+				client, err := builder(kubeConfig, cluster.ID(clusterID), configOverrides...)
+				if err != nil {
+					log.Errorf("Failed to create client for cluster %s from secret %s: %v", clusterID, secretKey, err)
+					continue
 				}
-				return &ClusterDetails{
-					Network: network.ID(nw),
+				remoteNamespaces := kclient.NewFiltered[*corev1.Namespace](client, filter)
+				RemoteNamespaces := krt.WrapClient(remoteNamespaces, opts.WithName("RemoteNamespaces")...)
+				details := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterDetails {
+					ns := ptr.Flatten(krt.FetchOne(ctx, RemoteNamespaces, krt.FilterKey(options.SystemNamespace)))
+					if ns == nil {
+						return nil
+					}
+					nw, f := ns.Labels[label.TopologyNetwork.Name]
+					if !f {
+						nw = ""
+					}
+					return &ClusterDetails{
+						SystemNamespace: options.SystemNamespace,
+						Network:         network.ID(nw),
+					}
+				}, opts.WithName("RemoteClusters")...)
+				cluster := Cluster{
+					ID:             cluster.ID(clusterID),
+					Client:         client,
+					KubeConfigSha:  sha256.Sum256(kubeConfig),
+					ClusterDetails: details,
 				}
-			}, opts.WithName("RemoteClusters")...)
-			cluster := Cluster{
-				ID:             cluster.ID(clusterID),
-				Client:         client,
-				kubeConfigSha:  sha256.Sum256(kubeConfig),
-				clusterDetails: details,
+				clusters = append(clusters, cluster)
 			}
-			clusters = append(clusters, cluster)
 		}
-		if len(clusters) == 0 {
-			return nil
-		}
-
-		// Push the local cluster to the front of the list
-		// TODO: is this ordering helpful?
-		return append([]Cluster{*LocalCluster.Get()}, clusters...)
-	})
+		return clusters
+	}, opts.WithName("AllClusters")...)
 
 	return Clusters
-}
-
-func (c *Cluster) ResourceName() string {
-	return c.ID.String()
 }

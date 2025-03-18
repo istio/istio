@@ -60,10 +60,22 @@ func (c networkCollections) HasSynced() bool {
 
 func buildGlobalNetworkCollections(
 	clusters krt.Collection[Cluster],
+	localNamespaces krt.Collection[*v1.Namespace],
 	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]]],
 	options Options,
 	opts krt.OptionsBuilder,
 ) networkCollections {
+	LocalSystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+		ns := ptr.Flatten(krt.FetchOne(ctx, localNamespaces, krt.FilterKey(options.SystemNamespace)))
+		if ns == nil {
+			return nil
+		}
+		nw, f := ns.Labels[label.TopologyNetwork.Name]
+		if !f {
+			return nil
+		}
+		return &nw
+	}, opts.WithName("SystemNamespaceNetwork")...)
 	SystemNamespaceNetwork := krt.NewCollection(
 		clusters,
 		func(ctx krt.HandlerContext, c Cluster) *krt.Singleton[string] {
@@ -73,7 +85,7 @@ func buildGlobalNetworkCollections(
 					ClusterKRTMetadataKey: c.ID,
 				}),
 			)
-			details := c.clusterDetails.Get()
+			details := c.ClusterDetails.Get()
 			if details == nil {
 				// return an empty singleton
 				return ptr.Of(krt.NewSingleton(func(ctx krt.HandlerContext) *string {
@@ -157,6 +169,7 @@ func buildGlobalNetworkCollections(
 		SystemNamespaceNetworkByCluster: SystemNamespaceNetworkByCluster,
 		NetworkGateways:                 MergedNetworkGateways,
 		GatewaysByNetwork:               GatewaysByNetwork,
+		LocalSystemNamespace:            LocalSystemNamespaceNetwork,
 	}
 }
 

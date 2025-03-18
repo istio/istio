@@ -235,7 +235,13 @@ func (c collectionAdapter[T]) AsCollection() Collection[T] {
 	return c.c
 }
 
+// Every thing that collectionAdapter adapts has a uid so this is safe
+func (c collectionAdapter[T]) uid() collectionUID {
+	return c.c.(uidable).uid()
+}
+
 var _ Singleton[any] = &collectionAdapter[any]{}
+var _ uidable = &collectionAdapter[any]{}
 
 func NewSingleton[O any](hf TransformationEmpty[O], opts ...CollectionOption) Singleton[O] {
 	// dummyCollection provides a trivial collection implementation that always provides a single dummyValue.

@@ -131,17 +131,17 @@ func (a *index) WorkloadsCollection(
 
 func MergedGlobalWorkloadsCollection(
 	clusters krt.Collection[Cluster],
-	podsByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Pod]]],
+	workloadEntries krt.Collection[*networkingclient.WorkloadEntry],
+	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
+	podsByCluster krt.Index[cluster.ID, krt.Collection[*v1.Pod]],
 	nodesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[Node]]],
 	meshConfig krt.Singleton[MeshConfig],
 	localAuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
 	localPeerAuths krt.Collection[*securityclient.PeerAuthentication],
-	waypointsByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[Waypoint]]],
+	waypointsByCluster krt.Index[cluster.ID, krt.Collection[Waypoint]],
 	workloadServices krt.Collection[model.ServiceInfo],
-	workloadEntriesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*networkingclient.WorkloadEntry]]],
-	serviceEntriesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*networkingclient.ServiceEntry]]],
-	endpointSlicesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*discovery.EndpointSlice]]],
-	namespacesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Namespace]]],
+	endpointSlicesByCluster krt.Index[cluster.ID, krt.Collection[*discovery.EndpointSlice]],
+	namespacesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Namespace]],
 	globalNetworks networkCollections,
 	localClusterID cluster.ID,
 	flags FeatureFlags,
@@ -169,28 +169,25 @@ func MergedGlobalWorkloadsCollection(
 			log.Warnf("could not find endpoint slices for cluster %s", c.ID)
 			return nil
 		}
-		clusteredEndpointSlicesCollection := endpointSliceCollections[0]
+		endpointSlices := endpointSliceCollections[0]
 		podCollections := podsByCluster.Lookup(c.ID)
 		if len(podCollections) == 0 || podCollections[0] == nil {
 			log.Warnf("could not find pods for cluster %s", c.ID)
 			return nil
 		}
-		clusteredPods := podCollections[0]
-		pods := krt.MapCollection(clusteredPods, unwrapObjectWithCluster)
+		pods := podCollections[0]
 		waypointCollections := waypointsByCluster.Lookup(c.ID)
 		if len(waypointCollections) == 0 || waypointCollections[0] == nil {
 			log.Warnf("could not find waypoints for cluster %s", c.ID)
 			return nil
 		}
-		clusteredWaypoints := waypointCollections[0]
-		waypoints := krt.MapCollection(clusteredWaypoints, unwrapObjectWithCluster)
+		waypoints := waypointCollections[0]
 		namespaceCollections := namespacesByCluster.Lookup(c.ID)
 		if len(namespaceCollections) == 0 || namespaceCollections[0] == nil {
 			log.Warnf("could not find namespaces for cluster %s", c.ID)
 			return nil
 		}
-		clusteredNamespaces := namespaceCollections[0]
-		namespaces := krt.MapCollection(clusteredNamespaces, unwrapObjectWithCluster)
+		namespaces := namespaceCollections[0]
 		nodeCollections := nodesByCluster.Lookup(c.ID)
 		if len(nodeCollections) == 0 || nodeCollections[0] == nil {
 			log.Warnf("could not find nodes for cluster %s", c.ID)
@@ -199,24 +196,7 @@ func MergedGlobalWorkloadsCollection(
 		clusteredNodes := nodeCollections[0]
 		nodes := krt.MapCollection(clusteredNodes, unwrapObjectWithCluster)
 
-		workloadEntriesCollections := workloadEntriesByCluster.Lookup(c.ID)
-		if len(workloadEntriesCollections) == 0 || workloadEntriesCollections[0] == nil {
-			log.Warnf("could not find workload entries for cluster %s", c.ID)
-			return nil
-		}
-		clusteredWorkloadEntries := workloadEntriesCollections[0]
-		workloadEntries := krt.MapCollection(clusteredWorkloadEntries, unwrapObjectWithCluster)
-		serviceEntriesCollections := serviceEntriesByCluster.Lookup(c.ID)
-		if len(serviceEntriesCollections) == 0 || serviceEntriesCollections[0] == nil {
-			log.Warnf("could not find service entries for cluster %s", c.ID)
-			return nil
-		}
-		clusteredServiceEntries := serviceEntriesCollections[0]
-		serviceEntries := krt.MapCollection(clusteredServiceEntries, unwrapObjectWithCluster)
 		WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(workloadServices)
-		endpointSlices := krt.MapCollection(clusteredEndpointSlicesCollection, func(eps config.ObjectWithCluster[*discovery.EndpointSlice]) *discovery.EndpointSlice {
-			return ptr.Flatten(eps.Object)
-		})
 		EndpointSlicesByIPIndex := endpointSliceAddressIndex(endpointSlices)
 		// Workloads coming from pods. There should be one workload for each (running) Pod.
 		PodWorkloads := krt.NewCollection(
@@ -314,9 +294,6 @@ func MergedGlobalWorkloadsCollection(
 				func(hc krt.HandlerContext) network.ID {
 					return network.ID(*nw.Get())
 				},
-				globalNetworks.NetworkGateways,
-				globalNetworks.GatewaysByNetwork,
-				flags,
 			),
 			opts.WithName("EndpointSliceWorkloads")...)
 		EndpointSliceWorkloadsWithCluster := krt.MapCollection(
@@ -877,9 +854,6 @@ func endpointSlicesBuilder(
 	domainSuffix string,
 	clusterGetter func(krt.HandlerContext) cluster.ID,
 	networkGetter func(krt.HandlerContext) network.ID,
-	networkGateways krt.Collection[NetworkGateway],
-	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
-	flags FeatureFlags,
 ) krt.TransformationMulti[*discovery.EndpointSlice, model.WorkloadInfo] {
 	return func(ctx krt.HandlerContext, es *discovery.EndpointSlice) []model.WorkloadInfo {
 		// EndpointSlices carry port information and a list of IPs.
@@ -1027,9 +1001,6 @@ func (a *index) endpointSlicesBuilder(
 		func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
 		},
-		a.networks.NetworkGateways,
-		a.networks.GatewaysByNetwork,
-		a.Flags,
 	)
 }
 

@@ -116,6 +116,15 @@ type ObjectWithCluster[T any] struct {
 	Object    *T
 }
 
+// We can't refer to krt directly without causing an import cycle, but this function
+// implements an interface that allows the krt helper to know how to get the object key
+func (o ObjectWithCluster[T]) GetObjectKeyable() any {
+	if o.Object == nil {
+		return nil
+	}
+	return *o.Object
+}
+
 func LabelsInRevision(lbls map[string]string, rev string) bool {
 	configEnv, f := lbls[label.IoIstioRev.Name]
 	if !f {
