@@ -434,13 +434,12 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	credentialName := "some-fake-credential"
 
 	testCases := []struct {
-		name          string
-		opts          *buildClusterOpts
-		tls           *networking.ClientTLSSettings
-		h2            bool
-		router        bool
-		result        expectedResult
-		enableAutoSni bool
+		name   string
+		opts   *buildClusterOpts
+		tls    *networking.ClientTLSSettings
+		h2     bool
+		router bool
+		result expectedResult
 	}{
 		{
 			name: "tls mode disabled",
@@ -650,7 +649,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				err: nil,
 			},
-			enableAutoSni: true,
 		},
 		{
 			name: "tls mode SIMPLE, with AutoSni enabled and sni specified in tls",
@@ -676,7 +674,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				err: nil,
 			},
-			enableAutoSni: true,
 		},
 		{
 			name: "tls mode SIMPLE, with VerifyCert and AutoSni enabled with SubjectAltNames set",
@@ -702,7 +699,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				err: nil,
 			},
-			enableAutoSni: true,
 		},
 		{
 			name: "tls mode SIMPLE, with VerifyCert and AutoSni enabled without SubjectAltNames set",
@@ -727,7 +723,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				},
 				err: nil,
 			},
-			enableAutoSni: true,
 		},
 		{
 			name: "tls mode SIMPLE, with certs specified in tls",
@@ -1666,7 +1661,6 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableAutoSni, tc.enableAutoSni)
 			var proxy *model.Proxy
 			if tc.router {
 				proxy = newGatewayProxy()
@@ -1683,7 +1677,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			} else if diff := cmp.Diff(tc.result.tlsContext, ret, protocmp.Transform()); diff != "" {
 				t.Errorf("got diff: `%v", diff)
 			}
-			if tc.enableAutoSni {
+			if tc.result.tlsContext != nil {
 				if len(tc.tls.Sni) == 0 {
 					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
 				}

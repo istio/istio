@@ -3049,17 +3049,15 @@ func TestInsecureSkipVerify(t *testing.T) {
 	}
 
 	cases := []struct {
-		name                     string
-		cluster                  *cluster.Cluster
-		clusterMode              ClusterMode
-		service                  *model.Service
-		port                     *model.Port
-		proxyView                model.ProxyView
-		destRule                 *networking.DestinationRule
-		serviceAcct              []string // SE SAN values
-		enableAutoSni            bool
-		enableVerifyCertAtClient bool
-		expectTLSContext         *tls.UpstreamTlsContext
+		name             string
+		cluster          *cluster.Cluster
+		clusterMode      ClusterMode
+		service          *model.Service
+		port             *model.Port
+		proxyView        model.ProxyView
+		destRule         *networking.DestinationRule
+		serviceAcct      []string // SE SAN values
+		expectTLSContext *tls.UpstreamTlsContext
 	}{
 		{
 			name:        "With tls mode simple, InsecureSkipVerify is not specified and ca cert is supplied",
@@ -3079,7 +3077,6 @@ func TestInsecureSkipVerify(t *testing.T) {
 					},
 				},
 			},
-			enableAutoSni: false,
 			expectTLSContext: &tls.UpstreamTlsContext{
 				CommonTlsContext: &tls.CommonTlsContext{
 					TlsParams: &tls.TlsParameters{
@@ -3135,7 +3132,6 @@ func TestInsecureSkipVerify(t *testing.T) {
 					},
 				},
 			},
-			enableAutoSni: false,
 			expectTLSContext: &tls.UpstreamTlsContext{
 				CommonTlsContext: &tls.CommonTlsContext{
 					TlsParams: &tls.TlsParameters{
@@ -3184,43 +3180,11 @@ func TestInsecureSkipVerify(t *testing.T) {
 				TrafficPolicy: &networking.TrafficPolicy{
 					Tls: &networking.ClientTLSSettings{
 						Mode:               networking.ClientTLSSettings_SIMPLE,
-						Sni:                "foo.default.svc.cluster.local",
 						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
 						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
 					},
 				},
 			},
-			enableAutoSni: false,
-			expectTLSContext: &tls.UpstreamTlsContext{
-				CommonTlsContext: &tls.CommonTlsContext{
-					TlsParams: &tls.TlsParameters{
-						// if not specified, envoy use TLSv1_2 as default for client.
-						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
-						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
-					},
-					ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
-				},
-				Sni: "foo.default.svc.cluster.local",
-			},
-		},
-		{
-			name:        "With tls mode simple, InsecureSkipVerify is set true and AUTO_SNI is true",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode: DefaultClusterMode,
-			service:     service,
-			port:        servicePort[0],
-			proxyView:   model.ProxyViewAll,
-			destRule: &networking.DestinationRule{
-				Host: "foo.default.svc.cluster.local",
-				TrafficPolicy: &networking.TrafficPolicy{
-					Tls: &networking.ClientTLSSettings{
-						Mode:               networking.ClientTLSSettings_SIMPLE,
-						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
-						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
-					},
-				},
-			},
-			enableAutoSni: true,
 			expectTLSContext: &tls.UpstreamTlsContext{
 				CommonTlsContext: &tls.CommonTlsContext{
 					TlsParams: &tls.TlsParameters{
@@ -3252,7 +3216,6 @@ func TestInsecureSkipVerify(t *testing.T) {
 				},
 				WorkloadSelector: &v1beta1.WorkloadSelector{},
 			},
-			enableAutoSni: false,
 			expectTLSContext: &tls.UpstreamTlsContext{
 				CommonTlsContext: &tls.CommonTlsContext{
 					TlsParams: &tls.TlsParameters{
@@ -3284,7 +3247,6 @@ func TestInsecureSkipVerify(t *testing.T) {
 					},
 				},
 			},
-			enableAutoSni: false,
 			expectTLSContext: &tls.UpstreamTlsContext{
 				CommonTlsContext: &tls.CommonTlsContext{
 					TlsParams: &tls.TlsParameters{
@@ -3364,7 +3326,6 @@ func TestInsecureSkipVerify(t *testing.T) {
 					},
 				},
 			},
-			enableAutoSni: false,
 			expectTLSContext: &tls.UpstreamTlsContext{
 				CommonTlsContext: &tls.CommonTlsContext{
 					TlsParams: &tls.TlsParameters{
@@ -3437,67 +3398,11 @@ func TestInsecureSkipVerify(t *testing.T) {
 						Mode:               networking.ClientTLSSettings_MUTUAL,
 						ClientCertificate:  "cert",
 						PrivateKey:         "key",
-						Sni:                "foo.default.svc.cluster.local",
 						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
 						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
 					},
 				},
 			},
-			enableAutoSni: false,
-			expectTLSContext: &tls.UpstreamTlsContext{
-				CommonTlsContext: &tls.CommonTlsContext{
-					TlsParams: &tls.TlsParameters{
-						// if not specified, envoy use TLSv1_2 as default for client.
-						TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
-						TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
-					},
-					TlsCertificateSdsSecretConfigs: []*tls.SdsSecretConfig{
-						{
-							Name: "file-cert:cert~key",
-							SdsConfig: &core.ConfigSource{
-								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
-									ApiConfigSource: &core.ApiConfigSource{
-										ApiType:                   core.ApiConfigSource_GRPC,
-										SetNodeOnFirstMessageOnly: true,
-										TransportApiVersion:       core.ApiVersion_V3,
-										GrpcServices: []*core.GrpcService{
-											{
-												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "sds-grpc"},
-												},
-											},
-										},
-									},
-								},
-								ResourceApiVersion: core.ApiVersion_V3,
-							},
-						},
-					},
-					ValidationContextType: &tls.CommonTlsContext_ValidationContext{},
-				},
-				Sni: "foo.default.svc.cluster.local",
-			},
-		},
-		{
-			name:        "With tls mode mutual, InsecureSkipVerify is set true and AUTO_SNI is true",
-			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
-			clusterMode: DefaultClusterMode,
-			service:     service,
-			port:        servicePort[0],
-			proxyView:   model.ProxyViewAll,
-			destRule: &networking.DestinationRule{
-				Host: "foo.default.svc.cluster.local",
-				TrafficPolicy: &networking.TrafficPolicy{
-					Tls: &networking.ClientTLSSettings{
-						Mode:               networking.ClientTLSSettings_MUTUAL,
-						ClientCertificate:  "cert",
-						PrivateKey:         "key",
-						SubjectAltNames:    []string{"foo.default.svc.cluster.local"},
-						InsecureSkipVerify: &wrappers.BoolValue{Value: true},
-					},
-				},
-			},
-			enableAutoSni: true,
 			expectTLSContext: &tls.UpstreamTlsContext{
 				CommonTlsContext: &tls.CommonTlsContext{
 					TlsParams: &tls.TlsParameters{
@@ -3551,7 +3456,6 @@ func TestInsecureSkipVerify(t *testing.T) {
 				},
 				WorkloadSelector: &v1beta1.WorkloadSelector{},
 			},
-			enableAutoSni: false,
 			expectTLSContext: &tls.UpstreamTlsContext{
 				CommonTlsContext: &tls.CommonTlsContext{
 					TlsParams: &tls.TlsParameters{
@@ -3592,7 +3496,6 @@ func TestInsecureSkipVerify(t *testing.T) {
 					},
 				},
 			},
-			enableAutoSni: false,
 			expectTLSContext: &tls.UpstreamTlsContext{
 				CommonTlsContext: &tls.CommonTlsContext{
 					TlsParams: &tls.TlsParameters{
@@ -3658,8 +3561,6 @@ func TestInsecureSkipVerify(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableAutoSni, tc.enableAutoSni)
-
 			targets := []model.ServiceTarget{
 				{
 					Service: tc.service,
@@ -3704,16 +3605,16 @@ func TestInsecureSkipVerify(t *testing.T) {
 				t.Errorf("got diff: `%v", diff)
 			}
 
-			if tc.enableAutoSni {
-				if tc.destRule.GetTrafficPolicy().GetTls().Sni == "" {
-					assert.Equal(t, ec.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
-				}
+			if tc.destRule.GetTrafficPolicy().GetTls().Sni == "" {
+				assert.Equal(t, ec.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
+			}
 
-				if tc.destRule.GetTrafficPolicy().GetTls().GetInsecureSkipVerify().GetValue() {
+			if tc.destRule.GetTrafficPolicy().GetTls().GetInsecureSkipVerify().GetValue() {
+				if ec.httpProtocolOptions != nil {
 					assert.Equal(t, ec.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, false)
-				} else if tc.enableVerifyCertAtClient && len(tc.destRule.GetTrafficPolicy().GetTls().SubjectAltNames) == 0 {
-					assert.Equal(t, ec.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, true)
 				}
+			} else if tc.destRule.GetTrafficPolicy().GetTls().SubjectAltNames != nil && len(tc.destRule.GetTrafficPolicy().GetTls().SubjectAltNames) == 0 {
+				assert.Equal(t, ec.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, true)
 			}
 		})
 	}

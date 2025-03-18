@@ -266,10 +266,10 @@ func applyTLSDefaults(tlsContext *tlsv3.UpstreamTlsContext, tlsDefaults *v1alpha
 	}
 }
 
-// Set auto_sni if EnableAutoSni feature flag is enabled and if sni field is not explicitly set in DR.
+// Set auto_sni if sni field is not explicitly set in DR.
 // Set auto_san_validation if there is no explicit SubjectAltNames specified in DR.
 func setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls *networking.ClientTLSSettings) {
-	if mc == nil || !features.EnableAutoSni {
+	if mc == nil {
 		return
 	}
 
