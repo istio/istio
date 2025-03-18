@@ -24,6 +24,7 @@ import (
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	sigsk8siogatewayapiapisv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
@@ -46,6 +47,16 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 		return c.Istio().SecurityV1().AuthorizationPolicies(cfg.Namespace).Create(context.TODO(), &apiistioioapisecurityv1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*istioioapisecurityv1beta1.AuthorizationPolicy)),
+		}, metav1.CreateOptions{})
+	case gvk.BackendLBPolicy:
+		return c.GatewayAPI().GatewayV1alpha2().BackendLBPolicies(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.BackendLBPolicy{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.BackendLBPolicySpec)),
+		}, metav1.CreateOptions{})
+	case gvk.BackendTLSPolicy:
+		return c.GatewayAPI().GatewayV1alpha3().BackendTLSPolicies(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicy{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicySpec)),
 		}, metav1.CreateOptions{})
 	case gvk.DestinationRule:
 		return c.Istio().NetworkingV1().DestinationRules(cfg.Namespace).Create(context.TODO(), &apiistioioapinetworkingv1.DestinationRule{
@@ -164,6 +175,16 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*istioioapisecurityv1beta1.AuthorizationPolicy)),
 		}, metav1.UpdateOptions{})
+	case gvk.BackendLBPolicy:
+		return c.GatewayAPI().GatewayV1alpha2().BackendLBPolicies(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.BackendLBPolicy{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.BackendLBPolicySpec)),
+		}, metav1.UpdateOptions{})
+	case gvk.BackendTLSPolicy:
+		return c.GatewayAPI().GatewayV1alpha3().BackendTLSPolicies(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicy{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicySpec)),
+		}, metav1.UpdateOptions{})
 	case gvk.DestinationRule:
 		return c.Istio().NetworkingV1().DestinationRules(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1.DestinationRule{
 			ObjectMeta: objMeta,
@@ -280,6 +301,16 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 		return c.Istio().SecurityV1().AuthorizationPolicies(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapisecurityv1.AuthorizationPolicy{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+	case gvk.BackendLBPolicy:
+		return c.GatewayAPI().GatewayV1alpha2().BackendLBPolicies(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.BackendLBPolicy{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1alpha2.PolicyStatus)),
+		}, metav1.UpdateOptions{})
+	case gvk.BackendTLSPolicy:
+		return c.GatewayAPI().GatewayV1alpha3().BackendTLSPolicies(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicy{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1alpha2.PolicyStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.DestinationRule:
 		return c.Istio().NetworkingV1().DestinationRules(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapinetworkingv1.DestinationRule{
@@ -405,6 +436,36 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 			return nil, err
 		}
 		return c.Istio().SecurityV1().AuthorizationPolicies(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.BackendLBPolicy:
+		oldRes := &sigsk8siogatewayapiapisv1alpha2.BackendLBPolicy{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1alpha2.BackendLBPolicySpec)),
+		}
+		modRes := &sigsk8siogatewayapiapisv1alpha2.BackendLBPolicy{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1alpha2.BackendLBPolicySpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return c.GatewayAPI().GatewayV1alpha2().BackendLBPolicies(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.BackendTLSPolicy:
+		oldRes := &sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicy{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicySpec)),
+		}
+		modRes := &sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicy{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicySpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return c.GatewayAPI().GatewayV1alpha3().BackendTLSPolicies(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.DestinationRule:
 		oldRes := &apiistioioapinetworkingv1.DestinationRule{
@@ -734,6 +795,10 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 	switch typ {
 	case gvk.AuthorizationPolicy:
 		return c.Istio().SecurityV1().AuthorizationPolicies(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.BackendLBPolicy:
+		return c.GatewayAPI().GatewayV1alpha2().BackendLBPolicies(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.BackendTLSPolicy:
+		return c.GatewayAPI().GatewayV1alpha3().BackendTLSPolicies(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.DestinationRule:
 		return c.Istio().NetworkingV1().DestinationRules(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.EnvoyFilter:
@@ -787,6 +852,44 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.AuthorizationPolicy,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.BackendLBPolicy: func(r runtime.Object) config.Config {
+		obj := r.(*sigsk8siogatewayapiapisv1alpha2.BackendLBPolicy)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.BackendLBPolicy,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.BackendTLSPolicy: func(r runtime.Object) config.Config {
+		obj := r.(*sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicy)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.BackendTLSPolicy,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

@@ -61,6 +61,7 @@ const (
 
 type CredentialsController struct {
 	secrets kclient.Client[*v1.Secret]
+	configMaps kclient.Client[*v1.ConfigMap]
 	sar     authorizationv1client.SubjectAccessReviewInterface
 
 	mu                 sync.RWMutex
@@ -76,19 +77,24 @@ type authorizationResponse struct {
 
 var _ credentials.Controller = &CredentialsController{}
 
+// SecretsFieldSelector is an optimization to avoid excessive secret bloat.
+// We only care about TLS certificates and docker config for Wasm image pulling.
+// Unfortunately, it is not as simple as selecting type=kubernetes.io/tls and type=kubernetes.io/dockerconfigjson.
+// Because of legacy reasons and supporting an extra ca.crt, we also support generic types.
+// Its also likely users have started to use random types and expect them to continue working.
+// This makes the assumption we will never care about Helm secrets or SA token secrets - two common
+// large secrets in clusters.
+// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
+var SecretsFieldSelector = fields.AndSelectors(
+	fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
+	fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
+
 func NewCredentialsController(kc kube.Client, handlers []func(name string, namespace string)) *CredentialsController {
-	// We only care about TLS certificates and docker config for Wasm image pulling.
-	// Unfortunately, it is not as simple as selecting type=kubernetes.io/tls and type=kubernetes.io/dockerconfigjson.
-	// Because of legacy reasons and supporting an extra ca.crt, we also support generic types.
-	// Its also likely users have started to use random types and expect them to continue working.
-	// This makes the assumption we will never care about Helm secrets or SA token secrets - two common
-	// large secrets in clusters.
-	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
-	fieldSelector := fields.AndSelectors(
-		fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
-		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
 	secrets := kclient.NewFiltered[*v1.Secret](kc, kclient.Filter{
-		FieldSelector: fieldSelector,
+		FieldSelector: SecretsFieldSelector,
+		ObjectFilter:  kc.ObjectFilter(),
+	})
+	configMaps := kclient.NewFiltered[*v1.ConfigMap](kc, kclient.Filter{
 		ObjectFilter:  kc.ObjectFilter(),
 	})
 
@@ -97,10 +103,14 @@ func NewCredentialsController(kc kube.Client, handlers []func(name string, names
 		secrets.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 			h(o.GetName(), o.GetNamespace())
 		}))
+		configMaps.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+			h(o.GetName(), o.GetNamespace())
+		}))
 	}
 
 	return &CredentialsController{
 		secrets:            secrets,
+		configMaps: configMaps,
 		sar:                kc.Kube().AuthorizationV1().SubjectAccessReviews(),
 		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
@@ -108,10 +118,11 @@ func NewCredentialsController(kc kube.Client, handlers []func(name string, names
 
 func (s *CredentialsController) Close() {
 	s.secrets.ShutdownHandlers()
+	s.configMaps.ShutdownHandlers()
 }
 
 func (s *CredentialsController) HasSynced() bool {
-	return s.secrets.HasSynced()
+	return s.secrets.HasSynced() && s.configMaps.HasSynced()
 }
 
 const cacheTTL = time.Minute
@@ -204,9 +215,22 @@ func (s *CredentialsController) GetCaCert(name, namespace string) (certInfo *cre
 		if k8sSecret == nil {
 			return nil, fmt.Errorf("secret %v/%v not found", namespace, strippedName)
 		}
-		return ExtractRoot(k8sSecret)
+		return ExtractRoot(k8sSecret.Data)
 	}
-	return ExtractRoot(k8sSecret)
+	return ExtractRoot(k8sSecret.Data)
+}
+
+func (s *CredentialsController) GetConfigMapCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
+		strippedName := strings.TrimSuffix(name, securitymodel.SdsCaSuffix)
+		cm := s.configMaps.Get(strippedName, namespace)
+		if cm == nil {
+			return nil, fmt.Errorf("configmap %v/%v not found", namespace, strippedName)
+		}
+		conv := make(map[string][]byte, len(cm.Data))
+		for k, v := range cm.Data {
+			conv[k] = []byte(v)
+		}
+		return ExtractRoot(conv)
 }
 
 func (s *CredentialsController) GetDockerCredential(name, namespace string) ([]byte, error) {
@@ -284,26 +308,26 @@ func truncatedKeysMessage(data map[string][]byte) string {
 }
 
 // ExtractRoot extracts the root certificate
-func ExtractRoot(scrt *v1.Secret) (certInfo *credentials.CertInfo, err error) {
+func ExtractRoot(data map[string][]byte) (certInfo *credentials.CertInfo, err error) {
 	ret := &credentials.CertInfo{}
-	if hasValue(scrt.Data, GenericScrtCaCert) {
-		ret.Cert = scrt.Data[GenericScrtCaCert]
-		ret.CRL = scrt.Data[GenericScrtCRL]
+	if hasValue(data, GenericScrtCaCert) {
+		ret.Cert = data[GenericScrtCaCert]
+		ret.CRL = data[GenericScrtCRL]
 		return ret, nil
 	}
-	if hasValue(scrt.Data, TLSSecretCaCert) {
-		ret.Cert = scrt.Data[TLSSecretCaCert]
-		ret.CRL = scrt.Data[TLSSecretCrl]
+	if hasValue(data, TLSSecretCaCert) {
+		ret.Cert = data[TLSSecretCaCert]
+		ret.CRL = data[TLSSecretCrl]
 		return ret, nil
 	}
 	// No cert found. Try to generate a helpful error message
-	if hasKeys(scrt.Data, GenericScrtCaCert) {
+	if hasKeys(data, GenericScrtCaCert) {
 		return nil, fmt.Errorf("found key %q, but it was empty", GenericScrtCaCert)
 	}
-	if hasKeys(scrt.Data, TLSSecretCaCert) {
+	if hasKeys(data, TLSSecretCaCert) {
 		return nil, fmt.Errorf("found key %q, but it was empty", TLSSecretCaCert)
 	}
-	found := truncatedKeysMessage(scrt.Data)
+	found := truncatedKeysMessage(data)
 	return nil, fmt.Errorf("found secret, but didn't have expected keys %s or %s; found: %s",
 		GenericScrtCaCert, TLSSecretCaCert, found)
 }

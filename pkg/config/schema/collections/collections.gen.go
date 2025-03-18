@@ -18,6 +18,7 @@ import (
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	sigsk8siogatewayapiapisv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
@@ -50,6 +51,36 @@ var (
 		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateAuthorizationPolicy,
+	}.MustBuild()
+
+	BackendLBPolicy = resource.Builder{
+		Identifier: "BackendLBPolicy",
+		Group:      "gateway.networking.k8s.io",
+		Kind:       "BackendLBPolicy",
+		Plural:     "backendlbpolicies",
+		Version:    "v1alpha2",
+		Proto:      "k8s.io.gateway_api.api.v1alpha2.BackendLBPolicySpec", StatusProto: "k8s.io.gateway_api.api.v1alpha2.PolicyStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.BackendLBPolicySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.PolicyStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
+	BackendTLSPolicy = resource.Builder{
+		Identifier: "BackendTLSPolicy",
+		Group:      "gateway.networking.k8s.io",
+		Kind:       "BackendTLSPolicy",
+		Plural:     "backendtlspolicies",
+		Version:    "v1alpha3",
+		Proto:      "k8s.io.gateway_api.api.v1alpha3.BackendTLSPolicySpec", StatusProto: "k8s.io.gateway_api.api.v1alpha2.PolicyStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.PolicyStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha3", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	CertificateSigningRequest = resource.Builder{
@@ -740,6 +771,8 @@ var (
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
+		MustAdd(BackendLBPolicy).
+		MustAdd(BackendTLSPolicy).
 		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
@@ -786,6 +819,8 @@ var (
 
 	// Kube contains only kubernetes collections.
 	Kube = collection.NewSchemasBuilder().
+		MustAdd(BackendLBPolicy).
+		MustAdd(BackendTLSPolicy).
 		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
@@ -836,6 +871,8 @@ var (
 	// pilotGatewayAPI contains only collections used by Pilot, including the full Gateway API.
 	pilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(AuthorizationPolicy).
+			MustAdd(BackendLBPolicy).
+			MustAdd(BackendTLSPolicy).
 			MustAdd(DestinationRule).
 			MustAdd(EnvoyFilter).
 			MustAdd(GRPCRoute).

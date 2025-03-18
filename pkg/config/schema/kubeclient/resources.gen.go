@@ -27,6 +27,7 @@ import (
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	sigsk8siogatewayapiapisv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
@@ -41,6 +42,10 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 	switch any(ptr.Empty[T]()).(type) {
 	case *apiistioioapisecurityv1.AuthorizationPolicy:
 		return c.Istio().SecurityV1().AuthorizationPolicies(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisv1alpha2.BackendLBPolicy:
+		return c.GatewayAPI().GatewayV1alpha2().BackendLBPolicies(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicy:
+		return c.GatewayAPI().GatewayV1alpha3().BackendTLSPolicies(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicertificatesv1.CertificateSigningRequest:
 		return c.Kube().CertificatesV1().CertificateSigningRequests().(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.ConfigMap:
@@ -130,6 +135,10 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 	switch any(ptr.Empty[T]()).(type) {
 	case *apiistioioapisecurityv1.AuthorizationPolicy:
 		return c.Istio().SecurityV1().AuthorizationPolicies(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1alpha2.BackendLBPolicy:
+		return c.GatewayAPI().GatewayV1alpha2().BackendLBPolicies(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicy:
+		return c.GatewayAPI().GatewayV1alpha3().BackendTLSPolicies(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicertificatesv1.CertificateSigningRequest:
 		return c.Kube().CertificatesV1().CertificateSigningRequests().(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicorev1.ConfigMap:
@@ -219,6 +228,10 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 	switch g {
 	case gvr.AuthorizationPolicy:
 		return &apiistioioapisecurityv1.AuthorizationPolicy{}
+	case gvr.BackendLBPolicy:
+		return &sigsk8siogatewayapiapisv1alpha2.BackendLBPolicy{}
+	case gvr.BackendTLSPolicy:
+		return &sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicy{}
 	case gvr.CertificateSigningRequest:
 		return &k8sioapicertificatesv1.CertificateSigningRequest{}
 	case gvr.ConfigMap:
@@ -315,6 +328,20 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().SecurityV1().AuthorizationPolicies(opts.Namespace).Watch(context.Background(), options)
+		}
+	case gvr.BackendLBPolicy:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1alpha2().BackendLBPolicies(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1alpha2().BackendLBPolicies(opts.Namespace).Watch(context.Background(), options)
+		}
+	case gvr.BackendTLSPolicy:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1alpha3().BackendTLSPolicies(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1alpha3().BackendTLSPolicies(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.CertificateSigningRequest:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

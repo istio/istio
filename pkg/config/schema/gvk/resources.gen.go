@@ -12,6 +12,8 @@ import (
 var (
 	AuthorizationPolicy            = config.GroupVersionKind{Group: "security.istio.io", Version: "v1", Kind: "AuthorizationPolicy"}
 	AuthorizationPolicy_v1beta1    = config.GroupVersionKind{Group: "security.istio.io", Version: "v1beta1", Kind: "AuthorizationPolicy"}
+	BackendLBPolicy                = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "BackendLBPolicy"}
+	BackendTLSPolicy               = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha3", Kind: "BackendTLSPolicy"}
 	CertificateSigningRequest      = config.GroupVersionKind{Group: "certificates.k8s.io", Version: "v1", Kind: "CertificateSigningRequest"}
 	ConfigMap                      = config.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 	CustomResourceDefinition       = config.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"}
@@ -88,6 +90,10 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.AuthorizationPolicy, true
 	case AuthorizationPolicy_v1beta1:
 		return gvr.AuthorizationPolicy_v1beta1, true
+	case BackendLBPolicy:
+		return gvr.BackendLBPolicy, true
+	case BackendTLSPolicy:
+		return gvr.BackendTLSPolicy, true
 	case CertificateSigningRequest:
 		return gvr.CertificateSigningRequest, true
 	case ConfigMap:
@@ -242,6 +248,10 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 	switch g {
 	case gvr.AuthorizationPolicy:
 		return AuthorizationPolicy, true
+	case gvr.BackendLBPolicy:
+		return BackendLBPolicy, true
+	case gvr.BackendTLSPolicy:
+		return BackendTLSPolicy, true
 	case gvr.CertificateSigningRequest:
 		return CertificateSigningRequest, true
 	case gvr.ConfigMap:

@@ -9,6 +9,8 @@ var (
 	ServiceImport                  = schema.GroupVersionResource{Group: "multicluster.x-k8s.io", Version: "v1alpha1", Resource: "serviceimports"}
 	AuthorizationPolicy            = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1", Resource: "authorizationpolicies"}
 	AuthorizationPolicy_v1beta1    = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "authorizationpolicies"}
+	BackendLBPolicy                = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "backendlbpolicies"}
+	BackendTLSPolicy               = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha3", Resource: "backendtlspolicies"}
 	CertificateSigningRequest      = schema.GroupVersionResource{Group: "certificates.k8s.io", Version: "v1", Resource: "certificatesigningrequests"}
 	ConfigMap                      = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	CustomResourceDefinition       = schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
@@ -87,6 +89,10 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 	case AuthorizationPolicy:
 		return false
 	case AuthorizationPolicy_v1beta1:
+		return false
+	case BackendLBPolicy:
+		return false
+	case BackendTLSPolicy:
 		return false
 	case CertificateSigningRequest:
 		return true
