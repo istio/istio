@@ -255,14 +255,14 @@ func gatewayToWaypointTransform(
 }
 
 func GlobalWaypointsCollection(
-	clusters krt.Collection[*Cluster],
+	clusters krt.Collection[Cluster],
 	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]]],
 	gatewayClassesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1beta1.GatewayClass]]],
 	podsByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Pod]]],
 	networksByCluster krt.Index[cluster.ID, krt.Singleton[string]],
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[config.ObjectWithCluster[Waypoint]]] {
-	return krt.NewCollection(clusters, func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[Waypoint]] {
+	return krt.NewCollection(clusters, func(ctx krt.HandlerContext, c Cluster) *krt.Collection[config.ObjectWithCluster[Waypoint]] {
 		podsList := podsByCluster.Lookup(c.ID)
 		if len(podsList) == 0 {
 			return nil

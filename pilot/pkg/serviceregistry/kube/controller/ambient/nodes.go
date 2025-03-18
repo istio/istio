@@ -42,6 +42,11 @@ func (n Node) Equals(o Node) bool {
 
 func GlobalNodesCollection(nodes krt.Collection[krt.Collection[config.ObjectWithCluster[*v1.Node]]], opts ...krt.CollectionOption) krt.Collection[krt.Collection[config.ObjectWithCluster[Node]]] {
 	return krt.NewCollection(nodes, func(ctx krt.HandlerContext, col krt.Collection[config.ObjectWithCluster[*v1.Node]]) *krt.Collection[config.ObjectWithCluster[Node]] {
+		clusterID := col.Metadata()[ClusterKRTMetadataKey]
+		if clusterID == nil {
+			log.Warnf("ClusterID is nil, skipping")
+			return nil
+		}
 		return ptr.Of(krt.NewCollection(col, func(ctx krt.HandlerContext, obj config.ObjectWithCluster[*v1.Node]) *config.ObjectWithCluster[Node] {
 			k := ptr.Flatten(obj.Object)
 			if k == nil {
@@ -67,7 +72,9 @@ func GlobalNodesCollection(nodes krt.Collection[krt.Collection[config.ObjectWith
 				ClusterID: obj.ClusterID,
 				Object:    node,
 			}
-		}, opts...))
+		}, append(opts, krt.WithMetadata(krt.Metadata{
+			ClusterKRTMetadataKey: clusterID,
+		}))...))
 	})
 }
 

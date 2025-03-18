@@ -26,6 +26,7 @@ import (
 	discovery "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -55,6 +57,7 @@ func (a *index) buildGlobalCollections(options Options, opts krt.OptionsBuilder)
 		multicluster.DefaultBuildClientsFromConfig,
 		filter,
 	)
+	a.remoteClusters = clusters
 
 	LocalMeshConfig := options.MeshConfig
 	localAuthzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
@@ -71,7 +74,7 @@ func (a *index) buildGlobalCollections(options Options, opts krt.OptionsBuilder)
 		filter,
 		"Pods",
 		opts,
-		func(c *Cluster) kclient.Filter {
+		func(c Cluster) kclient.Filter {
 			return kclient.Filter{
 				ObjectFilter:    c.Client.ObjectFilter(),
 				ObjectTransform: kubeclient.StripPodUnusedFields,
@@ -156,7 +159,7 @@ func (a *index) buildGlobalCollections(options Options, opts krt.OptionsBuilder)
 		filter,
 		"Nodes",
 		opts,
-		func(c *Cluster) kclient.Filter {
+		func(c Cluster) kclient.Filter {
 			return kclient.Filter{
 				ObjectFilter:    c.Client.ObjectFilter(),
 				ObjectTransform: kubeclient.StripNodeUnusedFields,
@@ -168,12 +171,11 @@ func (a *index) buildGlobalCollections(options Options, opts krt.OptionsBuilder)
 	// Set up collections for remote clusters
 	GlobalNetworks := buildGlobalNetworkCollections(
 		clusters,
-		globalNamespacesByCluster,
 		globalGatewaysByCluster,
 		options,
 		opts,
 	)
-	a.globalNetworks = GlobalNetworks
+	a.networks = GlobalNetworks
 	GlobalWaypoints := GlobalWaypointsCollection(
 		clusters,
 		globalGatewaysByCluster,
@@ -271,34 +273,27 @@ func (a *index) buildGlobalCollections(options Options, opts krt.OptionsBuilder)
 		},
 		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
 	), false)
-	// TODO: Should we merge this? Do we even care about ingress-use-waypoint for remote clusters?
-	GlobalNamespacesInfo := krt.NewCollection(clusters, func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[model.NamespaceInfo]] {
-		namespacesCollectionsForCluster := globalNamespacesByCluster.Lookup(c.ID)
-		if len(namespacesCollectionsForCluster) == 0 {
+
+	// TODO: I doubt we really care about whether remote namespaces set ingress-use-waypoint, but should double check
+	LocalNamespaces := globalNamespacesByCluster.Lookup(options.ClusterID)
+	if len(LocalNamespaces) == 0 {
+		return fmt.Errorf("could not find local namespaces collection for local cluster %s", options.ClusterID)
+	}
+	LocalNamespacesWithCluster := LocalNamespaces[0]
+	LocalNamespacesInfo := krt.NewCollection(LocalNamespacesWithCluster, func(ctx krt.HandlerContext, i config.ObjectWithCluster[*v1.Namespace]) *model.NamespaceInfo {
+		if i.Object == nil {
 			return nil
 		}
-		namespacesCollection := namespacesCollectionsForCluster[0]
-		if namespacesCollection == nil {
-			return nil
+		ns := ptr.Flatten(i.Object)
+		return &model.NamespaceInfo{
+			Name:               ns.Name,
+			IngressUseWaypoint: strings.EqualFold(ns.Labels["istio.io/ingress-use-waypoint"], "true"),
 		}
-		return ptr.Of(krt.NewCollection(namespacesCollection, func(ctx krt.HandlerContext, obj config.ObjectWithCluster[*v1.Namespace]) *config.ObjectWithCluster[model.NamespaceInfo] {
-			if obj.Object == nil {
-				return nil
-			}
-			ns := ptr.Flatten(obj.Object)
-			return &config.ObjectWithCluster[model.NamespaceInfo]{
-				ClusterID: obj.ClusterID,
-				Object: &model.NamespaceInfo{
-					Name:               ns.Name,
-					IngressUseWaypoint: strings.EqualFold(ns.Labels["istio.io/ingress-use-waypoint"], "true"),
-				},
-			}
-		}, opts.WithName("GlobalNamespacesInfo")...))
-	})
+	}, opts.WithName("LocalNamespacesInfo")...)
 
 	GlobalNodeLocality := GlobalNodesCollection(globalNodes, opts.WithName("GlobalNodeLocality")...)
 	GlobalNodeLocalityByCluster := nestedCollectionIndexByCluster(GlobalNodeLocality)
-	GobalWorkloads := MergedGlobalWorkloadsCollection(
+	GlobalWorkloads := MergedGlobalWorkloadsCollection(
 		clusters,
 		globalPodsByCluster,
 		GlobalNodeLocalityByCluster,
@@ -317,22 +312,97 @@ func (a *index) buildGlobalCollections(options Options, opts krt.OptionsBuilder)
 		options.DomainSuffix,
 		opts,
 	)
+	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](GlobalWorkloads, networkAddressFromWorkload)
+	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, func(o model.WorkloadInfo) []string {
+		return maps.Keys(o.Workload.Services)
+	})
+	WorkloadWaypointIndexHostname := krt.NewIndex(GlobalWorkloads, func(w model.WorkloadInfo) []NamespaceHostname {
+		// Filter out waypoints.
+		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		waypoint := w.Workload.Waypoint
+		if waypoint == nil {
+			return nil
+		}
+		waypointAddress := waypoint.GetHostname()
+		if waypointAddress == nil {
+			return nil
+		}
 
-	a.globalServices = servicesCollection{
+		return []NamespaceHostname{{
+			Namespace: waypointAddress.Namespace,
+			Hostname:  waypointAddress.Hostname,
+		}}
+	})
+	WorkloadWaypointIndexIP := krt.NewIndex(GlobalWorkloads, func(w model.WorkloadInfo) []networkAddress {
+		// Filter out waypoints.
+		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		waypoint := w.Workload.Waypoint
+		if waypoint == nil {
+			return nil
+		}
+
+		waypointAddress := waypoint.GetAddress()
+		if waypointAddress == nil {
+			return nil
+		}
+		netip, _ := netip.AddrFromSlice(waypointAddress.Address)
+		netaddr := networkAddress{
+			network: waypointAddress.Network,
+			ip:      netip.String(),
+		}
+
+		return []networkAddress{netaddr}
+	})
+	GlobalWorkloads.RegisterBatch(krt.BatchedEventFilter(
+		func(a model.WorkloadInfo) *workloadapi.Workload {
+			// Only trigger push if the XDS object changed; the rest is just for computation of others
+			return a.Workload
+		},
+		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName),
+	), false)
+
+	if features.EnableIngressWaypointRouting {
+		RegisterEdsShim(
+			a.XDSUpdater,
+			GlobalWorkloads,
+			LocalNamespacesInfo,
+			WorkloadServiceIndex,
+			GlobalWorkloadServices,
+			ServiceAddressIndex,
+			opts,
+		)
+	}
+	a.namespaces = LocalNamespacesInfo
+
+	a.workloads = workloadsCollection{
+		Collection:               GlobalWorkloads,
+		ByAddress:                WorkloadAddressIndex,
+		ByServiceKey:             WorkloadServiceIndex,
+		ByOwningWaypointHostname: WorkloadWaypointIndexHostname,
+		ByOwningWaypointIP:       WorkloadWaypointIndexIP,
+	}
+
+	a.services = servicesCollection{
 		Collection:               GlobalWorkloadServices,
 		ByAddress:                ServiceAddressIndex,
 		ByOwningWaypointHostname: ServiceInfosByOwningWaypointHostname,
 		ByOwningWaypointIP:       ServiceInfosByOwningWaypointIP,
 	}
+
+	return nil
 }
 
 func informerForCluster[T controllers.ComparableObject](
 	filter kclient.Filter,
 	name string,
 	opts krt.OptionsBuilder,
-	filterTransform func(c *Cluster) kclient.Filter,
-) krt.TransformationSingle[*Cluster, krt.Collection[T]] {
-	return func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[T] {
+	filterTransform func(c Cluster) kclient.Filter,
+) krt.TransformationSingle[Cluster, krt.Collection[T]] {
+	return func(ctx krt.HandlerContext, c Cluster) *krt.Collection[T] {
 		if filterTransform != nil {
 			filter = filterTransform(c)
 		}
@@ -350,15 +420,20 @@ func collectionFromCluster[T controllers.ComparableObject](
 	name string,
 	informerIndex krt.Index[cluster.ID, krt.Collection[T]],
 	opts krt.OptionsBuilder,
-) krt.TransformationSingle[*Cluster, krt.Collection[config.ObjectWithCluster[T]]] {
-	return func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[T]] {
+) krt.TransformationSingle[Cluster, krt.Collection[config.ObjectWithCluster[T]]] {
+	return func(ctx krt.HandlerContext, c Cluster) *krt.Collection[config.ObjectWithCluster[T]] {
 		clients := informerIndex.Lookup(c.ID)
 		if len(clients) == 0 {
 			return nil
 		}
 		objWithCluster := krt.NewCollection(clients[0], func(ctx krt.HandlerContext, obj T) *config.ObjectWithCluster[T] {
 			return &config.ObjectWithCluster[T]{ClusterID: c.ID, Object: &obj}
-		}, opts.WithName(name+"WithCluster")...)
+		}, opts.With(
+			krt.WithName(name+"WithCluster"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: c.ID,
+			}),
+		)...)
 		return &objWithCluster
 	}
 }
@@ -401,7 +476,6 @@ func nestedCollectionIndexByCluster[T any](
 
 func mergeServiceInfosWithCluster(localClusterID cluster.ID) func(serviceInfos []config.ObjectWithCluster[model.ServiceInfo]) *config.ObjectWithCluster[model.ServiceInfo] {
 	return func(serviceInfos []config.ObjectWithCluster[model.ServiceInfo]) *config.ObjectWithCluster[model.ServiceInfo] {
-
 		if len(serviceInfos) == 0 {
 			return nil
 		}
@@ -410,30 +484,55 @@ func mergeServiceInfosWithCluster(localClusterID cluster.ID) func(serviceInfos [
 		}
 
 		var vips []*workloadapi.NetworkAddress
+		var sans []string
 		var base config.ObjectWithCluster[model.ServiceInfo]
 		for _, obj := range serviceInfos {
 			if obj.Object == nil {
 				continue
 			}
-			// This is the base object that we'll add to
+
+			vips = append(vips, obj.Object.Service.GetAddresses()...)
+			sans = append(sans, obj.Object.Service.GetSubjectAltNames()...)
 			if obj.ClusterID == localClusterID {
+				// This is the base object we'll append to since it's local
 				base = obj
-				vips = append(vips, obj.Object.Service.Addresses...)
-				continue
 			}
-			vips = append(vips, obj.Object.Service.Addresses...)
 		}
 
-		// TODO: merge the rest of the fields
+		// TODO: Do we need to merge anything else?
 		base.Object.Service.Addresses = vips
+		base.Object.Service.SubjectAltNames = sans
 
-		return &base
+		// Rememeber, we have to re-precompute the serviceinfo since we changed it
+		return &config.ObjectWithCluster[model.ServiceInfo]{
+			ClusterID: base.ClusterID,
+			Object:    precomputeServicePtr(base.Object),
+		}
 	}
 }
 
-// TODO: Implement merge for workloadInfo
 func mergeWorkloadInfosWithCluster(localClusterID cluster.ID) func(workloadInfos []config.ObjectWithCluster[model.WorkloadInfo]) *config.ObjectWithCluster[model.WorkloadInfo] {
-	panic("not implemented")
+	return func(workloadInfos []config.ObjectWithCluster[model.WorkloadInfo]) *config.ObjectWithCluster[model.WorkloadInfo] {
+		if len(workloadInfos) == 0 {
+			return nil
+		}
+		if len(workloadInfos) == 1 {
+			return &workloadInfos[0]
+		}
+
+		log.Warnf("Duplicate workloadinfos found for %v. Trying to take local and then the first if we can't find it", workloadInfos)
+		for _, obj := range workloadInfos {
+			if obj.Object == nil {
+				continue
+			}
+			if obj.ClusterID == localClusterID {
+				return &obj
+			}
+		}
+
+		log.Warnf("No local workloadinfo found for %v. Taking the first", workloadInfos)
+		return &workloadInfos[0]
+	}
 }
 
 func unwrapObjectWithCluster[T any](obj config.ObjectWithCluster[T]) T {

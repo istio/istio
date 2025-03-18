@@ -80,7 +80,7 @@ func buildRemoteClustersCollection(
 	builder ClientBuilder,
 	filter kclient.Filter,
 	configOverrides ...func(*rest.Config),
-) krt.Collection[*Cluster] {
+) krt.Collection[Cluster] {
 	informerClient := options.Client
 
 	// When these two are set to true, Istiod will be watching the namespace in which
@@ -136,9 +136,9 @@ func buildRemoteClustersCollection(
 			filter: filter.ObjectFilter, // TODO: is this correct?
 		}
 	})
-	Clusters := krt.NewManyCollection(Secrets, func(ctx krt.HandlerContext, s *corev1.Secret) []*Cluster {
+	Clusters := krt.NewManyCollection(Secrets, func(ctx krt.HandlerContext, s *corev1.Secret) []Cluster {
 		secretKey := krt.GetKey(s)
-		var clusters []*Cluster
+		var clusters []Cluster
 		for clusterID, kubeConfig := range s.Data {
 			logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
 			if cluster.ID(clusterID) == options.ClusterID {
@@ -165,7 +165,7 @@ func buildRemoteClustersCollection(
 					Network: network.ID(nw),
 				}
 			}, opts.WithName("RemoteClusters")...)
-			cluster := &Cluster{
+			cluster := Cluster{
 				ID:             cluster.ID(clusterID),
 				Client:         client,
 				kubeConfigSha:  sha256.Sum256(kubeConfig),
@@ -179,7 +179,7 @@ func buildRemoteClustersCollection(
 
 		// Push the local cluster to the front of the list
 		// TODO: is this ordering helpful?
-		return append([]*Cluster{LocalCluster.Get()}, clusters...)
+		return append([]Cluster{*LocalCluster.Get()}, clusters...)
 	})
 
 	return Clusters
