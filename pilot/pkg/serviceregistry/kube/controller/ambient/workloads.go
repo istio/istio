@@ -130,7 +130,7 @@ func (a *index) WorkloadsCollection(
 }
 
 func MergedGlobalWorkloadsCollection(
-	clusters krt.Collection[*Cluster],
+	clusters krt.Collection[Cluster],
 	podsByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Pod]]],
 	nodesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[Node]]],
 	meshConfig krt.Singleton[MeshConfig],
@@ -142,14 +142,18 @@ func MergedGlobalWorkloadsCollection(
 	serviceEntriesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*networkingclient.ServiceEntry]]],
 	endpointSlicesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*discovery.EndpointSlice]]],
 	namespacesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Namespace]]],
-	globalNetworks globalNetworkCollections,
+	globalNetworks networkCollections,
 	localClusterID cluster.ID,
 	flags FeatureFlags,
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.WorkloadInfo] {
+	if globalNetworks.SystemNamespaceNetworkByCluster == nil {
+		log.Warnf("(Cluster, Network) index not populated. Was istiod started in ambient multi-cluster mode?")
+		return nil
+	}
 	// This will contain the workloadInfos derived from Pods AND WorkloadEntries
-	GlobalWorkloadInfos := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, c *Cluster) []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]] {
+	GlobalWorkloadInfos := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, c Cluster) []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]] {
 		networks := globalNetworks.SystemNamespaceNetworkByCluster.Lookup(c.ID)
 		if len(networks) == 0 {
 			log.Warnf("could not find network for cluster %s", c.ID)

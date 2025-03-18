@@ -100,15 +100,7 @@ type index struct {
 	waypoints waypointsCollection
 	networks  networkCollections
 
-	// The global collections include the data from the local cluster and all remote clusters.
-	// When we're in multi-cluster mode, we should use these collections instead of the above ones.
-	globalServices  servicesCollection
-	globalWorkloads workloadsCollection
-	globalWaypoints waypointsCollection
-	globalNetworks  globalNetworkCollections
-
 	namespaces       krt.Collection[model.NamespaceInfo]
-	remoteNamespaces krt.Collection[model.NamespaceInfo] // TODO: Do we actually want merged namespaces?
 	remoteClusters   krt.Collection[Cluster]
 
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
@@ -159,6 +151,12 @@ func New(options Options) Index {
 		ObjectFilter: options.Client.ObjectFilter(),
 	}
 	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
+
+	// In the multicluster use-case, we populate the collections with global, dynamically changing data
+	if features.EnableAmbientMultiNetwork {
+		a.buildGlobalCollections(options, opts)
+		return a
+	}
 
 	MeshConfig := options.MeshConfig
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
@@ -409,12 +407,6 @@ func New(options Options) Index {
 		Collection: Waypoints,
 	}
 	a.authorizationPolicies = AllPolicies
-
-	// TODO: We should probably do this earlier in the New function because
-	// otherwise, we'll double register event handling for XDS pushes for example
-	if features.EnableAmbientMultiNetwork {
-		a.buildGlobalCollections(options, opts)
-	}
 
 	return a
 }
@@ -686,7 +678,7 @@ func (a *index) HasSynced() bool {
 }
 
 func (a *index) Network(ctx krt.HandlerContext) network.ID {
-	net := krt.FetchOne(ctx, a.networks.SystemNamespace.AsCollection())
+	net := krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection())
 	return network.ID(ptr.OrEmpty(net))
 }
 

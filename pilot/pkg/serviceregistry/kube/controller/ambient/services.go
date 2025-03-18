@@ -59,7 +59,7 @@ func (a *index) ServicesCollection(
 }
 
 func GlobalMergedServicesCollection(
-	clusters krt.Collection[*Cluster],
+	clusters krt.Collection[Cluster],
 	servicesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Service]]],
 	serviceEntriesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*networkingclient.ServiceEntry]]],
 	waypointsByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[Waypoint]]],
@@ -70,7 +70,7 @@ func GlobalMergedServicesCollection(
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.ServiceInfo] {
 	// This will contain the serviceinfos derived from Services AND ServiceEntries
-	GlobalServiceInfos := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, cluster *Cluster) []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
+	GlobalServiceInfos := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, cluster Cluster) []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
 		networks := networksByCluster.Lookup(cluster.ID)
 		if len(networks) == 0 {
 			log.Warnf("could not find network for cluster %s", cluster.ID)

@@ -45,58 +45,44 @@ func (n NetworkGateway) ResourceName() string {
 }
 
 type networkCollections struct {
-	SystemNamespace   krt.Singleton[string]
-	NetworkGateways   krt.Collection[NetworkGateway]
-	GatewaysByNetwork krt.Index[network.ID, NetworkGateway]
-}
-
-type globalNetworkCollections struct {
+	LocalSystemNamespace krt.Singleton[string]
 	// SystemNamespaceNetworkByCluster is an index of cluster ID to the system namespace network
 	// for that cluster.
 	SystemNamespaceNetworkByCluster krt.Index[cluster.ID, krt.Singleton[string]]
-	// NetworkGateways contains all the network gateways we know of in the mesh
-	NetworkGateways krt.Collection[NetworkGateway]
-	// GatewaysByNetwork is a map of network ID to all the gateways in that network
-	GatewaysByNetwork krt.Index[network.ID, NetworkGateway]
+	NetworkGateways                 krt.Collection[NetworkGateway]
+	GatewaysByNetwork               krt.Index[network.ID, NetworkGateway]
 }
 
 func (c networkCollections) HasSynced() bool {
-	return c.SystemNamespace.AsCollection().HasSynced() &&
+	return c.LocalSystemNamespace.AsCollection().HasSynced() &&
 		c.NetworkGateways.HasSynced()
 }
 
 func buildGlobalNetworkCollections(
-	clusters krt.Collection[*Cluster],
-	namespacesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1.Namespace]]],
+	clusters krt.Collection[Cluster],
 	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]]],
 	options Options,
 	opts krt.OptionsBuilder,
-) globalNetworkCollections {
+) networkCollections {
 	SystemNamespaceNetwork := krt.NewCollection(
 		clusters,
-		func(ctx krt.HandlerContext, c *Cluster) *krt.Singleton[string] {
-			namespacesCollection := namespacesByCluster.Lookup(c.ID)
-			if len(namespacesCollection) < 1 {
-				return nil
-			}
-			namespaces := namespacesCollection[0]
-			nsWrapper := krt.FetchOne(ctx, namespaces, krt.FilterKey(options.SystemNamespace))
-			if nsWrapper == nil {
-				return nil
-			}
-			ns := ptr.Flatten(nsWrapper.Object)
-			nw, f := ns.Labels[label.TopologyNetwork.Name]
-			if !f {
-				return nil
-			}
-			s := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
-				return &nw
-			}, opts.With(
+		func(ctx krt.HandlerContext, c Cluster) *krt.Singleton[string] {
+			singletonOpts := opts.With(
 				krt.WithName(fmt.Sprintf("SystemNamespaceNetwork[%s]", c.ID)),
 				krt.WithMetadata(krt.Metadata{
 					ClusterKRTMetadataKey: c.ID,
 				}),
-			)...)
+			)
+			details := c.clusterDetails.Get()
+			if details == nil {
+				// return an empty singleton
+				return ptr.Of(krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+					return nil
+				}, singletonOpts...))
+			}
+			s := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+				return ptr.Of(details.Network.String())
+			}, singletonOpts...)
 
 			return &s
 		},
@@ -118,7 +104,7 @@ func buildGlobalNetworkCollections(
 
 	GlobalNetworkGateways := krt.NewCollection(
 		clusters,
-		func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[NetworkGateway]] {
+		func(ctx krt.HandlerContext, c Cluster) *krt.Collection[config.ObjectWithCluster[NetworkGateway]] {
 			gatewaysCollection := gatewaysByCluster.Lookup(c.ID)
 			if gatewaysCollection == nil || len(gatewaysCollection) < 1 {
 				return nil
@@ -167,7 +153,7 @@ func buildGlobalNetworkCollections(
 		return []network.ID{o.Network}
 	})
 
-	return globalNetworkCollections{
+	return networkCollections{
 		SystemNamespaceNetworkByCluster: SystemNamespaceNetworkByCluster,
 		NetworkGateways:                 MergedNetworkGateways,
 		GatewaysByNetwork:               GatewaysByNetwork,
@@ -201,9 +187,9 @@ func buildNetworkCollections(
 	})
 
 	return networkCollections{
-		SystemNamespace:   SystemNamespaceNetwork,
-		NetworkGateways:   NetworkGateways,
-		GatewaysByNetwork: GatewaysByNetwork,
+		LocalSystemNamespace: SystemNamespaceNetwork,
+		NetworkGateways:      NetworkGateways,
+		GatewaysByNetwork:    GatewaysByNetwork,
 	}
 }
 
