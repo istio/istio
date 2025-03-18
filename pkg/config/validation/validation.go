@@ -2931,10 +2931,6 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 				}
 			}
 
-			if serviceEntry.WorkloadSelector != nil {
-				errs = AppendWarningf(errs, "workloadSelector should not be set when resolution mode is %v", serviceEntry.Resolution)
-			}
-
 			if len(serviceEntry.Addresses) > 0 {
 				for _, port := range serviceEntry.Ports {
 					if port == nil {
