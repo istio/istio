@@ -68,7 +68,7 @@ func GlobalMergedServicesCollection(
 	domainSuffix string,
 	localClusterID cluster.ID,
 	opts krt.OptionsBuilder,
-) krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
+) krt.Collection[model.ServiceInfo] {
 	// This will contain the serviceinfos derived from Services AND ServiceEntries
 	GlobalServiceInfos := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, cluster *Cluster) []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
 		networks := networksByCluster.Lookup(cluster.ID)
@@ -125,12 +125,13 @@ func GlobalMergedServicesCollection(
 		}, opts.WithName(fmt.Sprintf("ServiceEntryServiceInfosWithCluster[%s]", cluster.ID))...)
 
 		return []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]{servicesInfoWithCluster, serviceEntriesWithCluster}
-	}, opts.WithName("GlobalServiceInfos")...)
-	return krt.NestedJoinWithMergeCollection(
+	}, opts.WithName("GlobalServiceInfosWithCluster")...)
+	col := krt.NestedJoinWithMergeCollection(
 		GlobalServiceInfos,
 		mergeServiceInfosWithCluster(localClusterID),
-		opts.WithName("GlobalMergedServiceInfos")...,
+		opts.WithName("GlobalMergedServiceInfosWithCluster")...,
 	)
+	return krt.MapCollection(col, unwrapObjectWithCluster, opts.WithName("GlobalMergedServiceInfos")...)
 }
 
 func serviceServiceBuilder(

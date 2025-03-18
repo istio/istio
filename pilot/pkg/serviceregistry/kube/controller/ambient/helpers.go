@@ -22,6 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/workloadapi"
@@ -29,19 +30,31 @@ import (
 
 // name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
 func (a *index) generatePodUID(p *v1.Pod) string {
-	return a.ClusterID.String() + "//" + "Pod/" + p.Namespace + "/" + p.Name
+	return generatePodUID(a.ClusterID, p)
+}
+
+func generatePodUID(clusterID cluster.ID, p *v1.Pod) string {
+	return clusterID.String() + "//" + "Pod/" + p.Namespace + "/" + p.Name
 }
 
 // name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
 // if the WorkloadEntry is inlined in the ServiceEntry, we may need section name. caller should use generateServiceEntryUID
 func (a *index) generateWorkloadEntryUID(wkEntryNamespace, wkEntryName string) string {
-	return a.ClusterID.String() + "/networking.istio.io/WorkloadEntry/" + wkEntryNamespace + "/" + wkEntryName
+	return generateWorkloadEntryUID(a.ClusterID, wkEntryNamespace, wkEntryName)
+}
+
+func generateWorkloadEntryUID(clusterID cluster.ID, wkEntryNamespace, wkEntryName string) string {
+	return clusterID.String() + "/networking.istio.io/WorkloadEntry/" + wkEntryNamespace + "/" + wkEntryName
 }
 
 // name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
 // section name should be the WE address, which needs to be stable across SE updates (it is assumed WE addresses are unique)
 func (a *index) generateServiceEntryUID(svcEntryNamespace, svcEntryName, addr string) string {
-	return a.ClusterID.String() + "/networking.istio.io/ServiceEntry/" + svcEntryNamespace + "/" + svcEntryName + "/" + addr
+	return generateServiceEntryUID(a.ClusterID, svcEntryNamespace, svcEntryName, addr)
+}
+
+func generateServiceEntryUID(clusterID cluster.ID, svcEntryNamespace, svcEntryName, addr string) string {
+	return clusterID.String() + "/networking.istio.io/ServiceEntry/" + svcEntryNamespace + "/" + svcEntryName + "/" + addr
 }
 
 func workloadToAddress(w *workloadapi.Workload) *workloadapi.Address {
