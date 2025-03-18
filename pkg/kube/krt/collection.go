@@ -368,6 +368,9 @@ func (h *manyCollection[I, O]) augment(a any) any {
 
 // nolint: unused // (not true)
 func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) kclient.RawIndexer {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	if idx, ok := h.indexes[name]; ok {
 		return idx
 	}
@@ -377,8 +380,6 @@ func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) kc
 		index:   make(map[string]sets.Set[Key[O]]),
 		parent:  h,
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
 	for k, v := range h.collectionState.outputs {
 		idx.update(Event[O]{
 			Old:   nil,

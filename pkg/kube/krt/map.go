@@ -103,11 +103,11 @@ func (m *mapCollection[T, U]) dump() CollectionDump {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (m *mapCollection[T, U]) index(extract func(o U) []string) kclient.RawIndexer {
+func (m *mapCollection[T, U]) index(name string, extract func(o U) []string) kclient.RawIndexer {
 	t := func(o T) []string {
 		return extract(m.mapFunc(o))
 	}
-	return m.collection.index(t)
+	return m.collection.index(name, t)
 }
 
 func (m *mapCollection[T, U]) HasSynced() bool {
@@ -125,12 +125,14 @@ func MapCollection[T, U any](
 ) Collection[U] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
-		o.name = fmt.Sprintf("Join[%v]", ptr.TypeName[T]())
+		o.name = fmt.Sprintf("Map[%v]", ptr.TypeName[T]())
 	}
+
+	ic := collection.(internalCollection[T])
 	return &mapCollection[T, U]{
 		collectionName: o.name,
-		id:             nextUID(),
-		collection:     collection.(internalCollection[T]),
+		id:             ic.uid(), // TODO: should we use a new UID?
+		collection:     ic,
 		mapFunc:        mapFunc,
 	}
 }
