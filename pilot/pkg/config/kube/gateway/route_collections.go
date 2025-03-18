@@ -19,8 +19,6 @@ import (
 	"iter"
 
 	"go.uber.org/atomic"
-	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
-	"istio.io/istio/pilot/pkg/model"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -28,6 +26,8 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	istio "istio.io/api/networking/v1alpha3"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"

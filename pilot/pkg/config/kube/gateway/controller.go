@@ -16,7 +16,6 @@ package gateway
 
 import (
 	"fmt"
-	"strconv"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -39,7 +38,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
-	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
