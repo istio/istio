@@ -665,20 +665,19 @@ func (s *Controller) HasSynced() bool {
 func (s *Controller) Services() []*model.Service {
 	s.mutex.Lock()
 	allServices := s.services.getAllServices()
-	out := make([]*model.Service, 0, len(allServices))
 	if s.services.allocateNeeded {
 		autoAllocateIPs(allServices)
 		s.services.allocateNeeded = false
 	}
 	s.mutex.Unlock()
-	for _, svc := range allServices {
+	for i, svc := range allServices {
 		// shallow copy, copy `AutoAllocatedIPv4Address` and `AutoAllocatedIPv6Address`
 		// if return the pointer directly, there will be a race with `BuildNameTable`
 		// nolint: govet
 		shallowSvc := *svc
-		out = append(out, &shallowSvc)
+		allServices[i] = &shallowSvc
 	}
-	return out
+	return allServices
 }
 
 // GetService retrieves a service by host name if it exists.
