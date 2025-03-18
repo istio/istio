@@ -55,9 +55,9 @@ type globalNetworkCollections struct {
 	// for that cluster.
 	SystemNamespaceNetworkByCluster krt.Index[cluster.ID, krt.Singleton[string]]
 	// NetworkGateways contains all the network gateways we know of in the mesh
-	NetworkGateways krt.Collection[config.ObjectWithCluster[NetworkGateway]]
+	NetworkGateways krt.Collection[NetworkGateway]
 	// GatewaysByNetwork is a map of network ID to all the gateways in that network
-	GatewaysByNetwork krt.Index[network.ID, config.ObjectWithCluster[NetworkGateway]]
+	GatewaysByNetwork krt.Index[network.ID, NetworkGateway]
 }
 
 func (c networkCollections) HasSynced() bool {
@@ -138,7 +138,7 @@ func buildGlobalNetworkCollections(
 			return &networkGateways
 		},
 	)
-	MergedNetworkGateways := krt.NestedJoinWithMergeCollection(
+	MergedNetworkGatewaysWithCluster := krt.NestedJoinWithMergeCollection(
 		GlobalNetworkGateways,
 		func(gateways []config.ObjectWithCluster[NetworkGateway]) *config.ObjectWithCluster[NetworkGateway] {
 			if len(gateways) == 0 {
@@ -158,11 +158,13 @@ func buildGlobalNetworkCollections(
 			// No local cluster found, return the first one
 			return &gateways[0]
 		},
-		opts.WithName("MergedGlobalNetworkGateways")...,
+		opts.WithName("MergedGlobalNetworkGatewaysWithCluster")...,
 	)
 
-	GatewaysByNetwork := krt.NewIndex(MergedNetworkGateways, func(o config.ObjectWithCluster[NetworkGateway]) []network.ID {
-		return []network.ID{o.Object.Network}
+	MergedNetworkGateways := krt.MapCollection(MergedNetworkGatewaysWithCluster, unwrapObjectWithCluster, opts.WithName("MergedGlobalNetworkGateways")...)
+
+	GatewaysByNetwork := krt.NewIndex(MergedNetworkGateways, func(o NetworkGateway) []network.ID {
+		return []network.ID{o.Network}
 	})
 
 	return globalNetworkCollections{
