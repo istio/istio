@@ -163,15 +163,15 @@ func GatewayCollection(
 // the attachedRoute count, so we first build a partial Gateway status, then once routes are computed we finalize it with
 // the attachedRoute count.
 func FinalGatewayStatusCollection(
-	GatewaysStatus krt.StatusCollection[*gateway.Gateway, gateway.GatewayStatus],
-	RouteAttachments krt.Collection[RouteAttachment],
-	RouteAttachmentsIndex krt.Index[types.NamespacedName, RouteAttachment],
+	gatewayStatuses krt.StatusCollection[*gateway.Gateway, gateway.GatewayStatus],
+	routeAttachments krt.Collection[RouteAttachment],
+	routeAttachmentsIndex krt.Index[types.NamespacedName, RouteAttachment],
 	opts krt.OptionsBuilder,
 ) krt.StatusCollection[*gateway.Gateway, gateway.GatewayStatus] {
 	return krt.NewCollection(
-		GatewaysStatus,
+		gatewayStatuses,
 		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus]) *krt.ObjectWithStatus[*gateway.Gateway, gateway.GatewayStatus] {
-			tcpRoutes := krt.Fetch(ctx, RouteAttachments, krt.FilterIndex(RouteAttachmentsIndex, config.NamespacedName(i.Obj)))
+			tcpRoutes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
 			counts := map[string]int32{}
 			for _, r := range tcpRoutes {
 				counts[r.ListenerName]++
