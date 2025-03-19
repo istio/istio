@@ -287,7 +287,7 @@ func (t *countingTracker) ParentSynced() {
 		// Already synced, no change needed
 		return
 	}
-	if t.count == 0 {
+	if atomic.LoadInt64(&t.count) == 0 {
 		// No pending events, so we are synced
 		close(t.synced)
 		t.hasSynced = true
