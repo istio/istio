@@ -26,6 +26,16 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 )
 
+// Reference stores a reference to a namespaced GVK, as used by ReferencePolicy
+type Reference struct {
+	Kind      config.GroupVersionKind
+	Namespace gateway.Namespace
+}
+
+func (refs Reference) String() string {
+	return refs.Kind.String() + "/" + string(refs.Namespace)
+}
+
 type ReferencePair struct {
 	To, From Reference
 }
