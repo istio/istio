@@ -133,14 +133,19 @@ func MergedGlobalWorkloadsCollection(
 	clusters krt.Collection[Cluster],
 	workloadEntries krt.Collection[*networkingclient.WorkloadEntry],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
+	globalPods krt.Collection[krt.Collection[*v1.Pod]],
 	podsByCluster krt.Index[cluster.ID, krt.Collection[*v1.Pod]],
+	globalNodes krt.Collection[krt.Collection[config.ObjectWithCluster[Node]]],
 	nodesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[Node]]],
 	meshConfig krt.Singleton[MeshConfig],
 	localAuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
 	localPeerAuths krt.Collection[*securityclient.PeerAuthentication],
+	globalWaypoints krt.Collection[krt.Collection[Waypoint]],
 	waypointsByCluster krt.Index[cluster.ID, krt.Collection[Waypoint]],
 	workloadServices krt.Collection[model.ServiceInfo],
+	globalEndpointSlices krt.Collection[krt.Collection[*discovery.EndpointSlice]],
 	endpointSlicesByCluster krt.Index[cluster.ID, krt.Collection[*discovery.EndpointSlice]],
+	globalNamespaces krt.Collection[krt.Collection[*v1.Namespace]],
 	namespacesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Namespace]],
 	globalNetworks networkCollections,
 	localClusterID cluster.ID,
@@ -148,52 +153,44 @@ func MergedGlobalWorkloadsCollection(
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.WorkloadInfo] {
-	if globalNetworks.SystemNamespaceNetworkByCluster == nil {
-		log.Warnf("(Cluster, Network) index not populated. Was istiod started in ambient multi-cluster mode?")
-		return nil
-	}
 	// This will contain the workloadInfos derived from Pods AND WorkloadEntries
 	GlobalWorkloadInfos := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, c Cluster) []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]] {
-		networks := globalNetworks.SystemNamespaceNetworkByCluster.Lookup(c.ID)
-		if len(networks) == 0 {
-			log.Warnf("could not find network for cluster %s", c.ID)
+		nwPtr := krt.FetchOne(ctx, globalNetworks.GlobalSystemNamespaces, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+		if nwPtr == nil {
+			log.Warnf("Cluster %s does not have a network assigned, skipping", c.ID)
 			return nil
 		}
-		nw := networks[0]
-		if nw == nil {
-			log.Warnf("could not find network for cluster %s", c.ID)
+		nw := *nwPtr
+		endpointSlicesPtr := krt.FetchOne(ctx, globalEndpointSlices, krt.FilterIndex(endpointSlicesByCluster, c.ID))
+		if endpointSlicesPtr == nil {
+			log.Warnf("Cluster %s does not have endpoint slices, skipping", c.ID)
 			return nil
 		}
-		endpointSliceCollections := endpointSlicesByCluster.Lookup(c.ID)
-		if len(endpointSliceCollections) == 0 || endpointSliceCollections[0] == nil {
-			log.Warnf("could not find endpoint slices for cluster %s", c.ID)
+		endpointSlices := *endpointSlicesPtr
+		podsPtr := krt.FetchOne(ctx, globalPods, krt.FilterIndex(podsByCluster, c.ID))
+		if podsPtr == nil {
+			log.Warnf("Cluster %s does not have pods, skipping", c.ID)
 			return nil
 		}
-		endpointSlices := endpointSliceCollections[0]
-		podCollections := podsByCluster.Lookup(c.ID)
-		if len(podCollections) == 0 || podCollections[0] == nil {
-			log.Warnf("could not find pods for cluster %s", c.ID)
+		pods := *podsPtr
+		waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, c.ID))
+		if waypointsPtr == nil {
+			log.Warnf("Cluster %s does not have waypoints, skipping", c.ID)
 			return nil
 		}
-		pods := podCollections[0]
-		waypointCollections := waypointsByCluster.Lookup(c.ID)
-		if len(waypointCollections) == 0 || waypointCollections[0] == nil {
-			log.Warnf("could not find waypoints for cluster %s", c.ID)
+		waypoints := *waypointsPtr
+		namespacesPtr := krt.FetchOne(ctx, globalNamespaces, krt.FilterIndex(namespacesByCluster, c.ID))
+		if namespacesPtr == nil {
+			log.Warnf("Cluster %s does not have namespaces, skipping", c.ID)
 			return nil
 		}
-		waypoints := waypointCollections[0]
-		namespaceCollections := namespacesByCluster.Lookup(c.ID)
-		if len(namespaceCollections) == 0 || namespaceCollections[0] == nil {
-			log.Warnf("could not find namespaces for cluster %s", c.ID)
+		namespaces := *namespacesPtr
+		clusteredNodesPtr := krt.FetchOne(ctx, globalNodes, krt.FilterIndex(nodesByCluster, c.ID))
+		if clusteredNodesPtr == nil {
+			log.Warnf("Cluster %s does not have nodes, skipping", c.ID)
 			return nil
 		}
-		namespaces := namespaceCollections[0]
-		nodeCollections := nodesByCluster.Lookup(c.ID)
-		if len(nodeCollections) == 0 || nodeCollections[0] == nil {
-			log.Warnf("could not find nodes for cluster %s", c.ID)
-			return nil
-		}
-		clusteredNodes := nodeCollections[0]
+		clusteredNodes := *clusteredNodesPtr
 		nodes := krt.MapCollection(clusteredNodes, unwrapObjectWithCluster)
 
 		WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(workloadServices)
@@ -237,7 +234,6 @@ func MergedGlobalWorkloadsCollection(
 				workloadServices,
 				WorkloadServicesNamespaceIndex,
 				namespaces,
-				domainSuffix,
 				func(_ krt.HandlerContext) cluster.ID {
 					return c.ID
 				},
@@ -310,6 +306,14 @@ func MergedGlobalWorkloadsCollection(
 		}, opts.WithName("NetworkGatewayWorkloads")...)
 		NetworkGatewayWorkloadsWithCluster := krt.MapCollection(NetworkGatewayWorkloads, wrapObjectWithCluster[model.WorkloadInfo](c.ID), opts.WithName("NetworkGatewayWorkloadsWithCluster")...)
 
+		// krt.MarkSyncDependentBatch(ctx, []krt.Syncer{
+		// 	PodWorkloadsWithCluster,
+		// 	WorkloadEntryWorkloadsWithCluster,
+		// 	ServiceEntryWorkloadsWithCluster,
+		// 	EndpointSliceWorkloadsWithCluster,
+		// 	NetworkGatewayWorkloadsWithCluster,
+		// }, opts.Stop())
+
 		return []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]]{
 			PodWorkloadsWithCluster,
 			WorkloadEntryWorkloadsWithCluster,
@@ -330,7 +334,6 @@ func workloadEntryWorkloadBuilder(
 	workloadServices krt.Collection[model.ServiceInfo],
 	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
 	namespaces krt.Collection[*v1.Namespace],
-	domainSuffix string,
 	clusterGetter func(krt.HandlerContext) cluster.ID,
 	networkGetter func(krt.HandlerContext) network.ID,
 	networkGateways krt.Collection[NetworkGateway],
@@ -418,7 +421,6 @@ func (a *index) workloadEntryWorkloadBuilder(
 		workloadServices,
 		workloadServicesNamespaceIndex,
 		namespaces,
-		a.DomainSuffix,
 		func(ctx krt.HandlerContext) cluster.ID {
 			return a.ClusterID
 		},

@@ -45,7 +45,8 @@ func (n NetworkGateway) ResourceName() string {
 }
 
 type networkCollections struct {
-	LocalSystemNamespace krt.Singleton[string]
+	LocalSystemNamespace   krt.Singleton[string]
+	GlobalSystemNamespaces krt.Collection[krt.Singleton[string]]
 	// SystemNamespaceNetworkByCluster is an index of cluster ID to the system namespace network
 	// for that cluster.
 	SystemNamespaceNetworkByCluster krt.Index[cluster.ID, krt.Singleton[string]]
@@ -95,7 +96,7 @@ func buildGlobalNetworkCollections(
 			s := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
 				return ptr.Of(details.Network.String())
 			}, singletonOpts...)
-
+			// krt.MarkSyncDependent(ctx, s.AsCollection(), opts.Stop())
 			return &s
 		},
 	)
@@ -133,6 +134,7 @@ func buildGlobalNetworkCollections(
 				},
 				opts.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID))...,
 			)
+			// krt.MarkSyncDependent(ctx, networkGateways, opts.Stop())
 			return &networkGateways
 		},
 	)
@@ -170,6 +172,7 @@ func buildGlobalNetworkCollections(
 		NetworkGateways:                 MergedNetworkGateways,
 		GatewaysByNetwork:               GatewaysByNetwork,
 		LocalSystemNamespace:            LocalSystemNamespaceNetwork,
+		GlobalSystemNamespaces:          SystemNamespaceNetwork,
 	}
 }
 
