@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
@@ -50,12 +51,12 @@ const ControllerName = "inference-controller"
 // InferencePoolController implements a controller that materializes an InferencePool
 // into a Kubernetes Service to allow traffic to the inference pool.
 type InferencePoolController struct {
-	client                         kube.Client
-	queue                          controllers.Queue
-	pools                          kclient.Client[*inferencev1alpha2.InferencePool]
-	services                       kclient.Client[*corev1.Service]
-	ServiceToEndpointPickerService map[types.NamespacedName]*corev1.Service
-	clients                        map[schema.GroupVersionResource]getter
+	client   kube.Client
+	queue    controllers.Queue
+	pools    kclient.Client[*inferencev1alpha2.InferencePool]
+	services kclient.Client[*corev1.Service]
+	// ServiceToEndpointPickerService map[types.NamespacedName]*corev1.Service
+	clients map[schema.GroupVersionResource]getter
 }
 
 // NewInferencePoolController constructs a new InferencePoolController and registers required informers.
@@ -135,7 +136,7 @@ func (ic *InferencePoolController) configureInferencePool(log *istiolog.Scope, p
 
 	// Apply the service
 
-	err = ic.apply(service)
+	err = ic.reconcileShadowService(service)
 	if err != nil {
 		return fmt.Errorf("failed to apply Service: %v", err)
 	}
@@ -152,19 +153,20 @@ func generateHash(input string, length int) string {
 }
 
 func InferencePoolServiceName(poolName string) string {
+	ipSeparator := "-ip-"
 	hash := generateHash(poolName, hashSize)
-	svcName := fmt.Sprintf("%s-ip-%s", poolName, hash)
+	svcName := poolName + ipSeparator + hash
 	// Truncate if necessary to meet the Kubernetes naming constraints
 	if len(svcName) > maxServiceNameLength {
 		// Calculate the maximum allowed base name length
-		maxBaseLength := maxServiceNameLength - len("-ip-") - hashSize
+		maxBaseLength := maxServiceNameLength - len(ipSeparator) - hashSize
 		// if maxBaseLength < 0 {
 		// 	return nil, fmt.Errorf("inference pool name: %s is too long", pool.Name)
 		// }
 
 		// Truncate the base name and reconstruct the service name
 		truncatedBase := poolName[:maxBaseLength]
-		svcName = fmt.Sprintf("%s-ip-%s", truncatedBase, hash)
+		svcName = truncatedBase + ipSeparator + hash
 	}
 	return svcName
 }
@@ -172,13 +174,6 @@ func InferencePoolServiceName(poolName string) string {
 // translateInferencePoolToService converts an InferencePool to a Service
 func translateInferencePoolToService(pool *inferencev1alpha2.InferencePool) (*corev1.Service, error) {
 	svcName := InferencePoolServiceName(pool.Name)
-
-	// if err != nil {
-	// 	retErr := fmt.Errorf("cannot generate service name for InferencePool %s/%s: %w", inferPool.GetNamespace(), inferPool.GetName(), err)
-	// 	r.Logger.Errorf(retErr.Error())
-	// 	r.Metrics.IncrementReconcilerErrors("Reconciler.processInferencePool", r.reconcilerType)
-	// 	return retErr
-	// }
 
 	shadowSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -198,7 +193,8 @@ func translateInferencePoolToService(pool *inferencev1alpha2.InferencePool) (*co
 	} else {
 		shadowSvc.Labels[InferencePoolExtensionRefPort] = "9002"
 	}
-	shadowSvc.Labels["internal.istio.io/service-semantics"] = "inferencepool"
+	shadowSvc.Labels[constants.InternalServiceSemantics] = constants.ServiceSemanticsInferencePool
+	// adding dummy port, not used for anything
 	shadowSvc.Spec.Ports = []corev1.ServicePort{
 		{
 			Protocol:   "TCP",
@@ -214,12 +210,10 @@ func translateInferencePoolToService(pool *inferencev1alpha2.InferencePool) (*co
 	}
 	shadowSvc.Spec.ClusterIP = corev1.ClusterIPNone
 	gvk := pool.GetObjectKind().GroupVersionKind()
-	log.Infof("LIOR111: %v", gvk)
 	shadowSvc.SetOwnerReferences([]metav1.OwnerReference{
 		{
-			// APIVersion: pool.APIVersion,
-			APIVersion: "inference.networking.x-k8s.io/v1alpha2",
-			Kind:       "InferencePool",
+			APIVersion: gvk.GroupVersion().String(),
+			Kind:       gvk.GroupKind().Kind,
 			Name:       pool.GetName(),
 			UID:        pool.GetUID(),
 		},
@@ -237,7 +231,7 @@ func ensureLabels(obj metav1.Object, poolName string) {
 	obj.SetLabels(labels)
 }
 
-func (ic *InferencePoolController) apply(obj interface{}) error {
+func (ic *InferencePoolController) reconcileShadowService(obj interface{}) error {
 	if service, ok := obj.(*corev1.Service); ok {
 		name := service.Name
 		namespace := service.Namespace
