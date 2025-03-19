@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -179,10 +180,10 @@ var (
 				MessageTimeout: &durationpb.Duration{Seconds: 1000},
 				MetadataOptions: &extproc.MetadataOptions{
 					ReceivingNamespaces: &extproc.MetadataOptions_MetadataNamespaces{
-						Untyped: []string{"envoy.lb"},
+						Untyped: []string{constants.EnvoySubsetNamespace},
 					},
 					ForwardingNamespaces: &extproc.MetadataOptions_MetadataNamespaces{
-						Untyped: []string{"envoy.lb"},
+						Untyped: []string{constants.EnvoySubsetNamespace},
 					},
 				},
 			}),

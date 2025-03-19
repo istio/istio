@@ -52,7 +52,6 @@ const ControllerName = "inference-controller"
 type InferencePoolController struct {
 	client                         kube.Client
 	queue                          controllers.Queue
-	patcher                        patcher
 	pools                          kclient.Client[*inferencev1alpha2.InferencePool]
 	services                       kclient.Client[*corev1.Service]
 	ServiceToEndpointPickerService map[types.NamespacedName]*corev1.Service
@@ -67,16 +66,7 @@ func NewInferencePoolController(client kube.Client) *InferencePoolController {
 	ic := &InferencePoolController{
 		client:  client,
 		clients: map[schema.GroupVersionResource]getter{},
-		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
-			c := client.Dynamic().Resource(gvr).Namespace(namespace)
-			t := true
-			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
-				Force:        &t,
-				FieldManager: ControllerName,
-			}, subresources...)
-			return err
-		},
-		pools: pools,
+		pools:   pools,
 	}
 
 	ic.queue = controllers.NewQueue("inference pool",
@@ -247,15 +237,7 @@ func ensureLabels(obj metav1.Object, poolName string) {
 	obj.SetLabels(labels)
 }
 
-// apply server-side applies a resource to the cluster
 func (ic *InferencePoolController) apply(obj interface{}) error {
-	// Convert to unstructured
-	log.Infof("LIOR111: \n%v", obj)
-	gvr := schema.GroupVersionResource{
-		Group:    "",
-		Version:  "v1",
-		Resource: "services",
-	}
 	if service, ok := obj.(*corev1.Service); ok {
 		name := service.Name
 		namespace := service.Namespace
@@ -264,7 +246,7 @@ func (ic *InferencePoolController) apply(obj interface{}) error {
 
 		// Check if we can manage this service
 		if existingService != nil {
-			canManage, _ := ic.canManage(gvr, existingService.Name, existingService.Namespace)
+			canManage, _ := ic.canManage(existingService)
 			if !canManage {
 				log.Debugf("skipping service %s/%s, already managed by another controller", namespace, name)
 				return nil
@@ -295,16 +277,8 @@ func (ic *InferencePoolController) apply(obj interface{}) error {
 	return nil
 }
 
-// canManage checks if a resource should be managed by this controller
-func (ic *InferencePoolController) canManage(gvr schema.GroupVersionResource, name, namespace string) (bool, string) {
-	store, f := ic.clients[gvr]
-	if !f {
-		log.Warnf("unknown GVR %v", gvr)
-		// Allow management even if we don't know the type
-		return true, ""
-	}
-
-	obj := store.Get(name, namespace)
+// canManage checks if a service should be managed by this controller
+func (ic *InferencePoolController) canManage(obj *corev1.Service) (bool, string) {
 	if obj == nil {
 		// No object exists, we can manage it
 		return true, ""

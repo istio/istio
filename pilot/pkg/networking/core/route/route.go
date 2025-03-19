@@ -532,8 +532,6 @@ func TranslateRoute(
 			},
 		})
 	}
-	// if model.UseGatewaySemantics(virtualService) && strings.HasPrefix(virtualService.Name, "%inferencepool%-") {
-	// }
 	if in.Redirect != nil {
 		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
@@ -1634,12 +1632,9 @@ func CheckAndGetInferencePoolConfig(virtualService config.Config) string {
 	for _, httpRoute := range vs.Http {
 		routeNameParts := strings.Split(httpRoute.Name, "%%")
 		if len(routeNameParts) > 1 {
-			// TODO(liorlieberman) support configurable domain names
+			// TODO(liorlieberman): support configurable domain names
 			fqdn := fmt.Sprintf("%s.%s.svc.%s", routeNameParts[1], virtualService.Namespace, "cluster.local")
 			infPoolConfig = fqdn + ":" + routeNameParts[2]
-			// 	virtualService.Name = routeNameParts[3]
-			// } else {
-			// 	virtualService.Name = routeNameParts[0]
 		}
 		log.Infof("LIOR2010: %s", infPoolConfig)
 		log.Infof("LIOR2011: %s", routeNameParts)

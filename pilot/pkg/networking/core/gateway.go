@@ -453,7 +453,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					IsTLS:                     server.Tls != nil,
 					IsHTTP3AltSvcHeaderNeeded: isH3DiscoveryNeeded,
 					Mesh:                      push.Mesh,
-<<<<<<< HEAD
 					LookupService: func(name host.Name) *model.Service {
 						return nameToServiceMap[name]
 					},
@@ -461,9 +460,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					LookupHash: func(destination *networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB {
 						return hashByDestination[destination]
 					},
-=======
 					InferencePoolExtensionRef: infPoolConfig,
->>>>>>> fc881d81a2 (attempt to add extProcPerRoute)
 				}
 				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, port, sets.New(gatewayName), opts)
 				if err != nil {

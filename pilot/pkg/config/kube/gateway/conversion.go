@@ -1642,44 +1642,47 @@ func buildDestination(ctx configContext, to k8s.BackendRef, ns string, enforceRe
 			Port: &istio.PortSelector{Number: uint32(*to.Port)},
 		}, nil, invalidBackendErr
 	}
-	if nilOrEqual((*string)(to.Group), gvk.InferencePool.Group) && nilOrEqual((*string)(to.Kind), gvk.InferencePool.Kind) {
-		// InferencePool
-		if to.Port == nil {
-			// "Port is required when the referent is an InferencePool."
-			return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
-		}
-		if strings.Contains(string(to.Name), ".") {
-			return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "InferencePool.Name invalid; the name of the InferencePool must be used, not the hostname."}
-		}
-		inferencePoolServiceName := InferencePoolServiceName(string(to.Name))
-		hostname := fmt.Sprintf("%s.%s.svc.%s", inferencePoolServiceName, namespace, ctx.Domain)
-		svc := ctx.Context.GetService(hostname, namespace)
-		if svc == nil {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
-			return nil, nil, invalidBackendErr
-		}
-		if svc.Attributes.Labels == nil {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
-			return nil, nil, invalidBackendErr
-		}
+	// TODO(liorlieberman): any harm to guard this as well?
+	if features.SupportGatewayAPIInferenceExtension {
+		if nilOrEqual((*string)(to.Group), gvk.InferencePool.Group) && nilOrEqual((*string)(to.Kind), gvk.InferencePool.Kind) {
+			// InferencePool
+			if to.Port == nil {
+				// "Port is required when the referent is an InferencePool."
+				return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+			}
+			if strings.Contains(string(to.Name), ".") {
+				return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "InferencePool.Name invalid; the name of the InferencePool must be used, not the hostname."}
+			}
+			inferencePoolServiceName := InferencePoolServiceName(string(to.Name))
+			hostname := fmt.Sprintf("%s.%s.svc.%s", inferencePoolServiceName, namespace, ctx.Domain)
+			svc := ctx.Context.GetService(hostname, namespace)
+			if svc == nil {
+				invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+				return nil, nil, invalidBackendErr
+			}
+			if svc.Attributes.Labels == nil {
+				invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
+				return nil, nil, invalidBackendErr
+			}
 
-		ipCfg := &inferencePoolConfig{
-			enableExtProc: true,
+			ipCfg := &inferencePoolConfig{
+				enableExtProc: true,
+			}
+			if dst, ok := svc.Attributes.Labels[InferencePoolExtensionRefSvc]; ok {
+				ipCfg.endpointPickerDst = dst
+			}
+			if p, ok := svc.Attributes.Labels[InferencePoolExtensionRefPort]; ok {
+				ipCfg.endpointPickerPort = p
+			}
+			if ipCfg.endpointPickerDst == "" || ipCfg.endpointPickerPort == "" {
+				invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
+			}
+			return &istio.Destination{
+				// TODO: implement ReferencePolicy for cross namespace
+				Host: hostname,
+				Port: &istio.PortSelector{Number: uint32(*to.Port)},
+			}, ipCfg, invalidBackendErr
 		}
-		if dst, ok := svc.Attributes.Labels[InferencePoolExtensionRefSvc]; ok {
-			ipCfg.endpointPickerDst = dst
-		}
-		if p, ok := svc.Attributes.Labels[InferencePoolExtensionRefPort]; ok {
-			ipCfg.endpointPickerPort = p
-		}
-		if ipCfg.endpointPickerDst == "" || ipCfg.endpointPickerPort == "" {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
-		}
-		return &istio.Destination{
-			// TODO: implement ReferencePolicy for cross namespace
-			Host: hostname,
-			Port: &istio.PortSelector{Number: uint32(*to.Port)},
-		}, ipCfg, invalidBackendErr
 	}
 	if nilOrEqual((*string)(to.Group), features.MCSAPIGroup) && nilOrEqual((*string)(to.Kind), "ServiceImport") {
 		// Service import
