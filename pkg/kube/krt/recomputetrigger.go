@@ -82,6 +82,42 @@ func NewRecomputeTrigger(startSynced bool, opts ...CollectionOption) *RecomputeT
 	return &RecomputeTrigger{inner: inner, i: atomic.NewInt32(0)}
 }
 
+func MarkSyncDependentBatch(ctx HandlerContext, s []Syncer, stop <-chan struct{}) {
+	// We create a recompute trigger for the purposes of syncing only.
+	// This is often used when we don't want our collections of collections
+	// to recompute on every informer change, but we don't want the outer collection
+	// to be synced until the nested collections inside are synced.
+	// Note that we should NEVER call TriggerRecomputation on this (so don't return the trigger)
+	rt := NewRecomputeTrigger(false)
+	rt.MarkDependant(ctx)
+	go func() {
+		for _, syncer := range s {
+			if !syncer.WaitUntilSynced(stop) {
+				log.Errorf("Timed out waiting for syncer %v to sync", syncer)
+				return
+			}
+		}
+		rt.MarkSynced()
+	}()
+}
+
+func MarkSyncDependent(ctx HandlerContext, s Syncer, stop <-chan struct{}) {
+	// We create a recompute trigger for the purposes of syncing only.
+	// This is often used when we don't want our collections of collections
+	// to recompute on every informer change, but we don't want the outer collection
+	// to be synced until the nested collections inside are synced.
+	// Note that we should NEVER call TriggerRecomputation on this (so don't return the trigger)
+	rt := NewRecomputeTrigger(false)
+	rt.MarkDependant(ctx)
+	go func() {
+		if !s.WaitUntilSynced(stop) {
+			log.Errorf("Timed out waiting for syncer %v to sync", s)
+			return
+		}
+		rt.MarkSynced()
+	}()
+}
+
 // TriggerRecomputation tells all dependants to recompute
 func (r *RecomputeTrigger) TriggerRecomputation() {
 	v := r.i.Inc()

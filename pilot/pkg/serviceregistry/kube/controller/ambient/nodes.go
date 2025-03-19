@@ -40,14 +40,14 @@ func (n Node) Equals(o Node) bool {
 		protoconv.Equals(n.Locality, o.Locality)
 }
 
-func GlobalNodesCollection(nodes krt.Collection[krt.Collection[config.ObjectWithCluster[*v1.Node]]], opts ...krt.CollectionOption) krt.Collection[krt.Collection[config.ObjectWithCluster[Node]]] {
+func GlobalNodesCollection(nodes krt.Collection[krt.Collection[config.ObjectWithCluster[*v1.Node]]], stop <-chan struct{}, opts ...krt.CollectionOption) krt.Collection[krt.Collection[config.ObjectWithCluster[Node]]] {
 	return krt.NewCollection(nodes, func(ctx krt.HandlerContext, col krt.Collection[config.ObjectWithCluster[*v1.Node]]) *krt.Collection[config.ObjectWithCluster[Node]] {
 		clusterID := col.Metadata()[ClusterKRTMetadataKey]
 		if clusterID == nil {
 			log.Warnf("ClusterID is nil, skipping")
 			return nil
 		}
-		return ptr.Of(krt.NewCollection(col, func(ctx krt.HandlerContext, obj config.ObjectWithCluster[*v1.Node]) *config.ObjectWithCluster[Node] {
+		nc := krt.NewCollection(col, func(ctx krt.HandlerContext, obj config.ObjectWithCluster[*v1.Node]) *config.ObjectWithCluster[Node] {
 			k := ptr.Flatten(obj.Object)
 			if k == nil {
 				log.Warnf("Node %s is nil, skipping", obj.ClusterID)
@@ -74,7 +74,9 @@ func GlobalNodesCollection(nodes krt.Collection[krt.Collection[config.ObjectWith
 			}
 		}, append(opts, krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: clusterID,
-		}))...))
+		}))...)
+		// krt.MarkSyncDependent(ctx, nc, stop)
+		return ptr.Of(nc)
 	})
 }
 

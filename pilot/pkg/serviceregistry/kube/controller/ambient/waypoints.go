@@ -256,24 +256,30 @@ func gatewayToWaypointTransform(
 func GlobalWaypointsCollection(
 	clusters krt.Collection[Cluster],
 	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
+	globalGateways krt.Collection[krt.Collection[*v1beta1.Gateway]],
 	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[*v1beta1.Gateway]],
+	globalPods krt.Collection[krt.Collection[*v1.Pod]],
 	podsByCluster krt.Index[cluster.ID, krt.Collection[*v1.Pod]],
-	networksByCluster krt.Index[cluster.ID, krt.Singleton[string]],
+	globalNetworks networkCollections,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[Waypoint]] {
 	return krt.NewCollection(clusters, func(ctx krt.HandlerContext, c Cluster) *krt.Collection[Waypoint] {
-		podsList := podsByCluster.Lookup(c.ID)
-		if len(podsList) == 0 {
+		podsPtr := krt.FetchOne[krt.Collection[*v1.Pod]](ctx, globalPods, krt.FilterIndex(podsByCluster, c.ID))
+		if podsPtr == nil {
+			log.Warnf("Cluster %s does not have any pods assigned, skipping", c.ID)
 			return nil
 		}
-		pods := podsList[0]
+		pods := *podsPtr
 		// TODO: Is this going to work correctly since we're creating an index within a transformation?
 		podsByNamespace := krt.NewNamespaceIndex(pods)
-		gatewaysCollection := gatewaysByCluster.Lookup(c.ID)
-		if len(gatewaysCollection) == 0 {
+		gatewaysPtr := krt.FetchOne[krt.Collection[*v1beta1.Gateway]](ctx, globalGateways, krt.FilterIndex(gatewaysByCluster, c.ID))
+		if gatewaysPtr == nil {
+			log.Warnf("Cluster %s does not have any gateways assigned, skipping", c.ID)
 			return nil
 		}
-		waypointCollection := krt.NewCollection(gatewaysCollection[0], func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
+		gateways := *gatewaysPtr
+
+		waypointCollection := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
 			if len(gateway.Status.Addresses) == 0 {
 				// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 				// ignore Kubernetes Gateways which aren't waypoints
@@ -303,24 +309,25 @@ func GlobalWaypointsCollection(
 			if tt, found := gateway.Labels[label.IoIstioWaypointFor.Name]; found {
 				trafficType = tt
 			}
-
-			networks := networksByCluster.Lookup(c.ID)
-			if len(networks) == 0 {
-				log.Warnf("could not find network for cluster %s", c.ID)
+			nwPtr := krt.FetchOne(ctx, globalNetworks.GlobalSystemNamespaces, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+			if nwPtr == nil {
+				log.Warnf("Cluster %s does not have a network assigned, skipping", c.ID)
 				return nil
 			}
-			nw := networks[0].Get()
-			if nw == nil {
-				log.Warnf("could not find network for cluster %s", c.ID)
+			nw := *nwPtr
+			clusterNetwork := nw.Get()
+			if clusterNetwork == nil {
+				log.Warnf("Cluster %s does not have a network assigned, skipping", c.ID)
 				return nil
 			}
-			w := makeWaypoint(ctx, gateway, gatewayClass, serviceAccounts, trafficType, network.ID(*nw))
+			w := makeWaypoint(ctx, gateway, gatewayClass, serviceAccounts, trafficType, network.ID(*clusterNetwork))
 			return w
 		}, opts.With(
 			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
 			krt.WithMetadata(krt.Metadata{ClusterKRTMetadataKey: c.ID}),
 		)...)
 
+		krt.MarkSyncDependent(ctx, waypointCollection, opts.Stop())
 		return ptr.Of(waypointCollection)
 	}, opts.WithName("GlobalWaypoints")...)
 }

@@ -61,35 +61,43 @@ func (a *index) ServicesCollection(
 func GlobalMergedWorkloadServicesCollection(
 	clusters krt.Collection[Cluster],
 	localServiceEntries krt.Collection[*networkingclient.ServiceEntry],
+	globalServices krt.Collection[krt.Collection[*v1.Service]],
 	servicesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Service]],
+	globalWaypoints krt.Collection[krt.Collection[Waypoint]],
 	waypointsByCluster krt.Index[cluster.ID, krt.Collection[Waypoint]],
+	globalNamespaces krt.Collection[krt.Collection[*v1.Namespace]],
 	namespacesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Namespace]],
-	networksByCluster krt.Index[cluster.ID, krt.Singleton[string]],
+	globalNetworks networkCollections,
 	domainSuffix string,
 	localClusterID cluster.ID,
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.ServiceInfo] {
 	// This will contain the serviceinfos derived from Services AND ServiceEntries
 	GlobalServiceInfos := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, cluster Cluster) []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
-		networks := networksByCluster.Lookup(cluster.ID)
-		if len(networks) == 0 || networks[0] == nil {
-			log.Warnf("could not find network for cluster %s", cluster.ID)
+		nwPtr := krt.FetchOne(ctx, globalNetworks.GlobalSystemNamespaces, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
+		if nwPtr == nil {
+			log.Warnf("Cluster %s does not have a network assigned, skipping", cluster.ID)
 			return nil
 		}
-		// TODO: Consider scenarios with multiple networks
-		nw := networks[0]
-		serviceCollections := servicesByCluster.Lookup(cluster.ID)
-		if len(serviceCollections) == 0 || serviceCollections[0] == nil {
+		nw := *nwPtr
+		servicesPtr := krt.FetchOne(ctx, globalServices, krt.FilterIndex(servicesByCluster, cluster.ID))
+		if servicesPtr == nil {
+			log.Warnf("Cluster %s does not have services assigned, skipping", cluster.ID)
 			return nil
 		}
-		waypointCollections := waypointsByCluster.Lookup(cluster.ID)
-		namespaceCollections := namespacesByCluster.Lookup(cluster.ID)
-		if len(waypointCollections) == 0 || len(namespaceCollections) == 0 {
+		services := *servicesPtr
+		waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
+		if waypointsPtr == nil {
+			log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID)
 			return nil
 		}
-		services := serviceCollections[0]
-		waypoints := waypointCollections[0]
-		namespaces := namespaceCollections[0]
+		waypoints := *waypointsPtr
+		namespacesPtr := krt.FetchOne(ctx, globalNamespaces, krt.FilterIndex(namespacesByCluster, cluster.ID))
+		if namespacesPtr == nil {
+			log.Warnf("Cluster %s does not have namespaces assigned, skipping", cluster.ID)
+			return nil
+		}
+		namespaces := *namespacesPtr
 
 		servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {
 			return network.ID(*nw.Get())
@@ -104,7 +112,10 @@ func GlobalMergedWorkloadServicesCollection(
 		serviceEntriesWithCluster := krt.MapCollection(serviceEntriesInfo, func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {
 			return config.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
 		}, opts.WithName(fmt.Sprintf("ServiceEntryServiceInfosWithCluster[%s]", cluster.ID))...)
-
+		// krt.MarkSyncDependentBatch(ctx, []krt.Syncer{
+		// 	servicesInfo,
+		// 	serviceEntriesInfo,
+		// }, opts.Stop())
 		return []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]{servicesInfoWithCluster, serviceEntriesWithCluster}
 	}, opts.WithName("GlobalServiceInfosWithCluster")...)
 	col := krt.NestedJoinWithMergeCollection(
