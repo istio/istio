@@ -1640,7 +1640,7 @@ func newAmbientUnitTest(t test.Failer) *index {
 			},
 			Spec: v1beta1.GatewaySpec{
 				GatewayClassName: "istio-remote",
-				Addresses: []v1beta1.GatewayAddress{
+				Addresses: []v1beta1.GatewaySpecAddress{
 					{
 						Type:  ptr.Of(v1beta1.IPAddressType),
 						Value: "9.9.9.9",
@@ -1668,7 +1668,7 @@ func newAmbientUnitTest(t test.Failer) *index {
 			},
 			Spec: v1beta1.GatewaySpec{
 				GatewayClassName: "istio-remote",
-				Addresses: []v1beta1.GatewayAddress{
+				Addresses: []v1beta1.GatewaySpecAddress{
 					{
 						Type:  ptr.Of(v1beta1.HostnameAddressType),
 						Value: "networkgateway.example.com",

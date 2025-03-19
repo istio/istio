@@ -53,6 +53,7 @@ const (
 	WasmPlugin
 	WorkloadEntry
 	WorkloadGroup
+	XListenerSet
 )
 
 func (k Kind) String() string {
@@ -147,6 +148,8 @@ func (k Kind) String() string {
 		return "WorkloadEntry"
 	case WorkloadGroup:
 		return "WorkloadGroup"
+	case XListenerSet:
+		return "XListenerSet"
 	default:
 		return "Unknown"
 	}
@@ -240,6 +243,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return WorkloadEntry
 	case gvk.WorkloadGroup:
 		return WorkloadGroup
+	case gvk.XListenerSet:
+		return XListenerSet
 	}
 
 	panic("unknown kind: " + g.String())

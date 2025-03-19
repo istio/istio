@@ -28,6 +28,7 @@ import (
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	sigsk8siogatewayapiapisxv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	apiistioioapinetworkingv1 "istio.io/client-go/pkg/apis/networking/v1"
@@ -121,6 +122,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Istio().NetworkingV1().WorkloadEntries(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1.WorkloadGroup:
 		return c.Istio().NetworkingV1().WorkloadGroups(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisxv1alpha1.XListenerSet:
+		return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(namespace).(ktypes.WriteAPI[T])
 	default:
 		panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
 	}
@@ -210,6 +213,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Istio().NetworkingV1().WorkloadEntries(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1.WorkloadGroup:
 		return c.Istio().NetworkingV1().WorkloadGroups(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisxv1alpha1.XListenerSet:
+		return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(namespace).(ktypes.ReadWriteAPI[T, TL])
 	default:
 		panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
 	}
@@ -299,6 +304,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &apiistioioapinetworkingv1.WorkloadEntry{}
 	case gvr.WorkloadGroup:
 		return &apiistioioapinetworkingv1.WorkloadGroup{}
+	case gvr.XListenerSet:
+		return &sigsk8siogatewayapiapisxv1alpha1.XListenerSet{}
 	default:
 		panic(fmt.Sprintf("Unknown type %v", g))
 	}
@@ -595,6 +602,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().NetworkingV1().WorkloadGroups(opts.Namespace).Watch(context.Background(), options)
+		}
+	case gvr.XListenerSet:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(opts.Namespace).Watch(context.Background(), options)
 		}
 	default:
 		panic(fmt.Sprintf("Unknown type %v", g))

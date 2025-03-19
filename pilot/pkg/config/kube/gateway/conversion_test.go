@@ -545,6 +545,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "route-precedence"},
 		{name: "waypoint"},
 		{name: "isolation"},
+		{name: "listenerset"},
 		{
 			name: "valid-invalid-parent-ref",
 			validationIgnorer: crdvalidation.NewValidationIgnorer(
@@ -621,6 +622,7 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 	for _, crd := range []schema.GroupVersionResource{
 		gvr.KubernetesGateway,
 		gvr.ReferenceGrant,
+		gvr.XListenerSet,
 		gvr.GatewayClass,
 		gvr.HTTPRoute,
 		gvr.GRPCRoute,

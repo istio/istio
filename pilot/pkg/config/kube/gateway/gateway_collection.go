@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -50,8 +51,144 @@ func (g Gateway) Equals(other Gateway) bool {
 		g.Valid == other.Valid // TODO: ok to ignore parent/parentInfo?
 }
 
+type ListenerSet struct {
+	*config.Config
+	parent        parentKey
+	parentInfo    parentInfo
+	gatewayParent types.NamespacedName
+	Valid         bool
+}
+
+func (g ListenerSet) ResourceName() string {
+	return config.NamespacedName(g.Config).Name
+}
+
+func (g ListenerSet) Equals(other Gateway) bool {
+	return g.Config.Equals(other.Config) &&
+		g.Valid == other.Valid // TODO: ok to ignore parent/parentInfo?
+}
+
+func ListenerSetCollection(
+	listenerSets krt.Collection[*gatewayx.XListenerSet],
+	gateways krt.Collection[*gateway.Gateway],
+	gatewayClasses krt.Collection[GatewayClass],
+	namespaces krt.Collection[*corev1.Namespace],
+	grants ReferenceGrants,
+	secrets krt.Collection[*corev1.Secret],
+	domainSuffix string,
+	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]],
+	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
+	opts krt.OptionsBuilder,
+) (
+	krt.StatusCollection[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus],
+	krt.Collection[ListenerSet],
+) {
+	statusCol, gw := krt.NewStatusManyCollection(listenerSets, func(ctx krt.HandlerContext, obj *gatewayx.XListenerSet) (*gatewayx.ListenerSetStatus, []ListenerSet) {
+		// We currently depend on service discovery information not know to krt; mark we depend on it.
+		context := gatewayContext.Get(ctx).Load()
+		if context == nil {
+			return nil, nil
+		}
+		if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
+			return nil, nil
+		}
+		result := []ListenerSet{}
+		ls := obj.Spec
+
+		p := ls.ParentRef
+		kind := ptr.OrDefault((*string)(p.Kind), gvk.KubernetesGateway.Kind)
+		group := ptr.OrDefault((*string)(p.Group), gvk.KubernetesGateway.Group)
+		if kind != gvk.KubernetesGateway.Kind || group != gvk.KubernetesGateway.Group {
+			// Cannot report status since we don't know if iti s for us
+			return nil, nil
+		}
+		pns := ptr.OrDefault(p.Namespace, gatewayx.Namespace(obj.Namespace))
+
+		parentGwObj := ptr.Flatten(krt.FetchOne(ctx, gateways, krt.FilterKey(string(pns)+"/"+string(p.Name))))
+		if parentGwObj == nil {
+			// Cannot report status since we don't know if it is for us
+			return nil, nil
+		}
+
+		status := obj.Status.DeepCopy()
+		class := fetchClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
+		if class == nil {
+			return nil, nil
+		}
+		controllerName := class.Controller
+		classInfo, f := classInfos[controllerName]
+		if !f {
+			return nil, nil
+		}
+		if classInfo.disableRouteGeneration {
+			// Not supported. TODO: report status
+			return nil, nil
+		}
+		servers := []*istio.Server{}
+
+		for i, l := range ls.Listeners {
+			server, programmed := buildListenerSet(ctx, secrets, grants, namespaces, obj, status, l, i, controllerName)
+
+			servers = append(servers, server)
+			if controllerName == constants.ManagedGatewayMeshController {
+				// Waypoint doesn't actually convert the routes to VirtualServices
+				continue
+			}
+			meta := parentMeta(obj, &l.Name)
+			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
+			// TODO: add this in the GW collection
+			// meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
+
+			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
+			gatewayConfig := config.Config{
+				Meta: config.Meta{
+					CreationTimestamp: obj.CreationTimestamp.Time,
+					GroupVersionKind:  gvk.Gateway,
+					Name:              kubeconfig.InternalGatewayName(obj.Name, string(l.Name)),
+					Annotations:       meta,
+					Namespace:         obj.Namespace,
+					Domain:            domainSuffix,
+				},
+				Spec: &istio.Gateway{
+					Servers: []*istio.Server{server},
+				},
+			}
+
+			allowed, _ := generateSupportedKindsSet(l)
+			ref := parentKey{
+				Kind:      gvk.KubernetesGateway,
+				Name:      obj.Name,
+				Namespace: obj.Namespace,
+			}
+			pri := parentInfo{
+				InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
+				AllowedKinds:     allowed,
+				Hostnames:        server.Hosts,
+				OriginalHostname: string(ptr.OrEmpty(l.Hostname)),
+				SectionName:      l.Name,
+				Port:             l.Port,
+				Protocol:         l.Protocol,
+			}
+
+			res := ListenerSet{
+				Config:        &gatewayConfig,
+				Valid:         programmed,
+				parent:        ref,
+				gatewayParent: config.NamespacedName(parentGwObj),
+				parentInfo:    pri,
+			}
+			result = append(result, res)
+		}
+
+		return status, result
+	}, opts.WithName("ListenerSets")...)
+
+	return statusCol, gw
+}
+
 func GatewayCollection(
 	gateways krt.Collection[*gateway.Gateway],
+	listenerSets krt.Collection[ListenerSet],
 	gatewayClasses krt.Collection[GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants ReferenceGrants,
@@ -64,6 +201,9 @@ func GatewayCollection(
 	krt.StatusCollection[*gateway.Gateway, gateway.GatewayStatus],
 	krt.Collection[Gateway],
 ) {
+	listenerIndex := krt.NewIndex(listenerSets, func(o ListenerSet) []types.NamespacedName {
+		return []types.NamespacedName{o.gatewayParent}
+	})
 	statusCol, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
 		// We currently depend on service discovery information not know to krt; mark we depend on it.
 		context := gatewayContext.Get(ctx).Load()
@@ -150,6 +290,16 @@ func GatewayCollection(
 				parentInfo: pri,
 			}
 			result = append(result, res)
+		}
+		listenersFromSets := krt.Fetch(ctx, listenerSets, krt.FilterIndex(listenerIndex, config.NamespacedName(obj)))
+		for _, ls := range listenersFromSets {
+			servers = append(servers, ls.Config.Spec.(*istio.Gateway).Servers...)
+			result = append(result, Gateway{
+				Config:     ls.Config,
+				parent:     ls.parent,
+				parentInfo: ls.parentInfo,
+				Valid:      ls.Valid,
+			})
 		}
 
 		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)

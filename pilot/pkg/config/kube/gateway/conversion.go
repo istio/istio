@@ -27,13 +27,14 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
-	corev1 "k8s.io/api/core/v1"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -1563,6 +1564,16 @@ func unexpectedWaypointListener(l k8s.Listener) bool {
 	return false
 }
 
+func unexpectedWaypointListenerSet(l gatewayx.ListenerEntry) bool {
+	if l.Port != 15008 {
+		return true
+	}
+	if l.Protocol != k8s.ProtocolType(protocol.HBONE) {
+		return true
+	}
+	return false
+}
+
 func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
 	res := sets.New[k8s.SectionName]()
 	for _, l := range spec.Listeners {
@@ -1855,6 +1866,79 @@ func buildListener(
 	return server, ok
 }
 
+func buildListenerSet(
+	ctx krt.HandlerContext,
+	secrets krt.Collection[*corev1.Secret],
+	grants ReferenceGrants,
+	namespaces krt.Collection[*corev1.Namespace],
+	obj *gatewayx.XListenerSet,
+	status *gatewayx.ListenerSetStatus,
+	l gatewayx.ListenerEntry,
+	listenerIndex int,
+	controllerName k8s.GatewayController,
+) (*istio.Server, bool) {
+	listenerConditions := map[string]*condition{
+		string(k8s.ListenerConditionAccepted): {
+			reason:  string(k8s.ListenerReasonAccepted),
+			message: "No errors found",
+		},
+		string(k8s.ListenerConditionProgrammed): {
+			reason:  string(k8s.ListenerReasonProgrammed),
+			message: "No errors found",
+		},
+		string(k8s.ListenerConditionConflicted): {
+			reason:  string(k8s.ListenerReasonNoConflicts),
+			message: "No errors found",
+			status:  kstatus.StatusFalse,
+		},
+		string(k8s.ListenerConditionResolvedRefs): {
+			reason:  string(k8s.ListenerReasonResolvedRefs),
+			message: "No errors found",
+		},
+	}
+
+	ok := true
+	tls, err := buildTLS(ctx, secrets, grants, l.TLS, obj, kube.IsAutoPassthroughSet(obj.Labels, l))
+	if err != nil {
+		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
+		listenerConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
+			Reason:  string(k8s.GatewayReasonInvalid),
+			Message: "Bad TLS configuration",
+		}
+		ok = false
+	}
+	hostnames := buildHostnameMatchSet(ctx, obj.Namespace, namespaces, l)
+	protocol, perr := listenerProtocolToIstio(controllerName, l.Protocol)
+	if perr != nil {
+		listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+			Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
+			Message: perr.Error(),
+		}
+		ok = false
+	}
+	if controllerName == constants.ManagedGatewayMeshController {
+		if unexpectedWaypointListenerSet(l) {
+			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+				Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
+				Message: `Expected a single listener on port 15008 with protocol "HBONE"`,
+			}
+		}
+	}
+	server := &istio.Server{
+		Port: &istio.Port{
+			// Name is required. We only have one server per Gateway, so we can just name them all the same
+			Name:     "default",
+			Number:   uint32(l.Port),
+			Protocol: protocol,
+		},
+		Hosts: hostnames,
+		Tls:   tls,
+	}
+
+	reportListenerSetCondition(listenerIndex, l, obj, status, listenerConditions)
+	return server, ok
+}
+
 var supportedProtocols = sets.New(
 	k8s.HTTPProtocolType,
 	k8s.HTTPSProtocolType,
@@ -1894,7 +1978,7 @@ func buildTLS(
 	secrets krt.Collection[*corev1.Secret],
 	grants ReferenceGrants,
 	tls *k8s.GatewayTLSConfig,
-	gw *k8sbeta.Gateway,
+	gw controllers.Object,
 	isAutoPassthrough bool,
 ) (*istio.ServerTLSSettings, *ConfigError) {
 	if tls == nil {
@@ -1909,7 +1993,7 @@ func buildTLS(
 	if tls.Mode != nil {
 		mode = *tls.Mode
 	}
-	namespace := gw.Namespace
+	namespace := gw.GetNamespace()
 	switch mode {
 	case k8s.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
@@ -1954,7 +2038,7 @@ func buildTLS(
 func buildSecretReference(
 	ctx krt.HandlerContext,
 	ref k8s.SecretObjectReference,
-	gw *k8sbeta.Gateway,
+	gw controllers.Object,
 	secrets krt.Collection[*corev1.Secret],
 ) (string, *ConfigError) {
 	if !nilOrEqual((*string)(ref.Group), gvk.Secret.Group) || !nilOrEqual((*string)(ref.Kind), gvk.Secret.Kind) {
@@ -1964,7 +2048,7 @@ func buildSecretReference(
 	secret := model.ConfigKey{
 		Kind:      kind.Secret,
 		Name:      string(ref.Name),
-		Namespace: ptr.OrDefault((*string)(ref.Namespace), gw.Namespace),
+		Namespace: ptr.OrDefault((*string)(ref.Namespace), gw.GetNamespace()),
 	}
 
 	key := secret.Namespace + "/" + secret.Name
@@ -2011,6 +2095,31 @@ func parentRefString(ref k8s.ParentReference) string {
 
 // buildHostnameMatch generates a Gateway.spec.servers.hosts section from a listener
 func buildHostnameMatch(ctx krt.HandlerContext, localNamespace string, namespaces krt.Collection[*corev1.Namespace], l k8s.Listener) []string {
+	// We may allow all hostnames or a specific one
+	hostname := "*"
+	if l.Hostname != nil {
+		hostname = string(*l.Hostname)
+	}
+
+	resp := []string{}
+	for _, ns := range namespacesFromSelector(ctx, localNamespace, namespaces, l.AllowedRoutes) {
+		// This check is necessary to prevent adding a hostname with an invalid empty namespace
+		if len(ns) > 0 {
+			resp = append(resp, fmt.Sprintf("%s/%s", ns, hostname))
+		}
+	}
+
+	// If nothing matched use ~ namespace (match nothing). We need this since its illegal to have an
+	// empty hostname list, but we still need the Gateway provisioned to ensure status is properly set and
+	// SNI matches are established; we just don't want to actually match any routing rules (yet).
+	if len(resp) == 0 {
+		return []string{"~/" + hostname}
+	}
+	return resp
+}
+
+// buildHostnameMatch generates a Gateway.spec.servers.hosts section from a listener
+func buildHostnameMatchSet(ctx krt.HandlerContext, localNamespace string, namespaces krt.Collection[*corev1.Namespace], l gatewayx.ListenerEntry) []string {
 	// We may allow all hostnames or a specific one
 	hostname := "*"
 	if l.Hostname != nil {

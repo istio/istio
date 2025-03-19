@@ -67,6 +67,7 @@ import (
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 
@@ -253,6 +254,9 @@ func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object)
 			return group == "istio"
 		}
 		if strings.Contains(g, "gateway.networking.k8s.io") {
+			return group == "gateway"
+		}
+		if strings.Contains(g, "gateway.networking.x-k8s.io") {
 			return group == "gateway"
 		}
 		return group == "kube"
@@ -1336,6 +1340,7 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(gatewayapi.Install(scheme))
 	utilruntime.Must(gatewayapibeta.Install(scheme))
 	utilruntime.Must(gatewayapiv1.Install(scheme))
+	utilruntime.Must(gatewayx.Install(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme
 }

@@ -19,6 +19,7 @@ import (
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	sigsk8siogatewayapiapisxv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
@@ -737,6 +738,21 @@ var (
 		ValidateProto: validation.ValidateWorkloadGroup,
 	}.MustBuild()
 
+	XListenerSet = resource.Builder{
+		Identifier: "XListenerSet",
+		Group:      "gateway.networking.x-k8s.io",
+		Kind:       "XListenerSet",
+		Plural:     "xlistenersets",
+		Version:    "v1alpha1",
+		Proto:      "ListenerSetSpec", StatusProto: "ListenerSetStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.ListenerSetSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.ListenerSetStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
@@ -782,6 +798,7 @@ var (
 		MustAdd(WasmPlugin).
 		MustAdd(WorkloadEntry).
 		MustAdd(WorkloadGroup).
+		MustAdd(XListenerSet).
 		Build()
 
 	// Kube contains only kubernetes collections.
@@ -813,6 +830,7 @@ var (
 		MustAdd(TLSRoute).
 		MustAdd(UDPRoute).
 		MustAdd(ValidatingWebhookConfiguration).
+		MustAdd(XListenerSet).
 		Build()
 
 	// Pilot contains only collections used by Pilot.

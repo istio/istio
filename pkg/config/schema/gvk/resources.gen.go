@@ -79,6 +79,7 @@ var (
 	WorkloadGroup                  = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "WorkloadGroup"}
 	WorkloadGroup_v1alpha3         = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "WorkloadGroup"}
 	WorkloadGroup_v1beta1          = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "WorkloadGroup"}
+	XListenerSet                   = config.GroupVersionKind{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Kind: "XListenerSet"}
 )
 
 // ToGVR converts a GVK to a GVR.
@@ -222,6 +223,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.WorkloadGroup_v1alpha3, true
 	case WorkloadGroup_v1beta1:
 		return gvr.WorkloadGroup_v1beta1, true
+	case XListenerSet:
+		return gvr.XListenerSet, true
 	}
 
 	return schema.GroupVersionResource{}, false
@@ -326,6 +329,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return WorkloadEntry, true
 	case gvr.WorkloadGroup:
 		return WorkloadGroup, true
+	case gvr.XListenerSet:
+		return XListenerSet, true
 	}
 
 	return config.GroupVersionKind{}, false

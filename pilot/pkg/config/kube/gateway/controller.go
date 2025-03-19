@@ -24,6 +24,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
@@ -133,6 +134,7 @@ type Inputs struct {
 	GRPCRoutes      krt.Collection[*gatewayv1.GRPCRoute]
 	TCPRoutes       krt.Collection[*gatewayalpha.TCPRoute]
 	TLSRoutes       krt.Collection[*gatewayalpha.TLSRoute]
+	ListenerSets    krt.Collection[*gatewayx.XListenerSet]
 	ReferenceGrants krt.Collection[*gateway.ReferenceGrant]
 	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
 }
@@ -188,10 +190,12 @@ func NewController(
 	if features.EnableAlphaGatewayAPI {
 		inputs.TCPRoutes = buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes")
 		inputs.TLSRoutes = buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes")
+		inputs.ListenerSets = buildClient[*gatewayx.XListenerSet](c, kc, gvr.XListenerSet, opts, "informer/ListenerSet")
 	} else {
 		// If disabled, still build a collection but make it always empty
 		inputs.TCPRoutes = krt.NewStaticCollection[*gatewayalpha.TCPRoute](nil, nil, opts.WithName("disable/TCPRoutes")...)
 		inputs.TLSRoutes = krt.NewStaticCollection[*gatewayalpha.TLSRoute](nil, nil, opts.WithName("disable/TLSRoutes")...)
+		inputs.ListenerSets = krt.NewStaticCollection[*gatewayx.XListenerSet](nil, nil, opts.WithName("disable/ListenerSet")...)
 	}
 
 	handlers := []krt.HandlerRegistration{}
@@ -200,11 +204,25 @@ func NewController(
 	registerStatus(c, GatewayClassStatus)
 
 	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
+	ListenerSetStatus, ListenerSets := ListenerSetCollection(
+		inputs.ListenerSets,
+		inputs.Gateways,
+		GatewayClasses,
+		inputs.Namespaces,
+		ReferenceGrants,
+		inputs.Secrets,
+		options.DomainSuffix,
+		c.gatewayContext,
+		c.tagWatcher,
+		opts,
+	)
+	registerStatus(c, ListenerSetStatus)
 
 	// GatewaysStatus cannot is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
 	GatewaysStatus, Gateways := GatewayCollection(
 		inputs.Gateways,
+		ListenerSets,
 		GatewayClasses,
 		inputs.Namespaces,
 		ReferenceGrants,
