@@ -27,8 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 )
 
-var _ cache.Controller = &podController{}
-
 type podHandler func(pod *corev1.Pod) error
 
 type podHandlers struct {
