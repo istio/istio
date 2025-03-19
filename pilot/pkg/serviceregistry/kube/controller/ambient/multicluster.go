@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
-	kubeclient "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
@@ -46,12 +45,10 @@ import (
 const ClusterKRTMetadataKey = "cluster"
 
 func (a *index) buildGlobalCollections(
+	LocalCluster *Cluster,
 	LocalAuthzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
 	LocalPeerAuths krt.Collection[*securityclient.PeerAuthentication],
-	LocalNamespaces krt.Collection[*v1.Namespace],
-	LocalGateways krt.Collection[*v1beta1.Gateway],
 	LocalGatewayClasses krt.Collection[*v1beta1.GatewayClass],
-	LocalPods krt.Collection[*v1.Pod],
 	LocalWorkloadEntries krt.Collection[*networkingclient.WorkloadEntry],
 	LocalServiceEntries krt.Collection[*networkingclient.ServiceEntry],
 	options Options,
@@ -68,92 +65,74 @@ func (a *index) buildGlobalCollections(
 	)
 	a.remoteClusters = clusters
 
+	LocalPods := LocalCluster.pods
+	LocalServices := LocalCluster.services
+	LocalNamespaces := LocalCluster.namespaces
+	LocalNodes := LocalCluster.nodes
+	LocalEndpointSlices := LocalCluster.endpointSlices
+	LocalGateways := LocalCluster.gateways
+	LocalWaypoints := a.WaypointsCollection(options.ClusterID, LocalGateways, LocalGatewayClasses, LocalPods, opts)
+
+	GlobalEndpointSlices := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalEndpointSlices, clusters, func(c Cluster) krt.Collection[*discovery.EndpointSlice] {
+		return c.endpointSlices
+	}, opts))
+	endpointSliceInformersByCluster := informerIndexByCluster(GlobalEndpointSlices)
+
 	LocalMeshConfig := options.MeshConfig
 	// These first collections can't be merged since the Kubernetes APIs don't have enough room
 	// for e.g. duplicate IPs, etc. So we keep around collections of collections and indexes per cluster.
-	allPodInformers := krt.NewCollection(clusters, informerForCluster[*v1.Pod](
-		filter,
-		"Pods",
-		opts,
-		func(c Cluster) kclient.Filter {
-			return kclient.Filter{
-				ObjectFilter:    c.Client.ObjectFilter(),
-				ObjectTransform: kubeclient.StripPodUnusedFields,
-			}
-		},
-	))
+	GlobalPods := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalPods, clusters, func(c Cluster) krt.Collection[*v1.Pod] {
+		return c.pods
+	}, opts))
 	// Pod informers indexable by cluster ID
-	podInformersByCluster := informerIndexByCluster(allPodInformers)
+	podInformersByCluster := informerIndexByCluster(GlobalPods)
 
-	allServicesInformers := krt.NewCollection(clusters, informerForCluster[*v1.Service](
-		filter,
-		"Services",
-		opts,
-		nil,
-	))
-	serviceInformersByCluster := informerIndexByCluster(allServicesInformers)
+	GlobalServices := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalServices, clusters, func(c Cluster) krt.Collection[*v1.Service] {
+		return c.services
+	}, opts))
+	serviceInformersByCluster := informerIndexByCluster(GlobalServices)
 
-	allGateways := krt.NewCollection(clusters, informerForCluster[*v1beta1.Gateway](
-		filter,
-		"Gateways",
-		opts,
-		nil,
-	))
-	gatewayInformersByCluster := informerIndexByCluster(allGateways)
-	globalGateways := krt.NewCollection(clusters, collectionFromCluster[*v1beta1.Gateway]("Gateways", gatewayInformersByCluster, opts))
-	globalGatewaysByCluster := nestedCollectionIndexByCluster(globalGateways)
+	GlobalGateways := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalGateways, clusters, func(c Cluster) krt.Collection[*v1beta1.Gateway] {
+		return c.gateways
+	}, opts))
+	gatewayInformersByCluster := informerIndexByCluster(GlobalGateways)
+	GlobalGatewaysWithCluster := krt.NewCollection(clusters, collectionFromCluster[*v1beta1.Gateway]("GatewaysWithCluster", GlobalGateways, gatewayInformersByCluster, opts))
+	globalGatewaysByCluster := nestedCollectionIndexByCluster(GlobalGatewaysWithCluster)
 
-	allNamespaces := krt.NewCollection(clusters, informerForCluster[*v1.Namespace](
-		filter,
-		"Namespaces",
-		opts,
-		nil,
-	))
-	namespaceInformersByCluster := informerIndexByCluster(allNamespaces)
+	GlobalNamespaces := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalNamespaces, clusters, func(c Cluster) krt.Collection[*v1.Namespace] {
+		return c.namespaces
+	}, opts))
+	namespaceInformersByCluster := informerIndexByCluster(GlobalNamespaces)
 
-	allEndpointSlices := krt.NewCollection(clusters, informerForCluster[*discovery.EndpointSlice](
-		filter,
-		"EndpointSlices",
-		opts,
-		nil,
-	))
-	endointSliceInformersByCluster := informerIndexByCluster(allEndpointSlices)
+	GlobalNodes := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalNodes, clusters, func(c Cluster) krt.Collection[*v1.Node] {
+		return c.nodes
+	}, opts))
+	nodeInformersByCluster := informerIndexByCluster(GlobalNodes)
 
-	allNodes := krt.NewCollection(clusters, informerForCluster[*v1.Node](
-		filter,
-		"Nodes",
-		opts,
-		func(c Cluster) kclient.Filter {
-			return kclient.Filter{
-				ObjectFilter:    c.Client.ObjectFilter(),
-				ObjectTransform: kubeclient.StripNodeUnusedFields,
-			}
-		},
-	), opts.WithName("AllNodes")...)
-	nodeInformersByCluster := informerIndexByCluster(allNodes)
-	globalNodes := krt.NewCollection(clusters, collectionFromCluster[*v1.Node]("Nodes", nodeInformersByCluster, opts))
+	globalNodes := krt.NewCollection(clusters, collectionFromCluster[*v1.Node]("Nodes", GlobalNodes, nodeInformersByCluster, opts))
 	// Set up collections for remote clusters
 	GlobalNetworks := buildGlobalNetworkCollections(
 		clusters,
 		LocalNamespaces,
+		GlobalGatewaysWithCluster,
 		globalGatewaysByCluster,
 		options,
 		opts,
 	)
 	a.networks = GlobalNetworks
 	GlobalWaypoints := GlobalWaypointsCollection(
+		LocalWaypoints,
 		clusters,
 		LocalGatewayClasses,
-		allGateways,
+		GlobalGateways,
 		gatewayInformersByCluster,
-		allPodInformers,
+		GlobalPods,
 		podInformersByCluster,
 		GlobalNetworks,
 		opts,
 	)
 
-	WaypointsPerCluster := nestedCollectionIndexByCluster(GlobalWaypoints)
-	LocalWaypoints := a.WaypointsCollection(LocalGateways, LocalGatewayClasses, LocalPods, opts)
+	WaypointsByCluster := nestedCollectionIndexByCluster(GlobalWaypoints)
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := PolicyCollections(LocalAuthzPolicies, LocalPeerAuths, LocalMeshConfig, LocalWaypoints, opts, a.Flags)
 	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater,
@@ -164,24 +143,37 @@ func (a *index) buildGlobalCollections(
 			return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
 		}), false)
 
+	LocalWorkloadServices := a.ServicesCollection(LocalCluster.ID, LocalCluster.services, LocalServiceEntries, LocalWaypoints, LocalNamespaces, opts)
 	// Now we get to collections where we can actually merge duplicate keys, so we can use nested collections
-	GlobalWorkloadServices := GlobalMergedWorkloadServicesCollection(
+	GlobalWorkloadServicesWithCluster := GlobalMergedWorkloadServicesCollection(
+		LocalCluster,
+		LocalWorkloadServices,
+		LocalWaypoints,
 		clusters,
 		LocalServiceEntries,
-		allServicesInformers,
+		GlobalServices,
 		serviceInformersByCluster,
 		GlobalWaypoints,
-		WaypointsPerCluster,
-		allNamespaces,
+		WaypointsByCluster,
+		GlobalNamespaces,
 		namespaceInformersByCluster,
 		GlobalNetworks,
 		options.DomainSuffix,
-		options.ClusterID,
 		opts,
 	)
 
-	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](GlobalWorkloadServices, networkAddressFromService)
-	ServiceInfosByOwningWaypointHostname := krt.NewIndex(GlobalWorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
+	GobalWorkloadServicesWithClusterByCluster := nestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
+
+	GlobalMergedWorkloadServicesWithCluster := krt.NestedJoinWithMergeCollection(
+		GlobalWorkloadServicesWithCluster,
+		mergeServiceInfosWithCluster(LocalCluster.ID),
+		opts.WithName("GlobalMergedServiceInfosWithCluster")...,
+	)
+
+	GlobalMergedWorkloadServices := krt.MapCollection(GlobalMergedWorkloadServicesWithCluster, unwrapObjectWithCluster, opts.WithName("GlobalMergedServiceInfos")...)
+
+	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](GlobalMergedWorkloadServices, networkAddressFromService)
+	ServiceInfosByOwningWaypointHostname := krt.NewIndex(GlobalMergedWorkloadServices, func(s model.ServiceInfo) []NamespaceHostname {
 		// Filter out waypoint services
 		// TODO: we are looking at the *selector* -- we should be looking the labels themselves or something equivalent.
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
@@ -201,7 +193,7 @@ func (a *index) buildGlobalCollections(
 			Hostname:  waypointAddress.Hostname,
 		}}
 	})
-	ServiceInfosByOwningWaypointIP := krt.NewIndex(GlobalWorkloadServices, func(s model.ServiceInfo) []networkAddress {
+	ServiceInfosByOwningWaypointIP := krt.NewIndex(GlobalMergedWorkloadServices, func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -222,7 +214,7 @@ func (a *index) buildGlobalCollections(
 
 		return []networkAddress{netaddr}
 	})
-	GlobalWorkloadServices.RegisterBatch(krt.BatchedEventFilter(
+	GlobalMergedWorkloadServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *workloadapi.Service {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Service
@@ -237,14 +229,21 @@ func (a *index) buildGlobalCollections(
 		}
 	}, opts.WithName("LocalNamespacesInfo")...)
 
+	LocalNodeLocality := NodesCollection(
+		LocalNodes,
+		opts.WithName("LocalNodeLocality")...,
+	)
 	GlobalNodeLocality := GlobalNodesCollection(globalNodes, opts.Stop(), opts.WithName("GlobalNodeLocality")...)
 	GlobalNodeLocalityByCluster := nestedCollectionIndexByCluster(GlobalNodeLocality)
-	// TODO: support PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY
+
 	GlobalWorkloads := MergedGlobalWorkloadsCollection(
+		LocalCluster,
+		LocalWaypoints,
+		LocalNodeLocality,
 		clusters,
 		LocalWorkloadEntries,
 		LocalServiceEntries,
-		allPodInformers,
+		GlobalPods,
 		podInformersByCluster,
 		GlobalNodeLocality,
 		GlobalNodeLocalityByCluster,
@@ -252,11 +251,13 @@ func (a *index) buildGlobalCollections(
 		AuthorizationPolicies,
 		LocalPeerAuths,
 		GlobalWaypoints,
-		WaypointsPerCluster,
-		GlobalWorkloadServices,
-		allEndpointSlices,
-		endointSliceInformersByCluster,
-		allNamespaces,
+		WaypointsByCluster,
+		LocalWorkloadServices,
+		GlobalWorkloadServicesWithCluster,
+		GobalWorkloadServicesWithClusterByCluster,
+		GlobalEndpointSlices,
+		endpointSliceInformersByCluster,
+		GlobalNamespaces,
 		namespaceInformersByCluster,
 		GlobalNetworks,
 		options.ClusterID,
@@ -264,6 +265,7 @@ func (a *index) buildGlobalCollections(
 		options.DomainSuffix,
 		opts,
 	)
+
 	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](GlobalWorkloads, networkAddressFromWorkload)
 	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
@@ -323,7 +325,7 @@ func (a *index) buildGlobalCollections(
 			GlobalWorkloads,
 			LocalNamespacesInfo,
 			WorkloadServiceIndex,
-			GlobalWorkloadServices,
+			GlobalMergedWorkloadServices,
 			ServiceAddressIndex,
 			opts,
 		)
@@ -339,7 +341,7 @@ func (a *index) buildGlobalCollections(
 	}
 
 	a.services = servicesCollection{
-		Collection:               GlobalWorkloadServices,
+		Collection:               GlobalMergedWorkloadServices,
 		ByAddress:                ServiceAddressIndex,
 		ByOwningWaypointHostname: ServiceInfosByOwningWaypointHostname,
 		ByOwningWaypointIP:       ServiceInfosByOwningWaypointIP,
@@ -353,39 +355,44 @@ func (a *index) buildGlobalCollections(
 	return nil
 }
 
-func informerForCluster[T controllers.ComparableObject](
-	filter kclient.Filter,
-	name string,
-	opts krt.OptionsBuilder,
-	filterTransform func(c Cluster) kclient.Filter,
-) krt.TransformationSingle[Cluster, krt.Collection[T]] {
-	return func(ctx krt.HandlerContext, c Cluster) *krt.Collection[T] {
-		if filterTransform != nil {
-			filter = filterTransform(c)
+func nestedCollectionFromLocalAndRemote[T controllers.ComparableObject](
+	localCollection krt.Collection[T],
+	clustersCollection krt.Collection[Cluster],
+	remoteCollectionGetter func(c Cluster) krt.Collection[T],
+	_ krt.OptionsBuilder,
+) krt.TransformationEmptyToMulti[krt.Collection[T]] {
+	return func(ctx krt.HandlerContext) []krt.Collection[T] {
+		allCollections := []krt.Collection[T]{localCollection}
+		syncers := []krt.Syncer{localCollection}
+		clusters := krt.Fetch(ctx, clustersCollection)
+		for _, c := range clusters {
+			remoteCollection := remoteCollectionGetter(c)
+			if remoteCollection == nil {
+				log.Warnf("Cluster %s has no pod informer", c.ID)
+				continue
+			}
+			allCollections = append(allCollections, remoteCollection)
+			syncers = append(syncers, remoteCollection)
 		}
-		client := kclient.NewFiltered[T](c.Client, filter)
-		inf := krt.WrapClient[T](client, opts.With(
-			krt.WithName("cluster["+string(c.ID)+"]/informer/"+name),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: c.ID,
-			}),
-		)...)
 
-		return ptr.Of(inf)
+		return allCollections
 	}
 }
 
 func collectionFromCluster[T controllers.ComparableObject](
 	name string,
+	informerCollection krt.Collection[krt.Collection[T]],
 	informerIndex krt.Index[cluster.ID, krt.Collection[T]],
 	opts krt.OptionsBuilder,
 ) krt.TransformationSingle[Cluster, krt.Collection[config.ObjectWithCluster[T]]] {
 	return func(ctx krt.HandlerContext, c Cluster) *krt.Collection[config.ObjectWithCluster[T]] {
-		clients := informerIndex.Lookup(c.ID)
-		if len(clients) == 0 {
+		clientPtr := krt.FetchOne(ctx, informerCollection, krt.FilterIndex(informerIndex, c.ID))
+		if clientPtr == nil {
+			log.Warnf("Cluster %s has no pod informer", c.ID)
 			return nil
 		}
-		objWithCluster := krt.NewCollection(clients[0], func(ctx krt.HandlerContext, obj T) *config.ObjectWithCluster[T] {
+		client := *clientPtr
+		objWithCluster := krt.NewCollection(client, func(ctx krt.HandlerContext, obj T) *config.ObjectWithCluster[T] {
 			return &config.ObjectWithCluster[T]{ClusterID: c.ID, Object: &obj}
 		}, opts.With(
 			krt.WithName(name+"WithCluster"),

@@ -17,6 +17,7 @@ package ambient
 import (
 	"net/netip"
 	"strings"
+	"sync/atomic"
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -154,7 +155,13 @@ func New(options Options) Index {
 
 	MeshConfig := options.MeshConfig
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
-	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, opts.WithName("informer/Namespaces")...)
+	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, opts.With(
+		append(opts.WithName("informer/Namespaces"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
 		gvr.AuthorizationPolicy, kubetypes.StandardInformer, filter)
 	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, opts.WithName("informer/AuthorizationPolicies")...)
@@ -164,14 +171,26 @@ func New(options Options) Index {
 	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, opts.WithName("informer/PeerAuthentications")...)
 
 	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](options.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
-	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, opts.WithName("informer/Gateways")...)
+	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, opts.With(
+		append(opts.WithName("informer/Gateways"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
 
 	gatewayClassClient := kclient.NewDelayedInformer[*v1beta1.GatewayClass](options.Client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
 	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, opts.WithName("informer/GatewayClasses")...)
 	Pods := krt.NewInformerFiltered[*v1.Pod](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
-	}, opts.WithName("informer/Pods")...)
+	}, opts.With(
+		append(opts.WithName("informer/Pods"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
 
 	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](options.Client,
 		gvr.ServiceEntry, kubetypes.StandardInformer, filter)
@@ -181,15 +200,55 @@ func New(options Options) Index {
 		gvr.WorkloadEntry, kubetypes.StandardInformer, filter)
 	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, opts.WithName("informer/WorkloadEntries")...)
 
+	servicesClient := kclient.NewFiltered[*v1.Service](options.Client, filter)
+	Services := krt.WrapClient[*v1.Service](servicesClient, opts.With(
+		append(opts.WithName("informer/Services"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
+	Nodes := krt.NewInformerFiltered[*v1.Node](options.Client, kclient.Filter{
+		ObjectFilter:    options.Client.ObjectFilter(),
+		ObjectTransform: kubeclient.StripNodeUnusedFields,
+	}, opts.With(
+		append(opts.WithName("informer/Nodes"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
+
+	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
+		ObjectFilter: options.Client.ObjectFilter(),
+	}, opts.With(
+		append(opts.WithName("informer/EndpointSlices"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
+
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data
 	if features.EnableAmbientMultiNetwork {
+		LocalCluster := &Cluster{
+			ID:                 options.ClusterID,
+			Client:             options.Client,
+			stop:               opts.Stop(),
+			initialSync:        &atomic.Bool{},
+			initialSyncTimeout: &atomic.Bool{},
+			namespaces:         Namespaces,
+			gateways:           Gateways,
+			services:           Services,
+			pods:               Pods,
+			nodes:              Nodes,
+			endpointSlices:     EndpointSlices,
+		}
 		a.buildGlobalCollections(
+			LocalCluster,
 			AuthzPolicies,
 			PeerAuths,
-			Namespaces,
-			Gateways,
 			GatewayClasses,
-			Pods,
 			WorkloadEntries,
 			ServiceEntries,
 			options,
@@ -197,21 +256,10 @@ func New(options Options) Index {
 		return a
 	}
 
-	servicesClient := kclient.NewFiltered[*v1.Service](options.Client, filter)
-	Services := krt.WrapClient[*v1.Service](servicesClient, opts.WithName("informer/Services")...)
-	Nodes := krt.NewInformerFiltered[*v1.Node](options.Client, kclient.Filter{
-		ObjectFilter:    options.Client.ObjectFilter(),
-		ObjectTransform: kubeclient.StripNodeUnusedFields,
-	}, opts.WithName("informer/Nodes")...)
-
-	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
-		ObjectFilter: options.Client.ObjectFilter(),
-	}, opts.WithName("informer/EndpointSlices")...)
-
 	Networks := buildNetworkCollections(Namespaces, Gateways, options, opts)
 	a.networks = Networks
 	// N.B Waypoints depends on networks
-	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods, opts)
+	Waypoints := a.WaypointsCollection(options.ClusterID, Gateways, GatewayClasses, Pods, opts)
 
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints, opts, a.Flags)
@@ -224,7 +272,7 @@ func New(options Options) Index {
 		}), false)
 
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces, opts)
+	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, opts)
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)

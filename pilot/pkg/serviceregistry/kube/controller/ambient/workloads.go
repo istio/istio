@@ -130,6 +130,9 @@ func (a *index) WorkloadsCollection(
 }
 
 func MergedGlobalWorkloadsCollection(
+	LocalCluster *Cluster,
+	localWaypoints krt.Collection[Waypoint],
+	localNodeLocalities krt.Collection[Node],
 	clusters krt.Collection[Cluster],
 	workloadEntries krt.Collection[*networkingclient.WorkloadEntry],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
@@ -142,7 +145,9 @@ func MergedGlobalWorkloadsCollection(
 	localPeerAuths krt.Collection[*securityclient.PeerAuthentication],
 	globalWaypoints krt.Collection[krt.Collection[Waypoint]],
 	waypointsByCluster krt.Index[cluster.ID, krt.Collection[Waypoint]],
-	workloadServices krt.Collection[model.ServiceInfo],
+	localWorkloadServices krt.Collection[model.ServiceInfo],
+	globalWorkloadServices krt.Collection[krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]],
+	globalWorkloadServicesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]],
 	globalEndpointSlices krt.Collection[krt.Collection[*discovery.EndpointSlice]],
 	endpointSlicesByCluster krt.Index[cluster.ID, krt.Collection[*discovery.EndpointSlice]],
 	globalNamespaces krt.Collection[krt.Collection[*v1.Namespace]],
@@ -153,174 +158,307 @@ func MergedGlobalWorkloadsCollection(
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.WorkloadInfo] {
-	// This will contain the workloadInfos derived from Pods AND WorkloadEntries
-	GlobalWorkloadInfos := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, c Cluster) []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]] {
-		nwPtr := krt.FetchOne(ctx, globalNetworks.GlobalSystemNamespaces, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+	GlobalWorkloadInfos := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]] {
+		// Wait for all of the things we depend on in the local cluster to be ready
+		nwPtr := krt.FetchOne(ctx, globalNetworks.LocalSystemNamespace.AsCollection())
 		if nwPtr == nil {
-			log.Warnf("Cluster %s does not have a network assigned, skipping", c.ID)
+			log.Warnf("Local cluster does not have a network assigned, skipping")
 			return nil
 		}
 		nw := *nwPtr
-		endpointSlicesPtr := krt.FetchOne(ctx, globalEndpointSlices, krt.FilterIndex(endpointSlicesByCluster, c.ID))
-		if endpointSlicesPtr == nil {
-			log.Warnf("Cluster %s does not have endpoint slices, skipping", c.ID)
-			return nil
-		}
-		endpointSlices := *endpointSlicesPtr
-		podsPtr := krt.FetchOne(ctx, globalPods, krt.FilterIndex(podsByCluster, c.ID))
-		if podsPtr == nil {
-			log.Warnf("Cluster %s does not have pods, skipping", c.ID)
-			return nil
-		}
-		pods := *podsPtr
-		waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, c.ID))
-		if waypointsPtr == nil {
-			log.Warnf("Cluster %s does not have waypoints, skipping", c.ID)
-			return nil
-		}
-		waypoints := *waypointsPtr
-		namespacesPtr := krt.FetchOne(ctx, globalNamespaces, krt.FilterIndex(namespacesByCluster, c.ID))
-		if namespacesPtr == nil {
-			log.Warnf("Cluster %s does not have namespaces, skipping", c.ID)
-			return nil
-		}
-		namespaces := *namespacesPtr
-		clusteredNodesPtr := krt.FetchOne(ctx, globalNodes, krt.FilterIndex(nodesByCluster, c.ID))
-		if clusteredNodesPtr == nil {
-			log.Warnf("Cluster %s does not have nodes, skipping", c.ID)
-			return nil
-		}
-		clusteredNodes := *clusteredNodesPtr
-		nodes := krt.MapCollection(clusteredNodes, unwrapObjectWithCluster)
-
-		WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(workloadServices)
-		EndpointSlicesByIPIndex := endpointSliceAddressIndex(endpointSlices)
-		// Workloads coming from pods. There should be one workload for each (running) Pod.
-		PodWorkloads := krt.NewCollection(
-			pods,
+		LocalWorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(localWorkloadServices)
+		LocalEndpointSlicesByIPIndex := endpointSliceAddressIndex(LocalCluster.endpointSlices)
+		LocalPodWorkloads := krt.NewCollection(
+			LocalCluster.pods,
 			podWorkloadBuilder(
 				meshConfig,
 				localAuthorizationPolicies,
 				localPeerAuths,
-				waypoints,
-				workloadServices,
-				WorkloadServicesNamespaceIndex,
-				endpointSlices,
-				EndpointSlicesByIPIndex,
-				namespaces,
-				nodes,
+				localWaypoints,
+				localWorkloadServices,
+				LocalWorkloadServicesNamespaceIndex,
+				LocalCluster.endpointSlices,
+				LocalEndpointSlicesByIPIndex,
+				LocalCluster.namespaces,
+				localNodeLocalities,
 				domainSuffix,
 				func(_ krt.HandlerContext) cluster.ID {
-					return c.ID
+					return LocalCluster.ID
 				},
 				func(hc krt.HandlerContext) network.ID {
-					return network.ID(*nw.Get())
+					return network.ID(nw)
 				},
 				globalNetworks.NetworkGateways,
 				globalNetworks.GatewaysByNetwork,
 				flags,
 			),
-			opts.WithName("PodWorkloads")...,
+			opts.WithName("LocalPodWorkloads")...,
 		)
-		PodWorkloadsWithCluster := krt.MapCollection(PodWorkloads, wrapObjectWithCluster[model.WorkloadInfo](c.ID), opts.WithName("PodWorkloadsWithCluster")...)
-		// Workloads coming from workloadEntries. These are 1:1 with WorkloadEntry.
-		WorkloadEntryWorkloads := krt.NewCollection(
+		LocalPodWorkloadsWithCluster := krt.MapCollection(LocalPodWorkloads, wrapObjectWithCluster[model.WorkloadInfo](LocalCluster.ID), opts.WithName("LocalPodWorkloadsWithCluster")...)
+		LocalWorkloadEntryWorkloads := krt.NewCollection(
 			workloadEntries,
 			workloadEntryWorkloadBuilder(
 				meshConfig,
 				localAuthorizationPolicies,
 				localPeerAuths,
-				waypoints,
-				workloadServices,
-				WorkloadServicesNamespaceIndex,
-				namespaces,
+				localWaypoints,
+				localWorkloadServices,
+				LocalWorkloadServicesNamespaceIndex,
+				LocalCluster.namespaces,
 				func(_ krt.HandlerContext) cluster.ID {
-					return c.ID
+					return LocalCluster.ID
 				},
 				func(hc krt.HandlerContext) network.ID {
-					return network.ID(*nw.Get())
+					return network.ID(nw)
 				},
 				globalNetworks.NetworkGateways,
 				globalNetworks.GatewaysByNetwork,
 				flags,
 			),
-			opts.WithName("WorkloadEntryWorkloads")...,
+			opts.WithName("LocalWorkloadEntryWorkloads")...,
 		)
-		WorkloadEntryWorkloadsWithCluster := krt.MapCollection(WorkloadEntryWorkloads, wrapObjectWithCluster[model.WorkloadInfo](c.ID), opts.WithName("WorkloadEntryWorkloadsWithCluster")...)
+		LocalWorkloadEntryWorkloadsWithCluster := krt.MapCollection(LocalWorkloadEntryWorkloads, wrapObjectWithCluster[model.WorkloadInfo](LocalCluster.ID), opts.WithName("LocalWorkloadEntryWorkloadsWithCluster")...)
 		// Workloads coming from serviceEntries. These are inlined workloadEntries (under `spec.endpoints`); these serviceEntries will
 		// also be generating `workloadapi.Service` definitions in the `ServicesCollection` logic.
-		ServiceEntryWorkloads := krt.NewManyCollection(
+		LocalServiceEntryWorkloads := krt.NewManyCollection(
 			serviceEntries,
 			serviceEntryWorkloadBuilder(
 				meshConfig,
 				localAuthorizationPolicies,
 				localPeerAuths,
-				waypoints,
-				namespaces,
+				localWaypoints,
+				LocalCluster.namespaces,
 				func(hc krt.HandlerContext) cluster.ID {
-					return c.ID
+					return LocalCluster.ID
 				},
 				func(hc krt.HandlerContext) network.ID {
-					return network.ID(*nw.Get())
+					return network.ID(nw)
 				},
 				globalNetworks.NetworkGateways,
 				globalNetworks.GatewaysByNetwork,
 				flags,
 			),
-			opts.WithName("ServiceEntryWorkloads")...,
+			opts.WithName("LocalServiceEntryWorkloads")...,
 		)
-		ServiceEntryWorkloadsWithCluster := krt.MapCollection(
-			ServiceEntryWorkloads,
-			wrapObjectWithCluster[model.WorkloadInfo](c.ID),
-			opts.WithName("ServiceEntryWorkloadsWithCluster")...,
+		LocalServiceEntryWorkloadsWithCluster := krt.MapCollection(
+			LocalServiceEntryWorkloads,
+			wrapObjectWithCluster[model.WorkloadInfo](LocalCluster.ID),
+			opts.WithName("LocalServiceEntryWorkloadsWithCluster")...,
 		)
 		// Workloads coming from endpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
 		// into the EndpointSlice. This is because Kubernetes has 3 APIs in its model: Service, Pod, and EndpointSlice.
 		// In our API, we only have two: Service and Workload.
 		// Pod provides much more information than EndpointSlice, so typically we just consume that directly; see method for more details
 		// on when we will build from an EndpointSlice.
-		EndpointSliceWorkloads := krt.NewManyCollection(
-			endpointSlices,
+		LocalEndpointSliceWorkloads := krt.NewManyCollection(
+			LocalCluster.endpointSlices,
 			endpointSlicesBuilder(meshConfig,
-				workloadServices,
+				localWorkloadServices,
 				domainSuffix,
 				func(hc krt.HandlerContext) cluster.ID {
-					return c.ID
+					return LocalCluster.ID
 				},
 				func(hc krt.HandlerContext) network.ID {
-					return network.ID(*nw.Get())
+					return network.ID(nw)
 				},
 			),
 			opts.WithName("EndpointSliceWorkloads")...)
-		EndpointSliceWorkloadsWithCluster := krt.MapCollection(
-			EndpointSliceWorkloads,
-			wrapObjectWithCluster[model.WorkloadInfo](c.ID),
+		LocalEndpointSliceWorkloadsWithCluster := krt.MapCollection(
+			LocalEndpointSliceWorkloads,
+			wrapObjectWithCluster[model.WorkloadInfo](LocalCluster.ID),
 			opts.WithName("EndpointSliceWorkloadsWithCluster")...,
 		)
 
-		NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
+		LocalNetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
 			return slices.Map(LookupAllNetworkGateway(
 				ctx,
 				globalNetworks.NetworkGateways,
 			), convertGateway)
-		}, opts.WithName("NetworkGatewayWorkloads")...)
-		NetworkGatewayWorkloadsWithCluster := krt.MapCollection(NetworkGatewayWorkloads, wrapObjectWithCluster[model.WorkloadInfo](c.ID), opts.WithName("NetworkGatewayWorkloadsWithCluster")...)
-
-		// krt.MarkSyncDependentBatch(ctx, []krt.Syncer{
-		// 	PodWorkloadsWithCluster,
-		// 	WorkloadEntryWorkloadsWithCluster,
-		// 	ServiceEntryWorkloadsWithCluster,
-		// 	EndpointSliceWorkloadsWithCluster,
-		// 	NetworkGatewayWorkloadsWithCluster,
-		// }, opts.Stop())
-
-		return []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]]{
-			PodWorkloadsWithCluster,
-			WorkloadEntryWorkloadsWithCluster,
-			ServiceEntryWorkloadsWithCluster,
-			EndpointSliceWorkloadsWithCluster,
-			NetworkGatewayWorkloadsWithCluster,
+		}, opts.WithName("LocalNetworkGatewayWorkloads")...)
+		LocalNetworkGatewayWorkloadsWithCluster := krt.MapCollection(
+			LocalNetworkGatewayWorkloads,
+			wrapObjectWithCluster[model.WorkloadInfo](LocalCluster.ID),
+			opts.WithName("LocalNetworkGatewayWorkloadsWithCluster")...,
+		)
+		AllWorkloads := []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]]{
+			LocalPodWorkloadsWithCluster,
+			LocalWorkloadEntryWorkloadsWithCluster,
+			LocalServiceEntryWorkloadsWithCluster,
+			LocalEndpointSliceWorkloadsWithCluster,
+			LocalNetworkGatewayWorkloadsWithCluster,
 		}
+
+		// Now loop through clusters
+		clusters := krt.Fetch(ctx, clusters)
+		for _, c := range clusters {
+			nwPtr := krt.FetchOne(ctx, globalNetworks.GlobalSystemNamespaces, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+			if nwPtr == nil {
+				log.Warnf("Cluster %s does not have a network assigned, skipping", c.ID)
+				return nil
+			}
+			nw := *nwPtr
+			endpointSlicesPtr := krt.FetchOne(ctx, globalEndpointSlices, krt.FilterIndex(endpointSlicesByCluster, c.ID))
+			if endpointSlicesPtr == nil {
+				log.Warnf("Cluster %s does not have endpoint slices, skipping", c.ID)
+				return nil
+			}
+			endpointSlices := *endpointSlicesPtr
+			podsPtr := krt.FetchOne(ctx, globalPods, krt.FilterIndex(podsByCluster, c.ID))
+			if podsPtr == nil {
+				log.Warnf("Cluster %s does not have pods, skipping", c.ID)
+				return nil
+			}
+			pods := *podsPtr
+			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, c.ID))
+			if waypointsPtr == nil {
+				log.Warnf("Cluster %s does not have waypoints, skipping", c.ID)
+				return nil
+			}
+			waypoints := *waypointsPtr
+			namespacesPtr := krt.FetchOne(ctx, globalNamespaces, krt.FilterIndex(namespacesByCluster, c.ID))
+			if namespacesPtr == nil {
+				log.Warnf("Cluster %s does not have namespaces, skipping", c.ID)
+				return nil
+			}
+			namespaces := *namespacesPtr
+			clusteredNodesPtr := krt.FetchOne(ctx, globalNodes, krt.FilterIndex(nodesByCluster, c.ID))
+			if clusteredNodesPtr == nil {
+				log.Warnf("Cluster %s does not have nodes, skipping", c.ID)
+				return nil
+			}
+			clusteredNodes := *clusteredNodesPtr
+			nodes := krt.MapCollection(clusteredNodes, unwrapObjectWithCluster)
+
+			workloadServicesPtr := krt.FetchOne(ctx, globalWorkloadServices, krt.FilterIndex(globalWorkloadServicesByCluster, c.ID))
+			if workloadServicesPtr == nil {
+				log.Warnf("Cluster %s does not have workload services, skipping", c.ID)
+				return nil
+			}
+			globalWorkloadServicesWithCluster := *workloadServicesPtr
+			globalWorkloadServices := krt.MapCollection(globalWorkloadServicesWithCluster, unwrapObjectWithCluster[model.ServiceInfo], opts.WithName("GlobalWorkloadServices")...)
+
+			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(globalWorkloadServices)
+			EndpointSlicesByIPIndex := endpointSliceAddressIndex(endpointSlices)
+			// Workloads coming from pods. There should be one workload for each (running) Pod.
+			PodWorkloads := krt.NewCollection(
+				pods,
+				podWorkloadBuilder(
+					meshConfig,
+					localAuthorizationPolicies,
+					localPeerAuths,
+					waypoints,
+					globalWorkloadServices,
+					WorkloadServicesNamespaceIndex,
+					endpointSlices,
+					EndpointSlicesByIPIndex,
+					namespaces,
+					nodes,
+					domainSuffix,
+					func(_ krt.HandlerContext) cluster.ID {
+						return c.ID
+					},
+					func(hc krt.HandlerContext) network.ID {
+						return network.ID(*nw.Get())
+					},
+					globalNetworks.NetworkGateways,
+					globalNetworks.GatewaysByNetwork,
+					flags,
+				),
+				opts.WithName("PodWorkloads")...,
+			)
+			PodWorkloadsWithCluster := krt.MapCollection(PodWorkloads, wrapObjectWithCluster[model.WorkloadInfo](c.ID), opts.WithName("PodWorkloadsWithCluster")...)
+			// Workloads coming from workloadEntries. These are 1:1 with WorkloadEntry.
+			WorkloadEntryWorkloads := krt.NewCollection(
+				workloadEntries,
+				workloadEntryWorkloadBuilder(
+					meshConfig,
+					localAuthorizationPolicies,
+					localPeerAuths,
+					waypoints,
+					globalWorkloadServices,
+					WorkloadServicesNamespaceIndex,
+					namespaces,
+					func(_ krt.HandlerContext) cluster.ID {
+						return c.ID
+					},
+					func(hc krt.HandlerContext) network.ID {
+						return network.ID(*nw.Get())
+					},
+					globalNetworks.NetworkGateways,
+					globalNetworks.GatewaysByNetwork,
+					flags,
+				),
+				opts.WithName("WorkloadEntryWorkloads")...,
+			)
+			WorkloadEntryWorkloadsWithCluster := krt.MapCollection(WorkloadEntryWorkloads, wrapObjectWithCluster[model.WorkloadInfo](c.ID), opts.WithName("WorkloadEntryWorkloadsWithCluster")...)
+			// Workloads coming from serviceEntries. These are inlined workloadEntries (under `spec.endpoints`); these serviceEntries will
+			// also be generating `workloadapi.Service` definitions in the `ServicesCollection` logic.
+			ServiceEntryWorkloads := krt.NewManyCollection(
+				serviceEntries,
+				serviceEntryWorkloadBuilder(
+					meshConfig,
+					localAuthorizationPolicies,
+					localPeerAuths,
+					waypoints,
+					namespaces,
+					func(hc krt.HandlerContext) cluster.ID {
+						return c.ID
+					},
+					func(hc krt.HandlerContext) network.ID {
+						return network.ID(*nw.Get())
+					},
+					globalNetworks.NetworkGateways,
+					globalNetworks.GatewaysByNetwork,
+					flags,
+				),
+				opts.WithName("ServiceEntryWorkloads")...,
+			)
+			ServiceEntryWorkloadsWithCluster := krt.MapCollection(
+				ServiceEntryWorkloads,
+				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
+				opts.WithName("ServiceEntryWorkloadsWithCluster")...,
+			)
+			// Workloads coming from endpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
+			// into the EndpointSlice. This is because Kubernetes has 3 APIs in its model: Service, Pod, and EndpointSlice.
+			// In our API, we only have two: Service and Workload.
+			// Pod provides much more information than EndpointSlice, so typically we just consume that directly; see method for more details
+			// on when we will build from an EndpointSlice.
+			EndpointSliceWorkloads := krt.NewManyCollection(
+				endpointSlices,
+				endpointSlicesBuilder(meshConfig,
+					globalWorkloadServices,
+					domainSuffix,
+					func(hc krt.HandlerContext) cluster.ID {
+						return c.ID
+					},
+					func(hc krt.HandlerContext) network.ID {
+						return network.ID(*nw.Get())
+					},
+				),
+				opts.WithName("EndpointSliceWorkloads")...)
+			EndpointSliceWorkloadsWithCluster := krt.MapCollection(
+				EndpointSliceWorkloads,
+				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
+				opts.WithName("EndpointSliceWorkloadsWithCluster")...,
+			)
+
+			NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
+				return slices.Map(LookupAllNetworkGateway(
+					ctx,
+					globalNetworks.NetworkGateways,
+				), convertGateway)
+			}, opts.WithName("NetworkGatewayWorkloads")...)
+			NetworkGatewayWorkloadsWithCluster := krt.MapCollection(NetworkGatewayWorkloads, wrapObjectWithCluster[model.WorkloadInfo](c.ID), opts.WithName("LocalNetworkGatewayWorkloadsWithCluster")...)
+			AllWorkloads = append(AllWorkloads,
+				PodWorkloadsWithCluster,
+				WorkloadEntryWorkloadsWithCluster,
+				ServiceEntryWorkloadsWithCluster,
+				EndpointSliceWorkloadsWithCluster,
+				NetworkGatewayWorkloadsWithCluster,
+			)
+		}
+
+		return AllWorkloads
 	})
 	col := krt.NestedJoinWithMergeCollection(GlobalWorkloadInfos, mergeWorkloadInfosWithCluster(localClusterID))
 	return krt.MapCollection(col, unwrapObjectWithCluster[model.WorkloadInfo], opts.WithName("MergedGlobalWorkloads")...)

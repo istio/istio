@@ -62,6 +62,7 @@ func (c networkCollections) HasSynced() bool {
 func buildGlobalNetworkCollections(
 	clusters krt.Collection[Cluster],
 	localNamespaces krt.Collection[*v1.Namespace],
+	gateways krt.Collection[krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]]],
 	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]]],
 	options Options,
 	opts krt.OptionsBuilder,
@@ -96,7 +97,6 @@ func buildGlobalNetworkCollections(
 			s := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
 				return ptr.Of(details.Network.String())
 			}, singletonOpts...)
-			// krt.MarkSyncDependent(ctx, s.AsCollection(), opts.Stop())
 			return &s
 		},
 	)
@@ -118,11 +118,12 @@ func buildGlobalNetworkCollections(
 	GlobalNetworkGateways := krt.NewCollection(
 		clusters,
 		func(ctx krt.HandlerContext, c Cluster) *krt.Collection[config.ObjectWithCluster[NetworkGateway]] {
-			gatewaysCollection := gatewaysByCluster.Lookup(c.ID)
-			if gatewaysCollection == nil || len(gatewaysCollection) < 1 {
+			gatewaysPtr := krt.FetchOne(ctx, gateways, krt.FilterIndex(gatewaysByCluster, c.ID))
+			if gatewaysPtr == nil {
+				log.Warnf("No gateways found for cluster %s", c.ID)
 				return nil
 			}
-			gateways := gatewaysCollection[0]
+			gateways := *gatewaysPtr
 			networkGateways := krt.NewManyCollection(
 				gateways,
 				func(ctx krt.HandlerContext, gw config.ObjectWithCluster[*v1beta1.Gateway]) []config.ObjectWithCluster[NetworkGateway] {
@@ -134,7 +135,6 @@ func buildGlobalNetworkCollections(
 				},
 				opts.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID))...,
 			)
-			// krt.MarkSyncDependent(ctx, networkGateways, opts.Stop())
 			return &networkGateways
 		},
 	)

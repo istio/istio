@@ -16,6 +16,7 @@ package ambient
 
 import (
 	"crypto/sha256"
+	"sync/atomic"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -96,31 +97,8 @@ func buildRemoteClustersCollection(
 	})
 	Secrets := krt.WrapClient(secrets, opts.WithName("RemoteSecrets")...)
 
-	namespaces := kclient.NewFiltered[*corev1.Namespace](informerClient, filter)
-	Namespaces := krt.WrapClient(namespaces, opts.WithName("Namespaces")...)
-
 	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []Cluster {
-		clusters := []Cluster{
-			{
-				ID:     options.ClusterID,
-				Client: informerClient,
-				ClusterDetails: krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterDetails {
-					ns := ptr.Flatten(krt.FetchOne(ctx, Namespaces, krt.FilterKey(options.SystemNamespace)))
-					if ns == nil {
-						return nil
-					}
-					nw, f := ns.Labels[label.TopologyNetwork.Name]
-					if !f {
-						nw = ""
-					}
-					return &ClusterDetails{
-						SystemNamespace: options.SystemNamespace,
-						Network:         network.ID(nw),
-					}
-				}),
-				Filter: filter.ObjectFilter, // TODO: is this correct?
-			},
-		}
+		var clusters []Cluster
 		secrets := krt.Fetch(ctx, Secrets)
 		for _, s := range secrets {
 			secretKey := krt.GetKey(s)
@@ -152,11 +130,17 @@ func buildRemoteClustersCollection(
 					}
 				}, opts.WithName("RemoteClusters")...)
 				cluster := Cluster{
-					ID:             cluster.ID(clusterID),
-					Client:         client,
-					KubeConfigSha:  sha256.Sum256(kubeConfig),
-					ClusterDetails: details,
+					ID:                 cluster.ID(clusterID),
+					Client:             client,
+					KubeConfigSha:      sha256.Sum256(kubeConfig),
+					ClusterDetails:     details,
+					stop:               opts.Stop(),
+					initialSync:        &atomic.Bool{},
+					initialSyncTimeout: &atomic.Bool{},
+					// TODO: Add filter
 				}
+				// Run each remote cluster we've come across
+				go cluster.Run(opts.Debugger())
 				clusters = append(clusters, cluster)
 			}
 		}

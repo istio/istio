@@ -75,7 +75,6 @@ func GlobalNodesCollection(nodes krt.Collection[krt.Collection[config.ObjectWith
 		}, append(opts, krt.WithMetadata(krt.Metadata{
 			ClusterKRTMetadataKey: clusterID,
 		}))...)
-		// krt.MarkSyncDependent(ctx, nc, stop)
 		return ptr.Of(nc)
 	})
 }
