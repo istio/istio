@@ -2026,7 +2026,11 @@ func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
 					resolution: v1alpha3.ServiceEntry_STATIC,
 					to:         apps.MeshExternal,
 				},
-				// TODO dns cases
+				{
+					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
+					resolution: v1alpha3.ServiceEntry_DNS,
+					to:         apps.MeshExternal,
+				},
 			}
 
 			// Configure a gateway with one app as the destination to be accessible through the ingress
@@ -2093,10 +2097,12 @@ spec:
 `).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
-			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
+			ingress := istio.DefaultIngressOrFail(t, t)
+			ips, ports := ingress.HTTPAddresses()
 			for _, tc := range testCases {
 				tc := tc
 				for i, ip := range ips {
+					t.Logf("run %s test with ingress IP %s", tc.resolution, ip)
 					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
 						echotest.
 							New(t, apps.All).
@@ -2123,6 +2129,40 @@ spec:
 					})
 				}
 
+			}
+
+			for _, tc := range testCases {
+				if tc.resolution != v1alpha3.ServiceEntry_DNS {
+					continue
+				}
+				ingressIP := fmt.Sprintf("%s.%s.svc.cluster.local", ingress.ServiceName(), ingress.Namespace())
+				t.Logf("run DNS test with ingress IP %s", ingressIP)
+				for idx := range ports {
+					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
+						echotest.
+							New(t, apps.All).
+							// TODO eventually we can do this for uncaptured -> l7
+							FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
+								Name:      "uncaptured",
+								Namespace: apps.Namespace,
+							}))).
+							Config(cfg.WithParams(param.Params{
+								"Resolution":      tc.resolution.String(),
+								"Location":        tc.location.String(),
+								"IngressIp":       ingressIP,
+								"IngressHttpPort": ports[idx],
+							})).
+							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+								from.CallOrFail(t, echo.CallOptions{
+									Address:   "dummy.example.com",
+									DualStack: true,
+									Port:      to.PortForName("http"),
+									Timeout:   time.Millisecond * 500,
+								})
+							})
+					})
+				}
 			}
 		})
 }
