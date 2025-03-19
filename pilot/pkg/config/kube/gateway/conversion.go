@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
@@ -54,6 +55,11 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
+)
+
+const (
+	gatewayTLSTerminateModeKey = "gateway.istio.io/tls-terminate-mode"
+	addressTypeOverride        = "networking.istio.io/address-type"
 )
 
 func sortConfigByCreationTime(configs []config.Config) {
@@ -482,28 +488,22 @@ func hostnameToStringList(h []k8s.Hostname) []string {
 	})
 }
 
+var allowedParentReferences = sets.New(
+	gvk.KubernetesGateway,
+	gvk.Service,
+	gvk.ServiceEntry,
+)
+
 func toInternalParentReference(p k8s.ParentReference, localNamespace string) (parentKey, error) {
-	empty := parentKey{}
-	kind := ptr.OrDefault((*string)(p.Kind), gvk.KubernetesGateway.Kind)
-	group := ptr.OrDefault((*string)(p.Group), gvk.KubernetesGateway.Group)
-	var ik config.GroupVersionKind
-	var ns string
-	// Currently supported types are Gateway, Service, and ServiceEntry
-	if kind == gvk.KubernetesGateway.Kind && group == gvk.KubernetesGateway.Group {
-		ik = gvk.KubernetesGateway
-	} else if kind == gvk.Service.Kind && group == gvk.Service.Group {
-		ik = gvk.Service
-	} else if kind == gvk.ServiceEntry.Kind && group == gvk.ServiceEntry.Group {
-		ik = gvk.ServiceEntry
-	} else {
-		return empty, fmt.Errorf("unsupported parentKey: %v/%v", p.Group, kind)
+	ref := normalizeReference(p.Group, p.Kind, gvk.KubernetesGateway)
+	if !allowedParentReferences.Contains(ref) {
+		return parentKey{}, fmt.Errorf("unsupported parent: %v/%v", p.Group, p.Kind)
 	}
-	// Unset namespace means "same namespace"
-	ns = ptr.OrDefault((*string)(p.Namespace), localNamespace)
 	return parentKey{
-		Kind:      ik,
-		Name:      string(p.Name),
-		Namespace: ns,
+		Kind: ref,
+		Name: string(p.Name),
+		// Unset namespace means "same namespace"
+		Namespace: defaultString(p.Namespace, localNamespace),
 	}, nil
 }
 
@@ -1005,37 +1005,36 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 	}
 
 	namespace := ptr.OrDefault((*string)(to.Namespace), ns)
+	// All types currently require a Port, so we do this for everything; consider making this per-type if we have future types
+	// that do not require port.
+	if to.Port == nil {
+		// "Port is required when the referent is a Kubernetes Service."
+		return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+	}
 	var invalidBackendErr *ConfigError
-	if nilOrEqual2(to.Group, "") && nilOrEqual((*string)(to.Kind), gvk.Service.Kind) {
-		// Service
-		if to.Port == nil {
-			// "Port is required when the referent is a Kubernetes Service."
-			return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
-		}
+	var hostname string
+	ref := normalizeReference(to.Group, to.Kind, gvk.Service)
+	switch ref {
+	case gvk.Service:
 		if strings.Contains(string(to.Name), ".") {
-			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "service name invalid; the name of the Service must be used, not the hostname."}
 		}
-		hostname := fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.DomainSuffix)
+		hostname = fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.DomainSuffix)
 		key := namespace + "/" + string(to.Name)
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
 		if svc == nil {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
-		return &istio.Destination{
-			Host: hostname,
-			Port: &istio.PortSelector{Number: uint32(*to.Port)},
-		}, invalidBackendErr
-	}
-	if nilOrEqual((*string)(to.Group), features.MCSAPIGroup) && nilOrEqual((*string)(to.Kind), "ServiceImport") {
-		if to.Port == nil {
-			// We don't know where to send without port
-			return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+	case config.GroupVersionKind{Group: gvk.ServiceEntry.Group, Kind: "Hostname"}:
+		if to.Namespace != nil {
+			return nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
 		}
-		if strings.Contains(string(to.Name), ".") {
-			return nil, &ConfigError{Reason: InvalidDestination, Message: "serviceName invalid; the name of the Service must be used, not the hostname."}
+		hostname = string(to.Name)
+		if ctx.LookupHostname(hostname, namespace) == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
-		// Service import
-		hostname := fmt.Sprintf("%s.%s.svc.clusterset.local", to.Name, namespace)
+	case config.GroupVersionKind{Group: features.MCSAPIGroup, Kind: "ServiceImport"}:
+		hostname = fmt.Sprintf("%s.%s.svc.clusterset.local", to.Name, namespace)
 		if !features.EnableMCSHost {
 			// They asked for ServiceImport, but actually don't have full support enabled...
 			// No problem, we can just treat it as Service, which is already cross-cluster in this mode anyways
@@ -1047,33 +1046,16 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 		if svc == nil {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
-		return &istio.Destination{
-			Host: hostname,
-			Port: &istio.PortSelector{Number: uint32(*to.Port)},
-		}, invalidBackendErr
-	}
-	if nilOrEqual((*string)(to.Group), gvk.ServiceEntry.Group) && nilOrEqual((*string)(to.Kind), "Hostname") {
-		// Hostname synthetic type
-		if to.Port == nil {
-			// We don't know where to send without port
-			return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+	default:
+		return &istio.Destination{}, &ConfigError{
+			Reason:  InvalidDestinationKind,
+			Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", ptr.OrEmpty(to.Group), ptr.OrEmpty(to.Kind)),
 		}
-		if to.Namespace != nil {
-			return nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
-		}
-		hostname := string(to.Name)
-		if ctx.LookupHostname(hostname, namespace) == nil {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
-		}
-		return &istio.Destination{
-			Host: string(to.Name),
-			Port: &istio.PortSelector{Number: uint32(*to.Port)},
-		}, invalidBackendErr
 	}
-	return &istio.Destination{}, &ConfigError{
-		Reason:  InvalidDestinationKind,
-		Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", ptr.OrEmpty(to.Group), ptr.OrEmpty(to.Kind)),
-	}
+	return &istio.Destination{
+		Host: hostname,
+		Port: &istio.PortSelector{Number: uint32(*to.Port)},
+	}, invalidBackendErr
 }
 
 // https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L207-L212
@@ -1920,7 +1902,7 @@ func buildSecretReference(
 	gw *k8sbeta.Gateway,
 	secrets krt.Collection[*corev1.Secret],
 ) (string, *ConfigError) {
-	if !nilOrEqual((*string)(ref.Group), gvk.Secret.Group) || !nilOrEqual((*string)(ref.Kind), gvk.Secret.Kind) {
+	if normalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
 		return "", &ConfigError{Reason: InvalidTLS, Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", objectReferenceString(ref))}
 	}
 
@@ -2031,14 +2013,6 @@ func namespacesFromSelector(ctx krt.HandlerContext, localNamespace string, names
 	return namespaces
 }
 
-func nilOrEqual(have *string, expected string) bool {
-	return have == nil || *have == expected
-}
-
-func nilOrEqual2[T ~string](have *T, expected T) bool {
-	return have == nil || *have == expected
-}
-
 func humanReadableJoin(ss []string) string {
 	switch len(ss) {
 	case 0:
@@ -2071,45 +2045,6 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 	return ret
 }
 
-func (kr GatewayResources) FuzzValidate() bool {
-	for _, gwc := range kr.GatewayClass {
-		if gwc.Spec == nil {
-			return false
-		}
-	}
-	for _, rp := range kr.ReferenceGrant {
-		if rp.Spec == nil {
-			return false
-		}
-	}
-	for _, hr := range kr.HTTPRoute {
-		if hr.Spec == nil {
-			return false
-		}
-	}
-	for _, hr := range kr.GRPCRoute {
-		if hr.Spec == nil {
-			return false
-		}
-	}
-	for _, tr := range kr.TLSRoute {
-		if tr.Spec == nil {
-			return false
-		}
-	}
-	for _, g := range kr.Gateway {
-		if g.Spec == nil {
-			return false
-		}
-	}
-	for _, tr := range kr.TCPRoute {
-		if tr.Spec == nil {
-			return false
-		}
-	}
-	return true
-}
-
 func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config.GroupVersionKind) {
 	switch t := spec.(type) {
 	case *k8salpha.TCPRoute:
@@ -2140,4 +2075,45 @@ func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 		log.Fatalf("unknown type %T", t)
 		return nil
 	}
+}
+
+// normalizeReference takes a generic Group/Kind (the API uses a few variations) and converts to a known GroupVersionKind.
+// Defaults for the group/kind are also passed.
+func normalizeReference[G ~string, K ~string](group *G, kind *K, def config.GroupVersionKind) config.GroupVersionKind {
+	k := def.Kind
+	if kind != nil {
+		k = (string)(*kind)
+	}
+	g := def.Group
+	if group != nil {
+		g = (string)(*group)
+	}
+	gk := config.GroupVersionKind{
+		Group: g,
+		Kind:  k,
+	}
+	s, f := collections.All.FindByGroupKind(gk)
+	if f {
+		return s.GroupVersionKind()
+	}
+	return gk
+}
+
+func defaultString[T ~string](s *T, def string) string {
+	if s == nil {
+		return def
+	}
+	return (string)(*s)
+}
+
+func toRouteKind(g config.GroupVersionKind) k8s.RouteGroupKind {
+	return k8s.RouteGroupKind{Group: (*k8s.Group)(&g.Group), Kind: k8s.Kind(g.Kind)}
+}
+
+func routeGroupKindEqual(rgk1, rgk2 k8s.RouteGroupKind) bool {
+	return rgk1.Kind == rgk2.Kind && getGroup(rgk1) == getGroup(rgk2)
+}
+
+func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
+	return ptr.OrDefault(rgk.Group, k8s.Group(gvk.KubernetesGateway.Group))
 }
