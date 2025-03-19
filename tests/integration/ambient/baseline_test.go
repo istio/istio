@@ -2298,10 +2298,10 @@ spec:
 				if tc.resolution != v1alpha3.ServiceEntry_DNS {
 					continue
 				}
-				ingressIP := fmt.Sprintf("%s.%s.svc.cluster.local", ingress.ServiceName(), ingress.Namespace())
-				t.Logf("run DNS test with ingress IP %s", ingressIP)
+				ingressHost := fmt.Sprintf("%s.%s.svc.cluster.local", ingress.ServiceName(), ingress.Namespace())
+				t.Logf("run %s test with ingress %s", tc.resolution, ingressHost)
 				for idx := range ports {
-					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
+					t.NewSubTestf("DNS hostname %s %d", tc.location, idx).Run(func(t framework.TestContext) {
 						echotest.
 							New(t, apps.All).
 							// TODO eventually we can do this for uncaptured -> l7
@@ -2312,7 +2312,7 @@ spec:
 							Config(cfg.WithParams(param.Params{
 								"Resolution":      tc.resolution.String(),
 								"Location":        tc.location.String(),
-								"IngressIp":       ingressIP,
+								"IngressIp":       ingressHost,
 								"IngressHttpPort": ports[idx],
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
