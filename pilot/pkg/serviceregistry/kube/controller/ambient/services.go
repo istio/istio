@@ -44,6 +44,7 @@ import (
 )
 
 func (a *index) ServicesCollection(
+	clusterID cluster.ID,
 	services krt.Collection[*v1.Service],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	waypoints krt.Collection[Waypoint],
@@ -54,11 +55,16 @@ func (a *index) ServicesCollection(
 		opts.WithName("ServicesInfo")...)
 	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces),
 		opts.WithName("ServiceEntriesInfo")...)
-	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, opts.WithName("WorkloadService")...)
+	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, append(opts.WithName("WorkloadService"), krt.WithMetadata(krt.Metadata{
+		ClusterKRTMetadataKey: clusterID,
+	}))...)
 	return WorkloadServices
 }
 
 func GlobalMergedWorkloadServicesCollection(
+	LocalCluster *Cluster,
+	localServiceInfos krt.Collection[model.ServiceInfo],
+	localWaypoints krt.Collection[Waypoint],
 	clusters krt.Collection[Cluster],
 	localServiceEntries krt.Collection[*networkingclient.ServiceEntry],
 	globalServices krt.Collection[krt.Collection[*v1.Service]],
@@ -69,61 +75,58 @@ func GlobalMergedWorkloadServicesCollection(
 	namespacesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Namespace]],
 	globalNetworks networkCollections,
 	domainSuffix string,
-	localClusterID cluster.ID,
 	opts krt.OptionsBuilder,
-) krt.Collection[model.ServiceInfo] {
+) krt.Collection[krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]] {
 	// This will contain the serviceinfos derived from Services AND ServiceEntries
-	GlobalServiceInfos := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, cluster Cluster) []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
-		nwPtr := krt.FetchOne(ctx, globalNetworks.GlobalSystemNamespaces, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
-		if nwPtr == nil {
-			log.Warnf("Cluster %s does not have a network assigned, skipping", cluster.ID)
-			return nil
-		}
-		nw := *nwPtr
-		servicesPtr := krt.FetchOne(ctx, globalServices, krt.FilterIndex(servicesByCluster, cluster.ID))
-		if servicesPtr == nil {
-			log.Warnf("Cluster %s does not have services assigned, skipping", cluster.ID)
-			return nil
-		}
-		services := *servicesPtr
-		waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
-		if waypointsPtr == nil {
-			log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID)
-			return nil
-		}
-		waypoints := *waypointsPtr
-		namespacesPtr := krt.FetchOne(ctx, globalNamespaces, krt.FilterIndex(namespacesByCluster, cluster.ID))
-		if namespacesPtr == nil {
-			log.Warnf("Cluster %s does not have namespaces assigned, skipping", cluster.ID)
-			return nil
-		}
-		namespaces := *namespacesPtr
+	return krt.NewManyFromNothing(func(ctx krt.HandlerContext) []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
+		LocalServiceInfosWithCluster := krt.MapCollection(localServiceInfos, wrapObjectWithCluster[model.ServiceInfo](LocalCluster.ID))
+		AllServiceInfos := []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]{LocalServiceInfosWithCluster}
+		// Now loop through clusters
+		clusters := krt.Fetch(ctx, clusters)
+		for _, cluster := range clusters {
+			nwPtr := krt.FetchOne(ctx, globalNetworks.GlobalSystemNamespaces, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
+			if nwPtr == nil {
+				log.Warnf("Cluster %s does not have a network assigned, skipping", cluster.ID)
+				return nil
+			}
+			nw := *nwPtr
+			servicesPtr := krt.FetchOne(ctx, globalServices, krt.FilterIndex(servicesByCluster, cluster.ID))
+			if servicesPtr == nil {
+				log.Warnf("Cluster %s does not have services assigned, skipping", cluster.ID)
+				return nil
+			}
+			services := *servicesPtr
+			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
+			if waypointsPtr == nil {
+				log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID)
+				return nil
+			}
+			waypoints := *waypointsPtr
+			namespacesPtr := krt.FetchOne(ctx, globalNamespaces, krt.FilterIndex(namespacesByCluster, cluster.ID))
+			if namespacesPtr == nil {
+				log.Warnf("Cluster %s does not have namespaces assigned, skipping", cluster.ID)
+				return nil
+			}
+			namespaces := *namespacesPtr
 
-		servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {
-			return network.ID(*nw.Get())
-		}))
-		servicesInfoWithCluster := krt.MapCollection(servicesInfo, func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {
-			return config.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
-		}, opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID))...)
+			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {
+				return network.ID(*nw.Get())
+			}))
+			servicesInfoWithCluster := krt.MapCollection(servicesInfo, func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {
+				return config.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
+			}, opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID))...)
 
-		serviceEntriesInfo := krt.NewManyCollection(localServiceEntries, serviceEntryServiceBuilder(waypoints, namespaces, func(ctx krt.HandlerContext) network.ID {
-			return network.ID(*nw.Get())
-		}))
-		serviceEntriesWithCluster := krt.MapCollection(serviceEntriesInfo, func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {
-			return config.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
-		}, opts.WithName(fmt.Sprintf("ServiceEntryServiceInfosWithCluster[%s]", cluster.ID))...)
-		// krt.MarkSyncDependentBatch(ctx, []krt.Syncer{
-		// 	servicesInfo,
-		// 	serviceEntriesInfo,
-		// }, opts.Stop())
-		return []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]{servicesInfoWithCluster, serviceEntriesWithCluster}
+			serviceEntriesInfo := krt.NewManyCollection(localServiceEntries, serviceEntryServiceBuilder(waypoints, namespaces, func(ctx krt.HandlerContext) network.ID {
+				return network.ID(*nw.Get())
+			}))
+			serviceEntriesWithCluster := krt.MapCollection(serviceEntriesInfo, func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {
+				return config.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
+			}, opts.WithName(fmt.Sprintf("ServiceEntryServiceInfosWithCluster[%s]", cluster.ID))...)
+
+			AllServiceInfos = append(AllServiceInfos, servicesInfoWithCluster, serviceEntriesWithCluster)
+		}
+		return AllServiceInfos
 	}, opts.WithName("GlobalServiceInfosWithCluster")...)
-	col := krt.NestedJoinWithMergeCollection(
-		GlobalServiceInfos,
-		mergeServiceInfosWithCluster(localClusterID),
-		opts.WithName("GlobalMergedServiceInfosWithCluster")...,
-	)
-	return krt.MapCollection(col, unwrapObjectWithCluster, opts.WithName("GlobalMergedServiceInfos")...)
 }
 
 func serviceServiceBuilder(

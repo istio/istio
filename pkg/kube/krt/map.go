@@ -127,10 +127,12 @@ func MapCollection[T, U any](
 	if o.name == "" {
 		o.name = fmt.Sprintf("Map[%v]", ptr.TypeName[T]())
 	}
+
+	ic := collection.(internalCollection[T])
 	return &mapCollection[T, U]{
 		collectionName: o.name,
-		id:             nextUID(),
-		collection:     collection.(internalCollection[T]),
+		id:             ic.uid(), // TODO: should we use a new UID?
+		collection:     ic,
 		mapFunc:        mapFunc,
 	}
 }
