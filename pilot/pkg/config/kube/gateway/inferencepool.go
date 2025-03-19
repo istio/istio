@@ -273,7 +273,6 @@ func (ic *InferencePoolController) apply(obj interface{}) error {
 		}
 		return nil
 	}
-	log.Info("NOT A SERVICE")
 	return nil
 }
 

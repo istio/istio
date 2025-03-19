@@ -1646,10 +1646,10 @@ func buildDestination(ctx configContext, to k8s.BackendRef, ns string, enforceRe
 	if features.SupportGatewayAPIInferenceExtension {
 		if nilOrEqual((*string)(to.Group), gvk.InferencePool.Group) && nilOrEqual((*string)(to.Kind), gvk.InferencePool.Kind) {
 			// InferencePool
-			if to.Port == nil {
-				// "Port is required when the referent is an InferencePool."
-				return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
-			}
+			// if to.Port == nil {
+			// 	// "Port is required when the referent is an InferencePool."
+			// 	return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+			// }
 			if strings.Contains(string(to.Name), ".") {
 				return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "InferencePool.Name invalid; the name of the InferencePool must be used, not the hostname."}
 			}
@@ -1678,9 +1678,8 @@ func buildDestination(ctx configContext, to k8s.BackendRef, ns string, enforceRe
 				invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
 			}
 			return &istio.Destination{
-				// TODO: implement ReferencePolicy for cross namespace
 				Host: hostname,
-				Port: &istio.PortSelector{Number: uint32(*to.Port)},
+				// Port: &istio.PortSelector{Number: uint32(*to.Port)},
 			}, ipCfg, invalidBackendErr
 		}
 	}
