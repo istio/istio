@@ -14,6 +14,7 @@ import (
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	sigsk8siogatewayapiapisxv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
@@ -147,6 +148,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.WorkloadGroup, true
 	case *apiistioioapinetworkingv1.WorkloadGroup:
 		return gvk.WorkloadGroup, true
+	case *sigsk8siogatewayapiapisxv1alpha1.XListenerSet:
+		return gvk.XListenerSet, true
 	default:
 		return config.GroupVersionKind{}, false
 	}

@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.23.0
+go 1.24.0
 
 require (
 	cloud.google.com/go/compute/metadata v0.6.0
@@ -45,7 +45,7 @@ require (
 	github.com/howardjohn/unshare-go v0.5.0
 	github.com/lestrrat-go/jwx v1.2.30
 	github.com/mattn/go-isatty v0.0.20
-	github.com/miekg/dns v1.1.62
+	github.com/miekg/dns v1.1.63
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/moby/buildkit v0.19.0
 	github.com/onsi/gomega v1.36.2
@@ -88,7 +88,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250122153221-138b5a5a4fd4
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250122153221-138b5a5a4fd4
-	google.golang.org/grpc v1.70.0
+	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.5
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
@@ -106,7 +106,7 @@ require (
 	k8s.io/kubectl v0.32.1
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	sigs.k8s.io/controller-runtime v0.20.0
-	sigs.k8s.io/gateway-api v1.2.1
+	sigs.k8s.io/gateway-api v1.2.1-0.20250319040149-e8b8afabf889
 	sigs.k8s.io/mcs-api v0.1.1-0.20240624222831-d7001fe1d21c
 	sigs.k8s.io/yaml v1.4.0
 )
