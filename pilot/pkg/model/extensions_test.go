@@ -331,6 +331,17 @@ func TestFailurePolicy(t *testing.T) {
 			},
 			out: wasmextensions.FailurePolicy_FAIL_OPEN,
 		},
+		{
+			desc: "RELOAD",
+			proxy: &Proxy{
+				IstioVersion: &IstioVersion{Major: 1, Minor: 25, Patch: 0},
+			},
+			in: &extensions.WasmPlugin{
+				Url:          "file://fake.wasm",
+				FailStrategy: extensions.FailStrategy_FAIL_RELOAD,
+			},
+			out: wasmextensions.FailurePolicy_FAIL_RELOAD,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
