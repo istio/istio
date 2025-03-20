@@ -57,14 +57,17 @@ var (
 	debounceTime = monitoring.NewDistribution(
 		"pilot_debounce_time",
 		"Delay in seconds between the first config enters debouncing and the merged push request is pushed into the push queue (includes pushcontext_init_seconds).",
-		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
+		[]float64{.01, .1, 1, 3, 5, 10, 20, 30, 60, 90, 120},
 	)
 
 	pushContextInitTime = monitoring.NewDistribution(
 		"pilot_pushcontext_init_seconds",
 		"Total time in seconds Pilot takes to init pushContext.",
-		[]float64{.01, .1, 0.5, 1, 3, 5},
+		[]float64{.01, .1, 0.5, 1, 3, 5, 10, 20, 30, 60, 90, 120},
 	)
+
+	pushContextCreateTime = pushContextInitTime.With(typeTag.Value("create"))
+	pushContextUpdateTime = pushContextInitTime.With(typeTag.Value("update"))
 
 	pushTime = monitoring.NewDistribution(
 		"pilot_xds_push_time",
@@ -86,7 +89,7 @@ var (
 	proxiesConvergeDelay = monitoring.NewDistribution(
 		"pilot_proxy_convergence_time",
 		"Delay in seconds between config change and a proxy receiving all required configuration.",
-		[]float64{.1, .5, 1, 3, 5, 10, 20, 30},
+		[]float64{.1, .5, 1, 3, 5, 10, 20, 30, 60, 90, 120},
 	)
 
 	inboundUpdates = monitoring.NewSum(

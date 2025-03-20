@@ -89,6 +89,12 @@ var (
 			"for this time, we'll trigger a push.",
 	).Get()
 
+	AlwaysCreateNewContext = env.Register(
+		"ALWAYS_CREATE_NEW_CONTEXT",
+		false,
+		"If set to true, istiod wouldn't use the old push context, it would build the push context from scratch",
+	).Get()
+
 	EnableEDSDebounce = env.Register(
 		"PILOT_ENABLE_EDS_DEBOUNCE",
 		true,

@@ -1321,13 +1321,13 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 // InitContext will initialize the data structures used for code generation.
 // This should be called before starting the push, from the thread creating
 // the push context.
-func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) {
+func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext, pushReq *PushRequest) bool {
 	// Acquire a lock to ensure we don't concurrently initialize the same PushContext.
 	// If this does happen, one thread will block then exit early from InitDone=true
 	ps.initializeMutex.Lock()
 	defer ps.initializeMutex.Unlock()
 	if ps.InitDone.Load() {
-		return
+		return false
 	}
 
 	ps.Mesh = env.Mesh()
@@ -1337,8 +1337,11 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	// use the default export map.
 	ps.initDefaultExportMaps()
 
+	create := false
+
 	// create new or incremental update
-	if pushReq == nil || oldPushContext == nil || !oldPushContext.InitDone.Load() || pushReq.Forced {
+	if pushReq == nil || oldPushContext == nil || !oldPushContext.InitDone.Load() || pushReq.Forced || features.AlwaysCreateNewContext {
+		create = true
 		ps.createNewContext(env)
 	} else {
 		ps.updateContext(env, oldPushContext, pushReq)
@@ -1349,6 +1352,7 @@ func (ps *PushContext) InitContext(env *Environment, oldPushContext *PushContext
 	ps.clusterLocalHosts = env.ClusterLocal().GetClusterLocalHosts()
 
 	ps.InitDone.Store(true)
+	return create
 }
 
 func (ps *PushContext) createNewContext(env *Environment) {

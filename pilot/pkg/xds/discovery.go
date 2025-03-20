@@ -273,10 +273,15 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// saved.
 	t0 := time.Now()
 	versionLocal := s.NextVersion()
-	push := s.initPushContext(req, oldPushContext, versionLocal)
+	push, create := s.initPushContext(req, oldPushContext, versionLocal)
 	initContextTime := time.Since(t0)
 	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
-	pushContextInitTime.Record(initContextTime.Seconds())
+	// pushContextInitTime.Record(initContextTime.Seconds())
+	if (create) {
+		pushContextCreateTime.Record(initContextTime.Seconds())
+	} else {
+		pushContextUpdateTime.Record(initContextTime.Seconds())
+	}
 
 	req.Push = push
 	s.AdsPushAll(req)
@@ -427,31 +432,13 @@ func configsUpdated(req *model.PushRequest) string {
 
 func reasonsUpdated(req *model.PushRequest) string {
 	var (
-		reason0, reason1            model.TriggerReason
-		reason0Cnt, reason1Cnt, idx int
+		reasonCnt int
 	)
-	for r, cnt := range req.Reason {
-		if idx == 0 {
-			reason0, reason0Cnt = r, cnt
-		} else if idx == 1 {
-			reason1, reason1Cnt = r, cnt
-		} else {
-			break
-		}
-		idx++
+	for _, cnt := range req.Reason {
+		reasonCnt += cnt
 	}
 
-	switch len(req.Reason) {
-	case 0:
-		return "unknown"
-	case 1:
-		return fmt.Sprintf("%s:%d", reason0, reason0Cnt)
-	case 2:
-		return fmt.Sprintf("%s:%d and %s:%d", reason0, reason0Cnt, reason1, reason1Cnt)
-	default:
-		return fmt.Sprintf("%s:%d and %d(%d) more reasons", reason0, reason0Cnt, len(req.Reason)-1,
-			req.Reason.Count()-reason0Cnt)
-	}
+	return fmt.Sprintf("%d reasons", reasonCnt)
 }
 
 func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQueue) {
@@ -505,16 +492,16 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 // method is technically thread safe (there are no data races), it should not be called in parallel;
 // if it is, then we may start two push context creations (say A, and B), but then write them in
 // reverse order, leaving us with a final version of A, which may be incomplete.
-func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext, version string) *model.PushContext {
+func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext, version string) (*model.PushContext, bool) {
 	push := model.NewPushContext()
 	push.PushVersion = version
 	push.JwtKeyResolver = s.JwtKeyResolver
-	push.InitContext(s.Env, oldPushContext, req)
+	create := push.InitContext(s.Env, oldPushContext, req)
 
 	s.dropCacheForRequest(req)
 	s.Env.SetPushContext(push)
 
-	return push
+	return push, create
 }
 
 func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
