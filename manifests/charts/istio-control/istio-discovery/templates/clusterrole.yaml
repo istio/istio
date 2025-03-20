@@ -119,9 +119,12 @@ rules:
 {{- end}}
 {{- if eq (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
   - apiGroups: ["certificates.k8s.io"]
-    resources:
-      - "clustertrustbundles"
+    resources: ["clustertrustbundles"]
     verbs: ["update", "create", "delete"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["signers"]
+    resourceNames: ["istio.io/istiod-ca"]
+    verbs: ["attest"]
 {{- end }}
 
   # Used by Istiod to verify the JWT tokens
