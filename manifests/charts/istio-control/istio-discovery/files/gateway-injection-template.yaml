@@ -231,7 +231,7 @@ spec:
           audience: {{ .Values.global.sds.token.aud }}
   {{- if eq .Values.global.pilotCertProvider "istiod" }}
   - name: istiod-ca-cert
-  {{- if (.Values.pilot.env).ENABLE_CLUSTER_TRUST_BUNDLE_API }}
+  {{- if eq (.Values.pilot.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
     projected:
       sources:
       - clusterTrustBundle:
