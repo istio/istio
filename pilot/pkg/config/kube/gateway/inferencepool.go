@@ -19,14 +19,19 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"strconv"
+	"time"
 
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -48,15 +53,28 @@ const InferencePoolExtensionRefPort = "inference.x-k8s.io/extension-port"
 // ControllerName is the name of this controller for labeling resources it manages
 const ControllerName = "inference-controller"
 
+var supportedControllers = getSupportedControllers()
+
+func getSupportedControllers() sets.Set[gatewayv1.GatewayController] {
+	ret := sets.New[gatewayv1.GatewayController]()
+	for _, controller := range builtinClasses {
+		ret.Insert(controller)
+	}
+	return ret
+}
+
 // InferencePoolController implements a controller that materializes an InferencePool
 // into a Kubernetes Service to allow traffic to the inference pool.
 type InferencePoolController struct {
-	client   kube.Client
-	queue    controllers.Queue
-	pools    kclient.Client[*inferencev1alpha2.InferencePool]
-	services kclient.Client[*corev1.Service]
+	client     kube.Client
+	queue      controllers.Queue
+	pools      kclient.Client[*inferencev1alpha2.InferencePool]
+	services   kclient.Client[*corev1.Service]
+	httpRoutes kclient.Client[*gateway.HTTPRoute]
+	gateways   kclient.Client[*gateway.Gateway]
+	clients    map[schema.GroupVersionResource]getter
+
 	// ServiceToEndpointPickerService map[types.NamespacedName]*corev1.Service
-	clients map[schema.GroupVersionResource]getter
 }
 
 // NewInferencePoolController constructs a new InferencePoolController and registers required informers.
@@ -81,6 +99,40 @@ func NewInferencePoolController(client kube.Client) *InferencePoolController {
 	ic.services.AddEventHandler(parentHandler)
 	ic.clients[gvr.Service] = NewUntypedWrapper(ic.services)
 
+	ic.httpRoutes = kclient.NewFiltered[*gateway.HTTPRoute](client, filter)
+	// Watch for changes in HTTPRoutes and enqueue relevant InferencePools
+	ic.httpRoutes.AddEventHandler(controllers.ObjectHandler(func(obj controllers.Object) {
+		route := obj.(*gateway.HTTPRoute)
+		for _, pool := range ic.pools.List(route.Namespace, labels.Everything()) {
+			for _, rule := range route.Spec.Rules {
+				for _, httpBackendRef := range rule.BackendRefs {
+					if httpBackendRef.BackendRef.Group == nil || httpBackendRef.BackendRef.Kind == nil {
+						continue
+					}
+					if string(*httpBackendRef.BackendRef.Group) == gvk.InferencePool.Group && string(*httpBackendRef.BackendRef.Kind) == gvk.InferencePool.Kind && string(httpBackendRef.BackendRef.Name) == pool.ObjectMeta.Name {
+						ic.queue.Add(types.NamespacedName{Name: pool.Name, Namespace: pool.Namespace})
+					}
+				}
+			}
+		}
+	}))
+	ic.clients[gvr.HTTPRoute] = NewUntypedWrapper(ic.httpRoutes)
+
+	// Watch for changes in Gateways and enqueue relevant InferencePools
+	ic.gateways = kclient.NewFiltered[*gateway.Gateway](client, filter)
+	ic.gateways.AddEventHandler(controllers.ObjectHandler(func(obj controllers.Object) {
+		gateway := obj.(*gateway.Gateway)
+		// TODO(liorlieberman): can we restrict to gateway.namespace or we support cross ns?
+		for _, pool := range ic.pools.List(metav1.NamespaceAll, labels.Everything()) {
+			for _, parent := range pool.Status.Parents {
+				if parent.GatewayRef.Name == gateway.Name && parent.GatewayRef.Namespace == gateway.Namespace {
+					ic.queue.Add(types.NamespacedName{Name: pool.Name, Namespace: pool.Namespace})
+				}
+			}
+		}
+	}))
+	ic.clients[gvr.KubernetesGateway] = NewUntypedWrapper(ic.gateways)
+
 	pools.AddEventHandler(controllers.ObjectHandler(ic.queue.AddObject))
 
 	return ic
@@ -93,9 +145,11 @@ func (ic *InferencePoolController) Run(stop <-chan struct{}) {
 		stop,
 		ic.pools.HasSynced,
 		ic.services.HasSynced,
+		ic.gateways.HasSynced,
+		ic.httpRoutes.HasSynced,
 	)
 	ic.queue.Run(stop)
-	controllers.ShutdownAll(ic.pools, ic.services)
+	controllers.ShutdownAll(ic.pools, ic.services, ic.gateways, ic.httpRoutes)
 }
 
 // Reconcile takes the name of an InferencePool and ensures the cluster is in the desired state
@@ -141,8 +195,107 @@ func (ic *InferencePoolController) configureInferencePool(log *istiolog.Scope, p
 		return fmt.Errorf("failed to apply Service: %v", err)
 	}
 
+	gatewayParentsToEnsure := sets.New[types.NamespacedName]()
+	routeList := ic.httpRoutes.List(pool.Namespace, labels.Everything())
+	for _, r := range routeList {
+		for _, rule := range r.Spec.Rules {
+			for _, httpBackendRef := range rule.BackendRefs {
+				if httpBackendRef.BackendRef.Group == nil || httpBackendRef.BackendRef.Kind == nil {
+					continue
+				}
+				if string(*httpBackendRef.BackendRef.Group) == gvk.InferencePool.Group && string(*httpBackendRef.BackendRef.Kind) == gvk.InferencePool.Kind && string(httpBackendRef.BackendRef.Name) == pool.ObjectMeta.Name {
+					for _, p := range r.Status.Parents {
+						if supportedControllers.Contains(p.ControllerName) {
+							ns := r.Namespace
+							if p.ParentRef.Namespace != nil && *p.ParentRef.Namespace != "" {
+								ns = string(*p.ParentRef.Namespace)
+							}
+							gatewayParentsToEnsure.Insert(types.NamespacedName{Name: string(p.ParentRef.Name), Namespace: ns})
+						}
+					}
+				}
+			}
+		}
+	}
+	existingParents := pool.Status.Parents
+	newParents := []*inferencev1alpha2.PoolStatus{}
+	for gtw := range gatewayParentsToEnsure {
+		newParents = append(newParents, poolStatusTmpl(string(gtw.Name), gtw.Namespace, pool.Generation))
+	}
+
+	finalParents := []inferencev1alpha2.PoolStatus{}
+	finalParentsGatewaySet := sets.New[types.NamespacedName]()
+	for _, existingParent := range existingParents {
+		gwKey := types.NamespacedName{Name: existingParent.GatewayRef.Name, Namespace: existingParent.GatewayRef.Namespace}
+		if !ic.isManagedGateway(existingParent) || gatewayParentsToEnsure.Contains(gwKey) {
+			finalParents = append(finalParents, existingParent)
+			finalParentsGatewaySet.Insert(gwKey)
+		}
+	}
+	for _, newParent := range newParents {
+		gwKey := types.NamespacedName{Name: newParent.GatewayRef.Name, Namespace: newParent.GatewayRef.Namespace}
+		if !finalParentsGatewaySet.Contains(gwKey) {
+			finalParents = append(finalParents, *newParent)
+			finalParentsGatewaySet.Insert(gwKey)
+		}
+	}
+
+	if !parentsEqual(finalParents, pool.Status.Parents) {
+		log.Info("LIOR1")
+		pool.Status.Parents = finalParents
+		_, err := ic.pools.UpdateStatus(pool)
+		if err != nil {
+			return fmt.Errorf("error updating inferencepool status: %v", err)
+		}
+	}
+	log.Infof("LIOR-FINALPARENTS: %v\n", finalParents)
+	log.Infof("LIOR-NEWPARENTS: %v\n", newParents)
 	log.Info("inference pool service updated")
 	return nil
+}
+
+func parentsEqual(a, b []inferencev1alpha2.PoolStatus) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].GatewayRef.Name != b[i].GatewayRef.Name || a[i].GatewayRef.Namespace != b[i].GatewayRef.Namespace {
+			return false
+		}
+	}
+	return true
+}
+
+// isManagedGateway checks if the Gateway is controlled by this controller
+func (ic *InferencePoolController) isManagedGateway(parent inferencev1alpha2.PoolStatus) bool {
+	gtw := ic.gateways.Get(parent.GatewayRef.Name, parent.GatewayRef.Namespace)
+	if gtw == nil {
+		return false
+	}
+	_, ok := builtinClasses[gtw.Spec.GatewayClassName]
+	return ok
+}
+
+func poolStatusTmpl(gwName, ns string, generation int64) *inferencev1alpha2.PoolStatus {
+	return &inferencev1alpha2.PoolStatus{
+		GatewayRef: corev1.ObjectReference{
+			APIVersion: gatewayv1.GroupVersion.String(),
+			Kind:       gvk.Gateway.Kind,
+			Namespace:  ns,
+			Name:       gwName,
+		},
+		Conditions: []metav1.Condition{
+			{
+				Type:               string(inferencev1alpha2.InferencePoolConditionAccepted),
+				Status:             metav1.ConditionTrue,
+				Reason:             string(inferencev1alpha2.InferencePoolReasonAccepted),
+				Message:            "Referenced by an HTTPRoute accepted by the parentRef Gateway",
+				ObservedGeneration: generation,
+				// TODO(liorlieberman): verify that this is good.
+				LastTransitionTime: metav1.NewTime(time.Now()),
+			},
+		},
+	}
 }
 
 // generateHash generates an 8-character SHA256 hash of the input string.
@@ -209,11 +362,10 @@ func translateInferencePoolToService(pool *inferencev1alpha2.InferencePool) (*co
 		shadowSvc.Spec.Selector[string(k)] = string(v)
 	}
 	shadowSvc.Spec.ClusterIP = corev1.ClusterIPNone
-	gvk := pool.GetObjectKind().GroupVersionKind()
 	shadowSvc.SetOwnerReferences([]metav1.OwnerReference{
 		{
-			APIVersion: gvk.GroupVersion().String(),
-			Kind:       gvk.GroupKind().Kind,
+			APIVersion: gvk.InferencePool.GroupVersion(),
+			Kind:       gvk.InferencePool.Kind,
 			Name:       pool.GetName(),
 			UID:        pool.GetUID(),
 		},
