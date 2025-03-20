@@ -48,14 +48,12 @@ type ClusterTrustBundleController struct {
 	caBundleWatcher     *keycertbundle.Watcher
 	queue               controllers.Queue
 	clustertrustbundles kclient.Client[*certificatesv1alpha1.ClusterTrustBundle]
-	stopChan            chan struct{}
 }
 
 // NewClusterTrustBundleController creates a new ClusterTrustBundleController
 func NewClusterTrustBundleController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher) *ClusterTrustBundleController {
 	c := &ClusterTrustBundleController{
 		client:          kubeClient,
-		stopChan:        make(chan struct{}),
 		caBundleWatcher: caBundleWatcher,
 	}
 
@@ -104,7 +102,6 @@ func (c *ClusterTrustBundleController) Run(stopCh <-chan struct{}) {
 		return
 	}
 	go c.startCaBundleWatcher(stopCh)
-	defer close(c.stopChan)
 
 	// queue an initial event
 	c.queue.AddObject(&certificatesv1alpha1.ClusterTrustBundle{
