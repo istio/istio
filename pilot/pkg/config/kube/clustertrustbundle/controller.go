@@ -29,7 +29,10 @@ import (
 
 const (
 	// The name of the ClusterTrustBundle resource that will store Istio's root certificate
-	istioClusterTrustBundleName = "istio-ca-root-cert"
+	istioClusterTrustBundleName = "istio.io:istiod-ca:root-cert"
+
+	// The signerName of the ClusterTrustBundle
+	istioClusterTrustBundleSignerName = "istio.io/istiod-ca"
 
 	// maxRetries is the number of times a ClusterTrustBundle reconciliation will be retried before it is dropped
 	// out of the queue.
@@ -121,6 +124,7 @@ func (c *ClusterTrustBundleController) updateClusterTrustBundle(rootCert []byte)
 			Name: istioClusterTrustBundleName,
 		},
 		Spec: certificatesv1alpha1.ClusterTrustBundleSpec{
+			SignerName:  istioClusterTrustBundleSignerName,
 			TrustBundle: string(rootCert),
 		},
 	}

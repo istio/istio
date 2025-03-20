@@ -280,7 +280,7 @@ spec:
         projected:
           sources:
           - clusterTrustBundle:
-              name: istio-ca-root-cert
+              name: istio.io:istiod-ca:root-cert
               path: root-cert.pem
               optional: true
   {{- else }}
