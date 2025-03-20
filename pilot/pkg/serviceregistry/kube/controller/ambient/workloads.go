@@ -174,7 +174,8 @@ func (a *index) workloadEntryWorkloadBuilder(
 		if addr, err := netip.ParseAddr(wle.Spec.Address); err == nil {
 			w.Addresses = [][]byte{addr.AsSlice()}
 		} else {
-			log.Warnf("skipping workload entry %s/%s; DNS Address resolution is not yet implemented", wle.Namespace, wle.Name)
+			w.Hostname = wle.Spec.Address
+			ß
 		}
 
 		w.WorkloadName, w.WorkloadType = wle.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod

@@ -57,6 +57,9 @@ type Instance interface {
 	// Cluster the ingress is deployed to
 	Cluster() cluster.Cluster
 
+	// ServiceName of the ingress
+	ServiceName() string
+
 	// Namespace of the ingress
 	Namespace() string
 }
