@@ -1120,6 +1120,89 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			},
 		},
 		{
+			name: "host pod with ServiceEntry workloadSelector",
+			inputs: []any{
+				model.ServiceInfo{
+					Service: &workloadapi.Service{
+						Name:      "svc",
+						Namespace: "ns",
+						Hostname:  "hostname",
+						Ports: []*workloadapi.Port{
+							{
+								ServicePort: 80,
+								TargetPort:  8080,
+							},
+							{
+								ServicePort: 81,
+								TargetPort:  0,
+							},
+							{
+								ServicePort: 82,
+								TargetPort:  0,
+							},
+						},
+					},
+					PortNames: map[int32]model.ServicePortName{
+						// TargetPort explicitly set
+						80: {PortName: "80"},
+						// Port name found
+						81: {PortName: "81"},
+						// Port name not found
+						82: {PortName: "82"},
+					},
+					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+					Source:        model.TypedObject{Kind: kind.ServiceEntry},
+				},
+			},
+			we: &networkingclient.WorkloadEntry{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						"app": "foo",
+					},
+				},
+				Spec: networking.WorkloadEntry{
+					Ports: map[string]uint32{
+						"81": 8180,
+					},
+					Address: "hostname",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0/networking.istio.io/WorkloadEntry/ns/name",
+				Name:              "name",
+				Namespace:         "ns",
+				Hostname:          "hostname",
+				Network:           testNW,
+				CanonicalName:     "foo",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "name",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
+				Services: map[string]*workloadapi.PortList{
+					"ns/hostname": {
+						Ports: []*workloadapi.Port{
+							{
+								ServicePort: 80,
+								TargetPort:  8080,
+							},
+							{
+								ServicePort: 81,
+								TargetPort:  8180,
+							},
+							{
+								ServicePort: 82,
+								TargetPort:  82,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:   "cross network we",
 			inputs: []any{},
 			we: &networkingclient.WorkloadEntry{
