@@ -118,7 +118,7 @@ func (s *nodeTainterTestServer) isNodeUntainted(node string) bool {
 		return false
 	}
 	for _, t := range n.Spec.Taints {
-		if t.Key == TaintName {
+		if t.Key == DefaultTaintName {
 			return false
 		}
 	}
@@ -131,7 +131,7 @@ func (s *nodeTainterTestServer) addTaintedNodes(t *testing.T, nodes ...string) {
 		node := generateNode(node, nil)
 		// add our special taint
 		node.Spec.Taints = append(node.Spec.Taints, corev1.Taint{
-			Key:    TaintName,
+			Key:    DefaultTaintName,
 			Value:  "true",
 			Effect: corev1.TaintEffectNoSchedule,
 		})

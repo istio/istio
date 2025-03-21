@@ -50,6 +50,7 @@ type PilotArgs struct {
 	PodName            string
 	Namespace          string
 	CniNamespace       string
+	TaintName          string
 	Revision           string
 	MeshConfigFile     string
 	NetworksConfigFile string
