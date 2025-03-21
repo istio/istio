@@ -2236,7 +2236,7 @@ spec:
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
 								from.CallOrFail(t, echo.CallOptions{
-									Address: "dummy.example.com",
+									Address: "dummy-v4.example.com",
 									Port:    to.PortForName("http"),
 									Timeout: time.Millisecond * 500,
 								})
