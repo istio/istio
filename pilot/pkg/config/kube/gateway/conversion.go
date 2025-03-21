@@ -1005,12 +1005,6 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 	}
 
 	namespace := ptr.OrDefault((*string)(to.Namespace), ns)
-	// All types currently require a Port, so we do this for everything; consider making this per-type if we have future types
-	// that do not require port.
-	if to.Port == nil {
-		// "Port is required when the referent is a Kubernetes Service."
-		return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
-	}
 	var invalidBackendErr *ConfigError
 	var hostname string
 	ref := normalizeReference(to.Group, to.Kind, gvk.Service)
@@ -1051,6 +1045,12 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 			Reason:  InvalidDestinationKind,
 			Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", ptr.OrEmpty(to.Group), ptr.OrEmpty(to.Kind)),
 		}
+	}
+	// All types currently require a Port, so we do this for everything; consider making this per-type if we have future types
+	// that do not require port.
+	if to.Port == nil {
+		// "Port is required when the referent is a Kubernetes Service."
+		return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
 	}
 	return &istio.Destination{
 		Host: hostname,
