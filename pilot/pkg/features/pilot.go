@@ -260,6 +260,9 @@ var (
 
 	PreferDestinationRulesTLSForExternalServices = env.Register("PREFER_DESTINATIONRULE_TLS_FOR_EXTERNAL_SERVICES", true,
 		"If true, external services will prefer the TLS settings from DestinationRules over the metadata TLS settings.").Get()
+
+	EnableGatewayAPIManualDeployment = env.Register("ENABLE_GATEWAY_API_MANUAL_DEPLOYMENT", true,
+		"If true, allows users to bind Gateway API resources to existing gateway deployments.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
