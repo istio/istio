@@ -2082,11 +2082,11 @@ func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 func normalizeReference[G ~string, K ~string](group *G, kind *K, def config.GroupVersionKind) config.GroupVersionKind {
 	k := def.Kind
 	if kind != nil {
-		k = (string)(*kind)
+		k = string(*kind)
 	}
 	g := def.Group
 	if group != nil {
-		g = (string)(*group)
+		g = string(*group)
 	}
 	gk := config.GroupVersionKind{
 		Group: g,
@@ -2103,7 +2103,7 @@ func defaultString[T ~string](s *T, def string) string {
 	if s == nil {
 		return def
 	}
-	return (string)(*s)
+	return string(*s)
 }
 
 func toRouteKind(g config.GroupVersionKind) k8s.RouteGroupKind {
