@@ -738,7 +738,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 						82: {PortName: "82"},
 					},
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
-					Source:        model.TypedObject{Kind: kind.ServiceEntry},
+					Source:        kind.ServiceEntry,
 				},
 			},
 			we: &networkingclient.WorkloadEntry{
