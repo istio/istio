@@ -241,15 +241,12 @@ func (ic *InferencePoolController) configureInferencePool(log *istiolog.Scope, p
 	}
 
 	if !parentsEqual(finalParents, pool.Status.Parents) {
-		log.Info("LIOR1")
 		pool.Status.Parents = finalParents
 		_, err := ic.pools.UpdateStatus(pool)
 		if err != nil {
 			return fmt.Errorf("error updating inferencepool status: %v", err)
 		}
 	}
-	log.Infof("LIOR-FINALPARENTS: %v\n", finalParents)
-	log.Infof("LIOR-NEWPARENTS: %v\n", newParents)
 	log.Info("inference pool service updated")
 	return nil
 }

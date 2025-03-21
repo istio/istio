@@ -207,6 +207,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					Run(stop)
 				return nil
 			})
+			// We should revisit this depending on the results of https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/521.
 			if features.SupportGatewayAPIInferenceExtension {
 				s.addTerminatingStartFunc("inference gateway controller", func(stop <-chan struct{}) error {
 					leaderelection.
