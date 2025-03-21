@@ -987,7 +987,7 @@ func TestAdditionalAddressesForIPv6(t *testing.T) {
 }
 
 func TestExtProcExistForInfernecePoolEnabledGateway(t *testing.T) {
-	// test.SetForTest(t, &features.EnableAdditionalIpv4OutboundListenerForIpv6Only, true)
+	test.SetForTest(t, &features.SupportGatewayAPIInferenceExtension, true)
 	cg := NewConfigGenTest(t, TestOptions{Services: testServices})
 	proxy := cg.SetupProxy(&model.Proxy{Labels: map[string]string{"istio.io/enable-inference-extproc": "true"}, ConfigNamespace: "not-default"})
 
