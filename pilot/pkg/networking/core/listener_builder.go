@@ -399,7 +399,6 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_STATS)
 		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
-		// TODO: add model router condition
 		if enableStr, ok := lb.node.Labels["istio.io/enable-inference-extproc"]; ok && enableStr == "true" && lb.node.Type == model.Router {
 			filters = append(filters, xdsfilters.InferencePoolExtProc)
 		}

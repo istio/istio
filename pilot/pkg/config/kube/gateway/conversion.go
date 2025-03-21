@@ -329,7 +329,6 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 		}
 		if ipCfg != nil && ipCfg.enableExtProc {
 			vs.Name = "%%" + ipCfg.endpointPickerDst + "%%" + ipCfg.endpointPickerPort + "%%" + vs.Name
-			// vs.Name = fmt.Sprintf("%%%s%%%%-%s", vs.Name)
 		}
 		vs.Route = route
 		return vs, joinErrors(backendErr, mirrorBackendErr)
@@ -1558,7 +1557,7 @@ func buildGRPCDestination(
 	var invalidBackendErr *ConfigError
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		// TODO: use same httproute logic
+		// TODO(liorlieberman): use same httproute logic
 		dst, _, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.GRPCRoute)
 		if err != nil {
 			if isInvalidBackend(err) {

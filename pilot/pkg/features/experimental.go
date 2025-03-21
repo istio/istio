@@ -199,6 +199,7 @@ var (
 	UnifiedSidecarScoping = env.Register("PILOT_UNIFIED_SIDECAR_SCOPE", true,
 		"If true, unified SidecarScope creation will be used. This is only intended as a temporary feature flag for backwards compatibility.").Get()
 
+	// If the version of this is merged to main - it should be false by default.
 	SupportGatewayAPIInferenceExtension = env.Register("SUPPORT_GATEWAY_API_INFERENCE_EXTENSION", true,
 		"If true, support gateway inference extensions apis").Get()
 )

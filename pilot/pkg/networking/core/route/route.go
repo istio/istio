@@ -1636,8 +1636,6 @@ func CheckAndGetInferencePoolConfig(virtualService config.Config) string {
 			fqdn := fmt.Sprintf("%s.%s.svc.%s", routeNameParts[1], virtualService.Namespace, "cluster.local")
 			infPoolConfig = fqdn + ":" + routeNameParts[2]
 		}
-		// log.Infof("LIOR2010: %s", infPoolConfig)
-		// log.Infof("LIOR2011: %s", routeNameParts)
 	}
 	return infPoolConfig
 }
