@@ -228,7 +228,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				if !overwrite && hasWaypoint {
 					// we don't want to error on the user when they don't explicitly overwrite namespaced Waypoints,
 					// we just warn them and provide a suggestion
-					fmt.Fprintf(cmd.OutOrStdout(), "Warning: namespace (%s) already has an enrolled Waypoint. Consider "+
+					fmt.Fprintf(cmd.OutOrStdout(), "⚠️ Warning: namespace (%s) already has an enrolled Waypoint. Consider "+
 						"adding the `"+"--overwrite"+"` flag to your apply command.\n", ns)
 					return nil
 				}
@@ -237,7 +237,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					return fmt.Errorf("failed to check if namespace is labeled ambient: %v", err)
 				}
 				if !namespaceIsLabeledAmbient {
-					fmt.Fprintf(cmd.OutOrStdout(), "Warning: namespace is not enrolled in ambient. Consider running\t"+
+					fmt.Fprintf(cmd.OutOrStdout(), "⚠️ Warning: namespace is not enrolled in ambient. Consider running\t"+
 						"`"+"kubectl label namespace %s istio.io/dataplane-mode=ambient"+"`\n", ns)
 				}
 			}
@@ -260,6 +260,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}
 				return err
 			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "✅ waypoint %v/%v applied\n", gw.Namespace, gw.Name)
 
 			if waitReady {
 				startTime := time.Now()
@@ -284,8 +286,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 						return errorWithMessage("timed out while waiting for waypoint", gwc, err)
 					}
 				}
+
+				fmt.Fprintf(cmd.OutOrStdout(), "✅ waypoint %v/%v is ready!\n", gw.Namespace, gw.Name)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v applied\n", gw.Namespace, gw.Name)
 
 			// If a user decides to enroll their namespace with a waypoint, label the namespace with the waypoint name
 			// after the waypoint has been applied.
@@ -294,7 +297,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("failed to label namespace with waypoint: %v", err)
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()),
+				fmt.Fprintf(cmd.OutOrStdout(), "✅ namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()),
 					label.IoIstioUseWaypoint.Name, gw.Name)
 			}
 			return nil
