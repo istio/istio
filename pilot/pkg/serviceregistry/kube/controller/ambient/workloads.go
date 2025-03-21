@@ -175,7 +175,6 @@ func (a *index) workloadEntryWorkloadBuilder(
 			w.Addresses = [][]byte{addr.AsSlice()}
 		} else {
 			w.Hostname = wle.Spec.Address
-			ß
 		}
 
 		w.WorkloadName, w.WorkloadType = wle.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
