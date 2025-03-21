@@ -83,6 +83,9 @@ values:
   pilot:
     env:
       PILOT_MX_ADDITIONAL_LABELS: "custom-label"
+  global:
+    logging:
+      level: "xdsproxy:debug,wasm:debug"
 meshConfig:
   accessLogFile: "" # disable from install, we will enable via Telemetry layer
   extensionProviders:
