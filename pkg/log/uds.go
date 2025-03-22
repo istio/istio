@@ -24,8 +24,10 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
+	lj "gopkg.in/natefinch/lumberjack.v2"
 )
 
 // An udsCore write entries to an UDS server with HTTP Post. Log messages will be encoded into a JSON array.
@@ -60,7 +62,28 @@ func teeToUDSServer(baseCore zapcore.Core, address, path string) zapcore.Core {
 			break
 		}
 	}
+
 	return zapcore.NewTee(baseCore, uc)
+}
+
+// Creates a small/fixed rolling log on the node's local FS.
+// This can be useful as a backup/fallback in case the node agent is down
+// and the UDS logging consequently fails (losing logs).
+func teeToRollingLocal(baseCore zapcore.Core, path string, maxSizeMB int) zapcore.Core {
+	w := zapcore.AddSync(&lj.Logger{
+		Filename:   path,
+		MaxSize:    maxSizeMB,
+		MaxBackups: 1,
+		MaxAge:     2, // days
+	})
+
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(defaultEncoderConfig),
+		w,
+		zap.InfoLevel,
+	)
+
+	return zapcore.NewTee(baseCore, core)
 }
 
 // Enabled implements zapcore.Core.
