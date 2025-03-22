@@ -24,6 +24,7 @@ const (
 	Gateway
 	GatewayClass
 	HTTPRoute
+	HorizontalPodAutoscaler
 	Ingress
 	IngressClass
 	KubernetesGateway
@@ -35,6 +36,7 @@ const (
 	Node
 	PeerAuthentication
 	Pod
+	PodDisruptionBudget
 	ProxyConfig
 	ReferenceGrant
 	RequestAuthentication
@@ -89,6 +91,8 @@ func (k Kind) String() string {
 		return "GatewayClass"
 	case HTTPRoute:
 		return "HTTPRoute"
+	case HorizontalPodAutoscaler:
+		return "HorizontalPodAutoscaler"
 	case Ingress:
 		return "Ingress"
 	case IngressClass:
@@ -111,6 +115,8 @@ func (k Kind) String() string {
 		return "PeerAuthentication"
 	case Pod:
 		return "Pod"
+	case PodDisruptionBudget:
+		return "PodDisruptionBudget"
 	case ProxyConfig:
 		return "ProxyConfig"
 	case ReferenceGrant:
@@ -182,6 +188,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return GatewayClass
 	case gvk.HTTPRoute:
 		return HTTPRoute
+	case gvk.HorizontalPodAutoscaler:
+		return HorizontalPodAutoscaler
 	case gvk.Ingress:
 		return Ingress
 	case gvk.IngressClass:
@@ -204,6 +212,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return PeerAuthentication
 	case gvk.Pod:
 		return Pod
+	case gvk.PodDisruptionBudget:
+		return PodDisruptionBudget
 	case gvk.ProxyConfig:
 		return ProxyConfig
 	case gvk.ReferenceGrant:

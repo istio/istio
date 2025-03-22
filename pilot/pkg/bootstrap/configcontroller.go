@@ -193,7 +193,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
 							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
 							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
-								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision)
+								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision, args.Namespace)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
 							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
