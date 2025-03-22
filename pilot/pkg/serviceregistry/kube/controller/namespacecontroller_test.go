@@ -278,6 +278,6 @@ func expectConfigMapNotExist(t *testing.T, configmaps kclient.Client[*v1.ConfigM
 	}, retry.Timeout(time.Millisecond*25))
 
 	if err == nil {
-		t.Fatalf("%s namespace should not have istio-ca-root-cert configmap.", ns)
+		t.Fatalf("%s namespace should not have %s configmap.", ns, CACertNamespaceConfigMap)
 	}
 }
