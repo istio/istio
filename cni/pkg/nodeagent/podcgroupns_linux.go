@@ -103,7 +103,7 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 		// Otherwise replace it with the one we just found
 		if existingNetns, exists := podUIDNetns[string(res.uid)]; exists {
 			log.Warnf("found more than one netns for the same pod: %s, will use oldest process netns", res.uid)
-			if existingNetns.Netns.OwnerProcStarttime() < res.ownerProcStarttime {
+			if existingNetns.NetnsCloser().OwnerProcStarttime() < res.ownerProcStarttime {
 				continue
 			}
 		}
@@ -115,9 +115,9 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 			inode:              res.inode,
 			ownerProcStarttime: res.ownerProcStarttime,
 		}
-		workload := WorkloadInfo{
-			Workload: podToWorkload(pod),
-			Netns:    netns,
+		workload := workloadInfo{
+			workload: podToWorkload(pod),
+			netns:    netns,
 		}
 		podUIDNetns[string(res.uid)] = workload
 
@@ -219,6 +219,10 @@ func isProcess(entry fs.DirEntry) bool {
 		return false
 	}
 	return true
+}
+
+func isNotNumber(r rune) bool {
+	return r < '0' || r > '9'
 }
 
 func GetFd(f fs.File) (uintptr, error) {

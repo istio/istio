@@ -32,7 +32,7 @@ import (
 type NetServer struct {
 	ztunnelServer      ZtunnelServer
 	currentPodSnapshot *podNetnsCache
-	podIptables        *iptables.IptablesConfigurator
+	podIptables        iptables.InPodRouter
 	podNs              PodNetnsFinder
 	// allow overriding for tests
 	netnsRunner func(fdable NetnsFd, toRun func() error) error

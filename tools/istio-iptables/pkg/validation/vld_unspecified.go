@@ -1,5 +1,5 @@
-//go:build !unix
-// +build !unix
+//go:build !unix && !windows
+// +build !unix,!windows
 
 // Copyright Istio Authors
 //
