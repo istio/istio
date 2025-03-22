@@ -46,6 +46,10 @@ type SimplePod struct {
 }
 
 func SimplePodCollection(pods krt.Collection[*corev1.Pod], opts krt.OptionsBuilder) krt.Collection[SimplePod] {
+	return NamedSimplePodCollection(pods, opts, "SimplePods")
+}
+
+func NamedSimplePodCollection(pods krt.Collection[*corev1.Pod], opts krt.OptionsBuilder, name string) krt.Collection[SimplePod] {
 	return krt.NewCollection(pods, func(ctx krt.HandlerContext, i *corev1.Pod) *SimplePod {
 		if i.Status.PodIP == "" {
 			return nil
@@ -55,7 +59,7 @@ func SimplePodCollection(pods krt.Collection[*corev1.Pod], opts krt.OptionsBuild
 			Labeled: NewLabeled(i.Labels),
 			IP:      i.Status.PodIP,
 		}
-	}, opts.WithName("SimplePods")...)
+	}, opts.WithName(name)...)
 }
 
 type SizedPod struct {
@@ -115,18 +119,27 @@ func (l Labeled) GetLabels() map[string]string {
 type SimpleService struct {
 	Named
 	Selector map[string]string
+	IP       string
 }
 
-func SimpleServiceCollection(services krt.Collection[*corev1.Service], opts krt.OptionsBuilder) krt.Collection[SimpleService] {
+func NamedSimpleServiceCollection(services krt.Collection[*corev1.Service], opts krt.OptionsBuilder, name string) krt.Collection[SimpleService] {
 	return krt.NewCollection(services, func(ctx krt.HandlerContext, i *corev1.Service) *SimpleService {
 		return &SimpleService{
 			Named:    NewNamed(i),
 			Selector: i.Spec.Selector,
 		}
-	}, opts.WithName("SimpleService")...)
+	}, opts.WithName(name)...)
 }
 
-func SimpleServiceCollectionFromEntries(entries krt.Collection[*istioclient.ServiceEntry], opts krt.OptionsBuilder) krt.Collection[SimpleService] {
+func SimpleServiceCollection(services krt.Collection[*corev1.Service], opts krt.OptionsBuilder) krt.Collection[SimpleService] {
+	return NamedSimpleServiceCollection(services, opts, "SimpleService")
+}
+
+func NamedSimpleServiceCollectionFromEntries(
+	entries krt.Collection[*istioclient.ServiceEntry],
+	opts krt.OptionsBuilder,
+	name string,
+) krt.Collection[SimpleService] {
 	return krt.NewCollection(entries, func(ctx krt.HandlerContext, i *istioclient.ServiceEntry) *SimpleService {
 		l := i.Spec.WorkloadSelector.GetLabels()
 		if l == nil {
@@ -136,7 +149,11 @@ func SimpleServiceCollectionFromEntries(entries krt.Collection[*istioclient.Serv
 			Named:    NewNamed(i),
 			Selector: l,
 		}
-	}, opts.WithName("SimpleService")...)
+	}, opts.WithName(name)...)
+}
+
+func SimpleServiceCollectionFromEntries(entries krt.Collection[*istioclient.ServiceEntry], opts krt.OptionsBuilder) krt.Collection[SimpleService] {
+	return NamedSimpleServiceCollectionFromEntries(entries, opts, "SimpleService")
 }
 
 type SimpleEndpoint struct {
@@ -608,4 +625,31 @@ func TestCollectionDiscardResult(t *testing.T) {
 		// Should see only one update -- the skip is ignored.
 		tt.WaitOrdered("add/static", "update/static")
 	})
+}
+
+func TestCollectionMetadata(t *testing.T) {
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	kpc := kclient.New[*corev1.Pod](c)
+	meta := krt.Metadata{
+		"key1": "value1",
+	}
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	c.RunAndWait(opts.Stop())
+
+	SimplePods := krt.NewCollection(pods, func(ctx krt.HandlerContext, i *corev1.Pod) *SimplePod {
+		if i.Status.PodIP == "" {
+			return nil
+		}
+		return &SimplePod{
+			Named:   NewNamed(i),
+			Labeled: NewLabeled(i.Labels),
+			IP:      i.Status.PodIP,
+		}
+	}, opts.With(
+		krt.WithName("SimplePods"),
+		krt.WithMetadata(meta),
+	)...)
+
+	assert.Equal(t, SimplePods.Metadata(), meta)
 }

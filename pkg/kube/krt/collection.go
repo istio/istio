@@ -164,6 +164,7 @@ type manyCollection[I, O any] struct {
 	synced       chan struct{}
 	stop         <-chan struct{}
 	queue        queue.Instance
+	metadata     Metadata
 
 	// onPrimaryInputEventHandler is a specialized internal handler that runs synchronously when a primary input changes
 	onPrimaryInputEventHandler func(o []Event[I])
@@ -481,12 +482,8 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	h.eventHandlers.Distribute(events, !h.HasSynced())
 }
 
-// WithJoinUnchecked enables an optimization for join collections, where keys are not deduplicated across collections.
-// This option can only be used when joined collections are disjoint: keys overlapping between collections is undefined behavior
-func WithJoinUnchecked() CollectionOption {
-	return func(c *collectionOptions) {
-		c.joinUnchecked = true
-	}
+func (h *manyCollection[I, O]) Metadata() Metadata {
+	return h.metadata
 }
 
 // NewCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
@@ -503,6 +500,7 @@ func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opt
 	}
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
+		// NOTE: this will print Collection[nil, nil] if I or O are interfaces
 		o.name = fmt.Sprintf("Collection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
 	}
 	return newManyCollection[I, O](c, hm, o, nil)
@@ -550,6 +548,11 @@ func newManyCollection[I, O any](
 		stop:                       opts.stop,
 		onPrimaryInputEventHandler: onPrimaryInputEventHandler,
 	}
+
+	if opts.metadata != nil {
+		h.metadata = opts.metadata
+	}
+
 	h.syncer = channelSyncer{
 		name:   h.collectionName,
 		synced: h.synced,
