@@ -31,6 +31,7 @@ var (
 	HTTPRoute                      = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "httproutes"}
 	HTTPRoute_v1alpha2             = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "httproutes"}
 	HTTPRoute_v1                   = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "httproutes"}
+	InferencePool                  = schema.GroupVersionResource{Group: "inference.networking.x-k8s.io", Version: "v1alpha2", Resource: "inferencepools"}
 	Ingress                        = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
 	IngressClass                   = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}
 	KubernetesGateway              = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "gateways"}
@@ -131,6 +132,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 	case HTTPRoute_v1alpha2:
 		return false
 	case HTTPRoute_v1:
+		return false
+	case InferencePool:
 		return false
 	case Ingress:
 		return false

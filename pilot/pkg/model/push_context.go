@@ -1406,7 +1406,7 @@ func (ps *PushContext) updateContext(
 		case kind.RequestAuthentication,
 			kind.PeerAuthentication:
 			authnChanged = true
-		case kind.HTTPRoute, kind.TCPRoute, kind.TLSRoute, kind.GRPCRoute, kind.GatewayClass, kind.KubernetesGateway, kind.ReferenceGrant:
+		case kind.HTTPRoute, kind.TCPRoute, kind.TLSRoute, kind.GRPCRoute, kind.GatewayClass, kind.KubernetesGateway, kind.ReferenceGrant, kind.InferencePool:
 			gatewayAPIChanged = true
 			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
 			virtualServicesChanged = true

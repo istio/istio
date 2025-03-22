@@ -55,6 +55,8 @@ const (
 	HTTPGRPCStats = "envoy.filters.http.grpc_stats"
 	// HTTP WASM filter
 	HTTPWasm = "envoy.extensions.filters.http.wasm.v3.Wasm"
+	// HTTPExternalProcessing HTTP filter
+	HTTPExternalProcessing = "envoy.filters.http.ext_proc"
 )
 
 // Network filter names

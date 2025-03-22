@@ -16,6 +16,7 @@ import (
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	sigsk8siogatewayapiinferenceextensionapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -260,6 +261,21 @@ var (
 		Proto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteStatus",
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.HTTPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.HTTPRouteStatus{}).Elem(),
 		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1beta1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
+	InferencePool = resource.Builder{
+		Identifier: "InferencePool",
+		Group:      "inference.networking.x-k8s.io",
+		Kind:       "InferencePool",
+		Plural:     "inferencepools",
+		Version:    "v1alpha2",
+		Proto:      "x-k8s.io.gateway-api-inference-extension.api.v1alpha2.InferencePoolSpec", StatusProto: "x-k8s.io.gateway-api-inference-extension.api.v1alpha2.InferencePoolStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePoolSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePoolStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
@@ -753,6 +769,7 @@ var (
 		MustAdd(Gateway).
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
+		MustAdd(InferencePool).
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
@@ -796,6 +813,7 @@ var (
 		MustAdd(GRPCRoute).
 		MustAdd(GatewayClass).
 		MustAdd(HTTPRoute).
+		MustAdd(InferencePool).
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
