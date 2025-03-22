@@ -280,6 +280,10 @@ func (c *ingressImpl) PodID(i int) (string, error) {
 	return pods.Items[i].Name, nil
 }
 
+func (c *ingressImpl) ServiceName() string {
+	return c.service.Name
+}
+
 func (c *ingressImpl) Namespace() string {
 	return c.service.Namespace
 }
