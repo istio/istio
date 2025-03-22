@@ -3854,7 +3854,7 @@ func TestValidateServiceEntries(t *testing.T) {
 				Resolution: networking.ServiceEntry_DNS,
 			},
 			valid:   true,
-			warning: true,
+			warning: false,
 		},
 		{
 			name: "bad selector key", in: &networking.ServiceEntry{
