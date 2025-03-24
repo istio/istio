@@ -131,6 +131,12 @@ func ConvertPolicy(in *networking.HTTPRetry, hashPolicy bool) *route.RetryPolicy
 		}
 	}
 
+	if in.Backoff != nil {
+		out.RetryBackOff = &route.RetryPolicy_RetryBackOff{
+			BaseInterval: in.Backoff,
+		}
+	}
+
 	return out
 }
 

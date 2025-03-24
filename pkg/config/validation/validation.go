@@ -2554,6 +2554,9 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 			}
 		}
 	}
+	if retries.Backoff != nil {
+		errs = appendErrors(errs, agent.ValidateDuration(retries.Backoff))
+	}
 
 	return
 }

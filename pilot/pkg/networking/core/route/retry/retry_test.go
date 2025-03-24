@@ -68,6 +68,9 @@ func TestRetry(t *testing.T) {
 					Attempts:      2,
 					RetryOn:       "some,fake,conditions",
 					PerTryTimeout: durationpb.New(time.Second * 3),
+					Backoff: &durationpb.Duration{
+						Seconds: 2,
+					},
 				},
 			},
 			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
@@ -84,6 +87,7 @@ func TestRetry(t *testing.T) {
 					xdsfilters.RetryPreviousHosts,
 				}
 				g.Expect(policy.RetryHostPredicate).To(Equal(retryHostPredicate))
+				g.Expect(policy.RetryBackOff.BaseInterval).To(Equal(durationpb.New(time.Second * 2)))
 			},
 		},
 		{
