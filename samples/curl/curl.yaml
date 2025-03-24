@@ -50,6 +50,8 @@ spec:
     spec:
       terminationGracePeriodSeconds: 0
       serviceAccountName: curl
+      nodeSelector:
+        kubernetes.io/os: linux
       containers:
       - name: curl
         image: curlimages/curl

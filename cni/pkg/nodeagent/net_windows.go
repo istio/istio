@@ -122,6 +122,8 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	}
 
 	log.Debug("calling CreateInpodRules")
+	// TODO: We may not actually even need to change namespaces; perhaps this hostprocesscontainer
+	// can just apply the policies directly to the endpoints in HNS
 	if err := s.netnsRunner(openNetns, func() error {
 		podCfg := getPodLevelTrafficOverrides(pod)
 		return s.podIptables.CreateInpodRules(log, podCfg)
@@ -155,8 +157,7 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 	// Aggregate errors together, so that if part of the cleanup fails we still proceed with other steps.
 	var errs []error
 
-	// Whether pod is already deleted or not, we need to let go of our netns ref.
-	openNetns := s.currentPodSnapshot.Take(string(pod.UID))
+	openNetns := s.currentPodSnapshot.Get(string(pod.UID))
 	if openNetns == nil {
 		log.Debug("failed to find pod netns during removal")
 	}
@@ -181,6 +182,11 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 		log.Errorf("failed to delete pod from ztunnel: %v", err)
 		errs = append(errs, err)
 	}
+
+	// Now finally remove our reference to the netns. Need to wait to do so
+	// in order to query the endpoint ids
+	_ = s.currentPodSnapshot.Take(string(pod.UID))
+
 	return errors.Join(errs...)
 }
 

@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/zdsapi"
 )
 
 type PodNetNsHNSFinder struct {
@@ -102,8 +103,14 @@ func (p *PodNetNsHNSFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (Po
 		if err != nil {
 			return nil, fmt.Errorf("could not get namespace endpoints: %w", err)
 		}
+
+		workload := podToWorkload(pod)
+		workload.WindowsNamespace = &zdsapi.WindowsNamespace{
+			Id:   ns.NamespaceId,
+			Guid: nsGuid,
+		}
 		podUIDNetns[string(podUID)] = &workloadInfo{
-			workload: podToWorkload(pod),
+			workload: workload,
 			namespace: &namespaceCloser{
 				ns: WindowsNamespace{
 					ID:          ns.NamespaceId,

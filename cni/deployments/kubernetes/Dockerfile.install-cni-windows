@@ -1,5 +1,5 @@
 ARG WINBASE=mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:v1.0.0
-FROM --platform=$BUILDPLATFORM golang:1.23 AS build
+FROM --platform=$BUILDPLATFORM golang:1.24 AS build
 WORKDIR /go/src/github.com/istio/istio
 RUN apt-get update && apt-get install -y mingw-w64 --no-install-recommends
 RUN mkdir -p out/x86_64-pc-windows-gnu

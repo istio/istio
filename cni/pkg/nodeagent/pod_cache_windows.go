@@ -69,6 +69,9 @@ func (p *podNetnsCache) ReadCurrentPodSnapshot() map[string]WorkloadInfo {
 func (p *podNetnsCache) GetEndpointsForNamespaceID(id uint32) ([]string, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+	if len(p.currentPodCache) == 0 {
+		log.Info("pod cache is empty for some reason")
+	}
 	for _, info := range p.currentPodCache {
 		namespaceCloser, ok := info.NetnsCloser().(NamespaceCloser)
 		if !ok {
@@ -77,6 +80,7 @@ func (p *podNetnsCache) GetEndpointsForNamespaceID(id uint32) ([]string, error) 
 		if namespaceCloser.Namespace().ID == id {
 			return namespaceCloser.Namespace().EndpointIds, nil
 		}
+		log.Infof("workload %s with id %d doesn't match id %d", info.Workload().Name, namespaceCloser.Namespace().ID, id)
 	}
 	return nil, fmt.Errorf("no namespace found in cache for id %d", id)
 
@@ -88,8 +92,13 @@ func (p *podNetnsCache) UpsertPodCache(pod *corev1.Pod, namespace string) (Names
 	if err != nil {
 		return nil, err
 	}
+	workload := podToWorkload(pod)
+	workload.WindowsNamespace = &zdsapi.WindowsNamespace{
+		Id:   newnetns.Namespace().ID,
+		Guid: newnetns.Namespace().GUID,
+	}
 	wl := workloadInfo{
-		workload:  podToWorkload(pod),
+		workload:  workload,
 		namespace: newnetns,
 	}
 	return p.UpsertPodCacheWithNetns(string(pod.UID), wl), nil
@@ -107,19 +116,25 @@ func (p *podNetnsCache) UpsertPodCacheWithNetns(uid string, workload WorkloadInf
 		if existingNetns != nil {
 			// If the guids match
 			if existingNetns.Namespace().GUID == workloadNetns.Namespace().GUID {
-				// Replace the workload, but keep the old GUID (doesn't really matter)
-				p.currentPodCache[uid] = workloadInfo{
+				// Replace the workload, but keep the new GUID (doesn't really matter)
+				newInfo := workloadInfo{
 					workload:  workload.Workload(),
 					namespace: existingNetns,
 				}
+				newInfo.workload.WindowsNamespace = &zdsapi.WindowsNamespace{
+					Id:   workloadNetns.Namespace().ID,
+					Guid: workloadNetns.Namespace().GUID,
+				}
+				p.currentPodCache[uid] = newInfo
 				// already in cache
-				return existingNetns
+				return workloadNetns
 			}
 			log.Debug("namespace guid mismatch, using the new one")
 		}
 	}
 
 	// Doesn't exist yet, add it
+	log.Infof("adding pod to cache %s with guid %s", workload.Workload().Name, workloadNetns.Namespace().GUID)
 	p.currentPodCache[uid] = workload
 	return workloadNetns
 }
