@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
+	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -233,6 +234,13 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 	}
 	addr = addrs[0]
 	port = ports[0]
+
+	// When the Ingress is a domain name (in public cloud), it might take a bit of time to make it reachable.
+	_, err := testKube.WaitUntilReachableIngress(addr)
+	if err != nil {
+		return echo.CallResult{}, fmt.Errorf("unable to get reachable ingress. Error: %v", err)
+	}
+
 	// Even if they set ServicePort, when load balancer is disabled, we may need to switch to NodePort, so replace it.
 	opts.Port.ServicePort = port
 	if opts.HTTP.Headers == nil {
