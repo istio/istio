@@ -15,20 +15,20 @@
 package gateway
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/test"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/test"
 )
 
 func TestReconcileInferencePool(t *testing.T) {
@@ -36,8 +36,6 @@ func TestReconcileInferencePool(t *testing.T) {
 	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
 	client := kube.NewFakeClient(defaultNamespace)
 	kube.SetObjectFilter(client, discoveryNamespacesFilter)
-	// Create a fake InferencePoodl
-	fmt.Println("lalas")
 	pool := &inferencev1alpha2.InferencePool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pool",
@@ -64,7 +62,6 @@ func TestReconcileInferencePool(t *testing.T) {
 	stop := test.NewStop(t)
 
 	controller := NewInferencePoolController(client)
-	// pools := clienttest.Wrap(t, controller.pools)
 	client.RunAndWait(stop)
 
 	go controller.Run(stop)

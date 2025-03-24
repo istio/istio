@@ -106,7 +106,7 @@ var services = []*model.Service{
 			},
 		},
 		Ports:    ports,
-		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", InferencePoolServiceName("infpool-gen"))),
+		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen")))),
 	},
 	{
 		Attributes: model.ServiceAttributes{
@@ -1522,4 +1522,8 @@ func TestExtractGatewayServices(t *testing.T) {
 			assert.Equal(t, err, tt.err)
 		})
 	}
+}
+
+func firstValue[T, U any](val T, _ U) T {
+	return val
 }

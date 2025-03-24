@@ -1644,15 +1644,10 @@ func buildDestination(ctx configContext, to k8s.BackendRef, ns string, enforceRe
 	// TODO(liorlieberman): any harm to guard this as well?
 	if features.SupportGatewayAPIInferenceExtension {
 		if nilOrEqual((*string)(to.Group), gvk.InferencePool.Group) && nilOrEqual((*string)(to.Kind), gvk.InferencePool.Kind) {
-			// InferencePool
-			// if to.Port == nil {
-			// 	// "Port is required when the referent is an InferencePool."
-			// 	return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
-			// }
 			if strings.Contains(string(to.Name), ".") {
 				return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "InferencePool.Name invalid; the name of the InferencePool must be used, not the hostname."}
 			}
-			inferencePoolServiceName := InferencePoolServiceName(string(to.Name))
+			inferencePoolServiceName, _ := InferencePoolServiceName(string(to.Name))
 			hostname := fmt.Sprintf("%s.%s.svc.%s", inferencePoolServiceName, namespace, ctx.Domain)
 			svc := ctx.Context.GetService(hostname, namespace)
 			if svc == nil {

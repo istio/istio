@@ -349,6 +349,7 @@ func TestBuildClustersForInferencePoolServices(t *testing.T) {
 		})
 	}
 }
+
 func TestCommonHttpProtocolOptions(t *testing.T) {
 	cases := []struct {
 		clusterName           string

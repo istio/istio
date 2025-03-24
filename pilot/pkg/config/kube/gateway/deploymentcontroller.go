@@ -411,7 +411,7 @@ func (d *DeploymentController) setLabelOverrides(gw gateway.Gateway, input Templ
 
 	// Set Inference ext proc label if not present as infrastructureLabel
 	// TODO(liorlieberman): should this label be part of istio/api?
-	var enableInferenceExtProcOnGatewayLabelName = "istio.io/enable-inference-extproc"
+	enableInferenceExtProcOnGatewayLabelName := "istio.io/enable-inference-extproc"
 	if _, ok := input.InfrastructureLabels[enableInferenceExtProcOnGatewayLabelName]; ok {
 		return
 	}

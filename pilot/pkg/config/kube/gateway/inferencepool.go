@@ -21,8 +21,6 @@ import (
 	"strconv"
 	"time"
 
-	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util/sets"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -39,13 +37,17 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
-const maxServiceNameLength = 63
-const hashSize = 8
-const InferencePoolRefLabel = "inference.x-k8s.io/inference-pool-name"
-const InferencePoolExtensionRefSvc = "inference.x-k8s.io/extension-service"
-const InferencePoolExtensionRefPort = "inference.x-k8s.io/extension-port"
+const (
+	maxServiceNameLength          = 63
+	hashSize                      = 8
+	InferencePoolRefLabel         = "inference.x-k8s.io/inference-pool-name"
+	InferencePoolExtensionRefSvc  = "inference.x-k8s.io/extension-service"
+	InferencePoolExtensionRefPort = "inference.x-k8s.io/extension-port"
+)
 
 // // ManagedLabel is the label used to identify resources managed by this controller
 // const ManagedLabel = "inference.x-k8s.io/managed-by"
@@ -163,10 +165,7 @@ func (ic *InferencePoolController) Reconcile(req types.NamespacedName) error {
 		return nil
 	}
 
-	// if !isManaged(pool) {
-	// 	log.Debugf("inference pool is not managed by this controller")
-	// 	return nil
-	// }
+	// TODO: check if this inferencepool is managed by the controller.
 
 	return ic.configureInferencePool(log, pool)
 }
@@ -220,7 +219,7 @@ func (ic *InferencePoolController) configureInferencePool(log *istiolog.Scope, p
 	existingParents := pool.Status.Parents
 	newParents := []*inferencev1alpha2.PoolStatus{}
 	for gtw := range gatewayParentsToEnsure {
-		newParents = append(newParents, poolStatusTmpl(string(gtw.Name), gtw.Namespace, pool.Generation))
+		newParents = append(newParents, poolStatusTmpl(gtw.Name, gtw.Namespace, pool.Generation))
 	}
 
 	finalParents := []inferencev1alpha2.PoolStatus{}
@@ -302,7 +301,7 @@ func generateHash(input string, length int) string {
 	return hashString[:length]                 // Truncate to desired length
 }
 
-func InferencePoolServiceName(poolName string) string {
+func InferencePoolServiceName(poolName string) (string, error) {
 	ipSeparator := "-ip-"
 	hash := generateHash(poolName, hashSize)
 	svcName := poolName + ipSeparator + hash
@@ -310,20 +309,23 @@ func InferencePoolServiceName(poolName string) string {
 	if len(svcName) > maxServiceNameLength {
 		// Calculate the maximum allowed base name length
 		maxBaseLength := maxServiceNameLength - len(ipSeparator) - hashSize
-		// if maxBaseLength < 0 {
-		// 	return nil, fmt.Errorf("inference pool name: %s is too long", pool.Name)
-		// }
+		if maxBaseLength < 0 {
+			return "", fmt.Errorf("inference pool name: %s is too long", poolName)
+		}
 
 		// Truncate the base name and reconstruct the service name
 		truncatedBase := poolName[:maxBaseLength]
 		svcName = truncatedBase + ipSeparator + hash
 	}
-	return svcName
+	return svcName, nil
 }
 
 // translateInferencePoolToService converts an InferencePool to a Service
 func translateInferencePoolToService(pool *inferencev1alpha2.InferencePool) (*corev1.Service, error) {
-	svcName := InferencePoolServiceName(pool.Name)
+	svcName, err := InferencePoolServiceName(pool.Name)
+	if err != nil {
+		return nil, err
+	}
 
 	shadowSvc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -335,7 +337,7 @@ func translateInferencePoolToService(pool *inferencev1alpha2.InferencePool) (*co
 		shadowSvc.Labels = map[string]string{}
 	}
 	shadowSvc.Labels[InferencePoolRefLabel] = pool.GetName()
-	//TODO: for now, supporting only service
+	// TODO: for now, supporting only service
 	extRef := pool.Spec.ExtensionRef
 	shadowSvc.Labels[InferencePoolExtensionRefSvc] = string(extRef.Name)
 	if extRef.PortNumber != nil {
