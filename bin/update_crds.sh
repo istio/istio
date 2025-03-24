@@ -59,7 +59,8 @@ cp "${API_TMP}"/tests/testdata/* "${ROOTDIR}/pkg/config/validation/testdata/crds
 
 cd "${ROOTDIR}"
 
-GATEWAY_VERSION=$(grep "gateway-api" go.mod | awk '{ print $2 }')
+# TODO(liorlieberman): support gateway-api-inference-extension crds?
+GATEWAY_VERSION=$(grep "gateway-api\s" go.mod | awk '{ print $2 }')
 if [[ ${GATEWAY_VERSION} == *"-"* && ! ${GATEWAY_VERSION} =~ -rc.?[0-9]$ ]]; then
   # not an official release or release candidate, so get the commit sha
   SHORT_SHA=$(echo "${GATEWAY_VERSION}" | awk -F '-' '{ print $NF }')

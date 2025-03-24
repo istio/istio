@@ -28,6 +28,7 @@ import (
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	sigsk8siogatewayapiinferenceextensionapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -78,6 +79,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
 		return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePool:
+		return c.GatewayAPIInference().InferenceV1alpha2().InferencePools(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapinetworkingv1.Ingress:
 		return c.Kube().NetworkingV1().Ingresses(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapinetworkingv1.IngressClass:
@@ -177,6 +180,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
 		return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePool:
+		return c.GatewayAPIInference().InferenceV1alpha2().InferencePools(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapinetworkingv1.Ingress:
 		return c.Kube().NetworkingV1().Ingresses(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapinetworkingv1.IngressClass:
@@ -276,6 +281,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &sigsk8siogatewayapiapisv1beta1.HTTPRoute{}
 	case gvr.HorizontalPodAutoscaler:
 		return &k8sioapiautoscalingv2.HorizontalPodAutoscaler{}
+	case gvr.InferencePool:
+		return &sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePool{}
 	case gvr.Ingress:
 		return &k8sioapinetworkingv1.Ingress{}
 	case gvr.IngressClass:
@@ -462,6 +469,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().AutoscalingV2().HorizontalPodAutoscalers(opts.Namespace).Watch(context.Background(), options)
+		}
+	case gvr.InferencePool:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPIInference().InferenceV1alpha2().InferencePools(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPIInference().InferenceV1alpha2().InferencePools(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.Ingress:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

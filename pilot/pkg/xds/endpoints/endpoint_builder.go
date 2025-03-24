@@ -15,6 +15,7 @@
 package endpoints
 
 import (
+	"fmt"
 	"math"
 	"net"
 	"sort"
@@ -667,6 +668,16 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		meta = e.Metadata()
 	}
 
+	if b.service.UseInferenceSemantics() && b.proxy.Type == model.Router {
+		if ep.Metadata.FilterMetadata == nil {
+			ep.Metadata.FilterMetadata = map[string]*structpb.Struct{}
+		}
+		ep.Metadata.FilterMetadata[constants.EnvoySubsetNamespace] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{
+				constants.GatewayInferenceExtensionEndpointHintKey: {Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("%s:%d", e.Addresses[0], e.EndpointPort)}},
+			},
+		}
+	}
 	// detect if mTLS is possible for this endpoint, used later during ep filtering
 	// this must be done while converting IstioEndpoints because we still have workload labels
 	if !mtlsEnabled {

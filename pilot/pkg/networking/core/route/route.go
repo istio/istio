@@ -25,6 +25,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
 	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
+	extproc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
@@ -244,6 +245,9 @@ func buildSidecarVirtualHostsForVirtualService(
 	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	meshGateway := sets.New(constants.IstioMeshGateway)
+
+	infPoolConfig := CheckAndGetInferencePoolConfig(virtualService)
+
 	opts := RouteOptions{
 		// Sidecar is never terminating TLS
 		IsTLS: false,
@@ -257,7 +261,9 @@ func buildSidecarVirtualHostsForVirtualService(
 		LookupHash: func(destination *networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB {
 			return hashByDestination[destination]
 		},
+		InferencePoolExtensionRef: infPoolConfig,
 	}
+
 	routes, err := BuildHTTPRoutesForVirtualService(node, virtualService,
 		listenPort, meshGateway, opts)
 	if err != nil || len(routes) == 0 {
@@ -374,6 +380,8 @@ type RouteOptions struct {
 	LookupService             func(name host.Name) *model.Service
 	LookupDestinationCluster  func(destination *networking.Destination, service *model.Service, listenerPort int) string
 	LookupHash                func(*networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB
+
+	InferencePoolExtensionRef string
 }
 
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
@@ -498,6 +506,31 @@ func TranslateRoute(
 	}
 
 	var hostnames []host.Name
+	if opts.InferencePoolExtensionRef != "" {
+		extSvc, extPort := strings.Split(opts.InferencePoolExtensionRef, ":")[0], strings.Split(opts.InferencePoolExtensionRef, ":")[1]
+		p, _ := strconv.ParseInt(extPort, 10, 32)
+		if out.TypedPerFilterConfig == nil {
+			out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+		}
+		out.TypedPerFilterConfig[wellknown.HTTPExternalProcessing] = protoconv.MessageToAny(&extproc.ExtProcPerRoute{
+			Override: &extproc.ExtProcPerRoute_Overrides{
+				Overrides: &extproc.ExtProcOverrides{
+					GrpcService: &core.GrpcService{
+						TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+							EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+								ClusterName: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(extSvc), int(p)),
+							},
+						},
+					},
+					ProcessingMode: &extproc.ProcessingMode{
+						RequestHeaderMode: extproc.ProcessingMode_SEND,
+						// open AI standard includes the model and other information the ext_proc server needs in the request body
+						RequestBodyMode: extproc.ProcessingMode_BUFFERED,
+					},
+				},
+			},
+		})
+	}
 	if in.Redirect != nil {
 		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
@@ -1590,4 +1623,18 @@ func cutPrefix(s, prefix string) (after string, found bool) {
 		return s, false
 	}
 	return s[len(prefix):], true
+}
+
+func CheckAndGetInferencePoolConfig(virtualService config.Config) string {
+	vs := virtualService.Spec.(*networking.VirtualService)
+	var infPoolConfig string
+	for _, httpRoute := range vs.Http {
+		routeNameParts := strings.Split(httpRoute.Name, "%%")
+		if len(routeNameParts) > 1 {
+			// TODO(liorlieberman): support configurable domain names
+			fqdn := fmt.Sprintf("%s.%s.svc.%s", routeNameParts[1], virtualService.Namespace, "cluster.local")
+			infPoolConfig = fqdn + ":" + routeNameParts[2]
+		}
+	}
+	return infPoolConfig
 }

@@ -14,6 +14,7 @@ import (
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	sigsk8siogatewayapiinferenceextensionapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -80,6 +81,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.HTTPRoute, true
 	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
 		return gvk.HorizontalPodAutoscaler, true
+	case *sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePool:
+		return gvk.InferencePool, true
 	case *k8sioapinetworkingv1.Ingress:
 		return gvk.Ingress, true
 	case *k8sioapinetworkingv1.IngressClass:
