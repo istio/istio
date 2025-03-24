@@ -1145,6 +1145,10 @@ func TestValidateHTTPRetry(t *testing.T) {
 			Attempts:      10,
 			PerTryTimeout: &durationpb.Duration{Nanos: 999},
 		}, valid: false},
+		{name: "invalid backoff", in: &networking.HTTPRetry{
+			Attempts: 10,
+			Backoff:  &durationpb.Duration{Nanos: 999},
+		}, valid: false},
 		{name: "invalid policy retryOn", in: &networking.HTTPRetry{
 			Attempts:      10,
 			PerTryTimeout: &durationpb.Duration{Seconds: 2},
