@@ -39,8 +39,13 @@ var (
 	ErrNoPodsFetched = fmt.Errorf("no pods fetched")
 )
 
-// PodFetchFunc fetches pods from a k8s Client.
-type PodFetchFunc func() ([]corev1.Pod, error)
+type (
+	// PodFetchFunc fetches pods from a k8s Client.
+	PodFetchFunc func() ([]corev1.Pod, error)
+
+	// SvcFetchFunc fetches services from a k8s Client.
+	SvcFetchFunc func() ([]corev1.Service, error)
+)
 
 // NewPodFetch creates a new PodFetchFunction that fetches all pods matching the namespace and label selectors.
 func NewPodFetch(a istioKube.CLIClient, namespace string, selectors ...string) PodFetchFunc {
@@ -117,6 +122,17 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]corev1.Pod, error) {
 	}
 
 	return fetched, nil
+}
+
+// NewServiceFetch creates a new ServiceFetchFunction that fetches all services matching the namespace and label selectors.
+func NewServiceFetch(a istioKube.CLIClient, namespace string, selectors ...string) SvcFetchFunc {
+	return func() ([]corev1.Service, error) {
+		services, err := a.ServicesForSelector(context.TODO(), namespace, selectors...)
+		if err != nil {
+			return nil, err
+		}
+		return services.Items, nil
+	}
 }
 
 // DeleteOptionsForeground creates new delete options that will block until the operation completes.
