@@ -111,7 +111,9 @@ func NewInferencePoolController(client kube.Client) *InferencePoolController {
 					if httpBackendRef.BackendRef.Group == nil || httpBackendRef.BackendRef.Kind == nil {
 						continue
 					}
-					if string(*httpBackendRef.BackendRef.Group) == gvk.InferencePool.Group && string(*httpBackendRef.BackendRef.Kind) == gvk.InferencePool.Kind && string(httpBackendRef.BackendRef.Name) == pool.ObjectMeta.Name {
+					if string(*httpBackendRef.BackendRef.Group) == gvk.InferencePool.Group &&
+						string(*httpBackendRef.BackendRef.Kind) == gvk.InferencePool.Kind &&
+						string(httpBackendRef.BackendRef.Name) == pool.ObjectMeta.Name {
 						ic.queue.Add(types.NamespacedName{Name: pool.Name, Namespace: pool.Namespace})
 					}
 				}
@@ -202,7 +204,9 @@ func (ic *InferencePoolController) configureInferencePool(log *istiolog.Scope, p
 				if httpBackendRef.BackendRef.Group == nil || httpBackendRef.BackendRef.Kind == nil {
 					continue
 				}
-				if string(*httpBackendRef.BackendRef.Group) == gvk.InferencePool.Group && string(*httpBackendRef.BackendRef.Kind) == gvk.InferencePool.Kind && string(httpBackendRef.BackendRef.Name) == pool.ObjectMeta.Name {
+				if string(*httpBackendRef.BackendRef.Group) == gvk.InferencePool.Group &&
+					string(*httpBackendRef.BackendRef.Kind) == gvk.InferencePool.Kind &&
+					string(httpBackendRef.BackendRef.Name) == pool.ObjectMeta.Name {
 					for _, p := range r.Status.Parents {
 						if supportedControllers.Contains(p.ControllerName) {
 							ns := r.Namespace

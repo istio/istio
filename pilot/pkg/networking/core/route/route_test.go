@@ -1280,6 +1280,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		if err := routes[0].GetTypedPerFilterConfig()[wellknown.HTTPExternalProcessing].UnmarshalTo(extProcPerRoute); err != nil {
 			t.Errorf("couldn't unmarshal any proto: %v \n", err)
 		}
+		// nolint lll
 		g.Expect(extProcPerRoute.GetOverrides().GetGrpcService().GetTargetSpecifier().(*envoycore.GrpcService_EnvoyGrpc_).EnvoyGrpc.GetClusterName()).To(Equal("outbound|9002||ext-proc-svc.test-namespace.svc.cluster.local"))
 		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestBodyMode()).To(Equal(extproc.ProcessingMode_BUFFERED))
 		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestHeaderMode()).To(Equal(extproc.ProcessingMode_SEND))
