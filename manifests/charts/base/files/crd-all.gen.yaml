@@ -10612,6 +10612,13 @@ spec:
                             request.
                           format: int32
                           type: integer
+                        backoff:
+                          description: Specifies the minimum duration between retry
+                            attempts.
+                          type: string
+                          x-kubernetes-validations:
+                          - message: must be a valid duration greater than 1ms
+                            rule: duration(self) >= duration('1ms')
                         perTryTimeout:
                           description: Timeout per attempt for a given request, including
                             the initial call and any retries.
@@ -11657,6 +11664,13 @@ spec:
                             request.
                           format: int32
                           type: integer
+                        backoff:
+                          description: Specifies the minimum duration between retry
+                            attempts.
+                          type: string
+                          x-kubernetes-validations:
+                          - message: must be a valid duration greater than 1ms
+                            rule: duration(self) >= duration('1ms')
                         perTryTimeout:
                           description: Timeout per attempt for a given request, including
                             the initial call and any retries.
@@ -12702,6 +12716,13 @@ spec:
                             request.
                           format: int32
                           type: integer
+                        backoff:
+                          description: Specifies the minimum duration between retry
+                            attempts.
+                          type: string
+                          x-kubernetes-validations:
+                          - message: must be a valid duration greater than 1ms
+                            rule: duration(self) >= duration('1ms')
                         perTryTimeout:
                           description: Timeout per attempt for a given request, including
                             the initial call and any retries.
