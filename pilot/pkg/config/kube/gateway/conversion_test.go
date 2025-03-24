@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	crdvalidation "istio.io/istio/pkg/config/crd"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
@@ -95,6 +96,17 @@ var services = []*model.Service{
 		},
 		Ports:    ports,
 		Hostname: "httpbin.default.svc.domain.suffix",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+			Labels: map[string]string{
+				InferencePoolExtensionRefSvc:  "ext-proc-svc",
+				InferencePoolExtensionRefPort: "9002",
+			},
+		},
+		Ports:    ports,
+		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen")))),
 	},
 	{
 		Attributes: model.ServiceAttributes{
@@ -1510,4 +1522,8 @@ func TestExtractGatewayServices(t *testing.T) {
 			assert.Equal(t, err, tt.err)
 		})
 	}
+}
+
+func firstValue[T, U any](val T, _ U) T {
+	return val
 }

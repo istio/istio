@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -171,6 +172,34 @@ func (m *metadataCerts) String() string {
 func newClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
 	return &clusterWrapper{
 		cluster: cluster,
+	}
+}
+
+func (cb *ClusterBuilder) applyLbSubsetConfig(cw *clusterWrapper, subsetSelectorKey string) {
+	// TODO(liorlieberman) handle a case where subsetConfig already exist?
+	if cw.cluster.LbSubsetConfig == nil {
+		cw.cluster.LbSubsetConfig = &cluster.Cluster_LbSubsetConfig{}
+	}
+	cw.cluster.LbSubsetConfig.FallbackPolicy = cluster.Cluster_LbSubsetConfig_ANY_ENDPOINT
+	if len(cw.cluster.LbSubsetConfig.SubsetSelectors) == 0 {
+		cw.cluster.LbSubsetConfig.SubsetSelectors = []*cluster.Cluster_LbSubsetConfig_LbSubsetSelector{}
+	}
+
+	// TODO(liorlieberman) think about this logic - should we handle a case where subsetSelectors already exist
+	// and do we put the selector needed for inference before?
+	// TODO(liorlieberman) Maybe this function should be more Inference related and not generic "applySubsetConfig"?
+	addKey := true
+	for _, ss := range cw.cluster.LbSubsetConfig.SubsetSelectors {
+		if slices.Contains(ss.Keys, subsetSelectorKey) {
+			addKey = false
+		}
+	}
+	if addKey {
+		cw.cluster.LbSubsetConfig.SubsetSelectors = append(cw.cluster.LbSubsetConfig.SubsetSelectors, &cluster.Cluster_LbSubsetConfig_LbSubsetSelector{
+			Keys: []string{
+				subsetSelectorKey,
+			},
+		})
 	}
 }
 
