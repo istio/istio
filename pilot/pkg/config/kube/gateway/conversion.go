@@ -1607,7 +1607,8 @@ type inferencePoolConfig struct {
 }
 
 func buildDestination(ctx configContext, to k8s.BackendRef, ns string,
-	enforceRefGrant bool, k config.GroupVersionKind) (*istio.Destination, *inferencePoolConfig, *ConfigError) {
+	enforceRefGrant bool, k config.GroupVersionKind,
+) (*istio.Destination, *inferencePoolConfig, *ConfigError) {
 	// check if the reference is allowed
 	if enforceRefGrant {
 		refs := ctx.AllowedReferences
@@ -1646,8 +1647,10 @@ func buildDestination(ctx configContext, to k8s.BackendRef, ns string,
 	if features.SupportGatewayAPIInferenceExtension {
 		if nilOrEqual((*string)(to.Group), gvk.InferencePool.Group) && nilOrEqual((*string)(to.Kind), gvk.InferencePool.Kind) {
 			if strings.Contains(string(to.Name), ".") {
-				return nil, nil, &ConfigError{Reason: InvalidDestination,
-					Message: "InferencePool.Name invalid; the name of the InferencePool must be used, not the hostname."}
+				return nil, nil, &ConfigError{
+					Reason:  InvalidDestination,
+					Message: "InferencePool.Name invalid; the name of the InferencePool must be used, not the hostname.",
+				}
 			}
 			inferencePoolServiceName, _ := InferencePoolServiceName(string(to.Name))
 			hostname := fmt.Sprintf("%s.%s.svc.%s", inferencePoolServiceName, namespace, ctx.Domain)
