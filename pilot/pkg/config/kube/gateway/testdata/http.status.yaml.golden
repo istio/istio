@@ -35,7 +35,7 @@ status:
     status: "True"
     type: Programmed
   listeners:
-  - attachedRoutes: 10
+  - attachedRoutes: 11
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -219,6 +219,31 @@ kind: HTTPRoute
 metadata:
   creationTimestamp: null
   name: http2
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: inferencepool-backend-ref
   namespace: default
 spec: null
 status:

@@ -21,6 +21,7 @@ import (
 
 	envoycore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	extproc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 func buildRouteOpts(sr map[host.Name]*model.Service, hash route.DestinationHashMap) route.RouteOptions {
@@ -1262,6 +1264,25 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 	})
 
+	t.Run("for virtual service with routing to an service with inference semantics", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routeOpts := buildRouteOpts(serviceRegistry, nil)
+		routeOpts.InferencePoolExtensionRef = "ext-proc-svc.test-namespace.svc.cluster.local:9002"
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(routes[0].GetTypedPerFilterConfig()).To(HaveKey(wellknown.HTTPExternalProcessing))
+		extProcPerRoute := new(extproc.ExtProcPerRoute)
+		if err := routes[0].GetTypedPerFilterConfig()[wellknown.HTTPExternalProcessing].UnmarshalTo(extProcPerRoute); err != nil {
+			t.Errorf("couldn't unmarshal any proto: %v \n", err)
+		}
+		// nolint lll
+		g.Expect(extProcPerRoute.GetOverrides().GetGrpcService().GetTargetSpecifier().(*envoycore.GrpcService_EnvoyGrpc_).EnvoyGrpc.GetClusterName()).To(Equal("outbound|9002||ext-proc-svc.test-namespace.svc.cluster.local"))
+		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestBodyMode()).To(Equal(extproc.ProcessingMode_BUFFERED))
+		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetRequestHeaderMode()).To(Equal(extproc.ProcessingMode_SEND))
+	})
 	t.Run("for virtualservices with with wildcard hosts outside of the serviceregistry (on port 80)", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{
@@ -3049,5 +3070,27 @@ func TestInboundHTTPRoute(t *testing.T) {
 				t.Errorf("error in inbound routes. Got: %v, Want: %v", inroute, tc.expected)
 			}
 		})
+	}
+}
+
+func TestCheckAndGetInferencePoolConfig(t *testing.T) {
+	virtualService := config.Config{
+		Meta: config.Meta{
+			Namespace: "test-namespace",
+		},
+		Spec: &networking.VirtualService{
+			Http: []*networking.HTTPRoute{
+				{
+					Name: "%%service-name%%8080%%route-name",
+				},
+			},
+		},
+	}
+
+	expected := "service-name.test-namespace.svc.cluster.local:8080"
+	result := route.CheckAndGetInferencePoolConfig(virtualService)
+
+	if result != expected {
+		t.Errorf("Expected %s, but got %s", expected, result)
 	}
 }

@@ -45,6 +45,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -299,6 +300,56 @@ func TestConnectionPoolSettings(t *testing.T) {
 	}
 }
 
+func TestBuildClustersForInferencePoolServices(t *testing.T) {
+	cases := []struct {
+		testName             string
+		clusterName          string
+		proxyType            model.NodeType
+		InferencePoolService bool
+	}{
+		// Add testcase for inbound clusters as well?
+		{
+			testName:             "InferencePool service should have lb_subset_config with the right selector",
+			clusterName:          "outbound|8080||*.example.org",
+			proxyType:            model.Router,
+			InferencePoolService: true,
+		},
+		{
+			testName:             "Regular service should NOT have lb_subset_config",
+			clusterName:          "outbound|8080||*.example.org",
+			proxyType:            model.Router,
+			InferencePoolService: false,
+		},
+		{
+			testName:             "Sidecar proxy should not have config",
+			clusterName:          "outbound|8080||*.example.org",
+			proxyType:            model.SidecarProxy,
+			InferencePoolService: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.testName, func(t *testing.T) {
+			g := NewWithT(t)
+			clusters := buildTestClusters(clusterTest{
+				t:                    t,
+				serviceHostname:      "*.example.org",
+				nodeType:             tc.proxyType,
+				mesh:                 testMesh(),
+				istioVersion:         model.MaxIstioVersion,
+				inferencePoolCluster: tc.InferencePoolService,
+			})
+			c := xdstest.ExtractCluster("outbound|8080||*.example.org", clusters)
+			if !tc.InferencePoolService || tc.InferencePoolService && tc.proxyType != model.Router {
+				g.Expect(c.LbSubsetConfig).To(BeNil())
+			} else if tc.InferencePoolService {
+				g.Expect(c.LbSubsetConfig).NotTo(BeNil())
+				g.Expect(c.LbSubsetConfig.SubsetSelectors).NotTo(BeEmpty())
+				g.Expect(c.LbSubsetConfig.SubsetSelectors[0].Keys).To(Equal([]string{"x-gateway-destination-endpoint"}))
+			}
+		})
+	}
+}
+
 func TestCommonHttpProtocolOptions(t *testing.T) {
 	cases := []struct {
 		clusterName           string
@@ -405,6 +456,8 @@ type clusterTest struct {
 	meta         *model.NodeMetadata
 	istioVersion *model.IstioVersion
 	proxyIps     []string
+
+	inferencePoolCluster bool
 }
 
 func (c clusterTest) fillDefaults() clusterTest {
@@ -443,7 +496,12 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 		MeshExternal: c.externalService,
 		Attributes: model.ServiceAttributes{
 			Namespace: TestServiceNamespace,
+			Labels:    map[string]string{},
 		},
+	}
+
+	if c.inferencePoolCluster {
+		service.Attributes.Labels[constants.InternalServiceSemantics] = "inferencepool"
 	}
 
 	instances := []*model.ServiceInstance{

@@ -411,6 +411,26 @@ func TestConfigureIstioGateway(t *testing.T) {
 			objects: defaultObjects,
 		},
 		{
+			name: "gateway-with-infrerencepool-extproc-infra-label",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+					Labels: map[string]string{
+						"istio.io/enable-inference-extproc": "true", // should translate to infrastructure label
+					},
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Infrastructure: &k8s.GatewayInfrastructure{
+						Labels:      map[k8s.LabelKey]k8s.LabelValue{"foo": "bar"}, // just to test compatibility with the labels on the gateway
+						Annotations: map[k8s.AnnotationKey]k8s.AnnotationValue{"fizz": "buzz"},
+					},
+				},
+			},
+			objects: defaultObjects,
+		},
+		{
 			name: "istio-upgrade-to-1.24",
 			gw: k8sbeta.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
