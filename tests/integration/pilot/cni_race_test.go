@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -143,16 +144,35 @@ func waitForBrokenPodOrFail(t framework.TestContext, cluster cluster.Cluster, ns
 		if len(pods.Items) == 0 {
 			return fmt.Errorf("still waiting the pod in namespace %v to start", ns.Name())
 		}
-		// Verify that at least one pod is in broken state due to the race condition.
+		// Verify that every pod is in broken state due to CNI plugin failure.
 		for _, p := range pods.Items {
-			for _, container := range p.Status.InitContainerStatuses {
-				if state := container.LastTerminationState.Terminated; state != nil && state.ExitCode ==
-					constants.ValidationErrorCode {
+			for _, cState := range p.Status.ContainerStatuses {
+				waiting := cState.State.Waiting
+
+				scopes.Framework.Infof("checking pod status for stall")
+				if waiting != nil && (waiting.Reason == "ContainerCreating" || waiting.Reason == "PodInitializing") {
+					scopes.Framework.Infof("checking pod events")
+					events, err := cluster.Kube().CoreV1().Events(ns.Name()).List(context.TODO(), metav1.ListOptions{})
+					if err != nil {
+						return err
+					}
+					for _, ev := range events.Items {
+						if ev.InvolvedObject.Name == p.Name && strings.Contains(ev.Message, "Failed to create pod sandbox") {
+							return nil
+						}
+					}
+				}
+			}
+			for _, cState := range p.Status.InitContainerStatuses {
+				terminated := cState.LastTerminationState.Terminated
+
+				scopes.Framework.Infof("checking pod status terminated")
+				if terminated != nil && terminated.ExitCode == constants.ValidationErrorCode {
 					return nil
 				}
 			}
 		}
-		return fmt.Errorf("cannot find any pod with wanted exit code %v", constants.ValidationErrorCode)
+		return fmt.Errorf("cannot find any pod with wanted failure status")
 	}, retry.Delay(1*time.Second), retry.Timeout(80*time.Second))
 }
 
