@@ -20,13 +20,16 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/workloadapi/security"
@@ -37,6 +40,7 @@ func WaypointPolicyStatusCollection(
 	waypoints krt.Collection[Waypoint],
 	services krt.Collection[*corev1.Service],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
+	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.WaypointPolicyStatus] {
@@ -59,6 +63,21 @@ func WaypointPolicyStatusCollection(
 				reason := "unknown"
 				bound := false
 				switch target.GetKind() {
+				case gvk.GatewayClass_v1.Kind:
+					fetchedGatewayClass := ptr.Flatten(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(target.GetName())))
+					if fetchedGatewayClass == nil {
+						reason = model.WaypointPolicyReasonTargetNotFound
+					} else {
+						// verify GatewayClass is for waypoint
+						if fetchedGatewayClass.Spec.ControllerName != constants.ManagedGatewayMeshController {
+							reason = model.WaypointPolicyReasonInvalid
+							message = fmt.Sprintf("GatewayClass must use controller name `%s` for waypoints", constants.ManagedGatewayMeshController)
+						} else {
+							bound = true
+							reason = model.WaypointPolicyReasonAccepted
+							message = fmt.Sprintf("bound to %s", fetchedGatewayClass.GetName())
+						}
+					}
 				case gvk.KubernetesGateway.Kind:
 					fetchedWaypoints := krt.Fetch(ctx, waypoints, krt.FilterKey(key))
 					if len(fetchedWaypoints) == 1 {
