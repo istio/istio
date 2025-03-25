@@ -1095,7 +1095,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 					Ancestor: "GatewayClass.gateway.networking.k8s.io:istio-system/not-for-waypoint",
 					Status: &model.StatusMessage{
 						Reason:  model.WaypointPolicyReasonInvalid,
-						Message: fmt.Sprintf("non-waypoint GatewayClass `not-for-waypoint` specified, GatewayClass must use controller name `%s`", constants.ManagedGatewayMeshController),
+						Message: fmt.Sprintf("GatewayClass must use controller name `%s` for waypoints", constants.ManagedGatewayMeshController),
 					},
 					Bound:              false,
 					ObservedGeneration: 1,

@@ -68,7 +68,7 @@ func WaypointPolicyStatusCollection(
 						// verify GatewayClass is for waypoint
 						if fetchedGatewayClasses[0].Spec.ControllerName != constants.ManagedGatewayMeshController {
 							reason = model.WaypointPolicyReasonInvalid
-							message = fmt.Sprintf("non-waypoint GatewayClass `%s` specified, GatewayClass must use controller name `%s`", fetchedGatewayClasses[0].GetName(), constants.ManagedGatewayMeshController)
+							message = fmt.Sprintf("GatewayClass must use controller name `%s` for waypoints", constants.ManagedGatewayMeshController)
 						} else {
 							bound = true
 							reason = model.WaypointPolicyReasonAccepted
