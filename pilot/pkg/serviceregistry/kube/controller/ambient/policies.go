@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
@@ -37,6 +38,7 @@ func WaypointPolicyStatusCollection(
 	waypoints krt.Collection[Waypoint],
 	services krt.Collection[*corev1.Service],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
+	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.WaypointPolicyStatus] {
@@ -59,6 +61,15 @@ func WaypointPolicyStatusCollection(
 				reason := "unknown"
 				bound := false
 				switch target.GetKind() {
+				case gvk.GatewayClass_v1.Kind:
+					fetchedGatewayClasses := krt.Fetch(ctx, gatewayClasses, krt.FilterKey(target.GetName()))
+					if len(fetchedGatewayClasses) == 1 {
+						bound = true
+						reason = model.WaypointPolicyReasonAccepted
+						message = fmt.Sprintf("bound to %s", fetchedGatewayClasses[0].GetName())
+					} else {
+						reason = model.WaypointPolicyReasonTargetNotFound
+					}
 				case gvk.KubernetesGateway.Kind:
 					fetchedWaypoints := krt.Fetch(ctx, waypoints, krt.FilterKey(key))
 					if len(fetchedWaypoints) == 1 {
