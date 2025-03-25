@@ -12,42 +12,38 @@ data:
       otlp:
         protocols:
           grpc:
+            endpoint: 0.0.0.0:4317
           http:
+            endpoint: 0.0.0.0:4318
     processors:
       batch:
     exporters:
       zipkin:
         # Export to zipkin for easy querying
         endpoint: http://zipkin.istio-system.svc:9411/api/v2/spans
-      logging:
-        loglevel: debug
-      jaeger:
-        endpoint: jaeger-collector.istio-system.svc.cluster.local:14250
-        tls:
-          insecure: true
-        sending_queue:
-          enabled: true
-        retry_on_failure:
-          enabled: true
+      debug:
+        verbosity: detailed
     extensions:
       health_check:
-        port: 13133
+      pprof:
+      zpages:
     service:
       extensions:
       - health_check
+      - pprof
+      - zpages
       pipelines:
         logs:
           receivers: [otlp]
           processors: [batch]
-          exporters: [logging]
+          exporters: [debug]
         traces:
           receivers:
           - otlp
           - opencensus
           exporters:
           - zipkin
-          - logging
-          - jaeger
+          - debug
 ---
 apiVersion: v1
 kind: Service
@@ -106,7 +102,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
-          image: otel/opentelemetry-collector:0.54.0
+          image: otel/opentelemetry-collector:0.122.1
           imagePullPolicy: IfNotPresent
           name: opentelemetry-collector
           ports:
