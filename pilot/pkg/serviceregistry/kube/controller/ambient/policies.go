@@ -75,7 +75,8 @@ func WaypointPolicyStatusCollection(
 							message = fmt.Sprintf("bound to %s", fetchedGatewayClasses[0].GetName())
 						}
 					} else if len(fetchedGatewayClasses) > 1 {
-						log.Warnf("found %d resources that match AuthorizationPolicy `%s/%s` GatewayClass target reference `%s`", len(fetchedGatewayClasses), i.GetNamespace(), i.GetName(), target.GetName())
+						log.Warnf("found %d resources that match AuthorizationPolicy `%s/%s` GatewayClass target reference `%s`",
+							len(fetchedGatewayClasses), i.GetNamespace(), i.GetName(), target.GetName())
 					} else {
 						reason = model.WaypointPolicyReasonTargetNotFound
 					}
