@@ -64,7 +64,11 @@ func WaypointPolicyStatusCollection(
 				switch target.GetKind() {
 				case gvk.GatewayClass_v1.Kind:
 					fetchedGatewayClasses := krt.Fetch(ctx, gatewayClasses, krt.FilterKey(target.GetName()))
-					if len(fetchedGatewayClasses) == 1 {
+
+					switch len(fetchedGatewayClasses) {
+					case 0:
+						reason = model.WaypointPolicyReasonTargetNotFound
+					case 1:
 						// verify GatewayClass is for waypoint
 						if fetchedGatewayClasses[0].Spec.ControllerName != constants.ManagedGatewayMeshController {
 							reason = model.WaypointPolicyReasonInvalid
@@ -74,11 +78,9 @@ func WaypointPolicyStatusCollection(
 							reason = model.WaypointPolicyReasonAccepted
 							message = fmt.Sprintf("bound to %s", fetchedGatewayClasses[0].GetName())
 						}
-					} else if len(fetchedGatewayClasses) > 1 {
+					default:
 						log.Warnf("found %d resources that match AuthorizationPolicy `%s/%s` GatewayClass target reference `%s`",
 							len(fetchedGatewayClasses), i.GetNamespace(), i.GetName(), target.GetName())
-					} else {
-						reason = model.WaypointPolicyReasonTargetNotFound
 					}
 				case gvk.KubernetesGateway.Kind:
 					fetchedWaypoints := krt.Fetch(ctx, waypoints, krt.FilterKey(key))
