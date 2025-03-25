@@ -25,6 +25,7 @@ import (
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
@@ -64,9 +65,17 @@ func WaypointPolicyStatusCollection(
 				case gvk.GatewayClass_v1.Kind:
 					fetchedGatewayClasses := krt.Fetch(ctx, gatewayClasses, krt.FilterKey(target.GetName()))
 					if len(fetchedGatewayClasses) == 1 {
-						bound = true
-						reason = model.WaypointPolicyReasonAccepted
-						message = fmt.Sprintf("bound to %s", fetchedGatewayClasses[0].GetName())
+						// verify GatewayClass is for waypoint
+						if fetchedGatewayClasses[0].Spec.ControllerName != constants.ManagedGatewayMeshController {
+							reason = model.WaypointPolicyReasonInvalid
+							message = fmt.Sprintf("non-waypoint GatewayClass `%s` specified, GatewayClass must use controller name `%s`", fetchedGatewayClasses[0].GetName(), constants.ManagedGatewayMeshController)
+						} else {
+							bound = true
+							reason = model.WaypointPolicyReasonAccepted
+							message = fmt.Sprintf("bound to %s", fetchedGatewayClasses[0].GetName())
+						}
+					} else if len(fetchedGatewayClasses) > 1 {
+						log.Warnf("found %d resources that match AuthorizationPolicy `%s/%s` GatewayClass target reference `%s`", len(fetchedGatewayClasses), i.GetNamespace(), i.GetName(), target.GetName())
 					} else {
 						reason = model.WaypointPolicyReasonTargetNotFound
 					}
