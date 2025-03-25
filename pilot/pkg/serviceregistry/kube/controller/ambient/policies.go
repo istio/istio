@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/workloadapi/security"
@@ -63,24 +64,19 @@ func WaypointPolicyStatusCollection(
 				bound := false
 				switch target.GetKind() {
 				case gvk.GatewayClass_v1.Kind:
-					fetchedGatewayClasses := krt.Fetch(ctx, gatewayClasses, krt.FilterKey(target.GetName()))
-
-					switch len(fetchedGatewayClasses) {
-					case 0:
+					fetchedGatewayClass := ptr.Flatten(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(target.GetName())))
+					if fetchedGatewayClass == nil {
 						reason = model.WaypointPolicyReasonTargetNotFound
-					case 1:
+					} else {
 						// verify GatewayClass is for waypoint
-						if fetchedGatewayClasses[0].Spec.ControllerName != constants.ManagedGatewayMeshController {
+						if fetchedGatewayClass.Spec.ControllerName != constants.ManagedGatewayMeshController {
 							reason = model.WaypointPolicyReasonInvalid
 							message = fmt.Sprintf("GatewayClass must use controller name `%s` for waypoints", constants.ManagedGatewayMeshController)
 						} else {
 							bound = true
 							reason = model.WaypointPolicyReasonAccepted
-							message = fmt.Sprintf("bound to %s", fetchedGatewayClasses[0].GetName())
+							message = fmt.Sprintf("bound to %s", fetchedGatewayClass.GetName())
 						}
-					default:
-						log.Warnf("found %d resources that match AuthorizationPolicy `%s/%s` GatewayClass target reference `%s`",
-							len(fetchedGatewayClasses), i.GetNamespace(), i.GetName(), target.GetName())
 					}
 				case gvk.KubernetesGateway.Kind:
 					fetchedWaypoints := krt.Fetch(ctx, waypoints, krt.FilterKey(key))
