@@ -295,6 +295,7 @@ spec:
           port: 80
       retry:
         attempts: 3
+        backoff: 3ms
         codes:
         - 503
         - 429

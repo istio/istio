@@ -116,6 +116,7 @@ spec:
     name: default.http-retry-request.0
     retries:
       attempts: 3
+      backoff: 0.003s
       retryOn: connect-failure,refused-stream,unavailable,cancelled,503,429
     route:
     - destination:

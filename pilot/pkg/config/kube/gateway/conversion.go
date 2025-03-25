@@ -295,7 +295,10 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 			// Invalid to set this when there are no attempts
 			vs.Retries.RetryOn = ""
 		}
-		// Istio does not currently implement the Backoff field due to lack of support in VirtualService
+		if r.Retry.Backoff != nil {
+			retrybackOff, _ := time.ParseDuration(string(*r.Retry.Backoff))
+			vs.Retries.Backoff = durationpb.New(retrybackOff)
+		}
 	}
 
 	if r.Timeouts != nil {
