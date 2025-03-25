@@ -301,8 +301,8 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 	}
 
 	var compression string
-	// TODO: move annotation to api repo
-	if statsCompression, ok := meta.Annotations["sidecar.istio.io/statsCompression"]; ok && envoyWellKnownCompressorLibrary.Contains(statsCompression) {
+	if statsCompression, ok := meta.Annotations[annotation.SidecarStatsCompression.Name]; ok &&
+		envoyWellKnownCompressorLibrary.Contains(statsCompression) {
 		compression = statsCompression
 	}
 
