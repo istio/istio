@@ -113,7 +113,7 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	return importedVirtualServices
 }
 
-func resolveVirtualServiceShortnames(config config.Config) config.Config {
+func ResolveVirtualServiceShortnames(config config.Config) config.Config {
 	// Kubernetes Gateway API semantics do not support shortnames
 	if UseGatewaySemantics(config) {
 		return config
@@ -278,7 +278,7 @@ func mergeVirtualServicesIfNeeded(
 				// when multiple routes delegate to one single VS.
 				copiedDelegate := config.DeepCopy(delegateVS.Spec)
 				vs := copiedDelegate.(*networking.VirtualService)
-				merged := mergeHTTPRoutes(route, vs.Http)
+				merged := MergeHTTPRoutes(route, vs.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
 			} else {
 				mergedRoutes = append(mergedRoutes, route)
@@ -299,7 +299,7 @@ func mergeVirtualServicesIfNeeded(
 
 // merge root's route with delegate's and the merged route number equals the delegate's.
 // if there is a conflict with root, the route is ignored
-func mergeHTTPRoutes(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
+func MergeHTTPRoutes(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
 	root.Delegate = nil
 
 	out := make([]*networking.HTTPRoute, 0, len(delegate))

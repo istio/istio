@@ -101,6 +101,11 @@ func New(client kube.Client, opts Option) *Client {
 	if features.EnableGatewayAPI {
 		schemas = collections.PilotGatewayAPI()
 	}
+
+	if features.EnableVirtualServiceController {
+		schemas = schemas.Remove(collections.VirtualService)
+	}
+
 	return NewForSchemas(client, opts, schemas)
 }
 
