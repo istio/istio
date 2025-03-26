@@ -151,6 +151,9 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider,
 ) (*hcm.HttpConnectionManager_Tracing, bool, error) {
 	startChildSpan := false
+	if proxy.Type == model.Router {
+		startChildSpan = features.SpawnUpstreamSpanForGateway
+	}
 	useCustomSampler := false
 	var serviceCluster string
 	var maxTagLength uint32
