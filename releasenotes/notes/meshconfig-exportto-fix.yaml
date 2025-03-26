@@ -1,0 +1,25 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 17466
+  - 28558
+
+docs:
+  - "[reference] https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshConfig-default_service_export_to"
+
+releaseNotes:
+  - |
+    **Fixed** the implementation of MeshConfig's defaultServiceExportTo, defaultVirtualServiceExportTo, and defaultDestinationRuleExportTo to align with the API documentation and the existing behavior of the `exportTo` field on each of those resources. In particular, lists of namespaces are now supported in addition to (and mixed with) the namespace aliases `*`, `.`, and `~`.
+
+upgradeNotes:
+  - title: Change in MechConfig.defaultServiceExportTo's Behavior
+    content: |
+      defaultServiceExportTo's behavior has been updated to match its documentation. If you are using the `exportTo` field in ServiceEntries or the `networking.istio.io/exportTo` annotation on your Kubernetes Service resources to get around previous limitations in defaultServiceExportTo's behavior, those can be reverted in favor of defaultServiceExportTo with a list of namespaces.
+  - title: Change the MechConfig.defaultVirtualServiceExportTo's Behavior
+    content: |
+      defaultVirtualServiceExportTo's behavior has been updated to match its documentation. If you are using the `exportTo` field in VirtualServices resources to get around previous limitations in defaultVirtualServiceExportTo's behavior, those can be reverted in favor of defaultVirtualServiceExportTo with a list of namespaces.
+  - title: Change the MechConfig.defaultDestinationRuleExportTo's Behavior
+    content: |
+      defaultDestinationRuleExportTo's behavior has been updated to match its documentation. If you are using the `exportTo` field in DestinationRules resources to get around previous limitations in defaultDestinationRuleExportTo's behavior, those can be reverted in favor of defaultDestinationRuleExportTo with a list of namespaces.
