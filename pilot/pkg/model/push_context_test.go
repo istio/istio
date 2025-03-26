@@ -2169,6 +2169,7 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 
 func TestSetDestinationRuleMerging(t *testing.T) {
 	ps := NewPushContext()
+	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 	ps.exportToDefaults.destinationRule = sets.New(visibility.Public)
 	testhost := "httpbin.org"
 	destinationRuleNamespace1 := config.Config{
@@ -2264,6 +2265,10 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+	// this is normally done in ps.InitContext but we don't have the other stuff needed
+	// to call the "right" method at hand here
+	ps.initDefaultExportMaps()
+
 	testhost := "httpbin.org"
 	appHost := "foo.app.org"
 	wildcardHost1 := "*.org"

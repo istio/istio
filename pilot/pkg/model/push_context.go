@@ -2033,20 +2033,21 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 		rule := configs[i].Spec.(*networking.DestinationRule)
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
-		var exportToSet sets.Set[visibility.Instance]
 
-		// destination rules with workloadSelector should not be exported to other namespaces
-		if rule.GetWorkloadSelector() == nil {
+		// Determine where the DestinationRule is exported -- assume the default to begin with
+		exportToSet := ps.exportToDefaults.destinationRule
+		if rule.GetWorkloadSelector() != nil {
+			// destination rules with a workloadSelector should not be exported to other namespaces
+			exportToSet = sets.New[visibility.Instance](visibility.Private)
+		} else if len(rule.ExportTo) > 0 {
+			// the DestinationRule sets exportTo itself -- use those instead of the default
 			exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
 			for _, e := range rule.ExportTo {
 				exportToSet.Insert(visibility.Instance(e))
 			}
-		} else {
-			exportToSet = sets.New[visibility.Instance](visibility.Private)
 		}
 
-		// add only if the dest rule is exported with . or * or explicit exportTo containing this namespace
-		// The global exportTo doesn't matter here (its either . or * - both of which are applicable here)
+		// add to the current namespace only if the dest rule is exported with . or * or explicit exportTo containing this namespace
 		if exportToSet.IsEmpty() || exportToSet.Contains(visibility.Public) || exportToSet.Contains(visibility.Private) ||
 			exportToSet.Contains(visibility.Instance(configs[i].Namespace)) {
 			// Store in an index for the config's namespace
@@ -2060,16 +2061,11 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 			ps.mergeDestinationRule(namespaceLocalDestRules[configs[i].Namespace], configs[i], exportToSet)
 		}
 
-		isPrivateOnly := false
-		// No exportTo in destinationRule. Use the global default
-		// We only honor . and *
-		if exportToSet.IsEmpty() && ps.exportToDefaults.destinationRule.Contains(visibility.Private) {
-			isPrivateOnly = true
-		} else if exportToSet.Len() == 1 && (exportToSet.Contains(visibility.Private) || exportToSet.Contains(visibility.Instance(configs[i].Namespace))) {
-			isPrivateOnly = true
-		}
-
-		if !isPrivateOnly {
+		// Handle exporting the DestinationRule to other namespaces
+		private := exportToSet.Len() == 1 &&
+			(exportToSet.Contains(visibility.Private) || exportToSet.Contains(visibility.Instance(configs[i].Namespace)))
+		if !private {
+			// not private, so handle exporting it to other namespaces
 			if _, exist := exportedDestRulesByNamespace[configs[i].Namespace]; !exist {
 				exportedDestRulesByNamespace[configs[i].Namespace] = newConsolidatedDestRules()
 			}
