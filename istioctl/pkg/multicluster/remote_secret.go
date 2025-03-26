@@ -220,7 +220,9 @@ var (
 	errMissingTokenKey  = fmt.Errorf("no %q data found", v1.ServiceAccountTokenKey)
 )
 
-func createRemoteSecretFromTokenAndServer(client kube.CLIClient, tokenSecret *v1.Secret, clusterName, server, tlsServerName, secName string) (*v1.Secret, error) {
+func createRemoteSecretFromTokenAndServer(
+	client kube.CLIClient, tokenSecret *v1.Secret, clusterName, server, tlsServerName, secName string,
+) (*v1.Secret, error) {
 	caData, token, err := waitForTokenData(client, tokenSecret)
 	if err != nil {
 		return nil, err
@@ -579,8 +581,8 @@ type RemoteSecretOptions struct {
 	ServerOverride string
 
 	// UseOriginalTLSServerName sets the original server name from kubeconfig in cluster.tls-server-name
-	// for SAN verification. This flag is respected only when server name is overriden.
-	// This flag makes sure that the TLS connection to the API server will not fail if the overriden
+	// for SAN verification. This flag is respected only when server name is overridden.
+	// This flag makes sure that the TLS connection to the API server will not fail if the overridden
 	// server name is a proxy server.
 	UseOriginalTLSServerName bool
 
