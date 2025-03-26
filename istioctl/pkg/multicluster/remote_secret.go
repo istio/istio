@@ -156,8 +156,8 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, clusterName, secNa
 	return out, nil
 }
 
-func createBaseKubeconfig(caData []byte, clusterName, server string) *api.Config {
-	return &api.Config{
+func createBaseKubeconfig(caData []byte, clusterName, server, tlsServerName string) *api.Config {
+	config := &api.Config{
 		Clusters: map[string]*api.Cluster{
 			clusterName: {
 				CertificateAuthorityData: caData,
@@ -173,18 +173,22 @@ func createBaseKubeconfig(caData []byte, clusterName, server string) *api.Config
 		},
 		CurrentContext: clusterName,
 	}
+	if tlsServerName != "" {
+		config.Clusters[clusterName].TLSServerName = tlsServerName
+	}
+	return config
 }
 
-func createBearerTokenKubeconfig(caData, token []byte, clusterName, server string) *api.Config {
-	c := createBaseKubeconfig(caData, clusterName, server)
+func createBearerTokenKubeconfig(caData, token []byte, clusterName, server, tlsServerName string) *api.Config {
+	c := createBaseKubeconfig(caData, clusterName, server, tlsServerName)
 	c.AuthInfos[c.CurrentContext] = &api.AuthInfo{
 		Token: string(token),
 	}
 	return c
 }
 
-func createPluginKubeconfig(caData []byte, clusterName, server string, authProviderConfig *api.AuthProviderConfig) *api.Config {
-	c := createBaseKubeconfig(caData, clusterName, server)
+func createPluginKubeconfig(caData []byte, clusterName, server, tlsServerName string, authProviderConfig *api.AuthProviderConfig) *api.Config {
+	c := createBaseKubeconfig(caData, clusterName, server, tlsServerName)
 	c.AuthInfos[c.CurrentContext] = &api.AuthInfo{
 		AuthProvider: authProviderConfig,
 	}
@@ -193,7 +197,7 @@ func createPluginKubeconfig(caData []byte, clusterName, server string, authProvi
 
 func createRemoteSecretFromPlugin(
 	tokenSecret *v1.Secret,
-	server, clusterName, secName string,
+	server, tlsServerName, clusterName, secName string,
 	authProviderConfig *api.AuthProviderConfig,
 ) (*v1.Secret, error) {
 	caData, ok := tokenSecret.Data[v1.ServiceAccountRootCAKey]
@@ -202,7 +206,7 @@ func createRemoteSecretFromPlugin(
 	}
 
 	// Create a Kubeconfig to access the remote cluster using the auth provider plugin.
-	kubeconfig := createPluginKubeconfig(caData, clusterName, server, authProviderConfig)
+	kubeconfig := createPluginKubeconfig(caData, clusterName, server, tlsServerName, authProviderConfig)
 	if err := clientcmd.Validate(*kubeconfig); err != nil {
 		return nil, fmt.Errorf("invalid kubeconfig: %v", err)
 	}
@@ -216,14 +220,14 @@ var (
 	errMissingTokenKey  = fmt.Errorf("no %q data found", v1.ServiceAccountTokenKey)
 )
 
-func createRemoteSecretFromTokenAndServer(client kube.CLIClient, tokenSecret *v1.Secret, clusterName, server, secName string) (*v1.Secret, error) {
+func createRemoteSecretFromTokenAndServer(client kube.CLIClient, tokenSecret *v1.Secret, clusterName, server, tlsServerName, secName string) (*v1.Secret, error) {
 	caData, token, err := waitForTokenData(client, tokenSecret)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create a Kubeconfig to access the remote cluster using the remote service account credentials.
-	kubeconfig := createBearerTokenKubeconfig(caData, token, clusterName, server)
+	kubeconfig := createBearerTokenKubeconfig(caData, token, clusterName, server, tlsServerName)
 	if err := clientcmd.Validate(*kubeconfig); err != nil {
 		return nil, fmt.Errorf("invalid kubeconfig: %v", err)
 	}
@@ -574,6 +578,12 @@ type RemoteSecretOptions struct {
 	// ServerOverride overrides the server IP/hostname field from the Kubeconfig
 	ServerOverride string
 
+	// UseOriginalTLSServerName sets the original server name from kubeconfig in cluster.tls-server-name
+	// for SAN verification. This flag is respected only when server name is overriden.
+	// This flag makes sure that the TLS connection to the API server will not fail if the overriden
+	// server name is a proxy server.
+	UseOriginalTLSServerName bool
+
 	// SecretName selects a specific secret from the remote service account, if there are multiple
 	SecretName string
 }
@@ -592,6 +602,8 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 			"the local cluster will be used.")
 	flagset.StringVar(&o.ServerOverride, "server", "",
 		"The address and port of the Kubernetes API server.")
+	flagset.BoolVar(&o.UseOriginalTLSServerName, "use-original-tls-server-name", false,
+		"If true, the original server name will be used in tls-server-name, when server is override. This flag is ignored if `server` flag is not set.")
 	flagset.StringVar(&o.SecretName, "secret-name", "",
 		"The name of the specific secret to use from the service-account. Needed when there are multiple secrets in the service account.")
 	var supportedAuthType []string
@@ -660,9 +672,16 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.CLIClient) (*v1.Sec
 	}
 
 	var server string
+	var tlsServerName string
 	var warn Warning
 	if opt.ServerOverride != "" {
 		server = opt.ServerOverride
+		if opt.UseOriginalTLSServerName {
+			tlsServerName, warn, err = getServerFromKubeconfig(client)
+			if err != nil {
+				return nil, warn, err
+			}
+		}
 	} else {
 		server, warn, err = getServerFromKubeconfig(client)
 		if err != nil {
@@ -673,13 +692,13 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.CLIClient) (*v1.Sec
 	var remoteSecret *v1.Secret
 	switch opt.AuthType {
 	case RemoteSecretAuthTypeBearerToken:
-		remoteSecret, err = createRemoteSecretFromTokenAndServer(client, tokenSecret, opt.ClusterName, server, secretName)
+		remoteSecret, err = createRemoteSecretFromTokenAndServer(client, tokenSecret, opt.ClusterName, server, tlsServerName, secretName)
 	case RemoteSecretAuthTypePlugin:
 		authProviderConfig := &api.AuthProviderConfig{
 			Name:   opt.AuthPluginName,
 			Config: opt.AuthPluginConfig,
 		}
-		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, server, opt.ClusterName, secretName,
+		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, server, tlsServerName, opt.ClusterName, secretName,
 			authProviderConfig)
 	default:
 		err = fmt.Errorf("unsupported authentication type: %v", opt.AuthType)
