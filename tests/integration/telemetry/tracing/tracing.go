@@ -187,7 +187,7 @@ func VerifyOtelIngressTraces(t framework.TestContext, namespace, path string, tr
 }
 
 func WantOtelIngressTraceRoot(namespace, path string) (root zipkin.Span) {
-	root = zipkin.Span{
+	return zipkin.Span{
 		ServiceName: "istio-ingressgateway.istio-system",
 		Name:        fmt.Sprintf("server.%s.svc.cluster.local:80%s", namespace, path),
 		ChildSpans: []*zipkin.Span{
@@ -203,15 +203,13 @@ func WantOtelIngressTraceRoot(namespace, path string) (root zipkin.Span) {
 			},
 		},
 	}
-
-	return
 }
 
 // CompareTrace recursively compares the two given spans
 func CompareTrace(t framework.TestContext, got, want zipkin.Span) bool {
 	t.Helper()
 	if got.Name != want.Name || got.ServiceName != want.ServiceName {
-		t.Logf("got span %s, want span %s", got, want)
+		t.Logf("got span %+v, want span %+v", got, want)
 		return false
 	}
 	if len(got.ChildSpans) < len(want.ChildSpans) {
