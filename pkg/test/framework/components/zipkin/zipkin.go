@@ -15,6 +15,8 @@
 package zipkin
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -48,9 +50,33 @@ type Span struct {
 	ChildSpans   []*Span
 }
 
+func (s Span) String() string {
+	var sb strings.Builder
+	sb.WriteString("SpanID: " + s.SpanID + "\n")
+	sb.WriteString("ParentSpanID: " + s.ParentSpanID + "\n")
+	sb.WriteString("ServiceName: " + s.ServiceName + "\n")
+	sb.WriteString("Name: " + s.Name + "\n")
+
+	for i, childSpan := range s.ChildSpans {
+		sb.WriteString(fmt.Sprintf("ChildSpans[%d]: \n", i))
+		sb.WriteString(childSpan.String())
+	}
+
+	return sb.String()
+}
+
 // Trace represents a trace by a collection of spans which all belong to that trace
 type Trace struct {
 	Spans []Span
+}
+
+func (t Trace) String() string {
+	var sb strings.Builder
+	for i, span := range t.Spans {
+		sb.WriteString(fmt.Sprintf("Spans[%d]: \n", i))
+		sb.WriteString(span.String())
+	}
+	return sb.String()
 }
 
 // New returns a new instance of zipkin.
