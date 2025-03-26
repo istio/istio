@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Added** parameter `--use-original-tls-server-name` to `istioctl create-remote-secret` that sets the original
+    server name in `tls-server-name` to make sure that the kube client validates api-server certificate correctly
+    when the `server` field is overridden.
