@@ -118,6 +118,18 @@ var services = []*model.Service{
 	},
 	{
 		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+			Labels: map[string]string{
+				InferencePoolExtensionRefSvc:  "ext-proc-svc-2",
+				InferencePoolExtensionRefPort: "9002",
+			},
+		},
+		Ports:    ports,
+		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen2")))),
+	},
+
+	{
+		Attributes: model.ServiceAttributes{
 			Namespace: "apple",
 		},
 		Ports:    ports,

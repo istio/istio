@@ -320,27 +320,6 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
-  name: inferencepool-backend-ref
-  namespace: default
-spec:
-  parentRefs:
-    - name: gateway
-      namespace: istio-system
-  hostnames: ["infpool.domain.example"]
-  rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /infpool
-      backendRefs:
-        - name: infpool-gen
-          group: inference.networking.x-k8s.io
-          kind: InferencePool
-          port: 80
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: HTTPRoute
-metadata:
   name: http-route-cors
   namespace: default
 spec:
@@ -372,3 +351,41 @@ spec:
               - Content-Type
               - Range
           type: CORS
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: multiple-inferencepool-backend-refs
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["infpool-multi.domain.example"]
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /infpool
+          headers:
+          - name: my-header
+            value: some-value
+            type: Exact
+      backendRefs:
+        - name: infpool-gen
+          group: inference.networking.x-k8s.io
+          kind: InferencePool
+          port: 80
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /infpool
+          headers:
+          - name: my-header
+            value: some-value-2
+            type: Exact
+      backendRefs:
+        - name: infpool-gen2
+          group: inference.networking.x-k8s.io
+          kind: InferencePool
+          port: 80
