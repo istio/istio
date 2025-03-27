@@ -10,6 +10,7 @@ metadata:
     operator.istio.io/component: "Pilot"
     release: {{ $.Release.Name }}
     app.kubernetes.io/name: "istiod"
+    gateway.istio.io/defaults-for-class: {{$key|quote}}
     {{- include "istio.labels" $ | nindent 4 }}
 data:
 {{ range $kind, $overlay := $value }}
