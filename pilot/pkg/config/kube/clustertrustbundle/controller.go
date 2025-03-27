@@ -41,18 +41,18 @@ const (
 	maxRetries = 5
 )
 
-// ClusterTrustBundleController manages the lifecycle of the Istio root certificate in ClusterTrustBundle
+// Controller manages the lifecycle of the Istio root certificate in ClusterTrustBundle
 // It watches Istio's KeyCert bundle as well as ClusterTrustBundles in the cluster, and it updates ClusterTrustBundles whenever
 // the certificate is rotated. Later on, we might want to add reading from other ClusterTrustBundles as well
-type ClusterTrustBundleController struct {
+type Controller struct {
 	caBundleWatcher     *keycertbundle.Watcher
 	queue               controllers.Queue
 	clustertrustbundles kclient.Client[*certificatesv1alpha1.ClusterTrustBundle]
 }
 
-// NewClusterTrustBundleController creates a new ClusterTrustBundleController
-func NewClusterTrustBundleController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher) *ClusterTrustBundleController {
-	c := &ClusterTrustBundleController{
+// NewController creates a new ClusterTrustBundleController
+func NewController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher) *Controller {
+	c := &Controller{
 		caBundleWatcher: caBundleWatcher,
 	}
 
@@ -71,7 +71,7 @@ func NewClusterTrustBundleController(kubeClient kube.Client, caBundleWatcher *ke
 }
 
 // startCaBundleWatcher listens for updates to the CA bundle and queues a reconciliation of the ClusterTrustBundle
-func (c *ClusterTrustBundleController) startCaBundleWatcher(stop <-chan struct{}) {
+func (c *Controller) startCaBundleWatcher(stop <-chan struct{}) {
 	id, watchCh := c.caBundleWatcher.AddWatcher()
 	defer c.caBundleWatcher.RemoveWatcher(id)
 	for {
@@ -88,7 +88,7 @@ func (c *ClusterTrustBundleController) startCaBundleWatcher(stop <-chan struct{}
 	}
 }
 
-func (c *ClusterTrustBundleController) reconcileClusterTrustBundle(o types.NamespacedName) error {
+func (c *Controller) reconcileClusterTrustBundle(o types.NamespacedName) error {
 	if o.Name == istioClusterTrustBundleName {
 		return c.updateClusterTrustBundle(c.caBundleWatcher.GetCABundle())
 	}
@@ -96,7 +96,7 @@ func (c *ClusterTrustBundleController) reconcileClusterTrustBundle(o types.Names
 }
 
 // Run starts the controller
-func (c *ClusterTrustBundleController) Run(stopCh <-chan struct{}) {
+func (c *Controller) Run(stopCh <-chan struct{}) {
 	if !kube.WaitForCacheSync("clustertrustbundle controller", stopCh, c.clustertrustbundles.HasSynced) {
 		return
 	}
@@ -114,7 +114,7 @@ func (c *ClusterTrustBundleController) Run(stopCh <-chan struct{}) {
 }
 
 // updateClusterTrustBundle updates the root certificate in the ClusterTrustBundle
-func (c *ClusterTrustBundleController) updateClusterTrustBundle(rootCert []byte) error {
+func (c *Controller) updateClusterTrustBundle(rootCert []byte) error {
 	bundle := &certificatesv1alpha1.ClusterTrustBundle{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: istioClusterTrustBundleName,

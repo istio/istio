@@ -194,7 +194,7 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 						NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
 						AddRunFunction(func(leaderStop <-chan struct{}) {
 							log.Infof("starting clustertrustbundle controller for cluster %s", cluster.ID)
-							c := clustertrustbundle.NewClusterTrustBundleController(client, m.caBundleWatcher)
+							c := clustertrustbundle.NewController(client, m.caBundleWatcher)
 							client.RunAndWait(clusterStopCh)
 							c.Run(leaderStop)
 						})
