@@ -58,6 +58,9 @@ func NewStatic[T any](initial *T, startSynced bool, opts ...CollectionOption) St
 			return x.synced.Load()
 		},
 	}
+	if o.metadata != nil {
+		x.metadata = o.metadata
+	}
 	maybeRegisterCollectionForDebugging(x, o.debugger)
 	return collectionAdapter[T]{x}
 }
@@ -70,6 +73,7 @@ type static[T any] struct {
 	eventHandlers  *handlers[T]
 	collectionName string
 	syncer         Syncer
+	metadata       Metadata
 }
 
 func (d *static[T]) GetKey(k string) *T {
@@ -82,6 +86,10 @@ func (d *static[T]) List() []T {
 		return nil
 	}
 	return []T{*v}
+}
+
+func (d *static[T]) Metadata() Metadata {
+	return d.metadata
 }
 
 func (d *static[T]) Register(f func(o Event[T])) HandlerRegistration {
@@ -213,6 +221,11 @@ func (c collectionAdapter[T]) Get() *T {
 	return &res[0]
 }
 
+func (c collectionAdapter[T]) Metadata() Metadata {
+	// The metadata is passed to the internal dummy collection so just return that
+	return c.c.Metadata()
+}
+
 func (c collectionAdapter[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return c.c.Register(f)
 }
@@ -221,7 +234,13 @@ func (c collectionAdapter[T]) AsCollection() Collection[T] {
 	return c.c
 }
 
+// Every thing that collectionAdapter adapts has a uid so this is safe
+func (c collectionAdapter[T]) uid() collectionUID {
+	return c.c.(uidable).uid()
+}
+
 var _ Singleton[any] = &collectionAdapter[any]{}
+var _ uidable = &collectionAdapter[any]{}
 
 func NewSingleton[O any](hf TransformationEmpty[O], opts ...CollectionOption) Singleton[O] {
 	// dummyCollection provides a trivial collection implementation that always provides a single dummyValue.

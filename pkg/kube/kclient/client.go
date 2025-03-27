@@ -123,7 +123,7 @@ func (n *informerClient[T]) Index(extract func(o T) []string) RawIndexer {
 		},
 	}); err != nil {
 		// Should only happen on key conflict or on stop
-		log.Warnf("failed to add indexer: %v", err)
+		log.Warnf("failed to add indexer: %v. Type is %T", err, extract)
 	}
 	ret := internalIndex{
 		key:     key,
