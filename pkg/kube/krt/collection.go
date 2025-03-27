@@ -49,6 +49,7 @@ type dependencyState[I any] struct {
 	// indexedDependenciesExtractor stores a map of [collection,fetch type] => an extractor to get change keys.
 	// Note that a given collection can have multiple Fetches, but they are limited to those of the different kind.
 	// I.e. you can do a `Fetch(c1, FilterIndex()) + Fetch(c1, FilterKey())` but not `Fetch(c1, FilterIndex()) + Fetch(c1, FilterIndex())`.
+	// This only applies within a single transformation; it is fine to fetch the the same `c1` in any way from different collections.
 	indexedDependenciesExtractor map[extractorKey]objectKeyExtractor
 }
 
