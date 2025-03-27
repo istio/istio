@@ -28,28 +28,55 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+type indexedDependencyType uint8
+
+const (
+	unknownIndexType indexedDependencyType = iota
+	indexType        indexedDependencyType = iota
+	getKeyType       indexedDependencyType = iota
+)
+
+var allIndexedDependencyTypes = []indexedDependencyType{indexType, getKeyType}
+
 type dependencyState[I any] struct {
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
 	// These are keyed by the internal uid() function on collections.
 	// Note this does not include `parent`, which is the *primary* dependency declared outside of transformation functions.
 	collectionDependencies sets.Set[collectionUID]
 	// Stores a map of I -> secondary dependencies (added via Fetch)
-	objectDependencies           map[Key[I]][]*dependency
-	indexedDependencies          map[indexedDependency]sets.Set[Key[I]]
-	indexedDependenciesExtractor map[collectionUID]objectKeyExtractor
+	objectDependencies  map[Key[I]][]*dependency
+	indexedDependencies map[indexedDependency]sets.Set[Key[I]]
+	// indexedDependenciesExtractor stores a map of [collection,fetch type] => an extractor to get change keys.
+	// Note that a given collection can have multiple Fetches, but they are limited to those of the different kind.
+	// I.e. you can do a `Fetch(c1, FilterIndex()) + Fetch(c1, FilterKey())` but not `Fetch(c1, FilterIndex()) + Fetch(c1, FilterIndex())`.
+	// This only applies within a single transformation; it is fine to fetch the the same `c1` in any way from different collections.
+	indexedDependenciesExtractor map[extractorKey]objectKeyExtractor
+}
+
+type extractorKey struct {
+	uid collectionUID
+	typ indexedDependencyType
 }
 
 func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 	// Update the I -> Dependency mapping
 	i.objectDependencies[key] = deps
 	for _, d := range deps {
-		if depKey, extractor, ok := d.filter.reverseIndexKey(); ok {
-			k := indexedDependency{
-				id:  d.id,
-				key: depKey,
+		if depKeys, typ, extractor, ok := d.filter.reverseIndexKey(); ok {
+			for _, depKey := range depKeys {
+				k := indexedDependency{
+					id:  d.id,
+					key: depKey,
+					typ: typ,
+				}
+				sets.InsertOrNew(i.indexedDependencies, k, key)
+				kk := extractorKey{
+					uid: d.id,
+					typ: typ,
+				}
+
+				i.indexedDependenciesExtractor[kk] = extractor
 			}
-			sets.InsertOrNew(i.indexedDependencies, k, key)
-			i.indexedDependenciesExtractor[d.id] = extractor
 		}
 	}
 }
@@ -61,12 +88,15 @@ func (i dependencyState[I]) delete(key Key[I]) {
 	}
 	delete(i.objectDependencies, key)
 	for _, d := range old {
-		if depKey, _, ok := d.filter.reverseIndexKey(); ok {
-			k := indexedDependency{
-				id:  d.id,
-				key: depKey,
+		if depKeys, typ, _, ok := d.filter.reverseIndexKey(); ok {
+			for _, depKey := range depKeys {
+				k := indexedDependency{
+					id:  d.id,
+					key: depKey,
+					typ: typ,
+				}
+				sets.DeleteCleanupLast(i.indexedDependencies, k, key)
 			}
-			sets.DeleteCleanupLast(i.indexedDependencies, k, key)
 		}
 	}
 }
@@ -79,25 +109,31 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 		// Naively, we can look through every item in this collection and check if it matches the filter. However, this is
 		// inefficient, especially when the dependency changes frequently and the collection is large.
 		// Where possible, we utilize the reverse-indexing to get the precise list of potentially changed objects.
-		if extractor, f := i.indexedDependenciesExtractor[sourceCollection]; f {
-			// We have a reverse index
-			for _, item := range ev.Items() {
-				// Find all the reverse index keys for this object. For each key we will find impacted input objects.
-				keys := extractor(item)
-				for _, key := range keys {
-					for iKey := range i.indexedDependencies[indexedDependency{id: sourceCollection, key: key}] {
-						if changedInputKeys.Contains(iKey) {
-							// We may have already found this item, skip it
-							continue
-						}
-						dependencies := i.objectDependencies[iKey]
-						if changed := objectChanged(dependencies, sourceCollection, ev, true); changed {
-							changedInputKeys.Insert(iKey)
+		foundAny := false
+		for _, idxTypes := range allIndexedDependencyTypes {
+			ekey := extractorKey{uid: sourceCollection, typ: idxTypes}
+			if extractor, f := i.indexedDependenciesExtractor[ekey]; f {
+				foundAny = true
+				// We have a reverse index
+				for _, item := range ev.Items() {
+					// Find all the reverse index keys for this object. For each key we will find impacted input objects.
+					keys := extractor(item)
+					for _, key := range keys {
+						for iKey := range i.indexedDependencies[indexedDependency{id: sourceCollection, key: key, typ: idxTypes}] {
+							if changedInputKeys.Contains(iKey) {
+								// We may have already found this item, skip it
+								continue
+							}
+							dependencies := i.objectDependencies[iKey]
+							if changed := objectChanged(dependencies, sourceCollection, ev, true); changed {
+								changedInputKeys.Insert(iKey)
+							}
 						}
 					}
 				}
 			}
-		} else {
+		}
+		if !foundAny {
 			for iKey, dependencies := range i.objectDependencies {
 				if changed := objectChanged(dependencies, sourceCollection, ev, false); changed {
 					changedInputKeys.Insert(iKey)
@@ -537,7 +573,7 @@ func newManyCollection[I, O any](
 			collectionDependencies:       sets.New[collectionUID](),
 			objectDependencies:           map[Key[I]][]*dependency{},
 			indexedDependencies:          map[indexedDependency]sets.Set[Key[I]]{},
-			indexedDependenciesExtractor: map[collectionUID]func(o any) []string{},
+			indexedDependenciesExtractor: map[extractorKey]func(o any) []string{},
 		},
 		collectionState: multiIndex[I, O]{
 			inputs:   map[Key[I]]I{},
@@ -599,7 +635,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 	// A secondary dependency changed...
 	// Got an event. Now we need to find out who depends on it..
 	changedInputKeys := h.dependencyState.changedInputKeys(sourceCollection, events)
-	h.log.Debugf("event size %v, impacts %v objects", len(events), len(changedInputKeys))
+	h.log.Debugf("event size %v, impacts %v objects", len(events), changedInputKeys.UnsortedList())
 
 	toRun := make([]Event[I], 0, len(changedInputKeys))
 	// Now we have the set of input keys that changed. We need to recompute all of these.

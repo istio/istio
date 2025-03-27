@@ -76,6 +76,7 @@ type collectionOptions struct {
 type indexedDependency struct {
 	id  collectionUID
 	key string
+	typ indexedDependencyType
 }
 
 // dependency is a specific thing that can be depended on
