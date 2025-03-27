@@ -17,6 +17,7 @@ package core
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"sort"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -731,7 +732,7 @@ func buildHTTPHeaders(headers []*meshconfig.MeshConfig_ExtensionProvider_HttpHea
 			AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 			Header: &core.HeaderValue{
 				Key:   h.GetName(),
-				Value: h.GetValue(),
+				Value: getHeaderValue(h),
 			},
 		}
 		target = append(target, hvo)
@@ -747,9 +748,19 @@ func buildInitialMetadata(metadata []*meshconfig.MeshConfig_ExtensionProvider_Ht
 	for _, h := range metadata {
 		hv := &core.HeaderValue{
 			Key:   h.GetName(),
-			Value: h.GetValue(),
+			Value: getHeaderValue(h),
 		}
 		target = append(target, hv)
 	}
 	return target
+}
+
+func getHeaderValue(hv *meshconfig.MeshConfig_ExtensionProvider_HttpHeader) string {
+	switch hv := hv.HeaderValue.(type) {
+	case *meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value:
+		return hv.Value
+	case *meshconfig.MeshConfig_ExtensionProvider_HttpHeader_EnvName:
+		return os.Getenv(hv.EnvName)
+	}
+	return ""
 }
