@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** an issue with pluginca feature where istiod would silently fallback to selfsigned-CA in case of incomplete cacerts CA bundle.

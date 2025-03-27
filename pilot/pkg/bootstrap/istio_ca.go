@@ -263,12 +263,15 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 		return nil
 	}
 
-	signingCABundleComplete, bundleExists := checkCABundleCompleteness(
+	signingCABundleComplete, bundleExists, err := checkCABundleCompleteness(
 		path.Join(dir, ca.CAPrivateKeyFile),
 		path.Join(dir, ca.CACertFile),
 		path.Join(dir, ca.RootCertFile),
 		[]string{path.Join(dir, ca.CertChainFile)},
 	)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("error loading remote CA certs: %w", err)
+	}
 	if signingCABundleComplete {
 		return nil
 	}
@@ -445,13 +448,16 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine signing file format %v", err)
 	}
-	signingCABundleComplete, bundleExists := checkCABundleCompleteness(
+
+	signingCABundleComplete, bundleExists, err := checkCABundleCompleteness(
 		fileBundle.SigningKeyFile,
 		fileBundle.SigningCertFile,
 		fileBundle.RootCertFile,
 		fileBundle.CertChainFiles,
 	)
-
+	if err != nil {
+		return nil, fmt.Errorf("failed to create an istiod CA: %w", err)
+	}
 	if !signingCABundleComplete && bundleExists {
 		return nil, fmt.Errorf("failed to create an istiod CA: incomplete signing CA bundle detected")
 	}
@@ -591,40 +597,69 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 }
 
 // checkCABundleCompleteness checks if all required CA certificate files exist
-func checkCABundleCompleteness(signingKeyFile, signingCertFile, rootCertFile string, chainFiles []string) (signingCABundleComplete bool, bundleExists bool) {
-	signingKeyExists := fileExists(signingKeyFile)
-	signingCertExists := fileExists(signingCertFile)
-	rootCertExists := fileExists(rootCertFile)
-	chainFilesExist := hasValidChainFiles(chainFiles)
+func checkCABundleCompleteness(
+	signingKeyFile, signingCertFile, rootCertFile string,
+	chainFiles []string,
+) (
+	signingCABundleComplete bool,
+	bundleExists bool,
+	err error,
+) {
+	signingKeyExists, err := fileExists(signingKeyFile)
+	if err != nil {
+		return false, false, err
+	}
+
+	signingCertExists, err := fileExists(signingCertFile)
+	if err != nil {
+		return false, signingKeyExists, err
+	}
+
+	rootCertExists, err := fileExists(rootCertFile)
+	if err != nil {
+		return false, signingKeyExists || signingCertExists, err
+	}
+
+	chainFilesExist, err := hasValidChainFiles(chainFiles)
+	if err != nil {
+		return false, signingKeyExists || signingCertExists || rootCertExists, err
+	}
 
 	bundleExists = signingKeyExists || signingCertExists || rootCertExists || chainFilesExist
 	signingCABundleComplete = signingKeyExists && signingCertExists && rootCertExists && chainFilesExist
 
-	return signingCABundleComplete, bundleExists
+	return signingCABundleComplete, bundleExists, nil
 }
 
 // fileExists checks if a file exists and is accessible
-func fileExists(filename string) bool {
+func fileExists(filename string) (bool, error) {
 	if filename == "" {
-		return false
+		return false, nil
 	}
 	_, err := os.Stat(filename)
-	if err != nil && !os.IsNotExist(err) {
-		log.Warnf("Unexpected error checking file %s: %v", filename, err)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("error checking file %s: %v", filename, err)
 	}
-	return err == nil
+	return true, nil
 }
 
 // hasValidChainFiles checks if there is at least one valid cert chain file
-func hasValidChainFiles(files []string) bool {
+func hasValidChainFiles(files []string) (bool, error) {
 	if len(files) == 0 {
-		return false
+		return false, nil
 	}
 
 	for _, file := range files {
-		if fileExists(file) {
-			return true
+		exists, err := fileExists(file)
+		if err != nil {
+			return false, err
+		}
+		if exists {
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
