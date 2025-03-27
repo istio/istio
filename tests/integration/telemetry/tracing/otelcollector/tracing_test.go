@@ -140,7 +140,11 @@ func TestGatewayTracing(t *testing.T) {
 		ctx.ConfigIstio().YAML(appNsInst.Name(), echoGateway).ApplyOrFail(ctx)
 
 		// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
-		for _, cluster := range ctx.Clusters().ByNetwork()[ctx.Clusters().Default().NetworkName()] {
+		nt := ctx.Clusters().Default().NetworkName()
+		for _, cluster := range ctx.Clusters() {
+			if cluster.NetworkName() != nt {
+				continue
+			}
 			ctx.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
 				retry.UntilSuccessOrFail(ctx, func() error {
 					reqPath := "/echo-server"
