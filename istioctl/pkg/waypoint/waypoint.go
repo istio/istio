@@ -484,16 +484,22 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 			nameList = append(nameList, gw.Name)
 		}
 	} else {
+		gws, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+
 		for _, name := range names {
-			gw, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).Get(context.Background(), name, metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
+			contain, gw := waypointContains(gws.Items, name)
+			if contain {
+				if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
+					fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
+					continue
+				}
+				nameList = append(nameList, gw.Name)
+			} else {
 				fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
-				continue
 			}
-			nameList = append(nameList, gw.Name)
 		}
 	}
 
@@ -520,6 +526,15 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 
 	wg.Wait()
 	return multiErr.ErrorOrNil()
+}
+
+func waypointContains(gws []gateway.Gateway, value string) (contain bool, wp gateway.Gateway) {
+	for _, gw := range gws {
+		if gw.Name == value {
+			return true, gw
+		}
+	}
+	return false, gateway.Gateway{}
 }
 
 func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
