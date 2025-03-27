@@ -32,6 +32,59 @@ import (
 
 const testNamespace = "istio-system"
 
+func TestCheckCABundleCompleteness(t *testing.T) {
+	g := NewWithT(t)
+
+	dir := t.TempDir()
+
+	// Create partial certificate files (missing signing key)
+	rootCertFile := path.Join(dir, "root-cert.pem")
+	certChainFile := path.Join(dir, "cert-chain.pem")
+	caCertFile := path.Join(dir, "ca-cert.pem")
+
+	// Create some files but not all
+	rootCert, err := readSampleCertFromFile("root-cert.pem")
+	g.Expect(err).Should(BeNil())
+	err = os.WriteFile(rootCertFile, rootCert, 0600)
+	g.Expect(err).Should(BeNil())
+
+	certChain, err := readSampleCertFromFile("cert-chain.pem")
+	g.Expect(err).Should(BeNil())
+	err = os.WriteFile(certChainFile, certChain, 0600)
+	g.Expect(err).Should(BeNil())
+
+	caCert, err := readSampleCertFromFile("ca-cert.pem")
+	g.Expect(err).Should(BeNil())
+	err = os.WriteFile(caCertFile, caCert, 0600)
+	g.Expect(err).Should(BeNil())
+
+	// Test with incomplete bundle
+	signingCABundleComplete, bundleExists := checkCABundleCompleteness(
+		path.Join(dir, "ca-key.pem"),
+		path.Join(dir, "ca-cert.pem"),
+		path.Join(dir, "root-cert.pem"),
+		[]string{path.Join(dir, "cert-chain.pem")},
+	)
+	g.Expect(signingCABundleComplete).Should(Equal(false))
+	g.Expect(bundleExists).Should(Equal(true))
+
+	// Add missing key file to complete the bundle
+	caKey, err := readSampleCertFromFile("ca-key.pem")
+	g.Expect(err).Should(BeNil())
+	err = os.WriteFile(path.Join(dir, "ca-key.pem"), caKey, 0600)
+	g.Expect(err).Should(BeNil())
+
+	// Test with complete bundle
+	signingCABundleComplete, bundleExists = checkCABundleCompleteness(
+		path.Join(dir, "ca-key.pem"),
+		path.Join(dir, "ca-cert.pem"),
+		path.Join(dir, "root-cert.pem"),
+		[]string{path.Join(dir, "cert-chain.pem")},
+	)
+	g.Expect(signingCABundleComplete).Should(Equal(true))
+	g.Expect(bundleExists).Should(Equal(true))
+}
+
 func TestRemoteCerts(t *testing.T) {
 	g := NewWithT(t)
 

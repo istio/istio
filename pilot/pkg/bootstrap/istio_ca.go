@@ -263,13 +263,20 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 		return nil
 	}
 
-	signingKeyFile := path.Join(dir, ca.CAPrivateKeyFile)
-	if _, err := os.Stat(signingKeyFile); err == nil {
+	signingCABundleComplete, bundleExists := checkCABundleCompleteness(
+		path.Join(dir, ca.CAPrivateKeyFile),
+		path.Join(dir, ca.CACertFile),
+		path.Join(dir, ca.RootCertFile),
+		[]string{path.Join(dir, ca.CertChainFile)},
+	)
+	if signingCABundleComplete {
 		return nil
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("signing key file %s already exists", signingKeyFile)
+	}
+	if bundleExists {
+		log.Warnf("incomplete signing CA bundle detected at %s", dir)
 	}
 
+	// if locally mounted signing bundle not found or is incomplete, try loading from remote cluster secrets
 	secret, err := s.kubeClient.Kube().CoreV1().Secrets(caOpts.Namespace).Get(
 		context.TODO(), ca.CACertsSecret, metav1.GetOptions{})
 	if err != nil {
@@ -279,6 +286,9 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 		return err
 	}
 
+	// TODO(deveshdama): writing cacerts files from remote cluster will always fail,
+	// since etc/cacerts is mounted as readonly volume
+	// tracking issue: https://github.com/istio/istio/issues/55698
 	log.Infof("cacerts Secret found in config cluster, saving contents to %s", dir)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -427,7 +437,7 @@ func (s *Server) initCACertsWatcher() {
 //	which may contain multiple roots. A 'cert-chain.pem' file has the full cert chain.
 func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	var caOpts *ca.IstioCAOptions
-	var detectedSigningCABundle bool
+	var signingCABundleComplete bool
 	var istioGenerated bool
 	var err error
 
@@ -435,14 +445,25 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine signing file format %v", err)
 	}
-	if _, err := os.Stat(fileBundle.SigningKeyFile); err == nil {
-		detectedSigningCABundle = true
+	signingCABundleComplete, bundleExists := checkCABundleCompleteness(
+		fileBundle.SigningKeyFile,
+		fileBundle.SigningCertFile,
+		fileBundle.RootCertFile,
+		fileBundle.CertChainFiles,
+	)
+
+	if !signingCABundleComplete && bundleExists {
+		return nil, fmt.Errorf("failed to create an istiod CA: incomplete signing CA bundle detected")
+	}
+
+	if signingCABundleComplete {
 		if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
 			istioGenerated = true
 		}
 	}
 
-	if !detectedSigningCABundle || (features.UseCacertsForSelfSignedCA && istioGenerated) {
+	useSelfSignedCA := !signingCABundleComplete || (features.UseCacertsForSelfSignedCA && istioGenerated)
+	if useSelfSignedCA {
 		if features.UseCacertsForSelfSignedCA && istioGenerated {
 			log.Infof("IstioGenerated %s secret found, use it as the CA certificate", ca.CACertsSecret)
 
@@ -567,4 +588,43 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 		s.RA.SetCACertificatesFromMeshConfig(caCertificates)
 	})
 	return raServer, err
+}
+
+// checkCABundleCompleteness checks if all required CA certificate files exist
+func checkCABundleCompleteness(signingKeyFile, signingCertFile, rootCertFile string, chainFiles []string) (signingCABundleComplete bool, bundleExists bool) {
+	signingKeyExists := fileExists(signingKeyFile)
+	signingCertExists := fileExists(signingCertFile)
+	rootCertExists := fileExists(rootCertFile)
+	chainFilesExist := hasValidChainFiles(chainFiles)
+
+	bundleExists = signingKeyExists || signingCertExists || rootCertExists || chainFilesExist
+	signingCABundleComplete = signingKeyExists && signingCertExists && rootCertExists && chainFilesExist
+
+	return signingCABundleComplete, bundleExists
+}
+
+// fileExists checks if a file exists and is accessible
+func fileExists(filename string) bool {
+	if filename == "" {
+		return false
+	}
+	_, err := os.Stat(filename)
+	if err != nil && !os.IsNotExist(err) {
+		log.Warnf("Unexpected error checking file %s: %v", filename, err)
+	}
+	return err == nil
+}
+
+// hasValidChainFiles checks if there is at least one valid cert chain file
+func hasValidChainFiles(files []string) bool {
+	if len(files) == 0 {
+		return false
+	}
+
+	for _, file := range files {
+		if fileExists(file) {
+			return true
+		}
+	}
+	return false
 }
