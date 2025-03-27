@@ -539,3 +539,13 @@ _internal_defaults_do_not_set:
 
     # Set to `type: RuntimeDefault` to use the default profile for templated gateways, if your container runtime supports it
     seccompProfile: {}
+
+  # gatewayClasses allows customizing the configuration of the default deployment of Gateways per GatewayClass.
+  # For example:
+  # gatewayClasses:
+  #   istio:
+  #     service:
+  #       spec:
+  #         type: ClusterIP
+  # Per-Gateway configuration can also be set in the `Gateway.spec.infrastructure.parametersRef` field.
+  gatewayClasses: {}

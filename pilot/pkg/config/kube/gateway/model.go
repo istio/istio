@@ -29,6 +29,7 @@ import (
 const (
 	gatewayTLSTerminateModeKey = "gateway.istio.io/tls-terminate-mode"
 	addressTypeOverride        = "networking.istio.io/address-type"
+	gatewayClassDefaults       = "gateway.istio.io/defaults-for-class"
 )
 
 // GatewayResources stores all gateway resources used for our conversion.

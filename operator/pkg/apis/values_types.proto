@@ -1412,6 +1412,9 @@ message Values {
 
   // Specifies experimental helm fields that could be removed or changed in the future
   ExperimentalConfig experimental = 44;
+
+  // Configuration for Gateway Classes
+  google.protobuf.Value gatewayClasses = 45;
 }
 
 // ZeroVPNConfig enables cross-cluster access using SNI matching.
