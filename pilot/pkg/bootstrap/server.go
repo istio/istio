@@ -153,7 +153,8 @@ type Server struct {
 	RA       ra.RegistrationAuthority
 	caServer *caserver.Server
 
-	// TrustAnchors for workload to workload mTLS
+	// TrustAnchors for workload to workload mTLS and proxy to istiod TLS
+	// Only initiated when `ISTIO_MULTIROOT_MESH` = true
 	workloadTrustBundle *tb.TrustBundle
 	certMu              sync.RWMutex
 	istiodCert          *tls.Certificate
@@ -298,9 +299,11 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, err
 	}
 
-	// Initialize trust bundle after mesh config which it depends on
-	s.workloadTrustBundle = tb.NewTrustBundle(nil, e.Watcher)
-	e.TrustBundle = s.workloadTrustBundle
+	if features.MultiRootMesh {
+		// Initialize trust bundle after mesh config which it depends on
+		s.workloadTrustBundle = tb.NewTrustBundle(nil, e.Watcher)
+		e.TrustBundle = s.workloadTrustBundle
+	}
 
 	// Options based on the current 'defaults' in istio.
 	caOpts := &caOptions{
