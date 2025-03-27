@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/values"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube"
 	pkgversion "istio.io/istio/pkg/version"
 )
@@ -419,6 +420,8 @@ func readProfileInternal(path string, profile string) (values.Map, error) {
 	return values.MapFromYaml(pb)
 }
 
+var allowGKEAutoDetection = env.Register("AUTO_GKE_DETECTION", true, "If true, GKE weill be detected automatically.").Get()
+
 // clusterSpecificSettings computes any automatically detected settings from the cluster.
 func clusterSpecificSettings(client kube.Client) []string {
 	if client == nil {
@@ -430,7 +433,7 @@ func clusterSpecificSettings(client kube.Client) []string {
 	}
 	// https://istio.io/latest/docs/setup/additional-setup/cni/#hosted-kubernetes-settings
 	// GKE requires deployment in kube-system namespace.
-	if strings.Contains(ver.GitVersion, "-gke") {
+	if allowGKEAutoDetection && strings.Contains(ver.GitVersion, "-gke") {
 		return []string{
 			// This could be in istio-system with ResourceQuotas, but for backwards compatibility we move it to kube-system still
 			"components.cni.namespace=kube-system",
