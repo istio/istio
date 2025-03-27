@@ -127,6 +127,10 @@ func (c *ClusterTrustBundleController) updateClusterTrustBundle(rootCert []byte)
 
 	existing := c.clustertrustbundles.Get(istioClusterTrustBundleName, "")
 	if existing != nil {
+		if existing.Spec.TrustBundle == string(rootCert) {
+			// trustbundle is up to date. nothing to do
+			return nil
+		}
 		// Update existing bundle
 		existing.Spec.TrustBundle = string(rootCert)
 		_, err := c.clustertrustbundles.Update(existing)
