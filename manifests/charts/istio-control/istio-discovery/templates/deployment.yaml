@@ -180,6 +180,9 @@ spec:
             value: "{{ $val }}"
           {{- end }}
           {{- end }}
+          {{- with .Values.envVarFrom }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
 {{- if .Values.traceSampling }}
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.traceSampling }}"
