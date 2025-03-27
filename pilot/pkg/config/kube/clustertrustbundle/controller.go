@@ -15,8 +15,6 @@
 package clustertrustbundle
 
 import (
-	"context"
-
 	certificatesv1alpha1 "k8s.io/api/certificates/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,7 +45,6 @@ const (
 // It watches Istio's KeyCert bundle as well as ClusterTrustBundles in the cluster, and it updates ClusterTrustBundles whenever
 // the certificate is rotated. Later on, we might want to add reading from other ClusterTrustBundles as well
 type ClusterTrustBundleController struct {
-	client              kube.Client
 	caBundleWatcher     *keycertbundle.Watcher
 	queue               controllers.Queue
 	clustertrustbundles kclient.Client[*certificatesv1alpha1.ClusterTrustBundle]
@@ -56,7 +53,6 @@ type ClusterTrustBundleController struct {
 // NewClusterTrustBundleController creates a new ClusterTrustBundleController
 func NewClusterTrustBundleController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watcher) *ClusterTrustBundleController {
 	c := &ClusterTrustBundleController{
-		client:          kubeClient,
 		caBundleWatcher: caBundleWatcher,
 	}
 
@@ -129,15 +125,15 @@ func (c *ClusterTrustBundleController) updateClusterTrustBundle(rootCert []byte)
 		},
 	}
 
-	existing, err := c.client.Kube().CertificatesV1alpha1().ClusterTrustBundles().Get(context.Background(), istioClusterTrustBundleName, metav1.GetOptions{})
-	if err == nil {
+	existing := c.clustertrustbundles.Get(istioClusterTrustBundleName, "")
+	if existing != nil {
 		// Update existing bundle
 		existing.Spec.TrustBundle = string(rootCert)
-		_, err = c.client.Kube().CertificatesV1alpha1().ClusterTrustBundles().Update(context.Background(), existing, metav1.UpdateOptions{})
+		_, err := c.clustertrustbundles.Update(existing)
 		return err
 	}
 
 	// Create new bundle
-	_, err = c.client.Kube().CertificatesV1alpha1().ClusterTrustBundles().Create(context.Background(), bundle, metav1.CreateOptions{})
+	_, err := c.clustertrustbundles.Create(bundle)
 	return err
 }
