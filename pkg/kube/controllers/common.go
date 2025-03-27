@@ -15,6 +15,7 @@
 package controllers
 
 import (
+	"cmp"
 	"fmt"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 var log = istiolog.RegisterScope("controllers", "common controller logic")
@@ -339,4 +341,19 @@ func ShutdownAll(s ...Shutdowner) {
 	for _, h := range s {
 		h.ShutdownHandlers()
 	}
+}
+
+func OldestObject[T Object](configs []T) T {
+	return slices.MinFunc(configs, func(i, j T) int {
+		if r := i.GetCreationTimestamp().Compare(j.GetCreationTimestamp().Time); r != 0 {
+			return r
+		}
+		// If creation time is the same, then behavior is nondeterministic. In this case, we can
+		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+		// CreationTimestamp is stored in seconds, so this is not uncommon.
+		if r := cmp.Compare(i.GetName(), j.GetName()); r != 0 {
+			return r
+		}
+		return cmp.Compare(i.GetNamespace(), j.GetNamespace())
+	})
 }

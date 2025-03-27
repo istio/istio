@@ -15,7 +15,6 @@
 package gateway
 
 import (
-	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -320,6 +319,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.configMaps.HasSynced,
 		d.serviceAccounts.HasSynced,
 		d.hpas.HasSynced,
+		d.pdbs.HasSynced,
 		d.gateways.HasSynced,
 		d.gatewayClasses.HasSynced,
 		d.tagWatcher.HasSynced,
@@ -332,6 +332,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.configMaps,
 		d.serviceAccounts,
 		d.hpas,
+		d.pdbs,
 		d.gateways,
 		d.gatewayClasses,
 	)
@@ -587,7 +588,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		gatewayClassDefaults: string(mi.Spec.GatewayClassName),
 	}))
 	if len(classConfigs) > 0 {
-		classConfig := oldestConfig(classConfigs)
+		classConfig := controllers.OldestObject(classConfigs)
 		templateOverlays = append(templateOverlays, classConfig.Data)
 	}
 	params, err := fetchParameters(mi.Gateway)
@@ -632,21 +633,6 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		}
 	}
 	return transformedOutput, nil
-}
-
-func oldestConfig[T controllers.Object](configs []T) T {
-	return slices.MinFunc(configs, func(i, j T) int {
-		if r := i.GetCreationTimestamp().Compare(j.GetCreationTimestamp().Time); r != 0 {
-			return r
-		}
-		// If creation time is the same, then behavior is nondeterministic. In this case, we can
-		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
-		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if r := cmp.Compare(i.GetName(), j.GetName()); r != 0 {
-			return r
-		}
-		return cmp.Compare(i.GetNamespace(), j.GetNamespace())
-	})
 }
 
 var supportedOverlays = sets.New(
@@ -935,15 +921,11 @@ func strategicMergePatchYAML(originalYAML []byte, patchYAML []byte, dataStruct a
 		return nil, err
 	}
 
-	originalMap, err := patchHandleUnmarshal(originalYAML, func(data []byte, v any) error {
-		return yaml.Unmarshal(data, v)
-	})
+	originalMap, err := patchHandleUnmarshal(originalYAML)
 	if err != nil {
 		return nil, err
 	}
-	patchMap, err := patchHandleUnmarshal(patchYAML, func(data []byte, v any) error {
-		return yaml.Unmarshal(data, v)
-	})
+	patchMap, err := patchHandleUnmarshal(patchYAML)
 	if err != nil {
 		return nil, err
 	}
@@ -956,13 +938,13 @@ func strategicMergePatchYAML(originalYAML []byte, patchYAML []byte, dataStruct a
 	return json.Marshal(result)
 }
 
-func patchHandleUnmarshal(j []byte, unmarshal func(data []byte, v any) error) (map[string]any, error) {
+func patchHandleUnmarshal(j []byte) (map[string]any, error) {
 	if j == nil {
 		j = []byte("{}")
 	}
 
 	m := map[string]any{}
-	err := unmarshal(j, &m)
+	err := yaml.Unmarshal(j, &m)
 	if err != nil {
 		return nil, mergepatch.ErrBadJSONDoc
 	}

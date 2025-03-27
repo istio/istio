@@ -97,10 +97,9 @@ const (
 )
 
 type WebhookConfig struct {
-	RawTemplates RawTemplates
-	Templates    Templates
-	Values       ValuesConfig
-	MeshConfig   *meshconfig.MeshConfig
+	Templates  Templates
+	Values     ValuesConfig
+	MeshConfig *meshconfig.MeshConfig
 }
 
 // Webhook implements a mutating webhook for automatic proxy injection.
@@ -123,10 +122,9 @@ func (wh *Webhook) GetConfig() WebhookConfig {
 	wh.mu.RLock()
 	defer wh.mu.RUnlock()
 	return WebhookConfig{
-		RawTemplates: wh.Config.RawTemplates,
-		Templates:    wh.Config.Templates,
-		Values:       wh.valuesConfig,
-		MeshConfig:   wh.meshConfig,
+		Templates:  wh.Config.Templates,
+		Values:     wh.valuesConfig,
+		MeshConfig: wh.meshConfig,
 	}
 }
 
