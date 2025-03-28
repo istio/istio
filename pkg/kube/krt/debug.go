@@ -40,6 +40,8 @@ type CollectionDump struct {
 	InputCollection string `json:"inputCollection,omitempty"`
 	// Map of input key -> info
 	Inputs map[string]InputDump `json:"inputs,omitempty"`
+	// Synced returns whether the collection is synced or not
+	Synced bool `json:"synced"`
 }
 type InputDump struct {
 	Outputs      []string `json:"outputs,omitempty"`

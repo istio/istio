@@ -342,6 +342,7 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 		Outputs:         eraseMap(h.collectionState.outputs),
 		Inputs:          inputs,
 		InputCollection: h.parent.(internalCollection[I]).name(),
+		Synced:          h.HasSynced(),
 	}
 }
 

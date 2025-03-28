@@ -147,6 +147,7 @@ func (d *static[T]) dump() CollectionDump {
 		Outputs: map[string]any{
 			"static": d.val.Load(),
 		},
+		Synced: d.HasSynced(),
 	}
 }
 

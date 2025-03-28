@@ -141,6 +141,7 @@ func (i indexCollection[K, O]) dump() CollectionDump {
 	return CollectionDump{
 		Outputs:         i.dumpOutput(),
 		InputCollection: i.idx.c.(internalCollection[O]).name(),
+		Synced:          i.HasSynced(),
 	}
 }
 
