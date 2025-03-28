@@ -43,6 +43,7 @@ func WaypointPolicyStatusCollection(
 	services krt.Collection[*corev1.Service],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
+	meshConfig krt.Singleton[MeshConfig],
 	namespaces krt.Collection[*corev1.Namespace],
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.WaypointPolicyStatus] {
@@ -53,7 +54,14 @@ func WaypointPolicyStatusCollection(
 				return nil // targetRef is required for binding to waypoint
 			}
 
-			var conditions []model.PolicyBindingStatus
+			var (
+				conditions []model.PolicyBindingStatus
+				rootNs     string
+			)
+
+			if meshConfig.Get() != nil {
+				rootNs = meshConfig.Get().MeshConfig.RootNamespace
+			}
 
 			for _, target := range targetRefs {
 				namespace := i.GetNamespace()
@@ -66,6 +74,13 @@ func WaypointPolicyStatusCollection(
 				bound := false
 				switch target.GetKind() {
 				case gvk.GatewayClass_v1.Kind:
+					// first verify the AP is in the root namespace, if not it's ignored
+					if namespace != rootNs {
+						reason = model.WaypointPolicyReasonInvalid
+						message = fmt.Sprintf("AuthorizationPolicy must be in the root namespace `%s` when referencing a GatewayClass", rootNs)
+						break
+					}
+
 					fetchedGatewayClass := ptr.Flatten(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(target.GetName())))
 					if fetchedGatewayClass == nil {
 						reason = model.WaypointPolicyReasonTargetNotFound
