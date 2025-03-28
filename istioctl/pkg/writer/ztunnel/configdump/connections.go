@@ -107,7 +107,7 @@ func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 		if r := cmp.Compare(a.Info.Namespace, b.Info.Namespace); r != 0 {
 			return r
 		}
-		return cmp.Compare(a.Info.Namespace, b.Info.Namespace)
+		return cmp.Compare(a.Info.Name, b.Info.Name)
 	})
 	for _, wl := range workloads {
 		if filter.Namespace != "" && filter.Namespace != wl.Info.Namespace {
