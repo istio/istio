@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -100,7 +103,7 @@ func TestPodsAppearsWithNilNetnsWhenEnsureIsUsed(t *testing.T) {
 	found := false
 	snap := p.ReadCurrentPodSnapshot()
 	for k, v := range snap {
-		if k == "123" && v == (WorkloadInfo{}) {
+		if k == "123" && v == (workloadInfo{}) {
 			found = true
 		}
 	}
@@ -114,9 +117,9 @@ func TestUpsertPodCacheWithLiveNetns(t *testing.T) {
 
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{UID: "testUID"}}
 	ns := newFakeNsInode(inc(), 1)
-	wl := WorkloadInfo{
-		Workload: podToWorkload(pod),
-		Netns:    ns,
+	wl := workloadInfo{
+		workload: podToWorkload(pod),
+		netns:    ns,
 	}
 	netns1 := p.UpsertPodCacheWithNetns(string(pod.UID), wl)
 	if !reflect.DeepEqual(netns1, ns) {
@@ -124,9 +127,9 @@ func TestUpsertPodCacheWithLiveNetns(t *testing.T) {
 	}
 
 	ns2 := newFakeNsInode(inc(), 1)
-	wl2 := WorkloadInfo{
-		Workload: podToWorkload(pod),
-		Netns:    ns2,
+	wl2 := workloadInfo{
+		workload: podToWorkload(pod),
+		netns:    ns2,
 	}
 	// when using same uid, the original netns should be returned
 	netns2 := p.UpsertPodCacheWithNetns(string(pod.UID), wl2)
@@ -143,9 +146,9 @@ func TestDoubleTake(t *testing.T) {
 
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{UID: "testUID"}}
 	ns := newFakeNs(inc())
-	wl := WorkloadInfo{
-		Workload: podToWorkload(pod),
-		Netns:    ns,
+	wl := workloadInfo{
+		workload: podToWorkload(pod),
+		netns:    ns,
 	}
 	netns1 := p.UpsertPodCacheWithNetns(string(pod.UID), wl)
 	netnsTaken := p.Take(string(pod.UID))
