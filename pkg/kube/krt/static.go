@@ -171,6 +171,7 @@ func (s *staticList[T]) uid() collectionUID {
 func (s *staticList[T]) dump() CollectionDump {
 	return CollectionDump{
 		Outputs: eraseMap(slices.GroupUnique(s.List(), getTypedKey)),
+		Synced:  s.HasSynced(),
 	}
 }
 

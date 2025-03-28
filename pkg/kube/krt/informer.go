@@ -74,6 +74,7 @@ func (i *informer[I]) WaitUntilSynced(stop <-chan struct{}) bool {
 func (i *informer[I]) dump() CollectionDump {
 	return CollectionDump{
 		Outputs: eraseMap(slices.GroupUnique(i.inf.List(metav1.NamespaceAll, klabels.Everything()), getTypedKey)),
+		Synced:  i.HasSynced(),
 	}
 }
 
