@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Improved** installation on GKE. When deploying with `global.platform=gke`, required `ResourceQuota` resources are deployed automatically.
+    Additionally, when installing via `istioctl`, the `global.platform=gke` setting is automatically enabled when GKE is detected.
+    In addition to the new `ResourceQuota` resources, this also automatically configures the required `cniBinDir`.

@@ -43,6 +43,10 @@ _internal_defaults_do_not_set:
       # While there are many factors, this is enough for ~200k pod cluster or 100k concurrently open connections.
       memory: 512Mi
 
+  resourceQuotas:
+    enabled: false
+    pods: 5000
+
   # List of secret names to add to the service account as image pull secrets
   imagePullSecrets: []
 
