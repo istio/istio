@@ -101,7 +101,7 @@ func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 		}
 		return addr
 	}
-	fmt.Fprintln(w, "WORKLOAD\tDIRECTION\tLOCAL\tREMOTE\tREMOTE TARGET")
+	fmt.Fprintln(w, "WORKLOAD\tDIRECTION\tLOCAL\tREMOTE\tREMOTE TARGET\tPROTOCOL")
 	workloads := maps.Values(d.WorkloadState)
 	workloads = slices.SortFunc(workloads, func(a, b WorkloadState) int {
 		if r := cmp.Compare(a.Info.Namespace, b.Info.Namespace); r != 0 {
@@ -116,12 +116,12 @@ func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 		name := fmt.Sprintf("%s.%s", wl.Info.Name, wl.Info.Namespace)
 		if filter.Direction != "outbound" {
 			for _, c := range wl.Connections.Inbound {
-				fmt.Fprintf(w, "%v\tInbound\t%v\t%v\t%v\n", name, lookupIP(c.ActualDst), lookupIP(c.Src), c.OriginalDst)
+				fmt.Fprintf(w, "%v\tInbound\t%v\t%v\t%v\t%v\n", name, lookupIP(c.ActualDst), lookupIP(c.Src), c.OriginalDst, c.Protocol)
 			}
 		}
 		if filter.Direction != "inbound" {
 			for _, c := range wl.Connections.Outbound {
-				fmt.Fprintf(w, "%v\tOutbound\t%v\t%v\t%v\n", name, lookupIP(c.Src), lookupIP(c.ActualDst), lookupIP(c.OriginalDst))
+				fmt.Fprintf(w, "%v\tOutbound\t%v\t%v\t%v\t%v\n", name, lookupIP(c.Src), lookupIP(c.ActualDst), lookupIP(c.OriginalDst), c.Protocol)
 			}
 		}
 	}
