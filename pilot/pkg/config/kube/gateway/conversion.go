@@ -60,6 +60,7 @@ import (
 const (
 	gatewayTLSTerminateModeKey = "gateway.istio.io/tls-terminate-mode"
 	addressTypeOverride        = "networking.istio.io/address-type"
+	gatewayClassDefaults       = "gateway.istio.io/defaults-for-class"
 )
 
 func sortConfigByCreationTime(configs []config.Config) {
