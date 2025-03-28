@@ -5,4 +5,5 @@ issues:
   - 55637
 releaseNotes:
   - |
-    **Added** an environment variable `PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY` for reporting both server and client span for gateway.
+    - **Added** environment variable `PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY`, which separates tracing span for both server and client gateways.
+    This currently defaults to false but will become default in the future.

@@ -143,7 +143,7 @@ func TestGatewayTracing(t *testing.T) {
 		nt := ctx.Clusters().Default().NetworkName()
 		for _, cluster := range ctx.Clusters() {
 			if cluster.NetworkName() != nt {
-				continue
+				t.Skip()
 			}
 			ctx.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
 				retry.UntilSuccessOrFail(ctx, func() error {
