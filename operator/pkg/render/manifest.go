@@ -420,7 +420,7 @@ func readProfileInternal(path string, profile string) (values.Map, error) {
 	return values.MapFromYaml(pb)
 }
 
-var allowGKEAutoDetection = env.Register("AUTO_GKE_DETECTION", true, "If true, GKE weill be detected automatically.").Get()
+var allowGKEAutoDetection = env.Register("AUTO_GKE_DETECTION", true, "If true, GKE will be detected automatically.").Get()
 
 // clusterSpecificSettings computes any automatically detected settings from the cluster.
 func clusterSpecificSettings(client kube.Client) []string {
