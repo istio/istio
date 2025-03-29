@@ -111,7 +111,7 @@ var (
 	)
 
 	// golang supported methods: https://golang.org/src/net/http/method.go
-	supportedMethods = sets.New(
+	supportedCORSMethods = sets.New[string](
 		http.MethodGet,
 		http.MethodHead,
 		http.MethodPost,
@@ -121,6 +121,7 @@ var (
 		http.MethodConnect,
 		http.MethodOptions,
 		http.MethodTrace,
+		"*",
 	)
 
 	scope = log.RegisterScope("validation", "CRD validation debugging")
@@ -2370,7 +2371,7 @@ func validateCORSPolicy(policy *networking.CorsPolicy) (errs error) {
 	}
 
 	for _, method := range policy.AllowMethods {
-		errs = appendErrors(errs, validateHTTPMethod(method))
+		errs = appendErrors(errs, validateCORSHTTPMethod(method))
 	}
 
 	for _, name := range policy.AllowHeaders {
@@ -2407,8 +2408,8 @@ func validateAllowOrigins(origin *networking.StringMatch) error {
 	return validateStringMatchRegexp(origin, "corsPolicy.allowOrigins")
 }
 
-func validateHTTPMethod(method string) error {
-	if !supportedMethods.Contains(method) {
+func validateCORSHTTPMethod(method string) error {
+	if !supportedCORSMethods.Contains(method) {
 		return fmt.Errorf("%q is not a supported HTTP method", method)
 	}
 	return nil

@@ -168,7 +168,7 @@ func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int)
 		},
 		Spec: v1beta1.GatewaySpec{
 			GatewayClassName: "istio",
-			Addresses: []v1beta1.GatewayAddress{
+			Addresses: []v1beta1.GatewaySpecAddress{
 				{Type: &ipType, Value: "1.2.3.4"},
 				{Type: &hostnameType, Value: "some hostname"},
 			},
@@ -385,7 +385,7 @@ func TestAmbientSync(t *testing.T) {
 		},
 		Spec: v1beta1.GatewaySpec{
 			GatewayClassName: "istio-remote",
-			Addresses: []v1beta1.GatewayAddress{
+			Addresses: []v1beta1.GatewaySpecAddress{
 				{
 					Type:  ptr.Of(v1beta1.IPAddressType),
 					Value: "172.18.1.45",

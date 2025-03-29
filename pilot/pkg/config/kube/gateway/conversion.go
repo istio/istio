@@ -20,12 +20,14 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
@@ -268,6 +270,8 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 			}
 		case k8s.HTTPRouteFilterURLRewrite:
 			vs.Rewrite = createRewriteFilter(filter.URLRewrite)
+		case k8s.HTTPRouteFilterCORS:
+			vs.CorsPolicy = createCorsFilter(filter.CORS)
 		default:
 			return nil, &ConfigError{
 				Reason:  InvalidFilter,
@@ -1755,6 +1759,47 @@ func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 	return rewrite
 }
 
+func createCorsFilter(filter *k8s.HTTPCORSFilter) *istio.CorsPolicy {
+	if filter == nil {
+		return nil
+	}
+	res := &istio.CorsPolicy{}
+	for _, r := range filter.AllowOrigins {
+		rs := string(r)
+		if len(rs) == 0 {
+			continue // Not valid anyways, but double check
+		}
+		if strings.Contains(rs, "*") {
+			// Istio doesn't have suffix match for some reason...
+			regex := ".*" + regexp.QuoteMeta(rs[1:])
+			res.AllowOrigins = append(res.AllowOrigins, &istio.StringMatch{
+				MatchType: &istio.StringMatch_Regex{Regex: regex},
+			})
+		} else {
+			res.AllowOrigins = append(res.AllowOrigins, &istio.StringMatch{
+				MatchType: &istio.StringMatch_Exact{Exact: string(r)},
+			})
+		}
+	}
+	if filter.AllowCredentials {
+		res.AllowCredentials = wrappers.Bool(true)
+	}
+	for _, r := range filter.AllowMethods {
+		res.AllowMethods = append(res.AllowMethods, string(r))
+	}
+	for _, r := range filter.AllowHeaders {
+		res.AllowHeaders = append(res.AllowHeaders, string(r))
+	}
+	for _, r := range filter.ExposeHeaders {
+		res.ExposeHeaders = append(res.ExposeHeaders, string(r))
+	}
+	if filter.MaxAge > 0 {
+		res.MaxAge = durationpb.New(time.Duration(filter.MaxAge) * time.Second)
+	}
+
+	return res
+}
+
 func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedirect {
 	if filter == nil {
 		return nil
@@ -2406,7 +2451,7 @@ func reportUnmanagedGatewayStatus(obj config.Config) {
 	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 		gs := s.(*k8s.GatewayStatus)
 		spec := obj.Spec.(*k8s.GatewaySpec)
-		gs.Addresses = slices.Map(spec.Addresses, func(e k8s.GatewayAddress) k8s.GatewayStatusAddress {
+		gs.Addresses = slices.Map(spec.Addresses, func(e k8s.GatewaySpecAddress) k8s.GatewayStatusAddress {
 			return k8s.GatewayStatusAddress(e)
 		})
 		gs.Listeners = nil

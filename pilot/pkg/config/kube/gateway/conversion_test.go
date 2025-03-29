@@ -1473,7 +1473,7 @@ func TestExtractGatewayServices(t *testing.T) {
 			r:    GatewayResources{Domain: "domain"},
 			kgw: &k8s.GatewaySpec{
 				GatewayClassName: "istio",
-				Addresses: []k8s.GatewayAddress{
+				Addresses: []k8s.GatewaySpecAddress{
 					{
 						Value: "abc",
 					},
@@ -1511,7 +1511,7 @@ func TestExtractGatewayServices(t *testing.T) {
 			r:    GatewayResources{Domain: "domain"},
 			kgw: &k8s.GatewaySpec{
 				GatewayClassName: "istio",
-				Addresses: []k8s.GatewayAddress{
+				Addresses: []k8s.GatewaySpecAddress{
 					{
 						Value: "abc",
 					},
