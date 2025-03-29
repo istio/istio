@@ -644,3 +644,35 @@ func SetInstances(apps echo.Services) error {
 	}
 	return nil
 }
+
+// Some cloud platform may throw the following error during creation of the service with mixed TCP/UDP protocols:
+// "Error syncing load balancer: failed to ensure load balancer: mixed protocol is not supported for LoadBalancer".
+// Make sure the service is up and running before proceeding with the test.
+func WaitForIngressQUICService(t framework.TestContext, ns string) error {
+	return retry.UntilSuccess(func() error {
+		services, err := t.Clusters().Default().Kube().CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		if len(services.Items) == 0 {
+			return fmt.Errorf("still waiting for the service in namespace %s to be created", ns)
+		}
+
+		// Fetch events to check for the service status
+		fieldSelector := fmt.Sprintf("involvedObject.kind=Service,involvedObject.name=%s", "istio-ingressgateway")
+		events, err := t.Clusters().Default().Kube().CoreV1().Events(ns).List(context.TODO(), metav1.ListOptions{
+			FieldSelector: fieldSelector,
+		})
+		if err != nil {
+			return err
+		}
+
+		// Verify that "instio-ingressgateway" service is not stuck with creation error
+		for _, ev := range events.Items {
+			if strings.Contains(ev.Message, "mixed protocol is not supported for LoadBalancer") {
+				return fmt.Errorf("unable to create ingress service - mixed protocol is not supported for LoadBalancer")
+			}
+		}
+		return nil
+	}, retry.Delay(1*time.Second), retry.Timeout(30*time.Second))
+}
