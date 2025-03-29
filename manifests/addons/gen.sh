@@ -102,3 +102,10 @@ function compressDashboard() {
     --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-loki.yaml"
 } > "${ADDONS}/loki.yaml"
+
+# Test that the dashboard links are using UIDs instead of paths
+if [[ -f "${DASHBOARDS}/test_dashboard_links.sh" ]]; then
+  echo "Testing dashboard links..."
+  chmod +x "${DASHBOARDS}/test_dashboard_links.sh"
+  "${DASHBOARDS}/test_dashboard_links.sh"
+fi

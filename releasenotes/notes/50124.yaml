@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 50124
+
+releaseNotes:
+- |
+  **Fixed** Grafana dashboard linking in the Istio Mesh Dashboard. Workload and Service links now use dashboard UIDs instead of deprecated path-based linking, which stopped working in newer Grafana versions.
+
+upgradeNotes:
+- title: Regenerate Grafana dashboards after upgrade
+  content: |
+    If you use Istio's bundled Grafana dashboards, you'll need to regenerate them after upgrading to 
+    get the fixed dashboard linking. Dashboard UIDs are now explicitly defined to enable stable links 
+    between dashboards.
