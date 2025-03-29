@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube/krt"
+	krtfiles "istio.io/istio/pkg/kube/krt/files"
 	"istio.io/istio/pkg/log"
 )
 
@@ -29,7 +30,7 @@ type MeshConfigSource = krt.Singleton[string]
 
 // NewFileSource creates a MeshConfigSource from a file. The file must exist.
 func NewFileSource(fileWatcher filewatcher.FileWatcher, filename string, opts krt.OptionsBuilder) (MeshConfigSource, error) {
-	return krt.NewFileSingleton[string](fileWatcher, filename, func(filename string) (string, error) {
+	return krtfiles.NewFileSingleton[string](fileWatcher, filename, func(filename string) (string, error) {
 		b, err := os.ReadFile(filename)
 		if err != nil {
 			return "", err
