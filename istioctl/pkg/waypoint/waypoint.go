@@ -470,6 +470,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 // deleteWaypoints handles the deletion of waypoints based on the provided names, or all if names is nil
 func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace string, names []string, revision string) error {
 	var multiErr *multierror.Error
+	var nameList []string
 	if names == nil {
 		var selector string
 		if revision != "" {
@@ -487,13 +488,31 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 			if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
 				continue
 			}
-			names = append(names, gw.Name)
+			nameList = append(nameList, gw.Name)
+		}
+	} else {
+		gws, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+
+		for _, name := range names {
+			contain, gw := waypointContains(gws.Items, name)
+			if contain {
+				if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
+					fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
+					continue
+				}
+				nameList = append(nameList, gw.Name)
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
+			}
 		}
 	}
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	for _, name := range names {
+	for _, name := range nameList {
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
@@ -514,6 +533,15 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 
 	wg.Wait()
 	return multiErr.ErrorOrNil()
+}
+
+func waypointContains(gws []gateway.Gateway, value string) (contain bool, wp gateway.Gateway) {
+	for _, gw := range gws {
+		if gw.Name == value {
+			return true, gw
+		}
+	}
+	return false, gateway.Gateway{}
 }
 
 func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
