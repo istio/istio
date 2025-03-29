@@ -241,12 +241,12 @@ func checkGatewayAPIs(cli kube.CLIClient) (diag.Messages, error) {
 		return nil, err
 	}
 
+	stableKinds := sets.New(gvk.KubernetesGateway.Kind, gvk.GatewayClass.Kind, gvk.HTTPRoute.Kind, gvk.GRPCRoute.Kind)
+	stableVersion := "v1"
 	betaKinds := sets.New(gvk.KubernetesGateway.Kind, gvk.GatewayClass.Kind, gvk.HTTPRoute.Kind, gvk.ReferenceGrant.Kind)
+	betaVersion := "v1beta1"
 	for _, r := range res.Items {
 		if r.Spec.Group != gvk.KubernetesGateway.Group {
-			continue
-		}
-		if !betaKinds.Contains(r.Spec.Names.Kind) {
 			continue
 		}
 
@@ -255,19 +255,23 @@ func checkGatewayAPIs(cli kube.CLIClient) (diag.Messages, error) {
 		if len(versions) > 0 {
 			has = strings.Join(sets.SortedList(versions), ",")
 		}
-		if !versions.Contains(gvk.KubernetesGateway.Version) {
-			origin := legacykube.Origin{
-				Type: gvk.CustomResourceDefinition,
-				FullName: resource.FullName{
-					Namespace: resource.Namespace(r.Namespace),
-					Name:      resource.LocalName(r.Name),
-				},
-				ResourceVersion: resource.Version(r.ResourceVersion),
-			}
-			r := &resource.Instance{
-				Origin: &origin,
-			}
-			msgs.Add(msg.NewUnsupportedGatewayAPIVersion(r, has, gvk.KubernetesGateway.Version))
+
+		origin := legacykube.Origin{
+			Type: gvk.CustomResourceDefinition,
+			FullName: resource.FullName{
+				Namespace: resource.Namespace(r.Namespace),
+				Name:      resource.LocalName(r.Name),
+			},
+			ResourceVersion: resource.Version(r.ResourceVersion),
+		}
+		ri := &resource.Instance{
+			Origin: &origin,
+		}
+		if betaKinds.Contains(r.Spec.Names.Kind) && !versions.Contains(betaVersion) {
+			msgs.Add(msg.NewUnsupportedGatewayAPIVersion(ri, has, betaVersion))
+		}
+		if stableKinds.Contains(r.Spec.Names.Kind) && !versions.Contains(stableVersion) {
+			msgs.Add(msg.NewFutureUnsupportedGatewayAPIVersion(ri, has, stableVersion))
 		}
 	}
 	return msgs, nil
