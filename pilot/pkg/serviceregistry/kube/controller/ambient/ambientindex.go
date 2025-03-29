@@ -253,6 +253,11 @@ func New(options Options) Index {
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
+		// Filter out east west gateway services
+		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
+			return nil
+		}
+
 		waypoint := s.Service.Waypoint
 		if waypoint == nil {
 			return nil
@@ -270,6 +275,10 @@ func New(options Options) Index {
 	ServiceInfosByOwningWaypointIP := krt.NewIndex(WorkloadServices, func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		// Filter out east west gateway services
+		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
 			return nil
 		}
 		waypoint := s.Service.Waypoint
@@ -328,6 +337,10 @@ func New(options Options) Index {
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
+		// Filter out east west gateways
+		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
+			return nil
+		}
 		waypoint := w.Workload.Waypoint
 		if waypoint == nil {
 			return nil
@@ -345,6 +358,10 @@ func New(options Options) Index {
 	WorkloadWaypointIndexIP := krt.NewIndex(Workloads, func(w model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		// Filter out east west gateways
+		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
 			return nil
 		}
 		waypoint := w.Workload.Waypoint
@@ -398,6 +415,7 @@ func New(options Options) Index {
 		ByOwningWaypointHostname: ServiceInfosByOwningWaypointHostname,
 		ByOwningWaypointIP:       ServiceInfosByOwningWaypointIP,
 	}
+
 	a.waypoints = waypointsCollection{
 		Collection: Waypoints,
 	}

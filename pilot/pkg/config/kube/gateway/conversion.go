@@ -2182,8 +2182,8 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 			server, programmed := buildListener(r, obj, l, i, controllerName)
 
 			servers = append(servers, server)
-			if controllerName == constants.ManagedGatewayMeshController {
-				// Waypoint doesn't actually convert the routes to VirtualServices
+			if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
+				// Waypoints don't actually convert the routes to VirtualServices
 				continue
 			}
 			meta := parentMeta(obj, &l.Name)
@@ -2214,6 +2214,12 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 			}
 
 			allowed, _ := generateSupportedKinds(l)
+			if kgw.GatewayClassName == constants.EastWestGatewayClassName {
+				// Don't allow any routes on the east-west gateway for now
+				// TODO: Figure out if we want to allow TLSRoute for routing
+				// out of the east/west gateway
+				allowed = nil
+			}
 			pri := &parentInfo{
 				InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
 				AllowedKinds:     allowed,
@@ -2262,6 +2268,20 @@ func unexpectedWaypointListener(l k8s.Listener) bool {
 	if l.Protocol != k8s.ProtocolType(protocol.HBONE) {
 		return true
 	}
+	return false
+}
+
+func unexpectedEastWestWaypointListener(l k8s.Listener) bool {
+	if l.Port != 15008 {
+		return true
+	}
+	if l.Protocol != k8s.ProtocolType(protocol.HBONE) {
+		return true
+	}
+	if l.TLS == nil || *l.TLS.Mode != k8s.TLSModeTerminate {
+		return true
+	}
+	// TODO: Should we check that there aren't more things set
 	return false
 }
 
@@ -2565,6 +2585,15 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 			}
 		}
 	}
+
+	if controllerName == constants.ManagedGatewayEastWestController {
+		if unexpectedEastWestWaypointListener(l) {
+			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+				Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
+				Message: `Expected a single listener on port 15008 with protocol "HBONE" and TLS.Mode == Terminate`,
+			}
+		}
+	}
 	server := &istio.Server{
 		Port: &istio.Port{
 			// Name is required. We only have one server per Gateway, so we can just name them all the same
@@ -2601,7 +2630,7 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 		return string(p), nil
 	// Our own custom types
 	case k8s.ProtocolType(protocol.HBONE):
-		if name != constants.ManagedGatewayMeshController {
+		if name != constants.ManagedGatewayMeshController && name != constants.ManagedGatewayEastWestController {
 			return "", fmt.Errorf("protocol %q is only supported for waypoint proxies", p)
 		}
 		return string(p), nil
@@ -2640,9 +2669,17 @@ func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 				return out, nil
 			}
 		}
-		if len(tls.CertificateRefs) != 1 {
+
+		val, ok := tls.Options[constants.GatewayListenerTLSOptionsIstioMeshProvidedTLS]
+		meshTLS := ok && val == "true"
+		if len(tls.CertificateRefs) != 1 && !meshTLS {
 			// This is required in the API, should be rejected in validation
 			return out, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
+		}
+
+		if meshTLS {
+			// The mesh is providing the frontend TLS for this gateway; no need to parse a certificateRef
+			return out, nil
 		}
 		cred, err := buildSecretReference(ctx, tls.CertificateRefs[0], gw)
 		if err != nil {
