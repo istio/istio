@@ -37,17 +37,25 @@ import (
 	"istio.io/istio/tests/integration/telemetry/tracing"
 )
 
-//go:embed testdata/otel-tracing.yaml
-var otelTracingCfg string
+var (
+	//go:embed testdata/otel-tracing.yaml
+	otelTracingCfg string
 
-//go:embed testdata/otel-tracing-http.yaml
-var otelTracingHTTPCfg string
+	//go:embed testdata/otel-tracing-http.yaml
+	otelTracingHTTPCfg string
 
-//go:embed testdata/otel-tracing-res-detectors.yaml
-var otelTracingResDetectorsCfg string
+	//go:embed testdata/otel-tracing-res-detectors.yaml
+	otelTracingResDetectorsCfg string
 
-//go:embed testdata/test-otel-grpc-with-initial-metadata.yaml
-var otelTracingGRPCWithInitialMetadataCfg string
+	//go:embed testdata/test-otel-grpc-with-initial-metadata.yaml
+	otelTracingGRPCWithInitialMetadataCfg string
+
+	//go:embed testdata/echo-gateway.yaml
+	echoGateway string
+
+	//go:embed testdata/echo-gateway-tracing.yaml
+	echoGatewayTracing string
+)
 
 // TestProxyTracingOpenTelemetryProvider validates that Telemetry API configuration
 // referencing an OpenTelemetry provider will generate traces appropriately.
@@ -124,6 +132,49 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 		})
 }
 
+func TestGatewayTracing(t *testing.T) {
+	framework.NewTest(t).Run(func(ctx framework.TestContext) {
+		appNsInst := tracing.GetAppNamespace()
+		istioInst := *tracing.GetIstioInstance()
+		ctx.ConfigIstio().YAML(istioInst.Settings().SystemNamespace, echoGatewayTracing).ApplyOrFail(ctx)
+		ctx.ConfigIstio().YAML(appNsInst.Name(), echoGateway).ApplyOrFail(ctx)
+
+		// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
+		nt := ctx.Clusters().Default().NetworkName()
+		for _, cluster := range ctx.Clusters() {
+			if cluster.NetworkName() != nt {
+				t.Skip()
+			}
+			ctx.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
+				retry.UntilSuccessOrFail(ctx, func() error {
+					reqPath := "/echo-server"
+					err := tracing.SendIngressTraffic(ctx, reqPath, nil, cluster)
+					if err != nil {
+						return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
+					}
+
+					hostDomain := ""
+					if ctx.Settings().OpenShift {
+						ingressAddr, _ := tracing.GetIngressInstance().HTTPAddresses()
+						hostDomain = ingressAddr[0]
+					}
+
+					// the OTel collector exports to Zipkin
+					traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", "provider=otel-ingress", hostDomain)
+					if err != nil {
+						return fmt.Errorf("cannot get traces from zipkin: %v", err)
+					}
+					if !tracing.VerifyOtelIngressTraces(ctx, appNsInst.Name(), reqPath, traces) {
+						t.Logf("got gateway traces %v from %s", traces, cluster)
+						return errors.New("cannot find expected traces")
+					}
+					return nil
+				}, retry.Delay(3*time.Second), retry.Timeout(150*time.Second))
+			})
+		}
+	})
+}
+
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
@@ -139,6 +190,10 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.ControlPlaneValues = `
+values:
+  pilot:
+    env:
+      PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY: true
 meshConfig:
   enableTracing: true
   extensionProviders:

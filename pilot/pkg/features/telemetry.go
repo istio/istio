@@ -76,4 +76,8 @@ var (
 
 	EnableControllerQueueMetrics = env.Register("ISTIO_ENABLE_CONTROLLER_QUEUE_METRICS", false,
 		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
+
+	// TODO: change this to default true and add compatibility profile in v1.27
+	SpawnUpstreamSpanForGateway = env.Register("PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY", false,
+		"If true, separate tracing span for each upstream request for gateway.").Get()
 )
