@@ -151,6 +151,15 @@ resources:
     statusProto: "k8s.io.api.certificates.v1.CertificateSigningRequestStatus"
     statusProtoPackage: "k8s.io/api/certificates/v1"
 
+  - kind: "ClusterTrustBundle"
+    plural: "clustertrustbundles"
+    group: "certificates.k8s.io"
+    version: "v1alpha1"
+    builtin: true
+    clusterScoped: true
+    proto: "k8s.io.api.certificates.v1alpha1.ClusterTrustBundleSpec"
+    protoPackage: "k8s.io/api/certificates/v1alpha1"
+
   - kind: "Ingress"
     plural: "ingresses"
     group: "networking.k8s.io"
