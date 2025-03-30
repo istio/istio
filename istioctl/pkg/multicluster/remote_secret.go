@@ -157,11 +157,12 @@ func createRemoteServiceAccountSecret(kubeconfig *api.Config, clusterName, secNa
 }
 
 func createBaseKubeconfig(caData []byte, clusterName, server, tlsServerName string) *api.Config {
-	config := &api.Config{
+	return &api.Config{
 		Clusters: map[string]*api.Cluster{
 			clusterName: {
 				CertificateAuthorityData: caData,
 				Server:                   server,
+				TLSServerName:            tlsServerName,
 			},
 		},
 		AuthInfos: map[string]*api.AuthInfo{},
@@ -173,10 +174,6 @@ func createBaseKubeconfig(caData []byte, clusterName, server, tlsServerName stri
 		},
 		CurrentContext: clusterName,
 	}
-	if tlsServerName != "" {
-		config.Clusters[clusterName].TLSServerName = tlsServerName
-	}
-	return config
 }
 
 func createBearerTokenKubeconfig(caData, token []byte, clusterName, server, tlsServerName string) *api.Config {
