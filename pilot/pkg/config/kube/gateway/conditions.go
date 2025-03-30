@@ -20,13 +20,12 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
+	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/kstatus"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -43,7 +42,7 @@ type RouteParentResult struct {
 	WaypointError *WaypointError
 }
 
-func createRouteStatus(parentResults []RouteParentResult, obj config.Config, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
+func createRouteStatus(parentResults []RouteParentResult, generation int64, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
 	parents := make([]k8s.RouteParentStatus, 0, len(parentResults))
 	// Fill in all the gateways that are already present but not owned by us. This is non-trivial as there may be multiple
 	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
@@ -182,7 +181,7 @@ func createRouteStatus(parentResults []RouteParentResult, obj config.Config, cur
 		parents = append(parents, k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
 			ControllerName: k8s.GatewayController(features.ManagedGatewayController),
-			Conditions:     setConditions(obj.Generation, currentConditions, conds),
+			Conditions:     setConditions(generation, currentConditions, conds),
 		})
 	}
 	// Ensure output is deterministic.
@@ -320,42 +319,27 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	return existingConditions
 }
 
-func reportListenerAttachedRoutes(index int, obj config.Config, i int32) {
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		gs := s.(*k8s.GatewayStatus)
-		for index >= len(gs.Listeners) {
-			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
+func reportListenerCondition(index int, l k8s.Listener, obj *k8sbeta.Gateway,
+	gs *k8sbeta.GatewayStatus, conditions map[string]*condition,
+) {
+	for index >= len(gs.Listeners) {
+		gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
+	}
+	cond := gs.Listeners[index].Conditions
+	supported, valid := generateSupportedKinds(l)
+	if !valid {
+		conditions[string(k8s.ListenerConditionResolvedRefs)] = &condition{
+			reason:  string(k8s.ListenerReasonInvalidRouteKinds),
+			status:  metav1.ConditionFalse,
+			message: "Invalid route kinds",
 		}
-		status := gs.Listeners[index]
-		status.AttachedRoutes = i
-		gs.Listeners[index] = status
-		return gs
-	})
-}
-
-func reportListenerCondition(index int, l k8s.Listener, obj config.Config, conditions map[string]*condition) {
-	obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-		gs := s.(*k8s.GatewayStatus)
-		for index >= len(gs.Listeners) {
-			gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
-		}
-		cond := gs.Listeners[index].Conditions
-		supported, valid := generateSupportedKinds(l)
-		if !valid {
-			conditions[string(k8s.ListenerConditionResolvedRefs)] = &condition{
-				reason:  string(k8s.ListenerReasonInvalidRouteKinds),
-				status:  metav1.ConditionFalse,
-				message: "Invalid route kinds",
-			}
-		}
-		gs.Listeners[index] = k8s.ListenerStatus{
-			Name:           l.Name,
-			AttachedRoutes: 0, // this will be reported later
-			SupportedKinds: supported,
-			Conditions:     setConditions(obj.Generation, cond, conditions),
-		}
-		return gs
-	})
+	}
+	gs.Listeners[index] = k8s.ListenerStatus{
+		Name:           l.Name,
+		AttachedRoutes: 0, // this will be reported later
+		SupportedKinds: supported,
+		Conditions:     setConditions(obj.Generation, cond, conditions),
+	}
 }
 
 func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
@@ -364,16 +348,16 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	case k8s.HTTPProtocolType, k8s.HTTPSProtocolType:
 		// Only terminate allowed, so its always HTTP
 		supported = []k8s.RouteGroupKind{
-			{Group: (*k8s.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)},
-			{Group: (*k8s.Group)(ptr.Of(gvk.GRPCRoute.Group)), Kind: k8s.Kind(gvk.GRPCRoute.Kind)},
+			toRouteKind(gvk.HTTPRoute),
+			toRouteKind(gvk.GRPCRoute),
 		}
 	case k8s.TCPProtocolType:
-		supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
+		supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
 	case k8s.TLSProtocolType:
 		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModePassthrough {
-			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: k8s.Kind(gvk.TLSRoute.Kind)}}
+			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TLSRoute)}
 		} else {
-			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
+			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
 		}
 		// UDP route not support
 	}
@@ -391,13 +375,4 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 		return intersection, len(intersection) == len(l.AllowedRoutes.Kinds)
 	}
 	return supported, true
-}
-
-// This and the following function really belongs in some gateway-api lib
-func routeGroupKindEqual(rgk1, rgk2 k8s.RouteGroupKind) bool {
-	return rgk1.Kind == rgk2.Kind && getGroup(rgk1) == getGroup(rgk2)
-}
-
-func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
-	return ptr.OrDefault(rgk.Group, k8s.Group(gvk.KubernetesGateway.Group))
 }

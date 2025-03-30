@@ -52,8 +52,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/queue"
-	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/sets"
 )
 
 var scope = log.RegisterScope("kube", "Kubernetes client messages")
@@ -365,11 +363,11 @@ func (cl *Client) addCRD(name string) {
 		namespaceFilter = cl.client.ObjectFilter()
 	}
 	filter := kubetypes.Filter{
-		ObjectFilter:    composeFilters(namespaceFilter, cl.inRevision, extraFilter),
+		ObjectFilter:    kubetypes.ComposeFilters(namespaceFilter, cl.inRevision, extraFilter),
 		ObjectTransform: transform,
 	}
 	if resourceGVK == gvk.KubernetesGateway {
-		filter.ObjectFilter = composeFilters(namespaceFilter, extraFilter)
+		filter.ObjectFilter = kubetypes.ComposeFilters(namespaceFilter, extraFilter)
 	}
 
 	var kc kclient.Untyped
@@ -410,41 +408,6 @@ func (cl *Client) addCRD(name string) {
 	})
 
 	cl.kinds[resourceGVK] = kc
-}
-
-// composedFilter offers a way to join multiple different object filters into a single one
-type composedFilter struct {
-	// The primary filter, which has a handler. Optional
-	filter kubetypes.DynamicObjectFilter
-	// Secondary filters (no handler allowed)
-	extra []func(obj any) bool
-}
-
-func (f composedFilter) Filter(obj any) bool {
-	for _, filter := range f.extra {
-		if !filter(obj) {
-			return false
-		}
-	}
-	if f.filter != nil {
-		return f.filter.Filter(obj)
-	}
-	return true
-}
-
-func (f composedFilter) AddHandler(fn func(selected, deselected sets.String)) {
-	if f.filter != nil {
-		f.filter.AddHandler(fn)
-	}
-}
-
-func composeFilters(filter kubetypes.DynamicObjectFilter, extra ...func(obj any) bool) kubetypes.DynamicObjectFilter {
-	return composedFilter{
-		filter: filter,
-		extra: slices.FilterInPlace(extra, func(f func(obj any) bool) bool {
-			return f != nil
-		}),
-	}
 }
 
 func (cl *Client) inRevision(obj any) bool {

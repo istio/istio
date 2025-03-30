@@ -95,6 +95,10 @@ func (m *Manager) CreateIstioStatusController(fn func(status Manipulator, contex
 // UpdateFunc is called on each object before it is written to allow mutating any status
 type UpdateFunc func(status Manipulator, context any)
 
+type Queue interface {
+	EnqueueStatusUpdateResource(context any, target Resource)
+}
+
 type Controller struct {
 	fn      UpdateFunc
 	workers WorkerQueue

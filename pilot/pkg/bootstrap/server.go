@@ -924,28 +924,6 @@ func (s *Server) initRegistryEventHandlers() {
 
 			s.configController.RegisterEventHandler(schema.GroupVersionKind(), configHandler)
 		}
-		if s.environment.GatewayAPIController != nil {
-			s.environment.GatewayAPIController.RegisterEventHandler(gvk.Namespace, func(config.Config, config.Config, model.Event) {
-				s.XDSServer.ConfigUpdate(&model.PushRequest{
-					Full:   true,
-					Reason: model.NewReasonStats(model.NamespaceUpdate),
-					Forced: true,
-				})
-			})
-			s.environment.GatewayAPIController.RegisterEventHandler(gvk.Secret, func(_ config.Config, gw config.Config, _ model.Event) {
-				s.XDSServer.ConfigUpdate(&model.PushRequest{
-					Full: true,
-					ConfigsUpdated: map[model.ConfigKey]struct{}{
-						{
-							Kind:      kind.KubernetesGateway,
-							Name:      gw.Name,
-							Namespace: gw.Namespace,
-						}: {},
-					},
-					Reason: model.NewReasonStats(model.SecretTrigger),
-				})
-			})
-		}
 	}
 }
 

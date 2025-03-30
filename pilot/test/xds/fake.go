@@ -199,8 +199,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 				// Install all CRDs used (mostly in Ambient)
 				gvr.AuthorizationPolicy,
 				gvr.PeerAuthentication,
-				gvr.KubernetesGateway,
 				gvr.WorkloadEntry,
+				gvr.GatewayClass,
+				gvr.KubernetesGateway,
+				gvr.HTTPRoute,
+				gvr.GRPCRoute,
+				gvr.TCPRoute,
+				gvr.TLSRoute,
+				gvr.ReferenceGrant,
 				gvr.ServiceEntry,
 			},
 		})
@@ -237,11 +243,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ServiceRegistries:   registries,
 		ConfigStoreCaches:   []model.ConfigStoreController{ingr},
 		CreateConfigStore: func(c model.ConfigStoreController) model.ConfigStoreController {
-			g := gateway.NewController(defaultKubeClient, c, func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
+			g := gateway.NewController(defaultKubeClient, func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
 				return true
-			}, nil, kube.Options{
+			}, kube.Options{
 				DomainSuffix: "cluster.local",
-			})
+			}, xdsUpdater)
 			gwc = g
 			return gwc
 		},

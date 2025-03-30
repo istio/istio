@@ -21,6 +21,5 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// CheckMain asserts that no goroutines are leaked after a test package exits.
 	leak.CheckMain(m)
 }
