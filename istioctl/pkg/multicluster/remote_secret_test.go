@@ -200,12 +200,12 @@ stringData:
 	cases := []struct {
 		testName string
 
-		objs                     []runtime.Object
-		clusterName              string
-		secType                  SecretType
-		secretName               string
-		serverOverride           string
-		useOriginalTLSServerName bool
+		objs           []runtime.Object
+		clusterName    string
+		secType        SecretType
+		secretName     string
+		serverOverride string
+		tlsServerName  string
 
 		// inject errors
 		badStartingConfig bool
@@ -260,21 +260,13 @@ stringData:
 			k8sMinorVersion: "23",
 		},
 		{
-			testName:                 "useOriginalTLSServerName is honored when serverOverride is set",
-			objs:                     []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
-			clusterName:              "primary",
-			secretName:               saSecret.Name,
-			serverOverride:           "gateway",
-			useOriginalTLSServerName: true,
-			want:                     createKubeConfigWithTLSServerName("primary", remoteSecretPrefix+"primary", "primary", "gateway"),
-		},
-		{
-			testName:                 "useOriginalTLSServerName is ignored when serverOverride is not set",
-			objs:                     []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
-			clusterName:              "primary",
-			secretName:               saSecret.Name,
-			useOriginalTLSServerName: true,
-			want:                     createKubeConfig("primary", remoteSecretPrefix+"primary", "primary"),
+			testName:       "useOriginalTLSServerName is honored when serverOverride is set",
+			objs:           []runtime.Object{kubeSystemNamespace, sa2, saSecret, saSecret2},
+			clusterName:    "primary",
+			secretName:     saSecret.Name,
+			serverOverride: "gateway",
+			tlsServerName:  "server",
+			want:           createKubeConfigWithTLSServerName("primary", remoteSecretPrefix+"primary", "primary", "gateway"),
 		},
 	}
 
@@ -293,11 +285,11 @@ stringData:
 				KubeOptions: KubeOptions{
 					Namespace: testNamespace,
 				},
-				ClusterName:              c.clusterName,
-				Type:                     c.secType,
-				SecretName:               c.secretName,
-				ServerOverride:           c.serverOverride,
-				UseOriginalTLSServerName: c.useOriginalTLSServerName,
+				ClusterName:    c.clusterName,
+				Type:           c.secType,
+				SecretName:     c.secretName,
+				ServerOverride: c.serverOverride,
+				TLSServerName:  c.tlsServerName,
 			}
 
 			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{

@@ -3,6 +3,6 @@ kind: feature
 area: istioctl
 releaseNotes:
   - |
-    **Added** parameter `--use-original-tls-server-name` to `istioctl create-remote-secret` that sets the original
-    server name in `tls-server-name` to make sure that the kube client validates api-server certificate correctly
-    when the `server` field is overridden.
+    **Added** parameter `--tls-server-name` to `istioctl create-remote-secret` that sets `tls-server-name` in the generated kubeconfig.
+    This flag ensures successful TLS connection to the kube-apiserver when the `server` field is overriden
+    with the hostname of a gateway proxy.

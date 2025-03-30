@@ -580,11 +580,10 @@ type RemoteSecretOptions struct {
 	// ServerOverride overrides the server IP/hostname field from the Kubeconfig
 	ServerOverride string
 
-	// UseOriginalTLSServerName sets the original server name from kubeconfig in cluster.tls-server-name
-	// for SAN verification. This flag is respected only when server name is overridden.
-	// This flag makes sure that the TLS connection to the API server will not fail if the overridden
+	// TLSServerName sets `tls-server-name` in the generated kubeconfig.
+	// This parameter ensures that the TLS connection to the API server will not fail if the overridden
 	// server name is a proxy server.
-	UseOriginalTLSServerName bool
+	TLSServerName string
 
 	// SecretName selects a specific secret from the remote service account, if there are multiple
 	SecretName string
@@ -604,8 +603,8 @@ func (o *RemoteSecretOptions) addFlags(flagset *pflag.FlagSet) {
 			"the local cluster will be used.")
 	flagset.StringVar(&o.ServerOverride, "server", "",
 		"The address and port of the Kubernetes API server.")
-	flagset.BoolVar(&o.UseOriginalTLSServerName, "use-original-tls-server-name", false,
-		"If true, the original server name will be used in tls-server-name, when server is override. This flag is ignored if `server` flag is not set.")
+	flagset.StringVar(&o.TLSServerName, "tls-server-name", "",
+		"The server name that should be validated by kube-client during establishing TLS connection with kube-apiserver.")
 	flagset.StringVar(&o.SecretName, "secret-name", "",
 		"The name of the specific secret to use from the service-account. Needed when there are multiple secrets in the service account.")
 	var supportedAuthType []string
@@ -674,16 +673,9 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.CLIClient) (*v1.Sec
 	}
 
 	var server string
-	var tlsServerName string
 	var warn Warning
 	if opt.ServerOverride != "" {
 		server = opt.ServerOverride
-		if opt.UseOriginalTLSServerName {
-			tlsServerName, warn, err = getServerFromKubeconfig(client)
-			if err != nil {
-				return nil, warn, err
-			}
-		}
 	} else {
 		server, warn, err = getServerFromKubeconfig(client)
 		if err != nil {
@@ -694,13 +686,13 @@ func createRemoteSecret(opt RemoteSecretOptions, client kube.CLIClient) (*v1.Sec
 	var remoteSecret *v1.Secret
 	switch opt.AuthType {
 	case RemoteSecretAuthTypeBearerToken:
-		remoteSecret, err = createRemoteSecretFromTokenAndServer(client, tokenSecret, opt.ClusterName, server, tlsServerName, secretName)
+		remoteSecret, err = createRemoteSecretFromTokenAndServer(client, tokenSecret, opt.ClusterName, server, opt.TLSServerName, secretName)
 	case RemoteSecretAuthTypePlugin:
 		authProviderConfig := &api.AuthProviderConfig{
 			Name:   opt.AuthPluginName,
 			Config: opt.AuthPluginConfig,
 		}
-		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, server, tlsServerName, opt.ClusterName, secretName,
+		remoteSecret, err = createRemoteSecretFromPlugin(tokenSecret, server, opt.TLSServerName, opt.ClusterName, secretName,
 			authProviderConfig)
 	default:
 		err = fmt.Errorf("unsupported authentication type: %v", opt.AuthType)
