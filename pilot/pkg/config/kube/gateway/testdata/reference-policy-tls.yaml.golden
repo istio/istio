@@ -17,7 +17,8 @@ spec:
       number: 443
       protocol: HTTPS
     tls:
-      credentialName: kubernetes-gateway://cert/cert
+      credentialNames:
+      - kubernetes-gateway://cert/cert
       mode: SIMPLE
 ---
 apiVersion: networking.istio.io/v1

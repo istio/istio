@@ -547,6 +547,59 @@ func TestValidateTlsOptions(t *testing.T) {
 			"private key", "",
 		},
 		{
+			"simple more than 2 certs",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_SIMPLE,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+					},
+					{
+						ServerCertificate: "Lieutenant Commander Data",
+						PrivateKey:        "Lieutenant Commander Data",
+					},
+				},
+			},
+			"", "SIMPLE TLS can support up to 2 server certificates",
+		},
+		{
+			"simple 2 certs with missing certificate",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_SIMPLE,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						PrivateKey: "Commander William T. Riker",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+					},
+				},
+			},
+			"server certificate", "",
+		},
+		{
+			"simple 2 certs with missing private key",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_SIMPLE,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+					},
+				},
+			},
+			"private key", "",
+		},
+		{
 			"simple sds no server cert",
 			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_SIMPLE,
@@ -647,6 +700,84 @@ func TestValidateTlsOptions(t *testing.T) {
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    "",
+			},
+			"client CA bundle", "",
+		},
+		{
+			"mutual more than 2 certs",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+						CaCertificates:    "Commander William T. Riker",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+						CaCertificates:    "Lieutenant Commander Data",
+					},
+					{
+						ServerCertificate: "Lieutenant Commander Data",
+						PrivateKey:        "Lieutenant Commander Data",
+						CaCertificates:    "Lieutenant Commander Data",
+					},
+				},
+			},
+			"", "MUTUAL TLS can support up to 2 server certificates",
+		},
+		{
+			"mutual 2 certs with missing certificate",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						PrivateKey:     "Commander William T. Riker",
+						CaCertificates: "Lieutenant Commander Data",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+						CaCertificates:    "Lieutenant Commander Data",
+					},
+				},
+			},
+			"server certificate", "",
+		},
+		{
+			"mutual 2 certs with missing private key",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						CaCertificates:    "Lieutenant Commander Data",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+						CaCertificates:    "Lieutenant Commander Data",
+					},
+				},
+			},
+			"private key", "",
+		},
+		{
+			"mutual 2 certs with missing CA certificate",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+						CaCertificates:    "Lieutenant Commander Data",
+					},
+				},
 			},
 			"client CA bundle", "",
 		},

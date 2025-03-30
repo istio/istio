@@ -186,6 +186,16 @@ type BootstrapNodeMetadata struct {
 // always derived from the Proxy metadata
 type TrafficInterceptionMode string
 
+// TLSServerCertificate represents a TLS server certificate with its associated private key
+type TLSServerCertificate struct {
+	// TLSServerCertChain is the absolute path to server cert-chain file
+	TLSServerCertChain string `json:"TLS_SERVER_CERT_CHAIN,omitempty"`
+	// TLSServerKey is the absolute path to server private key file
+	TLSServerKey string `json:"TLS_SERVER_KEY,omitempty"`
+	// TLSServerRootCert is the absolute path to server root cert file
+	TLSServerRootCert string `json:"TLS_SERVER_ROOT_CERT,omitempty"`
+}
+
 // NodeMetadata defines the metadata associated with a proxy
 // Fields should not be assumed to exist on the proxy, especially newly added fields which will not exist
 // on older versions.
@@ -256,12 +266,8 @@ type NodeMetadata struct {
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
 
-	// TLSServerCertChain is the absolute path to server cert-chain file
-	TLSServerCertChain string `json:"TLS_SERVER_CERT_CHAIN,omitempty"`
-	// TLSServerKey is the absolute path to server private key file
-	TLSServerKey string `json:"TLS_SERVER_KEY,omitempty"`
-	// TLSServerRootCert is the absolute path to server root cert file
-	TLSServerRootCert string `json:"TLS_SERVER_ROOT_CERT,omitempty"`
+	// TLSServerCertificates is the list of TLS certificates for the server
+	TLSServerCertificates []*TLSServerCertificate `json:"TLS_SERVER_CERTIFICATES,omitempty"`
 	// TLSClientCertChain is the absolute path to client cert-chain file
 	TLSClientCertChain string `json:"TLS_CLIENT_CERT_CHAIN,omitempty"`
 	// TLSClientKey is the absolute path to client private key file

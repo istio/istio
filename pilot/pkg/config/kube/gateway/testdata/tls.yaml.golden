@@ -37,7 +37,8 @@ spec:
       number: 34000
       protocol: HTTPS
     tls:
-      credentialName: kubernetes-gateway://istio-system/my-cert-http
+      credentialNames:
+      - kubernetes-gateway://istio-system/my-cert-http
       mode: SIMPLE
 ---
 apiVersion: networking.istio.io/v1
@@ -80,7 +81,8 @@ spec:
       number: 34000
       protocol: HTTPS
     tls:
-      credentialName: kubernetes-gateway://istio-system/my-cert-http
+      credentialNames:
+      - kubernetes-gateway://istio-system/my-cert-http
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1

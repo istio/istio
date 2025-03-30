@@ -66,6 +66,7 @@ type (
 	PodPort                 = pm.PodPort
 	StringBool              = pm.StringBool
 	IPMode                  = pm.IPMode
+	TLSServerCertificate    = pm.TLSServerCertificate
 )
 
 const (

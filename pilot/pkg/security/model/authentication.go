@@ -129,46 +129,52 @@ func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
 	subjectAltNames []string, crl string, trustDomainAliases []string, validateClient bool,
 ) {
-	customFileSDSServer := proxy.Metadata.Raw[security.CredentialFileMetaDataName] == "true"
-	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
-	// which does not support rotation, we will serve them over SDS by reading the files.
-	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
-	res := security.SdsCertificateConfig{
-		CertificatePath:   proxy.Metadata.TLSServerCertChain,
-		PrivateKeyPath:    proxy.Metadata.TLSServerKey,
-		CaCertificatePath: proxy.Metadata.TLSServerRootCert,
+	if proxy.Metadata.TLSServerCertificates == nil {
+		// Create a default TLS server certificate
+		proxy.Metadata.TLSServerCertificates = []*model.TLSServerCertificate{{}}
 	}
-
-	// TODO: if subjectAltName ends with *, create a prefix match as well.
-	// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
-	matchSAN := util.StringToExactMatch(subjectAltNames)
-	if len(trustDomainAliases) > 0 {
-		matchSAN = append(matchSAN, util.StringToPrefixMatch(AppendURIPrefixToTrustDomain(trustDomainAliases))...)
-	}
-
-	// configure server listeners with SDS.
-	if validateClient {
-		defaultValidationContext := &tls.CertificateValidationContext{
-			MatchSubjectAltNames: matchSAN,
+	sdsSecretConfigs := make([]*tls.SdsSecretConfig, len(proxy.Metadata.TLSServerCertificates))
+	for i, cert := range proxy.Metadata.TLSServerCertificates {
+		customFileSDSServer := proxy.Metadata.Raw[security.CredentialFileMetaDataName] == "true"
+		// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+		// which does not support rotation, we will serve them over SDS by reading the files.
+		// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
+		res := security.SdsCertificateConfig{
+			CertificatePath:   cert.TLSServerCertChain,
+			PrivateKeyPath:    cert.TLSServerKey,
+			CaCertificatePath: cert.TLSServerRootCert,
 		}
-		if crl != "" {
-			defaultValidationContext.Crl = &core.DataSource{
-				Specifier: &core.DataSource_Filename{
-					Filename: crl,
+
+		// TODO: if subjectAltName ends with *, create a prefix match as well.
+		// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
+		matchSAN := util.StringToExactMatch(subjectAltNames)
+		if len(trustDomainAliases) > 0 {
+			matchSAN = append(matchSAN, util.StringToPrefixMatch(AppendURIPrefixToTrustDomain(trustDomainAliases))...)
+		}
+
+		// configure server listeners with SDS.
+		if validateClient {
+			defaultValidationContext := &tls.CertificateValidationContext{
+				MatchSubjectAltNames: matchSAN,
+			}
+			if crl != "" {
+				defaultValidationContext.Crl = &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: crl,
+					},
+				}
+			}
+			tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
+				CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+					DefaultValidationContext:         defaultValidationContext,
+					ValidationContextSdsSecretConfig: constructSdsSecretConfig(res.GetRootResourceName(), SDSRootResourceName, customFileSDSServer),
 				},
 			}
-		}
-		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
-			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext:         defaultValidationContext,
-				ValidationContextSdsSecretConfig: constructSdsSecretConfig(res.GetRootResourceName(), SDSRootResourceName, customFileSDSServer),
-			},
-		}
 
+		}
+		sdsSecretConfigs[i] = constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer)
 	}
-	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer),
-	}
+	tlsContext.TlsCertificateSdsSecretConfigs = sdsSecretConfigs
 }
 
 // constructSdsSecretConfig allows passing a file name and a fallback.
@@ -217,9 +223,19 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 	tlsOpts *networking.ServerTLSSettings, credentialSocketExist bool,
 ) {
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
-	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist),
+	if len(tlsOpts.CredentialNames) > 0 {
+		// Handle multiple certificates for RSA and ECDSA
+		tlsContext.TlsCertificateSdsSecretConfigs = make([]*tls.SdsSecretConfig, len(tlsOpts.CredentialNames))
+		for i, name := range tlsOpts.CredentialNames {
+			tlsContext.TlsCertificateSdsSecretConfigs[i] = ConstructSdsSecretConfigForCredential(name, credentialSocketExist)
+		}
+	} else {
+		// Handle single certificate
+		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
+			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist),
+		}
 	}
+
 	// If tls mode is MUTUAL/OPTIONAL_MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
 	// at gateway agent. Otherwise, use the static certificate validation context config.
 	if tlsOpts.Mode == networking.ServerTLSSettings_MUTUAL || tlsOpts.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {

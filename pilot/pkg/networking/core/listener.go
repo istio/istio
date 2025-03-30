@@ -164,18 +164,40 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	switch {
 	case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
 		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl, []string{}, validateClient)
+	// If credential names are specified at gateway config, create SDS config for gateway to fetch key/cert from Istiod.
+	case len(serverTLSSettings.GetCredentialNames()) > 0:
+		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
 	// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
 	case serverTLSSettings.CredentialName != "":
 		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
 	default:
+		// If certificate files are specified in gateway configuration, use file based SDS.
+		var tlsCertificates []*model.TLSServerCertificate
+		// If multiple certificates are specified in gateway configuration, create proxy with multiple certificates.
+		if len(serverTLSSettings.TlsCertificates) > 0 {
+			tlsCertificates = make([]*model.TLSServerCertificate, len(serverTLSSettings.TlsCertificates))
+			for i, cert := range serverTLSSettings.TlsCertificates {
+				tlsCertificates[i] = &model.TLSServerCertificate{
+					TLSServerCertChain: cert.ServerCertificate,
+					TLSServerKey:       cert.PrivateKey,
+					TLSServerRootCert:  cert.CaCertificates,
+				}
+			}
+			// Fallback to single certificate via server certificate settings in the gateway config.
+		} else {
+			tlsCertificates = []*model.TLSServerCertificate{
+				{
+					TLSServerCertChain: serverTLSSettings.ServerCertificate,
+					TLSServerKey:       serverTLSSettings.PrivateKey,
+					TLSServerRootCert:  serverTLSSettings.CaCertificates,
+				},
+			}
+		}
 		certProxy := &model.Proxy{}
 		certProxy.IstioVersion = proxy.IstioVersion
-		// If certificate files are specified in gateway configuration, use file based SDS.
 		certProxy.Metadata = &model.NodeMetadata{
-			TLSServerCertChain: serverTLSSettings.ServerCertificate,
-			TLSServerKey:       serverTLSSettings.PrivateKey,
-			TLSServerRootCert:  serverTLSSettings.CaCertificates,
-			Raw:                proxy.Metadata.Raw,
+			TLSServerCertificates: tlsCertificates,
+			Raw:                   proxy.Metadata.Raw,
 		}
 
 		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl, []string{}, validateClient)

@@ -556,41 +556,63 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		if tls.CaCertificates != "" {
 			v = AppendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated CA bundle"))
 		}
+		if len(tls.TlsCertificates) > 0 {
+			v = AppendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated tlsCertificates"))
+		}
 		if tls.CredentialName != "" {
 			v = AppendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialName"))
+		}
+		if len(tls.CredentialNames) > 0 {
+			v = AppendValidation(v, fmt.Errorf("ISTIO_MUTUAL TLS cannot have associated credentialNames"))
 		}
 		return
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_PASSTHROUGH || tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
-		if tls.CaCrl != "" || tls.ServerCertificate != "" || tls.PrivateKey != "" || tls.CaCertificates != "" || tls.CredentialName != "" {
+		if tls.CaCrl != "" || tls.ServerCertificate != "" || tls.PrivateKey != "" || tls.CaCertificates != "" || len(tls.TlsCertificates) > 0 || tls.CredentialName != "" || len(tls.CredentialNames) > 0 {
 			// Warn for backwards compatibility
 			v = AppendWarningf(v, "%v mode does not use certificates, they will be ignored", tls.Mode)
 		}
 	}
 
 	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL ||
-		tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL) && tls.CredentialName != "" {
+		tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL) && (tls.CredentialName != "" || len(tls.CredentialNames) > 0) {
 		// If tls mode is SIMPLE or MUTUAL/OPTIONL_MUTUAL, and CredentialName is specified, credentials are fetched
 		// remotely. ServerCertificate and CaCertificates fields are not required.
 		return
 	}
-	if tls.Mode == networking.ServerTLSSettings_SIMPLE {
-		if tls.ServerCertificate == "" {
-			v = AppendValidation(v, fmt.Errorf("SIMPLE TLS requires a server certificate"))
+	var serverCertsToVerify []*networking.ServerTLSSettings_TLSCertificate
+	if len(tls.TlsCertificates) > 0 {
+		serverCertsToVerify = tls.TlsCertificates
+	} else {
+		serverCertsToVerify = []*networking.ServerTLSSettings_TLSCertificate{
+			{
+				ServerCertificate: tls.ServerCertificate,
+				PrivateKey:        tls.PrivateKey,
+				CaCertificates:    tls.CaCertificates,
+			},
 		}
-		if tls.PrivateKey == "" {
-			v = AppendValidation(v, fmt.Errorf("SIMPLE TLS requires a private key"))
+	}
+	if tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL || tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
+		validationPrefix := "SIMPLE TLS"
+		requireCACert := false
+		if tls.Mode == networking.ServerTLSSettings_MUTUAL || tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
+			validationPrefix = "MUTUAL TLS"
+			requireCACert = true
 		}
-	} else if tls.Mode == networking.ServerTLSSettings_MUTUAL || tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
-		if tls.ServerCertificate == "" {
-			v = AppendValidation(v, fmt.Errorf("MUTUAL TLS requires a server certificate"))
+		if len(tls.TlsCertificates) > 2 {
+			v = AppendWarningf(v, "%s can support up to 2 server certificates", validationPrefix)
 		}
-		if tls.PrivateKey == "" {
-			v = AppendValidation(v, fmt.Errorf("MUTUAL TLS requires a private key"))
-		}
-		if tls.CaCertificates == "" {
-			v = AppendValidation(v, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
+		for _, cert := range serverCertsToVerify {
+			if cert.ServerCertificate == "" {
+				v = AppendValidation(v, fmt.Errorf("%s requires a server certificate", validationPrefix))
+			}
+			if cert.PrivateKey == "" {
+				v = AppendValidation(v, fmt.Errorf("%s requires a private key", validationPrefix))
+			}
+			if requireCACert && cert.CaCertificates == "" {
+				v = AppendValidation(v, fmt.Errorf("%s requires a client CA bundle", validationPrefix))
+			}
 		}
 	}
 	if tls.CaCrl != "" {
