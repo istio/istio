@@ -177,3 +177,7 @@ func (s *FakeStore) HasSynced() bool {
 func (s *FakeStore) WaitUntilSynced(stop <-chan struct{}) bool {
 	return kube.WaitForCacheSync("memory", stop, s.HasSynced)
 }
+
+func (s *FakeStore) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
+	return s.store[typ].collection
+}

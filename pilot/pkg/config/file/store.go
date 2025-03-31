@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	sresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -118,6 +119,10 @@ func (s *KubeSource) Run(stop <-chan struct{}) {
 
 func (s *KubeSource) HasSynced() bool {
 	return true
+}
+
+func (s *KubeSource) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
+	panic("implement me")
 }
 
 type resourceSha [sha256.Size]byte

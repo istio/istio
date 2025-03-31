@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -31,9 +32,10 @@ var errorUnsupported = errors.New("unsupported operation: the config aggregator 
 
 // makeStore creates an aggregate config store from several config stores and
 // unifies their descriptors
-func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.ConfigStore, error) {
+func makeStore(stores []model.ConfigStoreController, writer model.ConfigStore) (*store, error) {
+	stop := make(chan struct{})
 	union := collection.NewSchemasBuilder()
-	storeTypes := make(map[config.GroupVersionKind][]model.ConfigStore)
+	storeTypes := make(map[config.GroupVersionKind][]model.ConfigStoreController)
 	for _, store := range stores {
 		for _, s := range store.Schemas().All() {
 			if len(storeTypes[s.GroupVersionKind()]) == 0 {
@@ -49,10 +51,29 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 	if err := schemas.Validate(); err != nil {
 		return nil, err
 	}
+
+	kopts := krt.NewOptionsBuilder(stop, "aggregate", krt.GlobalDebugHandler)
+	krtCollections := make(map[config.GroupVersionKind]krt.Collection[config.Config])
+	for _, schema := range schemas.All() {
+		gvk := schema.GroupVersionKind()
+		schemaCollections := make([]krt.Collection[config.Config], 0, len(storeTypes[gvk]))
+		for _, store := range storeTypes[gvk] {
+			collection := store.KrtCollection(gvk)
+			if collection != nil {
+				schemaCollections = append(schemaCollections, collection)
+			}
+		}
+		if len(schemaCollections) != 0 {
+			krtCollections[gvk] = krt.JoinCollection(schemaCollections, kopts.WithName(gvk.Kind)...)
+		}
+	}
+
 	result := &store{
-		schemas: schemas,
-		stores:  storeTypes,
-		writer:  writer,
+		schemas:     schemas,
+		stores:      storeTypes,
+		collections: krtCollections,
+		writer:      writer,
+		stop:        stop,
 	}
 
 	return result, nil
@@ -60,18 +81,14 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 
 // MakeWriteableCache creates an aggregate config store cache from several config store caches. An additional
 // `writer` config store is passed, which may or may not be part of `caches`.
-func MakeWriteableCache(caches []model.ConfigStoreController, writer model.ConfigStore) (model.ConfigStoreController, error) {
-	stores := make([]model.ConfigStore, 0, len(caches))
-	for _, cache := range caches {
-		stores = append(stores, cache)
-	}
-	store, err := makeStore(stores, writer)
+func MakeWriteableCache(caches []model.ConfigStoreController, writer model.ConfigStoreController) (model.ConfigStoreController, error) {
+	store, err := makeStore(caches, writer)
 	if err != nil {
 		return nil, err
 	}
 	return &storeCache{
-		ConfigStore: store,
-		caches:      caches,
+		store:  store,
+		caches: caches,
 	}, nil
 }
 
@@ -86,9 +103,12 @@ type store struct {
 	schemas collection.Schemas
 
 	// stores is a mapping from config type to a store
-	stores map[config.GroupVersionKind][]model.ConfigStore
+	stores map[config.GroupVersionKind][]model.ConfigStoreController
+
+	collections map[config.GroupVersionKind]krt.Collection[config.Config]
 
 	writer model.ConfigStore
+	stop   chan struct{}
 }
 
 func (cr *store) Schemas() collection.Schemas {
@@ -174,7 +194,7 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 }
 
 type storeCache struct {
-	model.ConfigStore
+	*store
 	caches []model.ConfigStoreController
 }
 
@@ -184,6 +204,13 @@ func (cr *storeCache) HasSynced() bool {
 			return false
 		}
 	}
+
+	for _, collection := range cr.collections {
+		if !collection.HasSynced() {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -200,4 +227,9 @@ func (cr *storeCache) Run(stop <-chan struct{}) {
 		go cache.Run(stop)
 	}
 	<-stop
+	close(cr.stop)
+}
+
+func (cr *storeCache) KrtCollection(gvk config.GroupVersionKind) krt.Collection[config.Config] {
+	return cr.store.collections[gvk]
 }

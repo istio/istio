@@ -56,7 +56,7 @@ import (
 // IstiodAnalyzer handles local analysis of k8s event sources, both live and file-based
 type IstiodAnalyzer struct {
 	// internalStore stores synthetic configs for analysis (mesh config, etc)
-	internalStore model.ConfigStore
+	internalStore model.ConfigStoreController
 	// stores contains all the (non file) config sources to analyze
 	stores []model.ConfigStoreController
 	// multiClusterStores contains all the multi-cluster config sources to analyze
@@ -115,7 +115,7 @@ func NewIstiodAnalyzer(analyzer analysis.CombinedAnalyzer, namespace,
 		analyzer:           analyzer,
 		namespace:          namespace,
 		cluster:            "default",
-		internalStore:      memory.Make(collection.SchemasFor(collections.MeshNetworks, collections.MeshConfig)),
+		internalStore:      memory.NewController(memory.Make(collection.SchemasFor(collections.MeshNetworks, collections.MeshConfig))),
 		istioNamespace:     istioNamespace,
 		kubeResources:      kubeResources,
 		collectionReporter: cr,
@@ -191,6 +191,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 		return fmt.Errorf("at least one file and/or Kubernetes source must be provided")
 	}
 
+	go sa.internalStore.Run(cancel)
 	// TODO: there's gotta be a better way to convert v1meshconfig to config.Config...
 	// Create a store containing mesh config. There should be exactly one.
 	_, err := sa.internalStore.Create(config.Config{
@@ -217,7 +218,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	if err != nil {
 		return fmt.Errorf("something unexpected happened while creating the meshnetworks: %s", err)
 	}
-	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore})
+	allstores := append(sa.stores, dfCache{ConfigStoreController: sa.internalStore})
 	if sa.fileSource != nil {
 		// File source takes the highest precedence, since files are resources to be configured to in-cluster resources.
 		// The order here does matter - aggregated store takes the first available resource.
@@ -241,7 +242,7 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 }
 
 type dfCache struct {
-	model.ConfigStore
+	model.ConfigStoreController
 }
 
 func (d dfCache) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
