@@ -497,7 +497,7 @@ messages:
   - name: "FutureUnsupportedGatewayAPIVersion"
     code: IST0172
     level: Warning
-    description: "The Gateway API CRD version will not be supported inthe future"
+    description: "The Gateway API CRD version will not be supported in the future"
     template: "The Gateway API CRD version %v is lower than the minimum version: %v"
     args:
     - name: version
