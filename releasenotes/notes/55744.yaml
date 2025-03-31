@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 55374
+releaseNotes:
+  - |
+    **Fixed** an issue where setting `reconcileIptablesOnStartup: true` in the Istioctl YAML failed validation.

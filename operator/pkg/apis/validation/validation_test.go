@@ -279,7 +279,15 @@ cni:
   cniConfDir: "/var/run/multus/cni/net.d"
 `,
 		},
-
+		{
+			desc: "CNIReconcileIptablesOnStartup",
+			yamlStr: `
+cni:
+  ambient:
+    enabled: true
+    reconcileIptablesOnStartup: true
+`,
+		},
 		{
 			desc: "BadIPRange",
 			yamlStr: `
