@@ -294,14 +294,6 @@ func NewController(
 					Name:      t.Name,
 					Namespace: t.Namespace,
 				}
-			}), false),
-		outputs.ReferenceGrants.collection.RegisterBatch(pushXds(xdsUpdater,
-			func(t ReferenceGrant) model.ConfigKey {
-				return model.ConfigKey{
-					Kind:      kind.KubernetesGateway,
-					Name:      t.Source.Name,
-					Namespace: t.Source.Namespace,
-				}
 			}), false))
 	c.handlers = handlers
 
@@ -400,6 +392,7 @@ func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string,
 }
 
 func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler model.EventHandler) {
+	// We do not do event handler registration this way, and instead directly call the XDS Updated.
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {

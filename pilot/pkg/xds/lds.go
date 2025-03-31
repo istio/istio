@@ -47,8 +47,6 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.Secret,
 		kind.ProxyConfig,
 		kind.DNSName,
-
-		kind.KubernetesGateway,
 	),
 	model.Waypoint: sets.New(
 		kind.Gateway,
@@ -57,8 +55,6 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.Secret,
 		kind.ProxyConfig,
 		kind.DNSName,
-
-		kind.KubernetesGateway,
 	),
 }
 
