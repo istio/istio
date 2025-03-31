@@ -79,8 +79,6 @@ func sdsNeedsPush(forced bool, updates model.XdsUpdates) bool {
 		switch update.Kind {
 		case kind.Secret:
 			return true
-		case kind.ReferenceGrant:
-			return true
 		}
 	}
 	return false
