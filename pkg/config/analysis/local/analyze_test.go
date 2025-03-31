@@ -24,13 +24,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/test/util/assert"
@@ -143,8 +144,8 @@ func TestAddInMemorySource(t *testing.T) {
 
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
-	src := model.NewFakeStore()
-	sa.AddSource(dfCache{ConfigStore: src})
+	src := memory.NewController(collections.Pilot)
+	sa.AddSource(dfCache{ConfigStoreController: src})
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
 	g.Expect(sa.stores).To(HaveLen(1))

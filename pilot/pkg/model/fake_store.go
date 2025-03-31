@@ -20,16 +20,24 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/kube/krt"
 )
 
 type FakeStore struct {
-	store map[config.GroupVersionKind]map[string]map[string]config.Config
+	store map[config.GroupVersionKind]nsStore
+	stop  chan struct{}
+}
+
+type nsStore struct {
+	collection krt.StaticCollection[config.Config]
+	index      krt.Index[string, config.Config]
 }
 
 func NewFakeStore() *FakeStore {
+	stop := make(chan struct{})
 	f := FakeStore{
-		store: make(map[config.GroupVersionKind]map[string]map[string]config.Config),
+		store: make(map[config.GroupVersionKind]nsStore),
+		stop:  stop,
 	}
 	return &f
 }
@@ -41,67 +49,53 @@ func (s *FakeStore) Schemas() collection.Schemas {
 }
 
 func (s *FakeStore) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
-	nsConfigs := s.store[typ]
-	if nsConfigs == nil {
+	nsConfigs, ok := s.store[typ]
+	if !ok {
 		return nil
 	}
 
-	configs := nsConfigs[namespace]
-	if configs == nil {
-		return nil
+	key := name
+	if namespace != "" {
+		key = namespace + "/" + name
 	}
-
-	if config, f := configs[name]; f {
-		return &config
-	}
-
-	return nil
+	return nsConfigs.collection.GetKey(key)
 }
 
 func (s *FakeStore) List(typ config.GroupVersionKind, namespace string) []config.Config {
-	nsConfigs := s.store[typ]
-	if nsConfigs == nil {
+	data, exists := s.store[typ]
+	if !exists {
 		return nil
 	}
-	var res []config.Config
+
 	if namespace == NamespaceAll {
-		for _, configs := range nsConfigs {
-			for _, cfg := range configs {
-				res = append(res, cfg)
-			}
-		}
-		return res
+		return data.collection.List()
 	}
 
-	return maps.Values(nsConfigs[namespace])
+	return data.index.Lookup(namespace)
 }
 
 func (s *FakeStore) Create(cfg config.Config) (revision string, err error) {
-	nsConfigs := s.store[cfg.GroupVersionKind]
-	if nsConfigs == nil {
-		nsConfigs = make(map[string]map[string]config.Config)
+	nsConfigs, ok := s.store[cfg.GroupVersionKind]
+	if !ok {
+		opts := krt.NewOptionsBuilder(s.stop, "fake-store", krt.GlobalDebugHandler)
+		collection := krt.NewStaticCollection[config.Config](nil, nil, opts.WithName(cfg.GroupVersionKind.Kind)...)
+		nsConfigs = nsStore{
+			collection: collection,
+			index:      krt.NewNamespaceIndex(collection),
+		}
 		s.store[cfg.GroupVersionKind] = nsConfigs
 	}
 
-	configs := nsConfigs[cfg.Namespace]
-	if configs == nil {
-		configs = make(map[string]config.Config)
-		nsConfigs[cfg.Namespace] = configs
-	}
-
-	configs[cfg.Name] = cfg
+	nsConfigs.collection.UpdateObject(cfg)
 	return "", nil
 }
 
 func (s *FakeStore) Update(cfg config.Config) (newRevision string, err error) {
-	nsConfigs := s.store[cfg.GroupVersionKind]
-	if nsConfigs != nil {
-		configs := nsConfigs[cfg.Namespace]
-		if configs != nil {
-			if _, f := configs[cfg.Name]; f {
-				configs[cfg.Name] = cfg
-				return "", nil
-			}
+	nsConfigs, ok := s.store[cfg.GroupVersionKind]
+	if ok {
+		if obj := nsConfigs.collection.GetKey(krt.GetKey(cfg)); obj != nil {
+			nsConfigs.collection.UpdateObject(cfg)
+			return "", nil
 		}
 	}
 
@@ -115,16 +109,32 @@ func (*FakeStore) Patch(orig config.Config, patchFn config.PatchFunc) (string, e
 }
 
 func (s *FakeStore) Delete(typ config.GroupVersionKind, name, namespace string, rv *string) error {
-	nsConfigs := s.store[typ]
-	if nsConfigs == nil {
+	nsConfigs, ok := s.store[typ]
+	if !ok {
 		return nil
 	}
 
-	configs := nsConfigs[namespace]
-	if configs == nil {
-		return nil
+	key := name
+	if namespace != "" {
+		key = namespace + "/" + name
 	}
-
-	delete(configs, name)
+	nsConfigs.collection.DeleteObject(key)
 	return nil
+}
+
+func (s *FakeStore) RegisterEventHandler(kind config.GroupVersionKind, handler EventHandler) {
+
+}
+
+func (s *FakeStore) Run(stop <-chan struct{}) {
+	<-stop
+	close(s.stop)
+}
+
+func (s *FakeStore) HasSynced() bool {
+	return true
+}
+
+func (s *FakeStore) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
+	return s.store[typ].collection
 }
