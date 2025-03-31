@@ -251,6 +251,18 @@ func (c *Controller) Schemas() collection.Schemas {
 	return schemas
 }
 
+func (c *Controller) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
+	if kind == gvk.Gateway {
+		return c.outputs.Gateways
+	}
+
+	if kind == gvk.VirtualService {
+		return c.outputs.VirtualServices
+	}
+
+	return nil
+}
+
 func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
 	return nil
 }

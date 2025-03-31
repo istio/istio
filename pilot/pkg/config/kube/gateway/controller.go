@@ -119,7 +119,7 @@ type TypedResource struct {
 
 type Outputs struct {
 	Gateways         krt.Collection[Gateway]
-	VirtualServices  krt.Collection[*config.Config]
+	VirtualServices  krt.Collection[config.Config]
 	ReferenceGrants  ReferenceGrants
 	DestinationRules krt.Collection[*config.Config]
 }
@@ -293,7 +293,7 @@ func NewController(
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
 	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus)
 
-	VirtualServices := krt.JoinCollection([]krt.Collection[*config.Config]{
+	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{
 		tcpRoutes.VirtualServices,
 		tlsRoutes.VirtualServices,
 		httpRoutes.VirtualServices,
@@ -310,7 +310,7 @@ func NewController(
 
 	handlers = append(handlers,
 		outputs.VirtualServices.RegisterBatch(pushXds(xdsUpdater,
-			func(t *config.Config) model.ConfigKey {
+			func(t config.Config) model.ConfigKey {
 				return model.ConfigKey{
 					Kind:      kind.VirtualService,
 					Name:      t.Name,
@@ -382,9 +382,7 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 		})
 		return res
 	case gvk.VirtualService:
-		return slices.Map(c.outputs.VirtualServices.List(), func(e *config.Config) config.Config {
-			return *e
-		})
+		return c.outputs.VirtualServices.List()
 	case gvk.DestinationRule:
 		return slices.Map(c.outputs.DestinationRules.List(), func(e *config.Config) config.Config {
 			return *e
@@ -432,6 +430,10 @@ func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (string
 
 func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string, _ *string) error {
 	return errUnsupportedOp
+}
+
+func (c *Controller) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
+	return c.outputs.VirtualServices
 }
 
 func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler model.EventHandler) {
