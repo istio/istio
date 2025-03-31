@@ -317,7 +317,7 @@ spec:
       retry:
         attempts: 0
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: http-route-cors

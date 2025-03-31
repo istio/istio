@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -1149,17 +1148,11 @@ func createCorsFilter(filter *k8s.HTTPCORSFilter) *istio.CorsPolicy {
 		if len(rs) == 0 {
 			continue // Not valid anyways, but double check
 		}
-		if strings.Contains(rs, "*") {
-			// Istio doesn't have suffix match for some reason...
-			regex := ".*" + regexp.QuoteMeta(rs[1:])
-			res.AllowOrigins = append(res.AllowOrigins, &istio.StringMatch{
-				MatchType: &istio.StringMatch_Regex{Regex: regex},
-			})
-		} else {
-			res.AllowOrigins = append(res.AllowOrigins, &istio.StringMatch{
-				MatchType: &istio.StringMatch_Exact{Exact: string(r)},
-			})
-		}
+
+		// TODO: support wildcards (https://github.com/kubernetes-sigs/gateway-api/issues/3648)
+		res.AllowOrigins = append(res.AllowOrigins, &istio.StringMatch{
+			MatchType: &istio.StringMatch_Exact{Exact: string(r)},
+		})
 	}
 	if filter.AllowCredentials {
 		res.AllowCredentials = wrappers.Bool(true)
