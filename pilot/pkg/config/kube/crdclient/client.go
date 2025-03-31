@@ -31,7 +31,6 @@ import (
 	"go.uber.org/atomic"
 	"gomodules.xyz/jsonpatch/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -48,10 +47,10 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/queue"
 )
 
 var scope = log.RegisterScope("kube", "Kubernetes client messages")
@@ -70,14 +69,13 @@ type Client struct {
 	revision string
 
 	// kinds keeps track of all cache handlers for known types
-	kinds   map[config.GroupVersionKind]kclient.Untyped
-	kindsMu sync.RWMutex
-	queue   queue.Instance
+	collections map[config.GroupVersionKind]nsStore
+	kindsMu     sync.RWMutex
 	// a flag indicates whether this client has been run, it is to prevent run queue twice
 	started *atomic.Bool
 
 	// handlers defines a list of event handlers per-type
-	handlers map[config.GroupVersionKind][]model.EventHandler
+	handlers map[config.GroupVersionKind][]krt.HandlerRegistration
 
 	schemasByCRDName map[string]resource.Schema
 	client           kube.Client
@@ -85,6 +83,12 @@ type Client struct {
 
 	// namespacesFilter is only used to initiate filtered informer.
 	filtersByGVK map[config.GroupVersionKind]kubetypes.Filter
+	stop         chan struct{}
+}
+
+type nsStore struct {
+	collection krt.Collection[config.Config]
+	index      krt.Index[string, config.Config]
 }
 
 type Option struct {
@@ -92,6 +96,7 @@ type Option struct {
 	DomainSuffix string
 	Identifier   string
 	FiltersByGVK map[config.GroupVersionKind]kubetypes.Filter
+	KrtDebugger  *krt.DebugHandler
 }
 
 var _ model.ConfigStoreController = &Client{}
@@ -111,31 +116,57 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		name := fmt.Sprintf("%s.%s", s.Plural(), s.Group())
 		schemasByCRDName[name] = s
 	}
+
+	stop := make(chan struct{})
+
 	out := &Client{
 		domainSuffix:     opts.DomainSuffix,
 		schemas:          schemas,
 		schemasByCRDName: schemasByCRDName,
 		revision:         opts.Revision,
-		queue:            queue.NewQueue(1 * time.Second),
 		started:          atomic.NewBool(false),
-		kinds:            map[config.GroupVersionKind]kclient.Untyped{},
-		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
+		collections:      map[config.GroupVersionKind]nsStore{},
+		handlers:         map[config.GroupVersionKind][]krt.HandlerRegistration{},
 		client:           client,
 		logger:           scope.WithLabels("controller", opts.Identifier),
 		filtersByGVK:     opts.FiltersByGVK,
+		stop:             stop,
 	}
 
+	kopts := krt.NewOptionsBuilder(stop, "crdclient", opts.KrtDebugger)
 	for _, s := range out.schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 		name := fmt.Sprintf("%s.%s", s.Plural(), s.Group())
-		out.addCRD(name)
+		out.addCRD(name, kopts)
 	}
 
 	return out
 }
 
+func (cl *Client) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
+	cl.kindsMu.RLock()
+	defer cl.kindsMu.RUnlock()
+	return cl.collections[kind].collection
+}
+
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
-	cl.handlers[kind] = append(cl.handlers[kind], handler)
+	if c, ok := cl.kind(kind); ok {
+		cl.handlers[kind] = append(cl.handlers[kind], c.collection.RegisterBatch(func(o []krt.Event[config.Config]) {
+			for _, event := range o {
+				switch event.Event {
+				case controllers.EventAdd:
+					handler(config.Config{}, *event.New, model.Event(event.Event))
+				case controllers.EventUpdate:
+					handler(*event.Old, *event.New, model.Event(event.Event))
+				case controllers.EventDelete:
+					handler(config.Config{}, *event.Old, model.Event(event.Event))
+				}
+			}
+		}, false))
+		return
+	}
+
+	cl.logger.Warnf("unknown type: %s", kind)
 }
 
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
@@ -148,18 +179,21 @@ func (cl *Client) Run(stop <-chan struct{}) {
 	t0 := time.Now()
 	cl.logger.Infof("Starting Pilot K8S CRD controller")
 
-	if !kube.WaitForCacheSync("crdclient", stop, cl.informerSynced) {
-		cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
-		return
-	}
-	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
-	cl.queue.Run(stop)
+	go func() {
+		if !kube.WaitForCacheSync("crdclient", stop, cl.informerSynced) {
+			cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
+			return
+		}
+		cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
+	}()
+	<-stop
+	close(cl.stop)
 	cl.logger.Infof("controller terminated")
 }
 
 func (cl *Client) informerSynced() bool {
 	for gk, ctl := range cl.allKinds() {
-		if !ctl.HasSynced() {
+		if !ctl.collection.HasSynced() {
 			cl.logger.Infof("controller %q is syncing...", gk)
 			return false
 		}
@@ -168,7 +202,21 @@ func (cl *Client) informerSynced() bool {
 }
 
 func (cl *Client) HasSynced() bool {
-	return cl.queue.HasSynced()
+	for _, ctl := range cl.allKinds() {
+		if !ctl.collection.HasSynced() {
+			return false
+		}
+	}
+
+	for _, handlers := range cl.handlers {
+		for _, h := range handlers {
+			if !h.HasSynced() {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 // Schemas for the store
@@ -183,14 +231,20 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 		cl.logger.Warnf("unknown type: %s", typ)
 		return nil
 	}
-	obj := h.Get(name, namespace)
+
+	var key string
+	if namespace == "" {
+		key = name
+	} else {
+		key = namespace + "/" + name
+	}
+	obj := h.collection.GetKey(key)
 	if obj == nil {
 		cl.logger.Debugf("couldn't find %s/%s in informer index", namespace, name)
 		return nil
 	}
 
-	cfg := TranslateObject(obj, typ, cl.domainSuffix)
-	return &cfg
+	return obj
 }
 
 // Create implements store interface
@@ -256,27 +310,23 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) []config.
 		return nil
 	}
 
-	list := h.List(namespace, klabels.Everything())
-
-	out := make([]config.Config, 0, len(list))
-	for _, item := range list {
-		cfg := TranslateObject(item, kind, cl.domainSuffix)
-		out = append(out, cfg)
+	if namespace == metav1.NamespaceAll {
+		return h.collection.List()
 	}
 
-	return out
+	return h.index.Lookup(namespace)
 }
 
-func (cl *Client) allKinds() map[config.GroupVersionKind]kclient.Untyped {
+func (cl *Client) allKinds() map[config.GroupVersionKind]nsStore {
 	cl.kindsMu.RLock()
 	defer cl.kindsMu.RUnlock()
-	return maps.Clone(cl.kinds)
+	return maps.Clone(cl.collections)
 }
 
-func (cl *Client) kind(r config.GroupVersionKind) (kclient.Untyped, bool) {
+func (cl *Client) kind(r config.GroupVersionKind) (nsStore, bool) {
 	cl.kindsMu.RLock()
 	defer cl.kindsMu.RUnlock()
-	ch, ok := cl.kinds[r]
+	ch, ok := cl.collections[r]
 	return ch, ok
 }
 
@@ -326,7 +376,7 @@ func genPatchBytes(oldRes, modRes runtime.Object, patchType types.PatchType) ([]
 	}
 }
 
-func (cl *Client) addCRD(name string) {
+func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 	cl.logger.Debugf("adding CRD %q", name)
 	s, f := cl.schemasByCRDName[name]
 	if !f {
@@ -338,7 +388,7 @@ func (cl *Client) addCRD(name string) {
 
 	cl.kindsMu.Lock()
 	defer cl.kindsMu.Unlock()
-	if _, f := cl.kinds[resourceGVK]; f {
+	if _, f := cl.collections[resourceGVK]; f {
 		cl.logger.Debugf("added resource that already exists: %v", resourceGVK)
 		return
 	}
@@ -382,32 +432,31 @@ func (cl *Client) addCRD(name string) {
 		)
 	}
 
-	kind := s.Kind()
-	kc.AddEventHandler(controllers.EventHandler[controllers.Object]{
-		AddFunc: func(obj controllers.Object) {
-			incrementEvent(kind, "add")
-			cl.queue.Push(func() error {
-				cl.onEvent(resourceGVK, nil, obj, model.EventAdd)
-				return nil
-			})
-		},
-		UpdateFunc: func(old, cur controllers.Object) {
-			incrementEvent(kind, "update")
-			cl.queue.Push(func() error {
-				cl.onEvent(resourceGVK, old, cur, model.EventUpdate)
-				return nil
-			})
-		},
-		DeleteFunc: func(obj controllers.Object) {
-			incrementEvent(kind, "delete")
-			cl.queue.Push(func() error {
-				cl.onEvent(resourceGVK, nil, obj, model.EventDelete)
-				return nil
-			})
-		},
-	})
+	translateFunc, f := translationMap[resourceGVK]
+	if !f {
+		cl.logger.Errorf("unknown type %v", resourceGVK)
+		return
+	}
 
-	cl.kinds[resourceGVK] = kc
+	wrappedClient := krt.WrapClient(kc, opts.WithName("informer/"+resourceGVK.Kind)...)
+	collection := krt.NewCollection(wrappedClient, func(ctx krt.HandlerContext, obj controllers.Object) *config.Config {
+		cfg := translateFunc(obj)
+		cfg.Domain = cl.domainSuffix
+		return &cfg
+	}, opts.WithName("collection/"+resourceGVK.Kind)...)
+	index := krt.NewNamespaceIndex(collection)
+	cl.collections[resourceGVK] = nsStore{
+		collection: collection,
+		index:      index,
+	}
+
+	cl.handlers[resourceGVK] = []krt.HandlerRegistration{
+		collection.RegisterBatch(func(o []krt.Event[config.Config]) {
+			for _, event := range o {
+				incrementEvent(resourceGVK.Kind, event.Event.String())
+			}
+		}, false),
+	}
 }
 
 func (cl *Client) inRevision(obj any) bool {
@@ -416,22 +465,4 @@ func (cl *Client) inRevision(obj any) bool {
 		return false
 	}
 	return config.LabelsInRevision(object.GetLabels(), cl.revision)
-}
-
-func (cl *Client) onEvent(resourceGVK config.GroupVersionKind, old controllers.Object, curr controllers.Object, event model.Event) {
-	currItem := controllers.ExtractObject(curr)
-	if currItem == nil {
-		return
-	}
-
-	currConfig := TranslateObject(currItem, resourceGVK, cl.domainSuffix)
-
-	var oldConfig config.Config
-	if old != nil {
-		oldConfig = TranslateObject(old, resourceGVK, cl.domainSuffix)
-	}
-
-	for _, f := range cl.handlers[resourceGVK] {
-		f(oldConfig, currConfig, event)
-	}
 }
