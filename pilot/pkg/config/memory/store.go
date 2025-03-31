@@ -20,8 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube/krt"
@@ -149,7 +148,7 @@ func (cr *Store) List(kind config.GroupVersionKind, namespace string) []config.C
 		return nil
 	}
 
-	if namespace == metav1.NamespaceAll {
+	if namespace == model.NamespaceAll {
 		return data.collection.List()
 	}
 

@@ -22,13 +22,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 )
 
-type Options struct {
-	// processes events synchronously and requires manual sync
-	Sync           bool
-	SkipValidation bool
-	KrtDebugger    *krt.DebugHandler
-}
-
 // Controller is an implementation of ConfigStoreController.
 type Controller struct {
 	hasSynced func() bool
@@ -89,6 +82,14 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	c.store.markSynced()
 	<-stop
 	close(c.store.stop)
+}
+
+func (c *Controller) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
+	if data, ok := c.store.data[kind]; ok {
+		return data.collection
+	}
+
+	return nil
 }
 
 func (c *Controller) Schemas() collection.Schemas {
