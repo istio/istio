@@ -51,7 +51,7 @@ func TestReadVal(t *testing.T) {
 
 	err := yaml.Unmarshal([]byte(testYaml), &m)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 	}
 
 	s1 := readVal(m, make([]string, 0))
