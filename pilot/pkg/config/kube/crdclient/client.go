@@ -24,7 +24,6 @@ package crdclient
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	jsonmerge "github.com/evanphx/json-patch/v5"
@@ -69,8 +68,7 @@ type Client struct {
 	revision string
 
 	// kinds keeps track of all cache handlers for known types
-	kinds   map[config.GroupVersionKind]nsStore
-	kindsMu sync.RWMutex
+	kinds map[config.GroupVersionKind]nsStore
 	// a flag indicates whether this client has been run, it is to prevent run queue twice
 	started *atomic.Bool
 
@@ -143,6 +141,14 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 	}
 
 	return out
+}
+
+func (cl *Client) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
+	if c, ok := cl.kind(kind); ok {
+		return c.collection
+	}
+
+	return nil
 }
 
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
@@ -304,14 +310,10 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) []config.
 }
 
 func (cl *Client) allKinds() map[config.GroupVersionKind]nsStore {
-	cl.kindsMu.RLock()
-	defer cl.kindsMu.RUnlock()
 	return maps.Clone(cl.kinds)
 }
 
 func (cl *Client) kind(r config.GroupVersionKind) (nsStore, bool) {
-	cl.kindsMu.RLock()
-	defer cl.kindsMu.RUnlock()
 	ch, ok := cl.kinds[r]
 	return ch, ok
 }
@@ -372,8 +374,6 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 	resourceGVK := s.GroupVersionKind()
 	gvr := s.GroupVersionResource()
 
-	cl.kindsMu.Lock()
-	defer cl.kindsMu.Unlock()
 	if _, f := cl.kinds[resourceGVK]; f {
 		cl.logger.Debugf("added resource that already exists: %v", resourceGVK)
 		return

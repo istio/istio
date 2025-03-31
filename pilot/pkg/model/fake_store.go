@@ -197,3 +197,11 @@ func (s *FakeStore) HasSynced() bool {
 
 	return true
 }
+
+func (s *FakeStore) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
+	if kindStore, ok := s.store[typ]; ok {
+		return kindStore.collection
+	}
+
+	return nil
+}
