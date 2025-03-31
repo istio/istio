@@ -27,9 +27,6 @@ var BuiltInChainsMap = sets.New(
 	"FORWARD",
 	"PREROUTING",
 	"POSTROUTING",
-	"ACCEPT",
-	"RETURN",
-	"DROP",
 )
 
 const (
