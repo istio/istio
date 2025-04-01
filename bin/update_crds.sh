@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
+set -ex
 
 fail() {
   echo "$@" 1>&2
@@ -60,7 +60,7 @@ cp "${API_TMP}"/tests/testdata/* "${ROOTDIR}/pkg/config/validation/testdata/crds
 cd "${ROOTDIR}"
 
 GATEWAY_VERSION=$(grep "gateway-api" go.mod | awk '{ print $2 }')
-if [[ ${GATEWAY_VERSION} == *"-"* && ! ${GATEWAY_VERSION} =~ -rc[0-9]$ ]]; then
+if [[ ${GATEWAY_VERSION} == *"-"* && ! ${GATEWAY_VERSION} =~ -rc.?[0-9]$ ]]; then
   # not an official release or release candidate, so get the commit sha
   SHORT_SHA=$(echo "${GATEWAY_VERSION}" | awk -F '-' '{ print $NF }')
   GATEWAY_VERSION=$(curl -s -L -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/kubernetes-sigs/gateway-api/commits/${SHORT_SHA}" | jq -r .sha)

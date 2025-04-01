@@ -114,8 +114,8 @@ func TestGatewayConformance(t *testing.T) {
 				ManifestFS:               []fs.FS{&conformance.Manifests},
 				SupportedFeatures:        features.SetsToNamesSet(supportedFeatures),
 				SkipTests:                maps.Keys(skippedTests),
-				UsableNetworkAddresses:   []v1.GatewayAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
-				UnusableNetworkAddresses: []v1.GatewayAddress{{Value: "foo", Type: &hostnameType}},
+				UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
+				UnusableNetworkAddresses: []v1.GatewaySpecAddress{{Value: "foo", Type: &hostnameType}},
 				ConformanceProfiles: k8ssets.New(
 					suite.GatewayHTTPConformanceProfileName,
 					suite.GatewayTLSConformanceProfileName,

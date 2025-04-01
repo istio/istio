@@ -194,7 +194,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 				Spec: k8s.GatewaySpec{
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
-					Addresses: []k8s.GatewayAddress{{
+					Addresses: []k8s.GatewaySpecAddress{{
 						Type:  func() *k8s.AddressType { x := k8s.IPAddressType; return &x }(),
 						Value: "1.2.3.4",
 					}},
