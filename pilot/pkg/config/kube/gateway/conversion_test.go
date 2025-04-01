@@ -384,7 +384,7 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 -----END RSA PRIVATE KEY-----
 `
 
-	secrets = []runtime.Object{
+	objects = []runtime.Object{
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-cert-http",
@@ -417,6 +417,24 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 				// and the certificate and the key are identical
 				"tls.crt": []byte("SGVsbG8gd29ybGQK"),
 				"tls.key": []byte("SGVsbG8gd29ybGQK"),
+			},
+		},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "malformed",
+				Namespace: "default",
+			},
+			Data: map[string]string{
+				"not-ca.crt": "hello",
+			},
+		},
+		&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "auth-cert",
+				Namespace: "default",
+			},
+			Data: map[string]string{
+				"ca.crt": rsaCertPEM,
 			},
 		},
 	}
@@ -545,6 +563,9 @@ func TestConvertResources(t *testing.T) {
 		{name: "route-precedence"},
 		{name: "waypoint"},
 		{name: "isolation"},
+		{name: "backend-lb-policy"},
+		{name: "backend-tls-policy"},
+		{name: "mix-backend-policy"},
 		{
 			name: "valid-invalid-parent-ref",
 			validationIgnorer: crdvalidation.NewValidationIgnorer(
@@ -606,6 +627,8 @@ func TestConvertResources(t *testing.T) {
 			sortConfigByCreationTime(res)
 			vs := ctrl.List(gvk.VirtualService, "")
 			res = append(res, sortedConfigByCreationTime(vs)...)
+			dr := ctrl.List(gvk.DestinationRule, "")
+			res = append(res, sortedConfigByCreationTime(dr)...)
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)
 			util.CompareContent(t, marshalYaml(t, res), goldenFile)
@@ -627,6 +650,8 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 		gvr.TCPRoute,
 		gvr.TLSRoute,
 		gvr.ServiceEntry,
+		gvr.XBackendTrafficPolicy,
+		gvr.BackendTLSPolicy,
 	} {
 		clienttest.MakeCRDWithAnnotations(t, kc, crd, map[string]string{
 			consts.BundleVersionAnnotation: "v1.1.0",
@@ -1322,7 +1347,7 @@ func readConfig(t testing.TB, filename string, validator *crdvalidation.Validato
 		}
 		objs = append(objs, svcObj)
 	}
-	objs = append(objs, secrets...)
+	objs = append(objs, objects...)
 
 	for ns := range namespaces {
 		objs = append(objs, &corev1.Namespace{

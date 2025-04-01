@@ -171,14 +171,26 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	// Fetch the appropriate cluster's secret, based on the credential type
 	var secretController credscontroller.Controller
 	switch sr.ResourceType {
-	case credentials.KubernetesGatewaySecretType:
+	case credentials.KubernetesGatewaySecretType, credentials.KubernetesConfigMapType:
 		secretController = configClusterSecrets
 	default:
 		secretController = proxyClusterSecrets
 	}
 
 	isCAOnlySecret := strings.HasSuffix(sr.Name, securitymodel.SdsCaSuffix)
-	if isCAOnlySecret {
+	if sr.ResourceType == credentials.KubernetesConfigMapType {
+		caCertInfo, err := secretController.GetConfigMapCaCert(sr.Name, sr.Namespace)
+		if err != nil {
+			pilotSDSCertificateErrors.Increment()
+			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
+			return nil
+		}
+		if err := ValidateCertificate(caCertInfo.Cert); err != nil {
+			recordInvalidCertificate(sr.ResourceName, err)
+		}
+		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
+		return res
+	} else if isCAOnlySecret {
 		caCertInfo, err := secretController.GetCaCert(sr.Name, sr.Namespace)
 		if err != nil {
 			pilotSDSCertificateErrors.Increment()
@@ -267,6 +279,14 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			} else {
 				deniedResources = append(deniedResources, r.Name)
 			}
+		case credentials.KubernetesConfigMapType:
+			// Current, we allow any configmap references. We only expose the ca.crt field, which should not be 'private'.
+			// We cannot do a namespace check, as the client is the one reading the configmap of the server, so cross-namespace
+			// lookups are expected.
+			// We could do a check that the ConfigMap is referenced by a DestinationRule, but given the lack of impact here
+			// this seems over-complicated.
+			allowedResources = append(allowedResources, r)
+
 		case credentials.KubernetesSecretType:
 			// CA Certs are public information, so we allows allow these to be accessed (from the same namespace)
 			isCAOnlySecret := strings.HasSuffix(r.Name, securitymodel.SdsCaSuffix)
@@ -278,6 +298,8 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			} else {
 				deniedResources = append(deniedResources, r.Name)
 			}
+		case credentials.InvalidSecretType:
+			// Do nothing. We return nothing, and logs for why an invalid resource was generated are handled elsewhere.
 		default:
 			// Should never happen
 			log.Warnf("unknown credential type %q", r.Type())

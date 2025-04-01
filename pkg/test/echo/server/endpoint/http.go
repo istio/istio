@@ -339,13 +339,12 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
 	echo.IPField.Write(body, ip)
 
-	// Note: since this is the NegotiatedProtocol, it will be set to empty if the client sends an ALPN
-	// not supported by the server (ie one of h2,http/1.1,http/1.0)
-	var alpn string
 	if r.TLS != nil {
-		alpn = r.TLS.NegotiatedProtocol
+		// Note: since this is the NegotiatedProtocol, it will be set to empty if the client sends an ALPN
+		// not supported by the server (ie one of h2,http/1.1,http/1.0)
+		echo.AlpnField.WriteNonEmpty(body, r.TLS.NegotiatedProtocol)
+		echo.SNIField.WriteNonEmpty(body, r.TLS.ServerName)
 	}
-	echo.AlpnField.WriteNonEmpty(body, alpn)
 
 	if conn := GetConn(r); conn != nil {
 		if p, ok := conn.(*proxyproto.Conn); ok && p.ProxyHeader() != nil {

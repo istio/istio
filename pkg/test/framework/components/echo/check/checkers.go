@@ -267,6 +267,15 @@ func Alpn(expected string) echo.Checker {
 	})
 }
 
+func SNI(expected string) echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if r.SNI != expected {
+			return fmt.Errorf("expected SNI %s, received %s", expected, r.SNI)
+		}
+		return nil
+	})
+}
+
 func ProxyProtocolVersion(expected string) echo.Checker {
 	return Each(func(r echoClient.Response) error {
 		if r.ProxyProtocol != expected {
