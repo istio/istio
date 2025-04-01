@@ -77,6 +77,7 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 
 func (p *tagWatcher) Run(stopCh <-chan struct{}) {
 	if !kube.WaitForCacheSync("tag watcher", stopCh, p.webhooks.HasSynced) {
+		p.queue.ShutDownEarly()
 		return
 	}
 	// Notify handlers of initial state

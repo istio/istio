@@ -67,6 +67,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	// during startup.
 	c.configmaps.Start(stop)
 	if !kube.WaitForCacheSync("configmap "+c.configMapName, stop, c.configmaps.HasSynced) {
+		c.queue.ShutDownEarly()
 		return
 	}
 	c.queue.Run(stop)
