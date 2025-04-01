@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -67,6 +68,14 @@ type index[K comparable, O any] struct {
 	extract func(o O) []K
 }
 
+func WithIndexCollectionFromString[K any](f func(string) K) CollectionOption {
+	return func(c *collectionOptions) {
+		c.indexCollectionFromString = func(s string) any {
+			return f(s)
+		}
+	}
+}
+
 // AsCollection does a best-effort approximation of turning an index into a Collection. This is intended to be used as a
 // primary input with NewCollection or similar transformations.
 // This has some limitations that impact usage *outside* of NewCollection:
@@ -76,10 +85,21 @@ type index[K comparable, O any] struct {
 // The intended use case for this is to do merging within a collection (like a SQL 'group by').
 func (i index[K, O]) AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]] {
 	o := buildCollectionOptions(opts...)
+
 	c := indexCollection[K, O]{
 		idx:            i,
 		id:             nextUID(),
 		collectionName: fmt.Sprintf("index/%s", o.name),
+		fromKey:        o.indexCollectionFromString,
+	}
+	if c.fromKey == nil {
+		if _, ok := any(ptr.Empty[K]()).(string); !ok {
+			// This is a limitation of the way the API is encoded, unfortunately.
+			panic("index.AsCollection requires a string key or WithIndexCollectionFromString to be set")
+		}
+		c.fromKey = func(s string) any {
+			return s
+		}
 	}
 	maybeRegisterCollectionForDebugging(c, o.debugger)
 	return c
@@ -124,6 +144,7 @@ type indexCollection[K comparable, O any] struct {
 	id  collectionUID
 	// nolint: unused // (not true, its to implement an interface)
 	collectionName string
+	fromKey        func(string) any
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -156,7 +177,7 @@ func (i indexCollection[K, O]) index(extract func(o IndexObject[K, O]) []string)
 }
 
 func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
-	tk := any(k).(K)
+	tk := i.fromKey(k).(K)
 	objs := i.idx.Lookup(tk)
 	return &IndexObject[K, O]{
 		Key:     tk,
@@ -179,7 +200,7 @@ func (i indexCollection[K, O]) dumpOutput() map[string]any {
 	}
 	res := map[string]any{}
 	for k := range keys {
-		ks := any(k).(string)
+		ks := toString(k)
 		res[ks] = *i.GetKey(ks)
 	}
 	return res

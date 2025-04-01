@@ -460,5 +460,5 @@ func (s *Server) getRootCertFromSecret(name, namespace string) (*istioCredential
 	if err != nil {
 		return nil, fmt.Errorf("failed to get credential with name %v: %v", name, err)
 	}
-	return kube.ExtractRoot(secret)
+	return kube.ExtractRoot(secret.Data)
 }
