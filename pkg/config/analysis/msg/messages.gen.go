@@ -197,7 +197,7 @@ var (
 	UnsupportedGatewayAPIVersion = diag.NewMessageType(diag.Error, "IST0156", "The Gateway API CRD version %v is lower than the minimum version: %v")
 
 	// FutureUnsupportedGatewayAPIVersion defines a diag.MessageType for message "FutureUnsupportedGatewayAPIVersion".
-	// Description: The Gateway API CRD version will not be supported inthe future
+	// Description: The Gateway API CRD version will not be supported in the future
 	FutureUnsupportedGatewayAPIVersion = diag.NewMessageType(diag.Warning, "IST0172", "The Gateway API CRD version %v is lower than the minimum version: %v")
 
 	// InvalidTelemetryProvider defines a diag.MessageType for message "InvalidTelemetryProvider".
