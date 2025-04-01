@@ -165,7 +165,7 @@ func getBindAddresses(ip []string) []string {
 		}
 	}
 	addrs := []string{}
-	if v4 {
+	if v4 || !v6 {
 		if localhost {
 			addrs = append(addrs, "127.0.0.1")
 		} else {
