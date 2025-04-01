@@ -91,6 +91,13 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 					continue
 				}
 			}
+			if config.Kind == kind.VirtualService {
+				// We largely don't use VirtualService for CDS building. However, we do use it as part of Sidecar scoping, which
+				// implicitly includes VS destinations.
+				// Since Routers do not use Sidecar, though, we can skip for Router.
+				filtered = true
+				continue
+			}
 		}
 
 		if _, f := skippedCdsConfigs[config.Kind]; !f {
