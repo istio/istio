@@ -8,12 +8,9 @@ import (
 )
 
 const (
+	Unknown Kind = iota
 {{- range $index, $element := .Entries }}
-	{{- if (eq $index 0) }}
-	{{.Resource.Identifier}} Kind = iota
-	{{- else }}
 	{{.Resource.Identifier}}
-	{{- end }}
 {{- end }}
 )
 
@@ -21,12 +18,25 @@ func (k Kind) String() string {
 	switch k {
 {{- range .Entries }}
 	case {{.Resource.Identifier}}:
-		return "{{.Resource.Kind}}"
+		return "{{.Resource.Identifier}}"
 {{- end }}
 	default:
 		return "Unknown"
 	}
 }
+
+
+func FromString(s string) Kind {
+	switch s {
+{{- range .Entries }}
+	case "{{.Resource.Identifier}}":
+		return {{.Resource.Identifier}}
+{{- end }}
+	default:
+		return Unknown
+	}
+}
+
 
 func MustFromGVK(g config.GroupVersionKind) Kind {
 	switch g {
