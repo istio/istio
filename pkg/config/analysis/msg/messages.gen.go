@@ -196,6 +196,10 @@ var (
 	// Description: The Gateway API CRD version is not supported
 	UnsupportedGatewayAPIVersion = diag.NewMessageType(diag.Error, "IST0156", "The Gateway API CRD version %v is lower than the minimum version: %v")
 
+	// FutureUnsupportedGatewayAPIVersion defines a diag.MessageType for message "FutureUnsupportedGatewayAPIVersion".
+	// Description: The Gateway API CRD version will not be supported in the future
+	FutureUnsupportedGatewayAPIVersion = diag.NewMessageType(diag.Warning, "IST0172", "The Gateway API CRD version %v is lower than the minimum version: %v")
+
 	// InvalidTelemetryProvider defines a diag.MessageType for message "InvalidTelemetryProvider".
 	// Description: The Telemetry with empty providers will be ignored
 	InvalidTelemetryProvider = diag.NewMessageType(diag.Warning, "IST0157", "The Telemetry %v in namespace %q with empty providers will be ignored.")
@@ -307,6 +311,7 @@ func All() []*diag.MessageType {
 		EnvoyFilterUsesRemoveOperationIncorrectly,
 		EnvoyFilterUsesRelativeOperationWithProxyVersion,
 		UnsupportedGatewayAPIVersion,
+		FutureUnsupportedGatewayAPIVersion,
 		InvalidTelemetryProvider,
 		PodsIstioProxyImageMismatchInNamespace,
 		ConflictingTelemetryWorkloadSelectors,
@@ -774,6 +779,16 @@ func NewEnvoyFilterUsesRelativeOperationWithProxyVersion(r *resource.Instance) d
 func NewUnsupportedGatewayAPIVersion(r *resource.Instance, version string, minimumVersion string) diag.Message {
 	return diag.NewMessage(
 		UnsupportedGatewayAPIVersion,
+		r,
+		version,
+		minimumVersion,
+	)
+}
+
+// NewFutureUnsupportedGatewayAPIVersion returns a new diag.Message based on FutureUnsupportedGatewayAPIVersion.
+func NewFutureUnsupportedGatewayAPIVersion(r *resource.Instance, version string, minimumVersion string) diag.Message {
+	return diag.NewMessage(
+		FutureUnsupportedGatewayAPIVersion,
 		r,
 		version,
 		minimumVersion,

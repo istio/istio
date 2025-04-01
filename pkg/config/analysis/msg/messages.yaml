@@ -494,6 +494,17 @@ messages:
     - name: minimumVersion
       type: string
 
+  - name: "FutureUnsupportedGatewayAPIVersion"
+    code: IST0172
+    level: Warning
+    description: "The Gateway API CRD version will not be supported in the future"
+    template: "The Gateway API CRD version %v is lower than the minimum version: %v"
+    args:
+    - name: version
+      type: string
+    - name: minimumVersion
+      type: string
+
   - name: "InvalidTelemetryProvider"
     code: IST0157
     level: Warning
