@@ -114,6 +114,13 @@ func (q Queue) AddObject(obj Object) {
 	q.queue.Add(config.NamespacedName(obj))
 }
 
+// ShutDownEarly shuts down the queue *before* it has been Run.
+// Creating a queue without running it causes a leak, so this must be called on any queue that is closed without
+func (q Queue) ShutDownEarly() {
+	q.log.Infof("shutdown early")
+	q.queue.ShutDown()
+}
+
 // Run the queue. This is synchronous, so should typically be called in a goroutine.
 func (q Queue) Run(stop <-chan struct{}) {
 	defer q.queue.ShutDown()
