@@ -1363,7 +1363,7 @@ spec:
 			kr := setupController(t, input...)
 			for _, sc := range tt.expectations {
 				t.Run(fmt.Sprintf("%v/%v", sc.name, sc.namespace), func(t *testing.T) {
-					got := kr.SecretAllowed(sc.name, sc.namespace)
+					got := kr.SecretAllowed(
 					if got != sc.allowed {
 						t.Fatalf("expected allowed=%v, got allowed=%v", sc.allowed, got)
 					}

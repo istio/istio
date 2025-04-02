@@ -1658,13 +1658,14 @@ func reportGatewayStatus(
 
 func reportListenerSetStatus(
 	r *GatewayContext,
+	parentGwObj *k8sbeta.Gateway,
 	obj *gatewayx.XListenerSet,
 	gs *gatewayx.ListenerSetStatus,
 	gatewayServices []string,
 	servers []*istio.Server,
 	gatewayErr *ConfigError,
 ) {
-	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
+	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
@@ -2172,7 +2173,7 @@ func namespacesFromSelector(ctx krt.HandlerContext, localNamespace string, names
 }
 
 // namespaceAcceptedByAllowListeners determines a list of allowed namespaces for a given AllowedListener
-func namespaceAcceptedByAllowListeners(ctx krt.HandlerContext, localNamespace string, namespaceCol krt.Collection[*corev1.Namespace], parent *k8sbeta.Gateway) bool {
+func namespaceAcceptedByAllowListeners(localNamespace string, parent *k8sbeta.Gateway, lookupNamespace func(string) *corev1.Namespace) bool {
 	lr := parent.Spec.AllowedListeners
 	// Default is to allow only the same namespace
 	// Default allows none
@@ -2201,7 +2202,7 @@ func namespaceAcceptedByAllowListeners(ctx krt.HandlerContext, localNamespace st
 	if err != nil {
 		return false
 	}
-	localNamespaceObject := ptr.Flatten(krt.FetchOne(ctx, namespaceCol, krt.FilterKey(localNamespace)))
+	localNamespaceObject := lookupNamespace(localNamespace)
 	if localNamespaceObject == nil {
 		// Couldn't find the namespace
 		return false

@@ -499,9 +499,9 @@ func (c *Controller) HasSynced() bool {
 	return true
 }
 
-func (c *Controller) SecretAllowed(resourceName string, namespace string) bool {
+func (c *Controller) SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool {
 	// TODO: this needs to check ListenerSet vs Gateway!!!
-	return c.outputs.ReferenceGrants.SecretAllowed(nil, gvk.Gateway, resourceName, namespace)
+	return c.outputs.ReferenceGrants.SecretAllowed(nil, ourKind, resourceName, namespace)
 }
 
 func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {

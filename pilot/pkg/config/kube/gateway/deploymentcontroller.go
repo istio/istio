@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"istio.io/istio/pkg/ptr"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
@@ -87,13 +89,15 @@ import (
 //   - SSA using standard API types doesn't work well either: https://github.com/kubernetes-sigs/controller-runtime/issues/1669
 //   - This leaves YAML templates, converted to unstructured types and Applied with the dynamic client.
 type DeploymentController struct {
-	client         kube.Client
-	clusterID      cluster.ID
-	env            *model.Environment
-	queue          controllers.Queue
-	patcher        patcher
-	gateways       kclient.Client[*gateway.Gateway]
-	gatewayClasses kclient.Client[*gateway.GatewayClass]
+	client              kube.Client
+	clusterID           cluster.ID
+	env                 *model.Environment
+	queue               controllers.Queue
+	patcher             patcher
+	gateways            kclient.Client[*gateway.Gateway]
+	gatewayClasses      kclient.Client[*gateway.GatewayClass]
+	listenerSets        kclient.Client[*gatewayx.XListenerSet]
+	listenerSetByParent kclient.Index[types.NamespacedName, *gatewayx.XListenerSet]
 
 	clients         map[schema.GroupVersionResource]getter
 	injectConfig    func() inject.WebhookConfig
@@ -242,6 +246,16 @@ func NewDeploymentController(
 		controllers.WithReconciler(dc.Reconcile),
 		controllers.WithMaxAttempts(5))
 
+	if features.EnableAlphaGatewayAPI {
+		dc.listenerSets = kclient.NewFiltered[*gatewayx.XListenerSet](client, filter)
+		dc.listenerSetByParent = kclient.CreateIndex(dc.listenerSets, func(o *gatewayx.XListenerSet) []types.NamespacedName {
+			return []types.NamespacedName{extractListenerSetParent(o)}
+		})
+		dc.listenerSets.AddEventHandler(controllers.TypedObjectHandler(func(o *gatewayx.XListenerSet) {
+			dc.queue.Add(extractListenerSetParent(o))
+		}))
+	}
+
 	// Set up a handler that will add the parent Gateway object onto the queue.
 	// The queue will only handle Gateway objects; if child resources (Service, etc) are updated we re-add
 	// the Gateway to the queue and reconcile the state of the world.
@@ -313,6 +327,15 @@ func NewDeploymentController(
 	dc.tagWatcher.AddHandler(dc.HandleTagChange)
 
 	return dc
+}
+
+func extractListenerSetParent(o *gatewayx.XListenerSet) types.NamespacedName {
+	n := o.Spec.ParentRef.Name
+	ns := ptr.OrDefault(o.Spec.ParentRef.Namespace, gatewayx.Namespace(o.Namespace))
+	return types.NamespacedName{
+		Namespace: string(ns),
+		Name:      string(n),
+	}
 }
 
 func (d *DeploymentController) Run(stop <-chan struct{}) {
@@ -412,12 +435,27 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	if o, f := gw.Annotations[annotation.NetworkingServiceType.Name]; f {
 		serviceType = corev1.ServiceType(o)
 	}
+	listenersFromListenerSets := []gateway.Listener{}
+	if d.listenerSets != nil {
+		sets := d.listenerSetByParent.Lookup(config.NamespacedName(&gw))
+		for _, set := range sets {
+			if !namespaceAcceptedByAllowListeners(set.Namespace, &gw, func(s string) *corev1.Namespace {
+				return d.namespaces.Get(s, "")
+			}) {
+				continue
+			}
+			for _, listener := range set.Spec.Listeners {
+				s := convertListenerSetToListener(listener)
+				listenersFromListenerSets = append(listenersFromListenerSets, s)
+			}
+		}
+	}
 
 	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: model.GetOrDefault(gw.Annotations[annotation.GatewayNameOverride.Name], defaultName),
 		ServiceAccount: model.GetOrDefault(gw.Annotations[annotation.GatewayServiceAccount.Name], defaultName),
-		Ports:          extractServicePorts(gw),
+		Ports:          extractServicePorts(gw, listenersFromListenerSets),
 		ClusterID:      d.clusterID.String(),
 
 		KubeVersion:               kube.GetVersionAsInt(d.client),
@@ -856,16 +894,17 @@ type TemplateInput struct {
 	GatewayNameLabel          string
 }
 
-func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
+func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []corev1.ServicePort {
 	tcp := strings.ToLower(string(protocol.TCP))
-	svcPorts := make([]corev1.ServicePort, 0, len(gw.Spec.Listeners)+1)
+	svcPorts := make([]corev1.ServicePort, 0, len(listenerSets) + len(gw.Spec.Listeners)+1)
 	svcPorts = append(svcPorts, corev1.ServicePort{
 		Name:        "status-port",
 		Port:        int32(15021),
 		AppProtocol: &tcp,
 	})
 	portNums := sets.New[int32]()
-	for i, l := range gw.Spec.Listeners {
+	allListeners := append(slices.Clone(gw.Spec.Listeners), listenerSets...)
+	for i, l := range allListeners {
 		if portNums.Contains(int32(l.Port)) {
 			continue
 		}

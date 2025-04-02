@@ -13,10 +13,9 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "istio-ingressgateway.istio-system.svc.domain.suffix"
-      not found in namespace "ns1", but it was found in namespace(s) "istio-system"'
-    reason: AddressNotUsable
-    status: "False"
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: Programmed
+    status: "True"
     type: Programmed
   listeners:
   - attachedRoutes: 0
@@ -64,10 +63,9 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "istio-ingressgateway.istio-system.svc.domain.suffix"
-      not found in namespace "ns2", but it was found in namespace(s) "istio-system"'
-    reason: AddressNotUsable
-    status: "False"
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
+    reason: Programmed
+    status: "True"
     type: Programmed
   listeners:
   - attachedRoutes: 0
@@ -145,10 +143,9 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "istio-ingressgateway.istio-system.svc.domain.suffix"
-      not found in namespace "ns2", but it was found in namespace(s) "istio-system"'
-    reason: AddressNotUsable
-    status: "False"
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
+    reason: Programmed
+    status: "True"
     type: Programmed
   listeners:
   - attachedRoutes: 0

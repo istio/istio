@@ -2544,21 +2544,14 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) {
 	}
 }
 
-// ReferenceAllowed determines if a given resource (of type `kind` and name `resourceName`) can be
+// SecretAllowed determines if a given resource (of type `Secret` and name `resourceName`) can be
 // accessed by `namespace`, based of specific reference policies.
 // Note: this function only determines if a reference is *explicitly* allowed; the reference may not require
 // explicit authorization to be made at all in most cases. Today, this only is for allowing cross-namespace
 // secret access.
-func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceName string, namespace string) bool {
-	// Currently, only Secret has reference policy, and only implemented by Gateway API controller.
-	switch kind {
-	case gvk.Secret:
-		if ps.GatewayAPIController != nil {
-			return ps.GatewayAPIController.SecretAllowed(resourceName, namespace)
-		}
-	default:
-	}
-	return false
+func (ps *PushContext) SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool {
+			return ps.GatewayAPIController.SecretAllowed(ourKind, resourceName, namespace)
+
 }
 
 func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string) []string {

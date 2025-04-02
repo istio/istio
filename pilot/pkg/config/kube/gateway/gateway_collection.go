@@ -128,7 +128,9 @@ func ListenerSetCollection(
 			return status, nil
 		}
 
-		if !namespaceAcceptedByAllowListeners(ctx, obj.Namespace, namespaces, parentGwObj) {
+		if !namespaceAcceptedByAllowListeners(obj.Namespace, parentGwObj, func(s string) *corev1.Namespace {
+			return ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(s)))
+		}) {
 			reportNotAllowedListenerSet(status, obj)
 			return status, nil
 		}
@@ -136,7 +138,7 @@ func ListenerSetCollection(
 		gatewayServices, err := extractGatewayServices(domainSuffix, parentGwObj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if it's a hard failure
-			reportListenerSetStatus(context, obj, status, gatewayServices, nil, err)
+			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err)
 			return status, nil
 		}
 
@@ -166,7 +168,9 @@ func ListenerSetCollection(
 					GroupVersionKind:  gvk.Gateway,
 					Name:              kubeconfig.InternalGatewayName(obj.Name, string(l.Name)),
 					Annotations:       meta,
-					Namespace:         obj.Namespace,
+					// Notable, we do NOT put the ListenerSet namespace here.
+					// Istio will not accept the cross-namespace (Gateway to Service) binding.
+					Namespace:         parentGwObj.Namespace,
 					Domain:            domainSuffix,
 				},
 				Spec: &istio.Gateway{
@@ -200,7 +204,7 @@ func ListenerSetCollection(
 			result = append(result, res)
 		}
 
-		reportListenerSetStatus(context, obj, status, gatewayServices, servers, err)
+		reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err)
 		return status, result
 	}, opts.WithName("ListenerSets")...)
 

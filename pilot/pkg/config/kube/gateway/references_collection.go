@@ -26,7 +26,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 )
 
-// Reference stores a reference to a namespaced GVK, as used by ReferencePolicy
+// Reference stores a reference to a namespaced GVK, as used by ReferenceGrant
 type Reference struct {
 	Kind      config.GroupVersionKind
 	Namespace gateway.Namespace

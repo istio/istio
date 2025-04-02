@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -196,6 +197,10 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 
 			cn := s.GetTls().GetCredentialName()
 			if cn != "" && proxy.VerifiedIdentity != nil {
+				gwKind := gvk.KubernetesGateway
+				if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.XListenerSet.Kind + "/") {
+					gwKind = gvk.XListenerSet
+				}
 				// Ignore BuiltinGatewaySecretTypeURI, as it is not referencing a Secret at all
 				if !strings.HasPrefix(cn, credentials.BuiltinGatewaySecretTypeURI) {
 					rn := credentials.ToResourceName(cn)
@@ -206,7 +211,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
 							verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
 						}
-					} else if ps.ReferenceAllowed(gvk.Secret, rn, proxy.VerifiedIdentity.Namespace) {
+					} else if ps.SecretAllowed(gwKind, rn, proxy.VerifiedIdentity.Namespace) {
 						// Explicitly allowed by some policy
 						verifiedCertificateReferences.Insert(rn)
 					}
