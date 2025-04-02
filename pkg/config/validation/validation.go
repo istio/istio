@@ -569,7 +569,9 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	}
 
 	if tls.Mode == networking.ServerTLSSettings_PASSTHROUGH || tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
-		if tls.CaCrl != "" || tls.ServerCertificate != "" || tls.PrivateKey != "" || tls.CaCertificates != "" || len(tls.TlsCertificates) > 0 || tls.CredentialName != "" || len(tls.CredentialNames) > 0 {
+		if tls.CaCrl != "" || tls.ServerCertificate != "" || tls.PrivateKey != "" ||
+			tls.CaCertificates != "" || len(tls.TlsCertificates) > 0 ||
+			tls.CredentialName != "" || len(tls.CredentialNames) > 0 {
 			// Warn for backwards compatibility
 			v = AppendWarningf(v, "%v mode does not use certificates, they will be ignored", tls.Mode)
 		}
@@ -593,7 +595,8 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 			},
 		}
 	}
-	if tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL || tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
+	if tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL ||
+		tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
 		validationPrefix := "SIMPLE TLS"
 		requireCACert := false
 		if tls.Mode == networking.ServerTLSSettings_MUTUAL || tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {

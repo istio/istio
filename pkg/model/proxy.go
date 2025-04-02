@@ -266,6 +266,12 @@ type NodeMetadata struct {
 	// PodPorts defines the ports on a pod. This is used to lookup named ports.
 	PodPorts PodPortList `json:"POD_PORTS,omitempty"`
 
+	// TLSServerCertChain is the absolute path to server cert-chain file
+	TLSServerCertChain string `json:"TLS_SERVER_CERT_CHAIN,omitempty"`
+	// TLSServerKey is the absolute path to server private key file
+	TLSServerKey string `json:"TLS_SERVER_KEY,omitempty"`
+	// TLSServerRootCert is the absolute path to server root cert file
+	TLSServerRootCert string `json:"TLS_SERVER_ROOT_CERT,omitempty"`
 	// TLSServerCertificates is the list of TLS certificates for the server
 	TLSServerCertificates []*TLSServerCertificate `json:"TLS_SERVER_CERTIFICATES,omitempty"`
 	// TLSClientCertChain is the absolute path to client cert-chain file
