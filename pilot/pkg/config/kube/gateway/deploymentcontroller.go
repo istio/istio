@@ -504,7 +504,7 @@ func extractInfrastructureMetadata(gwInfra *gatewayv1.GatewayInfrastructure, isL
 	if gwInfra != nil && !isLabel && gwInfra.Annotations != nil {
 		return translateInfraMeta(gwInfra.Annotations)
 	}
-	if features.EnableGatewayAPIInfrastructureStandardAttributeStrategy {
+	if features.EnableGatewayAPICopyLabelsAnnotations {
 		return make(map[string]string)
 	}
 	if isLabel {

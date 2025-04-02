@@ -534,7 +534,7 @@ metadata:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.standardAttributeStrategy != nil {
-				test.SetForTest(t, &features.EnableGatewayAPIInfrastructureStandardAttributeStrategy, *tt.standardAttributeStrategy)
+				test.SetForTest(t, &features.EnableGatewayAPICopyLabelsAnnotations, *tt.standardAttributeStrategy)
 			}
 			buf := &bytes.Buffer{}
 			client := kube.NewFakeClient(tt.objects...)
