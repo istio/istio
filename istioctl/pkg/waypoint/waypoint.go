@@ -488,17 +488,19 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 		if err != nil {
 			return err
 		}
+		waypoints := make(map[string]gateway.Gateway)
+		for _, gw := range gws.Items {
+			if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
+				continue
+			}
+			waypoints[gw.Name] = gw
+		}
 
 		for _, name := range names {
-			contain, gw := waypointContains(gws.Items, name)
-			if contain {
-				if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
-					fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
-					continue
-				}
-				nameList = append(nameList, gw.Name)
+			if _, ok := waypoints[name]; ok {
+				nameList = append(nameList, name)
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
+				fmt.Fprintf(cmd.OutOrStdout(), "waypoint %s/%s not found\n", namespace, name)
 			}
 		}
 	}
@@ -526,15 +528,6 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 
 	wg.Wait()
 	return multiErr.ErrorOrNil()
-}
-
-func waypointContains(gws []gateway.Gateway, value string) (contain bool, wp gateway.Gateway) {
-	for _, gw := range gws {
-		if gw.Name == value {
-			return true, gw
-		}
-	}
-	return false, gateway.Gateway{}
 }
 
 func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
