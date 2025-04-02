@@ -346,6 +346,8 @@ func (w Waypoint) AllowsAttachmentFromNamespaceOrLookup(ctx krt.HandlerContext, 
 		return w.AllowedRoutes.Selector.Matches(labels.Set(ns.GetLabels()))
 	case gatewayv1.NamespacesFromSame:
 		return w.Namespace == namespace
+	case gatewayv1.NamespacesFromNone:
+		return false
 	default:
 		// Should be impossible
 		return w.Namespace == namespace
@@ -360,6 +362,8 @@ func (w Waypoint) AllowsAttachmentFromNamespace(namespace *v1.Namespace) bool {
 		return w.AllowedRoutes.Selector.Matches(labels.Set(namespace.GetLabels()))
 	case gatewayv1.NamespacesFromSame:
 		return w.Namespace == namespace.Name
+	case gatewayv1.NamespacesFromNone:
+		return false
 	default:
 		// Should be impossible
 		return w.Namespace == namespace.Name

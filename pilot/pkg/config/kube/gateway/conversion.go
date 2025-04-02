@@ -2024,6 +2024,9 @@ func namespacesFromSelector(ctx krt.HandlerContext, localNamespace string, names
 	if lr == nil || lr.Namespaces == nil || lr.Namespaces.From == nil || *lr.Namespaces.From == k8s.NamespacesFromSame {
 		return []string{localNamespace}
 	}
+	if *lr.Namespaces.From == k8s.NamespacesFromNone {
+		return nil
+	}
 	if *lr.Namespaces.From == k8s.NamespacesFromAll {
 		return []string{"*"}
 	}
