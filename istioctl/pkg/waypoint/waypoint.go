@@ -17,6 +17,7 @@ package waypoint
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -26,7 +27,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
@@ -250,7 +251,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				FieldManager: "istioctl",
 			})
 			if err != nil {
-				if errors.IsNotFound(err) {
+				if kerrors.IsNotFound(err) {
 					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint: %s", err)
 				}
 				return err
@@ -481,7 +482,7 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 			defer wg.Done()
 			if err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).
 				Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
-				if errors.IsNotFound(err) {
+				if kerrors.IsNotFound(err) {
 					fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
 				} else {
 					mu.Lock()
@@ -537,7 +538,7 @@ func namespaceHasLabelWithValue(kubeClient kube.CLIClient, ns string, label, lab
 
 func getNamespace(kubeClient kube.CLIClient, ns string) (*corev1.Namespace, error) {
 	nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
+	if kerrors.IsNotFound(err) {
 		return nil, fmt.Errorf("namespace: %s not found", ns)
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get namespace %s: %v", ns, err)
@@ -550,7 +551,7 @@ func errorWithMessage(errMsg string, gwc *gateway.Gateway, err error) error {
 	if err != nil {
 		errorMsg += fmt.Sprintf(": %s", err)
 	}
-	return fmt.Errorf(errorMsg)
+	return errors.New(errorMsg)
 }
 
 func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.CLIClient, gw []gateway.Gateway) error {

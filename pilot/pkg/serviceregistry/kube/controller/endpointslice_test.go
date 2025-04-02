@@ -87,7 +87,7 @@ func TestEndpointSliceCache(t *testing.T) {
 		t.Fatalf("unexpected endpoints")
 	}
 	if !cache.Has(hostname) {
-		t.Fatalf("expect to find the host name")
+		t.Fatal("expect to find the host name")
 	}
 	// add a new endpoint
 	ep2 := &model.IstioEndpoint{
@@ -131,12 +131,12 @@ func TestEndpointSliceCache(t *testing.T) {
 
 	cache.Delete(hostname, "slice1")
 	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep2, ep3}) {
-		t.Fatalf("unexpected endpoints")
+		t.Fatal("unexpected endpoints")
 	}
 
 	cache.Delete(hostname, "slice2")
 	if cache.Get(hostname) != nil {
-		t.Fatalf("unexpected endpoints")
+		t.Fatal("unexpected endpoints")
 	}
 }
 

@@ -554,7 +554,7 @@ func createHosts(kubeClient kube.CLIClient, istioNamespace, ingressIP, dir strin
 		}
 		ingress, err := kubeClient.Kube().CoreV1().Services(ingressNs).Get(context.Background(), ingressSvc, metav1.GetOptions{})
 		if err == nil {
-			if ingress.Status.LoadBalancer.Ingress != nil && len(ingress.Status.LoadBalancer.Ingress) > 0 {
+			if len(ingress.Status.LoadBalancer.Ingress) > 0 {
 				ingressIP = ingress.Status.LoadBalancer.Ingress[0].IP
 			} else if len(ingress.Spec.ExternalIPs) > 0 {
 				ingressIP = ingress.Spec.ExternalIPs[0]

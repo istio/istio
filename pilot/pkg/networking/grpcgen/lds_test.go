@@ -128,7 +128,7 @@ func TestListenerNameFilter(t *testing.T) {
 			sort.Strings(gotInbound)
 			sort.Strings(tt.wantInbound)
 			if diff := cmp.Diff(gotInbound, tt.wantInbound); diff != "" {
-				t.Fatalf(diff)
+				t.Fatal(diff)
 			}
 		})
 	}

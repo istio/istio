@@ -307,7 +307,7 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	if err := s.initIstiodCertLoader(); err != nil {
-		t.Fatalf("istiod unable to load its cert")
+		t.Fatal("istiod unable to load its cert")
 	}
 
 	if err := s.server.Start(stop); err != nil {
@@ -690,12 +690,12 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 			}
 			cert, certErr := util.ParsePemEncodedCertificate(rotatedCertBytes)
 			if certErr != nil {
-				t.Fatalf("rotated cert is not valid")
+				t.Fatal("rotated cert is not valid")
 			}
 			currTime := time.Now()
 			timeToExpire := cert.NotAfter.Sub(currTime)
 			if timeToExpire < 0 {
-				t.Fatalf("rotated cert is already expired")
+				t.Fatal("rotated cert is already expired")
 			}
 		})
 	}
@@ -705,11 +705,11 @@ func checkCert(t *testing.T, s *Server, cert, key []byte) bool {
 	t.Helper()
 	actual, err := s.getIstiodCertificate(nil)
 	if err != nil {
-		t.Fatalf("fail to load fetch certs.")
+		t.Fatal("fail to load fetch certs.")
 	}
 	expected, err := tls.X509KeyPair(cert, key)
 	if err != nil {
-		t.Fatalf("fail to load test certs.")
+		t.Fatal("fail to load test certs.")
 	}
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
 }

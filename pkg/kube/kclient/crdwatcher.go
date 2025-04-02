@@ -157,7 +157,7 @@ func (c *crdWatcher) KnownOrCallback(s schema.GroupVersionResource, f func(stop 
 	name := fmt.Sprintf("%s.%s", s.Resource, s.Group)
 	c.callbacks[name] = append(c.callbacks[name], func() {
 		if features.EnableUnsafeAssertions && c.stop == nil {
-			log.Fatalf("CRD Watcher callback called without stop set")
+			log.Fatal("CRD Watcher callback called without stop set")
 		}
 		// Call the callback
 		f(c.stop)

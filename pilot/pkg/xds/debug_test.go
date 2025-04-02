@@ -215,7 +215,7 @@ func getConfigDump(t *testing.T, s *xds.DiscoveryServer, proxyID string, wantCod
 	}
 	got := &configdump.Wrapper{}
 	if err := got.UnmarshalJSON(rr.Body.Bytes()); err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	return got
 }

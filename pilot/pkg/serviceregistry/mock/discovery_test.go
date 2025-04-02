@@ -28,7 +28,7 @@ func TestMakeIP(t *testing.T) {
 	HelloInstanceV0 := MakeIP(HelloService, 0)
 
 	if HelloInstanceV0 != "10.1.1.0" {
-		t.Fatalf("MakeIP() can not handle ip4 address.")
+		t.Fatal("MakeIP() can not handle ip4 address.")
 	}
 
 	HelloService1 := MakeService(ServiceArgs{
@@ -39,7 +39,7 @@ func TestMakeIP(t *testing.T) {
 	})
 	HelloInstanceV1 := MakeIP(HelloService1, 0)
 	if HelloInstanceV1 != "" {
-		t.Fatalf("MakeIP() can not handle string not the ip address.")
+		t.Fatal("MakeIP() can not handle string not the ip address.")
 	}
 
 	HelloService2 := MakeService(ServiceArgs{
@@ -50,6 +50,6 @@ func TestMakeIP(t *testing.T) {
 	})
 	HelloInstanceV2 := MakeIP(HelloService2, 0)
 	if HelloInstanceV2 != "192.1.1.0" {
-		t.Fatalf("MakeIP() can not handle ip6 address.")
+		t.Fatal("MakeIP() can not handle ip6 address.")
 	}
 }

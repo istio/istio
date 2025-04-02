@@ -318,17 +318,17 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 
 	workloadCertBlock, _ := pem.Decode([]byte(validWorkloadCert))
 	if workloadCertBlock == nil {
-		t.Fatalf("failed to decode workload PEM cert")
+		t.Fatal("failed to decode workload PEM cert")
 	}
 	intCertBlock, _ := pem.Decode([]byte(validIntCert))
 	if intCertBlock == nil {
-		t.Fatalf("failed to decode intermediate PEM cert")
+		t.Fatal("failed to decode intermediate PEM cert")
 	}
 	serverCert := [][]byte{workloadCertBlock.Bytes, intCertBlock.Bytes}
 
 	keyBlock, _ := pem.Decode([]byte(validWorkloadKey))
 	if keyBlock == nil {
-		t.Fatalf("failed to parse PEM block containing the workload private key")
+		t.Fatal("failed to parse PEM block containing the workload private key")
 	}
 
 	privateKey, err := x509.ParsePKCS1PrivateKey(keyBlock.Bytes)
@@ -396,11 +396,11 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 				for _, certStr := range certStrs {
 					block, _ := pem.Decode([]byte(certStr))
 					if block == nil {
-						t.Fatalf("Can't decode the root cert.")
+						t.Fatal("Can't decode the root cert.")
 					}
 					rootCert, err := x509.ParseCertificate(block.Bytes)
 					if err != nil {
-						t.Fatalf("Failed to parse certificate: " + err.Error())
+						t.Fatal("Failed to parse certificate: " + err.Error())
 					}
 					certMap[trustDomain] = append(certMap[trustDomain], rootCert)
 				}
@@ -409,7 +409,7 @@ func TestGetGeneralCertPoolAndVerifyPeerCert(t *testing.T) {
 			verifier := NewPeerCertVerifier()
 			verifier.AddMappings(certMap)
 			if verifier == nil {
-				t.Fatalf("Failed to create peer cert verifier.")
+				t.Fatal("Failed to create peer cert verifier.")
 			}
 			client := &http.Client{
 				Timeout: time.Second,

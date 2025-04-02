@@ -31,11 +31,11 @@ func TestJwtHTTPServer(t *testing.T) {
 	httpClient := &http.Client{}
 	httpReq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%d/jwtkeys", <-server.httpPort), nil)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	resp, err := httpClient.Do(httpReq)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -73,12 +73,12 @@ func TestJwtHTTPSServer(t *testing.T) {
 
 	httpsReq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://localhost:%d/jwtkeys", <-server.httpsPort), nil)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 
 	resp, err := httpsClient.Do(httpsReq)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err.Error())
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {

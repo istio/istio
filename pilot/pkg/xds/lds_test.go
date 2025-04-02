@@ -324,7 +324,7 @@ func expectLuaFilter(t *testing.T, l *listener.Listener, expected bool) {
 			}
 		}
 		if chain == nil {
-			t.Fatalf("Failed to find http_connection_manager")
+			t.Fatal("Failed to find http_connection_manager")
 		}
 		if len(chain.Filters) != 1 {
 			t.Fatalf("Expected 1 filter in first filter chain, got %d", len(l.FilterChains))

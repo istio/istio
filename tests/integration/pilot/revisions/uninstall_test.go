@@ -19,6 +19,7 @@ package revisions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -151,7 +152,7 @@ spec:
 				cs := t.Clusters().Default()
 				objs, _ := getRemainingResourcesCluster(cs, gvr.MutatingWebhookConfiguration, ls)
 				if len(objs) == 0 {
-					t.Fatalf("expected custom webhook to exist")
+					t.Fatal("expected custom webhook to exist")
 				}
 			}
 
@@ -230,7 +231,7 @@ func inspectRemainingResources(reItemList []unstructured.Unstructured, reStrList
 			msg := fmt.Sprintf("resources expected to be pruned but still exist in the cluster: %s",
 				strings.Join(reStrList, " "))
 			scopes.Framework.Warnf(msg)
-			return fmt.Errorf(msg)
+			return errors.New(msg)
 		}
 		return nil
 	}

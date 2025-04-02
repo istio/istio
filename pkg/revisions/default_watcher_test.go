@@ -59,7 +59,7 @@ func expectRevisionChan(t test.Failer, revisionChan chan string, expected string
 			t.Fatalf("expected revision %q to be produced on chan, got %q", expected, rev)
 		}
 	case <-time.After(time.Second * 5):
-		t.Fatalf("timed out waiting for value on default revision chan")
+		t.Fatal("timed out waiting for value on default revision chan")
 	}
 }
 
