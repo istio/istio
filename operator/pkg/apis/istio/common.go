@@ -15,6 +15,7 @@
 package istio
 
 import (
+	"errors"
 	"fmt"
 
 	"sigs.k8s.io/yaml"
@@ -34,7 +35,7 @@ func UnmarshalAndValidateIOPS(iopsYAML string) (*v1alpha1.IstioOperatorSpec, err
 		return nil, fmt.Errorf("could not unmarshal the merged YAML: %s\n\nYAML:\n%s", err, iopsYAML)
 	}
 	if errs := validate.CheckIstioOperatorSpec(iops, true); len(errs) != 0 {
-		return iops, fmt.Errorf(errs.Error())
+		return iops, errors.New(errs.Error())
 	}
 	return iops, nil
 }

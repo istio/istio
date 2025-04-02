@@ -969,7 +969,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 				if diff != "" {
 					t.Fatalf("%s: got:\n%s\nwant:\n%s\n(-got, +want)\n%s\n", tt.desc, "", "", diff)
 				}
-				t.Fatalf(cmp.Diff(got, want))
+				t.Fatal(cmp.Diff(got, want))
 			}
 		})
 	}
