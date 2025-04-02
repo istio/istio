@@ -64,8 +64,8 @@ import (
 )
 
 var (
-	standardAttributeStrategyEnabled  = true
-	standardAttributeStrategyDisabled = false
+	copyLabelsAnnotationsEnabled  = true
+	copyLabelsAnnotationsDisabled = false
 )
 
 func TestConfigureIstioGateway(t *testing.T) {
@@ -135,14 +135,14 @@ func TestConfigureIstioGateway(t *testing.T) {
 	}
 	proxyConfig := model.GetProxyConfigs(store, mesh.DefaultMeshConfig())
 	tests := []struct {
-		name                      string
-		gw                        k8sbeta.Gateway
-		objects                   []runtime.Object
-		pcs                       *model.ProxyConfigs
-		values                    string
-		discoveryNamespaceFilter  kubetypes.DynamicObjectFilter
-		ignore                    bool
-		standardAttributeStrategy *bool
+		name                     string
+		gw                       k8sbeta.Gateway
+		objects                  []runtime.Object
+		pcs                      *model.ProxyConfigs
+		values                   string
+		discoveryNamespaceFilter kubetypes.DynamicObjectFilter
+		ignore                   bool
+		copyLabelsAnnotations    *bool
 	}{
 		{
 			name: "simple",
@@ -479,7 +479,7 @@ metadata:
 			values: ``,
 		},
 		{
-			name: "infra-strategy-enabled-infra-set",
+			name: "copy-labels-annotations-disabled-infra-set",
 			gw: k8sbeta.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
@@ -490,16 +490,32 @@ metadata:
 				Spec: k8s.GatewaySpec{
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
 					Infrastructure: &k8s.GatewayInfrastructure{
-						Labels:      map[k8s.LabelKey]k8s.LabelValue{"infra": "label"},
-						Annotations: map[k8s.AnnotationKey]k8s.AnnotationValue{"infra": "annotation"},
+						Labels:      map[k8s.LabelKey]k8s.LabelValue{"should": "see-infra-label"},
+						Annotations: map[k8s.AnnotationKey]k8s.AnnotationValue{"should": "see-infra-annotation"},
 					},
 				},
 			},
-			objects:                   defaultObjects,
-			standardAttributeStrategy: &standardAttributeStrategyEnabled,
+			objects:               defaultObjects,
+			copyLabelsAnnotations: &copyLabelsAnnotationsDisabled,
 		},
 		{
-			name: "infra-strategy-enabled-infra-nil",
+			name: "copy-labels-annotations-disabled-infra-nil",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default",
+					Namespace:   "default",
+					Labels:      map[string]string{"should-not": "see"},
+					Annotations: map[string]string{"should-not": "see"},
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+				},
+			},
+			objects:               defaultObjects,
+			copyLabelsAnnotations: &copyLabelsAnnotationsDisabled,
+		},
+		{
+			name: "copy-labels-annotations-enabled-infra-nil",
 			gw: k8sbeta.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
@@ -511,30 +527,14 @@ metadata:
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
 				},
 			},
-			objects:                   defaultObjects,
-			standardAttributeStrategy: &standardAttributeStrategyEnabled,
-		},
-		{
-			name: "infra-strategy-disabled-infra-nil",
-			gw: k8sbeta.Gateway{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "default",
-					Namespace:   "default",
-					Labels:      map[string]string{"should": "see"},
-					Annotations: map[string]string{"should": "see"},
-				},
-				Spec: k8s.GatewaySpec{
-					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
-				},
-			},
-			objects:                   defaultObjects,
-			standardAttributeStrategy: &standardAttributeStrategyDisabled,
+			objects:               defaultObjects,
+			copyLabelsAnnotations: &copyLabelsAnnotationsEnabled,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.standardAttributeStrategy != nil {
-				test.SetForTest(t, &features.EnableGatewayAPICopyLabelsAnnotations, *tt.standardAttributeStrategy)
+			if tt.copyLabelsAnnotations != nil {
+				test.SetForTest(t, &features.EnableGatewayAPICopyLabelsAnnotations, *tt.copyLabelsAnnotations)
 			}
 			buf := &bytes.Buffer{}
 			client := kube.NewFakeClient(tt.objects...)

@@ -8,12 +8,12 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   annotations:
-    infra: annotation
+    should: see-infra-annotation
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
-    infra: label
     istio.io/dataplane-mode: none
+    should: see-infra-label
   name: default-istio
   namespace: default
   ownerReferences:
@@ -26,12 +26,12 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    infra: annotation
+    should: see-infra-annotation
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
-    infra: label
     istio.io/dataplane-mode: none
+    should: see-infra-label
   name: default-istio
   namespace: default
   ownerReferences:
@@ -46,18 +46,18 @@ spec:
   template:
     metadata:
       annotations:
-        infra: annotation
         istio.io/rev: default
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
+        should: see-infra-annotation
       labels:
         gateway.istio.io/managed: istio.io-gateway-controller
         gateway.networking.k8s.io/gateway-name: default
-        infra: label
         istio.io/dataplane-mode: none
         service.istio.io/canonical-name: default-istio
         service.istio.io/canonical-revision: latest
+        should: see-infra-label
         sidecar.istio.io/inject: "false"
     spec:
       containers:
@@ -227,12 +227,12 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    infra: annotation
+    should: see-infra-annotation
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
-    infra: label
     istio.io/dataplane-mode: none
+    should: see-infra-label
   name: default-istio
   namespace: default
   ownerReferences:
