@@ -211,6 +211,14 @@ func validateMetadata(f ValidateFunc) ValidateFunc {
 		if _, f := config.Annotations[constants.AlwaysReject]; f {
 			return nil, fmt.Errorf("%q annotation found, rejecting", constants.AlwaysReject)
 		}
+		if _, f := config.Annotations[constants.InternalParentNamespace]; f {
+			// This internal annotation escalations privileges; ban it from use for external resources.
+			return nil, fmt.Errorf("%q annotation found, this may not be set by users", constants.InternalParentNamespace)
+		}
+		if _, f := config.Annotations[constants.InternalParentNames]; f {
+			// This internal annotation escalations privileges; ban it from use for external resources.
+			return nil, fmt.Errorf("%q annotation found, this may not be set by users", constants.InternalParentNames)
+		}
 		return f(config)
 	}
 }
