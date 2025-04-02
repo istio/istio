@@ -87,7 +87,28 @@ var services = []*model.Service{
 				},
 			},
 		},
-		Ports:    ports,
+		Ports: []*model.Port{
+			{
+				Name:     "http",
+				Port:     80,
+				Protocol: "HTTP",
+			},
+			{
+				Name:     "https",
+				Port:     443,
+				Protocol: "HTTPS",
+			},
+			{
+				Name:     "tcp",
+				Port:     34000,
+				Protocol: "TCP",
+			},
+			{
+				Name:     "tcp-other",
+				Port:     34001,
+				Protocol: "TCP",
+			},
+		},
 		Hostname: "istio-ingressgateway.istio-system.svc.domain.suffix",
 	},
 	{
@@ -398,6 +419,36 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 		},
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:      "ns2-cert",
+				Namespace: "ns2",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "ns3-cert",
+				Namespace: "ns3",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "ns4-cert",
+				Namespace: "ns4",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-cert-http2",
 				Namespace: "istio-system",
 			},
@@ -579,6 +630,15 @@ func TestConvertResources(t *testing.T) {
 		{name: "backend-lb-policy"},
 		{name: "backend-tls-policy"},
 		{name: "mix-backend-policy"},
+		{name: "listenerset"},
+		{name: "listenerset-cross-namespace"},
+		{name: "listenerset-invalid"},
+		{
+			name: "listenerset-empty-listeners",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"istio-system/parent-gateway",
+			),
+		},
 		{
 			name: "valid-invalid-parent-ref",
 			validationIgnorer: crdvalidation.NewValidationIgnorer(
@@ -590,25 +650,23 @@ func TestConvertResources(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			stop := test.NewStop(t)
-			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator, nil)
+			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator, tt.validationIgnorer)
 			kc := kube.NewFakeClient(input...)
 			setupClientCRDs(t, kc)
 			// Setup a few preconfigured services
 			instances := []*model.ServiceInstance{}
 			for _, svc := range services {
-				instances = append(instances, &model.ServiceInstance{
-					Service:     svc,
-					ServicePort: ports[0],
-					Endpoint:    &model.IstioEndpoint{EndpointPort: 8080},
-				}, &model.ServiceInstance{
-					Service:     svc,
-					ServicePort: ports[1],
-					Endpoint:    &model.IstioEndpoint{},
-				}, &model.ServiceInstance{
-					Service:     svc,
-					ServicePort: ports[2],
-					Endpoint:    &model.IstioEndpoint{},
-				})
+				for i, port := range svc.Ports {
+					epPort := uint32(0)
+					if i == 0 {
+						epPort = 8080 // Just to make sure we test mismatch
+					}
+					instances = append(instances, &model.ServiceInstance{
+						Service:     svc,
+						ServicePort: port,
+						Endpoint:    &model.IstioEndpoint{EndpointPort: epPort},
+					})
+				}
 			}
 			cg := core.NewConfigGenTest(t, core.TestOptions{
 				Services:  services,
@@ -657,6 +715,7 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 	for _, crd := range []schema.GroupVersionResource{
 		gvr.KubernetesGateway,
 		gvr.ReferenceGrant,
+		gvr.XListenerSet,
 		gvr.GatewayClass,
 		gvr.HTTPRoute,
 		gvr.GRPCRoute,
@@ -1376,7 +1435,7 @@ spec:
 			kr := setupController(t, input...)
 			for _, sc := range tt.expectations {
 				t.Run(fmt.Sprintf("%v/%v", sc.name, sc.namespace), func(t *testing.T) {
-					got := kr.SecretAllowed(sc.name, sc.namespace)
+					got := kr.SecretAllowed(gvk.KubernetesGateway, sc.name, sc.namespace)
 					if got != sc.allowed {
 						t.Fatalf("expected allowed=%v, got allowed=%v", sc.allowed, got)
 					}
