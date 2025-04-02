@@ -160,6 +160,7 @@ func ListenerSetCollection(
 			meta := parentMeta(obj, &l.Name)
 			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
+			meta[constants.InternalParentNamespace] = parentGwObj.Namespace
 
 			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
 			gatewayConfig := config.Config{
@@ -168,9 +169,7 @@ func ListenerSetCollection(
 					GroupVersionKind:  gvk.Gateway,
 					Name:              kubeconfig.InternalGatewayName(obj.Name, string(l.Name)),
 					Annotations:       meta,
-					// Notable, we do NOT put the ListenerSet namespace here.
-					// Istio will not accept the cross-namespace (Gateway to Service) binding.
-					Namespace:         parentGwObj.Namespace,
+					Namespace:         obj.Namespace,
 					Domain:            domainSuffix,
 				},
 				Spec: &istio.Gateway{

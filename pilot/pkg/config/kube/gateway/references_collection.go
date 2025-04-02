@@ -41,7 +41,7 @@ type ReferencePair struct {
 }
 
 func (r ReferencePair) String() string {
-	return fmt.Sprintf("%s->%s", r.To, r.From)
+	return fmt.Sprintf("%s->%s", r.From, r.To)
 }
 
 type ReferenceGrants struct {

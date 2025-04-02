@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
@@ -2408,9 +2409,10 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
 			gwsvcs := strings.Split(gwsvcstr, ",")
 			known := sets.New[string](gwsvcs...)
+			cfgNamespace := ptr.NonEmptyOrDefault(cfg.Annotations[constants.InternalParentNamespace], cfg.Namespace)
 			matchingInstances := make([]ServiceTarget, 0, len(proxy.ServiceTargets))
 			for _, si := range proxy.ServiceTargets {
-				if _, f := known[string(si.Service.Hostname)]; f && si.Service.Attributes.Namespace == cfg.Namespace {
+				if _, f := known[string(si.Service.Hostname)]; f && si.Service.Attributes.Namespace == cfgNamespace {
 					matchingInstances = append(matchingInstances, si)
 				}
 			}
@@ -2550,8 +2552,7 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) {
 // explicit authorization to be made at all in most cases. Today, this only is for allowing cross-namespace
 // secret access.
 func (ps *PushContext) SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool {
-			return ps.GatewayAPIController.SecretAllowed(ourKind, resourceName, namespace)
-
+	return ps.GatewayAPIController.SecretAllowed(ourKind, resourceName, namespace)
 }
 
 func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string) []string {

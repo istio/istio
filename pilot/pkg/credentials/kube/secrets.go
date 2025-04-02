@@ -111,9 +111,6 @@ func NewCredentialsController(kc kube.Client, handlers []func(typ kind.Kind, nam
 				h(kind.ConfigMap, o.GetName(), o.GetNamespace())
 			}
 		}))
-		configMaps.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-			h(o.GetName(), o.GetNamespace())
-		}))
 	}
 
 	return &CredentialsController{

@@ -500,7 +500,6 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool {
-	// TODO: this needs to check ListenerSet vs Gateway!!!
 	return c.outputs.ReferenceGrants.SecretAllowed(nil, ourKind, resourceName, namespace)
 }
 
