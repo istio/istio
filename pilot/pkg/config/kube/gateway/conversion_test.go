@@ -397,6 +397,16 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 		},
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-cert-http2",
+				Namespace: "istio-system",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cert",
 				Namespace: "cert",
 			},

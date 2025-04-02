@@ -1912,24 +1912,38 @@ func buildTLS(
 				Message: "TLS mode can only support up to 2 server certificates",
 			}
 		}
-		out.CredentialNames = make([]string, len(tls.CertificateRefs))
+		credNames := make([]string, len(tls.CertificateRefs))
+		validCertCount := 0
+		var combinedErr *ConfigError
 		for i, certRef := range tls.CertificateRefs {
 			cred, err := buildSecretReference(ctx, certRef, gw, secrets)
 			if err != nil {
-				return out, err
+				combinedErr = joinErrors(combinedErr, err)
+				continue
 			}
 			credNs := ptr.OrDefault((*string)(certRef.Namespace), namespace)
 			sameNamespace := credNs == namespace
 			if !sameNamespace && !grants.SecretAllowed(ctx, creds.ToResourceName(cred), namespace) {
-				return out, &ConfigError{
+				combinedErr = joinErrors(combinedErr, &ConfigError{
 					Reason: InvalidListenerRefNotPermitted,
 					Message: fmt.Sprintf(
 						"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
 						tls.CertificateRefs[0].Name, credNs, namespace,
 					),
-				}
+				})
+				continue
 			}
-			out.CredentialNames[i] = cred
+			credNames[i] = cred
+			validCertCount++
+		}
+		if validCertCount == 0 {
+			// If we have no valid certificates, return an error
+			return out, combinedErr
+		}
+		if validCertCount == 1 {
+			out.CredentialName = credNames[0]
+		} else {
+			out.CredentialNames = credNames
 		}
 	case k8s.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
