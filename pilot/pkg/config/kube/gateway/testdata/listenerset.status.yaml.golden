@@ -260,6 +260,11 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
+    message: At least one ListenerSet is attached
+    reason: ListenersAttached
+    status: "True"
+    type: AttachedListenerSets
+  - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
       and istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed

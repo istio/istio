@@ -11,6 +11,9 @@ metadata:
   name: parent-gateway
   namespace: istio-system
 spec:
+  allowedListeners:
+    namespaces:
+      from: All
   addresses:
   - value: istio-ingressgateway
     type: Hostname

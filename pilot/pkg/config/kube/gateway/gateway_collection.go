@@ -128,10 +128,15 @@ func ListenerSetCollection(
 			return status, nil
 		}
 
+		if !namespaceAcceptedByAllowListeners(ctx, obj.Namespace, namespaces, parentGwObj) {
+			reportNotAllowedListenerSet(status, obj)
+			return status, nil
+		}
+
 		gatewayServices, err := extractGatewayServices(domainSuffix, parentGwObj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if it's a hard failure
-			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err)
+			reportListenerSetStatus(context, obj, status, gatewayServices, nil, err)
 			return status, nil
 		}
 
@@ -195,7 +200,7 @@ func ListenerSetCollection(
 			result = append(result, res)
 		}
 
-		reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err)
+		reportListenerSetStatus(context, obj, status, gatewayServices, servers, err)
 		return status, result
 	}, opts.WithName("ListenerSets")...)
 
@@ -252,7 +257,7 @@ func GatewayCollection(
 		gatewayServices, err := extractGatewayServices(domainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err)
 			return status, nil
 		}
 
@@ -319,7 +324,7 @@ func GatewayCollection(
 			})
 		}
 
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, err)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenersFromSets), err)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 

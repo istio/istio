@@ -1558,6 +1558,7 @@ func reportGatewayStatus(
 	classInfo classInfo,
 	gatewayServices []string,
 	servers []*istio.Server,
+	listenerSetCount int,
 	gatewayErr *ConfigError,
 ) {
 	// TODO: we lose address if servers is empty due to an error
@@ -1577,6 +1578,26 @@ func reportGatewayStatus(
 			reason:  string(k8s.GatewayReasonProgrammed),
 			message: "Resource programmed",
 		},
+	}
+	// Not defined in upstream API
+	const AttachedListenerSets = "AttachedListenerSets"
+	if obj.Spec.AllowedListeners != nil {
+		gatewayConditions[AttachedListenerSets] = &condition{
+			reason:  "ListenersAttached",
+			message: "At least one ListenerSet is attached",
+		}
+		if !features.EnableAlphaGatewayAPI {
+			gatewayConditions[AttachedListenerSets].error = &ConfigError{
+				Reason: "Unsupported",
+				Message: fmt.Sprintf("AllowedListeners is configured, but ListenerSets are not enabled (set %v=true)",
+					features.EnableAlphaGatewayAPIName),
+			}
+		} else if listenerSetCount == 0 {
+			gatewayConditions[AttachedListenerSets].error = &ConfigError{
+				Reason:  "NoListenersAttached",
+				Message: fmt.Sprintf("AllowedListeners is configured, but no ListenerSets are attached"),
+			}
+		}
 	}
 
 	if gatewayErr != nil {
@@ -1636,7 +1657,6 @@ func reportGatewayStatus(
 
 func reportListenerSetStatus(
 	r *GatewayContext,
-	parent *k8sbeta.Gateway,
 	obj *gatewayx.XListenerSet,
 	gs *gatewayx.ListenerSetStatus,
 	gatewayServices []string,
@@ -1756,6 +1776,28 @@ func reportUnsupportedListenerSet(class string, status *gatewayx.ListenerSetStat
 			error: &ConfigError{
 				Reason:  string(gatewayx.ListenerSetReasonNotAllowed),
 				Message: fmt.Sprintf("The %q GatewayClass does not support ListenerSet", class),
+			},
+		},
+	}
+	status.Listeners = nil
+	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
+}
+
+// reportNotAllowedListenerSet reports a status message for a ListenerSet that is not allowed to be selected
+func reportNotAllowedListenerSet(status *gatewayx.ListenerSetStatus, obj *gatewayx.XListenerSet) {
+	gatewayConditions := map[string]*condition{
+		string(k8s.GatewayConditionAccepted): {
+			reason: string(k8s.GatewayReasonAccepted),
+			error: &ConfigError{
+				Reason:  string(gatewayx.ListenerSetReasonNotAllowed),
+				Message: "The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'",
+			},
+		},
+		string(k8s.GatewayConditionProgrammed): {
+			reason: string(k8s.GatewayReasonProgrammed),
+			error: &ConfigError{
+				Reason:  string(gatewayx.ListenerSetReasonNotAllowed),
+				Message: "The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'",
 			},
 		},
 	}
@@ -2126,6 +2168,44 @@ func namespacesFromSelector(ctx krt.HandlerContext, localNamespace string, names
 	// Ensure stable order
 	sort.Strings(namespaces)
 	return namespaces
+}
+
+// namespaceAcceptedByAllowListeners determines a list of allowed namespaces for a given AllowedListener
+func namespaceAcceptedByAllowListeners(ctx krt.HandlerContext, localNamespace string, namespaceCol krt.Collection[*corev1.Namespace], parent *k8sbeta.Gateway) bool {
+	lr := parent.Spec.AllowedListeners
+	// Default is to allow only the same namespace
+	// Default allows none
+	if lr == nil || lr.Namespaces == nil {
+		return false
+	}
+	n := *lr.Namespaces
+	if n.From != nil {
+		switch *n.From {
+		case k8s.NamespacesFromAll:
+			return true
+		case k8s.NamespacesFromSame:
+			return localNamespace == parent.Namespace
+		case k8s.NamespacesFromNone:
+			return false
+		default:
+			// Unknown?
+			return false
+		}
+	}
+	if lr.Namespaces.Selector == nil {
+		// Should never happen, invalid config
+		return false
+	}
+	ls, err := metav1.LabelSelectorAsSelector(lr.Namespaces.Selector)
+	if err != nil {
+		return false
+	}
+	localNamespaceObject := ptr.Flatten(krt.FetchOne(ctx, namespaceCol, krt.FilterKey(localNamespace)))
+	if localNamespaceObject == nil {
+		// Couldn't find the namespace
+		return false
+	}
+	return ls.Matches(toNamespaceSet(localNamespaceObject.Name, localNamespaceObject.Labels))
 }
 
 func humanReadableJoin(ss []string) string {
