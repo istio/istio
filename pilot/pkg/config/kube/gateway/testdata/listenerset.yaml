@@ -102,3 +102,58 @@ spec:
     - name: fifth
       hostname: fifth.foo.com
       protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: bind-set
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: single-entry-http
+      namespace: istio-system
+      kind: XListenerSet
+      group: gateway.networking.x-k8s.io
+  rules:
+    - matches:
+        - path:
+            value: /set
+      backendRefs:
+        - name: httpbin
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: bind-both
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: parent-gateway
+    - name: single-entry-http
+      namespace: istio-system
+      kind: XListenerSet
+      group: gateway.networking.x-k8s.io
+  rules:
+    - matches:
+        - path:
+            value: /both
+      backendRefs:
+        - name: httpbin
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: bind-parent
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: parent-gateway
+  rules:
+    - matches:
+        - path:
+            value: /parent
+      backendRefs:
+        - name: httpbin
+          port: 80

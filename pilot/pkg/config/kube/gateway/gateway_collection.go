@@ -38,10 +38,10 @@ import (
 )
 
 type Gateway struct {
-	*config.Config
-	parent     parentKey
-	parentInfo parentInfo
-	Valid      bool
+	*config.Config `json:"config"`
+	Parent         parentKey  `json:"parent"`
+	ParentInfo     parentInfo `json:"parentInfo"`
+	Valid          bool       `json:"valid"`
 }
 
 func (g Gateway) ResourceName() string {
@@ -54,11 +54,11 @@ func (g Gateway) Equals(other Gateway) bool {
 }
 
 type ListenerSet struct {
-	*config.Config
-	parent        parentKey
-	parentInfo    parentInfo
-	gatewayParent types.NamespacedName
-	Valid         bool
+	*config.Config `json:"config"`
+	Parent         parentKey            `json:"parent"`
+	ParentInfo     parentInfo           `json:"parentInfo"`
+	GatewayParent  types.NamespacedName `json:"gatewayParent"`
+	Valid          bool                 `json:"valid"`
 }
 
 func (g ListenerSet) ResourceName() string {
@@ -176,7 +176,7 @@ func ListenerSetCollection(
 
 			allowed, _ := generateSupportedKinds(standardListener)
 			ref := parentKey{
-				Kind:      gvk.KubernetesGateway,
+				Kind:      gvk.XListenerSet,
 				Name:      obj.Name,
 				Namespace: obj.Namespace,
 			}
@@ -193,9 +193,9 @@ func ListenerSetCollection(
 			res := ListenerSet{
 				Config:        &gatewayConfig,
 				Valid:         programmed,
-				parent:        ref,
-				gatewayParent: config.NamespacedName(parentGwObj),
-				parentInfo:    pri,
+				Parent:        ref,
+				GatewayParent: config.NamespacedName(parentGwObj),
+				ParentInfo:    pri,
 			}
 			result = append(result, res)
 		}
@@ -223,7 +223,7 @@ func GatewayCollection(
 	krt.Collection[Gateway],
 ) {
 	listenerIndex := krt.NewIndex(listenerSets, func(o ListenerSet) []types.NamespacedName {
-		return []types.NamespacedName{o.gatewayParent}
+		return []types.NamespacedName{o.GatewayParent}
 	})
 	statusCol, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
 		// We currently depend on service discovery information not know to krt; mark we depend on it.
@@ -308,8 +308,8 @@ func GatewayCollection(
 			res := Gateway{
 				Config:     &gatewayConfig,
 				Valid:      programmed,
-				parent:     ref,
-				parentInfo: pri,
+				Parent:     ref,
+				ParentInfo: pri,
 			}
 			result = append(result, res)
 		}
@@ -318,8 +318,8 @@ func GatewayCollection(
 			servers = append(servers, ls.Config.Spec.(*istio.Gateway).Servers...)
 			result = append(result, Gateway{
 				Config:     ls.Config,
-				parent:     ls.parent,
-				parentInfo: ls.parentInfo,
+				Parent:     ls.Parent,
+				ParentInfo: ls.ParentInfo,
 				Valid:      ls.Valid,
 			})
 		}
@@ -383,7 +383,7 @@ func (p RouteParents) fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo 
 		}
 	}
 	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw Gateway) *parentInfo {
-		return &gw.parentInfo
+		return &gw.ParentInfo
 	})
 }
 
@@ -391,7 +391,7 @@ func BuildRouteParents(
 	gateways krt.Collection[Gateway],
 ) RouteParents {
 	idx := krt.NewIndex(gateways, func(o Gateway) []parentKey {
-		return []parentKey{o.parent}
+		return []parentKey{o.Parent}
 	})
 	return RouteParents{
 		gateways:     gateways,
