@@ -6,6 +6,18 @@ metadata:
   namespace: ns1
 spec: null
 status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: hostname "istio-ingressgateway.istio-system.svc.domain.suffix"
+      not found in namespace "ns1", but it was found in namespace(s) "istio-system"'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -45,6 +57,18 @@ metadata:
   namespace: ns2
 spec: null
 status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: hostname "istio-ingressgateway.istio-system.svc.domain.suffix"
+      not found in namespace "ns2", but it was found in namespace(s) "istio-system"'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -114,6 +138,18 @@ metadata:
   namespace: ns2
 spec: null
 status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: hostname "istio-ingressgateway.istio-system.svc.domain.suffix"
+      not found in namespace "ns2", but it was found in namespace(s) "istio-system"'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:

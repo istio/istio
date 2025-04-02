@@ -120,17 +120,19 @@ func ListenerSetCollection(
 		controllerName := class.Controller
 		classInfo, f := classInfos[controllerName]
 		if !f {
+			// Cannot report status since we don't know if it is for us
 			return nil, nil
 		}
-		if classInfo.disableRouteGeneration {
-			// Not supported. TODO: report status
-			return nil, nil
+		if !classInfo.supportsListenerSet {
+			reportUnsupportedListenerSet(class.Name, status, obj)
+			return status, nil
 		}
 
 		gatewayServices, err := extractGatewayServices(domainSuffix, parentGwObj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
-			// TODO: report status
-			return nil, nil
+			// Short circuit if it's a hard failure
+			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err)
+			return status, nil
 		}
 
 		servers := []*istio.Server{}
@@ -193,49 +195,11 @@ func ListenerSetCollection(
 			result = append(result, res)
 		}
 
+		reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err)
 		return status, result
 	}, opts.WithName("ListenerSets")...)
 
 	return statusCol, gw
-}
-
-func detectListenerPort(l gatewayx.ListenerEntry) (gatewayx.PortNumber, error) {
-	if l.Port != 0 {
-		return l.Port, nil
-	}
-	switch l.Protocol {
-	case gatewayv1.HTTPProtocolType:
-		return 80, nil
-	case gatewayv1.HTTPSProtocolType:
-		return 443, nil
-	}
-	return 0, fmt.Errorf("protocol %v requires a port to be set", l.Protocol)
-}
-
-func convertStandardStatusToListenerSetStatus(l gatewayx.ListenerEntry) func(e gateway.ListenerStatus) gatewayx.ListenerEntryStatus {
-	return func(e gateway.ListenerStatus) gatewayx.ListenerEntryStatus {
-		return gatewayx.ListenerEntryStatus{
-			Name:           e.Name,
-			Port:           l.Port, // TODO: we need to support optional port
-			SupportedKinds: e.SupportedKinds,
-			AttachedRoutes: e.AttachedRoutes,
-			Conditions:     e.Conditions,
-		}
-	}
-}
-
-func convertListenerSetStatusToStandardStatus(e gatewayx.ListenerEntryStatus) gateway.ListenerStatus {
-	return gateway.ListenerStatus{
-		Name:           e.Name,
-		SupportedKinds: e.SupportedKinds,
-		AttachedRoutes: e.AttachedRoutes,
-		Conditions:     e.Conditions,
-	}
-}
-
-func convertListenerSetToListener(l gatewayx.ListenerEntry) gateway.Listener {
-	// For now, structs are identical enough Go can cast them. I doubt this will hold up forever, but we can adjust as needed.
-	return (gateway.Listener)(l)
 }
 
 func GatewayCollection(
@@ -428,4 +392,43 @@ func BuildRouteParents(
 		gateways:     gateways,
 		gatewayIndex: idx,
 	}
+}
+
+func detectListenerPort(l gatewayx.ListenerEntry) (gatewayx.PortNumber, error) {
+	if l.Port != 0 {
+		return l.Port, nil
+	}
+	switch l.Protocol {
+	case gatewayv1.HTTPProtocolType:
+		return 80, nil
+	case gatewayv1.HTTPSProtocolType:
+		return 443, nil
+	}
+	return 0, fmt.Errorf("protocol %v requires a port to be set", l.Protocol)
+}
+
+func convertStandardStatusToListenerSetStatus(l gatewayx.ListenerEntry) func(e gateway.ListenerStatus) gatewayx.ListenerEntryStatus {
+	return func(e gateway.ListenerStatus) gatewayx.ListenerEntryStatus {
+		return gatewayx.ListenerEntryStatus{
+			Name:           e.Name,
+			Port:           l.Port, // TODO: we need to support optional port
+			SupportedKinds: e.SupportedKinds,
+			AttachedRoutes: e.AttachedRoutes,
+			Conditions:     e.Conditions,
+		}
+	}
+}
+
+func convertListenerSetStatusToStandardStatus(e gatewayx.ListenerEntryStatus) gateway.ListenerStatus {
+	return gateway.ListenerStatus{
+		Name:           e.Name,
+		SupportedKinds: e.SupportedKinds,
+		AttachedRoutes: e.AttachedRoutes,
+		Conditions:     e.Conditions,
+	}
+}
+
+func convertListenerSetToListener(l gatewayx.ListenerEntry) gateway.Listener {
+	// For now, structs are identical enough Go can cast them. I doubt this will hold up forever, but we can adjust as needed.
+	return (gateway.Listener)(l)
 }

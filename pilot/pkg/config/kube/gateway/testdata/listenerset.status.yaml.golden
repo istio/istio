@@ -6,6 +6,18 @@ metadata:
   namespace: istio-system
 spec: null
 status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
+      and istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: Programmed
+    status: "True"
+    type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -74,6 +86,17 @@ metadata:
   namespace: istio-system
 spec: null
 status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: Programmed
+    status: "True"
+    type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -113,6 +136,17 @@ metadata:
   namespace: istio-system
 spec: null
 status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: Programmed
+    status: "True"
+    type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -152,6 +186,17 @@ metadata:
   namespace: istio-system
 spec: null
 status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
+    reason: Programmed
+    status: "True"
+    type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:

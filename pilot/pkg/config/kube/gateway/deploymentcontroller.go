@@ -127,6 +127,9 @@ type classInfo struct {
 	// disableRouteGeneration, if set, will make it so the controller ignores this class.
 	disableRouteGeneration bool
 
+	// supportsListenerSet declares whether a given class supports ListenerSet
+	supportsListenerSet bool
+
 	// disableNameSuffix, if set, will avoid appending -<class> to names
 	disableNameSuffix bool
 
@@ -156,11 +159,12 @@ func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 func getClassInfos() map[gateway.GatewayController]classInfo {
 	m := map[gateway.GatewayController]classInfo{
 		gateway.GatewayController(features.ManagedGatewayController): {
-			controller:         features.ManagedGatewayController,
-			description:        "The default Istio GatewayClass",
-			templates:          "kube-gateway",
-			defaultServiceType: corev1.ServiceTypeLoadBalancer,
-			addressType:        gateway.HostnameAddressType,
+			controller:          features.ManagedGatewayController,
+			description:         "The default Istio GatewayClass",
+			templates:           "kube-gateway",
+			defaultServiceType:  corev1.ServiceTypeLoadBalancer,
+			addressType:         gateway.HostnameAddressType,
+			supportsListenerSet: true,
 		},
 	}
 
@@ -172,15 +176,17 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			description:            "Remote to this cluster. Does not deploy or affect configuration.",
 			disableRouteGeneration: true,
 			addressType:            gateway.HostnameAddressType,
+			supportsListenerSet:    false,
 		}
 	}
 	if features.EnableAmbientWaypoints {
 		m[constants.ManagedGatewayMeshController] = classInfo{
-			controller:         constants.ManagedGatewayMeshController,
-			description:        "The default Istio waypoint GatewayClass",
-			templates:          "waypoint",
-			disableNameSuffix:  true,
-			defaultServiceType: corev1.ServiceTypeClusterIP,
+			controller:          constants.ManagedGatewayMeshController,
+			description:         "The default Istio waypoint GatewayClass",
+			templates:           "waypoint",
+			disableNameSuffix:   true,
+			defaultServiceType:  corev1.ServiceTypeClusterIP,
+			supportsListenerSet: false,
 			// Report both. Consumers of the gateways can choose which they want.
 			// In particular, Istio across different versions consumes different address types, so this retains compat
 			addressType: "",
