@@ -520,13 +520,21 @@ func TestValidateTlsOptions(t *testing.T) {
 		{
 			"simple sds with client bundle",
 			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+			},
+			"", "",
+		},
+		{
+			"simple sds with client bundle but with server cert",
+			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"", "",
+			"", "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified",
 		},
 		{
 			"simple no server cert",
@@ -566,6 +574,29 @@ func TestValidateTlsOptions(t *testing.T) {
 				},
 			},
 			"", "SIMPLE TLS can support up to 2 server certificates",
+		},
+		{
+			"simple with both server cert and tls certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_SIMPLE,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+					},
+					{
+						ServerCertificate: "Lieutenant Commander Data",
+						PrivateKey:        "Lieutenant Commander Data",
+					},
+				},
+			},
+			"", "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified",
 		},
 		{
 			"simple 2 certs with missing certificate",
@@ -632,13 +663,37 @@ func TestValidateTlsOptions(t *testing.T) {
 		{
 			"mutual sds",
 			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CaCertificates: "Commander William T. Riker",
+				CredentialName: "sds-name",
+			},
+			"", "",
+		},
+		{
+			"mutual sds with server cert",
+			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"", "",
+			"", "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified",
+		},
+		{
+			"mutual sds with credential name and tls certs",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+						CaCertificates:    "Commander William T. Riker",
+					},
+				},
+				CredentialName: "sds-name",
+			},
+			"", "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified",
 		},
 		{
 			"mutual no server cert",
@@ -726,6 +781,33 @@ func TestValidateTlsOptions(t *testing.T) {
 				},
 			},
 			"", "MUTUAL TLS can support up to 2 server certificates",
+		},
+		{
+			"mutual with both server cert and tls certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "Captain Jean-Luc Picard",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "Captain Jean-Luc Picard",
+						PrivateKey:        "Khan Noonien Singh",
+						CaCertificates:    "Commander William T. Riker",
+					},
+					{
+						ServerCertificate: "Commander William T. Riker",
+						PrivateKey:        "Commander William T. Riker",
+						CaCertificates:    "Lieutenant Commander Data",
+					},
+					{
+						ServerCertificate: "Lieutenant Commander Data",
+						PrivateKey:        "Lieutenant Commander Data",
+						CaCertificates:    "Lieutenant Commander Data",
+					},
+				},
+			},
+			"", "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified",
 		},
 		{
 			"mutual 2 certs with missing certificate",

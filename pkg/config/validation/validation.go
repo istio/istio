@@ -577,6 +577,25 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 		}
 	}
 
+	// Validate that only one certificate source is specified
+	certSourceCount := 0
+	if tls.ServerCertificate != "" && tls.PrivateKey != "" {
+		certSourceCount++
+	}
+	if tls.CredentialName != "" {
+		certSourceCount++
+	}
+	if len(tls.CredentialNames) > 0 {
+		certSourceCount++
+	}
+	if len(tls.TlsCertificates) > 0 {
+		certSourceCount++
+	}
+
+	if certSourceCount > 1 {
+		v = AppendWarningf(v, "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified")
+	}
+
 	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL ||
 		tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL) && (tls.CredentialName != "" || len(tls.CredentialNames) > 0) {
 		// If tls mode is SIMPLE or MUTUAL/OPTIONL_MUTUAL, and CredentialName is specified, credentials are fetched
