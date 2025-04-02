@@ -314,7 +314,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 	if len(deniedResources) > 0 {
 		errMessage := authzError
 		if errMessage == nil {
-			errMessage = fmt.Errorf("cross namespace secret reference requires ReferencePolicy")
+			errMessage = fmt.Errorf("cross namespace secret reference requires ReferenceGrant")
 		}
 		log.Warnf("proxy %s attempted to access unauthorized certificates %s: %v", proxy.ID, atMostNJoin(deniedResources, 3), errMessage)
 		pilotSDSCertificateErrors.Increment()
