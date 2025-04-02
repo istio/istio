@@ -3213,6 +3213,139 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			expectedCertCount:       2,
 			expectedValidation:      false,
 		},
+		{
+			name: "SIMPLE and TLS certificates",
+			serverTLSSettings: &networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_SIMPLE,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "/path/to/cert.pem",
+						PrivateKey:        "/path/to/key.pem",
+					},
+					{
+						ServerCertificate: "/path/to/cert2.pem",
+						PrivateKey:        "/path/to/key2.pem",
+					},
+				},
+			},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			mesh:                    &meshconfig.MeshConfig{},
+			transportProtocol:       istionetworking.TransportProtocolTCP,
+			gatewayTCPServerWithTLS: false,
+			expectedCertCount:       2,
+			expectedValidation:      false,
+		},
+		{
+			name: "MUTUAL and TLS certificates",
+			serverTLSSettings: &networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "/path/to/cert.pem",
+						PrivateKey:        "/path/to/key.pem",
+						CaCertificates:    "/path/to/ca.pem",
+					},
+					{
+						ServerCertificate: "/path/to/cert2.pem",
+						PrivateKey:        "/path/to/key2.pem",
+						CaCertificates:    "/path/to/ca.pem",
+					},
+				},
+			},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			mesh:                    &meshconfig.MeshConfig{},
+			transportProtocol:       istionetworking.TransportProtocolTCP,
+			gatewayTCPServerWithTLS: false,
+			expectedCertCount:       2,
+			expectedValidation:      true,
+		},
+		{
+			name: "Credential name takes precedence over TLS certificates",
+			serverTLSSettings: &networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "test-credential",
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "/path/to/cert.pem",
+						PrivateKey:        "/path/to/key.pem",
+					},
+					{
+						ServerCertificate: "/path/to/cert2.pem",
+						PrivateKey:        "/path/to/key2.pem",
+					},
+				},
+			},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					Raw: map[string]interface{}{
+						"CREDENTIAL_SOCKET_EXISTS": "true",
+					},
+				},
+			},
+			mesh:                    &meshconfig.MeshConfig{},
+			transportProtocol:       istionetworking.TransportProtocolTCP,
+			gatewayTCPServerWithTLS: false,
+			expectedCertCount:       1, // Should use credential name, not the TLS certificates
+			expectedValidation:      false,
+		},
+		{
+			name: "Multiple credential names take precedence over TLS certificates",
+			serverTLSSettings: &networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_SIMPLE,
+				CredentialNames: []string{
+					"test-credential1",
+					"test-credential2",
+				},
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "/path/to/cert.pem",
+						PrivateKey:        "/path/to/key.pem",
+					},
+				},
+			},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					Raw: map[string]interface{}{
+						"CREDENTIAL_SOCKET_EXISTS": "true",
+					},
+				},
+			},
+			mesh:                    &meshconfig.MeshConfig{},
+			transportProtocol:       istionetworking.TransportProtocolTCP,
+			gatewayTCPServerWithTLS: false,
+			expectedCertCount:       2, // Should use credential names, not the TLS certificates
+			expectedValidation:      false,
+		},
+		{
+			name: "TLSCertificates take precedence over Server certificate",
+			serverTLSSettings: &networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_SIMPLE,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "/path/to/tlscert1.pem",
+						PrivateKey:        "/path/to/tlskey1.pem",
+					},
+					{
+						ServerCertificate: "/path/to/tlscert2.pem",
+						PrivateKey:        "/path/to/tlskey2.pem",
+					},
+				},
+				ServerCertificate: "/path/to/servercert.pem",
+				PrivateKey:        "/path/to/serverkey.pem",
+			},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			mesh:                    &meshconfig.MeshConfig{},
+			transportProtocol:       istionetworking.TransportProtocolTCP,
+			gatewayTCPServerWithTLS: false,
+			expectedCertCount:       2, // Should use TLSCertificates, not the Server certificate
+			expectedValidation:      false,
+		},
 	}
 
 	for _, tt := range tests {
