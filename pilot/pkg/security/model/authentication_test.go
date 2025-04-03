@@ -86,6 +86,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 		trustDomainAliases []string
 		crl                string
 		validateClient     bool
+		tlsCertificates    []*networking.ServerTLSSettings_TLSCertificate
 		expected           *auth.CommonTlsContext
 	}{
 		{
@@ -213,13 +214,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			name: "MTLS using SDS with custom certs in metadata",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{
-					TLSServerCertificates: []*model.TLSServerCertificate{
-						{
-							TLSServerCertChain: "serverCertChain",
-							TLSServerKey:       "serverKey",
-							TLSServerRootCert:  "servrRootCert",
-						},
-					},
+					TLSServerCertChain: "serverCertChain",
+					TLSServerKey:       "serverKey",
+					TLSServerRootCert:  "servrRootCert",
 				},
 			},
 			validateClient: true,
@@ -335,13 +332,9 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			name: "ISTIO_MUTUAL with custom cert paths from proxy node metadata",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{
-					TLSServerCertificates: []*model.TLSServerCertificate{
-						{
-							TLSServerCertChain: "/custom/path/to/cert-chain.pem",
-							TLSServerKey:       "/custom-key.pem",
-							TLSServerRootCert:  "/custom/path/to/root.pem",
-						},
-					},
+					TLSServerCertChain: "/custom/path/to/cert-chain.pem",
+					TLSServerKey:       "/custom-key.pem",
+					TLSServerRootCert:  "/custom/path/to/root.pem",
 				},
 			},
 			validateClient: true,
@@ -399,12 +392,8 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 			name: "SIMPLE with custom cert paths from proxy node metadata without cacerts",
 			node: &model.Proxy{
 				Metadata: &model.NodeMetadata{
-					TLSServerCertificates: []*model.TLSServerCertificate{
-						{
-							TLSServerCertChain: "/custom/path/to/cert-chain.pem",
-							TLSServerKey:       "/custom-key.pem",
-						},
-					},
+					TLSServerCertChain: "/custom/path/to/cert-chain.pem",
+					TLSServerKey:       "/custom-key.pem",
 				},
 			},
 			validateClient: false,
@@ -500,20 +489,17 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 		},
 		{
 			name: "Multiple TLSServerCertificates",
-			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{
-					TLSServerCertificates: []*model.TLSServerCertificate{
-						{
-							TLSServerCertChain: "/path/to/cert1.pem",
-							TLSServerKey:       "/path/to/key1.pem",
-							TLSServerRootCert:  "/path/to/root1.pem",
-						},
-						{
-							TLSServerCertChain: "/path/to/cert2.pem",
-							TLSServerKey:       "/path/to/key2.pem",
-							TLSServerRootCert:  "/path/to/root1.pem",
-						},
-					},
+			node: &model.Proxy{Metadata: &model.NodeMetadata{}},
+			tlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+				{
+					ServerCertificate: "/path/to/cert1.pem",
+					PrivateKey:        "/path/to/key1.pem",
+					CaCertificates:    "/path/to/root1.pem",
+				},
+				{
+					ServerCertificate: "/path/to/cert2.pem",
+					PrivateKey:        "/path/to/key2.pem",
+					CaCertificates:    "/path/to/root1.pem",
 				},
 			},
 			validateClient: true,
@@ -590,9 +576,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 		{
 			name: "Nil TLSServerCertificates",
 			node: &model.Proxy{
-				Metadata: &model.NodeMetadata{
-					TLSServerCertificates: nil,
-				},
+				Metadata: &model.NodeMetadata{},
 			},
 			validateClient: true,
 			expected: &auth.CommonTlsContext{
@@ -652,7 +636,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.crl, test.trustDomainAliases, test.validateClient)
+			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.crl, test.trustDomainAliases, test.validateClient, test.tlsCertificates)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
