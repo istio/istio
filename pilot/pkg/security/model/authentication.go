@@ -131,8 +131,8 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 	tlsCertificates []*networking.ServerTLSSettings_TLSCertificate,
 ) {
 	sdsSecretConfigs := make([]*tls.SdsSecretConfig, 0)
-	caCerts := make([]string, 0)
 	customFileSDSServer := proxy.Metadata.Raw[security.CredentialFileMetaDataName] == "true"
+	var caCert string
 	if len(tlsCertificates) > 0 {
 		for _, cert := range tlsCertificates {
 			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
@@ -141,11 +141,11 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 			res := security.SdsCertificateConfig{
 				CertificatePath:   cert.ServerCertificate,
 				PrivateKeyPath:    cert.PrivateKey,
-				CaCertificatePath: cert.CaCertificates,
+				CaCertificatePath: proxy.Metadata.TLSServerRootCert,
 			}
 
 			sdsSecretConfigs = append(sdsSecretConfigs, constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer))
-			caCerts = append(caCerts, res.GetRootResourceName())
+			caCert = res.GetRootResourceName()
 		}
 	} else {
 		res := security.SdsCertificateConfig{
@@ -154,7 +154,7 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 			CaCertificatePath: proxy.Metadata.TLSServerRootCert,
 		}
 		sdsSecretConfigs = append(sdsSecretConfigs, constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer))
-		caCerts = append(caCerts, res.GetRootResourceName())
+		caCert = res.GetRootResourceName()
 	}
 	// TODO: if subjectAltName ends with *, create a prefix match as well.
 	// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
@@ -181,7 +181,7 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         defaultValidationContext,
-				ValidationContextSdsSecretConfig: constructSdsSecretConfig(caCerts[0], SDSRootResourceName, customFileSDSServer),
+				ValidationContextSdsSecretConfig: constructSdsSecretConfig(caCert, SDSRootResourceName, customFileSDSServer),
 			},
 		}
 	}

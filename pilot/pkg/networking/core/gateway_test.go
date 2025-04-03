@@ -599,17 +599,16 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 					Protocol: string(protocol.HTTPS),
 				},
 				Tls: &networking.ServerTLSSettings{
-					Mode: networking.ServerTLSSettings_MUTUAL,
+					Mode:           networking.ServerTLSSettings_MUTUAL,
+					CaCertificates: "ca-cert.crt",
 					TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
 						{
 							ServerCertificate: "server-cert.crt",
 							PrivateKey:        "private-key.key",
-							CaCertificates:    "ca-cert.crt",
 						},
 						{
 							ServerCertificate: "server-cert2.crt",
 							PrivateKey:        "private-key2.key",
-							CaCertificates:    "ca-cert.crt",
 						},
 					},
 				},

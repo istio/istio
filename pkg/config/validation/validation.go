@@ -610,17 +610,17 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 			{
 				ServerCertificate: tls.ServerCertificate,
 				PrivateKey:        tls.PrivateKey,
-				CaCertificates:    tls.CaCertificates,
 			},
 		}
 	}
 	if tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL ||
 		tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
 		validationPrefix := "SIMPLE TLS"
-		requireCACert := false
 		if tls.Mode == networking.ServerTLSSettings_MUTUAL || tls.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
 			validationPrefix = "MUTUAL TLS"
-			requireCACert = true
+			if tls.CaCertificates == "" {
+				v = AppendValidation(v, fmt.Errorf("%s requires a client CA bundle", validationPrefix))
+			}
 		}
 		if len(tls.TlsCertificates) > 2 {
 			v = AppendWarningf(v, "%s can support up to 2 server certificates", validationPrefix)
@@ -631,9 +631,6 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 			}
 			if cert.PrivateKey == "" {
 				v = AppendValidation(v, fmt.Errorf("%s requires a private key", validationPrefix))
-			}
-			if requireCACert && cert.CaCertificates == "" {
-				v = AppendValidation(v, fmt.Errorf("%s requires a client CA bundle", validationPrefix))
 			}
 		}
 	}

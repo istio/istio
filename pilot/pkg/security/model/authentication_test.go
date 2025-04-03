@@ -489,17 +489,17 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 		},
 		{
 			name: "Multiple TLSServerCertificates",
-			node: &model.Proxy{Metadata: &model.NodeMetadata{}},
+			node: &model.Proxy{Metadata: &model.NodeMetadata{
+				TLSServerRootCert: "/path/to/root.pem",
+			}},
 			tlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
 				{
 					ServerCertificate: "/path/to/cert1.pem",
 					PrivateKey:        "/path/to/key1.pem",
-					CaCertificates:    "/path/to/root1.pem",
 				},
 				{
 					ServerCertificate: "/path/to/cert2.pem",
 					PrivateKey:        "/path/to/key2.pem",
-					CaCertificates:    "/path/to/root1.pem",
 				},
 			},
 			validateClient: true,
@@ -550,7 +550,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
 						DefaultValidationContext: &auth.CertificateValidationContext{},
 						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
-							Name: "file-root:/path/to/root1.pem",
+							Name: "file-root:/path/to/root.pem",
 							SdsConfig: &core.ConfigSource{
 								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 									ApiConfigSource: &core.ApiConfigSource{

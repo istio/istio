@@ -678,12 +678,12 @@ func TestValidateTlsOptions(t *testing.T) {
 		{
 			"mutual sds with credential name and tls certs",
 			&networking.ServerTLSSettings{
-				Mode: networking.ServerTLSSettings_MUTUAL,
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CaCertificates: "Commander William T. Riker",
 				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
 					{
 						ServerCertificate: "Captain Jean-Luc Picard",
 						PrivateKey:        "Khan Noonien Singh",
-						CaCertificates:    "Commander William T. Riker",
 					},
 				},
 				CredentialName: "sds-name",
@@ -756,22 +756,20 @@ func TestValidateTlsOptions(t *testing.T) {
 		{
 			"mutual more than 2 certs",
 			&networking.ServerTLSSettings{
-				Mode: networking.ServerTLSSettings_MUTUAL,
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CaCertificates: "Commander William T. Riker",
 				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
 					{
 						ServerCertificate: "Captain Jean-Luc Picard",
 						PrivateKey:        "Khan Noonien Singh",
-						CaCertificates:    "Commander William T. Riker",
 					},
 					{
 						ServerCertificate: "Commander William T. Riker",
 						PrivateKey:        "Commander William T. Riker",
-						CaCertificates:    "Lieutenant Commander Data",
 					},
 					{
 						ServerCertificate: "Lieutenant Commander Data",
 						PrivateKey:        "Lieutenant Commander Data",
-						CaCertificates:    "Lieutenant Commander Data",
 					},
 				},
 			},
@@ -788,12 +786,10 @@ func TestValidateTlsOptions(t *testing.T) {
 					{
 						ServerCertificate: "Captain Jean-Luc Picard",
 						PrivateKey:        "Khan Noonien Singh",
-						CaCertificates:    "Commander William T. Riker",
 					},
 					{
 						ServerCertificate: "Lieutenant Commander Data",
 						PrivateKey:        "Lieutenant Commander Data",
-						CaCertificates:    "Lieutenant Commander Data",
 					},
 				},
 			},
@@ -802,16 +798,15 @@ func TestValidateTlsOptions(t *testing.T) {
 		{
 			"mutual 2 certs with missing certificate",
 			&networking.ServerTLSSettings{
-				Mode: networking.ServerTLSSettings_MUTUAL,
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CaCertificates: "Lieutenant Commander Data",
 				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
 					{
-						PrivateKey:     "Commander William T. Riker",
-						CaCertificates: "Lieutenant Commander Data",
+						PrivateKey: "Commander William T. Riker",
 					},
 					{
 						ServerCertificate: "Commander William T. Riker",
 						PrivateKey:        "Commander William T. Riker",
-						CaCertificates:    "Lieutenant Commander Data",
 					},
 				},
 			},
@@ -820,16 +815,15 @@ func TestValidateTlsOptions(t *testing.T) {
 		{
 			"mutual 2 certs with missing private key",
 			&networking.ServerTLSSettings{
-				Mode: networking.ServerTLSSettings_MUTUAL,
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CaCertificates: "Lieutenant Commander Data",
 				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
 					{
 						ServerCertificate: "Captain Jean-Luc Picard",
-						CaCertificates:    "Lieutenant Commander Data",
 					},
 					{
 						ServerCertificate: "Commander William T. Riker",
 						PrivateKey:        "Commander William T. Riker",
-						CaCertificates:    "Lieutenant Commander Data",
 					},
 				},
 			},
@@ -847,7 +841,6 @@ func TestValidateTlsOptions(t *testing.T) {
 					{
 						ServerCertificate: "Commander William T. Riker",
 						PrivateKey:        "Commander William T. Riker",
-						CaCertificates:    "Lieutenant Commander Data",
 					},
 				},
 			},
