@@ -14,7 +14,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -76,20 +75,10 @@ func NewController(
 		opts.WithName("informer/VirtualServices")...,
 	)
 
-	DefaultExportTo := krt.NewSingleton(func(ctx krt.HandlerContext) *sets.Set[visibility.Instance] {
-		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
-
-		exports := sets.New[visibility.Instance]()
-		if meshCfg.DefaultVirtualServiceExportTo != nil {
-			for _, e := range meshCfg.DefaultVirtualServiceExportTo {
-				exports.Insert(visibility.Instance(e))
-			}
-		} else {
-			exports.Insert(visibility.Public)
-		}
-
-		return &exports
-	}, opts.WithName("DefaultExportTo")...)
+	DefaultExportTo := DefaultExportTo(
+		meshConfig.AsCollection(),
+		opts,
+	)
 
 	DelegateVirtualServices := DelegateVirtualServices(
 		VirtualServices,

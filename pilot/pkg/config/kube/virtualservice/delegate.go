@@ -29,7 +29,7 @@ func (dvs DelegateVirtualService) Equals(other DelegateVirtualService) bool {
 
 func DelegateVirtualServices(
 	virtualServices krt.Collection[*networkingclient.VirtualService],
-	defaultExportTo krt.Collection[sets.Set[visibility.Instance]],
+	defaultExportTo krt.Collection[ExportTo],
 	opts krt.OptionsBuilder,
 ) krt.Collection[DelegateVirtualService] {
 	return krt.NewCollection(virtualServices, func(ctx krt.HandlerContext, vs *networkingclient.VirtualService) *DelegateVirtualService {
@@ -41,7 +41,7 @@ func DelegateVirtualServices(
 		var exportToSet sets.Set[visibility.Instance]
 		if len(vs.Spec.ExportTo) == 0 {
 			// No exportTo in virtualService. Use the global default
-			defaultExportTo := *krt.FetchOne(ctx, defaultExportTo)
+			defaultExportTo := (*krt.FetchOne(ctx, defaultExportTo)).Set
 			exportToSet = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
 			for v := range defaultExportTo {
 				if v == visibility.Private {
