@@ -51,7 +51,7 @@ func TestRender(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
-			inPath := filepath.Join("testdata", "in", tc.desc+".yaml")
+			inPath := filepath.Join("testdata", "input", tc.desc+".yaml")
 			data, err := os.ReadFile(inPath)
 			if err != nil {
 				require.NoError(t, err)
@@ -77,7 +77,7 @@ func TestRender(t *testing.T) {
 				t.Skip("skipping test that has no diff select")
 			}
 
-			outPath := filepath.Join("testdata", "out", tc.desc+".golden.yaml")
+			outPath := filepath.Join("testdata", "output", tc.desc+".golden.yaml")
 			tutil.RefreshGoldenFile(t, []byte(got), outPath)
 
 			want := string(tutil.ReadFile(t, outPath))

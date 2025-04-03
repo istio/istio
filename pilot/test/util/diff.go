@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/pmezard/go-difflib/difflib"
-	
+
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test"
