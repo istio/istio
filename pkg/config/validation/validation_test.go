@@ -531,10 +531,9 @@ func TestValidateTlsOptions(t *testing.T) {
 				Mode:              networking.ServerTLSSettings_SIMPLE,
 				ServerCertificate: "Captain Jean-Luc Picard",
 				PrivateKey:        "Khan Noonien Singh",
-				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"", "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified",
+			"one of credential_name, credential_names", "",
 		},
 		{
 			"simple no server cert",
@@ -587,16 +586,12 @@ func TestValidateTlsOptions(t *testing.T) {
 						PrivateKey:        "Khan Noonien Singh",
 					},
 					{
-						ServerCertificate: "Commander William T. Riker",
-						PrivateKey:        "Commander William T. Riker",
-					},
-					{
 						ServerCertificate: "Lieutenant Commander Data",
 						PrivateKey:        "Lieutenant Commander Data",
 					},
 				},
 			},
-			"", "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified",
+			"one of credential_name, credential_names", "",
 		},
 		{
 			"simple 2 certs with missing certificate",
@@ -670,7 +665,7 @@ func TestValidateTlsOptions(t *testing.T) {
 			"", "",
 		},
 		{
-			"mutual sds with server cert",
+			"mutual sds with credential name and server cert",
 			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_MUTUAL,
 				ServerCertificate: "Captain Jean-Luc Picard",
@@ -678,7 +673,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				CaCertificates:    "Commander William T. Riker",
 				CredentialName:    "sds-name",
 			},
-			"", "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified",
+			"one of credential_name, credential_names", "",
 		},
 		{
 			"mutual sds with credential name and tls certs",
@@ -693,7 +688,7 @@ func TestValidateTlsOptions(t *testing.T) {
 				},
 				CredentialName: "sds-name",
 			},
-			"", "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified",
+			"one of credential_name, credential_names", "",
 		},
 		{
 			"mutual no server cert",
@@ -796,18 +791,13 @@ func TestValidateTlsOptions(t *testing.T) {
 						CaCertificates:    "Commander William T. Riker",
 					},
 					{
-						ServerCertificate: "Commander William T. Riker",
-						PrivateKey:        "Commander William T. Riker",
-						CaCertificates:    "Lieutenant Commander Data",
-					},
-					{
 						ServerCertificate: "Lieutenant Commander Data",
 						PrivateKey:        "Lieutenant Commander Data",
 						CaCertificates:    "Lieutenant Commander Data",
 					},
 				},
 			},
-			"", "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified",
+			"one of credential_name, credential_names", "",
 		},
 		{
 			"mutual 2 certs with missing certificate",
@@ -6413,6 +6403,61 @@ func TestValidateSidecar(t *testing.T) {
 					Tls: &networking.ServerTLSSettings{
 						Mode:           networking.ServerTLSSettings_SIMPLE,
 						CredentialName: "secret-name",
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls credentialNames is not supported in IPv4", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:            networking.ServerTLSSettings_SIMPLE,
+						CredentialNames: []string{"secret-name"},
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls credentialNames is not supported in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:            networking.ServerTLSSettings_SIMPLE,
+						CredentialNames: []string{"secret-name"},
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls both tlsCertificates and serverCertificate,privateKey is not supported in IPv4", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "127.0.0.1:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode:              networking.ServerTLSSettings_SIMPLE,
+						ServerCertificate: "/etc/istio/ingress-certs/tls.crt",
+						PrivateKey:        "/etc/istio/ingress-certs/tls.key",
+						TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+							{
+								ServerCertificate: "/etc/istio/ingress-certs/tls.crt",
+								PrivateKey:        "/etc/istio/ingress-certs/tls.key",
+							},
+						},
 					},
 				},
 			},

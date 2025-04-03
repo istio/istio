@@ -593,7 +593,7 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	}
 
 	if certSourceCount > 1 {
-		v = AppendWarningf(v, "only one of credential_name, credential_names, server_certificate/private_key/ca_certificates, tls_certificates should be specified")
+		v = AppendValidation(v, fmt.Errorf("only one of credential_name, credential_names, server_certificate/private_key, tls_certificates should be specified"))
 	}
 
 	if (tls.Mode == networking.ServerTLSSettings_SIMPLE || tls.Mode == networking.ServerTLSSettings_MUTUAL ||
@@ -846,6 +846,9 @@ var ValidateSidecar = RegisterValidateFunc("ValidateSidecar",
 				}
 				if i.Tls.CredentialName != "" {
 					errs = AppendValidation(errs, fmt.Errorf("sidecar: credentialName is not currently supported"))
+				}
+				if len(i.Tls.CredentialNames) > 0 {
+					errs = AppendValidation(errs, fmt.Errorf("sidecar: credentialNames is not currently supported"))
 				}
 				if i.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL || i.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 					errs = AppendValidation(errs, fmt.Errorf("configuration is invalid: cannot set mode to %s in sidecar ingress tls", i.Tls.Mode.String()))
