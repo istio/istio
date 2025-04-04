@@ -158,12 +158,14 @@ type InboundConnection struct {
 	Src         string `json:"src"`
 	OriginalDst string `json:"originalDst"`
 	ActualDst   string `json:"actualDst"`
+	Protocol    string `json:"protocol"`
 }
 
 type OutboundConnection struct {
 	Src         string `json:"src"`
 	OriginalDst string `json:"originalDst"`
 	ActualDst   string `json:"actualDst"`
+	Protocol    string `json:"protocol"`
 }
 
 type WorkloadConnection struct {
