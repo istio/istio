@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
@@ -263,6 +264,15 @@ var (
 
 	EnableGatewayAPIManualDeployment = env.Register("ENABLE_GATEWAY_API_MANUAL_DEPLOYMENT", true,
 		"If true, allows users to bind Gateway API resources to existing gateway deployments.").Get()
+
+	MaxConnectionsToAcceptPerSocketEvent = func() *wrapperspb.UInt32Value {
+		v := env.Register("MAX_CONNECTIONS_PER_SOCKET_EVENT_LOOP", 1,
+			"The maximum number of connections to accept from the kernel per socket event.").Get()
+		if v > 0 {
+			return &wrapperspb.UInt32Value{Value: uint32(v)}
+		}
+		return nil
+	}()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
