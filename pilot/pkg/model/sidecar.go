@@ -47,11 +47,6 @@ var (
 		kind.VirtualService,
 		kind.DestinationRule,
 		kind.Sidecar,
-
-		kind.HTTPRoute,
-		kind.TCPRoute,
-		kind.TLSRoute,
-		kind.GRPCRoute,
 	)
 
 	// clusterScopedKnownConfigTypes includes configs when they are in root namespace,
@@ -315,9 +310,11 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		out.AddConfigDependencies(delegate)
 	}
 	for _, vs := range defaultEgressListener.virtualServices {
-		for _, cfg := range VirtualServiceDependencies(vs) {
-			out.AddConfigDependencies(cfg.HashCode())
-		}
+		out.AddConfigDependencies(ConfigKey{
+			Kind:      kind.VirtualService,
+			Namespace: vs.Namespace,
+			Name:      vs.Name,
+		}.HashCode())
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
@@ -432,9 +429,11 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range ilw.virtualServices {
-			for _, cfg := range VirtualServiceDependencies(vs) {
-				sc.AddConfigDependencies(cfg.HashCode())
-			}
+			sc.AddConfigDependencies(ConfigKey{
+				Kind:      kind.VirtualService,
+				Namespace: vs.Namespace,
+				Name:      vs.Name,
+			}.HashCode())
 			v := vs.Spec.(*networking.VirtualService)
 			for h, ports := range virtualServiceDestinationsFilteredBySourceNamespace(v, configNamespace) {
 				byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
