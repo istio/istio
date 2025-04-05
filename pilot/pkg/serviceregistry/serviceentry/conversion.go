@@ -392,6 +392,9 @@ func (s *Controller) convertServiceEntryToInstances(cfg config.Config, services 
 						LegacyClusterPortKey: int(serviceEntryPort.Number),
 						Labels:               nil,
 						TLSMode:              model.DisabledTLSModeLabel,
+						Locality: model.Locality{
+							ClusterID: s.clusterID,
+						},
 					},
 					Service:     service,
 					ServicePort: convertPort(serviceEntryPort),
