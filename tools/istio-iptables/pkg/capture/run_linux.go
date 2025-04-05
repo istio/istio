@@ -122,6 +122,6 @@ func configureIPv6Addresses(cfg *config.Config) error {
 	if ignoreExists(err) != nil {
 		return fmt.Errorf("failed to add IPv6 inbound address: %v", err)
 	}
-	log.Infof("Added ::6 address")
+	log.Infof("Added ::6 address on the loopback iface")
 	return nil
 }
