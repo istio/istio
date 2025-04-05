@@ -15,10 +15,10 @@ metadata:
     {{- .Values.annotations | toYaml | nindent 4 }}
 {{- end }}
 spec:
+  {{- with .Values.updateStrategy }}
   updateStrategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app: ztunnel

@@ -32,10 +32,10 @@ spec:
   selector:
     matchLabels:
       k8s-app: {{ template "name" . }}-node
+  {{- with .Values.updateStrategy }}
   updateStrategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxUnavailable: {{ .Values.rollingMaxUnavailable }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   template:
     metadata:
       labels:

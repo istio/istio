@@ -98,12 +98,12 @@ _internal_defaults_do_not_set:
     enabled: false
     pods: 5000
 
-  # The number of pods that can be unavailable during rolling update (see
-  # `updateStrategy.rollingUpdate.maxUnavailable` here:
+  # K8s DaemonSet update strategy.
   # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).
-  # May be specified as a number of pods or as a percent of the total number
-  # of pods at the start of the update.
-  rollingMaxUnavailable: 1
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
 
   # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
   revision: ""
