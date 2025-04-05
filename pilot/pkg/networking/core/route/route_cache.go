@@ -147,6 +147,12 @@ func (r *Cache) Key() any {
 		h.Write(Slash)
 		h.WriteString(svc.Attributes.Namespace)
 		h.Write(Separator)
+		for _, alias := range svc.Attributes.Aliases {
+			h.WriteString(string(alias.Hostname))
+			h.Write(Slash)
+			h.WriteString(alias.Namespace)
+			h.Write(Separator)
+		}
 	}
 	h.Write(Separator)
 
