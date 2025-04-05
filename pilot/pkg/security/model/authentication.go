@@ -145,7 +145,9 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 			}
 
 			sdsSecretConfigs = append(sdsSecretConfigs, constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer))
-			caCert = res.GetRootResourceName()
+			if caCert == "" {
+				caCert = res.GetRootResourceName()
+			}
 		}
 	} else {
 		res := security.SdsCertificateConfig{
@@ -233,12 +235,15 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 	tlsOpts *networking.ServerTLSSettings, credentialSocketExist bool,
 ) {
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
+	caCert := tlsOpts.CredentialName + SdsCaSuffix
 	if len(tlsOpts.CredentialNames) > 0 {
 		// Handle multiple certificates for RSA and ECDSA
 		tlsContext.TlsCertificateSdsSecretConfigs = make([]*tls.SdsSecretConfig, len(tlsOpts.CredentialNames))
 		for i, name := range tlsOpts.CredentialNames {
 			tlsContext.TlsCertificateSdsSecretConfigs[i] = ConstructSdsSecretConfigForCredential(name, credentialSocketExist)
 		}
+		// If MUTUAL, we only support one CA certificate for all credentialNames. Thus we use the first one as CA.
+		caCert = tlsOpts.CredentialNames[0] + SdsCaSuffix
 	} else {
 		// Handle single certificate
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
@@ -256,9 +261,8 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 		}
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: defaultValidationContext,
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(
-					tlsOpts.CredentialName+SdsCaSuffix, credentialSocketExist),
+				DefaultValidationContext:         defaultValidationContext,
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(caCert, credentialSocketExist),
 			},
 		}
 	} else if len(tlsOpts.SubjectAltNames) > 0 {
