@@ -31,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring/monitortest"
@@ -424,6 +425,8 @@ func TestMultipleConnectedZtunnelsGetEvents(t *testing.T) {
 	client2.Close()
 	// this will retry for a bit, so shouldn't flake
 	mt.Assert(ztunnelConnected.Name(), nil, monitortest.Exactly(0))
+	assert.NoError(t, <-errChan)
+	assert.NoError(t, <-errChan)
 }
 
 func TestZtunnelLatestConnFallsBackToPreviousIfNewestDisconnects(t *testing.T) {
@@ -510,6 +513,7 @@ func TestZtunnelLatestConnFallsBackToPreviousIfNewestDisconnects(t *testing.T) {
 	assert.Equal(t, len(fds3), 1)
 	sendAck(client1)
 
+	assert.NoError(t, <-errChan)
 	go func() {
 		errChan <- srv.ztunServer.PodDeleted(ctx, string(firstNewPod.ObjectMeta.UID))
 	}()
@@ -520,6 +524,7 @@ func TestZtunnelLatestConnFallsBackToPreviousIfNewestDisconnects(t *testing.T) {
 	assert.Equal(t, ok, false)
 	assert.Equal(t, len(fds4), 0)
 	sendAck(client1)
+	assert.NoError(t, <-errChan)
 
 	client1.Close()
 	// this will retry for a bit, so shouldn't flake
@@ -731,12 +736,17 @@ func connectWithPods(ctx context.Context, pods PodNetnsCache) struct {
 	}{ztunClient: client, ztunServer: server.ztunServer}
 }
 
+func init() {
+	// The normal seed is just time based, so multiple processes started at the same time can flake
+	rand.Seed((time.Now().UnixNano() << 10) + int64(os.Getpid()))
+}
+
 func startServerWithPodCache(ctx context.Context, podCache PodNetnsCache) struct {
 	ztunServer *ztunnelServer
 	addr       string
 } {
 	// go uses @ instead of \0 for abstract unix sockets
-	addr := fmt.Sprintf("@testaddr%d", ztunnelTestCounter.Add(1))
+	addr := fmt.Sprintf("@testaddr%s", rand.String(64))
 	ztServ, err := newZtunnelServer(addr, podCache, time.Second/10)
 	if err != nil {
 		panic(err)
