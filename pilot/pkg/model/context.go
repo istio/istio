@@ -29,6 +29,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
+	"istio.io/istio/pkg/config"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/credentials"
@@ -1069,7 +1070,7 @@ type GatewayController interface {
 	// SecretAllowed determines if a SDS credential is accessible to a given namespace.
 	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
 	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.
-	SecretAllowed(resourceName string, namespace string) bool
+	SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool
 }
 
 // OutboundListenerClass is a helper to turn a NodeType for outbound to a ListenerClass.
