@@ -35,6 +35,18 @@ spec:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
+  - name: terminate-multi
+    hostname: "domainmulti.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+      - name: my-cert-http2
   - name: terminate-mtls
     hostname: "other.example"
     port: 34000

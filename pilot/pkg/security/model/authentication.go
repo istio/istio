@@ -128,17 +128,36 @@ func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 // ApplyToCommonTLSContext completes the commonTlsContext
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
 	subjectAltNames []string, crl string, trustDomainAliases []string, validateClient bool,
+	tlsCertificates []*networking.ServerTLSSettings_TLSCertificate,
 ) {
+	sdsSecretConfigs := make([]*tls.SdsSecretConfig, 0)
 	customFileSDSServer := proxy.Metadata.Raw[security.CredentialFileMetaDataName] == "true"
-	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
-	// which does not support rotation, we will serve them over SDS by reading the files.
-	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
-	res := security.SdsCertificateConfig{
-		CertificatePath:   proxy.Metadata.TLSServerCertChain,
-		PrivateKeyPath:    proxy.Metadata.TLSServerKey,
-		CaCertificatePath: proxy.Metadata.TLSServerRootCert,
-	}
+	var caCert string
+	if len(tlsCertificates) > 0 {
+		for _, cert := range tlsCertificates {
+			// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
+			// which does not support rotation, we will serve them over SDS by reading the files.
+			// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
+			res := security.SdsCertificateConfig{
+				CertificatePath:   cert.ServerCertificate,
+				PrivateKeyPath:    cert.PrivateKey,
+				CaCertificatePath: proxy.Metadata.TLSServerRootCert,
+			}
 
+			sdsSecretConfigs = append(sdsSecretConfigs, constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer))
+			if caCert == "" {
+				caCert = res.GetRootResourceName()
+			}
+		}
+	} else {
+		res := security.SdsCertificateConfig{
+			CertificatePath:   proxy.Metadata.TLSServerCertChain,
+			PrivateKeyPath:    proxy.Metadata.TLSServerKey,
+			CaCertificatePath: proxy.Metadata.TLSServerRootCert,
+		}
+		sdsSecretConfigs = append(sdsSecretConfigs, constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer))
+		caCert = res.GetRootResourceName()
+	}
 	// TODO: if subjectAltName ends with *, create a prefix match as well.
 	// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
 	matchSAN := util.StringToExactMatch(subjectAltNames)
@@ -147,6 +166,9 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 	}
 
 	// configure server listeners with SDS.
+	tlsContext.TlsCertificateSdsSecretConfigs = sdsSecretConfigs
+
+	// configure client validation context with SDS if enabled.
 	if validateClient {
 		defaultValidationContext := &tls.CertificateValidationContext{
 			MatchSubjectAltNames: matchSAN,
@@ -161,13 +183,9 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         defaultValidationContext,
-				ValidationContextSdsSecretConfig: constructSdsSecretConfig(res.GetRootResourceName(), SDSRootResourceName, customFileSDSServer),
+				ValidationContextSdsSecretConfig: constructSdsSecretConfig(caCert, SDSRootResourceName, customFileSDSServer),
 			},
 		}
-
-	}
-	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer),
 	}
 }
 
@@ -217,9 +235,22 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 	tlsOpts *networking.ServerTLSSettings, credentialSocketExist bool,
 ) {
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
-	tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-		ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist),
+	caCert := tlsOpts.CredentialName + SdsCaSuffix
+	if len(tlsOpts.CredentialNames) > 0 {
+		// Handle multiple certificates for RSA and ECDSA
+		tlsContext.TlsCertificateSdsSecretConfigs = make([]*tls.SdsSecretConfig, len(tlsOpts.CredentialNames))
+		for i, name := range tlsOpts.CredentialNames {
+			tlsContext.TlsCertificateSdsSecretConfigs[i] = ConstructSdsSecretConfigForCredential(name, credentialSocketExist)
+		}
+		// If MUTUAL, we only support one CA certificate for all credentialNames. Thus we use the first one as CA.
+		caCert = tlsOpts.CredentialNames[0] + SdsCaSuffix
+	} else {
+		// Handle single certificate
+		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
+			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist),
+		}
 	}
+
 	// If tls mode is MUTUAL/OPTIONAL_MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
 	// at gateway agent. Otherwise, use the static certificate validation context config.
 	if tlsOpts.Mode == networking.ServerTLSSettings_MUTUAL || tlsOpts.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
@@ -230,9 +261,8 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 		}
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
-				DefaultValidationContext: defaultValidationContext,
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(
-					tlsOpts.CredentialName+SdsCaSuffix, credentialSocketExist),
+				DefaultValidationContext:         defaultValidationContext,
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(caCert, credentialSocketExist),
 			},
 		}
 	} else if len(tlsOpts.SubjectAltNames) > 0 {
