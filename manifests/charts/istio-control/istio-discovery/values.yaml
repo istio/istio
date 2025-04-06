@@ -522,9 +522,6 @@ _internal_defaults_do_not_set:
           cpu: "2"
           memory: 1Gi
 
-      # TerminationGracePeriodSeconds for the waypoint proxy.
-      terminationGracePeriodSeconds: 2
-
       # If specified, affinity defines the scheduling constraints of waypoint pods.
       affinity: {}
 
