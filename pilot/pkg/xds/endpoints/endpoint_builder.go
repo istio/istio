@@ -85,6 +85,7 @@ type EndpointBuilder struct {
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
 	dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 
+	// TODO: Maybe filter gw services here too?
 	svc := push.ServiceForHostname(proxy, hostname)
 	var dr *model.ConsolidatedDestRule
 	if svc != nil {
