@@ -847,6 +847,9 @@ var ValidateSidecar = RegisterValidateFunc("ValidateSidecar",
 				if len(i.Tls.CredentialNames) > 0 {
 					errs = AppendValidation(errs, fmt.Errorf("sidecar: credentialNames is not currently supported"))
 				}
+				if len(i.Tls.TlsCertificates) > 0 {
+					errs = AppendValidation(errs, fmt.Errorf("sidecar: tls_certificates is not currently supported"))
+				}
 				if i.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL || i.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 					errs = AppendValidation(errs, fmt.Errorf("configuration is invalid: cannot set mode to %s in sidecar ingress tls", i.Tls.Mode.String()))
 				}

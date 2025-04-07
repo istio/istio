@@ -6432,7 +6432,7 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
-		{"ingress tls both tlsCertificates and serverCertificate,privateKey is not supported in IPv4", &networking.Sidecar{
+		{"ingress tls tlsCertificates is not supported in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
 					Port: &networking.SidecarPort{
@@ -6442,13 +6442,40 @@ func TestValidateSidecar(t *testing.T) {
 					},
 					DefaultEndpoint: "127.0.0.1:9999",
 					Tls: &networking.ServerTLSSettings{
-						Mode:              networking.ServerTLSSettings_SIMPLE,
-						ServerCertificate: "/etc/istio/ingress-certs/tls.crt",
-						PrivateKey:        "/etc/istio/ingress-certs/tls.key",
+						Mode: networking.ServerTLSSettings_SIMPLE,
 						TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
 							{
 								ServerCertificate: "/etc/istio/ingress-certs/tls.crt",
 								PrivateKey:        "/etc/istio/ingress-certs/tls.key",
+							},
+							{
+								ServerCertificate: "/etc/istio/ingress-certs/tls2.crt",
+								PrivateKey:        "/etc/istio/ingress-certs/tls2.key",
+							},
+						},
+					},
+				},
+			},
+		}, false, false},
+		{"ingress tls tlsCertificates is not supported in IPv6", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					DefaultEndpoint: "[::1]:9999",
+					Tls: &networking.ServerTLSSettings{
+						Mode: networking.ServerTLSSettings_SIMPLE,
+						TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+							{
+								ServerCertificate: "/etc/istio/ingress-certs/tls.crt",
+								PrivateKey:        "/etc/istio/ingress-certs/tls.key",
+							},
+							{
+								ServerCertificate: "/etc/istio/ingress-certs/tls2.crt",
+								PrivateKey:        "/etc/istio/ingress-certs/tls2.key",
 							},
 						},
 					},
