@@ -1474,8 +1474,9 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 		Hostname: host.Name("*.example.org"),
 		Ports:    model.PortList{servicePort},
 		Attributes: model.ServiceAttributes{
-			Name:      "TestService",
-			Namespace: "test-ns",
+			Name:            "TestService",
+			Namespace:       "test-ns",
+			ServiceRegistry: provider.Kubernetes,
 		},
 	}
 

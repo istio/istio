@@ -506,7 +506,7 @@ spec:
 			serviceCluster: "outbound|27018||mymongodb.somedomain",
 			wantClusterLocal: map[cluster.ID][]string{
 				constants.DefaultClusterName: {"2.2.2.2:27018", "3.3.3.3:27018"},
-				"other":                      {},
+				"other":                      {"2.2.2.2:27018", "3.3.3.3:27018"},
 			},
 			wantNonClusterLocal: map[cluster.ID][]string{
 				constants.DefaultClusterName: {"2.2.2.2:27018", "3.3.3.3:27018"},
