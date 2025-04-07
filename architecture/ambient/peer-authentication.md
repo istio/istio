@@ -39,7 +39,7 @@ name: converted_peer_authentication_strict-and-permissive-mtls
 scope: WORKLOAD_SELECTOR
 ```
 
-The above policies reject unauthenticated traffic at the ztunnel unless its destination is port 9090. For more complete examples, read through the [test cases](../../pilot/pkg/serviceregistry/kube/controller/ambientindex_test.go) in the `TestRBACConvert` function.
+The above policies reject unauthenticated traffic at the ztunnel unless its destination is port 9090. For more complete examples, read through the [test cases](../../pilot/pkg/serviceregistry/kube/controller/ambient/ambientindex_test.go) in the `TestRBACConvert` function.
 
 ## PeerAuthentication and the Waypoint Proxy
 
