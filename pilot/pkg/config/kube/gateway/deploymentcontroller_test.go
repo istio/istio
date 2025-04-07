@@ -311,7 +311,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 						TLS: &k8s.GatewayTLSConfig{
 							Mode: ptr.Of(k8s.TLSModeTerminate),
 							Options: map[k8s.AnnotationKey]k8s.AnnotationValue{
-								constants.GatewayListenerTLSOptionsIstioMeshProvidedTLS: "true",
+								gatewayTLSTerminateModeKey: "ISTIO_MUTUAL",
 							},
 						},
 					}},

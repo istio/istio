@@ -161,8 +161,6 @@ const (
 	ManagedGatewayEastWestController      = "istio.io/eastwest-controller"
 	ManagedGatewayEastWestControllerLabel = "istio.io-eastwest-controller"
 
-	GatewayListenerTLSOptionsIstioMeshProvidedTLS = "istio.io/mesh-provided-tls"
-
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
 	EastWestGatewayClassName = "istio-eastwest"

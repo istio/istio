@@ -14,7 +14,7 @@ spec:
     tls:
       mode: Terminate # represents double-HBONE
       options:
-        istio.io/mesh-provided-tls: "true"
+        gateway.istio.io/tls-terminate-mode: ISTIO_MUTUAL
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -28,4 +28,4 @@ spec:
   listeners:
   - name: mesh
     port: 15008
-    protocol: HBONE # No TLS mode terminatew
+    protocol: HBONE # No TLS mode terminate

@@ -390,7 +390,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		}
 	}
 
-	// TODO: is this correct?
+	// TODO: remove when e/w gateway supports workload addressing
 	if !isEastWestGateway {
 		// Direct pod access chain.
 		cc := inboundChainConfig{
@@ -564,9 +564,12 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 		tcpProxy.TunnelingConfig = &tcp.TcpProxy_TunnelingConfig{
 			Hostname: "%DOWNSTREAM_LOCAL_ADDRESS%",
 		}
+		// Set access logs. These are filtered down to only connection establishment errors, to avoid double logs in most cases.
+		accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, class)
+	} else {
+		accessLogBuilder.setTCPAccessLog(push, proxy, tcpProxy, class, nil)
 	}
-	// Set access logs. These are filtered down to only connection establishment errors, to avoid double logs in most cases.
-	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, class)
+
 	l := &listener.Listener{
 		Name:              clusterName,
 		UseOriginalDst:    wrappers.Bool(false),

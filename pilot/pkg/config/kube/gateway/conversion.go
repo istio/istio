@@ -1936,16 +1936,9 @@ func buildTLS(
 			}
 		}
 
-		val, ok := tls.Options[constants.GatewayListenerTLSOptionsIstioMeshProvidedTLS]
-		meshTLS := ok && val == "true"
-		if len(tls.CertificateRefs) != 1 && !meshTLS {
+		if len(tls.CertificateRefs) != 1 {
 			// This is required in the API, should be rejected in validation
 			return out, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
-		}
-
-		if meshTLS {
-			// The mesh is providing the frontend TLS for this gateway; no need to parse a certificateRef
-			return out, nil
 		}
 		cred, err := buildSecretReference(ctx, tls.CertificateRefs[0], gw, secrets)
 		if err != nil {
