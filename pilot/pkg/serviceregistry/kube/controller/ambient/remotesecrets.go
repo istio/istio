@@ -97,55 +97,56 @@ func buildRemoteClustersCollection(
 	})
 	Secrets := krt.WrapClient(secrets, opts.WithName("RemoteSecrets")...)
 
-	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []Cluster {
-		var clusters []Cluster
-		secrets := krt.Fetch(ctx, Secrets)
-		for _, s := range secrets {
-			secretKey := krt.GetKey(s)
-			for clusterID, kubeConfig := range s.Data {
-				logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
-				if cluster.ID(clusterID) == options.ClusterID {
-					logger.Infof("ignoring cluster as it would overwrite the config cluster")
-					continue
-				}
-				client, err := builder(kubeConfig, cluster.ID(clusterID), configOverrides...)
-				if err != nil {
-					log.Errorf("Failed to create client for cluster %s from secret %s: %v", clusterID, secretKey, err)
-					continue
-				}
-				remoteNamespaces := kclient.NewFiltered[*corev1.Namespace](client, filter)
-				RemoteNamespaces := krt.WrapClient(remoteNamespaces, opts.WithName("RemoteNamespaces")...)
-				details := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterDetails {
-					ns := ptr.Flatten(krt.FetchOne(ctx, RemoteNamespaces, krt.FilterKey(options.SystemNamespace)))
-					if ns == nil {
-						return nil
-					}
-					nw, f := ns.Labels[label.TopologyNetwork.Name]
-					if !f {
-						nw = ""
-					}
-					return &ClusterDetails{
-						SystemNamespace: options.SystemNamespace,
-						Network:         network.ID(nw),
-					}
-				}, opts.WithName("RemoteClusters")...)
-				cluster := Cluster{
-					ID:                 cluster.ID(clusterID),
-					Client:             client,
-					KubeConfigSha:      sha256.Sum256(kubeConfig),
-					ClusterDetails:     details,
-					stop:               opts.Stop(),
-					initialSync:        &atomic.Bool{},
-					initialSyncTimeout: &atomic.Bool{},
-					// TODO: Add filter
-				}
-				// Run each remote cluster we've come across
-				go cluster.Run(opts.Debugger())
-				clusters = append(clusters, cluster)
-			}
+	Clusters := krt.NewManyCollection(Secrets, func(ctx krt.HandlerContext, s *corev1.Secret) []Cluster {
+		if s == nil {
+			return nil
 		}
+		var clusters []Cluster
+		secretKey := krt.GetKey(s)
+		for clusterID, kubeConfig := range s.Data {
+			logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
+			if cluster.ID(clusterID) == options.ClusterID {
+				logger.Infof("ignoring cluster as it would overwrite the config cluster")
+				continue
+			}
+			client, err := builder(kubeConfig, cluster.ID(clusterID), configOverrides...)
+			if err != nil {
+				log.Errorf("Failed to create client for cluster %s from secret %s: %v", clusterID, secretKey, err)
+				continue
+			}
+			remoteNamespaces := kclient.NewFiltered[*corev1.Namespace](client, filter)
+			RemoteNamespaces := krt.WrapClient(remoteNamespaces, opts.WithName("RemoteNamespaces")...)
+			details := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterDetails {
+				ns := ptr.Flatten(krt.FetchOne(ctx, RemoteNamespaces, krt.FilterKey(options.SystemNamespace)))
+				if ns == nil {
+					return nil
+				}
+				nw, f := ns.Labels[label.TopologyNetwork.Name]
+				if !f {
+					nw = ""
+				}
+				return &ClusterDetails{
+					SystemNamespace: options.SystemNamespace,
+					Network:         network.ID(nw),
+				}
+			}, opts.WithName("RemoteClusters")...)
+			cluster := Cluster{
+				ID:                 cluster.ID(clusterID),
+				Client:             client,
+				KubeConfigSha:      sha256.Sum256(kubeConfig),
+				ClusterDetails:     details,
+				stop:               opts.Stop(),
+				initialSync:        &atomic.Bool{},
+				initialSyncTimeout: &atomic.Bool{},
+				// TODO: Add filter
+			}
+			// Run each remote cluster we've come across
+			go cluster.Run(opts.Debugger())
+			clusters = append(clusters, cluster)
+		}
+
 		return clusters
-	}, opts.WithName("AllClusters")...)
+	}, opts.WithName("RemoteClusters")...)
 
 	return Clusters
 }
