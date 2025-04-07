@@ -127,6 +127,7 @@ type CertsDump struct {
 	Identity  string  `json:"identity"`
 	State     string  `json:"state"`
 	CertChain []*Cert `json:"certChain"`
+	RootCert  []*Cert `json:"rootCerts"`
 }
 
 type Cert struct {
