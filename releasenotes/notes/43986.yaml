@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 43986
+releaseNotes:
+- |
+  **Added** experimental support for the v1alpha1 `ClusterTrustBundle` API. This can be enabled by setting `values.pilot.env.ENABLE_CLUSTER_TRUST_BUNDLE_API=true`. Note that you will have to make sure to also enable the respective feature gates in your cluster, see [KEP-3257](https://github.com/kubernetes/enhancements/tree/master/keps/sig-auth/3257-cluster-trust-bundles) for details.
