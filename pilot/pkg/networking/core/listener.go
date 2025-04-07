@@ -166,11 +166,8 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		authnmodel.ApplyToCommonTLSContext(
 			ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl,
 			[]string{}, validateClient, nil)
-	// If credential names are specified at gateway config, create SDS config for gateway to fetch key/cert from Istiod.
-	case len(serverTLSSettings.GetCredentialNames()) > 0:
-		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
-	// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
-	case serverTLSSettings.CredentialName != "":
+	// If credential name(s) are specified at gateway config, create SDS config for gateway to fetch key/cert from Istiod.
+	case len(serverTLSSettings.GetCredentialNames()) > 0 || serverTLSSettings.CredentialName != "":
 		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
 	default:
 		certProxy := &model.Proxy{}
