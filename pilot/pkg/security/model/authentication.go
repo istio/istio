@@ -132,7 +132,10 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 ) {
 	sdsSecretConfigs := make([]*tls.SdsSecretConfig, 0)
 	customFileSDSServer := proxy.Metadata.Raw[security.CredentialFileMetaDataName] == "true"
-	var caCert string
+	// Envoy does not support client validation using multiple CA certificates.
+	// So we only use the first one.
+	caCert := proxy.Metadata.TLSServerRootCert
+
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
 	// We should check if these certs have values, if yes we should use them or otherwise fall back to defaults.
@@ -141,23 +144,17 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 			res := security.SdsCertificateConfig{
 				CertificatePath:   cert.ServerCertificate,
 				PrivateKeyPath:    cert.PrivateKey,
-				CaCertificatePath: proxy.Metadata.TLSServerRootCert,
+				CaCertificatePath: caCert,
 			}
 			sdsSecretConfigs = append(sdsSecretConfigs, constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer))
-			// Envoy does not support client validation using multiple CA certificates.
-			// So we only use the first one.
-			if caCert == "" {
-				caCert = res.GetRootResourceName()
-			}
 		}
 	} else {
 		res := security.SdsCertificateConfig{
 			CertificatePath:   proxy.Metadata.TLSServerCertChain,
 			PrivateKeyPath:    proxy.Metadata.TLSServerKey,
-			CaCertificatePath: proxy.Metadata.TLSServerRootCert,
+			CaCertificatePath: caCert,
 		}
 		sdsSecretConfigs = append(sdsSecretConfigs, constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer))
-		caCert = res.GetRootResourceName()
 	}
 	// TODO: if subjectAltName ends with *, create a prefix match as well.
 	// TODO: if user explicitly specifies SANs - should we alter his explicit config by adding all spifee aliases?
@@ -181,10 +178,13 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 				},
 			}
 		}
+		caRes := security.SdsCertificateConfig{
+			CaCertificatePath: caCert,
+		}
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         defaultValidationContext,
-				ValidationContextSdsSecretConfig: constructSdsSecretConfig(caCert, SDSRootResourceName, customFileSDSServer),
+				ValidationContextSdsSecretConfig: constructSdsSecretConfig(caRes.GetRootResourceName(), SDSRootResourceName, customFileSDSServer),
 			},
 		}
 	}
