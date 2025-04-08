@@ -42,7 +42,7 @@ type Gateway struct {
 }
 
 func (g Gateway) ResourceName() string {
-	return config.NamespacedName(g.Config).Name
+	return config.NamespacedName(g.Config).String()
 }
 
 func (g Gateway) Equals(other Gateway) bool {
