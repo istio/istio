@@ -307,10 +307,6 @@ refresh-goldens:
 
 update-golden: refresh-goldens
 
-# Keep dummy target since some build pipelines depend on this
-gen-charts:
-	@echo "This target is no longer required and will be removed in the future"
-
 gen-addons:
 	manifests/addons/gen.sh
 
