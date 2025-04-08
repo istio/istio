@@ -14,5 +14,8 @@ metadata:
     app.kubernetes.io/name: "istiod"
     {{- include "istio.labels" . | nindent 4 }}
 data:
-  last-applied-values: |-
+  original-values: |-
+{{ .Values._original | toPrettyJson | indent 4 }}
+{{- $_ := unset $.Values "_original" }}
+  merged-values: |-
 {{ .Values | toPrettyJson | indent 4 }}
