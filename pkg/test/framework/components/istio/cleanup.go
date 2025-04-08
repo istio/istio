@@ -16,6 +16,8 @@ package istio
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"regexp"
 	"time"
 
@@ -27,7 +29,13 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
+)
+
+const (
+	RetryDelay   = 2 * time.Second
+	RetryTimeOut = 5 * time.Minute
 )
 
 func (i *istioImpl) Close() error {
@@ -105,6 +113,29 @@ func (i *istioImpl) Dump(ctx resource.Context) {
 
 func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 	scopes.Framework.Infof("clean up cluster %s", c.Name())
+
+	// Tail `istio-cni` termination/shutdown logs, if any such pods present
+	// in the system namespace
+	label := "k8s-app=istio-cni-node"
+
+	fetchFunc := kube2.NewPodFetch(c, i.cfg.SystemNamespace, label)
+
+	fetched, e := fetchFunc()
+	if e != nil {
+		scopes.Framework.Infof("Failed retrieving pods: %v", e)
+	}
+
+	if len(fetched) != 0 {
+		workDir, err := i.ctx.CreateTmpDirectory("istio-state")
+		if err != nil {
+			scopes.Framework.Errorf("Unable to create directory for dumping istio-cni termlogs: %v", err)
+			return
+		}
+		for _, pod := range fetched {
+			go kube2.DumpTerminationLogs(context.Background(), c, workDir, pod, "install-cni")
+		}
+	}
+
 	errG.Go(func() (err error) {
 		if e := i.installer.Close(c); e != nil {
 			err = multierror.Append(err, e)
@@ -132,6 +163,38 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
 		}
+
+		// We deleted all resources, but don't report cleanup finished until all Istio pods
+		// in the system namespace have actually terminated.
+		cleanErr := retry.UntilSuccess(func() error {
+			label := "app.kubernetes.io/part-of=istio"
+
+			fetchPodFunc := kube2.NewPodFetch(c, i.cfg.SystemNamespace, label)
+
+			fetchedPod, e := fetchPodFunc()
+			if e != nil {
+				scopes.Framework.Infof("Failed retrieving pods: %v", e)
+			}
+
+			// In Openshift if takes time to cleanup the services.
+			// Lets check for the services cleanup as well.
+			fetchSvcFunc := kube2.NewServiceFetch(c, i.cfg.SystemNamespace, label)
+
+			fetchedSvc, e := fetchSvcFunc()
+			if e != nil {
+				scopes.Framework.Infof("Failed retrieving services: %v", e)
+			}
+
+			if len(fetchedPod) == 0 && len(fetchedSvc) == 0 {
+				return nil
+			}
+			res := fmt.Sprintf("Still waiting for %d pods and %d services to terminate in %s ", len(fetchedPod), len(fetchedSvc), i.cfg.SystemNamespace)
+			scopes.Framework.Infof(res)
+			return errors.New(res)
+		}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
+
+		err = multierror.Append(err, cleanErr)
+
 		return
 	})
 }
