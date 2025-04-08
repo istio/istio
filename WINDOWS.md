@@ -10,7 +10,7 @@ sudo apt-get install mingw-w64
 
 And then for Go you're done. You can cross-compile with:
 
-```
+```bash
 make -e TARGET_OS=windows build-cni
 ```
 
@@ -29,4 +29,3 @@ docker buildx build . -f cni/deployments/kubernetes/Dockerfile.install-cni-windo
 ```
 
 This will build the image and push it to the local registry. This isn't very useful in practice though (unless you're on a windows machine) because kind, k3s, minikube, and the like don't support Windows containers. You'll probably need to push it to a remote registry and pull it down to a Kubernetes cluster with Windows nodes (likely in a cloud provider). There's a sample manifest in the root path of this branch. Converting it to Istio's helm chart format is a TODO.
-
