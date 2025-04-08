@@ -18,8 +18,8 @@ require (
 	github.com/coreos/go-oidc/v3 v3.13.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v28.0.1+incompatible
-	github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250328202736-d2aa792b145a
-	github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250328202736-d2aa792b145a
+	github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250405152605-3d52a2c138ee
+	github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250405152605-3d52a2c138ee
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.18.0
 	github.com/felixge/fgprof v0.9.5

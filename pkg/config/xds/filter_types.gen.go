@@ -281,6 +281,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/stat_sinks/open_telemetry/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/stat_sinks/wasm/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/string_matcher/lua/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/fluentd/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/resource_detectors/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/samplers/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/alts/v3"
