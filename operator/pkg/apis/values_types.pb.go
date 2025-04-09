@@ -5354,10 +5354,6 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"dnsCapture\x12.\n" +
 	"\x04ipv6\x18\a \x01(\v2\x1a.google.protobuf.BoolValueR\x04ipv6\x12Z\n" +
 	"\x1areconcileIptablesOnStartup\x18\t \x01(\v2\x1a.google.protobuf.BoolValueR\x1areconcileIptablesOnStartup\"\xad\x03\n" +
-	"\x0fCNIRepairConfig\x124\n" +
-	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12\x10\n" +
-	"\x03hub\x18\x02 \x01(\tR\x03hub\x12(\n" +
-	"\x03tag\x18\x03 \x01(\v2\x16.google.protobuf.ValueR\x03tag\x12\x14\n" +
 	"\x05image\x18\x04 \x01(\tR\x05image\x12\x1c\n" +
 	"\tlabelPods\x18\x05 \x01(\bR\tlabelPods\x12\x1e\n" +
 	"\n" +
@@ -5512,10 +5508,6 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\rsecretVolumes\x18\x1b \x03(\v2%.istio.operator.v1alpha1.SecretVolumeR\rsecretVolumes\x12G\n" +
 	"\x12serviceAnnotations\x18\x1c \x01(\v2\x17.google.protobuf.StructR\x12serviceAnnotations\x12\x12\n" +
 	"\x04type\x18\x1d \x01(\tR\x04type\x12R\n" +
-	"\x0frollingMaxSurge\x18\x1f \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x0frollingMaxSurge\x12^\n" +
-	"\x15rollingMaxUnavailable\x18  \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x15rollingMaxUnavailable\x124\n" +
-	"\x15externalTrafficPolicy\x18\" \x01(\tR\x15externalTrafficPolicy\x12D\n" +
-	"\vtolerations\x18# \x03(\v2\x1e.k8s.io.api.core.v1.TolerationB\x02\x18\x01R\vtolerations\x12;\n" +
 	"\fingressPorts\x18$ \x03(\v2\x17.google.protobuf.StructR\fingressPorts\x12K\n" +
 	"\x14additionalContainers\x18% \x03(\v2\x17.google.protobuf.StructR\x14additionalContainers\x12=\n" +
 	"\rconfigVolumes\x18& \x03(\v2\x17.google.protobuf.StructR\rconfigVolumes\x128\n" +
