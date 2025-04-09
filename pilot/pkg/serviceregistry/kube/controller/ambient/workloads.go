@@ -194,7 +194,11 @@ func MergedGlobalWorkloadsCollection(
 			),
 			opts.WithName("LocalPodWorkloads")...,
 		)
-		LocalPodWorkloadsWithCluster := krt.MapCollection(LocalPodWorkloads, wrapObjectWithCluster[model.WorkloadInfo](LocalCluster.ID), opts.WithName("LocalPodWorkloadsWithCluster")...)
+		LocalPodWorkloadsWithCluster := krt.MapCollection(
+			LocalPodWorkloads,
+			wrapObjectWithCluster[model.WorkloadInfo](LocalCluster.ID),
+			opts.WithName("LocalPodWorkloadsWithCluster")...,
+		)
 		LocalWorkloadEntryWorkloads := krt.NewCollection(
 			workloadEntries,
 			workloadEntryWorkloadBuilder(
@@ -217,7 +221,11 @@ func MergedGlobalWorkloadsCollection(
 			),
 			opts.WithName("LocalWorkloadEntryWorkloads")...,
 		)
-		LocalWorkloadEntryWorkloadsWithCluster := krt.MapCollection(LocalWorkloadEntryWorkloads, wrapObjectWithCluster[model.WorkloadInfo](LocalCluster.ID), opts.WithName("LocalWorkloadEntryWorkloadsWithCluster")...)
+		LocalWorkloadEntryWorkloadsWithCluster := krt.MapCollection(
+			LocalWorkloadEntryWorkloads,
+			wrapObjectWithCluster[model.WorkloadInfo](LocalCluster.ID),
+			opts.WithName("LocalWorkloadEntryWorkloadsWithCluster")...,
+		)
 		// Workloads coming from serviceEntries. These are inlined workloadEntries (under `spec.endpoints`); these serviceEntries will
 		// also be generating `workloadapi.Service` definitions in the `ServicesCollection` logic.
 		LocalServiceEntryWorkloads := krt.NewManyCollection(
@@ -335,7 +343,11 @@ func MergedGlobalWorkloadsCollection(
 				return nil
 			}
 			globalWorkloadServicesWithCluster := *workloadServicesPtr
-			globalWorkloadServices := krt.MapCollection(globalWorkloadServicesWithCluster, unwrapObjectWithCluster[model.ServiceInfo], opts.WithName("GlobalWorkloadServices")...)
+			globalWorkloadServices := krt.MapCollection(
+				globalWorkloadServicesWithCluster,
+				unwrapObjectWithCluster[model.ServiceInfo],
+				opts.WithName("GlobalWorkloadServices")...,
+			)
 
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(globalWorkloadServices)
 			EndpointSlicesByIPIndex := endpointSliceAddressIndex(endpointSlices)
@@ -390,7 +402,11 @@ func MergedGlobalWorkloadsCollection(
 				),
 				opts.WithName("WorkloadEntryWorkloads")...,
 			)
-			WorkloadEntryWorkloadsWithCluster := krt.MapCollection(WorkloadEntryWorkloads, wrapObjectWithCluster[model.WorkloadInfo](c.ID), opts.WithName("WorkloadEntryWorkloadsWithCluster")...)
+			WorkloadEntryWorkloadsWithCluster := krt.MapCollection(
+				WorkloadEntryWorkloads,
+				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
+				opts.WithName("WorkloadEntryWorkloadsWithCluster")...,
+			)
 			// Workloads coming from serviceEntries. These are inlined workloadEntries (under `spec.endpoints`); these serviceEntries will
 			// also be generating `workloadapi.Service` definitions in the `ServicesCollection` logic.
 			ServiceEntryWorkloads := krt.NewManyCollection(
@@ -448,7 +464,11 @@ func MergedGlobalWorkloadsCollection(
 					globalNetworks.NetworkGateways,
 				), convertGateway)
 			}, opts.WithName("NetworkGatewayWorkloads")...)
-			NetworkGatewayWorkloadsWithCluster := krt.MapCollection(NetworkGatewayWorkloads, wrapObjectWithCluster[model.WorkloadInfo](c.ID), opts.WithName("LocalNetworkGatewayWorkloadsWithCluster")...)
+			NetworkGatewayWorkloadsWithCluster := krt.MapCollection(
+				NetworkGatewayWorkloads,
+				wrapObjectWithCluster[model.WorkloadInfo](c.ID),
+				opts.WithName("LocalNetworkGatewayWorkloadsWithCluster")...,
+			)
 			AllWorkloads = append(AllWorkloads,
 				PodWorkloadsWithCluster,
 				WorkloadEntryWorkloadsWithCluster,
@@ -740,25 +760,6 @@ func getPodIPs(p *v1.Pod) []v1.PodIP {
 		k8sPodIPs = []v1.PodIP{{IP: p.Status.PodIP}}
 	}
 	return k8sPodIPs
-}
-
-func (a *index) matchingServicesWithoutSelectors(
-	ctx krt.HandlerContext,
-	p *v1.Pod,
-	alreadyMatchingServices []model.ServiceInfo,
-	workloadServices krt.Collection[model.ServiceInfo],
-	endpointSlices krt.Collection[*discovery.EndpointSlice],
-	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
-) []model.ServiceInfo {
-	return matchingServicesWithoutSelectors(
-		ctx,
-		p,
-		alreadyMatchingServices,
-		workloadServices,
-		endpointSlices,
-		endpointSlicesAddressIndex,
-		a.DomainSuffix,
-	)
 }
 
 // matchingServicesWithoutSelectors finds all Services that match a given pod that do not use selectors.
@@ -1393,10 +1394,6 @@ func getNetworkGatewayAddress(
 		}
 	}
 	return nil
-}
-
-func (a *index) getNetworkGatewayAddress(ctx krt.HandlerContext, n string) *workloadapi.GatewayAddress {
-	return getNetworkGatewayAddress(ctx, n, a.networks.NetworkGateways, a.networks.GatewaysByNetwork)
 }
 
 // TargetRef is a subset of the Kubernetes ObjectReference which has some fields we don't care about

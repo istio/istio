@@ -55,9 +55,13 @@ func (a *index) ServicesCollection(
 		opts.WithName("ServicesInfo")...)
 	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces),
 		opts.WithName("ServiceEntriesInfo")...)
-	WorkloadServices := krt.JoinCollection([]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo}, append(opts.WithName("WorkloadService"), krt.WithMetadata(krt.Metadata{
-		ClusterKRTMetadataKey: clusterID,
-	}))...)
+	WorkloadServices := krt.JoinCollection(
+		[]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo},
+		append(opts.WithName("WorkloadService"), krt.WithMetadata(
+			krt.Metadata{
+				ClusterKRTMetadataKey: clusterID,
+			},
+		))...)
 	return WorkloadServices
 }
 
@@ -259,7 +263,7 @@ func constructServiceEntries(
 ) []*workloadapi.Service {
 	var autoassignedHostAddresses map[string][]netip.Addr
 	addresses, err := slices.MapErr(svc.Spec.Addresses, func(e string) (*workloadapi.NetworkAddress, error) {
-		return toNetworkAddressFromCidr(ctx, e, networkGetter(ctx))
+		return toNetworkAddressFromCidr(e, networkGetter(ctx))
 	})
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
@@ -296,7 +300,7 @@ func constructServiceEntries(
 		if len(hostsAddresses) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
 			if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
 				hostsAddresses = slices.Map(hostsAddrs, func(e netip.Addr) *workloadapi.NetworkAddress {
-					return toNetworkAddressFromIP(ctx, e, networkGetter(ctx))
+					return toNetworkAddressFromIP(e, networkGetter(ctx))
 				})
 			}
 		}
@@ -314,13 +318,13 @@ func constructServiceEntries(
 	return res
 }
 
-func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingclient.ServiceEntry, w *Waypoint) []*workloadapi.Service {
-	return constructServiceEntries(ctx, svc, w, func(ctx krt.HandlerContext) network.ID {
-		return a.Network(ctx)
-	})
-}
-
-func constructService(ctx krt.HandlerContext, svc *v1.Service, w *Waypoint, domainSuffix string, networkGetter func(krt.HandlerContext) network.ID) *workloadapi.Service {
+func constructService(
+	ctx krt.HandlerContext,
+	svc *v1.Service,
+	w *Waypoint,
+	domainSuffix string,
+	networkGetter func(krt.HandlerContext) network.ID,
+) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
 		ports = append(ports, &workloadapi.Port{

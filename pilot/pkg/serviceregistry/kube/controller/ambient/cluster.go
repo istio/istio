@@ -21,16 +21,13 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
-	discoveryv1 "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
-	kubeclient "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
@@ -58,7 +55,7 @@ type Cluster struct {
 	namespaces         krt.Collection[*corev1.Namespace]
 	pods               krt.Collection[*corev1.Pod]
 	services           krt.Collection[*corev1.Service]
-	endpointSlices     krt.Collection[*discoveryv1.EndpointSlice]
+	endpointSlices     krt.Collection[*discovery.EndpointSlice]
 	nodes              krt.Collection[*corev1.Node]
 	gateways           krt.Collection[*v1beta1.Gateway]
 }
@@ -92,16 +89,16 @@ func (c *Cluster) Run(debugger *krt.DebugHandler) {
 		ObjectFilter: c.Client.ObjectFilter(),
 	}
 	// Register all of the informers before starting the client
-	Namespaces := krt.NewInformer[*v1.Namespace](c.Client, opts.With(
+	Namespaces := krt.NewInformer[*corev1.Namespace](c.Client, opts.With(
 		append(opts.WithName("informer/Namespaces"),
 			krt.WithMetadata(krt.Metadata{
 				ClusterKRTMetadataKey: c.ID,
 			}),
 		)...,
 	)...)
-	Pods := krt.NewInformerFiltered[*v1.Pod](c.Client, kclient.Filter{
+	Pods := krt.NewInformerFiltered[*corev1.Pod](c.Client, kclient.Filter{
 		ObjectFilter:    c.Client.ObjectFilter(),
-		ObjectTransform: kubeclient.StripPodUnusedFields,
+		ObjectTransform: kube.StripPodUnusedFields,
 	}, opts.With(
 		append(opts.WithName("informer/Pods"),
 			krt.WithMetadata(krt.Metadata{
@@ -117,8 +114,8 @@ func (c *Cluster) Run(debugger *krt.DebugHandler) {
 			ClusterKRTMetadataKey: c.ID,
 		}),
 	)...)
-	servicesClient := kclient.NewFiltered[*v1.Service](c.Client, filter)
-	Services := krt.WrapClient[*v1.Service](servicesClient, opts.With(
+	servicesClient := kclient.NewFiltered[*corev1.Service](c.Client, filter)
+	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.With(
 		append(opts.WithName("informer/Services"),
 			krt.WithMetadata(krt.Metadata{
 				ClusterKRTMetadataKey: c.ID,
@@ -126,9 +123,9 @@ func (c *Cluster) Run(debugger *krt.DebugHandler) {
 		)...,
 	)...)
 
-	Nodes := krt.NewInformerFiltered[*v1.Node](c.Client, kclient.Filter{
+	Nodes := krt.NewInformerFiltered[*corev1.Node](c.Client, kclient.Filter{
 		ObjectFilter:    c.Client.ObjectFilter(),
-		ObjectTransform: kubeclient.StripNodeUnusedFields,
+		ObjectTransform: kube.StripNodeUnusedFields,
 	}, opts.With(
 		append(opts.WithName("informer/Nodes"),
 			krt.WithMetadata(krt.Metadata{

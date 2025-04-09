@@ -121,7 +121,7 @@ func buildRemoteClustersCollection(
 				stop:               opts.Stop(),
 				initialSync:        &atomic.Bool{},
 				initialSyncTimeout: &atomic.Bool{},
-				// TODO: Add filter
+				Filter:             filter.ObjectFilter,
 			}
 			// Run the remote cluster here so that we can use the cluster's internal informers
 			go cluster.Run(opts.Debugger())
