@@ -132,8 +132,8 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 ) {
 	sdsSecretConfigs := make([]*tls.SdsSecretConfig, 0)
 	customFileSDSServer := proxy.Metadata.Raw[security.CredentialFileMetaDataName] == "true"
-	// Envoy does not support client validation using multiple CA certificates.
-	// So we only use the first one.
+	// Envoy does not support client validation using multiple CA certificates when multiple certificates are provided.
+	// So we only use what's provided in the ServerTLSSettings.
 	caCert := proxy.Metadata.TLSServerRootCert
 
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
