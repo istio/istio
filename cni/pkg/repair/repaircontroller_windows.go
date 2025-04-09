@@ -1,5 +1,5 @@
-//go:build !linux && !windows
-// +build !linux,!windows
+//go:build windows
+// +build windows
 
 // Copyright Istio Authors
 //
@@ -18,6 +18,11 @@
 package repair
 
 import corev1 "k8s.io/api/core/v1"
+
+// redirectRunningPod dynamically enters the provided pod, that is already running, and programs it's networking configuration.
+func redirectRunningPod(pod *corev1.Pod, namespaceID string) error {
+	panic("not implemented")
+}
 
 func (c *Controller) repairPod(pod *corev1.Pod) error {
 	panic("not implemented")
