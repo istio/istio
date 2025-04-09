@@ -17,11 +17,12 @@ package ambient
 import (
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // First we duplicate the tests in ambientindex_test.go, but while enabling multinetwork.

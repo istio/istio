@@ -240,8 +240,10 @@ func (c collectionAdapter[T]) uid() collectionUID {
 	return c.c.(uidable).uid()
 }
 
-var _ Singleton[any] = &collectionAdapter[any]{}
-var _ uidable = &collectionAdapter[any]{}
+var (
+	_ Singleton[any] = &collectionAdapter[any]{}
+	_ uidable        = &collectionAdapter[any]{}
+)
 
 func NewSingleton[O any](hf TransformationEmpty[O], opts ...CollectionOption) Singleton[O] {
 	// dummyCollection provides a trivial collection implementation that always provides a single dummyValue.

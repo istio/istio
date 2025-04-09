@@ -18,13 +18,13 @@ import (
 	"net/netip"
 	"strings"
 
-	"istio.io/api/label"
-	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
-	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
+	"istio.io/api/label"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"

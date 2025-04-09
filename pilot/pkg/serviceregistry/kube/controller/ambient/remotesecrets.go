@@ -114,10 +114,30 @@ func buildRemoteClustersCollection(
 				log.Errorf("Failed to create client for cluster %s from secret %s: %v", clusterID, secretKey, err)
 				continue
 			}
-			remoteNamespaces := kclient.NewFiltered[*corev1.Namespace](client, filter)
-			RemoteNamespaces := krt.WrapClient(remoteNamespaces, opts.WithName("RemoteNamespaces")...)
+			cluster := Cluster{
+				ID:                 cluster.ID(clusterID),
+				Client:             client,
+				KubeConfigSha:      sha256.Sum256(kubeConfig),
+				stop:               opts.Stop(),
+				initialSync:        &atomic.Bool{},
+				initialSyncTimeout: &atomic.Bool{},
+				// TODO: Add filter
+			}
+			// Run the remote cluster here so that we can use the cluster's internal informers
+			go cluster.Run(opts.Debugger())
+
+			// Don't allow the collection to be synced without the cluster being synced
+			if !kube.WaitForCacheSync("cluster"+string(cluster.ID), cluster.stop, cluster.HasSynced) {
+				logger.Errorf("Timed out waiting for cluster %s to sync", cluster.ID)
+				continue
+			}
+
 			details := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterDetails {
-				ns := ptr.Flatten(krt.FetchOne(ctx, RemoteNamespaces, krt.FilterKey(options.SystemNamespace)))
+				if !cluster.namespaces.WaitUntilSynced(cluster.stop) {
+					logger.Errorf("Timed out waiting for cluster %s to sync namespaces", cluster.ID)
+					return nil
+				}
+				ns := ptr.Flatten(krt.FetchOne(ctx, cluster.namespaces, krt.FilterKey(options.SystemNamespace)))
 				if ns == nil {
 					return nil
 				}
@@ -130,18 +150,7 @@ func buildRemoteClustersCollection(
 					Network:         network.ID(nw),
 				}
 			}, opts.WithName("RemoteClusters")...)
-			cluster := Cluster{
-				ID:                 cluster.ID(clusterID),
-				Client:             client,
-				KubeConfigSha:      sha256.Sum256(kubeConfig),
-				ClusterDetails:     details,
-				stop:               opts.Stop(),
-				initialSync:        &atomic.Bool{},
-				initialSyncTimeout: &atomic.Bool{},
-				// TODO: Add filter
-			}
-			// Run each remote cluster we've come across
-			go cluster.Run(opts.Debugger())
+			cluster.ClusterDetails = details
 			clusters = append(clusters, cluster)
 		}
 
