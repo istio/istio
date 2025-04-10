@@ -25,6 +25,7 @@ import (
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -1367,5 +1368,49 @@ func fakeOpenTelemetryResourceDetectorsProvider(expectClusterName, expectAuthori
 	return &tracingcfg.Tracing_Http{
 		Name:       envoyOpenTelemetry,
 		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelHTTPAny},
+	}
+}
+
+func TestGetHeaderValue(t *testing.T) {
+	t.Setenv("CUSTOM_ENV_NAME", "custom-env-value")
+	cases := []struct {
+		name     string
+		input    *meshconfig.MeshConfig_ExtensionProvider_HttpHeader
+		expected string
+	}{
+		{
+			name: "custom-value",
+			input: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+					Value: "custom-value",
+				},
+			},
+			expected: "custom-value",
+		},
+		{
+			name: "read-from-env",
+			input: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_EnvName{
+					EnvName: "CUSTOM_ENV_NAME",
+				},
+			},
+			expected: "custom-env-value",
+		},
+		{
+			name: "read-from-env-not-exists",
+			input: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_EnvName{
+					EnvName: "CUSTOM_ENV_NAME1",
+				},
+			},
+			expected: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getHeaderValue(tc.input)
+			require.Equal(t, tc.expected, got)
+		})
 	}
 }

@@ -9,6 +9,12 @@ data:
     receivers:
       opencensus:
         endpoint: 0.0.0.0:55678
+      otlp/auth:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:5317
+            auth:
+              authenticator: bearertokenauth
       otlp:
         protocols:
           grpc:
@@ -24,6 +30,8 @@ data:
       debug:
         verbosity: detailed
     extensions:
+      bearertokenauth:
+        token: "somerandomtoken"
       health_check:
       pprof:
       zpages:
@@ -32,6 +40,7 @@ data:
       - health_check
       - pprof
       - zpages
+      - bearertokenauth
       pipelines:
         logs:
           receivers: [otlp]
@@ -41,6 +50,12 @@ data:
           receivers:
           - otlp
           - opencensus
+          exporters:
+          - zipkin
+          - debug
+        traces/auth:
+          receivers:
+          - otlp/auth
           exporters:
           - zipkin
           - debug
@@ -65,6 +80,10 @@ spec:
       port: 4318
       protocol: TCP
       targetPort: 4318
+    - name: grpc-otlp-auth # HTTP endpoint with basic auth for OpenTelemetry receiver.
+      port: 5317
+      protocol: TCP
+      targetPort: 5317
   selector:
     app: opentelemetry-collector
 ---
@@ -88,8 +107,7 @@ spec:
         sidecar.istio.io/inject: "false" # do not inject
     spec:
       containers:
-        - command:
-            - "/otelcol"
+        - args:
             - "--config=/conf/opentelemetry-collector-config.yaml"
           env:
             - name: POD_NAME
@@ -102,7 +120,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
-          image: otel/opentelemetry-collector:0.122.1
+          image: otel/opentelemetry-collector-contrib:0.123.0
           imagePullPolicy: IfNotPresent
           name: opentelemetry-collector
           ports:
