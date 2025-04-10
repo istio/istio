@@ -235,7 +235,7 @@ values:
         secretKeyRef:
           name: otel-credentials
           key: bearer-token
-		  optional: true
+          optional: true
 meshConfig:
   enableTracing: true
   extensionProviders:
