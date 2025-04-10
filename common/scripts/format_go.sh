@@ -21,4 +21,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-golangci-lint run --fix -c ./common/config/.golangci-format.yml
+golangci-lint run --fix -c ./common/config/.golangci.yml
