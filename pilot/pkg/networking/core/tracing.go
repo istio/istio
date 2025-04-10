@@ -16,7 +16,6 @@ package core
 
 import (
 	"fmt"
-
 	"net/url"
 	"sort"
 
