@@ -21,8 +21,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+GOLANGCILINT_RUN_ARGS=(--output.text.path stdout --output.junit-xml.path "${ARTIFACTS}"/junit-lint.xml)
+
 if [[ "${ARTIFACTS}" != "" ]]; then
-  golangci-lint run -v -c ./common/config/.golangci.yml --out-format colored-line-number,junit-xml:"${ARTIFACTS}"/junit-lint.xml
+  golangci-lint run -v -c ./common/config/.golangci.yml "${GOLANGCILINT_RUN_ARGS[@]}"
 else
   golangci-lint run -v -c ./common/config/.golangci.yml
 fi

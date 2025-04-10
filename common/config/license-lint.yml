@@ -140,3 +140,6 @@ allowlisted_modules:
 
 # Apache 2.0
 - github.com/aws/smithy-go
+
+# Simplified BSD License: https://github.com/gomarkdown/markdown/blob/master/LICENSE.txt
+- github.com/gomarkdown/markdown
