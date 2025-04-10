@@ -52,8 +52,11 @@ var (
 	//go:embed testdata/otel-tracing-res-detectors.yaml
 	otelTracingResDetectorsCfg string
 
-	//go:embed testdata/test-otel-grpc-with-initial-metadata.yaml
+	//go:embed testdata/otel-grpc-with-initial-metadata.yaml
 	otelTracingGRPCWithInitialMetadataCfg string
+
+	//go:embed testdata/otel-tracing-with-auth.yaml
+	otelTracingWithAuth string
 
 	//go:embed testdata/echo-gateway.yaml
 	echoGateway string
@@ -92,6 +95,11 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 			name:            "grpc exporter with initial metadata",
 			customAttribute: "provider=test-otel-grpc-with-initial-metadata",
 			cfgFile:         otelTracingGRPCWithInitialMetadataCfg,
+		},
+		{
+			name:            "grpc exporter with auth",
+			customAttribute: "provider=otel-with-auth",
+			cfgFile:         otelTracingWithAuth,
 		},
 	}
 
