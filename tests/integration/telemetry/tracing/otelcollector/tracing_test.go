@@ -213,7 +213,7 @@ func setupOtelCredentials(ctx resource.Context) error {
 			"bearer-token": []byte("Bearer somerandomtoken"),
 		},
 	}
-	for _, cluster := range ctx.Clusters() {
+	for _, cluster := range ctx.AllClusters().Primaries() {
 		if _, err := cluster.Kube().CoreV1().Secrets(systemNs.Name()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				if _, err := cluster.Kube().CoreV1().Secrets(systemNs.Name()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
