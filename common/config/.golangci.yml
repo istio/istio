@@ -29,6 +29,75 @@ linters:
           deny:
             - pkg: github.com/gogo/protobuf
               desc: gogo/protobuf is deprecated, use golang/protobuf
+        AllGoFiles:
+          files:
+            - $all
+          deny:
+            - pkg: golang.org/x/net/http2/h2c
+              desc: h2c.NewHandler is unsafe; use wrapper istio.io/istio/pkg/h2c
+            - pkg: github.com/golang/protobuf/jsonpb
+              desc: don't use the jsonpb package directly; use util/protomarshal instead
+            - pkg: google.golang.org/protobuf/encoding/protojson
+              desc: don't use the protojson package directly; use util/protomarshal instead
+            - pkg: gomodules.xyz/jsonpatch/v3
+              desc: don't use v3; v2 is orders of magnitude higher performance
+            - pkg: k8s.io/apimachinery/pkg/util/sets
+              desc: use istio.io/istio/pkg/util/sets
+            - pkg: k8s.io/utils/set
+              desc: use istio.io/istio/pkg/util/sets
+            - pkg: k8s.io/utils/env
+              desc: use istio.io/istio/pkg/env
+            - pkg: k8s.io/utils/strings/slices
+              desc: use istio.io/istio/pkg/slices
+            - pkg: k8s.io/utils/pointer
+              desc: use istio.io/istio/pkg/ptr
+            - pkg: go.opencensus.io
+              desc: do not use OpenCensus; use OpenTelemetry instead
+            - pkg: golang.org/x/exp/maps
+              desc: do not use golang.org/x/exp/maps; use istio.io/istio/pkg/maps instead
+            - pkg: maps
+              desc: do not use maps; use istio.io/istio/pkg/maps instead
+            - pkg: golang.org/x/exp/slices
+              desc: do not use golang.org/x/exp/slices; use istio.io/istio/pkg/slices instead
+            - pkg: slices
+              desc: do not use slices; use istio.io/istio/pkg/slices instead
+            - pkg: gopkg.in/yaml.v2
+              desc: do not use gopkg.in/yaml.v2; use sigs.k8s.io/yaml instead
+            - pkg: gopkg.in/yaml.v3
+              desc: do not use gopkg.in/yaml.v3; use sigs.k8s.io/yaml instead
+            - pkg: github.com/ghodss/yaml
+              desc: do not use github.com/ghodss/yaml; use sigs.k8s.io/yaml instead
+        DenyOpenTelemetry:
+          files:
+            - $all
+            - '!**/pkg/monitoring/**'
+            - '!**/pkg/tracing/**'
+          deny:
+            - pkg: go.opentelemetry.io/otel
+              desc: do not use OpenTelemetry directly; use pkg/monitoring
+            - pkg: go.opentelemetry.io/otel/metric
+              desc: do not use OpenTelemetry directly; use pkg/monitoring
+        DenyOperatorAndIstioctl:
+          files:
+            - '!$test'
+            - '!**/operator/**'
+            - '!**/istioctl/**'
+            - '!**/tools/bug-report/**'
+            - '!**/pkg/kube/**'
+            - '!**/pkg/url/**'
+            - '!**/pkg/test/framework/**'
+            - '!**/tests/fuzz/**'
+          deny:
+            - pkg: istio.io/istio/operator
+              desc: operator should not be imported
+            - pkg: istio.io/istio/istioctl
+              desc: istioctl should not be imported
+        DenyProtobufV1:
+          files:
+            - $all
+          deny:
+            - pkg: github.com/golang/protobuf/ptypes
+              desc: do not use github.com/golang/protobuf/ptypes; use google.golang.org/protobuf/types/known instead
     errcheck:
       check-type-assertions: false
       check-blank: false
@@ -185,9 +254,9 @@ linters:
           - staticcheck
         text: 'S1007'
     paths:
-      - .*\.pb\.go
-      - .*\.gen\.go
-      - genfiles$
+      - third_party$
+      - builtin$
+      - examples$
       - vendor$
       - third_party$
       - builtin$
@@ -212,86 +281,10 @@ formatters:
   exclusions:
     generated: lax
     paths:
-      - .*\.pb\.go
-      - .*\.gen\.go
-      - genfiles$
+      - third_party$
+      - builtin$
+      - examples$
       - vendor$
       - third_party$
       - builtin$
       - examples$
-linters-settings:
-  depguard:
-    rules:
-      # deny for all go files
-      AllGoFiles:
-        files:
-          - $all
-        deny:
-          - pkg: golang.org/x/net/http2/h2c
-            desc: "h2c.NewHandler is unsafe; use wrapper istio.io/istio/pkg/h2c"
-          - pkg: github.com/golang/protobuf/jsonpb
-            desc: "don't use the jsonpb package directly; use util/protomarshal instead"
-          - pkg: google.golang.org/protobuf/encoding/protojson
-            desc: "don't use the protojson package directly; use util/protomarshal instead"
-          - pkg: gomodules.xyz/jsonpatch/v3
-            desc: "don't use v3; v2 is orders of magnitude higher performance"
-          - pkg: k8s.io/apimachinery/pkg/util/sets
-            desc: "use istio.io/istio/pkg/util/sets"
-          - pkg: k8s.io/utils/set
-            desc: "use istio.io/istio/pkg/util/sets"
-          - pkg: k8s.io/utils/env
-            desc: "use istio.io/istio/pkg/env"
-          - pkg: k8s.io/utils/strings/slices
-            desc: "use istio.io/istio/pkg/slices"
-          - pkg: k8s.io/utils/pointer
-            desc: "use istio.io/istio/pkg/ptr"
-          - pkg: go.opencensus.io
-            desc: "do not use OpenCensus; use OpenTelemetry instead"
-          - pkg: golang.org/x/exp/maps
-            desc: "do not use golang.org/x/exp/maps; use istio.io/istio/pkg/maps instead"
-          - pkg: maps
-            desc: "do not use maps; use istio.io/istio/pkg/maps instead"
-          - pkg: golang.org/x/exp/slices
-            desc: "do not use golang.org/x/exp/slices; use istio.io/istio/pkg/slices instead"
-          - pkg: slices
-            desc: "do not use slices; use istio.io/istio/pkg/slices instead"
-          - pkg: gopkg.in/yaml.v2
-            desc: "do not use gopkg.in/yaml.v2; use sigs.k8s.io/yaml instead"
-          - pkg: gopkg.in/yaml.v3
-            desc: "do not use gopkg.in/yaml.v3; use sigs.k8s.io/yaml instead"
-          - pkg: github.com/ghodss/yaml
-            desc: "do not use github.com/ghodss/yaml; use sigs.k8s.io/yaml instead"
-      DenyOperatorAndIstioctl:
-        files:
-          # Tests can do anything
-          - "!$test"
-          # Main code should only be used by appropriate binaries
-          - "!**/operator/**"
-          - "!**/istioctl/**"
-          - "!**/tools/bug-report/**"
-          # This should only really import operator API, but that is hard to express without a larger refactoring
-          - "!**/pkg/kube/**"
-          - "!**/pkg/url/**"
-          - "!**/pkg/test/framework/**"
-          - "!**/tests/fuzz/**"
-        deny:
-          - pkg: istio.io/istio/operator
-            desc: "operator should not be imported"
-          - pkg: istio.io/istio/istioctl
-            desc: "istioctl should not be imported"
-      DenyOpenTelemetry:
-        files:
-          - $all
-          - "!**/pkg/monitoring/**"
-          - "!**/pkg/tracing/**"
-        deny:
-          - pkg: go.opentelemetry.io/otel
-            desc: "do not use OpenTelemetry directly; use pkg/monitoring"
-          - pkg: go.opentelemetry.io/otel/metric
-            desc: "do not use OpenTelemetry directly; use pkg/monitoring"
-      DenyProtobufV1:
-        files:
-          - $all
-        deny:
-          - pkg: github.com/golang/protobuf/ptypes
-            desc: "do not use github.com/golang/protobuf/ptypes; use google.golang.org/protobuf/types/known instead"
