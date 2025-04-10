@@ -83,7 +83,7 @@ func GlobalNodesCollection(
 			}))...)
 			return ptr.Of(nc)
 		},
-	)
+		opts...)
 }
 
 // NodesCollection maps a node to it's locality.

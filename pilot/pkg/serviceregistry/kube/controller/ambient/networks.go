@@ -68,7 +68,6 @@ func buildGlobalNetworkCollections(
 	opts krt.OptionsBuilder,
 ) networkCollections {
 	LocalSystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
-		log.Infof("Local Namespaces: %#v", localNamespaces.List())
 		ns := ptr.Flatten(krt.FetchOne(ctx, localNamespaces, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
 			return nil

@@ -472,7 +472,11 @@ func MergedGlobalWorkloadsCollection(
 
 		return AllWorkloads
 	}, opts.WithName("GlobalWorkloadsInfoWithCluster")...)
-	col := krt.NestedJoinWithMergeCollection(GlobalWorkloadInfos, mergeWorkloadInfosWithCluster(localClusterID), opts.WithName("MergedGlobalWorkloadsWithCluster")...)
+	col := krt.NestedJoinWithMergeCollection(
+		GlobalWorkloadInfos,
+		mergeWorkloadInfosWithCluster(localClusterID),
+		opts.WithName("MergedGlobalWorkloadsWithCluster")...,
+	)
 	return krt.MapCollection(col, unwrapObjectWithCluster[model.WorkloadInfo], opts.WithName("MergedGlobalWorkloads")...)
 }
 

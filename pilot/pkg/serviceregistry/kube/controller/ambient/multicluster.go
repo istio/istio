@@ -27,6 +27,7 @@ import (
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -84,7 +85,7 @@ func (a *index) buildGlobalCollections(
 	// for e.g. duplicate IPs, etc. So we keep around collections of collections and indexes per cluster.
 	GlobalPods := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalPods, clusters, func(c Cluster) krt.Collection[*v1.Pod] {
 		return c.pods
-	}))
+	}), opts.WithName("GlobalPods")...)
 	// Pod informers indexable by cluster ID
 	podInformersByCluster := informerIndexByCluster(GlobalPods)
 
@@ -115,7 +116,7 @@ func (a *index) buildGlobalCollections(
 	}), opts.WithName("GlobalNodes")...)
 	nodeInformersByCluster := informerIndexByCluster(GlobalNodes)
 
-	globalNodes := krt.NewCollection(clusters, collectionFromCluster[*v1.Node]("Nodes", GlobalNodes, nodeInformersByCluster, opts))
+	globalNodes := krt.NewCollection(clusters, collectionFromCluster[*v1.Node]("Nodes", GlobalNodes, nodeInformersByCluster, opts), opts.WithName("GlobalNodesWithCluster")...)
 	// Set up collections for remote clusters
 	GlobalNetworks := buildGlobalNetworkCollections(
 		clusters,
@@ -150,6 +151,41 @@ func (a *index) buildGlobalCollections(
 		}), false)
 
 	LocalWorkloadServices := a.ServicesCollection(localCluster.ID, localCluster.services, localServiceEntries, LocalWaypoints, LocalNamespaces, opts)
+	// All of this is local only
+	if features.EnableAmbientStatus {
+		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
+		servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
+		authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
+
+		WaypointPolicyStatus := WaypointPolicyStatusCollection(
+			localAuthzPolicies,
+			LocalWaypoints,
+			localCluster.services,
+			localServiceEntries,
+			localGatewayClasses,
+			LocalMeshConfig,
+			localCluster.namespaces,
+			opts,
+		)
+		statusQueue := statusqueue.NewQueue(options.StatusNotifier)
+		statusqueue.Register(statusQueue, "istio-ambient-service", WorkloadServices,
+			func(info model.ServiceInfo) (kclient.Patcher, map[string]model.Condition) {
+				// Since we have 1 collection for multiple types, we need to split these out
+				if info.Source.Kind == kind.ServiceEntry {
+					return kclient.ToPatcher(serviceEntriesWriter), getConditions(info.Source.NamespacedName, serviceEntries)
+				}
+				return kclient.ToPatcher(servicesWriter), getConditions(info.Source.NamespacedName, servicesClient)
+			})
+		statusqueue.Register(statusQueue, "istio-ambient-ztunnel-policy", AuthorizationPolicies,
+			func(pol model.WorkloadAuthorization) (kclient.Patcher, map[string]model.Condition) {
+				return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, authzPolicies)
+			})
+		statusqueue.Register(statusQueue, "istio-ambient-waypoint-policy", WaypointPolicyStatus,
+			func(pol model.WaypointPolicyStatus) (kclient.Patcher, map[string]model.Condition) {
+				return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, authzPolicies)
+			})
+		a.statusQueue = statusQueue
+	}
 	// Now we get to collections where we can actually merge duplicate keys, so we can use nested collections
 	GlobalWorkloadServicesWithCluster := GlobalMergedWorkloadServicesCollection(
 		localCluster,
@@ -357,7 +393,7 @@ func (a *index) buildGlobalCollections(
 		ByOwningWaypointIP:       ServiceInfosByOwningWaypointIP,
 	}
 	a.authorizationPolicies = AllPolicies
-	// TODO: Should this be global?
+	// TODO: Should this be the set of global waypoints?
 	a.waypoints = waypointsCollection{
 		Collection: LocalWaypoints,
 	}
@@ -395,7 +431,7 @@ func collectionFromCluster[T controllers.ComparableObject](
 	return func(ctx krt.HandlerContext, c Cluster) *krt.Collection[config.ObjectWithCluster[T]] {
 		clientPtr := krt.FetchOne(ctx, informerCollection, krt.FilterIndex(informerIndex, c.ID))
 		if clientPtr == nil {
-			log.Warnf("Cluster %s has no pod informer", c.ID)
+			log.Warnf("Cluster %s has no informer for %s", c.ID, name)
 			return nil
 		}
 		client := *clientPtr
