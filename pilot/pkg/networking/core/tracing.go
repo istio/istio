@@ -16,8 +16,8 @@ package core
 
 import (
 	"fmt"
+
 	"net/url"
-	"os"
 	"sort"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -755,12 +756,12 @@ func buildInitialMetadata(metadata []*meshconfig.MeshConfig_ExtensionProvider_Ht
 	return target
 }
 
-func getHeaderValue(hv *meshconfig.MeshConfig_ExtensionProvider_HttpHeader) string {
-	switch hv := hv.HeaderValue.(type) {
+func getHeaderValue(header *meshconfig.MeshConfig_ExtensionProvider_HttpHeader) string {
+	switch hv := header.HeaderValue.(type) {
 	case *meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value:
 		return hv.Value
 	case *meshconfig.MeshConfig_ExtensionProvider_HttpHeader_EnvName:
-		return os.Getenv(hv.EnvName)
+		return env.Register[string](hv.EnvName, "", "").Get()
 	}
 	return ""
 }
