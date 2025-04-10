@@ -251,6 +251,9 @@ func New(options Options) Index {
 			GatewayClasses,
 			WorkloadEntries,
 			ServiceEntries,
+			serviceEntries,
+			servicesClient,
+			authzPolicies,
 			options,
 			opts)
 		return a

@@ -52,6 +52,9 @@ func (a *index) buildGlobalCollections(
 	localGatewayClasses krt.Collection[*v1beta1.GatewayClass],
 	localWorkloadEntries krt.Collection[*networkingclient.WorkloadEntry],
 	localServiceEntries krt.Collection[*networkingclient.ServiceEntry],
+	localServiceEntryInformers kclient.Informer[*networkingclient.ServiceEntry],
+	localServiceInformers kclient.Informer[*v1.Service],
+	localAuthzInformers kclient.Informer[*securityclient.AuthorizationPolicy],
 	options Options,
 	opts krt.OptionsBuilder,
 ) {
@@ -116,7 +119,11 @@ func (a *index) buildGlobalCollections(
 	}), opts.WithName("GlobalNodes")...)
 	nodeInformersByCluster := informerIndexByCluster(GlobalNodes)
 
-	globalNodes := krt.NewCollection(clusters, collectionFromCluster[*v1.Node]("Nodes", GlobalNodes, nodeInformersByCluster, opts), opts.WithName("GlobalNodesWithCluster")...)
+	globalNodes := krt.NewCollection(
+		clusters,
+		collectionFromCluster[*v1.Node]("Nodes", GlobalNodes, nodeInformersByCluster, opts),
+		opts.WithName("GlobalNodesWithCluster")...,
+	)
 	// Set up collections for remote clusters
 	GlobalNetworks := buildGlobalNetworkCollections(
 		clusters,
@@ -151,7 +158,7 @@ func (a *index) buildGlobalCollections(
 		}), false)
 
 	LocalWorkloadServices := a.ServicesCollection(localCluster.ID, localCluster.services, localServiceEntries, LocalWaypoints, LocalNamespaces, opts)
-	// All of this is local only
+	// All of this is local only, but we need to do it here so we don't have to rebuild collections in ambientindex
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
 		servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
@@ -168,21 +175,21 @@ func (a *index) buildGlobalCollections(
 			opts,
 		)
 		statusQueue := statusqueue.NewQueue(options.StatusNotifier)
-		statusqueue.Register(statusQueue, "istio-ambient-service", WorkloadServices,
+		statusqueue.Register(statusQueue, "istio-ambient-service", LocalWorkloadServices,
 			func(info model.ServiceInfo) (kclient.Patcher, map[string]model.Condition) {
 				// Since we have 1 collection for multiple types, we need to split these out
 				if info.Source.Kind == kind.ServiceEntry {
-					return kclient.ToPatcher(serviceEntriesWriter), getConditions(info.Source.NamespacedName, serviceEntries)
+					return kclient.ToPatcher(serviceEntriesWriter), getConditions(info.Source.NamespacedName, localServiceEntryInformers)
 				}
-				return kclient.ToPatcher(servicesWriter), getConditions(info.Source.NamespacedName, servicesClient)
+				return kclient.ToPatcher(servicesWriter), getConditions(info.Source.NamespacedName, localServiceInformers)
 			})
 		statusqueue.Register(statusQueue, "istio-ambient-ztunnel-policy", AuthorizationPolicies,
 			func(pol model.WorkloadAuthorization) (kclient.Patcher, map[string]model.Condition) {
-				return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, authzPolicies)
+				return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, localAuthzInformers)
 			})
 		statusqueue.Register(statusQueue, "istio-ambient-waypoint-policy", WaypointPolicyStatus,
 			func(pol model.WaypointPolicyStatus) (kclient.Patcher, map[string]model.Condition) {
-				return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, authzPolicies)
+				return kclient.ToPatcher(authorizationPoliciesWriter), getConditions(pol.Source.NamespacedName, localAuthzInformers)
 			})
 		a.statusQueue = statusQueue
 	}
