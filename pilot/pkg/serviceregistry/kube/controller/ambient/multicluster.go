@@ -76,7 +76,7 @@ func (a *index) buildGlobalCollections(
 	GlobalEndpointSlices := krt.NewManyFromNothing(
 		nestedCollectionFromLocalAndRemote(LocalEndpointSlices, clusters, func(c Cluster) krt.Collection[*discovery.EndpointSlice] {
 			return c.endpointSlices
-		}, opts))
+		}), opts.WithName("GlobalEndpointSlices")...)
 	endpointSliceInformersByCluster := informerIndexByCluster(GlobalEndpointSlices)
 
 	LocalMeshConfig := options.MeshConfig
@@ -84,18 +84,18 @@ func (a *index) buildGlobalCollections(
 	// for e.g. duplicate IPs, etc. So we keep around collections of collections and indexes per cluster.
 	GlobalPods := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalPods, clusters, func(c Cluster) krt.Collection[*v1.Pod] {
 		return c.pods
-	}, opts))
+	}))
 	// Pod informers indexable by cluster ID
 	podInformersByCluster := informerIndexByCluster(GlobalPods)
 
 	GlobalServices := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalServices, clusters, func(c Cluster) krt.Collection[*v1.Service] {
 		return c.services
-	}, opts))
+	}), opts.WithName("GlobalServices")...)
 	serviceInformersByCluster := informerIndexByCluster(GlobalServices)
 
 	GlobalGateways := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalGateways, clusters, func(c Cluster) krt.Collection[*v1beta1.Gateway] {
 		return c.gateways
-	}, opts))
+	}), opts.WithName("GlobalGateways")...)
 	gatewayInformersByCluster := informerIndexByCluster(GlobalGateways)
 	GlobalGatewaysWithCluster := krt.NewCollection(clusters, collectionFromCluster[*v1beta1.Gateway](
 		"GatewaysWithCluster",
@@ -107,12 +107,12 @@ func (a *index) buildGlobalCollections(
 
 	GlobalNamespaces := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalNamespaces, clusters, func(c Cluster) krt.Collection[*v1.Namespace] {
 		return c.namespaces
-	}, opts))
+	}), opts.WithName("GlobalNamespaces")...)
 	namespaceInformersByCluster := informerIndexByCluster(GlobalNamespaces)
 
 	GlobalNodes := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalNodes, clusters, func(c Cluster) krt.Collection[*v1.Node] {
 		return c.nodes
-	}, opts))
+	}), opts.WithName("GlobalNodes")...)
 	nodeInformersByCluster := informerIndexByCluster(GlobalNodes)
 
 	globalNodes := krt.NewCollection(clusters, collectionFromCluster[*v1.Node]("Nodes", GlobalNodes, nodeInformersByCluster, opts))
@@ -367,7 +367,6 @@ func nestedCollectionFromLocalAndRemote[T controllers.ComparableObject](
 	localCollection krt.Collection[T],
 	clustersCollection krt.Collection[Cluster],
 	remoteCollectionGetter func(c Cluster) krt.Collection[T],
-	_ krt.OptionsBuilder,
 ) krt.TransformationEmptyToMulti[krt.Collection[T]] {
 	return func(ctx krt.HandlerContext) []krt.Collection[T] {
 		allCollections := []krt.Collection[T]{localCollection}
@@ -376,7 +375,7 @@ func nestedCollectionFromLocalAndRemote[T controllers.ComparableObject](
 		for _, c := range clusters {
 			remoteCollection := remoteCollectionGetter(c)
 			if remoteCollection == nil {
-				log.Warnf("Cluster %s has no pod informer", c.ID)
+				log.Warnf("Cluster %s has no informer for remoteCollection %v", c.ID, localCollection)
 				continue
 			}
 			allCollections = append(allCollections, remoteCollection)

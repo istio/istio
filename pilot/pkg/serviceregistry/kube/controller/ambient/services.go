@@ -89,11 +89,7 @@ func GlobalMergedWorkloadServicesCollection(
 		clusters := krt.Fetch(ctx, clusters)
 		for _, cluster := range clusters {
 			nwPtr := krt.FetchOne(ctx, globalNetworks.GlobalSystemNamespaces, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
-			if nwPtr == nil {
-				log.Warnf("Cluster %s does not have a network assigned, skipping", cluster.ID)
-				return nil
-			}
-			nw := *nwPtr
+			nw := ptr.OrEmpty(nwPtr)
 			servicesPtr := krt.FetchOne(ctx, globalServices, krt.FilterIndex(servicesByCluster, cluster.ID))
 			if servicesPtr == nil {
 				log.Warnf("Cluster %s does not have services assigned, skipping", cluster.ID)

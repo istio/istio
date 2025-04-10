@@ -161,11 +161,7 @@ func MergedGlobalWorkloadsCollection(
 	GlobalWorkloadInfos := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]] {
 		// Wait for all of the things we depend on in the local cluster to be ready
 		nwPtr := krt.FetchOne(ctx, globalNetworks.LocalSystemNamespace.AsCollection())
-		if nwPtr == nil {
-			log.Warnf("Local cluster does not have a network assigned, skipping")
-			return nil
-		}
-		nw := *nwPtr
+		nw := ptr.OrEmpty(nwPtr)
 		LocalWorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(localWorkloadServices)
 		LocalEndpointSlicesByIPIndex := endpointSliceAddressIndex(LocalCluster.endpointSlices)
 		LocalPodWorkloads := krt.NewCollection(
@@ -300,11 +296,7 @@ func MergedGlobalWorkloadsCollection(
 		clusters := krt.Fetch(ctx, clusters)
 		for _, c := range clusters {
 			nwPtr := krt.FetchOne(ctx, globalNetworks.GlobalSystemNamespaces, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-			if nwPtr == nil {
-				log.Warnf("Cluster %s does not have a network assigned, skipping", c.ID)
-				return nil
-			}
-			nw := *nwPtr
+			nw := ptr.OrEmpty(nwPtr)
 			endpointSlicesPtr := krt.FetchOne(ctx, globalEndpointSlices, krt.FilterIndex(endpointSlicesByCluster, c.ID))
 			if endpointSlicesPtr == nil {
 				log.Warnf("Cluster %s does not have endpoint slices, skipping", c.ID)
@@ -479,8 +471,8 @@ func MergedGlobalWorkloadsCollection(
 		}
 
 		return AllWorkloads
-	})
-	col := krt.NestedJoinWithMergeCollection(GlobalWorkloadInfos, mergeWorkloadInfosWithCluster(localClusterID))
+	}, opts.WithName("GlobalWorkloadsInfoWithCluster")...)
+	col := krt.NestedJoinWithMergeCollection(GlobalWorkloadInfos, mergeWorkloadInfosWithCluster(localClusterID), opts.WithName("MergedGlobalWorkloadsWithCluster")...)
 	return krt.MapCollection(col, unwrapObjectWithCluster[model.WorkloadInfo], opts.WithName("MergedGlobalWorkloads")...)
 }
 

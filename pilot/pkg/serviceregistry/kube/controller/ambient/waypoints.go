@@ -314,11 +314,7 @@ func GlobalWaypointsCollection(
 				}
 
 				nwPtr := krt.FetchOne(ctx, globalNetworks.GlobalSystemNamespaces, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-				if nwPtr == nil {
-					log.Warnf("Cluster %s does not have a network assigned, skipping", c.ID)
-					return nil
-				}
-				nw := *nwPtr
+				nw := ptr.OrEmpty(nwPtr)
 				clusterNetwork := nw.Get()
 
 				if clusterNetwork == nil {
