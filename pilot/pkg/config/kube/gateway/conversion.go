@@ -1901,6 +1901,12 @@ func buildTLS(
 			switch tls.Options[gatewayTLSTerminateModeKey] {
 			case "MUTUAL":
 				out.Mode = istio.ServerTLSSettings_MUTUAL
+			case "ISTIO_SIMPLE":
+				// Simple TLS but with builtin workload certificate.
+				// equivalent to `credentialName: builtin://
+				out.Mode = istio.ServerTLSSettings_SIMPLE
+				out.CredentialName = creds.BuiltinGatewaySecretTypeURI
+				return out, nil
 			case "ISTIO_MUTUAL":
 				out.Mode = istio.ServerTLSSettings_ISTIO_MUTUAL
 				return out, nil
