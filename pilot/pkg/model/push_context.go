@@ -1315,6 +1315,11 @@ func (ps *PushContext) IsClusterLocal(service *Service) bool {
 	if ps == nil || service == nil {
 		return false
 	}
+	// If ServiceRegistry is not Kubernetes, ServiceEntries for example,
+	// we should not consider it as cluster-local.
+	if service.Attributes.ServiceRegistry != provider.Kubernetes {
+		return false
+	}
 	return ps.clusterLocalHosts.IsClusterLocal(service.Hostname)
 }
 
