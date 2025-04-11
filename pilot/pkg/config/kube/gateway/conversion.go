@@ -40,7 +40,6 @@ import (
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/credentials"
 	creds "istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -1906,7 +1905,7 @@ func buildTLS(
 				// Simple TLS but with builtin workload certificate.
 				// equivalent to `credentialName: builtin://
 				out.Mode = istio.ServerTLSSettings_SIMPLE
-				out.CredentialName = credentials.BuiltinGatewaySecretTypeURI
+				out.CredentialName = creds.BuiltinGatewaySecretTypeURI
 				return out, nil
 			case "ISTIO_MUTUAL":
 				out.Mode = istio.ServerTLSSettings_ISTIO_MUTUAL
