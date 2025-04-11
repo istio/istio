@@ -189,6 +189,13 @@ spec:
             operator: In
             values:
               - group
+  - name: none
+    hostname: "*.none.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: None
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
