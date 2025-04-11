@@ -54,8 +54,12 @@ var (
 )
 
 // ConnectOriginate is the name for the resources associated with the origination of HTTP CONNECT.
-// Duplicated from v1alpha3/waypoint.go to avoid import cycle
+// Duplicated from networking/core/waypoint.go to avoid import cycle
 const connectOriginate = "connect_originate"
+
+// ForwardInnerConnect is the name for resources associated with the forwarding of an inner CONNECT tunnel.
+// Duplicated from networking/core/waypoint.go to avoid import cycle
+const forwardInnerConnect = "forward_inner_connect"
 
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
@@ -337,6 +341,18 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	}
 
 	if features.EnableIngressWaypointRouting {
+		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
+			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
+			locLbEps := b.generate(waypointEps, true)
+			return b.createClusterLoadAssignment(locLbEps)
+		}
+	}
+
+	// If we're an east west gateway, then we also want to send to waypoints
+	// TODO: depending on the final design, there will be times we DON'T want
+	// the e/w gateway to send to waypoints. That conditional logic will either live
+	// here or in the listener logic.
+	if features.EnableAmbientMultiNetwork && isEastWestGateway(b.proxy) {
 		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
 			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 			locLbEps := b.generate(waypointEps, true)
@@ -706,8 +722,12 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
 		// Setup tunnel metadata so requests will go through the tunnel
 		target := ptr.NonEmptyOrDefault(waypoint, net.JoinHostPort(address, strconv.Itoa(port)))
+		innerAddressName := connectOriginate
+		if isEastWestGateway(b.proxy) {
+			innerAddressName = forwardInnerConnect
+		}
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, target),
+			Address: util.BuildInternalAddressWithIdentifier(innerAddressName, target),
 		}}
 		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
 		if b.dir != model.TrafficDirectionInboundVIP {
@@ -844,8 +864,8 @@ func getSubSetLabels(dr *v1alpha3.DestinationRule, subsetName string) labels.Ins
 // Lookup the service, find its waypoint, then find the waypoint's endpoints.
 func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) ([]*model.IstioEndpoint, bool) {
 	// Currently we only support routers (gateways)
-	if b.nodeType != model.Router {
-		// Currently only ingress will call waypoints
+	if b.nodeType != model.Router && !isEastWestGateway(b.proxy) {
+		// Currently only ingress and e/w gateway will call waypoints
 		return nil, false
 	}
 	if !b.service.HasAddressOrAssigned(b.proxy.Metadata.ClusterID) {
@@ -863,7 +883,7 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 	}
 	svc := svcs[0]
 	// They need to explicitly opt-in on the service to send from ingress -> waypoint
-	if !svc.IngressUseWaypoint {
+	if !svc.IngressUseWaypoint && !isEastWestGateway(b.proxy) {
 		return nil, false
 	}
 	waypointClusterName := model.BuildSubsetKey(
@@ -895,4 +915,14 @@ func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.Endpoint
 		return true
 	})
 	return svcEps, true
+}
+
+// Duplicated from networking/core/waypoint to avoid circular dependency
+func isEastWestGateway(node *model.Proxy) bool {
+	if node == nil || node.Type != model.Waypoint {
+		return false
+	}
+	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
+
+	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
 }

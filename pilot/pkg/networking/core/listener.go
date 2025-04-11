@@ -101,7 +101,6 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	push *model.PushContext,
 ) []*listener.Listener {
 	builder := NewListenerBuilder(node, push)
-
 	switch node.Type {
 	case model.SidecarProxy:
 		builder = configgen.buildSidecarListeners(builder)
