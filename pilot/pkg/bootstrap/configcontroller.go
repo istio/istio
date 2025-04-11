@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	ingress "istio.io/istio/pilot/pkg/config/kube/ingress"
+	"istio.io/istio/pilot/pkg/config/kube/virtualservice"
 	"istio.io/istio/pilot/pkg/config/memory"
 	configmonitor "istio.io/istio/pilot/pkg/config/monitor"
 	istioCredentials "istio.io/istio/pilot/pkg/credentials"
@@ -156,6 +157,11 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			Forced: true,
 		})
 	})
+	if features.EnableVirtualServiceController {
+		args.RegistryOptions.KubeOptions.KrtDebugger = args.KrtDebugger
+		vsc := virtualservice.NewController(s.kubeClient, args.RegistryOptions.KubeOptions, s.environment.Watcher, s.XDSServer)
+		s.ConfigStores = append(s.ConfigStores, vsc)
+	}
 	if features.EnableGatewayAPI {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
 			s.initStatusManager(args)
