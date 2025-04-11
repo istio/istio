@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/security"
@@ -85,6 +86,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 		trustDomainAliases []string
 		crl                string
 		validateClient     bool
+		tlsCertificates    []*networking.ServerTLSSettings_TLSCertificate
 		expected           *auth.CommonTlsContext
 	}{
 		{
@@ -485,12 +487,156 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Multiple TLSServerCertificates",
+			node: &model.Proxy{Metadata: &model.NodeMetadata{
+				TLSServerRootCert: "/path/to/root.pem",
+			}},
+			tlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+				{
+					ServerCertificate: "/path/to/cert1.pem",
+					PrivateKey:        "/path/to/key1.pem",
+				},
+				{
+					ServerCertificate: "/path/to/cert2.pem",
+					PrivateKey:        "/path/to/key2.pem",
+				},
+			},
+			validateClient: true,
+			expected: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						Name: "file-cert:/path/to/cert1.pem~/path/to/key1.pem",
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
+							},
+							ResourceApiVersion: core.ApiVersion_V3,
+						},
+					},
+					{
+						Name: "file-cert:/path/to/cert2.pem~/path/to/key2.pem",
+						SdsConfig: &core.ConfigSource{
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
+							},
+							ResourceApiVersion: core.ApiVersion_V3,
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "file-root:/path/to/root.pem",
+							SdsConfig: &core.ConfigSource{
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+								ResourceApiVersion: core.ApiVersion_V3,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Nil TLSServerCertificates",
+			node: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			validateClient: true,
+			expected: &auth.CommonTlsContext{
+				TlsCertificateSdsSecretConfigs: []*auth.SdsSecretConfig{
+					{
+						Name: "default",
+						SdsConfig: &core.ConfigSource{
+							InitialFetchTimeout: durationpb.New(time.Second * 0),
+							ResourceApiVersion:  core.ApiVersion_V3,
+							ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+								ApiConfigSource: &core.ApiConfigSource{
+									ApiType:                   core.ApiConfigSource_GRPC,
+									SetNodeOnFirstMessageOnly: true,
+									TransportApiVersion:       core.ApiVersion_V3,
+									GrpcServices: []*core.GrpcService{
+										{
+											TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+												EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				ValidationContextType: &auth.CommonTlsContext_CombinedValidationContext{
+					CombinedValidationContext: &auth.CommonTlsContext_CombinedCertificateValidationContext{
+						DefaultValidationContext: &auth.CertificateValidationContext{},
+						ValidationContextSdsSecretConfig: &auth.SdsSecretConfig{
+							Name: "ROOTCA",
+							SdsConfig: &core.ConfigSource{
+								InitialFetchTimeout: durationpb.New(time.Second * 0),
+								ResourceApiVersion:  core.ApiVersion_V3,
+								ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+									ApiConfigSource: &core.ApiConfigSource{
+										ApiType:                   core.ApiConfigSource_GRPC,
+										SetNodeOnFirstMessageOnly: true,
+										TransportApiVersion:       core.ApiVersion_V3,
+										GrpcServices: []*core.GrpcService{
+											{
+												TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+													EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.crl, test.trustDomainAliases, test.validateClient)
+			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.crl, test.trustDomainAliases, test.validateClient, test.tlsCertificates)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
@@ -559,6 +705,135 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if got := ConstructSdsSecretConfigForCredential(c.name, c.credentialSocketExists); !cmp.Equal(got, c.expected, protocmp.Transform()) {
 				t.Errorf("ConstructSdsSecretConfigForSDSEndpoint: got(%#v), want(%#v)\n", got, c.expected)
+			}
+		})
+	}
+}
+
+func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
+	tests := []struct {
+		name                   string
+		tlsOpts                *networking.ServerTLSSettings
+		credentialSocketExist  bool
+		expectedCertCount      int
+		expectedValidation     bool
+		expectedValidationType string
+	}{
+		{
+			name: "single certificate with credential name",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "test-cert",
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      1,
+			expectedValidation:     false,
+			expectedValidationType: "",
+		},
+		{
+			name: "multiple certificates with credential names",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_SIMPLE,
+				CredentialNames: []string{"rsa-cert", "ecdsa-cert"},
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      2,
+			expectedValidation:     false,
+			expectedValidationType: "",
+		},
+		{
+			name: "multiple certificates with mutual TLS",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_MUTUAL,
+				CredentialNames: []string{"rsa-cert", "ecdsa-cert"},
+				SubjectAltNames: []string{"test.com"},
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      2,
+			expectedValidation:     true,
+			expectedValidationType: "CombinedValidationContext",
+		},
+		{
+			name: "multiple certificates with subject alt names only",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_SIMPLE,
+				CredentialNames: []string{"rsa-cert", "ecdsa-cert"},
+				SubjectAltNames: []string{"test.com"},
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      2,
+			expectedValidation:     true,
+			expectedValidationType: "ValidationContext",
+		},
+		{
+			name: "prefer credential names over credential name",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_SIMPLE,
+				CredentialName:  "old-cert",
+				CredentialNames: []string{"rsa-cert", "ecdsa-cert"},
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      2,
+			expectedValidation:     false,
+			expectedValidationType: "",
+		},
+		{
+			name: "external credential socket",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_SIMPLE,
+				CredentialNames: []string{"external-cert"},
+			},
+			credentialSocketExist:  true,
+			expectedCertCount:      1,
+			expectedValidation:     false,
+			expectedValidationType: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tlsContext := &auth.CommonTlsContext{}
+			ApplyCredentialSDSToServerCommonTLSContext(tlsContext, tt.tlsOpts, tt.credentialSocketExist)
+
+			// Check certificate count
+			if len(tlsContext.TlsCertificateSdsSecretConfigs) != tt.expectedCertCount {
+				t.Errorf("expected %d certificates, got %d", tt.expectedCertCount, len(tlsContext.TlsCertificateSdsSecretConfigs))
+			}
+
+			// Check validation context
+			if tt.expectedValidation {
+				if tlsContext.ValidationContextType == nil {
+					t.Error("expected validation context to be set")
+				}
+				switch tt.expectedValidationType {
+				case "CombinedValidationContext":
+					combinedCtx, ok := tlsContext.ValidationContextType.(*auth.CommonTlsContext_CombinedValidationContext)
+					if !ok {
+						t.Error("expected CombinedValidationContext")
+					}
+					if combinedCtx.CombinedValidationContext == nil {
+						t.Error("expected CombinedValidationContext to be set")
+					}
+				case "ValidationContext":
+					validationCtx, ok := tlsContext.ValidationContextType.(*auth.CommonTlsContext_ValidationContext)
+					if !ok {
+						t.Error("expected ValidationContext")
+					}
+					if validationCtx.ValidationContext == nil {
+						t.Error("expected ValidationContext to be set")
+					}
+				}
+			} else if tlsContext.ValidationContextType != nil {
+				t.Error("unexpected validation context")
+			}
+
+			// Check certificate names
+			if tt.expectedCertCount > 0 {
+				for i, cert := range tlsContext.TlsCertificateSdsSecretConfigs {
+					if cert.Name == "" {
+						t.Errorf("certificate %d has empty name", i)
+					}
+				}
 			}
 		})
 	}
