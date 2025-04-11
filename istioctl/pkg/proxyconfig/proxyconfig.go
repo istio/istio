@@ -108,9 +108,9 @@ const (
 	// edsPath get eds info
 	edsPath = "?include_eds=true"
 	// secretPath get secrets info
-	secretPath = "?mask=dynamic_active_secrets"
+	secretPath = "?mask=dynamic_active_secrets,dynamic_warming_secrets"
 	// clusterPath get cluster info
-	clusterPath = "?mask=dynamic_active_clusters,static_clusters"
+	clusterPath = "?mask=dynamic_active_clusters,dynamic_warming_clusters,static_clusters"
 	// listenerPath get listener info
 	listenerPath = "?mask=dynamic_listeners,static_listeners"
 	// routePath get route info
