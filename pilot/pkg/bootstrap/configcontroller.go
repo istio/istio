@@ -370,7 +370,7 @@ func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configCont
 //
 //	Implement for MUTUAL_TLS/ISTIO_MUTUAL_TLS modes
 func (s *Server) getTransportCredentials(args *PilotArgs, tlsSettings *v1alpha3.ClientTLSSettings) (credentials.TransportCredentials, error) {
-	if err := agent.ValidateTLS(tlsSettings); err != nil && tlsSettings.GetMode() == v1alpha3.ClientTLSSettings_SIMPLE {
+	if err := agent.ValidateTLS(args.Namespace, tlsSettings); err != nil && tlsSettings.GetMode() == v1alpha3.ClientTLSSettings_SIMPLE {
 		return nil, err
 	}
 	switch tlsSettings.GetMode() {
@@ -460,5 +460,5 @@ func (s *Server) getRootCertFromSecret(name, namespace string) (*istioCredential
 	if err != nil {
 		return nil, fmt.Errorf("failed to get credential with name %v: %v", name, err)
 	}
-	return kube.ExtractRoot(secret)
+	return kube.ExtractRoot(secret.Data)
 }

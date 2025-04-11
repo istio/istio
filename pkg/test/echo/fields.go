@@ -72,6 +72,7 @@ const (
 	ProtocolField         Field = "Proto"
 	ProxyProtocolField    Field = "ProxyProtocol"
 	AlpnField             Field = "Alpn"
+	SNIField              Field = "Sni"
 	RequestHeaderField    Field = "RequestHeader"
 	ResponseHeaderField   Field = "ResponseHeader"
 	ClusterField          Field = "Cluster"
