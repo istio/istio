@@ -228,7 +228,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	stop := test.NewStop(t)
 	ingr := ingress.NewController(defaultKubeClient, meshwatcher.NewTestWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
-	})
+	}, xdsUpdater)
 	defaultKubeClient.RunAndWait(stop)
 
 	var gwc *gateway.Controller
