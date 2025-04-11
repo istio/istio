@@ -286,10 +286,8 @@ func ValidateTLS(configNamespace string, settings *networking.ClientTLSSettings)
 		rn, err := credentials.ParseResourceName(settings.CredentialName, configNamespace, "", "")
 		if err != nil {
 			errs = AppendErrors(errs, fmt.Errorf("invalid configmap:// credentialName: %v", err))
-		} else {
-			if rn.Namespace != configNamespace || configNamespace == "" {
-				errs = AppendErrors(errs, fmt.Errorf("invalid configmap:// credentialName: namespace must match the configuration namespace %q", configNamespace))
-			}
+		} else if rn.Namespace != configNamespace || configNamespace == "" {
+			errs = AppendErrors(errs, fmt.Errorf("invalid configmap:// credentialName: namespace must match the configuration namespace %q", configNamespace))
 		}
 	}
 

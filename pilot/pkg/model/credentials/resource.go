@@ -110,7 +110,14 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 			namespace = split[0]
 			name = split[1]
 		}
-		return SecretResource{ResourceType: KubernetesSecretType, ResourceKind: kind.Secret, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: proxyCluster}, nil
+		return SecretResource{
+			ResourceType: KubernetesSecretType,
+			ResourceKind: kind.Secret,
+			Name:         name,
+			Namespace:    namespace,
+			ResourceName: resourceName,
+			Cluster:      proxyCluster,
+		}, nil
 	} else if strings.HasPrefix(resourceName, KubernetesConfigMapTypeURI) {
 		// Valid formats:
 		// * configmap://secret-namespace/secret-name
@@ -128,7 +135,14 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 		if len(name) == 0 {
 			return SecretResource{}, fmt.Errorf("invalid resource name %q. Expected name", resourceName)
 		}
-		return SecretResource{ResourceType: KubernetesConfigMapType, ResourceKind: kind.ConfigMap, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: configCluster}, nil
+		return SecretResource{
+			ResourceType: KubernetesConfigMapType,
+			ResourceKind: kind.ConfigMap,
+			Name:         name,
+			Namespace:    namespace,
+			ResourceName: resourceName,
+			Cluster:      configCluster,
+		}, nil
 	} else if strings.HasPrefix(resourceName, kubernetesGatewaySecretTypeURI) {
 		// Valid formats:
 		// * kubernetes-gateway://secret-namespace/secret-name
@@ -146,7 +160,14 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 		if len(name) == 0 {
 			return SecretResource{}, fmt.Errorf("invalid resource name %q. Expected name", resourceName)
 		}
-		return SecretResource{ResourceType: KubernetesGatewaySecretType, ResourceKind: kind.Secret, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: configCluster}, nil
+		return SecretResource{
+			ResourceType: KubernetesGatewaySecretType,
+			ResourceKind: kind.Secret,
+			Name:         name,
+			Namespace:    namespace,
+			ResourceName: resourceName,
+			Cluster:      configCluster,
+		}, nil
 	} else if strings.HasPrefix(resourceName, InvalidSecretTypeURI) {
 		return SecretResource{ResourceType: InvalidSecretType, ResourceName: resourceName, Cluster: configCluster}, nil
 	}

@@ -267,7 +267,7 @@ func BackendTLSPolicyCollection(
 							Name:      string(t.Name),
 							Namespace: i.Namespace,
 						},
-						Kind: kind.MustFromGVK(schematypes.GvkFromObject(refo.(controllers.Object))),
+						Kind: gvk.MustToKind(schematypes.GvkFromObject(refo.(controllers.Object))),
 					},
 					TLS:          tls,
 					CreationTime: i.CreationTimestamp.Time,

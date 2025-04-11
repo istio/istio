@@ -2,11 +2,6 @@
 
 package kind
 
-import (
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
-)
-
 const (
 	Unknown Kind = iota
 	Address
@@ -178,6 +173,8 @@ func FromString(s string) Kind {
 		return BackendTLSPolicy
 	case "CertificateSigningRequest":
 		return CertificateSigningRequest
+	case "ClusterTrustBundle":
+		return ClusterTrustBundle
 	case "ConfigMap":
 		return ConfigMap
 	case "CustomResourceDefinition":
@@ -271,107 +268,4 @@ func FromString(s string) Kind {
 	default:
 		return Unknown
 	}
-}
-
-func MustFromGVK(g config.GroupVersionKind) Kind {
-	switch g {
-	case gvk.AuthorizationPolicy:
-		return AuthorizationPolicy
-	case gvk.BackendTLSPolicy:
-		return BackendTLSPolicy
-	case gvk.CertificateSigningRequest:
-		return CertificateSigningRequest
-	case gvk.ClusterTrustBundle:
-		return ClusterTrustBundle
-	case gvk.ConfigMap:
-		return ConfigMap
-	case gvk.CustomResourceDefinition:
-		return CustomResourceDefinition
-	case gvk.DaemonSet:
-		return DaemonSet
-	case gvk.Deployment:
-		return Deployment
-	case gvk.DestinationRule:
-		return DestinationRule
-	case gvk.EndpointSlice:
-		return EndpointSlice
-	case gvk.Endpoints:
-		return Endpoints
-	case gvk.EnvoyFilter:
-		return EnvoyFilter
-	case gvk.GRPCRoute:
-		return GRPCRoute
-	case gvk.Gateway:
-		return Gateway
-	case gvk.GatewayClass:
-		return GatewayClass
-	case gvk.HTTPRoute:
-		return HTTPRoute
-	case gvk.HorizontalPodAutoscaler:
-		return HorizontalPodAutoscaler
-	case gvk.Ingress:
-		return Ingress
-	case gvk.IngressClass:
-		return IngressClass
-	case gvk.KubernetesGateway:
-		return KubernetesGateway
-	case gvk.Lease:
-		return Lease
-	case gvk.MeshConfig:
-		return MeshConfig
-	case gvk.MeshNetworks:
-		return MeshNetworks
-	case gvk.MutatingWebhookConfiguration:
-		return MutatingWebhookConfiguration
-	case gvk.Namespace:
-		return Namespace
-	case gvk.Node:
-		return Node
-	case gvk.PeerAuthentication:
-		return PeerAuthentication
-	case gvk.Pod:
-		return Pod
-	case gvk.PodDisruptionBudget:
-		return PodDisruptionBudget
-	case gvk.ProxyConfig:
-		return ProxyConfig
-	case gvk.ReferenceGrant:
-		return ReferenceGrant
-	case gvk.RequestAuthentication:
-		return RequestAuthentication
-	case gvk.Secret:
-		return Secret
-	case gvk.Service:
-		return Service
-	case gvk.ServiceAccount:
-		return ServiceAccount
-	case gvk.ServiceEntry:
-		return ServiceEntry
-	case gvk.Sidecar:
-		return Sidecar
-	case gvk.StatefulSet:
-		return StatefulSet
-	case gvk.TCPRoute:
-		return TCPRoute
-	case gvk.TLSRoute:
-		return TLSRoute
-	case gvk.Telemetry:
-		return Telemetry
-	case gvk.UDPRoute:
-		return UDPRoute
-	case gvk.ValidatingWebhookConfiguration:
-		return ValidatingWebhookConfiguration
-	case gvk.VirtualService:
-		return VirtualService
-	case gvk.WasmPlugin:
-		return WasmPlugin
-	case gvk.WorkloadEntry:
-		return WorkloadEntry
-	case gvk.WorkloadGroup:
-		return WorkloadGroup
-	case gvk.XBackendTrafficPolicy:
-		return XBackendTrafficPolicy
-	}
-
-	panic("unknown kind: " + g.String())
 }

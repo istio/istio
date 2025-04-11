@@ -7,6 +7,7 @@ import (
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 var (
@@ -240,6 +241,109 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 	}
 
 	return schema.GroupVersionResource{}, false
+}
+
+func MustToKind(g config.GroupVersionKind) kind.Kind {
+	switch g {
+	case AuthorizationPolicy:
+		return kind.AuthorizationPolicy
+	case BackendTLSPolicy:
+		return kind.BackendTLSPolicy
+	case CertificateSigningRequest:
+		return kind.CertificateSigningRequest
+	case ClusterTrustBundle:
+		return kind.ClusterTrustBundle
+	case ConfigMap:
+		return kind.ConfigMap
+	case CustomResourceDefinition:
+		return kind.CustomResourceDefinition
+	case DaemonSet:
+		return kind.DaemonSet
+	case Deployment:
+		return kind.Deployment
+	case DestinationRule:
+		return kind.DestinationRule
+	case EndpointSlice:
+		return kind.EndpointSlice
+	case Endpoints:
+		return kind.Endpoints
+	case EnvoyFilter:
+		return kind.EnvoyFilter
+	case GRPCRoute:
+		return kind.GRPCRoute
+	case Gateway:
+		return kind.Gateway
+	case GatewayClass:
+		return kind.GatewayClass
+	case HTTPRoute:
+		return kind.HTTPRoute
+	case HorizontalPodAutoscaler:
+		return kind.HorizontalPodAutoscaler
+	case Ingress:
+		return kind.Ingress
+	case IngressClass:
+		return kind.IngressClass
+	case KubernetesGateway:
+		return kind.KubernetesGateway
+	case Lease:
+		return kind.Lease
+	case MeshConfig:
+		return kind.MeshConfig
+	case MeshNetworks:
+		return kind.MeshNetworks
+	case MutatingWebhookConfiguration:
+		return kind.MutatingWebhookConfiguration
+	case Namespace:
+		return kind.Namespace
+	case Node:
+		return kind.Node
+	case PeerAuthentication:
+		return kind.PeerAuthentication
+	case Pod:
+		return kind.Pod
+	case PodDisruptionBudget:
+		return kind.PodDisruptionBudget
+	case ProxyConfig:
+		return kind.ProxyConfig
+	case ReferenceGrant:
+		return kind.ReferenceGrant
+	case RequestAuthentication:
+		return kind.RequestAuthentication
+	case Secret:
+		return kind.Secret
+	case Service:
+		return kind.Service
+	case ServiceAccount:
+		return kind.ServiceAccount
+	case ServiceEntry:
+		return kind.ServiceEntry
+	case Sidecar:
+		return kind.Sidecar
+	case StatefulSet:
+		return kind.StatefulSet
+	case TCPRoute:
+		return kind.TCPRoute
+	case TLSRoute:
+		return kind.TLSRoute
+	case Telemetry:
+		return kind.Telemetry
+	case UDPRoute:
+		return kind.UDPRoute
+	case ValidatingWebhookConfiguration:
+		return kind.ValidatingWebhookConfiguration
+	case VirtualService:
+		return kind.VirtualService
+	case WasmPlugin:
+		return kind.WasmPlugin
+	case WorkloadEntry:
+		return kind.WorkloadEntry
+	case WorkloadGroup:
+		return kind.WorkloadGroup
+	case XBackendTrafficPolicy:
+		return kind.XBackendTrafficPolicy
+	}
+
+	panic("unknown kind: " + g.String())
 }
 
 // MustToGVR converts a GVK to a GVR, and panics if it cannot be converted
