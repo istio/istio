@@ -58,5 +58,39 @@ done
 
 # Build apko base image, which isn't part of our image building tool
 APKO_ARCHES="$(echo "${DOCKER_ARCHITECTURES:-arm64,amd64}" | sed 's/linux\///g')"
+
+# Verify the image contains only expected binaries.
+dir=$(mktemp -d)
+pushd "${dir}" > /dev/null
+apko build "${ROOT}/docker/iptables.yaml" dummy-tag "${dir}/img.tar"
+tar xf "${dir}/img.tar"
+echo "write ${dir}"
+for f in *.tar.gz; do
+  exefiles+="$(tar tvfz "${f}" | grep '^-..x' |  awk '{print $6}')"
+  exefiles+="\n"
+done
+unexpectedFiles="$(
+  <<<"${exefiles}" grep -v '^usr/lib/xtables' | \
+    # Allow all libraries - maybe we should lock down more though
+    grep -v '^usr/bin/xtables' | \
+    grep -v '^usr/bin/ldconfig$' | \
+    grep -v '^etc/apk/commit_hooks.d/ldconfig-commit.sh$' | \
+    grep -v '.*\.so[0-9\.]*' || true
+)"
+expectedFiles=(
+  "usr/bin/xtables-legacy-multi"
+)
+for want in "${expectedFiles[@]}"; do
+  if ! grep -q "${want}" <<<"${exefiles}"; then
+    echo "Missing expected binary! ${want}"
+    exit 1
+  fi
+done
+if [[ "${unexpectedFiles}" != "" ]]; then
+  echo "Found unexpected binaries: ${unexpectedFiles}"
+  exit 1
+fi
+
+# Now actually build it
 # shellcheck disable=SC2086
 apko publish --arch="${APKO_ARCHES}" docker/iptables.yaml ${APKO_IMAGES}
