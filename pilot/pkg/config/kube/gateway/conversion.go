@@ -50,7 +50,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
-	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
@@ -401,10 +400,10 @@ func compatibleRoutesForHost(routes []*istio.TLSRoute, parentHost string) []*ist
 	return res
 }
 
-func routeMeta(obj controllers.Object) map[string]string {
-	m := parentMeta(obj, nil)
-	m[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
-	return m
+func routeMeta(controllers.Object) map[string]string {
+	return map[string]string{
+		constants.InternalRouteSemantics: constants.RouteSemanticsGateway,
+	}
 }
 
 // sortHTTPRoutes sorts generated vs routes to meet gateway-api requirements
@@ -470,16 +469,6 @@ func getURILength(match *istio.HTTPMatchRequest) int {
 	}
 	// should not happen
 	return -1
-}
-
-func parentMeta(obj controllers.Object, sectionName *k8s.SectionName) map[string]string {
-	name := fmt.Sprintf("%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), obj.GetNamespace())
-	if sectionName != nil {
-		name = fmt.Sprintf("%s/%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), *sectionName, obj.GetNamespace())
-	}
-	return map[string]string{
-		constants.InternalParentNames: name,
-	}
 }
 
 func hostnameToStringList(h []k8s.Hostname) []string {

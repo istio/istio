@@ -52,12 +52,6 @@ var skippedNdsConfigs = sets.New(
 	kind.WasmPlugin,
 	kind.ProxyConfig,
 	kind.MeshConfig,
-
-	kind.KubernetesGateway,
-	kind.HTTPRoute,
-	kind.TCPRoute,
-	kind.TLSRoute,
-	kind.GRPCRoute,
 )
 
 func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
