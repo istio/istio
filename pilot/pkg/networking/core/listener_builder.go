@@ -127,12 +127,13 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
 	ipTablesListener := &listener.Listener{
-		Name:             model.VirtualOutboundListenerName,
-		Address:          util.BuildAddress(actualWildcards[0], uint32(lb.push.Mesh.ProxyListenPort)),
-		Transparent:      isTransparentProxy,
-		UseOriginalDst:   proto.BoolTrue,
-		FilterChains:     filterChains,
-		TrafficDirection: core.TrafficDirection_OUTBOUND,
+		Name:                                 model.VirtualOutboundListenerName,
+		Address:                              util.BuildAddress(actualWildcards[0], uint32(lb.push.Mesh.ProxyListenPort)),
+		Transparent:                          isTransparentProxy,
+		UseOriginalDst:                       proto.BoolTrue,
+		FilterChains:                         filterChains,
+		TrafficDirection:                     core.TrafficDirection_OUTBOUND,
+		MaxConnectionsToAcceptPerSocketEvent: features.MaxConnectionsToAcceptPerSocketEvent,
 	}
 	// add extra addresses for the listener
 	if features.EnableDualStack && len(actualWildcards) > 1 {
