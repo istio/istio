@@ -61,7 +61,7 @@ func (sr SecretResource) Key() any {
 
 func (sr SecretResource) DependentConfigs() []model.ConfigHash {
 	configs := []model.ConfigHash{}
-	for _, config := range relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace}) {
+	for _, config := range relatedConfigs(model.ConfigKey{Kind: sr.ResourceKind, Name: sr.Name, Namespace: sr.Namespace}) {
 		configs = append(configs, config.HashCode())
 	}
 	return configs
@@ -78,6 +78,8 @@ func sdsNeedsPush(forced bool, updates model.XdsUpdates) bool {
 	for update := range updates {
 		switch update.Kind {
 		case kind.Secret:
+			return true
+		case kind.ConfigMap:
 			return true
 		}
 	}
@@ -115,7 +117,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	}
 	var updatedSecrets sets.Set[model.ConfigKey]
 	if !req.Full {
-		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
+		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret).Merge(model.ConfigsOfKind(req.ConfigsUpdated, kind.ConfigMap))
 	}
 
 	proxyClusterSecrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
@@ -140,7 +142,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 	cached, regenerated := 0, 0
 	for _, sr := range resources {
 		if updatedSecrets != nil {
-			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: kind.Secret, Name: sr.Name, Namespace: sr.Namespace})) {
+			if !containsAny(updatedSecrets, relatedConfigs(model.ConfigKey{Kind: sr.ResourceKind, Name: sr.Name, Namespace: sr.Namespace})) {
 				// This is an incremental update, filter out secrets that are not updated.
 				continue
 			}

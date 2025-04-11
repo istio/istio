@@ -16,12 +16,14 @@ package core
 
 import (
 	"fmt"
+	"strings"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/protobuf/types/known/structpb"
+	"istio.io/istio/pilot/pkg/model/credentials"
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -115,7 +117,9 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	// We do not want to support CredentialName setting in non workloadSelector based DestinationRules, because
 	// that would result in the CredentialName being supplied to all the sidecars which the DestinationRule is scoped to,
 	// resulting in delayed startup of sidecars who do not have access to the credentials.
-	if tls.CredentialName != "" && cb.sidecarProxy() && !opts.isDrWithSelector {
+	// `filterAuthorizedResources` allows ConfigMap to anyone, so do not exclude it here.
+	privilegedCredentialLookup := tls.CredentialName != "" && !(strings.HasPrefix(tls.CredentialName, credentials.KubernetesConfigMapTypeURI))
+	if privilegedCredentialLookup && cb.sidecarProxy() && !opts.isDrWithSelector {
 		if tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL {
 			return nil, nil
 		}
