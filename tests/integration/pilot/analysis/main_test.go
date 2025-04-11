@@ -31,8 +31,15 @@ import (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
+		Setup(istio.Setup(nil, setupConfig)).
+		Run()
+}
+
+func setupConfig(_ resource.Context, cfg *istio.Config) {
+	if cfg == nil {
+		return
+	}
+	cfg.ControlPlaneValues = `
 values:
   pilot:
     env:
@@ -41,6 +48,4 @@ values:
     istiod:
       enableAnalysis: true
 `
-		})).
-		Run()
 }
