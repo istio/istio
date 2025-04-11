@@ -118,7 +118,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			svcs, deleted = configgen.deltaFromServices(key, proxy, updates.Push, serviceClusters,
 				servicePortClusters, subsetClusters)
 		case kind.DestinationRule:
-			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
+			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, updates.Push, subsetClusters)
 		}
 		// Service and Destination Rule can select the same service. So we need to dedup the services.
 		for _, svc := range svcs {
@@ -149,7 +149,13 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, pro
 ) ([]*model.Service, []string) {
 	var deletedClusters []string
 	var services []*model.Service
-	service := push.ServiceForHostname(proxy, host.Name(key.Name))
+	envoyFilterPatches := push.EnvoyFilters(proxy)
+	var service *model.Service
+	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+		service = push.GatewayServiceForHostname(proxy, host.Name(key.Name), envoyFilterPatches)
+	} else {
+		service = push.ServiceForHostname(proxy, host.Name(key.Name))
+	}
 	// push.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
 	// we can cross-reference with WatchedResources to figure out which services were deleted.
 	if service == nil {
@@ -171,10 +177,11 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, pro
 
 // deltaFromDestinationRules computes the delta clusters from the updated destination rules.
 func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.ConfigKey, proxy *model.Proxy,
-	subsetClusters map[string]sets.String,
+	push *model.PushContext, subsetClusters map[string]sets.String,
 ) ([]*model.Service, []string) {
 	var deletedClusters []string
 	var services []*model.Service
+	envoyFilterPatches := push.EnvoyFilters(proxy)
 	cfg := proxy.SidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
 	if cfg == nil {
 		// Destinationrule was deleted. Find matching services from previous destinationrule.
@@ -184,17 +191,30 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 			return nil, nil
 		}
 		dr := prevCfg.Spec.(*networking.DestinationRule)
-		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
+		if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+			services = append(services, push.GatewayServicesForHostname(proxy, host.Name(dr.Host), envoyFilterPatches)...)
+		} else {
+			services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
+		}
+
 	} else {
 		dr := cfg.Spec.(*networking.DestinationRule)
 		// Destinationrule was updated. Find matching services from updated destinationrule.
-		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
+		if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+			services = append(services, push.GatewayServicesForHostname(proxy, host.Name(dr.Host), envoyFilterPatches)...)
+		} else {
+			services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
+		}
 		// Check if destination rule host is changed, if yes, then we need to add previous host matching services.
 		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
 		if prevCfg != nil {
 			prevDr := prevCfg.Spec.(*networking.DestinationRule)
 			if dr.Host != prevDr.Host {
-				services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(prevDr.Host))...)
+				if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+					services = append(services, push.GatewayServicesForHostname(proxy, host.Name(prevDr.Host), envoyFilterPatches)...)
+				} else {
+					services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(prevDr.Host))...)
+				}
 			}
 		}
 	}

@@ -101,6 +101,7 @@ func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultCluste
 
 	// try to resolve the service and port
 	var port *model.Port
+	// TODO: Maybe filter GW services here too?
 	svc := push.ServiceForHostname(node, hostname)
 	if svc == nil {
 		return nil, fmt.Errorf("cds gen for %s: did not find service for cluster %s", node.ID, defaultClusterName)
