@@ -303,8 +303,8 @@ func BackendTrafficPolicyCollection(
 			},
 		}
 		var unsupported []string
-		// TODO(https://github.com/istio/istio/issues/55839): implement i.Spec.SessionPersistence. This will need to map into a StatefulSession filter which Istio doesn't
-		// currently support on DestinationRule
+		// TODO(https://github.com/istio/istio/issues/55839): implement i.Spec.SessionPersistence.
+		// This will need to map into a StatefulSession filter which Istio doesn't currently support on DestinationRule
 		if i.Spec.SessionPersistence != nil {
 			unsupported = append(unsupported, "sessionPersistence")
 		}
