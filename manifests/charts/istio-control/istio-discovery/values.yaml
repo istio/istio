@@ -36,6 +36,8 @@ _internal_defaults_do_not_set:
 
   env: {}
 
+  envVarFrom: []
+
   # Settings related to the untaint controller
   # This controller will remove `cni.istio.io/not-ready` from nodes when the istio-cni pod becomes ready
   # It should be noted that cluster operator/owner is responsible for having the taint set by their infrastructure provider when new nodes are added to the cluster; the untaint controller does not taint nodes

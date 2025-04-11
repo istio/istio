@@ -964,6 +964,9 @@ message PilotConfig {
 
   // Configuration for the istio-discovery chart when istiod is running in a remote cluster (e.g. "remote control plane").
   IstiodRemoteConfig istiodRemote = 61;
+
+  // Configuration for the istio-discovery chart 
+  repeated google.protobuf.Struct envVarFrom = 62;
 }
 
 message PilotTaintControllerConfig {
