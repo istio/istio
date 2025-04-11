@@ -210,7 +210,10 @@ func parseDynamicSecret(s *envoy_admin.SecretsConfigDump_DynamicSecret, state st
 	} else if len(caDataSecret) > 0 {
 		builder.Data(string(caDataSecret))
 	} else {
-		return parseTrustBundles(secretTyped, state)
+		bundles, hasBundles, err := parseTrustBundles(secretTyped, state)
+		if hasBundles {
+			return bundles, err
+		}
 	}
 
 	secret, err := builder.Build()
@@ -257,13 +260,13 @@ func secretMetaFromCert(rawCert []byte, trustDomain string) (SecretMeta, error) 
 	}, nil
 }
 
-func parseTrustBundles(secret *auth.Secret, state string) ([]SecretItem, error) {
-	var secretItems []SecretItem
+func parseTrustBundles(secret *auth.Secret, state string) ([]SecretItem, bool, error) {
 	if customValidator := secret.GetValidationContext().GetCustomValidatorConfig(); customValidator != nil {
 		if customValidator.GetTypedConfig().GetTypeUrl() == "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.SPIFFECertValidatorConfig" {
+			var secretItems []SecretItem
 			spiffeConfig := &auth.SPIFFECertValidatorConfig{}
 			if err := customValidator.GetTypedConfig().UnmarshalTo(spiffeConfig); err != nil {
-				return nil, fmt.Errorf("error unmarshaling spiffe config: %v", err)
+				return nil, true, fmt.Errorf("error unmarshaling spiffe config: %v", err)
 			}
 			for _, td := range spiffeConfig.GetTrustDomains() {
 				builder := NewSecretItemBuilder()
@@ -272,11 +275,12 @@ func parseTrustBundles(secret *auth.Secret, state string) ([]SecretItem, error) 
 				builder.Data(string(td.GetTrustBundle().GetInlineBytes()))
 				secretItem, err := builder.Build()
 				if err != nil {
-					return []SecretItem{}, err
+					return []SecretItem{}, true, err
 				}
 				secretItems = append(secretItems, secretItem)
 			}
+			return secretItems, true, nil
 		}
 	}
-	return secretItems, nil
+	return nil, false, nil
 }
