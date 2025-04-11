@@ -270,8 +270,8 @@ spec:
     allowedRoutes:
       namespaces:
         from: Same
-  # HACK:zTunnel currently expects the HBONE port to always be on the Waypoint's Service 
-  # This will be fixed in future PRs to both istio and zTunnel. 
+  # HACK:zTunnel currently expects the HBONE port to always be on the Waypoint's Service
+  # This will be fixed in future PRs to both istio and zTunnel.
   - name: fake-hbone-port
     port: 15008
     protocol: TCP

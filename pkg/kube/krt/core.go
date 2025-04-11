@@ -22,6 +22,8 @@ import (
 
 var log = istiolog.RegisterScope("krt", "")
 
+type Metadata map[string]any
+
 // Collection is the core resource type for krt, representing a collection of objects. Items can be listed, or fetched
 // directly. Most importantly, consumers can subscribe to events when objects change.
 type Collection[T any] interface {
@@ -33,6 +35,8 @@ type Collection[T any] interface {
 	List() []T
 
 	EventStream[T]
+
+	Metadata() Metadata
 }
 
 // EventStream provides a link between the underlying collection
@@ -85,6 +89,10 @@ type internalCollection[T any] interface {
 	index(extract func(o T) []string) kclient.RawIndexer
 }
 
+type uidable interface {
+	uid() collectionUID
+}
+
 // Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,
 // but when using directly offer a more ergonomic API
 type Singleton[T any] interface {
@@ -93,6 +101,7 @@ type Singleton[T any] interface {
 	// Register adds an event watcher to the object. Any time it changes, the handler will be called
 	Register(f func(o Event[T])) HandlerRegistration
 	AsCollection() Collection[T]
+	Metadata() Metadata
 }
 
 // Event represents a point in time change for a collection.

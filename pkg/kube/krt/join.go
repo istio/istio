@@ -30,18 +30,27 @@ type join[T any] struct {
 	synced           <-chan struct{}
 	uncheckedOverlap bool
 	syncer           Syncer
+	merge            func(ts []T) *T
+	metadata         Metadata
 }
 
 func (j *join[T]) GetKey(k string) *T {
+	var found []T
 	for _, c := range j.collections {
 		if r := c.GetKey(k); r != nil {
-			return r
+			if j.merge == nil {
+				return r
+			}
+			found = append(found, *r)
 		}
 	}
-	return nil
+	if len(found) == 0 {
+		return nil
+	}
+	return j.merge(found)
 }
 
-func (j *join[T]) List() []T {
+func (j *join[T]) quickList() []T {
 	var res []T
 	if j.uncheckedOverlap {
 		first := true
@@ -82,6 +91,34 @@ func (j *join[T]) List() []T {
 		}
 	}
 	return res
+}
+
+func (j *join[T]) mergeList() []T {
+	res := map[Key[T]][]T{}
+	for _, c := range j.collections {
+		for _, i := range c.List() {
+			key := getTypedKey(i)
+			res[key] = append(res[key], i)
+		}
+	}
+
+	var l []T
+	for _, ts := range res {
+		m := j.merge(ts)
+		if m != nil {
+			l = append(l, *m)
+		}
+	}
+
+	return l
+}
+
+func (j *join[T]) List() []T {
+	if j.merge != nil {
+		j.mergeList()
+	}
+
+	return j.quickList()
 }
 
 func (j *join[T]) Register(f func(o Event[T])) HandlerRegistration {
@@ -178,10 +215,20 @@ func (j *join[T]) WaitUntilSynced(stop <-chan struct{}) bool {
 	return j.syncer.WaitUntilSynced(stop)
 }
 
+func (j *join[T]) Metadata() Metadata {
+	return j.metadata
+}
+
 // JoinCollection combines multiple Collection[T] into a single
-// Collection[T] merging equal objects into one record
-// in the resulting Collection
+// Collection[T], picking the first object found when duplicates are found.
 func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collection[T] {
+	return JoinWithMergeCollection[T](cs, nil, opts...)
+}
+
+// JoinWithMergeCollection combines multiple Collection[T] into a single
+// Collection[T] merging equal objects into one record
+// in the resulting Collection based on the provided merge function.
+func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, opts ...CollectionOption) Collection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("Join[%v]", ptr.TypeName[T]())
@@ -199,8 +246,13 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		close(synced)
 		log.Infof("%v synced", o.name)
 	}()
+
+	if o.joinUnchecked && merge != nil {
+		o.joinUnchecked = false
+		log.Warn("JoinWithMergeCollection: unchecked overlap is ineffective with a merge function")
+	}
 	// TODO: in the future, we could have a custom merge function. For now, since we just take the first, we optimize around that case
-	return &join[T]{
+	j := &join[T]{
 		collectionName:   o.name,
 		id:               nextUID(),
 		synced:           synced,
@@ -210,5 +262,12 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 			name:   o.name,
 			synced: synced,
 		},
+		merge: merge,
 	}
+
+	if o.metadata != nil {
+		j.metadata = o.metadata
+	}
+
+	return j
 }

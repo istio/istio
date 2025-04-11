@@ -102,6 +102,7 @@ func TestMain(m *testing.M) {
 			ctx.Settings().SkipVMs()
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
+			// TODO: remove the multi-network flag once we confirm all existing tests pass with it
 			cfg.ControlPlaneValues = `
 values:
   pilot:

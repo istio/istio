@@ -35,6 +35,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -108,6 +109,20 @@ type Config struct {
 
 	// Status holds long-running status.
 	Status Status
+}
+
+type ObjectWithCluster[T any] struct {
+	ClusterID cluster.ID
+	Object    *T
+}
+
+// We can't refer to krt directly without causing an import cycle, but this function
+// implements an interface that allows the krt helper to know how to get the object key
+func (o ObjectWithCluster[T]) GetObjectKeyable() any {
+	if o.Object == nil {
+		return nil
+	}
+	return *o.Object
 }
 
 func LabelsInRevision(lbls map[string]string, rev string) bool {
