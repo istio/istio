@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-var BuiltInChainsMap = sets.New(
+var BuiltInChainsAndTargetsMap = sets.New(
 	"INPUT",
 	"OUTPUT",
 	"FORWARD",

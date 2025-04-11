@@ -334,7 +334,7 @@ func (cfg *IptablesConfigurator) Run() error {
 		}
 	}
 
-	// 127.0.0.6/::7 is bind connect from inbound passthrough cluster
+	// 127.0.0.6/::6 is bind connect from inbound passthrough cluster
 	cfg.ruleBuilder.AppendVersionedRule("127.0.0.6/32", "::6/128", constants.ISTIOOUTPUT, "nat",
 		"-o", "lo", "-s", constants.IPVersionSpecific, "-j", "RETURN")
 
@@ -585,7 +585,6 @@ func SetupDNSRedir(iptables *builder.IptablesRuleBuilder, proxyUID, proxyGID str
 func addDNSConntrackZones(
 	iptables *builder.IptablesRuleBuilder, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
 ) {
-	// TODO: add ip6 as well
 	for _, uid := range split(proxyUID) {
 		// Packets with dst port 53 from istio to zone 1. These are Istio calls to upstream resolvers
 		iptables.AppendRule(constants.ISTIOOUTPUTDNS, "raw", "-p", "udp", "--dport", "53", "-m", "owner", "--uid-owner", uid, "-j", "CT", "--zone", "1")
