@@ -109,9 +109,9 @@ spec:
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if .Values.lifecycle }}
+          {{- with .Values.lifecycle }}
           lifecycle:
-            {{- toYaml .Values.lifecycle | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
           {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
