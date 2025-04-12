@@ -88,6 +88,13 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 	return builder
 }
 
+func maxConnectionsToAcceptPerSocketEvent() *wrappers.UInt32Value {
+	if features.MaxConnectionsToAcceptPerSocketEvent > 0 {
+		return &wrappers.UInt32Value{Value: uint32(features.MaxConnectionsToAcceptPerSocketEvent)}
+	}
+	return nil
+}
+
 func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
 	lb.inboundListeners = lb.buildInboundListeners()
 	if lb.node.EnableHBONEListen() {
@@ -133,7 +140,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 		UseOriginalDst:                       proto.BoolTrue,
 		FilterChains:                         filterChains,
 		TrafficDirection:                     core.TrafficDirection_OUTBOUND,
-		MaxConnectionsToAcceptPerSocketEvent: features.MaxConnectionsToAcceptPerSocketEvent,
+		MaxConnectionsToAcceptPerSocketEvent: maxConnectionsToAcceptPerSocketEvent(),
 	}
 	// add extra addresses for the listener
 	if features.EnableDualStack && len(actualWildcards) > 1 {

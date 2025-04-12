@@ -1129,7 +1129,7 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		// by avoiding slow requests that could otherwise lead to such issues.
 		// Note that this timer only takes effect when a listener filter is present.
 
-		MaxConnectionsToAcceptPerSocketEvent: features.MaxConnectionsToAcceptPerSocketEvent,
+		MaxConnectionsToAcceptPerSocketEvent: maxConnectionsToAcceptPerSocketEvent(),
 	}
 	switch transport {
 	case istionetworking.TransportProtocolTCP:

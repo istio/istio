@@ -293,7 +293,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 		Address:                              address,
 		TrafficDirection:                     core.TrafficDirection_INBOUND,
 		ContinueOnListenerFiltersTimeout:     true,
-		MaxConnectionsToAcceptPerSocketEvent: features.MaxConnectionsToAcceptPerSocketEvent,
+		MaxConnectionsToAcceptPerSocketEvent: maxConnectionsToAcceptPerSocketEvent(),
 	}
 	if features.EnableDualStack && len(addresses) > 1 {
 		// add extra addresses for the listener
