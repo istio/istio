@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: []
+
+releaseNotes:
+  - |
+    **Added** a `values` ConfigMap containing the user-provided Helm values for the `istiod` chart, along with the merged values after applying profiles.
