@@ -52,8 +52,6 @@ var (
 	// label selector
 	labelSelector = ""
 
-	revision = ""
-
 	proxyAdminPort int
 )
 
@@ -344,12 +342,12 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
   istioctl d controlz pilot-123-456.istio-system
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			if labelSelector == "" && revision == "" && len(args) < 1 {
+			if labelSelector == "" && opts.Revision == "" && len(args) < 1 {
 				c.Println(c.UsageString())
 				return fmt.Errorf("specify a pod, --selector, or --revision")
 			}
 
-			if (labelSelector != "" && len(args) > 0) || (labelSelector != "" && revision != "") || (len(args) > 0 && revision != "") {
+			if (labelSelector != "" && len(args) > 0) || (labelSelector != "" && opts.Revision != "") || (len(args) > 0 && opts.Revision != "") {
 				c.Println(c.UsageString())
 				return fmt.Errorf("only one of name, --selector, or --revision can be specified")
 			}
@@ -359,8 +357,8 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			if revision != "" {
-				labelSelector = "istio.io/rev=" + revision + ", app=istiod"
+			if opts.Revision != "" {
+				labelSelector = "istio.io/rev=" + opts.Revision + ", app=istiod"
 			}
 			var podName, ns string
 			if labelSelector != "" {
@@ -393,6 +391,7 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
 		},
 	}
 
+	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
@@ -417,12 +416,12 @@ func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
   istioctl d istiod-debug pilot-123-456.istio-system
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			if labelSelector == "" && revision == "" && len(args) < 1 {
+			if labelSelector == "" && opts.Revision == "" && len(args) < 1 {
 				c.Println(c.UsageString())
 				return fmt.Errorf("specify a pod, --selector, or --revision")
 			}
 
-			if (labelSelector != "" && len(args) > 0) || (labelSelector != "" && revision != "") || (len(args) > 0 && revision != "") {
+			if (labelSelector != "" && len(args) > 0) || (labelSelector != "" && opts.Revision != "") || (len(args) > 0 && opts.Revision != "") {
 				c.Println(c.UsageString())
 				return fmt.Errorf("only one of name, --selector, or --revision can be specified")
 			}
@@ -432,8 +431,8 @@ func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
 			}
 
 			var podName, ns string
-			if revision != "" {
-				labelSelector = "istio.io/rev=" + revision + ", app=istiod"
+			if opts.Revision != "" {
+				labelSelector = "istio.io/rev=" + opts.Revision + ", app=istiod"
 			}
 
 			if labelSelector != "" {
@@ -465,6 +464,7 @@ func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
 				"http://%s/debug", bindAddress, port, client, c.OutOrStdout(), browser)
 		},
 	}
+	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
@@ -651,12 +651,10 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	controlz := controlZDashCmd(cliContext)
 	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
 	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	controlz.PersistentFlags().StringVarP(&revision, "revision", "r", "", "Select the control plane of the specified revision")
 	dashboardCmd.AddCommand(controlz)
 
 	istioDebug := istioDebugDashCmd(cliContext)
 	istioDebug.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	istioDebug.PersistentFlags().StringVarP(&revision, "revision", "r", "", "Select the control plane of the specified revision")
 	dashboardCmd.AddCommand(istioDebug)
 
 	return dashboardCmd
