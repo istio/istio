@@ -56,15 +56,6 @@ func BuildClientConfig(kubeconfig, context string) (*rest.Config, error) {
 }
 
 func ConfigLoadingRules(kubeconfig string) *clientcmd.ClientConfigLoadingRules {
-	if kubeconfig != "" {
-		info, err := os.Stat(kubeconfig)
-		if err != nil || info.Size() == 0 {
-			// If the specified kubeconfig doesn't exists / empty file / any other error
-			// from file stat, fall back to default
-			kubeconfig = ""
-		}
-	}
-
 	// Config loading rules:
 	// 1. kubeconfig if it not empty string
 	// 2. Config(s) in KUBECONFIG environment variable
@@ -143,7 +134,7 @@ func InClusterConfig(fns ...func(*rest.Config)) (*rest.Config, error) {
 func DefaultRestConfig(kubeconfig, configContext string, fns ...func(*rest.Config)) (*rest.Config, error) {
 	config, err := BuildClientConfig(kubeconfig, configContext)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to setup client: %v", err)
 	}
 
 	for _, fn := range fns {
