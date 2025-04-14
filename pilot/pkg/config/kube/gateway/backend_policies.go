@@ -196,49 +196,7 @@ func BackendTLSPolicyCollection(
 			}
 			return nil
 		})
-		if wk := s.Validation.WellKnownCACertificates; wk != nil {
-			switch *wk {
-			case gatewayalpha3.WellKnownCACertificatesSystem:
-				// Already our default, no action needed
-			default:
-				conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
-					Reason:  string(gatewayalpha2.PolicyReasonInvalid),
-					Message: fmt.Sprintf("Unknown wellKnownCACertificates: %v", *wk),
-				}
-			}
-		} else if len(s.Validation.CACertificateRefs) > 0 {
-			// Spec should require but double check
-			// We only support 1
-			ref := s.Validation.CACertificateRefs[0]
-			refo, err := references.LocalPolicyRef(ref, i.Namespace)
-			if err == nil {
-				switch to := refo.(type) {
-				case *v1.ConfigMap:
-					if _, rerr := kubesecrets.ExtractRootFromString(to.Data); rerr != nil {
-						err = rerr
-					}
-					tls.CredentialName = credentials.KubernetesConfigMapTypeURI + i.Namespace + "/" + string(ref.Name)
-				// TODO: for now we do not support Secret references.
-				// Core requires only ConfigMap
-				// We can do so, we just need to make it so this propagates through to SecretAllowed, otherwise clients in other namespaces
-				// will not be given access.
-				// Additionally, we will need to ensure we don't accidentally authorize them to access the private key, just the ca.crt
-				default:
-					err = fmt.Errorf("unsupported reference kind: %v", ref.Kind)
-				}
-			}
-			if err != nil {
-				conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
-					Reason:  string(gatewayalpha2.PolicyReasonInvalid),
-					Message: fmt.Sprintf("Certificate reference invalid: %v", err),
-				}
-				// Generate an invalid reference. This ensures traffic is blocked.
-				// See https://github.com/kubernetes-sigs/gateway-api/issues/3516 for upstream clarification on desired behavior here.
-				tls.CredentialName = "invalid://"
-			} else if len(s.Validation.CACertificateRefs) > 1 {
-				conds[string(gatewayalpha2.PolicyConditionAccepted)].message += "; warning: only the first caCertificateRefs will be used"
-			}
-		}
+		tls.CredentialName = getBackendTLSCredentialName(s.Validation, i.Namespace, conds, references)
 		for idx, t := range i.Spec.TargetRefs {
 			conds = maps.Clone(conds)
 			refo, err := references.LocalPolicyTargetRef(t.LocalPolicyTargetReference, i.Namespace)
@@ -279,6 +237,64 @@ func BackendTLSPolicyCollection(
 		status.Ancestors = mergeAncestors(status.Ancestors, ancestors)
 		return status, res
 	}, opts.WithName("BackendTLSPolicy")...)
+}
+
+func getBackendTLSCredentialName(
+	validation gatewayalpha3.BackendTLSPolicyValidation,
+	policyNamespace string,
+	conds map[string]*condition,
+	references *ReferenceSet,
+) string {
+	if wk := validation.WellKnownCACertificates; wk != nil {
+		switch *wk {
+		case gatewayalpha3.WellKnownCACertificatesSystem:
+			// Already our default, no action needed
+		default:
+			conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
+				Reason:  string(gatewayalpha2.PolicyReasonInvalid),
+				Message: fmt.Sprintf("Unknown wellKnownCACertificates: %v", *wk),
+			}
+		}
+		return ""
+	}
+	if len(validation.CACertificateRefs) == 0 {
+		return ""
+	}
+
+	// Spec should require but double check
+	// We only support 1
+	ref := validation.CACertificateRefs[0]
+	if len(validation.CACertificateRefs) > 1 {
+		conds[string(gatewayalpha2.PolicyConditionAccepted)].message += "; warning: only the first caCertificateRefs will be used"
+	}
+	refo, err := references.LocalPolicyRef(ref, policyNamespace)
+	if err == nil {
+		switch to := refo.(type) {
+		case *v1.ConfigMap:
+			if _, rerr := kubesecrets.ExtractRootFromString(to.Data); rerr != nil {
+				err = rerr
+			} else {
+				return credentials.KubernetesConfigMapTypeURI + policyNamespace + "/" + string(ref.Name)
+			}
+		// TODO: for now we do not support Secret references.
+		// Core requires only ConfigMap
+		// We can do so, we just need to make it so this propagates through to SecretAllowed, otherwise clients in other namespaces
+		// will not be given access.
+		// Additionally, we will need to ensure we don't accidentally authorize them to access the private key, just the ca.crt
+		default:
+			err = fmt.Errorf("unsupported reference kind: %v", ref.Kind)
+		}
+	}
+	if err != nil {
+		conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(gatewayalpha2.PolicyReasonInvalid),
+			Message: fmt.Sprintf("Certificate reference invalid: %v", err),
+		}
+		// Generate an invalid reference. This ensures traffic is blocked.
+		// See https://github.com/kubernetes-sigs/gateway-api/issues/3516 for upstream clarification on desired behavior here.
+		return credentials.InvalidSecretTypeURI
+	}
+	return ""
 }
 
 func BackendTrafficPolicyCollection(
