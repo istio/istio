@@ -296,7 +296,7 @@ func TestConfigureIstioGateway(t *testing.T) {
   network: network-1`,
 		},
 		{
-			name: "istio-eastwest",
+			name: "istio-east-west",
 			gw: k8sbeta.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "eastwestgateway",

@@ -6,7 +6,7 @@ metadata:
   labels:
     topology.istio.io/network: "network-1"
 spec:
-  gatewayClassName: istio-eastwest
+  gatewayClassName: istio-east-west
   listeners:
   - name: mesh
     port: 15008
@@ -24,7 +24,7 @@ metadata:
   labels:
     topology.istio.io/network: "network-1"
 spec:
-  gatewayClassName: istio-eastwest
+  gatewayClassName: istio-east-west
   listeners:
   - name: mesh
     port: 15008

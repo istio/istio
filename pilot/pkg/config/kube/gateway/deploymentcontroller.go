@@ -482,7 +482,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 
 func (d *DeploymentController) setLabelOverrides(gw gateway.Gateway, input TemplateInput) {
 	isWaypointGateway := strings.Contains(string(gw.Spec.GatewayClassName), "waypoint")
-	isEastWestGateway := strings.Contains(string(gw.Spec.GatewayClassName), "eastwest")
+	isEastWestGateway := strings.Contains(string(gw.Spec.GatewayClassName), "east-west")
 
 	var hasAmbientLabel bool
 	if _, ok := gw.Labels[label.IoIstioDataplaneMode.Name]; ok {

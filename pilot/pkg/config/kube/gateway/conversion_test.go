@@ -560,7 +560,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "eastwest-tlsoption"},
 		{name: "eastwest-labelport"},
 		{name: "eastwest-remote"},
-		{name: "eastwest-ambient"},
+		{name: "east-west-ambient"},
 		{name: "mcs"},
 		{name: "route-precedence"},
 		{name: "waypoint"},
