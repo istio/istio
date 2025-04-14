@@ -307,6 +307,9 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 		if t.goTest.Failed() {
 			message = "failed"
 		}
+		if t.goTest.Skipped() {
+			message = "skipped"
+		}
 		scopes.Framework.Infof("=== DONE (%s):  Test: '%s[%s] (%v)' ===",
 			message,
 			rt.suiteContext().Settings().TestID,
