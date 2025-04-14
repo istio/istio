@@ -113,6 +113,8 @@ func FilterSelects(lbls map[string]string) FetchOption {
 }
 
 // FilterIndex selects only objects matching a key in an index.
+// NOTE: A single transformation function cannot call FilterIndex
+// using multiple indexes for the same collection.
 func FilterIndex[K comparable, I any](idx Index[K, I], k K) FetchOption {
 	return func(h *dependency) {
 		// Index is used to pre-filter on the List, and also to match in Matches. Provide type-erased methods for both
