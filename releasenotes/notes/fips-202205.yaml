@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 52926
+
+releaseNotes:
+- |
+  **Added** fips-202205 to `COMPLIANCE_POLICY` for enforcing TLS restriction for compliance
+  with FIPS. This field configures a TLS connection to use:
+  * TLS 1.2 or 1.3
+  * For TLS 1.2, only ECDHE_[RSA|ECDSA]_WITH_AES_*_GCM_SHA*.
+  * For TLS 1.3, only AES-GCM
+  * P-256 or P-384 for key agreement.
+  * For server signatures, only ``PKCS#1/PSS`` with ``SHA256/384/512``, or ECDSA
+    with P-256 or P-384.

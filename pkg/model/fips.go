@@ -16,6 +16,7 @@ package model
 
 import (
 	gotls "crypto/tls"
+	"slices"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
@@ -59,6 +60,30 @@ func EnforceGoCompliance(ctx *gotls.Config) {
 		ctx.CipherSuites = fipsGoCiphers
 		ctx.CurvePreferences = []gotls.CurveID{gotls.CurveP256}
 		return
+	case common_features.FIPS_202205:
+		// Mirror the settings from Envoy
+		// https://github.com/envoyproxy/envoy/blob/a0c9c494a4405d78de15c246c0b915d83612f81a/api/envoy/extensions/transport_sockets/tls/v3/common.proto#L49
+		ctx.GetConfigForClient = func(chi *gotls.ClientHelloInfo) (*gotls.Config, error) {
+			// TODO: Go doesn't allow us to change signature requirements so this is all we can do
+			cfg := &gotls.Config{
+				CurvePreferences: []gotls.CurveID{gotls.CurveP256, gotls.CurveP384},
+				MinVersion:       gotls.VersionTLS12,
+			}
+			greatestVersion := slices.Max(chi.SupportedVersions)
+			if greatestVersion == gotls.VersionTLS13 {
+				cfg.MaxVersion = gotls.VersionTLS13
+				cfg.CipherSuites = []uint16{
+					gotls.TLS_AES_128_GCM_SHA256,
+					gotls.TLS_AES_256_GCM_SHA384,
+				}
+			} else {
+				cfg.MaxVersion = gotls.VersionTLS12
+				cfg.CipherSuites = fipsGoCiphers
+			}
+
+			return cfg, nil
+		}
+
 	default:
 		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
 		return
@@ -91,6 +116,13 @@ func EnforceCompliance(ctx *tls.CommonTlsContext) {
 		// Default (unset) is P-256
 		ctx.TlsParams.EcdhCurves = nil
 		return
+	case common_features.FIPS_202205:
+		if ctx.TlsParams == nil {
+			ctx.TlsParams = &tls.TlsParameters{}
+		}
+		ctx.TlsParams.CompliancePolicies = []tls.TlsParameters_CompliancePolicy{
+			tls.TlsParameters_FIPS_202205,
+		}
 	default:
 		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
 		return

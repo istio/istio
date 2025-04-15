@@ -22,6 +22,8 @@ const (
 	// FIPS_140_2 compliance policy.
 	// nolint: revive, stylecheck
 	FIPS_140_2 = "fips-140-2"
+
+	FIPS_202205 = "fips-202205"
 )
 
 // Define common security feature flags shared among the Istio components.
@@ -33,7 +35,11 @@ settings, including in-mesh mTLS and external TLS. Valid values are:
 * '' or unset places no additional restrictions.
 * 'fips-140-2' which enforces a version of the TLS protocol and a subset
 of cipher suites overriding any user preferences or defaults for all runtime
-components, including Envoy, gRPC Go SDK, and gRPC C++ SDK.
+components, including Envoy, gRPC Go SDK, and gRPC C++ SDK. Enforced via control
+plane-owned configuration of Envoy settings (e.g. TLS version).
+* 'fips-202205' which enforces the either TLS 1.2 or TLS 1.3 protocol as well
+as a subset of cipher suites and keys. Based on the BoringSSL FIPS certificate
+of the same name.
 
 WARNING: Setting compliance policy in the control plane is a necessary but
 not a sufficient requirement to achieve compliance. There are additional
