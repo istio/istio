@@ -75,8 +75,6 @@ func VirtualServices(
 				Http:     httpRoutes,
 			}
 
-			fmt.Printf("virtualService: %v\n", virtualService)
-
 			return &config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.VirtualService,
