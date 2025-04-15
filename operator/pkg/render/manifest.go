@@ -77,7 +77,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 			// Each component may get a different view of the values; modify them as needed (with a copy)
 			compVals := applyComponentValuesToHelmValues(comp, spec, merged)
 			// Render the chart
-			rendered, warnings, err := helm.Render(spec.Namespace, comp.HelmSubdir, compVals, kubernetesVersion)
+			rendered, warnings, err := helm.Render("istio", spec.Namespace, comp.HelmSubdir, compVals, kubernetesVersion)
 			if err != nil {
 				return nil, nil, fmt.Errorf("helm render: %v", err)
 			}
@@ -162,7 +162,7 @@ func Migrate(files []string, setFlags []string, client kube.Client) (MigrationRe
 			// Each component may get a different view of the values; modify them as needed (with a copy)
 			compVals := applyComponentValuesToHelmValues(comp, spec, merged)
 			// Render the chart
-			rendered, _, err := helm.Render(spec.Namespace, comp.HelmSubdir, compVals, kubernetesVersion)
+			rendered, _, err := helm.Render("istio", spec.Namespace, comp.HelmSubdir, compVals, kubernetesVersion)
 			if err != nil {
 				return res, fmt.Errorf("helm render: %v", err)
 			}
