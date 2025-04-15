@@ -319,7 +319,7 @@ func TestIndexAsCollectionMetadata(t *testing.T) {
 	}
 	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
 	SimplePods := SimplePodCollection(pods, opts)
-	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ips", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
 	c.RunAndWait(opts.Stop())
