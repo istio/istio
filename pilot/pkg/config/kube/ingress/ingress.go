@@ -53,6 +53,7 @@ func SupportedIngresses(
 
 			mesh := krt.FetchOne(ctx, meshConfig.AsCollection())
 			if !shouldProcessIngressWithClass(mesh.MeshConfig, i, class) {
+				log.Infof("ingress not supported, name: %s, class: %+v, mesh: %+v", i.Name, class, mesh.MeshConfig)
 				return nil, nil
 			}
 
