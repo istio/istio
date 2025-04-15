@@ -27,6 +27,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -400,10 +401,10 @@ func compatibleRoutesForHost(routes []*istio.TLSRoute, parentHost string) []*ist
 	return res
 }
 
-func routeMeta(controllers.Object) map[string]string {
-	return map[string]string{
-		constants.InternalRouteSemantics: constants.RouteSemanticsGateway,
-	}
+func routeMeta(obj controllers.Object) map[string]string {
+	m := parentMeta(obj, nil)
+	m[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
+	return m
 }
 
 // sortHTTPRoutes sorts generated vs routes to meet gateway-api requirements
@@ -436,6 +437,16 @@ func sortHTTPRoutes(routes []*istio.HTTPRoute) {
 			return len(m1.QueryParams) > len(m2.QueryParams)
 		}
 	})
+}
+
+func parentMeta(obj controllers.Object, sectionName *k8s.SectionName) map[string]string {
+	name := fmt.Sprintf("%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), obj.GetNamespace())
+	if sectionName != nil {
+		name = fmt.Sprintf("%s/%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), *sectionName, obj.GetNamespace())
+	}
+	return map[string]string{
+		constants.InternalParentNames: name,
+	}
 }
 
 // getURIRank ranks a URI match type. Exact > Prefix > Regex

@@ -603,6 +603,9 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		for _, config := range configs[1:] {
 			thisVS := config.Spec.(*istio.VirtualService)
 			baseVS.Http = append(baseVS.Http, thisVS.Http...)
+			// append parents
+			base.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s",
+				base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
 		}
 		sortHTTPRoutes(baseVS.Http)
 		return ptr.Of(&base)
