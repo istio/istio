@@ -279,10 +279,19 @@ spec:
           secretName: istiod-tls
           optional: true
       - name: istio-csr-ca-configmap
+  {{- if eq (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+        projected:
+          sources:
+          - clusterTrustBundle:
+              name: istio.io:istiod-ca:root-cert
+              path: root-cert.pem
+              optional: true
+  {{- else }}
         configMap:
           name: istio-ca-root-cert
           defaultMode: 420
           optional: true
+  {{- end }}
   {{- if .Values.jwksResolverExtraRootCA }}
       - name: extracacerts
         configMap:

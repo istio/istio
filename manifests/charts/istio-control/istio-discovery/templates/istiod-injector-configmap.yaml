@@ -15,7 +15,7 @@ data:
 {{/* Scope the values to just top level fields used in the template, to reduce the size. */}}
   values: |-
 {{ $vals := pick .Values "global" "sidecarInjectorWebhook" "revision" -}}
-{{ $pilotVals := pick .Values "cni" -}}
+{{ $pilotVals := pick .Values "cni" "env" -}}
 {{ $vals = set $vals "pilot" $pilotVals -}}
 {{ $gatewayVals := pick .Values.gateways "securityContext" "seccompProfile" -}}
 {{ $vals = set $vals "gateways" $gatewayVals -}}
