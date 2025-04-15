@@ -200,7 +200,6 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 
 	// Setup EDS config after apply LoadBalancer, since it can impact the result
 	if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
-		log.Warnf("Passthrough on the east/west gateway isn't expected")
 		localCluster.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 	}
 	maybeApplyEdsConfig(localCluster.cluster)

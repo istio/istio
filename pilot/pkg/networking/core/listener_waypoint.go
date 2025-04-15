@@ -22,6 +22,7 @@ import (
 
 	xds "github.com/cncf/xds/go/xds/core/v3"
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
+	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -567,7 +568,13 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 		// Set access logs. These are filtered down to only connection establishment errors, to avoid double logs in most cases.
 		accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, class)
 	} else {
-		accessLogBuilder.setTCPAccessLog(push, proxy, tcpProxy, class, nil)
+		accessLogBuilder.setTCPAccessLogWithFilter(push, proxy, tcpProxy, class, nil, &accesslog.AccessLogFilter{
+			FilterSpecifier: &accesslog.AccessLogFilter_ResponseFlagFilter{
+				// UF: upstream failure, we couldn't connect. This is important to log at this layer, since the error details
+				// are lost otherwise.
+				ResponseFlagFilter: &accesslog.ResponseFlagFilter{Flags: []string{"UF"}},
+			},
+		})
 	}
 
 	l := &listener.Listener{
