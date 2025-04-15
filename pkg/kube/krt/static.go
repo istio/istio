@@ -103,6 +103,42 @@ func (s StaticCollection[T]) DeleteObjects(filter func(obj T) bool) {
 	}
 }
 
+func (s StaticCollection[T]) Reset(newState []T) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var updates []Event[T]
+	nv := map[string]T{}
+	for _, incoming := range newState {
+		k := GetKey(incoming)
+		nv[k] = incoming
+		if old, f := s.vals[k]; f {
+			if !equal(old, incoming) {
+				updates = append(updates, Event[T]{
+					Old:   &old,
+					New:   &incoming,
+					Event: controllers.EventUpdate,
+				})
+			}
+		} else {
+			updates = append(updates, Event[T]{
+				New:   &incoming,
+				Event: controllers.EventAdd,
+			})
+		}
+		delete(s.vals, k)
+	}
+	for _, remaining := range s.vals {
+		updates = append(updates, Event[T]{
+			Old:   &remaining,
+			Event: controllers.EventDelete,
+		})
+	}
+	s.vals = nv
+	if len(updates) > 0 {
+		s.eventHandlers.Distribute(updates, false)
+	}
+}
+
 // UpdateObject adds or updates an object into the collection.
 func (s *staticList[T]) UpdateObject(obj T) {
 	s.mu.Lock()
