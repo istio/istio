@@ -130,7 +130,6 @@ func DestinationRuleCollection(
 			}
 			parents := make([]string, 0, len(pols))
 			for _, pol := range pols {
-				parents = append(parents, fmt.Sprintf("%s/%s.%s", pol.Source.Kind, pol.Source.Namespace, pol.Source.Name))
 				if pol.TLS != nil {
 					if tlsSet {
 						// We only allow 1. TODO: report status if there are multiple
@@ -147,6 +146,7 @@ func DestinationRuleCollection(
 					lbSet = true
 					spec.TrafficPolicy.LoadBalancer = pol.LoadBalancer
 				}
+				parents = append(parents, fmt.Sprintf("%s/%s.%s", pol.Source.Kind, pol.Source.Namespace, pol.Source.Name))
 			}
 			cfg := &config.Config{
 				Meta: config.Meta{
