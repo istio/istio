@@ -46,11 +46,9 @@ func SupportedIngresses(
 			var class *knetworking.IngressClass
 			if i.Spec.IngressClassName != nil {
 				c := krt.FetchOne(ctx, ingressClass, krt.FilterKey(*i.Spec.IngressClassName))
-				if c == nil {
-					return nil, nil
+				if c != nil {
+					class = *c
 				}
-
-				class = *c
 			}
 
 			mesh := krt.FetchOne(ctx, meshConfig.AsCollection())
