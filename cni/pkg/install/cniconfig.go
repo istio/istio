@@ -170,6 +170,8 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 				continue
 			}
 		} else {
+			// For now use the deprecate function, to get the same functionality without deprecated functions its a bit more work.
+			// nolint: staticcheck
 			conf, err := libcni.ConfFromFile(confFile)
 			if err != nil {
 				installLog.Warnf("Error loading CNI config file %s: %v", confFile, err)
@@ -182,6 +184,7 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 				continue
 			}
 
+			// nolint: staticcheck
 			confList, err = libcni.ConfListFromConf(conf)
 			if err != nil {
 				installLog.Warnf("Error converting CNI config file %s to list: %v", confFile, err)
