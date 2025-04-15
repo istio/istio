@@ -120,10 +120,6 @@ github.com/envoyproxy/go-control-plane v0.13.5-0.20250123154839-2a6715911fec h1:
 github.com/envoyproxy/go-control-plane v0.13.5-0.20250123154839-2a6715911fec/go.mod h1:yz4MTDY0h9ObVlfP15ykR737j5tP/z64qu0OzSRoobk=
 github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250411033633-fceb350c06ca h1:mwv6byj7anReeKt/N229AppQ5QLxez+Cp8hJfWg7Nwo=
 github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250411033633-fceb350c06ca/go.mod h1:zD9QKAwQBnb9DWvRrkMa7cOuuMOt+ITrm4ZLoZ0aa30=
-github.com/envoyproxy/go-control-plane/envoy v1.32.4 h1:jb83lalDRZSpPWW2Z7Mck/8kXZ5CQAFYVjQcdVIr83A=
-github.com/envoyproxy/go-control-plane/envoy v1.32.4/go.mod h1:Gzjc5k8JcJswLjAx1Zm+wSYE20UrLtt7JZMWiWQXQEw=
-github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250411033633-fceb350c06ca h1:W3dwBr7nRhgYadWcB1153flIHd9yvaVoJ3CymRIgVT8=
-github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250411033633-fceb350c06ca/go.mod h1:pY0vLp032ToSdejxKtzWZs/TzoAtdK0+50ELjTkXiYA=
 github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250415162219-ec399c4f2d93 h1:dyjocQqwgWI6DlzFSrXyoKPzA2X7bBNALGM7VWnrKgI=
 github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250415162219-ec399c4f2d93/go.mod h1:RoXzVIu983XaKoLydN2Rh0Kxf0FD9+mkt/mMO+fR4+w=
 github.com/envoyproxy/go-control-plane/ratelimit v0.1.0 h1:/G9QYbddjL25KvtKTv3an9lx6VBE2cnb8wp1vEGNYGI=
@@ -379,8 +375,6 @@ github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH
 github.com/prometheus/client_golang v1.21.1 h1:DOvXXTqVzvkIewV/CDPFdejpMCGeMcbGCQ8YOmu+Ibk=
 github.com/prometheus/client_golang v1.21.1/go.mod h1:U9NM32ykUErtVBxdvD3zfi+EuFkkaBvMb09mIfe0Zgg=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
-github.com/prometheus/client_model v0.6.1 h1:ZKSh/rekM+n3CeS952MLRAdFwIKqeY8b62p8ais2e9E=
-github.com/prometheus/client_model v0.6.1/go.mod h1:OrxVMOVHjw3lKMa8+x6HeMGkHMQyHDk9E3jmP2AmGiY=
 github.com/prometheus/client_model v0.6.2 h1:oBsgwpGs7iVziMvrGhE53c/GrLUsZdHnqNwqPLxwZyk=
 github.com/prometheus/client_model v0.6.2/go.mod h1:y3m2F6Gdpfy6Ut/GBsUqTWZqCUvMVzSfMLjcu6wAwpE=
 github.com/prometheus/common v0.62.0 h1:xasJaQlnWAeyHdUBeGjXmutelfJHWMRr+Fg4QszZ2Io=

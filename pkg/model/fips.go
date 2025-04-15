@@ -17,12 +17,12 @@ package model
 import (
 	gotls "crypto/tls"
 	"errors"
-	"slices"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 var fipsCiphers = []string{
@@ -65,10 +65,10 @@ func EnforceGoCompliance(ctx *gotls.Config) {
 		// Mirror the settings from Envoy
 		// https://github.com/envoyproxy/envoy/blob/a0c9c494a4405d78de15c246c0b915d83612f81a/api/envoy/extensions/transport_sockets/tls/v3/common.proto#L49
 		ctx.GetConfigForClient = func(chi *gotls.ClientHelloInfo) (*gotls.Config, error) {
-			// TODO: Go doesn't allow us to change signature requirements so this is all we can do
 			cfg := &gotls.Config{
 				CurvePreferences: []gotls.CurveID{gotls.CurveP256, gotls.CurveP384},
 				MinVersion:       gotls.VersionTLS12,
+				MaxVersion:       gotls.VersionTLS13,
 			}
 			validSignatureSchemes := map[gotls.SignatureScheme]struct{}{
 				gotls.PKCS1WithSHA256:        {},
@@ -86,13 +86,7 @@ func EnforceGoCompliance(ctx *gotls.Config) {
 				}
 			}
 			greatestVersion := slices.Max(chi.SupportedVersions)
-			if greatestVersion == gotls.VersionTLS13 {
-				cfg.MaxVersion = gotls.VersionTLS13
-				cfg.CipherSuites = []uint16{
-					gotls.TLS_AES_128_GCM_SHA256,
-					gotls.TLS_AES_256_GCM_SHA384,
-				}
-			} else {
+			if greatestVersion == gotls.VersionTLS12 {
 				cfg.MaxVersion = gotls.VersionTLS12
 				cfg.CipherSuites = fipsGoCiphers
 			}

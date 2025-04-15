@@ -23,6 +23,7 @@ const (
 	// nolint: revive, stylecheck
 	FIPS_140_2 = "fips-140-2"
 
+	// nolint: revive, stylecheck
 	FIPS_202205 = "fips-202205"
 )
 
