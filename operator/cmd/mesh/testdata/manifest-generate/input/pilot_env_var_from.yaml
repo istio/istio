@@ -1,0 +1,15 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: empty
+  components:
+    pilot:
+      enabled: true
+  values:
+    pilot:
+      envVarFrom:
+        - name: "FAKE_ENV_NAME"
+          valueFrom:
+            secretKeyRef:
+              name: fake-secret
+              key: fake-key
