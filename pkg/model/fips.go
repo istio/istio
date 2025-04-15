@@ -16,6 +16,7 @@ package model
 
 import (
 	gotls "crypto/tls"
+	"errors"
 	"slices"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -68,6 +69,21 @@ func EnforceGoCompliance(ctx *gotls.Config) {
 			cfg := &gotls.Config{
 				CurvePreferences: []gotls.CurveID{gotls.CurveP256, gotls.CurveP384},
 				MinVersion:       gotls.VersionTLS12,
+			}
+			validSignatureSchemes := map[gotls.SignatureScheme]struct{}{
+				gotls.PKCS1WithSHA256:        {},
+				gotls.PKCS1WithSHA384:        {},
+				gotls.PKCS1WithSHA512:        {},
+				gotls.PSSWithSHA256:          {},
+				gotls.PSSWithSHA384:          {},
+				gotls.PSSWithSHA512:          {},
+				gotls.ECDSAWithP256AndSHA256: {},
+				gotls.ECDSAWithP384AndSHA384: {},
+			}
+			for _, signature := range chi.SignatureSchemes {
+				if _, ok := validSignatureSchemes[signature]; !ok {
+					return nil, errors.New("unsupported signature scheme")
+				}
 			}
 			greatestVersion := slices.Max(chi.SupportedVersions)
 			if greatestVersion == gotls.VersionTLS13 {
