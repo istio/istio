@@ -127,13 +127,13 @@ func NewController(
 	}
 
 	c.inputs = Inputs{
+		IngressClasses: krt.NewInformer[*knetworking.IngressClass](client, opts.WithName("informer/IngressClasses")...),
 		Ingresses: krt.WrapClient(
 			kclient.NewFiltered[*knetworking.Ingress](client, kclient.Filter{
 				ObjectFilter: client.ObjectFilter(),
 			}),
 			opts.WithName("informer/Ingresses")...,
 		),
-		IngressClasses: krt.NewInformer[*knetworking.IngressClass](client, opts.WithName("informer/IngressClasses")...),
 		Services: krt.WrapClient(
 			kclient.NewFiltered[*corev1.Service](client, kclient.Filter{
 				ObjectFilter: client.ObjectFilter(),
@@ -157,8 +157,8 @@ func NewController(
 	)
 
 	Status, SupportedIngresses := SupportedIngresses(
-		c.inputs.Ingresses,
 		c.inputs.IngressClasses,
+		c.inputs.Ingresses,
 		meshConfig,
 		c.inputs.Services,
 		c.inputs.Nodes,

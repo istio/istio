@@ -31,8 +31,8 @@ import (
 )
 
 func SupportedIngresses(
-	ingress krt.Collection[*knetworking.Ingress],
 	ingressClass krt.Collection[*knetworking.IngressClass],
+	ingress krt.Collection[*knetworking.Ingress],
 	meshConfig meshwatcher.WatcherCollection,
 	services krt.Collection[*corev1.Service],
 	nodes krt.Collection[*corev1.Node],
@@ -48,6 +48,8 @@ func SupportedIngresses(
 				c := krt.FetchOne(ctx, ingressClass, krt.FilterKey(*i.Spec.IngressClassName))
 				if c != nil {
 					class = *c
+				} else {
+					log.Infof("ingress class not found, name: %s, ingressClassName: %s, all: %+v", i.Name, *i.Spec.IngressClassName, ingressClass.List())
 				}
 			}
 
