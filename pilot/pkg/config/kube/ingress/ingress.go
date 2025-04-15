@@ -20,13 +20,14 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	knetworking "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	netutil "istio.io/istio/pkg/util/net"
-	corev1 "k8s.io/api/core/v1"
-	knetworking "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func SupportedIngresses(

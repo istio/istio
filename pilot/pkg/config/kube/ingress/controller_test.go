@@ -377,7 +377,11 @@ func TestIngressControllerWithPortName(t *testing.T) {
 	service.Create(&serviceConfig)
 	waitFor(t, map[kind.Kind]sets.Set[model.ConfigKey]{
 		kind.VirtualService: sets.New(
-			model.ConfigKey{Kind: kind.VirtualService, Name: "my2-host-com" + "-" + ingressConfig.Name + "-" + constants.IstioIngressGatewayName, Namespace: ingressConfig.Namespace},
+			model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      "my2-host-com" + "-" + ingressConfig.Name + "-" + constants.IstioIngressGatewayName,
+				Namespace: ingressConfig.Namespace,
+			},
 		),
 	})
 
@@ -386,7 +390,11 @@ func TestIngressControllerWithPortName(t *testing.T) {
 	service.Update(&serviceConfig)
 	waitFor(t, map[kind.Kind]sets.Set[model.ConfigKey]{
 		kind.VirtualService: sets.New(
-			model.ConfigKey{Kind: kind.VirtualService, Name: "my2-host-com" + "-" + ingressConfig.Name + "-" + constants.IstioIngressGatewayName, Namespace: ingressConfig.Namespace},
+			model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      "my2-host-com" + "-" + ingressConfig.Name + "-" + constants.IstioIngressGatewayName,
+				Namespace: ingressConfig.Namespace,
+			},
 		),
 	})
 }

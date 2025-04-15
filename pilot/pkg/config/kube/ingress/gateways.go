@@ -17,6 +17,8 @@ package ingress
 import (
 	"fmt"
 
+	knetworking "k8s.io/api/networking/v1"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
@@ -27,7 +29,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
-	knetworking "k8s.io/api/networking/v1"
 )
 
 func Gateways(

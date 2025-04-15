@@ -21,6 +21,9 @@ import (
 	"sort"
 	"strings"
 
+	knetworking "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -30,8 +33,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
-	knetworking "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -135,11 +136,6 @@ func convertIngressRule(
 	ctx krt.HandlerContext,
 	services krt.Collection[ServiceWithPorts],
 ) []*networking.HTTPRoute {
-	host := rule.Host
-	if host == "" {
-		host = "*"
-	}
-
 	httpRoutes := make([]*networking.HTTPRoute, 0, len(rule.HTTP.Paths))
 	for _, httpPath := range rule.HTTP.Paths {
 		httpMatch := &networking.HTTPMatchRequest{}
