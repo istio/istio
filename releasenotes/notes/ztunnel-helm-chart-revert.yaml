@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Improved** the ztunnel Helm chart to no longer set resource names to `.Release.Name`, and instead default to `ztunnel`.
+    This reverts a change in Istio 1.25.
+upgradeNotes:
+  - title: Ztunnel Helm chart changes
+    content: |
+      In Istio 1.25, the resources in the ztunnel Helm chart were changed to be named `.Resource.Name`.
+      This often caused issues, as the name needs to be kept in sync with the Istiod Helm chart.
+      
+      In this release, we have reverted to default to a static `ztunnel` name again.
+      As previously, this can be overriden with `--set resourceName=my-custom-name`.
