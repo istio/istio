@@ -54,11 +54,7 @@ func SupportedIngresses(
 
 			mesh := krt.FetchOne(ctx, meshConfig.AsCollection())
 			if !shouldProcessIngressWithClass(mesh.MeshConfig, i, class) {
-				// TODO: this is currently necessary to reset status of Ingresses which were previously selected
-				// but it seems overly expensive since it implies that we will always update the status of all Ingresses
-				// which are not selected. Status collection should eventually be cleaned because main collection receives a
-				// delete event for the Ingress.
-				return &knetworking.IngressStatus{}, nil
+				return nil, nil
 			}
 
 			wantIPs := sliceToStatus(runningAddresses(ctx, meshConfig, services, nodes, pods, podsByNamespace))

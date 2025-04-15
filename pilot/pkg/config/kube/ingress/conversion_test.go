@@ -442,7 +442,7 @@ func TestNamedPortIngressConversion(t *testing.T) {
 		},
 	}
 
-	controller, _ := setupController(t, "mydomain", nil, ingress, service)
+	controller, _ := setupController(t, "mydomain", ingress, service)
 
 	cfgs := map[string]*config.Config{}
 	for _, cfg := range controller.outputs.VirtualServices.List() {

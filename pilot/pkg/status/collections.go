@@ -72,7 +72,13 @@ func RegisterStatus[I controllers.Object, IS any](s *StatusCollections, statusCo
 	reg := func(statusWriter Queue) krt.HandlerRegistration {
 		h := statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[I, IS]]) {
 			l := o.Latest()
-			enqueueStatus(statusWriter, l.Obj, &l.Status)
+			status := &l.Status
+			if o.Event == controllers.EventDelete {
+				// if the object is being deleted, we should not reset status
+				var empty IS
+				status = &empty
+			}
+			enqueueStatus(statusWriter, l.Obj, status)
 		})
 		return h
 	}
