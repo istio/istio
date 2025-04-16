@@ -50,7 +50,7 @@ spec:
     spec:
       containers:
       - name: ratings
-        image: docker.io/istio/examples-bookinfo-ratings-v1:1.20.2
+        image: docker.io/istio/examples-bookinfo-ratings-v1:1.20.3
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
