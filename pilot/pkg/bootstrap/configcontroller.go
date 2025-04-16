@@ -350,7 +350,14 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 		Identifier:   "crd-controller",
 	}
-	return crdclient.New(s.kubeClient, opts)
+
+	schemas := collections.Pilot
+	if features.EnableGatewayAPI {
+		schemas = collections.PilotGatewayAPI()
+	}
+	schemas = schemas.Add(collections.Ingress)
+
+	return crdclient.NewForSchemas(s.kubeClient, opts, schemas)
 }
 
 func (s *Server) makeFileMonitor(fileDir string, domainSuffix string, configController model.ConfigStore) error {
