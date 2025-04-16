@@ -48,20 +48,16 @@ func SupportedIngresses(
 				c := krt.FetchOne(ctx, ingressClass, krt.FilterKey(*i.Spec.IngressClassName))
 				if c != nil {
 					class = *c
-				} else {
-					log.Infof("ingress class not found, name: %s, ingressClassName: %s, all: %+v", i.Name, *i.Spec.IngressClassName, ingressClass.List())
 				}
 			}
 
 			mesh := krt.FetchOne(ctx, meshConfig.AsCollection())
 			if !shouldProcessIngressWithClass(mesh.MeshConfig, i, class) {
-				log.Infof("ingress not supported, name: %s, class: %+v, mesh: %+v", i.Name, class, mesh.MeshConfig)
 				return nil, nil
 			}
 
 			wantIPs := sliceToStatus(runningAddresses(ctx, meshConfig, services, nodes, pods, podsByNamespace))
 
-			log.Infof("ingress supported, name: %s, class: %+v, mesh: %+v, ips: %+v", i.Name, class, mesh.MeshConfig, wantIPs)
 			return &knetworking.IngressStatus{
 				LoadBalancer: knetworking.IngressLoadBalancerStatus{
 					Ingress: wantIPs,
