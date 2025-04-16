@@ -93,8 +93,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.17.1
-	istio.io/api v1.25.0-alpha.0.0.20250414153722-813f01434175
-	istio.io/client-go v1.25.0-alpha.0.0.20250414154021-d851c83576df
+	istio.io/api v1.26.0-alpha.0.0.20250415142123-f4e4840251ee
+	istio.io/client-go v1.25.0-alpha.0.0.20250415142522-c4631d8c76a1
 	k8s.io/api v0.32.3
 	k8s.io/apiextensions-apiserver v0.32.3
 	k8s.io/apimachinery v0.32.3
@@ -132,7 +132,7 @@ require (
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
-	github.com/envoyproxy/go-control-plane v0.13.5-0.20250123154839-2a6715911fec // indirect
+	github.com/envoyproxy/go-control-plane v0.13.5-0.20250416141339-b5bc3390bc94 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/camelcase v1.0.0 // indirect
