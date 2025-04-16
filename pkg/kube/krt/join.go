@@ -16,6 +16,7 @@ package krt
 
 import (
 	"fmt"
+	"sync"
 
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -33,6 +34,9 @@ type join[T any] struct {
 	syncer           Syncer
 	metadata         Metadata
 	merge            func(ts []T) *T
+
+	seenFirstAddForKey map[string]struct{}
+	sync.Mutex         // protects seenFirstAddForKey
 }
 
 func (j *join[T]) GetKey(k string) *T {
@@ -159,14 +163,10 @@ func getMergedDelete[T any](e Event[T], merged *T) Event[T] {
 }
 
 func getMergedAdd[T any](e Event[T], merged *T) Event[T] {
-	// Merged should never be nil after an add
+	// Merged should never be nil after an add; log it in case we come across this
+	// in the future.
 	if merged == nil {
 		log.Warnf("JoinCollection: merge function returned nil for add event %v", e)
-	}
-	if equal(*e.New, *merged) {
-		// This is likely a legitimate add event since the merged version is the same
-		// as the new version. Send the original add event.
-		return e
 	}
 	// This is an update triggered by the add of a duplicate item.
 	// We use the added item as the old value as a best effort.
@@ -191,37 +191,60 @@ func getMergedUpdate[T any](e Event[T], merged *T) Event[T] {
 }
 
 func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
-	if j.merge != nil {
-		sync := multiSyncer{}
-		removes := []func(){}
-
-		for _, c := range j.collections {
-			reg := c.RegisterBatch(func(o []Event[T]) {
-				mergedEvents := make([]Event[T], 0, len(o))
-				for _, i := range o {
-					key := GetKey(i.Latest())
-					merged := j.GetKey(key)
-					switch i.Event {
-					case controllers.EventDelete:
-						mergedEvents = append(mergedEvents, getMergedDelete(i, merged))
-					case controllers.EventAdd:
-						mergedEvents = append(mergedEvents, getMergedAdd(i, merged))
-					case controllers.EventUpdate:
-						mergedEvents = append(mergedEvents, getMergedUpdate(i, merged))
-					}
-				}
-				f(mergedEvents)
-			}, runExistingState)
-			removes = append(removes, reg.UnregisterHandler)
-			sync.syncers = append(sync.syncers, reg)
-		}
-		return joinHandlerRegistration{
-			Syncer:  sync,
-			removes: removes,
-		}
+	if j.merge == nil {
+		return j.registerBatchUnmerged(f, runExistingState)
 	}
+	sync := multiSyncer{}
+	removes := []func(){}
 
-	return j.registerBatchUnmerged(f, runExistingState)
+	for _, c := range j.collections {
+		reg := c.RegisterBatch(func(o []Event[T]) {
+			// Lock the map during this entire handler for readability and to ensure events remain in-order
+			// across collections
+			j.Lock()
+			defer j.Unlock()
+			mergedEvents := make([]Event[T], 0, len(o))
+			for _, i := range o {
+				key := GetKey(i.Latest())
+				merged := j.GetKey(key)
+				switch i.Event {
+				case controllers.EventDelete:
+					mergedEvents = append(mergedEvents, getMergedDelete(i, merged))
+					if merged == nil {
+						// Remove the key from the seenFirstAddForKey map. It's unlikely that
+						// we would have two adds in different sub-collections at the exact same time
+						// but handle it just in case
+						delete(j.seenFirstAddForKey, key)
+					}
+				case controllers.EventAdd:
+					// If we haven't seen an add for this key before, this should be a real add
+					// regardless. This is to prevent the case where the collection source starts
+					// its initial sync with duplicate keys in different collections. Without this check,
+					// both events would look like updates.
+					if _, ok := j.seenFirstAddForKey[key]; !ok {
+						// We haven't seen an add for this key before, so we need to take a write lock
+						j.seenFirstAddForKey[key] = struct{}{}
+						mergedEvents = append(mergedEvents, Event[T]{
+							Event: controllers.EventAdd,
+							Old:   nil,
+							New:   merged,
+						})
+						continue
+					}
+					mergedEvents = append(mergedEvents, getMergedAdd(i, merged))
+				case controllers.EventUpdate:
+					mergedEvents = append(mergedEvents, getMergedUpdate(i, merged))
+				}
+			}
+			f(mergedEvents)
+		}, runExistingState)
+		removes = append(removes, reg.UnregisterHandler)
+		sync.syncers = append(sync.syncers, reg)
+	}
+	return joinHandlerRegistration{
+		Syncer:  sync,
+		removes: removes,
+	}
 }
 
 type joinHandlerRegistration struct {
@@ -340,6 +363,7 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 
 	if o.joinUnchecked && merge != nil {
 		log.Warn("JoinWithMergeCollection: unchecked overlap is ineffective with a merge function")
+		o.joinUnchecked = false
 	}
 
 	j := &join[T]{
@@ -352,7 +376,8 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 			name:   o.name,
 			synced: synced,
 		},
-		merge: merge,
+		merge:              merge,
+		seenFirstAddForKey: make(map[string]struct{}),
 	}
 
 	if o.metadata != nil {

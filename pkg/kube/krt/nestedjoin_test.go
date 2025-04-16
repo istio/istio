@@ -116,7 +116,7 @@ func TestNestedJoinCollectionIndex(t *testing.T) {
 		opts.WithName("GlobalPods")...,
 	)
 	tt := assert.NewTracker[string](t)
-	IPIndex := krt.NewIndex[string, SimplePod](SimpleGlobalPods, func(o SimplePod) []string {
+	IPIndex := krt.NewIndex[string, SimplePod](SimpleGlobalPods, "ips", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
 	fetchSorted := func(ip string) []SimplePod {
@@ -270,7 +270,7 @@ func TestNestedJoinCollectionTransform(t *testing.T) {
 	}, opts.WithName("SimplePods")...)
 
 	tt := assert.NewTracker[string](t)
-	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ips", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
 
@@ -349,7 +349,10 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 				return nil
 			}
 
-			simpleService := ts[0]
+			simpleService := SimpleService{
+				Named:    ts[0].Named,
+				Selector: maps.Clone(ts[0].Selector),
+			}
 
 			for i, t := range ts {
 				if i == 0 {
@@ -360,6 +363,12 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 				simpleService.Selector = newSelector
 			}
 
+			// For the purposes of this test, the "app" label should always
+			// be set to "foo" if it exists
+			if _, ok := simpleService.Selector["app"]; ok {
+				simpleService.Selector["app"] = "foo"
+			}
+
 			return &simpleService
 		},
 		opts.With(
@@ -367,8 +376,10 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 		)...,
 	)
 	tt := assert.NewTracker[string](t)
-	AllServices.Register(TrackerHandler[SimpleService](tt))
+	AllServices.RegisterBatch(BatchedTrackerHandler[SimpleService](tt), true)
 	c.RunAndWait(opts.Stop())
+	tt.WaitOrdered("add/namespace/svc")
+
 	assert.EventuallyEqual(t, func() bool {
 		return AllServices.WaitUntilSynced(opts.Stop())
 	}, true)
@@ -409,31 +420,36 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 	// Have to wait a bit for the events to propagate due to client syncing
 	// But what we want is the original add and then an update because the
 	// merged value changed
+	tt.WaitOrdered("update/namespace/svc")
+
+	// Now delete one of the collections
+	MultiServices.DeleteObject(krt.GetKey(SimpleServices2))
+	// This should be another update event, not a delete event
+	tt.WaitOrdered("update/namespace/svc")
+	assert.EventuallyEqual(t, func() *SimpleService {
+		return AllServices.GetKey("namespace/svc")
+	},
+		&SimpleService{
+			Named:    Named{"namespace", "svc"},
+			Selector: map[string]string{"app": "foo"},
+		},
+	)
+
+	// Now delete the other collection; this should be a delete event
+	MultiServices.DeleteObject(krt.GetKey(SimpleServices))
+	tt.WaitOrdered("delete/namespace/svc")
+	assert.EventuallyEqual(t, func() *SimpleService {
+		return AllServices.GetKey("namespace/svc")
+	}, nil)
+
+	// Now add the two collections back
+	MultiServices.UpdateObject(SimpleServices)
+	MultiServices.UpdateObject(SimpleServices2)
 	tt.WaitOrdered("add/namespace/svc", "update/namespace/svc")
-
-	svc3 := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "svc",
-			Namespace: "namespace",
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{"app": "bar", "version": "v1"},
-			Ports: []corev1.ServicePort{
-				{Name: "http", Port: 80, TargetPort: intstr.FromInt(8080)},
-			},
-			ClusterIP: "1.2.3.4",
-		},
-	}
-
-	c3 := kube.NewFakeClient(svc3)
-	services3 := krt.NewInformer[*corev1.Service](c3, opts.WithName("Services")...)
-	SimpleServices3 := krt.NewCollection(services3, func(ctx krt.HandlerContext, o *corev1.Service) *SimpleService {
-		return &SimpleService{
-			Named:    Named{o.Namespace, o.Name},
-			Selector: o.Spec.Selector,
-		}
-	}, opts.WithName("SimpleServices3")...)
-	c2.RunAndWait(opts.Stop())
-
-	MultiServices.UpdateObject(SimpleServices3)
+	assert.EventuallyEqual(t, func() *SimpleService {
+		return AllServices.GetKey("namespace/svc")
+	}, &SimpleService{
+		Named:    Named{"namespace", "svc"},
+		Selector: map[string]string{"app": "foo", "version": "v1"},
+	})
 }

@@ -71,6 +71,8 @@ const (
 type collectionChangeEvent[T any] struct {
 	eventType       collectionMembershipEvent
 	collectionValue internalCollection[T]
+	// Only set for update events
+	oldCollectionValue internalCollection[T]
 }
 
 // nolint: unused // (not true)

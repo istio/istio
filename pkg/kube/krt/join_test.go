@@ -247,6 +247,7 @@ func TestJoinWithMergeCollection(t *testing.T) {
 			Selector: o.Spec.Selector,
 		}
 	}, opts.WithName("SimpleServices")...)
+	c.RunAndWait(opts.Stop())
 
 	c2 := kube.NewFakeClient(svc2)
 	services2 := krt.NewInformer[*corev1.Service](c2, opts.WithName("Services")...)
@@ -257,6 +258,8 @@ func TestJoinWithMergeCollection(t *testing.T) {
 		}
 	}, opts.WithName("SimpleServices2")...)
 	c2.RunAndWait(opts.Stop())
+
+	tt := assert.NewTracker[string](t)
 
 	AllServices := krt.JoinWithMergeCollection(
 		[]krt.Collection[SimpleService]{SimpleServices, SimpleServices2},
@@ -282,7 +285,7 @@ func TestJoinWithMergeCollection(t *testing.T) {
 			krt.WithName("AllServices"),
 		)...,
 	)
-	c.RunAndWait(opts.Stop())
+	AllServices.Register(TrackerHandler[SimpleService](tt))
 	assert.EventuallyEqual(t, func() bool {
 		return AllServices.WaitUntilSynced(opts.Stop())
 	}, true)
@@ -293,4 +296,55 @@ func TestJoinWithMergeCollection(t *testing.T) {
 		Named:    Named{"namespace", "svc"},
 		Selector: map[string]string{"app": "foo", "version": "v1"},
 	})
+
+	// We should see one add event and then an update event since one collection's add
+	// will be handled first (the add) and then the other one will be handled (the update)
+	tt.WaitOrdered("add/namespace/svc", "update/namespace/svc")
+
+	// Update the service selector
+	svc2.Spec.Selector = map[string]string{"version": "v2"}
+	_, err := c2.Kube().CoreV1().Services(svc2.Namespace).Update(t.Context(), svc2, metav1.UpdateOptions{})
+	assert.NoError(t, err)
+	assert.EventuallyEqual(t, func() *SimpleService {
+		return AllServices.GetKey("namespace/svc")
+	}, &SimpleService{
+		Named:    Named{"namespace", "svc"},
+		Selector: map[string]string{"app": "foo", "version": "v2"},
+	})
+	tt.WaitOrdered("update/namespace/svc")
+
+	// Delete the second service
+	err = c2.Kube().CoreV1().Services(svc2.Namespace).Delete(t.Context(), svc2.Name, metav1.DeleteOptions{})
+	assert.NoError(t, err)
+	assert.EventuallyEqual(t, func() *SimpleService {
+		return AllServices.GetKey("namespace/svc")
+	}, &SimpleService{
+		Named:    Named{"namespace", "svc"},
+		Selector: map[string]string{"app": "foo"},
+	})
+	// Removal looks like update with a merge
+	tt.WaitOrdered("update/namespace/svc")
+
+	// Delete the last service
+	err = c.Kube().CoreV1().Services(svc.Namespace).Delete(t.Context(), svc.Name, metav1.DeleteOptions{})
+	assert.NoError(t, err)
+	assert.EventuallyEqual(t, func() *SimpleService {
+		return AllServices.GetKey("namespace/svc")
+	},
+		nil,
+	)
+	tt.WaitOrdered("delete/namespace/svc")
+
+	// Add the service back to confirm that we get a new add event
+	_, err = c.Kube().CoreV1().Services(svc.Namespace).Create(t.Context(), svc, metav1.CreateOptions{})
+	assert.NoError(t, err)
+	assert.EventuallyEqual(t, func() *SimpleService {
+		return AllServices.GetKey("namespace/svc")
+	}, &SimpleService{
+		Named:    Named{"namespace", "svc"},
+		Selector: map[string]string{"app": "foo"},
+	})
+
+	// Should be a fresh add
+	tt.WaitOrdered("add/namespace/svc")
 }
