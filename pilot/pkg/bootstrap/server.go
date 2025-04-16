@@ -921,6 +921,10 @@ func (s *Server) initRegistryEventHandlers() {
 			if schema.GroupVersionKind() == gvk.WorkloadGroup {
 				continue
 			}
+			// Already handled by gateway controller
+			if schema.GroupVersionKind().Group == gvk.KubernetesGateway.Group {
+				continue
+			}
 
 			s.configController.RegisterEventHandler(schema.GroupVersionKind(), configHandler)
 		}

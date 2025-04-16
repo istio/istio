@@ -80,7 +80,7 @@ var (
 		}
 		return chartSourceType(filepath.Join(d, "manifests"))
 	}()
-	// Compiled in charts come from assets.gen.go
+	// Run operator/scripts/run_update_golden_snapshots.sh to update the snapshot charts tarball.
 	compiledInCharts chartSourceType = "COMPILED"
 	_                                = compiledInCharts
 	// Live charts come from manifests/
@@ -569,6 +569,12 @@ func TestManifestGeneratePilot(t *testing.T) {
 			desc:       "autoscaling_v2",
 			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
 			fileSelect: []string{"templates/autoscale.yaml"},
+		},
+		{
+			desc:        "pilot_env_var_from",
+			diffSelect:  "Deployment:*:istiod",
+			fileSelect:  []string{"templates/deployment.yaml"},
+			chartSource: liveCharts,
 		},
 	})
 }

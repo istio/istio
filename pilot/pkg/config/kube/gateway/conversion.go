@@ -439,6 +439,16 @@ func sortHTTPRoutes(routes []*istio.HTTPRoute) {
 	})
 }
 
+func parentMeta(obj controllers.Object, sectionName *k8s.SectionName) map[string]string {
+	name := fmt.Sprintf("%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), obj.GetNamespace())
+	if sectionName != nil {
+		name = fmt.Sprintf("%s/%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), *sectionName, obj.GetNamespace())
+	}
+	return map[string]string{
+		constants.InternalParentNames: name,
+	}
+}
+
 // getURIRank ranks a URI match type. Exact > Prefix > Regex
 func getURIRank(match *istio.HTTPMatchRequest) int {
 	if match.Uri == nil {
@@ -470,16 +480,6 @@ func getURILength(match *istio.HTTPMatchRequest) int {
 	}
 	// should not happen
 	return -1
-}
-
-func parentMeta(obj controllers.Object, sectionName *k8s.SectionName) map[string]string {
-	name := fmt.Sprintf("%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), obj.GetNamespace())
-	if sectionName != nil {
-		name = fmt.Sprintf("%s/%s/%s.%s", schematypes.GvkFromObject(obj).Kind, obj.GetName(), *sectionName, obj.GetNamespace())
-	}
-	return map[string]string{
-		constants.InternalParentNames: name,
-	}
 }
 
 func hostnameToStringList(h []k8s.Hostname) []string {
@@ -1901,6 +1901,12 @@ func buildTLS(
 			switch tls.Options[gatewayTLSTerminateModeKey] {
 			case "MUTUAL":
 				out.Mode = istio.ServerTLSSettings_MUTUAL
+			case "ISTIO_SIMPLE":
+				// Simple TLS but with builtin workload certificate.
+				// equivalent to `credentialName: builtin://
+				out.Mode = istio.ServerTLSSettings_SIMPLE
+				out.CredentialName = creds.BuiltinGatewaySecretTypeURI
+				return out, nil
 			case "ISTIO_MUTUAL":
 				out.Mode = istio.ServerTLSSettings_ISTIO_MUTUAL
 				return out, nil

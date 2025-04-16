@@ -48,11 +48,17 @@ func TestCollectionStatus(t *testing.T) {
 	Status, SimpleEndpoints := krt.NewStatusManyCollection[SimpleService, SimpleServiceStatus, SimpleEndpoint](SimpleServices,
 		func(ctx krt.HandlerContext, svc SimpleService) (*SimpleServiceStatus, []SimpleEndpoint) {
 			pods := krt.Fetch(ctx, SimplePods, krt.FilterLabel(svc.Selector))
-			status := SimpleServiceStatus{
+			status := &SimpleServiceStatus{
 				ValidName:      len(svc.Name) == 5, // arbitrary rule for tests
 				TotalEndpoints: len(pods),
 			}
-			return &status, slices.Map(pods, func(pod SimplePod) SimpleEndpoint {
+			for _, pod := range pods {
+				if pod.Labels["delete-status"] == "true" {
+					// arbitrary rule for tests
+					status = nil
+				}
+			}
+			return status, slices.Map(pods, func(pod SimplePod) SimpleEndpoint {
 				return SimpleEndpoint{
 					Pod:       pod.Name,
 					Service:   svc.Name,
@@ -99,6 +105,20 @@ func TestCollectionStatus(t *testing.T) {
 	assert.EventuallyEqual(t, fetcherSorted(SimpleEndpoints), []SimpleEndpoint{{pod.Name, svc.Name, pod.Namespace, "1.2.3.5"}})
 	// There should NOT be an event caused by the change, as there is no change to report.
 	tt.Empty()
+	assert.Equal(t, Status.GetKey("namespace/svc").Status, SimpleServiceStatus{TotalEndpoints: 1})
+
+	// Remove status entirely
+	pod.Labels["delete-status"] = "true"
+	pc.UpdateStatus(pod)
+	assert.EventuallyEqual(t, fetcherSorted(SimpleEndpoints), []SimpleEndpoint{{pod.Name, svc.Name, pod.Namespace, "1.2.3.5"}})
+	// There should NOT be an event caused by the change, as there is no change to report.
+	tt.WaitOrdered("delete/namespace/svc")
+	assert.Equal(t, Status.GetKey("namespace/svc"), nil)
+
+	// add status back
+	pod.Labels["delete-status"] = "false"
+	pc.UpdateStatus(pod)
+	tt.WaitOrdered("add/namespace/svc")
 	assert.Equal(t, Status.GetKey("namespace/svc").Status, SimpleServiceStatus{TotalEndpoints: 1})
 
 	pc.Delete(pod.Name, pod.Namespace)
