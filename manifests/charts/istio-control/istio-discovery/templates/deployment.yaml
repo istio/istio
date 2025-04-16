@@ -202,6 +202,7 @@ spec:
             valueFrom:
               resourceFieldRef:
                 resource: limits.memory
+                divisor: "1"
           - name: GOMAXPROCS
             valueFrom:
               resourceFieldRef:
