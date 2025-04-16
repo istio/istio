@@ -38,8 +38,8 @@ settings, including in-mesh mTLS and external TLS. Valid values are:
 of cipher suites overriding any user preferences or defaults for all runtime
 components, including Envoy, gRPC Go SDK, and gRPC C++ SDK. Enforced via control
 plane-owned configuration of Envoy settings (e.g. TLS version).
-* 'fips-202205' which enforces the either TLS 1.2 or TLS 1.3 protocol as well
-as a subset of cipher suites and keys. Based on the BoringSSL FIPS certificate
+* 'fips-202205' which enforces that either TLS 1.2 or TLS 1.3 protocol, as well
+as a subset of cipher suites and keys, must be used. It is based on the BoringSSL FIPS certificate
 of the same name.
 
 WARNING: Setting compliance policy in the control plane is a necessary but
