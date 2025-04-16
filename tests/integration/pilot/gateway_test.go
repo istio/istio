@@ -20,6 +20,7 @@ package pilot
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -41,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
@@ -253,6 +256,60 @@ spec:
 			})
 		})
 	}
+
+	t.NewSubTest("backend-tls").Run(func(t framework.TestContext) {
+		ca := file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "tests/testdata/certs/cert.crt"))
+		t.ConfigIstio().Eval(apps.Namespace.Name(), ca, `
+apiVersion: v1
+kind: ConfigMap
+data:
+  ca.crt: |
+{{. | indent 4}}
+metadata:
+  name: auth-cert
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: tls
+spec:
+  parentRefs:
+  - name: gateway
+  hostnames: ["tls.example.com"]
+  rules:
+  - backendRefs:
+    - name: b
+      port: 443
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: tls-upstream
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: b
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: ConfigMap
+      name: auth-cert
+    hostname: auth.example.com
+`).ApplyOrFail(t)
+		apps.A[0].CallOrFail(t, echo.CallOptions{
+			Port: echo.Port{
+				Protocol:    protocol.HTTP,
+				ServicePort: 80,
+			},
+			Scheme: scheme.HTTP,
+			HTTP: echo.HTTP{
+				Headers: headers.New().WithHost("tls.example.com").Build(),
+			},
+			Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+			Check:   check.And(check.OK(), check.SNI("auth.example.com")),
+		})
+	})
 }
 
 func TaggedGatewayTest(t framework.TestContext) {

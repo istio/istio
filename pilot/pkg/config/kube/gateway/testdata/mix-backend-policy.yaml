@@ -1,0 +1,55 @@
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: tls-upstream-echo
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      name: echo
+      group: ""
+  validation:
+    caCertificateRefs:
+      - kind: ConfigMap
+        name: auth-cert
+        group: ""
+    hostname: auth.example.com
+---
+# A redundant policy for the same service
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: tls-upstream-echo-extra
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      name: echo
+      group: ""
+  validation:
+    subjectAltNames:
+      - type: Hostname
+        hostname: "extra.com"
+    caCertificateRefs:
+      - kind: ConfigMap
+        name: auth-cert
+        group: ""
+    hostname: auth-extra.example.com
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackendTrafficPolicy
+metadata:
+  name: lb-policy
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      name: echo
+      group: ""
+  sessionPersistence:
+    sessionName: foo
+    absoluteTimeout: 1h
+    type: Cookie
+    cookieConfig:
+      lifetimeType: Permanent
+

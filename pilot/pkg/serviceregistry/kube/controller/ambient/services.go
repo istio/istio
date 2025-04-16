@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
@@ -103,7 +103,7 @@ func (a *index) serviceServiceBuilder(
 func MakeSource(o controllers.Object) model.TypedObject {
 	return model.TypedObject{
 		NamespacedName: config.NamespacedName(o),
-		Kind:           kind.MustFromGVK(kubetypes.GvkFromObject(o)),
+		Kind:           gvk.MustToKind(kubetypes.GvkFromObject(o)),
 	}
 }
 

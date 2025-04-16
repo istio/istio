@@ -16,6 +16,7 @@ package credentials
 
 import (
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 // CertInfo wraps a certificate, key, and oscp staple information.
@@ -33,11 +34,12 @@ type CertInfo struct {
 type Controller interface {
 	GetCertInfo(name, namespace string) (certInfo *CertInfo, err error)
 	GetCaCert(name, namespace string) (certInfo *CertInfo, err error)
+	GetConfigMapCaCert(name, namespace string) (certInfo *CertInfo, err error)
 	GetDockerCredential(name, namespace string) (cred []byte, err error)
 	Authorize(serviceAccount, namespace string) error
 }
 
 type MulticlusterController interface {
 	ForCluster(cluster cluster.ID) (Controller, error)
-	AddSecretHandler(func(name, namespace string))
+	AddSecretHandler(func(k kind.Kind, name, namespace string))
 }

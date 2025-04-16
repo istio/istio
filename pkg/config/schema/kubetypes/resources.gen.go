@@ -16,7 +16,9 @@ import (
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	sigsk8siogatewayapiapisv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	sigsk8siogatewayapiapisxv1alpha1 "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
@@ -40,6 +42,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.AuthorizationPolicy, true
 	case *apiistioioapisecurityv1.AuthorizationPolicy:
 		return gvk.AuthorizationPolicy, true
+	case *sigsk8siogatewayapiapisv1alpha3.BackendTLSPolicy:
+		return gvk.BackendTLSPolicy, true
 	case *k8sioapicertificatesv1.CertificateSigningRequest:
 		return gvk.CertificateSigningRequest, true
 	case *k8sioapicertificatesv1alpha1.ClusterTrustBundle:
@@ -156,6 +160,8 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.WorkloadGroup, true
 	case *apiistioioapinetworkingv1.WorkloadGroup:
 		return gvk.WorkloadGroup, true
+	case *sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy:
+		return gvk.XBackendTrafficPolicy, true
 	default:
 		return config.GroupVersionKind{}, false
 	}
