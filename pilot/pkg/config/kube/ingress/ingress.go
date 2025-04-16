@@ -61,6 +61,7 @@ func SupportedIngresses(
 
 			wantIPs := sliceToStatus(runningAddresses(ctx, meshConfig, services, nodes, pods, podsByNamespace))
 
+			log.Infof("ingress supported, name: %s, class: %+v, mesh: %+v, ips: %+v", i.Name, class, mesh.MeshConfig, wantIPs)
 			return &knetworking.IngressStatus{
 				LoadBalancer: knetworking.IngressLoadBalancerStatus{
 					Ingress: wantIPs,

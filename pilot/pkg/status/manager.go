@@ -53,6 +53,7 @@ func NewManager(store model.ConfigStore) *Manager {
 		}
 
 		current := store.Get(k, resource.Name, resource.Namespace)
+		scope.Infof("Found config for status update %s/%s: %+v", resource.Namespace, resource.Name, current)
 		return current
 	}
 	return &Manager{
