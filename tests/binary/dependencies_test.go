@@ -85,7 +85,6 @@ func TestDependencies(t *testing.T) {
 				// Deps meant only for other components; if we import them, something may be wrong
 				`^github\.com/containernetworking/`,
 				`^github\.com/fatih/color`,
-				`^github\.com/florianl/go-nflog/v2`,
 				`^github\.com/vishvananda/`,
 				`^helm\.sh/helm/v3`,
 				`^sigs\.k8s\.io/controller-runtime`,
@@ -105,7 +104,6 @@ func TestDependencies(t *testing.T) {
 			denied: []string{
 				// Deps meant only for other components; if we import them, something may be wrong
 				`^github\.com/containernetworking/`,
-				`^github\.com/florianl/go-nflog/v2`,
 				`^github\.com/vishvananda/`,
 				`^sigs\.k8s\.io/controller-runtime`,
 				// Testing deps
