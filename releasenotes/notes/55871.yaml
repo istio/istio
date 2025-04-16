@@ -5,4 +5,4 @@ issue:
   - 53408
 releaseNotes:
   - |
-    **Added** support to read header value from Istiod environment variable.
+    **Added** support for reading header values from Istiod environment variables.
