@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 53408
+releaseNotes:
+  - |
+    **Added** support to read header value from Istiod environment variable.
