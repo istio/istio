@@ -183,74 +183,77 @@ func TestIngressController(t *testing.T) {
 	xdsUpdater := controller.xdsUpdater.(*fakeXdsUpdater)
 	ingress := clienttest.NewWriter[*knetworking.Ingress](t, client)
 
-	wait := func() sets.Set[model.ConfigKey] {
+	wait := func() (sets.Set[model.ConfigKey], kind.Kind) {
 		select {
 		case x := <-xdsUpdater.Events:
-			return x
+			return x, x.UnsortedList()[0].Kind
 		case <-time.After(time.Second * 10):
-			t.Fatal("timed out waiting for config")
+			t.Fatalf("timed out waiting for config")
 		}
-		return nil
+		return nil, kind.Kind(0)
+	}
+	waitFor := func(t *testing.T, wanted map[kind.Kind]sets.Set[model.ConfigKey]) {
+		for range len(wanted) {
+			vs, k := wait()
+			if w, ok := wanted[k]; ok {
+				delete(wanted, k)
+				if !vs.Equals(w) {
+					t.Errorf("received unexpected configs want: %v, got: %v", w, vs)
+				}
+			} else {
+				t.Errorf("received unexpected kind: %v", k)
+			}
+		}
 	}
 
 	ingress.Create(&ingress1)
-	vs := wait()
-	// we first get gateway update
-	want := sets.New(
-		model.ConfigKey{
-			Kind:      kind.Gateway,
-			Name:      ingress1.Name + "-" + constants.IstioIngressGatewayName + "-" + ingress1.Namespace,
-			Namespace: IngressNamespace,
-		},
-	)
-	if !vs.Equals(want) {
-		t.Errorf("received unexpected configs want: %v, got: %v", want, vs)
-	}
-	vs = wait()
-	// next we get all derived virtual services
-	want = sets.New(
-		model.ConfigKey{
-			Kind:      kind.VirtualService,
-			Name:      "my-host-com" + "-" + ingress1.Name + "-" + constants.IstioIngressGatewayName,
-			Namespace: ingress1.Namespace,
-		},
-		model.ConfigKey{
-			Kind:      kind.VirtualService,
-			Name:      "my2-host-com" + "-" + ingress1.Name + "-" + constants.IstioIngressGatewayName,
-			Namespace: ingress1.Namespace,
-		},
-		model.ConfigKey{
-			Kind:      kind.VirtualService,
-			Name:      "my3-host-com" + "-" + ingress1.Name + "-" + constants.IstioIngressGatewayName,
-			Namespace: ingress1.Namespace,
-		},
-	)
-	if !vs.Equals(want) {
-		t.Errorf("received unexpected configs want: %v, got: %v", want, vs)
-	}
+	waitFor(t, map[kind.Kind]sets.Set[model.ConfigKey]{
+		kind.VirtualService: sets.New(
+			model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      "my-host-com" + "-" + ingress1.Name + "-" + constants.IstioIngressGatewayName,
+				Namespace: ingress1.Namespace,
+			},
+			model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      "my2-host-com" + "-" + ingress1.Name + "-" + constants.IstioIngressGatewayName,
+				Namespace: ingress1.Namespace,
+			},
+			model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      "my3-host-com" + "-" + ingress1.Name + "-" + constants.IstioIngressGatewayName,
+				Namespace: ingress1.Namespace,
+			},
+		),
+		kind.Gateway: sets.New(
+			model.ConfigKey{
+				Kind:      kind.Gateway,
+				Name:      ingress1.Name + "-" + constants.IstioIngressGatewayName + "-" + ingress1.Namespace,
+				Namespace: IngressNamespace,
+			},
+		),
+	})
 
 	ingress.Update(&ingress2)
-	vs = wait()
-	want = sets.New(
-		model.ConfigKey{
-			Kind:      kind.VirtualService,
-			Name:      "my-host-com" + "-" + ingress2.Name + "-" + constants.IstioIngressGatewayName,
-			Namespace: ingress2.Namespace,
-		},
-		model.ConfigKey{
-			Kind:      kind.VirtualService,
-			Name:      "my2-host-com" + "-" + ingress1.Name + "-" + constants.IstioIngressGatewayName,
-			Namespace: ingress1.Namespace,
-		},
-		model.ConfigKey{
-			Kind:      kind.VirtualService,
-			Name:      "my3-host-com" + "-" + ingress1.Name + "-" + constants.IstioIngressGatewayName,
-			Namespace: ingress1.Namespace,
-		},
-	)
-	if !vs.Equals(want) {
-		t.Errorf("received unexpected configs want: %v, got: %v", want, vs)
-	}
+	waitFor(t, map[kind.Kind]sets.Set[model.ConfigKey]{
+		kind.VirtualService: sets.New(
+			model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      "my-host-com" + "-" + ingress2.Name + "-" + constants.IstioIngressGatewayName,
+				Namespace: ingress2.Namespace,
+			},
+			model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      "my2-host-com" + "-" + ingress1.Name + "-" + constants.IstioIngressGatewayName,
+				Namespace: ingress1.Namespace,
+			},
+			model.ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      "my3-host-com" + "-" + ingress1.Name + "-" + constants.IstioIngressGatewayName,
+				Namespace: ingress1.Namespace,
+			},
+		),
+	})
 }
 
 func TestIngressControllerWithPortName(t *testing.T) {
