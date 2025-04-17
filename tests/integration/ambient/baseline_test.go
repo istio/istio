@@ -1257,7 +1257,7 @@ metadata:
  name: allow-nothing-waypoint
 spec:
   targetRefs:
-  - group: "gateway.networking.k8s.io" 
+  - group: "gateway.networking.k8s.io"
     kind: "GatewayClass"
     name: "istio-waypoint"`).ApplyOrFail(t)
 
@@ -3110,14 +3110,17 @@ func TestDirect(t *testing.T) {
 				HBONE:   hbsvc,
 				Check:   check.OK(),
 			})
-			run("VIP destination, FQDN authority", echo.CallOptions{
-				To:      apps.ServiceAddressedWaypoint,
-				Count:   1,
-				Address: apps.ServiceAddressedWaypoint.ClusterLocalFQDN(),
-				Port:    echo.Port{Name: ports.HTTP.Name},
-				HBONE:   hbsvc,
-				Check:   check.OK(),
-			})
+			// Only works with multinetwork
+			if t.Settings().AmbientMultiNetwork {
+				run("VIP destination, FQDN authority", echo.CallOptions{
+					To:      apps.ServiceAddressedWaypoint,
+					Count:   1,
+					Address: apps.ServiceAddressedWaypoint.ClusterLocalFQDN(),
+					Port:    echo.Port{Name: ports.HTTP.Name},
+					HBONE:   hbsvc,
+					Check:   check.OK(),
+				})
+			}
 			run("VIP destination, unknown port", echo.CallOptions{
 				To:      apps.ServiceAddressedWaypoint,
 				Count:   1,

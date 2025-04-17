@@ -223,6 +223,9 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.OpenShift, "istio.test.openshift", settingsFromCommandLine.OpenShift,
 		"Indicate the tests run in an OpenShift platform rather than in plain Kubernetes.")
 
+	flag.BoolVar(&settingsFromCommandLine.AmbientMultiNetwork, "istio.test.ambient.multinetwork", settingsFromCommandLine.AmbientMultiNetwork,
+		"Indicate the use of ambient multicluster.")
+
 	initGatewayConformanceTimeouts()
 }
 

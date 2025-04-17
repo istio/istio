@@ -145,6 +145,8 @@ type Settings struct {
 	// Use ambient instead of sidecars
 	AmbientEverywhere bool
 
+	AmbientMultiNetwork bool
+
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
 	// on different control plane versions.
