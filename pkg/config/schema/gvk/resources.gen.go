@@ -344,6 +344,8 @@ func MustToKind(g config.GroupVersionKind) kind.Kind {
 		return kind.WorkloadGroup
 	case XBackendTrafficPolicy:
 		return kind.XBackendTrafficPolicy
+	case XListenerSet:
+		return kind.XListenerSet
 	}
 
 	panic("unknown kind: " + g.String())
