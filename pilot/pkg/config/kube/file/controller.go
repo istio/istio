@@ -17,11 +17,14 @@ package file
 import (
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 	krtfiles "istio.io/istio/pkg/kube/krt/files"
 )
@@ -30,6 +33,7 @@ var errUnsupportedOp = fmt.Errorf("unsupported operation: the file config store 
 
 type Controller struct {
 	collections map[config.GroupVersionKind]krt.Collection[config.Config]
+	indexes     map[config.GroupVersionKind]krt.Index[string, config.Config]
 	schemas     collection.Schemas
 	handlers    map[config.GroupVersionKind][]krt.HandlerRegistration
 	stop        chan struct{}
@@ -54,18 +58,26 @@ func NewController(fileDir string, domainSuffix string, schemas collection.Schem
 	}
 
 	collections := make(map[config.GroupVersionKind]krt.Collection[config.Config])
+	indexes := make(map[config.GroupVersionKind]krt.Index[string, config.Config])
 	for s := range enabledSchemas {
-		collections[s] = krtfiles.NewFileCollection(watch, func(c *config.Config) *config.Config {
+		collection := krtfiles.NewFileCollection(watch, func(c *config.Config) *config.Config {
 			if c.GroupVersionKind == s {
 				return c
 			}
 
 			return nil
 		}, opts.WithName("FileMonitor")...)
+
+		collections[s] = collection
+
+		if s == gvk.ServiceEntry || s == gvk.WorkloadEntry {
+			indexes[s] = krt.NewNamespaceIndex(collection)
+		}
 	}
 
 	return &Controller{
 		collections: collections,
+		indexes:     indexes,
 		schemas:     schemas,
 		stop:        stop,
 		handlers:    make(map[config.GroupVersionKind][]krt.HandlerRegistration),
@@ -77,12 +89,26 @@ func (c *Controller) Schemas() collection.Schemas {
 }
 
 func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
+	if col, ok := c.collections[typ]; ok {
+		if namespace == "" {
+			return col.GetKey(name)
+		}
+
+		return col.GetKey(namespace + "/" + name)
+	}
+
 	return nil
 }
 
 func (c *Controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
-	if col, ok := c.collections[typ]; ok {
-		return col.List()
+	if namespace == metav1.NamespaceAll {
+		if col, ok := c.collections[typ]; ok {
+			return col.List()
+		}
+	} else {
+		if idx, ok := c.indexes[typ]; ok {
+			return idx.Lookup(namespace)
+		}
 	}
 
 	return nil
