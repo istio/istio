@@ -259,7 +259,7 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 			ipFamily = workloadapi.IPFamilies_IPV6_ONLY
 		}
 	}
-	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
+	// TODO: this is only checking one controller - we may be missing service vips for instances in another cluster
 	return &workloadapi.Service{
 		Name:          svc.Name,
 		Namespace:     svc.Namespace,

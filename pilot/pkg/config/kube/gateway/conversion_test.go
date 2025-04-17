@@ -443,6 +443,7 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 func init() {
 	features.EnableAlphaGatewayAPI = true
 	features.EnableAmbientWaypoints = true
+	features.EnableAmbientMultiNetwork = true
 	// Recompute with ambient enabled
 	classInfos = getClassInfos()
 	builtinClasses = getBuiltinClasses()
@@ -559,6 +560,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "eastwest-tlsoption"},
 		{name: "eastwest-labelport"},
 		{name: "eastwest-remote"},
+		{name: "east-west-ambient"},
 		{name: "mcs"},
 		{name: "route-precedence"},
 		{name: "waypoint"},

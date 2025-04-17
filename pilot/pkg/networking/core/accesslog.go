@@ -84,7 +84,14 @@ func newAccessLogBuilder() *AccessLogBuilder {
 	}
 }
 
-func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy, class networking.ListenerClass, svc *model.Service) {
+func (b *AccessLogBuilder) setTCPAccessLogWithFilter(
+	push *model.PushContext,
+	proxy *model.Proxy,
+	tcp *tcp.TcpProxy,
+	class networking.ListenerClass,
+	svc *model.Service,
+	filter *accesslog.AccessLogFilter,
+) {
 	mesh := push.Mesh
 	cfgs := push.Telemetry.AccessLogging(push, proxy, class, svc)
 
@@ -101,9 +108,13 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 		return
 	}
 
-	if al := buildAccessLogFromTelemetry(cfgs, nil); len(al) != 0 {
+	if al := buildAccessLogFromTelemetry(cfgs, filter); len(al) != 0 {
 		tcp.AccessLog = append(tcp.AccessLog, al...)
 	}
+}
+
+func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy, class networking.ListenerClass, svc *model.Service) {
+	b.setTCPAccessLogWithFilter(push, proxy, tcp, class, svc, nil)
 }
 
 func (b *AccessLogBuilder) setHboneOriginationAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy, class networking.ListenerClass) {

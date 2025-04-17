@@ -15,7 +15,9 @@
 package core
 
 import (
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
@@ -30,6 +32,9 @@ const (
 
 	// ConnectOriginate is the name for the resources associated with the origination of HTTP CONNECT.
 	ConnectOriginate = "connect_originate"
+
+	// ForwardInnerConnect is the name for resources associated with the forwarding of an inner CONNECT tunnel.
+	ForwardInnerConnect = "forward_inner_connect"
 
 	// EncapClusterName is the name of the cluster used for traffic to the connect_originate listener.
 	EncapClusterName = "encap"
@@ -108,4 +113,13 @@ func filterWaypointOutboundServices(
 		}
 	}
 	return res
+}
+
+func isEastWestGateway(node *model.Proxy) bool {
+	if node == nil || node.Type != model.Waypoint {
+		return false
+	}
+	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
+
+	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
 }
