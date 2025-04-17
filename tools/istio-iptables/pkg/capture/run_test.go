@@ -241,12 +241,6 @@ func getCommonTestCases() []struct {
 			},
 		},
 		{
-			"logging",
-			func(cfg *config.Config) {
-				cfg.TraceLogging = true
-			},
-		},
-		{
 			"drop-invalid",
 			func(cfg *config.Config) {
 				cfg.DropInvalid = true

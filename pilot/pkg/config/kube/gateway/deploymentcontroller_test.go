@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -285,6 +286,34 @@ func TestConfigureIstioGateway(t *testing.T) {
 						Name:     "mesh",
 						Port:     k8s.PortNumber(15008),
 						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  network: network-1`,
+		},
+		{
+			name: "istio-east-west",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "eastwestgateway",
+					Namespace: "istio-system",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.EastWestGatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "mesh",
+						Port:     k8s.PortNumber(15008),
+						Protocol: "ALL",
+						TLS: &k8s.GatewayTLSConfig{
+							Mode: ptr.Of(k8s.TLSModeTerminate),
+							Options: map[k8s.AnnotationKey]k8s.AnnotationValue{
+								gatewayTLSTerminateModeKey: "ISTIO_MUTUAL",
+							},
+						},
 					}},
 				},
 			},

@@ -38,8 +38,10 @@ type Response struct {
 	Method string
 	// Protocol used for the request.
 	Protocol string
-	// Alpn value (for HTTP).
+	// Alpn value (for TLS).
 	Alpn string
+	// SNI value (for TLS).
+	SNI string
 	// ProxyProtocol value.
 	ProxyProtocol string
 	// RawContent is the original unparsed content for this response

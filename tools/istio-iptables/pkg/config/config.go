@@ -84,7 +84,6 @@ type Config struct {
 	// For instance, we would have a node-shared IPTables lock, despite not needing it.
 	// HostFilesystemPodNetwork indicates we are in this mode, typically from the CNI.
 	HostFilesystemPodNetwork bool       `json:"CNI_MODE"`
-	TraceLogging             bool       `json:"IPTABLES_TRACE_LOGGING"`
 	DualStack                bool       `json:"DUAL_STACK"`
 	HostIP                   netip.Addr `json:"HOST_IP"`
 	HostIPv4LoopbackCidr     string     `json:"HOST_IPV4_LOOPBACK_CIDR"`

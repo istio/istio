@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 var (
@@ -31,6 +32,19 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 	}
 
 	return schema.GroupVersionResource{}, false
+}
+
+func MustToKind(g config.GroupVersionKind) kind.Kind {
+	switch g {
+{{- range .Entries }}
+	{{- if not (or (eq .Resource.Identifier "Address") (eq .Resource.Identifier "DNSName")) }}
+		case {{.Resource.Identifier}}:
+			return kind.{{.Resource.Identifier}}
+	{{- end }}
+{{- end }}
+	}
+
+	panic("unknown kind: " + g.String())
 }
 
 // MustToGVR converts a GVK to a GVR, and panics if it cannot be converted

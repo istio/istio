@@ -154,13 +154,16 @@ const (
 	// testing the validation webhook.
 	AlwaysReject = "internal.istio.io/webhook-always-reject"
 
-	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
-	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
-	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
-	ManagedGatewayMeshController      = "istio.io/mesh-controller"
+	UnmanagedGatewayController            = "istio.io/unmanaged-gateway"
+	ManagedGatewayControllerLabel         = "istio.io-gateway-controller"
+	ManagedGatewayMeshControllerLabel     = "istio.io-mesh-controller"
+	ManagedGatewayMeshController          = "istio.io/mesh-controller"
+	ManagedGatewayEastWestController      = "istio.io/eastwest-controller"
+	ManagedGatewayEastWestControllerLabel = "istio.io-eastwest-controller"
 
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
+	EastWestGatewayClassName = "istio-east-west"
 
 	// TODO formalize this API
 	// TODO additional values to represent passthrough and hbone or both
