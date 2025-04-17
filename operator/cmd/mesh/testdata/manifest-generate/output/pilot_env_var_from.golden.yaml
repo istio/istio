@@ -92,6 +92,7 @@ spec:
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.memory
         - name: GOMAXPROCS
           valueFrom:
