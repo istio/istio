@@ -86,127 +86,128 @@ func ListenerSetCollection(
 	krt.StatusCollection[*gatewayx.XListenerSet, gatewayx.ListenerSetStatus],
 	krt.Collection[ListenerSet],
 ) {
-	statusCol, gw := krt.NewStatusManyCollection(listenerSets, func(ctx krt.HandlerContext, obj *gatewayx.XListenerSet) (*gatewayx.ListenerSetStatus, []ListenerSet) {
-		// We currently depend on service discovery information not know to krt; mark we depend on it.
-		context := gatewayContext.Get(ctx).Load()
-		if context == nil {
-			return nil, nil
-		}
-		if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
-			return nil, nil
-		}
-		result := []ListenerSet{}
-		ls := obj.Spec
-		status := obj.Status.DeepCopy()
-
-		p := ls.ParentRef
-		if normalizeReference(p.Group, p.Kind, gvk.KubernetesGateway) != gvk.KubernetesGateway {
-			// Cannot report status since we don't know if it is for us
-			return nil, nil
-		}
-
-		pns := ptr.OrDefault(p.Namespace, gatewayx.Namespace(obj.Namespace))
-		parentGwObj := ptr.Flatten(krt.FetchOne(ctx, gateways, krt.FilterKey(string(pns)+"/"+string(p.Name))))
-		if parentGwObj == nil {
-			// Cannot report status since we don't know if it is for us
-			return nil, nil
-		}
-
-		class := fetchClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
-		if class == nil {
-			// Cannot report status since we don't know if it is for us
-			return nil, nil
-		}
-
-		controllerName := class.Controller
-		classInfo, f := classInfos[controllerName]
-		if !f {
-			// Cannot report status since we don't know if it is for us
-			return nil, nil
-		}
-		if !classInfo.supportsListenerSet {
-			reportUnsupportedListenerSet(class.Name, status, obj)
-			return status, nil
-		}
-
-		if !namespaceAcceptedByAllowListeners(obj.Namespace, parentGwObj, func(s string) *corev1.Namespace {
-			return ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(s)))
-		}) {
-			reportNotAllowedListenerSet(status, obj)
-			return status, nil
-		}
-
-		gatewayServices, err := extractGatewayServices(domainSuffix, parentGwObj, classInfo)
-		if len(gatewayServices) == 0 && err != nil {
-			// Short circuit if it's a hard failure
-			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err)
-			return status, nil
-		}
-
-		servers := []*istio.Server{}
-		for i, l := range ls.Listeners {
-			port, err := detectListenerPort(l)
-			_ = err // TODO
-			l.Port = port
-			standardListener := convertListenerSetToListener(l)
-			originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
-			server, updatedStatus, programmed := buildListener(ctx, secrets, grants, namespaces, obj, originalStatus, standardListener, i, controllerName)
-			status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
-
-			servers = append(servers, server)
-			if controllerName == constants.ManagedGatewayMeshController {
-				// Waypoint doesn't actually convert the routes to VirtualServices
-				continue
+	statusCol, gw := krt.NewStatusManyCollection(listenerSets,
+		func(ctx krt.HandlerContext, obj *gatewayx.XListenerSet) (*gatewayx.ListenerSetStatus, []ListenerSet) {
+			// We currently depend on service discovery information not know to krt; mark we depend on it.
+			context := gatewayContext.Get(ctx).Load()
+			if context == nil {
+				return nil, nil
 			}
-			meta := parentMeta(obj, &l.Name)
-			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
-			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
-			meta[constants.InternalParentNamespace] = parentGwObj.Namespace
+			if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
+				return nil, nil
+			}
+			result := []ListenerSet{}
+			ls := obj.Spec
+			status := obj.Status.DeepCopy()
 
-			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
-			gatewayConfig := config.Config{
-				Meta: config.Meta{
-					CreationTimestamp: obj.CreationTimestamp.Time,
-					GroupVersionKind:  gvk.Gateway,
-					Name:              kubeconfig.InternalGatewayName(obj.Name, string(l.Name)),
-					Annotations:       meta,
-					Namespace:         obj.Namespace,
-					Domain:            domainSuffix,
-				},
-				Spec: &istio.Gateway{
-					Servers: []*istio.Server{server},
-				},
+			p := ls.ParentRef
+			if normalizeReference(p.Group, p.Kind, gvk.KubernetesGateway) != gvk.KubernetesGateway {
+				// Cannot report status since we don't know if it is for us
+				return nil, nil
 			}
 
-			allowed, _ := generateSupportedKinds(standardListener)
-			ref := parentKey{
-				Kind:      gvk.XListenerSet,
-				Name:      obj.Name,
-				Namespace: obj.Namespace,
-			}
-			pri := parentInfo{
-				InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
-				AllowedKinds:     allowed,
-				Hostnames:        server.Hosts,
-				OriginalHostname: string(ptr.OrEmpty(l.Hostname)),
-				SectionName:      l.Name,
-				Port:             l.Port,
-				Protocol:         l.Protocol,
+			pns := ptr.OrDefault(p.Namespace, gatewayx.Namespace(obj.Namespace))
+			parentGwObj := ptr.Flatten(krt.FetchOne(ctx, gateways, krt.FilterKey(string(pns)+"/"+string(p.Name))))
+			if parentGwObj == nil {
+				// Cannot report status since we don't know if it is for us
+				return nil, nil
 			}
 
-			res := ListenerSet{
-				Config:        &gatewayConfig,
-				Valid:         programmed,
-				Parent:        ref,
-				GatewayParent: config.NamespacedName(parentGwObj),
-				ParentInfo:    pri,
+			class := fetchClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
+			if class == nil {
+				// Cannot report status since we don't know if it is for us
+				return nil, nil
 			}
-			result = append(result, res)
-		}
 
-		reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err)
-		return status, result
-	}, opts.WithName("ListenerSets")...)
+			controllerName := class.Controller
+			classInfo, f := classInfos[controllerName]
+			if !f {
+				// Cannot report status since we don't know if it is for us
+				return nil, nil
+			}
+			if !classInfo.supportsListenerSet {
+				reportUnsupportedListenerSet(class.Name, status, obj)
+				return status, nil
+			}
+
+			if !namespaceAcceptedByAllowListeners(obj.Namespace, parentGwObj, func(s string) *corev1.Namespace {
+				return ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(s)))
+			}) {
+				reportNotAllowedListenerSet(status, obj)
+				return status, nil
+			}
+
+			gatewayServices, err := extractGatewayServices(domainSuffix, parentGwObj, classInfo)
+			if len(gatewayServices) == 0 && err != nil {
+				// Short circuit if it's a hard failure
+				reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err)
+				return status, nil
+			}
+
+			servers := []*istio.Server{}
+			for i, l := range ls.Listeners {
+				port, err := detectListenerPort(l)
+				_ = err // TODO
+				l.Port = port
+				standardListener := convertListenerSetToListener(l)
+				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
+				server, updatedStatus, programmed := buildListener(ctx, secrets, grants, namespaces, obj, originalStatus, standardListener, i, controllerName)
+				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
+
+				servers = append(servers, server)
+				if controllerName == constants.ManagedGatewayMeshController {
+					// Waypoint doesn't actually convert the routes to VirtualServices
+					continue
+				}
+				meta := parentMeta(obj, &l.Name)
+				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
+				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
+				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
+
+				// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
+				gatewayConfig := config.Config{
+					Meta: config.Meta{
+						CreationTimestamp: obj.CreationTimestamp.Time,
+						GroupVersionKind:  gvk.Gateway,
+						Name:              kubeconfig.InternalGatewayName(obj.Name, string(l.Name)),
+						Annotations:       meta,
+						Namespace:         obj.Namespace,
+						Domain:            domainSuffix,
+					},
+					Spec: &istio.Gateway{
+						Servers: []*istio.Server{server},
+					},
+				}
+
+				allowed, _ := generateSupportedKinds(standardListener)
+				ref := parentKey{
+					Kind:      gvk.XListenerSet,
+					Name:      obj.Name,
+					Namespace: obj.Namespace,
+				}
+				pri := parentInfo{
+					InternalName:     obj.Namespace + "/" + gatewayConfig.Name,
+					AllowedKinds:     allowed,
+					Hostnames:        server.Hosts,
+					OriginalHostname: string(ptr.OrEmpty(l.Hostname)),
+					SectionName:      l.Name,
+					Port:             l.Port,
+					Protocol:         l.Protocol,
+				}
+
+				res := ListenerSet{
+					Config:        &gatewayConfig,
+					Valid:         programmed,
+					Parent:        ref,
+					GatewayParent: config.NamespacedName(parentGwObj),
+					ParentInfo:    pri,
+				}
+				result = append(result, res)
+			}
+
+			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err)
+			return status, result
+		}, opts.WithName("ListenerSets")...)
 
 	return statusCol, gw
 }
@@ -440,5 +441,5 @@ func convertListenerSetStatusToStandardStatus(e gatewayx.ListenerEntryStatus) ga
 
 func convertListenerSetToListener(l gatewayx.ListenerEntry) gateway.Listener {
 	// For now, structs are identical enough Go can cast them. I doubt this will hold up forever, but we can adjust as needed.
-	return (gateway.Listener)(l)
+	return gateway.Listener(l)
 }

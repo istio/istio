@@ -20,14 +20,12 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -361,41 +359,6 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TLSRoute)}
 		} else {
 			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
-		}
-		// UDP route not support
-	}
-	if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
-		// We need to filter down to only ones we actually support
-		intersection := []k8s.RouteGroupKind{}
-		for _, s := range supported {
-			for _, kind := range l.AllowedRoutes.Kinds {
-				if routeGroupKindEqual(s, kind) {
-					intersection = append(intersection, s)
-					break
-				}
-			}
-		}
-		return intersection, len(intersection) == len(l.AllowedRoutes.Kinds)
-	}
-	return supported, true
-}
-
-func generateSupportedKindsSet(l gatewayx.ListenerEntry) ([]k8s.RouteGroupKind, bool) {
-	supported := []k8s.RouteGroupKind{}
-	switch l.Protocol {
-	case k8s.HTTPProtocolType, k8s.HTTPSProtocolType:
-		// Only terminate allowed, so its always HTTP
-		supported = []k8s.RouteGroupKind{
-			{Group: (*k8s.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)},
-			{Group: (*k8s.Group)(ptr.Of(gvk.GRPCRoute.Group)), Kind: k8s.Kind(gvk.GRPCRoute.Kind)},
-		}
-	case k8s.TCPProtocolType:
-		supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
-	case k8s.TLSProtocolType:
-		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModePassthrough {
-			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: k8s.Kind(gvk.TLSRoute.Kind)}}
-		} else {
-			supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
 		}
 		// UDP route not support
 	}
