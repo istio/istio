@@ -341,6 +341,11 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1beta1.HTTPRouteStatus)),
 		}, metav1.UpdateOptions{})
+	case gvk.Ingress:
+		return c.Kube().NetworkingV1().Ingresses(cfg.Namespace).UpdateStatus(context.TODO(), &k8sioapinetworkingv1.Ingress{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*k8sioapinetworkingv1.IngressStatus)),
+		}, metav1.UpdateOptions{})
 	case gvk.KubernetesGateway:
 		return c.GatewayAPI().GatewayV1beta1().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1beta1.Gateway{
 			ObjectMeta: objMeta,

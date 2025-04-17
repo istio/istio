@@ -77,7 +77,7 @@ type Controller struct {
 
 	// status controls the status writing queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
-	status *StatusCollections
+	status *status.StatusCollections
 
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
 
@@ -159,7 +159,7 @@ func NewController(
 		client:         kc,
 		cluster:        options.ClusterID,
 		revision:       options.Revision,
-		status:         &StatusCollections{},
+		status:         &status.StatusCollections{},
 		tagWatcher:     krt.NewRecomputeProtected(tw, false, opts.WithName("tagWatcher")...),
 		waitForCRD:     waitForCRD,
 		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[GatewayContext](nil), false, opts.WithName("gatewayContext")...),
@@ -217,7 +217,7 @@ func NewController(
 	handlers := []krt.HandlerRegistration{}
 
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
-	registerStatus(c, GatewayClassStatus)
+	status.RegisterStatus(c.status, GatewayClassStatus)
 
 	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
 
@@ -260,25 +260,25 @@ func NewController(
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, tcpRoutes.Status)
+	status.RegisterStatus(c.status, tcpRoutes.Status)
 	tlsRoutes := TLSRouteCollection(
 		inputs.TLSRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, tlsRoutes.Status)
+	status.RegisterStatus(c.status, tlsRoutes.Status)
 	httpRoutes := HTTPRouteCollection(
 		inputs.HTTPRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, httpRoutes.Status)
+	status.RegisterStatus(c.status, httpRoutes.Status)
 	grpcRoutes := GRPCRouteCollection(
 		inputs.GRPCRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, grpcRoutes.Status)
+	status.RegisterStatus(c.status, grpcRoutes.Status)
 
 	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
 		tcpRoutes.RouteAttachments,
@@ -291,7 +291,7 @@ func NewController(
 	})
 
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
-	registerStatus(c, GatewayFinalStatus)
+	status.RegisterStatus(c.status, GatewayFinalStatus)
 
 	VirtualServices := krt.JoinCollection([]krt.Collection[*config.Config]{
 		tcpRoutes.VirtualServices,

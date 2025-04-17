@@ -61,7 +61,7 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1.Object, error) {
 	switch cfg.GroupVersionKind {
 {{- range .Entries }}
-	{{- if and (not .Resource.Synthetic) (not .Resource.Builtin) (not (eq .StatusType "")) }}
+	{{- if and (not .Resource.Synthetic) (or (not .Resource.Builtin) (eq .Resource.Identifier "Ingress")) (not (eq .StatusType "")) }}
 	case gvk.{{.Resource.Identifier}}:
 		return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}cfg.Namespace{{end}}).UpdateStatus(context.TODO(), &{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}{
 			ObjectMeta: objMeta,
