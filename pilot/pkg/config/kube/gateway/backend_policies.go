@@ -32,6 +32,7 @@ import (
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -84,10 +85,10 @@ func DestinationRuleCollection(
 	opts krt.OptionsBuilder,
 ) krt.Collection[*config.Config] {
 	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, opts)
-	registerStatus(c, trafficPolicyStatus)
+	status.RegisterStatus(c.status, trafficPolicyStatus)
 
 	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, references, opts)
-	registerStatus(c, tlsPolicyStatus)
+	status.RegisterStatus(c.status, tlsPolicyStatus)
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies})
