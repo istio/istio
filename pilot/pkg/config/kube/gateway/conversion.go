@@ -1620,7 +1620,7 @@ func reportGatewayStatus(
 		} else if listenerSetCount == 0 {
 			gatewayConditions[AttachedListenerSets].error = &ConfigError{
 				Reason:  "NoListenersAttached",
-				Message: fmt.Sprintf("AllowedListeners is configured, but no ListenerSets are attached"),
+				Message: "AllowedListeners is configured, but no ListenerSets are attached",
 			}
 		}
 	}
