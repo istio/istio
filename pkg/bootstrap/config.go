@@ -201,6 +201,10 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		}
 	}
 
+	if features.EnvoyStatusPortEnableProxyProtocol {
+		opts = append(opts, option.EnvoyStatusPortEnableProxyProtocol(true))
+	}
+
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
 	if err != nil {
 		return nil, err
