@@ -5,4 +5,4 @@ issue:
 - 55741
 releaseNotes:
 - |
-  **Fixed** `istioctl admin log` cannot modify the log level of `ip-autoallocate`.
+  **Fixed** `istioctl admin log` now supports configuring the log level of `ip-autoallocate`.
