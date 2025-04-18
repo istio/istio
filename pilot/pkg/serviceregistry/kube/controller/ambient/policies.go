@@ -191,7 +191,7 @@ func PolicyCollections(
 		}
 	}, opts.WithName("AuthzDerivedPolicies")...)
 
-	PeerAuthByNamespace := krt.NewIndex(peerAuths, func(p *securityclient.PeerAuthentication) []string {
+	PeerAuthByNamespace := krt.NewIndex(peerAuths, "namespaceWithSelector", func(p *securityclient.PeerAuthentication) []string {
 		if p.Spec.GetSelector() == nil {
 			return []string{p.GetNamespace()}
 		}

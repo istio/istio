@@ -237,7 +237,7 @@ func (s staticListIndex[T]) Lookup(key string) []any {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (s *staticList[T]) index(extract func(o T) []string) kclient.RawIndexer {
+func (s *staticList[T]) index(name string, extract func(o T) []string) kclient.RawIndexer {
 	return staticListIndex[T]{
 		extract: extract,
 		parent:  s,

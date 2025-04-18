@@ -43,7 +43,7 @@ func TestIndex(t *testing.T) {
 	c.RunAndWait(stop)
 	SimplePods := SimplePodCollection(pods, opts)
 	tt := assert.NewTracker[string](t)
-	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ip", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
 	fetchSorted := func(ip string) []SimplePod {
@@ -101,7 +101,7 @@ func TestIndexCollection(t *testing.T) {
 	c.RunAndWait(stop)
 	SimplePods := SimplePodCollection(podsCol, opts)
 	tt := assert.NewTracker[string](t)
-	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ip", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
 	Collection := krt.NewSingleton[string](func(ctx krt.HandlerContext) *string {
@@ -184,7 +184,7 @@ func TestIndexAsCollection(t *testing.T) {
 	c.RunAndWait(stop)
 	SimplePods := SimplePodCollection(pods, opts)
 	tt := assert.NewTracker[string](t)
-	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ip", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
 
@@ -256,7 +256,7 @@ func TestReverseIndex(t *testing.T) {
 	c.RunAndWait(stop)
 	SimplePods := SimplePodCollection(pods, opts)
 	tt := assert.NewTracker[string](t)
-	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, func(o SimplePod) []string {
+	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ip", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
 	Collection := krt.NewSingleton(func(ctx krt.HandlerContext) *PodCounts {

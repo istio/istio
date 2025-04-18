@@ -189,7 +189,7 @@ type manyCollection[I, O any] struct {
 	dependencyState dependencyState[I]
 
 	// internal indexes
-	indexes []collectionIndex[I, O]
+	indexes map[string]collectionIndex[I, O]
 
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
 	eventHandlers *handlerSet[O]
@@ -356,7 +356,11 @@ func (h *manyCollection[I, O]) augment(a any) any {
 }
 
 // nolint: unused // (not true)
-func (h *manyCollection[I, O]) index(extract func(o O) []string) kclient.RawIndexer {
+func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) kclient.RawIndexer {
+	if idx, ok := h.indexes[name]; ok {
+		return idx
+	}
+
 	idx := collectionIndex[I, O]{
 		extract: extract,
 		index:   make(map[string]sets.Set[Key[O]]),
@@ -371,7 +375,7 @@ func (h *manyCollection[I, O]) index(extract func(o O) []string) kclient.RawInde
 			Event: controllers.EventAdd,
 		}, k)
 	}
-	h.indexes = append(h.indexes, idx)
+	h.indexes[name] = idx
 	return idx
 }
 
@@ -582,6 +586,7 @@ func newManyCollection[I, O any](
 			outputs:  map[Key[O]]O{},
 			mappings: map[Key[I]]sets.Set[Key[O]]{},
 		},
+		indexes:                    make(map[string]collectionIndex[I, O]),
 		eventHandlers:              newHandlerSet[O](),
 		augmentation:               opts.augmentation,
 		synced:                     make(chan struct{}),

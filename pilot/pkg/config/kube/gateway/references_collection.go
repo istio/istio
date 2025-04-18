@@ -103,7 +103,7 @@ func ReferenceGrantsCollection(referenceGrants krt.Collection[*gateway.Reference
 }
 
 func BuildReferenceGrants(collection krt.Collection[ReferenceGrant]) ReferenceGrants {
-	idx := krt.NewIndex(collection, func(o ReferenceGrant) []ReferencePair {
+	idx := krt.NewIndex(collection, "toFrom", func(o ReferenceGrant) []ReferencePair {
 		return []ReferencePair{{
 			To:   o.To,
 			From: o.From,

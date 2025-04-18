@@ -73,7 +73,7 @@ func buildNetworkCollections(
 		fromGatewayBuilder(options.ClusterID),
 		opts.WithName("NetworkGateways")...,
 	)
-	GatewaysByNetwork := krt.NewIndex(NetworkGateways, func(o NetworkGateway) []network.ID {
+	GatewaysByNetwork := krt.NewIndex(NetworkGateways, "network", func(o NetworkGateway) []network.ID {
 		return []network.ID{o.Network}
 	})
 

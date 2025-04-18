@@ -140,8 +140,8 @@ func (i informerHandlerRegistration) UnregisterHandler() {
 }
 
 // nolint: unused // (not true)
-func (i *informer[I]) index(extract func(o I) []string) kclient.RawIndexer {
-	idx := i.inf.Index(extract)
+func (i *informer[I]) index(name string, extract func(o I) []string) kclient.RawIndexer {
+	idx := i.inf.Index(name, extract)
 	return idx
 }
 
