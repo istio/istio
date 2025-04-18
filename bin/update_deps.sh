@@ -16,7 +16,7 @@
 
 set -exo pipefail
 
-UPDATE_BRANCH=${UPDATE_BRANCH:-"master"}
+UPDATE_BRANCH=${UPDATE_BRANCH:-"release-1.26"}
 
 SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 ROOTDIR=$(dirname "${SCRIPTPATH}")
