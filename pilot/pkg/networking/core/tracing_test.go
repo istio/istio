@@ -25,7 +25,6 @@ import (
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -1410,7 +1409,7 @@ func TestGetHeaderValue(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := getHeaderValue(tc.input)
-			require.Equal(t, tc.expected, got)
+			assert.Equal(t, tc.expected, got)
 		})
 	}
 }
