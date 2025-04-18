@@ -263,6 +263,7 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 		return nil
 	}
 
+	// Skip remote fetch if a complete CA bundle is already mounted
 	signingCABundleComplete, bundleExists, err := checkCABundleCompleteness(
 		path.Join(dir, ca.CAPrivateKeyFile),
 		path.Join(dir, ca.CACertFile),
