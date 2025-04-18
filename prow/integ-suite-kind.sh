@@ -85,7 +85,7 @@ while (( "$#" )); do
     --topology)
       case $2 in
         # TODO(landow) get rid of MULTICLUSTER_SINGLE_NETWORK after updating Prow job
-        SINGLE_CLUSTER | MULTICLUSTER_SINGLE_NETWORK | MULTICLUSTER )
+        SINGLE_CLUSTER | MULTICLUSTER_SINGLE_NETWORK | MULTICLUSTER | AMBIENT_MULTICLUSTER )
           TOPOLOGY=$2
           echo "Running with topology ${TOPOLOGY}"
           ;;
