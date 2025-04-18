@@ -66,6 +66,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "local.campus.net",
 			},
 			want: []string{
+				"foo.local.campus.net.",
 				"foo.local.campus.net",
 				"foo",
 			},
@@ -81,6 +82,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "remote.campus.net",
 			},
 			want: []string{
+				"foo.local.campus.net.",
 				"foo.local.campus.net",
 				"foo.local",
 				"foo.local.campus",
@@ -96,7 +98,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "example.com",
 			},
-			want: []string{"foo.local.campus.net"},
+			want: []string{
+				"foo.local.campus.net.",
+				"foo.local.campus.net",
+			},
 		},
 		{
 			name: "k8s service with default domain",
@@ -109,6 +114,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "default.svc.cluster.local",
 			},
 			want: []string{
+				"echo.default.svc.cluster.local.",
 				"echo.default.svc.cluster.local",
 				"echo",
 				"echo.default.svc",
@@ -126,6 +132,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "default.svc.cluster.local",
 			},
 			want: []string{
+				"foo.default.svc.bar.baz.",
 				"foo.default.svc.bar.baz",
 			},
 		},
@@ -140,6 +147,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "mesh.svc.cluster.local",
 			},
 			want: []string{
+				"echo.default.svc.cluster.local.",
 				"echo.default.svc.cluster.local",
 				"echo.default",
 				"echo.default.svc",
@@ -155,7 +163,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "foo.svc.custom.k8s.local",
 			},
-			want: []string{"google.local"},
+			want: []string{
+				"google.local.",
+				"google.local",
+			},
 		},
 		{
 			name: "ipv4 domain",
@@ -191,7 +202,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "tests.svc.cluster.local",
 			},
-			want: []string{"aaa.example.local"},
+			want: []string{
+				"aaa.example.local.",
+				"aaa.example.local",
+			},
 		},
 		{
 			name: "front subset of cluster domain in address",
@@ -203,7 +217,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "tests.svc.my.long.domain.suffix",
 			},
-			want: []string{"aaa.example.my"},
+			want: []string{
+				"aaa.example.my.",
+				"aaa.example.my",
+			},
 		},
 		{
 			name: "large subset of cluster domain in address",
@@ -215,7 +232,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "tests.svc.my.long.domain.suffix",
 			},
-			want: []string{"aaa.example.my.long"},
+			want: []string{
+				"aaa.example.my.long.",
+				"aaa.example.my.long",
+			},
 		},
 		{
 			name: "no overlap of cluster domain in address",
@@ -227,7 +247,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			node: &model.Proxy{
 				DNSDomain: "tests.svc.cluster.local",
 			},
-			want: []string{"aaa.example.com"},
+			want: []string{
+				"aaa.example.com.",
+				"aaa.example.com",
+			},
 		},
 		{
 			name: "wildcard",
@@ -242,10 +265,12 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "default.svc.cluster.local",
 			},
 			want: []string{
+				"headless.default.svc.cluster.local.",
 				"headless.default.svc.cluster.local",
 				"headless",
 				"headless.default.svc",
 				"headless.default",
+				"*.headless.default.svc.cluster.local.",
 				"*.headless.default.svc.cluster.local",
 				"*.headless",
 				"*.headless.default.svc",
@@ -273,6 +298,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				},
 			},
 			want: []string{
+				"echo.default.svc.cluster.local.",
 				"echo.default.svc.cluster.local",
 				"echo",
 				"echo.default.svc",
@@ -304,6 +330,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				IPAddresses: []string{"1.1.1.1"},
 			},
 			want: []string{
+				"echo.default.svc.cluster.local.",
 				"echo.default.svc.cluster.local",
 				"echo",
 				"echo.default.svc",
@@ -334,6 +361,7 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				IPAddresses: []string{"2406:3003:2064:35b8:864:a648:4b96:e37d"},
 			},
 			want: []string{
+				"echo.default.svc.cluster.local.",
 				"echo.default.svc.cluster.local",
 				"echo",
 				"echo.default.svc",
@@ -354,8 +382,10 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "local.campus.net",
 			},
 			want: []string{
+				"foo.local.campus.net.",
 				"foo.local.campus.net",
 				"foo",
+				"alias.local.campus.net.",
 				"alias.local.campus.net",
 				"alias",
 			},

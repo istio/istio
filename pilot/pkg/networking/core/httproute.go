@@ -627,6 +627,14 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 		all = append(all, a.Hostname.String())
 	}
 	for _, s := range all {
+		// Check if 's' is an IP address. We don't add trailing dots to IPs.
+		isIP := net.ParseIP(s) != nil
+		// Add the absolute FQDN variant (with trailing dot) if it's not an IP address.
+		if !isIP {
+			// Add the hostname with a trailing dot.
+			domains = append(domains, s+".")
+		}
+
 		altHosts := GenerateAltVirtualHosts(s, port, node.DNSDomain)
 		domains = appendDomainPort(domains, s, port)
 		domains = append(domains, altHosts...)
