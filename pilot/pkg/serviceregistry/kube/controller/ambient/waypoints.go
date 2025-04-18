@@ -378,24 +378,35 @@ func (w *Waypoint) GetAddress() *workloadapi.GatewayAddress {
 	return w.Address
 }
 
+// if we find the HBONE listener, we always use it's WaypointSelector
+// if we find a PROXY listener, we may use the WaypointSelector for that listener when there is no HBONE listener
+// if we find neither, we default to the same namespace
 func makeAllowedRoutes(gateway *v1beta1.Gateway) WaypointSelector {
+	maybeWaypointSelector := WaypointSelector{
+		FromNamespaces: gatewayv1.NamespacesFromSame,
+	}
 	for _, l := range gateway.Spec.Listeners {
+		if l.Protocol == "istio.io/PROXY" {
+			maybeWaypointSelector = makeWaypointSelector(l)
+		}
 		if l.Protocol == "HBONE" && l.Port == 15008 {
-			// This is our HBONE listener
+			// This is our HBONE listener, if we find this we always use it's WaypointSelector
 			if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
 				break
 			}
-			al := *l.AllowedRoutes.Namespaces
-			from := ptr.OrDefault(al.From, gatewayv1.NamespacesFromSame)
-			label, _ := metav1.LabelSelectorAsSelector(l.AllowedRoutes.Namespaces.Selector)
-			return WaypointSelector{
-				FromNamespaces: from,
-				Selector:       label,
-			}
+			return makeWaypointSelector(l)
 		}
 	}
+	return maybeWaypointSelector
+}
+
+func makeWaypointSelector(l v1beta1.Listener) WaypointSelector {
+	al := *l.AllowedRoutes.Namespaces
+	from := ptr.OrDefault(al.From, gatewayv1.NamespacesFromSame)
+	label, _ := metav1.LabelSelectorAsSelector(l.AllowedRoutes.Namespaces.Selector)
 	return WaypointSelector{
-		FromNamespaces: gatewayv1.NamespacesFromSame,
+		FromNamespaces: from,
+		Selector:       label,
 	}
 }
 
