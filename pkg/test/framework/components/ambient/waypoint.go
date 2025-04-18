@@ -96,26 +96,30 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 		return nil, err
 	}
 
-	// TODO support multicluster
-	ik, err := istioctl.New(ctx, istioctl.Config{})
-	if err != nil {
-		return nil, err
-	}
-	// TODO: detect from UseWaypointProxy in echo.Config
-	_, _, err = ik.Invoke([]string{
-		"waypoint",
-		"apply",
-		"--namespace",
-		ns.Name(),
-		"--name",
-		name,
-		"--for",
-		constants.AllTraffic,
-	})
-	if err != nil {
-		return nil, err
+	for _, cls := range ctx.AllClusters() {
+		ik, err := istioctl.New(ctx, istioctl.Config{
+			Cluster: cls,
+		})
+		if err != nil {
+			return nil, err
+		}
+		// TODO: detect from UseWaypointProxy in echo.Config
+		_, _, err = ik.Invoke([]string{
+			"waypoint",
+			"apply",
+			"--namespace",
+			ns.Name(),
+			"--name",
+			name,
+			"--for",
+			constants.AllTraffic,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
+	// TODO return a component per cluster for more targeted tests
 	cls := ctx.Clusters().Default()
 	// Find the Waypoint pod and service, and start forwarding a local port.
 	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, name))
