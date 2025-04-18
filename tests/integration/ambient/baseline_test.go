@@ -252,6 +252,11 @@ func TestPodIP(t *testing.T) {
 								if src.Config().HasSidecar() {
 									t.Skip("not supported yet")
 								}
+
+								if srcWl.Cluster() != dstWl.Cluster() {
+									// TODO: Enable when we support multi-network workload addressing
+									t.Skip("not supported yet")
+								}
 								for _, opt := range basicCalls {
 									opt := opt.DeepCopy()
 									selfSend := dstWl.Address() == srcWl.Address()
