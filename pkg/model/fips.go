@@ -16,11 +16,13 @@ package model
 
 import (
 	gotls "crypto/tls"
+	"errors"
 
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 var fipsCiphers = []string{
@@ -59,6 +61,39 @@ func EnforceGoCompliance(ctx *gotls.Config) {
 		ctx.CipherSuites = fipsGoCiphers
 		ctx.CurvePreferences = []gotls.CurveID{gotls.CurveP256}
 		return
+	case common_features.FIPS_202205:
+		// Mirror the settings from Envoy
+		// https://github.com/envoyproxy/envoy/blob/a0c9c494a4405d78de15c246c0b915d83612f81a/api/envoy/extensions/transport_sockets/tls/v3/common.proto#L49
+		ctx.GetConfigForClient = func(chi *gotls.ClientHelloInfo) (*gotls.Config, error) {
+			cfg := &gotls.Config{
+				CurvePreferences: []gotls.CurveID{gotls.CurveP256, gotls.CurveP384},
+				MinVersion:       gotls.VersionTLS12,
+				MaxVersion:       gotls.VersionTLS13,
+			}
+			validSignatureSchemes := map[gotls.SignatureScheme]struct{}{
+				gotls.PKCS1WithSHA256:        {},
+				gotls.PKCS1WithSHA384:        {},
+				gotls.PKCS1WithSHA512:        {},
+				gotls.PSSWithSHA256:          {},
+				gotls.PSSWithSHA384:          {},
+				gotls.PSSWithSHA512:          {},
+				gotls.ECDSAWithP256AndSHA256: {},
+				gotls.ECDSAWithP384AndSHA384: {},
+			}
+			for _, signature := range chi.SignatureSchemes {
+				if _, ok := validSignatureSchemes[signature]; !ok {
+					return nil, errors.New("unsupported signature scheme")
+				}
+			}
+			greatestVersion := slices.Max(chi.SupportedVersions)
+			if greatestVersion == gotls.VersionTLS12 {
+				cfg.MaxVersion = gotls.VersionTLS12
+				cfg.CipherSuites = fipsGoCiphers
+			}
+
+			return cfg, nil
+		}
+
 	default:
 		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
 		return
@@ -91,6 +126,13 @@ func EnforceCompliance(ctx *tls.CommonTlsContext) {
 		// Default (unset) is P-256
 		ctx.TlsParams.EcdhCurves = nil
 		return
+	case common_features.FIPS_202205:
+		if ctx.TlsParams == nil {
+			ctx.TlsParams = &tls.TlsParameters{}
+		}
+		ctx.TlsParams.CompliancePolicies = []tls.TlsParameters_CompliancePolicy{
+			tls.TlsParameters_FIPS_202205,
+		}
 	default:
 		log.Warnf("unknown compliance policy: %q", common_features.CompliancePolicy)
 		return
