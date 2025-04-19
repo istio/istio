@@ -253,7 +253,7 @@ func TestPodIP(t *testing.T) {
 									t.Skip("not supported yet")
 								}
 
-								if srcWl.Cluster() != dstWl.Cluster() {
+								if t.Settings().AmbientMultiNetwork && srcWl.Cluster() != dstWl.Cluster() {
 									// TODO: Enable when we support multi-network workload addressing
 									t.Skip("not supported yet")
 								}
@@ -429,22 +429,30 @@ func TestOtherRevisionIgnored(t *testing.T) {
 
 func TestRemoveAddWaypoint(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
-			"waypoint",
-			"apply",
-			"--namespace",
-			apps.Namespace.Name(),
-			"--name", "captured-waypoint",
-			"--wait",
-		})
-		t.Cleanup(func() {
-			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
+		for _, c := range t.Clusters() {
+			istioctl.NewOrFail(t, istioctl.Config{
+				Cluster: c,
+			}).InvokeOrFail(t, []string{
 				"waypoint",
-				"delete",
+				"apply",
 				"--namespace",
 				apps.Namespace.Name(),
-				"captured-waypoint",
+				"--name", "captured-waypoint",
+				"--wait",
 			})
+		}
+		t.Cleanup(func() {
+			for _, c := range t.Clusters() {
+				istioctl.NewOrFail(t, istioctl.Config{
+					Cluster: c,
+				}).InvokeOrFail(t, []string{
+					"waypoint",
+					"delete",
+					"--namespace",
+					apps.Namespace.Name(),
+					"captured-waypoint",
+				})
+			}
 		})
 
 		t.NewSubTest("before").Run(func(t framework.TestContext) {
@@ -592,6 +600,9 @@ spec:
 `).ApplyOrFail(t)
 				var exp string
 				for _, w := range dst.WorkloadsOrFail(t) {
+					if t.Settings().AmbientMultiNetwork && src.Config().Cluster != w.Cluster() {
+						t.Skip("skipping cross-cluster test")
+					}
 					if strings.Contains(w.PodName(), "-v1") {
 						exp = w.PodName()
 					}
@@ -1206,6 +1217,10 @@ func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
 				return
 			}
 
+			if t.Settings().AmbientMultiNetwork && src.Config().Cluster != dst.Config().Cluster {
+				t.Skip("skipping cross-cluster test")
+			}
+
 			opt.NewConnectionPerRequest = true
 			waypointName := "none"
 			switch {
@@ -1282,6 +1297,11 @@ func TestAuthorizationL7(t *testing.T) {
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
+
+			if t.Settings().AmbientMultiNetwork && src.Config().Cluster != dst.Config().Cluster {
+				t.Skip("skipping cross-cluster test")
+			}
+
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
@@ -1504,6 +1524,10 @@ func TestL7JWT(t *testing.T) {
 				// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 				// due to draining.
 				opt.NewConnectionPerRequest = true
+
+				if t.Settings().AmbientMultiNetwork && src.Config().Cluster != dst.Config().Cluster {
+					t.Skip("skipping cross-cluster test")
+				}
 
 				switch {
 				case dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy():
