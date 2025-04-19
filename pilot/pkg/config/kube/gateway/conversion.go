@@ -1957,7 +1957,7 @@ func buildTLS(
 					Reason: InvalidListenerRefNotPermitted,
 					Message: fmt.Sprintf(
 						"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
-						tls.CertificateRefs[0].Name, credNs, namespace,
+						certRef.Name, credNs, namespace,
 					),
 				})
 				continue
