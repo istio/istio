@@ -687,6 +687,9 @@ func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 		if !isIP {
 			vhosts = append(vhosts, hostname+".")
 		}
+		if port != portNoAppendPortSuffix {
+			vhosts = append(vhosts, util.DomainName(hostname+".", port))
+		}
 	}
 
 	// If the dns/proxy domain contains `.svc`, only services following the <ns>.svc.<suffix>

@@ -468,10 +468,9 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			},
 			nil,
 			map[string][]string{
-				"allow_any": {"*"},
-				// BUG: test should be below
-				"test.local:80": {"test.local"},
-				"test:80":       {"test"},
+				"allow_any":     {"*"},
+				"test.local:80": {"test.local", "test.local."},
+				"test:80":       {"test", "test."},
 			},
 			map[string]string{
 				"allow_any":     "PassthroughCluster",
@@ -490,10 +489,11 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": {"*"},
 				"test.default.svc.cluster.local:80": {
 					"test.default.svc.cluster.local",
+					"test.default.svc.cluster.local.",
 					"test.default.svc",
 					"test.default",
 				},
-				"test:80": {"test"},
+				"test:80": {"test", "test."},
 			},
 			map[string]string{
 				"allow_any":                         "PassthroughCluster",
@@ -510,8 +510,8 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			nil,
 			map[string][]string{
 				"allow_any":     {"*"},
-				"test.local:80": {"test.local"},
-				"test:80":       {"test"},
+				"test.local:80": {"test.local", "test.local."},
+				"test:80":       {"test", "test."},
 			},
 			map[string]string{
 				"allow_any":     "PassthroughCluster",
@@ -535,6 +535,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": {"*"},
 				"test-duplicate-domains.default.svc.cluster.local:80": {
 					"test-duplicate-domains.default.svc.cluster.local",
+					"test-duplicate-domains.default.svc.cluster.local.",
 					"test-duplicate-domains",
 					"test-duplicate-domains.default.svc",
 				},
@@ -572,6 +573,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": {"*"},
 				"test-duplicate-domains.default.svc.cluster.local:80": {
 					"test-duplicate-domains.default.svc.cluster.local",
+					"test-duplicate-domains.default.svc.cluster.local.",
 					"test-duplicate-domains",
 					"test-duplicate-domains.default.svc",
 				},
@@ -600,6 +602,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 				"allow_any": {"*"},
 				"test.default.svc.cluster.local:80": {
 					"test.default.svc.cluster.local",
+					"test.default.svc.cluster.local.",
 					"test",
 					"test.default.svc",
 				},
@@ -620,7 +623,7 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 			nil,
 			map[string][]string{
 				"allow_any":     {"*"},
-				"test.local:80": {"test.local"},
+				"test.local:80": {"test.local", "test.local."},
 			},
 			map[string]string{
 				"allow_any":     "PassthroughCluster",
@@ -1256,8 +1259,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999": {"bookinfo.com:9999": true, "*.bookinfo.com:9999": true},
-				"bookinfo.com:70":   {"bookinfo.com:70": true, "*.bookinfo.com:70": true},
+				"bookinfo.com:9999": {"bookinfo.com:9999": true, "*.bookinfo.com:9999": true, "bookinfo.com.:9999": true, "*.bookinfo.com.:9999": true},
+				"bookinfo.com:70":   {"bookinfo.com:70": true, "*.bookinfo.com:70": true, "bookinfo.com.:70": true, "*.bookinfo.com.:70": true},
 				"allow_any": {
 					"*": true,
 				},
@@ -1269,7 +1272,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"test.com:8080": {"test.com": true, "8.8.8.8": true},
+				"test.com:8080": {"test.com": true, "8.8.8.8": true, "test.com.": true},
 				"block_all": {
 					"*": true,
 				},
@@ -1283,7 +1286,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:80": {
-					"test-private.com": true, "9.9.9.9": true,
+					"test-private.com": true, "9.9.9.9": true, "test-private.com.": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1298,7 +1301,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:80": {
-					"test-private.com": true, "9.9.9.9": true,
+					"test-private.com": true, "9.9.9.9": true, "test-private.com.": true,
 				},
 				"allow_any": {
 					"*": true,
@@ -1315,7 +1318,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			expectedHosts: map[string]map[string]bool{
 				// does not include `match-no-service`
 				"test-private.com:80": {
-					"test-private.com": true, "9.9.9.9": true,
+					"test-private.com": true, "9.9.9.9": true, "test-private.com.": true,
 				},
 				"match-no-service.not-default:80": {"match-no-service.not-default": true},
 				"allow_any": {
@@ -1333,7 +1336,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			expectedHosts: map[string]map[string]bool{
 				// does not include `match-no-service`
 				"test-private.com:80": {
-					"test-private.com": true, "9.9.9.9": true,
+					"test-private.com": true, "9.9.9.9": true, "test-private.com.": true,
 				},
 				"match-no-service.not-default:80": {"match-no-service.not-default": true},
 				"allow_any": {
@@ -1350,8 +1353,10 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"bookinfo.com:9999": {
-					"bookinfo.com":   true,
-					"*.bookinfo.com": true,
+					"bookinfo.com":    true,
+					"*.bookinfo.com":  true,
+					"bookinfo.com.":   true,
+					"*.bookinfo.com.": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1366,7 +1371,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:80": {
-					"test-private.com": true, "9.9.9.9": true,
+					"test-private.com": true, "9.9.9.9": true, "test-private.com.": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1381,11 +1386,13 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:70": {
-					"test-private.com": true, "9.9.9.9": true,
+					"test-private.com": true, "9.9.9.9": true, "test-private.com.": true,
 				},
 				"bookinfo.com:70": {
-					"bookinfo.com":   true,
-					"*.bookinfo.com": true,
+					"bookinfo.com":    true,
+					"*.bookinfo.com":  true,
+					"bookinfo.com.":   true,
+					"*.bookinfo.com.": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1400,8 +1407,10 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"bookinfo.com:9999": {
-					"bookinfo.com":   true,
-					"*.bookinfo.com": true,
+					"bookinfo.com":    true,
+					"*.bookinfo.com":  true,
+					"bookinfo.com.":   true,
+					"*.bookinfo.com.": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1416,7 +1425,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test.com:8080": {
-					"test.com": true, "8.8.8.8": true,
+					"test.com": true, "8.8.8.8": true, "test.com.": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1431,7 +1440,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:80": {
-					"test-private.com": true, "9.9.9.9": true,
+					"test-private.com": true, "9.9.9.9": true, "test-private.com.": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1446,11 +1455,13 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:70": {
-					"test-private.com": true, "9.9.9.9": true,
+					"test-private.com": true, "9.9.9.9": true, "test-private.com.": true,
 				},
 				"bookinfo.com:70": {
-					"bookinfo.com":   true,
-					"*.bookinfo.com": true,
+					"bookinfo.com":    true,
+					"*.bookinfo.com":  true,
+					"bookinfo.com.":   true,
+					"*.bookinfo.com.": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1477,7 +1488,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:80": {
-					"test-private.com": true, "9.9.9.9": true,
+					"test-private.com": true, "9.9.9.9": true, "test-private.com.": true,
 				},
 				"allow_any": {
 					"*": true,
@@ -1492,7 +1503,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:80": {
-					"test-private.com": true, "9.9.9.9": true,
+					"test-private.com": true, "9.9.9.9": true, "test-private.com.": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1507,7 +1518,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: []*config.Config{&virtualService1, &virtualService2},
 			expectedHosts: map[string]map[string]bool{
 				"test-private-2.com:60": {
-					"test-private-2.com": true, "9.9.9.10": true,
+					"test-private-2.com": true, "9.9.9.10": true, "test-private-2.com.": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1522,7 +1533,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: []*config.Config{&virtualService3},
 			expectedHosts: map[string]map[string]bool{
 				"test-private.com:80": {
-					"test-private.com": true, "9.9.9.9": true,
+					"test-private.com": true, "9.9.9.9": true, "test-private.com.": true,
 				},
 				"test-private-3.com:80": {
 					"test-private-3.com": true,
@@ -1540,7 +1551,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
 				"test-headless.com:8888": {
-					"test-headless.com": true, "*.test-headless.com": true,
+					"test-headless.com": true, "*.test-headless.com": true, "test-headless.com.": true,
+					"*.test-headless.com.": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1555,7 +1567,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			virtualServiceConfigs: []*config.Config{&virtualService4},
 			expectedHosts: map[string]map[string]bool{
 				"test-headless.com:8888": {
-					"test-headless.com": true, "*.test-headless.com": true,
+					"test-headless.com": true, "*.test-headless.com": true, "test-headless.com.": true,
+					"*.test-headless.com.": true,
 				},
 				"example.com:8888": {
 					"example.com": true,
@@ -1572,7 +1585,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"test-headless.com:8888": {"test-headless.com:8888": true, "*.test-headless.com:8888": true},
+				"test-headless.com:8888": {"test-headless.com:8888": true, "*.test-headless.com:8888": true, "test-headless.com.:8888": true, "*.test-headless.com.:8888": true},
 				"block_all": {
 					"*": true,
 				},
@@ -1609,23 +1622,50 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfigWitHTTPProxy,
 			virtualServiceConfigs: []*config.Config{&virtualService5},
 			expectedHosts: map[string]map[string]bool{
-				"bookinfo.com:9999":      {"bookinfo.com:9999": true, "*.bookinfo.com:9999": true},
-				"bookinfo.com:70":        {"bookinfo.com:70": true, "*.bookinfo.com:70": true},
-				"test-headless.com:8888": {"test-headless.com:8888": true, "*.test-headless.com:8888": true},
+				"bookinfo.com:9999": {
+					"bookinfo.com:9999":    true,
+					"*.bookinfo.com:9999":  true,
+					"bookinfo.com.:9999":   true,
+					"*.bookinfo.com.:9999": true,
+				},
+				"bookinfo.com:70": {
+					"bookinfo.com:70":    true,
+					"*.bookinfo.com:70":  true,
+					"bookinfo.com.:70":   true,
+					"*.bookinfo.com.:70": true,
+				},
+				"test-headless.com:8888": {
+					"test-headless.com:8888":    true,
+					"*.test-headless.com:8888":  true,
+					"test-headless.com.:8888":   true,
+					"*.test-headless.com.:8888": true,
+				},
 				"test-private-2.com:60": {
-					"test-private-2.com:60": true, "9.9.9.10:60": true,
+					"test-private-2.com:60":  true,
+					"9.9.9.10:60":            true,
+					"test-private-2.com.:60": true,
 				},
 				"test-private.com:70": {
-					"test-private.com:70": true, "9.9.9.9:70": true,
+					"test-private.com:70":  true,
+					"9.9.9.9:70":           true,
+					"test-private.com.:70": true,
 				},
 				"test-private.com:80": {
-					"test-private.com": true, "test-private.com:80": true, "9.9.9.9": true, "9.9.9.9:80": true,
+					"test-private.com":     true,
+					"test-private.com:80":  true,
+					"9.9.9.9":              true,
+					"9.9.9.9:80":           true,
+					"test-private.com.":    true,
+					"test-private.com.:80": true,
 				},
 				"test.com:8080": {
-					"test.com:8080": true, "8.8.8.8:8080": true,
+					"test.com:8080":  true,
+					"8.8.8.8:8080":   true,
+					"test.com.:8080": true,
 				},
 				"service-A.default.svc.cluster.local:7777": {
-					"service-A.default.svc.cluster.local:7777": true,
+					"service-A.default.svc.cluster.local:7777":  true,
+					"service-A.default.svc.cluster.local.:7777": true,
 				},
 				"block_all": {
 					"*": true,
@@ -1643,7 +1683,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 					"*": true,
 				},
 				"service-A.default.svc.cluster.local:7777": {
-					"service-A.default.svc.cluster.local": true,
+					"service-A.default.svc.cluster.local":  true,
+					"service-A.default.svc.cluster.local.": true,
 				},
 				"service-A.v2:7777": {
 					"service-A.v2": true,
