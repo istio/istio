@@ -677,13 +677,16 @@ func appendDomainPort(domains []string, domain string, port int) []string {
 func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
 	var vhosts []string // Initialize the slice for alternate hosts
 
-	// Add the absolute FQDN variant (with trailing dot) if the hostname is not an IP address.
-	// This is considered another form of alternate host representation.
-	// See https://github.com/istio/istio/issues/56007 for context.
-	// "foo.local.campus.net" -> "foo.local.campus.net."
-	isIP := net.ParseIP(hostname) != nil
-	if !isIP {
-		vhosts = append(vhosts, hostname+".")
+	if features.EnableAbsoluteFqdnVhostDomain {
+		// Add the absolute FQDN variant (with trailing dot) if the hostname is not an IP address.
+		// This is considered another form of alternate host representation.
+		// See https://github.com/istio/istio/issues/56007 for context.
+		// "foo.local.campus.net" -> "foo.local.campus.net."
+		// "foo.bar.svc.cluster.local" -> "foo.bar.svc.cluster.local."
+		isIP := net.ParseIP(hostname) != nil
+		if !isIP {
+			vhosts = append(vhosts, hostname+".")
+		}
 	}
 
 	// If the dns/proxy domain contains `.svc`, only services following the <ns>.svc.<suffix>
