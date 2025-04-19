@@ -627,14 +627,6 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 		all = append(all, a.Hostname.String())
 	}
 	for _, s := range all {
-		// Check if 's' is an IP address. We don't add trailing dots to IPs.
-		isIP := net.ParseIP(s) != nil
-		// Add the absolute FQDN variant (with trailing dot) if it's not an IP address.
-		if !isIP {
-			// Add the hostname with a trailing dot.
-			domains = append(domains, s+".")
-		}
-
 		altHosts := GenerateAltVirtualHosts(s, port, node.DNSDomain)
 		domains = appendDomainPort(domains, s, port)
 		domains = append(domains, altHosts...)
@@ -683,27 +675,38 @@ func appendDomainPort(domains []string, domain string, port int) []string {
 // - Given foo.local.campus.net on proxy domain "" or proxy domain example.com, this
 // function returns nil
 func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
+	var vhosts []string // Initialize the slice for alternate hosts
+
+	// Add the absolute FQDN variant (with trailing dot) if the hostname is not an IP address.
+	// This is considered another form of alternate host representation.
+	// See https://github.com/istio/istio/issues/56007 for context.
+	// "foo.local.campus.net" -> "foo.local.campus.net."
+	isIP := net.ParseIP(hostname) != nil
+	if !isIP {
+		vhosts = append(vhosts, hostname+".")
+	}
+
 	// If the dns/proxy domain contains `.svc`, only services following the <ns>.svc.<suffix>
 	// naming convention and that share a suffix with the domain should be expanded.
 	if strings.Contains(proxyDomain, ".svc.") {
 
 		if strings.HasSuffix(hostname, removeSvcNamespace(proxyDomain)) {
-			return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
+			kubeSVCAltHosts := generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
+			return append(vhosts, kubeSVCAltHosts...)
 		}
 
 		// Hostname is not a kube service.  It is not safe to expand the
 		// hostname as non-fully-qualified names could conflict with expansion of other kube service
 		// hostnames
-		return nil
+		return vhosts
 	}
 
-	var vhosts []string
 	uniqueHostnameParts, sharedDNSDomainParts := getUniqueAndSharedDNSDomain(hostname, proxyDomain)
 
 	// If there is no shared DNS name (e.g., foobar.com service on local.net proxy domain)
 	// do not generate any alternate virtual host representations
 	if len(sharedDNSDomainParts) == 0 {
-		return nil
+		return vhosts
 	}
 
 	uniqueHostname := strings.Join(uniqueHostnameParts, ".")

@@ -66,8 +66,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "local.campus.net",
 			},
 			want: []string{
-				"foo.local.campus.net.",
 				"foo.local.campus.net",
+				"foo.local.campus.net.",
 				"foo",
 			},
 		},
@@ -82,8 +82,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "remote.campus.net",
 			},
 			want: []string{
-				"foo.local.campus.net.",
 				"foo.local.campus.net",
+				"foo.local.campus.net.",
 				"foo.local",
 				"foo.local.campus",
 			},
@@ -99,8 +99,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "example.com",
 			},
 			want: []string{
-				"foo.local.campus.net.",
 				"foo.local.campus.net",
+				"foo.local.campus.net.",
 			},
 		},
 		{
@@ -114,8 +114,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "default.svc.cluster.local",
 			},
 			want: []string{
-				"echo.default.svc.cluster.local.",
 				"echo.default.svc.cluster.local",
+				"echo.default.svc.cluster.local.",
 				"echo",
 				"echo.default.svc",
 				"echo.default",
@@ -132,8 +132,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "default.svc.cluster.local",
 			},
 			want: []string{
-				"foo.default.svc.bar.baz.",
 				"foo.default.svc.bar.baz",
+				"foo.default.svc.bar.baz.",
 			},
 		},
 		{
@@ -147,8 +147,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "mesh.svc.cluster.local",
 			},
 			want: []string{
-				"echo.default.svc.cluster.local.",
 				"echo.default.svc.cluster.local",
+				"echo.default.svc.cluster.local.",
 				"echo.default",
 				"echo.default.svc",
 			},
@@ -164,8 +164,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "foo.svc.custom.k8s.local",
 			},
 			want: []string{
-				"google.local.",
 				"google.local",
+				"google.local.",
 			},
 		},
 		{
@@ -203,8 +203,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "tests.svc.cluster.local",
 			},
 			want: []string{
-				"aaa.example.local.",
 				"aaa.example.local",
+				"aaa.example.local.",
 			},
 		},
 		{
@@ -218,8 +218,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "tests.svc.my.long.domain.suffix",
 			},
 			want: []string{
-				"aaa.example.my.",
 				"aaa.example.my",
+				"aaa.example.my.",
 			},
 		},
 		{
@@ -233,8 +233,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "tests.svc.my.long.domain.suffix",
 			},
 			want: []string{
-				"aaa.example.my.long.",
 				"aaa.example.my.long",
+				"aaa.example.my.long.",
 			},
 		},
 		{
@@ -248,8 +248,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "tests.svc.cluster.local",
 			},
 			want: []string{
-				"aaa.example.com.",
 				"aaa.example.com",
+				"aaa.example.com.",
 			},
 		},
 		{
@@ -265,13 +265,13 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "default.svc.cluster.local",
 			},
 			want: []string{
-				"headless.default.svc.cluster.local.",
 				"headless.default.svc.cluster.local",
+				"headless.default.svc.cluster.local.",
 				"headless",
 				"headless.default.svc",
 				"headless.default",
-				"*.headless.default.svc.cluster.local.",
 				"*.headless.default.svc.cluster.local",
+				"*.headless.default.svc.cluster.local.",
 				"*.headless",
 				"*.headless.default.svc",
 				"*.headless.default",
@@ -298,8 +298,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				},
 			},
 			want: []string{
-				"echo.default.svc.cluster.local.",
 				"echo.default.svc.cluster.local",
+				"echo.default.svc.cluster.local.",
 				"echo",
 				"echo.default.svc",
 				"echo.default",
@@ -330,8 +330,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				IPAddresses: []string{"1.1.1.1"},
 			},
 			want: []string{
-				"echo.default.svc.cluster.local.",
 				"echo.default.svc.cluster.local",
+				"echo.default.svc.cluster.local.",
 				"echo",
 				"echo.default.svc",
 				"echo.default",
@@ -361,8 +361,8 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				IPAddresses: []string{"2406:3003:2064:35b8:864:a648:4b96:e37d"},
 			},
 			want: []string{
-				"echo.default.svc.cluster.local.",
 				"echo.default.svc.cluster.local",
+				"echo.default.svc.cluster.local.",
 				"echo",
 				"echo.default.svc",
 				"echo.default",
@@ -382,11 +382,11 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 				DNSDomain: "local.campus.net",
 			},
 			want: []string{
-				"foo.local.campus.net.",
 				"foo.local.campus.net",
+				"foo.local.campus.net.",
 				"foo",
-				"alias.local.campus.net.",
 				"alias.local.campus.net",
+				"alias.local.campus.net.",
 				"alias",
 			},
 		},
