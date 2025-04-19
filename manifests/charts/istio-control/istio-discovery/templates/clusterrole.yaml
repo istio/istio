@@ -117,6 +117,15 @@ rules:
 {{- end }}
     verbs: ["approve"]
 {{- end}}
+{{- if eq (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["clustertrustbundles"]
+    verbs: ["update", "create", "delete"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["signers"]
+    resourceNames: ["istio.io/istiod-ca"]
+    verbs: ["attest"]
+{{- end }}
 
   # Used by Istiod to verify the JWT tokens
   - apiGroups: ["authentication.k8s.io"]
@@ -129,9 +138,13 @@ rules:
     verbs: ["create"]
 
   # Use for Kubernetes Service APIs
-  - apiGroups: ["gateway.networking.k8s.io"]
+  - apiGroups: ["gateway.networking.k8s.io", "gateway.networking.x-k8s.io"]
     resources: ["*"]
     verbs: ["get", "watch", "list"]
+  - apiGroups: ["gateway.networking.x-k8s.io"]
+    resources:
+    - xbackendtrafficpolicies/status
+    verbs: ["update", "patch"]
   - apiGroups: ["gateway.networking.k8s.io"]
     resources:
     - backendtlspolicies/status

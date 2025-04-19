@@ -41,8 +41,6 @@ var skippedCdsConfigs = sets.New(
 	kind.WasmPlugin,
 	kind.ProxyConfig,
 	kind.DNSName,
-
-	kind.KubernetesGateway,
 )
 
 // Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
@@ -50,12 +48,6 @@ var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 	s := sets.New(
 		kind.VirtualService,
 		kind.Gateway,
-
-		kind.KubernetesGateway,
-		kind.HTTPRoute,
-		kind.TCPRoute,
-		kind.TLSRoute,
-		kind.GRPCRoute,
 	)
 	if features.JwksFetchMode != jwt.Istiod {
 		s.Insert(kind.RequestAuthentication)

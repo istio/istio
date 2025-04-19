@@ -137,10 +137,6 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 			serverCaLog.Debugf("Append cert chain to response, %s", string(certChainBytes))
 		}
 	}
-	if len(rootCertBytes) != 0 {
-		respCertChain = append(respCertChain, string(rootCertBytes))
-	}
-
 	// expand `respCertChain` since each element might be a concatenated multi-cert PEM
 	// the expanded structure (one cert per `string` in `certChain`) is specifically expected by `ztunnel`
 	response := &pb.IstioCertificateResponse{}
@@ -151,6 +147,13 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 			response.CertChain = append(response.CertChain, cert+"\n")
 		}
 	}
+	// Per the spec: "... the root cert is the last element." so we do not want to flatten the root cert.
+	// If we did, the client cannot distinguish the root.
+	// A better API would put the root in a separate field entirely...
+	if len(rootCertBytes) != 0 {
+		response.CertChain = append(response.CertChain, string(rootCertBytes))
+	}
+
 	serverCaLog.Debugf("Responding with cert chain, %q", response.CertChain)
 	s.monitoring.Success.Increment()
 	serverCaLog.Debugf("CSR successfully signed, sans %v.", sans)

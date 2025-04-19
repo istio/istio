@@ -655,7 +655,7 @@ var ValidateDestinationRule = RegisterValidateFunc("ValidateDestinationRule",
 		v := Validation{}
 		v = AppendValidation(v,
 			agent.ValidateWildcardDomain(rule.Host),
-			validateTrafficPolicy(rule.TrafficPolicy))
+			validateTrafficPolicy(cfg.Namespace, rule.TrafficPolicy))
 
 		subsets := sets.String{}
 		for _, subset := range rule.Subsets {
@@ -666,7 +666,7 @@ var ValidateDestinationRule = RegisterValidateFunc("ValidateDestinationRule",
 			if subsets.InsertContains(subset.Name) {
 				v = AppendValidation(v, fmt.Errorf("duplicate subset names: %s", subset.Name))
 			}
-			v = AppendValidation(v, validateSubset(subset))
+			v = AppendValidation(v, validateSubset(cfg.Namespace, subset))
 		}
 		v = AppendValidation(v,
 			validateExportTo(cfg.Namespace, rule.ExportTo, false, rule.GetWorkloadSelector() != nil))
@@ -1038,7 +1038,7 @@ func validateSidecarIngressPortAndBind(port *networking.SidecarPort, bind string
 	return
 }
 
-func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
+func validateTrafficPolicy(configNamespace string, policy *networking.TrafficPolicy) Validation {
 	if policy == nil {
 		return Validation{}
 	}
@@ -1054,8 +1054,8 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 	return AppendValidation(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
 		validateLoadBalancer(policy.LoadBalancer, policy.OutlierDetection),
-		agent.ValidateTLS(policy.Tls),
-		validatePortTrafficPolicies(policy.PortLevelSettings),
+		agent.ValidateTLS(configNamespace, policy.Tls),
+		validatePortTrafficPolicies(configNamespace, policy.PortLevelSettings),
 		validateTunnelSettings(policy.Tunnel),
 		validateProxyProtocol(policy.ProxyProtocol))
 }
@@ -1245,13 +1245,13 @@ func isPrime(x uint64) bool {
 	return true
 }
 
-func validateSubset(subset *networking.Subset) error {
+func validateSubset(configNamespace string, subset *networking.Subset) error {
 	return appendErrors(validateSubsetName(subset.Name),
 		labels.Instance(subset.Labels).Validate(),
-		validateTrafficPolicy(subset.TrafficPolicy))
+		validateTrafficPolicy(configNamespace, subset.TrafficPolicy))
 }
 
-func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPolicy) (errs error) {
+func validatePortTrafficPolicies(configNamespace string, pls []*networking.TrafficPolicy_PortTrafficPolicy) (errs error) {
 	for _, t := range pls {
 		if t == nil {
 			errs = appendErrors(errs, fmt.Errorf("traffic policy may not be null"))
@@ -1267,7 +1267,7 @@ func validatePortTrafficPolicies(pls []*networking.TrafficPolicy_PortTrafficPoli
 			errs = appendErrors(errs, validateOutlierDetection(t.OutlierDetection),
 				validateConnectionPool(t.ConnectionPool),
 				validateLoadBalancer(t.LoadBalancer, t.OutlierDetection),
-				agent.ValidateTLS(t.Tls))
+				agent.ValidateTLS(configNamespace, t.Tls))
 		}
 	}
 	return

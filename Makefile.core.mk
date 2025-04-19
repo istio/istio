@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2025-03-26T19-01-05
+BASE_VERSION ?= master-2025-04-07T19-01-16
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -306,10 +306,6 @@ refresh-goldens:
 		./istioctl/pkg/writer/ztunnel/configdump/...
 
 update-golden: refresh-goldens
-
-# Keep dummy target since some build pipelines depend on this
-gen-charts:
-	@echo "This target is no longer required and will be removed in the future"
 
 gen-addons:
 	manifests/addons/gen.sh

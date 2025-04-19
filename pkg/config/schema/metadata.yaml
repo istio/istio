@@ -151,6 +151,15 @@ resources:
     statusProto: "k8s.io.api.certificates.v1.CertificateSigningRequestStatus"
     statusProtoPackage: "k8s.io/api/certificates/v1"
 
+  - kind: "ClusterTrustBundle"
+    plural: "clustertrustbundles"
+    group: "certificates.k8s.io"
+    version: "v1alpha1"
+    builtin: true
+    clusterScoped: true
+    proto: "k8s.io.api.certificates.v1alpha1.ClusterTrustBundleSpec"
+    protoPackage: "k8s.io/api/certificates/v1alpha1"
+
   - kind: "Ingress"
     plural: "ingresses"
     group: "networking.k8s.io"
@@ -289,6 +298,24 @@ resources:
     - "v1alpha2"
     protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec"
+
+  - kind: "XBackendTrafficPolicy"
+    plural: "xbackendtrafficpolicies"
+    group: "gateway.networking.x-k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1"
+    proto: "k8s.io.gateway_api.apix.v1alpha1.BackendTrafficPolicySpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1"
+    statusProto: PolicyStatus
+
+  - kind: "BackendTLSPolicy"
+    plural: "backendtlspolicies"
+    group: "gateway.networking.k8s.io"
+    version: "v1alpha3"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha3"
+    proto: "k8s.io.gateway_api.api.v1alpha3.BackendTLSPolicySpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    statusProto: "k8s.io.gateway_api.api.v1alpha2.PolicyStatus"
 
   ## Istio resources
   - kind: "VirtualService"

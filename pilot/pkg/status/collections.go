@@ -12,28 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package gateway
+// Package ingress provides a read-only view of Kubernetes ingress resources
+// as an ingress rule configuration type store
+
+package status
 
 import (
 	"strconv"
 	"sync"
 
-	"istio.io/istio/pilot/pkg/status"
 	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
 )
 
-type StatusRegistration = func(statusWriter status.Queue) krt.HandlerRegistration
+type StatusRegistration = func(statusWriter Queue) krt.HandlerRegistration
 
 // StatusCollections stores a variety of collections that can write status.
 // These can be fed into a queue which can be dynamically changed (to handle leader election)
 type StatusCollections struct {
 	mu           sync.Mutex
-	constructors []func(statusWriter status.Queue) krt.HandlerRegistration
+	constructors []func(statusWriter Queue) krt.HandlerRegistration
 	active       []krt.HandlerRegistration
-	queue        status.Queue
+	queue        Queue
 }
 
 func (s *StatusCollections) Register(sr StatusRegistration) {
@@ -51,7 +53,7 @@ func (s *StatusCollections) UnsetQueue() {
 	s.active = nil
 }
 
-func (s *StatusCollections) SetQueue(queue status.Queue) []krt.Syncer {
+func (s *StatusCollections) SetQueue(queue Queue) []krt.Syncer {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// Now we are enabled!
@@ -66,21 +68,27 @@ func (s *StatusCollections) SetQueue(queue status.Queue) []krt.Syncer {
 }
 
 // registerStatus takes a status collection and registers it to be managed by the status queue.
-func registerStatus[I controllers.Object, IS any](c *Controller, statusCol krt.StatusCollection[I, IS]) {
-	reg := func(statusWriter status.Queue) krt.HandlerRegistration {
+func RegisterStatus[I controllers.Object, IS any](s *StatusCollections, statusCol krt.StatusCollection[I, IS]) {
+	reg := func(statusWriter Queue) krt.HandlerRegistration {
 		h := statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[I, IS]]) {
 			l := o.Latest()
-			enqueueStatus(statusWriter, l.Obj, &l.Status)
+			status := &l.Status
+			if o.Event == controllers.EventDelete {
+				// if the object is being deleted, we should not reset status
+				var empty IS
+				status = &empty
+			}
+			enqueueStatus(statusWriter, l.Obj, status)
 		})
 		return h
 	}
-	c.status.Register(reg)
+	s.Register(reg)
 }
 
-func enqueueStatus[T any](sw status.Queue, obj controllers.Object, ws T) {
+func enqueueStatus[T any](sw Queue, obj controllers.Object, ws T) {
 	// TODO: this is a bit awkward since the status controller is reading from crdstore. I suppose it works -- it just means
 	// we cannot remove Gateway API types from there.
-	res := status.Resource{
+	res := Resource{
 		GroupVersionResource: schematypes.GvrFromObject(obj),
 		Namespace:            obj.GetNamespace(),
 		Name:                 obj.GetName(),

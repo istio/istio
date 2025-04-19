@@ -23,7 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
@@ -75,7 +77,7 @@ type Controller struct {
 
 	// status controls the status writing queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
-	status *StatusCollections
+	status *status.StatusCollections
 
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
 
@@ -116,25 +118,29 @@ type TypedResource struct {
 }
 
 type Outputs struct {
-	Gateways        krt.Collection[Gateway]
-	VirtualServices krt.Collection[*config.Config]
-	ReferenceGrants ReferenceGrants
+	Gateways         krt.Collection[Gateway]
+	VirtualServices  krt.Collection[*config.Config]
+	ReferenceGrants  ReferenceGrants
+	DestinationRules krt.Collection[*config.Config]
 }
 
 type Inputs struct {
 	Namespaces krt.Collection[*corev1.Namespace]
 
-	Services krt.Collection[*corev1.Service]
-	Secrets  krt.Collection[*corev1.Secret]
+	Services   krt.Collection[*corev1.Service]
+	Secrets    krt.Collection[*corev1.Secret]
+	ConfigMaps krt.Collection[*corev1.ConfigMap]
 
-	GatewayClasses  krt.Collection[*gateway.GatewayClass]
-	Gateways        krt.Collection[*gateway.Gateway]
-	HTTPRoutes      krt.Collection[*gateway.HTTPRoute]
-	GRPCRoutes      krt.Collection[*gatewayv1.GRPCRoute]
-	TCPRoutes       krt.Collection[*gatewayalpha.TCPRoute]
-	TLSRoutes       krt.Collection[*gatewayalpha.TLSRoute]
-	ReferenceGrants krt.Collection[*gateway.ReferenceGrant]
-	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
+	GatewayClasses       krt.Collection[*gateway.GatewayClass]
+	Gateways             krt.Collection[*gateway.Gateway]
+	HTTPRoutes           krt.Collection[*gateway.HTTPRoute]
+	GRPCRoutes           krt.Collection[*gatewayv1.GRPCRoute]
+	TCPRoutes            krt.Collection[*gatewayalpha.TCPRoute]
+	TLSRoutes            krt.Collection[*gatewayalpha.TLSRoute]
+	ReferenceGrants      krt.Collection[*gateway.ReferenceGrant]
+	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
+	BackendTLSPolicies   krt.Collection[*gatewayalpha3.BackendTLSPolicy]
+	ServiceEntries       krt.Collection[*networkingclient.ServiceEntry]
 }
 
 var _ model.GatewayController = &Controller{}
@@ -153,7 +159,7 @@ func NewController(
 		client:         kc,
 		cluster:        options.ClusterID,
 		revision:       options.Revision,
-		status:         &StatusCollections{},
+		status:         &status.StatusCollections{},
 		tagWatcher:     krt.NewRecomputeProtected(tw, false, opts.WithName("tagWatcher")...),
 		waitForCRD:     waitForCRD,
 		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[GatewayContext](nil), false, opts.WithName("gatewayContext")...),
@@ -173,6 +179,10 @@ func NewController(
 			}),
 			opts.WithName("informer/Secrets")...,
 		),
+		ConfigMaps: krt.WrapClient[*corev1.ConfigMap](
+			kclient.NewFiltered[*corev1.ConfigMap](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
+			opts.WithName("informer/ConfigMaps")...,
+		),
 		Services: krt.WrapClient[*corev1.Service](
 			kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
 			opts.WithName("informer/Services")...,
@@ -188,18 +198,37 @@ func NewController(
 	if features.EnableAlphaGatewayAPI {
 		inputs.TCPRoutes = buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes")
 		inputs.TLSRoutes = buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes")
+		inputs.BackendTLSPolicies = buildClient[*gatewayalpha3.BackendTLSPolicy](c, kc, gvr.BackendTLSPolicy, opts, "informer/BackendTLSPolicies")
+		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
 	} else {
 		// If disabled, still build a collection but make it always empty
 		inputs.TCPRoutes = krt.NewStaticCollection[*gatewayalpha.TCPRoute](nil, nil, opts.WithName("disable/TCPRoutes")...)
 		inputs.TLSRoutes = krt.NewStaticCollection[*gatewayalpha.TLSRoute](nil, nil, opts.WithName("disable/TLSRoutes")...)
+		inputs.BackendTLSPolicies = krt.NewStaticCollection[*gatewayalpha3.BackendTLSPolicy](nil, nil, opts.WithName("disable/BackendTLSPolicies")...)
+		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
 	}
+
+	references := NewReferenceSet(
+		AddReference(inputs.Services),
+		AddReference(inputs.ConfigMaps),
+		AddReference(inputs.Secrets),
+	)
 
 	handlers := []krt.HandlerRegistration{}
 
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
-	registerStatus(c, GatewayClassStatus)
+	status.RegisterStatus(c.status, GatewayClassStatus)
 
 	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
+
+	DestinationRules := DestinationRuleCollection(
+		inputs.BackendTrafficPolicy,
+		inputs.BackendTLSPolicies,
+		references,
+		options.DomainSuffix,
+		c,
+		opts,
+	)
 
 	// GatewaysStatus cannot is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
@@ -231,25 +260,25 @@ func NewController(
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, tcpRoutes.Status)
+	status.RegisterStatus(c.status, tcpRoutes.Status)
 	tlsRoutes := TLSRouteCollection(
 		inputs.TLSRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, tlsRoutes.Status)
+	status.RegisterStatus(c.status, tlsRoutes.Status)
 	httpRoutes := HTTPRouteCollection(
 		inputs.HTTPRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, httpRoutes.Status)
+	status.RegisterStatus(c.status, httpRoutes.Status)
 	grpcRoutes := GRPCRouteCollection(
 		inputs.GRPCRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, grpcRoutes.Status)
+	status.RegisterStatus(c.status, grpcRoutes.Status)
 
 	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
 		tcpRoutes.RouteAttachments,
@@ -262,7 +291,7 @@ func NewController(
 	})
 
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
-	registerStatus(c, GatewayFinalStatus)
+	status.RegisterStatus(c.status, GatewayFinalStatus)
 
 	VirtualServices := krt.JoinCollection([]krt.Collection[*config.Config]{
 		tcpRoutes.VirtualServices,
@@ -272,9 +301,10 @@ func NewController(
 	}, opts.WithName("DerivedVirtualServices")...)
 
 	outputs := Outputs{
-		ReferenceGrants: ReferenceGrants,
-		Gateways:        Gateways,
-		VirtualServices: VirtualServices,
+		ReferenceGrants:  ReferenceGrants,
+		Gateways:         Gateways,
+		VirtualServices:  VirtualServices,
+		DestinationRules: DestinationRules,
 	}
 	c.outputs = outputs
 
@@ -287,20 +317,20 @@ func NewController(
 					Namespace: t.Namespace,
 				}
 			}), false),
+		outputs.DestinationRules.RegisterBatch(pushXds(xdsUpdater,
+			func(t *config.Config) model.ConfigKey {
+				return model.ConfigKey{
+					Kind:      kind.DestinationRule,
+					Name:      t.Name,
+					Namespace: t.Namespace,
+				}
+			}), false),
 		outputs.Gateways.RegisterBatch(pushXds(xdsUpdater,
 			func(t Gateway) model.ConfigKey {
 				return model.ConfigKey{
 					Kind:      kind.Gateway,
 					Name:      t.Name,
 					Namespace: t.Namespace,
-				}
-			}), false),
-		outputs.ReferenceGrants.collection.RegisterBatch(pushXds(xdsUpdater,
-			func(t ReferenceGrant) model.ConfigKey {
-				return model.ConfigKey{
-					Kind:      kind.KubernetesGateway,
-					Name:      t.Source.Name,
-					Namespace: t.Source.Namespace,
 				}
 			}), false))
 	c.handlers = handlers
@@ -333,6 +363,7 @@ func (c *Controller) Schemas() collection.Schemas {
 	return collection.SchemasFor(
 		collections.VirtualService,
 		collections.Gateway,
+		collections.DestinationRule,
 	)
 }
 
@@ -352,6 +383,10 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 		return res
 	case gvk.VirtualService:
 		return slices.Map(c.outputs.VirtualServices.List(), func(e *config.Config) config.Config {
+			return *e
+		})
+	case gvk.DestinationRule:
+		return slices.Map(c.outputs.DestinationRules.List(), func(e *config.Config) config.Config {
 			return *e
 		})
 	default:
@@ -400,6 +435,7 @@ func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string,
 }
 
 func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler model.EventHandler) {
+	// We do not do event handler registration this way, and instead directly call the XDS Updated.
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
@@ -426,6 +462,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 func (c *Controller) HasSynced() bool {
 	if !(c.outputs.VirtualServices.HasSynced() &&
+		c.outputs.DestinationRules.HasSynced() &&
 		c.outputs.Gateways.HasSynced() &&
 		c.outputs.ReferenceGrants.collection.HasSynced()) {
 		return false

@@ -147,6 +147,10 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 	if o.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 		return nil, nil
 	}
+	// This is an east/west gateway, so it cannot have a waypoint
+	if o.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
+		return nil, nil
+	}
 	w, err := fetchWaypointForTarget(ctx, Waypoints, Namespaces, o)
 	if err != nil || w == nil {
 		return nil, err
@@ -183,7 +187,7 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
 	if labelValue, ok := meta.Labels[label.IoIstioUseWaypoint.Name]; ok {
 		// NOTE: this means Istio reserves the word "none" in this field with a special meaning
-		//   a waypoint named "none" cannot be used and will be ignored
+		// a waypoint named "none" cannot be used and will be ignored
 		if labelValue == "none" {
 			return nil, true
 		}

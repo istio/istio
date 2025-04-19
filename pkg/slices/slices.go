@@ -152,6 +152,12 @@ func Index[S ~[]E, E comparable](s S, v E) int {
 	return slices.Index(s, v)
 }
 
+// IndexFunc returns the first index i satisfying f(s[i]),
+// or -1 if none do.
+func IndexFunc[S ~[]E, E any](s S, f func(E) bool) int {
+	return slices.IndexFunc(s, f)
+}
+
 // FindFunc finds the first element matching the function, or nil if none do
 func FindFunc[E any](s []E, f func(E) bool) *E {
 	idx := slices.IndexFunc(s, f)

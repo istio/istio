@@ -24,7 +24,7 @@ import (
 )
 
 func Test_newScopeLevelPair(t *testing.T) {
-	validationPattern := `^\w+:(debug|error|warn|info|debug)`
+	validationPattern := `^[\w\- ]+:(none|error|warn|info|debug)`
 	type args struct {
 		slp               string
 		validationPattern string
@@ -56,7 +56,7 @@ func Test_newScopeLevelPair(t *testing.T) {
 }
 
 func Test_newScopeStackTraceLevelPair(t *testing.T) {
-	validationPattern := `^\w+:(debug|error|warn|info|debug)`
+	validationPattern := `^[\w\- ]+:(none|error|warn|info|debug)`
 	type args struct {
 		sslp              string
 		validationPattern string
@@ -132,6 +132,20 @@ func Test_chooseClientFlag(t *testing.T) {
 			want: &istiodConfigLog{state: &logLevelState{
 				client:         ctrzClient,
 				outputLogLevel: "resource:info",
+			}},
+		},
+		{
+			name: "given --level flag containing '-' and none level return outputLogLevel command",
+			args: args{
+				ctrzClient:      ctrzClient,
+				reset:           false,
+				outputLogLevel:  "resource-foo:none",
+				stackTraceLevel: "",
+				outputFormat:    "",
+			},
+			want: &istiodConfigLog{state: &logLevelState{
+				client:         ctrzClient,
+				outputLogLevel: "resource-foo:none",
 			}},
 		},
 		{

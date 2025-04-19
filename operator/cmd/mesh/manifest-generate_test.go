@@ -25,7 +25,6 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -38,6 +37,7 @@ import (
 
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/render"
+	operatortest "istio.io/istio/operator/pkg/test"
 	uninstall2 "istio.io/istio/operator/pkg/uninstall"
 	"istio.io/istio/operator/pkg/util/testhelpers"
 	tutil "istio.io/istio/pilot/test/util"
@@ -45,11 +45,9 @@ import (
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/version"
 )
 
@@ -82,7 +80,7 @@ var (
 		}
 		return chartSourceType(filepath.Join(d, "manifests"))
 	}()
-	// Compiled in charts come from assets.gen.go
+	// Run operator/scripts/run_update_golden_snapshots.sh to update the snapshot charts tarball.
 	compiledInCharts chartSourceType = "COMPILED"
 	_                                = compiledInCharts
 	// Live charts come from manifests/
@@ -309,6 +307,13 @@ func TestManifestGenerateGateways(t *testing.T) {
 
 		checkRoleBindingsReferenceRoles(g, objs)
 	}
+
+	runTestGroup(t, testGroup{
+		{
+			desc:       "ingressgateway_k8s_settings",
+			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
+		},
+	})
 }
 
 func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
@@ -565,14 +570,11 @@ func TestManifestGeneratePilot(t *testing.T) {
 			diffSelect: "HorizontalPodAutoscaler:*:istiod,HorizontalPodAutoscaler:*:istio-ingressgateway",
 			fileSelect: []string{"templates/autoscale.yaml"},
 		},
-	})
-}
-
-func TestManifestGenerateGateway(t *testing.T) {
-	runTestGroup(t, testGroup{
 		{
-			desc:       "ingressgateway_k8s_settings",
-			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
+			desc:        "pilot_env_var_from",
+			diffSelect:  "Deployment:*:istiod",
+			fileSelect:  []string{"templates/deployment.yaml"},
+			chartSource: liveCharts,
 		},
 	})
 }
@@ -647,7 +649,7 @@ func TestMultiICPSFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	diffSelect := "Deployment:*:istio-egressgateway, Service:*:istio-egressgateway"
-	got = filterManifest(t, got, diffSelect)
+	got = operatortest.FilterManifest(t, got, diffSelect)
 	assert.Equal(t, got, want)
 }
 
@@ -875,16 +877,12 @@ func runTestGroup(t *testing.T, tests testGroup) {
 			}
 
 			if tt.diffSelect != "" {
-				got = filterManifest(t, got, tt.diffSelect)
+				got = operatortest.FilterManifest(t, got, tt.diffSelect)
 			}
 
 			tutil.RefreshGoldenFile(t, []byte(got), outPath)
 
-			want, err := readFile(outPath)
-			if err != nil {
-				t.Fatal(err)
-			}
-
+			want := string(tutil.ReadFile(t, outPath))
 			if got != want {
 				t.Fatal(cmp.Diff(got, want))
 			}
@@ -1100,58 +1098,4 @@ func TestSidecarTemplate(t *testing.T) {
 			diffSelect: "ConfigMap:*:istio-sidecar-injector",
 		},
 	})
-}
-
-// FilterManifest selects and ignores subset from the manifest string
-func filterManifest(t test.Failer, ms string, selectResources string) string {
-	sm := getObjPathMap(selectResources)
-	parsed, err := manifest.ParseMultiple(ms)
-	if err != nil {
-		t.Fatal(err)
-	}
-	parsed = slices.FilterInPlace(parsed, func(manifest manifest.Manifest) bool {
-		for selected := range sm {
-			re, err := buildResourceRegexp(strings.TrimSpace(selected))
-			if err != nil {
-				t.Fatal(err)
-			}
-			if re.MatchString(manifest.Hash()) {
-				return true
-			}
-		}
-		return false
-	})
-
-	return yml.JoinString(slices.Map(parsed, func(e manifest.Manifest) string {
-		return e.Content
-	})...) + "\n"
-}
-
-// buildResourceRegexp translates the resource indicator to regexp.
-func buildResourceRegexp(s string) (*regexp.Regexp, error) {
-	hash := strings.Split(s, ":")
-	for i, v := range hash {
-		if v == "" || v == "*" {
-			hash[i] = ".*"
-		}
-	}
-	return regexp.Compile(strings.Join(hash, ":"))
-}
-
-func getObjPathMap(rs string) map[string]string {
-	rm := make(map[string]string)
-	if len(rs) == 0 {
-		return rm
-	}
-	for _, r := range strings.Split(rs, ",") {
-		split := strings.Split(r, ":")
-		if len(split) < 4 {
-			rm[r] = ""
-			continue
-		}
-		kind, namespace, name, path := split[0], split[1], split[2], split[3]
-		obj := fmt.Sprintf("%v:%v:%v", kind, namespace, name)
-		rm[obj] = path
-	}
-	return rm
 }

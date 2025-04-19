@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM gradle:8.6.0-jdk8 AS builder
+FROM gradle:8.13.0-jdk8 AS builder
 
 # Not sure why but we need root to build. Ignore lint error, this is for a multistage builder so it doesn't matter.
 # hadolint ignore=DL3002
@@ -21,7 +21,7 @@ COPY . /home/gradle
 
 RUN gradle build
 
-FROM open-liberty:24.0.0.1-kernel-slim-java17-openj9
+FROM open-liberty:24.0.0.12-kernel-slim-java17-openj9
 
 ENV SERVERDIRNAME=reviews
 

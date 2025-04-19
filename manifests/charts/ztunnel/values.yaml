@@ -12,8 +12,8 @@ _internal_defaults_do_not_set:
   # If Image contains a "/", it will replace the entire `image` in the pod.
   image: ztunnel
 
-  # resourceName, if set, will override the naming of resources. If not set, will default to the release name.
-  # It is recommended to not set this; this is primarily for backwards compatibility.
+  # resourceName, if set, will override the naming of resources. If not set, will default to 'ztunnel'.
+  # If you set this, you MUST also set `trustedZtunnelName` in the `istiod` chart.
   resourceName: ""
 
   # Labels to apply to all top level resources
@@ -104,3 +104,11 @@ _internal_defaults_do_not_set:
   # TODO Ambient inpod - for OpenShift, set to the following to get writable sockets in hostmounts to work, eventually consider CSI driver instead
   #seLinuxOptions:
   #  type: spc_t
+
+  # K8s DaemonSet update strategy.
+  # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0

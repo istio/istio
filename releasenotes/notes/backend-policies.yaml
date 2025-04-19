@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - 54131
+  - 54132
+
+releaseNotes:
+  - |
+    **Added** initial support for the experimental Gateway API `BackendTLSPolicy` and `XBackendTrafficPolicy`.
+    These are off-by-default and require `PILOT_ENABLE_ALPHA_GATEWAY_API=true` to be enabled.
+  - |
+    **Added** support for referencing `ConfigMap`s (rather than just `Secret`s) for `DestinationRule` TLS `SIMPLE` mode.
+    This is useful when only referencing a CA certificate.

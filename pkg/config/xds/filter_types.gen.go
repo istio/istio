@@ -266,6 +266,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/rate_limit_descriptors/expr/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/rbac/audit_loggers/stream/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/rbac/matchers/upstream_ip_port/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/rbac/principals/mtls_authenticated/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/regex_engines/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/request_id/uuid/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/cpu_utilization/v3"
@@ -281,6 +282,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/stat_sinks/open_telemetry/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/stat_sinks/wasm/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/string_matcher/lua/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/fluentd/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/resource_detectors/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/samplers/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/alts/v3"
@@ -334,7 +336,6 @@ import (
 
 	// Istio-specific Envoy filters
 	_ "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
-	_ "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	_ "istio.io/api/envoy/config/filter/http/jwt_auth/v2alpha1"
 	_ "istio.io/api/envoy/config/filter/network/tcp_cluster_rewrite/v2alpha1"
 )

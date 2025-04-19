@@ -101,7 +101,6 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	push *model.PushContext,
 ) []*listener.Listener {
 	builder := NewListenerBuilder(node, push)
-
 	switch node.Type {
 	case model.SidecarProxy:
 		builder = configgen.buildSidecarListeners(builder)
@@ -1131,6 +1130,8 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		// This timeout setting helps prevent memory leaks in Envoy when a TLS inspector filter is present,
 		// by avoiding slow requests that could otherwise lead to such issues.
 		// Note that this timer only takes effect when a listener filter is present.
+
+		MaxConnectionsToAcceptPerSocketEvent: maxConnectionsToAcceptPerSocketEvent(),
 	}
 	switch transport {
 	case istionetworking.TransportProtocolTCP:

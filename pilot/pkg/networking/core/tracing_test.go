@@ -417,8 +417,10 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 					Timeout: &durationpb.Duration{Seconds: 3},
 					Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 						{
-							Name:  expectedHeader,
-							Value: expectedToken,
+							Name: expectedHeader,
+							HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+								Value: expectedToken,
+							},
 						},
 					},
 				},
@@ -448,8 +450,10 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 					Timeout: &durationpb.Duration{Seconds: 3},
 					Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 						{
-							Name:  expectedHeader,
-							Value: expectedToken,
+							Name: expectedHeader,
+							HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+								Value: expectedToken,
+							},
 						},
 					},
 				},
@@ -904,8 +908,10 @@ func fakeOpenTelemetryGrpcWithInitialMetadata() *meshconfig.MeshConfig_Extension
 				Grpc: &meshconfig.MeshConfig_ExtensionProvider_GrpcService{
 					InitialMetadata: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 						{
-							Name:  "Authentication",
-							Value: "token-xxxxx",
+							Name: "Authentication",
+							HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+								Value: "token-xxxxx",
+							},
 						},
 					},
 					Timeout: &durationpb.Duration{Seconds: 3},
@@ -928,8 +934,10 @@ func fakeOpenTelemetryHTTP() *meshconfig.MeshConfig_ExtensionProvider {
 					Timeout: &durationpb.Duration{Seconds: 3},
 					Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 						{
-							Name:  "custom-header",
-							Value: "custom-value",
+							Name: "custom-header",
+							HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+								Value: "custom-value",
+							},
 						},
 					},
 				},
@@ -991,8 +999,10 @@ func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI() gatewayListe
 							Grpc: &meshconfig.MeshConfig_ExtensionProvider_GrpcService{
 								InitialMetadata: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 									{
-										Name:  "Authentication",
-										Value: "token-xxxxx",
+										Name: "Authentication",
+										HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+											Value: "token-xxxxx",
+										},
 									},
 								},
 								Timeout: &durationpb.Duration{Seconds: 3},
@@ -1029,8 +1039,10 @@ func fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI() gatewayListenerOpts {
 								Timeout: &durationpb.Duration{Seconds: 3},
 								Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
 									{
-										Name:  "custom-header",
-										Value: "custom-value",
+										Name: "custom-header",
+										HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+											Value: "custom-value",
+										},
 									},
 								},
 							},
