@@ -483,7 +483,7 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 	if c.config != nil && c.config.Timeout != 0 {
 		c.http.Timeout = c.config.Timeout
 	} else {
-		c.http.Timeout = time.Second * 5
+		c.http.Timeout = time.Second * 15
 	}
 
 	var clientWithTimeout kubernetes.Interface
