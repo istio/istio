@@ -73,6 +73,7 @@ var _ RemoteKubeClientGetter = fakeRemoteGetter{}
 
 func TestAuthenticate(t *testing.T) {
 	primaryCluster := constants.DefaultClusterName
+	primaryClusterAlias := cluster.ID("alias")
 	remoteCluster := cluster.ID("remote")
 	invlidToken := "invalid-token"
 	meshHolder := mockMeshConfigHolder{"example.com"}
@@ -107,6 +108,17 @@ func TestAuthenticate(t *testing.T) {
 			token: "bearer-token",
 			metadata: metadata.MD{
 				"clusterid": []string{primaryCluster},
+				"authorization": []string{
+					"Basic callername",
+				},
+			},
+			expectedID:     spiffe.MustGenSpiffeURIForTrustDomain("example.com", "default", "example-pod-sa"),
+			expectedErrMsg: "",
+		},
+		"token authenticated - cluster alias": {
+			token: "bearer-token",
+			metadata: metadata.MD{
+				"clusterid": []string{primaryClusterAlias.String()},
 				"authorization": []string{
 					"Basic callername",
 				},
@@ -172,7 +184,7 @@ func TestAuthenticate(t *testing.T) {
 				return nil
 			}
 
-			authenticator := NewKubeJWTAuthenticator(meshHolder, client, constants.DefaultClusterName, nil, fakeRemoteGetter{remoteKubeClientGetter})
+			authenticator := NewKubeJWTAuthenticator(meshHolder, client, constants.DefaultClusterName, []cluster.ID{primaryClusterAlias}, fakeRemoteGetter{remoteKubeClientGetter})
 			actualCaller, err := authenticator.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tc.expectedErrMsg) > 0 {
 				if err == nil {
