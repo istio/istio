@@ -3377,7 +3377,6 @@ func TestZtunnelRestart(t *testing.T) {
 }
 
 func TestServiceDynamicEnroll(t *testing.T) {
-
 	const callInterval = 50 * time.Millisecond
 	// TODO(https://github.com/istio/istio/issues/53064) make this 100%
 	successThreshold := 0.5
