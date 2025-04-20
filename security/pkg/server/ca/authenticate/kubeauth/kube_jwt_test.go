@@ -46,7 +46,7 @@ func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
 
 func TestNewKubeJWTAuthenticator(t *testing.T) {
 	meshHolder := mockMeshConfigHolder{"testdomain.com"}
-	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, constants.DefaultClusterName, nil)
+	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, constants.DefaultClusterName, nil, nil)
 	expectedAuthenticator := &KubeJWTAuthenticator{
 		meshHolder: meshHolder,
 		clusterID:  constants.DefaultClusterName,
@@ -172,7 +172,7 @@ func TestAuthenticate(t *testing.T) {
 				return nil
 			}
 
-			authenticator := NewKubeJWTAuthenticator(meshHolder, client, constants.DefaultClusterName, fakeRemoteGetter{remoteKubeClientGetter})
+			authenticator := NewKubeJWTAuthenticator(meshHolder, client, constants.DefaultClusterName, nil, fakeRemoteGetter{remoteKubeClientGetter})
 			actualCaller, err := authenticator.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tc.expectedErrMsg) > 0 {
 				if err == nil {
