@@ -10,7 +10,7 @@ dashboard.new('Example Dashboard with Ztunnel Link')
 + g.dashboard.withLinks([
   // Add link to Ztunnel dashboard using its UID
   g.dashboard.link.dashboards.new('Ztunnel Dashboard', [std.md5('ztunnel.json')])
-  + g.dashboard.link.dashboards.withAsDropdown(false)
-  + g.dashboard.link.dashboards.withIncludeVars(true)
-  + g.dashboard.link.dashboards.withKeepTime(true)
+  + g.dashboard.link.dashboards.options.withAsDropdown(false)
+  + g.dashboard.link.dashboards.options.withIncludeVars(true)
+  + g.dashboard.link.dashboards.options.withKeepTime(true)
 ])

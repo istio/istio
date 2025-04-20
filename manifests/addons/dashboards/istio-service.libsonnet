@@ -15,7 +15,7 @@ local g = import 'g.libsonnet';
   // Create a dashboard link to the Service dashboard
   dashboardLink:: 
     g.dashboard.link.dashboards.new('Service Dashboard', [$.uid])
-    + g.dashboard.link.dashboards.withAsDropdown(false)
-    + g.dashboard.link.dashboards.withIncludeVars(true)
-    + g.dashboard.link.dashboards.withKeepTime(true)
+    + g.dashboard.link.dashboards.options.withAsDropdown(false)
+    + g.dashboard.link.dashboards.options.withIncludeVars(true)
+    + g.dashboard.link.dashboards.options.withKeepTime(true)
 }
