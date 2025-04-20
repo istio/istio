@@ -3109,98 +3109,98 @@ func TestDirect(t *testing.T) {
 			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
 			if err != nil {
 				t.Fatal(err)
-				// this is real odd but we're going to assume for now that we've just got the one waypoint I guess?
-				hbwl := echo.HBONE{
-					Address:            apps.WaypointProxies[apps.WorkloadAddressedWaypoint.Config().WorkloadWaypointProxy].Inbound(),
-					Headers:            nil,
-					Cert:               string(cert.ClientCert),
-					Key:                string(cert.Key),
-					CaCert:             string(cert.RootCert),
-					InsecureSkipVerify: true,
-				}
-				hbsvc := echo.HBONE{
-					Address:            apps.WaypointProxies[apps.ServiceAddressedWaypoint.Config().ServiceWaypointProxy].Inbound(),
-					Headers:            nil,
-					Cert:               string(cert.ClientCert),
-					Key:                string(cert.Key),
-					CaCert:             string(cert.RootCert),
-					InsecureSkipVerify: true,
-				}
+			}
+			// this is real odd but we're going to assume for now that we've just got the one waypoint I guess?
+			hbwl := echo.HBONE{
+				Address:            apps.WaypointProxies[apps.WorkloadAddressedWaypoint.Config().WorkloadWaypointProxy].Inbound(),
+				Headers:            nil,
+				Cert:               string(cert.ClientCert),
+				Key:                string(cert.Key),
+				CaCert:             string(cert.RootCert),
+				InsecureSkipVerify: true,
+			}
+			hbsvc := echo.HBONE{
+				Address:            apps.WaypointProxies[apps.ServiceAddressedWaypoint.Config().ServiceWaypointProxy].Inbound(),
+				Headers:            nil,
+				Cert:               string(cert.ClientCert),
+				Key:                string(cert.Key),
+				CaCert:             string(cert.RootCert),
+				InsecureSkipVerify: true,
+			}
 
-				run("named destination", echo.CallOptions{
-					To:    apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name()), // TODO: not sure how this is actually addressed?
-					Count: 1,
-					Port:  echo.Port{Name: ports.HTTP.Name},
-					HBONE: hbwl,
-					// This is not supported now, discussion in https://github.com/istio/istio/issues/43241
-					Check: check.Error(),
-				})
-				run("VIP destination", echo.CallOptions{
+			run("named destination", echo.CallOptions{
+				To:    apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name()), // TODO: not sure how this is actually addressed?
+				Count: 1,
+				Port:  echo.Port{Name: ports.HTTP.Name},
+				HBONE: hbwl,
+				// This is not supported now, discussion in https://github.com/istio/istio/issues/43241
+				Check: check.Error(),
+			})
+			run("VIP destination", echo.CallOptions{
+				To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
+				Count:   1,
+				Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())[0].Address(),
+				Port:    echo.Port{Name: ports.HTTP.Name},
+				HBONE:   hbsvc,
+				Check:   check.OK(),
+			})
+			// Only works with multinetwork
+			if t.Settings().AmbientMultiNetwork {
+				run("VIP destination, FQDN authority", echo.CallOptions{
 					To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
 					Count:   1,
-					Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())[0].Address(),
+					Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).ClusterLocalFQDN(),
 					Port:    echo.Port{Name: ports.HTTP.Name},
 					HBONE:   hbsvc,
 					Check:   check.OK(),
 				})
-				// Only works with multinetwork
-				if t.Settings().AmbientMultiNetwork {
-					run("VIP destination, FQDN authority", echo.CallOptions{
-						To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
-						Count:   1,
-						Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).ClusterLocalFQDN(),
-						Port:    echo.Port{Name: ports.HTTP.Name},
-						HBONE:   hbsvc,
-						Check:   check.OK(),
-					})
-				}
-				run("VIP destination, unknown port", echo.CallOptions{
-					To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
-					Count:   1,
-					Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())[0].Address(),
-					Port:    echo.Port{ServicePort: 12345},
-					Scheme:  scheme.HTTP,
-					HBONE:   hbsvc,
-					// TODO: VIP:* should error sooner for undeclared ports
-					Check: check.Error(),
-				})
-				run("Pod IP destination", echo.CallOptions{
-					To:      apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name()),
-					Count:   1,
-					Address: apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name())[0].WorkloadsOrFail(t)[0].Address(),
-					Port:    echo.Port{ServicePort: ports.HTTP.WorkloadPort},
-					Scheme:  scheme.HTTP,
-					HBONE:   hbwl,
-					Check:   check.OK(),
-				})
-				run("Unserved VIP destination", echo.CallOptions{
-					To:      apps.Captured.ForCluster(cluster.Name()),
-					Count:   1,
-					Address: apps.Captured.ForCluster(cluster.Name())[0].Address(),
-					Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
-					Scheme:  scheme.HTTP,
-					HBONE:   hbsvc,
-					Check:   check.Error(),
-				})
-				run("Unserved pod destination", echo.CallOptions{
-					To:      apps.Captured.ForCluster(cluster.Name()),
-					Count:   1,
-					Address: apps.Captured.ForCluster(cluster.Name())[0].WorkloadsOrFail(t)[0].Address(),
-					Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
-					Scheme:  scheme.HTTP,
-					HBONE:   hbwl,
-					Check:   check.Error(),
-				})
-				run("Waypoint destination", echo.CallOptions{
-					To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
-					Count:   1,
-					Address: apps.WaypointProxies[apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).Config().ServiceWaypointProxy].PodIP(),
-					Port:    echo.Port{ServicePort: 15000},
-					Scheme:  scheme.HTTP,
-					HBONE:   hbsvc,
-					Check:   check.Error(),
-				})
 			}
+			run("VIP destination, unknown port", echo.CallOptions{
+				To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
+				Count:   1,
+				Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())[0].Address(),
+				Port:    echo.Port{ServicePort: 12345},
+				Scheme:  scheme.HTTP,
+				HBONE:   hbsvc,
+				// TODO: VIP:* should error sooner for undeclared ports
+				Check: check.Error(),
+			})
+			run("Pod IP destination", echo.CallOptions{
+				To:      apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name()),
+				Count:   1,
+				Address: apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name())[0].WorkloadsOrFail(t)[0].Address(),
+				Port:    echo.Port{ServicePort: ports.HTTP.WorkloadPort},
+				Scheme:  scheme.HTTP,
+				HBONE:   hbwl,
+				Check:   check.OK(),
+			})
+			run("Unserved VIP destination", echo.CallOptions{
+				To:      apps.Captured.ForCluster(cluster.Name()),
+				Count:   1,
+				Address: apps.Captured.ForCluster(cluster.Name())[0].Address(),
+				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
+				Scheme:  scheme.HTTP,
+				HBONE:   hbsvc,
+				Check:   check.Error(),
+			})
+			run("Unserved pod destination", echo.CallOptions{
+				To:      apps.Captured.ForCluster(cluster.Name()),
+				Count:   1,
+				Address: apps.Captured.ForCluster(cluster.Name())[0].WorkloadsOrFail(t)[0].Address(),
+				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
+				Scheme:  scheme.HTTP,
+				HBONE:   hbwl,
+				Check:   check.Error(),
+			})
+			run("Waypoint destination", echo.CallOptions{
+				To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
+				Count:   1,
+				Address: apps.WaypointProxies[apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).Config().ServiceWaypointProxy].PodIP(),
+				Port:    echo.Port{ServicePort: 15000},
+				Scheme:  scheme.HTTP,
+				HBONE:   hbsvc,
+				Check:   check.Error(),
+			})
 		})
 		t.NewSubTest("sidecar").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
@@ -3377,11 +3377,15 @@ func TestZtunnelRestart(t *testing.T) {
 }
 
 func TestServiceDynamicEnroll(t *testing.T) {
+
 	const callInterval = 50 * time.Millisecond
 	// TODO(https://github.com/istio/istio/issues/53064) make this 100%
 	successThreshold := 0.5
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/54245")
+		}
 		c := t.Clusters().Default() // TODO: support multicluster
 		dst := apps.Captured.ForCluster(c.Name())
 		generators := []traffic.Generator{}

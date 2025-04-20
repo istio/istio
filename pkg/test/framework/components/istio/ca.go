@@ -73,9 +73,9 @@ func CreateCertificateForCluster(t framework.TestContext, i Instance, serviceAcc
 		Csr:              string(csrPEM),
 		ValidityDuration: int64((time.Hour * 24 * 7).Seconds()),
 	}
-	clusterName := c.Name()
-	if clusterName == "" {
-		clusterName = constants.DefaultClusterName
+	clusterName := constants.DefaultClusterName
+	if t.Settings().AmbientMultiNetwork {
+		clusterName = c.Name()
 	}
 	rctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+token, "ClusterID", clusterName))
 	resp, err := client.CreateCertificate(rctx, req)
