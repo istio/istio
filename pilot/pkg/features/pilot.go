@@ -277,8 +277,9 @@ var (
 	EnableAbsoluteFqdnVhostDomain = env.Register(
 		"PILOT_ENABLE_ABSOLUTE_FQDN_VHOST_DOMAIN", // Environment variable name
 		true, // Default value (true = feature enabled by default)
-		"If set to true, Istio will add the absolute FQDN variant (e.g., my-service.my-ns.svc.cluster.local.) "+
-			"to the domains list for VirtualHost entries. Defaults to true, enabling the addition.",
+		"If set to false, Istio will not add the absolute FQDN variant"+
+			" (e.g., my-service.my-ns.svc.cluster.local.) to the domains"+
+			" list for VirtualHost entries.",
 	).Get()
 )
 

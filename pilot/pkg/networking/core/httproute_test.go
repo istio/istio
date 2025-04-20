@@ -1585,7 +1585,12 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			sidecarConfig:         sidecarConfig,
 			virtualServiceConfigs: nil,
 			expectedHosts: map[string]map[string]bool{
-				"test-headless.com:8888": {"test-headless.com:8888": true, "*.test-headless.com:8888": true, "test-headless.com.:8888": true, "*.test-headless.com.:8888": true},
+				"test-headless.com:8888": {
+					"test-headless.com:8888":    true,
+					"*.test-headless.com:8888":  true,
+					"test-headless.com.:8888":   true,
+					"*.test-headless.com.:8888": true,
+				},
 				"block_all": {
 					"*": true,
 				},
