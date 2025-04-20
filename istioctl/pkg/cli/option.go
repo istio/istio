@@ -15,6 +15,8 @@
 package cli
 
 import (
+	"time"
+
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +33,7 @@ const (
 	FlagImpersonateGroup = "as-group"
 	FlagNamespace        = "namespace"
 	FlagIstioNamespace   = "istioNamespace"
+	FlagKubeTimeout      = "kubeclient-timeout"
 )
 
 type RootFlags struct {
@@ -41,6 +44,7 @@ type RootFlags struct {
 	impersonateGroup *[]string
 	namespace        *string
 	istioNamespace   *string
+	kubeTimeout      *string
 
 	defaultNamespace string
 }
@@ -54,6 +58,7 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		impersonateGroup: ptr.Of[[]string](nil),
 		namespace:        ptr.Of[string](""),
 		istioNamespace:   ptr.Of[string](""),
+		kubeTimeout:      ptr.Of[string](""),
 	}
 	flags.StringVarP(r.kubeconfig, FlagKubeConfig, "c", "",
 		"Kubernetes configuration file")
@@ -68,6 +73,7 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		"Kubernetes namespace")
 	flags.StringVarP(r.istioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
 		"Istio system namespace")
+	flags.StringVar(r.kubeTimeout, FlagKubeTimeout, "15s", "Kubernetes client timeout as a time.Duration string, defaults to 15 seconds.")
 
 	return r
 }
@@ -75,6 +81,14 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 // Namespace returns the namespace flag value.
 func (r *RootFlags) Namespace() string {
 	return *r.namespace
+}
+
+func (r *RootFlags) KubeClientTimeout() time.Duration {
+	d, err := time.ParseDuration(*r.kubeTimeout)
+	if err != nil {
+		d = 15 * time.Second
+	}
+	return d
 }
 
 // IstioNamespace returns the istioNamespace flag value.
