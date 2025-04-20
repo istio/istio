@@ -32,6 +32,7 @@ import (
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	pkiutil "istio.io/istio/security/pkg/pki/util"
 )
 
@@ -39,8 +40,7 @@ type Cert struct {
 	ClientCert, Key, RootCert []byte
 }
 
-func CreateCertificate(t framework.TestContext, i Instance, serviceAccount, namespace string) (Cert, error) {
-	c := t.Clusters().Default()
+func CreateCertificateForCluster(t framework.TestContext, i Instance, serviceAccount, namespace string, c cluster.Cluster) (Cert, error) {
 	rootCert, err := FetchRootCert(c.Kube())
 	if err != nil {
 		return Cert{}, fmt.Errorf("failed to fetch root cert: %v", err)
@@ -73,7 +73,11 @@ func CreateCertificate(t framework.TestContext, i Instance, serviceAccount, name
 		Csr:              string(csrPEM),
 		ValidityDuration: int64((time.Hour * 24 * 7).Seconds()),
 	}
-	rctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+token, "ClusterID", constants.DefaultClusterName))
+	clusterName := c.Name()
+	if clusterName == "" {
+		clusterName = constants.DefaultClusterName
+	}
+	rctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("Authorization", "Bearer "+token, "ClusterID", clusterName))
 	resp, err := client.CreateCertificate(rctx, req)
 	if err != nil {
 		return Cert{}, fmt.Errorf("send CSR: %v", err)
@@ -83,6 +87,10 @@ func CreateCertificate(t framework.TestContext, i Instance, serviceAccount, name
 		certChain = append(certChain, []byte(c)...)
 	}
 	return Cert{certChain, keyPEM, []byte(rootCert)}, nil
+}
+
+func CreateCertificate(t framework.TestContext, i Instance, serviceAccount, namespace string) (Cert, error) {
+	return CreateCertificateForCluster(t, i, serviceAccount, namespace, t.Clusters().Default())
 }
 
 // 7 days

@@ -144,6 +144,7 @@ func TestMain(m *testing.M) {
 			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
+			gatewayConformanceInputs.Cluster = t.Clusters().Default()
 			gatewayConformanceInputs.Client = t.Clusters().Default()
 			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
 
