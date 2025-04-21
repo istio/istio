@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 56022
+releaseNotes: 
+- |
+  **Fixed** sidecar with old CLUSTER_ID now ables to connect to istiod with new CLUSTER_ID when `--clusterAliases` command argument is being used.
