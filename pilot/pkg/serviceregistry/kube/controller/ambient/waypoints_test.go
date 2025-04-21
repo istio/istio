@@ -140,7 +140,7 @@ func TestMakeAllowedRoutes(t *testing.T) {
 					GatewayClassName: gatewayv1.ObjectName(sandwichedWaypointClass.Name),
 					Listeners: []gatewayv1beta1.Listener{
 						{
-							Protocol: gatewayv1beta1.ProtocolType("PROXY"),
+							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15088,
 						},
 					},
@@ -164,7 +164,7 @@ func TestMakeAllowedRoutes(t *testing.T) {
 					Listeners: []gatewayv1beta1.Listener{
 						{
 							Name:     "should be ignored",
-							Protocol: gatewayv1beta1.ProtocolType("istio.io/PROXY"),
+							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15089,
 							AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
@@ -173,18 +173,8 @@ func TestMakeAllowedRoutes(t *testing.T) {
 							},
 						},
 						{
-							Name:     "ignored HBONE listener",
-							Protocol: gatewayv1beta1.ProtocolType("HBONE"),
-							Port:     15008,
-							AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
-								Namespaces: &gatewayv1.RouteNamespaces{
-									From: ptr.Of(gatewayv1.NamespacesFromSame),
-								},
-							},
-						},
-						{
 							Name:     "should be used",
-							Protocol: gatewayv1beta1.ProtocolType("istio.io/PROXY"),
+							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15088,
 							AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
@@ -214,12 +204,12 @@ func TestMakeAllowedRoutes(t *testing.T) {
 					Listeners: []gatewayv1beta1.Listener{
 						{
 							Name:     "should be ignored",
-							Protocol: gatewayv1beta1.ProtocolType("PROXY"),
+							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15089,
 						},
 						{
 							Name:     "should be used",
-							Protocol: gatewayv1beta1.ProtocolType("PROXY"),
+							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15088,
 							AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
@@ -248,13 +238,8 @@ func TestMakeAllowedRoutes(t *testing.T) {
 					GatewayClassName: gatewayv1.ObjectName(sandwichedWaypointClass.Name),
 					Listeners: []gatewayv1beta1.Listener{
 						{
-							Name:     "should be ignored",
-							Protocol: gatewayv1beta1.ProtocolType("HBONE"),
-							Port:     15008,
-						},
-						{
 							Name:     "should be used",
-							Protocol: gatewayv1beta1.ProtocolType("PROXY"),
+							Protocol: gatewayv1beta1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol),
 							Port:     15015,
 							AllowedRoutes: &gatewayv1beta1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
