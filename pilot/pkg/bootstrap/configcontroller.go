@@ -79,7 +79,12 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 	} else if args.RegistryOptions.FileDir != "" {
 		// Local files - should be added even if other options are specified
-		configController, err := file.NewController(args.RegistryOptions.FileDir, args.RegistryOptions.KubeOptions.DomainSuffix, collections.Pilot)
+		configController, err := file.NewController(
+			args.RegistryOptions.FileDir,
+			args.RegistryOptions.KubeOptions.DomainSuffix,
+			collections.Pilot,
+			args.RegistryOptions.KubeOptions,
+		)
 		if err != nil {
 			return err
 		}
@@ -254,7 +259,12 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 				return fmt.Errorf("invalid fs config URL %s, contains no file path", configSource.Address)
 			}
 
-			configController, err := file.NewController(srcAddress.Path, args.RegistryOptions.KubeOptions.DomainSuffix, collections.Pilot)
+			configController, err := file.NewController(
+				srcAddress.Path,
+				args.RegistryOptions.KubeOptions.DomainSuffix,
+				collections.Pilot,
+				args.RegistryOptions.KubeOptions,
+			)
 			if err != nil {
 				return err
 			}
