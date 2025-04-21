@@ -52,6 +52,8 @@ func NewNamespaceIndex[O Namespacer](c Collection[O]) Index[string, O] {
 // NewIndex creates a simple index, keyed by key K, over a collection for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
 // Different collection implementations may reuse existing indexes with the same name.
+// Informer collections will always share the same index, other collections only share indexes if
+// they are created on the same collection instance.
 func NewIndex[K comparable, O any](
 	c Collection[O],
 	name string,
