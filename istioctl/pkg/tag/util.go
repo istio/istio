@@ -106,7 +106,7 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag str
 // whether to make an installation the default.
 func PreviousInstallExists(ctx context.Context, client kubernetes.Interface) bool {
 	mwhs, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
-		LabelSelector: "app=sidecar-injector",
+		LabelSelector: "app=sidecar-injector, istio.io/tag=default",
 	})
 	if err != nil {
 		return false
