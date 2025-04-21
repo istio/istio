@@ -270,8 +270,8 @@ spec:
     allowedRoutes:
       namespaces:
         from: Same
-  # HACK:zTunnel currently expects the HBONE port to always be on the Waypoint's Service 
-  # This will be fixed in future PRs to both istio and zTunnel. 
+  # HACK:zTunnel currently expects the HBONE port to always be on the Waypoint's Service
+  # This will be fixed in future PRs to both istio and zTunnel.
   - name: fake-hbone-port
     port: 15008
     protocol: TCP
@@ -643,6 +643,9 @@ spec:
     name: {{.Waypoint}}
 `).ApplyOrFail(t)
 		t.NewSubTest("sidecar-service").Run(func(t framework.TestContext) {
+			if t.Settings().AmbientMultiNetwork {
+				t.Skip("https://github.com/istio/istio/issues/54245")
+			}
 			for _, src := range apps.Sidecar {
 				for _, dst := range apps.ServiceAddressedWaypoint {
 					for _, opt := range basicCalls {
@@ -658,6 +661,9 @@ spec:
 			}
 		})
 		t.NewSubTest("sidecar-workload").Run(func(t framework.TestContext) {
+			if t.Settings().AmbientMultiNetwork {
+				t.Skip("https://github.com/istio/istio/issues/54245")
+			}
 			for _, src := range apps.Sidecar {
 				for _, dst := range apps.WorkloadAddressedWaypoint {
 					for _, dstWl := range dst.WorkloadsOrFail(t) {
@@ -676,6 +682,9 @@ spec:
 			}
 		})
 		t.NewSubTest("ingress-service").Run(func(t framework.TestContext) {
+			if t.Settings().AmbientMultiNetwork {
+				t.Skip("https://github.com/istio/istio/issues/54245")
+			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": apps.ServiceAddressedWaypoint.ServiceName(),
 			}, `apiVersion: networking.istio.io/v1alpha3
