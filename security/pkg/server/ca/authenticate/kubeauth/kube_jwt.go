@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"slices"
 
 	"google.golang.org/grpc/metadata"
 	"k8s.io/client-go/kubernetes"
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
 )

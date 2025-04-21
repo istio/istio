@@ -184,7 +184,12 @@ func TestAuthenticate(t *testing.T) {
 				return nil
 			}
 
-			authenticator := NewKubeJWTAuthenticator(meshHolder, client, constants.DefaultClusterName, []cluster.ID{primaryClusterAlias}, fakeRemoteGetter{remoteKubeClientGetter})
+			authenticator := NewKubeJWTAuthenticator(
+				meshHolder,
+				client,
+				constants.DefaultClusterName,
+				[]cluster.ID{primaryClusterAlias},
+				fakeRemoteGetter{remoteKubeClientGetter})
 			actualCaller, err := authenticator.Authenticate(security.AuthContext{GrpcContext: ctx})
 			if len(tc.expectedErrMsg) > 0 {
 				if err == nil {

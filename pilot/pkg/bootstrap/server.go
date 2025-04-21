@@ -390,7 +390,12 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// so we build it later.
 	if s.kubeClient != nil {
 		authenticators = append(authenticators,
-			kubeauth.NewKubeJWTAuthenticator(s.environment.Watcher, s.kubeClient.Kube(), s.clusterID, getClusterAliases(args.RegistryOptions.KubeOptions.ClusterAliases, s.clusterID), s.multiclusterController))
+			kubeauth.NewKubeJWTAuthenticator(
+				s.environment.Watcher,
+				s.kubeClient.Kube(),
+				s.clusterID,
+				getClusterAliases(args.RegistryOptions.KubeOptions.ClusterAliases, s.clusterID),
+				s.multiclusterController))
 	}
 	if len(features.TrustedGatewayCIDR) > 0 {
 		authenticators = append(authenticators, &authenticate.XfccAuthenticator{})
