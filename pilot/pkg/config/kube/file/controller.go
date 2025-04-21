@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -39,10 +40,14 @@ type Controller struct {
 	stop        chan struct{}
 }
 
-func NewController(fileDir string, domainSuffix string, schemas collection.Schemas) (*Controller, error) {
+func NewController(
+	fileDir string,
+	domainSuffix string,
+	schemas collection.Schemas,
+	options kubecontroller.Options,
+) (*Controller, error) {
 	stop := make(chan struct{})
-	// TODO: options.KrtDebugger
-	opts := krt.NewOptionsBuilder(stop, "file-monitor", krt.GlobalDebugHandler)
+	opts := krt.NewOptionsBuilder(stop, "file-monitor", options.KrtDebugger)
 	watch, err := krtfiles.NewFolderWatch(fileDir, func(b []byte) ([]*config.Config, error) {
 		return parseInputs(b, domainSuffix)
 	}, stop)
@@ -50,33 +55,28 @@ func NewController(fileDir string, domainSuffix string, schemas collection.Schem
 		return nil, err
 	}
 
-	enabledSchemas := make(map[config.GroupVersionKind]bool)
+	collectionMap := make(map[config.GroupVersionKind]krt.Collection[config.Config])
+	indexes := make(map[config.GroupVersionKind]krt.Index[string, config.Config])
 	for _, s := range schemas.All() {
 		if _, ok := collections.Pilot.FindByGroupVersionKind(s.GroupVersionKind()); ok {
-			enabledSchemas[s.GroupVersionKind()] = true
-		}
-	}
+			collection := krtfiles.NewFileCollection(watch, func(c *config.Config) *config.Config {
+				if c.GroupVersionKind == s.GroupVersionKind() {
+					return c
+				}
 
-	collections := make(map[config.GroupVersionKind]krt.Collection[config.Config])
-	indexes := make(map[config.GroupVersionKind]krt.Index[string, config.Config])
-	for s := range enabledSchemas {
-		collection := krtfiles.NewFileCollection(watch, func(c *config.Config) *config.Config {
-			if c.GroupVersionKind == s {
-				return c
+				return nil
+			}, opts.WithName("FileMonitor")...)
+
+			collectionMap[s.GroupVersionKind()] = collection
+
+			if s.GroupVersionKind() == gvk.ServiceEntry || s.GroupVersionKind() == gvk.WorkloadEntry {
+				indexes[s.GroupVersionKind()] = krt.NewNamespaceIndex(collection)
 			}
-
-			return nil
-		}, opts.WithName("FileMonitor")...)
-
-		collections[s] = collection
-
-		if s == gvk.ServiceEntry || s == gvk.WorkloadEntry {
-			indexes[s] = krt.NewNamespaceIndex(collection)
 		}
 	}
 
 	return &Controller{
-		collections: collections,
+		collections: collectionMap,
 		indexes:     indexes,
 		schemas:     schemas,
 		stop:        stop,
