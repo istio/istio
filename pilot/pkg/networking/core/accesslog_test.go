@@ -225,7 +225,7 @@ spec:
 	}
 }
 
-func newTestEnviroment() *model.Environment {
+func newTestEnvironment() *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
 		Hostname:       "test.example.org",
 		DefaultAddress: "1.1.1.1",
@@ -372,7 +372,7 @@ var (
 func TestSetTCPAccessLog(t *testing.T) {
 	b := newAccessLogBuilder()
 
-	env := newTestEnviroment()
+	env := newTestEnvironment()
 
 	cases := []struct {
 		name     string
@@ -464,7 +464,7 @@ func TestSetTCPAccessLog(t *testing.T) {
 func TestSetHttpAccessLog(t *testing.T) {
 	b := newAccessLogBuilder()
 
-	env := newTestEnviroment()
+	env := newTestEnvironment()
 
 	cases := []struct {
 		name     string
@@ -556,7 +556,7 @@ func TestSetHttpAccessLog(t *testing.T) {
 func TestSetListenerAccessLog(t *testing.T) {
 	b := newAccessLogBuilder()
 
-	env := newTestEnviroment()
+	env := newTestEnvironment()
 
 	cases := []struct {
 		name     string
