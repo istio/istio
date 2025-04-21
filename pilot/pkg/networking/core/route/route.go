@@ -36,7 +36,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/route/retry"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -1254,7 +1253,7 @@ func BuildDefaultHTTPInboundRoute(proxy *model.Proxy, clusterName string, operat
 		GrpcTimeoutHeaderMax: Notimeout,
 	}
 	// "reset-before-request" does not work well for gRPC streaming services.
-	if util.VersionGreaterOrEqual124(proxy) && features.EnableInboundRetryPolicy && !protocol.IsGRPC() {
+	if util.VersionGreaterOrEqual124(proxy) && !protocol.IsGRPC() {
 		out.GetRoute().RetryPolicy = &route.RetryPolicy{
 			RetryOn: "reset-before-request",
 			NumRetries: &wrapperspb.UInt32Value{
