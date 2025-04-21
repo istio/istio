@@ -2993,7 +2993,7 @@ func TestInboundHTTPRoute(t *testing.T) {
 		expected *envoyroute.Route
 	}{
 		{
-			name:     "enable retry, http protocol",
+			name:     "http protocol",
 			protocol: protocol.HTTP,
 			expected: &envoyroute.Route{
 				Name:  "default",
@@ -3020,29 +3020,8 @@ func TestInboundHTTPRoute(t *testing.T) {
 			},
 		},
 		{
-			name:     "enable retry, grpc protocol",
+			name:     "grpc protocol",
 			protocol: protocol.GRPC,
-			expected: &envoyroute.Route{
-				Name:  "default",
-				Match: route.TranslateRouteMatch(config.Config{}, nil),
-				Action: &envoyroute.Route_Route{
-					Route: &envoyroute.RouteAction{
-						ClusterSpecifier: &envoyroute.RouteAction_Cluster{Cluster: "cluster"},
-						Timeout:          route.Notimeout,
-						MaxStreamDuration: &envoyroute.RouteAction_MaxStreamDuration{
-							MaxStreamDuration:    route.Notimeout,
-							GrpcTimeoutHeaderMax: route.Notimeout,
-						},
-					},
-				},
-				Decorator: &envoyroute.Decorator{
-					Operation: "operation",
-				},
-			},
-		},
-		{
-			name:     "disable retry",
-			protocol: protocol.HTTP,
 			expected: &envoyroute.Route{
 				Name:  "default",
 				Match: route.TranslateRouteMatch(config.Config{}, nil),
