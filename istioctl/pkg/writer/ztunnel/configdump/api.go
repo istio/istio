@@ -113,6 +113,12 @@ type ZtunnelPolicy struct {
 	Scope     string             `json:"scope"`
 	Action    string             `json:"action"`
 	Rules     [][][]*PolicyMatch `json:"rules"`
+	Stats     PolicyStats        `json:"stats,omitempty"`
+}
+
+type PolicyStats struct {
+	Hits   uint64 `json:"hits"`
+	Misses uint64 `json:"misses"`
 }
 
 type ZtunnelDump struct {

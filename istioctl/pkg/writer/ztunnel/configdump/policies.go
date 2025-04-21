@@ -53,11 +53,11 @@ func (c *ConfigWriter) PrintPolicySummary(filter PolicyFilter) error {
 		}
 		return cmp.Compare(a.Name, b.Name)
 	})
-	fmt.Fprintln(w, "NAMESPACE\tPOLICY NAME\tACTION\tSCOPE")
+	fmt.Fprintln(w, "NAMESPACE\tPOLICY NAME\tACTION\tSCOPE\tHITS\tMISSES")
 
 	for _, pol := range pols {
-		fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",
-			pol.Namespace, pol.Name, pol.Action, pol.Scope)
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n",
+			pol.Namespace, pol.Name, pol.Action, pol.Scope, pol.Stats.Hits, pol.Stats.Misses)
 	}
 	return w.Flush()
 }
