@@ -1615,11 +1615,11 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"service-A.default.svc.cluster.local:7777": {
 					"service-A.default.svc.cluster.local": true,
 				},
-				"service-A.v2:7777": {
-					"service-A.v2": true,
+				"service-a.v2:7777": {
+					"service-a.v2": true,
 				},
-				"service-A.v3:7777": {
-					"service-A.v3": true,
+				"service-a.v3:7777": {
+					"service-a.v3": true,
 				},
 			},
 			expectedRoutes: 7,

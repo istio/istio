@@ -537,7 +537,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
-			if vhost := buildVirtualHost(hostname, virtualHostWrapper, nil); vhost != nil {
+			if vhost := buildVirtualHost(strings.ToLower(hostname), virtualHostWrapper, nil); vhost != nil {
 				virtualHosts = append(virtualHosts, vhost)
 			}
 		}

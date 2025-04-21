@@ -225,7 +225,7 @@ func separateVSHostsAndServices(virtualService config.Config,
 
 		// If we never found a match for this hostname in the service registry, add it to the list of non-service hosts
 		if !foundSvcMatch {
-			nonServiceRegistryHosts = append(nonServiceRegistryHosts, string(hostname))
+			nonServiceRegistryHosts = append(nonServiceRegistryHosts, strings.ToLower(string(hostname)))
 		}
 	}
 
