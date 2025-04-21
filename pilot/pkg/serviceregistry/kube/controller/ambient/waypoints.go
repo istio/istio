@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -309,11 +310,12 @@ func (a *index) makeWaypoint(
 	serviceAccounts []string,
 	trafficType string,
 ) *Waypoint {
+	binding := makeInboundBinding(gateway, gatewayClass)
 	return &Waypoint{
 		Named:           krt.NewNamed(gateway),
 		Address:         a.getGatewayAddress(ctx, gateway),
-		DefaultBinding:  makeInboundBinding(gateway, gatewayClass),
-		AllowedRoutes:   makeAllowedRoutes(gateway),
+		DefaultBinding:  binding,
+		AllowedRoutes:   makeAllowedRoutes(gateway, binding),
 		TrafficType:     trafficType,
 		ServiceAccounts: slices.Sort(serviceAccounts),
 	}
@@ -374,19 +376,34 @@ func (w *Waypoint) GetAddress() *workloadapi.GatewayAddress {
 	return w.Address
 }
 
-// if we find the HBONE listener, we always use it's WaypointSelector
-// if we find a PROXY listener, we may use the WaypointSelector for that listener when there is no HBONE listener
-// if we find neither, we default to the same namespace
-func makeAllowedRoutes(gateway *v1beta1.Gateway) WaypointSelector {
+// makeAllowedRoutes returns a WaypointSelector that matches the listener with the given binding
+// if we don't have a binding we use the default HBONE listener
+// if we have a binding we use the protocol and port defined in the binding
+func makeAllowedRoutes(gateway *v1beta1.Gateway, binding *InboundBinding) WaypointSelector {
+	matchProtocol := sets.New[gatewayv1.ProtocolType]()
+	matchPort := gatewayv1.PortNumber(15008)
+	// if we have a binding we should use it's protocol and port
+	if binding != nil {
+		// binding.Port to PortNumber is a conversion from uint32 to int32
+		matchPort = gatewayv1.PortNumber(binding.Port)
+		switch binding.Protocol {
+		case workloadapi.ApplicationTunnel_PROXY:
+			matchProtocol.Insert(gatewayv1.ProtocolType(constants.WaypointSandwichListenerProxyProtocol))
+			matchProtocol.Insert(gatewayv1.ProtocolType("PROXY"))
+		case workloadapi.ApplicationTunnel_NONE:
+			matchProtocol.Insert(gatewayv1.ProtocolType("NONE"))
+		}
+
+	} else {
+		// if we don't have a binding we use the default HBONE listener
+		matchProtocol.Insert(gatewayv1.ProtocolType("HBONE"))
+	}
+
 	maybeWaypointSelector := WaypointSelector{
 		FromNamespaces: gatewayv1.NamespacesFromSame,
 	}
 	for _, l := range gateway.Spec.Listeners {
-		if l.Protocol == "istio.io/PROXY" {
-			maybeWaypointSelector = makeWaypointSelector(l)
-		}
-		if l.Protocol == "HBONE" && l.Port == 15008 {
-			// This is our HBONE listener, if we find this we always use it's WaypointSelector
+		if matchProtocol.Contains(l.Protocol) && (l.Port == matchPort || matchPort == 0) {
 			if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
 				break
 			}
