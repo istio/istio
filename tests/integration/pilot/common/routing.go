@@ -2938,7 +2938,11 @@ spec:
   - name: http
     port: 80
     protocol: TCP
-    targetPort: 80`, t.Apps.Namespace.Name(), t.Apps.Namespace.Name()),
+    targetPort: 80
+  - name: auto-http
+    port: 81
+    protocol: TCP
+    targetPort: 81`, t.Apps.Namespace.Name(), t.Apps.Namespace.Name()),
 		children: calls("c", check.MTLSForHTTP()),
 	})
 
