@@ -17,14 +17,15 @@ package ambient
 import (
 	"testing"
 
-	"istio.io/api/annotation"
-	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/test/util/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"istio.io/api/annotation"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestMakeAllowedRoutes(t *testing.T) {
