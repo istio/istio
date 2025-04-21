@@ -155,10 +155,10 @@ func (j joinIndexer) Lookup(key string) []any {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (j *join[T]) index(extract func(o T) []string) kclient.RawIndexer {
+func (j *join[T]) index(name string, extract func(o T) []string) kclient.RawIndexer {
 	ji := joinIndexer{indexers: make([]kclient.RawIndexer, 0, len(j.collections))}
 	for _, c := range j.collections {
-		ji.indexers = append(ji.indexers, c.index(extract))
+		ji.indexers = append(ji.indexers, c.index(name, extract))
 	}
 	return ji
 }

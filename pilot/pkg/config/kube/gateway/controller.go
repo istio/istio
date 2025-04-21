@@ -286,7 +286,7 @@ func NewController(
 		httpRoutes.RouteAttachments,
 		grpcRoutes.RouteAttachments,
 	}, opts.WithName("RouteAttachments")...)
-	RouteAttachmentsIndex := krt.NewIndex(RouteAttachments, func(o RouteAttachment) []types.NamespacedName {
+	RouteAttachmentsIndex := krt.NewIndex(RouteAttachments, "to", func(o RouteAttachment) []types.NamespacedName {
 		return []types.NamespacedName{o.To}
 	})
 

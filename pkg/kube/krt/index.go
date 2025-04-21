@@ -17,6 +17,8 @@ package krt
 import (
 	"fmt"
 
+	"k8s.io/client-go/tools/cache"
+
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/ptr"
@@ -42,18 +44,22 @@ func (i IndexObject[K, O]) ResourceName() string {
 
 // NewNamespaceIndex is a small helper to index a collection by namespace
 func NewNamespaceIndex[O Namespacer](c Collection[O]) Index[string, O] {
-	return NewIndex(c, func(o O) []string {
+	return NewIndex(c, cache.NamespaceIndex, func(o O) []string {
 		return []string{o.GetNamespace()}
 	})
 }
 
-// NewIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
+// NewIndex creates a simple index, keyed by key K, over a collection for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
+// Different collection implementations may reuse existing indexes with the same name.
+// Informer collections will always share the same underlying index, other collections only share indexes if
+// they are created on the same collection instance.
 func NewIndex[K comparable, O any](
 	c Collection[O],
+	name string,
 	extract func(o O) []K,
 ) Index[K, O] {
-	idx := c.(internalCollection[O]).index(func(o O) []string {
+	idx := c.(internalCollection[O]).index(name, func(o O) []string {
 		return slices.Map(extract(o), func(e K) string {
 			return toString(e)
 		})
@@ -172,7 +178,7 @@ func (i indexCollection[K, O]) augment(a any) any {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (i indexCollection[K, O]) index(extract func(o IndexObject[K, O]) []string) kclient.RawIndexer {
+func (i indexCollection[K, O]) index(name string, extract func(o IndexObject[K, O]) []string) kclient.RawIndexer {
 	panic("an index cannot be indexed")
 }
 

@@ -105,7 +105,7 @@ func NewIPAllocator(stop <-chan struct{}, c kubelib.Client) *IPAllocator {
 		ObjectFilter: c.ObjectFilter(),
 	})
 	writer := kclient.NewWriteClient[*networkingv1.ServiceEntry](c)
-	index := kclient.CreateIndex[netip.Addr, *networkingv1.ServiceEntry](client, func(serviceentry *networkingv1.ServiceEntry) []netip.Addr {
+	index := kclient.CreateIndex[netip.Addr, *networkingv1.ServiceEntry](client, "address", func(serviceentry *networkingv1.ServiceEntry) []netip.Addr {
 		addresses := autoallocate.GetAddressesFromServiceEntry(serviceentry)
 		for _, addr := range serviceentry.Spec.Addresses {
 			a, err := netip.ParseAddr(addr)

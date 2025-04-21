@@ -54,9 +54,10 @@ func (i index[K, O]) Lookup(k K) []O {
 // If the filter changes, there is no "notification" to the user of an Index, as there are no events for indexes.
 func CreateStringIndex[O controllers.ComparableObject](
 	client Informer[O],
+	name string,
 	extract func(o O) []string,
 ) Index[string, O] {
-	return index[string, O]{client.Index(extract)}
+	return index[string, O]{client.Index(name, extract)}
 }
 
 // CreateIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
@@ -68,9 +69,10 @@ func CreateStringIndex[O controllers.ComparableObject](
 // If the filter changes, there is no "notification" to the user of an Index, as there are no events for indexes.
 func CreateIndex[K fmt.Stringer, O controllers.ComparableObject](
 	client Informer[O],
+	name string,
 	extract func(o O) []K,
 ) Index[K, O] {
-	x := client.Index(func(o O) []string {
+	x := client.Index(name, func(o O) []string {
 		return slices.Map(extract(o), K.String)
 	})
 

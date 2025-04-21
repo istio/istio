@@ -912,7 +912,7 @@ func (t TargetRef) String() string {
 
 // endpointSliceAddressIndex builds an index from IP Address
 func endpointSliceAddressIndex(EndpointSlices krt.Collection[*discovery.EndpointSlice]) krt.Index[TargetRef, *discovery.EndpointSlice] {
-	return krt.NewIndex(EndpointSlices, func(es *discovery.EndpointSlice) []TargetRef {
+	return krt.NewIndex(EndpointSlices, "targetRef", func(es *discovery.EndpointSlice) []TargetRef {
 		if es.AddressType == discovery.AddressTypeFQDN {
 			// Currently we do not support FQDN.
 			return nil
