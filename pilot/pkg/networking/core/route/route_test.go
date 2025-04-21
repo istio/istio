@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/route"
@@ -40,7 +39,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -2990,15 +2988,13 @@ func TestSortVHostRoutes(t *testing.T) {
 
 func TestInboundHTTPRoute(t *testing.T) {
 	testCases := []struct {
-		name        string
-		enableRetry bool
-		protocol    protocol.Instance
-		expected    *envoyroute.Route
+		name     string
+		protocol protocol.Instance
+		expected *envoyroute.Route
 	}{
 		{
-			name:        "enable retry, http protocol",
-			enableRetry: true,
-			protocol:    protocol.HTTP,
+			name:     "enable retry, http protocol",
+			protocol: protocol.HTTP,
 			expected: &envoyroute.Route{
 				Name:  "default",
 				Match: route.TranslateRouteMatch(config.Config{}, nil),
@@ -3024,9 +3020,8 @@ func TestInboundHTTPRoute(t *testing.T) {
 			},
 		},
 		{
-			name:        "enable retry, grpc protocol",
-			enableRetry: true,
-			protocol:    protocol.GRPC,
+			name:     "enable retry, grpc protocol",
+			protocol: protocol.GRPC,
 			expected: &envoyroute.Route{
 				Name:  "default",
 				Match: route.TranslateRouteMatch(config.Config{}, nil),
@@ -3046,9 +3041,8 @@ func TestInboundHTTPRoute(t *testing.T) {
 			},
 		},
 		{
-			name:        "disable retry",
-			enableRetry: false,
-			protocol:    protocol.HTTP,
+			name:     "disable retry",
+			protocol: protocol.HTTP,
 			expected: &envoyroute.Route{
 				Name:  "default",
 				Match: route.TranslateRouteMatch(config.Config{}, nil),
@@ -3070,7 +3064,6 @@ func TestInboundHTTPRoute(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableInboundRetryPolicy, tc.enableRetry)
 			inroute := route.BuildDefaultHTTPInboundRoute(&model.Proxy{IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: -1}},
 				"cluster", "operation", tc.protocol)
 			if !reflect.DeepEqual(tc.expected, inroute) {

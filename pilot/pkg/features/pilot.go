@@ -252,12 +252,6 @@ var (
 	ManagedGatewayController = env.Register("PILOT_GATEWAY_API_CONTROLLER_NAME", "istio.io/gateway-controller",
 		"Gateway API controller name. istiod will only reconcile Gateway API resources referencing a GatewayClass with this controller name").Get()
 
-	EnableInboundRetryPolicy = env.Register("ENABLE_INBOUND_RETRY_POLICY", true,
-		"If true, enables retry policy for inbound routes which automatically retries requests that were reset before it reaches the service.").Get()
-
-	Exclude503FromDefaultRetries = env.Register("EXCLUDE_UNSAFE_503_FROM_DEFAULT_RETRY", true,
-		"If true, excludes unsafe retry on 503 from default retry policy.").Get()
-
 	PreferDestinationRulesTLSForExternalServices = env.Register("PREFER_DESTINATIONRULE_TLS_FOR_EXTERNAL_SERVICES", true,
 		"If true, external services will prefer the TLS settings from DestinationRules over the metadata TLS settings.").Get()
 
