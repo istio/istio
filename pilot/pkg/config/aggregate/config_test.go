@@ -38,8 +38,8 @@ func TestAggregateStoreBasicMake(t *testing.T) {
 
 	schema1 := collections.HTTPRoute
 	schema2 := collections.GatewayClass
-	store1 := memory.NewController(collection.SchemasFor(schema1), memory.Options{})
-	store2 := memory.NewController(collection.SchemasFor(schema2), memory.Options{})
+	store1 := memory.NewController(collection.SchemasFor(schema1))
+	store2 := memory.NewController(collection.SchemasFor(schema2))
 
 	stores := []model.ConfigStoreController{store1, store2}
 
@@ -55,7 +55,6 @@ func TestAggregateStoreMakeValidationFailure(t *testing.T) {
 
 	store1 := memory.NewController(
 		collection.SchemasFor(schemaFor("SomeConfig", "broken message name")),
-		memory.Options{},
 	)
 
 	stores := []model.ConfigStoreController{store1}
@@ -68,8 +67,8 @@ func TestAggregateStoreMakeValidationFailure(t *testing.T) {
 func TestAggregateStoreGet(t *testing.T) {
 	g := NewWithT(t)
 
-	store1 := memory.NewController(collection.SchemasFor(collections.GatewayClass), memory.Options{})
-	store2 := memory.NewController(collection.SchemasFor(collections.GatewayClass), memory.Options{})
+	store1 := memory.NewController(collection.SchemasFor(collections.GatewayClass))
+	store2 := memory.NewController(collection.SchemasFor(collections.GatewayClass))
 
 	configReturn := &config.Config{
 		Meta: config.Meta{
@@ -93,8 +92,8 @@ func TestAggregateStoreGet(t *testing.T) {
 func TestAggregateStoreList(t *testing.T) {
 	g := NewWithT(t)
 
-	store1 := memory.NewController(collection.SchemasFor(collections.HTTPRoute), memory.Options{})
-	store2 := memory.NewController(collection.SchemasFor(collections.HTTPRoute), memory.Options{})
+	store1 := memory.NewController(collection.SchemasFor(collections.HTTPRoute))
+	store2 := memory.NewController(collection.SchemasFor(collections.HTTPRoute))
 
 	if _, err := store1.Create(config.Config{
 		Meta: config.Meta{
@@ -125,8 +124,8 @@ func TestAggregateStoreList(t *testing.T) {
 func TestAggregateStoreWrite(t *testing.T) {
 	g := NewWithT(t)
 
-	store1 := memory.NewController(collection.SchemasFor(collections.HTTPRoute), memory.Options{})
-	store2 := memory.NewController(collection.SchemasFor(collections.HTTPRoute), memory.Options{})
+	store1 := memory.NewController(collection.SchemasFor(collections.HTTPRoute))
+	store2 := memory.NewController(collection.SchemasFor(collections.HTTPRoute))
 
 	stores := []model.ConfigStoreController{store1, store2}
 
@@ -160,8 +159,8 @@ func TestAggregateStoreWrite(t *testing.T) {
 func TestAggregateStoreWriteWithoutWriter(t *testing.T) {
 	g := NewWithT(t)
 
-	store1 := memory.NewController(collection.SchemasFor(collections.HTTPRoute), memory.Options{})
-	store2 := memory.NewController(collection.SchemasFor(collections.HTTPRoute), memory.Options{})
+	store1 := memory.NewController(collection.SchemasFor(collections.HTTPRoute))
+	store2 := memory.NewController(collection.SchemasFor(collections.HTTPRoute))
 
 	stores := []model.ConfigStoreController{store1, store2}
 
@@ -183,7 +182,6 @@ func TestAggregateStoreFails(t *testing.T) {
 
 	store1 := memory.NewController(
 		collection.SchemasFor(schemaFor("OtherConfig", "istio.networking.v1alpha3.Gateway")),
-		memory.Options{},
 	)
 
 	stores := []model.ConfigStoreController{store1}

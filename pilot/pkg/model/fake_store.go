@@ -16,33 +16,50 @@ package model
 
 import (
 	"errors"
+	"sync/atomic"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 )
 
 type FakeStore struct {
-	store map[config.GroupVersionKind]nsStore
-	stop  chan struct{}
+	store  map[config.GroupVersionKind]nsStore
+	stop   chan struct{}
+	synced *atomic.Bool
 }
 
 type nsStore struct {
 	collection krt.StaticCollection[config.Config]
 	index      krt.Index[string, config.Config]
+	handlers   []krt.HandlerRegistration
 }
 
 func NewFakeStore() *FakeStore {
 	stop := make(chan struct{})
-	f := FakeStore{
-		store: make(map[config.GroupVersionKind]nsStore),
-		stop:  stop,
+	f := &FakeStore{
+		store:  make(map[config.GroupVersionKind]nsStore),
+		stop:   stop,
+		synced: &atomic.Bool{},
 	}
-	return &f
+
+	for _, s := range collections.Pilot.All() {
+		opts := krt.NewOptionsBuilder(f.stop, "fake-store", krt.GlobalDebugHandler)
+		collection := krt.NewStaticCollection[config.Config](f, nil, opts.WithName(s.Kind())...)
+		nsConfigs := nsStore{
+			collection: collection,
+			index:      krt.NewNamespaceIndex(collection),
+		}
+		f.store[s.GroupVersionKind()] = nsConfigs
+	}
+
+	return f
 }
 
-var _ ConfigStore = (*FakeStore)(nil)
+var _ ConfigStoreController = (*FakeStore)(nil)
 
 func (s *FakeStore) Schemas() collection.Schemas {
 	return collections.Pilot
@@ -76,17 +93,10 @@ func (s *FakeStore) List(typ config.GroupVersionKind, namespace string) []config
 
 func (s *FakeStore) Create(cfg config.Config) (revision string, err error) {
 	nsConfigs, ok := s.store[cfg.GroupVersionKind]
-	if !ok {
-		opts := krt.NewOptionsBuilder(s.stop, "fake-store", krt.GlobalDebugHandler)
-		collection := krt.NewStaticCollection[config.Config](nil, nil, opts.WithName(cfg.GroupVersionKind.Kind)...)
-		nsConfigs = nsStore{
-			collection: collection,
-			index:      krt.NewNamespaceIndex(collection),
-		}
-		s.store[cfg.GroupVersionKind] = nsConfigs
+	if ok {
+		nsConfigs.collection.UpdateObject(cfg)
 	}
 
-	nsConfigs.collection.UpdateObject(cfg)
 	return "", nil
 }
 
@@ -123,7 +133,23 @@ func (s *FakeStore) Delete(typ config.GroupVersionKind, name, namespace string, 
 }
 
 func (s *FakeStore) RegisterEventHandler(kind config.GroupVersionKind, handler EventHandler) {
-
+	if nsConfigs, ok := s.store[kind]; ok {
+		nsConfigs.handlers = append(
+			nsConfigs.handlers,
+			nsConfigs.collection.RegisterBatch(func(evs []krt.Event[config.Config]) {
+				for _, event := range evs {
+					switch event.Event {
+					case controllers.EventAdd:
+						handler(config.Config{}, *event.New, EventAdd)
+					case controllers.EventUpdate:
+						handler(*event.Old, *event.New, EventUpdate)
+					case controllers.EventDelete:
+						handler(config.Config{}, *event.Old, EventDelete)
+					}
+				}
+			}, false),
+		)
+	}
 }
 
 func (s *FakeStore) Run(stop <-chan struct{}) {
@@ -132,9 +158,33 @@ func (s *FakeStore) Run(stop <-chan struct{}) {
 }
 
 func (s *FakeStore) HasSynced() bool {
-	return true
+	if !s.synced.Load() {
+		return false
+	}
+
+	for _, nsConfigs := range s.store {
+		for _, handler := range nsConfigs.handlers {
+			if !handler.HasSynced() {
+				return false
+			}
+		}
+	}
+
+	return s.synced.Load()
+}
+
+func (s *FakeStore) MarkSynced() {
+	s.synced.Store(true)
+}
+
+func (s *FakeStore) WaitUntilSynced(stop <-chan struct{}) bool {
+	return kube.WaitForCacheSync("memory", stop, s.HasSynced)
 }
 
 func (s *FakeStore) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
-	return s.store[typ].collection
+	if store, ok := s.store[typ]; ok {
+		return store.collection
+	}
+
+	return nil
 }

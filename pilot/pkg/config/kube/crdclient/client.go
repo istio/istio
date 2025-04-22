@@ -159,7 +159,7 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler mod
 					handler(config.Config{}, *event.Old, model.Event(event.Event))
 				}
 			}
-		}, false))
+		}, true))
 		return
 	}
 

@@ -138,6 +138,9 @@ func HTTPRouteCollection(
 				count++
 			}
 		}
+
+		log.Infof("Updating status for HTTPRoute %s/%s %+v", obj.Namespace, obj.Name, status)
+
 		return status, virtualServices
 	}, opts.WithName("HTTPRoute")...)
 
@@ -514,7 +517,7 @@ func (r RouteWithKey) ResourceName() string {
 }
 
 func (r RouteWithKey) Equals(o RouteWithKey) bool {
-	return r.Config.Equals(o.Config)
+	return r.Key == o.Key && r.Config.Equals(o.Config)
 }
 
 // buildMeshAndGatewayRoutes contains common logic to build a set of routes with mesh and/or gateway semantics
