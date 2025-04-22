@@ -50,6 +50,8 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -1297,6 +1299,7 @@ func TestServiceIndex(t *testing.T) {
 	g := NewWithT(t)
 	env := NewEnvironment()
 	env.ConfigStore = NewFakeStore()
+
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -1547,8 +1550,11 @@ func serviceNames(svcs []*Service) []string {
 
 func TestInitPushContext(t *testing.T) {
 	env := NewEnvironment()
-	configStore := NewFakeStore()
-	_, _ = configStore.Create(config.Config{
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = meshwatcher.NewTestWatcher(m)
+	fakeStore := NewUnsyncedFakeStore()
+	var controller ConfigStoreController = fakeStore
+	_, _ = controller.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
@@ -1559,7 +1565,7 @@ func TestInitPushContext(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	})
-	_, _ = configStore.Create(config.Config{
+	_, _ = controller.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
@@ -1569,7 +1575,7 @@ func TestInitPushContext(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	})
-	_, _ = configStore.Create(config.Config{
+	_, _ = controller.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "default",
 			Namespace:        "istio-system",
@@ -1582,7 +1588,20 @@ func TestInitPushContext(t *testing.T) {
 		},
 	})
 
-	env.ConfigStore = configStore
+	if features.EnableVirtualServiceController {
+		controller = NewVirtualServiceController(
+			controller,
+			VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+			env.Watcher,
+		)
+	}
+
+	stop := test.NewStop(t)
+	go controller.Run(stop)
+	fakeStore.MarkSynced()
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+
+	env.ConfigStore = controller
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -1618,8 +1637,6 @@ func TestInitPushContext(t *testing.T) {
 			},
 		},
 	}
-	m := mesh.DefaultMeshConfig()
-	env.Watcher = meshwatcher.NewTestWatcher(m)
 	env.Init()
 
 	// Init a new push context
@@ -2598,7 +2615,8 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
 	ps.Mesh = env.Mesh()
-	configStore := NewFakeStore()
+	fakeStore := NewUnsyncedFakeStore()
+	var controller ConfigStoreController = fakeStore
 	gatewayName := "default/gateway"
 
 	rule1 := config.Config{
@@ -2671,12 +2689,25 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 
 	for _, c := range []config.Config{rule1, rule2, rule3, rule2Gw, rule3Gw, rootNS} {
-		if _, err := configStore.Create(c); err != nil {
+		if _, err := controller.Create(c); err != nil {
 			t.Fatalf("could not create %v", c.Name)
 		}
 	}
 
-	env.ConfigStore = configStore
+	if features.EnableVirtualServiceController {
+		controller = NewVirtualServiceController(
+			controller,
+			VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+			env.Watcher,
+		)
+	}
+
+	stop := test.NewStop(t)
+	go controller.Run(stop)
+	fakeStore.MarkSynced()
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+
+	env.ConfigStore = controller
 	ps.initDefaultExportMaps()
 	ps.initVirtualServices(env)
 
@@ -2748,7 +2779,9 @@ func TestInitVirtualService(t *testing.T) {
 		ps := NewPushContext()
 		env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 		ps.Mesh = env.Mesh()
-		configStore := NewFakeStore()
+		fakeStore := NewUnsyncedFakeStore()
+		var controller ConfigStoreController = fakeStore
+
 		gatewayName := "ns1/gateway"
 		root := config.Config{
 			Meta: config.Meta{
@@ -2987,12 +3020,25 @@ func TestInitVirtualService(t *testing.T) {
 			sourceNamespaceMatchWithoutGatewayNamespace,
 			sourceNamespaceNotMatch,
 		} {
-			if _, err := configStore.Create(c); err != nil {
+			if _, err := controller.Create(c); err != nil {
 				t.Fatalf("could not create %v", c.Name)
 			}
 		}
 
-		env.ConfigStore = configStore
+		if features.EnableVirtualServiceController {
+			controller = NewVirtualServiceController(
+				controller,
+				VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+				env.Watcher,
+			)
+		}
+
+		stop := test.NewStop(t)
+		go controller.Run(stop)
+		fakeStore.MarkSynced()
+		kube.WaitForCacheSync("test", stop, controller.HasSynced)
+
+		env.ConfigStore = controller
 		ps.initDefaultExportMaps()
 		ps.initVirtualServices(env)
 
@@ -3022,7 +3068,7 @@ func TestInitVirtualService(t *testing.T) {
 				"ns5/gateway": ns5GatewayExpectedDestinations,
 			}
 			if !reflect.DeepEqual(got, want) {
-				t.Errorf("destinationsByGateway: got %+v", got)
+				t.Errorf("destinationsByGateway: got %+v, want: %+v", got, want)
 			}
 		})
 	}
@@ -3235,7 +3281,8 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 		},
 	})
 	ps.Mesh = env.Mesh()
-	configStore := NewFakeStore()
+	fakeStore := NewUnsyncedFakeStore()
+	var controller ConfigStoreController = fakeStore
 	gatewayName := "ns1/gateway"
 
 	vs1 := config.Config{
@@ -3296,12 +3343,25 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	}
 
 	for _, c := range []config.Config{vs1, vs2, ef} {
-		if _, err := configStore.Create(c); err != nil {
+		if _, err := controller.Create(c); err != nil {
 			t.Fatalf("could not create %v", c.Name)
 		}
 	}
 
-	env.ConfigStore = configStore
+	if features.EnableVirtualServiceController {
+		controller = NewVirtualServiceController(
+			controller,
+			VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+			env.Watcher,
+		)
+	}
+
+	stop := test.NewStop(t)
+	go controller.Run(stop)
+	fakeStore.MarkSynced()
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+
+	env.ConfigStore = controller
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 	ps.initTelemetry(env)
 	ps.initDefaultExportMaps()
