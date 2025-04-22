@@ -218,9 +218,32 @@ func TestLocality(t *testing.T) {
 					},
 				},
 				{
-					"TrafficDistribution/EDS",
+					"TrafficDistributionPreferClose/EDS",
 					LocalityInput{
 						TrafficDistribution: "PreferClose",
+						Resolution:          "STATIC",
+						Local:               destB.Address(),
+						Remote:              destA.Address(),
+						Network:             network,
+					},
+					expectAllTrafficTo(destB.Config().Service),
+				},
+				{
+					"TrafficDistributionPreferSameZone/EDS",
+					LocalityInput{
+						TrafficDistribution: "PreferSameZone",
+						Resolution:          "STATIC",
+						Local:               destB.Address(),
+						Remote:              destA.Address(),
+						Network:             network,
+					},
+					expectAllTrafficTo(destB.Config().Service),
+				},
+				{
+					// Not terribly meaningful because we only have one node, but we can still test that traffic passes
+					"TrafficDistributionPreferSameNode/EDS",
+					LocalityInput{
+						TrafficDistribution: "PreferSameNode",
 						Resolution:          "STATIC",
 						Local:               destB.Address(),
 						Remote:              destA.Address(),

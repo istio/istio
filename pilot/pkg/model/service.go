@@ -791,9 +791,11 @@ type TrafficDistribution int
 const (
 	// TrafficDistributionAny allows any destination
 	TrafficDistributionAny TrafficDistribution = iota
-	// TrafficDistributionPreferClose prefers traffic in same region/zone/network if possible, with failover allowed.
-	TrafficDistributionPreferClose TrafficDistribution = iota
-    TrafficDistributionPreferSameZone TrafficDistribution = iota
+	// TrafficDistributionPrefer{Close,PreferSameZone} prefers traffic in same region/zone/network if possible, with failover allowed.
+	TrafficDistributionPreferClose    TrafficDistribution = iota
+	TrafficDistributionPreferSameZone TrafficDistribution = iota
+	// TrafficDistributionPreferNode prefers traffic in same node if possible, with failover allowed.
+	TrafficDistributionPreferSameNode = iota
 )
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.

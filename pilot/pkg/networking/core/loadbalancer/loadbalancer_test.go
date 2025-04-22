@@ -997,6 +997,12 @@ func TestGetLocalityLbSetting(t *testing.T) {
 	preferCloseService := &model.Service{Attributes: model.ServiceAttributes{K8sAttributes: model.K8sAttributes{
 		TrafficDistribution: model.TrafficDistributionPreferClose,
 	}}}
+	preferSameZoneService := &model.Service{Attributes: model.ServiceAttributes{K8sAttributes: model.K8sAttributes{
+		TrafficDistribution: model.TrafficDistributionPreferSameZone,
+	}}}
+	preferSameNodeService := &model.Service{Attributes: model.ServiceAttributes{K8sAttributes: model.K8sAttributes{
+		TrafficDistribution: model.TrafficDistributionPreferSameNode,
+	}}}
 	failover := []*networking.LocalityLoadBalancerSetting_Failover{nil}
 	cases := []struct {
 		name     string
@@ -1048,7 +1054,7 @@ func TestGetLocalityLbSetting(t *testing.T) {
 			&networking.LocalityLoadBalancerSetting{Failover: failover},
 		},
 		{
-			"service and mesh",
+			"prefer close service and mesh",
 			&networking.LocalityLoadBalancerSetting{},
 			nil,
 			preferCloseService,
@@ -1058,6 +1064,37 @@ func TestGetLocalityLbSetting(t *testing.T) {
 					registrylabel.LabelTopologyRegion,
 					registrylabel.LabelTopologyZone,
 					label.TopologySubzone.Name,
+				},
+				Enabled: &wrappers.BoolValue{Value: true},
+			},
+		},
+		{
+			"prefer same zone service and mesh",
+			&networking.LocalityLoadBalancerSetting{},
+			nil,
+			preferSameZoneService,
+			&networking.LocalityLoadBalancerSetting{
+				FailoverPriority: []string{
+					label.TopologyNetwork.Name,
+					registrylabel.LabelTopologyRegion,
+					registrylabel.LabelTopologyZone,
+					label.TopologySubzone.Name,
+				},
+				Enabled: &wrappers.BoolValue{Value: true},
+			},
+		},
+		{
+			"prefer same node service and mesh",
+			&networking.LocalityLoadBalancerSetting{},
+			nil,
+			preferSameNodeService,
+			&networking.LocalityLoadBalancerSetting{
+				FailoverPriority: []string{
+					label.TopologyNetwork.Name,
+					registrylabel.LabelTopologyRegion,
+					registrylabel.LabelTopologyZone,
+					label.TopologySubzone.Name,
+					registrylabel.LabelHostname,
 				},
 				Enabled: &wrappers.BoolValue{Value: true},
 			},

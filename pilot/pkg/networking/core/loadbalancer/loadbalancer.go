@@ -49,7 +49,7 @@ func GetLocalityLbSetting(
 	}
 	if service != nil && service.Attributes.TrafficDistribution != model.TrafficDistributionAny {
 		switch service.Attributes.TrafficDistribution {
-		case model.TrafficDistributionPreferClose:
+		case model.TrafficDistributionPreferClose, model.TrafficDistributionPreferSameZone:
 			return &v1alpha3.LocalityLoadBalancerSetting{
 				Enabled: wrappers.Bool(true),
 				// Prefer same network, region, zone, subzone
@@ -58,6 +58,18 @@ func GetLocalityLbSetting(
 					registrylabel.LabelTopologyRegion,
 					registrylabel.LabelTopologyZone,
 					label.TopologySubzone.Name,
+				},
+			}, true
+		case model.TrafficDistributionPreferSameNode:
+			return &v1alpha3.LocalityLoadBalancerSetting{
+				Enabled: wrappers.Bool(true),
+				// Prefer same node, network, region, zone, subzone
+				FailoverPriority: []string{
+					label.TopologyNetwork.Name,
+					registrylabel.LabelTopologyRegion,
+					registrylabel.LabelTopologyZone,
+					label.TopologySubzone.Name,
+					registrylabel.LabelHostname,
 				},
 			}, true
 		case model.TrafficDistributionAny:
