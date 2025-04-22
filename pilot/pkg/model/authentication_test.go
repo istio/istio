@@ -1555,6 +1555,7 @@ func getTestAuthenticationPolicies(configs []*config.Config, t *testing.T) *Auth
 			t.Fatalf("getTestAuthenticationPolicies %v", err)
 		}
 	}
+
 	environment := &Environment{
 		ConfigStore: configStore,
 		Watcher:     meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
