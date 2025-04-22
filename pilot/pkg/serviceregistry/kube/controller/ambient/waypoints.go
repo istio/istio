@@ -402,7 +402,7 @@ func findBoundListener(gateway *v1beta1.Gateway, binding *InboundBinding) (v1bet
 	if binding == nil {
 		return v1beta1.Listener{}, false
 	}
-	var match func(l v1beta1.Listener) bool = nil
+	var match func(l v1beta1.Listener) bool
 	if binding.Port != 0 {
 		match = func(l v1beta1.Listener) bool {
 			return l.Port == gatewayv1.PortNumber(binding.Port)
