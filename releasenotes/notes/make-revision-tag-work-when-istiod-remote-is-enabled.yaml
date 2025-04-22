@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 54743
+releaseNotes:
+- |
+  **Removed** the restriction that revision tag only works when Istiod remote is not enabled. Revision tag now works as long as the `revisionTags` is specified no matter Istiod remote is enabled or not.
