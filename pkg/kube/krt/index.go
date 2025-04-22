@@ -17,7 +17,6 @@ package krt
 import (
 	"fmt"
 
-	"github.com/google/uuid"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube/controllers"
@@ -28,7 +27,7 @@ import (
 )
 
 type Index[K comparable, O any] interface {
-	ID() string
+	ID() uint64
 	Lookup(k K) []O
 	AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]]
 	objectHasKey(obj O, k K) bool
@@ -68,7 +67,7 @@ func NewIndex[K comparable, O any](
 	})
 
 	return index[K, O]{
-		uuid.NewString(),
+		nextUID(),
 		idx,
 		c,
 		extract,
@@ -76,7 +75,7 @@ func NewIndex[K comparable, O any](
 }
 
 type index[K comparable, O any] struct {
-	id string
+	uid collectionUID
 	kclient.RawIndexer
 	c       Collection[O]
 	extract func(o O) []K
@@ -137,8 +136,8 @@ func (i index[K, O]) extractKeys(o O) []K {
 	return i.extract(o)
 }
 
-func (i index[K, O]) ID() string {
-	return i.id
+func (i index[K, O]) ID() uint64 {
+	return uint64(i.uid)
 }
 
 // Lookup finds all objects matching a given key

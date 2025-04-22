@@ -49,16 +49,16 @@ type dependencyState[I any] struct {
 }
 
 type extractorKey struct {
-	uid    collectionUID
-	idxUid string
-	typ    indexedDependencyType
+	uid       collectionUID
+	filterUID string
+	typ       indexedDependencyType
 }
 
 func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 	// Update the I -> Dependency mapping
 	i.objectDependencies[key] = deps
 	for _, d := range deps {
-		if depKeys, typ, extractor, idxId, ok := d.filter.reverseIndexKey(); ok {
+		if depKeys, typ, extractor, filterId, ok := d.filter.reverseIndexKey(); ok {
 			for _, depKey := range depKeys {
 				k := indexedDependency{
 					id:  d.id,
@@ -67,9 +67,9 @@ func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 				}
 				sets.InsertOrNew(i.indexedDependencies, k, key)
 				kk := extractorKey{
-					idxUid: idxId,
-					uid:    d.id,
-					typ:    typ,
+					filterUID: filterId,
+					uid:       d.id,
+					typ:       typ,
 				}
 
 				i.indexedDependenciesExtractor[kk] = extractor

@@ -16,6 +16,7 @@ package krt
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -38,7 +39,7 @@ type filter struct {
 }
 
 type indexFilter struct {
-	indexId      string
+	filterUid    uint64
 	list         func() any
 	indexMatches func(any) bool
 	extractKeys  objectKeyExtractor
@@ -60,7 +61,7 @@ func (f *filter) reverseIndexKey() ([]string, indexedDependencyType, objectKeyEx
 		return f.keys.List(), getKeyType, getKeyExtractor, "", true
 	}
 	if f.index != nil {
-		return []string{f.index.key}, indexType, f.index.extractKeys, f.index.indexId, true
+		return []string{f.index.key}, indexType, f.index.extractKeys, strconv.Itoa(int(f.index.filterUid)), true
 	}
 	return nil, unknownIndexType, nil, "", false
 }
@@ -118,7 +119,7 @@ func FilterIndex[K comparable, I any](idx Index[K, I], k K) FetchOption {
 	return func(h *dependency) {
 		// Index is used to pre-filter on the List, and also to match in Matches. Provide type-erased methods for both
 		h.filter.index = &indexFilter{
-			indexId: idx.ID(),
+			filterUid: idx.ID(),
 			list: func() any {
 				return idx.Lookup(k)
 			},
