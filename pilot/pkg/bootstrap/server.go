@@ -394,7 +394,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 				s.environment.Watcher,
 				s.kubeClient.Kube(),
 				s.clusterID,
-				getClusterAliases(args.RegistryOptions.KubeOptions.ClusterAliases, s.clusterID),
+				args.RegistryOptions.KubeOptions.ClusterAliases,
 				s.multiclusterController))
 	}
 	if len(features.TrustedGatewayCIDR) > 0 {

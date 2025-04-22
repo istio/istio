@@ -7,4 +7,4 @@ releaseNotes:
 - |
   **Fixed** sidecar with old CLUSTER_ID now ables to connect to istiod with new CLUSTER_ID when `--clusterAliases` command argument is being used.
 - |
-  **Changed** added valudation for `--clusterAliases` command argument, that it shouldn't have more then one alias per cluster.
+  **Added** valudation for `--clusterAliases` command argument, that it shouldn't have more then one alias per cluster.
