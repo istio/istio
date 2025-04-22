@@ -38,6 +38,7 @@ type filter struct {
 }
 
 type indexFilter struct {
+	indexId      string
 	list         func() any
 	indexMatches func(any) bool
 	extractKeys  objectKeyExtractor
@@ -51,17 +52,17 @@ func getKeyExtractor(o any) []string {
 }
 
 // reverseIndexKey
-func (f *filter) reverseIndexKey() ([]string, indexedDependencyType, objectKeyExtractor, bool) {
+func (f *filter) reverseIndexKey() ([]string, indexedDependencyType, objectKeyExtractor, string, bool) {
 	if f.keys.Len() > 0 {
 		if f.index != nil {
 			panic("cannot filter by index and key")
 		}
-		return f.keys.List(), getKeyType, getKeyExtractor, true
+		return f.keys.List(), getKeyType, getKeyExtractor, "", true
 	}
 	if f.index != nil {
-		return []string{f.index.key}, indexType, f.index.extractKeys, true
+		return []string{f.index.key}, indexType, f.index.extractKeys, f.index.indexId, true
 	}
-	return nil, unknownIndexType, nil, false
+	return nil, unknownIndexType, nil, "", false
 }
 
 func (f *filter) String() string {
@@ -113,12 +114,11 @@ func FilterSelects(lbls map[string]string) FetchOption {
 }
 
 // FilterIndex selects only objects matching a key in an index.
-// NOTE: A single transformation function cannot call FilterIndex
-// using multiple indexes for the same collection.
 func FilterIndex[K comparable, I any](idx Index[K, I], k K) FetchOption {
 	return func(h *dependency) {
 		// Index is used to pre-filter on the List, and also to match in Matches. Provide type-erased methods for both
 		h.filter.index = &indexFilter{
+			indexId: idx.ID(),
 			list: func() any {
 				return idx.Lookup(k)
 			},
