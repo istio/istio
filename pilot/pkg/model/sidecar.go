@@ -356,15 +356,12 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 			sc.appendSidecarServices(servicesAdded, s)
 		}
 
-		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServices(ilw.virtualServices)
-		sc.AddConfigDependencies(delegates...)
-
 		// Infer more possible destinations from virtual services
 		// Services chosen here will not override services explicitly requested in ilw.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range ilw.virtualServices {
+			// we don't need to add dependencies on delegate virtual services because they are handled by the virtual service controller
 			sc.AddConfigDependencies(ConfigKey{
 				Kind:      kind.VirtualService,
 				Namespace: vs.Namespace,

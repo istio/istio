@@ -150,6 +150,8 @@ type Environment struct {
 
 	// Cache for XDS resources.
 	Cache XdsCache
+
+	VirtualServiceController *VirtualServiceController
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {

@@ -132,14 +132,29 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	s.configController = aggregateConfigController
 
-	// Create the config store.
+	s.configController = aggregateConfigController
 	s.environment.ConfigStore = aggregateConfigController
 
 	// Defer starting the controller until after the service is created.
 	s.addStartFunc("config controller", func(stop <-chan struct{}) error {
 		go s.configController.Run(stop)
+		return nil
+	})
+
+	s.virtualServiceController = model.NewVirtualServiceController(
+		s.configController,
+		model.VSControllerOptions{
+			KrtDebugger: args.RegistryOptions.KubeOptions.KrtDebugger,
+			XDSUpdater:  s.XDSServer,
+		},
+		s.environment.Watcher,
+	)
+	s.environment.VirtualServiceController = s.virtualServiceController
+
+	// Defer starting the virtual service controller until after the service is created.
+	s.addStartFunc("virtual service controller", func(stop <-chan struct{}) error {
+		go s.virtualServiceController.Run(stop)
 		return nil
 	})
 
