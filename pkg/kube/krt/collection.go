@@ -65,13 +65,18 @@ func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 					key: depKey,
 					typ: typ,
 				}
+				if typ == unknownIndexType && extractor == nil {
+					// no need to make keys in the reverse index
+					// if no extractor specified
+					continue
+				}
+
 				sets.InsertOrNew(i.indexedDependencies, k, key)
 				kk := extractorKey{
 					filterUID: filterId,
 					uid:       d.id,
 					typ:       typ,
 				}
-
 				i.indexedDependenciesExtractor[kk] = extractor
 			}
 		}
@@ -108,11 +113,11 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 		// Where possible, we utilize the reverse-indexing to get the precise list of potentially changed objects.
 		foundAny := false
 
-		// find all the indexes/collections we depend on
-		// N here is collections/indexes so it should be small
+		// find all the reverse indexes related to the sourceCollection
+		// N here is usually going to be small (the number of FilterKey/FilterIndex)
 		extractorKeys := []extractorKey{}
 		for k := range i.indexedDependenciesExtractor {
-			if k.uid == sourceCollection {
+			if k.typ != unknownIndexType && k.uid == sourceCollection {
 				extractorKeys = append(extractorKeys, k)
 			}
 		}
