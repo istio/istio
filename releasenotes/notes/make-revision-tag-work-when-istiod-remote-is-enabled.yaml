@@ -5,4 +5,4 @@ issue:
 - 54743
 releaseNotes:
 - |
-  **Removed** the restriction that revision tag only works when Istiod remote is not enabled. Revision tag now works as long as the `revisionTags` is specified no matter Istiod remote is enabled or not.
+  **Removed** the restriction that revision tag only works when `istiodRemote` is not enabled in the istiod helm chart. Revision tag now works as long as the `revisionTags` is specified no matter `istiodRemote` is enabled or not.
