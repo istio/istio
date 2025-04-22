@@ -32,6 +32,7 @@ import (
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -43,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
@@ -142,6 +144,17 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
 		xdsUpdater = model.NewEndpointIndexUpdater(env.EndpointIndex)
+	}
+
+	if features.EnableVirtualServiceController {
+		configController = model.NewVirtualServiceController(
+			configController,
+			model.VSControllerOptions{
+				KrtDebugger: krt.GlobalDebugHandler,
+				XDSUpdater:  xdsUpdater,
+			},
+			env.Watcher,
+		)
 	}
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})

@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	knetworking "k8s.io/api/networking/v1"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
@@ -189,16 +190,22 @@ func NewController(
 		),
 	}
 
+	if !features.EnableVirtualServiceController {
+		c.handlers = append(
+			c.handlers,
+			c.outputs.VirtualServices.RegisterBatch(pushXds(c.xdsUpdater,
+				func(t config.Config) model.ConfigKey {
+					return model.ConfigKey{
+						Kind:      kind.VirtualService,
+						Name:      t.Name,
+						Namespace: t.Namespace,
+					}
+				}), false),
+		)
+	}
+
 	c.handlers = append(
 		c.handlers,
-		c.outputs.VirtualServices.RegisterBatch(pushXds(c.xdsUpdater,
-			func(t config.Config) model.ConfigKey {
-				return model.ConfigKey{
-					Kind:      kind.VirtualService,
-					Name:      t.Name,
-					Namespace: t.Namespace,
-				}
-			}), false),
 		c.outputs.Gateways.RegisterBatch(pushXds(c.xdsUpdater,
 			func(t config.Config) model.ConfigKey {
 				return model.ConfigKey{
