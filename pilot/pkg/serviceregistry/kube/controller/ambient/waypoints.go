@@ -309,11 +309,12 @@ func (a *index) makeWaypoint(
 	serviceAccounts []string,
 	trafficType string,
 ) *Waypoint {
+	binding := makeInboundBinding(gateway, gatewayClass)
 	return &Waypoint{
 		Named:           krt.NewNamed(gateway),
 		Address:         a.getGatewayAddress(ctx, gateway),
-		DefaultBinding:  makeInboundBinding(gateway, gatewayClass),
-		AllowedRoutes:   makeAllowedRoutes(gateway),
+		DefaultBinding:  binding,
+		AllowedRoutes:   makeAllowedRoutes(gateway, binding),
 		TrafficType:     trafficType,
 		ServiceAccounts: slices.Sort(serviceAccounts),
 	}
@@ -374,24 +375,63 @@ func (w *Waypoint) GetAddress() *workloadapi.GatewayAddress {
 	return w.Address
 }
 
-func makeAllowedRoutes(gateway *v1beta1.Gateway) WaypointSelector {
+// makeAllowedRoutes returns a WaypointSelector that matches the listener with the given binding
+// if we don't have a binding we use the default HBONE listener
+// if we have a binding we use the protocol and port defined in the binding
+func makeAllowedRoutes(gateway *v1beta1.Gateway, binding *InboundBinding) WaypointSelector {
+	// First see if we can find a bound listener
+	if listener, found := findBoundListener(gateway, binding); found {
+		return makeWaypointSelector(listener)
+	}
+
+	// Otherwise use the default HBONE listener
 	for _, l := range gateway.Spec.Listeners {
 		if l.Protocol == "HBONE" && l.Port == 15008 {
 			// This is our HBONE listener
-			if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
-				break
-			}
-			al := *l.AllowedRoutes.Namespaces
-			from := ptr.OrDefault(al.From, gatewayv1.NamespacesFromSame)
-			label, _ := metav1.LabelSelectorAsSelector(l.AllowedRoutes.Namespaces.Selector)
-			return WaypointSelector{
-				FromNamespaces: from,
-				Selector:       label,
-			}
+			return makeWaypointSelector(l)
 		}
 	}
+
+	// We didn't find any listener, just use "Same"
 	return WaypointSelector{
 		FromNamespaces: gatewayv1.NamespacesFromSame,
+	}
+}
+
+func findBoundListener(gateway *v1beta1.Gateway, binding *InboundBinding) (v1beta1.Listener, bool) {
+	if binding == nil {
+		return v1beta1.Listener{}, false
+	}
+	var match func(l v1beta1.Listener) bool
+	if binding.Port != 0 {
+		match = func(l v1beta1.Listener) bool {
+			return l.Port == gatewayv1.PortNumber(binding.Port)
+		}
+	} else if binding.Protocol == workloadapi.ApplicationTunnel_PROXY {
+		match = func(l v1beta1.Listener) bool {
+			return l.Protocol == constants.WaypointSandwichListenerProxyProtocol
+		}
+	}
+	for _, l := range gateway.Spec.Listeners {
+		if match != nil && match(l) {
+			return l, true
+		}
+	}
+	return v1beta1.Listener{}, false
+}
+
+func makeWaypointSelector(l v1beta1.Listener) WaypointSelector {
+	if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
+		return WaypointSelector{
+			FromNamespaces: gatewayv1.NamespacesFromSame,
+		}
+	}
+	al := *l.AllowedRoutes.Namespaces
+	from := ptr.OrDefault(al.From, gatewayv1.NamespacesFromSame)
+	label, _ := metav1.LabelSelectorAsSelector(l.AllowedRoutes.Namespaces.Selector)
+	return WaypointSelector{
+		FromNamespaces: from,
+		Selector:       label,
 	}
 }
 
