@@ -179,5 +179,9 @@ func (s *FakeStore) WaitUntilSynced(stop <-chan struct{}) bool {
 }
 
 func (s *FakeStore) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
-	return s.store[typ].collection
+	if store, ok := s.store[typ]; ok {
+		return store.collection
+	}
+
+	return nil
 }

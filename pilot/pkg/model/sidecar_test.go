@@ -29,6 +29,7 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -38,7 +39,10 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -2732,13 +2736,24 @@ func TestCreateSidecarScope(t *testing.T) {
 			ps.initDefaultExportMaps()
 			ps.initServiceRegistry(env, nil)
 			ps.setDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3, nonWorkloadSelectorDr})
-			configStore := NewFakeStore()
+			fakeStore := NewFakeStore()
+			var controller ConfigStoreController = fakeStore
 			for _, c := range tt.virtualServices {
-				if _, err := configStore.Create(c); err != nil {
+				if _, err := controller.Create(c); err != nil {
 					t.Fatalf("could not create %v", c.Name)
 				}
 			}
-			env.ConfigStore = configStore
+			if features.EnableVirtualServiceController {
+				controller = NewVirtualServiceController(
+					controller,
+					VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+					env.Watcher,
+				)
+			}
+			stop := test.NewStop(t)
+			go controller.Run(stop)
+			kube.WaitForCacheSync("test", stop, controller.HasSynced)
+			env.ConfigStore = controller
 			ps.initVirtualServices(env)
 			sidecarConfig := tt.sidecarConfig
 			configuredListeneres := 1
