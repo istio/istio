@@ -982,6 +982,7 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyF
 			addService(p.Zipkin.Service)
 		//nolint: staticcheck  // Lightstep deprecated
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
+			log.Warnf("Lightstep provider is deprecated, please use OpenTelemetry instead")
 			addService(p.Lightstep.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 			addService(p.Datadog.Service)
@@ -989,6 +990,7 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyF
 			addService(p.Skywalking.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
 			//nolint: staticcheck
+			log.Warnf("Opencensus provider is deprecated, please use OpenTelemetry instead")
 			addService(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
 			addService(p.Opentelemetry.Service)
