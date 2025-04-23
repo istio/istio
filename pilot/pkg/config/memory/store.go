@@ -21,9 +21,9 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/kube/krt"
 )
 
 var (
@@ -37,62 +37,111 @@ const ResourceVersion string = "ResourceVersion"
 
 // Make creates an in-memory config store from a config schemas
 // It is with validation
-func Make(schemas collection.Schemas) model.ConfigStore {
+func Make(schemas collection.Schemas) *Store {
 	return newStore(schemas, false)
 }
 
 // MakeSkipValidation creates an in-memory config store from a config schemas
 // It is without validation
-func MakeSkipValidation(schemas collection.Schemas) model.ConfigStore {
+func MakeSkipValidation(schemas collection.Schemas) *Store {
 	return newStore(schemas, true)
 }
 
-func newStore(schemas collection.Schemas, skipValidation bool) model.ConfigStore {
-	out := store{
+type syncer struct {
+	synced chan struct{}
+}
+
+func (c *syncer) WaitUntilSynced(stop <-chan struct{}) bool {
+	select {
+	case <-c.synced:
+		return true
+	case <-stop:
+		return false
+	}
+}
+
+func (c *syncer) HasSynced() bool {
+	select {
+	case <-c.synced:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *syncer) MarkSynced() {
+	close(c.synced)
+}
+
+func newStore(
+	schemas collection.Schemas,
+	skipValidation bool,
+) *Store {
+	stop := make(chan struct{})
+	opts := krt.NewOptionsBuilder(stop, "memory", krt.GlobalDebugHandler)
+	out := Store{
 		schemas:        schemas,
-		data:           make(map[config.GroupVersionKind]map[string]map[string]any),
+		data:           make(map[config.GroupVersionKind]kindStore),
 		skipValidation: skipValidation,
+		syncer:         &syncer{make(chan struct{})},
+		stop:           stop,
 	}
 	for _, s := range schemas.All() {
-		out.data[s.GroupVersionKind()] = make(map[string]map[string]any)
+		collection := krt.NewStaticCollection[config.Config](out.syncer, nil, opts.WithName(s.Kind())...)
+		index := krt.NewNamespaceIndex(collection)
+		out.data[s.GroupVersionKind()] = kindStore{
+			collection: collection,
+			index:      index,
+		}
 	}
 	return &out
 }
 
-type store struct {
-	schemas        collection.Schemas
-	data           map[config.GroupVersionKind]map[string]map[string]any
-	skipValidation bool
-	mutex          sync.RWMutex
+type kindStore struct {
+	collection krt.StaticCollection[config.Config]
+	index      krt.Index[string, config.Config]
 }
 
-func (cr *store) Schemas() collection.Schemas {
+type Store struct {
+	schemas        collection.Schemas
+	data           map[config.GroupVersionKind]kindStore
+	skipValidation bool
+	mutex          sync.RWMutex
+	syncer         *syncer
+	stop           chan struct{}
+}
+
+func (cr *Store) hasSynced() bool {
+	for _, data := range cr.data {
+		if !data.collection.HasSynced() {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (cr *Store) Schemas() collection.Schemas {
 	return cr.schemas
 }
 
-func (cr *store) Get(kind config.GroupVersionKind, name, namespace string) *config.Config {
+func (cr *Store) Get(kind config.GroupVersionKind, name, namespace string) *config.Config {
 	cr.mutex.RLock()
 	defer cr.mutex.RUnlock()
-	_, ok := cr.data[kind]
+	data, ok := cr.data[kind]
 	if !ok {
 		return nil
 	}
 
-	ns, exists := cr.data[kind][namespace]
-	if !exists {
-		return nil
+	key := name
+	if namespace != "" {
+		key = namespace + "/" + name
 	}
 
-	out, exists := ns[name]
-	if !exists {
-		return nil
-	}
-	config := out.(config.Config)
-
-	return &config
+	return data.collection.GetKey(key)
 }
 
-func (cr *store) List(kind config.GroupVersionKind, namespace string) []config.Config {
+func (cr *Store) List(kind config.GroupVersionKind, namespace string) []config.Config {
 	cr.mutex.RLock()
 	defer cr.mutex.RUnlock()
 	data, exists := cr.data[kind]
@@ -100,56 +149,37 @@ func (cr *store) List(kind config.GroupVersionKind, namespace string) []config.C
 		return nil
 	}
 
-	var size int
 	if namespace == "" {
-		for _, ns := range data {
-			size += len(ns)
-		}
-	} else {
-		size = len(data[namespace])
+		return data.collection.List()
 	}
 
-	out := make([]config.Config, 0, size)
-	if namespace == "" {
-		for _, ns := range data {
-			for _, value := range ns {
-				out = append(out, value.(config.Config))
-			}
-		}
-	} else {
-		ns, exists := data[namespace]
-		if !exists {
-			return nil
-		}
-		for _, value := range ns {
-			out = append(out, value.(config.Config))
-		}
-	}
-	return out
+	return data.index.Lookup(namespace)
 }
 
-func (cr *store) Delete(kind config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
+func (cr *Store) Delete(kind config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
 	data, ok := cr.data[kind]
 	if !ok {
 		return fmt.Errorf("unknown type %v", kind)
 	}
-	ns, exists := data[namespace]
-	if !exists {
+
+	key := name
+	if namespace != "" {
+		key = namespace + "/" + name
+	}
+
+	cfg := data.collection.GetKey(key)
+	if cfg == nil {
 		return errNotFound
 	}
 
-	_, exists = ns[name]
-	if !exists {
-		return errNotFound
-	}
+	data.collection.DeleteObject(key)
 
-	delete(ns, name)
 	return nil
 }
 
-func (cr *store) Create(cfg config.Config) (string, error) {
+func (cr *Store) Create(cfg config.Config) (string, error) {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
 	kind := cfg.GroupVersionKind
@@ -162,15 +192,11 @@ func (cr *store) Create(cfg config.Config) (string, error) {
 			return "", err
 		}
 	}
-	ns, exists := cr.data[kind][cfg.Namespace]
-	if !exists {
-		ns = map[string]any{}
-		cr.data[kind][cfg.Namespace] = ns
-	}
 
-	_, exists = ns[cfg.Name]
+	data := cr.data[kind]
+	obj := data.collection.GetKey(krt.GetKey(cfg))
 
-	if !exists {
+	if obj == nil {
 		tnow := time.Now()
 		if cfg.ResourceVersion == "" {
 			cfg.ResourceVersion = tnow.String()
@@ -180,13 +206,14 @@ func (cr *store) Create(cfg config.Config) (string, error) {
 			cfg.CreationTimestamp = tnow
 		}
 
-		ns[cfg.Name] = cfg
+		data.collection.UpdateObject(cfg)
+
 		return cfg.ResourceVersion, nil
 	}
 	return "", errAlreadyExists
 }
 
-func (cr *store) Update(cfg config.Config) (string, error) {
+func (cr *Store) Update(cfg config.Config) (string, error) {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
 	kind := cfg.GroupVersionKind
@@ -200,16 +227,12 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 		}
 	}
 
-	ns, exists := cr.data[kind][cfg.Namespace]
-	if !exists {
+	data := cr.data[kind]
+	existing := data.collection.GetKey(krt.GetKey(cfg))
+	if existing == nil {
 		return "", errNotFound
 	}
-
-	existing, exists := ns[cfg.Name]
-	if !exists {
-		return "", errNotFound
-	}
-	if hasConflict(existing.(config.Config), cfg) {
+	if hasConflict(*existing, cfg) {
 		return "", errConflict
 	}
 	if cfg.Annotations != nil && cfg.Annotations[ResourceVersion] != "" {
@@ -219,15 +242,15 @@ func (cr *store) Update(cfg config.Config) (string, error) {
 		cfg.ResourceVersion = time.Now().String()
 	}
 
-	ns[cfg.Name] = cfg
+	data.collection.UpdateObject(cfg)
 	return cfg.ResourceVersion, nil
 }
 
-func (cr *store) UpdateStatus(cfg config.Config) (string, error) {
+func (cr *Store) UpdateStatus(cfg config.Config) (string, error) {
 	return cr.Update(cfg)
 }
 
-func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
+func (cr *Store) Patch(orig config.Config, patchFn config.PatchFunc) (string, error) {
 	cr.mutex.Lock()
 	defer cr.mutex.Unlock()
 
@@ -244,18 +267,19 @@ func (cr *store) Patch(orig config.Config, patchFn config.PatchFunc) (string, er
 		}
 	}
 
-	_, ok = cr.data[gvk]
+	data, ok := cr.data[gvk]
 	if !ok {
 		return "", errNotFound
 	}
-	ns, exists := cr.data[gvk][orig.Namespace]
-	if !exists {
+
+	existing := data.collection.GetKey(krt.GetKey(cfg))
+	if existing == nil {
 		return "", errNotFound
 	}
 
 	rev := time.Now().String()
 	cfg.ResourceVersion = rev
-	ns[cfg.Name] = cfg
+	data.collection.UpdateObject(cfg)
 
 	return rev, nil
 }
