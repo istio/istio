@@ -989,8 +989,8 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyF
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 			addService(p.Skywalking.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-			//nolint: staticcheck
 			log.Warnf("Opencensus provider is deprecated, please use OpenTelemetry instead")
+			//nolint: staticcheck
 			addService(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
 			addService(p.Opentelemetry.Service)
