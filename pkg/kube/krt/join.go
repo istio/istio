@@ -30,6 +30,7 @@ type join[T any] struct {
 	synced           <-chan struct{}
 	uncheckedOverlap bool
 	syncer           Syncer
+	metadata         Metadata
 }
 
 func (j *join[T]) GetKey(k string) *T {
@@ -178,6 +179,10 @@ func (j *join[T]) WaitUntilSynced(stop <-chan struct{}) bool {
 	return j.syncer.WaitUntilSynced(stop)
 }
 
+func (j *join[T]) Metadata() Metadata {
+	return j.metadata
+}
+
 // JoinCollection combines multiple Collection[T] into a single
 // Collection[T] merging equal objects into one record
 // in the resulting Collection
@@ -200,7 +205,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		log.Infof("%v synced", o.name)
 	}()
 	// TODO: in the future, we could have a custom merge function. For now, since we just take the first, we optimize around that case
-	return &join[T]{
+	j := &join[T]{
 		collectionName:   o.name,
 		id:               nextUID(),
 		synced:           synced,
@@ -211,4 +216,10 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 			synced: synced,
 		},
 	}
+
+	if o.metadata != nil {
+		j.metadata = o.metadata
+	}
+
+	return j
 }

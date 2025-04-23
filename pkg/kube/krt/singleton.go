@@ -58,6 +58,9 @@ func NewStatic[T any](initial *T, startSynced bool, opts ...CollectionOption) St
 			return x.synced.Load()
 		},
 	}
+	if o.metadata != nil {
+		x.metadata = o.metadata
+	}
 	maybeRegisterCollectionForDebugging(x, o.debugger)
 	return collectionAdapter[T]{x}
 }
@@ -70,6 +73,7 @@ type static[T any] struct {
 	eventHandlers  *handlers[T]
 	collectionName string
 	syncer         Syncer
+	metadata       Metadata
 }
 
 func (d *static[T]) GetKey(k string) *T {
@@ -82,6 +86,10 @@ func (d *static[T]) List() []T {
 		return nil
 	}
 	return []T{*v}
+}
+
+func (d *static[T]) Metadata() Metadata {
+	return d.metadata
 }
 
 func (d *static[T]) Register(f func(o Event[T])) HandlerRegistration {
