@@ -44,13 +44,11 @@ func secureTLSCipherNames() []string {
 
 // validateClusterAliases validates that there's no more then alias per clusterID.
 func validateClusterAliases(clusterAliases map[string]string) error {
-	seenClusterIDs := make(map[string]struct{})
-
+	seenClusterIDs := sets.New[string]()
 	for _, clusterID := range clusterAliases {
-		if _, exists := seenClusterIDs[clusterID]; exists {
+		if seenClusterIDs.InsertContains(clusterID) {
 			return errors.New("More than one cluster alias for cluster id: " + clusterID)
 		}
-		seenClusterIDs[clusterID] = struct{}{}
 	}
 	return nil
 }
