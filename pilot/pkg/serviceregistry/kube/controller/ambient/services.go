@@ -224,14 +224,7 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 
 	var lb *workloadapi.LoadBalancing
 
-	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
-	preferClose := strings.EqualFold(svc.Annotations[apiannotation.NetworkingTrafficDistribution.Name], v1.ServiceTrafficDistributionPreferClose)
-	if svc.Spec.TrafficDistribution != nil {
-		preferClose = *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose
-	}
-	if preferClose {
-		lb = preferCloseLoadBalancer
-	}
+	// First, use internal traffic policy if set.
 	if itp := svc.Spec.InternalTrafficPolicy; itp != nil && *itp == v1.ServiceInternalTrafficPolicyLocal {
 		lb = &workloadapi.LoadBalancing{
 			// Only allow endpoints on the same node.
@@ -240,7 +233,16 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 			},
 			Mode: workloadapi.LoadBalancing_STRICT,
 		}
+	} else {
+		// Check traffic distribution.
+		trafficDistribution := kube.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
+		if (trafficDistribution == model.TrafficDistributionPreferSameZone) || (trafficDistribution == model.TrafficDistributionPreferClose) {
+			lb = preferCloseLoadBalancer
+		} else if trafficDistribution == model.TrafficDistributionPreferSameNode {
+			lb = preferSameNodeLoadBalancer
+		}
 	}
+
 	if svc.Spec.PublishNotReadyAddresses {
 		if lb == nil {
 			lb = &workloadapi.LoadBalancing{}
@@ -279,6 +281,18 @@ var preferCloseLoadBalancer = &workloadapi.LoadBalancing{
 		workloadapi.LoadBalancing_REGION,
 		workloadapi.LoadBalancing_ZONE,
 		workloadapi.LoadBalancing_SUBZONE,
+	},
+	Mode: workloadapi.LoadBalancing_FAILOVER,
+}
+
+var preferSameNodeLoadBalancer = &workloadapi.LoadBalancing{
+	// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
+	RoutingPreference: []workloadapi.LoadBalancing_Scope{
+		workloadapi.LoadBalancing_NETWORK,
+		workloadapi.LoadBalancing_REGION,
+		workloadapi.LoadBalancing_ZONE,
+		workloadapi.LoadBalancing_SUBZONE,
+		workloadapi.LoadBalancing_NODE,
 	},
 	Mode: workloadapi.LoadBalancing_FAILOVER,
 }
