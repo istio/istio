@@ -17,6 +17,7 @@ package memory
 import (
 	"istio.io/istio/pilot/pkg/model"
 	config2 "istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/log"
 )
 
@@ -43,7 +44,6 @@ type ConfigEvent struct {
 }
 
 type configStoreMonitor struct {
-	store    model.ConfigStore
 	handlers map[config2.GroupVersionKind][]Handler
 	eventCh  chan ConfigEvent
 	// If enabled, events will be handled synchronously
@@ -51,25 +51,24 @@ type configStoreMonitor struct {
 }
 
 // NewMonitor returns new Monitor implementation with a default event buffer size.
-func NewMonitor(store model.ConfigStore) Monitor {
-	return newBufferedMonitor(store, BufferSize, false)
+func NewMonitor(schemas collection.Schemas) Monitor {
+	return newBufferedMonitor(schemas, BufferSize, false)
 }
 
 // NewMonitor returns new Monitor implementation which will process events synchronously
-func NewSyncMonitor(store model.ConfigStore) Monitor {
-	return newBufferedMonitor(store, BufferSize, true)
+func NewSyncMonitor(schemas collection.Schemas) Monitor {
+	return newBufferedMonitor(schemas, BufferSize, true)
 }
 
 // NewBufferedMonitor returns new Monitor implementation with the specified event buffer size
-func newBufferedMonitor(store model.ConfigStore, bufferSize int, sync bool) Monitor {
+func newBufferedMonitor(schemas collection.Schemas, bufferSize int, sync bool) Monitor {
 	handlers := make(map[config2.GroupVersionKind][]Handler)
 
-	for _, s := range store.Schemas().All() {
+	for _, s := range schemas.All() {
 		handlers[s.GroupVersionKind()] = make([]Handler, 0)
 	}
 
 	return &configStoreMonitor{
-		store:    store,
 		handlers: handlers,
 		eventCh:  make(chan ConfigEvent, bufferSize),
 		sync:     sync,

@@ -213,12 +213,10 @@ func TestAggregateStoreCache(t *testing.T) {
 	stop := make(chan struct{})
 	defer func() { close(stop) }()
 
-	store1 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
-	controller1 := memory.NewController(store1)
+	controller1 := memory.NewController(collection.SchemasFor(collections.HTTPRoute))
 	go controller1.Run(stop)
 
-	store2 := memory.Make(collection.SchemasFor(collections.HTTPRoute))
-	controller2 := memory.NewController(store2)
+	controller2 := memory.NewController(collection.SchemasFor(collections.HTTPRoute))
 	go controller2.Run(stop)
 
 	stores := []model.ConfigStoreController{controller1, controller2}
