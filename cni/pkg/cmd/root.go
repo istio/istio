@@ -24,6 +24,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
@@ -100,11 +102,23 @@ var rootCmd = &cobra.Command{
 			// as well as listen for messages from the CNI binary.
 			cniEventAddr := filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.CNIEventSocketName)
 			log.Infof("Starting ambient node agent with inpod redirect mode on socket %s", cniEventAddr)
+
+			// instantiate and validate the ambient enablement selector
+			lsCfg := &metav1.LabelSelector{}
+			err = yaml.Unmarshal([]byte(cfg.InstallConfig.AmbientEnablementSelector), lsCfg)
+			if err != nil {
+				return fmt.Errorf("failed to parse ambient enablement selector: %v", err)
+			}
+			enablementSelector, err := metav1.LabelSelectorAsSelector(lsCfg)
+			if err != nil {
+				return fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
+			}
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
 					SystemNamespace:            nodeagent.SystemNamespace,
 					Revision:                   nodeagent.Revision,
 					ServerSocket:               cfg.InstallConfig.ZtunnelUDSAddress,
+					EnablementSelector:         enablementSelector,
 					DNSCapture:                 cfg.InstallConfig.AmbientDNSCapture,
 					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,
@@ -298,6 +312,7 @@ func constructConfig() (*config.Config, error) {
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
 		AmbientEnabled:                    viper.GetBool(constants.AmbientEnabled),
+		AmbientEnablementSelector:         viper.GetString(constants.AmbientEnablementSelector),
 		AmbientDNSCapture:                 viper.GetBool(constants.AmbientDNSCapture),
 		AmbientIPv6:                       viper.GetBool(constants.AmbientIPv6),
 		AmbientDisableSafeUpgrade:         viper.GetBool(constants.AmbientDisableSafeUpgrade),

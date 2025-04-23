@@ -833,7 +833,7 @@ func TestInformerGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) 
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	handlers := setupHandlers(ctx, client, server, "istio-system", defaultAmbientSelector)
 	client.RunAndWait(ctx.Done())
 	pods := handlers.GetActiveAmbientPodSnapshot()
 
@@ -893,7 +893,7 @@ func TestInformerGetActiveAmbientPodSnapshotSkipsTerminatedJobPods(t *testing.T)
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	handlers := setupHandlers(ctx, client, server, "istio-system", defaultAmbientSelector)
 	client.RunAndWait(ctx.Done())
 	pods := handlers.GetActiveAmbientPodSnapshot()
 
@@ -934,7 +934,7 @@ func TestInformerAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	handlers := setupHandlers(ctx, client, server, "istio-system", defaultAmbientSelector)
 	client.RunAndWait(ctx.Done())
 	_, err := handlers.GetPodIfAmbientEnabled(pod.Name, ns.Name)
 
@@ -1014,7 +1014,7 @@ func TestInformerAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	handlers := setupHandlers(ctx, client, server, "istio-system", defaultAmbientSelector)
 	client.RunAndWait(ctx.Done())
 	disabledPod, err := handlers.GetPodIfAmbientEnabled(pod.Name, "what")
 
@@ -1283,7 +1283,7 @@ func populateClientAndWaitForInformer(ctx context.Context, t *testing.T, client 
 
 	server := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, server, "istio-system")
+	handlers := setupHandlers(ctx, client, server, "istio-system", defaultAmbientSelector)
 	client.RunAndWait(ctx.Done())
 	handlers.Start()
 

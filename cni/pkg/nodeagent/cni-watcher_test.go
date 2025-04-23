@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
@@ -34,6 +35,10 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+var defaultAmbientSelector = labels.SelectorFromSet(labels.Set{
+	label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
+})
 
 func TestProcessAddEventGoodPayload(t *testing.T) {
 	valid := CNIPluginAddEvent{
@@ -111,7 +116,7 @@ func TestCNIPluginServer(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
+	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector)
 
 	// We are not going to start the server, so the sockpath is irrelevant
 	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)
@@ -184,7 +189,7 @@ func TestGetPodWithRetry(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
+	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector)
 
 	// We are not going to start the server, so the sockpath is irrelevant
 	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)
@@ -259,7 +264,7 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
+	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector)
 
 	// We are not going to start the server, so the sockpath is irrelevant
 	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)

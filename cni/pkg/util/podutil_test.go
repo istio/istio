@@ -19,12 +19,17 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+var defaultAmbientSelector = labels.SelectorFromSet(labels.Set{
+	label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
+})
 
 func TestGetPodIPIfPodIPPresent(t *testing.T) {
 	pod := &corev1.Pod{
@@ -207,7 +212,7 @@ func TestPodRedirectionEnabled(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := PodRedirectionEnabled(tt.args.namespace, tt.args.pod); got != tt.want {
+			if got := PodRedirectionEnabled(tt.args.namespace, tt.args.pod, defaultAmbientSelector); got != tt.want {
 				t.Errorf("PodRedirectionEnabled() = %v, want %v", got, tt.want)
 			}
 		})

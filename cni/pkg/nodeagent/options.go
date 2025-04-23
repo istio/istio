@@ -17,6 +17,8 @@ package nodeagent
 import (
 	"net/netip"
 
+	"k8s.io/apimachinery/pkg/labels"
+
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
 )
@@ -49,6 +51,7 @@ type AmbientArgs struct {
 	Revision                   string
 	KubeConfig                 string
 	ServerSocket               string
+	EnablementSelector         labels.Selector
 	DNSCapture                 bool
 	EnableIPv6                 bool
 	ReconcilePodRulesOnStartup bool

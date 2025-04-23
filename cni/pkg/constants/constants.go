@@ -39,6 +39,7 @@ const (
 	ExcludeNamespaces                 = "exclude-namespaces"
 	PodNamespace                      = "pod-namespace"
 	AmbientEnabled                    = "ambient-enabled"
+	AmbientEnablementSelector         = "ambient-enablement-selector"
 	AmbientDNSCapture                 = "ambient-dns-capture"
 	AmbientIPv6                       = "ambient-ipv6"
 	AmbientDisableSafeUpgrade         = "ambient-disable-safe-upgrade"

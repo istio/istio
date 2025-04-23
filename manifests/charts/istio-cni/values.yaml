@@ -45,6 +45,8 @@ _internal_defaults_do_not_set:
   ambient:
     # If enabled, ambient redirection will be enabled
     enabled: false
+    # If ambient is enabled, this selector will be used to identify the ambient-enabled pods
+    enablementSelector: "matchLabels: {istio.io/dataplane-mode: ambient}"
     # Set ambient config dir path: defaults to /etc/ambient-config
     configDir: ""
     # If enabled, and ambient is enabled, DNS redirection will be enabled

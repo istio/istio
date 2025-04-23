@@ -33,11 +33,12 @@ import (
 
 func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {
 	pluginConfig := plugin.Config{
-		PluginLogLevel:    cfg.PluginLogLevel,
-		CNIAgentRunDir:    cfg.CNIAgentRunDir,
-		AmbientEnabled:    cfg.AmbientEnabled,
-		ExcludeNamespaces: strings.Split(cfg.ExcludeNamespaces, ","),
-		PodNamespace:      cfg.PodNamespace,
+		PluginLogLevel:     cfg.PluginLogLevel,
+		CNIAgentRunDir:     cfg.CNIAgentRunDir,
+		AmbientEnabled:     cfg.AmbientEnabled,
+		EnablementSelector: cfg.AmbientEnablementSelector,
+		ExcludeNamespaces:  strings.Split(cfg.ExcludeNamespaces, ","),
+		PodNamespace:       cfg.PodNamespace,
 	}
 
 	pluginConfig.Name = "istio-cni"
