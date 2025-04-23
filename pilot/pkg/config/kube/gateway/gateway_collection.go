@@ -227,7 +227,7 @@ func GatewayCollection(
 	krt.StatusCollection[*gateway.Gateway, gateway.GatewayStatus],
 	krt.Collection[Gateway],
 ) {
-	listenerIndex := krt.NewIndex(listenerSets, func(o ListenerSet) []types.NamespacedName {
+	listenerIndex := krt.NewIndex(listenerSets, "gatewayParent", func(o ListenerSet) []types.NamespacedName {
 		return []types.NamespacedName{o.GatewayParent}
 	})
 	statusCol, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
