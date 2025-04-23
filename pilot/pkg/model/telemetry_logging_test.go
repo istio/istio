@@ -1918,7 +1918,8 @@ func TestAccessLogTextFormatters(t *testing.T) {
 			},
 		},
 		{
-			name:                 "skip-built-in",
+			name: "skip-built-in",
+			// nolint: lll
 			text:                 EnvoyTextLogFormat + "%CEL(request.host)% %REQ_WITHOUT_QUERY(key1:val1)% REQ_WITHOUT_QUERY(key2:val1)% %METADATA(UPSTREAM_HOST:istio)% %METADATA(CLUSTER:istio)%",
 			skipBuiltInFormatter: true,
 			expected: []*core.TypedExtensionConfig{
