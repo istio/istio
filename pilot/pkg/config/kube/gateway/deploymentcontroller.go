@@ -270,7 +270,7 @@ func NewDeploymentController(
 
 	if features.EnableAlphaGatewayAPI {
 		dc.listenerSets = kclient.NewFiltered[*gatewayx.XListenerSet](client, filter)
-		dc.listenerSetByParent = kclient.CreateIndex(dc.listenerSets, func(o *gatewayx.XListenerSet) []types.NamespacedName {
+		dc.listenerSetByParent = kclient.CreateIndex(dc.listenerSets, "parent", func(o *gatewayx.XListenerSet) []types.NamespacedName {
 			return []types.NamespacedName{extractListenerSetParent(o)}
 		})
 		dc.listenerSets.AddEventHandler(controllers.TypedObjectHandler(func(o *gatewayx.XListenerSet) {
