@@ -312,7 +312,7 @@ func (b *cachedMeshConfigAccessLog) buildOrFetch(mesh *meshconfig.MeshConfig) *a
 		return c
 	}
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	accessLog := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
+	accessLog := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh, false)
 	accessLog.Filter = b.filter
 
 	b.mutex.Lock()
