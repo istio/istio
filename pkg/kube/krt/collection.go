@@ -58,7 +58,7 @@ func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 	// Update the I -> Dependency mapping
 	i.objectDependencies[key] = deps
 	for _, d := range deps {
-		if depKeys, typ, extractor, filterId, ok := d.filter.reverseIndexKey(); ok {
+		if depKeys, typ, extractor, filterID, ok := d.filter.reverseIndexKey(); ok {
 			for _, depKey := range depKeys {
 				k := indexedDependency{
 					id:  d.id,
@@ -73,7 +73,7 @@ func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 
 				sets.InsertOrNew(i.indexedDependencies, k, key)
 				kk := extractorKey{
-					filterUID: filterId,
+					filterUID: filterID,
 					uid:       d.id,
 					typ:       typ,
 				}
