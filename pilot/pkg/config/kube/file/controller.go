@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	krtfiles "istio.io/istio/pkg/kube/krt/files"
 )
@@ -139,15 +140,15 @@ func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler m
 		c.handlers[typ] = append(
 			c.handlers[typ],
 			col.RegisterBatch(func(evs []krt.Event[config.Config]) {
-				for _, e := range evs {
-					var o, n config.Config
-					if e.Old != nil {
-						o = *e.Old
+				for _, event := range evs {
+					switch event.Event {
+					case controllers.EventAdd:
+						handler(config.Config{}, *event.New, model.EventAdd)
+					case controllers.EventUpdate:
+						handler(*event.Old, *event.New, model.EventUpdate)
+					case controllers.EventDelete:
+						handler(config.Config{}, *event.Old, model.EventDelete)
 					}
-					if e.New != nil {
-						n = *e.New
-					}
-					handler(o, n, model.Event(e.Event))
 				}
 			}, false),
 		)
