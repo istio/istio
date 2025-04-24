@@ -789,8 +789,10 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 
 		// Filter down to just instances in scope for the service
+		// ServiceEntries can be defined in different namespaces, should not be filtered
 		return slices.FilterInPlace(importedServices, func(svc *Service) bool {
-			return validServices[svc.Hostname].Namespace == svc.Attributes.Namespace
+			return validServices[svc.Hostname].Namespace == svc.Attributes.Namespace ||
+				(!validServices[svc.Hostname].KubernetesService && svc.Attributes.ServiceRegistry == provider.External)
 		})
 	}
 	// Legacy path
@@ -1028,8 +1030,10 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 }
 
 func canMergeServices(s1, s2 *Service) bool {
-	// Hostname has been compared in the caller `appendSidecarServices`, so we donot need to compare again.
-	if s1.Attributes.Namespace != s2.Attributes.Namespace {
+	// Hostname has been compared in the caller `app endSidecarServices`, so we donot need to compare again.
+	// ServiceEntries may define same hosts in different namespaces, so we skip.
+	if s1.Attributes.Namespace != s2.Attributes.Namespace &&
+		s1.Attributes.ServiceRegistry != provider.External {
 		return false
 	}
 	if s1.Resolution != s2.Resolution {
@@ -1045,10 +1049,6 @@ func canMergeServices(s1, s2 *Service) bool {
 	}
 
 	if !maps.Equal(s1.Attributes.LabelSelectors, s2.Attributes.LabelSelectors) {
-		return false
-	}
-
-	if !maps.Equal(s1.Attributes.ExportTo, s2.Attributes.ExportTo) {
 		return false
 	}
 
