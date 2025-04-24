@@ -151,6 +151,7 @@ func (cl *Client) KrtCollection(kind config.GroupVersionKind) krt.Collection[con
 
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
 	if c, ok := cl.kind(kind); ok {
+		// we need to run the existing state
 		cl.handlers[kind] = append(cl.handlers[kind], c.collection.RegisterBatch(func(o []krt.Event[config.Config]) {
 			for _, event := range o {
 				switch event.Event {
@@ -162,7 +163,7 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler mod
 					handler(config.Config{}, *event.Old, model.Event(event.Event))
 				}
 			}
-		}, false))
+		}, true))
 		return
 	}
 
@@ -178,7 +179,6 @@ func (cl *Client) Run(stop <-chan struct{}) {
 
 	t0 := time.Now()
 	cl.logger.Infof("Starting Pilot K8S CRD controller")
-
 	go func() {
 		if !kube.WaitForCacheSync("crdclient", stop, cl.informerSynced) {
 			cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
