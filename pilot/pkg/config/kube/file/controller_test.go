@@ -294,11 +294,6 @@ spec:
 
 func TrackerHandler(tracker *assert.Tracker[string], k kind.Kind) func(o config.Config, n config.Config, e model.Event) {
 	return func(o config.Config, n config.Config, e model.Event) {
-		if e == model.EventDelete {
-			tracker.Record(fmt.Sprintf("%v/%v/%v", e, k, krt.GetKey(o)))
-			return
-		}
-
 		tracker.Record(fmt.Sprintf("%v/%v/%v", e, k, krt.GetKey(n)))
 	}
 }
