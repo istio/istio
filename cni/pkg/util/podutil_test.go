@@ -260,10 +260,14 @@ func TestEnablementFromString(t *testing.T) {
 		},
 		{
 			name: "default",
-			args: `- podSelector:\n    matchLabels:
-      istio.io/dataplane-mode: ambient\n- namespaceSelector:\n    matchLabels:
-      istio.io/dataplane-mode: ambient\n  podSelector:\n    matchExpressions:\n    - key: istio.io/dataplane-mode
-	  operator: NotIn\n      values:\n      - none`,
+			args: "- podSelector:\n    matchLabels:\n      istio.io/dataplane-mode: ambient\n- podSelector:\n    matchExpressions:\n    - { key: istio.io/dataplane-mode, operator: NotIn, values: [none] }\n  namespaceSelector:\n    matchLabels:\n      istio.io/dataplane-mode: ambient", //nolint:all
+			// 			args: `- podSelector:
+			// 	matchLabels: { istio.io/dataplane-mode: ambient }
+			// - podSelector:
+			// 	matchExpressions:
+			// 	- { key: istio.io/dataplane-mode, operator: NotIn, values: [none] }
+			//   namespaceSelector:
+			// 	matchLabels: { istio.io/dataplane-mode: ambient }`,
 		},
 		{
 			name: "namespace only",
