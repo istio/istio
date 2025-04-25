@@ -175,6 +175,12 @@ _internal_defaults_do_not_set:
   # https://kubernetes.io/docs/concepts/storage/volumes/.
   volumeMounts: []
 
+  # Inject initContainers into the Gateway Pods.
+  initContainers: []
+
+  # Inject additional containers into the Gateway Pods.
+  additionalContainers: []
+
   # Configure this to a higher priority class in order to make sure your Istio gateway pods
   # will not be killed because of low priority class.
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
