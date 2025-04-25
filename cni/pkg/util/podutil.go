@@ -23,7 +23,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
@@ -51,33 +50,33 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 
 // PodRedirectionEnabled determines if a pod should or should not be configured
 // to have traffic redirected thru the node proxy.
-func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod, enablementSelector labels.Selector) bool {
-	nsMatches := enablementSelector.Matches(labels.Set(namespace.GetLabels()))
-	podMatches := enablementSelector.Matches(labels.Set(pod.GetLabels()))
-	if !(nsMatches || podMatches) {
-		// Neither namespace nor pod has ambient mode enabled
-		return false
-	}
-	if podHasSidecar(pod) {
-		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
-		return false
-	}
-	// TODO (therealmitchconnors): how to accomplish this with the enablement selector?
-	reqs, _ := enablementSelector.Requirements()
-	if len(reqs) == 1 {
-		_, explicitPodLabeled := pod.GetLabels()[reqs[0].Key()]
-		if explicitPodLabeled && !podMatches {
-			// Pod explicitly asked to not have ambient redirection enabled
-			return false
-		}
-	}
-	if pod.Spec.HostNetwork {
-		// Host network pods cannot be captured, as we require inserting rules into the pod network namespace.
-		// If we were to allow them, we would be writing these rules into the host network namespace, effectively breaking the host.
-		return false
-	}
-	return true
-}
+// func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod, enablementSelector labels.Selector) bool {
+// 	nsMatches := enablementSelector.Matches(labels.Set(namespace.GetLabels()))
+// 	podMatches := enablementSelector.Matches(labels.Set(pod.GetLabels()))
+// 	if !(nsMatches || podMatches) {
+// 		// Neither namespace nor pod has ambient mode enabled
+// 		return false
+// 	}
+// 	if podHasSidecar(pod) {
+// 		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
+// 		return false
+// 	}
+// 	// TODO (therealmitchconnors): how to accomplish this with the enablement selector?
+// 	reqs, _ := enablementSelector.Requirements()
+// 	if len(reqs) == 1 {
+// 		_, explicitPodLabeled := pod.GetLabels()[reqs[0].Key()]
+// 		if explicitPodLabeled && !podMatches {
+// 			// Pod explicitly asked to not have ambient redirection enabled
+// 			return false
+// 		}
+// 	}
+// 	if pod.Spec.HostNetwork {
+// 		// Host network pods cannot be captured, as we require inserting rules into the pod network namespace.
+// 		// If we were to allow them, we would be writing these rules into the host network namespace, effectively breaking the host.
+// 		return false
+// 	}
+// 	return true
+// }
 
 // PodFullyEnrolled reports on whether the pod _has_ actually been fully configured for traffic redirection.
 //
@@ -107,8 +106,8 @@ func PodPartiallyEnrolled(pod *corev1.Pod) bool {
 	return false
 }
 
-func podHasSidecar(pod *corev1.Pod) bool {
-	if _, f := pod.GetAnnotations()[annotation.SidecarStatus.Name]; f {
+func podHasSidecar(podAnnotations map[string]string) bool {
+	if _, f := podAnnotations[annotation.SidecarStatus.Name]; f {
 		return true
 	}
 	return false

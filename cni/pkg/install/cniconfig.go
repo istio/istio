@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/containernetworking/cni/libcni"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/plugin"
@@ -32,13 +33,17 @@ import (
 )
 
 func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {
+	selectors := []util.EnablementSelector{}
+	if err := yaml.Unmarshal([]byte(cfg.AmbientEnablementSelector), &selectors); err != nil {
+		return "", fmt.Errorf("failed to parse ambient enablement selector: %v", err)
+	}
 	pluginConfig := plugin.Config{
-		PluginLogLevel:     cfg.PluginLogLevel,
-		CNIAgentRunDir:     cfg.CNIAgentRunDir,
-		AmbientEnabled:     cfg.AmbientEnabled,
-		EnablementSelector: cfg.AmbientEnablementSelector,
-		ExcludeNamespaces:  strings.Split(cfg.ExcludeNamespaces, ","),
-		PodNamespace:       cfg.PodNamespace,
+		PluginLogLevel:      cfg.PluginLogLevel,
+		CNIAgentRunDir:      cfg.CNIAgentRunDir,
+		AmbientEnabled:      cfg.AmbientEnabled,
+		EnablementSelectors: selectors,
+		ExcludeNamespaces:   strings.Split(cfg.ExcludeNamespaces, ","),
+		PodNamespace:        cfg.PodNamespace,
 	}
 
 	pluginConfig.Name = "istio-cni"

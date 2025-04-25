@@ -19,7 +19,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -27,9 +26,39 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-var defaultAmbientSelector = labels.SelectorFromSet(labels.Set{
-	label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
-})
+var defaultAmbientSelector = compileDefaultSelectors()
+
+func compileDefaultSelectors() *CompiledEnablementSelectors {
+	compiled, err := NewCompiledEnablementSelectors([]EnablementSelector{
+		{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
+				},
+			},
+		},
+		{
+			NamespaceSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
+				},
+			},
+			PodSelector: metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      label.IoIstioDataplaneMode.Name,
+						Operator: metav1.LabelSelectorOpNotIn,
+						Values:   []string{constants.DataplaneModeNone},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	return compiled
+}
 
 func TestGetPodIPIfPodIPPresent(t *testing.T) {
 	pod := &corev1.Pod{
@@ -212,7 +241,7 @@ func TestPodRedirectionEnabled(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := PodRedirectionEnabled(tt.args.namespace, tt.args.pod, defaultAmbientSelector); got != tt.want {
+			if got := defaultAmbientSelector.Matches(tt.args.pod.Labels, tt.args.pod.Annotations, tt.args.namespace.Labels); got != tt.want {
 				t.Errorf("PodRedirectionEnabled() = %v, want %v", got, tt.want)
 			}
 		})

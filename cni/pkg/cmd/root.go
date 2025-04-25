@@ -24,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/cni/pkg/config"
@@ -35,6 +34,7 @@ import (
 	"istio.io/istio/cni/pkg/nodeagent"
 	"istio.io/istio/cni/pkg/repair"
 	"istio.io/istio/cni/pkg/scopes"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/env"
@@ -104,12 +104,11 @@ var rootCmd = &cobra.Command{
 			log.Infof("Starting ambient node agent with inpod redirect mode on socket %s", cniEventAddr)
 
 			// instantiate and validate the ambient enablement selector
-			lsCfg := &metav1.LabelSelector{}
-			err = yaml.Unmarshal([]byte(cfg.InstallConfig.AmbientEnablementSelector), lsCfg)
-			if err != nil {
+			selectors := []util.EnablementSelector{}
+			if err = yaml.Unmarshal([]byte(cfg.InstallConfig.AmbientEnablementSelector), &selectors); err != nil {
 				return fmt.Errorf("failed to parse ambient enablement selector: %v", err)
 			}
-			enablementSelector, err := metav1.LabelSelectorAsSelector(lsCfg)
+			compiledSelectors, err := util.NewCompiledEnablementSelectors(selectors)
 			if err != nil {
 				return fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
 			}
@@ -118,7 +117,7 @@ var rootCmd = &cobra.Command{
 					SystemNamespace:            nodeagent.SystemNamespace,
 					Revision:                   nodeagent.Revision,
 					ServerSocket:               cfg.InstallConfig.ZtunnelUDSAddress,
-					EnablementSelector:         enablementSelector,
+					EnablementSelector:         compiledSelectors,
 					DNSCapture:                 cfg.InstallConfig.AmbientDNSCapture,
 					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,

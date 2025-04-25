@@ -26,7 +26,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
@@ -36,9 +35,39 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-var defaultAmbientSelector = labels.SelectorFromSet(labels.Set{
-	label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
-})
+var defaultAmbientSelector = compileDefaultSelectors()
+
+func compileDefaultSelectors() *util.CompiledEnablementSelectors {
+	compiled, err := util.NewCompiledEnablementSelectors([]util.EnablementSelector{
+		{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
+				},
+			},
+		},
+		{
+			NamespaceSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
+				},
+			},
+			PodSelector: metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      label.IoIstioDataplaneMode.Name,
+						Operator: metav1.LabelSelectorOpNotIn,
+						Values:   []string{constants.DataplaneModeNone},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	return compiled
+}
 
 func TestProcessAddEventGoodPayload(t *testing.T) {
 	valid := CNIPluginAddEvent{

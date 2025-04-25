@@ -14,7 +14,7 @@ metadata:
 data:
   CURRENT_AGENT_VERSION: {{ .Values.tag | default .Values.global.tag | quote }}
   AMBIENT_ENABLED: {{ .Values.ambient.enabled | quote }}
-  AMBIENT_ENABLEMENT_SELECTOR: {{ .Values.ambient.enablementSelector | toYaml | quote }}
+  AMBIENT_ENABLEMENT_SELECTOR: {{ .Values.ambient.enablementSelectors | toYaml | quote }}
   AMBIENT_DNS_CAPTURE: {{ .Values.ambient.dnsCapture | quote  }}
   AMBIENT_IPV6: {{ .Values.ambient.ipv6 | quote }}
   AMBIENT_RECONCILE_POD_RULES_ON_STARTUP: {{ .Values.ambient.reconcileIptablesOnStartup | quote }}
