@@ -50,7 +50,7 @@ type dependencyState[I any] struct {
 
 type extractorKey struct {
 	uid       collectionUID
-	filterUID string
+	filterUID collectionUID
 	typ       indexedDependencyType
 }
 

@@ -27,11 +27,11 @@ import (
 )
 
 type Index[K comparable, O any] interface {
-	ID() uint64
 	Lookup(k K) []O
 	AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]]
 	objectHasKey(obj O, k K) bool
 	extractKeys(o O) []K
+	id() collectionUID
 }
 
 type IndexObject[K comparable, O any] struct {
@@ -136,8 +136,8 @@ func (i index[K, O]) extractKeys(o O) []K {
 	return i.extract(o)
 }
 
-func (i index[K, O]) ID() uint64 {
-	return uint64(i.uid)
+func (i index[K, O]) id() collectionUID {
+	return i.uid
 }
 
 // Lookup finds all objects matching a given key
