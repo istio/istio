@@ -19,6 +19,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -244,6 +245,39 @@ func TestPodRedirectionEnabled(t *testing.T) {
 			if got := defaultAmbientSelector.Matches(tt.args.pod.Labels, tt.args.pod.Annotations, tt.args.namespace.Labels); got != tt.want {
 				t.Errorf("PodRedirectionEnabled() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestEnablementFromString(t *testing.T) {
+	tests := []struct {
+		name string
+		args string
+	}{
+		{
+			name: "empty",
+			args: "",
+		},
+		{
+			name: "default",
+			args: "- podSelector:\n    matchLabels:\n      istio.io/dataplane-mode: ambient\n- namespaceSelector:\n    matchLabels:\n      istio.io/dataplane-mode: ambient\n  podSelector:\n    matchExpressions:\n    - key: istio.io/dataplane-mode\n      operator: NotIn\n      values:\n      - none",
+		},
+		{
+			name: "namespace only",
+			args: "- namespaceSelector:\n    matchLabels:\n      istio.io/dataplane-mode: ambient",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			selectors := []EnablementSelector{}
+			if err := yaml.Unmarshal([]byte(tt.args), &selectors); err != nil {
+				t.Fatalf("failed to parse ambient enablement selector: %v", err)
+			}
+			_, err := NewCompiledEnablementSelectors(selectors)
+			if err != nil {
+				t.Errorf("failed to instantiate ambient enablement selector: %v", err)
+			}
+			// if the selector compiles, the test passes
 		})
 	}
 }

@@ -51,7 +51,7 @@ _internal_defaults_do_not_set:
         matchLabels: {istio.io/dataplane-mode: ambient}
     - podSelector:
         matchExpressions:
-        - { key:istio.io/dataplane-mode, operator:NotIn, values: [none] }
+        - { key: istio.io/dataplane-mode, operator: NotIn, values: [none] }
       namespaceSelector:
         matchLabels: {istio.io/dataplane-mode: ambient}
     # Set ambient config dir path: defaults to /etc/ambient-config
