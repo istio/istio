@@ -136,6 +136,7 @@ func (i index[K, O]) extractKeys(o O) []K {
 	return i.extract(o)
 }
 
+// nolint: unused // (not true)
 func (i index[K, O]) id() collectionUID {
 	return i.uid
 }
