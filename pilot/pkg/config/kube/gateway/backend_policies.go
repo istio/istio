@@ -92,7 +92,7 @@ func DestinationRuleCollection(
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies})
-	byTarget := krt.NewIndex(allPolicies, func(o BackendPolicy) []TypedNamedspacedName {
+	byTarget := krt.NewIndex(allPolicies, "target", func(o BackendPolicy) []TypedNamedspacedName {
 		return []TypedNamedspacedName{o.Target}
 	})
 	indexOpts := append(opts.WithName("BackendPolicyByTarget"), krt.WithIndexCollectionFromString(func(s string) TypedNamedspacedName {

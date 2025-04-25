@@ -1369,3 +1369,47 @@ func fakeOpenTelemetryResourceDetectorsProvider(expectClusterName, expectAuthori
 		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelHTTPAny},
 	}
 }
+
+func TestGetHeaderValue(t *testing.T) {
+	t.Setenv("CUSTOM_ENV_NAME", "custom-env-value")
+	cases := []struct {
+		name     string
+		input    *meshconfig.MeshConfig_ExtensionProvider_HttpHeader
+		expected string
+	}{
+		{
+			name: "custom-value",
+			input: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+					Value: "custom-value",
+				},
+			},
+			expected: "custom-value",
+		},
+		{
+			name: "read-from-env",
+			input: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_EnvName{
+					EnvName: "CUSTOM_ENV_NAME",
+				},
+			},
+			expected: "custom-env-value",
+		},
+		{
+			name: "read-from-env-not-exists",
+			input: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_EnvName{
+					EnvName: "CUSTOM_ENV_NAME1",
+				},
+			},
+			expected: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getHeaderValue(tc.input)
+			assert.Equal(t, tc.expected, got)
+		})
+	}
+}

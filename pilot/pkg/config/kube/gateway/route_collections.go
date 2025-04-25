@@ -589,7 +589,7 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 // mergeHTTPRoutes merges HTTProutes by key. Gateway API has semantics for the ordering of `match` rules, that merges across resource.
 // So we merge everything (by key) following that ordering logic, and sort into a linear list (how VirtualService semantics work).
 func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...krt.CollectionOption) krt.Collection[*config.Config] {
-	idx := krt.NewIndex(baseVirtualServices, func(o RouteWithKey) []string {
+	idx := krt.NewIndex(baseVirtualServices, "key", func(o RouteWithKey) []string {
 		return []string{o.Key}
 	}).AsCollection(opts...)
 	finalVirtualServices := krt.NewCollection(idx, func(ctx krt.HandlerContext, object krt.IndexObject[string, RouteWithKey]) **config.Config {

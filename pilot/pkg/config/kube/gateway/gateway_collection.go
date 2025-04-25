@@ -219,7 +219,7 @@ func (p RouteParents) fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo 
 func BuildRouteParents(
 	gateways krt.Collection[Gateway],
 ) RouteParents {
-	idx := krt.NewIndex(gateways, func(o Gateway) []parentKey {
+	idx := krt.NewIndex(gateways, "parent", func(o Gateway) []parentKey {
 		return []parentKey{o.parent}
 	})
 	return RouteParents{

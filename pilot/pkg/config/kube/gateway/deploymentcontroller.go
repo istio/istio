@@ -247,7 +247,7 @@ func NewDeploymentController(
 		revision:        revision,
 		systemNamespace: systemNamespace,
 	}
-	gatewaysByParamsRef := kclient.CreateIndex(gateways, func(o *gateway.Gateway) []types.NamespacedName {
+	gatewaysByParamsRef := kclient.CreateIndex(gateways, "parametersRef", func(o *gateway.Gateway) []types.NamespacedName {
 		p, err := fetchParameters(o)
 		if p == nil || err != nil {
 			return nil

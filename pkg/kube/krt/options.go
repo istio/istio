@@ -90,3 +90,20 @@ func WithDebugging(handler *DebugHandler) CollectionOption {
 		c.debugger = handler
 	}
 }
+
+// WithJoinUnchecked enables an optimization for join collections, where keys are not deduplicated across collections.
+// This option can only be used when joined collections are disjoint: keys overlapping between collections is undefined behavior
+func WithJoinUnchecked() CollectionOption {
+	return func(c *collectionOptions) {
+		c.joinUnchecked = true
+	}
+}
+
+// WithMetadata adds metadata to the collection. This is mainly useful
+// for creating collections of collections where the metadata is needed to
+// fetch a specific collection.
+func WithMetadata(metadata Metadata) CollectionOption {
+	return func(c *collectionOptions) {
+		c.metadata = metadata
+	}
+}

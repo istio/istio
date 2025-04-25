@@ -189,7 +189,7 @@ type manyCollection[I, O any] struct {
 	dependencyState dependencyState[I]
 
 	// internal indexes
-	indexes []collectionIndex[I, O]
+	indexes map[string]collectionIndex[I, O]
 
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
 	eventHandlers *handlerSet[O]
@@ -201,6 +201,7 @@ type manyCollection[I, O any] struct {
 	synced       chan struct{}
 	stop         <-chan struct{}
 	queue        queue.Instance
+	metadata     Metadata
 
 	// onPrimaryInputEventHandler is a specialized internal handler that runs synchronously when a primary input changes
 	onPrimaryInputEventHandler func(o []Event[I])
@@ -356,7 +357,11 @@ func (h *manyCollection[I, O]) augment(a any) any {
 }
 
 // nolint: unused // (not true)
-func (h *manyCollection[I, O]) index(extract func(o O) []string) kclient.RawIndexer {
+func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) kclient.RawIndexer {
+	if idx, ok := h.indexes[name]; ok {
+		return idx
+	}
+
 	idx := collectionIndex[I, O]{
 		extract: extract,
 		index:   make(map[string]sets.Set[Key[O]]),
@@ -371,7 +376,7 @@ func (h *manyCollection[I, O]) index(extract func(o O) []string) kclient.RawInde
 			Event: controllers.EventAdd,
 		}, k)
 	}
-	h.indexes = append(h.indexes, idx)
+	h.indexes[name] = idx
 	return idx
 }
 
@@ -519,12 +524,8 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	h.eventHandlers.Distribute(events, !h.HasSynced())
 }
 
-// WithJoinUnchecked enables an optimization for join collections, where keys are not deduplicated across collections.
-// This option can only be used when joined collections are disjoint: keys overlapping between collections is undefined behavior
-func WithJoinUnchecked() CollectionOption {
-	return func(c *collectionOptions) {
-		c.joinUnchecked = true
-	}
+func (h *manyCollection[I, O]) Metadata() Metadata {
+	return h.metadata
 }
 
 // NewCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
@@ -582,12 +583,18 @@ func newManyCollection[I, O any](
 			outputs:  map[Key[O]]O{},
 			mappings: map[Key[I]]sets.Set[Key[O]]{},
 		},
+		indexes:                    make(map[string]collectionIndex[I, O]),
 		eventHandlers:              newHandlerSet[O](),
 		augmentation:               opts.augmentation,
 		synced:                     make(chan struct{}),
 		stop:                       opts.stop,
 		onPrimaryInputEventHandler: onPrimaryInputEventHandler,
 	}
+
+	if opts.metadata != nil {
+		h.metadata = opts.metadata
+	}
+
 	h.syncer = channelSyncer{
 		name:   h.collectionName,
 		synced: h.synced,

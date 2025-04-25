@@ -252,12 +252,6 @@ var (
 	ManagedGatewayController = env.Register("PILOT_GATEWAY_API_CONTROLLER_NAME", "istio.io/gateway-controller",
 		"Gateway API controller name. istiod will only reconcile Gateway API resources referencing a GatewayClass with this controller name").Get()
 
-	EnableInboundRetryPolicy = env.Register("ENABLE_INBOUND_RETRY_POLICY", true,
-		"If true, enables retry policy for inbound routes which automatically retries requests that were reset before it reaches the service.").Get()
-
-	Exclude503FromDefaultRetries = env.Register("EXCLUDE_UNSAFE_503_FROM_DEFAULT_RETRY", true,
-		"If true, excludes unsafe retry on 503 from default retry policy.").Get()
-
 	PreferDestinationRulesTLSForExternalServices = env.Register("PREFER_DESTINATIONRULE_TLS_FOR_EXTERNAL_SERVICES", true,
 		"If true, external services will prefer the TLS settings from DestinationRules over the metadata TLS settings.").Get()
 
@@ -269,6 +263,18 @@ var (
 
 	EnableClusterTrustBundles = env.Register("ENABLE_CLUSTER_TRUST_BUNDLE_API", false,
 		"If enabled, uses the ClusterTrustBundle API instead of ConfigMaps to store the root certificate in the cluster.").Get()
+
+	// EnableAbsoluteFqdnVhostDomain controls whether the absolute FQDN (hostname followed by a dot,)
+	// e.g. my-service.my-ns.svc.cluster.local. / google.com. is added to the VirtualHost domains list.
+	// Setting this to false disables the addition.
+	// See https://github.com/istio/istio/issues/56007 for more details of this feature with examples.
+	EnableAbsoluteFqdnVhostDomain = env.Register(
+		"PILOT_ENABLE_ABSOLUTE_FQDN_VHOST_DOMAIN", // Environment variable name
+		true, // Default value (true = feature enabled by default)
+		"If set to false, Istio will not add the absolute FQDN variant"+
+			" (e.g., my-service.my-ns.svc.cluster.local.) to the domains"+
+			" list for VirtualHost entries.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

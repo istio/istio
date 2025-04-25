@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - https://github.com/istio/istio/issues/56010
+
+releaseNotes:
+- |
+  **Fixed** issue where Istio did not correctly get allowedRoutes for a sandboxed waypoint. 
