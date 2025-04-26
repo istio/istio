@@ -119,7 +119,7 @@ func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 
 	timeout, err := i.KubeClientTimeout()
 	if err != nil {
-		return nil, fmt.Errorf("error parsing kube-timeout: %v", err)
+		return nil, fmt.Errorf("error parsing kubeclient-timeout: %v", err)
 	}
 
 	if i.clients[rev] == nil {
