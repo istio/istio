@@ -44,10 +44,13 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
+
+var httpLog = istiolog.RegisterScope("httproute", "")
 
 const (
 	wildcardDomainPrefix     = "*."
@@ -257,7 +260,7 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 			// TODO: This is a bug. VirtualServices can have many hosts
 			// while the user might be importing only a single host
 			// We need to generate a new VirtualService with just the matched host
-			if servicesByName[host.Name(h)] != nil {
+			if servicesByName[host.Name(strings.ToLower(string(h)))] != nil {
 				match = true
 				break
 			}
@@ -291,7 +294,6 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 			out = append(out, virtualServices[i])
 		}
 	}
-
 	return out
 }
 
