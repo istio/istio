@@ -98,6 +98,16 @@ _internal_defaults_do_not_set:
     enabled: false
     pods: 5000
 
+  tolerations:
+    # Make sure istio-cni-node gets scheduled on all nodes.
+    - effect: NoSchedule
+      operator: Exists
+    # Mark the pod as a critical add-on for rescheduling.
+    - key: CriticalAddonsOnly
+      operator: Exists
+    - effect: NoExecute
+      operator: Exists
+
   # K8s DaemonSet update strategy.
   # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).
   updateStrategy:
