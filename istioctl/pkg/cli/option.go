@@ -83,12 +83,19 @@ func (r *RootFlags) Namespace() string {
 	return *r.namespace
 }
 
-func (r *RootFlags) KubeClientTimeout() time.Duration {
+// KubeClientTimeout returns the kubeclient-timeout value.
+func (r *RootFlags) KubeClientTimeout() (time.Duration, error) {
+	if *r.kubeTimeout == "" {
+		// Preserve original behavior of defaulting to 15s if not set
+		return time.Second * 15, nil
+	}
+
 	d, err := time.ParseDuration(*r.kubeTimeout)
 	if err != nil {
-		d = 15 * time.Second
+		return 0, err
 	}
-	return d
+
+	return d, nil
 }
 
 // IstioNamespace returns the istioNamespace flag value.
