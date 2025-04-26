@@ -44,13 +44,10 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
-
-var httpLog = istiolog.RegisterScope("httproute", "")
 
 const (
 	wildcardDomainPrefix     = "*."
