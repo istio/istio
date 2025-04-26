@@ -155,7 +155,7 @@ func (i *instance) CLIClientsForContexts(contexts []string) ([]kube.CLIClient, e
 
 	clientTimeout, err := i.KubeClientTimeout()
 	if err != nil {
-		return nil, fmt.Errorf("error parsing kube-timeout: %v", err)
+		return nil, fmt.Errorf("error parsing kubeclient-timeout: %v", err)
 	}
 
 	var clients []kube.CLIClient
