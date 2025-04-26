@@ -141,11 +141,10 @@ var (
 const telemetryAccessLogHandled = 14
 
 func telemetryAccessLog(push *PushContext, proxy *Proxy, fp *meshconfig.MeshConfig_ExtensionProvider) *accesslog.AccessLog {
-	skipBuiltInFormatter := false
-	// Istio 1.26+ move CEL/REQ_WITHOUT_QUERY/METADATA to built-in, which does not require extra formatters.
-	if proxy.VersionGreaterOrEqual(&IstioVersion{Major: 1, Minor: 26, Patch: 0}) {
-		skipBuiltInFormatter = true
-	}
+	// Skip built-in formatter if Istio version is >= 1.26
+	// This is because if we send CEL/METADATA in the access log,
+	// envoy will report lots of warn message endlessly.
+	skipBuiltInFormatter := proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&IstioVersion{Major: 1, Minor: 26})
 
 	var al *accesslog.AccessLog
 	switch prov := fp.Provider.(type) {
