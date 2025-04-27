@@ -1253,7 +1253,7 @@ func BuildDefaultHTTPInboundRoute(proxy *model.Proxy, clusterName string, operat
 		GrpcTimeoutHeaderMax: Notimeout,
 	}
 	// "reset-before-request" does not work well for gRPC streaming services.
-	if util.VersionGreaterOrEqual124(proxy) && !protocol.IsGRPC() {
+	if !protocol.IsGRPC() {
 		out.GetRoute().RetryPolicy = &route.RetryPolicy{
 			RetryOn: "reset-before-request",
 			NumRetries: &wrapperspb.UInt32Value{
