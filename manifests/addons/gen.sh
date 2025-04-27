@@ -31,7 +31,7 @@ GRAFANA_VERSION=${GRAFANA_VERSION:-"8.6.3"}
 
 # Set up kiali
 {
-helm3 template kiali-server \
+helm template kiali-server \
   --namespace istio-system \
   --version 2.6.0 \
   --set deployment.image_version=v2.6 \
@@ -42,7 +42,7 @@ helm3 template kiali-server \
 } > "${ADDONS}/kiali.yaml"
 
 # Set up prometheus
-helm3 template prometheus prometheus \
+helm template prometheus prometheus \
   --namespace istio-system \
   --version 27.5.1 \
   --repo https://prometheus-community.github.io/helm-charts \
@@ -64,7 +64,7 @@ function compressDashboard() {
       jsonnet -J vendor -J lib "${file}" > "${dashboard}-dashboard.gen.json"
     done
   )
-  helm3 template grafana grafana \
+  helm template grafana grafana \
     --namespace istio-system \
     --version "${GRAFANA_VERSION}" \
     --repo https://grafana.github.io/helm-charts \
@@ -96,7 +96,7 @@ function compressDashboard() {
 
 # Set up loki
 {
-  helm3 template loki loki \
+  helm template loki loki \
     --namespace istio-system \
     --version "${LOKI_VERSION}" \
     --repo https://grafana.github.io/helm-charts \
