@@ -95,14 +95,14 @@ require (
 	helm.sh/helm/v3 v3.17.1
 	istio.io/api v1.26.0-alpha.0.0.20250415142123-f4e4840251ee
 	istio.io/client-go v1.25.0-alpha.0.0.20250415142522-c4631d8c76a1
-	k8s.io/api v0.33.0-rc.1
-	k8s.io/apiextensions-apiserver v0.33.0-rc.1
-	k8s.io/apimachinery v0.33.0-rc.1
-	k8s.io/apiserver v0.33.0-rc.1
-	k8s.io/cli-runtime v0.33.0-rc.1
-	k8s.io/client-go v0.33.0-rc.1
+	k8s.io/api v0.33.0
+	k8s.io/apiextensions-apiserver v0.33.0
+	k8s.io/apimachinery v0.33.0
+	k8s.io/apiserver v0.33.0
+	k8s.io/cli-runtime v0.33.0
+	k8s.io/client-go v0.33.0
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/kubectl v0.33.0-rc.1
+	k8s.io/kubectl v0.33.0
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/gateway-api v1.3.0-rc.1.0.20250404104637-92efbedcc2b4
@@ -216,8 +216,8 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	k8s.io/component-base v0.33.0-rc.1 // indirect
-	k8s.io/component-helpers v0.33.0-rc.1 // indirect
+	k8s.io/component-base v0.33.0 // indirect
+	k8s.io/component-helpers v0.33.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
