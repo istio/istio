@@ -49,7 +49,7 @@ func GetLocalityLbSetting(
 	}
 	if service != nil && service.Attributes.TrafficDistribution != model.TrafficDistributionAny {
 		switch service.Attributes.TrafficDistribution {
-		case model.TrafficDistributionPreferClose, model.TrafficDistributionPreferSameZone:
+		case model.TrafficDistributionPreferSameZone:
 			return &v1alpha3.LocalityLoadBalancerSetting{
 				Enabled: wrappers.Bool(true),
 				// Prefer same network, region, zone, subzone
