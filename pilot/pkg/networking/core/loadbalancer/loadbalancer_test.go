@@ -994,9 +994,6 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 func TestGetLocalityLbSetting(t *testing.T) {
 	// dummy config for test
-	preferCloseService := &model.Service{Attributes: model.ServiceAttributes{K8sAttributes: model.K8sAttributes{
-		TrafficDistribution: model.TrafficDistributionPreferClose,
-	}}}
 	preferSameZoneService := &model.Service{Attributes: model.ServiceAttributes{K8sAttributes: model.K8sAttributes{
 		TrafficDistribution: model.TrafficDistributionPreferSameZone,
 	}}}
@@ -1047,17 +1044,10 @@ func TestGetLocalityLbSetting(t *testing.T) {
 			&networking.LocalityLoadBalancerSetting{Failover: failover},
 		},
 		{
-			"all",
-			&networking.LocalityLoadBalancerSetting{},
-			&networking.LocalityLoadBalancerSetting{Failover: failover},
-			preferCloseService,
-			&networking.LocalityLoadBalancerSetting{Failover: failover},
-		},
-		{
 			"prefer close service and mesh",
 			&networking.LocalityLoadBalancerSetting{},
 			nil,
-			preferCloseService,
+			preferSameZoneService,
 			&networking.LocalityLoadBalancerSetting{
 				FailoverPriority: []string{
 					label.TopologyNetwork.Name,
