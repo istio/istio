@@ -95,6 +95,8 @@ type fileRig struct {
 	t        test.Failer
 }
 
+var metadata = krt.Metadata{"foo": "bar"}
+
 // CreateObject is a stub
 func (r *fileRig) CreateObject(key string) {
 	fp := filepath.Join(r.rootPath, strings.ReplaceAll(key, "/", "_")+".yaml")
@@ -116,7 +118,7 @@ func TestConformance(t *testing.T) {
 	t.Run("informer", func(t *testing.T) {
 		fc := kube.NewFakeClient()
 		kc := kclient.New[*corev1.ConfigMap](fc)
-		col := krt.WrapClient(kc, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		col := krt.WrapClient(kc, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithMetadata(metadata))
 		rig := &informerRig{
 			Collection: col,
 			client:     kc,
@@ -125,7 +127,7 @@ func TestConformance(t *testing.T) {
 		runConformance[*corev1.ConfigMap](t, rig)
 	})
 	t.Run("static list", func(t *testing.T) {
-		col := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		col := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithMetadata(metadata))
 		rig := &staticRig{
 			StaticCollection: col,
 		}
@@ -134,7 +136,12 @@ func TestConformance(t *testing.T) {
 	t.Run("join", func(t *testing.T) {
 		col1 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
 		col2 := krt.NewStaticCollection[Named](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
-		j := krt.JoinCollection[Named]([]krt.Collection[Named]{col1, col2}, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		j := krt.JoinCollection(
+			[]krt.Collection[Named]{col1, col2},
+			krt.WithStop(test.NewStop(t)),
+			krt.WithDebugging(krt.GlobalDebugHandler),
+			krt.WithMetadata(metadata),
+		)
 		rig := &joinRig{
 			Collection: j,
 			inner:      [2]krt.StaticCollection[Named]{col1, col2},
@@ -149,7 +156,7 @@ func TestConformance(t *testing.T) {
 			return slices.Map(names, func(e string) Named {
 				return Named{Namespace: ns, Name: e}
 			})
-		}, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
+		}, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithMetadata(metadata))
 		rig := &manyRig{
 			Collection: col,
 			namespaces: namespaces,
@@ -171,7 +178,7 @@ func TestConformance(t *testing.T) {
 				return nil
 			}
 			return &res
-		}, krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler))
+		}, krt.WithStop(stop), krt.WithDebugging(krt.GlobalDebugHandler), krt.WithMetadata(metadata))
 		rig := &fileRig{
 			FileCollection: col,
 			rootPath:       root,
@@ -185,6 +192,8 @@ func runConformance[T any](t *testing.T, collection Rig[T]) {
 	stop := test.NewStop(t)
 	// Collection should start empty...
 	assert.Equal(t, len(collection.List()), 0)
+	// Collection should have its metadata
+	assert.Equal(t, collection.Metadata(), metadata)
 
 	// Register a handler at the start of the collection
 	earlyHandler := assert.NewTracker[string](t)

@@ -107,6 +107,9 @@ func (i index[K, O]) AsCollection(opts ...CollectionOption) Collection[IndexObje
 			return s
 		}
 	}
+	if o.metadata != nil {
+		c.metadata = o.metadata
+	}
 	maybeRegisterCollectionForDebugging(c, o.debugger)
 	return c
 }
@@ -146,8 +149,9 @@ func toString(rk any) string {
 }
 
 type indexCollection[K comparable, O any] struct {
-	idx index[K, O]
-	id  collectionUID
+	idx      index[K, O]
+	id       collectionUID
+	metadata Metadata
 	// nolint: unused // (not true, its to implement an interface)
 	collectionName string
 	fromKey        func(string) any
@@ -218,6 +222,10 @@ func (i indexCollection[K, O]) WaitUntilSynced(stop <-chan struct{}) bool {
 
 func (i indexCollection[K, O]) HasSynced() bool {
 	return i.idx.c.HasSynced()
+}
+
+func (i indexCollection[K, O]) Metadata() Metadata {
+	return i.metadata
 }
 
 func (i indexCollection[K, O]) Register(f func(o Event[IndexObject[K, O]])) HandlerRegistration {

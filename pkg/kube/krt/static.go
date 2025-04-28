@@ -37,6 +37,7 @@ type staticList[T any] struct {
 	stop           <-chan struct{}
 	collectionName string
 	syncer         Syncer
+	metadata       Metadata
 }
 
 func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) StaticCollection[T] {
@@ -61,6 +62,10 @@ func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOptio
 		stop:           o.stop,
 		collectionName: o.name,
 		syncer:         synced,
+	}
+
+	if o.metadata != nil {
+		sl.metadata = o.metadata
 	}
 
 	c := StaticCollection[T]{
@@ -191,6 +196,10 @@ func (s *staticList[T]) GetKey(k string) *T {
 		return &o
 	}
 	return nil
+}
+
+func (s *staticList[T]) Metadata() Metadata {
+	return s.metadata
 }
 
 // nolint: unused // (not true, its to implement an interface)

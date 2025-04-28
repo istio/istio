@@ -22,6 +22,8 @@ import (
 
 var log = istiolog.RegisterScope("krt", "")
 
+type Metadata map[string]any
+
 // Collection is the core resource type for krt, representing a collection of objects. Items can be listed, or fetched
 // directly. Most importantly, consumers can subscribe to events when objects change.
 type Collection[T any] interface {
@@ -33,6 +35,8 @@ type Collection[T any] interface {
 	List() []T
 
 	EventStream[T]
+
+	Metadata() Metadata
 }
 
 // EventStream provides a link between the underlying collection
