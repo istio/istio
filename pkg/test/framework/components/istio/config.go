@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -68,16 +69,16 @@ const (
 	IntegrationTestPeerMetadataDiscoveryDefaultsIOP = "tests/integration/iop-wds.yaml"
 
 	// hubValuesKey values key for the Docker image hub.
-	hubValuesKey = "global.hub"
+	hubValuesKey = "values.global.hub"
 
 	// tagValuesKey values key for the Docker image tag.
-	tagValuesKey = "global.tag"
+	tagValuesKey = "values.global.tag"
 
 	// variantValuesKey values key for the Docker image variant.
-	variantValuesKey = "global.variant"
+	variantValuesKey = "values.global.variant"
 
 	// imagePullPolicyValuesKey values key for the Docker image pull policy.
-	imagePullPolicyValuesKey = "global.imagePullPolicy"
+	imagePullPolicyValuesKey = "values.global.imagePullPolicy"
 
 	// DefaultEgressGatewayLabel is the default Istio label for the egress gateway.
 	DefaultEgressGatewayIstioLabel = "egressgateway"
@@ -144,9 +145,6 @@ type Config struct {
 	// These values are only applied to remote config clusters
 	// Default value will be ControlPlaneValues if no remote values provided
 	ConfigClusterValues string
-
-	// Overrides for the Helm values file.
-	Values map[string]string
 
 	// Indicates that the test should deploy Istio into the target Kubernetes cluster before running tests.
 	DeployIstio bool
@@ -283,12 +281,14 @@ func DefaultConfig(ctx resource.Context) (Config, error) {
 	}
 
 	var err error
-	if s.Values, err = newHelmValues(ctx); err != nil {
+	if s.OperatorOptions, err = defaultOperatorOptions(ctx); err != nil {
 		return Config{}, err
 	}
 
-	if s.OperatorOptions, err = parseConfigOptions(operatorOptions); err != nil {
+	if operatorOptions, err := parseConfigOptions(operatorOptions, ""); err != nil {
 		return Config{}, err
+	} else if len(operatorOptions) > 0 {
+		maps.MergeCopy(s.OperatorOptions, operatorOptions)
 	}
 
 	return s, nil
@@ -310,8 +310,8 @@ func checkFileExists(path string) error {
 	return nil
 }
 
-func newHelmValues(ctx resource.Context) (map[string]string, error) {
-	userValues, err := parseConfigOptions(helmValues)
+func defaultOperatorOptions(ctx resource.Context) (map[string]string, error) {
+	userValues, err := parseConfigOptions(helmValues, "values.")
 	if err != nil {
 		return nil, err
 	}
@@ -338,14 +338,14 @@ func newHelmValues(ctx resource.Context) (map[string]string, error) {
 
 	// We need more information on Envoy logs to detect usage of any deprecated feature
 	if ctx.Settings().FailOnDeprecation {
-		values["global.proxy.logLevel"] = "debug"
-		values["global.proxy.componentLogLevel"] = "misc:debug"
+		values["values.global.proxy.logLevel"] = "debug"
+		values["values.global.proxy.componentLogLevel"] = "misc:debug"
 	}
 
 	return values, nil
 }
 
-func parseConfigOptions(options string) (map[string]string, error) {
+func parseConfigOptions(options string, prefix string) (map[string]string, error) {
 	out := make(map[string]string)
 	if options == "" {
 		return out, nil
@@ -357,7 +357,7 @@ func parseConfigOptions(options string) (map[string]string, error) {
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("failed parsing config options: %s", options)
 		}
-		out[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		out[prefix+strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 	}
 	return out, nil
 }
@@ -370,7 +370,6 @@ func (c *Config) String() string {
 	result += fmt.Sprintf("TelemetryNamespace:             %s\n", c.TelemetryNamespace)
 	result += fmt.Sprintf("DeployIstio:                    %v\n", c.DeployIstio)
 	result += fmt.Sprintf("DeployEastWestGW:               %v\n", c.DeployEastWestGW)
-	result += fmt.Sprintf("Values:                         %v\n", c.Values)
 	result += fmt.Sprintf("PrimaryClusterIOPFile:          %s\n", c.PrimaryClusterIOPFile)
 	result += fmt.Sprintf("ConfigClusterIOPFile:           %s\n", c.ConfigClusterIOPFile)
 	result += fmt.Sprintf("RemoteClusterIOPFile:           %s\n", c.RemoteClusterIOPFile)

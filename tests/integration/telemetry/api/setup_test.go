@@ -80,6 +80,9 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 	}
 	cfg.ControlPlaneValues = `
 values:
+  global:
+    logging:
+      level: "xdsproxy:debug,wasm:debug"
   pilot:
     env:
       PILOT_MX_ADDITIONAL_LABELS: "custom-label"
@@ -93,7 +96,6 @@ meshConfig:
         text: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %FILTER_STATE(upstream_peer)% %FILTER_STATE(downstream_peer)%\n"
 `
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
-	cfg.Values["global.logging.level"] = "xdsproxy:debug,wasm:debug"
 }
 
 // SetupSuite set up echo app for stats testing.

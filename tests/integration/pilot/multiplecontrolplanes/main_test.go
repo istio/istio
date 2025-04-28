@@ -73,7 +73,6 @@ func TestMain(m *testing.M) {
 			s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, echo.VM)
 			s.DisableDefaultExternalServiceConnectivity = true
 
-			cfg.Values["global.istioNamespace"] = userGroup1NS.Name()
 			cfg.SystemNamespace = userGroup1NS.Name()
 			cfg.ControlPlaneValues = fmt.Sprintf(`
 namespace: %s
@@ -96,7 +95,6 @@ values:
 			// TODO test framework has to be enhanced to use istioNamespace in istioctl commands used for VM config
 			s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, echo.VM)
 
-			cfg.Values["global.istioNamespace"] = userGroup2NS.Name()
 			cfg.SystemNamespace = userGroup2NS.Name()
 			cfg.ControlPlaneValues = fmt.Sprintf(`
 namespace: %s
