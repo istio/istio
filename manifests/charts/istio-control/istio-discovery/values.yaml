@@ -23,7 +23,12 @@ _internal_defaults_do_not_set:
       cpu: 500m
       memory: 2048Mi
 
-  # Set to `type: RuntimeDefault` to use the default profile if available.
+  # Define the security context for the pod.
+  # If unset, this will be automatically set to default in the deployment, if you wish to not define it you can still configure `seccompProfile: {}` for the container below.
+  securityContext: {}
+  containerSecurityContext: {}
+
+  # Set to `type: RuntimeDefault` to use the default profile if available, do not set if you are setting whole `containerSecurityContext`.
   seccompProfile: {}
 
   # Whether to use an existing CNI installation
