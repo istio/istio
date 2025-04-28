@@ -96,9 +96,9 @@ require (
 	istio.io/api v1.26.0-alpha.0.0.20250415142123-f4e4840251ee
 	istio.io/client-go v1.25.0-alpha.0.0.20250415142522-c4631d8c76a1
 	k8s.io/api v0.33.0
-	k8s.io/apiextensions-apiserver v0.32.3
+	k8s.io/apiextensions-apiserver v0.33.0
 	k8s.io/apimachinery v0.33.0
-	k8s.io/apiserver v0.32.3
+	k8s.io/apiserver v0.33.0
 	k8s.io/cli-runtime v0.33.0
 	k8s.io/client-go v0.33.0
 	k8s.io/klog/v2 v2.130.1
@@ -120,7 +120,6 @@ require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/alecthomas/participle/v2 v2.1.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/chai2010/gettext-go v1.0.3 // indirect
