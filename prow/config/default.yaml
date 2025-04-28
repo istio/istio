@@ -1,29 +1,29 @@
-# This configs KinD to spin up a k8s cluster with mixed protocol LB support and GRPCContainerProbe enabled
-# This should be used to create K8s clusters with versions >= 1.23
+# This configs KinD to spin up a k8s cluster with testing optimized config
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+featureGates: {}
 kubeadmConfigPatches:
-  - |
-    apiVersion: kubeadm.k8s.io/v1beta3
-    kind: ClusterConfiguration
-    metadata:
-      name: config
-    etcd:
-      local:
-        # Run etcd in a tmpfs (in RAM) for performance improvements
-        dataDir: /tmp/kind-cluster-etcd
-    # We run single node, drop leader election to reduce overhead
-    controllerManager:
-      extraArgs:
-        leader-elect: "false"
-    scheduler:
-      extraArgs:
-        leader-elect: "false"
-    apiServer:
-      extraArgs:
-        "service-account-issuer": "kubernetes.default.svc"
-        "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+- |
+  apiVersion: kubeadm.k8s.io/v1beta3
+  kind: ClusterConfiguration
+  metadata:
+    name: config
+  etcd:
+    local:
+      # Run etcd in a tmpfs (in RAM) for performance improvements
+      dataDir: /tmp/kind-cluster-etcd
+  # We run single node, drop leader election to reduce overhead
+  controllerManager:
+    extraArgs:
+      leader-elect: "false"
+  scheduler:
+    extraArgs:
+      leader-elect: "false"
+  apiServer:
+    extraArgs:
+      "service-account-issuer": "kubernetes.default.svc"
+      "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
 containerdConfigPatches:
-  - |-
-    [plugins."io.containerd.grpc.v1.cri".registry]
-      config_path = "/etc/containerd/certs.d"
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5000"]
+    endpoint = ["http://kind-registry:5000"]
