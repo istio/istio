@@ -2331,11 +2331,6 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
 	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
-		if efw.GetTargetRefs() != nil {
-			// These are meant for a specific target, so we shouldn't treat these as "always match"
-			// In the future, targetRef for EnvoyFilter will likely be implemented -- but currently these would never match
-			continue
-		}
 		if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Labels) {
 			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 		}
