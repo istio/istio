@@ -93,12 +93,11 @@ spec:
           {{- end }}
           {{- range $key, $val := .Values.env }}
           - name: {{ $key }}
-            {{- if kindIs "map" $val }}
-            {{- toYaml $val | nindent 12 }}
-            {{- else }}
             value: {{ $val | quote }}
-            {{- end }}
           {{- end }}
+          {{- with .Values.envVarFrom }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}          
           ports:
           - containerPort: 15090
             protocol: TCP
