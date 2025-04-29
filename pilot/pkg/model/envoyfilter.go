@@ -22,7 +22,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
@@ -40,31 +39,6 @@ type EnvoyFilterWrapper struct {
 	Patches                      map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper
 	Priority                     int32
 	creationTime                 time.Time
-
-	fullSpec *networking.EnvoyFilter
-}
-
-var _ TargetablePolicy = &EnvoyFilterWrapper{}
-
-func (efw *EnvoyFilterWrapper) GetTargetRef() *v1beta1.PolicyTargetReference {
-	// This API never had this legacy field
-	return nil
-}
-
-func (efw *EnvoyFilterWrapper) GetTargetRefs() []*v1beta1.PolicyTargetReference {
-	if efw.fullSpec == nil {
-		return nil
-	}
-	return efw.fullSpec.TargetRefs
-}
-
-func (efw *EnvoyFilterWrapper) GetSelector() *v1beta1.WorkloadSelector {
-	if efw.workloadSelector != nil {
-		return &v1beta1.WorkloadSelector{
-			MatchLabels: efw.workloadSelector,
-		}
-	}
-	return nil
 }
 
 // EnvoyFilterConfigPatchWrapper is a wrapper over the EnvoyFilter ConfigPatch api object
@@ -113,7 +87,6 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		Patches:                      nil,
 		Priority:                     localEnvoyFilter.Priority,
 		creationTime:                 local.CreationTimestamp,
-		fullSpec:                     localEnvoyFilter,
 	}
 	if localEnvoyFilter.WorkloadSelector != nil {
 		out.workloadSelector = localEnvoyFilter.WorkloadSelector.Labels
