@@ -252,6 +252,11 @@ func TestPodIP(t *testing.T) {
 								if src.Config().HasSidecar() {
 									t.Skip("not supported yet")
 								}
+
+								if t.Settings().AmbientMultiNetwork && srcWl.Cluster() != dstWl.Cluster() {
+									// TODO: Enable when we support multi-network workload addressing
+									t.Skip("not supported yet")
+								}
 								for _, opt := range basicCalls {
 									opt := opt.DeepCopy()
 									selfSend := dstWl.Address() == srcWl.Address()
@@ -424,22 +429,30 @@ func TestOtherRevisionIgnored(t *testing.T) {
 
 func TestRemoveAddWaypoint(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
-			"waypoint",
-			"apply",
-			"--namespace",
-			apps.Namespace.Name(),
-			"--name", "captured-waypoint",
-			"--wait",
-		})
-		t.Cleanup(func() {
-			istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t, []string{
+		for _, c := range t.Clusters() {
+			istioctl.NewOrFail(t, istioctl.Config{
+				Cluster: c,
+			}).InvokeOrFail(t, []string{
 				"waypoint",
-				"delete",
+				"apply",
 				"--namespace",
 				apps.Namespace.Name(),
-				"captured-waypoint",
+				"--name", "captured-waypoint",
+				"--wait",
 			})
+		}
+		t.Cleanup(func() {
+			for _, c := range t.Clusters() {
+				istioctl.NewOrFail(t, istioctl.Config{
+					Cluster: c,
+				}).InvokeOrFail(t, []string{
+					"waypoint",
+					"delete",
+					"--namespace",
+					apps.Namespace.Name(),
+					"captured-waypoint",
+				})
+			}
 		})
 
 		t.NewSubTest("before").Run(func(t framework.TestContext) {
@@ -587,6 +600,9 @@ spec:
 `).ApplyOrFail(t)
 				var exp string
 				for _, w := range dst.WorkloadsOrFail(t) {
+					if t.Settings().AmbientMultiNetwork && src.Config().Cluster != w.Cluster() {
+						t.Skip("skipping cross-cluster test")
+					}
 					if strings.Contains(w.PodName(), "-v1") {
 						exp = w.PodName()
 					}
@@ -1201,6 +1217,10 @@ func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
 				return
 			}
 
+			if t.Settings().AmbientMultiNetwork && src.Config().Cluster != dst.Config().Cluster {
+				t.Skip("skipping cross-cluster test")
+			}
+
 			opt.NewConnectionPerRequest = true
 			waypointName := "none"
 			switch {
@@ -1257,7 +1277,7 @@ metadata:
  name: allow-nothing-waypoint
 spec:
   targetRefs:
-  - group: "gateway.networking.k8s.io" 
+  - group: "gateway.networking.k8s.io"
     kind: "GatewayClass"
     name: "istio-waypoint"`).ApplyOrFail(t)
 
@@ -1277,6 +1297,11 @@ func TestAuthorizationL7(t *testing.T) {
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
+
+			if t.Settings().AmbientMultiNetwork && src.Config().Cluster != dst.Config().Cluster {
+				t.Skip("skipping cross-cluster test")
+			}
+
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
@@ -1499,6 +1524,10 @@ func TestL7JWT(t *testing.T) {
 				// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 				// due to draining.
 				opt.NewConnectionPerRequest = true
+
+				if t.Settings().AmbientMultiNetwork && src.Config().Cluster != dst.Config().Cluster {
+					t.Skip("skipping cross-cluster test")
+				}
 
 				switch {
 				case dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy():
@@ -3003,6 +3032,9 @@ func TestAPIServer(t *testing.T) {
 		assert.NoError(t, err)
 
 		for _, src := range svcs {
+			if t.Settings().AmbientMultiNetwork && src.Config().Cluster != t.Clusters().Default() {
+				t.Skipf("skipping test for %v, not on default cluster", src.Config().Service)
+			}
 			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
 				opts := echo.CallOptions{
 					Address: "kubernetes.default.svc",
@@ -3025,6 +3057,15 @@ func TestDirect(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
+			run := func(name string, options echo.CallOptions) {
+				t.NewSubTest(name).Run(func(t framework.TestContext) {
+					_, err := c.CallEcho(nil, options)
+					if err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+			cluster := t.Clusters().Default() // TODO: support multicluster
 			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
 			if err != nil {
 				t.Fatal(err)
@@ -3046,16 +3087,9 @@ func TestDirect(t *testing.T) {
 				CaCert:             string(cert.RootCert),
 				InsecureSkipVerify: true,
 			}
-			run := func(name string, options echo.CallOptions) {
-				t.NewSubTest(name).Run(func(t framework.TestContext) {
-					_, err := c.CallEcho(nil, options)
-					if err != nil {
-						t.Fatal(err)
-					}
-				})
-			}
+
 			run("named destination", echo.CallOptions{
-				To:    apps.WorkloadAddressedWaypoint, // TODO: not sure how this is actually addressed?
+				To:    apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name()), // TODO: not sure how this is actually addressed?
 				Count: 1,
 				Port:  echo.Port{Name: ports.HTTP.Name},
 				HBONE: hbwl,
@@ -3063,25 +3097,28 @@ func TestDirect(t *testing.T) {
 				Check: check.Error(),
 			})
 			run("VIP destination", echo.CallOptions{
-				To:      apps.ServiceAddressedWaypoint,
+				To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
 				Count:   1,
-				Address: apps.ServiceAddressedWaypoint[0].Address(),
+				Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())[0].Address(),
 				Port:    echo.Port{Name: ports.HTTP.Name},
 				HBONE:   hbsvc,
 				Check:   check.OK(),
 			})
-			run("VIP destination, FQDN authority", echo.CallOptions{
-				To:      apps.ServiceAddressedWaypoint,
-				Count:   1,
-				Address: apps.ServiceAddressedWaypoint.ClusterLocalFQDN(),
-				Port:    echo.Port{Name: ports.HTTP.Name},
-				HBONE:   hbsvc,
-				Check:   check.OK(),
-			})
+			// Only works with multinetwork
+			if t.Settings().AmbientMultiNetwork {
+				run("VIP destination, FQDN authority", echo.CallOptions{
+					To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
+					Count:   1,
+					Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+					Port:    echo.Port{Name: ports.HTTP.Name},
+					HBONE:   hbsvc,
+					Check:   check.OK(),
+				})
+			}
 			run("VIP destination, unknown port", echo.CallOptions{
-				To:      apps.ServiceAddressedWaypoint,
+				To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
 				Count:   1,
-				Address: apps.ServiceAddressedWaypoint[0].Address(),
+				Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())[0].Address(),
 				Port:    echo.Port{ServicePort: 12345},
 				Scheme:  scheme.HTTP,
 				HBONE:   hbsvc,
@@ -3089,36 +3126,36 @@ func TestDirect(t *testing.T) {
 				Check: check.Error(),
 			})
 			run("Pod IP destination", echo.CallOptions{
-				To:      apps.WorkloadAddressedWaypoint,
+				To:      apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name()),
 				Count:   1,
-				Address: apps.WorkloadAddressedWaypoint[0].WorkloadsOrFail(t)[0].Address(),
+				Address: apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name())[0].WorkloadsOrFail(t)[0].Address(),
 				Port:    echo.Port{ServicePort: ports.HTTP.WorkloadPort},
 				Scheme:  scheme.HTTP,
 				HBONE:   hbwl,
 				Check:   check.OK(),
 			})
 			run("Unserved VIP destination", echo.CallOptions{
-				To:      apps.Captured,
+				To:      apps.Captured.ForCluster(cluster.Name()),
 				Count:   1,
-				Address: apps.Captured[0].Address(),
+				Address: apps.Captured.ForCluster(cluster.Name())[0].Address(),
 				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
 				Scheme:  scheme.HTTP,
 				HBONE:   hbsvc,
 				Check:   check.Error(),
 			})
 			run("Unserved pod destination", echo.CallOptions{
-				To:      apps.Captured,
+				To:      apps.Captured.ForCluster(cluster.Name()),
 				Count:   1,
-				Address: apps.Captured[0].WorkloadsOrFail(t)[0].Address(),
+				Address: apps.Captured.ForCluster(cluster.Name())[0].WorkloadsOrFail(t)[0].Address(),
 				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
 				Scheme:  scheme.HTTP,
 				HBONE:   hbwl,
 				Check:   check.Error(),
 			})
 			run("Waypoint destination", echo.CallOptions{
-				To:      apps.ServiceAddressedWaypoint,
+				To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
 				Count:   1,
-				Address: apps.WaypointProxies[apps.ServiceAddressedWaypoint.Config().ServiceWaypointProxy].PodIP(),
+				Address: apps.WaypointProxies[apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).Config().ServiceWaypointProxy].PodIP(),
 				Port:    echo.Port{ServicePort: 15000},
 				Scheme:  scheme.HTTP,
 				HBONE:   hbsvc,
@@ -3305,7 +3342,11 @@ func TestServiceDynamicEnroll(t *testing.T) {
 	successThreshold := 0.5
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		dst := apps.Captured
+		if t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/54245")
+		}
+		c := t.Clusters().Default() // TODO: support multicluster
+		dst := apps.Captured.ForCluster(c.Name())
 		generators := []traffic.Generator{}
 		mkGen := func(src echo.Caller) {
 			g := traffic.NewGenerator(t, traffic.Config{
@@ -3325,11 +3366,11 @@ func TestServiceDynamicEnroll(t *testing.T) {
 			}).Start()
 			generators = append(generators, g)
 		}
-		mkGen(apps.Uncaptured[0])
+		mkGen(apps.Uncaptured.ForCluster(c.Name())[0])
 		// TODO(https://github.com/istio/istio/issues/53064) re-enable this, it is not reliable enough
 		// mkGen(apps.Sidecar[0])
 		// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
-		mkGen(apps.WorkloadAddressedWaypoint[0])
+		mkGen(apps.WorkloadAddressedWaypoint.ForCluster(c.Name())[0])
 
 		// Unenroll from the mesh
 		for _, p := range dst.WorkloadsOrFail(t) {
@@ -3435,14 +3476,17 @@ spec:
 `).
 				ApplyOrFail(t)
 			SetWaypoint(t, Sidecar, "waypoint")
-			client := apps.Captured
-			client[0].CallOrFail(t, echo.CallOptions{
-				To:   apps.Sidecar,
-				Port: ports.HTTP,
-				Check: check.And(
-					check.Status(500),
-				),
-			})
+			for _, c := range t.Clusters() {
+				// TODO: Support sending to a different cluster
+				client := apps.Captured.ForCluster(c.Name())
+				client[0].CallOrFail(t, echo.CallOptions{
+					To:   apps.Sidecar.ForCluster(c.Name()),
+					Port: ports.HTTP,
+					Check: check.And(
+						check.Status(500),
+					),
+				})
+			}
 		})
 }
 
@@ -3487,13 +3531,17 @@ spec:
         principals: ["cluster.local/ns/{{.}}/sa/waypoint"]`).
 				ApplyOrFail(t)
 			SetWaypoint(t, Sidecar, "waypoint")
-			client := apps.Captured
-			client[0].CallOrFail(t, echo.CallOptions{
-				To:   apps.Sidecar,
-				Port: ports.HTTP,
-				Check: check.And(
-					check.OK(),
-					check.RequestHeader("greeting", "hello world!")),
-			})
+			for _, c := range t.Clusters() {
+				// TODO: Support sending to a different cluster
+				client := apps.Captured.ForCluster(c.Name())
+				client[0].CallOrFail(t, echo.CallOptions{
+					To:   apps.Sidecar.ForCluster(c.Name()),
+					Port: ports.HTTP,
+					Check: check.And(
+						check.OK(),
+						check.RequestHeader("greeting", "hello world!"),
+					),
+				})
+			}
 		})
 }
