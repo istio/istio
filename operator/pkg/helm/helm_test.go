@@ -66,7 +66,7 @@ func TestRender(t *testing.T) {
 			var vals values.Map
 			if err := yaml.Unmarshal(data, &vals); err != nil {
 				t.Fatalf("error %s: %s", err, inPath)
-			}			
+			}
 			m, _, err := Render(tc.releaseName, tc.namespace, tc.chartName, vals, nil)
 			require.NoError(t, err)
 
