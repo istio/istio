@@ -51,9 +51,19 @@ func (a *index) ServicesCollection(
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.ServiceInfo] {
 	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces),
-		opts.WithName("ServicesInfo")...)
+		append(
+			opts.WithName("ServicesInfo"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: clusterID,
+			}),
+		)...)
 	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces),
-		opts.WithName("ServiceEntriesInfo")...)
+		append(
+			opts.WithName("ServiceEntriesInfo"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: clusterID,
+			}),
+		)...)
 	WorkloadServices := krt.JoinCollection(
 		[]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo},
 		append(opts.WithName("WorkloadService"), krt.WithMetadata(
@@ -82,7 +92,10 @@ func GlobalMergedWorkloadServicesCollection(
 ) krt.Collection[krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]] {
 	// This will contain the serviceinfos derived from Services AND ServiceEntries
 	return krt.NewManyFromNothing(func(ctx krt.HandlerContext) []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
-		LocalServiceInfosWithCluster := krt.MapCollection(localServiceInfos, wrapObjectWithCluster[model.ServiceInfo](LocalCluster.ID))
+		LocalServiceInfosWithCluster := krt.MapCollection(
+			localServiceInfos,
+			wrapObjectWithCluster[model.ServiceInfo](LocalCluster.ID),
+			opts.WithName("LocalServiceInfosWithCluster")...)
 		AllServiceInfos := []krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]{LocalServiceInfosWithCluster}
 		// Now loop through clusters
 		clusters := krt.Fetch(ctx, clusters)
@@ -90,6 +103,13 @@ func GlobalMergedWorkloadServicesCollection(
 			nwPtr := krt.FetchOne(ctx, globalNetworks.GlobalSystemNamespaces, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
 			nw := ptr.OrEmpty(nwPtr)
 			servicesPtr := krt.FetchOne(ctx, globalServices, krt.FilterIndex(servicesByCluster, cluster.ID))
+			// This usually happens because the event for a new cluster
+			// triggers the global services|waypoints|etc. transformations in parallel
+			// with this transformation. This Fetch is racing
+			// with that computation and will almost always lose.
+			// While we're looking for a way to make this ordering predictable
+			// to avoid hacks like this, we can deal with eventually consistent
+			// collection state for now.
 			if servicesPtr == nil {
 				log.Warnf("Cluster %s does not have services assigned, skipping", cluster.ID)
 				return nil
@@ -110,7 +130,14 @@ func GlobalMergedWorkloadServicesCollection(
 
 			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {
 				return network.ID(*nw.Get())
-			}))
+			}), opts.With(
+				append(
+					opts.WithName(fmt.Sprintf("ServiceServiceInfos[%s]", cluster.ID)),
+					krt.WithMetadata(krt.Metadata{
+						ClusterKRTMetadataKey: cluster.ID,
+					}),
+				)...,
+			)...)
 			servicesInfoWithCluster := krt.MapCollection(servicesInfo, func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {
 				return config.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
 			}, opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID))...)

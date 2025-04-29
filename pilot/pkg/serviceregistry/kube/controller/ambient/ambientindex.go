@@ -17,8 +17,8 @@ package ambient
 import (
 	"net/netip"
 	"strings"
-	"sync/atomic"
 
+	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -102,15 +102,7 @@ type index struct {
 	waypoints waypointsCollection
 	networks  networkCollections
 
-	// The global collections include the data from the local cluster and all remote clusters.
-	// When we're in multi-cluster mode, we should use these collections instead of the above ones.
-	globalServices  servicesCollection
-	globalWorkloads workloadsCollection
-	globalWaypoints waypointsCollection
-	globalNetworks  globalNetworkCollections
-
-	namespaces       krt.Collection[model.NamespaceInfo]
-	remoteNamespaces krt.Collection[model.NamespaceInfo] // TODO: Do we actually want merged namespaces?
+	namespaces krt.Collection[model.NamespaceInfo]
 
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
 
@@ -125,12 +117,11 @@ type index struct {
 
 	stop chan struct{}
 
-	cs                          *multicluster.ClusterStore
-	clientBuilder               multicluster.ClientBuilder
-	secrets                     krt.Collection[*corev1.Secret]
-	remoteClusters              krt.Collection[*multicluster.Cluster]
-	meshConfig                  meshwatcher.WatcherCollection
-	remoteClientConfigOverrides []func(*rest.Config)
+	cs             *ClusterStore
+	clientBuilder  ClientBuilder
+	secrets        krt.Collection[*corev1.Secret]
+	remoteClusters krt.Collection[Cluster]
+	meshConfig     meshwatcher.WatcherCollection
 }
 
 type FeatureFlags struct {
@@ -218,7 +209,7 @@ func New(options Options) Index {
 	}, opts.With(
 		append(opts.WithName("informer/EndpointSlices"),
 			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: options.ClusterID,
+				multicluster.ClusterKRTMetadataKey: options.ClusterID,
 			}),
 		)...,
 	)...)
@@ -228,7 +219,7 @@ func New(options Options) Index {
 		LocalCluster := &Cluster{
 			ID:                 options.ClusterID,
 			Client:             options.Client,
-			stop:               opts.Stop(),
+			stop:               make(chan struct{}),
 			initialSync:        &atomic.Bool{},
 			initialSyncTimeout: &atomic.Bool{},
 			namespaces:         Namespaces,
@@ -250,6 +241,7 @@ func New(options Options) Index {
 			authzPolicies,
 			options,
 			opts)
+
 		return a
 	}
 
