@@ -57,10 +57,10 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 	}
 }
 
-// HeaderMatcherWithRegex converts a key, value string pair to a corresponding
+// InlineHeaderMatcher converts a key, value string pair to a corresponding
 // HeaderMatcher to support matching the value presented in the inline header with
 // multiple values concatenated by commas, as per RFC7230.
-func HeaderMatcherWithRegex(k, v string) *routepb.HeaderMatcher {
+func InlineHeaderMatcher(k, v string) *routepb.HeaderMatcher {
 	// We must check "*" first to distinguish present match from the other
 	// cases.
 	var regex string

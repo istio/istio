@@ -351,7 +351,7 @@ func (requestInlineHeaderGenerator) principal(key, value string, forTCP bool, _ 
 	if err != nil {
 		return nil, err
 	}
-	m := matcher.HeaderMatcherWithRegex(header, value)
+	m := matcher.InlineHeaderMatcher(header, value)
 	return principalHeader(m), nil
 }
 

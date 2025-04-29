@@ -7,7 +7,7 @@ issue:
 
 releaseNotes:
   - |
-    **Support** inline multi-values header format by using safe regex in AuthorizationPolicy.Condition header match.
+    **Added** inline multi-values header matching by using safe regex in AuthorizationPolicy.Condition header match.
 # upgradeNotes is a markdown listing of any changes that will affect the upgrade
 # process. This will appear in the release notes.
 upgradeNotes:
@@ -22,13 +22,8 @@ upgradeNotes:
 
 # securityNotes is a markdown listing of any changes related to the security of
 # Istio.
-securityNotes: |
-  This change supports a new attribute `request.experimental.inline.headers[X-inline-header]` in Authorization Policy, which uses safe regex
-  match to split the header values concatenated by commas when matching. Before this change, the AuthorizationPolicy does not support matching on
-  multiple-valued headers.
-  For example, given an allow policy `Allow{header: x-foo, value: [a, b]}`, the request with inline header `{key: x-foo value: "a,b,c"}` will be allowed
-  when using `request.experimental.inline.headers[X-inline-header]`, while this is not allowed when using `request.headers[X-inline-header]`.
-  Note that this new attribute also supports prefix match, suffix match and present match for per header value.
-  
-  When this attribute is used, you need to make sure the request being checked by this AuthorizationPolicy does following the inline header definition as per as per RFC7230, that inline headers treat headers
-  with multiple inline values as a comma-delimited string. Otherwise, you shouldn't use this attribute.
+securityNotes:
+  - |
+    When this attribute is used, you need to make sure the request being checked by this AuthorizationPolicy does following the inline
+    header definition as per as per RFC7230, that inline headers treat headers with multiple inline values as a comma-delimited string.
+    Otherwise, you shouldn't use this attribute as the AuthorizationPolicy might not match the wanted header value as expected.
