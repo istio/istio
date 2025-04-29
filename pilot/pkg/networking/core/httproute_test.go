@@ -1612,8 +1612,8 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 				"allow_any": {
 					"*": true,
 				},
-				"service-A.default.svc.cluster.local:7777": {
-					"service-A.default.svc.cluster.local": true,
+				"service-a.default.svc.cluster.local:7777": {
+					"service-a.default.svc.cluster.local": true,
 				},
 				"service-a.v2:7777": {
 					"service-a.v2": true,
@@ -1628,9 +1628,6 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		if c.name != "virtual service hosts with subsets and with existing service" {
-			continue
-		}
 		t.Run(c.name, func(t *testing.T) {
 			testSidecarRDSVHosts(t, services, c.sidecarConfig, c.virtualServiceConfigs,
 				c.routeName, c.expectedHosts, c.expectedRoutes, c.registryOnly)

@@ -395,8 +395,9 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			// Expect virtualServices to resolve to right port
 			servicesByName[svc.Hostname] = svc
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
-			servicesByName[svc.Hostname] = &model.Service{
-				Hostname:       svc.Hostname,
+			h := host.Name(strings.ToLower(string(svc.Hostname)))
+			servicesByName[h] = &model.Service{
+				Hostname:       h,
 				DefaultAddress: svc.GetAddressForProxy(node),
 				ClusterVIPs:    *svc.ClusterVIPs.DeepCopy(),
 				MeshExternal:   svc.MeshExternal,

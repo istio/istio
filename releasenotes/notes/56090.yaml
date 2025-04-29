@@ -5,5 +5,5 @@ issue:
   - 55767
 releaseNotes:
   - |
-    **Fixed** an issue, where virtual service routes are ignored when 
-    virtual service is configured with mixed case hosts.
+    **Fixed** an issue where virtual service routes were ignored when 
+    virtual service was configured with hosts containing mixed case letters.
