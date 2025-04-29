@@ -257,7 +257,7 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 			// TODO: This is a bug. VirtualServices can have many hosts
 			// while the user might be importing only a single host
 			// We need to generate a new VirtualService with just the matched host
-			if servicesByName[host.Name(strings.ToLower(string(h)))] != nil {
+			if servicesByName[host.Name(strings.ToLower(h))] != nil {
 				match = true
 				break
 			}

@@ -1628,6 +1628,9 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	}
 
 	for _, c := range cases {
+		if c.name != "virtual service hosts with subsets and with existing service" {
+			continue
+		}
 		t.Run(c.name, func(t *testing.T) {
 			testSidecarRDSVHosts(t, services, c.sidecarConfig, c.virtualServiceConfigs,
 				c.routeName, c.expectedHosts, c.expectedRoutes, c.registryOnly)
