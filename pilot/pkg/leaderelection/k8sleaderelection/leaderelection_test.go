@@ -52,8 +52,6 @@ func createLockObject(t *testing.T, objectType, namespace, name string, record *
 		}
 	}
 	switch objectType {
-	case "endpoints":
-		obj = &corev1.Endpoints{ObjectMeta: objectMeta}
 	case "configmaps":
 		obj = &corev1.ConfigMap{ObjectMeta: objectMeta}
 	case "leases":
@@ -358,12 +356,6 @@ func testTryAcquireOrRenew(t *testing.T, objectType string) {
 			})
 
 			switch objectType {
-			case "endpoints":
-				lock = &rl.EndpointsLock{
-					EndpointsMeta: objectMeta,
-					LockConfig:    resourceLockConfig,
-					Client:        c.CoreV1(),
-				}
 			case "configmaps":
 				lock = &rl.ConfigMapLock{
 					ConfigMapMeta: objectMeta,
@@ -463,8 +455,6 @@ func TestLeaseSpecToLeaderElectionRecordRoundTrip(t *testing.T) {
 
 func multiLockType(t *testing.T, objectType string) (primaryType, secondaryType string) {
 	switch objectType {
-	case rl.EndpointsLeasesResourceLock:
-		return rl.EndpointsResourceLock, rl.LeasesResourceLock
 	case rl.ConfigMapsLeasesResourceLock:
 		return rl.ConfigMapsResourceLock, rl.LeasesResourceLock
 	default:
@@ -958,19 +948,6 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 			})
 
 			switch objectType {
-			case rl.EndpointsLeasesResourceLock:
-				lock = &rl.MultiLock{
-					Primary: &rl.EndpointsLock{
-						EndpointsMeta: objectMeta,
-						LockConfig:    resourceLockConfig,
-						Client:        c.CoreV1(),
-					},
-					Secondary: &rl.LeaseLock{
-						LeaseMeta:  objectMeta,
-						LockConfig: resourceLockConfig,
-						Client:     c.CoordinationV1(),
-					},
-				}
 			case rl.ConfigMapsLeasesResourceLock:
 				lock = &rl.MultiLock{
 					Primary: &rl.ConfigMapLock{
@@ -1107,12 +1084,6 @@ func testReleaseLease(t *testing.T, objectType string) {
 			})
 
 			switch objectType {
-			case "endpoints":
-				lock = &rl.EndpointsLock{
-					EndpointsMeta: objectMeta,
-					LockConfig:    resourceLockConfig,
-					Client:        c.CoreV1(),
-				}
 			case "configmaps":
 				lock = &rl.ConfigMapLock{
 					ConfigMapMeta: objectMeta,
