@@ -78,6 +78,7 @@ type collectionOptions struct {
 	joinUnchecked bool
 
 	indexCollectionFromString func(string) any
+	metadata                  Metadata
 }
 
 type indexedDependency struct {

@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -731,7 +732,7 @@ func buildHTTPHeaders(headers []*meshconfig.MeshConfig_ExtensionProvider_HttpHea
 			AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 			Header: &core.HeaderValue{
 				Key:   h.GetName(),
-				Value: h.GetValue(),
+				Value: getHeaderValue(h),
 			},
 		}
 		target = append(target, hvo)
@@ -747,9 +748,19 @@ func buildInitialMetadata(metadata []*meshconfig.MeshConfig_ExtensionProvider_Ht
 	for _, h := range metadata {
 		hv := &core.HeaderValue{
 			Key:   h.GetName(),
-			Value: h.GetValue(),
+			Value: getHeaderValue(h),
 		}
 		target = append(target, hv)
 	}
 	return target
+}
+
+func getHeaderValue(header *meshconfig.MeshConfig_ExtensionProvider_HttpHeader) string {
+	switch hv := header.HeaderValue.(type) {
+	case *meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value:
+		return hv.Value
+	case *meshconfig.MeshConfig_ExtensionProvider_HttpHeader_EnvName:
+		return env.Register[string](hv.EnvName, "", "").Get()
+	}
+	return ""
 }

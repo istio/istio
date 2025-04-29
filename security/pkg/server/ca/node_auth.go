@@ -77,7 +77,7 @@ func NewClusterNodeAuthorizer(client kube.Client, trustedNodeAccounts sets.Set[t
 		ObjectTransform: kube.StripPodUnusedFields,
 	})
 	// Add an Index on the pods, storing the service account and node. This allows us to later efficiently query.
-	index := kclient.CreateIndex[SaNode, *v1.Pod](pods, func(pod *v1.Pod) []SaNode {
+	index := kclient.CreateIndex[SaNode, *v1.Pod](pods, "saNode", func(pod *v1.Pod) []SaNode {
 		if len(pod.Spec.NodeName) == 0 {
 			return nil
 		}

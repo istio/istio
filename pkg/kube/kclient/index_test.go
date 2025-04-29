@@ -47,7 +47,7 @@ func TestIndex(t *testing.T) {
 	c := kube.NewFakeClient()
 	pods := kclient.New[*corev1.Pod](c)
 	c.RunAndWait(test.NewStop(t))
-	index := kclient.CreateIndex[SaNode, *corev1.Pod](pods, func(pod *corev1.Pod) []SaNode {
+	index := kclient.CreateIndex[SaNode, *corev1.Pod](pods, "saNode", func(pod *corev1.Pod) []SaNode {
 		if len(pod.Spec.NodeName) == 0 {
 			return nil
 		}
@@ -168,7 +168,7 @@ func TestIndexFilters(t *testing.T) {
 	})
 	pc := clienttest.NewWriter[*corev1.Pod](t, c)
 	c.RunAndWait(test.NewStop(t))
-	index := kclient.CreateStringIndex[*corev1.Pod](pods, func(pod *corev1.Pod) []string {
+	index := kclient.CreateStringIndex[*corev1.Pod](pods, "podIp", func(pod *corev1.Pod) []string {
 		if pod.Status.PodIP == "" {
 			return nil
 		}

@@ -185,7 +185,7 @@ func RuleCollection(
 		opts.WithName("IngressRuleCollection")...,
 	)
 
-	index := krt.NewIndex(collection, func(rule *IngressRule) []string {
+	index := krt.NewIndex(collection, "host", func(rule *IngressRule) []string {
 		host := rule.Rule.Host
 		if host == "" {
 			host = "*"
