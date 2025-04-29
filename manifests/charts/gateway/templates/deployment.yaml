@@ -97,7 +97,7 @@ spec:
           {{- end }}
           {{- with .Values.envVarFrom }}
           {{- toYaml . | nindent 10 }}
-          {{- end }}          
+          {{- end }}
           ports:
           - containerPort: 15090
             protocol: TCP
