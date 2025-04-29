@@ -52,7 +52,7 @@ func TestRender(t *testing.T) {
 			namespace:   "istio-ingress",
 			chartName:   "gateway",
 			diffSelect:  "Deployment:*:istio-ingress",
-		},		
+		},
 	}
 
 	for _, tc := range cases {
