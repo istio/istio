@@ -277,7 +277,6 @@ func TestNestedJoinCollectionTransform(t *testing.T) {
 		}
 	}, opts.WithName("SimplePods")...)
 
-	tt := assert.NewTracker[string](t)
 	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ips", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
@@ -288,6 +287,7 @@ func TestNestedJoinCollectionTransform(t *testing.T) {
 		})
 	}
 
+	tt := assert.NewTracker[string](t)
 	SimplePods.Register(TrackerHandler[SimplePod](tt))
 
 	pod := &corev1.Pod{

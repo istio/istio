@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -60,4 +61,67 @@ func TestMapCollection(t *testing.T) {
 		},
 	})
 	tt.WaitOrdered("add/ns1/pod1")
+}
+
+func TestNestedMapCollection(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+
+	pods := krt.NewInformer[*corev1.Pod](c, opts.WithName("Pods")...)
+	simplePods := krt.MapCollection(pods, func(p *corev1.Pod) SimplePod {
+		return SimplePod{
+			Named: Named{
+				Name:      p.Name,
+				Namespace: p.Namespace,
+			},
+			Labeled: Labeled{
+				Labels: p.Labels,
+			},
+			IP: p.Status.PodIP,
+		}
+	})
+	MultiPods := krt.NewStaticCollection(
+		nil,
+		[]krt.Collection[SimplePod]{simplePods},
+		opts.WithName("MultiPods")...,
+	)
+	AllPods := krt.NestedJoinCollection(
+		MultiPods,
+		opts.WithName("AllPods")...,
+	)
+	c.RunAndWait(stop)
+	assert.EventuallyEqual(t, func() bool {
+		return AllPods.WaitUntilSynced(opts.Stop())
+	}, true)
+
+	SimplePods := krt.MapCollection(AllPods, func(p SimplePod) SimpleSizedPod {
+		return SimpleSizedPod{
+			SimplePod: p,
+			Size:      "50",
+		}
+	}, opts.WithName("SimplePods")...)
+
+	tt := assert.NewTracker[string](t)
+	SimplePods.Register(TrackerHandler[SimpleSizedPod](tt))
+
+	c2 := kube.NewFakeClient()
+	pods2 := krt.NewInformer[*corev1.Pod](c2, opts.WithName("Pods2")...)
+	simplePods2 := krt.MapCollection(pods2, func(p *corev1.Pod) SimplePod {
+		return SimplePod{
+			Named: Named{
+				Name:      p.Name,
+				Namespace: p.Namespace,
+			},
+			Labeled: Labeled{
+				Labels: p.Labels,
+			},
+			IP: p.Status.PodIP,
+		}
+	}, opts.WithName("SimplePods2")...)
+	c2.RunAndWait(stop)
+	MultiPods.UpdateObject(simplePods2)
+	tt.Empty() // Shouldn't be any events since no pods were added
+	MultiPods.DeleteObject(krt.GetKey(pods2))
+	tt.Empty() // Shouldn't be any events since no pods were added
 }

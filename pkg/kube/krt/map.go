@@ -131,7 +131,7 @@ func MapCollection[T, U any](
 	ic := collection.(internalCollection[T])
 	return &mapCollection[T, U]{
 		collectionName: o.name,
-		id:             ic.uid(), // TODO: should we use a new UID?
+		id:             nextUID(), // TODO: should we use a new UID?
 		collection:     ic,
 		mapFunc:        mapFunc,
 	}

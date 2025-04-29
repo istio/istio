@@ -58,7 +58,6 @@ func (a *index) buildGlobalCollections(
 	options Options,
 	opts krt.OptionsBuilder,
 ) {
-
 	clusters := a.buildRemoteClustersCollection(
 		options,
 		opts,
@@ -287,7 +286,7 @@ func (a *index) buildGlobalCollections(
 		LocalNodes,
 		opts.WithName("LocalNodeLocality")...,
 	)
-	GlobalNodeLocality := GlobalNodesCollection(globalNodes, opts.Stop(), opts.WithName("GlobalNodeLocality")...)
+	GlobalNodeLocality := GlobalNodesCollection(globalNodes, opts.Stop(), opts.WithName("GlobalNodeLocalityWithCluster")...)
 	GlobalNodeLocalityByCluster := nestedCollectionIndexByCluster(GlobalNodeLocality)
 
 	GlobalWorkloads := MergedGlobalWorkloadsCollection(
@@ -402,6 +401,7 @@ func (a *index) buildGlobalCollections(
 	}
 	a.authorizationPolicies = AllPolicies
 	// TODO: Should this be the set of global waypoints?
+	// Probably yes, but coming back to it in a follow up
 	a.waypoints = waypointsCollection{
 		Collection: LocalWaypoints,
 	}

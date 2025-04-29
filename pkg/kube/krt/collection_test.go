@@ -42,6 +42,11 @@ func testOptions(t test.Failer) krt.OptionsBuilder {
 	return krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler)
 }
 
+type SimpleSizedPod struct {
+	SimplePod
+	Size string
+}
+
 type SimplePod struct {
 	Named
 	Labeled

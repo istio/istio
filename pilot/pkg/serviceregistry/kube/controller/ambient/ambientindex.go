@@ -20,7 +20,6 @@ import (
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -164,7 +163,7 @@ func New(options Options) Index {
 
 	a.meshConfig = options.MeshConfig
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
-	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, opts.With(
+	Namespaces := krt.NewInformer[*corev1.Namespace](options.Client, opts.With(
 		append(opts.WithName("informer/Namespaces"),
 			krt.WithMetadata(krt.Metadata{
 				ClusterKRTMetadataKey: options.ClusterID,
@@ -190,7 +189,7 @@ func New(options Options) Index {
 
 	gatewayClassClient := kclient.NewDelayedInformer[*v1beta1.GatewayClass](options.Client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
 	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, opts.WithName("informer/GatewayClasses")...)
-	Pods := krt.NewInformerFiltered[*v1.Pod](options.Client, kclient.Filter{
+	Pods := krt.NewInformerFiltered[*corev1.Pod](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
 	}, opts.With(
@@ -209,15 +208,15 @@ func New(options Options) Index {
 		gvr.WorkloadEntry, kubetypes.StandardInformer, filter)
 	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, opts.WithName("informer/WorkloadEntries")...)
 
-	servicesClient := kclient.NewFiltered[*v1.Service](options.Client, filter)
-	Services := krt.WrapClient[*v1.Service](servicesClient, opts.With(
+	servicesClient := kclient.NewFiltered[*corev1.Service](options.Client, filter)
+	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.With(
 		append(opts.WithName("informer/Services"),
 			krt.WithMetadata(krt.Metadata{
 				ClusterKRTMetadataKey: options.ClusterID,
 			}),
 		)...,
 	)...)
-	Nodes := krt.NewInformerFiltered[*v1.Node](options.Client, kclient.Filter{
+	Nodes := krt.NewInformerFiltered[*corev1.Node](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripNodeUnusedFields,
 	}, opts.With(
@@ -289,7 +288,7 @@ func New(options Options) Index {
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
-		servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
+		servicesWriter := kclient.NewWriteClient[*corev1.Service](options.Client)
 		authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
 
 		WaypointPolicyStatus := WaypointPolicyStatusCollection(
@@ -381,7 +380,7 @@ func New(options Options) Index {
 		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
 	), false)
 
-	NamespacesInfo := krt.NewCollection(Namespaces, func(ctx krt.HandlerContext, i *v1.Namespace) *model.NamespaceInfo {
+	NamespacesInfo := krt.NewCollection(Namespaces, func(ctx krt.HandlerContext, i *corev1.Namespace) *model.NamespaceInfo {
 		return &model.NamespaceInfo{
 			Name:               i.Name,
 			IngressUseWaypoint: strings.EqualFold(i.Labels["istio.io/ingress-use-waypoint"], "true"),
@@ -506,7 +505,7 @@ func getConditions[T controllers.ComparableObject](name types.NamespacedName, i 
 		return nil
 	}
 	switch t := any(o).(type) {
-	case *v1.Service:
+	case *corev1.Service:
 		return translateKubernetesCondition(t.Status.Conditions)
 	case *networkingclient.ServiceEntry:
 		return translateIstioCondition(t.Status.Conditions)

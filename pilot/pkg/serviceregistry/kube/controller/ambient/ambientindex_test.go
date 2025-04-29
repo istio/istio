@@ -1725,6 +1725,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	cl.RunAndWait(stop)
 	return a
 }
+
 func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID network.ID, flags FeatureFlags) *ambientTestServer {
 	up := xdsfake.NewFakeXDS()
 	up.SplitEvents = true

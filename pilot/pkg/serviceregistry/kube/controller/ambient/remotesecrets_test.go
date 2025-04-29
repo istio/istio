@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
@@ -34,9 +36,11 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 const secretNamespace string = "istio-system"
@@ -52,7 +56,7 @@ type simpleCluster struct {
 	InitialSync  bool
 }
 
-func makeSecret(namespace string, secret string, clusterConfigs ...clusterCredential) *v1.Secret {
+func makeSecret(namespace string, secret string, clusterConfigs ...clusterCredential) *corev1.Secret {
 	s := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secret,
@@ -174,7 +178,7 @@ func TestKubeConfigOverride(t *testing.T) {
 	client.RunAndWait(stopCh)
 	assert.Equal(t, clusters.WaitUntilSynced(opts.Stop()), true)
 	secret0 := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0-0")})
-	secrets := clienttest.NewWriter[*v1.Secret](t, client)
+	secrets := clienttest.NewWriter[*corev1.Secret](t, client)
 	t.Run("test kube config override", func(t *testing.T) {
 		secrets.Create(secret0)
 		assert.EventuallyEqual(t, func() bool {
@@ -193,10 +197,11 @@ func TestingBuildClientsFromConfig(kubeConfig []byte, c cluster.ID, configOverri
 
 type testController struct {
 	clusters krt.Collection[Cluster]
-	client   kube.Client
-	t        *testing.T
-	secrets  clienttest.TestWriter[*v1.Secret]
-	mesh     meshwatcher.WatcherCollection
+
+	client  kube.Client
+	t       *testing.T
+	secrets clienttest.TestWriter[*corev1.Secret]
+	mesh    meshwatcher.WatcherCollection
 }
 
 func buildTestController(t *testing.T) testController {
@@ -204,7 +209,7 @@ func buildTestController(t *testing.T) testController {
 		client: kube.NewFakeClient(),
 		t:      t,
 	}
-	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
+	tc.secrets = clienttest.NewWriter[*corev1.Secret](t, tc.client)
 	watcher := meshwatcher.NewTestWatcher(nil)
 	options := Options{
 		Client:          tc.client,
@@ -266,97 +271,109 @@ func TestListRemoteClusters(t *testing.T) {
 	})
 }
 
-// func TestShutdown(t *testing.T) {
-// 	stop := make(chan struct{})
-// 	c := buildTestController(t, true)
-// 	c.AddSecret("s0", "c0")
-// 	c.AddSecret("s1", "c1")
-// 	c.Run(stop)
-// 	retry.UntilOrFail(t, c.controller.HasSynced, retry.Timeout(2*time.Second))
-// 	components := c.component.All()
-// 	assert.Equal(t, []bool{false, false, false}, slices.Map(components, func(e testHandler) bool {
-// 		return e.Closed.Load()
-// 	}))
+func TestShutdown(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	stop := make(chan struct{}) // Don't use test stop because we manually close it
+	tc := buildTestController(t)
+	tc.AddSecret("s0", "c0")
+	tc.AddSecret("s1", "c1")
+	tc.Run(stop)
+	retry.UntilOrFail(t, tc.clusters.HasSynced, retry.Timeout(2*time.Second))
 
-// 	// Remove secret, it should be marked as closed
-// 	c.DeleteSecret("s0")
-// 	fetchClosed := func() map[string]bool {
-// 		res := map[string]bool{}
-// 		for _, c := range components {
-// 			res[string(c.ID)] = c.Closed.Load()
-// 		}
-// 		return res
-// 	}
-// 	assert.EventuallyEqual(t, fetchClosed, map[string]bool{"config": false, "c1": false, "c0": true})
+	// Remove secret, it should be marked as closed
+	var c *Cluster
+	assert.EventuallyEqual(t, func() bool {
+		c = tc.clusters.GetKey("c0")
+		return c != nil
+	}, true)
+	tc.DeleteSecret("s0")
+	fetchClosed := func() bool {
+		return c.Closed()
+	}
+	clustersLen := func() int {
+		return len(tc.clusters.List())
+	}
+	assert.EventuallyEqual(t, fetchClosed, true)
+	// We should still have 1 cluster left in the store
+	assert.EventuallyEqual(t, clustersLen, 1)
 
-// 	// close everything
-// 	close(stop)
+	// close everything
+	close(stop)
 
-// 	// We should *not* shutdown anything else except the config cluster
-// 	// In theory we could, but we only shut down the controller when the entire application is closing so we don't bother
-// 	assert.EventuallyEqual(t, fetchClosed, map[string]bool{"config": true, "c1": false, "c0": true})
-// }
+	// We should *not* shutdown anything else except the config cluster
+	// In theory we could, but we only shut down the controller when the entire application is closing so we don't bother
+	assert.EventuallyEqual(t, clustersLen, 1)
+}
 
-// // TestObjectFilter tests that when a component is created, it should have access to the objectfilter.
-// // This ensures we do not load everything, then later filter it out.
-// func TestObjectFilter(t *testing.T) {
-// 	stop := test.NewStop(t)
-// 	clientWithNamespace := func() kube.Client {
-// 		return kube.NewFakeClient(
-// 			&v1.Namespace{
-// 				ObjectMeta: metav1.ObjectMeta{
-// 					Name:   "allowed",
-// 					Labels: map[string]string{"kubernetes.io/metadata.name": "allowed"},
-// 				},
-// 			},
-// 			&v1.Namespace{
-// 				ObjectMeta: metav1.ObjectMeta{
-// 					Name:   "not-allowed",
-// 					Labels: map[string]string{"kubernetes.io/metadata.name": "not-allowed"},
-// 				},
-// 			})
-// 	}
-// 	tc := testController{
-// 		client: clientWithNamespace(),
-// 		t:      t,
-// 	}
-// 	mesh := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
-// 		DiscoverySelectors: []*meshconfig.LabelSelector{
-// 			{
-// 				MatchLabels: map[string]string{
-// 					"kubernetes.io/metadata.name": "allowed",
-// 				},
-// 			},
-// 		},
-// 	})
+// TestObjectFilter tests that when a component is created, it should have access to the objectfilter.
+// This ensures we do not load everything, then later filter it out.
+func TestObjectFilter(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	stop := test.NewStop(t)
+	clientWithNamespace := func() kube.Client {
+		return kube.NewFakeClient(
+			&v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "allowed",
+					Labels: map[string]string{"kubernetes.io/metadata.name": "allowed"},
+				},
+			},
+			&v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "not-allowed",
+					Labels: map[string]string{"kubernetes.io/metadata.name": "not-allowed"},
+				},
+			})
+	}
+	tc := testController{
+		client: clientWithNamespace(),
+		t:      t,
+	}
+	mesh := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
+		DiscoverySelectors: []*meshconfig.LabelSelector{
+			{
+				MatchLabels: map[string]string{
+					"kubernetes.io/metadata.name": "allowed",
+				},
+			},
+		},
+	})
 
-// 	// For primary cluster, we need to set it up ourselves.
-// 	namespaces := kclient.New[*v1.Namespace](tc.client)
-// 	filter := namespace.NewDiscoveryNamespacesFilter(namespaces, mesh, stop)
-// 	tc.client = kube.SetObjectFilter(tc.client, filter)
+	// For primary cluster, we need to set it up ourselves.
+	namespaces := kclient.New[*corev1.Namespace](tc.client)
+	filter := namespace.NewDiscoveryNamespacesFilter(namespaces, mesh, stop)
+	tc.client = kube.SetObjectFilter(tc.client, filter)
+	tc.secrets = clienttest.NewWriter[*corev1.Secret](t, tc.client)
+	options := Options{
+		Client:          tc.client,
+		ClusterID:       "config",
+		SystemNamespace: secretNamespace,
+		DomainSuffix:    "company.com",
+		MeshConfig:      mesh,
+	}
+	a := newAmbientTestServerFromOptions(t, testNW, options)
+	a.clientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		return clientWithNamespace(), nil
+	}
+	tc.clusters = a.remoteClusters
+	tc.mesh = mesh
 
-// 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
-// 	tc.controller = NewController(tc.client, secretNamespace, "config", mesh)
-// 	tc.controller.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
-// 		return clientWithNamespace(), nil
-// 	}
+	_ = krt.NewCollection(tc.clusters, func(ctx krt.HandlerContext, cluster Cluster) *testHandler {
+		assert.Equal(t, cluster.Client.ObjectFilter() != nil, true, "cluster "+cluster.ID.String())
+		assert.Equal(t, cluster.Client.ObjectFilter().Filter("allowed"), true)
+		assert.Equal(t, cluster.Client.ObjectFilter().Filter("not-allowed"), false)
+		return &testHandler{
+			ID:     cluster.ID,
+			Closed: atomic.NewBool(false),
+			Synced: atomic.NewBool(true),
+		}
+	})
 
-// 	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
-// 		// Filter must immediately work!
-// 		assert.Equal(t, cluster.Client.ObjectFilter() != nil, true, "cluster "+cluster.ID.String())
-// 		assert.Equal(t, cluster.Client.ObjectFilter().Filter("allowed"), true)
-// 		assert.Equal(t, cluster.Client.ObjectFilter().Filter("not-allowed"), false)
-// 		return testHandler{
-// 			ID:     cluster.ID,
-// 			Closed: atomic.NewBool(false),
-// 			Synced: atomic.NewBool(true),
-// 		}
-// 	})
-// 	tc.AddSecret("s0", "c0")
-// 	tc.AddSecret("s1", "c1")
-// 	tc.Run(stop)
-// 	retry.UntilOrFail(t, tc.controller.HasSynced, retry.Timeout(2*time.Second))
-// }
+	tc.AddSecret("s0", "c0")
+	tc.AddSecret("s1", "c1")
+	tc.Run(stop)
+	retry.UntilOrFail(t, tc.clusters.HasSynced, retry.Timeout(2*time.Second))
+}
 
 // type informerHandler[T controllers.ComparableObject] struct {
 // 	client kclient.Client[T]
@@ -398,10 +415,10 @@ func TestListRemoteClusters(t *testing.T) {
 // 		nextClient = later
 // 		return ret, nil
 // 	}
-// 	component := BuildMultiClusterComponent(c.controller, func(cluster *Cluster) *informerHandler[*v1.ConfigMap] {
-// 		cl := kclient.New[*v1.ConfigMap](cluster.Client)
+// 	component := BuildMultiClusterComponent(c.controller, func(cluster *Cluster) *informerHandler[*corev1.ConfigMap] {
+// 		cl := kclient.New[*corev1.ConfigMap](cluster.Client)
 // 		cl.AddEventHandler(clienttest.TrackerHandler(tt))
-// 		return &informerHandler[*v1.ConfigMap]{client: cl}
+// 		return &informerHandler[*corev1.ConfigMap]{client: cl}
 // 	})
 // 	c.AddSecret("s0", "c0")
 // 	c.Run(stop)
@@ -471,9 +488,9 @@ func TestListRemoteClusters(t *testing.T) {
 // 	steps := []struct {
 // 		name string
 // 		// only set one of these per step. The others should be nil.
-// 		add    *v1.Secret
-// 		update *v1.Secret
-// 		delete *v1.Secret
+// 		add    *corev1.Secret
+// 		update *corev1.Secret
+// 		delete *corev1.Secret
 
 // 		want []result
 // 	}{
@@ -563,7 +580,7 @@ func TestListRemoteClusters(t *testing.T) {
 // 	c := NewController(client, secretNamespace, "config", meshwatcher.NewTestWatcher(nil))
 // 	c.ClientBuilder = TestingBuildClientsFromConfig
 // 	client.RunAndWait(stopCh)
-// 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
+// 	secrets := clienttest.NewWriter[*corev1.Secret](t, client)
 // 	iter := 0
 // 	component := BuildMultiClusterComponent(c, func(cluster *Cluster) testHandler {
 // 		iter++
@@ -618,4 +635,8 @@ func (h testHandler) Close() {
 
 func (h testHandler) HasSynced() bool {
 	return h.Synced.Load()
+}
+
+func (h testHandler) ResourceName() string {
+	return h.ID.String()
 }

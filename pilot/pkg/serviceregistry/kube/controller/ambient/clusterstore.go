@@ -120,8 +120,8 @@ func (c *ClusterStore) GetExistingClustersFor(secretKey string) []*Cluster {
 }
 
 func (c *ClusterStore) Len() int {
-	c.Lock()
-	defer c.Unlock()
+	c.RLock()
+	defer c.RUnlock()
 	out := 0
 	for _, clusterMap := range c.remoteClusters {
 		out += len(clusterMap)
