@@ -81,6 +81,10 @@ spec:
 {{- toYaml . | nindent 8 }}
 {{- end }}
       serviceAccountName: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+{{- if .Values.securityContext }}
+      securityContext:
+{{- toYaml .Values.securityContext | nindent 8 }}
+{{- end}}      
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
@@ -217,6 +221,9 @@ spec:
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
           securityContext:
+{{- if .Values.containerSecurityContext }}
+{{- toYaml .Values.containerSecurityContext | nindent 12 }}
+{{- else }}
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             runAsNonRoot: true
@@ -226,6 +233,7 @@ spec:
 {{- if .Values.seccompProfile }}
             seccompProfile:
 {{ toYaml .Values.seccompProfile | trim | indent 14 }}
+{{- end }}
 {{- end }}
           volumeMounts:
           - name: istio-token
