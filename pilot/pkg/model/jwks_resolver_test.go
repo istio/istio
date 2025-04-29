@@ -97,6 +97,8 @@ func TestGetPublicKey(t *testing.T) {
 
 	var prevLastUsedTime time.Time
 
+	// Send two identical requests: the mock server is expected to be hit the first
+	// time only because the second should hit the cache.
 	cases := []struct {
 		in                []string
 		expectedJwtPubkey string
@@ -106,7 +108,7 @@ func TestGetPublicKey(t *testing.T) {
 			expectedJwtPubkey: test.JwtPubKey1,
 		},
 		{
-			in:                []string{"testIssuer", mockCertURL}, // Send two same request, mock server is expected to hit only once because of the cache.
+			in:                []string{"testIssuer", mockCertURL},
 			expectedJwtPubkey: test.JwtPubKey1,
 		},
 	}
@@ -135,6 +137,73 @@ func TestGetPublicKey(t *testing.T) {
 	// Verify mock server http://localhost:9999/oauth2/v3/certs was only called once because of the cache.
 	if got, want := ms.PubKeyHitNum, uint64(1); got != want {
 		t.Errorf("Mock server Hit number => expected %d but got %d", want, got)
+	}
+}
+
+func TestGetPublicKeyWithEmptyIssuer(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
+	defer r.Close()
+
+	ms, err := test.StartNewServer()
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+
+	var prevLastUsedTime time.Time
+
+	// Send two identical requests: the mock server is expected to be hit the first
+	// time only because the second should hit the cache.
+	cases := []struct {
+		in                []string
+		expectedJwtPubkey string
+	}{
+		{
+			in:                []string{"", mockCertURL},
+			expectedJwtPubkey: test.JwtPubKey1,
+		},
+		{
+			in:                []string{"", mockCertURL}, // Send two same request, mock server is expected to hit only once because of the cache.
+			expectedJwtPubkey: test.JwtPubKey1,
+		},
+	}
+	for _, c := range cases {
+		pk, err := r.GetPublicKey(c.in[0], c.in[1], testRequestTimeout)
+		if err != nil {
+			t.Errorf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", c.in, err)
+		}
+		if c.expectedJwtPubkey != pk {
+			t.Errorf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", c.in, c.expectedJwtPubkey, pk)
+		}
+
+		val, found := r.keyEntries.Load(jwtKey{issuer: c.in[0], jwksURI: c.in[1]})
+		if !found {
+			t.Errorf("GetPublicKey(\"\", %+v): did not produce a cache entry", c.in)
+		}
+
+		lastUsedTime := val.(jwtPubKeyEntry).lastUsedTime
+		if lastUsedTime.Sub(prevLastUsedTime) <= 0 {
+			t.Errorf("GetPublicKey(\"\", %+v): invocation did not update lastUsedTime in the cache", c.in)
+		}
+
+		prevLastUsedTime = lastUsedTime
+	}
+
+	// Verify mock server http://localhost:9999/oauth2/v3/certs was only called once because of the cache.
+	if got, want := ms.PubKeyHitNum, uint64(1); got != want {
+		t.Errorf("Mock server Hit number => expected %d but got %d", want, got)
+	}
+}
+
+func TestGetPublicKeyWithEmptyIssuerAndEmptyJwksURI(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
+	defer r.Close()
+
+	_, err := r.GetPublicKey("", "", testRequestTimeout)
+	if err == nil {
+		t.Errorf("GetPublicKey(\"\", \"\") fails: expected error, got no error")
 	}
 }
 
