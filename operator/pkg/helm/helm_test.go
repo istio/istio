@@ -46,6 +46,13 @@ func TestRender(t *testing.T) {
 			chartName:   "gateway",
 			diffSelect:  "Deployment:*:istio-ingress",
 		},
+		{
+			desc:        "gateway-env-var-from",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Deployment:*:istio-ingress",
+		},		
 	}
 
 	for _, tc := range cases {
@@ -59,7 +66,7 @@ func TestRender(t *testing.T) {
 			var vals values.Map
 			if err := yaml.Unmarshal(data, &vals); err != nil {
 				t.Fatalf("error %s: %s", err, inPath)
-			}
+			}			
 			m, _, err := Render(tc.releaseName, tc.namespace, tc.chartName, vals, nil)
 			require.NoError(t, err)
 
