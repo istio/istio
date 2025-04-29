@@ -52,9 +52,19 @@ func (a *index) ServicesCollection(
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.ServiceInfo] {
 	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces),
-		opts.WithName("ServicesInfo")...)
+		append(
+			opts.WithName("ServicesInfo"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: clusterID,
+			}),
+		)...)
 	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces),
-		opts.WithName("ServiceEntriesInfo")...)
+		append(
+			opts.WithName("ServiceEntriesInfo"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: clusterID,
+			}),
+		)...)
 	WorkloadServices := krt.JoinCollection(
 		[]krt.Collection[model.ServiceInfo]{ServicesInfo, ServiceEntriesInfo},
 		append(opts.WithName("WorkloadService"), krt.WithMetadata(
@@ -111,10 +121,17 @@ func GlobalMergedWorkloadServicesCollection(
 
 			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {
 				return network.ID(*nw.Get())
-			}))
+			}), opts.With(
+				append(
+					opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID)),
+					krt.WithMetadata(krt.Metadata{
+						ClusterKRTMetadataKey: cluster.ID,
+					}),
+				)...,
+			)...)
 			servicesInfoWithCluster := krt.MapCollection(servicesInfo, func(o model.ServiceInfo) config.ObjectWithCluster[model.ServiceInfo] {
 				return config.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
-			}, opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID))...)
+			})
 
 			AllServiceInfos = append(AllServiceInfos, servicesInfoWithCluster)
 		}

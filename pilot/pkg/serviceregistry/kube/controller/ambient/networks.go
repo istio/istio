@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	kubectrl "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
@@ -87,15 +88,23 @@ func buildGlobalNetworkCollections(
 					ClusterKRTMetadataKey: c.ID,
 				}),
 			)
-			details := c.ClusterDetails.Get()
-			if details == nil {
+			if !kubectrl.WaitForCacheSync(fmt.Sprintf("remote cluster %s", c.ID), opts.Stop(), c.HasSynced) {
+				log.Errorf("Timed out waiting for cluster %s to sync namespaces", c.ID)
+				return nil
+			}
+			ns := ptr.Flatten(krt.FetchOne(ctx, c.namespaces, krt.FilterKey(options.SystemNamespace)))
+			if ns == nil {
 				// return an empty singleton
 				return ptr.Of(krt.NewSingleton(func(ctx krt.HandlerContext) *string {
 					return nil
 				}, singletonOpts...))
 			}
+			nw, f := ns.Labels[label.TopologyNetwork.Name]
+			if !f {
+				nw = ""
+			}
 			s := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
-				return ptr.Of(details.Network.String())
+				return ptr.Of(nw)
 			}, singletonOpts...)
 			return &s
 		},
@@ -104,7 +113,7 @@ func buildGlobalNetworkCollections(
 	SystemNamespaceNetworkByCluster := krt.NewIndex(SystemNamespaceNetwork, "cluster", func(o krt.Singleton[string]) []cluster.ID {
 		val, ok := o.Metadata()[ClusterKRTMetadataKey]
 		if !ok {
-			log.Warnf("Cluster metadata not set on collection %v", o)
+			log.Warnf("Cluster metadata not set on network collection %v", o)
 			return nil
 		}
 		id, ok := val.(cluster.ID)

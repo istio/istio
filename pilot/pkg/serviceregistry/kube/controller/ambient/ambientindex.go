@@ -17,8 +17,9 @@ package ambient
 import (
 	"net/netip"
 	"strings"
-	"sync/atomic"
 
+	"go.uber.org/atomic"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -101,8 +102,7 @@ type index struct {
 	waypoints waypointsCollection
 	networks  networkCollections
 
-	namespaces     krt.Collection[model.NamespaceInfo]
-	remoteClusters krt.Collection[Cluster]
+	namespaces krt.Collection[model.NamespaceInfo]
 
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
 
@@ -113,8 +113,15 @@ type index struct {
 	ClusterID       cluster.ID
 	XDSUpdater      model.XDSUpdater
 	Flags           FeatureFlags
+	Debugger        *krt.DebugHandler
 
 	stop chan struct{}
+
+	cs             *ClusterStore
+	clientBuilder  ClientBuilder
+	secrets        krt.Collection[*corev1.Secret]
+	remoteClusters krt.Collection[Cluster]
+	meshConfig     meshwatcher.WatcherCollection
 }
 
 type FeatureFlags struct {
@@ -133,7 +140,7 @@ type Options struct {
 	StatusNotifier  *activenotifier.ActiveNotifier
 	Flags           FeatureFlags
 
-	MeshConfig krt.Singleton[MeshConfig]
+	MeshConfig meshwatcher.WatcherCollection
 
 	Debugger *krt.DebugHandler
 }
@@ -144,8 +151,10 @@ func New(options Options) Index {
 		DomainSuffix:    options.DomainSuffix,
 		ClusterID:       options.ClusterID,
 		XDSUpdater:      options.XDSUpdater,
+		Debugger:        options.Debugger,
 		Flags:           options.Flags,
 		stop:            make(chan struct{}),
+		cs:              newClustersStore(),
 	}
 
 	filter := kclient.Filter{
@@ -153,7 +162,7 @@ func New(options Options) Index {
 	}
 	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
 
-	MeshConfig := options.MeshConfig
+	a.meshConfig = options.MeshConfig
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
 	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, opts.With(
 		append(opts.WithName("informer/Namespaces"),
@@ -234,7 +243,7 @@ func New(options Options) Index {
 		LocalCluster := &Cluster{
 			ID:                 options.ClusterID,
 			Client:             options.Client,
-			stop:               opts.Stop(),
+			stop:               make(chan struct{}),
 			initialSync:        &atomic.Bool{},
 			initialSyncTimeout: &atomic.Bool{},
 			namespaces:         Namespaces,
@@ -256,6 +265,7 @@ func New(options Options) Index {
 			authzPolicies,
 			options,
 			opts)
+
 		return a
 	}
 
@@ -265,7 +275,7 @@ func New(options Options) Index {
 	Waypoints := a.WaypointsCollection(options.ClusterID, Gateways, GatewayClasses, Pods, opts)
 
 	// AllPolicies includes peer-authentication converted policies
-	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints, opts, a.Flags)
+	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, a.meshConfig, Waypoints, opts, a.Flags)
 	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater,
 		func(i model.WorkloadAuthorization) model.ConfigKey {
 			if i.Authorization == nil {
@@ -288,7 +298,7 @@ func New(options Options) Index {
 			Services,
 			ServiceEntries,
 			GatewayClasses,
-			MeshConfig,
+			a.meshConfig,
 			Namespaces,
 			opts,
 		)
@@ -382,7 +392,7 @@ func New(options Options) Index {
 	Workloads := a.WorkloadsCollection(
 		Pods,
 		NodeLocality,
-		MeshConfig,
+		a.meshConfig,
 		AuthorizationPolicies,
 		PeerAuths,
 		Waypoints,
