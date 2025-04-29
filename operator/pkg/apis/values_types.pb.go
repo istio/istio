@@ -5345,15 +5345,12 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x0eCNIUsageConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x128\n" +
 	"\achained\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueB\x02\x18\x01R\achained\x12\x1a\n" +
-	"\bprovider\x18\x03 \x01(\tR\bprovider\"\xae\x02\n" +
 	"\x10CNIAmbientConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12\x1c\n" +
 	"\tconfigDir\x18\x03 \x01(\tR\tconfigDir\x12:\n" +
 	"\n" +
 	"dnsCapture\x18\x05 \x01(\v2\x1a.google.protobuf.BoolValueR\n" +
 	"dnsCapture\x12.\n" +
-	"\x04ipv6\x18\a \x01(\v2\x1a.google.protobuf.BoolValueR\x04ipv6\x12Z\n" +
-	"\x1areconcileIptablesOnStartup\x18\t \x01(\v2\x1a.google.protobuf.BoolValueR\x1areconcileIptablesOnStartup\"\xad\x03\n" +
 	"\x0fCNIRepairConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12\x10\n" +
 	"\x03hub\x18\x02 \x01(\tR\x03hub\x12(\n" +
@@ -5390,7 +5387,6 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	" DefaultPodDisruptionBudgetConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\"f\n" +
 	"\x16DefaultResourcesConfig\x12L\n" +
-	"\brequests\x18\x01 \x01(\v20.istio.operator.v1alpha1.ResourcesRequestsConfigR\brequests\"\xbb\x0f\n" +
 	"\x13EgressGatewayConfig\x12F\n" +
 	"\x10autoscaleEnabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
 	"\fautoscaleMax\x18\x02 \x01(\rR\fautoscaleMax\x12\"\n" +
@@ -5411,7 +5407,6 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\tresources\x18\x0f \x01(\v2\".istio.operator.v1alpha1.ResourcesB\x02\x18\x01R\tresources\x12K\n" +
 	"\rsecretVolumes\x18\x10 \x03(\v2%.istio.operator.v1alpha1.SecretVolumeR\rsecretVolumes\x12G\n" +
 	"\x12serviceAnnotations\x18\x11 \x01(\v2\x17.google.protobuf.StructR\x12serviceAnnotations\x12\x12\n" +
-	"\x04type\x18\x12 \x01(\tR\x04type\x12D\n" +
 	"\vtolerations\x18\x14 \x03(\v2\x1e.k8s.io.api.core.v1.TolerationB\x02\x18\x01R\vtolerations\x12R\n" +
 	"\x0frollingMaxSurge\x18\x15 \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x0frollingMaxSurge\x12^\n" +
 	"\x15rollingMaxUnavailable\x18\x16 \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x15rollingMaxUnavailable\x12=\n" +
@@ -5487,7 +5482,6 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\fIstiodConfig\x12B\n" +
 	"\x0eenableAnalysis\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x0eenableAnalysis\"+\n" +
 	"\x13GlobalLoggingConfig\x12\x14\n" +
-	"\x05level\x18\x01 \x01(\tR\x05level\"\xb1\x11\n" +
 	"\x14IngressGatewayConfig\x12F\n" +
 	"\x10autoscaleEnabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
 	"\fautoscaleMax\x18\x02 \x01(\rR\fautoscaleMax\x12\"\n" +
@@ -5511,7 +5505,6 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\tresources\x18\x19 \x01(\v2\x17.google.protobuf.StructB\x02\x18\x01R\tresources\x12K\n" +
 	"\rsecretVolumes\x18\x1b \x03(\v2%.istio.operator.v1alpha1.SecretVolumeR\rsecretVolumes\x12G\n" +
 	"\x12serviceAnnotations\x18\x1c \x01(\v2\x17.google.protobuf.StructR\x12serviceAnnotations\x12\x12\n" +
-	"\x04type\x18\x1d \x01(\tR\x04type\x12R\n" +
 	"\x0frollingMaxSurge\x18\x1f \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x0frollingMaxSurge\x12^\n" +
 	"\x15rollingMaxUnavailable\x18  \x01(\v2$.istio.operator.v1alpha1.IntOrStringB\x02\x18\x01R\x15rollingMaxUnavailable\x124\n" +
 	"\x15externalTrafficPolicy\x18\" \x01(\tR\x15externalTrafficPolicy\x12D\n" +
@@ -5528,7 +5521,6 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x0eipFamilyPolicy\x181 \x01(\tR\x0eipFamilyPolicy\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe8\x01\n" +
 	"\x12MultiClusterConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12 \n" +
 	"\vclusterName\x18\x02 \x01(\tR\vclusterName\x12.\n" +
@@ -5538,7 +5530,6 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04mode\x18\x02 \x01(\x0e29.istio.operator.v1alpha1.OutboundTrafficPolicyConfig.ModeR\x04mode\"(\n" +
 	"\x04Mode\x12\r\n" +
 	"\tALLOW_ANY\x10\x00\x12\x11\n" +
-	"\rREGISTRY_ONLY\x10\x01\"\x98\x13\n" +
 	"\vPilotConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12F\n" +
 	"\x10autoscaleEnabled\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
@@ -5580,10 +5571,6 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x03cni\x187 \x01(\v2'.istio.operator.v1alpha1.CNIUsageConfigR\x03cni\x12I\n" +
 	"\x05taint\x189 \x01(\v23.istio.operator.v1alpha1.PilotTaintControllerConfigR\x05taint\x128\n" +
 	"\x17trustedZtunnelNamespace\x18; \x01(\tR\x17trustedZtunnelNamespace\x12O\n" +
-	"\fistiodRemote\x18= \x01(\v2+.istio.operator.v1alpha1.IstiodRemoteConfigR\fistiodRemote\x127\n" +
-	"\n" +
-	"envVarFrom\x18> \x03(\v2\x17.google.protobuf.StructR\n" +
-	"envVarFrom\"T\n" +
 	"\x1aPilotTaintControllerConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\"\xc6\x01\n" +
@@ -5700,7 +5687,6 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\finjectionURL\x18\x01 \x01(\tR\finjectionURL\x12$\n" +
 	"\rinjectionPath\x18\x02 \x01(\tR\rinjectionPath\x12,\n" +
 	"\x11injectionCABundle\x18\x03 \x01(\tR\x11injectionCABundle\x124\n" +
-	"\aenabled\x18\x05 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\"\xd7\b\n" +
 	"\x06Values\x124\n" +
 	"\x03cni\x18\x02 \x01(\v2\".istio.operator.v1alpha1.CNIConfigR\x03cni\x12C\n" +
 	"\bgateways\x18\x05 \x01(\v2'.istio.operator.v1alpha1.GatewaysConfigR\bgateways\x12=\n" +
@@ -5722,8 +5708,10 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x0fdefaultRevision\x18( \x01(\tR\x0fdefaultRevision\x12\x18\n" +
 	"\aprofile\x18* \x01(\tR\aprofile\x122\n" +
 	"\x14compatibilityVersion\x18+ \x01(\tR\x14compatibilityVersion\x12O\n" +
-	"\fexperimental\x18, \x01(\v2+.istio.operator.v1alpha1.ExperimentalConfigR\fexperimental\x12>\n" +
-	"\x0egatewayClasses\x18- \x01(\v2\x16.google.protobuf.ValueR\x0egatewayClasses\"h\n" +
+	"\fexperimental\x18, \x01(\v2+.istio.operator.v1alpha1.ExperimentalConfigR\fexperimental\"]\n" +
+	"\rZeroVPNConfig\x124\n" +
+	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12\x16\n" +
+	"\x06suffix\x18\x02 \x01(\tR\x06suffix\"h\n" +
 	"\x12ExperimentalConfig\x12R\n" +
 	"\x16stableValidationPolicy\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\x16stableValidationPolicy\"\x8c\x01\n" +
 	"\vIntOrString\x12\x12\n" +
