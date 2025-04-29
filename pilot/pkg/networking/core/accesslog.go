@@ -98,7 +98,7 @@ func (b *AccessLogBuilder) setTCPAccessLogWithFilter(
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			tcp.AccessLog = append(tcp.AccessLog, b.coreAccessLog.buildOrFetch(mesh))
+			tcp.AccessLog = append(tcp.AccessLog, b.coreAccessLog.buildOrFetch(mesh, proxy))
 		}
 
 		if mesh.EnableEnvoyAccessLogService {
@@ -124,7 +124,7 @@ func (b *AccessLogBuilder) setHboneOriginationAccessLog(push *model.PushContext,
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			tcp.AccessLog = append(tcp.AccessLog, b.hboneOriginationAccessLog.buildOrFetch(mesh))
+			tcp.AccessLog = append(tcp.AccessLog, b.hboneOriginationAccessLog.buildOrFetch(mesh, proxy))
 		}
 		return
 	}
@@ -142,7 +142,7 @@ func (b *AccessLogBuilder) setHboneTerminationAccessLog(push *model.PushContext,
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			connectionManager.AccessLog = append(connectionManager.AccessLog, b.hboneTerminationAccessLog.buildOrFetch(mesh))
+			connectionManager.AccessLog = append(connectionManager.AccessLog, b.hboneTerminationAccessLog.buildOrFetch(mesh, proxy))
 		}
 		return
 	}
@@ -205,7 +205,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			connectionManager.AccessLog = append(connectionManager.AccessLog, b.coreAccessLog.buildOrFetch(mesh))
+			connectionManager.AccessLog = append(connectionManager.AccessLog, b.coreAccessLog.buildOrFetch(mesh, proxy))
 		}
 
 		if mesh.EnableEnvoyAccessLogService {
@@ -232,7 +232,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
-			listener.AccessLog = append(listener.AccessLog, b.listenerAccessLog.buildOrFetch(mesh))
+			listener.AccessLog = append(listener.AccessLog, b.listenerAccessLog.buildOrFetch(mesh, proxy))
 		}
 
 		if mesh.EnableEnvoyAccessLogService {
@@ -303,32 +303,36 @@ func buildAccessLogFilter(f ...*accesslog.AccessLogFilter) *accesslog.AccessLogF
 }
 
 func newCachedMeshConfigAccessLog(filter *accesslog.AccessLogFilter) cachedMeshConfigAccessLog {
-	return cachedMeshConfigAccessLog{filter: filter}
+	return cachedMeshConfigAccessLog{filter: filter, cached: make(map[bool]*accesslog.AccessLog)}
 }
 
 type cachedMeshConfigAccessLog struct {
 	filter *accesslog.AccessLogFilter
 	mutex  sync.RWMutex
-	cached *accesslog.AccessLog
+	cached map[bool]*accesslog.AccessLog
 }
 
-func (b *cachedMeshConfigAccessLog) getCached() *accesslog.AccessLog {
+func (b *cachedMeshConfigAccessLog) getCached(skipBuiltInFormatter bool) *accesslog.AccessLog {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
-	return b.cached
+	return b.cached[skipBuiltInFormatter]
 }
 
-func (b *cachedMeshConfigAccessLog) buildOrFetch(mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
-	if c := b.getCached(); c != nil {
+func (b *cachedMeshConfigAccessLog) buildOrFetch(mesh *meshconfig.MeshConfig, proxy *model.Proxy) *accesslog.AccessLog {
+	// Skip built-in formatter if Istio version is >= 1.26
+	// This is because if we send CEL/METADATA in the access log,
+	// envoy will report lots of warn message endlessly.
+	skipBuiltInFormatter := proxy.IstioVersion != nil && proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 26})
+	if c := b.getCached(skipBuiltInFormatter); c != nil {
 		return c
 	}
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	accessLog := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
+	accessLog := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh, skipBuiltInFormatter)
 	accessLog.Filter = b.filter
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.cached = accessLog
+	b.cached[skipBuiltInFormatter] = accessLog
 
 	return accessLog
 }
@@ -336,7 +340,7 @@ func (b *cachedMeshConfigAccessLog) buildOrFetch(mesh *meshconfig.MeshConfig) *a
 func (b *cachedMeshConfigAccessLog) reset() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	b.cached = nil
+	b.cached = make(map[bool]*accesslog.AccessLog)
 }
 
 func tcpGrpcAccessLog(isListener bool) *accesslog.AccessLog {
