@@ -1629,6 +1629,103 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	})
 }
 
+func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options) *ambientTestServer {
+	up := xdsfake.NewFakeXDS()
+	up.SplitEvents = true
+	if options.Client == nil {
+		options.Client = kubeclient.NewFakeClient()
+	}
+	cl := options.Client
+	t.Cleanup(cl.Shutdown)
+	for _, crd := range []schema.GroupVersionResource{
+		gvr.AuthorizationPolicy,
+		gvr.PeerAuthentication,
+		gvr.KubernetesGateway,
+		gvr.GatewayClass,
+		gvr.WorkloadEntry,
+		gvr.ServiceEntry,
+	} {
+		clienttest.MakeCRD(t, cl, crd)
+	}
+
+	if options.Flags == (FeatureFlags{}) {
+		options.Flags = FeatureFlags{
+			DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+			EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
+		}
+	}
+	if options.XDSUpdater == nil {
+		options.XDSUpdater = up
+	}
+	if options.MeshConfig == nil {
+		options.MeshConfig = meshwatcher.NewTestWatcher(nil)
+	}
+	if options.StatusNotifier == nil {
+		options.StatusNotifier = activenotifier.New(true)
+	}
+	if options.Debugger == nil {
+		options.Debugger = krt.GlobalDebugHandler
+	}
+	if options.SystemNamespace == "" {
+		options.SystemNamespace = systemNS
+	}
+	if options.DomainSuffix == "" {
+		options.DomainSuffix = "company.com"
+	}
+
+	clusterID := options.ClusterID
+
+	idx := New(options)
+
+	dumpOnFailure(t, options.Debugger)
+	a := &ambientTestServer{
+		t:         t,
+		clusterID: clusterID,
+		network:   networkID,
+		index:     idx.(*index),
+		fx:        up,
+		pc:        clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
+		sc:        clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
+		ns:        clienttest.NewWriter[*corev1.Namespace](t, cl),
+		grc:       clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
+		gwcls:     clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
+		se:        clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
+		we:        clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+		pa:        clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
+		authz:     clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
+		sec:       clienttest.NewWriter[*corev1.Secret](t, cl),
+	}
+
+	// assume this is installed with istio
+	a.gwcls.Create(&k8sbeta.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.WaypointGatewayClassName,
+		},
+		Spec: k8sv1.GatewayClassSpec{
+			ControllerName: constants.ManagedGatewayMeshController,
+		},
+	})
+
+	// ns is more important now that we want to be able to annotate ns for svc, wl waypoint selection
+	// always create the testNS enabled for ambient
+	a.ns.Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   testNS,
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: "ambient"},
+		},
+	})
+	a.ns.Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   systemNS,
+			Labels: map[string]string{label.TopologyNetwork.Name: string(networkID)},
+		},
+	})
+
+	stop := test.NewStop(t)
+	cl.RunAndWait(stop)
+	return a
+}
+
 func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID network.ID, flags FeatureFlags) *ambientTestServer {
 	up := xdsfake.NewFakeXDS()
 	up.SplitEvents = true

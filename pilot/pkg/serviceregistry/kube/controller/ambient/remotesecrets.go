@@ -15,22 +15,27 @@
 package ambient
 
 import (
+	"bytes"
 	"crypto/sha256"
-	"sync/atomic"
+	"fmt"
 
+	"github.com/hashicorp/go-multierror"
+	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
-	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -58,11 +63,142 @@ var (
 // ClientBuilder builds a new kube.Client from a kubeconfig. Mocked out for testing
 type ClientBuilder = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error)
 
-func buildRemoteClustersCollection(
+type ACTION int
+
+const (
+	Add ACTION = iota
+	Update
+)
+
+func (a ACTION) String() string {
+	switch a {
+	case Add:
+		return "Add"
+	case Update:
+		return "Update"
+	}
+	return "Unknown"
+}
+
+func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig []byte, clusterID string) (*Cluster, error) {
+	client, err := a.clientBuilder(kubeConfig, cluster.ID(clusterID))
+	if err != nil {
+		return nil, err
+	}
+	return &Cluster{
+		ID:           cluster.ID(clusterID),
+		Client:       client,
+		SourceSecret: secretKey,
+		stop:         make(chan struct{}),
+		// for use inside the package, to close on cleanup
+		initialSync:        atomic.NewBool(false),
+		initialSyncTimeout: atomic.NewBool(false),
+		kubeConfigSha:      sha256.Sum256(kubeConfig),
+	}, nil
+}
+
+func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger *krt.DebugHandler) error {
+	secretKey := name.String()
+	// First delete clusters
+	existingClusters := a.cs.GetExistingClustersFor(secretKey)
+	for _, existingCluster := range existingClusters {
+		if _, ok := s.Data[string(existingCluster.ID)]; !ok {
+			a.deleteCluster(secretKey, existingCluster)
+		}
+	}
+
+	var errs *multierror.Error
+	addedClusters := make([]*Cluster, 0, len(s.Data))
+	for clusterID, kubeConfig := range s.Data {
+		logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
+		if cluster.ID(clusterID) == a.ClusterID {
+			logger.Infof("ignoring cluster as it would overwrite the config cluster")
+			continue
+		}
+
+		action := Add
+		if prev := a.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
+			action = Update
+			// clusterID must be unique even across multiple secrets
+			kubeConfigSha := sha256.Sum256(kubeConfig)
+			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
+				logger.Infof("skipping update (kubeconfig are identical)")
+				continue
+			}
+			// stop previous remote cluster
+			prev.Stop()
+		} else if a.cs.Contains(cluster.ID(clusterID)) {
+			// if the cluster has been registered before by another secret, ignore the new one.
+			logger.Warnf("cluster has already been registered")
+			continue
+		}
+		logger.Infof("%s cluster", action)
+
+		remoteCluster, err := a.createRemoteCluster(name, kubeConfig, clusterID)
+		if err != nil {
+			logger.Errorf("%s cluster: create remote cluster failed: %v", action, err)
+			errs = multierror.Append(errs, err)
+			continue
+		}
+		// We run cluster async so we do not block, as this requires actually connecting to the cluster and loading configuration.
+		a.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
+		addedClusters = append(addedClusters, remoteCluster)
+		go func() {
+			remoteCluster.Run(a.meshConfig, debugger)
+		}()
+	}
+
+	syncers := slices.Map(addedClusters, func(c *Cluster) cache.InformerSynced { return c.HasSynced })
+	// Don't allow the event handler to continue without the cluster being synced
+	if !kube.WaitForCacheSync("remoteClusters", a.stop, syncers...) {
+		return fmt.Errorf("Timed out waiting for remote clusters %#v to sync", addedClusters)
+	}
+
+	log.Infof("Number of remote clusters: %d", a.cs.Len())
+	return errs.ErrorOrNil()
+}
+
+func (a *index) deleteSecret(secretKey string) {
+	for _, cluster := range a.cs.GetExistingClustersFor(secretKey) {
+		if cluster.ID == a.ClusterID {
+			log.Infof("ignoring delete cluster %v from secret %v as it would overwrite the config cluster", a.ClusterID, secretKey)
+			continue
+		}
+
+		a.deleteCluster(secretKey, cluster)
+	}
+
+	log.Infof("Number of remote clusters: %d", a.cs.Len())
+}
+
+func (a *index) deleteCluster(secretKey string, cluster *Cluster) {
+	log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
+	cluster.Stop()
+	// The delete event will be processed within the ClusterStore
+	a.cs.Delete(secretKey, cluster.ID)
+
+	log.Infof("Number of remote clusters: %d", a.cs.Len())
+}
+
+func (a *index) processSecretQueueItem(key types.NamespacedName) error {
+	log.Infof("processing secret event for secret %s", key)
+	scrt := ptr.Flatten(a.secrets.GetKey(key.String()))
+	if scrt != nil {
+		log.Debugf("secret %s exists in secret collection, processing it", key)
+		if err := a.addSecret(key, scrt, a.Debugger); err != nil {
+			return fmt.Errorf("error adding secret %s: %v", key, err)
+		}
+	} else {
+		log.Debugf("secret %s does not exist in secret collection, deleting it", key)
+		a.deleteSecret(key.String())
+	}
+	remoteClusters.Record(float64(a.cs.Len()))
+	return nil
+}
+
+func (a *index) buildRemoteClustersCollection(
 	options Options,
 	opts krt.OptionsBuilder,
-	builder ClientBuilder,
-	filter kclient.Filter,
 	configOverrides ...func(*rest.Config),
 ) krt.Collection[Cluster] {
 	informerClient := options.Client
@@ -96,65 +232,30 @@ func buildRemoteClustersCollection(
 		LabelSelector: MultiClusterSecretLabel + "=true",
 	})
 	Secrets := krt.WrapClient(secrets, opts.WithName("RemoteSecrets")...)
+	a.secrets = Secrets
 
-	Clusters := krt.NewManyCollection(Secrets, func(ctx krt.HandlerContext, s *corev1.Secret) []Cluster {
-		if s == nil {
-			return nil
+	Secrets.Register(func(o krt.Event[*corev1.Secret]) {
+		s := o.Latest()
+		err := a.processSecretQueueItem(config.NamespacedName(s))
+		if err != nil {
+			log.Errorf("error processing secret %s: %v", krt.GetKey(s), err)
 		}
-		var clusters []Cluster
-		secretKey := krt.GetKey(s)
-		for clusterID, kubeConfig := range s.Data {
-			logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
-			if cluster.ID(clusterID) == options.ClusterID {
-				logger.Infof("ignoring cluster as it would overwrite the config cluster")
-				continue
-			}
-			client, err := builder(kubeConfig, cluster.ID(clusterID), configOverrides...)
-			if err != nil {
-				log.Errorf("Failed to create client for cluster %s from secret %s: %v", clusterID, secretKey, err)
-				continue
-			}
-			cluster := Cluster{
-				ID:                 cluster.ID(clusterID),
-				Client:             client,
-				KubeConfigSha:      sha256.Sum256(kubeConfig),
-				stop:               opts.Stop(),
-				initialSync:        &atomic.Bool{},
-				initialSyncTimeout: &atomic.Bool{},
-				Filter:             filter.ObjectFilter,
-			}
-			// Run the remote cluster here so that we can use the cluster's internal informers
-			go cluster.Run(opts.Debugger())
+	})
 
-			// Don't allow the collection to be synced without the cluster being synced
-			if !kube.WaitForCacheSync("cluster"+string(cluster.ID), cluster.stop, cluster.HasSynced) {
-				logger.Errorf("Timed out waiting for cluster %s to sync", cluster.ID)
-				continue
-			}
-
-			details := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterDetails {
-				if !cluster.namespaces.WaitUntilSynced(cluster.stop) {
-					logger.Errorf("Timed out waiting for cluster %s to sync namespaces", cluster.ID)
-					return nil
-				}
-				ns := ptr.Flatten(krt.FetchOne(ctx, cluster.namespaces, krt.FilterKey(options.SystemNamespace)))
-				if ns == nil {
-					return nil
-				}
-				nw, f := ns.Labels[label.TopologyNetwork.Name]
-				if !f {
-					nw = ""
-				}
-				return &ClusterDetails{
-					SystemNamespace: options.SystemNamespace,
-					Network:         network.ID(nw),
-				}
-			}, opts.WithName("RemoteClusters")...)
-			cluster.ClusterDetails = details
-			clusters = append(clusters, cluster)
+	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []Cluster {
+		a.cs.rt.MarkDependant(ctx) // Subscribe to updates from the clusterStore
+		// Wait for all of the clusters to be synced
+		if !kube.WaitForCacheSync("multicluster remote secrets", a.stop, a.cs.HasSynced) {
+			log.Warnf("remote cluster cache sync failed")
 		}
-
-		return clusters
+		remoteClustersBySecretThenID := a.cs.All()
+		var remoteClusters []Cluster
+		for _, clusters := range remoteClustersBySecretThenID {
+			for _, cluster := range clusters {
+				remoteClusters = append(remoteClusters, *cluster)
+			}
+		}
+		return remoteClusters
 	}, opts.WithName("RemoteClusters")...)
 
 	return Clusters

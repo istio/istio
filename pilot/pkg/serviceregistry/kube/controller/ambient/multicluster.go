@@ -15,6 +15,7 @@
 package ambient
 
 import (
+	"fmt"
 	"net/netip"
 	"strings"
 
@@ -35,7 +36,6 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
-	istiomulticluster "istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
@@ -58,15 +58,11 @@ func (a *index) buildGlobalCollections(
 	options Options,
 	opts krt.OptionsBuilder,
 ) {
-	filter := kclient.Filter{
-		ObjectFilter: options.Client.ObjectFilter(),
-	}
-	clusters := buildRemoteClustersCollection(
+	clusters := a.buildRemoteClustersCollection(
 		options,
 		opts,
-		istiomulticluster.DefaultBuildClientsFromConfig,
-		filter,
 	)
+
 	a.remoteClusters = clusters
 
 	LocalPods := localCluster.pods
@@ -106,7 +102,7 @@ func (a *index) buildGlobalCollections(
 		GlobalGateways,
 		gatewayInformersByCluster,
 		opts,
-	))
+	), opts.WithName("GlobalGatewaysWithCluster")...)
 	globalGatewaysByCluster := nestedCollectionIndexByCluster(GlobalGatewaysWithCluster)
 
 	GlobalNamespaces := krt.NewManyFromNothing(nestedCollectionFromLocalAndRemote(LocalNamespaces, clusters, func(c Cluster) krt.Collection[*v1.Namespace] {
@@ -290,7 +286,7 @@ func (a *index) buildGlobalCollections(
 		LocalNodes,
 		opts.WithName("LocalNodeLocality")...,
 	)
-	GlobalNodeLocality := GlobalNodesCollection(globalNodes, opts.Stop(), opts.WithName("GlobalNodeLocality")...)
+	GlobalNodeLocality := GlobalNodesCollection(globalNodes, opts.Stop(), opts.WithName("GlobalNodeLocalityWithCluster")...)
 	GlobalNodeLocalityByCluster := nestedCollectionIndexByCluster(GlobalNodeLocality)
 
 	GlobalWorkloads := MergedGlobalWorkloadsCollection(
@@ -405,6 +401,7 @@ func (a *index) buildGlobalCollections(
 	}
 	a.authorizationPolicies = AllPolicies
 	// TODO: Should this be the set of global waypoints?
+	// Probably yes, but coming back to it in a follow up
 	a.waypoints = waypointsCollection{
 		Collection: LocalWaypoints,
 	}
@@ -449,7 +446,7 @@ func collectionFromCluster[T controllers.ComparableObject](
 		objWithCluster := krt.NewCollection(client, func(ctx krt.HandlerContext, obj T) *config.ObjectWithCluster[T] {
 			return &config.ObjectWithCluster[T]{ClusterID: c.ID, Object: &obj}
 		}, opts.With(
-			krt.WithName(name+"WithCluster"),
+			krt.WithName(fmt.Sprintf("%sCluster[%s]", name, c.ID)),
 			krt.WithMetadata(krt.Metadata{
 				ClusterKRTMetadataKey: c.ID,
 			}),
@@ -464,7 +461,7 @@ func informerIndexByCluster[T controllers.ComparableObject](
 	return krt.NewIndex[cluster.ID, krt.Collection[T]](informerCollection, "cluster", func(col krt.Collection[T]) []cluster.ID {
 		val, ok := col.Metadata()[ClusterKRTMetadataKey]
 		if !ok {
-			log.Warnf("Cluster metadata not set on collection %v", col)
+			log.Warnf("Cluster metadata not set on informer %v", col)
 			return nil
 		}
 		id, ok := val.(cluster.ID)

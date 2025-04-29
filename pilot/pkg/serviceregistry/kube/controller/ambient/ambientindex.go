@@ -17,9 +17,9 @@ package ambient
 import (
 	"net/netip"
 	"strings"
-	"sync/atomic"
 
-	v1 "k8s.io/api/core/v1"
+	"go.uber.org/atomic"
+	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -101,8 +101,7 @@ type index struct {
 	waypoints waypointsCollection
 	networks  networkCollections
 
-	namespaces     krt.Collection[model.NamespaceInfo]
-	remoteClusters krt.Collection[Cluster]
+	namespaces krt.Collection[model.NamespaceInfo]
 
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization]
 
@@ -113,8 +112,15 @@ type index struct {
 	ClusterID       cluster.ID
 	XDSUpdater      model.XDSUpdater
 	Flags           FeatureFlags
+	Debugger        *krt.DebugHandler
 
 	stop chan struct{}
+
+	cs             *ClusterStore
+	clientBuilder  ClientBuilder
+	secrets        krt.Collection[*corev1.Secret]
+	remoteClusters krt.Collection[Cluster]
+	meshConfig     meshwatcher.WatcherCollection
 }
 
 type FeatureFlags struct {
@@ -133,7 +139,7 @@ type Options struct {
 	StatusNotifier  *activenotifier.ActiveNotifier
 	Flags           FeatureFlags
 
-	MeshConfig krt.Singleton[MeshConfig]
+	MeshConfig meshwatcher.WatcherCollection
 
 	Debugger *krt.DebugHandler
 }
@@ -144,8 +150,10 @@ func New(options Options) Index {
 		DomainSuffix:    options.DomainSuffix,
 		ClusterID:       options.ClusterID,
 		XDSUpdater:      options.XDSUpdater,
+		Debugger:        options.Debugger,
 		Flags:           options.Flags,
 		stop:            make(chan struct{}),
+		cs:              newClustersStore(),
 	}
 
 	filter := kclient.Filter{
@@ -153,9 +161,9 @@ func New(options Options) Index {
 	}
 	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
 
-	MeshConfig := options.MeshConfig
+	a.meshConfig = options.MeshConfig
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
-	Namespaces := krt.NewInformer[*v1.Namespace](options.Client, opts.With(
+	Namespaces := krt.NewInformer[*corev1.Namespace](options.Client, opts.With(
 		append(opts.WithName("informer/Namespaces"),
 			krt.WithMetadata(krt.Metadata{
 				ClusterKRTMetadataKey: options.ClusterID,
@@ -181,7 +189,7 @@ func New(options Options) Index {
 
 	gatewayClassClient := kclient.NewDelayedInformer[*v1beta1.GatewayClass](options.Client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
 	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, opts.WithName("informer/GatewayClasses")...)
-	Pods := krt.NewInformerFiltered[*v1.Pod](options.Client, kclient.Filter{
+	Pods := krt.NewInformerFiltered[*corev1.Pod](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
 	}, opts.With(
@@ -200,15 +208,15 @@ func New(options Options) Index {
 		gvr.WorkloadEntry, kubetypes.StandardInformer, filter)
 	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, opts.WithName("informer/WorkloadEntries")...)
 
-	servicesClient := kclient.NewFiltered[*v1.Service](options.Client, filter)
-	Services := krt.WrapClient[*v1.Service](servicesClient, opts.With(
+	servicesClient := kclient.NewFiltered[*corev1.Service](options.Client, filter)
+	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.With(
 		append(opts.WithName("informer/Services"),
 			krt.WithMetadata(krt.Metadata{
 				ClusterKRTMetadataKey: options.ClusterID,
 			}),
 		)...,
 	)...)
-	Nodes := krt.NewInformerFiltered[*v1.Node](options.Client, kclient.Filter{
+	Nodes := krt.NewInformerFiltered[*corev1.Node](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripNodeUnusedFields,
 	}, opts.With(
@@ -234,7 +242,7 @@ func New(options Options) Index {
 		LocalCluster := &Cluster{
 			ID:                 options.ClusterID,
 			Client:             options.Client,
-			stop:               opts.Stop(),
+			stop:               make(chan struct{}),
 			initialSync:        &atomic.Bool{},
 			initialSyncTimeout: &atomic.Bool{},
 			namespaces:         Namespaces,
@@ -256,6 +264,7 @@ func New(options Options) Index {
 			authzPolicies,
 			options,
 			opts)
+
 		return a
 	}
 
@@ -265,7 +274,7 @@ func New(options Options) Index {
 	Waypoints := a.WaypointsCollection(options.ClusterID, Gateways, GatewayClasses, Pods, opts)
 
 	// AllPolicies includes peer-authentication converted policies
-	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, MeshConfig, Waypoints, opts, a.Flags)
+	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, a.meshConfig, Waypoints, opts, a.Flags)
 	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater,
 		func(i model.WorkloadAuthorization) model.ConfigKey {
 			if i.Authorization == nil {
@@ -279,7 +288,7 @@ func New(options Options) Index {
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
-		servicesWriter := kclient.NewWriteClient[*v1.Service](options.Client)
+		servicesWriter := kclient.NewWriteClient[*corev1.Service](options.Client)
 		authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
 
 		WaypointPolicyStatus := WaypointPolicyStatusCollection(
@@ -288,7 +297,7 @@ func New(options Options) Index {
 			Services,
 			ServiceEntries,
 			GatewayClasses,
-			MeshConfig,
+			a.meshConfig,
 			Namespaces,
 			opts,
 		)
@@ -371,7 +380,7 @@ func New(options Options) Index {
 		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
 	), false)
 
-	NamespacesInfo := krt.NewCollection(Namespaces, func(ctx krt.HandlerContext, i *v1.Namespace) *model.NamespaceInfo {
+	NamespacesInfo := krt.NewCollection(Namespaces, func(ctx krt.HandlerContext, i *corev1.Namespace) *model.NamespaceInfo {
 		return &model.NamespaceInfo{
 			Name:               i.Name,
 			IngressUseWaypoint: strings.EqualFold(i.Labels["istio.io/ingress-use-waypoint"], "true"),
@@ -382,7 +391,7 @@ func New(options Options) Index {
 	Workloads := a.WorkloadsCollection(
 		Pods,
 		NodeLocality,
-		MeshConfig,
+		a.meshConfig,
 		AuthorizationPolicies,
 		PeerAuths,
 		Waypoints,
@@ -496,7 +505,7 @@ func getConditions[T controllers.ComparableObject](name types.NamespacedName, i 
 		return nil
 	}
 	switch t := any(o).(type) {
-	case *v1.Service:
+	case *corev1.Service:
 		return translateKubernetesCondition(t.Status.Conditions)
 	case *networkingclient.ServiceEntry:
 		return translateIstioCondition(t.Status.Conditions)
