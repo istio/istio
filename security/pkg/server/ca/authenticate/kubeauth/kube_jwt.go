@@ -141,7 +141,7 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 }
 
 func (a *KubeJWTAuthenticator) getKubeClient(clusterID cluster.ID) kubernetes.Interface {
-	// first match local/primary cluster and it's aliases
+	// first match local/primary cluster or it's aliases
 	// or if clusterID is not sent (we assume that its a single cluster)
 	if a.clusterID == clusterID || a.clusterID == a.clusterAliases[clusterID] || clusterID == "" {
 		return a.kubeClient

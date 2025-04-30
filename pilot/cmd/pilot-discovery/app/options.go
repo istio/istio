@@ -42,7 +42,7 @@ func secureTLSCipherNames() []string {
 	return sets.SortedList(cipherKeys)
 }
 
-// validateClusterAliases validates that there's no more then alias per clusterID.
+// validateClusterAliases validates that there's no more than one alias per clusterID.
 func validateClusterAliases(clusterAliases map[string]string) error {
 	seenClusterIDs := sets.New[string]()
 	for _, clusterID := range clusterAliases {
