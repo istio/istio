@@ -221,6 +221,9 @@ func TestUpdateEndpointCacheForSlice(t *testing.T) {
 
 	eps := make([]corev1.EndpointPort, 0)
 	eps = append(eps, corev1.EndpointPort{Name: portName, Port: portNum})
+
+	// Endpoints is deprecated in k8s >=1.33, but we should still support it.
+	// nolint: staticcheck
 	endpoint := &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      svcName,
@@ -232,6 +235,9 @@ func TestUpdateEndpointCacheForSlice(t *testing.T) {
 			Ports:     eps,
 		}},
 	}
+
+	// Endpoints is deprecated in k8s >=1.33, but we should still support it.
+	// nolint: staticcheck
 	clienttest.NewWriter[*corev1.Endpoints](t, controller.client).CreateOrUpdate(endpoint)
 
 	esps := make([]discovery.EndpointPort, 0)
