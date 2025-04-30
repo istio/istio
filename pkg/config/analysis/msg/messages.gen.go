@@ -259,6 +259,14 @@ var (
 	// NegativeConditionStatus defines a diag.MessageType for message "NegativeConditionStatus".
 	// Description: A condition with a negative status is present
 	NegativeConditionStatus = diag.NewMessageType(diag.Warning, "IST0171", "A condition with a negative status is present: type=%s, reason=%s, message=%s.")
+
+	// DestinationRuleSubsetNotSelectPods defines a diag.MessageType for message "DestinationRuleSubsetNotSelectPods".
+	// Description: Subsets defined in destination does not select any pods.
+	DestinationRuleSubsetNotSelectPods = diag.NewMessageType(diag.Error, "IST0173", "The Subset %s defined in the DestinationRule does not select any pods. Which can lead to 503 UH (NoHealthyUpstream).")
+
+	// UnknownDestinationRuleHost defines a diag.MessageType for message "UnknownDestinationRuleHost".
+	// Description: Host defined in destination rule does not match any services in the mesh.
+	UnknownDestinationRuleHost = diag.NewMessageType(diag.Warning, "IST0174", "The host %s defined in the DestinationRule does not match any services in the mesh.")
 )
 
 // All returns a list of all known message types.
@@ -327,6 +335,8 @@ func All() []*diag.MessageType {
 		UpdateIncompatibility,
 		MultiClusterInconsistentService,
 		NegativeConditionStatus,
+		DestinationRuleSubsetNotSelectPods,
+		UnknownDestinationRuleHost,
 	}
 }
 
@@ -948,5 +958,23 @@ func NewNegativeConditionStatus(r *resource.Instance, conditionType string, reas
 		conditionType,
 		reason,
 		message,
+	)
+}
+
+// NewDestinationRuleSubsetNotSelectPods returns a new diag.Message based on DestinationRuleSubsetNotSelectPods.
+func NewDestinationRuleSubsetNotSelectPods(r *resource.Instance, subset string) diag.Message {
+	return diag.NewMessage(
+		DestinationRuleSubsetNotSelectPods,
+		r,
+		subset,
+	)
+}
+
+// NewUnknownDestinationRuleHost returns a new diag.Message based on UnknownDestinationRuleHost.
+func NewUnknownDestinationRuleHost(r *resource.Instance, host string) diag.Message {
+	return diag.NewMessage(
+		UnknownDestinationRuleHost,
+		r,
+		host,
 	)
 }
