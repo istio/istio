@@ -260,8 +260,15 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	for _, fn := range initFuncs {
 		fn(s)
 	}
+
+	// Convert cluster aliases to map[cluster.ID]cluster.ID
+	clusterAliases := make(map[cluster.ID]cluster.ID)
+	for alias := range args.RegistryOptions.KubeOptions.ClusterAliases {
+		clusterAliases[cluster.ID(alias)] = cluster.ID(args.RegistryOptions.KubeOptions.ClusterAliases[alias])
+	}
+
 	// Initialize workload Trust Bundle before XDS Server
-	s.XDSServer = xds.NewDiscoveryServer(e, args.RegistryOptions.KubeOptions.ClusterAliases, args.KrtDebugger)
+	s.XDSServer = xds.NewDiscoveryServer(e, clusterAliases, args.KrtDebugger)
 	configGen := core.NewConfigGenerator(s.XDSServer.Cache)
 
 	grpcprom.EnableHandlingTimeHistogram()
@@ -394,7 +401,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 				s.environment.Watcher,
 				s.kubeClient.Kube(),
 				s.clusterID,
-				args.RegistryOptions.KubeOptions.ClusterAliases,
+				clusterAliases,
 				s.multiclusterController))
 	}
 	if len(features.TrustedGatewayCIDR) > 0 {

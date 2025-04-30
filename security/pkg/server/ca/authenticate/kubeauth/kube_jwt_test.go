@@ -46,7 +46,7 @@ func (mh mockMeshConfigHolder) Mesh() *meshconfig.MeshConfig {
 
 func TestNewKubeJWTAuthenticator(t *testing.T) {
 	meshHolder := mockMeshConfigHolder{"testdomain.com"}
-	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, constants.DefaultClusterName, map[string]string{"alias": "cluster"}, nil)
+	authenticator := NewKubeJWTAuthenticator(meshHolder, nil, constants.DefaultClusterName, map[cluster.ID]cluster.ID{"alias": "cluster"}, nil)
 	expectedAuthenticator := &KubeJWTAuthenticator{
 		meshHolder: meshHolder,
 		clusterID:  constants.DefaultClusterName,
@@ -79,9 +79,9 @@ func TestAuthenticate(t *testing.T) {
 	primaryClusterAlias := cluster.ID("primaryAlias")
 	remoteCluster := cluster.ID("remote")
 	remoteClusterAlias := cluster.ID("remoteAlias")
-	clusterAliases := map[string]string{
-		primaryClusterAlias.String(): primaryCluster,
-		remoteClusterAlias.String():  remoteCluster.String(),
+	clusterAliases := map[cluster.ID]cluster.ID{
+		primaryClusterAlias: cluster.ID(primaryCluster),
+		remoteClusterAlias:  remoteCluster,
 	}
 	invlidToken := "invalid-token"
 	meshHolder := mockMeshConfigHolder{"example.com"}
