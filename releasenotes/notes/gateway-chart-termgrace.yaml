@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: []
+
+releaseNotes:
+  - |
+    **Added** Allow setting terminationGracePeriodSeconds for gateway pod via Helm chart.
