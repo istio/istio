@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -156,6 +157,38 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 	}
 
 	return tagWhYAML, nil
+}
+
+// GenerateServiceTag fetches the istiod service identified by the namespace and revision
+// and creates a copy of that service with the name `istiod-{tagName}` and the `istio.io/tag={tagName}` label.
+func GenerateServiceTag(ctx context.Context, client kube.Client, opts *GenerateOptions, istioNS string) (*corev1.Service, error) {
+	// Fetch the istiod service for the given revision
+	serviceName := fmt.Sprintf("istiod-%s", revision)
+	istiodService, err := client.Kube().CoreV1().Services(istioNS).Get(ctx, serviceName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) && revision == DefaultRevisionName {
+			// If using default revision attempt to find istiod instead
+			serviceName = "istiod"
+			istiodService, err = client.Kube().CoreV1().Services(istioNS).Get(ctx, serviceName, metav1.GetOptions{})
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch istiod service %q in namespace %q: %w", serviceName, istioNS, err)
+	}
+
+	// Create a copy of the service with the new name and label
+	tagName := opts.Tag
+	taggedService := istiodService.DeepCopy()
+	taggedService.Name = fmt.Sprintf("istiod-%s", tagName)
+	if taggedService.Labels == nil {
+		taggedService.Labels = make(map[string]string)
+	}
+	taggedService.Labels["istio.io/tag"] = tagName
+
+	// Remove resource version to allow creation of a new service
+	taggedService.ResourceVersion = ""
+
+	return taggedService, nil
 }
 
 func fixWhConfig(client kube.Client, whConfig *tagWebhookConfig) (*tagWebhookConfig, error) {

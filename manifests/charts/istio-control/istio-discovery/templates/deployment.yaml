@@ -13,6 +13,9 @@ metadata:
     istio: pilot
     release: {{ .Release.Name }}
     app.kubernetes.io/name: "istiod"
+    {{- if eq (toString .Values.env.PILOT_ENABLE_AMBIENT) "true" }}
+    istio.io/controlplane-mode: ambient
+    {{- end }}
     {{- include "istio.labels" . | nindent 4 }}
 {{- range $key, $val := .Values.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
