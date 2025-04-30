@@ -87,10 +87,12 @@ type GenerateOptions struct {
 	// UserManaged indicates whether the revision tag is user managed.
 	// If true, the revision tag will not be affected by the installer.
 	UserManaged bool
+	// IstioNamespace indicates the namespace of the istio installation.
+	IstioNamespace string
 }
 
 // Generate generates the manifests for a revision tag pointed the given revision.
-func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, istioNS string) (string, error) {
+func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions) (string, error) {
 	// abort if there exists a revision with the target tag name
 	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Tag)
 	if err != nil {
@@ -121,7 +123,7 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 		return "", fmt.Errorf("revision tag %q already exists, and --overwrite is false", opts.Tag)
 	}
 
-	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(revWebhooks[0], opts.Tag, istioNS)
+	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(revWebhooks[0], opts.Tag, opts.IstioNamespace)
 	if err != nil {
 		return "", fmt.Errorf("failed to create tag webhook config: %w", err)
 	}
@@ -161,19 +163,19 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 
 // GenerateServiceTag fetches the istiod service identified by the namespace and revision
 // and creates a copy of that service with the name `istiod-{tagName}` and the `istio.io/tag={tagName}` label.
-func GenerateServiceTag(ctx context.Context, client kube.Client, opts *GenerateOptions, istioNS string) (*corev1.Service, error) {
+func GenerateServiceTag(ctx context.Context, client kube.Client, opts *GenerateOptions) (*corev1.Service, error) {
 	// Fetch the istiod service for the given revision
 	serviceName := fmt.Sprintf("istiod-%s", revision)
-	istiodService, err := client.Kube().CoreV1().Services(istioNS).Get(ctx, serviceName, metav1.GetOptions{})
+	istiodService, err := client.Kube().CoreV1().Services(opts.IstioNamespace).Get(ctx, serviceName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) && revision == DefaultRevisionName {
 			// If using default revision attempt to find istiod instead
 			serviceName = "istiod"
-			istiodService, err = client.Kube().CoreV1().Services(istioNS).Get(ctx, serviceName, metav1.GetOptions{})
+			istiodService, err = client.Kube().CoreV1().Services(opts.IstioNamespace).Get(ctx, serviceName, metav1.GetOptions{})
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch istiod service %q in namespace %q: %w", serviceName, istioNS, err)
+		return nil, fmt.Errorf("failed to fetch istiod service %q in namespace %q: %w", serviceName, opts.IstioNamespace, err)
 	}
 
 	// Create a copy of the service with the new name and label
