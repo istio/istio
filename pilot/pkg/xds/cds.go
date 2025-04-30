@@ -41,8 +41,6 @@ var skippedCdsConfigs = sets.New(
 	kind.WasmPlugin,
 	kind.ProxyConfig,
 	kind.DNSName,
-
-	kind.KubernetesGateway,
 )
 
 // Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
@@ -50,12 +48,6 @@ var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 	s := sets.New(
 		kind.VirtualService,
 		kind.Gateway,
-
-		kind.KubernetesGateway,
-		kind.HTTPRoute,
-		kind.TCPRoute,
-		kind.TLSRoute,
-		kind.GRPCRoute,
 	)
 	if features.JwksFetchMode != jwt.Istiod {
 		s.Insert(kind.RequestAuthentication)
@@ -90,6 +82,13 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 					relevantUpdates.Insert(config)
 					continue
 				}
+			}
+			if config.Kind == kind.VirtualService {
+				// We largely don't use VirtualService for CDS building. However, we do use it as part of Sidecar scoping, which
+				// implicitly includes VS destinations.
+				// Since Routers do not use Sidecar, though, we can skip for Router.
+				filtered = true
+				continue
 			}
 		}
 

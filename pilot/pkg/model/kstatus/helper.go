@@ -15,11 +15,8 @@
 package kstatus
 
 import (
-	"reflect"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -36,39 +33,6 @@ func InvertStatus(status metav1.ConditionStatus) metav1.ConditionStatus {
 	default:
 		return StatusFalse
 	}
-}
-
-// WrappedStatus provides a wrapper around a status message that keeps track of whether or not any
-// changes have been made. This allows users to declarative write status, without worrying about
-// tracking changes. When read to commit (typically to Kubernetes), any messages with Dirty=false can
-// be discarded.
-type WrappedStatus struct {
-	// Status is the object that is wrapped.
-	config.Status
-	// Dirty indicates if this object has been modified at all.
-	// Note: only changes wrapped in Mutate are tracked.
-	Dirty bool
-}
-
-func Wrap(s config.Status) *WrappedStatus {
-	return &WrappedStatus{config.DeepCopy(s), false}
-}
-
-func (w *WrappedStatus) Mutate(f func(s config.Status) config.Status) {
-	if w.Status == nil {
-		return
-	}
-	old := config.DeepCopy(w.Status)
-	w.Status = f(w.Status)
-	// TODO: change this to be more efficient. Likely we allow modifications via WrappedStatus that
-	// modify specific things (ie conditions).
-	if !reflect.DeepEqual(old, w.Status) {
-		w.Dirty = true
-	}
-}
-
-func (w *WrappedStatus) Unwrap() config.Status {
-	return w.Status
 }
 
 var EmptyCondition = metav1.Condition{}

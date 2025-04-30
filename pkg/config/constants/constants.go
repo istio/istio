@@ -154,13 +154,20 @@ const (
 	// testing the validation webhook.
 	AlwaysReject = "internal.istio.io/webhook-always-reject"
 
-	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
-	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
-	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
-	ManagedGatewayMeshController      = "istio.io/mesh-controller"
+	UnmanagedGatewayController            = "istio.io/unmanaged-gateway"
+	ManagedGatewayControllerLabel         = "istio.io-gateway-controller"
+	ManagedGatewayMeshControllerLabel     = "istio.io-mesh-controller"
+	ManagedGatewayMeshController          = "istio.io/mesh-controller"
+	ManagedGatewayEastWestController      = "istio.io/eastwest-controller"
+	ManagedGatewayEastWestControllerLabel = "istio.io-eastwest-controller"
+
+	// WaypointSandwichListenerProxyProtocol defines the protocol which is defined on the listener used by a waypoint sandwich
+	// This listener should align to the proto/port defined by the  "ambient.istio.io/waypoint-inbound-binding" annotation
+	WaypointSandwichListenerProxyProtocol = "istio.io/PROXY"
 
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
+	EastWestGatewayClassName = "istio-east-west"
 
 	// TODO formalize this API
 	// TODO additional values to represent passthrough and hbone or both

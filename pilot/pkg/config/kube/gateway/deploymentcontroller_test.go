@@ -54,7 +54,9 @@ import (
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
@@ -193,7 +195,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 				Spec: k8s.GatewaySpec{
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
-					Addresses: []k8s.GatewayAddress{{
+					Addresses: []k8s.GatewaySpecAddress{{
 						Type:  func() *k8s.AddressType { x := k8s.IPAddressType; return &x }(),
 						Value: "1.2.3.4",
 					}},
@@ -284,6 +286,34 @@ func TestConfigureIstioGateway(t *testing.T) {
 						Name:     "mesh",
 						Port:     k8s.PortNumber(15008),
 						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  network: network-1`,
+		},
+		{
+			name: "istio-east-west",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "eastwestgateway",
+					Namespace: "istio-system",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.EastWestGatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "mesh",
+						Port:     k8s.PortNumber(15008),
+						Protocol: "ALL",
+						TLS: &k8s.GatewayTLSConfig{
+							Mode: ptr.Of(k8s.TLSModeTerminate),
+							Options: map[k8s.AnnotationKey]k8s.AnnotationValue{
+								gatewayTLSTerminateModeKey: "ISTIO_MUTUAL",
+							},
+						},
 					}},
 				},
 			},
@@ -396,6 +426,81 @@ func TestConfigureIstioGateway(t *testing.T) {
   tag: test
   network: network-1`,
 		},
+		{
+			name: "customizations",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Infrastructure: &k8s.GatewayInfrastructure{
+						Labels: map[k8s.LabelKey]k8s.LabelValue{"foo": "bar"},
+						ParametersRef: &k8s.LocalParametersReference{
+							Group: "",
+							Kind:  "ConfigMap",
+							Name:  "gw-options",
+						},
+					},
+				},
+			},
+			objects: append(slices.Clone(defaultObjects), &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "gw-options", Namespace: "default"},
+				Data: map[string]string{
+					"podDisruptionBudget": `
+spec:
+  minAvailable: 1`,
+					"horizontalPodAutoscaler": `
+spec:
+  minReplicas: 2
+  maxReplicas: 2`,
+					"deployment": `
+metadata:
+  annotations:
+    cm-annotation: cm-annotation-value
+spec:
+  replicas: 4
+  template:
+    spec:
+      containers:
+      - name: istio-proxy
+        resources:
+          requests:
+            cpu: 222m`,
+				},
+			}),
+			values: ``,
+		},
+		{
+			name: "illegal_customizations",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Infrastructure: &k8s.GatewayInfrastructure{
+						Labels: map[k8s.LabelKey]k8s.LabelValue{"foo": "bar"},
+						ParametersRef: &k8s.LocalParametersReference{
+							Group: "",
+							Kind:  "ConfigMap",
+							Name:  "gw-options",
+						},
+					},
+				},
+			},
+			objects: append(slices.Clone(defaultObjects), &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "gw-options", Namespace: "default"},
+				Data: map[string]string{
+					"deployment": `
+metadata:
+  name: not-allowed`,
+				},
+			}),
+			values: ``,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -411,9 +516,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 			env.PushContext().ProxyConfigs = tt.pcs
 			tw := revisions.NewTagWatcher(client, "")
 			go tw.Run(stop)
-			d := NewDeploymentController(
-				client, cluster.ID(features.ClusterName), env, testInjectionConfig(t, tt.values), func(fn func()) {
-				}, tw, "")
+			d := NewDeploymentController(client, cluster.ID(features.ClusterName), env, testInjectionConfig(t, tt.values), func(fn func()) {
+			}, tw, "", "")
 			d.patcher = func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 				b, err := yaml.JSONToYAML(data)
 				if err != nil {
@@ -473,7 +577,7 @@ func TestVersionManagement(t *testing.T) {
 	})
 	tw := revisions.NewTagWatcher(c, "default")
 	env := &model.Environment{}
-	d := NewDeploymentController(c, "", env, testInjectionConfig(t, ""), func(fn func()) {}, tw, "")
+	d := NewDeploymentController(c, "", env, testInjectionConfig(t, ""), func(fn func()) {}, tw, "", "")
 	reconciles := atomic.NewInt32(0)
 	wantReconcile := int32(0)
 	expectReconciled := func() {

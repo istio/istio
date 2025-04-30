@@ -2615,17 +2615,13 @@ spec:
 					for _, tc := range tt.cfg {
 						cfg = cfg + "\n---\n" + tc.Config(t, variant)
 					}
-					istio, k, err := crd.ParseInputs(cfg)
-					if err != nil {
-						t.Fatal(err)
-					}
-					kubeo, err := SlowConvertKindsToRuntimeObjects(k)
+					istio, _, err := crd.ParseInputs(cfg)
 					if err != nil {
 						t.Fatal(err)
 					}
 					s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-						Configs:           istio,
-						KubernetesObjects: kubeo,
+						Configs:                istio,
+						KubernetesObjectString: cfg,
 					})
 					sim := simulation.NewSimulation(t, s, s.SetupProxy(tt.proxy))
 					xdstest.ValidateListeners(t, sim.Listeners)

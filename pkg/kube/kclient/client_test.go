@@ -62,7 +62,7 @@ func TestSwappingClientIndex(t *testing.T) {
 	c := kube.NewFakeClient()
 	wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
 	c.RunAndWait(stop)
-	idx := kclient.CreateStringIndex(wasm, func(o controllers.Object) []string {
+	idx := kclient.CreateStringIndex(wasm, "imagePullSecret", func(o controllers.Object) []string {
 		return []string{o.(*istioclient.WasmPlugin).Spec.ImagePullSecret}
 	})
 	assertIndex := func(k string, we ...controllers.Object) {

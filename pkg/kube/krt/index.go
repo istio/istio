@@ -17,8 +17,11 @@ package krt
 import (
 	"fmt"
 
+	"k8s.io/client-go/tools/cache"
+
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -41,18 +44,22 @@ func (i IndexObject[K, O]) ResourceName() string {
 
 // NewNamespaceIndex is a small helper to index a collection by namespace
 func NewNamespaceIndex[O Namespacer](c Collection[O]) Index[string, O] {
-	return NewIndex(c, func(o O) []string {
+	return NewIndex(c, cache.NamespaceIndex, func(o O) []string {
 		return []string{o.GetNamespace()}
 	})
 }
 
-// NewIndex creates a simple index, keyed by key K, over an informer for O. This is similar to
+// NewIndex creates a simple index, keyed by key K, over a collection for O. This is similar to
 // Informer.AddIndex, but is easier to use and can be added after an informer has already started.
+// Different collection implementations may reuse existing indexes with the same name.
+// Informer collections will always share the same underlying index, other collections only share indexes if
+// they are created on the same collection instance.
 func NewIndex[K comparable, O any](
 	c Collection[O],
+	name string,
 	extract func(o O) []K,
 ) Index[K, O] {
-	idx := c.(internalCollection[O]).index(func(o O) []string {
+	idx := c.(internalCollection[O]).index(name, func(o O) []string {
 		return slices.Map(extract(o), func(e K) string {
 			return toString(e)
 		})
@@ -67,6 +74,14 @@ type index[K comparable, O any] struct {
 	extract func(o O) []K
 }
 
+func WithIndexCollectionFromString[K any](f func(string) K) CollectionOption {
+	return func(c *collectionOptions) {
+		c.indexCollectionFromString = func(s string) any {
+			return f(s)
+		}
+	}
+}
+
 // AsCollection does a best-effort approximation of turning an index into a Collection. This is intended to be used as a
 // primary input with NewCollection or similar transformations.
 // This has some limitations that impact usage *outside* of NewCollection:
@@ -76,10 +91,24 @@ type index[K comparable, O any] struct {
 // The intended use case for this is to do merging within a collection (like a SQL 'group by').
 func (i index[K, O]) AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]] {
 	o := buildCollectionOptions(opts...)
+
 	c := indexCollection[K, O]{
 		idx:            i,
 		id:             nextUID(),
 		collectionName: fmt.Sprintf("index/%s", o.name),
+		fromKey:        o.indexCollectionFromString,
+	}
+	if c.fromKey == nil {
+		if _, ok := any(ptr.Empty[K]()).(string); !ok {
+			// This is a limitation of the way the API is encoded, unfortunately.
+			panic("index.AsCollection requires a string key or WithIndexCollectionFromString to be set")
+		}
+		c.fromKey = func(s string) any {
+			return s
+		}
+	}
+	if o.metadata != nil {
+		c.metadata = o.metadata
 	}
 	maybeRegisterCollectionForDebugging(c, o.debugger)
 	return c
@@ -120,10 +149,12 @@ func toString(rk any) string {
 }
 
 type indexCollection[K comparable, O any] struct {
-	idx index[K, O]
-	id  collectionUID
+	idx      index[K, O]
+	id       collectionUID
+	metadata Metadata
 	// nolint: unused // (not true, its to implement an interface)
 	collectionName string
+	fromKey        func(string) any
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -141,6 +172,7 @@ func (i indexCollection[K, O]) dump() CollectionDump {
 	return CollectionDump{
 		Outputs:         i.dumpOutput(),
 		InputCollection: i.idx.c.(internalCollection[O]).name(),
+		Synced:          i.HasSynced(),
 	}
 }
 
@@ -150,12 +182,12 @@ func (i indexCollection[K, O]) augment(a any) any {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (i indexCollection[K, O]) index(extract func(o IndexObject[K, O]) []string) kclient.RawIndexer {
+func (i indexCollection[K, O]) index(name string, extract func(o IndexObject[K, O]) []string) kclient.RawIndexer {
 	panic("an index cannot be indexed")
 }
 
 func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
-	tk := any(k).(K)
+	tk := i.fromKey(k).(K)
 	objs := i.idx.Lookup(tk)
 	return &IndexObject[K, O]{
 		Key:     tk,
@@ -178,7 +210,7 @@ func (i indexCollection[K, O]) dumpOutput() map[string]any {
 	}
 	res := map[string]any{}
 	for k := range keys {
-		ks := any(k).(string)
+		ks := toString(k)
 		res[ks] = *i.GetKey(ks)
 	}
 	return res
@@ -190,6 +222,10 @@ func (i indexCollection[K, O]) WaitUntilSynced(stop <-chan struct{}) bool {
 
 func (i indexCollection[K, O]) HasSynced() bool {
 	return i.idx.c.HasSynced()
+}
+
+func (i indexCollection[K, O]) Metadata() Metadata {
+	return i.metadata
 }
 
 func (i indexCollection[K, O]) Register(f func(o Event[IndexObject[K, O]])) HandlerRegistration {

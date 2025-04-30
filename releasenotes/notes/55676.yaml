@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issues:
+  - 55637
+releaseNotes:
+  - |
+    - **Added** environment variable `PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY`, which separates tracing span for both server and client gateways.
+    This currently defaults to false but will become default in the future.

@@ -279,7 +279,7 @@ type countingTracker struct {
 // Start should be called prior to processing each key which is part of the
 // initial list.
 func (t *countingTracker) Start(count int) {
-	atomic.AddInt64(&t.count, 1)
+	atomic.AddInt64(&t.count, int64(count))
 }
 
 func (t *countingTracker) ParentSynced() {
@@ -287,7 +287,7 @@ func (t *countingTracker) ParentSynced() {
 		// Already synced, no change needed
 		return
 	}
-	if t.count == 0 {
+	if atomic.LoadInt64(&t.count) == 0 {
 		// No pending events, so we are synced
 		close(t.synced)
 		t.hasSynced = true
@@ -303,7 +303,7 @@ func (t *countingTracker) ParentSynced() {
 // return a wrong value. To help you notice this should it happen, Finished()
 // will panic if the internal counter goes negative.
 func (t *countingTracker) Finished(count int) {
-	result := atomic.AddInt64(&t.count, -1)
+	result := atomic.AddInt64(&t.count, -int64(count))
 	if result < 0 {
 		panic("synctrack: negative counter; this logic error means HasSynced may return incorrect value")
 	}

@@ -982,12 +982,14 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyF
 			addService(p.Zipkin.Service)
 		//nolint: staticcheck  // Lightstep deprecated
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
+			log.Warnf("Lightstep provider is deprecated, please use OpenTelemetry instead")
 			addService(p.Lightstep.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 			addService(p.Datadog.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 			addService(p.Skywalking.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
+			log.Warnf("Opencensus provider is deprecated, please use OpenTelemetry instead")
 			//nolint: staticcheck
 			addService(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
@@ -1379,11 +1381,13 @@ func (ps *PushContext) updateContext(
 	pushReq *PushRequest,
 ) {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
-		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged, gatewayAPIChanged,
+		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged,
 		wasmPluginsChanged, proxyConfigsChanged bool
 
 	changedEnvoyFilters := sets.New[ConfigKey]()
 
+	// We do not need to watch Ingress or Gateway API changes. Both of these have their own controllers which will send
+	// events for Istio types (Gateway and VirtualService).
 	for conf := range pushReq.ConfigsUpdated {
 		switch conf.Kind {
 		case kind.ServiceEntry, kind.DNSName:
@@ -1406,11 +1410,6 @@ func (ps *PushContext) updateContext(
 		case kind.RequestAuthentication,
 			kind.PeerAuthentication:
 			authnChanged = true
-		case kind.HTTPRoute, kind.TCPRoute, kind.TLSRoute, kind.GRPCRoute, kind.GatewayClass, kind.KubernetesGateway, kind.ReferenceGrant:
-			gatewayAPIChanged = true
-			// VS and GW are derived from gatewayAPI, so if it changed we need to update those as well
-			virtualServicesChanged = true
-			gatewayChanged = true
 		case kind.Telemetry:
 			telemetryChanged = true
 		case kind.ProxyConfig:
@@ -1427,9 +1426,11 @@ func (ps *PushContext) updateContext(
 		ps.serviceAccounts = oldPushContext.serviceAccounts
 	}
 
-	if servicesChanged || gatewayAPIChanged {
+	if servicesChanged {
 		// Gateway status depends on services, so recompute if they change as well
 		ps.initKubernetesGateways(env)
+	} else {
+		ps.GatewayAPIController = oldPushContext.GatewayAPIController
 	}
 
 	if virtualServicesChanged {
@@ -2330,11 +2331,6 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
 	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
-		if efw.GetTargetRefs() != nil {
-			// These are meant for a specific target, so we shouldn't treat these as "always match"
-			// In the future, targetRef for EnvoyFilter will likely be implemented -- but currently these would never match
-			continue
-		}
 		if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Labels) {
 			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 		}

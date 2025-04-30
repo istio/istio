@@ -129,10 +129,8 @@ func buildSidecarInboundHTTPRouteConfig(lb *ListenerBuilder, cc inboundChainConf
 		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
-	if !lb.node.IsWaypointProxy() {
-		efw := lb.push.EnvoyFilters(lb.node)
-		r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node, efw, r)
-	}
+	efw := lb.push.EnvoyFilters(lb.node)
+	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node, efw, r)
 	return r
 }
 
@@ -203,9 +201,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	}
 
 	// apply envoy filter patches
-	if !node.IsWaypointProxy() {
-		out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
-	}
+	out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
 
 	resource = &discovery.Resource{
 		Name:     out.Name,
@@ -675,27 +671,44 @@ func appendDomainPort(domains []string, domain string, port int) []string {
 // - Given foo.local.campus.net on proxy domain "" or proxy domain example.com, this
 // function returns nil
 func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []string {
+	var vhosts []string // Initialize the slice for alternate hosts
+
+	if features.EnableAbsoluteFqdnVhostDomain {
+		// Add the absolute FQDN variant (with trailing dot) if the hostname is not an IP address.
+		// This is considered another form of alternate host representation.
+		// See https://github.com/istio/istio/issues/56007 for context.
+		// "foo.local.campus.net" -> "foo.local.campus.net."
+		// "foo.bar.svc.cluster.local" -> "foo.bar.svc.cluster.local."
+		isIP := net.ParseIP(hostname) != nil
+		if !isIP {
+			vhosts = append(vhosts, hostname+".")
+		}
+		if port != portNoAppendPortSuffix {
+			vhosts = append(vhosts, util.DomainName(hostname+".", port))
+		}
+	}
+
 	// If the dns/proxy domain contains `.svc`, only services following the <ns>.svc.<suffix>
 	// naming convention and that share a suffix with the domain should be expanded.
 	if strings.Contains(proxyDomain, ".svc.") {
 
 		if strings.HasSuffix(hostname, removeSvcNamespace(proxyDomain)) {
-			return generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
+			kubeSVCAltHosts := generateAltVirtualHostsForKubernetesService(hostname, port, proxyDomain)
+			return append(vhosts, kubeSVCAltHosts...)
 		}
 
 		// Hostname is not a kube service.  It is not safe to expand the
 		// hostname as non-fully-qualified names could conflict with expansion of other kube service
 		// hostnames
-		return nil
+		return vhosts
 	}
 
-	var vhosts []string
 	uniqueHostnameParts, sharedDNSDomainParts := getUniqueAndSharedDNSDomain(hostname, proxyDomain)
 
 	// If there is no shared DNS name (e.g., foobar.com service on local.net proxy domain)
 	// do not generate any alternate virtual host representations
 	if len(sharedDNSDomainParts) == 0 {
-		return nil
+		return vhosts
 	}
 
 	uniqueHostname := strings.Join(uniqueHostnameParts, ".")

@@ -1,0 +1,13 @@
+apiVersion: telemetry.istio.io/v1
+kind: Telemetry
+metadata:
+  name: otel-tracing
+spec:
+  tracing:
+    - providers:
+        - name: test-otel
+      randomSamplingPercentage: 100.0
+      customTags:
+        "provider":
+          literal:
+            value: "otel-ingress"

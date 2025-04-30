@@ -103,8 +103,6 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 	flag.BindEnv(fs, constants.DryRun, "n", "Do not call any external dependencies like iptables.",
 		&cfg.DryRun)
 
-	flag.BindEnv(fs, constants.TraceLogging, "", "Insert tracing logs for each iptables rules, using the LOG chain.", &cfg.TraceLogging)
-
 	flag.BindEnv(fs, constants.IptablesProbePort, "", "Set listen port for failure detection.", &cfg.IptablesProbePort)
 
 	flag.BindEnv(fs, constants.ProbeTimeout, "", "Failure detection timeout.", &cfg.ProbeTimeout)

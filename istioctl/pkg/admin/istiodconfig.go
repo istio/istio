@@ -371,7 +371,7 @@ func (c *ControlzClient) GetScope(scope string) (*ScopeInfo, error) {
 var (
 	istiodLabelSelector = ""
 	istiodReset         = false
-	validationPattern   = `^\w+:(debug|error|warn|info|debug)`
+	validationPattern   = `^[\w\- ]+:(none|error|warn|info|debug)`
 )
 
 func istiodLogCmd(ctx cli.Context) *cobra.Command {

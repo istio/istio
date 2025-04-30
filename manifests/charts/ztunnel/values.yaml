@@ -12,8 +12,14 @@ _internal_defaults_do_not_set:
   # If Image contains a "/", it will replace the entire `image` in the pod.
   image: ztunnel
 
-  # resourceName, if set, will override the naming of resources. If not set, will default to the release name.
-  # It is recommended to not set this; this is primarily for backwards compatibility.
+  # We keep the global namespace around for backwards-compatibility
+  global:
+    # Network defines the network this cluster belong to. This name
+    # corresponds to the networks in the map of mesh networks.
+    network: ""
+
+  # resourceName, if set, will override the naming of resources. If not set, will default to 'ztunnel'.
+  # If you set this, you MUST also set `trustedZtunnelName` in the `istiod` chart.
   resourceName: ""
 
   # Labels to apply to all top level resources
@@ -42,6 +48,10 @@ _internal_defaults_do_not_set:
       # Ztunnel memory scales with the size of the cluster and traffic load
       # While there are many factors, this is enough for ~200k pod cluster or 100k concurrently open connections.
       memory: 512Mi
+
+  resourceQuotas:
+    enabled: false
+    pods: 5000
 
   # List of secret names to add to the service account as image pull secrets
   imagePullSecrets: []
@@ -100,3 +110,11 @@ _internal_defaults_do_not_set:
   # TODO Ambient inpod - for OpenShift, set to the following to get writable sockets in hostmounts to work, eventually consider CSI driver instead
   #seLinuxOptions:
   #  type: spc_t
+
+  # K8s DaemonSet update strategy.
+  # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0

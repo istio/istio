@@ -137,8 +137,6 @@ func TestFuzzers(t *testing.T) {
 		{"FuzzHostMatcher", FuzzHostMatcher},
 		{"FuzzMetadataListMatcher", FuzzMetadataListMatcher},
 		{"FuzzGrpcGenGenerate", FuzzGrpcGenGenerate},
-		{"FuzzConvertIngressVirtualService", FuzzConvertIngressVirtualService},
-		{"FuzzConvertIngressV1alpha3", FuzzConvertIngressV1alpha3},
 		{"FuzzAggregateController", FuzzAggregateController},
 		{"FuzzKubeCRD", FuzzKubeCRD},
 		{"FuzzWE", FuzzWE},

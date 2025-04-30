@@ -15,10 +15,10 @@ metadata:
     {{- .Values.annotations | toYaml | nindent 4 }}
 {{- end }}
 spec:
+  {{- with .Values.updateStrategy }}
   updateStrategy:
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app: ztunnel
@@ -118,6 +118,10 @@ spec:
         - name: LOG_FORMAT
           value: json
         {{- end}}
+        {{- if .Values.global.network }}
+        - name: NETWORK
+          value: {{ .Values.global.network | quote }}
+        {{- end }}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
         - name: RUST_BACKTRACE
@@ -183,8 +187,16 @@ spec:
               expirationSeconds: 43200
               audience: istio-ca
       - name: istiod-ca-cert
+        {{- if eq (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+        projected:
+          sources:
+          - clusterTrustBundle:
+              name: istio.io:istiod-ca:root-cert
+              path: root-cert.pem
+        {{- else }}
         configMap:
           name: istio-ca-root-cert
+        {{- end }}
       - name: cni-ztunnel-sock-dir
         hostPath:
           path: /var/run/ztunnel

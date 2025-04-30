@@ -158,6 +158,9 @@ message CNIAmbientConfig {
 
   // UNSTABLE: If enabled, and ambient is enabled, enables ipv6 support
   google.protobuf.BoolValue ipv6 = 7;
+
+  // If enabled, and ambient is enabled, iptables reconciliation will be enabled.
+  google.protobuf.BoolValue reconcileIptablesOnStartup = 9;
 }
 
 message CNIRepairConfig {
@@ -345,9 +348,6 @@ message EgressGatewayConfig {
   //
   // See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   string type = 18;
-
-  // Enables cross-cluster access using SNI matching.
-  ZeroVPNConfig zvpn = 19;
 
   repeated k8s.io.api.core.v1.Toleration tolerations = 20 [deprecated = true];
 
@@ -715,9 +715,6 @@ message IngressGatewayConfig {
   // See https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
   string type = 29;
 
-  // Enables cross-cluster access using SNI matching.
-  IngressGatewayZvpnConfig zvpn = 30;
-
   // K8s rolling update strategy
   IntOrString rollingMaxSurge = 31 [deprecated = true];
 
@@ -755,14 +752,6 @@ message IngressGatewayConfig {
   // More info: https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
   string ipFamilyPolicy = 49;
   // Next available 50.
-}
-
-// IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
-message IngressGatewayZvpnConfig {
-  // Controls whether ZeroVPN is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  string suffix = 2;
 }
 
 // MultiClusterConfig specifies the Configuration for Istio mesh across multiple clusters through the istio gateways.
@@ -961,6 +950,9 @@ message PilotConfig {
 
   // Configuration for the istio-discovery chart when istiod is running in a remote cluster (e.g. "remote control plane").
   IstiodRemoteConfig istiodRemote = 61;
+
+  // Configuration for the istio-discovery chart 
+  repeated google.protobuf.Struct envVarFrom = 62;
 }
 
 message PilotTaintControllerConfig {
@@ -1412,14 +1404,9 @@ message Values {
 
   // Specifies experimental helm fields that could be removed or changed in the future
   ExperimentalConfig experimental = 44;
-}
 
-// ZeroVPNConfig enables cross-cluster access using SNI matching.
-message ZeroVPNConfig {
-  // Controls whether ZeroVPN is enabled.
-  google.protobuf.BoolValue enabled = 1;
-
-  string suffix = 2;
+  // Configuration for Gateway Classes
+  google.protobuf.Value gatewayClasses = 45;
 }
 
 // ExperimentalConfig is a placeholder for experimental installation features.

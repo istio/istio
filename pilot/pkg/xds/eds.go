@@ -100,12 +100,6 @@ var skippedEdsConfigs = sets.New(
 	kind.WasmPlugin,
 	kind.ProxyConfig,
 	kind.DNSName,
-
-	kind.KubernetesGateway,
-	kind.HTTPRoute,
-	kind.TCPRoute,
-	kind.TLSRoute,
-	kind.GRPCRoute,
 )
 
 func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {

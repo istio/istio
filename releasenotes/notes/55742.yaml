@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 55741
+releaseNotes:
+- |
+  **Fixed** `istioctl admin log` cannot modify the log level of `ingress status`.

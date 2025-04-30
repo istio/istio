@@ -320,7 +320,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Use:   "delete",
 		Short: "Delete a waypoint configuration",
 		Long:  "Delete a waypoint configuration from the cluster",
-		Example: `# Delete a waypoint by name, which can obtain from istioctl waypoint list
+		Example: `  # Delete a waypoint by name, which can obtain from istioctl waypoint list
   istioctl waypoint delete waypoint-name --namespace default
 
   # Delete several waypoints by name
@@ -470,6 +470,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 // deleteWaypoints handles the deletion of waypoints based on the provided names, or all if names is nil
 func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace string, names []string, revision string) error {
 	var multiErr *multierror.Error
+	var nameList []string
 	if names == nil {
 		var selector string
 		if revision != "" {
@@ -487,13 +488,33 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 			if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
 				continue
 			}
-			names = append(names, gw.Name)
+			nameList = append(nameList, gw.Name)
+		}
+	} else {
+		gws, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		waypoints := make(map[string]gateway.Gateway)
+		for _, gw := range gws.Items {
+			if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
+				continue
+			}
+			waypoints[gw.Name] = gw
+		}
+
+		for _, name := range names {
+			if _, ok := waypoints[name]; ok {
+				nameList = append(nameList, name)
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "waypoint %s/%s not found\n", namespace, name)
+			}
 		}
 	}
 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	for _, name := range names {
+	for _, name := range nameList {
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()

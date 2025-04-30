@@ -85,7 +85,7 @@ while (( "$#" )); do
     --topology)
       case $2 in
         # TODO(landow) get rid of MULTICLUSTER_SINGLE_NETWORK after updating Prow job
-        SINGLE_CLUSTER | MULTICLUSTER_SINGLE_NETWORK | MULTICLUSTER )
+        SINGLE_CLUSTER | MULTICLUSTER_SINGLE_NETWORK | MULTICLUSTER | AMBIENT_MULTICLUSTER )
           TOPOLOGY=$2
           echo "Running with topology ${TOPOLOGY}"
           ;;
@@ -137,6 +137,7 @@ export PULL_POLICY=IfNotPresent
 export KIND_REGISTRY_NAME="kind-registry"
 export KIND_REGISTRY_PORT="5000"
 export KIND_REGISTRY="localhost:${KIND_REGISTRY_PORT}"
+export KIND_REGISTRY_DIR="/etc/containerd/certs.d/localhost:${KIND_REGISTRY_PORT}"
 
 export HUB=${HUB:-"istio-testing"}
 export TAG="${TAG:-"istio-testing"}"

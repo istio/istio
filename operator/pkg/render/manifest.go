@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/values"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube"
 	pkgversion "istio.io/istio/pkg/version"
 )
@@ -76,7 +77,7 @@ func GenerateManifest(files []string, setFlags []string, force bool, client kube
 			// Each component may get a different view of the values; modify them as needed (with a copy)
 			compVals := applyComponentValuesToHelmValues(comp, spec, merged)
 			// Render the chart
-			rendered, warnings, err := helm.Render(spec.Namespace, comp.HelmSubdir, compVals, kubernetesVersion)
+			rendered, warnings, err := helm.Render("istio", spec.Namespace, comp.HelmSubdir, compVals, kubernetesVersion)
 			if err != nil {
 				return nil, nil, fmt.Errorf("helm render: %v", err)
 			}
@@ -161,7 +162,7 @@ func Migrate(files []string, setFlags []string, client kube.Client) (MigrationRe
 			// Each component may get a different view of the values; modify them as needed (with a copy)
 			compVals := applyComponentValuesToHelmValues(comp, spec, merged)
 			// Render the chart
-			rendered, _, err := helm.Render(spec.Namespace, comp.HelmSubdir, compVals, kubernetesVersion)
+			rendered, _, err := helm.Render("istio", spec.Namespace, comp.HelmSubdir, compVals, kubernetesVersion)
 			if err != nil {
 				return res, fmt.Errorf("helm render: %v", err)
 			}
@@ -419,6 +420,8 @@ func readProfileInternal(path string, profile string) (values.Map, error) {
 	return values.MapFromYaml(pb)
 }
 
+var allowGKEAutoDetection = env.Register("AUTO_GKE_DETECTION", true, "If true, GKE will be detected automatically.").Get()
+
 // clusterSpecificSettings computes any automatically detected settings from the cluster.
 func clusterSpecificSettings(client kube.Client) []string {
 	if client == nil {
@@ -430,8 +433,15 @@ func clusterSpecificSettings(client kube.Client) []string {
 	}
 	// https://istio.io/latest/docs/setup/additional-setup/cni/#hosted-kubernetes-settings
 	// GKE requires deployment in kube-system namespace.
-	if strings.Contains(ver.GitVersion, "-gke") {
-		return []string{"components.cni.namespace=kube-system"}
+	if allowGKEAutoDetection && strings.Contains(ver.GitVersion, "-gke") {
+		return []string{
+			// This could be in istio-system with ResourceQuotas, but for backwards compatibility we move it to kube-system still
+			"components.cni.namespace=kube-system",
+			// Enable GKE profile, which ensures CNI Bin Dir is set appropriately
+			"values.global.platform=gke",
+			// Since we already put it in kube-system, don't bother deploying a resource quota
+			"values.cni.resourceQuotas.enabled=false",
+		}
 	}
 	return nil
 }

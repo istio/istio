@@ -63,7 +63,7 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 		ObjectFilter: kubetypes.NewStaticObjectFilter(isTagWebhook),
 	})
 	p.webhooks.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
-	p.index = kclient.CreateStringIndex(p.webhooks,
+	p.index = kclient.CreateStringIndex(p.webhooks, "istioRev",
 		func(o *admissionregistrationv1.MutatingWebhookConfiguration) []string {
 			rev := o.GetLabels()[label.IoIstioRev.Name]
 			if rev == "" || !isTagWebhook(o) {
@@ -77,6 +77,7 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 
 func (p *tagWatcher) Run(stopCh <-chan struct{}) {
 	if !kube.WaitForCacheSync("tag watcher", stopCh, p.webhooks.HasSynced) {
+		p.queue.ShutDownEarly()
 		return
 	}
 	// Notify handlers of initial state

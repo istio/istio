@@ -28,28 +28,56 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+type indexedDependencyType uint8
+
+const (
+	unknownIndexType indexedDependencyType = iota
+	indexType        indexedDependencyType = iota
+	getKeyType       indexedDependencyType = iota
+)
+
+var allIndexedDependencyTypes = []indexedDependencyType{indexType, getKeyType}
+
 type dependencyState[I any] struct {
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
 	// These are keyed by the internal uid() function on collections.
 	// Note this does not include `parent`, which is the *primary* dependency declared outside of transformation functions.
 	collectionDependencies sets.Set[collectionUID]
 	// Stores a map of I -> secondary dependencies (added via Fetch)
-	objectDependencies           map[Key[I]][]*dependency
-	indexedDependencies          map[indexedDependency]sets.Set[Key[I]]
-	indexedDependenciesExtractor map[collectionUID]objectKeyExtractor
+	objectDependencies  map[Key[I]][]*dependency
+	indexedDependencies map[indexedDependency]sets.Set[Key[I]]
+	// indexedDependenciesExtractor stores a map of [collection,fetch type] => an extractor to get change keys.
+	// Note that a given collection can have multiple Fetches, but they are limited to those of the different kind.
+	// I.e. you can do a `Fetch(c1, FilterIndex()) + Fetch(c1, FilterKey())` but not `Fetch(c1, FilterIndex(idxA)) + Fetch(c1, FilterIndex(idxB))`.
+	// Multiple `FetchIndex` within a single transformation must use the same index.
+	// This only applies within a single transformation; it is fine to fetch the the same `c1` in any way from different collections.
+	indexedDependenciesExtractor map[extractorKey]objectKeyExtractor
+}
+
+type extractorKey struct {
+	uid collectionUID
+	typ indexedDependencyType
 }
 
 func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 	// Update the I -> Dependency mapping
 	i.objectDependencies[key] = deps
 	for _, d := range deps {
-		if depKey, extractor, ok := d.filter.reverseIndexKey(); ok {
-			k := indexedDependency{
-				id:  d.id,
-				key: depKey,
+		if depKeys, typ, extractor, ok := d.filter.reverseIndexKey(); ok {
+			for _, depKey := range depKeys {
+				k := indexedDependency{
+					id:  d.id,
+					key: depKey,
+					typ: typ,
+				}
+				sets.InsertOrNew(i.indexedDependencies, k, key)
+				kk := extractorKey{
+					uid: d.id,
+					typ: typ,
+				}
+
+				i.indexedDependenciesExtractor[kk] = extractor
 			}
-			sets.InsertOrNew(i.indexedDependencies, k, key)
-			i.indexedDependenciesExtractor[d.id] = extractor
 		}
 	}
 }
@@ -61,12 +89,15 @@ func (i dependencyState[I]) delete(key Key[I]) {
 	}
 	delete(i.objectDependencies, key)
 	for _, d := range old {
-		if depKey, _, ok := d.filter.reverseIndexKey(); ok {
-			k := indexedDependency{
-				id:  d.id,
-				key: depKey,
+		if depKeys, typ, _, ok := d.filter.reverseIndexKey(); ok {
+			for _, depKey := range depKeys {
+				k := indexedDependency{
+					id:  d.id,
+					key: depKey,
+					typ: typ,
+				}
+				sets.DeleteCleanupLast(i.indexedDependencies, k, key)
 			}
-			sets.DeleteCleanupLast(i.indexedDependencies, k, key)
 		}
 	}
 }
@@ -79,25 +110,31 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 		// Naively, we can look through every item in this collection and check if it matches the filter. However, this is
 		// inefficient, especially when the dependency changes frequently and the collection is large.
 		// Where possible, we utilize the reverse-indexing to get the precise list of potentially changed objects.
-		if extractor, f := i.indexedDependenciesExtractor[sourceCollection]; f {
-			// We have a reverse index
-			for _, item := range ev.Items() {
-				// Find all the reverse index keys for this object. For each key we will find impacted input objects.
-				keys := extractor(item)
-				for _, key := range keys {
-					for iKey := range i.indexedDependencies[indexedDependency{id: sourceCollection, key: key}] {
-						if changedInputKeys.Contains(iKey) {
-							// We may have already found this item, skip it
-							continue
-						}
-						dependencies := i.objectDependencies[iKey]
-						if changed := objectChanged(dependencies, sourceCollection, ev, true); changed {
-							changedInputKeys.Insert(iKey)
+		foundAny := false
+		for _, idxTypes := range allIndexedDependencyTypes {
+			ekey := extractorKey{uid: sourceCollection, typ: idxTypes}
+			if extractor, f := i.indexedDependenciesExtractor[ekey]; f {
+				foundAny = true
+				// We have a reverse index
+				for _, item := range ev.Items() {
+					// Find all the reverse index keys for this object. For each key we will find impacted input objects.
+					keys := extractor(item)
+					for _, key := range keys {
+						for iKey := range i.indexedDependencies[indexedDependency{id: sourceCollection, key: key, typ: idxTypes}] {
+							if changedInputKeys.Contains(iKey) {
+								// We may have already found this item, skip it
+								continue
+							}
+							dependencies := i.objectDependencies[iKey]
+							if changed := objectChanged(dependencies, sourceCollection, ev, true); changed {
+								changedInputKeys.Insert(iKey)
+							}
 						}
 					}
 				}
 			}
-		} else {
+		}
+		if !foundAny {
 			for iKey, dependencies := range i.objectDependencies {
 				if changed := objectChanged(dependencies, sourceCollection, ev, false); changed {
 					changedInputKeys.Insert(iKey)
@@ -152,7 +189,7 @@ type manyCollection[I, O any] struct {
 	dependencyState dependencyState[I]
 
 	// internal indexes
-	indexes []collectionIndex[I, O]
+	indexes map[string]collectionIndex[I, O]
 
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
 	eventHandlers *handlerSet[O]
@@ -164,6 +201,7 @@ type manyCollection[I, O any] struct {
 	synced       chan struct{}
 	stop         <-chan struct{}
 	queue        queue.Instance
+	metadata     Metadata
 
 	// onPrimaryInputEventHandler is a specialized internal handler that runs synchronously when a primary input changes
 	onPrimaryInputEventHandler func(o []Event[I])
@@ -306,6 +344,7 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 		Outputs:         eraseMap(h.collectionState.outputs),
 		Inputs:          inputs,
 		InputCollection: h.parent.(internalCollection[I]).name(),
+		Synced:          h.HasSynced(),
 	}
 }
 
@@ -318,7 +357,11 @@ func (h *manyCollection[I, O]) augment(a any) any {
 }
 
 // nolint: unused // (not true)
-func (h *manyCollection[I, O]) index(extract func(o O) []string) kclient.RawIndexer {
+func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) kclient.RawIndexer {
+	if idx, ok := h.indexes[name]; ok {
+		return idx
+	}
+
 	idx := collectionIndex[I, O]{
 		extract: extract,
 		index:   make(map[string]sets.Set[Key[O]]),
@@ -333,7 +376,7 @@ func (h *manyCollection[I, O]) index(extract func(o O) []string) kclient.RawInde
 			Event: controllers.EventAdd,
 		}, k)
 	}
-	h.indexes = append(h.indexes, idx)
+	h.indexes[name] = idx
 	return idx
 }
 
@@ -481,12 +524,8 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	h.eventHandlers.Distribute(events, !h.HasSynced())
 }
 
-// WithJoinUnchecked enables an optimization for join collections, where keys are not deduplicated across collections.
-// This option can only be used when joined collections are disjoint: keys overlapping between collections is undefined behavior
-func WithJoinUnchecked() CollectionOption {
-	return func(c *collectionOptions) {
-		c.joinUnchecked = true
-	}
+func (h *manyCollection[I, O]) Metadata() Metadata {
+	return h.metadata
 }
 
 // NewCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
@@ -537,19 +576,25 @@ func newManyCollection[I, O any](
 			collectionDependencies:       sets.New[collectionUID](),
 			objectDependencies:           map[Key[I]][]*dependency{},
 			indexedDependencies:          map[indexedDependency]sets.Set[Key[I]]{},
-			indexedDependenciesExtractor: map[collectionUID]func(o any) []string{},
+			indexedDependenciesExtractor: map[extractorKey]func(o any) []string{},
 		},
 		collectionState: multiIndex[I, O]{
 			inputs:   map[Key[I]]I{},
 			outputs:  map[Key[O]]O{},
 			mappings: map[Key[I]]sets.Set[Key[O]]{},
 		},
+		indexes:                    make(map[string]collectionIndex[I, O]),
 		eventHandlers:              newHandlerSet[O](),
 		augmentation:               opts.augmentation,
 		synced:                     make(chan struct{}),
 		stop:                       opts.stop,
 		onPrimaryInputEventHandler: onPrimaryInputEventHandler,
 	}
+
+	if opts.metadata != nil {
+		h.metadata = opts.metadata
+	}
+
 	h.syncer = channelSyncer{
 		name:   h.collectionName,
 		synced: h.synced,
@@ -599,7 +644,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 	// A secondary dependency changed...
 	// Got an event. Now we need to find out who depends on it..
 	changedInputKeys := h.dependencyState.changedInputKeys(sourceCollection, events)
-	h.log.Debugf("event size %v, impacts %v objects", len(events), len(changedInputKeys))
+	h.log.Debugf("event size %v, impacts %v objects", len(events), changedInputKeys.UnsortedList())
 
 	toRun := make([]Event[I], 0, len(changedInputKeys))
 	// Now we have the set of input keys that changed. We need to recompute all of these.

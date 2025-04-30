@@ -199,8 +199,14 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 				// Install all CRDs used (mostly in Ambient)
 				gvr.AuthorizationPolicy,
 				gvr.PeerAuthentication,
-				gvr.KubernetesGateway,
 				gvr.WorkloadEntry,
+				gvr.GatewayClass,
+				gvr.KubernetesGateway,
+				gvr.HTTPRoute,
+				gvr.GRPCRoute,
+				gvr.TCPRoute,
+				gvr.TLSRoute,
+				gvr.ReferenceGrant,
 				gvr.ServiceEntry,
 			},
 		})
@@ -222,7 +228,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	stop := test.NewStop(t)
 	ingr := ingress.NewController(defaultKubeClient, meshwatcher.NewTestWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
-	})
+	}, xdsUpdater)
 	defaultKubeClient.RunAndWait(stop)
 
 	var gwc *gateway.Controller
@@ -237,11 +243,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ServiceRegistries:   registries,
 		ConfigStoreCaches:   []model.ConfigStoreController{ingr},
 		CreateConfigStore: func(c model.ConfigStoreController) model.ConfigStoreController {
-			g := gateway.NewController(defaultKubeClient, c, func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
+			g := gateway.NewController(defaultKubeClient, func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
 				return true
-			}, nil, kube.Options{
+			}, kube.Options{
 				DomainSuffix: "cluster.local",
-			})
+			}, xdsUpdater)
 			gwc = g
 			return gwc
 		},
@@ -273,7 +279,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	configHandler := func(_, curr config.Config, event model.Event) {
 		pushReq := &model.PushRequest{
 			Full:           true,
-			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: gvk.MustToKind(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
 			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		}
 		s.ConfigUpdate(pushReq)

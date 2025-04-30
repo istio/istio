@@ -90,6 +90,8 @@ func NewStatusCollection[I, IStatus, O any](
 	return NewStatusManyCollection(c, hm, opts...)
 }
 
+type StatusCollection[I, IStatus any] = Collection[ObjectWithStatus[I, IStatus]]
+
 type ObjectWithStatus[I any, IStatus any] struct {
 	Obj    I
 	Status IStatus

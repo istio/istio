@@ -9,7 +9,9 @@ var (
 	ServiceImport                  = schema.GroupVersionResource{Group: "multicluster.x-k8s.io", Version: "v1alpha1", Resource: "serviceimports"}
 	AuthorizationPolicy            = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1", Resource: "authorizationpolicies"}
 	AuthorizationPolicy_v1beta1    = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "authorizationpolicies"}
+	BackendTLSPolicy               = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha3", Resource: "backendtlspolicies"}
 	CertificateSigningRequest      = schema.GroupVersionResource{Group: "certificates.k8s.io", Version: "v1", Resource: "certificatesigningrequests"}
+	ClusterTrustBundle             = schema.GroupVersionResource{Group: "certificates.k8s.io", Version: "v1alpha1", Resource: "clustertrustbundles"}
 	ConfigMap                      = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	CustomResourceDefinition       = schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
 	DaemonSet                      = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
@@ -31,6 +33,7 @@ var (
 	HTTPRoute                      = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "httproutes"}
 	HTTPRoute_v1alpha2             = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "httproutes"}
 	HTTPRoute_v1                   = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "httproutes"}
+	HorizontalPodAutoscaler        = schema.GroupVersionResource{Group: "autoscaling", Version: "v2", Resource: "horizontalpodautoscalers"}
 	Ingress                        = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
 	IngressClass                   = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}
 	KubernetesGateway              = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "gateways"}
@@ -45,6 +48,7 @@ var (
 	PeerAuthentication             = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1", Resource: "peerauthentications"}
 	PeerAuthentication_v1beta1     = schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}
 	Pod                            = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	PodDisruptionBudget            = schema.GroupVersionResource{Group: "policy", Version: "v1", Resource: "poddisruptionbudgets"}
 	ProxyConfig                    = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "proxyconfigs"}
 	ReferenceGrant                 = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "referencegrants"}
 	ReferenceGrant_v1alpha2        = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "referencegrants"}
@@ -76,6 +80,7 @@ var (
 	WorkloadGroup                  = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "workloadgroups"}
 	WorkloadGroup_v1alpha3         = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "workloadgroups"}
 	WorkloadGroup_v1beta1          = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "workloadgroups"}
+	XBackendTrafficPolicy          = schema.GroupVersionResource{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Resource: "xbackendtrafficpolicies"}
 )
 
 func IsClusterScoped(g schema.GroupVersionResource) bool {
@@ -88,7 +93,11 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return false
 	case AuthorizationPolicy_v1beta1:
 		return false
+	case BackendTLSPolicy:
+		return false
 	case CertificateSigningRequest:
+		return true
+	case ClusterTrustBundle:
 		return true
 	case ConfigMap:
 		return false
@@ -132,6 +141,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return false
 	case HTTPRoute_v1:
 		return false
+	case HorizontalPodAutoscaler:
+		return false
 	case Ingress:
 		return false
 	case IngressClass:
@@ -155,6 +166,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 	case PeerAuthentication_v1beta1:
 		return false
 	case Pod:
+		return false
+	case PodDisruptionBudget:
 		return false
 	case ProxyConfig:
 		return false
@@ -217,6 +230,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 	case WorkloadGroup_v1alpha3:
 		return false
 	case WorkloadGroup_v1beta1:
+		return false
+	case XBackendTrafficPolicy:
 		return false
 	}
 	// shouldn't happen

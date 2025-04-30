@@ -2,15 +2,13 @@
 
 package kind
 
-import (
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
-)
-
 const (
-	Address Kind = iota
+	Unknown Kind = iota
+	Address
 	AuthorizationPolicy
+	BackendTLSPolicy
 	CertificateSigningRequest
+	ClusterTrustBundle
 	ConfigMap
 	CustomResourceDefinition
 	DNSName
@@ -24,6 +22,7 @@ const (
 	Gateway
 	GatewayClass
 	HTTPRoute
+	HorizontalPodAutoscaler
 	Ingress
 	IngressClass
 	KubernetesGateway
@@ -35,6 +34,7 @@ const (
 	Node
 	PeerAuthentication
 	Pod
+	PodDisruptionBudget
 	ProxyConfig
 	ReferenceGrant
 	RequestAuthentication
@@ -53,6 +53,7 @@ const (
 	WasmPlugin
 	WorkloadEntry
 	WorkloadGroup
+	XBackendTrafficPolicy
 )
 
 func (k Kind) String() string {
@@ -61,8 +62,12 @@ func (k Kind) String() string {
 		return "Address"
 	case AuthorizationPolicy:
 		return "AuthorizationPolicy"
+	case BackendTLSPolicy:
+		return "BackendTLSPolicy"
 	case CertificateSigningRequest:
 		return "CertificateSigningRequest"
+	case ClusterTrustBundle:
+		return "ClusterTrustBundle"
 	case ConfigMap:
 		return "ConfigMap"
 	case CustomResourceDefinition:
@@ -89,12 +94,14 @@ func (k Kind) String() string {
 		return "GatewayClass"
 	case HTTPRoute:
 		return "HTTPRoute"
+	case HorizontalPodAutoscaler:
+		return "HorizontalPodAutoscaler"
 	case Ingress:
 		return "Ingress"
 	case IngressClass:
 		return "IngressClass"
 	case KubernetesGateway:
-		return "Gateway"
+		return "KubernetesGateway"
 	case Lease:
 		return "Lease"
 	case MeshConfig:
@@ -111,6 +118,8 @@ func (k Kind) String() string {
 		return "PeerAuthentication"
 	case Pod:
 		return "Pod"
+	case PodDisruptionBudget:
+		return "PodDisruptionBudget"
 	case ProxyConfig:
 		return "ProxyConfig"
 	case ReferenceGrant:
@@ -147,100 +156,116 @@ func (k Kind) String() string {
 		return "WorkloadEntry"
 	case WorkloadGroup:
 		return "WorkloadGroup"
+	case XBackendTrafficPolicy:
+		return "XBackendTrafficPolicy"
 	default:
 		return "Unknown"
 	}
 }
 
-func MustFromGVK(g config.GroupVersionKind) Kind {
-	switch g {
-	case gvk.AuthorizationPolicy:
+func FromString(s string) Kind {
+	switch s {
+	case "Address":
+		return Address
+	case "AuthorizationPolicy":
 		return AuthorizationPolicy
-	case gvk.CertificateSigningRequest:
+	case "BackendTLSPolicy":
+		return BackendTLSPolicy
+	case "CertificateSigningRequest":
 		return CertificateSigningRequest
-	case gvk.ConfigMap:
+	case "ClusterTrustBundle":
+		return ClusterTrustBundle
+	case "ConfigMap":
 		return ConfigMap
-	case gvk.CustomResourceDefinition:
+	case "CustomResourceDefinition":
 		return CustomResourceDefinition
-	case gvk.DaemonSet:
+	case "DNSName":
+		return DNSName
+	case "DaemonSet":
 		return DaemonSet
-	case gvk.Deployment:
+	case "Deployment":
 		return Deployment
-	case gvk.DestinationRule:
+	case "DestinationRule":
 		return DestinationRule
-	case gvk.EndpointSlice:
+	case "EndpointSlice":
 		return EndpointSlice
-	case gvk.Endpoints:
+	case "Endpoints":
 		return Endpoints
-	case gvk.EnvoyFilter:
+	case "EnvoyFilter":
 		return EnvoyFilter
-	case gvk.GRPCRoute:
+	case "GRPCRoute":
 		return GRPCRoute
-	case gvk.Gateway:
+	case "Gateway":
 		return Gateway
-	case gvk.GatewayClass:
+	case "GatewayClass":
 		return GatewayClass
-	case gvk.HTTPRoute:
+	case "HTTPRoute":
 		return HTTPRoute
-	case gvk.Ingress:
+	case "HorizontalPodAutoscaler":
+		return HorizontalPodAutoscaler
+	case "Ingress":
 		return Ingress
-	case gvk.IngressClass:
+	case "IngressClass":
 		return IngressClass
-	case gvk.KubernetesGateway:
+	case "KubernetesGateway":
 		return KubernetesGateway
-	case gvk.Lease:
+	case "Lease":
 		return Lease
-	case gvk.MeshConfig:
+	case "MeshConfig":
 		return MeshConfig
-	case gvk.MeshNetworks:
+	case "MeshNetworks":
 		return MeshNetworks
-	case gvk.MutatingWebhookConfiguration:
+	case "MutatingWebhookConfiguration":
 		return MutatingWebhookConfiguration
-	case gvk.Namespace:
+	case "Namespace":
 		return Namespace
-	case gvk.Node:
+	case "Node":
 		return Node
-	case gvk.PeerAuthentication:
+	case "PeerAuthentication":
 		return PeerAuthentication
-	case gvk.Pod:
+	case "Pod":
 		return Pod
-	case gvk.ProxyConfig:
+	case "PodDisruptionBudget":
+		return PodDisruptionBudget
+	case "ProxyConfig":
 		return ProxyConfig
-	case gvk.ReferenceGrant:
+	case "ReferenceGrant":
 		return ReferenceGrant
-	case gvk.RequestAuthentication:
+	case "RequestAuthentication":
 		return RequestAuthentication
-	case gvk.Secret:
+	case "Secret":
 		return Secret
-	case gvk.Service:
+	case "Service":
 		return Service
-	case gvk.ServiceAccount:
+	case "ServiceAccount":
 		return ServiceAccount
-	case gvk.ServiceEntry:
+	case "ServiceEntry":
 		return ServiceEntry
-	case gvk.Sidecar:
+	case "Sidecar":
 		return Sidecar
-	case gvk.StatefulSet:
+	case "StatefulSet":
 		return StatefulSet
-	case gvk.TCPRoute:
+	case "TCPRoute":
 		return TCPRoute
-	case gvk.TLSRoute:
+	case "TLSRoute":
 		return TLSRoute
-	case gvk.Telemetry:
+	case "Telemetry":
 		return Telemetry
-	case gvk.UDPRoute:
+	case "UDPRoute":
 		return UDPRoute
-	case gvk.ValidatingWebhookConfiguration:
+	case "ValidatingWebhookConfiguration":
 		return ValidatingWebhookConfiguration
-	case gvk.VirtualService:
+	case "VirtualService":
 		return VirtualService
-	case gvk.WasmPlugin:
+	case "WasmPlugin":
 		return WasmPlugin
-	case gvk.WorkloadEntry:
+	case "WorkloadEntry":
 		return WorkloadEntry
-	case gvk.WorkloadGroup:
+	case "WorkloadGroup":
 		return WorkloadGroup
+	case "XBackendTrafficPolicy":
+		return XBackendTrafficPolicy
+	default:
+		return Unknown
 	}
-
-	panic("unknown kind: " + g.String())
 }

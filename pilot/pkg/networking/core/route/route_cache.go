@@ -102,9 +102,11 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 		}
 	}
 	for _, vs := range r.VirtualServices {
-		for _, cfg := range model.VirtualServiceDependencies(vs) {
-			configs = append(configs, cfg.HashCode())
-		}
+		configs = append(configs, model.ConfigKey{
+			Kind:      kind.VirtualService,
+			Namespace: vs.Namespace,
+			Name:      vs.Name,
+		}.HashCode())
 	}
 	// add delegate virtual services to dependent configs
 	// so that we can clear the rds cache when delegate virtual services are updated
@@ -147,18 +149,20 @@ func (r *Cache) Key() any {
 		h.Write(Slash)
 		h.WriteString(svc.Attributes.Namespace)
 		h.Write(Separator)
+		for _, alias := range svc.Attributes.Aliases {
+			h.WriteString(string(alias.Hostname))
+			h.Write(Slash)
+			h.WriteString(alias.Namespace)
+			h.Write(Separator)
+		}
 	}
 	h.Write(Separator)
 
 	for _, vs := range r.VirtualServices {
-		for _, cfg := range model.VirtualServiceDependencies(vs) {
-			h.WriteString(cfg.Kind.String())
-			h.Write(Slash)
-			h.WriteString(cfg.Name)
-			h.Write(Slash)
-			h.WriteString(cfg.Namespace)
-			h.Write(Separator)
-		}
+		h.Write([]byte(vs.Name))
+		h.Write(Slash)
+		h.Write([]byte(vs.Namespace))
+		h.Write(Separator)
 	}
 	h.Write(Separator)
 

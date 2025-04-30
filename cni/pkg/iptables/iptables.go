@@ -92,11 +92,10 @@ type IptablesConfigurator struct {
 
 func ipbuildConfig(c *IptablesConfig) *iptablesconfig.Config {
 	return &iptablesconfig.Config{
-		TraceLogging: c.TraceLogging,
-		EnableIPv6:   c.EnableIPv6,
-		RedirectDNS:  c.RedirectDNS,
-		Reconcile:    c.Reconcile,
-		ForceApply:   c.ForceApply,
+		EnableIPv6:  c.EnableIPv6,
+		RedirectDNS: c.RedirectDNS,
+		Reconcile:   c.Reconcile,
+		ForceApply:  c.ForceApply,
 	}
 }
 

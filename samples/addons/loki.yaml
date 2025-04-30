@@ -6,7 +6,7 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.28.0
+    helm.sh/chart: loki-6.29.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.4.2"
@@ -19,7 +19,7 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.28.0
+    helm.sh/chart: loki-6.29.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.4.2"
@@ -108,7 +108,7 @@ metadata:
   name: loki-runtime
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.28.0
+    helm.sh/chart: loki-6.29.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.4.2"
@@ -121,7 +121,7 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   labels:
-    helm.sh/chart: loki-6.28.0
+    helm.sh/chart: loki-6.29.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.4.2"
@@ -137,7 +137,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: loki-clusterrolebinding
   labels:
-    helm.sh/chart: loki-6.28.0
+    helm.sh/chart: loki-6.29.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.4.2"
@@ -157,7 +157,7 @@ metadata:
   name: loki-memberlist
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.28.0
+    helm.sh/chart: loki-6.29.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.4.2"
@@ -182,7 +182,7 @@ metadata:
   name: loki-headless
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.28.0
+    helm.sh/chart: loki-6.29.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.4.2"
@@ -207,7 +207,7 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.28.0
+    helm.sh/chart: loki-6.29.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.4.2"
@@ -235,7 +235,7 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.28.0
+    helm.sh/chart: loki-6.29.0
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
     app.kubernetes.io/version: "3.4.2"
@@ -280,7 +280,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: loki-sc-rules
-          image: "kiwigrid/k8s-sidecar:1.30.1"
+          image: "kiwigrid/k8s-sidecar:1.30.2"
           imagePullPolicy: IfNotPresent
           env:
             - name: METHOD

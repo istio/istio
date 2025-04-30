@@ -299,8 +299,16 @@ spec:
               audience: {{ .Values.global.sds.token.aud }}
       {{- if eq .Values.global.pilotCertProvider "istiod" }}
       - name: istiod-ca-cert
+      {{- if eq ((.Values.pilot).env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+        projected:
+          sources:
+          - clusterTrustBundle:
+              name: istio.io:istiod-ca:root-cert
+              path: root-cert.pem
+      {{- else }}
         configMap:
           name: istio-ca-root-cert
+      {{- end }}
       {{- end }}
       {{- if .Values.global.imagePullSecrets }}
       imagePullSecrets:
@@ -343,3 +351,51 @@ spec:
   {{- end }}
   type: {{ .ServiceType | quote }}
 ---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{.DeploymentName | quote}}
+  namespace: {{.Namespace | quote}}
+  annotations:
+    {{- toJsonMap (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+  labels:
+    {{- toJsonMap
+          .InfrastructureLabels
+          (strdict
+          "gateway.networking.k8s.io/gateway-name" .Name
+          ) | nindent 4 }}
+  ownerReferences:
+    - apiVersion: gateway.networking.k8s.io/v1beta1
+      kind: Gateway
+      name: {{.Name}}
+      uid: "{{.UID}}"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name:  {{.DeploymentName | quote}}
+  maxReplicas: 1
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{.DeploymentName | quote}}
+  namespace: {{.Namespace | quote}}
+  annotations:
+    {{- toJsonMap (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+  labels:
+    {{- toJsonMap
+          .InfrastructureLabels
+          (strdict
+          "gateway.networking.k8s.io/gateway-name" .Name
+          ) | nindent 4 }}
+  ownerReferences:
+    - apiVersion: gateway.networking.k8s.io/v1beta1
+      kind: Gateway
+      name: {{.Name}}
+      uid: "{{.UID}}"
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: {{.Name|quote}}
+

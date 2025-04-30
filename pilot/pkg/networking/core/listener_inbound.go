@@ -289,10 +289,11 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	}
 	address := util.BuildAddress(addresses[0], tPort)
 	l := &listener.Listener{
-		Name:                             name,
-		Address:                          address,
-		TrafficDirection:                 core.TrafficDirection_INBOUND,
-		ContinueOnListenerFiltersTimeout: true,
+		Name:                                 name,
+		Address:                              address,
+		TrafficDirection:                     core.TrafficDirection_INBOUND,
+		ContinueOnListenerFiltersTimeout:     true,
+		MaxConnectionsToAcceptPerSocketEvent: maxConnectionsToAcceptPerSocketEvent(),
 	}
 	if features.EnableDualStack && len(addresses) > 1 {
 		// add extra addresses for the listener

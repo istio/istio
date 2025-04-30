@@ -1,0 +1,34 @@
+# This configs KinD to spin up a k8s cluster with ClusterTrustBundle support enabled
+# This should only be used to create K8s clusters with versions >= 1.27
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+kubeadmConfigPatches:
+  - |
+    apiVersion: kubeadm.k8s.io/v1beta3
+    kind: ClusterConfiguration
+    metadata:
+      name: config
+    etcd:
+      local:
+        # Run etcd in a tmpfs (in RAM) for performance improvements
+        dataDir: /tmp/kind-cluster-etcd
+    # We run single node, drop leader election to reduce overhead
+    controllerManager:
+      extraArgs:
+        leader-elect: "false"
+    scheduler:
+      extraArgs:
+        leader-elect: "false"
+    apiServer:
+      extraArgs:
+        "service-account-issuer": "kubernetes.default.svc"
+        "service-account-signing-key-file": "/etc/kubernetes/pki/sa.key"
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"
+featureGates:
+  "ClusterTrustBundle": true
+  "ClusterTrustBundleProjection": true
+runtimeConfig:
+  "certificates.k8s.io/v1alpha1/clustertrustbundles": true

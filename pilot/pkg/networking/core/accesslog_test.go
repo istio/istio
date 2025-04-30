@@ -225,7 +225,7 @@ spec:
 	}
 }
 
-func newTestEnviroment() *model.Environment {
+func newTestEnvironment() *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
 		Hostname:       "test.example.org",
 		DefaultAddress: "1.1.1.1",
@@ -372,7 +372,7 @@ var (
 func TestSetTCPAccessLog(t *testing.T) {
 	b := newAccessLogBuilder()
 
-	env := newTestEnviroment()
+	env := newTestEnvironment()
 
 	cases := []struct {
 		name     string
@@ -389,6 +389,7 @@ func TestSetTCPAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			tcp:   &tcp.TcpProxy{},
 			class: networking.ListenerClassSidecarInbound,
@@ -408,6 +409,7 @@ func TestSetTCPAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-with-server-accesslog-filter"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			tcp:   &tcp.TcpProxy{},
 			class: networking.ListenerClassSidecarOutbound,
@@ -427,6 +429,7 @@ func TestSetTCPAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "without-telemetry"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			tcp:   &tcp.TcpProxy{},
 			class: networking.ListenerClassSidecarInbound,
@@ -446,6 +449,7 @@ func TestSetTCPAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-disable-accesslog"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-disable-accesslog"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			tcp:      &tcp.TcpProxy{},
 			class:    networking.ListenerClassSidecarInbound,
@@ -464,7 +468,7 @@ func TestSetTCPAccessLog(t *testing.T) {
 func TestSetHttpAccessLog(t *testing.T) {
 	b := newAccessLogBuilder()
 
-	env := newTestEnviroment()
+	env := newTestEnvironment()
 
 	cases := []struct {
 		name     string
@@ -481,6 +485,7 @@ func TestSetHttpAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			hcm:   &hcm.HttpConnectionManager{},
 			class: networking.ListenerClassSidecarInbound,
@@ -500,6 +505,7 @@ func TestSetHttpAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-with-server-accesslog-filter"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			hcm:   &hcm.HttpConnectionManager{},
 			class: networking.ListenerClassSidecarOutbound,
@@ -519,6 +525,7 @@ func TestSetHttpAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "without-telemetry"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			hcm:   &hcm.HttpConnectionManager{},
 			class: networking.ListenerClassSidecarInbound,
@@ -538,6 +545,7 @@ func TestSetHttpAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-disable-accesslog"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-disable-accesslog"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			hcm:      &hcm.HttpConnectionManager{},
 			class:    networking.ListenerClassSidecarInbound,
@@ -556,7 +564,7 @@ func TestSetHttpAccessLog(t *testing.T) {
 func TestSetListenerAccessLog(t *testing.T) {
 	b := newAccessLogBuilder()
 
-	env := newTestEnviroment()
+	env := newTestEnvironment()
 
 	cases := []struct {
 		name     string
@@ -573,6 +581,7 @@ func TestSetListenerAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			listener: &listener.Listener{},
 			class:    networking.ListenerClassSidecarInbound,
@@ -597,6 +606,7 @@ func TestSetListenerAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-with-server-accesslog-filter"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-with-server-accesslog-filter"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			listener: &listener.Listener{},
 			class:    networking.ListenerClassSidecarOutbound,
@@ -621,6 +631,7 @@ func TestSetListenerAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "without-telemetry"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "without-telemetry"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			listener: &listener.Listener{},
 			class:    networking.ListenerClassSidecarInbound,
@@ -645,6 +656,7 @@ func TestSetListenerAccessLog(t *testing.T) {
 				ConfigNamespace: "default",
 				Labels:          map[string]string{"app": "test-disable-accesslog"},
 				Metadata:        &model.NodeMetadata{Labels: map[string]string{"app": "test-disable-accesslog"}},
+				IstioVersion:    &model.IstioVersion{Major: 1, Minor: 23},
 			},
 			listener: &listener.Listener{},
 			class:    networking.ListenerClassSidecarInbound,

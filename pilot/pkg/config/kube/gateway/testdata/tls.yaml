@@ -35,6 +35,18 @@ spec:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
+  - name: terminate-multi
+    hostname: "domainmulti.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+      - name: my-cert-http2
   - name: terminate-mtls
     hostname: "other.example"
     port: 34000
@@ -59,6 +71,17 @@ spec:
       mode: Terminate
       options:
         gateway.istio.io/tls-terminate-mode: ISTIO_MUTUAL
+  - name: terminate-istio-builtin
+    hostname: "builtin.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      options:
+        gateway.istio.io/tls-terminate-mode: ISTIO_SIMPLE
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute

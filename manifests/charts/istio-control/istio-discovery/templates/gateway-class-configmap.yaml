@@ -1,0 +1,21 @@
+{{ range $key, $value := .Values.gatewayClasses }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-{{ $.Values.revision | default "default"  }}-gatewayclass-{{$key}}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    istio.io/rev: {{ $.Values.revision | default "default" | quote }}
+    install.operator.istio.io/owning-resource: {{ $.Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
+    release: {{ $.Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    gateway.istio.io/defaults-for-class: {{$key|quote}}
+    {{- include "istio.labels" $ | nindent 4 }}
+data:
+{{ range $kind, $overlay := $value }}
+  {{$kind}}: |
+{{$overlay|toYaml|trim|indent 4}}
+{{ end }}
+---
+{{ end }}

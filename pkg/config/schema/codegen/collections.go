@@ -175,6 +175,10 @@ func toGetter(protoPackage string) string {
 func toGroup(protoPackage string, version string) string {
 	p := strings.Split(protoPackage, "/")
 	e := len(p) - 1
+	if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api/apisx") {
+		// Custom naming for "X" types
+		return "Experimental" + strcase.UpperCamelCase(version)
+	}
 	if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
 		// Gateway has one level of nesting with custom name
 		return "Gateway" + strcase.UpperCamelCase(version)

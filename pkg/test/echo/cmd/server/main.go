@@ -214,6 +214,8 @@ func (s *Shutdown) WaitForShutdown() {
 		return
 	case <-ti.C:
 		log.Infof("Shutdown complete")
+	case <-sigs:
+		log.Infof("Shutdown forced")
 	}
 }
 

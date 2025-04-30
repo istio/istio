@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -95,6 +96,41 @@ type Filter struct {
 	// ObjectTransform allows arbitrarily modifying objects stored in the underlying cache.
 	// If unset, a default transform is provided to remove ManagedFields (high cost, low value)
 	ObjectTransform func(obj any) (any, error)
+}
+
+// composedFilter offers a way to join multiple different object filters into a single one
+type composedFilter struct {
+	// The primary filter, which has a handler. Optional
+	filter DynamicObjectFilter
+	// Secondary filters (no handler allowed)
+	extra []func(obj any) bool
+}
+
+func (f composedFilter) Filter(obj any) bool {
+	for _, filter := range f.extra {
+		if !filter(obj) {
+			return false
+		}
+	}
+	if f.filter != nil {
+		return f.filter.Filter(obj)
+	}
+	return true
+}
+
+func (f composedFilter) AddHandler(fn func(selected, deselected sets.String)) {
+	if f.filter != nil {
+		f.filter.AddHandler(fn)
+	}
+}
+
+func ComposeFilters(filter DynamicObjectFilter, extra ...func(obj any) bool) DynamicObjectFilter {
+	return composedFilter{
+		filter: filter,
+		extra: slices.FilterInPlace(extra, func(f func(obj any) bool) bool {
+			return f != nil
+		}),
+	}
 }
 
 // CrdWatcher exposes an interface to watch CRDs

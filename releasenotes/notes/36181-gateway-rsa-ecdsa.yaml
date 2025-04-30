@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: 
+- https://github.com/istio/istio/issues/36181
+releaseNotes:
+  - |
+    **Added** Add support for multiple server certificates in gateway (istio & gateway api)
+upgradeNotes:
+- title: Multiple certificate types support in Gateway
+  content: |
+    Istio now supports configuring multiple certificate types (such as RSA and ECDSA) simultaneously in Gateway resources.
+    This allows clients to choose the most appropriate certificate type based on their capabilities.

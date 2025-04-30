@@ -63,17 +63,25 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 				secret.Identity, valueOrNA(""), secret.State, false, valueOrNA(""), valueOrNA(""), valueOrNA(""))
 		} else {
+			// Before, the root was part of the certChain.
+			legacyFormat := len(secret.RootCert) == 0
 			for i, ca := range secret.CertChain {
 				t := "Intermediate"
 				if i == 0 {
 					t = "Leaf"
-				} else if i == len(secret.CertChain)-1 {
+				} else if i == len(secret.CertChain)-1 && legacyFormat {
 					t = "Root"
 				}
 				n := new(big.Int)
 				n, _ = n.SetString(ca.SerialNumber, 10)
 				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n",
 					secret.Identity, t, secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
+			}
+			for _, ca := range secret.RootCert {
+				n := new(big.Int)
+				n, _ = n.SetString(ca.SerialNumber, 10)
+				fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%x\t%v\t%v\n",
+					secret.Identity, "Root", secret.State, certNotExpired(ca), n, valueOrNA(ca.ExpirationTime), valueOrNA(ca.ValidFrom))
 			}
 		}
 	}

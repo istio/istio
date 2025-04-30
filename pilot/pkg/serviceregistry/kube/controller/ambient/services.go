@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
@@ -103,7 +103,7 @@ func (a *index) serviceServiceBuilder(
 func MakeSource(o controllers.Object) model.TypedObject {
 	return model.TypedObject{
 		NamespacedName: config.NamespacedName(o),
-		Kind:           kind.MustFromGVK(kubetypes.GvkFromObject(o)),
+		Kind:           gvk.MustToKind(kubetypes.GvkFromObject(o)),
 	}
 }
 
@@ -259,7 +259,7 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 			ipFamily = workloadapi.IPFamilies_IPV6_ONLY
 		}
 	}
-	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
+	// TODO: this is only checking one controller - we may be missing service vips for instances in another cluster
 	return &workloadapi.Service{
 		Name:          svc.Name,
 		Namespace:     svc.Namespace,

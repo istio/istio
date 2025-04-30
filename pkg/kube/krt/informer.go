@@ -40,6 +40,7 @@ type informer[I controllers.ComparableObject] struct {
 	augmentation  func(a any) any
 	synced        chan struct{}
 	baseSyncer    Syncer
+	metadata      Metadata
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -74,6 +75,7 @@ func (i *informer[I]) WaitUntilSynced(stop <-chan struct{}) bool {
 func (i *informer[I]) dump() CollectionDump {
 	return CollectionDump{
 		Outputs: eraseMap(slices.GroupUnique(i.inf.List(metav1.NamespaceAll, klabels.Everything()), getTypedKey)),
+		Synced:  i.HasSynced(),
 	}
 }
 
@@ -101,6 +103,10 @@ func (i *informer[I]) GetKey(k string) *I {
 		return &got
 	}
 	return nil
+}
+
+func (i *informer[I]) Metadata() Metadata {
+	return i.metadata
 }
 
 func (i *informer[I]) Register(f func(o Event[I])) HandlerRegistration {
@@ -139,8 +145,8 @@ func (i informerHandlerRegistration) UnregisterHandler() {
 }
 
 // nolint: unused // (not true)
-func (i *informer[I]) index(extract func(o I) []string) kclient.RawIndexer {
-	idx := i.inf.Index(extract)
+func (i *informer[I]) index(name string, extract func(o I) []string) kclient.RawIndexer {
+	idx := i.inf.Index(name, extract)
 	return idx
 }
 
@@ -190,6 +196,10 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 	h.baseSyncer = channelSyncer{
 		name:   h.collectionName,
 		synced: h.synced,
+	}
+
+	if o.metadata != nil {
+		h.metadata = o.metadata
 	}
 
 	go func() {

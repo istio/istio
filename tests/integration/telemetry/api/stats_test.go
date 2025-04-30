@@ -87,6 +87,8 @@ func TestStatsFilter(t *testing.T) {
 			// In addition, verifies that mocked prometheus could call metrics endpoint with proxy provisioned certs
 			t.NewSubTest("mockprom-to-metrics").Run(
 				func(t framework.TestContext) {
+					// Enable strict mTLS. This is needed for mock secured prometheus scraping test.
+					t.ConfigIstio().YAML(ist.Settings().SystemNamespace, strictMtlsPeerAuthenticationConfig).ApplyOrFail(t)
 					for _, prom := range mockProm {
 						retry.UntilSuccessOrFail(t, func() error {
 							st := match.Cluster(prom.Config().Cluster).FirstOrFail(t, GetTarget().Instances())

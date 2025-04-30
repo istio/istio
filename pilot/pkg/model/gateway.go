@@ -209,6 +209,9 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					} else if ps.ReferenceAllowed(gvk.Secret, rn, proxy.VerifiedIdentity.Namespace) {
 						// Explicitly allowed by some policy
 						verifiedCertificateReferences.Insert(rn)
+						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
+							verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
+						}
 					}
 				}
 			}

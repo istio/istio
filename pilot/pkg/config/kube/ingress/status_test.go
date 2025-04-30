@@ -15,6 +15,7 @@
 package ingress
 
 import (
+	"sync"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -23,11 +24,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/api/annotation"
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
-	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
-	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -97,45 +102,59 @@ var testObjects = []runtime.Object{
 	},
 }
 
-func fakeMeshHolder(ingressService string) mesh.Watcher {
+type TestStatusQueue struct {
+	mu    sync.Mutex
+	state map[status.Resource]any
+}
+
+func (t *TestStatusQueue) EnqueueStatusUpdateResource(context any, target status.Resource) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.state[target] = context
+}
+
+func (t *TestStatusQueue) Statuses() []any {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return maps.Values(t.state)
+}
+
+var _ status.Queue = &TestStatusQueue{}
+
+func fakeMeshHolder(ingressService string) meshwatcher.WatcherCollection {
 	config := mesh.DefaultMeshConfig()
 	config.IngressService = ingressService
 	return meshwatcher.NewTestWatcher(config)
 }
 
-func makeStatusSyncer(t *testing.T, name string) *StatusSyncer {
-	client := kubelib.NewFakeClient(testObjects...)
-	sync := NewStatusSyncer(fakeMeshHolder(name), client)
-	client.RunAndWait(test.NewStop(t))
-	go sync.Run(test.NewStop(t))
-	return sync
-}
+func makeControllerWithStatus(t *testing.T, name string) (*Controller, kube.Client) {
+	client := kube.NewFakeClient(testObjects...)
 
-// nolint: unparam
-func getIPs(ing clienttest.TestClient[*knetworking.Ingress], name string, ns string) func() []string {
-	return func() []string {
-		i := ing.Get(name, ns)
-		if i == nil {
-			return nil
-		}
-		res := []string{}
-		for _, v := range i.Status.LoadBalancer.Ingress {
-			if v.IP != "" {
-				res = append(res, v.IP)
-			} else {
-				res = append(res, v.Hostname)
-			}
-		}
-		return res
-	}
+	c := NewController(
+		client,
+		fakeMeshHolder(name),
+		kubecontroller.Options{KrtDebugger: krt.GlobalDebugHandler},
+		nil,
+	)
+
+	stop := test.NewStop(t)
+	go c.Run(stop)
+	client.RunAndWait(stop)
+
+	return c, client
 }
 
 func TestStatusController(t *testing.T) {
-	statusLog.SetOutputLevel(istiolog.DebugLevel)
-	c := makeStatusSyncer(t, "istio-ingress")
-	ing := clienttest.Wrap(t, c.ingresses)
-	svc := clienttest.Wrap(t, c.services)
-	ingc := clienttest.Wrap(t, c.ingressClasses)
+	controller, client := makeControllerWithStatus(t, "istio-ingress")
+
+	ing := clienttest.NewWriter[*knetworking.Ingress](t, client)
+	svc := clienttest.NewWriter[*corev1.Service](t, client)
+	ingc := clienttest.NewWriter[*knetworking.IngressClass](t, client)
+	sq := &TestStatusQueue{
+		state: map[status.Resource]any{},
+	}
+	controller.status.SetQueue(sq)
+
 	ing.Create(&knetworking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "ingress",
@@ -144,22 +163,39 @@ func TestStatusController(t *testing.T) {
 		},
 	})
 
-	// Test initial state
-	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{serviceIP})
+	getIPs := func() []string {
+		statuses := sq.Statuses()
+		if len(statuses) == 1 {
+			ing := statuses[0].(*knetworking.IngressStatus).LoadBalancer.Ingress
+			res := []string{}
+			for _, v := range ing {
+				if v.IP != "" {
+					res = append(res, v.IP)
+				} else {
+					res = append(res, v.Hostname)
+				}
+			}
+			return res
+		}
+
+		return nil
+	}
+
+	assert.EventuallyEqual(t, getIPs, []string{serviceIP})
 
 	// Update service IP
 	updated := ingressService.DeepCopy()
 	updated.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{IP: "5.6.7.8"}}
 	svc.Update(updated)
-	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{"5.6.7.8"})
+	assert.EventuallyEqual(t, getIPs, []string{"5.6.7.8"})
 
 	// Remove service
 	svc.Delete(ingressService.Name, ingressService.Namespace)
-	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{})
+	assert.EventuallyEqual(t, getIPs, []string{})
 
 	// Add it back
 	svc.Create(updated)
-	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{"5.6.7.8"})
+	assert.EventuallyEqual(t, getIPs, []string{"5.6.7.8"})
 
 	// Remove ingress class
 	ing.Update(&knetworking.Ingress{
@@ -168,7 +204,7 @@ func TestStatusController(t *testing.T) {
 			Namespace: "default",
 		},
 	})
-	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{})
+	assert.EventuallyEqual(t, getIPs, []string{})
 
 	ingressClassName := "istio"
 	// Set IngressClassName
@@ -181,7 +217,7 @@ func TestStatusController(t *testing.T) {
 			IngressClassName: &ingressClassName,
 		},
 	})
-	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{})
+	assert.EventuallyEqual(t, getIPs, []string{})
 
 	// Create IngressClass
 	ingc.Create(&knetworking.IngressClass{
@@ -192,17 +228,66 @@ func TestStatusController(t *testing.T) {
 			Controller: IstioIngressController,
 		},
 	})
-	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{"5.6.7.8"})
+	assert.EventuallyEqual(t, getIPs, []string{"5.6.7.8"})
 }
 
 func TestRunningAddresses(t *testing.T) {
 	t.Run("service", testRunningAddressesWithService)
 	t.Run("hostname", testRunningAddressesWithHostname)
+	t.Run("pod", testRunningAddressesWithPod)
+}
+
+type informers struct {
+	mesh            meshwatcher.WatcherCollection
+	services        krt.Collection[*corev1.Service]
+	nodes           krt.Collection[*corev1.Node]
+	pods            krt.Collection[*corev1.Pod]
+	podsByNamespace krt.Index[string, *corev1.Pod]
+}
+
+func makeTestInformers(t *testing.T, name string) informers {
+	stop := test.NewStop(t)
+	meshHolder := fakeMeshHolder(name)
+	client := kube.NewFakeClient(testObjects...)
+	opts := krt.NewOptionsBuilder(stop, "ingress", krt.GlobalDebugHandler)
+	services := krt.WrapClient(
+		kclient.NewFiltered[*corev1.Service](client, kclient.Filter{
+			ObjectFilter: client.ObjectFilter(),
+		}),
+		opts.WithName("informer/Services")...,
+	)
+	nodes := krt.NewInformerFiltered[*corev1.Node](client, kclient.Filter{
+		ObjectFilter:    client.ObjectFilter(),
+		ObjectTransform: kube.StripNodeUnusedFields,
+	}, opts.WithName("informer/Nodes")...)
+	pods := krt.NewInformerFiltered[*corev1.Pod](client, kclient.Filter{
+		ObjectFilter:    client.ObjectFilter(),
+		ObjectTransform: kube.StripPodUnusedFields,
+	}, opts.WithName("informer/Pods")...)
+	inf := informers{
+		mesh:            meshHolder,
+		services:        services,
+		nodes:           nodes,
+		pods:            pods,
+		podsByNamespace: krt.NewNamespaceIndex(pods),
+	}
+	client.RunAndWait(stop)
+	kube.WaitForCacheSync("test", stop, services.HasSynced, nodes.HasSynced, pods.HasSynced)
+
+	return inf
 }
 
 func testRunningAddressesWithService(t *testing.T) {
-	syncer := makeStatusSyncer(t, "istio-ingress")
-	address := syncer.runningAddresses()
+	informers := makeTestInformers(t, "istio-ingress")
+
+	address := runningAddresses(
+		krt.TestingDummyContext{},
+		informers.mesh,
+		informers.services,
+		informers.nodes,
+		informers.pods,
+		informers.podsByNamespace,
+	)
 
 	if len(address) != 1 || address[0] != serviceIP {
 		t.Errorf("Address is not correctly set to service ip")
@@ -210,19 +295,33 @@ func testRunningAddressesWithService(t *testing.T) {
 }
 
 func testRunningAddressesWithHostname(t *testing.T) {
-	syncer := makeStatusSyncer(t, "istio-ingress-hostname")
+	informers := makeTestInformers(t, "istio-ingress-hostname")
 
-	address := syncer.runningAddresses()
+	address := runningAddresses(
+		krt.TestingDummyContext{},
+		informers.mesh,
+		informers.services,
+		informers.nodes,
+		informers.pods,
+		informers.podsByNamespace,
+	)
 
 	if len(address) != 1 || address[0] != hostname {
 		t.Errorf("Address is not correctly set to hostname")
 	}
 }
 
-func TestRunningAddressesWithPod(t *testing.T) {
-	syncer := makeStatusSyncer(t, "")
+func testRunningAddressesWithPod(t *testing.T) {
+	informers := makeTestInformers(t, "")
 
-	address := syncer.runningAddresses()
+	address := runningAddresses(
+		krt.TestingDummyContext{},
+		informers.mesh,
+		informers.services,
+		informers.nodes,
+		informers.pods,
+		informers.podsByNamespace,
+	)
 
 	if len(address) != 1 || address[0] != nodeIP {
 		t.Errorf("Address is not correctly set to node ip %v %v", address, nodeIP)

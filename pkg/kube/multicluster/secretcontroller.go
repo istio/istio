@@ -183,6 +183,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 			c.secrets.Start(stopCh)
 		}
 		if !kube.WaitForCacheSync("multicluster remote secrets", stopCh, c.secrets.HasSynced) {
+			c.queue.ShutDownEarly()
 			return
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
