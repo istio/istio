@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	krtfiles "istio.io/istio/pkg/kube/krt/files"
@@ -33,12 +32,32 @@ import (
 
 var errUnsupportedOp = fmt.Errorf("unsupported operation: the file config store is a read-only view")
 
+type kindStore struct {
+	collection krt.Collection[config.Config]
+	index      krt.Index[string, config.Config]
+	handlers   []krt.HandlerRegistration
+}
+
 type Controller struct {
-	collections map[config.GroupVersionKind]krt.Collection[config.Config]
-	indexes     map[config.GroupVersionKind]krt.Index[string, config.Config]
-	schemas     collection.Schemas
-	handlers    map[config.GroupVersionKind][]krt.HandlerRegistration
-	stop        chan struct{}
+	data    map[config.GroupVersionKind]kindStore
+	schemas collection.Schemas
+	stop    chan struct{}
+}
+
+type ConfigKind struct {
+	*config.Config
+}
+
+func (c ConfigKind) ResourceName() string {
+	if c.Namespace == "" {
+		return c.GroupVersionKind.String() + "/" + c.Name
+	}
+
+	return c.GroupVersionKind.String() + "/" + c.Namespace + c.Name
+}
+
+func (c ConfigKind) Equals(other ConfigKind) bool {
+	return c.Config.Equals(other.Config)
 }
 
 func NewController(
@@ -55,33 +74,33 @@ func NewController(
 	if err != nil {
 		return nil, err
 	}
+	mainCollection := krtfiles.NewFileCollection(watch, func(c *config.Config) *ConfigKind {
+		return &ConfigKind{c}
+	}, opts.WithName("main")...)
 
-	collectionMap := make(map[config.GroupVersionKind]krt.Collection[config.Config])
-	indexes := make(map[config.GroupVersionKind]krt.Index[string, config.Config])
+	data := make(map[config.GroupVersionKind]kindStore)
 	for _, s := range schemas.All() {
-		if _, ok := collections.Pilot.FindByGroupVersionKind(s.GroupVersionKind()); ok {
-			collection := krtfiles.NewFileCollection(watch, func(c *config.Config) *config.Config {
-				if c.GroupVersionKind == s.GroupVersionKind() {
-					return c
+		gvk := s.GroupVersionKind()
+		if _, ok := collections.Pilot.FindByGroupVersionKind(gvk); ok {
+			collection := krt.NewCollection(mainCollection, func(ctx krt.HandlerContext, c ConfigKind) *config.Config {
+				if c.GroupVersionKind == gvk {
+					return c.Config
 				}
 
 				return nil
-			}, opts.WithName("FileMonitor")...)
+			}, opts.WithName(gvk.Kind)...)
 
-			collectionMap[s.GroupVersionKind()] = collection
-
-			if s.GroupVersionKind() == gvk.ServiceEntry || s.GroupVersionKind() == gvk.WorkloadEntry {
-				indexes[s.GroupVersionKind()] = krt.NewNamespaceIndex(collection)
+			data[gvk] = kindStore{
+				collection: collection,
+				index:      krt.NewNamespaceIndex(collection),
 			}
 		}
 	}
 
 	return &Controller{
-		collections: collectionMap,
-		indexes:     indexes,
-		schemas:     schemas,
-		stop:        stop,
-		handlers:    make(map[config.GroupVersionKind][]krt.HandlerRegistration),
+		schemas: schemas,
+		stop:    stop,
+		data:    data,
 	}, nil
 }
 
@@ -90,26 +109,24 @@ func (c *Controller) Schemas() collection.Schemas {
 }
 
 func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
-	if col, ok := c.collections[typ]; ok {
+	if data, ok := c.data[typ]; ok {
 		if namespace == "" {
-			return col.GetKey(name)
+			return data.collection.GetKey(name)
 		}
 
-		return col.GetKey(namespace + "/" + name)
+		return data.collection.GetKey(namespace + "/" + name)
 	}
 
 	return nil
 }
 
 func (c *Controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
-	if namespace == metav1.NamespaceAll {
-		if col, ok := c.collections[typ]; ok {
-			return col.List()
+	if data, ok := c.data[typ]; ok {
+		if namespace == metav1.NamespaceAll {
+			return data.collection.List()
 		}
-	} else {
-		if idx, ok := c.indexes[typ]; ok {
-			return idx.Lookup(namespace)
-		}
+
+		return data.index.Lookup(namespace)
 	}
 
 	return nil
@@ -136,10 +153,10 @@ func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string,
 }
 
 func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler model.EventHandler) {
-	if col, ok := c.collections[typ]; ok {
-		c.handlers[typ] = append(
-			c.handlers[typ],
-			col.RegisterBatch(func(evs []krt.Event[config.Config]) {
+	if data, ok := c.data[typ]; ok {
+		data.handlers = append(
+			data.handlers,
+			data.collection.RegisterBatch(func(evs []krt.Event[config.Config]) {
 				for _, event := range evs {
 					switch event.Event {
 					case controllers.EventAdd:
@@ -161,18 +178,18 @@ func (c *Controller) Run(stop <-chan struct{}) {
 }
 
 func (c *Controller) HasSynced() bool {
-	for _, col := range c.collections {
-		if !col.HasSynced() {
+	for _, data := range c.data {
+		if !data.collection.HasSynced() {
 			return false
 		}
-	}
-	for _, handlers := range c.handlers {
-		for _, handler := range handlers {
+
+		for _, handler := range data.handlers {
 			if !handler.HasSynced() {
 				return false
 			}
 		}
 	}
+
 	return true
 }
 
