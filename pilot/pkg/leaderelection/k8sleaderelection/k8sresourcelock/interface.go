@@ -31,8 +31,10 @@ import (
 
 const (
 	LeaderElectionRecordAnnotationKey = "control-plane.alpha.kubernetes.io/leader"
+	EndpointsResourceLock             = "endpoints"
 	ConfigMapsResourceLock            = "configmaps"
 	LeasesResourceLock                = "leases"
+	EndpointsLeasesResourceLock       = "endpointsleases"
 	ConfigMapsLeasesResourceLock      = "configmapsleases"
 )
 
@@ -101,9 +103,17 @@ type Interface interface {
 	Describe() string
 }
 
-// New will create a lock of a given type according to the input parameters
+// Manufacture will create a lock of a given type according to the input parameters
 // nolint: lll
 func New(lockType string, ns string, name string, coreClient corev1.CoreV1Interface, coordinationClient coordinationv1.CoordinationV1Interface, rlc ResourceLockConfig) (Interface, error) {
+	endpointsLock := &EndpointsLock{
+		EndpointsMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      name,
+		},
+		Client:     coreClient,
+		LockConfig: rlc,
+	}
 	configmapLock := &ConfigMapLock{
 		ConfigMapMeta: metav1.ObjectMeta{
 			Namespace: ns,
@@ -121,10 +131,17 @@ func New(lockType string, ns string, name string, coreClient corev1.CoreV1Interf
 		LockConfig: rlc,
 	}
 	switch lockType {
+	case EndpointsResourceLock:
+		return endpointsLock, nil
 	case ConfigMapsResourceLock:
 		return configmapLock, nil
 	case LeasesResourceLock:
 		return leaseLock, nil
+	case EndpointsLeasesResourceLock:
+		return &MultiLock{
+			Primary:   endpointsLock,
+			Secondary: leaseLock,
+		}, nil
 	case ConfigMapsLeasesResourceLock:
 		return &MultiLock{
 			Primary:   configmapLock,
