@@ -286,11 +286,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 		UserManaged:          true,
 		IstioNamespace:       istioNS,
 	}
-	tagResources, err := Generate(ctx, kubeClient, opts)
-	if err != nil {
-		return err
-	}
-	tagWhYAML, err := TagResourcesToString(tagResources)
+	tagWhYAML, err := Generate(ctx, kubeClient, opts)
 	if err != nil {
 		return err
 	}

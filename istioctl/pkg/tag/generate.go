@@ -93,47 +93,36 @@ type GenerateOptions struct {
 	IstioNamespace string
 }
 
-// TagResources is the group of resources needed to represent a tag
-type TagResources struct {
-	// mutatingWebhookConfiguration is the sidecar injector mutating webhook, used in sidecar mode
-	mutatingWebhookConfiguration string
-	// defaultValidatingWebhook is the updated default validating webhook that
-	// will use the chosen revision
-	defaultValidatingWebhook string
-	// tagService is the service that holds the tag mapping in the cluster, used in ambient mode
-	tagService string
-}
-
 // Generate generates the manifests for a revision tag pointed the given revision.
-func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions) (*TagResources, error) {
+func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions) (string, error) {
 	// abort if there exists a revision with the target tag name
 	isRunningAmbient, err := checkIfRevisionIsRunningAmbient(ctx, client.Kube(), opts.Revision, opts.IstioNamespace)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	err = checkTagNameCollidesWithRevisionName(ctx, client.Kube(), isRunningAmbient, opts)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// TODO: Use canonService from here to create a new service
 	_, canonWebhook, err := checkControlPlaneExistenceOrDuplicate(ctx, client.Kube(), isRunningAmbient, opts)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	err = checkTagDuplicate(ctx, client.Kube(), isRunningAmbient, opts)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(*canonWebhook, opts.Tag, opts.IstioNamespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tag webhook config: %w", err)
+		return "", fmt.Errorf("failed to create tag webhook config: %w", err)
 	}
 	tagWhYAML, err := generateMutatingWebhook(tagWhConfig, opts)
 	var vwhYAML string
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tag webhook: %w", err)
+		return "", fmt.Errorf("failed to create tag webhook: %w", err)
 	}
 
 	if opts.Tag == DefaultRevisionName {
@@ -141,7 +130,7 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions) (*
 			// deactivate other istio-injection=enabled injectors if using default revisions.
 			err := DeactivateIstioInjectionWebhook(ctx, client.Kube())
 			if err != nil {
-				return nil, fmt.Errorf("failed deactivating existing default revision: %w", err)
+				return "", fmt.Errorf("failed deactivating existing default revision: %w", err)
 			}
 		}
 
@@ -150,34 +139,26 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions) (*
 		// instead grab the endpoint information from the mutating webhook. This is not strictly correct.
 		validationWhConfig, err := fixWhConfig(client, tagWhConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create validating webhook config: %w", err)
+			return "", fmt.Errorf("failed to create validating webhook config: %w", err)
 		}
 
 		vwhYAML, err = generateValidatingWebhook(validationWhConfig, opts)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create validating webhook: %w", err)
+			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
 	}
 	var tagServiceYAML string
 	if isRunningAmbient {
 		tagServiceYAML, err = generateTagService(opts)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 	}
 
-	return &TagResources{
-		mutatingWebhookConfiguration: tagWhYAML,
-		defaultValidatingWebhook:     vwhYAML,
-		tagService:                   tagServiceYAML,
-	}, nil
-}
-
-func TagResourcesToString(tagResources *TagResources) (string, error) {
 	resources := []string{
-		tagResources.mutatingWebhookConfiguration,
-		tagResources.defaultValidatingWebhook,
-		tagResources.tagService,
+		tagWhYAML,
+		vwhYAML,
+		tagServiceYAML,
 	}
 	resourcesStrings := []string{}
 	for _, resource := range resources {
