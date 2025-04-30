@@ -133,11 +133,25 @@ func (p *tagWatcher) IsMine(obj metav1.ObjectMeta) bool {
 
 func (p *tagWatcher) GetMyTags() sets.String {
 	res := sets.New(p.revision)
+	mwhTags := sets.New[string]()
 	for _, wh := range p.webhooksIndex.Lookup(p.revision) {
 		res.Insert(wh.GetLabels()[label.IoIstioTag.Name])
+		mwhTags.Insert(wh.GetLabels()[label.IoIstioTag.Name])
 	}
 	for _, svc := range p.servicesIndex.Lookup(p.revision) {
-		res.Insert(svc.GetLabels()[label.IoIstioTag.Name])
+		tagName := svc.GetLabels()[label.IoIstioTag.Name]
+		res.Insert(tagName)
+
+		if mwhTags.Contains(tagName) {
+			log.Warnf("Tag name %s is already defined by a service. Delete the %s-%s MutatingWebhookConfiguration ", tagName, "istio-revision-tag", tagName)
+			mwhTags.Delete(tagName)
+		}
+	}
+
+	for _, mwhTag := range mwhTags {
+		log.Warnf(
+			"Tag name %s is defined using a MutatingWebhookConfiguration, which is deprecated. Run `istioctl tag set %s --revision '%s' to use a service instead",
+			mwhTag, mwhTag, p.revision)
 	}
 	return res
 }
