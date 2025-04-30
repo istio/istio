@@ -20,6 +20,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	admitv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -58,6 +59,29 @@ func GetWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, r
 		return nil, err
 	}
 	return webhooks.Items, nil
+}
+
+// GetServicesWithRevision returns services tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag.
+// This retrieves the services created at revision installation rather than tag services.
+func GetServicesWithRevision(ctx context.Context, client kubernetes.Interface, istioNS, rev string) ([]corev1.Service, error) {
+	services, err := client.CoreV1().Services(istioNS).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, rev, label.IoIstioTag.Name),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return services.Items, nil
+}
+
+// GetServicesWithTag returns services tagged with istio.io/tag=<tag>.
+func GetServicesWithTag(ctx context.Context, client kubernetes.Interface, istioNS, tag string) ([]corev1.Service, error) {
+	services, err := client.CoreV1().Services(istioNS).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioTag.Name, tag),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return services.Items, nil
 }
 
 // GetNamespacesWithTag retrieves all namespaces pointed at the given tag.

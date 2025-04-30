@@ -22,8 +22,6 @@ import (
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/kube"
@@ -226,9 +224,6 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			userManaged:    true,
 		},
 	}
-	scheme := runtime.NewScheme()
-	codecFactory := serializer.NewCodecFactory(scheme)
-	deserializer := codecFactory.UniversalDeserializer()
 
 	fail := admitv1.Fail
 	fakeClient := kube.NewFakeClient(&admitv1.ValidatingWebhookConfiguration{
@@ -262,16 +257,10 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			if tc.userManaged {
 				opts.UserManaged = true
 			}
-			webhookYAML, err := generateValidatingWebhook(webhookConfig, opts)
+			wh, err := generateValidatingWebhook(webhookConfig, opts)
 			if err != nil {
 				t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 			}
-
-			vwhObject, _, err := deserializer.Decode([]byte(webhookYAML), nil, &admitv1.ValidatingWebhookConfiguration{})
-			if err != nil {
-				t.Fatalf("could not parse webhook from generated YAML: %s", vwhObject)
-			}
-			wh := vwhObject.(*admitv1.ValidatingWebhookConfiguration)
 
 			if tc.userManaged {
 				// User created webhooks should not have operator labels, otherwise will be pruned.
@@ -388,16 +377,13 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 			numWebhooks:          4,
 		},
 	}
-	scheme := runtime.NewScheme()
-	codecFactory := serializer.NewCodecFactory(scheme)
-	deserializer := codecFactory.UniversalDeserializer()
 
 	for _, tc := range tcs {
 		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, tc.tagName, "istio-system")
 		if err != nil {
 			t.Fatalf("webhook parsing failed with error: %v", err)
 		}
-		webhookYAML, err := generateMutatingWebhook(webhookConfig, &GenerateOptions{
+		wh, err := generateMutatingWebhook(webhookConfig, &GenerateOptions{
 			WebhookName:          "",
 			ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
 			AutoInjectNamespaces: false,
@@ -406,12 +392,6 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 		if err != nil {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 		}
-
-		whObject, _, err := deserializer.Decode([]byte(webhookYAML), nil, &admitv1.MutatingWebhookConfiguration{})
-		if err != nil {
-			t.Fatalf("could not parse webhook from generated YAML: %s", webhookYAML)
-		}
-		wh := whObject.(*admitv1.MutatingWebhookConfiguration)
 
 		// expect both namespace.sidecar-injector.istio.io and object.sidecar-injector.istio.io webhooks
 		if len(wh.Webhooks) != tc.numWebhooks {
@@ -469,12 +449,13 @@ func testGenerateOption(t *testing.T, generate bool, assertFunc func(*testing.T,
 	fakeClient := kube.NewFakeClient(defaultWh)
 
 	opts := &GenerateOptions{
-		Generate: generate,
-		Tag:      "default",
-		Revision: "default",
+		Generate:       generate,
+		Tag:            "default",
+		Revision:       "default",
+		IstioNamespace: "istio-system",
 	}
 
-	_, err := Generate(context.TODO(), fakeClient, opts, "istio-system")
+	_, err := Generate(context.TODO(), fakeClient, opts)
 	assert.NoError(t, err)
 
 	wh, err := fakeClient.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().
