@@ -25,8 +25,11 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
+
+var log = istiolog.RegisterScope("tag-watcher", "Revision tags watcher")
 
 // TagWatcher keeps track of the current tags and can notify watchers
 // when the tags change.
@@ -45,13 +48,16 @@ type tagWatcher struct {
 	revision string
 	handlers []TagHandler
 
-	namespaces kclient.Client[*corev1.Namespace]
-	queue      controllers.Queue
-	webhooks   kclient.Client[*admissionregistrationv1.MutatingWebhookConfiguration]
-	index      kclient.Index[string, *admissionregistrationv1.MutatingWebhookConfiguration]
+	namespaces    kclient.Client[*corev1.Namespace]
+	queue         controllers.Queue
+	webhooks      kclient.Client[*admissionregistrationv1.MutatingWebhookConfiguration]
+	services      kclient.Client[*corev1.Service]
+	webhooksIndex kclient.Index[string, *admissionregistrationv1.MutatingWebhookConfiguration]
+	servicesIndex kclient.Index[string, *corev1.Service]
 }
 
 func NewTagWatcher(client kube.Client, revision string) TagWatcher {
+	log.Debugf("Creating tag watcher for revision %s", revision)
 	p := &tagWatcher{
 		revision: revision,
 	}
@@ -63,7 +69,7 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 		ObjectFilter: kubetypes.NewStaticObjectFilter(isTagWebhook),
 	})
 	p.webhooks.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
-	p.index = kclient.CreateStringIndex(p.webhooks, "istioRev",
+	p.webhooksIndex = kclient.CreateStringIndex(p.webhooks, "istioRev",
 		func(o *admissionregistrationv1.MutatingWebhookConfiguration) []string {
 			rev := o.GetLabels()[label.IoIstioRev.Name]
 			if rev == "" || !isTagWebhook(o) {
@@ -72,11 +78,28 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 			return []string{rev}
 		})
 	p.namespaces = kclient.New[*corev1.Namespace](client)
+
+	// Initialize the services client with a filter
+	p.services = kclient.NewFiltered[*corev1.Service](client, kubetypes.Filter{
+		ObjectFilter: kubetypes.NewStaticObjectFilter(isTagService),
+	})
+	p.services.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
+
+	// Create a service index similar to the webhooks index
+	p.servicesIndex = kclient.CreateStringIndex(p.services, "istioRevSvc",
+		func(svc *corev1.Service) []string {
+			rev := svc.GetLabels()[label.IoIstioRev.Name]
+			if rev == "" || !isTagService(svc) {
+				return nil
+			}
+			return []string{rev}
+		})
+
 	return p
 }
 
 func (p *tagWatcher) Run(stopCh <-chan struct{}) {
-	if !kube.WaitForCacheSync("tag watcher", stopCh, p.webhooks.HasSynced) {
+	if !kube.WaitForCacheSync("tag watcher", stopCh, p.webhooks.HasSynced, p.services.HasSynced) {
 		p.queue.ShutDownEarly()
 		return
 	}
@@ -109,8 +132,11 @@ func (p *tagWatcher) IsMine(obj metav1.ObjectMeta) bool {
 
 func (p *tagWatcher) GetMyTags() sets.String {
 	res := sets.New(p.revision)
-	for _, wh := range p.index.Lookup(p.revision) {
+	for _, wh := range p.webhooksIndex.Lookup(p.revision) {
 		res.Insert(wh.GetLabels()[label.IoIstioTag.Name])
+	}
+	for _, svc := range p.servicesIndex.Lookup(p.revision) {
+		res.Insert(svc.GetLabels()[label.IoIstioTag.Name])
 	}
 	return res
 }
@@ -118,12 +144,24 @@ func (p *tagWatcher) GetMyTags() sets.String {
 // notifyHandlers notifies all registered handlers on tag change.
 func (p *tagWatcher) notifyHandlers() {
 	myTags := p.GetMyTags()
+	log.Debugf("Current tags: %s", myTags)
+
 	for _, handler := range p.handlers {
 		handler(myTags)
 	}
 }
 
 func isTagWebhook(uobj any) bool {
+	obj := controllers.ExtractObject(uobj)
+	if obj == nil {
+		return false
+	}
+	_, ok := obj.GetLabels()[label.IoIstioTag.Name]
+	return ok
+}
+
+// isTagService filters services based on specific criteria.
+func isTagService(uobj any) bool {
 	obj := controllers.ExtractObject(uobj)
 	if obj == nil {
 		return false
