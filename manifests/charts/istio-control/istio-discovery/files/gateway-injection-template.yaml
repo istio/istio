@@ -23,6 +23,7 @@ spec:
     - name: net.ipv4.ip_unprivileged_port_start
       value: "0"
   {{- end }}
+  terminationGracePeriodSeconds: {{ .Values.global.proxy.terminationGracePeriodSeconds }}
   containers:
   - name: istio-proxy
   {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
