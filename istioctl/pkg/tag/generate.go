@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/render"
@@ -105,36 +106,26 @@ type TagResources struct {
 // Generate generates the manifests for a revision tag pointed the given revision.
 func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions) (*TagResources, error) {
 	// abort if there exists a revision with the target tag name
-	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Tag)
+	isRunningAmbient, err := checkIfRevisionIsRunningAmbient(ctx, client.Kube(), opts.Revision, opts.IstioNamespace)
 	if err != nil {
 		return nil, err
 	}
-	if !opts.Generate && !opts.Overwrite &&
-		len(revWebhookCollisions) > 0 && opts.Tag != DefaultRevisionName {
-		return nil, fmt.Errorf("cannot create revision tag %q: found existing control plane revision with same name", opts.Tag)
-	}
-
-	// find canonical revision webhook to base our tag webhook off of
-	revWebhooks, err := GetWebhooksWithRevision(ctx, client.Kube(), opts.Revision)
+	err = checkTagNameCollidesWithRevisionName(ctx, client.Kube(), isRunningAmbient, opts)
 	if err != nil {
 		return nil, err
 	}
-	if len(revWebhooks) == 0 {
-		return nil, fmt.Errorf("cannot modify tag: cannot find MutatingWebhookConfiguration with revision %q", opts.Revision)
-	}
-	if len(revWebhooks) > 1 {
-		return nil, fmt.Errorf("cannot modify tag: found multiple canonical webhooks with revision %q", opts.Revision)
-	}
 
-	whs, err := GetWebhooksWithTag(ctx, client.Kube(), opts.Tag)
+	// TODO: Use canonService from here to create a new service
+	_, canonWebhook, err := checkControlPlaneExistenceOrDuplicate(ctx, client.Kube(), isRunningAmbient, opts)
 	if err != nil {
 		return nil, err
 	}
-	if len(whs) > 0 && !opts.Overwrite {
-		return nil, fmt.Errorf("revision tag %q already exists, and --overwrite is false", opts.Tag)
+	err = checkTagDuplicate(ctx, client.Kube(), isRunningAmbient, opts)
+	if err != nil {
+		return nil, err
 	}
 
-	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(revWebhooks[0], opts.Tag, opts.IstioNamespace)
+	tagWhConfig, err := tagWebhookConfigFromCanonicalWebhook(*canonWebhook, opts.Tag, opts.IstioNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tag webhook config: %w", err)
 	}
@@ -199,6 +190,102 @@ func TagResourcesToString(tagResources *TagResources) (string, error) {
 	}
 
 	return strings.Join(resourcesStrings, "\n---\n"), nil
+}
+
+// checkTagNameCollidesWithRevisionName returns an error if user attempts to
+// override a revision using a tag name
+func checkTagNameCollidesWithRevisionName(
+	ctx context.Context,
+	client kubernetes.Interface,
+	isAmbientMode bool,
+	opts *GenerateOptions,
+) error {
+	if opts.Generate || opts.Overwrite || opts.Tag == DefaultRevisionName {
+		return nil
+	}
+	existingControlPlaneErr := fmt.Errorf("cannot create revision tag %q: found existing control plane revision with same name", opts.Tag)
+
+	if isAmbientMode {
+		revServiceCollisions, err := GetServicesWithRevision(ctx, client, opts.IstioNamespace, opts.Tag)
+		if err != nil {
+			return err
+		}
+		if len(revServiceCollisions) > 0 {
+			return existingControlPlaneErr
+		}
+	}
+	// abort if there exists a revision with the target tag name
+	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client, opts.Tag)
+	if err != nil {
+		return err
+	}
+	if len(revWebhookCollisions) > 0 {
+		return existingControlPlaneErr
+	}
+	return nil
+}
+
+func checkControlPlaneExistenceOrDuplicate(
+	ctx context.Context,
+	client kubernetes.Interface,
+	isAmbientMode bool,
+	opts *GenerateOptions,
+) (*corev1.Service, *admitv1.MutatingWebhookConfiguration, error) {
+	var service *corev1.Service = nil
+	if isAmbientMode {
+		revServices, err := GetServicesWithRevision(ctx, client, opts.IstioNamespace, opts.Revision)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if len(revServices) == 0 {
+			return nil, nil, fmt.Errorf("cannot modify tag: cannot find Service with revision %q in namespace %q", opts.Revision, opts.IstioNamespace)
+		}
+		if len(revServices) > 1 {
+			return nil, nil, fmt.Errorf("cannot modify tag: found multiple canonical services with revision %q in namespace %q", opts.Revision, opts.IstioNamespace)
+		}
+		service = &revServices[0]
+	}
+	revWebhooks, err := GetWebhooksWithRevision(ctx, client, opts.Revision)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(revWebhooks) == 0 {
+		return nil, nil, fmt.Errorf("cannot modify tag: cannot find MutatingWebhookConfiguration with revision %q", opts.Revision)
+	}
+	if len(revWebhooks) > 1 {
+		return nil, nil, fmt.Errorf("cannot modify tag: found multiple canonical webhooks with revision %q", opts.Revision)
+	}
+	return service, &revWebhooks[0], nil
+}
+
+func checkTagDuplicate(
+	ctx context.Context,
+	client kubernetes.Interface,
+	isAmbientMode bool,
+	opts *GenerateOptions,
+) error {
+	if opts.Overwrite {
+		return nil
+	}
+
+	if isAmbientMode {
+		tagServices, err := GetServicesWithTag(ctx, client, opts.IstioNamespace, opts.Tag)
+		if err != nil {
+			return err
+		}
+		if len(tagServices) > 0 {
+			return fmt.Errorf("revision tag %q already exists, and --overwrite is false", opts.Tag)
+		}
+	}
+	whs, err := GetWebhooksWithTag(ctx, client, opts.Tag)
+	if err != nil {
+		return err
+	}
+	if len(whs) > 0 {
+		return fmt.Errorf("revision tag %q already exists, and --overwrite is false", opts.Tag)
+	}
+	return nil
 }
 
 func fixWhConfig(client kube.Client, whConfig *tagWebhookConfig) (*tagWebhookConfig, error) {
@@ -423,4 +510,31 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 		FailurePolicy:      map[string]*admitv1.FailurePolicyType{},
 		ReinvocationPolicy: reinvocationPolicy,
 	}, nil
+}
+
+func checkIfRevisionIsRunningAmbient(ctx context.Context, client kubernetes.Interface, rev string, istioNS string) (bool, error) {
+	// Construct the deployment name based on the revision
+	deploymentName := "istiod"
+	if rev != "" {
+		deploymentName += "-" + rev
+	}
+
+	// Get the deployment in the specified namespace
+	deployment, err := client.AppsV1().Deployments(istioNS).Get(ctx, deploymentName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Deployment not found, return false
+			return false, nil
+		}
+		// Return any other error
+		return false, err
+	}
+
+	// Check if the deployment has the "istio.io/controlplane-mode" label set to "ambient"
+	if mode, exists := deployment.Labels["istio.io/controlplane-mode"]; exists && mode == "ambient" {
+		return true, nil
+	}
+
+	// The deployment is not running in ambient mode
+	return false, nil
 }
