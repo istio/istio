@@ -1,0 +1,57 @@
+# Adapted from istio-discovery/templates/service.yaml
+{{- range $tagName := .Values.revisionTags }}
+{{/* TODO: Should we validate empty revision tags? */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod-{{ $tagName }}
+  namespace: {{ $.Release.Namespace }}
+  {{- if $.Values.serviceAnnotations }}
+  annotations:
+{{ toYaml $.Values.serviceAnnotations | indent 4 }}
+  {{- end }}
+  labels:
+    istio.io/rev: {{ $.Values.revision | default "default" | quote }}
+    istio.io/tag: {{ $tagName }}
+    install.operator.istio.io/owning-resource: {{ $.Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
+    app: istiod
+    istio: pilot
+    release: {{ $.Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" $ | nindent 4 }}
+spec:
+  ports:
+    - port: 15010
+      name: grpc-xds # plaintext
+      protocol: TCP
+    - port: 15012
+      name: https-dns # mTLS with k8s-signed cert
+      protocol: TCP
+    - port: 443
+      name: https-webhook # validation and injection
+      targetPort: 15017
+      protocol: TCP
+    - port: 15014
+      name: http-monitoring # prometheus stats
+      protocol: TCP
+  selector:
+    app: istiod
+    {{- if ne $.Values.revision "" }}
+    istio.io/rev: {{ $.Values.revision | quote }}
+    {{- else }}
+    # Label used by the 'default' service. For versioned deployments we match with app and version.
+    # This avoids default deployment picking the canary
+    istio: pilot
+    {{- end }}
+  {{- if $.Values.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ $.Values.ipFamilyPolicy }}
+  {{- end }}
+  {{- if $.Values.ipFamilies }}
+  ipFamilies:
+  {{- range $.Values.ipFamilies }}
+  - {{ . }}
+  {{- end }}
+  {{- end }}
+---
+{{- end -}}
