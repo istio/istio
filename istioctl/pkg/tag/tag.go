@@ -284,12 +284,18 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 		Overwrite:            overwrite,
 		AutoInjectNamespaces: autoInjectNamespaces,
 		UserManaged:          true,
+		IstioNamespace:       istioNS,
 	}
-	tagWhYAML, err := Generate(ctx, kubeClient, opts, istioNS)
+	tagResources, err := Generate(ctx, kubeClient, opts)
+	if err != nil {
+		return err
+	}
+	tagWhYAML, err := TagResourcesToString(tagResources)
 	if err != nil {
 		return err
 	}
 	// Check the newly generated webhook does not conflict with existing ones.
+	// TODO: Check if ambient service conflicts as well
 	resName := webhookName
 	if resName == "" {
 		resName = fmt.Sprintf("%s-%s", "istio-revision-tag", tagName)
