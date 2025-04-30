@@ -262,7 +262,7 @@ var (
 
 	// DestinationRuleSubsetNotSelectPods defines a diag.MessageType for message "DestinationRuleSubsetNotSelectPods".
 	// Description: Subsets defined in destination does not select any pods.
-	DestinationRuleSubsetNotSelectPods = diag.NewMessageType(diag.Error, "IST0173", "The Subset %s defined in the DestinationRule does not select any pods. Which can lead to 503 UH (NoHealthyUpstream).")
+	DestinationRuleSubsetNotSelectPods = diag.NewMessageType(diag.Error, "IST0173", "The Subset %s defined in the DestinationRule does not select any pods. Which may lead to 503 UH (NoHealthyUpstream).")
 
 	// UnknownDestinationRuleHost defines a diag.MessageType for message "UnknownDestinationRuleHost".
 	// Description: Host defined in destination rule does not match any services in the mesh.

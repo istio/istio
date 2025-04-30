@@ -1,3 +1,17 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package destinationrule
 
 import (
@@ -18,10 +32,13 @@ var _ analysis.Analyzer = &PodNotSelectedAnalyzer{}
 
 func (a *PodNotSelectedAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        "subsetPodNotSelected.Analyzer",
+		Name:        "destinationrule.SubsetSelectPodAnalyzer",
 		Description: "Checks if pods are selected by subsets in destination rules.",
 		Inputs: []config.GroupVersionKind{
 			gvk.DestinationRule,
+			gvk.Pod,
+			gvk.Service,
+			gvk.ServiceEntry,
 		},
 	}
 }
@@ -37,21 +54,21 @@ func (a *PodNotSelectedAnalyzer) Analyze(context analysis.Context) {
 
 	context.ForEach(gvk.DestinationRule, func(resource *resource.Instance) bool {
 		dr := resource.Message.(*v1alpha3.DestinationRule)
-		se := util.GetDestinationHost(resource.Metadata.FullName.Namespace, dr.GetExportTo(), dr.Host, services)
+		se := util.GetDestinationHost(resource.Metadata.FullName.Namespace, dr.GetExportTo(), dr.GetHost(), services)
 		if se == nil {
-			msg := msg.NewUnknownDestinationRuleHost(resource, dr.Host)
+			msg := msg.NewUnknownDestinationRuleHost(resource, dr.GetHost())
 			context.Report(gvk.DestinationRule, msg)
 			return true
 		}
 
-		if len(dr.Subsets) == 0 {
+		if len(dr.GetSubsets()) == 0 {
 			return true
 		}
 
 		subsetsMatcher[resource] = map[string]*matcher{}
-		for _, subset := range dr.Subsets {
-			selector := labels.Merge(se.GetWorkloadSelector().GetLabels(), labels.Set(subset.Labels)).AsSelector()
-			subsetsMatcher[resource][subset.Name] = &matcher{
+		for _, subset := range dr.GetSubsets() {
+			selector := labels.Merge(se.GetWorkloadSelector().GetLabels(), labels.Set(subset.GetLabels())).AsSelector()
+			subsetsMatcher[resource][subset.GetName()] = &matcher{
 				selector: selector,
 				matched:  false,
 			}
