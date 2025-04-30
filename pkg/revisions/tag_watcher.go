@@ -56,8 +56,8 @@ type tagWatcher struct {
 	servicesIndex kclient.Index[string, *corev1.Service]
 }
 
-func NewTagWatcher(client kube.Client, revision string) TagWatcher {
-	log.Debugf("Creating tag watcher for revision %s", revision)
+func NewTagWatcher(client kube.Client, revision string, systemNamespace string) TagWatcher {
+	log.Debugf("Creating tag watcher for revision %s in namespace %s", revision, systemNamespace)
 	p := &tagWatcher{
 		revision: revision,
 	}
@@ -79,9 +79,10 @@ func NewTagWatcher(client kube.Client, revision string) TagWatcher {
 		})
 	p.namespaces = kclient.New[*corev1.Namespace](client)
 
-	// Initialize the services client with a filter
+	// Initialize the services client with a namespace filter
 	p.services = kclient.NewFiltered[*corev1.Service](client, kubetypes.Filter{
 		ObjectFilter: kubetypes.NewStaticObjectFilter(isTagService),
+		Namespace:    systemNamespace,
 	})
 	p.services.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
 
