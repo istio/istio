@@ -48,36 +48,6 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 	annotation.AmbientRedirection.Name,
 ))
 
-// PodRedirectionEnabled determines if a pod should or should not be configured
-// to have traffic redirected thru the node proxy.
-// func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod, enablementSelector labels.Selector) bool {
-// 	nsMatches := enablementSelector.Matches(labels.Set(namespace.GetLabels()))
-// 	podMatches := enablementSelector.Matches(labels.Set(pod.GetLabels()))
-// 	if !(nsMatches || podMatches) {
-// 		// Neither namespace nor pod has ambient mode enabled
-// 		return false
-// 	}
-// 	if podHasSidecar(pod) {
-// 		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
-// 		return false
-// 	}
-// 	// TODO (therealmitchconnors): how to accomplish this with the enablement selector?
-// 	reqs, _ := enablementSelector.Requirements()
-// 	if len(reqs) == 1 {
-// 		_, explicitPodLabeled := pod.GetLabels()[reqs[0].Key()]
-// 		if explicitPodLabeled && !podMatches {
-// 			// Pod explicitly asked to not have ambient redirection enabled
-// 			return false
-// 		}
-// 	}
-// 	if pod.Spec.HostNetwork {
-// 		// Host network pods cannot be captured, as we require inserting rules into the pod network namespace.
-// 		// If we were to allow them, we would be writing these rules into the host network namespace, effectively breaking the host.
-// 		return false
-// 	}
-// 	return true
-// }
-
 // PodFullyEnrolled reports on whether the pod _has_ actually been fully configured for traffic redirection.
 //
 // That is, have we annotated it after successfully setting up iptables rules AND sending it to a node proxy instance.
