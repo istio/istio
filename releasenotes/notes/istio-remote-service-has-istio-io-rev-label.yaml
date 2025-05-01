@@ -11,4 +11,4 @@ issue:
 # release notes.
 releaseNotes:
   - |
-    **Adds** the `istio.io/rev` label to the istio remote service when `istiodRemote` is enabled
+    **Added** the `istio.io/rev` label to the istio remote service when `istiodRemote` is enabled
