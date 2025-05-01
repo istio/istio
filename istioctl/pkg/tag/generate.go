@@ -403,8 +403,8 @@ func generateTagService(opts *GenerateOptions) (string, error) {
 			tag := m.GetLabels()[label.IoIstioTag.Name]
 			if m.GetKind() == "Service" && tag == opts.Tag {
 				tagServiceYaml = m.Content
+				break
 			}
-			break
 		}
 	}
 	if tagServiceYaml == "" {
