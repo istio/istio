@@ -63,16 +63,22 @@ func NewKubeJWTAuthenticator(
 	meshHolder mesh.Holder,
 	client kubernetes.Interface,
 	clusterID cluster.ID,
-	clusterAliases map[cluster.ID]cluster.ID,
+	clusterAliases map[string]string,
 	remoteKubeClientGetter RemoteKubeClientGetter,
 ) *KubeJWTAuthenticator {
-	return &KubeJWTAuthenticator{
+	out := &KubeJWTAuthenticator{
 		meshHolder:             meshHolder,
 		kubeClient:             client,
 		clusterID:              clusterID,
 		remoteKubeClientGetter: remoteKubeClientGetter,
-		clusterAliases:         clusterAliases,
 	}
+
+	out.clusterAliases = make(map[cluster.ID]cluster.ID)
+	for alias := range clusterAliases {
+		out.clusterAliases[cluster.ID(alias)] = cluster.ID(clusterAliases[alias])
+	}
+
+	return out
 }
 
 func (a *KubeJWTAuthenticator) AuthenticatorType() string {

@@ -138,7 +138,7 @@ type DiscoveryServer struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, clusterAliases map[cluster.ID]cluster.ID, debugger *krt.DebugHandler) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string, debugger *krt.DebugHandler) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                 env,
 		Generators:          map[string]model.XdsResourceGenerator{},
@@ -159,8 +159,13 @@ func NewDiscoveryServer(env *model.Environment, clusterAliases map[cluster.ID]cl
 		},
 		Cache:              env.Cache,
 		DiscoveryStartTime: processStartTime,
-		ClusterAliases:     clusterAliases,
 	}
+
+	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
+	for alias := range clusterAliases {
+		out.ClusterAliases[cluster.ID(alias)] = cluster.ID(clusterAliases[alias])
+	}
+
 	out.initJwksResolver()
 
 	return out
