@@ -218,6 +218,18 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+          {{- if .Values.gateway.envFrom }}
+            envFrom:
+            {{- range .Values.gateway.envFrom }}
+              {{- if .secretRef }}
+              - secretRef:
+                name: "{{ .secretRef.name }}"
+              {{- else if .configMapRef }}
+              - configMapRef:
+                name: "{{ .configMapRef.name }}"
+              {{- end }}
+            {{- end }}
+            {{- end }}
           volumeMounts:
           - name: workload-socket
             mountPath: /var/run/secrets/workload-spiffe-uds
