@@ -542,6 +542,7 @@ func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opt
 	}
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
+		// NOTE: this will print Collection[nil, nil] if I or O are interfaces
 		o.name = fmt.Sprintf("Collection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
 	}
 	return newManyCollection[I, O](c, hm, o, nil)

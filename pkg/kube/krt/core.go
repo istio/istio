@@ -89,6 +89,10 @@ type internalCollection[T any] interface {
 	index(name string, extract func(o T) []string) kclient.RawIndexer
 }
 
+type uidable interface {
+	uid() collectionUID
+}
+
 // Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,
 // but when using directly offer a more ergonomic API
 type Singleton[T any] interface {
