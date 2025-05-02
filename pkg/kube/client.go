@@ -479,14 +479,21 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 		return nil, err
 	}
 
-	c.http = &http.Client{
-		Timeout: time.Second * 15,
+	c.http = &http.Client{}
+	if c.config != nil && c.config.Timeout != 0 {
+		c.http.Timeout = c.config.Timeout
+	} else {
+		c.http.Timeout = time.Second * 15
 	}
+
 	var clientWithTimeout kubernetes.Interface
 	clientWithTimeout = c.kube
 	restConfig := c.RESTConfig()
 	if restConfig != nil {
-		restConfig.Timeout = time.Second * 5
+		if restConfig.Timeout == 0 {
+			restConfig.Timeout = time.Second * 5
+		}
+
 		kubeClient, err := kubernetes.NewForConfig(restConfig)
 		if err == nil {
 			clientWithTimeout = kubeClient
@@ -541,6 +548,20 @@ func WithRevision(revision string) ClientOption {
 	return func(c CLIClient) CLIClient {
 		client := c.(*client)
 		client.revision = revision
+		return client
+	}
+}
+
+// WithTimeout sets the timeout for the client.
+func WithTimeout(timeout time.Duration) ClientOption {
+	return func(c CLIClient) CLIClient {
+		client := c.(*client)
+		if client.config == nil {
+			client.config = &rest.Config{}
+		}
+
+		client.config.Timeout = timeout
+
 		return client
 	}
 }
