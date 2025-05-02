@@ -265,7 +265,7 @@ revision tag before removing using the "istioctl tag list" command.
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return removeTag(context.Background(), kubeClient.Kube(), args[0], skipConfirmation, cmd.OutOrStdout())
+			return removeTag(context.Background(), kubeClient.Kube(), args[0], skipConfirmation, ctx.IstioNamespace(), cmd.OutOrStdout())
 		},
 	}
 
@@ -357,13 +357,18 @@ func analyzeWebhook(name, istioNamespace, wh, revision string, config *rest.Conf
 }
 
 // removeTag removes an existing revision tag.
-func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName string, skipConfirmation bool, w io.Writer) error {
-	webhooks, err := GetWebhooksWithTag(ctx, kubeClient, tagName)
+func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName string, skipConfirmation bool, istioNS string, w io.Writer) error {
+	services, err := GetServicesWithTag(ctx, kubeClient, istioNS, tagName)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve tag with name %s: %v", tagName, err)
+		return err
 	}
-	if len(webhooks) == 0 {
-		return fmt.Errorf("cannot remove tag %q: cannot find MutatingWebhookConfiguration for tag", tagName)
+	tagServiceExists := len(services) != 0
+
+	webhooks, err := GetWebhooksWithTag(ctx, kubeClient, tagName)
+	tagWebhookExists := len(webhooks) != 0
+
+	if !tagServiceExists && !tagWebhookExists {
+		return fmt.Errorf("cannot remove tag %q: cannot find MutatingWebhookConfiguration or Service for tag", tagName)
 	}
 
 	taggedNamespaces, err := GetNamespacesWithTag(ctx, kubeClient, tagName)
@@ -379,11 +384,19 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 	}
 
 	// proceed with webhook deletion
-	err = DeleteTagWebhooks(ctx, kubeClient, tagName)
-	if err != nil {
-		return fmt.Errorf("failed to delete Istio revision tag MutatingConfigurationWebhook: %v", err)
+	if tagWebhookExists {
+		err = DeleteTagWebhooks(ctx, kubeClient, tagName)
+		if err != nil {
+			return fmt.Errorf("failed to delete Istio revision tag MutatingConfigurationWebhook: %v", err)
+		}
 	}
 
+	if tagServiceExists {
+		err = DeleteTagServices(ctx, kubeClient, istioNS, tagName)
+		if err != nil {
+			return fmt.Errorf("failed to delete Istio revision tag Services: %v", err)
+		}
+	}
 	fmt.Fprintf(w, "Revision tag %s removed\n", tagName)
 	return nil
 }

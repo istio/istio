@@ -96,7 +96,7 @@ type GenerateOptions struct {
 // Generate generates the manifests for a revision tag pointed the given revision.
 func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions) (string, error) {
 	// abort if there exists a revision with the target tag name
-	isRunningAmbient, err := checkIfRevisionIsRunningAmbient(ctx, client.Kube(), opts.Revision, opts.IstioNamespace)
+	isRunningAmbient, err := IsRevisionRunningAmbient(ctx, client.Kube(), opts.Revision, opts.IstioNamespace)
 	if err != nil {
 		return "", err
 	}
@@ -543,31 +543,4 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 		FailurePolicy:      map[string]*admitv1.FailurePolicyType{},
 		ReinvocationPolicy: reinvocationPolicy,
 	}, nil
-}
-
-func checkIfRevisionIsRunningAmbient(ctx context.Context, client kubernetes.Interface, rev string, istioNS string) (bool, error) {
-	// Construct the deployment name based on the revision
-	deploymentName := "istiod"
-	if rev != "" {
-		deploymentName += "-" + rev
-	}
-
-	// Get the deployment in the specified namespace
-	deployment, err := client.AppsV1().Deployments(istioNS).Get(ctx, deploymentName, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Deployment not found, return false
-			return false, nil
-		}
-		// Return any other error
-		return false, err
-	}
-
-	// Check if the deployment has the "istio.io/controlplane-mode" label set to "ambient"
-	if mode, exists := deployment.Labels["istio.io/controlplane-mode"]; exists && mode == "ambient" {
-		return true, nil
-	}
-
-	// The deployment is not running in ambient mode
-	return false, nil
 }

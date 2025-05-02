@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -126,6 +127,19 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag str
 	return result
 }
 
+// DeleteTagServices deletes the given tag services
+func DeleteTagServices(ctx context.Context, client kubernetes.Interface, istioNS, tag string) error {
+	services, err := GetServicesWithTag(ctx, client, istioNS, tag)
+	if err != nil {
+		return err
+	}
+	var result error
+	for _, svc := range services {
+		result = multierror.Append(result, client.CoreV1().Services(istioNS).Delete(ctx, svc.Name, metav1.DeleteOptions{})).ErrorOrNil()
+	}
+	return result
+}
+
 // PreviousInstallExists checks whether there is an existing Istio installation. Should be used in installer when deciding
 // whether to make an installation the default.
 func PreviousInstallExists(ctx context.Context, client kubernetes.Interface) bool {
@@ -170,4 +184,31 @@ func DeactivateIstioInjectionWebhook(ctx context.Context, client kubernetes.Inte
 	}
 
 	return nil
+}
+
+func IsRevisionRunningAmbient(ctx context.Context, client kubernetes.Interface, rev string, istioNS string) (bool, error) {
+	// Construct the deployment name based on the revision
+	deploymentName := "istiod"
+	if rev != "" {
+		deploymentName += "-" + rev
+	}
+
+	// Get the deployment in the specified namespace
+	deployment, err := client.AppsV1().Deployments(istioNS).Get(ctx, deploymentName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Deployment not found, return false
+			return false, nil
+		}
+		// Return any other error
+		return false, err
+	}
+
+	// Check if the deployment has the "istio.io/controlplane-mode" label set to "ambient"
+	if mode, exists := deployment.Labels["istio.io/controlplane-mode"]; exists && mode == "ambient" {
+		return true, nil
+	}
+
+	// The deployment is not running in ambient mode
+	return false, nil
 }
