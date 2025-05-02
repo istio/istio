@@ -1706,6 +1706,10 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 }
 
 func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {
+	if len(addresses) == 0 {
+		return nil
+	}
+
 	var ipv4Addresses []string
 	var ipv6Addresses []string
 	for _, addr := range addresses {
