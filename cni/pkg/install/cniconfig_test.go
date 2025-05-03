@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
+// TODO(jaellio): Update test
 func TestGetDefaultCNINetwork(t *testing.T) {
 	tempDir := t.TempDir()
 
@@ -104,7 +105,7 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 				}
 			}
 
-			result, err := getDefaultCNINetwork(c.dir)
+			result, err := getDefaultCNINetworkOrIstioConfig(c.dir)
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
 				t.Fatalf("expected failure: %t, got %v", c.expectedFailure, err)
 			}

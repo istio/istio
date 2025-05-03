@@ -64,10 +64,15 @@ func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string
 // 2. append the `istio`-specific entry
 // 3. write the combined result back out to the same path, overwriting the original.
 func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.InstallConfig) (string, error) {
+	// TODO(jaellio): Remove log
+	installLog.Infof("Jackie CNIConfName: %s", cfg.CNIConfName)
+	// get the CNI config file path for the pinary CNI config (not the Istio owned config)
 	cniConfigFilepath, err := getCNIConfigFilepath(ctx, cfg.CNIConfName, cfg.MountedCNINetDir, cfg.ChainedCNIPlugin)
 	if err != nil {
 		return "", err
 	}
+	// TODO(jaellio): Remove log
+	installLog.Infof("Jackie CNIConfName: %s", cniConfigFilepath)
 
 	if cfg.ChainedCNIPlugin {
 		if !file.Exists(cniConfigFilepath) {
@@ -83,26 +88,19 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 			return "", err
 		}
 	}
+	
+	// TODO(jaellio): Check priority and allow configurable priority
+	istioOwnedCniConfigFilename := "02-istio-conf.conflist"
+	istioOwnedCniConfigFilepath := filepath.Join(cfg.MountedCNINetDir, istioOwnedCniConfigFilename)
 
-	if err = file.AtomicWrite(cniConfigFilepath, pluginConfig, os.FileMode(0o644)); err != nil {
-		installLog.Errorf("Failed to write CNI config file %v: %v", cniConfigFilepath, err)
-		return cniConfigFilepath, err
+	if err = file.AtomicWrite(istioOwnedCniConfigFilepath, pluginConfig, os.FileMode(0o644)); err != nil {
+		installLog.Errorf("Failed to write CNI config file %v: %v", istioOwnedCniConfigFilepath, err)
+		return istioOwnedCniConfigFilepath, err
 	}
 
-	if cfg.ChainedCNIPlugin && strings.HasSuffix(cniConfigFilepath, ".conf") {
-		// If the old CNI config filename ends with .conf, rename it to .conflist, because it has to be changed to a list
-		installLog.Infof("Renaming %s extension to .conflist", cniConfigFilepath)
-		err = os.Rename(cniConfigFilepath, cniConfigFilepath+"list")
-		if err != nil {
-			installLog.Errorf("Failed to rename CNI config file %v: %v", cniConfigFilepath, err)
-			return cniConfigFilepath, err
-		}
-		cniConfigFilepath += "list"
-	}
-
-	installLog.Infof("created CNI config %s", cniConfigFilepath)
+	installLog.Infof("created CNI config %s", istioOwnedCniConfigFilepath)
 	installLog.Debugf("CNI config: %s", pluginConfig)
-	return cniConfigFilepath, nil
+	return istioOwnedCniConfigFilepath, nil
 }
 
 // If configured as chained CNI plugin, waits indefinitely for a main CNI config file to exist before returning
@@ -122,7 +120,7 @@ func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir str
 	defer watcher.Close()
 
 	for len(cniConfName) == 0 {
-		cniConfName, err = getDefaultCNINetwork(mountedCNINetDir)
+		cniConfName, err = getDefaultCNINetworkOrIstioConfig(mountedCNINetDir)
 		if err == nil {
 			break
 		}
@@ -156,8 +154,9 @@ func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir str
 }
 
 // Follows the same semantics as kubelet
+// May return defaultCNI network or istio config - returns the highest priority valid config name
 // https://github.com/kubernetes/kubernetes/blob/954996e231074dc7429f7be1256a579bedd8344c/pkg/kubelet/dockershim/network/cni/cni.go#L144-L184
-func getDefaultCNINetwork(confDir string) (string, error) {
+func getDefaultCNINetworkOrIstioConfig(confDir string) (string, error) {
 	files, err := libcni.ConfFiles(confDir, []string{".conf", ".conflist"})
 	switch {
 	case err != nil:
@@ -167,6 +166,8 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 	}
 
 	sort.Strings(files)
+	// TODO(jaellio): Remove log
+	installLog.Infof("Jackie - files from ConfFiles: %v", files)
 	for _, confFile := range files {
 		var confList *libcni.NetworkConfigList
 		if strings.HasSuffix(confFile, ".conflist") {
@@ -200,6 +201,8 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 			installLog.Warnf("CNI config list %s has no networks, skipping", confList.Name)
 			continue
 		}
+		// TODO(jaellio): Remove log
+		installLog.Infof("Jackie - ConfFile: %s", confFile)
 
 		return filepath.Base(confFile), nil
 	}
