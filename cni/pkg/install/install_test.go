@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+// TODO(jaellio): Fix this test
 func TestCheckInstall(t *testing.T) {
 	cases := []struct {
 		name              string
@@ -116,6 +117,7 @@ func TestCheckInstall(t *testing.T) {
 	}
 }
 
+// TODO(jaellio): Update this test
 func TestSleepCheckInstall(t *testing.T) {
 	cases := []struct {
 		name                  string
