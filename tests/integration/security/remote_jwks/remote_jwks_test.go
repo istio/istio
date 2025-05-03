@@ -86,6 +86,37 @@ func TestRemoteJwks(t *testing.T) {
 						)
 					},
 				},
+				{
+					name:       "remote-jwks-without-issuer",
+					policyFile: "./testdata/requestauthn-no-se-no-issuer.yaml.tmpl",
+					timeout:    "10ms",
+					delay:      "30ms",
+					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
+						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
+						opts.Check = check.And(
+							check.NotOK(),
+							check.Status(http.StatusUnauthorized),
+						)
+					},
+				},
+				{
+					name:       "remote-jwks-without-issuer-with-service-entry",
+					policyFile: "./testdata/requestauthn-with-se-no-issuer.yaml.tmpl",
+					timeout:    "10ms",
+					delay:      "30ms",
+					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
+						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
+						opts.Check = check.And(
+							check.OK(),
+							check.ReachedTargetClusters(t),
+							check.RequestHeaders(map[string]string{
+								headers.Authorization: "Bearer " + jwt.TokenIssuer1,
+								"X-Test-Payload":      payload1,
+							}))
+					},
+				},
 			}
 
 			for _, c := range cases {
