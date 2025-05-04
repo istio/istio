@@ -270,6 +270,7 @@ type ExpectedResponse struct {
 	StatusCode                   int
 	SkipErrorMessageVerification bool
 	ErrorMessage                 string
+	AllowedErrorMessages         []string
 }
 
 type TLSContext struct {
@@ -322,12 +323,24 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 				// message then it should be treated as error when error message
 				// verification is not skipped. Error message verification is skipped
 				// when the error message is non-deterministic.
-				if !exRsp.SkipErrorMessageVerification && len(exRsp.ErrorMessage) == 0 {
-					return fmt.Errorf("unexpected error: %w", err)
-				}
-				if !exRsp.SkipErrorMessageVerification && !strings.Contains(err.Error(), exRsp.ErrorMessage) {
-					return fmt.Errorf("expected response error message %s but got %w",
-						exRsp.ErrorMessage, err)
+				if !exRsp.SkipErrorMessageVerification {
+					if len(exRsp.ErrorMessage) == 0 && len(exRsp.AllowedErrorMessages) == 0 {
+						return fmt.Errorf("unexpected error: %w", err)
+					}
+					matched := false
+					if exRsp.ErrorMessage != "" && strings.Contains(err.Error(), exRsp.ErrorMessage) {
+						matched = true
+					}
+					for _, allowed := range exRsp.AllowedErrorMessages {
+						if strings.Contains(err.Error(), allowed) {
+							matched = true
+							break
+						}
+					}
+					if !matched {
+						return fmt.Errorf("expected one of %v but got error: %w",
+							append([]string{exRsp.ErrorMessage}, exRsp.AllowedErrorMessages...), err)
+					}
 				}
 				return nil
 			}
