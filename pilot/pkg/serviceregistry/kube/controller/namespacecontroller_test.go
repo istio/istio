@@ -42,7 +42,7 @@ func TestNamespaceController(t *testing.T) {
 	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
-	watcher.SetAndNotify(nil, nil, caBundle)
+	watcher.SetAndNotify(nil, nil, caBundle, nil)
 	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
 	stop := test.NewStop(t)
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
@@ -67,7 +67,7 @@ func TestNamespaceController(t *testing.T) {
 	expectConfigMap(t, nc.configmaps, "not-root", "foo", cmData)
 
 	newCaBundle := []byte("caBundle-new")
-	watcher.SetAndNotify(nil, nil, newCaBundle)
+	watcher.SetAndNotify(nil, nil, newCaBundle, nil)
 	newData := map[string]string{
 		constants.CACertNamespaceConfigMapDataName: string(newCaBundle),
 	}
@@ -86,12 +86,61 @@ func TestNamespaceController(t *testing.T) {
 	}
 }
 
+func TestNamespaceControllerForCrlConfigMap(t *testing.T) {
+	client := kube.NewFakeClient()
+	t.Cleanup(client.Shutdown)
+	watcher := keycertbundle.NewWatcher()
+	crlData := []byte("crl")
+	watcher.SetAndNotify(nil, nil, nil, crlData)
+	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
+	stop := test.NewStop(t)
+	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+		kclient.New[*v1.Namespace](client),
+		meshWatcher,
+		stop,
+	)
+	kube.SetObjectFilter(client, discoveryNamespacesFilter)
+	nc := NewNamespaceController(client, watcher)
+	client.RunAndWait(stop)
+	go nc.Run(stop)
+	retry.UntilOrFail(t, nc.queue.HasSynced)
+
+	expectedData := map[string]string{
+		constants.CACRLNamespaceConfigMapDataName: string(crlData),
+	}
+	createNamespace(t, client.Kube(), "foo", nil)
+	expectConfigMap(t, nc.crlConfigmaps, CRLNamespaceConfigMap, "foo", expectedData)
+
+	// Make sure random configmap does not get updated
+	cmData := createConfigMap(t, client.Kube(), "not-root-cm", "foo", "key")
+	expectConfigMap(t, nc.crlConfigmaps, "not-root-cm", "foo", cmData)
+
+	newCrlData := []byte("new-crl")
+	watcher.SetAndNotify(nil, nil, nil, newCrlData)
+	newData := map[string]string{
+		constants.CACRLNamespaceConfigMapDataName: string(newCrlData),
+	}
+	expectConfigMap(t, nc.crlConfigmaps, CRLNamespaceConfigMap, "foo", newData)
+
+	deleteConfigMap(t, client.Kube(), "foo")
+	expectConfigMap(t, nc.crlConfigmaps, CRLNamespaceConfigMap, "foo", newData)
+
+	ignoredNamespaces := inject.IgnoredNamespaces.Copy().Delete(constants.KubeSystemNamespace)
+	for _, namespace := range ignoredNamespaces.UnsortedList() {
+		// Create namespace in ignored list, make sure it's not created
+		createNamespace(t, client.Kube(), namespace, newData)
+		// Configmap in that namespace should not do anything either
+		createConfigMap(t, client.Kube(), "not-root-cm", namespace, "key")
+		expectConfigMapNotExist(t, nc.crlConfigmaps, namespace)
+	}
+}
+
 func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 	client := kube.NewFakeClient()
 	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
-	watcher.SetAndNotify(nil, nil, caBundle)
+	watcher.SetAndNotify(nil, nil, caBundle, nil)
 	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
 		DiscoverySelectors: []*meshconfig.LabelSelector{
 			{
@@ -174,7 +223,7 @@ func TestNamespaceControllerDiscovery(t *testing.T) {
 	t.Cleanup(client.Shutdown)
 	watcher := keycertbundle.NewWatcher()
 	caBundle := []byte("caBundle")
-	watcher.SetAndNotify(nil, nil, caBundle)
+	watcher.SetAndNotify(nil, nil, caBundle, nil)
 	meshWatcher := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
 		DiscoverySelectors: []*meshconfig.LabelSelector{{
 			MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},

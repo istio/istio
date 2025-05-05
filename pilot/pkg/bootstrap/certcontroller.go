@@ -78,7 +78,7 @@ func (s *Server) initDNSCertsK8SRA() error {
 			if err != nil {
 				log.Fatalf("failed regenerating key and cert for istiod by kubernetes: %v", err)
 			}
-			s.istiodCertBundleWatcher.SetAndNotify(newKeyPEM, newCertChain, newCaBundle)
+			s.istiodCertBundleWatcher.SetAndNotify(newKeyPEM, newCertChain, newCaBundle, nil)
 		}
 	})
 
@@ -89,7 +89,7 @@ func (s *Server) initDNSCertsK8SRA() error {
 		}()
 		return nil
 	})
-	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
+	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle, nil)
 	return nil
 }
 
@@ -152,7 +152,7 @@ func (s *Server) initDNSCertsIstiod() error {
 			return fmt.Errorf("failed reading %s: %v", fileBundle.RootCertFile, err)
 		}
 	}
-	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
+	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle, nil)
 	return nil
 }
 
@@ -172,7 +172,7 @@ func (s *Server) watchRootCertAndGenKeyCert(stop <-chan struct{}) {
 			if err != nil {
 				log.Errorf("failed generating istiod key cert %v", err)
 			} else {
-				s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
+				s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle, nil)
 				log.Infof("regenerated istiod dns cert: %s", certChain)
 			}
 		}
@@ -197,7 +197,7 @@ func (s *Server) RotateDNSCertForK8sCA(stop <-chan struct{},
 			log.Errorf("failed regenerating key and cert for istiod by kubernetes: %v", err)
 			continue
 		}
-		s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, s.istiodCertBundleWatcher.GetCABundle())
+		s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, s.istiodCertBundleWatcher.GetCABundle(), nil)
 	}
 }
 
@@ -223,7 +223,7 @@ func (s *Server) updateRootCertAndGenKeyCert() error {
 		}
 	}
 
-	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
+	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle, nil)
 	return nil
 }
 
