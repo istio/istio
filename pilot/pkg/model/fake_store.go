@@ -40,17 +40,6 @@ type nsStore struct {
 
 func NewFakeStore() *FakeStore {
 	stop := make(chan struct{})
-	f := FakeStore{
-		store:  make(map[config.GroupVersionKind]nsStore),
-		stop:   stop,
-		synced: &atomic.Bool{},
-	}
-	f.synced.Store(true)
-	return &f
-}
-
-func NewUnsyncedFakeStore() *FakeStore {
-	stop := make(chan struct{})
 	f := &FakeStore{
 		store:  make(map[config.GroupVersionKind]nsStore),
 		stop:   stop,

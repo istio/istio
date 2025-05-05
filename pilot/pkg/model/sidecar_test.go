@@ -2736,7 +2736,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			ps.initDefaultExportMaps()
 			ps.initServiceRegistry(env, nil)
 			ps.setDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3, nonWorkloadSelectorDr})
-			fakeStore := NewUnsyncedFakeStore()
+			fakeStore := NewFakeStore()
 			var controller ConfigStoreController = fakeStore
 			for _, c := range tt.virtualServices {
 				if _, err := controller.Create(c); err != nil {
