@@ -137,6 +137,9 @@ func HTTPRouteCollection(
 				count++
 			}
 		}
+
+		log.Infof("Updating status for HTTPRoute %s/%s %+v", obj.Namespace, obj.Name, status)
+
 		return status, virtualServices
 	}, opts.WithName("HTTPRoute")...)
 
