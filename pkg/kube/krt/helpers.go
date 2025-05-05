@@ -17,6 +17,7 @@ package krt
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,6 +58,11 @@ func GetKey[O any](a O) string {
 	if ok {
 		return arn.ResourceName()
 	}
+	auid, ok := any(a).(uidable)
+	if ok {
+		return strconv.FormatUint(uint64(auid.uid()), 10)
+	}
+
 	ack := GetApplyConfigKey(a)
 	if ack != nil {
 		return *ack

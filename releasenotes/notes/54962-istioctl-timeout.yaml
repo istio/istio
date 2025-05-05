@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 54962
+releaseNotes:
+- |
+    **Added** `--kubeclient-timeout` flag to `istioctl` root flags. May be unset, or set to a valid `time.Duration` string.
+    When specified, this will override the default 15s timeout for all `istioctl` commands that use the Kubernetes client.
+    This is useful for environments with slow Kubernetes API servers, such as those with high latency or low bandwidth.
+    Note that this flag is just used for the Kubernetes client, and does not affect other timeouts in `istioctl`, such as 
+    installation timeouts.

@@ -1,0 +1,10 @@
+spec:
+  values:
+    env:
+      TEST_ENV: "test"
+    envVarFrom:
+      - name: TEST_SECRET
+        valueFrom:
+          secretKeyRef:
+            name: test-name
+            key: test-key

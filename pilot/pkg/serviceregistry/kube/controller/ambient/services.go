@@ -236,7 +236,7 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 	} else {
 		// Check traffic distribution.
 		trafficDistribution := kube.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
-		if (trafficDistribution == model.TrafficDistributionPreferSameZone) {
+		if trafficDistribution == model.TrafficDistributionPreferSameZone {
 			lb = preferCloseLoadBalancer
 		} else if trafficDistribution == model.TrafficDistributionPreferSameNode {
 			lb = preferSameNodeLoadBalancer

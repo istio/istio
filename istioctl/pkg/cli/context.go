@@ -16,6 +16,7 @@ package cli
 
 import (
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -57,7 +58,13 @@ type instance struct {
 	RootFlags
 }
 
-func newKubeClientWithRevision(kubeconfig, configContext, revision string, impersonateConfig rest.ImpersonationConfig) (kube.CLIClient, error) {
+func newKubeClientWithRevision(
+	kubeconfig,
+	configContext,
+	revision string,
+	timeout time.Duration,
+	impersonateConfig rest.ImpersonationConfig,
+) (kube.CLIClient, error) {
 	rc, err := kube.DefaultRestConfig(kubeconfig, configContext, func(config *rest.Config) {
 		// We are running a one-off command locally, so we don't need to worry too much about rate limiting
 		// Bumping this up greatly decreases install time
@@ -68,7 +75,12 @@ func newKubeClientWithRevision(kubeconfig, configContext, revision string, imper
 	if err != nil {
 		return nil, err
 	}
-	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), kube.WithRevision(revision), kube.WithCluster(cluster.ID(configContext)))
+	return kube.NewCLIClient(
+		kube.NewClientConfigForRestConfig(rc),
+		kube.WithRevision(revision),
+		kube.WithCluster(cluster.ID(configContext)),
+		kube.WithTimeout(timeout),
+	)
 }
 
 func NewCLIContext(rootFlags *RootFlags) Context {
@@ -82,6 +94,7 @@ func NewCLIContext(rootFlags *RootFlags) Context {
 			namespace:        ptr.Of[string](""),
 			istioNamespace:   ptr.Of[string](""),
 			defaultNamespace: "",
+			kubeTimeout:      ptr.Of[string](""),
 		}
 	}
 	return &instance{
@@ -103,8 +116,14 @@ func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 	if i.clients == nil {
 		i.clients = make(map[string]kube.CLIClient)
 	}
+
+	timeout, err := i.KubeClientTimeout()
+	if err != nil {
+		return nil, fmt.Errorf("error parsing kubeclient-timeout: %v", err)
+	}
+
 	if i.clients[rev] == nil {
-		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev, i.getImpersonateConfig())
+		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev, timeout, i.getImpersonateConfig())
 		if err != nil {
 			return nil, err
 		}
@@ -133,13 +152,20 @@ func (i *instance) CLIClientsForContexts(contexts []string) ([]kube.CLIClient, e
 			return nil, fmt.Errorf("context %q not found", c)
 		}
 	}
+
+	clientTimeout, err := i.KubeClientTimeout()
+	if err != nil {
+		return nil, fmt.Errorf("error parsing kubeclient-timeout: %v", err)
+	}
+
 	var clients []kube.CLIClient
 	for _, contextName := range contexts {
 		if i.remoteClients[contextName] != nil {
 			clients = append(clients, i.remoteClients[contextName])
 			continue
 		}
-		c, err := newKubeClientWithRevision(*i.kubeconfig, contextName, "", impersonateConfig)
+
+		c, err := newKubeClientWithRevision(*i.kubeconfig, contextName, "", clientTimeout, impersonateConfig)
 		if err != nil {
 			return nil, fmt.Errorf("creating kube client for context %q: %v", contextName, err)
 		}

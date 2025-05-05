@@ -84,7 +84,7 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 }
 
 func (c *podController) RunWithContext(ctx context.Context) {
-	go c.informer.Run(ctx.Done())
+	go c.informer.RunWithContext(ctx)
 	kube.WaitForCacheSync("pod controller", ctx.Done(), c.informer.HasSynced)
 	c.q.Run(ctx.Done())
 }

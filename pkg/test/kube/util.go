@@ -165,6 +165,8 @@ func WaitUntilPodsAreReady(fetchFunc PodFetchFunc, opts ...retry.Option) ([]core
 
 // WaitUntilServiceEndpointsAreReady will wait until the service with the given name/namespace is present, and have at least
 // one usable endpoint.
+// Endpoints is deprecated in k8s >=1.33, but we should still support it.
+// nolint: staticcheck
 func WaitUntilServiceEndpointsAreReady(a kubernetes.Interface, ns string, name string,
 	opts ...retry.Option,
 ) (*corev1.Service, *corev1.Endpoints, error) {

@@ -36,8 +36,6 @@ const (
 	getKeyType       indexedDependencyType = iota
 )
 
-var allIndexedDependencyTypes = []indexedDependencyType{indexType, getKeyType}
-
 type dependencyState[I any] struct {
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
 	// These are keyed by the internal uid() function on collections.
@@ -46,36 +44,39 @@ type dependencyState[I any] struct {
 	// Stores a map of I -> secondary dependencies (added via Fetch)
 	objectDependencies  map[Key[I]][]*dependency
 	indexedDependencies map[indexedDependency]sets.Set[Key[I]]
-	// indexedDependenciesExtractor stores a map of [collection,fetch type] => an extractor to get change keys.
-	// Note that a given collection can have multiple Fetches, but they are limited to those of the different kind.
-	// I.e. you can do a `Fetch(c1, FilterIndex()) + Fetch(c1, FilterKey())` but not `Fetch(c1, FilterIndex(idxA)) + Fetch(c1, FilterIndex(idxB))`.
-	// Multiple `FetchIndex` within a single transformation must use the same index.
-	// This only applies within a single transformation; it is fine to fetch the the same `c1` in any way from different collections.
+	// indexedDependenciesExtractor stores a map of [collection,fetch type,(optional)index id] => an extractor to get change keys.
 	indexedDependenciesExtractor map[extractorKey]objectKeyExtractor
 }
 
 type extractorKey struct {
-	uid collectionUID
-	typ indexedDependencyType
+	uid       collectionUID
+	filterUID collectionUID
+	typ       indexedDependencyType
 }
 
 func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 	// Update the I -> Dependency mapping
 	i.objectDependencies[key] = deps
 	for _, d := range deps {
-		if depKeys, typ, extractor, ok := d.filter.reverseIndexKey(); ok {
+		if depKeys, typ, extractor, filterID, ok := d.filter.reverseIndexKey(); ok {
 			for _, depKey := range depKeys {
 				k := indexedDependency{
 					id:  d.id,
 					key: depKey,
 					typ: typ,
 				}
-				sets.InsertOrNew(i.indexedDependencies, k, key)
-				kk := extractorKey{
-					uid: d.id,
-					typ: typ,
+				if typ == unknownIndexType && extractor == nil {
+					// no need to make keys in the reverse index
+					// if no extractor specified
+					continue
 				}
 
+				sets.InsertOrNew(i.indexedDependencies, k, key)
+				kk := extractorKey{
+					filterUID: filterID,
+					uid:       d.id,
+					typ:       typ,
+				}
 				i.indexedDependenciesExtractor[kk] = extractor
 			}
 		}
@@ -89,7 +90,7 @@ func (i dependencyState[I]) delete(key Key[I]) {
 	}
 	delete(i.objectDependencies, key)
 	for _, d := range old {
-		if depKeys, typ, _, ok := d.filter.reverseIndexKey(); ok {
+		if depKeys, typ, _, _, ok := d.filter.reverseIndexKey(); ok {
 			for _, depKey := range depKeys {
 				k := indexedDependency{
 					id:  d.id,
@@ -111,8 +112,17 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 		// inefficient, especially when the dependency changes frequently and the collection is large.
 		// Where possible, we utilize the reverse-indexing to get the precise list of potentially changed objects.
 		foundAny := false
-		for _, idxTypes := range allIndexedDependencyTypes {
-			ekey := extractorKey{uid: sourceCollection, typ: idxTypes}
+
+		// find all the reverse indexes related to the sourceCollection
+		// N here is usually going to be small (the number of FilterKey/FilterIndex)
+		extractorKeys := []extractorKey{}
+		for k := range i.indexedDependenciesExtractor {
+			if k.typ != unknownIndexType && k.uid == sourceCollection {
+				extractorKeys = append(extractorKeys, k)
+			}
+		}
+
+		for _, ekey := range extractorKeys {
 			if extractor, f := i.indexedDependenciesExtractor[ekey]; f {
 				foundAny = true
 				// We have a reverse index
@@ -120,7 +130,7 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 					// Find all the reverse index keys for this object. For each key we will find impacted input objects.
 					keys := extractor(item)
 					for _, key := range keys {
-						for iKey := range i.indexedDependencies[indexedDependency{id: sourceCollection, key: key, typ: idxTypes}] {
+						for iKey := range i.indexedDependencies[indexedDependency{id: sourceCollection, key: key, typ: ekey.typ}] {
 							if changedInputKeys.Contains(iKey) {
 								// We may have already found this item, skip it
 								continue
@@ -542,6 +552,7 @@ func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opt
 	}
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
+		// NOTE: this will print Collection[nil, nil] if I or O are interfaces
 		o.name = fmt.Sprintf("Collection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
 	}
 	return newManyCollection[I, O](c, hm, o, nil)

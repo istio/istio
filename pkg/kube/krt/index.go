@@ -31,6 +31,7 @@ type Index[K comparable, O any] interface {
 	AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]]
 	objectHasKey(obj O, k K) bool
 	extractKeys(o O) []K
+	id() collectionUID
 }
 
 type IndexObject[K comparable, O any] struct {
@@ -65,10 +66,16 @@ func NewIndex[K comparable, O any](
 		})
 	})
 
-	return index[K, O]{idx, c, extract}
+	return index[K, O]{
+		nextUID(),
+		idx,
+		c,
+		extract,
+	}
 }
 
 type index[K comparable, O any] struct {
+	uid collectionUID
 	kclient.RawIndexer
 	c       Collection[O]
 	extract func(o O) []K
@@ -127,6 +134,11 @@ func (i index[K, O]) objectHasKey(obj O, k K) bool {
 // nolint: unused // (not true)
 func (i index[K, O]) extractKeys(o O) []K {
 	return i.extract(o)
+}
+
+// nolint: unused // (not true)
+func (i index[K, O]) id() collectionUID {
+	return i.uid
 }
 
 // Lookup finds all objects matching a given key
