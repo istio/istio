@@ -122,7 +122,7 @@ func (s *KubeSource) HasSynced() bool {
 }
 
 func (s *KubeSource) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
-	panic("implement me")
+	return nil
 }
 
 type resourceSha [sha256.Size]byte
