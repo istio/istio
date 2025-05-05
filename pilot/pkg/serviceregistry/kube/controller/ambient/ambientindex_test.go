@@ -2089,7 +2089,12 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 
 func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options, runClient bool) *ambientTestServer {
 	if options.Client == nil {
-		options.Client = kubeclient.NewFakeClient()
+		c := kubeclient.NewFakeClient()
+		// only cleanup when we create a new client
+		// Certain tests will hang forever if we execute this
+		// (e.g. TestObjectFilter)
+		t.Cleanup(c.Shutdown)
+		options.Client = c
 	}
 	cl := options.Client
 	for _, crd := range []schema.GroupVersionResource{
@@ -2215,6 +2220,33 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 	}
 
 	return newAmbientTestServerFromOptions(t, networkID, o, true)
+}
+
+func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID network.ID, flags FeatureFlags) *ambientTestServer {
+	up := xdsfake.NewFakeXDS()
+	up.SplitEvents = true
+	cl := kubeclient.NewFakeClient()
+	t.Cleanup(cl.Shutdown)
+	var clientBuilder ClientBuilder
+	if features.EnableAmbientMultiNetwork {
+		clientBuilder = TestingBuildClientsFromConfig
+	}
+
+	debugger := krt.GlobalDebugHandler
+	o := Options{
+		Client:          cl,
+		SystemNamespace: systemNS,
+		DomainSuffix:    "company.com",
+		ClusterID:       clusterID,
+		XDSUpdater:      up,
+		StatusNotifier:  activenotifier.New(true),
+		Debugger:        debugger,
+		Flags:           flags,
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+		ClientBuilder:   clientBuilder,
+	}
+
+	return newAmbientTestServerFromOptions(t, networkID, o)
 }
 
 func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
