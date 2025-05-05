@@ -791,9 +791,9 @@ type TrafficDistribution int
 const (
 	// TrafficDistributionAny allows any destination
 	TrafficDistributionAny TrafficDistribution = iota
-	// TrafficDistributionPrefer{Close,PreferSameZone} prefers traffic in same region/zone/network if possible, with failover allowed.
+	// TrafficDistributionPreferPreferSameZone prefers traffic in same subzone, failing over to same zone, failing over to same region, etc
 	TrafficDistributionPreferSameZone TrafficDistribution = iota
-	// TrafficDistributionPreferNode prefers traffic in same node if possible, with failover allowed.
+	// TrafficDistributionPreferNode prefers traffic in same node, failing over to same subzone, failing over to same zone, etc.
 	TrafficDistributionPreferSameNode = iota
 )
 
