@@ -89,6 +89,9 @@ const (
 	// The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMapDataName = "root-cert.pem"
 
+	// CACRLNamespaceConfigMapDataName in the ConfigMap of each namespace storing the CRL of plugged in CA certificates.
+	CACRLNamespaceConfigMapDataName = "ca-crl.pem"
+
 	// PodInfoLabelsPath is the filepath that pod labels will be stored
 	// This is typically set by the downward API
 	PodInfoLabelsPath = "./etc/istio/pod/labels"

@@ -54,7 +54,7 @@ type CAServer struct {
 }
 
 func NewCAServerWithKeyCert(port int, key, cert []byte, opts ...grpc.ServerOption) (*CAServer, error) {
-	keyCertBundle, err := util.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert)
+	keyCertBundle, err := util.NewVerifiedKeyCertBundleFromPem(cert, key, nil, cert, nil)
 	if err != nil {
 		caServerLog.Errorf("failed to create CA KeyCertBundle: %+v", err)
 		return nil, err
