@@ -80,6 +80,7 @@ spec:
       {{- end }}
       {{- end }}
       serviceAccountName: {{.ServiceAccount | quote}}
+      terminationGracePeriodSeconds: {{ .Values.global.proxy.terminationGracePeriodSeconds }}
       containers:
       - name: istio-proxy
       {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
