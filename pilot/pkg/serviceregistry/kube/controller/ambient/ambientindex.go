@@ -23,6 +23,7 @@ import (
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
@@ -116,11 +117,12 @@ type index struct {
 
 	stop chan struct{}
 
-	cs             *ClusterStore
-	clientBuilder  ClientBuilder
-	secrets        krt.Collection[*corev1.Secret]
-	remoteClusters krt.Collection[Cluster]
-	meshConfig     meshwatcher.WatcherCollection
+	cs                          *ClusterStore
+	clientBuilder               ClientBuilder
+	secrets                     krt.Collection[*corev1.Secret]
+	remoteClusters              krt.Collection[*Cluster]
+	meshConfig                  meshwatcher.WatcherCollection
+	remoteClientConfigOverrides []func(*rest.Config)
 }
 
 type FeatureFlags struct {
@@ -141,19 +143,23 @@ type Options struct {
 
 	MeshConfig meshwatcher.WatcherCollection
 
-	Debugger *krt.DebugHandler
+	Debugger                    *krt.DebugHandler
+	ClientBuilder               ClientBuilder
+	RemoteClientConfigOverrides []func(*rest.Config)
 }
 
 func New(options Options) Index {
 	a := &index{
-		SystemNamespace: options.SystemNamespace,
-		DomainSuffix:    options.DomainSuffix,
-		ClusterID:       options.ClusterID,
-		XDSUpdater:      options.XDSUpdater,
-		Debugger:        options.Debugger,
-		Flags:           options.Flags,
-		stop:            make(chan struct{}),
-		cs:              newClustersStore(),
+		SystemNamespace:             options.SystemNamespace,
+		DomainSuffix:                options.DomainSuffix,
+		ClusterID:                   options.ClusterID,
+		XDSUpdater:                  options.XDSUpdater,
+		Debugger:                    options.Debugger,
+		Flags:                       options.Flags,
+		clientBuilder:               options.ClientBuilder,
+		stop:                        make(chan struct{}),
+		cs:                          newClustersStore(),
+		remoteClientConfigOverrides: options.RemoteClientConfigOverrides,
 	}
 
 	filter := kclient.Filter{
@@ -237,6 +243,16 @@ func New(options Options) Index {
 		)...,
 	)...)
 
+	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](options.Client, kclient.Filter{
+		ObjectFilter: options.Client.ObjectFilter(),
+	}, opts.With(
+		append(opts.WithName("informer/ConfigMaps"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
+
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data
 	if features.EnableAmbientMultiNetwork {
 		LocalCluster := &Cluster{
@@ -245,13 +261,17 @@ func New(options Options) Index {
 			stop:               make(chan struct{}),
 			initialSync:        &atomic.Bool{},
 			initialSyncTimeout: &atomic.Bool{},
+			initialized:        &atomic.Bool{},
 			namespaces:         Namespaces,
 			gateways:           Gateways,
 			services:           Services,
 			pods:               Pods,
 			nodes:              Nodes,
 			endpointSlices:     EndpointSlices,
+			configmaps:         ConfigMaps,
 		}
+		// We can run this in a goroutine because all of the dependent collections will wait for the initial sync
+		go LocalCluster.Run(a.meshConfig, a.Debugger)
 		a.buildGlobalCollections(
 			LocalCluster,
 			AuthzPolicies,
@@ -263,7 +283,9 @@ func New(options Options) Index {
 			servicesClient,
 			authzPolicies,
 			options,
-			opts)
+			opts,
+			a.remoteClientConfigOverrides...,
+		)
 
 		return a
 	}

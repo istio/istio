@@ -81,7 +81,7 @@ func (a ACTION) String() string {
 }
 
 func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig []byte, clusterID string) (*Cluster, error) {
-	client, err := a.clientBuilder(kubeConfig, cluster.ID(clusterID))
+	client, err := a.clientBuilder(kubeConfig, cluster.ID(clusterID), a.remoteClientConfigOverrides...)
 	if err != nil {
 		return nil, err
 	}
@@ -93,6 +93,7 @@ func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig [
 		// for use inside the package, to close on cleanup
 		initialSync:        atomic.NewBool(false),
 		initialSyncTimeout: atomic.NewBool(false),
+		initialized:       atomic.NewBool(false),
 		kubeConfigSha:      sha256.Sum256(kubeConfig),
 	}, nil
 }
@@ -140,12 +141,10 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		// We run cluster async so we do not block, as this requires actually connecting to the cluster and loading configuration.
+
 		a.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		addedClusters = append(addedClusters, remoteCluster)
-		go func() {
-			remoteCluster.Run(a.meshConfig, debugger)
-		}()
+		go remoteCluster.Run(a.meshConfig, debugger)
 	}
 
 	syncers := slices.Map(addedClusters, func(c *Cluster) cache.InformerSynced { return c.HasSynced })
@@ -180,7 +179,7 @@ func (a *index) deleteCluster(secretKey string, cluster *Cluster) {
 	log.Infof("Number of remote clusters: %d", a.cs.Len())
 }
 
-func (a *index) processSecretQueueItem(key types.NamespacedName) error {
+func (a *index) processSecretEvent(key types.NamespacedName) error {
 	log.Infof("processing secret event for secret %s", key)
 	scrt := ptr.Flatten(a.secrets.GetKey(key.String()))
 	if scrt != nil {
@@ -200,7 +199,7 @@ func (a *index) buildRemoteClustersCollection(
 	options Options,
 	opts krt.OptionsBuilder,
 	configOverrides ...func(*rest.Config),
-) krt.Collection[Cluster] {
+) krt.Collection[*Cluster] {
 	informerClient := options.Client
 
 	// When these two are set to true, Istiod will be watching the namespace in which
@@ -234,25 +233,34 @@ func (a *index) buildRemoteClustersCollection(
 	Secrets := krt.WrapClient(secrets, opts.WithName("RemoteSecrets")...)
 	a.secrets = Secrets
 
+	// N.B Informer collections don't call handler before marking synced, so
+	// RemoteClusters will be synced pretty immediately.
 	Secrets.Register(func(o krt.Event[*corev1.Secret]) {
 		s := o.Latest()
-		err := a.processSecretQueueItem(config.NamespacedName(s))
+		err := a.processSecretEvent(config.NamespacedName(s))
 		if err != nil {
 			log.Errorf("error processing secret %s: %v", krt.GetKey(s), err)
 		}
 	})
 
-	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []Cluster {
+	go func() {
+		if !Secrets.WaitUntilSynced(a.stop) {
+			log.Errorf("Timed out waiting for remote secrets to sync")
+		}
+		a.cs.rt.MarkSynced() // Mark clusters as synced iff secrets are synced
+	}()
+
+	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []*Cluster {
 		a.cs.rt.MarkDependant(ctx) // Subscribe to updates from the clusterStore
 		// Wait for all of the clusters to be synced
 		if !kube.WaitForCacheSync("multicluster remote secrets", a.stop, a.cs.HasSynced) {
 			log.Warnf("remote cluster cache sync failed")
 		}
 		remoteClustersBySecretThenID := a.cs.All()
-		var remoteClusters []Cluster
+		var remoteClusters []*Cluster
 		for _, clusters := range remoteClustersBySecretThenID {
 			for _, cluster := range clusters {
-				remoteClusters = append(remoteClusters, *cluster)
+				remoteClusters = append(remoteClusters, cluster)
 			}
 		}
 		return remoteClusters
