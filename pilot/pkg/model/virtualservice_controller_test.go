@@ -52,6 +52,7 @@ func setupController(t *testing.T, defaultExportTo sets.Set[visibility.Instance]
 		meshHolder,
 	)
 	go controller.Run(stop)
+	store.MarkSynced()
 	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 
 	return controller

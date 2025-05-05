@@ -451,6 +451,12 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	for _, cfg := range envoyFilters {
 		_, _ = store.Create(cfg)
 	}
+
+	stop := test.NewStop(t)
+	go store.Run(stop)
+	store.MarkSynced()
+	kube.WaitForCacheSync("test", stop, store.HasSynced)
+
 	env.ConfigStore = store
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = meshwatcher.NewTestWatcher(m)
@@ -534,6 +540,12 @@ func TestEnvoyFilterOrderAcrossNamespaces(t *testing.T) {
 	for _, cfg := range envoyFilters {
 		_, _ = store.Create(cfg)
 	}
+
+	stop := test.NewStop(t)
+	go store.Run(stop)
+	store.MarkSynced()
+	kube.WaitForCacheSync("test", stop, store.HasSynced)
+
 	env.ConfigStore = store
 	m := mesh.DefaultMeshConfig()
 	m.RootNamespace = "istio-system"
@@ -868,6 +880,12 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 			for _, cfg := range initialEnvoyFilters {
 				_, _ = store.Create(cfg)
 			}
+
+			stop := test.NewStop(t)
+			go store.Run(stop)
+			store.MarkSynced()
+			kube.WaitForCacheSync("test", stop, store.HasSynced)
+
 			env.ConfigStore = store
 			m := mesh.DefaultMeshConfig()
 			env.Watcher = meshwatcher.NewTestWatcher(m)
@@ -1275,6 +1293,12 @@ func TestWasmPlugins(t *testing.T) {
 	for _, config := range wasmPlugins {
 		store.Create(config)
 	}
+
+	stop := test.NewStop(t)
+	go store.Run(stop)
+	store.MarkSynced()
+	kube.WaitForCacheSync("test", stop, store.HasSynced)
+
 	env.ConfigStore = store
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = meshwatcher.NewTestWatcher(m)
@@ -1552,7 +1576,7 @@ func TestInitPushContext(t *testing.T) {
 	env := NewEnvironment()
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = meshwatcher.NewTestWatcher(m)
-	fakeStore := NewUnsyncedFakeStore()
+	fakeStore := NewFakeStore()
 	var controller ConfigStoreController = fakeStore
 	_, _ = controller.Create(config.Config{
 		Meta: config.Meta{
@@ -1719,6 +1743,11 @@ func TestSidecarScope(t *testing.T) {
 	_, _ = configStore.Create(configWithWorkloadSelector)
 	_, _ = configStore.Create(rootConfig)
 
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	configStore.MarkSynced()
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+
 	env.ConfigStore = configStore
 	ps.initSidecarScopes(env)
 	cases := []struct {
@@ -1848,6 +1877,12 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 	}
 
 	_, _ = configStore.Create(rootConfig)
+
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	configStore.MarkSynced()
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+
 	env.ConfigStore = configStore
 
 	testDesc := "Testing root SidecarScope for ns:%v enabled when %v is called."
@@ -1894,6 +1929,11 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 			"version": "v1",
 		},
 	}, securityBeta.PeerAuthentication_MutualTLS_DISABLE))
+
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	configStore.MarkSynced()
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
 
 	env.ConfigStore = configStore
 	ps.initAuthnPolicies(env)
@@ -2615,7 +2655,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
 	ps.Mesh = env.Mesh()
-	fakeStore := NewUnsyncedFakeStore()
+	fakeStore := NewFakeStore()
 	var controller ConfigStoreController = fakeStore
 	gatewayName := "default/gateway"
 
@@ -2779,7 +2819,7 @@ func TestInitVirtualService(t *testing.T) {
 		ps := NewPushContext()
 		env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 		ps.Mesh = env.Mesh()
-		fakeStore := NewUnsyncedFakeStore()
+		fakeStore := NewFakeStore()
 		var controller ConfigStoreController = fakeStore
 
 		gatewayName := "ns1/gateway"
@@ -3281,7 +3321,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 		},
 	})
 	ps.Mesh = env.Mesh()
-	fakeStore := NewUnsyncedFakeStore()
+	fakeStore := NewFakeStore()
 	var controller ConfigStoreController = fakeStore
 	gatewayName := "ns1/gateway"
 

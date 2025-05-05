@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
 	pkgtest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -1560,6 +1561,11 @@ func getTestAuthenticationPolicies(configs []*config.Config, t *testing.T) *Auth
 		ConfigStore: configStore,
 		Watcher:     meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: rootNamespace}),
 	}
+
+	stop := pkgtest.NewStop(t)
+	go configStore.Run(stop)
+	configStore.MarkSynced()
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
 
 	return initAuthenticationPolicies(environment)
 }
