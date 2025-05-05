@@ -199,9 +199,7 @@ func (p *processorListener[O]) send(event []Event[O], isInInitialList bool) {
 
 func (p *processorListener[O]) pop() {
 	defer utilruntime.HandleCrash()
-	defer func() {
-		close(p.nextCh)
-	}() // Tell .run() to stop
+	defer close(p.nextCh)
 
 	var nextCh chan<- any
 	var notification any
