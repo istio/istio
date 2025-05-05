@@ -76,6 +76,8 @@ func (r *joinRig) CreateObject(key string) {
 	r.inner[idx].UpdateObject(Named{Namespace: ns, Name: name})
 }
 
+// TODO: Add conformance for nested join collection
+
 type manyRig struct {
 	krt.Collection[Named]
 	names      krt.StaticCollection[string]
