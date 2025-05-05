@@ -37,7 +37,7 @@ func newClustersStore() *ClusterStore {
 	return &ClusterStore{
 		remoteClusters: make(map[string]map[cluster.ID]*Cluster),
 		clusters:       sets.New[string](),
-		rt:             krt.NewRecomputeTrigger(true),
+		rt:             krt.NewRecomputeTrigger(false),
 	}
 }
 
