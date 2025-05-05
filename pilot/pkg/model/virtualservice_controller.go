@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -110,13 +109,14 @@ func (c *VirtualServiceController) xdsPush(events []krt.Event[config.Config]) {
 
 	cu := sets.New[ConfigKey]()
 	for _, e := range events {
-		vs := e.Latest()
-		c := ConfigKey{
-			Kind:      kind.VirtualService,
-			Name:      vs.Name,
-			Namespace: vs.Namespace,
+		for _, vs := range e.Items() {
+			c := ConfigKey{
+				Kind:      kind.VirtualService,
+				Name:      vs.Name,
+				Namespace: vs.Namespace,
+			}
+			cu.Insert(c)
 		}
-		cu.Insert(c)
 	}
 
 	if len(cu) == 0 {
@@ -222,7 +222,7 @@ func (dvs DelegateVirtualService) ResourceName() string {
 }
 
 func (dvs DelegateVirtualService) Equals(other DelegateVirtualService) bool {
-	return protoconv.Equals(dvs.Spec, other.Spec)
+	return dvs.ExportTo.Equals(other.ExportTo) && protoconv.Equals(dvs.Spec, other.Spec)
 }
 
 func DelegateVirtualServices(
@@ -277,6 +277,10 @@ func (e ExportTo) ResourceName() string {
 	return "export_to"
 }
 
+func (e ExportTo) Equals(other ExportTo) bool {
+	return e.Set.Equals(other.Set)
+}
+
 func DefaultExportTo(
 	meshConfig krt.Collection[MeshConfig],
 	opts krt.OptionsBuilder,
@@ -303,20 +307,18 @@ func MergeVirtualServices(
 	opts krt.OptionsBuilder,
 ) krt.Collection[config.Config] {
 	return krt.NewCollection(virtualServices, func(ctx krt.HandlerContext, cfg config.Config) *config.Config {
-		spec := cfg.Spec.(*networking.VirtualService)
-
 		// this is a Delegate VS, we won't add these to the collection directly
-		if len(spec.Hosts) == 0 {
+		if len(cfg.Spec.(*networking.VirtualService).Hosts) == 0 {
 			return nil
 		}
 
+		root := ResolveVirtualServiceShortnames(cfg)
+		spec := root.Spec.(*networking.VirtualService)
+
 		// if this VS does not reference any delegate, we don't need to perform any merging
 		if !isRootVs(spec) {
-			return ptr.Of(ResolveVirtualServiceShortnames(cfg))
+			return &root
 		}
-
-		root := cfg.DeepCopy()
-		spec = root.Spec.(*networking.VirtualService)
 
 		mergedRoutes := []*networking.HTTPRoute{}
 		for _, http := range spec.Http {
@@ -358,6 +360,6 @@ func MergeVirtualServices(
 			log.Debugf("merged virtualService: %s", vsString)
 		}
 
-		return ptr.Of(ResolveVirtualServiceShortnames(root))
+		return &root
 	}, opts.WithName("MergedVirtualServices")...)
 }
