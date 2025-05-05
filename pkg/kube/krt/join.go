@@ -361,7 +361,6 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 	}()
 
 	if o.joinUnchecked && merge != nil {
-		o.joinUnchecked = false
 		log.Warn("JoinWithMergeCollection: unchecked overlap is ineffective with a merge function")
 		o.joinUnchecked = false
 	}

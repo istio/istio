@@ -16,6 +16,7 @@ package ambient
 
 import (
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -23,6 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // First we duplicate the tests in ambientindex_test.go, but while enabling multinetwork.
@@ -88,6 +90,10 @@ func TestMulticlusterAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			s := newAmbientTestServer(t, testC, testNW)
+			// N.B: Not doing this seems to result in events being processed too slowly.
+			// I suspect this is because the multicluster ambient index builds a lot more
+			// collections than the single cluster one.
+			retry.UntilOrFail(t, s.index.HasSynced, retry.Timeout(2*time.Second))
 			// These steps happen for every test regardless of traffic type.
 			// It involves creating a waypoint for the specified traffic type
 			// then creating a workload and a service with no annotations set
@@ -100,6 +106,7 @@ func TestMulticlusterAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				map[string]string{},
 				map[string]string{},
 				[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+
 			s.assertEvent(t, s.svcXdsName("svc1"), s.podXdsName("pod1"))
 
 			// Label the pod and check that the correct event is produced.

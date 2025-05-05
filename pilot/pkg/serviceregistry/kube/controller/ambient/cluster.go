@@ -35,9 +35,10 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
-var _ krt.ResourceNamer = Cluster{}
+var _ krt.ResourceNamer = &Cluster{}
 
 type Cluster struct {
 	// ID of the cluster.
@@ -59,13 +60,53 @@ type Cluster struct {
 	endpointSlices     krt.Collection[*discovery.EndpointSlice]
 	nodes              krt.Collection[*corev1.Node]
 	gateways           krt.Collection[*v1beta1.Gateway]
+
+	// xref: https://github.com/istio/istio/pull/56097
+	// TODO: Figure out if we really want to keep doing this
+	// Note that the impl details of TestSeamlessMigration
+	// depend on this, so if we remove it, we'll need to
+	// adjust the test.
+	configmaps krt.Collection[*corev1.ConfigMap]
+
+	initialized *atomic.Bool
 }
 
-func (c Cluster) ResourceName() string {
+func (c *Cluster) ResourceName() string {
 	return c.ID.String()
 }
 
 func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, debugger *krt.DebugHandler) {
+	// Check and see if this is a local cluster or not
+	syncers := []krt.Syncer{
+		c.namespaces,
+		c.gateways,
+		c.services,
+		c.nodes,
+		c.endpointSlices,
+		c.pods,
+		c.configmaps,
+	}
+
+	existingCollection := slices.FindFunc(syncers, func(s krt.Syncer) bool {
+		return s != nil
+	})
+
+	// There's at least one pre-existing informer, so we can skip the rest of the setup
+	if existingCollection != nil {
+		c.initialized.Store(true)
+		log.Infof("Configuring cluster %s with existing informers", c.ID)
+		// Just wait for all syncers to be synced
+		for _, syncer := range syncers {
+			if !syncer.WaitUntilSynced(c.stop) {
+				log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
+				continue
+			}
+		}
+		c.initialSync.Store(true)
+		return
+	}
+
+	// We're about to start modifying the cluster, so we need to lock it
 	if features.RemoteClusterTimeout > 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
 			if !c.initialSync.Load() {
@@ -141,6 +182,17 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, debugger *krt.DebugHan
 			}),
 		)...,
 	)...)
+
+	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](c.Client, kclient.Filter{
+		ObjectFilter: c.Client.ObjectFilter(),
+	}, opts.With(
+		append(opts.WithName("informer/ConfigMaps"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: c.ID,
+			}),
+		)...,
+	)...)
+
 	if !c.Client.RunAndWait(c.stop) {
 		log.Warnf("remote cluster %s failed to sync", c.ID)
 		return
@@ -152,8 +204,11 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, debugger *krt.DebugHan
 	c.nodes = Nodes
 	c.endpointSlices = EndpointSlices
 	c.pods = Pods
+	c.configmaps = ConfigMaps
+	c.initialized.Store(true)
 
-	syncers := []krt.Syncer{
+	// Reassign syncers for the check
+	syncers = []krt.Syncer{
 		c.namespaces,
 		c.gateways,
 		c.services,
@@ -172,7 +227,7 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, debugger *krt.DebugHan
 	c.initialSync.Store(true)
 }
 
-func (c Cluster) HasSynced() bool {
+func (c *Cluster) HasSynced() bool {
 	// It could happen when a wrong credential provide, this cluster has no chance to run.
 	// In this case, the `initialSyncTimeout` will never be set
 	// In order not block istiod start up, check close as well.
@@ -182,7 +237,7 @@ func (c Cluster) HasSynced() bool {
 	return c.initialSync.Load() || c.initialSyncTimeout.Load()
 }
 
-func (c Cluster) Closed() bool {
+func (c *Cluster) Closed() bool {
 	select {
 	case <-c.stop:
 		return true
@@ -191,7 +246,7 @@ func (c Cluster) Closed() bool {
 	}
 }
 
-func (c Cluster) SyncDidTimeout() bool {
+func (c *Cluster) SyncDidTimeout() bool {
 	return !c.initialSync.Load() && c.initialSyncTimeout.Load()
 }
 
@@ -203,4 +258,32 @@ func (c *Cluster) Stop() {
 	default:
 		close(c.stop)
 	}
+}
+
+func (c *Cluster) WaitUntilSynced(stop <-chan struct{}) bool {
+	if c.HasSynced() {
+		return true
+	}
+	for !c.initialized.Load() {
+		select {
+		case <-stop:
+			return false
+		default:
+		}
+	}
+	// Wait for all syncers to be synced
+	for _, syncer := range []krt.Syncer{
+		c.namespaces,
+		c.gateways,
+		c.services,
+		c.nodes,
+		c.endpointSlices,
+		c.pods,
+	} {
+		if !syncer.WaitUntilSynced(stop) {
+			log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
+			return false
+		}
+	}
+	return true
 }
