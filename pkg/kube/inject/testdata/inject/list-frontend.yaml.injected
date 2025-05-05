@@ -35,7 +35,7 @@ items:
           prometheus.io/path: /stats/prometheus
           prometheus.io/port: "15020"
           prometheus.io/scrape: "true"
-          sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+          sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
         creationTimestamp: null
         labels:
           app: hello
@@ -175,6 +175,8 @@ items:
             name: workload-certs
           - mountPath: /var/run/secrets/istio
             name: istiod-ca-cert
+          - mountPath: /var/run/secrets/istio/crl
+            name: istio-ca-crl
           - mountPath: /var/lib/istio/data
             name: istio-data
           - mountPath: /etc/istio/proxy
@@ -253,6 +255,10 @@ items:
         - configMap:
             name: istio-ca-root-cert
           name: istiod-ca-cert
+        - configMap:
+            name: istio-ca-crl
+            optional: true
+          name: istio-ca-crl
   status: {}
 kind: List
 metadata: {}

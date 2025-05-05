@@ -278,6 +278,14 @@ var (
 
 	EnableProxyFindPodByIP = env.Register("ENABLE_PROXY_FIND_POD_BY_IP", false,
 		"If enabled, the pod controller will allow findig pods matching proxies by IP if it fails to find them by name.").Get()
+
+	// EnableCACRL ToDo (nilekh): remove this feature flag once https://github.com/istio/istio/issues/56529 is closed
+	EnableCACRL = env.Register(
+		"PILOT_ENABLE_CA_CRL",
+		false, // Default value (false = feature disabled by default)
+		"If set to true, Istio will watch for ca-crl.pem file in /etc/cacerts directory "+
+			"and will distribute crl data in each namespace in the cluster for proxies to consume. ",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

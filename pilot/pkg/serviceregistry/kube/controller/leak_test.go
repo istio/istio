@@ -17,10 +17,15 @@ package controller
 import (
 	"testing"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/tests/util/leak"
 )
 
 func TestMain(m *testing.M) {
+	// Enable CA CRL feature for the test.
+	// Enable here to avoid data race.
+	features.EnableCACRL = true
+
 	// CheckMain asserts that no goroutines are leaked after a test package exits.
 	leak.CheckMain(m)
 }
