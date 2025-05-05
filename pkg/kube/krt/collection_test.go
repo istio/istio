@@ -15,6 +15,8 @@
 package krt_test
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -29,6 +31,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -563,6 +566,82 @@ func TestCollectionMultipleFetch(t *testing.T) {
 
 	cc.Delete("foo1", "")
 	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), nil}})
+}
+
+func TestCollectionMultipleFetchKeys(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	kpc := kclient.New[*corev1.Pod](c)
+	pc := clienttest.Wrap(t, kpc)
+	podsCol := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	c.RunAndWait(stop)
+	SimplePods := SimplePodCollection(podsCol, opts)
+	tt := assert.NewTracker[string](t)
+
+	Collection := krt.NewSingleton[string](func(ctx krt.HandlerContext) *string {
+		a := krt.Fetch(ctx, SimplePods, krt.FilterKey("namespace/name1"))
+		b := krt.Fetch(ctx, SimplePods, krt.FilterKey("namespace/name2"))
+		pods := append(a, b...)
+		names := slices.Sort(slices.Map(pods, func(e SimplePod) string {
+			return e.Name + "/" + e.IP
+		}))
+		return ptr.Of(strings.Join(names, ","))
+	}, opts.WithName("Collection")...)
+	Collection.AsCollection().WaitUntilSynced(stop)
+
+	SimplePods.Register(TrackerHandler[SimplePod](tt))
+
+	var pods []*corev1.Pod
+	makePod := func() {
+		i := len(pods)
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "name" + strconv.Itoa(i+1),
+				Namespace: "namespace",
+				Labels:    map[string]string{},
+			},
+			Status: corev1.PodStatus{PodIP: fmt.Sprintf("%d.%d.%d.%d", i+1, i+1, i+1, i+1)},
+		}
+		pods = append(pods, pod)
+		pc.CreateOrUpdate(pod)
+	}
+	updatePod := func(i int) {
+		pod := pods[i]
+		pod.Status = corev1.PodStatus{PodIP: fmt.Sprintf("%d0.%d0.%d0.%d0", i+1, i+1, i+1, i+1)}
+		pc.UpdateStatus(pod)
+	}
+	deletePod := func(i int) {
+		pod := pods[i]
+		pc.Delete(pod.Name, pod.Namespace)
+	}
+
+	// ensure both Fetch trigger on create
+	makePod()
+	tt.WaitUnordered("add/namespace/name1")
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("name1/1.1.1.1"))
+
+	makePod()
+	tt.WaitUnordered("add/namespace/name2")
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("name1/1.1.1.1,name2/2.2.2.2"))
+
+	// ensure updates trigger both (separately, reversed order)
+	updatePod(1)
+	tt.WaitUnordered("update/namespace/name2")
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("name1/1.1.1.1,name2/20.20.20.20"))
+
+	updatePod(0)
+	tt.WaitUnordered("update/namespace/name1")
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("name1/10.10.10.10,name2/20.20.20.20"))
+
+	// ensure deletes trigger both (separately)
+	deletePod(0)
+	tt.WaitUnordered("delete/namespace/name1")
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("name2/20.20.20.20"))
+
+	deletePod(1)
+	tt.WaitUnordered("delete/namespace/name2")
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of(""))
 }
 
 func TestCollectionDiscardResult(t *testing.T) {
