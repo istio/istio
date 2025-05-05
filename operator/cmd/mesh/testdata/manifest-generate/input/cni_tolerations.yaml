@@ -1,0 +1,14 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  components:
+    base:
+      enabled: true
+    pilot:
+      enabled: true
+    cni:
+      enabled: false
+      tolerations:
+      - key: "example-key"
+        operator: "Exists"
+        effect: "NoSchedule" 
