@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 var _ krt.ResourceNamer = Cluster{}
@@ -66,6 +67,33 @@ func (c Cluster) ResourceName() string {
 }
 
 func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, debugger *krt.DebugHandler) {
+	// Check and see if this is a local cluster or not
+	syncers := []krt.Syncer{
+		c.namespaces,
+		c.gateways,
+		c.services,
+		c.nodes,
+		c.endpointSlices,
+		c.pods,
+	}
+
+	existingCollection := slices.FindFunc(syncers, func(s krt.Syncer) bool {
+		return s != nil
+	})
+
+	// There's at least one pre-existing informer, so we can skip the rest of the setup
+	if existingCollection != nil {
+		log.Infof("Configuring cluster %s with existing informers", c.ID)
+		// Just wait for all syncers to be synced
+		for _, syncer := range syncers {
+			if !syncer.WaitUntilSynced(c.stop) {
+				log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
+				continue
+			}
+		}
+		return
+	}
+
 	if features.RemoteClusterTimeout > 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
 			if !c.initialSync.Load() {
@@ -153,7 +181,8 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, debugger *krt.DebugHan
 	c.endpointSlices = EndpointSlices
 	c.pods = Pods
 
-	syncers := []krt.Syncer{
+	// Reassign syncers for the check
+	syncers = []krt.Syncer{
 		c.namespaces,
 		c.gateways,
 		c.services,
@@ -203,4 +232,25 @@ func (c *Cluster) Stop() {
 	default:
 		close(c.stop)
 	}
+}
+
+func (c Cluster) WaitUntilSynced(stop <-chan struct{}) bool {
+	if c.HasSynced() {
+		return true
+	}
+	// Wait for all syncers to be synced
+	for _, syncer := range []krt.Syncer{
+		c.namespaces,
+		c.gateways,
+		c.services,
+		c.nodes,
+		c.endpointSlices,
+		c.pods,
+	} {
+		if !syncer.WaitUntilSynced(stop) {
+			log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
+			return false
+		}
+	}
+	return true
 }

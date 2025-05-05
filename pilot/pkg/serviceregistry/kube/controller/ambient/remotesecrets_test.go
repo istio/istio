@@ -17,6 +17,7 @@ package ambient
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -131,6 +132,7 @@ func TestBuildRemoteClustersCollection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Cleanup(tt.options.Client.Shutdown)
 			opts := krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler)
 			builderClient := kube.NewFakeClient(namespace)
 			builder := func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
@@ -140,16 +142,19 @@ func TestBuildRemoteClustersCollection(t *testing.T) {
 
 				return builderClient, nil
 			}
-			a := newAmbientTestServer(t, testC, testNW)
+			a := newAmbientTestServerFromOptions(t, testNW, tt.options)
 			a.clientBuilder = builder
 			clusters := a.remoteClusters
-			tt.options.Client.RunAndWait(opts.Stop()) // Wait for the client in options to be ready
 			assert.Equal(t, clusters.WaitUntilSynced(opts.Stop()), true)
 
+			listClusters := func() int {
+				return len(clusters.List())
+			}
+
 			if tt.expectedError {
-				assert.Equal(t, len(clusters.List()), 0)
+				assert.Equal(t, listClusters(), 0)
 			} else {
-				assert.Equal(t, len(clusters.List()), 1)
+				assert.EventuallyEqual(t, listClusters, 1)
 			}
 		})
 	}
@@ -171,7 +176,19 @@ func TestKubeConfigOverride(t *testing.T) {
 		}
 		return kube.NewFakeClient(), nil
 	}
-	a := newAmbientTestServer(t, testC, testNW)
+	options := Options{
+		Client:        client,
+		ClusterID:     "local-cluster",
+		ClientBuilder: builder,
+		RemoteClientConfigOverrides: []func(*rest.Config){
+			func(cfg *rest.Config) {
+				cfg.QPS = expectedQPS
+				cfg.Burst = expectedBurst
+			},
+		},
+	}
+	t.Cleanup(options.Client.Shutdown)
+	a := newAmbientTestServerFromOptions(t, testNW, options)
 	a.clientBuilder = builder
 	clusters := a.remoteClusters
 
@@ -217,9 +234,10 @@ func buildTestController(t *testing.T) testController {
 		SystemNamespace: "istio-system",
 		DomainSuffix:    "company.com",
 		MeshConfig:      watcher,
+		ClientBuilder:   TestingBuildClientsFromConfig,
 	}
+	t.Cleanup(options.Client.Shutdown)
 	a := newAmbientTestServerFromOptions(t, testNW, options)
-	a.clientBuilder = TestingBuildClientsFromConfig
 	tc.clusters = a.remoteClusters
 	tc.mesh = watcher
 	return tc
@@ -237,18 +255,11 @@ func (t *testController) DeleteSecret(secretName string) {
 	t.secrets.Delete(secretName, secretNamespace)
 }
 
-func (t *testController) Run(stop chan struct{}) {
-	t.client.RunAndWait(stop)
-}
-
 func TestListRemoteClusters(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-	stop := make(chan struct{})
 	tc := buildTestController(t)
 	tc.AddSecret("s0", "c0")
 	tc.AddSecret("s1", "c1")
-	tc.Run(stop)
-
 	// before sync
 	getSimpleClusters := func() []simpleCluster {
 		clusters := tc.clusters.List()
@@ -277,7 +288,6 @@ func TestShutdown(t *testing.T) {
 	tc := buildTestController(t)
 	tc.AddSecret("s0", "c0")
 	tc.AddSecret("s1", "c1")
-	tc.Run(stop)
 	retry.UntilOrFail(t, tc.clusters.HasSynced, retry.Timeout(2*time.Second))
 
 	// Remove secret, it should be marked as closed
@@ -323,11 +333,8 @@ func TestObjectFilter(t *testing.T) {
 					Name:   "not-allowed",
 					Labels: map[string]string{"kubernetes.io/metadata.name": "not-allowed"},
 				},
-			})
-	}
-	tc := testController{
-		client: clientWithNamespace(),
-		t:      t,
+			},
+		)
 	}
 	mesh := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
 		DiscoverySelectors: []*meshconfig.LabelSelector{
@@ -339,6 +346,12 @@ func TestObjectFilter(t *testing.T) {
 		},
 	})
 
+	tc := testController{
+		client: clientWithNamespace(),
+		t:      t,
+	}
+
+	clusterID := cluster.ID("config")
 	// For primary cluster, we need to set it up ourselves.
 	namespaces := kclient.New[*corev1.Namespace](tc.client)
 	filter := namespace.NewDiscoveryNamespacesFilter(namespaces, mesh, stop)
@@ -346,22 +359,25 @@ func TestObjectFilter(t *testing.T) {
 	tc.secrets = clienttest.NewWriter[*corev1.Secret](t, tc.client)
 	options := Options{
 		Client:          tc.client,
-		ClusterID:       "config",
-		SystemNamespace: secretNamespace,
+		ClusterID:       clusterID,
+		SystemNamespace: "istio-system",
 		DomainSuffix:    "company.com",
 		MeshConfig:      mesh,
+		ClientBuilder: func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+			return clientWithNamespace(), nil
+		},
 	}
 	a := newAmbientTestServerFromOptions(t, testNW, options)
-	a.clientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
-		return clientWithNamespace(), nil
-	}
+
 	tc.clusters = a.remoteClusters
 	tc.mesh = mesh
 
+	var wg sync.WaitGroup
 	_ = krt.NewCollection(tc.clusters, func(ctx krt.HandlerContext, cluster Cluster) *testHandler {
 		assert.Equal(t, cluster.Client.ObjectFilter() != nil, true, "cluster "+cluster.ID.String())
 		assert.Equal(t, cluster.Client.ObjectFilter().Filter("allowed"), true)
 		assert.Equal(t, cluster.Client.ObjectFilter().Filter("not-allowed"), false)
+		wg.Done()
 		return &testHandler{
 			ID:     cluster.ID,
 			Closed: atomic.NewBool(false),
@@ -371,8 +387,16 @@ func TestObjectFilter(t *testing.T) {
 
 	tc.AddSecret("s0", "c0")
 	tc.AddSecret("s1", "c1")
-	tc.Run(stop)
-	retry.UntilOrFail(t, tc.clusters.HasSynced, retry.Timeout(2*time.Second))
+	wg.Add(2) // 1 per cluster
+	retry.UntilOrFail(t, func() bool {
+		s := tc.clusters.HasSynced()
+		return s
+	}, retry.Timeout(2*time.Second))
+	// Test the local cluster since the collection is only run for remote clusters
+	assert.Equal(t, tc.client.ObjectFilter() != nil, true, "cluster "+clusterID.String())
+	assert.Equal(t, tc.client.ObjectFilter().Filter("allowed"), true)
+	assert.Equal(t, tc.client.ObjectFilter().Filter("not-allowed"), false)
+	wg.Wait() // Make sure we evaluate the inside of the collection
 }
 
 // type informerHandler[T controllers.ComparableObject] struct {

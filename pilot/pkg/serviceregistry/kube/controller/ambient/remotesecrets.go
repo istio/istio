@@ -81,7 +81,7 @@ func (a ACTION) String() string {
 }
 
 func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig []byte, clusterID string) (*Cluster, error) {
-	client, err := a.clientBuilder(kubeConfig, cluster.ID(clusterID))
+	client, err := a.clientBuilder(kubeConfig, cluster.ID(clusterID), a.remoteClientConfigOverrides...)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +180,7 @@ func (a *index) deleteCluster(secretKey string, cluster *Cluster) {
 	log.Infof("Number of remote clusters: %d", a.cs.Len())
 }
 
-func (a *index) processSecretQueueItem(key types.NamespacedName) error {
+func (a *index) processSecretEvent(key types.NamespacedName) error {
 	log.Infof("processing secret event for secret %s", key)
 	scrt := ptr.Flatten(a.secrets.GetKey(key.String()))
 	if scrt != nil {
@@ -234,13 +234,22 @@ func (a *index) buildRemoteClustersCollection(
 	Secrets := krt.WrapClient(secrets, opts.WithName("RemoteSecrets")...)
 	a.secrets = Secrets
 
+	// N.B Informer collections don't call handler before marking synced, so
+	// RemoteClusters will be synced pretty immediately.
 	Secrets.Register(func(o krt.Event[*corev1.Secret]) {
 		s := o.Latest()
-		err := a.processSecretQueueItem(config.NamespacedName(s))
+		err := a.processSecretEvent(config.NamespacedName(s))
 		if err != nil {
 			log.Errorf("error processing secret %s: %v", krt.GetKey(s), err)
 		}
 	})
+
+	go func() {
+		if !Secrets.WaitUntilSynced(a.stop) {
+			log.Errorf("Timed out waiting for remote secrets to sync")
+		}
+		a.cs.rt.MarkSynced() // Mark clusters as synced iff secrets are synced
+	}()
 
 	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []Cluster {
 		a.cs.rt.MarkDependant(ctx) // Subscribe to updates from the clusterStore
