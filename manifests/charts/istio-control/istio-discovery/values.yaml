@@ -385,7 +385,7 @@ _internal_defaults_do_not_set:
 
       # how many seconds wait to drain all the connections
       # Default K8S value is 30 seconds
-      terminationGracePeriodSeconds: 30
+      # terminationGracePeriodSeconds: 30
 
     proxy_init:
       # Base name for the proxy_init container, used to configure iptables.
