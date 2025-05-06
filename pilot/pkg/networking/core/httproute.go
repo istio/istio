@@ -263,11 +263,11 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 				break
 			}
 
-			if host.Name(h).IsWildCarded() {
+			if lch.IsWildCarded() {
 				// Process wildcard vs host as it need to follow the slow path of
 				// looping through all services in the map.
 				for svcHost := range servicesByName {
-					if host.Name(lch).Matches(svcHost) {
+					if lch.Matches(svcHost) {
 						match = true
 						break
 					}
@@ -276,7 +276,7 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 				// If non wildcard vs host isn't be found in service map, only loop through
 				// wildcard service hosts to avoid repeated matching.
 				for _, svcHost := range wcSvcHosts {
-					if host.Name(lch).Matches(svcHost) {
+					if lch.Matches(svcHost) {
 						match = true
 						break
 					}

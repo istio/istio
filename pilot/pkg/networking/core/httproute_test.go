@@ -1055,6 +1055,26 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 	}
+	// Copy of virtualServiceSpec2
+	wildcardVirtualServiceSpec := &networking.VirtualService{
+		Hosts:    []string{"*-private-2.COM"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 62,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
 	virtualServiceSpec3 := &networking.VirtualService{
 		Hosts:    []string{"test-private-3.com"},
 		Gateways: []string{"mesh"},
@@ -1176,6 +1196,14 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			Namespace:        "not-default",
 		},
 		Spec: virtualServiceSpec2,
+	}
+	wildcardVirtualService2 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "acme-v2",
+			Namespace:        "not-default",
+		},
+		Spec: wildcardVirtualServiceSpec,
 	}
 	virtualService3 := config.Config{
 		Meta: config.Meta{
@@ -1516,6 +1544,21 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 			routeName:             "60",
 			sidecarConfig:         nil,
 			virtualServiceConfigs: []*config.Config{&virtualService1, &virtualService2},
+			expectedHosts: map[string]map[string]bool{
+				"test-private-2.com:60": {
+					"test-private-2.com": true, "9.9.9.10": true, "test-private-2.com.": true,
+				},
+				"block_all": {
+					"*": true,
+				},
+			},
+			registryOnly: true,
+		},
+		{
+			name:                  "no sidecar config with virtual services with wildcard",
+			routeName:             "60",
+			sidecarConfig:         nil,
+			virtualServiceConfigs: []*config.Config{&wildcardVirtualService2},
 			expectedHosts: map[string]map[string]bool{
 				"test-private-2.com:60": {
 					"test-private-2.com": true, "9.9.9.10": true, "test-private-2.com.": true,
