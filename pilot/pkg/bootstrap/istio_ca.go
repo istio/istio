@@ -598,6 +598,7 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 }
 
 // checkCABundleCompleteness checks if all required CA certificate files exist
+// this function may return bundleExists as false even when some files exist in case of an error
 func checkCABundleCompleteness(
 	signingKeyFile, signingCertFile, rootCertFile string,
 	chainFiles []string,
