@@ -63,6 +63,7 @@ values:
       namespace: "%s"
     env:
       PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS: "true"
+    trustedZtunnelNamespace: istio-system
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
