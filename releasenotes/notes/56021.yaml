@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 56022
+releaseNotes: 
+- |
+  **Fixed** sidecar with old CLUSTER_ID is now able to connect to istiod with new CLUSTER_ID when `--clusterAliases` command argument is being used.
+- |
+  **Added** validation for `--clusterAliases` command argument, that it shouldn't have more than one alias per cluster.
