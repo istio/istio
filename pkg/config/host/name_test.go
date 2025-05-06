@@ -28,6 +28,7 @@ func TestNameMatches(t *testing.T) {
 		out  bool
 	}{
 		{"empty", "", "", true},
+		{"mixed case", "a.facebook.com", "*.facebook.COM", true},
 		{"first empty", "", "foo.com", false},
 		{"second empty", "foo.com", "", false},
 

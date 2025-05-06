@@ -254,10 +254,11 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 		// if any host in the list matches one service hostname, select the virtual service
 		// and break out of the loop.
 		for _, h := range rule.Hosts {
+			lch := host.Name(strings.ToLower(h))
 			// TODO: This is a bug. VirtualServices can have many hosts
 			// while the user might be importing only a single host
 			// We need to generate a new VirtualService with just the matched host
-			if servicesByName[host.Name(strings.ToLower(h))] != nil {
+			if servicesByName[lch] != nil {
 				match = true
 				break
 			}
@@ -266,7 +267,7 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 				// Process wildcard vs host as it need to follow the slow path of
 				// looping through all services in the map.
 				for svcHost := range servicesByName {
-					if host.Name(h).Matches(svcHost) {
+					if host.Name(lch).Matches(svcHost) {
 						match = true
 						break
 					}
@@ -275,7 +276,7 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 				// If non wildcard vs host isn't be found in service map, only loop through
 				// wildcard service hosts to avoid repeated matching.
 				for _, svcHost := range wcSvcHosts {
-					if host.Name(h).Matches(svcHost) {
+					if host.Name(lch).Matches(svcHost) {
 						match = true
 						break
 					}
