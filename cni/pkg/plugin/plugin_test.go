@@ -79,6 +79,31 @@ var mockConfTmpl = `{
     "plugin_log_level": "debug",
     "cni_agent_run_dir": "%s",
     "ambient_enabled": %t,
+	"enablement_selectors": [
+		{
+			"podSelector": {
+				"matchLabels": {
+					"istio.io/dataplane-mode": "ambient"
+				}
+			}
+        },
+		{
+			"podSelector": {
+				"matchExpressions": [
+					{
+						"key": "istio.io/dataplane-mode",
+						"operator": "NotIn",
+						"values": ["none"]
+					}
+				]
+			},
+			"namespaceSelector": {
+				"matchLabels": {
+					"istio.io/dataplane-mode": "ambient"
+				}
+			}
+		}
+	],
 	"exclude_namespaces": ["testExcludeNS"],
     "kubernetes": {
         "k8s_api_root": "APIRoot",
@@ -529,6 +554,31 @@ func TestCmdAddNoPrevResult(t *testing.T) {
     },
     "loglevel": "debug",
 	"ambient_enabled": %t,
+	"enablement_selectors": [
+		{
+			"podSelector": {
+				"matchLabels": {
+					"istio.io/dataplane-mode": "ambient"
+				}
+			}
+        },
+		{
+			"podSelector": {
+				"matchExpressions": [
+					{
+						"key": "istio.io/dataplane-mode",
+						"operator": "NotIn",
+						"values": ["none"]
+					}
+				]
+			},
+			"namespaceSelector": {
+				"matchLabels": {
+					"istio.io/dataplane-mode": "ambient"
+				}
+			}
+		}
+	],
     "kubernetes": {
         "k8sapiroot": "APIRoot",
         "kubeconfig": "testK8sConfig",

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 53578
+releaseNotes:
+- |
+  **Added** support customizing Ambient Enablement Labels.
