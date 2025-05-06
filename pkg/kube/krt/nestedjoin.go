@@ -36,12 +36,13 @@ type nestedjoin[T any] struct {
 	metadata                 Metadata
 	sync.RWMutex
 
-	seenFirstAddForKey map[string]struct{}
-	// Use a separate mutex so we can have memory-safe operations regardless of
-	// whether the collection change handler list is being read/written to or not
-	seenFirstAddForKeyMu sync.Mutex
 	// Keep a stop channel so we can check if nested collections are synced
 	stop <-chan struct{}
+}
+
+type eventSyncMap struct {
+	keys map[string]struct{}
+	sync.Mutex
 }
 
 func (j *nestedjoin[T]) GetKey(k string) *T {
@@ -174,7 +175,11 @@ func (j *nestedjoin[T]) Register(f func(o Event[T])) HandlerRegistration {
 // the set of collections we have (e.g. a collection is added, deleted, or updated).
 // It is run while holding the lock on j, so we can safely mutate state within the
 // body of the function
-func (j *nestedjoin[T]) handleCollectionChangeEventLocked(djhr *dynamicJoinHandlerRegistration, e collectionChangeEvent[T], handler func(o []Event[T])) {
+func (j *nestedjoin[T]) handleCollectionChangeEventLocked(
+	djhr *dynamicJoinHandlerRegistration,
+	e collectionChangeEvent[T],
+	handler func(o []Event[T]),
+	seenFirstAddForKey *eventSyncMap) {
 	djhr.Lock()
 	defer djhr.Unlock()
 	// This entire function is executed while holding the lock on j, so we can freely
@@ -190,7 +195,7 @@ func (j *nestedjoin[T]) handleCollectionChangeEventLocked(djhr *dynamicJoinHandl
 				return
 			}
 			handler(o)
-		}), true)
+		}, seenFirstAddForKey), true)
 		djhr.removes[e.collectionValue.uid()] = reg.UnregisterHandler
 		djhr.syncers[e.collectionValue.uid()] = reg
 	case collectionMembershipEventDelete:
@@ -234,10 +239,9 @@ func (j *nestedjoin[T]) handleCollectionChangeEventLocked(djhr *dynamicJoinHandl
 			if res == nil {
 				// Send a delete event for the merged version of this key
 				events = append(events, Event[T]{Old: m, Event: controllers.EventDelete})
-				// Remove the key from the seenFirstAddForKey map
-				j.seenFirstAddForKeyMu.Lock()
-				delete(j.seenFirstAddForKey, string(key))
-				j.seenFirstAddForKeyMu.Unlock()
+				seenFirstAddForKey.Lock()
+				delete(seenFirstAddForKey.keys, string(key))
+				seenFirstAddForKey.Unlock()
 				continue
 			}
 			// There are some versions of this key still in the overall collection
@@ -299,9 +303,17 @@ func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState boo
 	syncers := make(map[collectionUID]Syncer)
 	removes := map[collectionUID]func(){}
 
+	// This is tricky because each handler has its own goroutine and we don't want to get
+	// multiple adds if a resource is added to multiple collections in the nested join at the same time.
+	// We want an add (for the first one) and then an update, and we want this to happen for each handler
+	// meaning we can't use the nested join struct to synchronize. Instead, we created a map per handler
+	// (note: not per handler per inner collection; 1 collection for all handlers)
+	seenFirstAddForKey := &eventSyncMap{
+		keys: make(map[string]struct{}),
+	}
 	for _, c := range j.collections.List() {
 		ic := c.(internalCollection[T])
-		reg := c.RegisterBatch(j.handleInnerCollectionEvent(f), runExistingState)
+		reg := c.RegisterBatch(j.handleInnerCollectionEvent(f, seenFirstAddForKey), runExistingState)
 		removes[ic.uid()] = reg.UnregisterHandler
 		syncers[ic.uid()] = reg
 	}
@@ -312,18 +324,19 @@ func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState boo
 
 	// We register to get notified if a collection within our set of collections is modified
 	j.registerCollectionChangeHandler(func(e collectionChangeEvent[T]) {
-		j.handleCollectionChangeEventLocked(djhr, e, f)
+		j.handleCollectionChangeEventLocked(djhr, e, f, seenFirstAddForKey)
 	})
 
 	return djhr
 }
 
-func (j *nestedjoin[T]) handleInnerCollectionEvent(handler func(o []Event[T])) func(o []Event[T]) {
+func (j *nestedjoin[T]) handleInnerCollectionEvent(handler func(o []Event[T]), seenFirstAddForKey *eventSyncMap) func(o []Event[T]) {
+
 	return func(events []Event[T]) {
 		// Lock the map during this entire handler for readability and to ensure events remain in-order
 		// across collections)
-		j.seenFirstAddForKeyMu.Lock()
-		defer j.seenFirstAddForKeyMu.Unlock()
+		seenFirstAddForKey.Lock()
+		defer seenFirstAddForKey.Unlock()
 		mergedEvents := make([]Event[T], 0, len(events))
 		for _, i := range events {
 			key := GetKey(i.Latest())
@@ -335,16 +348,12 @@ func (j *nestedjoin[T]) handleInnerCollectionEvent(handler func(o []Event[T])) f
 					// Remove the key from the seenFirstAddForKey map. It's unlikely that
 					// we would have two adds in different sub-collections at the exact same time
 					// but handle it just in case
-					delete(j.seenFirstAddForKey, key)
+					delete(seenFirstAddForKey.keys, key)
 				}
 			case controllers.EventAdd:
-				// If we haven't seen an add for this key before, this should be a real add.
-				// This is to prevent the case where the collection source starts its initial sync
-				// with duplicate keys in different collections. Without this check, both events would
-				// look like updates becaues GetKey() would return the merged version that differs
-				// from the original event object.
-				if _, ok := j.seenFirstAddForKey[key]; !ok {
-					j.seenFirstAddForKey[key] = struct{}{}
+				mergedEvents = append(mergedEvents, getMergedAdd(i, merged))
+				if _, ok := seenFirstAddForKey.keys[key]; !ok {
+					seenFirstAddForKey.keys[key] = struct{}{}
 					mergedEvents = append(mergedEvents, Event[T]{
 						Event: controllers.EventAdd,
 						Old:   nil,
@@ -352,7 +361,6 @@ func (j *nestedjoin[T]) handleInnerCollectionEvent(handler func(o []Event[T])) f
 					})
 					continue
 				}
-				mergedEvents = append(mergedEvents, getMergedAdd(i, merged))
 			case controllers.EventUpdate:
 				mergedEvents = append(mergedEvents, getMergedUpdate(i, merged))
 			}
@@ -528,9 +536,8 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 			name:   o.name,
 			synced: synced,
 		},
-		merge:              merge,
-		seenFirstAddForKey: make(map[string]struct{}),
-		stop:               o.stop,
+		merge: merge,
+		stop:  o.stop,
 	}
 
 	if o.metadata != nil {
