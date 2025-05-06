@@ -7,7 +7,7 @@ spec:
     pilot:
       enabled: true
     cni:
-      enabled: false
+      enabled: true
       tolerations:
       - key: "example-key"
         operator: "Exists"
