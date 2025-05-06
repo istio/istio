@@ -180,3 +180,7 @@ _internal_defaults_do_not_set:
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
   # for more detail.
   priorityClassName: ""
+
+  # Configure the lifecycle hooks for the gateway. See
+  # https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/.
+  lifecycle: {}
