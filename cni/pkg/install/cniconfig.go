@@ -176,6 +176,7 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 				continue
 			}
 		} else {
+			//nolint:staticcheck
 			conf, err := libcni.ConfFromFile(confFile)
 			if err != nil {
 				installLog.Warnf("Error loading CNI config file %s: %v", confFile, err)
@@ -188,6 +189,7 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 				continue
 			}
 
+			//nolint:staticcheck
 			confList, err = libcni.ConfListFromConf(conf)
 			if err != nil {
 				installLog.Warnf("Error converting CNI config file %s to list: %v", confFile, err)
