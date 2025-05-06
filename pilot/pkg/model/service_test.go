@@ -732,6 +732,104 @@ func TestGetAllAddresses(t *testing.T) {
 	}
 }
 
+func TestGetAddressForProxy(t *testing.T) {
+	tests := []struct {
+		name            string
+		service         *Service
+		proxy           *Proxy
+		expectedAddress string
+	}{
+		{
+			name: "IPv4 mode with IPv4 addresses, expected to return the first IPv4 address",
+			service: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cl1": {"10.0.0.1", "10.0.0.2"},
+					},
+				},
+			},
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					ClusterID: "cl1",
+				},
+				ipMode: IPv4,
+			},
+			expectedAddress: "10.0.0.1",
+		},
+		{
+			name: "IPv6 mode with IPv6 addresses, expected to return the first IPv6 address",
+			service: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cl1": {"2001:db8:abcd::1", "2001:db8:abcd::2"},
+					},
+				},
+			},
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					ClusterID: "cl1",
+				},
+				ipMode: IPv6,
+			},
+			expectedAddress: "2001:db8:abcd::1",
+		},
+		{
+			name: "Dual mode with both IPv6 and IPv4 addresses, expected to return the IPv6 address",
+			service: &Service{
+				ClusterVIPs: AddressMap{
+					Addresses: map[cluster.ID][]string{
+						"cl1": {"2001:db8:abcd::1", "10.0.0.1"},
+					},
+				},
+			},
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					ClusterID: "cl1",
+				},
+				ipMode: Dual,
+			},
+			expectedAddress: "2001:db8:abcd::1",
+		},
+		{
+			name: "IPv4 mode with Auto-allocated IPv4 address",
+			service: &Service{
+				DefaultAddress:           constants.UnspecifiedIP,
+				AutoAllocatedIPv4Address: "240.240.0.1",
+			},
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					DNSAutoAllocate: true,
+					DNSCapture:      true,
+				},
+				ipMode: IPv4,
+			},
+			expectedAddress: "240.240.0.1",
+		},
+		{
+			name: "IPv6 mode with Auto-allocated IPv6 address",
+			service: &Service{
+				DefaultAddress:           constants.UnspecifiedIP,
+				AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+			},
+			proxy: &Proxy{
+				Metadata: &NodeMetadata{
+					DNSAutoAllocate: true,
+					DNSCapture:      true,
+				},
+				ipMode: IPv6,
+			},
+			expectedAddress: "2001:2::f0f0:e351",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.service.GetAddressForProxy(tt.proxy)
+			assert.Equal(t, result, tt.expectedAddress)
+		})
+	}
+}
+
 func TestWaypointKeyForProxy(t *testing.T) {
 	tests := []struct {
 		name              string
