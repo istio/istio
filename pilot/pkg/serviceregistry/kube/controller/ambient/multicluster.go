@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
@@ -109,7 +110,12 @@ func (a *index) buildGlobalCollections(
 	GlobalGatewaysWithCluster := nestedCollectionFromLocalAndRemote(
 		LocalGatewaysWithCluster,
 		clusters,
-		func(_ krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]] {
+		func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]] {
+			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/gateways[%s]", c.ID), a.stop, c.gateways.HasSynced) {
+				log.Warnf("Failed to sync gateways informer for cluster %s", c.ID)
+				ctx.DiscardResult()
+				return nil
+			}
 			return ptr.Of(krt.MapCollection(c.gateways, func(obj *v1beta1.Gateway) config.ObjectWithCluster[*v1beta1.Gateway] {
 				return config.ObjectWithCluster[*v1beta1.Gateway]{
 					ClusterID: c.ID,
@@ -134,7 +140,12 @@ func (a *index) buildGlobalCollections(
 	GlobalNodesWithCluster := nestedCollectionFromLocalAndRemote(
 		LocalNodesWithCluster,
 		clusters,
-		func(_ krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[*v1.Node]] {
+		func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[*v1.Node]] {
+			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/nodes[%s]", c.ID), a.stop, c.nodes.HasSynced) {
+				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID)
+				ctx.DiscardResult()
+				return nil
+			}
 			return ptr.Of(krt.MapCollection(c.nodes, func(obj *v1.Node) config.ObjectWithCluster[*v1.Node] {
 				return config.ObjectWithCluster[*v1.Node]{
 					ClusterID: c.ID,
