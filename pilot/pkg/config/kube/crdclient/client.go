@@ -420,17 +420,12 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 		filter.ObjectFilter = kubetypes.ComposeFilters(namespaceFilter, extraFilter)
 	}
 
-	var kc kclient.Untyped
-	if s.IsBuiltin() {
-		kc = kclient.NewUntypedInformer(cl.client, gvr, filter)
-	} else {
-		kc = kclient.NewDelayedInformer[controllers.Object](
-			cl.client,
-			gvr,
-			kubetypes.StandardInformer,
-			filter,
-		)
-	}
+	kc := kclient.NewDelayedInformer[controllers.Object](
+		cl.client,
+		gvr,
+		kubetypes.StandardInformer,
+		filter,
+	)
 
 	translateFunc, f := translationMap[resourceGVK]
 	if !f {
