@@ -585,6 +585,10 @@ func TestManifestGenerateZtunnel(t *testing.T) {
 			desc:       "ztunnel",
 			diffSelect: "DaemonSet:*:ztunnel",
 		},
+		{
+			desc:       "ztunnel_tolerations",
+			diffSelect: "DaemonSet:*:ztunnel",
+		},
 	})
 }
 
