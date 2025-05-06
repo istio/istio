@@ -1,0 +1,46 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: minimal
+  meshConfig:
+    accessLogFile: /dev/stdout
+    trustDomain: ${LOCAL_CLUSTER}.local
+    caCertificates:
+    - spiffeBundleUrl: https://spire-server.spire.svc.cluster.local:8443
+      trustDomains:
+      - ${LOCAL_CLUSTER}.local
+    - spiffeBundleUrl: https://${REMOTE_BUNDLE_ENDPOINT}:8443
+      trustDomains:
+      - ${REMOTE_CLUSTER}.local
+  values:
+    global:
+      meshID: ${LOCAL_CLUSTER}-mesh
+      multiCluster:
+        clusterName: ${LOCAL_CLUSTER}
+      network: ${LOCAL_CLUSTER}-network
+    sidecarInjectorWebhook:
+      templates:
+        spire: |
+          spec:
+            initContainers:
+            - name: istio-proxy
+              volumeMounts:
+              - name: workload-socket
+                mountPath: /var/run/secrets/workload-spiffe-uds
+            volumes:
+            - name: workload-socket
+              csi:
+                driver: "csi.spiffe.io"
+                readOnly: true
+        spire-gateway: |
+          spec:
+            containers:
+            - name: istio-proxy
+              volumeMounts:
+              - name: workload-socket
+                mountPath: /var/run/secrets/workload-spiffe-uds
+            volumes:
+            - name: workload-socket
+              csi:
+                driver: "csi.spiffe.io"
+                readOnly: true
