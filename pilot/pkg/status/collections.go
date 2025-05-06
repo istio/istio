@@ -24,6 +24,7 @@ import (
 	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -94,5 +95,6 @@ func enqueueStatus[T any](sw Queue, obj controllers.Object, ws T) {
 		Name:                 obj.GetName(),
 		Generation:           strconv.FormatInt(obj.GetGeneration(), 10),
 	}
+	log.Infof("Enqueueing status update for %+v: %+v", res, ws)
 	sw.EnqueueStatusUpdateResource(ws, res)
 }
