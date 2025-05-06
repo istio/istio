@@ -234,8 +234,6 @@ func (a *index) buildGlobalCollections(
 		opts,
 	)
 
-	GobalWorkloadServicesWithClusterByCluster := nestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
-
 	GlobalMergedWorkloadServicesWithCluster := krt.NestedJoinWithMergeCollection(
 		GlobalWorkloadServicesWithCluster,
 		mergeServiceInfosWithCluster(localCluster.ID),
@@ -248,6 +246,16 @@ func (a *index) buildGlobalCollections(
 		opts.WithName("GlobalMergedServiceInfos")...,
 	)
 
+	// TODO: confirm expected functionality before we register
+	GlobalMergedWorkloadServices.RegisterBatch(krt.BatchedEventFilter(
+		func(a model.ServiceInfo) *workloadapi.Service {
+			// Only trigger push if the XDS object changed; the rest is just for computation of others
+			return a.Service
+		},
+		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
+	), true)
+
+	GobalWorkloadServicesWithClusterByCluster := nestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
 	LocalServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](LocalWorkloadServices, "serviceAddress", networkAddressFromService)
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](GlobalMergedWorkloadServices, "serviceAddress", networkAddressFromService)
 	ServiceInfosByOwningWaypointHostname := krt.NewIndex(GlobalMergedWorkloadServices, "namespaceHostname", func(s model.ServiceInfo) []NamespaceHostname {
@@ -291,14 +299,6 @@ func (a *index) buildGlobalCollections(
 
 		return []networkAddress{netaddr}
 	})
-	// TODO: confirm expected functionality before we register
-	GlobalMergedWorkloadServices.RegisterBatch(krt.BatchedEventFilter(
-		func(a model.ServiceInfo) *workloadapi.Service {
-			// Only trigger push if the XDS object changed; the rest is just for computation of others
-			return a.Service
-		},
-		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
-	), false)
 
 	LocalNamespacesInfo := krt.NewCollection(LocalNamespaces, func(ctx krt.HandlerContext, ns *v1.Namespace) *model.NamespaceInfo {
 		return &model.NamespaceInfo{
