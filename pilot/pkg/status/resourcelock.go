@@ -204,7 +204,6 @@ func (wp *WorkerPool) maybeAddWorker() {
 			wp.lock.Unlock()
 			// work should be done without holding the lock
 			cfg := wp.get(target)
-			scope.Infof("retrieved config for status update %s: %+v", target, cfg)
 			if cfg != nil {
 				// Check that generation matches
 				if strconv.FormatInt(cfg.Generation, 10) == target.Generation {
@@ -216,8 +215,6 @@ func (wp *WorkerPool) maybeAddWorker() {
 					}
 					cfg.Status = sm.Unwrap()
 					wp.write(cfg)
-				} else {
-					scope.Infof("skipping status update for %s because generation does not match: %s != %s", target, cfg.Generation, target.Generation)
 				}
 			}
 			wp.lock.Lock()

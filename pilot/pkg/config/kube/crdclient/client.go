@@ -239,6 +239,11 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 	} else {
 		key = namespace + "/" + name
 	}
+
+	// TODO: currently, we have to use the informer directly instead of the derived collection
+	// because there are race conditions when multiple collections are derived from the same informer
+	// and then try to access the same object. This happens mostly on Gateway Controller status handling.
+	// Related to https://github.com/istio/istio/issues/56131
 	obj := h.informer.GetKey(key)
 	if obj == nil {
 		cl.logger.Debugf("couldn't find %s/%s in informer index", namespace, name)
