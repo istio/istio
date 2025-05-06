@@ -227,7 +227,7 @@ func tagListCommand(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			return listTags(context.Background(), kubeClient.Kube(), cmd.OutOrStdout(), cmd.ErrOrStderr())
+			return listTags(context.Background(), kubeClient.Kube(), ctx.IstioNamespace(), cmd.OutOrStdout())
 		},
 	}
 
@@ -406,19 +406,25 @@ type uniqTag struct {
 }
 
 // listTags lists existing revision.
-func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer, errWriter io.Writer) error {
+func listTags(ctx context.Context, kubeClient kubernetes.Interface, istioNS string, writer io.Writer) error {
 	uniqTags, err := uniqTagsFromWebhooks(ctx, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve revision tags: %v", err)
 	}
 
-	// TODO: Also incorporate tags from services if ambient is enabled for any revision
-	// serviceTags, err := uniqTagsFromServices(ctx, kubeClient, istioNS) ... merge results
+	serviceTags, err := uniqTagsFromServices(ctx, kubeClient, istioNS)
+	if err != nil {
+		return err
+	}
+	for svcTag := range serviceTags {
+		uniqTags[svcTag] = true
+	}
 
 	if len(uniqTags) == 0 {
 		fmt.Fprintf(writer, "No Istio revision tags found.\\n") // Adjusted message slightly
 		return nil
 	}
+
 	rawTags := map[uniqTag]tagDescription{}
 	for ut := range uniqTags {
 		tagName := ut.tag

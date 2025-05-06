@@ -106,10 +106,10 @@ func TestTagList(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			var outBuff, errBuff bytes.Buffer
+			var out bytes.Buffer
 			client := fake.NewClientset(tc.webhooks.DeepCopyObject(), tc.namespaces.DeepCopyObject())
 			outputFormat = util.JSONFormat
-			err := listTags(context.Background(), client, &outBuff, &errBuff)
+			err := listTags(context.Background(), client, "istio-system", &out)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -122,7 +122,7 @@ func TestTagList(t *testing.T) {
 				}
 			}
 
-			commandOutput := outBuff.String()
+			commandOutput := out.String()
 			for _, s := range tc.outputMatches {
 				if !strings.Contains(commandOutput, s) {
 					t.Fatalf("expected \"%s\" in command output, got %s", s, commandOutput)
