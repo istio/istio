@@ -87,6 +87,7 @@ type Client struct {
 }
 
 type nsStore struct {
+	informer   krt.Collection[controllers.Object]
 	collection krt.Collection[config.Config]
 	index      krt.Index[string, config.Config]
 }
@@ -238,13 +239,15 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 	} else {
 		key = namespace + "/" + name
 	}
-	obj := h.collection.GetKey(key)
+	obj := h.informer.GetKey(key)
 	if obj == nil {
 		cl.logger.Debugf("couldn't find %s/%s in informer index", namespace, name)
 		return nil
 	}
 
-	return obj
+	cfg := TranslateObject(*obj, typ, cl.domainSuffix)
+
+	return &cfg
 }
 
 // Create implements store interface
@@ -441,6 +444,7 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 	}, opts.WithName("collection/"+resourceGVK.Kind)...)
 	index := krt.NewNamespaceIndex(collection)
 	cl.collections[resourceGVK] = nsStore{
+		informer:   wrappedClient,
 		collection: collection,
 		index:      index,
 	}
