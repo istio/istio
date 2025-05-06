@@ -383,10 +383,6 @@ _internal_defaults_do_not_set:
       # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
       tracer: "none"
 
-      # how many seconds wait to drain all the connections
-      # Default K8S value is 30 seconds
-      # terminationGracePeriodSeconds: 30
-
     proxy_init:
       # Base name for the proxy_init container, used to configure iptables.
       image: proxyv2
@@ -545,6 +541,10 @@ _internal_defaults_do_not_set:
 
     # Set to `type: RuntimeDefault` to use the default profile for templated gateways, if your container runtime supports it
     seccompProfile: {}
+
+    # how many seconds wait to drain all the connections
+    # Default K8S value is 30 seconds
+    # terminationGracePeriodSeconds: 30
 
   # gatewayClasses allows customizing the configuration of the default deployment of Gateways per GatewayClass.
   # For example:

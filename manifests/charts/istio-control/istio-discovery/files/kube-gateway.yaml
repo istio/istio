@@ -80,8 +80,8 @@ spec:
       {{- end }}
       {{- end }}
       serviceAccountName: {{.ServiceAccount | quote}}
-      {{- if .Values.global.proxy.terminationGracePeriodSeconds }}
-      terminationGracePeriodSeconds: {{ .Values.global.proxy.terminationGracePeriodSeconds }}
+      {{- if .Values.gateways.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ .Values.gateways.terminationGracePeriodSeconds }}
       {{- end }}
       containers:
       - name: istio-proxy
