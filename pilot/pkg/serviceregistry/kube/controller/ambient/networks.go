@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	kubectrl "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
@@ -62,7 +61,7 @@ func (c networkCollections) HasSynced() bool {
 }
 
 func buildGlobalNetworkCollections(
-	clusters krt.Collection[Cluster],
+	clusters krt.Collection[*Cluster],
 	localNamespaces krt.Collection[*v1.Namespace],
 	localGateways krt.Collection[*v1beta1.Gateway],
 	gateways krt.Collection[krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]]],
@@ -83,7 +82,7 @@ func buildGlobalNetworkCollections(
 	}, opts.WithName("LocalSystemNamespaceNetwork")...)
 	RemoteSystemNamespaceNetworks := krt.NewCollection(
 		clusters,
-		func(ctx krt.HandlerContext, c Cluster) *krt.Singleton[string] {
+		func(ctx krt.HandlerContext, c *Cluster) *krt.Singleton[string] {
 			singletonOpts := opts.With(
 				krt.WithName(fmt.Sprintf("SystemNamespaceNetwork[%s]", c.ID)),
 				krt.WithMetadata(krt.Metadata{
@@ -133,20 +132,8 @@ func buildGlobalNetworkCollections(
 	localNetworkGateways := krt.NewManyCollection(localGateways, func(ctx krt.HandlerContext, gw *v1beta1.Gateway) []config.ObjectWithCluster[NetworkGateway] {
 		return k8sGatewayToNetworkGatwaysWithCluster(options.ClusterID, gw, options.ClusterID)
 	}, opts.WithName("LocalNetworkGateways")...)
-	cache := NewCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[NetworkGateway]]()
-	clusters.Register(func(e krt.Event[Cluster]) {
-		if e.Event != controllers.EventDelete {
-			// The krt transformation functions will take care of adds and updates...
-			return
-		}
 
-		// Remove any existing collections in the cache for this cluster
-		if !cache.Remove(e.Old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", e.Old.ID, cache)
-			return
-		}
-	})
-	GlobalNetworkGateways := nestedCollectionFromLocalAndRemote(localNetworkGateways, clusters, func(ctx krt.HandlerContext, c Cluster) *krt.Collection[config.ObjectWithCluster[NetworkGateway]] {
+	GlobalNetworkGateways := nestedCollectionFromLocalAndRemote(localNetworkGateways, clusters, func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[NetworkGateway]] {
 		gatewaysPtr := krt.FetchOne(ctx, gateways, krt.FilterIndex(gatewaysByCluster, c.ID))
 		if gatewaysPtr == nil {
 			log.Warnf("No gateways found for cluster %s", c.ID)
@@ -154,12 +141,6 @@ func buildGlobalNetworkCollections(
 			return nil
 		}
 		gateways := *gatewaysPtr
-
-		// Do this after the fetch just to ensure we stay subscribed
-		if existing := cache.Get(c.ID); existing != nil {
-			return ptr.Of(existing)
-		}
-
 		// We can't have duplicate collections (otherwise FetchOne will panic) so use
 		// sync.Once to ensure we only create the collection once and return that same value
 		nwGateways := krt.NewManyCollection(
@@ -179,12 +160,6 @@ func buildGlobalNetworkCollections(
 			)...,
 		)
 
-		// Add the collection to the cache
-		if !cache.Insert(nwGateways) {
-			log.Warnf("Failed to insert collection %v into cache for cluster %s due to existing collection", nwGateways, c.ID)
-			ctx.DiscardResult()
-			return nil
-		}
 		return ptr.Of(nwGateways)
 	}, "NetworkGateways", opts)
 	MergedNetworkGatewaysWithCluster := krt.NestedJoinWithMergeCollection(

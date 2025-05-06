@@ -93,6 +93,7 @@ func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig [
 		// for use inside the package, to close on cleanup
 		initialSync:        atomic.NewBool(false),
 		initialSyncTimeout: atomic.NewBool(false),
+		initialized:       atomic.NewBool(false),
 		kubeConfigSha:      sha256.Sum256(kubeConfig),
 	}, nil
 }
@@ -140,12 +141,10 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		// We run cluster async so we do not block, as this requires actually connecting to the cluster and loading configuration.
+
 		a.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		addedClusters = append(addedClusters, remoteCluster)
-		go func() {
-			remoteCluster.Run(a.meshConfig, debugger)
-		}()
+		go remoteCluster.Run(a.meshConfig, debugger)
 	}
 
 	syncers := slices.Map(addedClusters, func(c *Cluster) cache.InformerSynced { return c.HasSynced })
@@ -200,7 +199,7 @@ func (a *index) buildRemoteClustersCollection(
 	options Options,
 	opts krt.OptionsBuilder,
 	configOverrides ...func(*rest.Config),
-) krt.Collection[Cluster] {
+) krt.Collection[*Cluster] {
 	informerClient := options.Client
 
 	// When these two are set to true, Istiod will be watching the namespace in which
@@ -251,17 +250,17 @@ func (a *index) buildRemoteClustersCollection(
 		a.cs.rt.MarkSynced() // Mark clusters as synced iff secrets are synced
 	}()
 
-	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []Cluster {
+	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []*Cluster {
 		a.cs.rt.MarkDependant(ctx) // Subscribe to updates from the clusterStore
 		// Wait for all of the clusters to be synced
 		if !kube.WaitForCacheSync("multicluster remote secrets", a.stop, a.cs.HasSynced) {
 			log.Warnf("remote cluster cache sync failed")
 		}
 		remoteClustersBySecretThenID := a.cs.All()
-		var remoteClusters []Cluster
+		var remoteClusters []*Cluster
 		for _, clusters := range remoteClustersBySecretThenID {
 			for _, cluster := range clusters {
-				remoteClusters = append(remoteClusters, *cluster)
+				remoteClusters = append(remoteClusters, cluster)
 			}
 		}
 		return remoteClusters

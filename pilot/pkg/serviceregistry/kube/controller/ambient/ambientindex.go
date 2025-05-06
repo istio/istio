@@ -120,7 +120,7 @@ type index struct {
 	cs                          *ClusterStore
 	clientBuilder               ClientBuilder
 	secrets                     krt.Collection[*corev1.Secret]
-	remoteClusters              krt.Collection[Cluster]
+	remoteClusters              krt.Collection[*Cluster]
 	meshConfig                  meshwatcher.WatcherCollection
 	remoteClientConfigOverrides []func(*rest.Config)
 }
@@ -243,6 +243,16 @@ func New(options Options) Index {
 		)...,
 	)...)
 
+	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](options.Client, kclient.Filter{
+		ObjectFilter: options.Client.ObjectFilter(),
+	}, opts.With(
+		append(opts.WithName("informer/ConfigMaps"),
+			krt.WithMetadata(krt.Metadata{
+				ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
+
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data
 	if features.EnableAmbientMultiNetwork {
 		LocalCluster := &Cluster{
@@ -251,12 +261,14 @@ func New(options Options) Index {
 			stop:               make(chan struct{}),
 			initialSync:        &atomic.Bool{},
 			initialSyncTimeout: &atomic.Bool{},
+			initialized:        &atomic.Bool{},
 			namespaces:         Namespaces,
 			gateways:           Gateways,
 			services:           Services,
 			pods:               Pods,
 			nodes:              Nodes,
 			endpointSlices:     EndpointSlices,
+			configmaps:         ConfigMaps,
 		}
 		// We can run this in a goroutine because all of the dependent collections will wait for the initial sync
 		go LocalCluster.Run(a.meshConfig, a.Debugger)

@@ -1630,8 +1630,6 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 }
 
 func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options) *ambientTestServer {
-	up := xdsfake.NewFakeXDS()
-	up.SplitEvents = true
 	if options.Client == nil {
 		c := kubeclient.NewFakeClient()
 		// only cleanup when we create a new client
@@ -1652,13 +1650,11 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 		clienttest.MakeCRD(t, cl, crd)
 	}
 
-	if options.Flags == (FeatureFlags{}) {
-		options.Flags = FeatureFlags{
-			DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
-			EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
-		}
-	}
+	// Don't auto-create feature flags here because we can't distinguish between
+	// the zero-value and some user set flags
 	if options.XDSUpdater == nil {
+		up := xdsfake.NewFakeXDS()
+		up.SplitEvents = true
 		options.XDSUpdater = up
 	}
 	if options.MeshConfig == nil {
@@ -1689,7 +1685,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 		clusterID: options.ClusterID,
 		network:   networkID,
 		index:     idx.(*index),
-		fx:        up,
+		fx:        options.XDSUpdater.(*xdsfake.Updater),
 		pc:        clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
 		sc:        clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
 		ns:        clienttest.NewWriter[*corev1.Namespace](t, cl),

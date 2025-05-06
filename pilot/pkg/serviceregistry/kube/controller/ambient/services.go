@@ -79,7 +79,7 @@ func GlobalMergedWorkloadServicesCollection(
 	localCluster *Cluster,
 	localServiceInfos krt.Collection[model.ServiceInfo],
 	localWaypoints krt.Collection[Waypoint],
-	clusters krt.Collection[Cluster],
+	clusters krt.Collection[*Cluster],
 	localServiceEntries krt.Collection[*networkingclient.ServiceEntry],
 	globalServices krt.Collection[krt.Collection[*v1.Service]],
 	servicesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Service]],
@@ -96,21 +96,9 @@ func GlobalMergedWorkloadServicesCollection(
 		localServiceInfos,
 		wrapObjectWithCluster[model.ServiceInfo](localCluster.ID),
 		opts.WithName("LocalServiceInfosWithCluster")...)
-	cache := NewCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.ServiceInfo]]()
-	clusters.Register(func(e krt.Event[Cluster]) {
-		if e.Event != controllers.EventDelete {
-			// The krt transformation functions will take care of adds and updates...
-			return
-		}
 
-		// Remove any existing collections in the cache for this cluster
-		if !cache.Remove(e.Old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", e.Old.ID, cache)
-			return
-		}
-	})
 	// This will contain the serviceinfos derived from ServiceEntries only
-	return nestedCollectionFromLocalAndRemote(LocalServiceInfosWithCluster, clusters, func(ctx krt.HandlerContext, cluster Cluster) *krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
+	return nestedCollectionFromLocalAndRemote(LocalServiceInfosWithCluster, clusters, func(ctx krt.HandlerContext, cluster *Cluster) *krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
 		nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
 		nw := ptr.OrEmpty(nwPtr)
 		servicesPtr := krt.FetchOne(ctx, globalServices, krt.FilterIndex(servicesByCluster, cluster.ID))
@@ -141,12 +129,6 @@ func GlobalMergedWorkloadServicesCollection(
 			return nil
 		}
 		namespaces := *namespacesPtr
-
-		// Do this after the fetches just to ensure we stay subscribed
-		if existing := cache.Get(cluster.ID); existing != nil {
-			return ptr.Of(existing)
-		}
-
 		// We can't have duplicate collections (otherwise FetchOne will panic) so use
 		// sync.Once to ensure we only create the collection once and return that same value
 		servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {
@@ -167,12 +149,6 @@ func GlobalMergedWorkloadServicesCollection(
 			},
 			opts.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID))...,
 		)
-
-		if !cache.Insert(servicesInfoWithCluster) {
-			log.Warnf("Failed to insert collection %v into cache for cluster %s due to existing collection", servicesInfoWithCluster, cluster.ID)
-			ctx.DiscardResult()
-			return nil
-		}
 		return ptr.Of(servicesInfoWithCluster)
 	}, "ServiceInfosWithCluster", opts)
 }

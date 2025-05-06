@@ -19,6 +19,7 @@ import (
 
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 )
 
 // MapCollection is just a light facade on top of another collection
@@ -63,15 +64,15 @@ func (m *mapCollection[T, U]) Register(handler func(Event[U])) HandlerRegistrati
 func (m *mapCollection[T, U]) RegisterBatch(handler func([]Event[U]), runExistingState bool) HandlerRegistration {
 	return m.collection.RegisterBatch(func(t []Event[T]) {
 		var events []Event[U]
-		for _, t := range t {
+		for _, o := range t {
 			e := Event[U]{
-				Event: t.Event,
+				Event: o.Event,
 			}
-			if t.Old != nil {
-				e.Old = ptr.Of(m.mapFunc(*t.Old))
+			if o.Old != nil {
+				e.Old = ptr.Of(m.mapFunc(*o.Old))
 			}
-			if t.New != nil {
-				e.New = ptr.Of(m.mapFunc(*t.New))
+			if o.New != nil {
+				e.New = ptr.Of(m.mapFunc(*o.New))
 			}
 			events = append(events, e)
 		}
@@ -97,9 +98,11 @@ func (m *mapCollection[T, U]) uid() collectionUID { return m.id }
 
 // nolint: unused // (not true, its to implement an interface)
 func (m *mapCollection[T, U]) dump() CollectionDump {
-	// Dump should not be used on join; instead its preferred to enroll each individual collection. Maybe reconsider
-	// in the future if there is a need
-	return CollectionDump{}
+	return CollectionDump{
+		Outputs:         eraseMap(slices.GroupUnique(m.List(), getTypedKey)),
+		Synced:          m.HasSynced(),
+		InputCollection: m.collection.name(),
+	}
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -129,10 +132,12 @@ func MapCollection[T, U any](
 	}
 
 	ic := collection.(internalCollection[T])
-	return &mapCollection[T, U]{
+	m := &mapCollection[T, U]{
 		collectionName: o.name,
-		id:             nextUID(), // TODO: should we use a new UID?
+		id:             nextUID(),
 		collection:     ic,
 		mapFunc:        mapFunc,
 	}
+	maybeRegisterCollectionForDebugging[U](m, o.debugger)
+	return m
 }

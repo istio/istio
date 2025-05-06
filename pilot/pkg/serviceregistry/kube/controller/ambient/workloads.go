@@ -136,7 +136,7 @@ func MergedGlobalWorkloadsCollection(
 	localCluster *Cluster,
 	localWaypoints krt.Collection[Waypoint],
 	localNodeLocalities krt.Collection[Node],
-	clusters krt.Collection[Cluster],
+	clusters krt.Collection[*Cluster],
 	workloadEntries krt.Collection[*networkingclient.WorkloadEntry],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	globalPods krt.Collection[krt.Collection[*v1.Pod]],
@@ -307,30 +307,31 @@ func MergedGlobalWorkloadsCollection(
 	endpointSliceWorkloadsCache := NewCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
 	networkGatewayWorkloadsCache := NewCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
 
-	clusters.Register(func(e krt.Event[Cluster]) {
+	clusters.Register(func(e krt.Event[*Cluster]) {
 		if e.Event != controllers.EventDelete {
 			// The krt transformation functions will take care of adds and updates...
 			return
 		}
 
+		old := ptr.Flatten(e.Old)
 		// Remove any existing collections in the caches for this cluster
-		if !podWorkloadsCache.Remove(e.Old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", e.Old.ID, podWorkloadsCache)
+		if !podWorkloadsCache.Remove(old.ID) {
+			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, podWorkloadsCache)
 		}
-		if !workloadEntryWorkloadsCache.Remove(e.Old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", e.Old.ID, workloadEntryWorkloadsCache)
+		if !workloadEntryWorkloadsCache.Remove(old.ID) {
+			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, workloadEntryWorkloadsCache)
 		}
-		if !serviceEntryWorkloadsCache.Remove(e.Old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", e.Old.ID, serviceEntryWorkloadsCache)
+		if !serviceEntryWorkloadsCache.Remove(old.ID) {
+			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, serviceEntryWorkloadsCache)
 		}
-		if !endpointSliceWorkloadsCache.Remove(e.Old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", e.Old.ID, endpointSliceWorkloadsCache)
+		if !endpointSliceWorkloadsCache.Remove(old.ID) {
+			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, endpointSliceWorkloadsCache)
 		}
-		if !networkGatewayWorkloadsCache.Remove(e.Old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", e.Old.ID, networkGatewayWorkloadsCache)
+		if !networkGatewayWorkloadsCache.Remove(old.ID) {
+			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, networkGatewayWorkloadsCache)
 		}
 	})
-	RemoteWorkloadInfosWithCluster := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, c Cluster) []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]] {
+	RemoteWorkloadInfosWithCluster := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, c *Cluster) []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]] {
 		nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 		nw := ptr.OrEmpty(nwPtr)
 		endpointSlicesPtr := krt.FetchOne(ctx, globalEndpointSlices, krt.FilterIndex(endpointSlicesByCluster, c.ID))
