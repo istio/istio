@@ -23,6 +23,22 @@ spec:
     - name: net.ipv4.ip_unprivileged_port_start
       value: "0"
   {{- end }}
+  {{ - if .Values.gateways.affinity }}
+  affinity:
+  {{ - toYaml .Values.gateways.affinity | nindent 8 }}
+  {{ - end } }
+  {{ - if .Values.gateways.topologySpreadConstraints }}
+  topologySpreadConstraints:
+  {{ - toYaml .Values.gateways.topologySpreadConstraints | nindent 8 }}
+  {{ - end } }
+  {{ - if .Values.gateways.nodeSelector }}
+  nodeSelector:
+  {{ - toYaml .Values.gateways.nodeSelector | nindent 8 }}
+  {{ - end } }
+  {{ - if .Values.gateways.tolerations } }
+  tolerations:
+  {{ - toYaml .Values.gateways.tolerations | nindent 8 }}
+  {{ - end }}
   {{- if .Values.gateways.terminationGracePeriodSeconds }}
   terminationGracePeriodSeconds: {{ .Values.gateways.terminationGracePeriodSeconds }}
   {{- end }}
