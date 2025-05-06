@@ -15,8 +15,6 @@
 package krt
 
 import (
-	"sync/atomic"
-
 	"istio.io/istio/pkg/slices"
 )
 
@@ -25,16 +23,7 @@ import (
 // the output will be compared (using standard equality checking), and only changes will trigger the handler.
 // Note this is in addition to the normal event mechanics, so this can only filter things further.
 func BatchedEventFilter[I, O any](cf func(a I) O, handler func(events []Event[I])) func(o []Event[I]) {
-	// TODO: See if we can remove this at some point
-	seenFirstEvents := atomic.Bool{}
 	return func(events []Event[I]) {
-		// If we haven't seen an event yet, always trigger the handler
-		// This is to ensure that we always trigger the handler at least once
-		if !seenFirstEvents.Load() {
-			seenFirstEvents.Store(true)
-			handler(events)
-			return
-		}
 		ev := slices.Filter(events, func(e Event[I]) bool {
 			if e.Old != nil && e.New != nil {
 				if Equal(cf(*e.Old), cf(*e.New)) {
