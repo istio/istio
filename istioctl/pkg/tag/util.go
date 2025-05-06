@@ -114,6 +114,30 @@ func GetWebhookRevision(wh admitv1.MutatingWebhookConfiguration) (string, error)
 	return "", fmt.Errorf("could not extract tag revision from webhook")
 }
 
+// GetRevisionServices retrieves all services with the istio.io/rev label within a given namespace.
+func GetRevisionServices(ctx context.Context, client kubernetes.Interface, istioNS string) ([]corev1.Service, error) {
+	services, err := client.CoreV1().Services(istioNS).List(ctx, metav1.ListOptions{
+		LabelSelector: label.IoIstioRev.Name, // Select services that have the tag label
+	})
+	if err != nil {
+		return nil, err
+	}
+	return services.Items, nil
+}
+
+// GetServiceTagName extracts tag name from service object.
+func GetServiceTagName(svc corev1.Service) string {
+	return svc.ObjectMeta.Labels[label.IoIstioTag.Name]
+}
+
+// GetServiceRevision extracts tag target revision from service object.
+func GetServiceRevision(svc corev1.Service) (string, error) {
+	if revName, ok := svc.ObjectMeta.Labels[label.IoIstioRev.Name]; ok {
+		return revName, nil
+	}
+	return "", fmt.Errorf("could not extract tag revision from service %s/%s", svc.Namespace, svc.Name)
+}
+
 // DeleteTagWebhooks deletes the given webhooks.
 func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag string) error {
 	webhooks, err := GetWebhooksWithTag(ctx, client, tag)
