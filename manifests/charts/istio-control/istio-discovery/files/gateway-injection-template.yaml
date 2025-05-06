@@ -23,24 +23,24 @@ spec:
     - name: net.ipv4.ip_unprivileged_port_start
       value: "0"
   {{- end }}
-  {{- if .Values.gateways.affinity }}
+  {{- if .Values.global.gateway.affinity }}
   affinity:
-  {{- toYaml .Values.gateways.affinity | nindent 8 }}
+  {{- toYaml .Values.global.gateway.affinity | nindent 8 }}
   {{- end }}
-  {{- if .Values.gateways.topologySpreadConstraints }}
+  {{- if .Values.global.gateway.topologySpreadConstraints }}
   topologySpreadConstraints:
-  {{- toYaml .Values.gateways.topologySpreadConstraints | nindent 8 }}
+  {{- toYaml .Values.global.gateway.topologySpreadConstraints | nindent 8 }}
   {{- end }}
-  {{- if .Values.gateways.nodeSelector }}
+  {{- if .Values.global.gateway.nodeSelector }}
   nodeSelector:
-  {{- toYaml .Values.gateways.nodeSelector | nindent 8 }}
+  {{- toYaml .Values.global.gateway.nodeSelector | nindent 8 }}
   {{- end }}
-  {{- if .Values.gateways.tolerations }}
+  {{- if .Values.global.gateway.tolerations }}
   tolerations:
-  {{- toYaml .Values.gateways.tolerations | nindent 8 }}
+  {{- toYaml .Values.global.gateway.tolerations | nindent 8 }}
   {{- end }}
-  {{- if .Values.gateways.terminationGracePeriodSeconds }}
-  terminationGracePeriodSeconds: {{ .Values.gateways.terminationGracePeriodSeconds }}
+  {{- if .Values.global.gateway.terminationGracePeriodSeconds }}
+  terminationGracePeriodSeconds: {{ .Values.global.gateway.terminationGracePeriodSeconds }}
   {{- end }}
   containers:
   - name: istio-proxy

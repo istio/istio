@@ -528,6 +528,24 @@ _internal_defaults_do_not_set:
       # Tolerations for the waypoint proxy.
       tolerations: []
 
+    # Gateway Settings
+    gateway:
+      # If specified, affinity defines the scheduling constraints of gateway pods.
+      affinity: { }
+
+      # Topology Spread Constraints for the gateway.
+      topologySpreadConstraints: [ ]
+
+      # Node labels for the gateway.
+      nodeSelector: { }
+
+      # Tolerations for the gateway.
+      tolerations: [ ]
+
+      # how many seconds wait to drain all the connections
+      # Default K8S value is 30 seconds
+      # terminationGracePeriodSeconds: 30
+
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
@@ -541,23 +559,6 @@ _internal_defaults_do_not_set:
 
     # Set to `type: RuntimeDefault` to use the default profile for templated gateways, if your container runtime supports it
     seccompProfile: {}
-
-    # If specified, affinity defines the scheduling constraints of gateway pods.
-    affinity: { }
-
-    # Topology Spread Constraints for the gateway.
-    topologySpreadConstraints: [ ]
-
-    # Node labels for the gateway.
-    nodeSelector: { }
-
-    # Tolerations for the gateway.
-    tolerations: [ ]
-
-    # how many seconds wait to drain all the connections
-    # Default K8S value is 30 seconds
-    # terminationGracePeriodSeconds: 30
-
 
   # gatewayClasses allows customizing the configuration of the default deployment of Gateways per GatewayClass.
   # For example:
