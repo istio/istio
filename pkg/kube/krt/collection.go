@@ -725,6 +725,8 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) HandlerRegistration 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingState bool) HandlerRegistration {
 	if !runExistingState {
 		// If we don't to run the initial state this is simple, we just register the handler.
+		h.mu.Lock()
+		defer h.mu.Unlock()
 		return h.eventHandlers.Insert(f, h, nil, h.stop)
 	}
 	// We need to run the initial state, but we don't want to get duplicate events.
