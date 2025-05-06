@@ -36,7 +36,6 @@ type Manager struct {
 
 func NewManager(store model.ConfigStore) *Manager {
 	writeFunc := func(m *config.Config) {
-		scope.Infof("writing status for resource %+v", *m)
 		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
 		_, err := store.UpdateStatus(*m)
 		if err != nil {

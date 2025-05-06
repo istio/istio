@@ -72,9 +72,6 @@ func GetInformerFiltered[T runtime.Object](
 	gvr schema.GroupVersionResource,
 ) informerfactory.StartableInformer {
 	reg := typemap.Get[TypeRegistration[T]](registerTypes)
-	if gvr.Resource == "httproutes" {
-		log.Infof("Registering informer for %s with opts: %+v", gvr, opts)
-	}
 	if reg != nil {
 		// This is registered type
 		tr := *reg
