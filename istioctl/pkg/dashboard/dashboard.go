@@ -342,14 +342,14 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
   istioctl d controlz pilot-123-456.istio-system
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			if labelSelector == "" && len(args) < 1 {
+			if labelSelector == "" && opts.Revision == "" && len(args) < 1 {
 				c.Println(c.UsageString())
-				return fmt.Errorf("specify a pod or --selector")
+				return fmt.Errorf("specify a pod, --selector, or --revision")
 			}
 
-			if labelSelector != "" && len(args) > 0 {
+			if (labelSelector != "" && len(args) > 0) || (labelSelector != "" && opts.Revision != "") || (len(args) > 0 && opts.Revision != "") {
 				c.Println(c.UsageString())
-				return fmt.Errorf("name cannot be provided when a selector is specified")
+				return fmt.Errorf("only one of name, --selector, or --revision can be specified")
 			}
 
 			client, err := ctx.CLIClientWithRevision(opts.Revision)
@@ -357,8 +357,12 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
+			if opts.Revision != "" {
+				labelSelector = "istio.io/rev=" + opts.Revision + ", app=istiod"
+			}
 			var podName, ns string
 			if labelSelector != "" {
+				labelSelector += ", app=istiod"
 				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.IstioNamespace()), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
@@ -387,6 +391,7 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
 		},
 	}
 
+	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
@@ -411,23 +416,27 @@ func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
   istioctl d istiod-debug pilot-123-456.istio-system
 `,
 		RunE: func(c *cobra.Command, args []string) error {
-			if labelSelector == "" && len(args) < 1 {
+			if labelSelector == "" && opts.Revision == "" && len(args) < 1 {
 				c.Println(c.UsageString())
-				return fmt.Errorf("specify a pod or --selector")
+				return fmt.Errorf("specify a pod, --selector, or --revision")
 			}
 
-			if labelSelector != "" && len(args) > 0 {
+			if (labelSelector != "" && len(args) > 0) || (labelSelector != "" && opts.Revision != "") || (len(args) > 0 && opts.Revision != "") {
 				c.Println(c.UsageString())
-				return fmt.Errorf("name cannot be provided when a selector is specified")
+				return fmt.Errorf("only one of name, --selector, or --revision can be specified")
 			}
-
 			client, err := ctx.CLIClientWithRevision(opts.Revision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
 			var podName, ns string
+			if opts.Revision != "" {
+				labelSelector = "istio.io/rev=" + opts.Revision + ", app=istiod"
+			}
+
 			if labelSelector != "" {
+				labelSelector += ", app=istiod"
 				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.IstioNamespace()), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
@@ -455,6 +464,7 @@ func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
 				"http://%s/debug", bindAddress, port, client, c.OutOrStdout(), browser)
 		},
 	}
+	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
