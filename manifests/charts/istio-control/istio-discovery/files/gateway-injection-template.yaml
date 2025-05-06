@@ -138,6 +138,10 @@ spec:
     - name: ISTIO_META_OWNER
       value: kubernetes://apis/{{ .TypeMeta.APIVersion }}/namespaces/{{ valueOrDefault .DeploymentMeta.Namespace `default` }}/{{ toLower .TypeMeta.Kind}}s/{{ .DeploymentMeta.Name }}
     {{- end}}
+    {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
+    - name: ISTIO_BOOTSTRAP_OVERRIDE
+      value: "/etc/istio/custom-bootstrap/custom_bootstrap.json"
+    {{- end }}
     {{- if .Values.global.meshID }}
     - name: ISTIO_META_MESH_ID
       value: "{{ .Values.global.meshID }}"
@@ -181,6 +185,10 @@ spec:
     {{- end }}
     - mountPath: /var/lib/istio/data
       name: istio-data
+    {{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
+    - mountPath: /etc/istio/custom-bootstrap
+      name: custom-bootstrap-volume
+    {{- end }}
     # SDS channel between istioagent and Envoy
     - mountPath: /etc/istio/proxy
       name: istio-envoy
@@ -206,6 +214,11 @@ spec:
   {{- else}}
   - emptyDir: {}
     name: workload-certs
+  {{- end }}
+  {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
+  - name: custom-bootstrap-volume
+    configMap:
+      name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
   {{- end }}
   # SDS channel between istioagent and Envoy
   - emptyDir:
