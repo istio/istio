@@ -8,8 +8,3 @@ spec:
       enabled: false
     cni:
       enabled: true
-      # k8s:
-      #   tolerations:
-      #   - key: "example-key"
-      #     operator: "Exists"
-      #     effect: "NoSchedule" 
