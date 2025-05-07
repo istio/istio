@@ -3718,6 +3718,8 @@ spec:
 `, workloadEntryName, istioSystemNS, ztunnelPodIP, ztunnelServiceAccount, ztunnelMetricsPort)
 			tc.ConfigIstio().YAML(istioSystemNS, we).ApplyOrFail(tc)
 			tc.Logf("Applied WorkloadEntry %s for ztunnel pod %s", workloadEntryName, ztunnelPodName)
+			// Allow some time for WorkloadEntry to propagate to client ztunnel
+			time.Sleep(2 * time.Second)
 			tc.Cleanup(func() {
 				tc.ConfigIstio().YAML(istioSystemNS, we).DeleteOrFail(tc)
 				tc.Logf("Deleted WorkloadEntry %s for ztunnel pod %s", workloadEntryName, ztunnelPodName)
@@ -3761,10 +3763,22 @@ spec:
 
 			tc.Logf("Prometheus query for ztunnel secure metrics: %#v", query)
 
-			if err != nil {
-				// Final dump of metrics if the test failed.
-				util.PromDump(tc.Clusters().Default(), prom, query)
-				tc.Fatalf("Could not validate ztunnel secure metrics telemetry after retries: %v", err)
-			}
+			retry.UntilSuccessOrFail(tc, func() error {
+				count, err := prom.QuerySum(tc.Clusters().Default(), query)
+				if err != nil {
+					tc.Logf("Prometheus query failed (will retry for query %s): %v", query.String(), err)
+					// Attempt to dump metrics related to the query for easier debugging during retries.
+					util.PromDump(tc.Clusters().Default(), prom, query)
+					return err
+				}
+				if count < 1 {
+					tc.Logf("Expected at least 1 connection for query %s, got %f (will retry)", query.String(), count)
+					// Attempt to dump metrics related to the query for easier debugging during retries.
+					util.PromDump(tc.Clusters().Default(), prom, query)
+					return fmt.Errorf("expected at least 1 connection for query %s, got %f", query.String(), count)
+				}
+				tc.Logf("Successfully validated prometheus query %s, count: %f", query.String(), count)
+				return nil
+			}, retry.Timeout(30*time.Second), retry.BackoffDelay(time.Second))
 		})
 }
