@@ -17,6 +17,7 @@ package tag
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -133,106 +134,123 @@ func TestTagList(t *testing.T) {
 }
 
 func TestRemoveTag(t *testing.T) {
-	tcs := []struct {
+	type testCase struct {
 		name             string
 		tag              string
 		webhooksBefore   admitv1.MutatingWebhookConfigurationList
 		webhooksAfter    admitv1.MutatingWebhookConfigurationList
+		servicesBefore   corev1.ServiceList
+		servicesAfter    corev1.ServiceList
 		namespaces       corev1.NamespaceList
 		outputMatches    []string
 		skipConfirmation bool
 		error            string
-	}{
-		{
-			name: "TestSimpleRemove",
-			tag:  "sample",
-			webhooksBefore: admitv1.MutatingWebhookConfigurationList{
+	}
+	makeTc := func(name, existingTag, tagToDelete, resourcesToLook string, shouldDelete bool) testCase {
+		webhooksBefore := admitv1.MutatingWebhookConfigurationList{}
+		webhooksAfter := admitv1.MutatingWebhookConfigurationList{}
+		servicesBefore := corev1.ServiceList{}
+		servicesAfter := corev1.ServiceList{}
+
+		switch resourcesToLook {
+		case "mwh":
+			webhooksBefore = admitv1.MutatingWebhookConfigurationList{
 				Items: []admitv1.MutatingWebhookConfiguration{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:   "istio-revision-tag-sample",
-							Labels: map[string]string{label.IoIstioTag.Name: "sample"},
+							Name:   fmt.Sprintf("istio-revision-tag-%s", existingTag),
+							Labels: map[string]string{label.IoIstioTag.Name: existingTag},
 						},
 					},
 				},
-			},
-			webhooksAfter:    admitv1.MutatingWebhookConfigurationList{},
+			}
+		case "svc":
+			servicesBefore = corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      fmt.Sprintf("istio-service-tag-%s", existingTag),
+							Namespace: "istio-system",
+							Labels:    map[string]string{label.IoIstioTag.Name: existingTag},
+						},
+					},
+				},
+			}
+		case "both":
+			webhooksBefore = admitv1.MutatingWebhookConfigurationList{
+				Items: []admitv1.MutatingWebhookConfiguration{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   fmt.Sprintf("istio-revision-tag-%s", existingTag),
+							Labels: map[string]string{label.IoIstioTag.Name: existingTag},
+						},
+					},
+				},
+			}
+			servicesBefore = corev1.ServiceList{
+				Items: []corev1.Service{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      fmt.Sprintf("istio-service-tag-%s", existingTag),
+							Namespace: "istio-system",
+							Labels:    map[string]string{label.IoIstioTag.Name: existingTag},
+						},
+					},
+				},
+			}
+		}
+
+		if !shouldDelete {
+			webhooksAfter = webhooksBefore
+			servicesAfter = servicesBefore
+		}
+
+		return testCase{
+			name:             fmt.Sprintf("%s_%s", name, resourcesToLook),
+			tag:              tagToDelete,
+			webhooksBefore:   webhooksBefore,
+			webhooksAfter:    webhooksAfter,
+			servicesBefore:   servicesBefore,
+			servicesAfter:    servicesAfter,
 			namespaces:       corev1.NamespaceList{},
 			outputMatches:    []string{},
 			skipConfirmation: true,
 			error:            "",
-		},
-		{
-			name: "TestWrongTagLabelNotRemoved",
-			tag:  "sample",
-			webhooksBefore: admitv1.MutatingWebhookConfigurationList{
-				Items: []admitv1.MutatingWebhookConfiguration{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:   "istio-revision-tag-wrong",
-							Labels: map[string]string{label.IoIstioTag.Name: "wrong"},
-						},
+		}
+	}
+	resourceTypes := []string{"both", "svc", "mwh"}
+	tcs := []testCase{}
+
+	for _, rt := range resourceTypes {
+		// simple remove should succeed, base case
+		simpleRemove := makeTc("TestSimpleRemove", "sample", "sample", rt, true)
+
+		// Attempting to remove a non existant tag should error
+		wrongTagNotRemoved := makeTc("TestWrongTagLabelNotRemoved", "wrong", "sample", rt, false)
+		wrongTagNotRemoved.error = "cannot remove tag \"sample\""
+
+		// If tag is used in another namespace, it should be reported
+		deleteTagWithDependentNamespace := makeTc("TestDeleteTagWithDependentNamespace", "match", "match", rt, false)
+		deleteTagWithDependentNamespace.namespaces = corev1.NamespaceList{
+			Items: []corev1.Namespace{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "dependent",
+						Labels: map[string]string{label.IoIstioRev.Name: "match"},
 					},
 				},
 			},
-			webhooksAfter: admitv1.MutatingWebhookConfigurationList{
-				Items: []admitv1.MutatingWebhookConfiguration{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:   "istio-revision-tag-wrong",
-							Labels: map[string]string{label.IoIstioTag.Name: "wrong"},
-						},
-					},
-				},
-			},
-			namespaces:       corev1.NamespaceList{},
-			outputMatches:    []string{},
-			skipConfirmation: true,
-			error:            "cannot remove tag \"sample\"",
-		},
-		{
-			name: "TestDeleteTagWithDependentNamespace",
-			tag:  "match",
-			webhooksBefore: admitv1.MutatingWebhookConfigurationList{
-				Items: []admitv1.MutatingWebhookConfiguration{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:   "istio-revision-tag-match",
-							Labels: map[string]string{label.IoIstioTag.Name: "match"},
-						},
-					},
-				},
-			},
-			webhooksAfter: admitv1.MutatingWebhookConfigurationList{
-				Items: []admitv1.MutatingWebhookConfiguration{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:   "istio-revision-tag-match",
-							Labels: map[string]string{label.IoIstioTag.Name: "match"},
-						},
-					},
-				},
-			},
-			namespaces: corev1.NamespaceList{
-				Items: []corev1.Namespace{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:   "dependent",
-							Labels: map[string]string{label.IoIstioRev.Name: "match"},
-						},
-					},
-				},
-			},
-			outputMatches:    []string{"Caution, found 1 namespace(s) still injected by tag \"match\": dependent"},
-			skipConfirmation: false,
-			error:            "",
-		},
+		}
+		deleteTagWithDependentNamespace.outputMatches = []string{"Caution, found 1 namespace(s) still injected by tag \"match\": dependent"}
+		deleteTagWithDependentNamespace.skipConfirmation = false
+
+		tcs = append(tcs, simpleRemove, wrongTagNotRemoved, deleteTagWithDependentNamespace)
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
-			client := fake.NewClientset(tc.webhooksBefore.DeepCopyObject(), tc.namespaces.DeepCopyObject())
+			client := fake.NewClientset(tc.webhooksBefore.DeepCopyObject(), tc.namespaces.DeepCopyObject(), tc.servicesBefore.DeepCopyObject())
 			err := removeTag(context.Background(), client, tc.tag, tc.skipConfirmation, "istio-system", &out)
 			if tc.error == "" && err != nil {
 				t.Fatalf("expected no error, got %v", err)
@@ -255,8 +273,13 @@ func TestRemoveTag(t *testing.T) {
 
 			// check mutating webhooks after run
 			webhooksAfter, _ := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
+			servicesAfter, _ := client.CoreV1().Services("istio-system").List(context.Background(), metav1.ListOptions{})
 			if len(webhooksAfter.Items) != len(tc.webhooksAfter.Items) {
-				t.Fatalf("expected %d after running, got %d", len(tc.webhooksAfter.Items), len(webhooksAfter.Items))
+				t.Fatalf("expected %d mutating webhooks after running, got %d", len(tc.webhooksAfter.Items), len(webhooksAfter.Items))
+			}
+
+			if len(servicesAfter.Items) != len(tc.servicesAfter.Items) {
+				t.Fatalf("expected %d services after running, got %d", len(tc.webhooksAfter.Items), len(webhooksAfter.Items))
 			}
 		})
 	}
