@@ -349,6 +349,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 		Revision:     args.Revision,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 		Identifier:   "crd-controller",
+		KrtDebugger:  args.KrtDebugger,
 	}
 
 	schemas := collections.Pilot
