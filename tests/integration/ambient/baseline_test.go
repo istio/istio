@@ -3584,3 +3584,94 @@ spec:
 			}
 		})
 }
+
+func TestZtunnelSecureMetrics(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(tc framework.TestContext) {
+			clientInstance := apps.Captured[0]
+			if clientInstance == nil {
+				tc.Fatal("No captured client instance found for ZtunnelSecureMetrics test")
+			}
+
+			istioSystemNS := i.Settings().SystemNamespace
+			pods, err := tc.Clusters().Default().Kube().CoreV1().Pods(istioSystemNS).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel"})
+			if err != nil {
+				tc.Fatalf("Failed to list ztunnel pods: %v", err)
+			}
+			ztunnelPod := pods.Items[0] // Pick the first ztunnel pod
+			ztunnelPodIP := ztunnelPod.Status.PodIP
+			ztunnelMetricsPort := 15020 // Default ztunnel metrics port
+			ztunnelPodName := ztunnelPod.Name
+			ztunnelServiceAccount := ztunnelPod.Spec.ServiceAccountName
+			trustDomain := util.GetTrustDomain(tc.Clusters().Default(), istioSystemNS)
+
+			// Create a WorkloadEntry for the ztunnel pod
+			workloadEntryName := ztunnelPodName + "-we"
+			we := fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
+metadata:
+  name: %s
+  namespace: %s
+spec:
+  address: "%s"
+  serviceAccount: %s
+  labels:
+    istio.io/dataplane-mode: ambient
+    networking.istio.io/tunnel: http
+    app: ztunnel 
+  ports:
+    http-metrics: %d
+`, workloadEntryName, istioSystemNS, ztunnelPodIP, ztunnelServiceAccount, ztunnelMetricsPort)
+			tc.ConfigIstio().YAML(istioSystemNS, we).ApplyOrFail(tc)
+			tc.Logf("Applied WorkloadEntry %s for ztunnel pod %s", workloadEntryName, ztunnelPodName)
+			tc.Cleanup(func() {
+				tc.ConfigIstio().YAML(istioSystemNS, we).DeleteOrFail(tc)
+				tc.Logf("Deleted WorkloadEntry %s for ztunnel pod %s", workloadEntryName, ztunnelPodName)
+			})
+
+			tc.Logf("Using client %s (%s) to query ztunnel %s (%s) metrics on port %d",
+				clientInstance.Config().Service, clientInstance.WorkloadsOrFail(tc)[0].PodName(), ztunnelPodName, ztunnelPodIP, ztunnelMetricsPort)
+
+			// Client calls ztunnel's /metrics endpoint
+			// This request will be intercepted by the client's ztunnel, then an HBONE connection
+			// will be made to the target ztunnel's inbound, which then proxies to its internal metrics server.
+			opts := echo.CallOptions{
+				Address: ztunnelPodIP,
+				Port:    echo.Port{ServicePort: ztunnelMetricsPort, Name: "http-ztunnel-metrics", Protocol: protocol.HTTP},
+				Scheme:  scheme.HTTP,
+				HTTP:    echo.HTTP{Path: "/metrics"},
+				Check:   check.And(check.OK(), check.BodyContains("# TYPE")), // Check for Prometheus format
+			}
+			clientInstance.CallOrFail(tc, opts)
+			tc.Logf("Successfully called ztunnel /metrics endpoint via HTTP from %s", clientInstance.WorkloadsOrFail(tc)[0].PodName())
+
+			// Verify Prometheus L4 telemetry for the HBONE connection to ztunnel
+			// The ztunnel pod itself is the destination workload for this specific HBONE connection.
+			sourceWorkload := clientInstance.WorkloadsOrFail(tc)[0].PodName() // For istio_tcp_connections_opened_total, source_workload is pod name
+			sourceNamespace := clientInstance.Config().Namespace.Name()
+			sourceSA := clientInstance.Config().AccountName()
+
+			query := prometheus.Query{
+				Metric: "istio_tcp_connections_opened_total",
+				Labels: map[string]string{
+					"reporter":                       "destination", // Ztunnel reports as destination for its own inbound HBONE
+					"connection_security_policy":     "mutual_tls",
+					"destination_workload_namespace": istioSystemNS,
+					"destination_workload":           ztunnelPodName, // Ztunnel pod name
+					"destination_principal":          fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, istioSystemNS, ztunnelServiceAccount),
+					"source_workload_namespace":      sourceNamespace,
+					"source_workload":                sourceWorkload, // Client pod name
+					"source_principal":               fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, sourceNamespace, sourceSA),
+				},
+			}
+
+			tc.Logf("Prometheus query for ztunnel secure metrics: %#v", query)
+
+			if err != nil {
+				// Final dump of metrics if the test failed.
+				util.PromDump(tc.Clusters().Default(), prom, query)
+				tc.Fatalf("Could not validate ztunnel secure metrics telemetry after retries: %v", err)
+			}
+		})
+}
