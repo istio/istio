@@ -136,6 +136,7 @@ values:
 					namespace.Future(&sharedNS),
 				},
 				ExternalNamespace: namespace.Future(&externalNS),
+				// we're using the ServiceNamePrefix field to prefix service names, as we deploy two echo instances to the sharedNS namespace
 				ServiceNamePrefix: "usergroup-1-",
 			})).
 		Setup(func(ctx resource.Context) error {
@@ -149,6 +150,7 @@ values:
 					namespace.Future(&sharedNS),
 				},
 				ExternalNamespace: namespace.Future(&externalNS),
+				// we're using the ServiceNamePrefix field to prefix service names, as we deploy two echo instances to the sharedNS namespace
 				ServiceNamePrefix: "usergroup-2-",
 			})(ctx)
 		}).
