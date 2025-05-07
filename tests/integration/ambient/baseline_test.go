@@ -3605,31 +3605,23 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 			ztunnelServiceAccount := ztunnelPod.Spec.ServiceAccountName
 			trustDomain := util.GetTrustDomain(tc.Clusters().Default(), istioSystemNS)
 
-			// Create a WorkloadEntry for the ztunnel pod
-			workloadEntryName := ztunnelPodName + "-we"
-			we := fmt.Sprintf(`
-apiVersion: networking.istio.io/v1alpha3
-kind: WorkloadEntry
-metadata:
-  name: %s
-  namespace: %s
-spec:
-  address: "%s"
-  serviceAccount: %s
-  labels:
-    istio.io/dataplane-mode: ambient
-    networking.istio.io/tunnel: http
-    app: ztunnel 
-  ports:
-    http-metrics: %d
-`, workloadEntryName, istioSystemNS, ztunnelPodIP, ztunnelServiceAccount, ztunnelMetricsPort)
-			tc.ConfigIstio().YAML(istioSystemNS, we).ApplyOrFail(tc)
-			tc.Logf("Applied WorkloadEntry %s for ztunnel pod %s", workloadEntryName, ztunnelPodName)
-			// Allow some time for WorkloadEntry to propagate to client ztunnel
-			time.Sleep(2 * time.Second)
+			// Label the ztunnel pod to force HBONE for HTTP traffic
+			patchOpts := metav1.PatchOptions{}
+			patchData := fmt.Sprintf(`{"metadata":{"labels": {"networking.istio.io/tunnel": "http"}}}`)
+			p := tc.Clusters().Default().Kube().CoreV1().Pods(istioSystemNS)
+			_, err = p.Patch(context.Background(), ztunnelPodName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
+			if err != nil {
+				tc.Fatal(err)
+			}
+			tc.Logf("Labeled ztunnel pod %s with networking.istio.io/tunnel=http", ztunnelPodName)
 			tc.Cleanup(func() {
-				tc.ConfigIstio().YAML(istioSystemNS, we).DeleteOrFail(tc)
-				tc.Logf("Deleted WorkloadEntry %s for ztunnel pod %s", workloadEntryName, ztunnelPodName)
+				// Remove the label on cleanup
+				patchData = fmt.Sprintf(`{"metadata":{"labels": {"networking.istio.io/tunnel": null}}}`)
+				_, err = p.Patch(context.Background(), ztunnelPodName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
+				if err != nil {
+					tc.Logf("Failed to remove label from ztunnel pod %s: %v", ztunnelPodName, err)
+				}
+				tc.Logf("Removed networking.istio.io/tunnel label from ztunnel pod %s", ztunnelPodName)
 			})
 
 			tc.Logf("Using client %s (%s) to query ztunnel %s (%s) metrics on port %d",
