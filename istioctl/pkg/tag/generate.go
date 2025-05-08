@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -96,21 +95,16 @@ type GenerateOptions struct {
 // Generate generates the manifests for a revision tag pointed the given revision.
 func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions) (string, error) {
 	// abort if there exists a revision with the target tag name
-	isRunningAmbient, err := IsRevisionRunningAmbient(ctx, client.Kube(), opts.Revision, opts.IstioNamespace)
-	if err != nil {
-		return "", err
-	}
-	err = checkTagNameCollidesWithRevisionName(ctx, client.Kube(), isRunningAmbient, opts)
+	err := checkTagNameCollidesWithRevisionName(ctx, client.Kube(), opts)
 	if err != nil {
 		return "", err
 	}
 
-	// TODO: Use canonService from here to create a new service
-	_, canonWebhook, err := checkControlPlaneExistenceOrDuplicate(ctx, client.Kube(), isRunningAmbient, opts)
+	canonWebhook, err := checkControlPlaneExistenceOrDuplicate(ctx, client.Kube(), opts)
 	if err != nil {
 		return "", err
 	}
-	err = checkTagDuplicate(ctx, client.Kube(), isRunningAmbient, opts)
+	err = checkTagDuplicate(ctx, client.Kube(), opts)
 	if err != nil {
 		return "", err
 	}
@@ -147,12 +141,9 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions) (s
 			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
 	}
-	var tagServiceYAML string
-	if isRunningAmbient {
-		tagServiceYAML, err = generateTagService(opts)
-		if err != nil {
-			return "", err
-		}
+	tagServiceYAML, err := generateTagService(opts)
+	if err != nil {
+		return "", err
 	}
 
 	resources := []string{
@@ -176,30 +167,22 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions) (s
 func checkTagNameCollidesWithRevisionName(
 	ctx context.Context,
 	client kubernetes.Interface,
-	isAmbientMode bool,
 	opts *GenerateOptions,
 ) error {
 	if opts.Generate || opts.Overwrite || opts.Tag == DefaultRevisionName {
 		return nil
 	}
-	existingControlPlaneErr := fmt.Errorf("cannot create revision tag %q: found existing control plane revision with same name", opts.Tag)
-
-	if isAmbientMode {
-		revServiceCollisions, err := GetServicesWithRevision(ctx, client, opts.IstioNamespace, opts.Tag)
-		if err != nil {
-			return err
-		}
-		if len(revServiceCollisions) > 0 {
-			return existingControlPlaneErr
-		}
+	revServiceCollisions, err := GetServicesWithRevision(ctx, client, opts.IstioNamespace, opts.Tag)
+	if err != nil {
+		return err
 	}
 	// abort if there exists a revision with the target tag name
 	revWebhookCollisions, err := GetWebhooksWithRevision(ctx, client, opts.Tag)
 	if err != nil {
 		return err
 	}
-	if len(revWebhookCollisions) > 0 {
-		return existingControlPlaneErr
+	if len(revWebhookCollisions) > 0 || len(revServiceCollisions) > 0 {
+		return fmt.Errorf("cannot create revision tag %q: found existing control plane revision with same name", opts.Tag)
 	}
 	return nil
 }
@@ -207,61 +190,46 @@ func checkTagNameCollidesWithRevisionName(
 func checkControlPlaneExistenceOrDuplicate(
 	ctx context.Context,
 	client kubernetes.Interface,
-	isAmbientMode bool,
 	opts *GenerateOptions,
-) (*corev1.Service, *admitv1.MutatingWebhookConfiguration, error) {
-	var service *corev1.Service = nil
-	if isAmbientMode {
-		revServices, err := GetServicesWithRevision(ctx, client, opts.IstioNamespace, opts.Revision)
-		if err != nil {
-			return nil, nil, err
-		}
+) (*admitv1.MutatingWebhookConfiguration, error) {
+	revServices, err := GetServicesWithRevision(ctx, client, opts.IstioNamespace, opts.Revision)
+	if err != nil {
+		return nil, err
+	}
 
-		if len(revServices) == 0 {
-			return nil, nil, fmt.Errorf("cannot modify tag: cannot find Service with revision %q in namespace %q", opts.Revision, opts.IstioNamespace)
-		}
-		if len(revServices) > 1 {
-			return nil, nil, fmt.Errorf("cannot modify tag: found multiple canonical services with revision %q in namespace %q", opts.Revision, opts.IstioNamespace)
-		}
-		service = &revServices[0]
+	if len(revServices) > 1 {
+		return nil, fmt.Errorf("cannot modify tag: found multiple canonical services with revision %q in namespace %q", opts.Revision, opts.IstioNamespace)
 	}
 	revWebhooks, err := GetWebhooksWithRevision(ctx, client, opts.Revision)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	if len(revWebhooks) == 0 {
-		return nil, nil, fmt.Errorf("cannot modify tag: cannot find MutatingWebhookConfiguration with revision %q", opts.Revision)
+	if len(revWebhooks) == 0 && len(revServices) == 0 {
+		return nil, fmt.Errorf("cannot modify tag: cannot find MutatingWebhookConfiguration or Service with revision %q", opts.Revision)
 	}
-	if len(revWebhooks) > 1 {
-		return nil, nil, fmt.Errorf("cannot modify tag: found multiple canonical webhooks with revision %q", opts.Revision)
+	if len(revWebhooks) > 1 || len(revServices) > 1 {
+		return nil, fmt.Errorf("cannot modify tag: found multiple canonical webhooks or services with revision %q", opts.Revision)
 	}
-	return service, &revWebhooks[0], nil
+	return &revWebhooks[0], nil
 }
 
 func checkTagDuplicate(
 	ctx context.Context,
 	client kubernetes.Interface,
-	isAmbientMode bool,
 	opts *GenerateOptions,
 ) error {
 	if opts.Overwrite {
 		return nil
 	}
-
-	if isAmbientMode {
-		tagServices, err := GetServicesWithTag(ctx, client, opts.IstioNamespace, opts.Tag)
-		if err != nil {
-			return err
-		}
-		if len(tagServices) > 0 {
-			return fmt.Errorf("revision tag %q already exists, and --overwrite is false", opts.Tag)
-		}
+	tagServices, err := GetServicesWithTag(ctx, client, opts.IstioNamespace, opts.Tag)
+	if err != nil {
+		return err
 	}
 	whs, err := GetWebhooksWithTag(ctx, client, opts.Tag)
 	if err != nil {
 		return err
 	}
-	if len(whs) > 0 {
+	if len(whs) > 0 || len(tagServices) > 0 {
 		return fmt.Errorf("revision tag %q already exists, and --overwrite is false", opts.Tag)
 	}
 	return nil
