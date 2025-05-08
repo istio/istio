@@ -69,13 +69,10 @@ type Client struct {
 	revision string
 
 	// kinds keeps track of all cache handlers for known types
-	collections map[config.GroupVersionKind]nsStore
-	kindsMu     sync.RWMutex
+	kinds   map[config.GroupVersionKind]nsStore
+	kindsMu sync.RWMutex
 	// a flag indicates whether this client has been run, it is to prevent run queue twice
 	started *atomic.Bool
-
-	// handlers defines a list of event handlers per-type
-	handlers map[config.GroupVersionKind][]krt.HandlerRegistration
 
 	schemasByCRDName map[string]resource.Schema
 	client           kube.Client
@@ -87,9 +84,9 @@ type Client struct {
 }
 
 type nsStore struct {
-	informer   krt.Collection[controllers.Object]
 	collection krt.Collection[config.Config]
 	index      krt.Index[string, config.Config]
+	handlers   []krt.HandlerRegistration
 }
 
 type Option struct {
@@ -126,8 +123,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		schemasByCRDName: schemasByCRDName,
 		revision:         opts.Revision,
 		started:          atomic.NewBool(false),
-		collections:      map[config.GroupVersionKind]nsStore{},
-		handlers:         map[config.GroupVersionKind][]krt.HandlerRegistration{},
+		kinds:            map[config.GroupVersionKind]nsStore{},
 		client:           client,
 		logger:           scope.WithLabels("controller", opts.Identifier),
 		filtersByGVK:     opts.FiltersByGVK,
@@ -147,13 +143,13 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 func (cl *Client) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
 	cl.kindsMu.RLock()
 	defer cl.kindsMu.RUnlock()
-	return cl.collections[kind].collection
+	return cl.kinds[kind].collection
 }
 
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
 	if c, ok := cl.kind(kind); ok {
 		// we need to run the existing state
-		cl.handlers[kind] = append(cl.handlers[kind], c.collection.RegisterBatch(func(o []krt.Event[config.Config]) {
+		c.handlers = append(c.handlers, c.collection.RegisterBatch(func(o []krt.Event[config.Config]) {
 			for _, event := range o {
 				switch event.Event {
 				case controllers.EventAdd:
@@ -207,10 +203,8 @@ func (cl *Client) HasSynced() bool {
 		if !ctl.collection.HasSynced() {
 			return false
 		}
-	}
 
-	for _, handlers := range cl.handlers {
-		for _, h := range handlers {
+		for _, h := range ctl.handlers {
 			if !h.HasSynced() {
 				return false
 			}
@@ -240,19 +234,13 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 		key = namespace + "/" + name
 	}
 
-	// TODO: currently, we have to use the informer directly instead of the derived collection
-	// because there are race conditions when multiple collections are derived from the same informer
-	// and then try to access the same object. This happens mostly on Gateway Controller status handling.
-	// Related to https://github.com/istio/istio/issues/56131
-	obj := h.informer.GetKey(key)
+	obj := h.collection.GetKey(key)
 	if obj == nil {
 		cl.logger.Debugf("couldn't find %s/%s in informer index", namespace, name)
 		return nil
 	}
 
-	cfg := TranslateObject(*obj, typ, cl.domainSuffix)
-
-	return &cfg
+	return obj
 }
 
 // Create implements store interface
@@ -328,13 +316,13 @@ func (cl *Client) List(kind config.GroupVersionKind, namespace string) []config.
 func (cl *Client) allKinds() map[config.GroupVersionKind]nsStore {
 	cl.kindsMu.RLock()
 	defer cl.kindsMu.RUnlock()
-	return maps.Clone(cl.collections)
+	return maps.Clone(cl.kinds)
 }
 
 func (cl *Client) kind(r config.GroupVersionKind) (nsStore, bool) {
 	cl.kindsMu.RLock()
 	defer cl.kindsMu.RUnlock()
-	ch, ok := cl.collections[r]
+	ch, ok := cl.kinds[r]
 	return ch, ok
 }
 
@@ -396,7 +384,7 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 
 	cl.kindsMu.Lock()
 	defer cl.kindsMu.Unlock()
-	if _, f := cl.collections[resourceGVK]; f {
+	if _, f := cl.kinds[resourceGVK]; f {
 		cl.logger.Debugf("added resource that already exists: %v", resourceGVK)
 		return
 	}
@@ -447,24 +435,27 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 	}
 
 	wrappedClient := krt.WrapClient(kc, opts.WithName("informer/"+resourceGVK.Kind)...)
-	collection := krt.NewCollection(wrappedClient, func(ctx krt.HandlerContext, obj controllers.Object) *config.Config {
+	// TODO: we have to use MapCollection here, instead of NewCollection because standard collections
+	// are asynchronous and this would make crdclient racy with other informer derived controllers.
+	// This happens mostly on Gateway API Controller status handling, where StatusManager depends on
+	// reading configs from crdclient to perform status updates.
+	// Related to https://github.com/istio/istio/issues/56131
+	collection := krt.MapCollection(wrappedClient, func(obj controllers.Object) config.Config {
 		cfg := translateFunc(obj)
 		cfg.Domain = cl.domainSuffix
-		return &cfg
+		return cfg
 	}, opts.WithName("collection/"+resourceGVK.Kind)...)
 	index := krt.NewNamespaceIndex(collection)
-	cl.collections[resourceGVK] = nsStore{
-		informer:   wrappedClient,
+	cl.kinds[resourceGVK] = nsStore{
 		collection: collection,
 		index:      index,
-	}
-
-	cl.handlers[resourceGVK] = []krt.HandlerRegistration{
-		collection.RegisterBatch(func(o []krt.Event[config.Config]) {
-			for _, event := range o {
-				incrementEvent(resourceGVK.Kind, event.Event.String())
-			}
-		}, false),
+		handlers: []krt.HandlerRegistration{
+			collection.RegisterBatch(func(o []krt.Event[config.Config]) {
+				for _, event := range o {
+					incrementEvent(resourceGVK.Kind, event.Event.String())
+				}
+			}, false),
+		},
 	}
 }
 
