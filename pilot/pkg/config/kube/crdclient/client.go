@@ -84,7 +84,6 @@ type Client struct {
 }
 
 type nsStore struct {
-	informer   krt.Collection[controllers.Object]
 	collection krt.Collection[config.Config]
 	index      krt.Index[string, config.Config]
 	handlers   []krt.HandlerRegistration
@@ -228,19 +227,13 @@ func (cl *Client) Get(typ config.GroupVersionKind, name, namespace string) *conf
 		key = namespace + "/" + name
 	}
 
-	// TODO: currently, we have to use the informer directly instead of the derived collection
-	// because there are race conditions when multiple collections are derived from the same informer
-	// and then try to access the same object. This happens mostly on Gateway Controller status handling.
-	// Related to https://github.com/istio/istio/issues/56131
-	obj := h.informer.GetKey(key)
+	obj := h.collection.GetKey(key)
 	if obj == nil {
 		cl.logger.Debugf("couldn't find %s/%s in informer index", namespace, name)
 		return nil
 	}
 
-	cfg := TranslateObject(*obj, typ, cl.domainSuffix)
-
-	return &cfg
+	return obj
 }
 
 // Create implements store interface
@@ -434,14 +427,18 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 	}
 
 	wrappedClient := krt.WrapClient(kc, opts.WithName("informer/"+resourceGVK.Kind)...)
-	collection := krt.NewCollection(wrappedClient, func(ctx krt.HandlerContext, obj controllers.Object) *config.Config {
+	// TODO: we have to use MapCollection here, instead of NewCollection because standard collections
+	// are asynchronous and this would make crdclient racy with other informer derived controllers.
+	// This happens mostly on Gateway API Controller status handling, where StatusManager depends on
+	// reading configs from crdclient to perform status updates.
+	// Related to https://github.com/istio/istio/issues/56131
+	collection := krt.MapCollection(wrappedClient, func(obj controllers.Object) config.Config {
 		cfg := translateFunc(obj)
 		cfg.Domain = cl.domainSuffix
-		return &cfg
+		return cfg
 	}, opts.WithName("collection/"+resourceGVK.Kind)...)
 	index := krt.NewNamespaceIndex(collection)
 	cl.kinds[resourceGVK] = nsStore{
-		informer:   wrappedClient,
 		collection: collection,
 		index:      index,
 		handlers: []krt.HandlerRegistration{
