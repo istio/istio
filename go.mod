@@ -44,11 +44,11 @@ require (
 	github.com/howardjohn/unshare-go v0.5.0
 	github.com/lestrrat-go/jwx v1.2.31
 	github.com/mattn/go-isatty v0.0.20
-	github.com/miekg/dns v1.1.65
+	github.com/miekg/dns v1.1.66
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/moby/buildkit v0.21.1
 	github.com/onsi/gomega v1.37.0
-	github.com/openshift/api v0.0.0-20250506165729-ec925abe6296
+	github.com/openshift/api v0.0.0-20250507150912-7318813e48da
 	github.com/pires/go-proxyproto v0.8.1
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240409071808-615f978279ca
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
@@ -112,7 +112,7 @@ require (
 
 require (
 	cel.dev/expr v0.23.1 // indirect
-	dario.cat/mergo v1.0.1 // indirect
+	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
@@ -218,7 +218,7 @@ require (
 	k8s.io/component-base v0.33.0 // indirect
 	k8s.io/component-helpers v0.33.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
-	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.0 // indirect
+	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.1 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/kustomize/api v0.19.0 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.19.0 // indirect
