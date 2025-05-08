@@ -16,7 +16,6 @@ package krt
 
 import (
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -86,7 +85,11 @@ type internalCollection[T any] interface {
 	augment(any) any
 
 	// Create a new index into the collection
-	index(name string, extract func(o T) []string) kclient.RawIndexer
+	index(name string, extract func(o T) []string) indexer[T]
+}
+
+type indexer[T any] interface {
+	Lookup(key string) []T
 }
 
 type uidable interface {

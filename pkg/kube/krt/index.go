@@ -20,7 +20,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -76,7 +75,7 @@ func NewIndex[K comparable, O any](
 
 type index[K comparable, O any] struct {
 	uid collectionUID
-	kclient.RawIndexer
+	indexer[O]
 	c       Collection[O]
 	extract func(o O) []K
 }
@@ -143,13 +142,10 @@ func (i index[K, O]) id() collectionUID {
 
 // Lookup finds all objects matching a given key
 func (i index[K, O]) Lookup(k K) []O {
-	if i.RawIndexer == nil {
+	if i.indexer == nil {
 		return nil
 	}
-	res := i.RawIndexer.Lookup(toString(k))
-	return slices.Map(res, func(e any) O {
-		return e.(O)
-	})
+	return i.indexer.Lookup(toString(k))
 }
 
 func toString(rk any) string {
@@ -194,7 +190,7 @@ func (i indexCollection[K, O]) augment(a any) any {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (i indexCollection[K, O]) index(name string, extract func(o IndexObject[K, O]) []string) kclient.RawIndexer {
+func (i indexCollection[K, O]) index(name string, extract func(o IndexObject[K, O]) []string) indexer[IndexObject[K, O]] {
 	panic("an index cannot be indexed")
 }
 
