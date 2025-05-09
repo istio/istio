@@ -38,6 +38,8 @@ import (
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -389,6 +391,7 @@ func (cb *ClusterBuilder) buildUpstreamTLSSettings(
 	autoMTLSEnabled bool,
 	meshExternal bool,
 	serviceMTLSMode model.MutualTLSMode,
+	extraTrustDomains []string,
 ) (*networking.ClientTLSSettings, mtlsContextType) {
 	if tls != nil {
 		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_SIMPLE {
@@ -418,11 +421,13 @@ func (cb *ClusterBuilder) buildUpstreamTLSSettings(
 		if len(sniToUse) == 0 {
 			sniToUse = sni
 		}
+		var extraTrustDomainsToUse []string
 		subjectAltNamesToUse := tls.SubjectAltNames
 		if subjectAltNamesToUse == nil {
 			subjectAltNamesToUse = serviceAccounts
+			extraTrustDomainsToUse = extraTrustDomains
 		}
-		return cb.buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
+		return cb.buildIstioMutualTLS(subjectAltNamesToUse, sniToUse, extraTrustDomainsToUse), userSupplied
 	}
 
 	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
@@ -435,7 +440,7 @@ func (cb *ClusterBuilder) buildUpstreamTLSSettings(
 	}
 
 	// Build settings for auto MTLS.
-	return cb.buildIstioMutualTLS(serviceAccounts, sni), autoDetected
+	return cb.buildIstioMutualTLS(serviceAccounts, sni, extraTrustDomains), autoDetected
 }
 
 func (cb *ClusterBuilder) hasMetadataCerts() bool {
@@ -455,7 +460,10 @@ func (cb *ClusterBuilder) buildMutualTLS(serviceAccounts []string, sni string) *
 }
 
 // buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func (cb *ClusterBuilder) buildIstioMutualTLS(san []string, sni string) *networking.ClientTLSSettings {
+func (cb *ClusterBuilder) buildIstioMutualTLS(san []string, sni string, extraTrustDomains []string) *networking.ClientTLSSettings {
+	if extraTrustDomains != nil {
+		san = sets.SortedList(spiffe.ExpandWithTrustDomains(sets.New(san...), extraTrustDomains))
+	}
 	return &networking.ClientTLSSettings{
 		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 		SubjectAltNames: san,

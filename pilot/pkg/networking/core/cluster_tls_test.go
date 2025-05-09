@@ -1772,39 +1772,40 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 		Sni:             "custom.foo.com",
 	}
 	tests := []struct {
-		name            string
-		tls             *networking.ClientTLSSettings
-		sans            []string
-		sni             string
-		proxy           *model.Proxy
-		autoMTLSEnabled bool
-		meshExternal    bool
-		serviceMTLSMode model.MutualTLSMode
-		want            *networking.ClientTLSSettings
-		wantCtxType     mtlsContextType
+		name              string
+		tls               *networking.ClientTLSSettings
+		sans              []string
+		sni               string
+		proxy             *model.Proxy
+		autoMTLSEnabled   bool
+		meshExternal      bool
+		serviceMTLSMode   model.MutualTLSMode
+		want              *networking.ClientTLSSettings
+		extraTrustDomains []string
+		wantCtxType       mtlsContextType
 	}{
 		{
-			"Destination rule TLS sni and SAN override",
-			tlsSettings,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSUnknown,
-			tlsSettings,
-			userSupplied,
+			name:            "Destination rule TLS sni and SAN override",
+			tls:             tlsSettings,
+			sans:            []string{"spiffe://foo/serviceaccount/1"},
+			sni:             "foo.com",
+			proxy:           &model.Proxy{Metadata: &model.NodeMetadata{}},
+			serviceMTLSMode: model.MTLSUnknown,
+			want:            tlsSettings,
+			wantCtxType:     userSupplied,
 		},
 		{
-			"Metadata cert path override ISTIO_MUTUAL",
-			tlsSettings,
-			[]string{"custom.foo.com"},
-			"custom.foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{
+			name: "Metadata cert path override ISTIO_MUTUAL",
+			tls:  tlsSettings,
+			sans: []string{"custom.foo.com"},
+			sni:  "custom.foo.com",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{
 				TLSClientCertChain: "/custom/chain.pem",
 				TLSClientKey:       "/custom/key.pem",
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
-			false, false, model.MTLSUnknown,
-			&networking.ClientTLSSettings{
+			serviceMTLSMode: model.MTLSUnknown,
+			want: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
 				PrivateKey:        "/custom/key.pem",
 				ClientCertificate: "/custom/chain.pem",
@@ -1812,88 +1813,84 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 				SubjectAltNames:   []string{"custom.foo.com"},
 				Sni:               "custom.foo.com",
 			},
-			userSupplied,
+			wantCtxType: userSupplied,
 		},
 		{
-			"Auto fill nil settings when mTLS nil for internal service in strict mode",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSStrict,
-			&networking.ClientTLSSettings{
+			name:            "Auto fill nil settings when mTLS nil for internal service in strict mode",
+			sans:            []string{"spiffe://foo/serviceaccount/1"},
+			sni:             "foo.com",
+			proxy:           &model.Proxy{Metadata: &model.NodeMetadata{}},
+			autoMTLSEnabled: true,
+			serviceMTLSMode: model.MTLSStrict,
+			want: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
 				Sni:             "foo.com",
 			},
-			autoDetected,
+			wantCtxType: autoDetected,
 		},
 		{
-			"Auto fill nil settings when mTLS nil for internal service in permissive mode",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSPermissive,
-			&networking.ClientTLSSettings{
+			name:            "Auto fill nil settings when mTLS nil for internal service in permissive mode",
+			sans:            []string{"spiffe://foo/serviceaccount/1"},
+			sni:             "foo.com",
+			proxy:           &model.Proxy{Metadata: &model.NodeMetadata{}},
+			autoMTLSEnabled: true,
+			serviceMTLSMode: model.MTLSPermissive,
+			want: &networking.ClientTLSSettings{
 				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
 				SubjectAltNames: []string{"spiffe://foo/serviceaccount/1"},
 				Sni:             "foo.com",
 			},
-			autoDetected,
+			wantCtxType: autoDetected,
 		},
 		{
-			"Auto fill nil settings when mTLS nil for internal service in plaintext mode",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSDisable,
-			nil,
-			userSupplied,
+			name:            "Auto fill nil settings when mTLS nil for internal service in plaintext mode",
+			sans:            []string{"spiffe://foo/serviceaccount/1"},
+			sni:             "foo.com",
+			proxy:           &model.Proxy{Metadata: &model.NodeMetadata{}},
+			autoMTLSEnabled: true,
+			serviceMTLSMode: model.MTLSDisable,
+			wantCtxType:     userSupplied,
 		},
 		{
-			"Auto fill nil settings when mTLS nil for internal service in unknown mode",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, false, model.MTLSUnknown,
-			nil,
-			userSupplied,
+			name:            "Auto fill nil settings when mTLS nil for internal service in unknown mode",
+			sans:            []string{"spiffe://foo/serviceaccount/1"},
+			sni:             "foo.com",
+			proxy:           &model.Proxy{Metadata: &model.NodeMetadata{}},
+			autoMTLSEnabled: true,
+			serviceMTLSMode: model.MTLSUnknown,
+			wantCtxType:     userSupplied,
 		},
 		{
-			"Do not auto fill nil settings for external",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			true, true, model.MTLSUnknown,
-			nil,
-			userSupplied,
+			name:            "Do not auto fill nil settings for external",
+			sans:            []string{"spiffe://foo/serviceaccount/1"},
+			sni:             "foo.com",
+			proxy:           &model.Proxy{Metadata: &model.NodeMetadata{}},
+			autoMTLSEnabled: true,
+			meshExternal:    true,
+			serviceMTLSMode: model.MTLSUnknown,
+			wantCtxType:     userSupplied,
 		},
 		{
-			"Do not auto fill nil settings if server mTLS is disabled",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{}},
-			false, false, model.MTLSDisable,
-			nil,
-			userSupplied,
+			name:            "Do not auto fill nil settings if server mTLS is disabled",
+			sans:            []string{"spiffe://foo/serviceaccount/1"},
+			sni:             "foo.com",
+			proxy:           &model.Proxy{Metadata: &model.NodeMetadata{}},
+			serviceMTLSMode: model.MTLSDisable,
+			wantCtxType:     userSupplied,
 		},
 		{
-			"TLS nil auto build tls with metadata cert path",
-			nil,
-			[]string{"spiffe://foo/serviceaccount/1"},
-			"foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{
+			name: "TLS nil auto build tls with metadata cert path",
+			sans: []string{"spiffe://foo/serviceaccount/1"},
+			sni:  "foo.com",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{
 				TLSClientCertChain: "/custom/chain.pem",
 				TLSClientKey:       "/custom/key.pem",
 				TLSClientRootCert:  "/custom/root.pem",
 			}},
-			true, false, model.MTLSPermissive,
-			&networking.ClientTLSSettings{
+			autoMTLSEnabled: true,
+			serviceMTLSMode: model.MTLSPermissive,
+			want: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
 				ClientCertificate: "/custom/chain.pem",
 				PrivateKey:        "/custom/key.pem",
@@ -1901,62 +1898,124 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 				SubjectAltNames:   []string{"spiffe://foo/serviceaccount/1"},
 				Sni:               "foo.com",
 			},
-			autoDetected,
+			wantCtxType: autoDetected,
 		},
 		{
-			"Simple TLS",
-			&networking.ClientTLSSettings{
+			name: "Simple TLS",
+			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_SIMPLE,
 				PrivateKey:        "/custom/key.pem",
 				ClientCertificate: "/custom/chain.pem",
 				CaCertificates:    "/custom/root.pem",
 			},
-			[]string{"custom.foo.com"},
-			"custom.foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{
+			sans: []string{"custom.foo.com"},
+			sni:  "custom.foo.com",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{
 				TLSClientCertChain: "/custom/meta/chain.pem",
 				TLSClientKey:       "/custom/meta/key.pem",
 				TLSClientRootCert:  "/custom/meta/root.pem",
 			}},
-			false, false, model.MTLSUnknown,
-			&networking.ClientTLSSettings{
+			serviceMTLSMode: model.MTLSUnknown,
+			want: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_SIMPLE,
 				PrivateKey:        "/custom/key.pem",
 				ClientCertificate: "/custom/chain.pem",
 				CaCertificates:    "/custom/root.pem",
 			},
-			userSupplied,
+			wantCtxType: userSupplied,
 		},
 		{
-			"Metadata certs with Mesh Exteranl",
-			&networking.ClientTLSSettings{
+			name: "Metadata certs with Mesh Exteranl",
+			tls: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
 				PrivateKey:        "/custom/external/key.pem",
 				ClientCertificate: "/custom/external/chain.pem",
 				CaCertificates:    "/custom/external/root.pem",
 			},
-			[]string{"custom.foo.com"},
-			"custom.foo.com",
-			&model.Proxy{Metadata: &model.NodeMetadata{
+			sans: []string{"custom.foo.com"},
+			sni:  "custom.foo.com",
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{
 				TLSClientCertChain: "/custom/meta/chain.pem",
 				TLSClientKey:       "/custom/meta/key.pem",
 				TLSClientRootCert:  "/custom/meta/root.pem",
 			}},
-			false, true, model.MTLSUnknown,
-			&networking.ClientTLSSettings{
+			meshExternal:    true,
+			serviceMTLSMode: model.MTLSUnknown,
+			want: &networking.ClientTLSSettings{
 				Mode:              networking.ClientTLSSettings_MUTUAL,
 				PrivateKey:        "/custom/external/key.pem",
 				ClientCertificate: "/custom/external/chain.pem",
 				CaCertificates:    "/custom/external/root.pem",
 			},
-			userSupplied,
+			wantCtxType: userSupplied,
+		},
+		{
+			name:            "spiffe IDs with extra trust domains should be appended if there are no custom TLS settings",
+			sans:            []string{"spiffe://east.local/ns/default/sa/app"},
+			sni:             "foo.com",
+			proxy:           &model.Proxy{Metadata: &model.NodeMetadata{}},
+			autoMTLSEnabled: true,
+			serviceMTLSMode: model.MTLSPermissive,
+			want: &networking.ClientTLSSettings{
+				Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{
+					"spiffe://central.local/ns/default/sa/app",
+					"spiffe://east.local/ns/default/sa/app",
+					"spiffe://west.local/ns/default/sa/app",
+				},
+				Sni: "foo.com",
+			},
+			extraTrustDomains: []string{"west.local", "central.local"},
+			wantCtxType:       autoDetected,
+		},
+		{
+			name: "spiffe IDs with extra trust domains should be appended if custom TLS settings do not change SANs",
+			tls: &networking.ClientTLSSettings{
+				Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+				Sni:  "api.foo.com",
+			},
+			sans:            []string{"spiffe://east.local/ns/default/sa/app"},
+			sni:             "foo.com",
+			proxy:           &model.Proxy{Metadata: &model.NodeMetadata{}},
+			autoMTLSEnabled: true,
+			serviceMTLSMode: model.MTLSPermissive,
+			want: &networking.ClientTLSSettings{
+				Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{
+					"spiffe://central.local/ns/default/sa/app",
+					"spiffe://east.local/ns/default/sa/app",
+					"spiffe://west.local/ns/default/sa/app",
+				},
+				Sni: "api.foo.com",
+			},
+			extraTrustDomains: []string{"west.local", "central.local"},
+			wantCtxType:       userSupplied,
+		},
+		{
+			name: "spiffe IDs with extra trust domains should not be appended if custom TLS settings change SANs",
+			tls: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"spiffe://east.local/ns/default/sa/app"},
+			},
+			sans:            []string{"spiffe://east.local/ns/default/sa/app"},
+			sni:             "foo.com",
+			proxy:           &model.Proxy{Metadata: &model.NodeMetadata{}},
+			autoMTLSEnabled: true,
+			serviceMTLSMode: model.MTLSPermissive,
+			want: &networking.ClientTLSSettings{
+				Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+				SubjectAltNames: []string{"spiffe://east.local/ns/default/sa/app"},
+				Sni:             "foo.com",
+			},
+			extraTrustDomains: []string{"west.local", "central.local"},
+			wantCtxType:       userSupplied,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cb := NewClusterBuilder(tt.proxy, nil, nil)
-			gotTLS, gotCtxType := cb.buildUpstreamTLSSettings(tt.tls, tt.sans, tt.sni, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
+			gotTLS, gotCtxType := cb.buildUpstreamTLSSettings(tt.tls, tt.sans, tt.sni, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode, tt.extraTrustDomains)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
 			}
