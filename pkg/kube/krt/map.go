@@ -105,11 +105,13 @@ func (m *mapCollection[T, U]) dump() CollectionDump {
 	}
 }
 
+// nolint: unused // (not true)
 type mapIndexer[T, U any] struct {
 	kclient.RawIndexer
 	mapFunc func(T) U
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (m *mapIndexer[T, U]) Lookup(key string) []any {
 	return slices.Map(m.RawIndexer.Lookup(key), func(a any) any {
 		return m.mapFunc(a.(T))
