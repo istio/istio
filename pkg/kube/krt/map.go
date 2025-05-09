@@ -105,12 +105,26 @@ func (m *mapCollection[T, U]) dump() CollectionDump {
 	}
 }
 
+type mapIndexer[T, U any] struct {
+	kclient.RawIndexer
+	mapFunc func(T) U
+}
+
+func (m *mapIndexer[T, U]) Lookup(key string) []any {
+	return slices.Map(m.RawIndexer.Lookup(key), func(a any) any {
+		return m.mapFunc(a.(T))
+	})
+}
+
 // nolint: unused // (not true, its to implement an interface)
 func (m *mapCollection[T, U]) index(name string, extract func(o U) []string) kclient.RawIndexer {
 	t := func(o T) []string {
 		return extract(m.mapFunc(o))
 	}
-	return m.collection.index(name, t)
+	return &mapIndexer[T, U]{
+		RawIndexer: m.collection.index(name, t),
+		mapFunc:    m.mapFunc,
+	}
 }
 
 func (m *mapCollection[T, U]) HasSynced() bool {

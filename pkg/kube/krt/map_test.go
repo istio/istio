@@ -47,6 +47,9 @@ func TestMapCollection(t *testing.T) {
 			IP: p.Status.PodIP,
 		}
 	}, opts.WithName("SimplePods")...)
+	SimplePodsByName := krt.NewIndex(SimplePods, "name", func(p SimplePod) []string {
+		return []string{p.Name}
+	})
 	tt := assert.NewTracker[string](t)
 	SimplePods.Register(TrackerHandler[SimplePod](tt))
 	// Add a pod and make sure we get the event for it in event handlers from the mapped collection
@@ -61,6 +64,10 @@ func TestMapCollection(t *testing.T) {
 		},
 	})
 	tt.WaitOrdered("add/ns1/pod1")
+
+	res := SimplePodsByName.Lookup("pod1")
+	assert.Equal(t, len(res), 1)
+	assert.Equal(t, res[0].Name, "pod1")
 }
 
 func TestNestedMapCollection(t *testing.T) {
