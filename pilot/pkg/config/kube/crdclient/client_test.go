@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -382,31 +383,16 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 			Revision: rev,
 		})
 
-		var cfgsAdded []config.Config
-		store.RegisterEventHandler(
-			gvk.ServiceEntry,
-			func(old config.Config, curr config.Config, event model.Event) {
-				if event != model.EventAdd {
-					t.Fatalf("unexpected event: %v", event)
-				}
-				cfgsAdded = append(cfgsAdded, curr)
-			},
-		)
-
+		tt := assert.NewTracker[string](t)
+		store.RegisterEventHandler(gvk.ServiceEntry, TrackerHandler(tt))
 		stop := test.NewStop(t)
 		fake.RunAndWait(stop)
 		go store.Run(stop)
 
 		kube.WaitForCacheSync("test", stop, store.HasSynced)
-
-		// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
-		sortFunc := func(a config.Config) string {
-			return a.Key()
-		}
-		slices.SortBy(cfgsAdded, sortFunc)
-		slices.SortBy(expected, sortFunc)
-
-		assert.Equal(t, expected, cfgsAdded)
+		tt.WaitUnordered(slices.Map(expected, func(c config.Config) string {
+			return fmt.Sprintf("add/%v/%v", c.GroupVersionKind.Kind, krt.GetKey(c))
+		})...)
 	}
 }
 
@@ -448,4 +434,11 @@ func TestAlternativeVersions(t *testing.T) {
 	}
 	_, err := fake.Istio().NetworkingV1beta1().VirtualServices("test").Create(context.Background(), &vs, metav1.CreateOptions{})
 	assert.NoError(t, err)
+}
+
+// TrackerHandler returns an object handler that records each event
+func TrackerHandler(tracker *assert.Tracker[string]) func(o config.Config, n config.Config, e model.Event) {
+	return func(o config.Config, n config.Config, e model.Event) {
+		tracker.Record(fmt.Sprintf("%v/%v/%v", e, n.GroupVersionKind.Kind, krt.GetKey(n)))
+	}
 }
