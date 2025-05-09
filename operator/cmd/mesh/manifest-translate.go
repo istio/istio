@@ -18,6 +18,8 @@ import (
 	_ "embed"
 	"fmt"
 	"io/fs"
+	"istio.io/istio/operator/pkg/component"
+	"istio.io/istio/operator/pkg/manifest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -110,11 +112,14 @@ func ManifestTranslate(kubeClient kube.CLIClient, mgArgs *ManifestTranslateArgs,
 	if err != nil {
 		return err
 	}
+	generatedManifestMap := make(map[component.Name]manifest.ManifestSet)
+	for _, m := range istioctlGeneratedManifests {
+		generatedManifestMap[m.Component] = m
+	}
 	res, err := render.Migrate(mgArgs.InFilenames, setFlags, kubeClient)
 	if err != nil {
 		return err
 	}
-	_ = res
 	out := mgArgs.Output
 	write := func(name string, contents string) error {
 		perm := 0o644
@@ -124,7 +129,7 @@ func ManifestTranslate(kubeClient kube.CLIClient, mgArgs *ManifestTranslateArgs,
 		return os.WriteFile(filepath.Join(out, name), []byte(contents), fs.FileMode(perm))
 	}
 	results := []string{}
-	for idx, info := range res.Components {
+	for _, info := range res.Components {
 		name := ptr.NonEmptyOrDefault(info.ComponentSpec.Name, info.Component.SpecName)
 		if info.Component.ReleaseName == "" {
 			results = append(results, fmt.Sprintf(`* ❌ **Component %s**: migration is **NOT** directly supported!`,
@@ -159,7 +164,11 @@ func ManifestTranslate(kubeClient kube.CLIClient, mgArgs *ManifestTranslateArgs,
 		}
 		diffWarn := ""
 		helmManifests := strings.Join(sortManifests(info.Manifest), "\n---\n")
-		istioctlManifests := strings.Join(sortManifests(istioctlGeneratedManifests[idx].Manifests), "\n---\n")
+		generatedManifest, ok := generatedManifestMap[info.Component.UserFacingName]
+		if !ok {
+			continue
+		}
+		istioctlManifests := strings.Join(sortManifests(generatedManifest.Manifests), "\n---\n")
 		if helmManifests != istioctlManifests {
 			helmName := fmt.Sprintf("diff-%s-helm-output.yaml", name)
 			istioctlName := fmt.Sprintf("diff-%s-istioctl-output.yaml", name)
