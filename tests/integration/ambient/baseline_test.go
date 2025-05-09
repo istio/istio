@@ -3550,7 +3550,7 @@ func restartZtunnel(t framework.TestContext) {
 					}
 				}
 			}
-		}`, time.Now().Format(time.RFC3339)) // e.g., “2006-01-02T15:04:05Z07:00”
+		}`, time.Now().Format(time.RFC3339)) // e.g., "2006-01-02T15:04:05Z07:00"
 	ds := t.Clusters().Default().Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace)
 	_, err := ds.Patch(context.Background(), "ztunnel", types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
@@ -3687,42 +3687,93 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 			}
 
 			istioSystemNS := i.Settings().SystemNamespace
-			pods, err := tc.Clusters().Default().Kube().CoreV1().Pods(istioSystemNS).List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel"})
-			if err != nil {
-				tc.Fatalf("Failed to list ztunnel pods: %v", err)
-			}
-			ztunnelPod := pods.Items[0] // Pick the first ztunnel pod
-			ztunnelPodIP := ztunnelPod.Status.PodIP
-			ztunnelMetricsPort := 15020 // Default ztunnel metrics port
-			ztunnelPodName := ztunnelPod.Name
-			ztunnelServiceAccount := ztunnelPod.Spec.ServiceAccountName
-			trustDomain := util.GetTrustDomain(tc.Clusters().Default(), istioSystemNS)
-
-			// Label the ztunnel pod to force HBONE for HTTP traffic
+			k8sPods := tc.Clusters().Default().Kube().CoreV1().Pods(istioSystemNS)
 			patchOpts := metav1.PatchOptions{}
-			patchData := fmt.Sprintf(`{"metadata":{"labels": {"networking.istio.io/tunnel": "http"}}}`)
-			p := tc.Clusters().Default().Kube().CoreV1().Pods(istioSystemNS)
-			_, err = p.Patch(context.Background(), ztunnelPodName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
+
+			// Label the istio-system namespace as ambient
+			nsLabelPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": "ambient"}}}`, "istio.io/dataplane-mode")
+			_, err := tc.Clusters().Default().Kube().CoreV1().Namespaces().Patch(context.Background(),
+				istioSystemNS, types.StrategicMergePatchType, []byte(nsLabelPatch), patchOpts)
 			if err != nil {
-				tc.Fatal(err)
+				tc.Fatalf("Failed to label namespace %s as ambient: %v", istioSystemNS, err)
 			}
-			tc.Logf("Labeled ztunnel pod %s with networking.istio.io/tunnel=http", ztunnelPodName)
 			tc.Cleanup(func() {
-				// Remove the label on cleanup
-				patchData = fmt.Sprintf(`{"metadata":{"labels": {"networking.istio.io/tunnel": null}}}`)
-				_, err = p.Patch(context.Background(), ztunnelPodName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
+				cleanupPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": null}}}`, "istio.io/dataplane-mode")
+				_, err = tc.Clusters().Default().Kube().CoreV1().Namespaces().Patch(context.Background(),
+					istioSystemNS, types.StrategicMergePatchType, []byte(cleanupPatch), patchOpts)
 				if err != nil {
-					tc.Logf("Failed to remove label from ztunnel pod %s: %v", ztunnelPodName, err)
+					tc.Logf("Failed to remove ambient label from namespace %s: %v", istioSystemNS, err)
 				}
-				tc.Logf("Removed networking.istio.io/tunnel label from ztunnel pod %s", ztunnelPodName)
+				tc.Logf("Removed ambient label from namespace %s", istioSystemNS)
 			})
 
-			tc.Logf("Using client %s (%s) to query ztunnel %s (%s) metrics on port %d",
-				clientInstance.Config().Service, clientInstance.WorkloadsOrFail(tc)[0].PodName(), ztunnelPodName, ztunnelPodIP, ztunnelMetricsPort)
+			// Label Prometheus pod as ambient
+			promPods, err := k8sPods.List(context.TODO(), metav1.ListOptions{
+				LabelSelector: "app.kubernetes.io/name=prometheus",
+			})
+			if err != nil {
+				tc.Fatalf("Failed to list Prometheus pods in %s: %v", istioSystemNS, err)
+			}
+			if len(promPods.Items) == 0 {
+				tc.Logf("No Prometheus pods found with label app.kubernetes.io/name=prometheus in %s. Skipping Prometheus labeling.", istioSystemNS)
+			} else {
+				for _, promPod := range promPods.Items {
+					promPodName := promPod.Name
+					promLabelPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": "ambient"}}}`, "istio.io/dataplane-mode")
+					_, err = k8sPods.Patch(context.Background(), promPodName, types.StrategicMergePatchType, []byte(promLabelPatch), patchOpts)
+					if err != nil {
+						tc.Fatalf("Failed to label Prometheus pod %s for ambient: %v", promPodName, err)
+					}
 
-			// Client calls ztunnel's /metrics endpoint
-			// This request will be intercepted by the client's ztunnel, then an HBONE connection
-			// will be made to the target ztunnel's inbound, which then proxies to its internal metrics server.
+					tc.Cleanup(func() {
+						promCleanupPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": null}}}`, "istio.io/dataplane-mode")
+						_, err = k8sPods.Patch(context.Background(), promPodName, types.StrategicMergePatchType, []byte(promCleanupPatch), patchOpts)
+						if err != nil {
+							tc.Logf("Failed to remove istio.io/dataplane-mode label from Prometheus pod %s: %v", promPodName, err)
+						}
+						tc.Logf("Removed ambient label from Prometheus pod %s", promPodName)
+					})
+				}
+			}
+
+			// Get ztunnel pod info
+			ztunnelPods, err := k8sPods.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel"})
+			if err != nil || len(ztunnelPods.Items) == 0 {
+				tc.Fatalf("Failed to list ztunnel pods or none found: %v", err)
+			}
+			ztunnelPod := ztunnelPods.Items[0] // Pick the first ztunnel pod
+			ztunnelPodIP := ztunnelPod.Status.PodIP
+			ztunnelMetricsPort := 15020 // Default ztunnel metrics port
+			ztunnelServiceAccount := ztunnelPod.Spec.ServiceAccountName
+			trustDomain := util.GetTrustDomain(tc.Clusters().Default(), istioSystemNS)
+			// Extract ztunnel app labels for canonical service/revision
+			ztunnelAppLabel := ztunnelPod.Labels["app"]
+			ztunnelVersionLabel := ztunnelPod.Labels["app.kubernetes.io/version"]
+
+			// Label the ztunnel pod to force HBONE for HTTP traffic
+			ztunnelLabelPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": "http"}}}`, "networking.istio.io/tunnel")
+			_, err = k8sPods.Patch(context.Background(), ztunnelPod.Name, types.StrategicMergePatchType, []byte(ztunnelLabelPatch), patchOpts)
+			if err != nil {
+				tc.Fatalf("Failed to label ztunnel pod %s: %v", ztunnelPod.Name, err)
+			}
+
+			tc.Cleanup(func() {
+				// Cleanup the label
+				cleanupPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": null}}}`, "networking.istio.io/tunnel")
+				_, err = k8sPods.Patch(context.Background(), ztunnelPod.Name, types.StrategicMergePatchType, []byte(cleanupPatch), patchOpts)
+				if err != nil {
+					tc.Logf("Failed to remove networking.istio.io/tunnel label from ztunnel pod %s: %v", ztunnelPod.Name, err)
+				}
+				tc.Logf("Removed networking.istio.io/tunnel label from ztunnel pod %s", ztunnelPod.Name)
+			})
+
+			tc.Logf("Using client %s (%s) to query ztunnel %s (%s) metrics on port %d. Expecting transparent HBONE.",
+				clientInstance.Config().Service, clientInstance.WorkloadsOrFail(tc)[0].PodName(), ztunnelPod.Name, ztunnelPodIP, ztunnelMetricsPort)
+
+			// Client calls ztunnel's `/metrics` endpoint.
+			// This request should be intercepted by clientInstance's ztunnel,
+			// and an HBONE connection made to the target ztunnel's inbound (15008),
+			// which then proxies to its internal metrics server (15020).
 			opts := echo.CallOptions{
 				Address: ztunnelPodIP,
 				Port:    echo.Port{ServicePort: ztunnelMetricsPort, Name: "http-ztunnel-metrics", Protocol: protocol.HTTP},
@@ -3735,21 +3786,26 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 
 			// Verify Prometheus L4 telemetry for the HBONE connection to ztunnel
 			// The ztunnel pod itself is the destination workload for this specific HBONE connection.
-			sourceWorkload := clientInstance.WorkloadsOrFail(tc)[0].PodName() // For istio_tcp_connections_opened_total, source_workload is pod name
+			// sourceWorkloadPodName := clientInstance.WorkloadsOrFail(tc)[0].PodName() // For istio_tcp_connections_opened_total, source_workload is pod name
 			sourceNamespace := clientInstance.Config().Namespace.Name()
 			sourceSA := clientInstance.Config().AccountName()
+			sourceWorkloadLabel := clientInstance.Config().Service + "-" + clientInstance.Config().Version
 
 			query := prometheus.Query{
 				Metric: "istio_tcp_connections_opened_total",
 				Labels: map[string]string{
-					"reporter":                       "destination", // Ztunnel reports as destination for its own inbound HBONE
+					"reporter":                       "destination",
 					"connection_security_policy":     "mutual_tls",
 					"destination_workload_namespace": istioSystemNS,
-					"destination_workload":           ztunnelPodName, // Ztunnel pod name
-					"destination_principal":          fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, istioSystemNS, ztunnelServiceAccount),
+					"destination_workload":           "ztunnel",
+					"destination_principal":          fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, istioSystemNS, ztunnelServiceAccount), // Restored usage of ztunnelServiceAccount
+					"destination_canonical_service":  ztunnelAppLabel,
+					"destination_canonical_revision": ztunnelVersionLabel,
 					"source_workload_namespace":      sourceNamespace,
-					"source_workload":                sourceWorkload, // Client pod name
+					"source_workload":                sourceWorkloadLabel,
 					"source_principal":               fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, sourceNamespace, sourceSA),
+					"source_canonical_service":       clientInstance.Config().Service,
+					"source_canonical_revision":      clientInstance.Config().Version,
 				},
 			}
 
