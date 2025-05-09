@@ -4,4 +4,4 @@ area: installation
 issue: [56223]
 releaseNotes:
   - |
-    **Fixed** an issue that istioctl panic when running `manifest translate` with multiple gateways in IstioOperator configuration file.
+    **Fixed** a panic in `istioctl manifest translate` when the IstioOperator config contains multiple gateways.
