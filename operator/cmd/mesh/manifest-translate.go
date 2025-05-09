@@ -18,8 +18,6 @@ import (
 	_ "embed"
 	"fmt"
 	"io/fs"
-	"istio.io/istio/operator/pkg/component"
-	"istio.io/istio/operator/pkg/manifest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +25,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/operator/pkg/component"
+	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
