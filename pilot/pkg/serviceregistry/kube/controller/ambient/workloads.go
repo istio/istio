@@ -332,48 +332,40 @@ func MergedGlobalWorkloadsCollection(
 		}
 	})
 	RemoteWorkloadInfosWithCluster := krt.NewManyCollection(clusters, func(ctx krt.HandlerContext, c *Cluster) []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]] {
-		nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-		nw := ptr.OrEmpty(nwPtr)
 		endpointSlicesPtr := krt.FetchOne(ctx, globalEndpointSlices, krt.FilterIndex(endpointSlicesByCluster, c.ID))
 		if endpointSlicesPtr == nil {
-			log.Warnf("Cluster %s does not have endpoint slices, skipping", c.ID)
-			ctx.DiscardResult()
+			log.Warnf("Cluster %s does not have endpoint slices, skipping global workloads", c.ID)
 			return nil
 		}
 		endpointSlices := *endpointSlicesPtr
 		podsPtr := krt.FetchOne(ctx, globalPods, krt.FilterIndex(podsByCluster, c.ID))
 		if podsPtr == nil {
-			log.Warnf("Cluster %s does not have pods, skipping", c.ID)
-			ctx.DiscardResult()
+			log.Warnf("Cluster %s does not have pods, skipping global workloads", c.ID)
 			return nil
 		}
 		pods := *podsPtr
 		waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, c.ID))
 		if waypointsPtr == nil {
-			log.Warnf("Cluster %s does not have waypoints, skipping", c.ID)
-			ctx.DiscardResult()
+			log.Warnf("Cluster %s does not have waypoints, skipping global workloads", c.ID)
 			return nil
 		}
 		waypoints := *waypointsPtr
 		namespacesPtr := krt.FetchOne(ctx, globalNamespaces, krt.FilterIndex(namespacesByCluster, c.ID))
 		if namespacesPtr == nil {
-			log.Warnf("Cluster %s does not have namespaces, skipping", c.ID)
-			ctx.DiscardResult()
+			log.Warnf("Cluster %s does not have namespaces, skipping global workloads", c.ID)
 			return nil
 		}
 		namespaces := *namespacesPtr
 		clusteredNodesPtr := krt.FetchOne(ctx, globalNodes, krt.FilterIndex(nodesByCluster, c.ID))
 		if clusteredNodesPtr == nil {
-			log.Warnf("Cluster %s does not have nodes, skipping", c.ID)
-			ctx.DiscardResult()
+			log.Warnf("Cluster %s does not have nodes, skipping global workloads", c.ID)
 			return nil
 		}
 		clusteredNodes := *clusteredNodesPtr
 
 		workloadServicesPtr := krt.FetchOne(ctx, globalWorkloadServices, krt.FilterIndex(globalWorkloadServicesByCluster, c.ID))
 		if workloadServicesPtr == nil {
-			log.Warnf("Cluster %s does not have workload services, skipping", c.ID)
-			ctx.DiscardResult()
+			log.Warnf("Cluster %s does not have workload services, skipping global workloads", c.ID)
 			return nil
 		}
 
@@ -394,6 +386,7 @@ func MergedGlobalWorkloadsCollection(
 			networkGatewayWorkloadsCache.Remove(c.ID)
 		} else {
 			// We have all of the collections in the cache
+			log.Info("Using cache for global workloads")
 			return existing
 		}
 
@@ -434,7 +427,14 @@ func MergedGlobalWorkloadsCollection(
 					return c.ID
 				},
 				func(hc krt.HandlerContext) network.ID {
-					return network.ID(*nw.Get())
+					nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+					if nwPtr == nil {
+						log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
+						hc.DiscardResult()
+						return ""
+					}
+					nw := *nwPtr
+					return network.ID(ptr.OrEmpty(nw.Get()))
 				},
 				globalNetworks.NetworkGateways,
 				globalNetworks.GatewaysByNetwork,
@@ -472,6 +472,13 @@ func MergedGlobalWorkloadsCollection(
 					return c.ID
 				},
 				func(hc krt.HandlerContext) network.ID {
+					nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+					if nwPtr == nil {
+						log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
+						hc.DiscardResult()
+						return ""
+					}
+					nw := *nwPtr
 					return network.ID(*nw.Get())
 				},
 				globalNetworks.NetworkGateways,
@@ -509,6 +516,13 @@ func MergedGlobalWorkloadsCollection(
 					return c.ID
 				},
 				func(hc krt.HandlerContext) network.ID {
+					nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+					if nwPtr == nil {
+						log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
+						hc.DiscardResult()
+						return ""
+					}
+					nw := *nwPtr
 					return network.ID(*nw.Get())
 				},
 				globalNetworks.NetworkGateways,
@@ -546,6 +560,13 @@ func MergedGlobalWorkloadsCollection(
 					return c.ID
 				},
 				func(hc krt.HandlerContext) network.ID {
+					nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+					if nwPtr == nil {
+						log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
+						hc.DiscardResult()
+						return ""
+					}
+					nw := *nwPtr
 					return network.ID(*nw.Get())
 				},
 			),
@@ -602,7 +623,6 @@ func MergedGlobalWorkloadsCollection(
 					log.Warnf("Failed to insert collection into cache %v for cluster %s", cache, c.ID)
 				}
 			}
-			ctx.DiscardResult()
 			return nil
 		}
 

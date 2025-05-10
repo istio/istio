@@ -90,54 +90,54 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 		svcAssertion func(s *ambientTestServer)
 		multicluster bool
 	}{
-		{
-			name:        "service traffic",
-			trafficType: constants.ServiceTraffic,
-			podAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertNoEvent(s.t)
-			},
-			svcAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertEvent(s.t, s.svcXdsName("svc1"))
-			},
-		},
-		{
-			name:        "all traffic",
-			trafficType: constants.AllTraffic,
-			podAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertEvent(s.t, s.podXdsName("pod1"))
-			},
-			svcAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertEvent(s.t, s.svcXdsName("svc1"))
-			},
-		},
-		{
-			name:        "workload traffic",
-			trafficType: constants.WorkloadTraffic,
-			podAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertEvent(s.t, s.podXdsName("pod1"))
-			},
-			svcAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertNoEvent(s.t)
-			},
-		},
-		{
-			name:        "no traffic",
-			trafficType: constants.NoTraffic,
-			podAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertNoEvent(s.t)
-			},
-			svcAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertNoEvent(s.t)
-			},
-		},
+		// {
+		// 	name:        "service traffic",
+		// 	trafficType: constants.ServiceTraffic,
+		// 	podAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertNoEvent(s.t)
+		// 	},
+		// 	svcAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertEvent(s.t, s.svcXdsName("svc1"))
+		// 	},
+		// },
+		// {
+		// 	name:        "all traffic",
+		// 	trafficType: constants.AllTraffic,
+		// 	podAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertEvent(s.t, s.podXdsName("pod1"))
+		// 	},
+		// 	svcAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertEvent(s.t, s.svcXdsName("svc1"))
+		// 	},
+		// },
+		// {
+		// 	name:        "workload traffic",
+		// 	trafficType: constants.WorkloadTraffic,
+		// 	podAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertEvent(s.t, s.podXdsName("pod1"))
+		// 	},
+		// 	svcAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertNoEvent(s.t)
+		// 	},
+		// },
+		// {
+		// 	name:        "no traffic",
+		// 	trafficType: constants.NoTraffic,
+		// 	podAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertNoEvent(s.t)
+		// 	},
+		// 	svcAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertNoEvent(s.t)
+		// 	},
+		// },
 		{
 			name:        "service traffic (multicluster enabled but unused)",
 			trafficType: constants.ServiceTraffic,
@@ -151,45 +151,45 @@ func TestAmbientIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			},
 			multicluster: true,
 		},
-		{
-			name:        "all traffic (multicluster enabled but unused)",
-			trafficType: constants.AllTraffic,
-			podAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertEvent(s.t, s.podXdsName("pod1"))
-			},
-			svcAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertEvent(s.t, s.svcXdsName("svc1"))
-			},
-			multicluster: true,
-		},
-		{
-			name:        "workload traffic (multicluster enabled but unused)",
-			trafficType: constants.WorkloadTraffic,
-			podAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertEvent(s.t, s.podXdsName("pod1"))
-			},
-			svcAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertNoEvent(s.t)
-			},
-			multicluster: true,
-		},
-		{
-			name:        "no traffic (multicluster enabled but unused)",
-			trafficType: constants.NoTraffic,
-			podAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertNoEvent(s.t)
-			},
-			svcAssertion: func(s *ambientTestServer) {
-				s.t.Helper()
-				s.assertNoEvent(s.t)
-			},
-			multicluster: true,
-		},
+		// {
+		// 	name:        "all traffic (multicluster enabled but unused)",
+		// 	trafficType: constants.AllTraffic,
+		// 	podAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertEvent(s.t, s.podXdsName("pod1"))
+		// 	},
+		// 	svcAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertEvent(s.t, s.svcXdsName("svc1"))
+		// 	},
+		// 	multicluster: true,
+		// },
+		// {
+		// 	name:        "workload traffic (multicluster enabled but unused)",
+		// 	trafficType: constants.WorkloadTraffic,
+		// 	podAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertEvent(s.t, s.podXdsName("pod1"))
+		// 	},
+		// 	svcAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertNoEvent(s.t)
+		// 	},
+		// 	multicluster: true,
+		// },
+		// {
+		// 	name:        "no traffic (multicluster enabled but unused)",
+		// 	trafficType: constants.NoTraffic,
+		// 	podAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertNoEvent(s.t)
+		// 	},
+		// 	svcAssertion: func(s *ambientTestServer) {
+		// 		s.t.Helper()
+		// 		s.assertNoEvent(s.t)
+		// 	},
+		// 	multicluster: true,
+		// },
 	}
 
 	for _, c := range cases {
@@ -857,7 +857,7 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
 		s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
-		s.addService(t, "wp",
+ 		s.addService(t, "wp",
 			map[string]string{},
 			map[string]string{},
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")

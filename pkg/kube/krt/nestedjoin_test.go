@@ -81,9 +81,11 @@ func TestNestedJoinCollection(t *testing.T) {
 	sortf := func(a Named) string {
 		return a.ResourceName()
 	}
+
+	a := nj.List()
 	assert.Equal(
 		t,
-		slices.SortBy(nj.List(), sortf),
+		slices.SortBy(a, sortf),
 		slices.SortBy([]Named{
 			{"c1", "b"},
 			{"c2", "a"},
@@ -324,7 +326,7 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 	opts := testOptions(t)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "name",
+			Name:      "svc",
 			Namespace: "namespace",
 		},
 		Spec: corev1.ServiceSpec{
