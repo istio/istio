@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/util/hash"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -185,6 +186,9 @@ type ConfigStoreController interface {
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
+
+	// Returns the backing krt collection for the given kind
+	KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config]
 }
 
 const (

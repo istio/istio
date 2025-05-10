@@ -129,6 +129,12 @@ func TestConfigureIstioGateway(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("failed to create ProxyConfigs: %s", err)
 	}
+
+	stop := test.NewStop(t)
+	go store.Run(stop)
+	store.MarkSynced()
+	kube.WaitForCacheSync("test", stop, store.HasSynced)
+
 	proxyConfig := model.GetProxyConfigs(store, mesh.DefaultMeshConfig())
 	tests := []struct {
 		name                     string

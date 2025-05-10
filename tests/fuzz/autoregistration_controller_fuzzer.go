@@ -106,7 +106,7 @@ func FuzzWE(data []byte) int {
 		return 0
 	}
 
-	store := memory.NewController(memory.Make(collections.All))
+	store := memory.NewController(collections.All)
 	c := autoregistration.NewController(store, "", keepalive.Infinity)
 	err = createStore(store, wgA)
 	if err != nil {
