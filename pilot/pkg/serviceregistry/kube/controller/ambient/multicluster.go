@@ -41,6 +41,8 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -113,7 +115,6 @@ func (a *index) buildGlobalCollections(
 		func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[*v1beta1.Gateway]] {
 			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/gateways[%s]", c.ID), a.stop, c.gateways.HasSynced) {
 				log.Warnf("Failed to sync gateways informer for cluster %s", c.ID)
-				ctx.DiscardResult()
 				return nil
 			}
 			return ptr.Of(krt.MapCollection(c.gateways, func(obj *v1beta1.Gateway) config.ObjectWithCluster[*v1beta1.Gateway] {
@@ -143,7 +144,6 @@ func (a *index) buildGlobalCollections(
 		func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[*v1.Node]] {
 			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/nodes[%s]", c.ID), a.stop, c.nodes.HasSynced) {
 				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID)
-				ctx.DiscardResult()
 				return nil
 			}
 			return ptr.Of(krt.MapCollection(c.nodes, func(obj *v1.Node) config.ObjectWithCluster[*v1.Node] {
@@ -264,7 +264,7 @@ func (a *index) buildGlobalCollections(
 			return a.Service
 		},
 		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
-	), true)
+	), false)
 
 	GobalWorkloadServicesWithClusterByCluster := nestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
 	LocalServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](LocalWorkloadServices, "serviceAddress", networkAddressFromService)
@@ -480,7 +480,6 @@ func nestedCollectionFromLocalAndRemote[T any](
 		} else {
 			if !cache.Insert(*remoteCollection) {
 				log.Warnf("Failed to insert collection %v into cache for cluster %s due to existing collection", remoteCollection, c.ID)
-				ctx.DiscardResult()
 				return nil
 			}
 		}
@@ -538,56 +537,98 @@ func nestedCollectionIndexByCluster[T any](
 	})
 }
 
+type simplePort struct {
+	servicePort uint32
+	targetPort  uint32
+}
+type portKey struct {
+	source    string
+	clusterID cluster.ID
+}
+
+type simpleNetworkAddress struct {
+	network string
+	ip      netip.Addr
+}
+
 func mergeServiceInfosWithCluster(
 	localClusterID cluster.ID,
 ) func(serviceInfos []config.ObjectWithCluster[model.ServiceInfo]) *config.ObjectWithCluster[model.ServiceInfo] {
 	return func(serviceInfos []config.ObjectWithCluster[model.ServiceInfo]) *config.ObjectWithCluster[model.ServiceInfo] {
-		if len(serviceInfos) == 0 {
+		svcInfosLen := len(serviceInfos)
+		if svcInfosLen == 0 {
 			return nil
 		}
-		if len(serviceInfos) == 1 {
+		if svcInfosLen == 1 {
 			return &serviceInfos[0]
 		}
 
-		// TODO: this is inaccurate; VIPs need to be scoped
-		var vips sets.Set[*workloadapi.NetworkAddress]
-		var sans sets.Set[string]
-		ports := map[string]sets.Set[*workloadapi.Port]{}
-		var base *config.ObjectWithCluster[model.ServiceInfo]
+		vips := sets.NewWithLength[simpleNetworkAddress](svcInfosLen)
+		sans := sets.NewWithLength[string](svcInfosLen)
+		ports := map[portKey]sets.Set[simplePort]{}
+		var base config.ObjectWithCluster[model.ServiceInfo]
+		setBase := false
+		workloadPortsToSimplePort := func(p *workloadapi.Port) simplePort {
+			return simplePort{
+				servicePort: p.ServicePort,
+				targetPort:  p.TargetPort,
+			}
+		}
 		for _, obj := range serviceInfos {
 			if obj.Object == nil {
 				continue
 			}
-			ports[obj.Object.Source.String()] = sets.New(obj.Object.Service.Ports...)
+
+			ports[portKey{
+				source:    obj.Object.Source.String(),
+				clusterID: obj.ClusterID,
+			}] = sets.New(slices.Map(obj.Object.Service.Ports, workloadPortsToSimplePort)...)
 			// This flat merge is ok because the VIPs themselves are per-network and we require
 			// VIP uniquness within a network
-			vips.InsertAll(obj.Object.Service.GetAddresses()...)
+			vips.InsertAll(slices.Map(obj.Object.Service.GetAddresses(), func(a *workloadapi.NetworkAddress) simpleNetworkAddress {
+				// We can ignore the err because we know the address is valid
+				addr, _ := netip.AddrFromSlice(a.Address)
+				return simpleNetworkAddress{
+					network: a.Network,
+					ip:      addr,
+				}
+			})...)
 			sans.InsertAll(obj.Object.Service.GetSubjectAltNames()...)
 			if obj.ClusterID == localClusterID {
 				if obj.Object.Source.Kind == kind.ServiceEntry {
 					// If there's a service entry that's considered external to the mesh, we
 					// prioritize that
-					base = &obj
-				} else if base == nil {
-					base = &obj
+					base = obj
+				} else if !setBase {
+					base = obj
+					setBase = true
 				}
 			}
 		}
 
-		if base.Object == nil {
+		if !setBase {
 			// No local objects found, so just use the first one
-			base = &serviceInfos[0]
+			base = serviceInfos[0]
 		}
 
-		basePorts := sets.New(base.Object.Service.Ports...)
+		basePorts := sets.New(slices.Map(base.Object.Service.Ports, workloadPortsToSimplePort)...)
 		for source, portSet := range ports {
-			if !portSet.Equals(basePorts) {
+			if !basePorts.Equals(portSet) {
 				log.Warnf("ServiceInfo derived from %s has mismatched ports. Base ports %v != %v", source, basePorts, portSet)
 			}
 		}
 
+		// Prevent modifying the underlying workloadapi.Service
+		base.Object.Service = protomarshal.Clone(base.Object.Service)
+
 		// TODO: Do we need to merge anything else?
-		base.Object.Service.Addresses = vips.UnsortedList()
+		base.Object.Service.Addresses = slices.Map(vips.UnsortedList(), func(a simpleNetworkAddress) *workloadapi.NetworkAddress {
+			return &workloadapi.NetworkAddress{
+				Network: a.network,
+				Address: a.ip.AsSlice(),
+			}
+		})
+		// log.Infof("VIPs: %v", base.Object.Service.Addresses)
 		base.Object.Service.SubjectAltNames = sans.UnsortedList()
 
 		// Rememeber, we have to re-precompute the serviceinfo since we changed it
@@ -609,7 +650,9 @@ func mergeWorkloadInfosWithCluster(
 			return &workloadInfos[0]
 		}
 
-		log.Warnf("Duplicate workloadinfos found for %v. Trying to take local and then the first if we can't find it", workloadInfos)
+		// TODO: We should adjust the remote cluster store logic to seamlessly swap out clusters without there
+		// being duplicates in our collections. Tracked by https://github.com/istio/istio/issues/49349
+		log.Warnf("Duplicate workloadinfos found for %#+v. Trying to take local and then the first if we can't find it", workloadInfos)
 		for _, obj := range workloadInfos {
 			if obj.Object == nil {
 				continue

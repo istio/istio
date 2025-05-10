@@ -15,6 +15,8 @@
 package krt
 
 import (
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -25,6 +27,7 @@ import (
 func BatchedEventFilter[I, O any](cf func(a I) O, handler func(events []Event[I])) func(o []Event[I]) {
 	return func(events []Event[I]) {
 		ev := slices.Filter(events, func(e Event[I]) bool {
+			log.Infof("Diff: %s", cmp.Diff(e.Old, e.New, protocmp.Transform()))
 			if e.Old != nil && e.New != nil {
 				if equal(cf(*e.Old), cf(*e.New)) {
 					// Equal under conversion, so we can skip

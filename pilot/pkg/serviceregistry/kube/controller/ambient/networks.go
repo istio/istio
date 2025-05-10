@@ -89,28 +89,25 @@ func buildGlobalNetworkCollections(
 					ClusterKRTMetadataKey: c.ID,
 				}),
 			)
-			if !kubectrl.WaitForCacheSync(fmt.Sprintf("remote cluster %s", c.ID), opts.Stop(), c.HasSynced) {
+			if !kubectrl.WaitForCacheSync(fmt.Sprintf("remote cluster[%s] namespaces", c.ID), opts.Stop(), c.HasSynced) {
 				log.Errorf("Timed out waiting for cluster %s to sync namespaces", c.ID)
 				return nil
 			}
 			ns := ptr.Flatten(krt.FetchOne(ctx, c.namespaces, krt.FilterKey(options.SystemNamespace)))
 			if ns == nil {
-				// If the namespace for the remote cluster is not found, we return an empty singleton.
-				// This ensures that the function always provides a valid singleton object, even in cases
-				// where the namespace is missing. Downstream consumers should check the contents of the
-				// singleton and handle the absence of a value (nil) appropriately.
+				// If the namespace for the remote cluster is not found, we default to the empty string
+				// to indicate that this cluster is a part of the default network
 				return ptr.Of(krt.NewSingleton(func(ctx krt.HandlerContext) *string {
-					return nil
+					return ptr.Of("")
 				}, singletonOpts...))
 			}
 			nw, f := ns.Labels[label.TopologyNetwork.Name]
 			if !f {
 				nw = ""
 			}
-			s := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+			return ptr.Of(krt.NewSingleton(func(ctx krt.HandlerContext) *string {
 				return ptr.Of(nw)
-			}, singletonOpts...)
-			return &s
+			}, singletonOpts...))
 		},
 		opts.WithName("RemoteSystemNamespaceNetworks")...,
 	)
@@ -137,7 +134,6 @@ func buildGlobalNetworkCollections(
 		gatewaysPtr := krt.FetchOne(ctx, gateways, krt.FilterIndex(gatewaysByCluster, c.ID))
 		if gatewaysPtr == nil {
 			log.Warnf("No gateways found for cluster %s", c.ID)
-			ctx.DiscardResult()
 			return nil
 		}
 		gateways := *gatewaysPtr

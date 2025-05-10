@@ -271,8 +271,7 @@ func GlobalWaypointsCollection(
 	return nestedCollectionFromLocalAndRemote(localWaypoints, clusters, func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[Waypoint] {
 		podsPtr := krt.FetchOne[krt.Collection[*v1.Pod]](ctx, globalPods, krt.FilterIndex(podsByCluster, c.ID))
 		if podsPtr == nil {
-			log.Warnf("Cluster %s does not have any pods assigned, skipping", c.ID)
-			ctx.DiscardResult()
+			log.Warnf("Cluster %s does not have any pods assigned, skipping waypoints", c.ID)
 			return nil
 		}
 		pods := *podsPtr
@@ -280,8 +279,7 @@ func GlobalWaypointsCollection(
 		podsByNamespace := krt.NewNamespaceIndex(pods)
 		gatewaysPtr := krt.FetchOne[krt.Collection[*v1beta1.Gateway]](ctx, globalGateways, krt.FilterIndex(gatewaysByCluster, c.ID))
 		if gatewaysPtr == nil {
-			log.Warnf("Cluster %s does not have any gateways assigned, skipping", c.ID)
-			ctx.DiscardResult()
+			log.Warnf("Cluster %s does not have any gateways assigned, skipping waypoints", c.ID)
 			return nil
 		}
 		gateways := *gatewaysPtr
@@ -318,14 +316,14 @@ func GlobalWaypointsCollection(
 			}
 
 			nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-			nw := ptr.OrEmpty(nwPtr)
-			clusterNetwork := nw.Get()
-
-			if clusterNetwork == nil {
-				log.Warnf("Cluster %s does not have a network assigned, skipping", c.ID)
+			if nwPtr == nil {
+				log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
 				return nil
 			}
-			w := makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, network.ID(*clusterNetwork))
+			nw := ptr.OrEmpty(nwPtr)
+			clusterNetwork := ptr.OrEmpty(nw.Get())
+
+			w := makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, network.ID(clusterNetwork))
 			return w
 		}, opts.With(
 			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
