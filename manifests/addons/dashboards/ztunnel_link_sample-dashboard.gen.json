@@ -1,0 +1,32 @@
+{
+   "graphTooltip": 1,
+   "links": [
+      {
+         "asDropdown": false,
+         "includeVars": true,
+         "keepTime": true,
+         "tags": [
+            "12c58766acc81a1c835dd5059eaf2741"
+         ],
+         "title": "Ztunnel Dashboard",
+         "type": "dashboards"
+      }
+   ],
+   "refresh": "15s",
+   "schemaVersion": 39,
+   "templating": {
+      "list": [
+         {
+            "name": "datasource",
+            "query": "prometheus",
+            "type": "datasource"
+         }
+      ]
+   },
+   "time": {
+      "from": "now-30m",
+      "to": "now"
+   },
+   "timezone": "utc",
+   "title": "Example Dashboard with Ztunnel Link"
+}
