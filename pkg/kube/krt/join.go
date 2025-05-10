@@ -168,6 +168,12 @@ func getMergedAdd[T any](e Event[T], merged *T) Event[T] {
 	if merged == nil {
 		log.Warnf("JoinCollection: merge function returned nil for add event %v", e)
 	}
+
+	if equal(*e.New, *merged) {
+		// This is likely a legitimate add event since the merged version is the same
+		// as the new version. Send the original add event.
+		return e
+	}
 	// This is an update triggered by the add of a duplicate item.
 	// We use the added item as the old value as a best effort.
 	return Event[T]{
@@ -365,7 +371,6 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 		log.Warn("JoinWithMergeCollection: unchecked overlap is ineffective with a merge function")
 		o.joinUnchecked = false
 	}
-
 	j := &join[T]{
 		collectionName:   o.name,
 		id:               nextUID(),
