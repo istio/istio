@@ -134,6 +134,9 @@ var (
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
 			" be enabled. In addition to this being enabled, the gateway-api CRDs need to be installed.").Get()
 
+	EnableGatewayAPICopyLabelsAnnotations = env.Register("PILOT_ENABLE_GATEWAY_API_COPY_LABELS_ANNOTATIONS", true,
+		"If this is set to false, istiod will not copy any attributes from the Gateway resource onto its related Deployment resources.").Get()
+
 	EnableAlphaGatewayAPIName = "PILOT_ENABLE_ALPHA_GATEWAY_API"
 	EnableAlphaGatewayAPI     = env.Register(EnableAlphaGatewayAPIName, false,
 		"If this is set to true, support for alpha APIs in the Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+
