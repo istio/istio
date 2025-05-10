@@ -16,8 +16,6 @@ package krt
 
 import (
 	"sync"
-
-	"istio.io/istio/pkg/kube/kclient"
 )
 
 type dynamicJoinHandlerRegistration struct {
@@ -76,14 +74,14 @@ type collectionChangeEvent[T any] struct {
 }
 
 // nolint: unused // (not true)
-type dynamicJoinIndexer struct {
-	indexers map[collectionUID]kclient.RawIndexer
+type dynamicJoinIndexer[T any] struct {
+	indexers map[collectionUID]indexer[T]
 	sync.RWMutex
 }
 
 // nolint: unused // (not true)
-func (j *dynamicJoinIndexer) Lookup(key string) []any {
-	var res []any
+func (j *dynamicJoinIndexer[T]) Lookup(key string) []T {
+	var res []T
 	first := true
 	j.RLock()
 	defer j.RUnlock() // keithmattix: we're probably fine to defer as long as we don't have nested dynamic indexers

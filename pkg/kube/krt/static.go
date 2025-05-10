@@ -19,7 +19,6 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -232,10 +231,11 @@ type staticListIndex[T any] struct {
 }
 
 // nolint: unused // (not true)
-func (s staticListIndex[T]) Lookup(key string) []any {
-	var res []any
+func (s staticListIndex[T]) Lookup(key string) []T {
+	var res []T
 	s.parent.mu.RLock()
 	defer s.parent.mu.RUnlock()
+
 	for _, v := range s.parent.vals {
 		have := s.extract(v)
 		if slices.Contains(have, key) {
@@ -246,7 +246,7 @@ func (s staticListIndex[T]) Lookup(key string) []any {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (s *staticList[T]) index(name string, extract func(o T) []string) kclient.RawIndexer {
+func (s *staticList[T]) index(name string, extract func(o T) []string) indexer[T] {
 	return staticListIndex[T]{
 		extract: extract,
 		parent:  s,

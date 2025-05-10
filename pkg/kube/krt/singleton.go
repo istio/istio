@@ -19,7 +19,6 @@ import (
 	"sync/atomic"
 
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 )
@@ -176,7 +175,7 @@ func (d *static[T]) uid() collectionUID {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (d *static[T]) index(name string, extract func(o T) []string) kclient.RawIndexer {
+func (d *static[T]) index(name string, extract func(o T) []string) indexer[T] {
 	panic("TODO")
 }
 

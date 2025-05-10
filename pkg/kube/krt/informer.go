@@ -145,9 +145,23 @@ func (i informerHandlerRegistration) UnregisterHandler() {
 }
 
 // nolint: unused // (not true)
-func (i *informer[I]) index(name string, extract func(o I) []string) kclient.RawIndexer {
+type informerIndex[I any] struct {
+	idx kclient.RawIndexer
+}
+
+// nolint: unused // (not true)
+func (ii *informerIndex[I]) Lookup(key string) []I {
+	return slices.Map(ii.idx.Lookup(key), func(i any) I {
+		return i.(I)
+	})
+}
+
+// nolint: unused // (not true)
+func (i *informer[I]) index(name string, extract func(o I) []string) indexer[I] {
 	idx := i.inf.Index(name, extract)
-	return idx
+	return &informerIndex[I]{
+		idx: idx,
+	}
 }
 
 func informerEventHandler[I controllers.ComparableObject](handler func(o Event[I], initialSync bool)) cache.ResourceEventHandler {
