@@ -3457,7 +3457,7 @@ func restartZtunnel(t framework.TestContext) {
 					}
 				}
 			}
-		}`, time.Now().Format(time.RFC3339)) // e.g., “2006-01-02T15:04:05Z07:00”
+		}`, time.Now().Format(time.RFC3339)) // e.g., "2006-01-02T15:04:05Z07:00"
 	ds := t.Clusters().Default().Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace)
 	_, err := ds.Patch(context.Background(), "ztunnel", types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
@@ -3582,5 +3582,158 @@ spec:
 					),
 				})
 			}
+		})
+}
+
+func TestZtunnelSecureMetrics(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(tc framework.TestContext) {
+			clientInstance := apps.Captured[0]
+			if clientInstance == nil {
+				tc.Fatal("No captured client instance found for ZtunnelSecureMetrics test")
+			}
+
+			istioSystemNS := i.Settings().SystemNamespace
+			k8sPods := tc.Clusters().Default().Kube().CoreV1().Pods(istioSystemNS)
+			patchOpts := metav1.PatchOptions{}
+
+			// Label the istio-system namespace as ambient
+			nsLabelPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": "ambient"}}}`, "istio.io/dataplane-mode")
+			_, err := tc.Clusters().Default().Kube().CoreV1().Namespaces().Patch(context.Background(),
+				istioSystemNS, types.StrategicMergePatchType, []byte(nsLabelPatch), patchOpts)
+			if err != nil {
+				tc.Fatalf("Failed to label namespace %s as ambient: %v", istioSystemNS, err)
+			}
+			tc.Cleanup(func() {
+				cleanupPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": null}}}`, "istio.io/dataplane-mode")
+				_, err = tc.Clusters().Default().Kube().CoreV1().Namespaces().Patch(context.Background(),
+					istioSystemNS, types.StrategicMergePatchType, []byte(cleanupPatch), patchOpts)
+				if err != nil {
+					tc.Logf("Failed to remove ambient label from namespace %s: %v", istioSystemNS, err)
+				}
+				tc.Logf("Removed ambient label from namespace %s", istioSystemNS)
+			})
+
+			// Label Prometheus pod as ambient
+			promPods, err := k8sPods.List(context.TODO(), metav1.ListOptions{
+				LabelSelector: "app.kubernetes.io/name=prometheus",
+			})
+			if err != nil {
+				tc.Fatalf("Failed to list Prometheus pods in %s: %v", istioSystemNS, err)
+			}
+			if len(promPods.Items) == 0 {
+				tc.Logf("No Prometheus pods found with label app.kubernetes.io/name=prometheus in %s. Skipping Prometheus labeling.", istioSystemNS)
+			} else {
+				for _, promPod := range promPods.Items {
+					promPodName := promPod.Name
+					promLabelPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": "ambient"}}}`, "istio.io/dataplane-mode")
+					_, err = k8sPods.Patch(context.Background(), promPodName, types.StrategicMergePatchType, []byte(promLabelPatch), patchOpts)
+					if err != nil {
+						tc.Fatalf("Failed to label Prometheus pod %s for ambient: %v", promPodName, err)
+					}
+
+					tc.Cleanup(func() {
+						promCleanupPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": null}}}`, "istio.io/dataplane-mode")
+						_, err = k8sPods.Patch(context.Background(), promPodName, types.StrategicMergePatchType, []byte(promCleanupPatch), patchOpts)
+						if err != nil {
+							tc.Logf("Failed to remove istio.io/dataplane-mode label from Prometheus pod %s: %v", promPodName, err)
+						}
+						tc.Logf("Removed ambient label from Prometheus pod %s", promPodName)
+					})
+				}
+			}
+
+			// Get ztunnel pod info
+			ztunnelPods, err := k8sPods.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel"})
+			if err != nil || len(ztunnelPods.Items) == 0 {
+				tc.Fatalf("Failed to list ztunnel pods or none found: %v", err)
+			}
+			ztunnelPod := ztunnelPods.Items[0] // Pick the first ztunnel pod
+			ztunnelPodIP := ztunnelPod.Status.PodIP
+			ztunnelMetricsPort := 15020 // Default ztunnel metrics port
+			ztunnelServiceAccount := ztunnelPod.Spec.ServiceAccountName
+			trustDomain := util.GetTrustDomain(tc.Clusters().Default(), istioSystemNS)
+			// Extract ztunnel app labels for canonical service/revision
+			ztunnelAppLabel := ztunnelPod.Labels["app"]
+			ztunnelVersionLabel := ztunnelPod.Labels["app.kubernetes.io/version"]
+
+			// Label the ztunnel pod to force HBONE for HTTP traffic
+			ztunnelLabelPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": "http"}}}`, "networking.istio.io/tunnel")
+			_, err = k8sPods.Patch(context.Background(), ztunnelPod.Name, types.StrategicMergePatchType, []byte(ztunnelLabelPatch), patchOpts)
+			if err != nil {
+				tc.Fatalf("Failed to label ztunnel pod %s: %v", ztunnelPod.Name, err)
+			}
+
+			tc.Cleanup(func() {
+				// Cleanup the label
+				cleanupPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": null}}}`, "networking.istio.io/tunnel")
+				_, err = k8sPods.Patch(context.Background(), ztunnelPod.Name, types.StrategicMergePatchType, []byte(cleanupPatch), patchOpts)
+				if err != nil {
+					tc.Logf("Failed to remove networking.istio.io/tunnel label from ztunnel pod %s: %v", ztunnelPod.Name, err)
+				}
+				tc.Logf("Removed networking.istio.io/tunnel label from ztunnel pod %s", ztunnelPod.Name)
+			})
+
+			tc.Logf("Using client %s (%s) to query ztunnel %s (%s) metrics on port %d. Expecting transparent HBONE.",
+				clientInstance.Config().Service, clientInstance.WorkloadsOrFail(tc)[0].PodName(), ztunnelPod.Name, ztunnelPodIP, ztunnelMetricsPort)
+
+			// Client calls ztunnel's `/metrics` endpoint.
+			// This request should be intercepted by clientInstance's ztunnel,
+			// and an HBONE connection made to the target ztunnel's inbound (15008),
+			// which then proxies to its internal metrics server (15020).
+			opts := echo.CallOptions{
+				Address: ztunnelPodIP,
+				Port:    echo.Port{ServicePort: ztunnelMetricsPort, Name: "http-ztunnel-metrics", Protocol: protocol.HTTP},
+				Scheme:  scheme.HTTP,
+				HTTP:    echo.HTTP{Path: "/metrics"},
+				Check:   check.And(check.OK(), check.BodyContains("# TYPE")), // Check for Prometheus format
+			}
+			clientInstance.CallOrFail(tc, opts)
+			tc.Logf("Successfully called ztunnel /metrics endpoint via HTTP from %s", clientInstance.WorkloadsOrFail(tc)[0].PodName())
+
+			// Verify Prometheus L4 telemetry for the HBONE connection to ztunnel
+			// The ztunnel pod itself is the destination workload for this specific HBONE connection.
+			// sourceWorkloadPodName := clientInstance.WorkloadsOrFail(tc)[0].PodName() // For istio_tcp_connections_opened_total, source_workload is pod name
+			sourceNamespace := clientInstance.Config().Namespace.Name()
+			sourceSA := clientInstance.Config().AccountName()
+			sourceWorkloadLabel := clientInstance.Config().Service + "-" + clientInstance.Config().Version
+
+			query := prometheus.Query{
+				Metric: "istio_tcp_connections_opened_total",
+				Labels: map[string]string{
+					"reporter":                       "destination",
+					"connection_security_policy":     "mutual_tls",
+					"destination_workload_namespace": istioSystemNS,
+					"destination_workload":           "ztunnel",
+					"destination_principal":          fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, istioSystemNS, ztunnelServiceAccount), // Restored usage of ztunnelServiceAccount
+					"destination_canonical_service":  ztunnelAppLabel,
+					"destination_canonical_revision": ztunnelVersionLabel,
+					"source_workload_namespace":      sourceNamespace,
+					"source_workload":                sourceWorkloadLabel,
+					"source_principal":               fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, sourceNamespace, sourceSA),
+					"source_canonical_service":       clientInstance.Config().Service,
+					"source_canonical_revision":      clientInstance.Config().Version,
+				},
+			}
+
+			tc.Logf("Prometheus query for ztunnel secure metrics: %#v", query)
+
+			retry.UntilSuccessOrFail(tc, func() error {
+				count, err := prom.QuerySum(tc.Clusters().Default(), query)
+				if err != nil {
+					tc.Logf("Prometheus query failed (will retry for query %s): %v", query.String(), err)
+					// Attempt to dump metrics related to the query for easier debugging during retries.
+					util.PromDump(tc.Clusters().Default(), prom, query)
+					return err
+				}
+				if count < 1 {
+					tc.Logf("Expected at least 1 connection for query %s, got %f (will retry)", query.String(), count)
+					// Attempt to dump metrics related to the query for easier debugging during retries.
+					util.PromDump(tc.Clusters().Default(), prom, query)
+					return fmt.Errorf("expected at least 1 connection for query %s, got %f", query.String(), count)
+				}
+				tc.Logf("Successfully validated prometheus query %s, count: %f", query.String(), count)
+				return nil
+			}, retry.Timeout(30*time.Second), retry.BackoffDelay(time.Second))
 		})
 }
