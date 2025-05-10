@@ -479,9 +479,4 @@
     }
   }
   
-  ,
-  "deferred_stat_options": {
-    "enable_deferred_creation_stats": true
-  }
-  
 }
