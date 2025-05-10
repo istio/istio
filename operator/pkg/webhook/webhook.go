@@ -58,9 +58,10 @@ func WebhooksToDeploy(iop values.Map, clt kube.Client, dryRun bool) ([]manifest.
 		AutoInjectNamespaces: autoInject,
 		CustomLabels:         ignorePruneLabel,
 		Generate:             dryRun,
+		IstioNamespace:       ns,
 	}
 	// If tag cannot be created could be remote cluster install, don't fail out.
-	tagManifests, err := revtag.Generate(context.Background(), clt, o, ns)
+	tagManifests, err := revtag.Generate(context.Background(), clt, o)
 	if err != nil {
 		return nil, nil
 	}

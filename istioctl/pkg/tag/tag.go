@@ -227,7 +227,7 @@ func tagListCommand(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			return listTags(context.Background(), kubeClient.Kube(), cmd.OutOrStdout())
+			return listTags(context.Background(), kubeClient.Kube(), ctx.IstioNamespace(), cmd.OutOrStdout())
 		},
 	}
 
@@ -265,7 +265,7 @@ revision tag before removing using the "istioctl tag list" command.
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
 
-			return removeTag(context.Background(), kubeClient.Kube(), args[0], skipConfirmation, cmd.OutOrStdout())
+			return removeTag(context.Background(), kubeClient.Kube(), args[0], skipConfirmation, ctx.IstioNamespace(), cmd.OutOrStdout())
 		},
 	}
 
@@ -284,12 +284,14 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 		Overwrite:            overwrite,
 		AutoInjectNamespaces: autoInjectNamespaces,
 		UserManaged:          true,
+		IstioNamespace:       istioNS,
 	}
-	tagWhYAML, err := Generate(ctx, kubeClient, opts, istioNS)
+	tagWhYAML, err := Generate(ctx, kubeClient, opts)
 	if err != nil {
 		return err
 	}
 	// Check the newly generated webhook does not conflict with existing ones.
+	// TODO: Check if ambient service conflicts as well
 	resName := webhookName
 	if resName == "" {
 		resName = fmt.Sprintf("%s-%s", "istio-revision-tag", tagName)
@@ -355,13 +357,18 @@ func analyzeWebhook(name, istioNamespace, wh, revision string, config *rest.Conf
 }
 
 // removeTag removes an existing revision tag.
-func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName string, skipConfirmation bool, w io.Writer) error {
-	webhooks, err := GetWebhooksWithTag(ctx, kubeClient, tagName)
+func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName string, skipConfirmation bool, istioNS string, w io.Writer) error {
+	services, err := GetServicesWithTag(ctx, kubeClient, istioNS, tagName)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve tag with name %s: %v", tagName, err)
+		return err
 	}
-	if len(webhooks) == 0 {
-		return fmt.Errorf("cannot remove tag %q: cannot find MutatingWebhookConfiguration for tag", tagName)
+	tagServiceExists := len(services) != 0
+
+	webhooks, err := GetWebhooksWithTag(ctx, kubeClient, tagName)
+	tagWebhookExists := len(webhooks) != 0
+
+	if !tagServiceExists && !tagWebhookExists {
+		return fmt.Errorf("cannot remove tag %q: cannot find MutatingWebhookConfiguration or Service for tag", tagName)
 	}
 
 	taggedNamespaces, err := GetNamespacesWithTag(ctx, kubeClient, tagName)
@@ -377,11 +384,19 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 	}
 
 	// proceed with webhook deletion
-	err = DeleteTagWebhooks(ctx, kubeClient, tagName)
-	if err != nil {
-		return fmt.Errorf("failed to delete Istio revision tag MutatingConfigurationWebhook: %v", err)
+	if tagWebhookExists {
+		err = DeleteTagWebhooks(ctx, kubeClient, tagName)
+		if err != nil {
+			return fmt.Errorf("failed to delete Istio revision tag MutatingConfigurationWebhook: %v", err)
+		}
 	}
 
+	if tagServiceExists {
+		err = DeleteTagServices(ctx, kubeClient, istioNS, tagName)
+		if err != nil {
+			return fmt.Errorf("failed to delete Istio revision tag Services: %v", err)
+		}
+	}
 	fmt.Fprintf(w, "Revision tag %s removed\n", tagName)
 	return nil
 }
@@ -391,22 +406,29 @@ type uniqTag struct {
 }
 
 // listTags lists existing revision.
-func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Writer) error {
-	tagWebhooks, err := GetRevisionWebhooks(ctx, kubeClient)
+func listTags(ctx context.Context, kubeClient kubernetes.Interface, istioNS string, writer io.Writer) error {
+	uniqTags, err := uniqTagsFromWebhooks(ctx, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve revision tags: %v", err)
 	}
-	if len(tagWebhooks) == 0 {
-		fmt.Fprintf(writer, "No Istio revision tag MutatingWebhookConfigurations to list\n")
+
+	serviceTags, err := uniqTagsFromServices(ctx, kubeClient, istioNS)
+	if err != nil {
+		return err
+	}
+	for svcTag := range serviceTags {
+		uniqTags[svcTag] = true
+	}
+
+	if len(uniqTags) == 0 {
+		fmt.Fprintf(writer, "No Istio revision tags found.\\n") // Adjusted message slightly
 		return nil
 	}
+
 	rawTags := map[uniqTag]tagDescription{}
-	for _, wh := range tagWebhooks {
-		tagName := GetWebhookTagName(wh)
-		tagRevision, err := GetWebhookRevision(wh)
-		if err != nil {
-			return fmt.Errorf("error parsing revision from webhook %q: %v", wh.Name, err)
-		}
+	for ut := range uniqTags {
+		tagName := ut.tag
+		tagRevision := ut.revision
 		tagNamespaces, err := GetNamespacesWithTag(ctx, kubeClient, tagName)
 		if err != nil {
 			return fmt.Errorf("error retrieving namespaces for tag %q: %v", tagName, err)
@@ -448,6 +470,49 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	}
 
 	return w.Flush()
+}
+
+func uniqTagsFromWebhooks(ctx context.Context, kubeClient kubernetes.Interface) (map[uniqTag]bool, error) {
+	tagWebhooks, err := GetRevisionWebhooks(ctx, kubeClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve revision tags: %v", err)
+	}
+	uniqTags := map[uniqTag]bool{}
+	for _, wh := range tagWebhooks {
+		tagName := GetWebhookTagName(wh)
+		tagRevision, err := GetWebhookRevision(wh)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing revision from webhook %q: %v", wh.Name, err)
+		}
+		key := uniqTag{
+			tag:      tagName,
+			revision: tagRevision,
+		}
+		uniqTags[key] = true
+	}
+	return uniqTags, nil
+}
+
+func uniqTagsFromServices(ctx context.Context, kubeClient kubernetes.Interface, istioNS string) (map[uniqTag]bool, error) {
+	tagServices, err := GetRevisionServices(ctx, kubeClient, istioNS)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve revision tag services: %v", err)
+	}
+	uniqTags := map[uniqTag]bool{}
+	for _, svc := range tagServices {
+		tagName := GetServiceTagName(svc)
+		tagRevision, err := GetServiceRevision(svc)
+		if err != nil {
+			// Ignore services where revision cannot be determined, might be unrelated service with tag label
+			continue
+		}
+		key := uniqTag{
+			tag:      tagName,
+			revision: tagRevision,
+		}
+		uniqTags[key] = true
+	}
+	return uniqTags, nil
 }
 
 func printJSONYAML(w io.Writer, res any, outformat string) error {

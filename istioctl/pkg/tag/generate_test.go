@@ -469,12 +469,13 @@ func testGenerateOption(t *testing.T, generate bool, assertFunc func(*testing.T,
 	fakeClient := kube.NewFakeClient(defaultWh)
 
 	opts := &GenerateOptions{
-		Generate: generate,
-		Tag:      "default",
-		Revision: "default",
+		Generate:       generate,
+		Tag:            "default",
+		Revision:       "default",
+		IstioNamespace: "istio-system",
 	}
 
-	_, err := Generate(context.TODO(), fakeClient, opts, "istio-system")
+	_, err := Generate(context.TODO(), fakeClient, opts)
 	assert.NoError(t, err)
 
 	wh, err := fakeClient.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().
