@@ -84,6 +84,8 @@ func TestMain(m *testing.M) {
 			}
 			cfg.ControlPlaneValues = `
 values:
+  pilot:
+    trustedZtunnelNamespace: istio-system
   cni:
     repair:
       enabled: true
