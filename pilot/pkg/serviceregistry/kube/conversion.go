@@ -232,16 +232,20 @@ func GatewaySA(gw *v1beta1.Gateway) string {
 
 func GetTrafficDistribution(specValue *string, annotations map[string]string) model.TrafficDistribution {
 	if specValue != nil {
-		preferClose := *specValue == corev1.ServiceTrafficDistributionPreferClose
-		if preferClose {
-			return model.TrafficDistributionPreferClose
+		switch *specValue {
+		case corev1.ServiceTrafficDistributionPreferSameZone, corev1.ServiceTrafficDistributionPreferClose:
+			return model.TrafficDistributionPreferSameZone
+		case corev1.ServiceTrafficDistributionPreferSameNode:
+			return model.TrafficDistributionPreferSameNode
 		}
 	}
 	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
 	// This also has some custom types
 	switch strings.ToLower(annotations[annotation.NetworkingTrafficDistribution.Name]) {
-	case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose):
-		return model.TrafficDistributionPreferClose
+	case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
+		return model.TrafficDistributionPreferSameZone
+	case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
+		return model.TrafficDistributionPreferSameNode
 	default:
 		return model.TrafficDistributionAny
 	}
