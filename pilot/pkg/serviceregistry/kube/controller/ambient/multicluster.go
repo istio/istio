@@ -624,7 +624,12 @@ func mergeServiceInfosWithCluster(
 		base.Object.Service = protomarshal.Clone(base.Object.Service)
 
 		// TODO: Do we need to merge anything else?
-		base.Object.Service.Addresses = slices.Map(vips.UnsortedList(), func(a simpleNetworkAddress) *workloadapi.NetworkAddress {
+
+		// VIP order needs to be stable for comparison purposes.
+		orderedVips := slices.SortBy(vips.UnsortedList(), func(a simpleNetworkAddress) string {
+			return a.network + "/" + a.ip.String()
+		})
+		base.Object.Service.Addresses = slices.Map(orderedVips, func(a simpleNetworkAddress) *workloadapi.NetworkAddress {
 			return &workloadapi.NetworkAddress{
 				Network: a.network,
 				Address: a.ip.AsSlice(),

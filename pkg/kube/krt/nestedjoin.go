@@ -404,6 +404,7 @@ func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState boo
 	// We want an add (for the first one) and then an update, and we want this to happen for each handler
 	// meaning we can't use the nested join struct to synchronize. Instead, we created a map per handler
 	// (note: not per handler per inner collection; 1 collection for all handlers)
+	// TODO: Since this is per handler, can we elide the lock?
 	seenFirstAddForKey := &eventSyncMap{
 		keys: make(map[string]struct{}),
 	}
@@ -442,7 +443,6 @@ func (j *nestedjoin[T]) calculateMerged(k string) *T {
 func (j *nestedjoin[T]) updateMergedCache(key, handlerID string, merged *T) mergedCacheEntry[T] {
 	j.Lock()
 	defer j.Unlock()
-	log.Infof("Updating merged cache for key %s and merged %#+v", key, merged)
 	if merged == nil {
 		// This is a legit delete; remove it from the cache
 		delete(j.mergedCache, mergedCacheKey{key: key, handlerID: handlerID})
