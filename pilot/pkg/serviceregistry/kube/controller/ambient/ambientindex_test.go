@@ -857,7 +857,7 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
 		s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
- 		s.addService(t, "wp",
+		s.addService(t, "wp",
 			map[string]string{},
 			map[string]string{},
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")
@@ -2058,19 +2058,6 @@ func TestPolicyAfterPod(t *testing.T) {
 	}
 }
 
-type ambientclients struct {
-	pc    clienttest.TestClient[*corev1.Pod]
-	sc    clienttest.TestClient[*corev1.Service]
-	sec   clienttest.TestWriter[*corev1.Secret]
-	ns    clienttest.TestWriter[*corev1.Namespace]
-	grc   clienttest.TestWriter[*k8sbeta.Gateway]
-	gwcls clienttest.TestWriter[*k8sbeta.GatewayClass]
-	se    clienttest.TestWriter[*apiv1alpha3.ServiceEntry]
-	we    clienttest.TestWriter[*apiv1alpha3.WorkloadEntry]
-	pa    clienttest.TestWriter[*clientsecurityv1beta1.PeerAuthentication]
-	authz clienttest.TestWriter[*clientsecurityv1beta1.AuthorizationPolicy]
-}
-
 type ambientTestServer struct {
 	*index
 	*ambientclients
@@ -2089,12 +2076,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 
 func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options, runClient bool) *ambientTestServer {
 	if options.Client == nil {
-		c := kubeclient.NewFakeClient()
-		// only cleanup when we create a new client
-		// Certain tests will hang forever if we execute this
-		// (e.g. TestObjectFilter)
-		t.Cleanup(c.Shutdown)
-		options.Client = c
+		options.Client = kubeclient.NewFakeClient()
 	}
 	cl := options.Client
 	for _, crd := range []schema.GroupVersionResource{
@@ -2107,11 +2089,6 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	} {
 		clienttest.MakeCRD(t, cl, crd)
 	}
-
-	// The index is always for the config cluster
-	options.IsConfigCluster = true
-
-	idx := New(options)
 
 	// Don't auto-create feature flags here because we can't distinguish between
 	// the zero-value and some user set flags
@@ -2139,6 +2116,11 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	if options.ClientBuilder == nil && features.EnableAmbientMultiNetwork {
 		options.ClientBuilder = testingBuildClientsFromConfig
 	}
+
+	// The index is always for the config cluster
+	options.IsConfigCluster = true
+
+	idx := New(options)
 
 	dumpOnFailure(t, options.Debugger)
 	a := &ambientTestServer{

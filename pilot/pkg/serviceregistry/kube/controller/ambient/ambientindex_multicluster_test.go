@@ -1,13 +1,31 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 package ambient
 
 import (
 	"fmt"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
+
 	"istio.io/api/label"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -16,9 +34,6 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type ambientclients struct {
@@ -106,7 +121,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			s := newAmbientTestServer(t, testC, testNW)
 			s.AddSecret("s0", "c0") // overlapping ips
 			s.AddSecret("s1", "c1") // Non-overlapping ips
-			remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *Cluster) **remoteAmbientClients {
+			remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 				cl := c.Client
 				return ptr.Of(&remoteAmbientClients{
 					clusterID: c.ID,

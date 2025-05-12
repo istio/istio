@@ -87,6 +87,43 @@ type RemoteClusterCollections struct {
 	configmaps krt.Collection[*corev1.ConfigMap]
 }
 
+// Namespaces returns the namespaces collection.
+func (r *RemoteClusterCollections) Namespaces() krt.Collection[*corev1.Namespace] {
+	return r.namespaces
+}
+
+// Pods returns the pods collection.
+func (r *RemoteClusterCollections) Pods() krt.Collection[*corev1.Pod] {
+	return r.pods
+}
+
+// Services returns the services collection.
+func (r *RemoteClusterCollections) Services() krt.Collection[*corev1.Service] {
+	return r.services
+}
+
+// EndpointSlices returns the endpointSlices collection.
+func (r *RemoteClusterCollections) EndpointSlices() krt.Collection[*discovery.EndpointSlice] {
+	return r.endpointSlices
+}
+
+// Nodes returns the nodes collection.
+func (r *RemoteClusterCollections) Nodes() krt.Collection[*corev1.Node] {
+	return r.nodes
+}
+
+// Gateways returns the gateways collection.
+func (r *RemoteClusterCollections) Gateways() krt.Collection[*v1beta1.Gateway] {
+	return r.gateways
+}
+
+// ConfigMaps returns the configmaps collection.
+func (r *RemoteClusterCollections) ConfigMaps() krt.Collection[*corev1.ConfigMap] {
+	return r.configmaps
+}
+
+
+
 func NewRemoteClusterCollections(
 	namespaces krt.Collection[*corev1.Namespace],
 	pods krt.Collection[*corev1.Pod],
