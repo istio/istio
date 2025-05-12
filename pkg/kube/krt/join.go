@@ -83,9 +83,8 @@ func (j *join[T]) GetKey(k string) *T {
 	if entry, ok := j.mergedCache[mergedCacheKey{key: k, handlerID: ""}]; ok {
 		if entry.current != nil {
 			return entry.current
-		} else {
-			log.Warnf("Merged key %s in collection %s is nil in the cache during a get operation", k, j.collectionName)
 		}
+		log.Warnf("Merged key %s in collection %s is nil in the cache during a get operation", k, j.collectionName)
 	}
 	return nil
 }
@@ -286,7 +285,7 @@ func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Han
 	}
 	sync := multiSyncer{}
 	removes := []func(){}
-	handlerID := strconv.FormatUint(uint64(globalUIDCounter.Inc()), 10)
+	handlerID := strconv.FormatUint(globalUIDCounter.Inc(), 10)
 
 	// This is tricky because each handler has its own goroutine and we don't want to get
 	// multiple adds if a resource is added to multiple collections in the join at the same time.

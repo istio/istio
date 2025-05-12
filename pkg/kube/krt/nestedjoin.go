@@ -77,9 +77,8 @@ func (j *nestedjoin[T]) GetKey(k string) *T {
 	if entry, ok := j.mergedCache[mergedCacheKey{key: k, handlerID: ""}]; ok {
 		if entry.current != nil {
 			return entry.current
-		} else {
-			log.Warnf("Merged key %s in collection %s is nil in the cache during a get operation", k, j.collectionName)
 		}
+		log.Warnf("Merged key %s in collection %s is nil in the cache during a get operation", k, j.collectionName)
 	}
 	return nil
 }
@@ -294,7 +293,7 @@ func (j *nestedjoin[T]) handleCollectionChangeEventLocked(
 		// Convert it to a map for easy lookup
 		oldItemsMap := make(map[Key[T]]T, len(oldItems))
 		if j.merge == nil {
-			// Short-circut; send update events for all items in the collection
+			// Short-circuit; send update events for all items in the collection
 			events := slices.Map(oldItems, func(i T) Event[T] {
 				return Event[T]{Old: &i, Event: controllers.EventUpdate, New: j.GetKey(GetKey(i))}
 			})
@@ -355,7 +354,7 @@ func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState boo
 	syncers := make(map[collectionUID]Syncer)
 	removes := map[collectionUID]func(){}
 	// Create a unique handler ID for this context
-	handlerID := strconv.FormatUint(uint64(globalUIDCounter.Inc()), 10)
+	handlerID := strconv.FormatUint(globalUIDCounter.Inc(), 10)
 
 	// This is tricky because each handler has its own goroutine and we don't want to get
 	// multiple adds if a resource is added to multiple collections in the nested join at the same time.
@@ -575,7 +574,6 @@ func (j *nestedjoin[T]) uid() collectionUID { return j.id }
 
 // nolint: unused // (not true, its to implement an interface)
 func (j *nestedjoin[T]) dump() CollectionDump {
-
 	innerCols := j.collections.List()
 	dumpsByCollectionUID := make(map[string]InputDump, len(innerCols))
 	for _, c := range innerCols {

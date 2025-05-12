@@ -18,6 +18,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube/krt"
@@ -48,7 +49,7 @@ func GlobalNodesCollection(
 	return krt.NewCollection(
 		nodes,
 		func(ctx krt.HandlerContext, col krt.Collection[config.ObjectWithCluster[*v1.Node]]) *krt.Collection[config.ObjectWithCluster[Node]] {
-			clusterID := col.Metadata()[ClusterKRTMetadataKey]
+			clusterID := col.Metadata()[multicluster.ClusterKRTMetadataKey]
 			if clusterID == nil {
 				log.Warnf("ClusterID is nil, skipping")
 				return nil
@@ -79,7 +80,7 @@ func GlobalNodesCollection(
 					Object:    node,
 				}
 			}, append(opts, krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: clusterID,
+				multicluster.ClusterKRTMetadataKey: clusterID,
 			}))...)
 			return ptr.Of(nc)
 		},

@@ -857,7 +857,7 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
 		s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
- 		s.addService(t, "wp",
+		s.addService(t, "wp",
 			map[string]string{},
 			map[string]string{},
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")
@@ -2012,19 +2012,6 @@ func TestPolicyAfterPod(t *testing.T) {
 			assert.Equal(t, s.lookup(s.svcXdsName("svc1"))[1].GetWorkload().GetAuthorizationPolicies(), []string{"ns1/selector"})
 		})
 	}
-}
-
-type ambientclients struct {
-	pc    clienttest.TestClient[*corev1.Pod]
-	sc    clienttest.TestClient[*corev1.Service]
-	sec   clienttest.TestWriter[*corev1.Secret]
-	ns    clienttest.TestWriter[*corev1.Namespace]
-	grc   clienttest.TestWriter[*k8sbeta.Gateway]
-	gwcls clienttest.TestWriter[*k8sbeta.GatewayClass]
-	se    clienttest.TestWriter[*apiv1alpha3.ServiceEntry]
-	we    clienttest.TestWriter[*apiv1alpha3.WorkloadEntry]
-	pa    clienttest.TestWriter[*clientsecurityv1beta1.PeerAuthentication]
-	authz clienttest.TestWriter[*clientsecurityv1beta1.AuthorizationPolicy]
 }
 
 type ambientTestServer struct {
