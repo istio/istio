@@ -22,12 +22,13 @@ import (
 )
 
 // MapCollection is just a light facade on top of another collection
-// that uses a map function to trasform T into K
+// that uses a map function to trasform T into U
 type mapCollection[T any, U any] struct {
 	collectionName string
 	id             collectionUID
 	collection     internalCollection[T]
 	mapFunc        func(T) U
+	metadata       Metadata
 }
 
 var _ Collection[int] = &mapCollection[bool, int]{}
@@ -40,8 +41,9 @@ type mappedIndexer[T any, U any] struct {
 
 // nolint: unused // (not true, its to implement an interface)
 func (m *mappedIndexer[T, U]) Lookup(k string) []U {
-	var res []U
-	for _, obj := range m.indexer.Lookup(k) {
+	keys := m.indexer.Lookup(k)
+	res := make([]U, 0, len(keys))
+	for _, obj := range keys {
 		res = append(res, m.mapFunc(obj))
 	}
 	return res
@@ -55,8 +57,9 @@ func (m *mapCollection[T, U]) GetKey(k string) *U {
 }
 
 func (m *mapCollection[T, U]) List() []U {
-	var res []U
-	for _, obj := range m.collection.List() {
+	vals := m.collection.List()
+	res := make([]U, 0, len(vals))
+	for _, obj := range vals {
 		res = append(res, m.mapFunc(obj))
 	}
 	return res
@@ -79,7 +82,7 @@ func (m *mapCollection[T, U]) Register(handler func(Event[U])) HandlerRegistrati
 
 func (m *mapCollection[T, U]) RegisterBatch(handler func([]Event[U]), runExistingState bool) HandlerRegistration {
 	return m.collection.RegisterBatch(func(t []Event[T]) {
-		var events []Event[U]
+		events := make([]Event[U], 0, len(t))
 		for _, o := range t {
 			e := Event[U]{
 				Event: o.Event,
@@ -97,7 +100,7 @@ func (m *mapCollection[T, U]) RegisterBatch(handler func([]Event[U]), runExistin
 }
 
 func (m *mapCollection[T, U]) Metadata() Metadata {
-	return m.collection.Metadata()
+	return m.metadata
 }
 
 // nolint: unused // (not true, its to implement an interface)
@@ -150,13 +153,17 @@ func MapCollection[T, U any](
 	if o.name == "" {
 		o.name = fmt.Sprintf("Map[%v]", ptr.TypeName[T]())
 	}
-
 	ic := collection.(internalCollection[T])
+	metadata := o.metadata
+	if metadata == nil {
+		metadata = ic.Metadata()
+	}
 	m := &mapCollection[T, U]{
 		collectionName: o.name,
 		id:             nextUID(),
 		collection:     ic,
 		mapFunc:        mapFunc,
+		metadata:       metadata,
 	}
 	maybeRegisterCollectionForDebugging[U](m, o.debugger)
 	return m
