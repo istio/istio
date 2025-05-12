@@ -32,11 +32,13 @@ type mapCollection[T any, U any] struct {
 
 var _ Collection[int] = &mapCollection[bool, int]{}
 
+// nolint: unused // (not true, used in func declared to implement an interface)
 type mappedIndexer[T any, U any] struct {
 	indexer indexer[T]
 	mapFunc func(T) U
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (m *mappedIndexer[T, U]) Lookup(k string) []U {
 	var res []U
 	for _, obj := range m.indexer.Lookup(k) {
