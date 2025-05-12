@@ -321,13 +321,13 @@ func TestRemoveTag(t *testing.T) {
 
 func TestSetTagErrors(t *testing.T) {
 	tcs := []struct {
-		name          string
-		tag           string
-		revision      string
-		webhookBefore *admitv1.MutatingWebhookConfiguration
-		serviceBefore *corev1.Service
-		outputMatches []string
-		error         string
+		name           string
+		tag            string
+		revision       string
+		webhookBefore  *admitv1.MutatingWebhookConfiguration
+		servicesBefore []corev1.Service
+		outputMatches  []string
+		error          string
 	}{
 		{
 			name:          "TestErrorWhenRevisionWithNameCollisionWebhook",
@@ -338,10 +338,12 @@ func TestSetTagErrors(t *testing.T) {
 			error:         "cannot create revision tag \"revision\"",
 		},
 		{
-			name:          "TestErrorWhenRevisionWithNameCollisionService",
-			tag:           "revision",
-			revision:      "revision",
-			serviceBefore: &revisionService,
+			name:     "TestErrorWhenRevisionWithNameCollisionService",
+			tag:      "revision",
+			revision: "revision",
+			servicesBefore: []corev1.Service{
+				revisionService,
+			},
 			outputMatches: []string{},
 			error:         "cannot create revision tag \"revision\"",
 		},
@@ -356,8 +358,8 @@ func TestSetTagErrors(t *testing.T) {
 				objects = append(objects, tc.webhookBefore)
 			}
 
-			if tc.serviceBefore != nil {
-				objects = append(objects, tc.serviceBefore)
+			for _, svc := range tc.servicesBefore {
+				objects = append(objects, &svc)
 			}
 			client := kube.NewFakeClient(objects...)
 

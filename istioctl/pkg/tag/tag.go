@@ -286,17 +286,16 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 		UserManaged:          true,
 		IstioNamespace:       istioNS,
 	}
-	tagWhYAML, err := Generate(ctx, kubeClient, opts)
+	tagYAML, err := Generate(ctx, kubeClient, opts)
 	if err != nil {
 		return err
 	}
 	// Check the newly generated webhook does not conflict with existing ones.
-	// TODO: Check if ambient service conflicts as well
 	resName := webhookName
 	if resName == "" {
 		resName = fmt.Sprintf("%s-%s", "istio-revision-tag", tagName)
 	}
-	if err := analyzeWebhook(resName, istioNS, tagWhYAML, revision, kubeClient.RESTConfig()); err != nil {
+	if err := analyzeWebhook(resName, istioNS, tagYAML, revision, kubeClient.RESTConfig()); err != nil {
 		// if we have a conflict, we will fail. If --skip-confirmation is set, we will continue with a
 		// warning; when actually applying we will also confirm to ensure the user does not see the
 		// warning *after* it has applied
@@ -311,14 +310,14 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 	}
 
 	if generate {
-		_, err := w.Write([]byte(tagWhYAML))
+		_, err := w.Write([]byte(tagYAML))
 		if err != nil {
 			return err
 		}
 		return nil
 	}
 
-	if err := Create(kubeClient, tagWhYAML, istioNS); err != nil {
+	if err := Create(kubeClient, tagYAML, istioNS); err != nil {
 		return fmt.Errorf("failed to apply tag webhook MutatingWebhookConfiguration to cluster: %v", err)
 	}
 	fmt.Fprintf(w, tagCreatedStr, tagName, revision, tagName)
