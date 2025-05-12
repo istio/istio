@@ -297,7 +297,6 @@ func generateValidatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) 
 			break
 		}
 	}
-	// TODO: Evaluate if we need to return a custom error to handle outside
 	if validatingWebhookYAML == "" {
 		return "", fmt.Errorf("could not find ValidatingWebhookConfiguration in manifests")
 	}
@@ -406,7 +405,6 @@ func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (s
 			}
 		}
 	}
-	// TODO: Might need to return a custom made error to handle not found
 	if tagWebhookYaml == "" {
 		return "", fmt.Errorf("could not find MutatingWebhookConfiguration in manifests")
 	}
