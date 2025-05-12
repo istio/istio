@@ -1,6 +1,5 @@
 # Adapted from istio-discovery/templates/service.yaml
 {{- range $tagName := .Values.revisionTags }}
-{{/* TODO: Should we validate empty revision tags? */}}
 apiVersion: v1
 kind: Service
 metadata:

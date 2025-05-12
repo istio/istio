@@ -420,7 +420,7 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, istioNS stri
 	}
 
 	if len(uniqTags) == 0 {
-		fmt.Fprintf(writer, "No Istio revision tags found.\\n") // Adjusted message slightly
+		fmt.Fprintf(writer, "No Istio revision tags found.\n")
 		return nil
 	}
 
