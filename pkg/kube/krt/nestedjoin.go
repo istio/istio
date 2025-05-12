@@ -51,32 +51,15 @@ type nestedjoin[T any] struct {
 	stop <-chan struct{}
 }
 
-type mergedCacheKey struct {
-	handlerID string // An empty handler id corresponds to the collection itself (e.g. during GetKey() or List())
-	key       string
-}
-
-type mergedCacheEntry[T any] struct {
-	prev    *T
-	current *T // Must always be set of there's an entry in the map
-}
-
 type collectionChangeHandlers[T any] struct {
 	handlers []func(collectionChangeEvent[T])
 	sync.RWMutex
 }
 
-type eventSyncMap struct {
-	keys map[string]struct{}
-	sync.Mutex
-}
-
 func (j *nestedjoin[T]) quickGetKey(k string) *T {
 	for _, c := range j.collections.List() {
 		if r := c.GetKey(k); r != nil {
-			if j.merge == nil {
-				return r
-			}
+			return r
 		}
 	}
 
@@ -87,18 +70,7 @@ func (j *nestedjoin[T]) GetKey(k string) *T {
 	if j.merge == nil {
 		return j.quickGetKey(k)
 	}
-	// var found []T
-	// for _, c := range j.collections.List() {
-	// 	if r := c.GetKey(k); r != nil {
-	// 		if j.merge == nil {
-	// 			return r
-	// 		}
-	// 		found = append(found, *r)
-	// 	}
-	// }
-	// if len(found) == 0 {
-	// 	return nil
-	// }
+
 	j.RLock()
 	defer j.RUnlock()
 	// Check the cache first
@@ -109,7 +81,6 @@ func (j *nestedjoin[T]) GetKey(k string) *T {
 			log.Warnf("Merged key %s in collection %s is nil in the cache during a get operation", k, j.collectionName)
 		}
 	}
-	// return j.merge(found)
 	return nil
 }
 
@@ -153,18 +124,11 @@ func (j *nestedjoin[T]) quickList() []T {
 }
 
 func (j *nestedjoin[T]) mergeList() []T {
-	// res := map[Key[T]][]T{}
 	j.RLock()
 	defer j.RUnlock()
-	// for _, c := range j.collections.List() {
-	// 	for _, i := range c.List() {
-	// 		key := getTypedKey(i)
-	// 		res[key] = append(res[key], i)
-	// 	}
-	// }
 
 	// TODO: Should we fall back to manually computing the merge and saving it in the cache?
-	// My gut says no
+	// My gut says no; we want one source of truth
 	var l []T
 	for key, item := range j.mergedCache {
 		if key.handlerID != "" {
@@ -176,12 +140,6 @@ func (j *nestedjoin[T]) mergeList() []T {
 			log.Warnf("Merged key %s in collection %s is nil in the cache during a list operation", key, j.collectionName)
 		}
 	}
-	// for _, ts := range res {
-	// 	m := j.merge(ts)
-	// 	if m != nil {
-	// 		l = append(l, *m)
-	// 	}
-	// }
 
 	return l
 }
@@ -403,8 +361,8 @@ func (j *nestedjoin[T]) RegisterBatch(f func(o []Event[T]), runExistingState boo
 	// multiple adds if a resource is added to multiple collections in the nested join at the same time.
 	// We want an add (for the first one) and then an update, and we want this to happen for each handler
 	// meaning we can't use the nested join struct to synchronize. Instead, we created a map per handler
-	// (note: not per handler per inner collection; 1 collection for all handlers)
-	// TODO: Since this is per handler, can we elide the lock?
+	// (note: not per handler per inner collection; 1 map for all collections)
+	// No need for a lock since each handler has its own queue/goroutine.
 	seenFirstAddForKey := &eventSyncMap{
 		keys: make(map[string]struct{}),
 	}
@@ -501,8 +459,7 @@ func (j *nestedjoin[T]) handleInnerCollectionEvent(handler func(o []Event[T]), s
 				}
 				mergedEvents = append(mergedEvents, getMergedAdd(i, merged, old))
 			case controllers.EventUpdate:
-				u := getMergedUpdate(i, merged, old)
-				mergedEvents = append(mergedEvents, u)
+				mergedEvents = append(mergedEvents, getMergedUpdate(i, merged, old))
 			}
 		}
 		handler(mergedEvents)
