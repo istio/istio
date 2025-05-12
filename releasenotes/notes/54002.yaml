@@ -9,6 +9,5 @@ releaseNotes:
 
 
 upgradeNotes:
-  - |
-    **Removed** support of `Lightstep` tracing provider.
-    The `Lightstep` tracing provider is deprecated and will be removed in a future release. Please use the `OpenTelemetry` tracing provider instead.
+  - title: Deprecation of telemetry providers
+    content: The telemetry providers Lightstep and Opencensus are removed in v1.27. Please use the OpenTelemetry provider instead.
