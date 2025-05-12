@@ -18,7 +18,6 @@ import (
 	"net/netip"
 	"strings"
 
-	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -119,10 +118,10 @@ type index struct {
 
 	stop chan struct{}
 
-	cs                          *ClusterStore
-	clientBuilder               ClientBuilder
+	cs                          *multicluster.ClusterStore
+	clientBuilder               multicluster.ClientBuilder
 	secrets                     krt.Collection[*corev1.Secret]
-	remoteClusters              krt.Collection[*Cluster]
+	remoteClusters              krt.Collection[*multicluster.Cluster]
 	meshConfig                  meshwatcher.WatcherCollection
 	remoteClientConfigOverrides []func(*rest.Config)
 }
@@ -222,53 +221,6 @@ func New(options Options) Index {
 
 	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](options.Client, kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
-	}, opts.With(
-		append(opts.WithName("informer/ConfigMaps"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
-	)...)
-
-	// In the multicluster use-case, we populate the collections with global, dynamically changing data
-	if features.EnableAmbientMultiNetwork {
-		LocalCluster := &Cluster{
-			ID:                 options.ClusterID,
-			Client:             options.Client,
-			stop:               make(chan struct{}),
-			initialSync:        &atomic.Bool{},
-			initialSyncTimeout: &atomic.Bool{},
-			initialized:        &atomic.Bool{},
-			namespaces:         Namespaces,
-			gateways:           Gateways,
-			services:           Services,
-			pods:               Pods,
-			nodes:              Nodes,
-			endpointSlices:     EndpointSlices,
-			configmaps:         ConfigMaps,
-		}
-		// We can run this in a goroutine because all of the dependent collections will wait for the initial sync
-		go LocalCluster.Run(a.meshConfig, a.Debugger)
-		a.buildGlobalCollections(
-			LocalCluster,
-			AuthzPolicies,
-			PeerAuths,
-			GatewayClasses,
-			WorkloadEntries,
-			ServiceEntries,
-			serviceEntries,
-			servicesClient,
-			authzPolicies,
-			options,
-			opts,
-			a.remoteClientConfigOverrides...,
-		)
-
-		return a
-	}
-
-	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](options.Client, kclient.Filter{
-		ObjectFilter: options.Client.ObjectFilter(),
 	}, opts.WithName("informer/ConfigMaps")...)
 
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data.
@@ -308,13 +260,13 @@ func New(options Options) Index {
 			a.remoteClientConfigOverrides...,
 		)
 
-		// TODO: return a here once we've built out all of the global collections
+		return a
 	}
 
 	Networks := buildNetworkCollections(Namespaces, Gateways, options, opts)
 	a.networks = Networks
 	// N.B Waypoints depends on networks
-	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods, opts)
+	Waypoints := a.WaypointsCollection(options.ClusterID, Gateways, GatewayClasses, Pods, opts)
 
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, a.meshConfig, Waypoints, opts, a.Flags)

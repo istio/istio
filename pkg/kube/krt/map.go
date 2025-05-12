@@ -50,6 +50,8 @@ func (m *mappedIndexer[T, U]) Lookup(k string) []U {
 	return res
 }
 
+var _ Collection[int] = &mapCollection[bool, int]{}
+
 func (m *mapCollection[T, U]) GetKey(k string) *U {
 	if obj := m.collection.GetKey(k); obj != nil {
 		return ptr.Of(m.mapFunc(*obj))
