@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// TODO(jaellio): Fix this test
 func TestCheckInstall(t *testing.T) {
 	cases := []struct {
 		name              string
@@ -55,7 +54,8 @@ func TestCheckInstall(t *testing.T) {
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "invalid-arr.conflist": "invalid-arr.conflist"},
 		},
 		{
-			name:              "intentional preempted config",
+			name:              "intentional preempted config, missing istio owned config",
+			expectedFailure:   true,
 			cniConfigFilename: "list.conflist",
 			cniConfName:       "list.conflist",
 			chainedCNIPlugin:  true,
@@ -69,15 +69,15 @@ func TestCheckInstall(t *testing.T) {
 		{
 			name:              "istio-cni config removed from CNI config file",
 			expectedFailure:   true,
-			cniConfigFilename: "list.conflist",
+			cniConfigFilename: "02-istio-conf.conflist",
 			chainedCNIPlugin:  true,
-			existingConfFiles: map[string]string{"list.conflist": "list.conflist"},
+			existingConfFiles: map[string]string{"list.conflist": "02-istio-conf.conflist"},
 		},
 		{
 			name:              "chained CNI plugin",
-			cniConfigFilename: "list.conflist",
+			cniConfigFilename: "02-istio-conf.conflist",
 			chainedCNIPlugin:  true,
-			existingConfFiles: map[string]string{"list.conflist.golden": "list.conflist"},
+			existingConfFiles: map[string]string{"list.conflist.golden": "02-istio-conf.conflist"},
 		},
 		{
 			name:              "standalone CNI plugin istio-cni config not in CNI config file",
@@ -109,7 +109,8 @@ func TestCheckInstall(t *testing.T) {
 				CNIConfName:      c.cniConfName,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
 			}
-			err := checkValidCNIConfig(cfg, filepath.Join(tempDir, c.cniConfigFilename))
+			ctx := context.Background()
+			err := checkValidCNIConfig(ctx, cfg, filepath.Join(tempDir, c.cniConfigFilename))
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
 				t.Fatalf("expected failure: %t, got %v", c.expectedFailure, err)
 			}
@@ -117,7 +118,7 @@ func TestCheckInstall(t *testing.T) {
 	}
 }
 
-// TODO(jaellio): Update this test
+// TODO(jaellio): update to check plugin equality btw Istio owned config and primary config
 func TestSleepCheckInstall(t *testing.T) {
 	cases := []struct {
 		name                  string
@@ -131,7 +132,7 @@ func TestSleepCheckInstall(t *testing.T) {
 		{
 			name:                  "chained CNI plugin",
 			chainedCNIPlugin:      true,
-			cniConfigFilename:     "plugins.conflist",
+			cniConfigFilename:     "02-istio-conf.conflist",
 			invalidConfigFilename: "list.conflist",
 			validConfigFilename:   "list.conflist.golden",
 			saFilename:            "token-foo",
@@ -284,6 +285,7 @@ func TestSleepCheckInstall(t *testing.T) {
 	}
 }
 
+// TODO(jaellio) Update this test to ensure istio owned config is cleaned up (and other configs that contain istio-cni(?))
 func TestCleanup(t *testing.T) {
 	cases := []struct {
 		name                   string
