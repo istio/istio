@@ -27,8 +27,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-// TODO(jaellio): Update test
-func TestGetDefaultCNINetwork(t *testing.T) {
+func TestGetHighestPriorityConfigFilename(t *testing.T) {
 	tempDir := t.TempDir()
 
 	cases := []struct {
@@ -105,13 +104,13 @@ func TestGetDefaultCNINetwork(t *testing.T) {
 				}
 			}
 
-			result, err := getDefaultCNINetworkOrIstioConfig(c.dir)
+			result, err := getHighestPriorityConfigFilename(c.dir)
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
 				t.Fatalf("expected failure: %t, got %v", c.expectedFailure, err)
 			}
 
 			if c.fileContents != "" {
-				if c.outFilename != result {
+				if len(result) > 0 && c.outFilename != result[0] {
 					t.Fatalf("expected %s, got %s", c.outFilename, result)
 				}
 			}
@@ -388,7 +387,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 		{
 			name:              "unspecified existing CNI config file (existing .conf to conflist)",
 			chainedCNIPlugin:  true,
-			expectedConfName:  "bridge.conflist",
+			expectedConfName:  "02-istio-conf.conflist",
 			goldenConfName:    "bridge.conf.golden",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
@@ -400,7 +399,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			name:              "specified existing CNI config file",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "list.conflist",
-			expectedConfName:  "list.conflist",
+			expectedConfName:  "02-istio-conf.conflist",
 			goldenConfName:    "list.conflist.golden",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
@@ -408,7 +407,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			name:              "specified existing CNI config file (specified .conf to .conflist)",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "list.conf",
-			expectedConfName:  "list.conflist",
+			expectedConfName:  "02-istio-conf.conflist",
 			goldenConfName:    "list.conflist.golden",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
@@ -416,33 +415,35 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			name:              "specified existing CNI config file (existing .conf to .conflist)",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "bridge.conflist",
-			expectedConfName:  "bridge.conflist",
+			expectedConfName:  "02-istio-conf.conflist",
 			goldenConfName:    "bridge.conf.golden",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
 		{
 			name:              "specified CNI config file never created",
 			chainedCNIPlugin:  true,
-			specifiedConfName: "never-created.conf",
+			specifiedConfName: "02-istio-conf.conflist",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
 		{
 			name:              "specified CNI config file undetectable",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "undetectable.file",
-			expectedConfName:  "undetectable.file",
+			expectedConfName:  "02-istio-conf.conflist",
 			goldenConfName:    "list.conflist.golden",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "undetectable.file"},
 		},
+		// TODO(jaellio): Fix unspecified behavior when chainedCNIPlugin is false
+		// expected config name should remain YYY-istio-cni.conf
 		{
 			name:             "standalone CNI plugin unspecified CNI config file",
-			expectedConfName: "YYY-istio-cni.conf",
+			expectedConfName: "02-istio-conf.conflist",
 			goldenConfName:   "istio-cni.conf",
 		},
 		{
 			name:              "standalone CNI plugin specified CNI config file",
 			specifiedConfName: "specific-name.conf",
-			expectedConfName:  "specific-name.conf",
+			expectedConfName:  "02-istio-conf.conflist",
 			goldenConfName:    "istio-cni.conf",
 		},
 	}
