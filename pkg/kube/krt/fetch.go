@@ -15,9 +15,6 @@
 package krt
 
 import (
-	"fmt"
-
-	"gopkg.in/yaml.v2"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -29,19 +26,7 @@ func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *
 	case 1:
 		return &res[0]
 	default:
-		ic := c.(internalCollection[T])
-
-		dump, err := yaml.Marshal(map[string]any{
-			"uid":   ic.uid(),
-			"name":  ic.name(),
-			"state": ic.dump(),
-		})
-		if err != nil {
-			dump = fmt.Appendf(nil, "error marshaling dump: %v", err)
-		}
-		log.Info(string(dump))
-
-		panic(fmt.Sprintf("FetchOne found for more than 1 item: 1st: %#v, 2nd: %#v", res[0], res[1]))
+		panic("FetchOne found for more than 1 item")
 	}
 }
 

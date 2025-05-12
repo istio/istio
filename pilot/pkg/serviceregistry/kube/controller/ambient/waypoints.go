@@ -31,6 +31,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
@@ -257,9 +258,9 @@ func gatewayToWaypointTransform(
 }
 
 func GlobalWaypointsCollection(
-	localCluster *Cluster,
+	localCluster *multicluster.Cluster,
 	localWaypoints krt.Collection[Waypoint],
-	clusters krt.Collection[*Cluster],
+	clusters krt.Collection[*multicluster.Cluster],
 	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
 	globalGateways krt.Collection[krt.Collection[*v1beta1.Gateway]],
 	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[*v1beta1.Gateway]],
@@ -268,7 +269,7 @@ func GlobalWaypointsCollection(
 	globalNetworks networkCollections,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[Waypoint]] {
-	return nestedCollectionFromLocalAndRemote(localWaypoints, clusters, func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[Waypoint] {
+	return nestedCollectionFromLocalAndRemote(localWaypoints, clusters, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[Waypoint] {
 		podsPtr := krt.FetchOne[krt.Collection[*v1.Pod]](ctx, globalPods, krt.FilterIndex(podsByCluster, c.ID))
 		if podsPtr == nil {
 			log.Warnf("Cluster %s does not have any pods assigned, skipping waypoints", c.ID)
@@ -327,7 +328,7 @@ func GlobalWaypointsCollection(
 			return w
 		}, opts.With(
 			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
-			krt.WithMetadata(krt.Metadata{ClusterKRTMetadataKey: c.ID}),
+			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID}),
 		)...)
 
 		return ptr.Of(clusterWaypoints)
@@ -351,7 +352,7 @@ func (a *index) WaypointsCollection(
 			},
 		),
 		append(opts.WithName("Waypoints"), krt.WithMetadata(krt.Metadata{
-			ClusterKRTMetadataKey: clusterID,
+			multicluster.ClusterKRTMetadataKey: clusterID,
 		}))...,
 	)
 }
