@@ -130,34 +130,40 @@ func buildGlobalNetworkCollections(
 		return k8sGatewayToNetworkGatwaysWithCluster(options.ClusterID, gw, options.ClusterID)
 	}, opts.WithName("LocalNetworkGateways")...)
 
-	GlobalNetworkGateways := nestedCollectionFromLocalAndRemote(localNetworkGateways, clusters, func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[NetworkGateway]] {
-		gatewaysPtr := krt.FetchOne(ctx, gateways, krt.FilterIndex(gatewaysByCluster, c.ID))
-		if gatewaysPtr == nil {
-			log.Warnf("No gateways found for cluster %s", c.ID)
-			return nil
-		}
-		gateways := *gatewaysPtr
-		// We can't have duplicate collections (otherwise FetchOne will panic) so use
-		// sync.Once to ensure we only create the collection once and return that same value
-		nwGateways := krt.NewManyCollection(
-			gateways,
-			func(ctx krt.HandlerContext, gw config.ObjectWithCluster[*v1beta1.Gateway]) []config.ObjectWithCluster[NetworkGateway] {
-				innerGw := ptr.Flatten(gw.Object)
-				if innerGw == nil {
-					return nil
-				}
-				return k8sGatewayToNetworkGatwaysWithCluster(c.ID, innerGw, options.ClusterID)
-			},
-			append(
-				opts.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID)),
-				krt.WithMetadata(krt.Metadata{
-					ClusterKRTMetadataKey: c.ID,
-				}),
-			)...,
-		)
+	GlobalNetworkGateways := nestedCollectionFromLocalAndRemote(
+		localNetworkGateways,
+		clusters,
+		func(ctx krt.HandlerContext, c *Cluster) *krt.Collection[config.ObjectWithCluster[NetworkGateway]] {
+			gatewaysPtr := krt.FetchOne(ctx, gateways, krt.FilterIndex(gatewaysByCluster, c.ID))
+			if gatewaysPtr == nil {
+				log.Warnf("No gateways found for cluster %s", c.ID)
+				return nil
+			}
+			gateways := *gatewaysPtr
+			// We can't have duplicate collections (otherwise FetchOne will panic) so use
+			// sync.Once to ensure we only create the collection once and return that same value
+			nwGateways := krt.NewManyCollection(
+				gateways,
+				func(ctx krt.HandlerContext, gw config.ObjectWithCluster[*v1beta1.Gateway]) []config.ObjectWithCluster[NetworkGateway] {
+					innerGw := ptr.Flatten(gw.Object)
+					if innerGw == nil {
+						return nil
+					}
+					return k8sGatewayToNetworkGatwaysWithCluster(c.ID, innerGw, options.ClusterID)
+				},
+				append(
+					opts.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID)),
+					krt.WithMetadata(krt.Metadata{
+						ClusterKRTMetadataKey: c.ID,
+					}),
+				)...,
+			)
 
-		return ptr.Of(nwGateways)
-	}, "NetworkGateways", opts)
+			return ptr.Of(nwGateways)
+		},
+		"NetworkGateways",
+		opts,
+	)
 	MergedNetworkGatewaysWithCluster := krt.NestedJoinWithMergeCollection(
 		GlobalNetworkGateways,
 		func(gateways []config.ObjectWithCluster[NetworkGateway]) *config.ObjectWithCluster[NetworkGateway] {

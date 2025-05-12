@@ -88,9 +88,15 @@ func (a *index) buildGlobalCollections(
 	// Pod informers indexable by cluster ID
 	podInformersByCluster := informerIndexByCluster(GlobalPods)
 
-	GlobalEndpointSlices := nestedCollectionFromLocalAndRemote(LocalEndpointSlices, clusters, func(_ krt.HandlerContext, c *Cluster) *krt.Collection[*discovery.EndpointSlice] {
-		return ptr.Of(c.endpointSlices)
-	}, "EndpointSlices", opts)
+	GlobalEndpointSlices := nestedCollectionFromLocalAndRemote(
+		LocalEndpointSlices,
+		clusters,
+		func(_ krt.HandlerContext, c *Cluster) *krt.Collection[*discovery.EndpointSlice] {
+			return ptr.Of(c.endpointSlices)
+		},
+		"EndpointSlices",
+		opts,
+	)
 	endpointSliceInformersByCluster := informerIndexByCluster(GlobalEndpointSlices)
 
 	GlobalServices := nestedCollectionFromLocalAndRemote(LocalServices, clusters, func(_ krt.HandlerContext, c *Cluster) *krt.Collection[*v1.Service] {
@@ -456,7 +462,7 @@ func nestedCollectionFromLocalAndRemote[T any](
 		[]krt.Collection[T]{localCollection},
 		opts.WithName("Global"+name)...,
 	)
-	cache := NewCollectionCacheByClusterFromMetadata[T]()
+	cache := newCollectionCacheByClusterFromMetadata[T]()
 	clustersCollection.Register(func(e krt.Event[*Cluster]) {
 		if e.Event != controllers.EventDelete {
 			// The krt transformation functions will take care of adds and updates...
@@ -477,11 +483,9 @@ func nestedCollectionFromLocalAndRemote[T any](
 		remoteCollection := clusterToCollection(ctx, c)
 		if remoteCollection == nil {
 			log.Warnf("no collection for %s returned for cluster %v", name, c.ID)
-		} else {
-			if !cache.Insert(*remoteCollection) {
-				log.Warnf("Failed to insert collection %v into cache for cluster %s due to existing collection", remoteCollection, c.ID)
-				return nil
-			}
+		} else if !cache.Insert(*remoteCollection) {
+			log.Warnf("Failed to insert collection %v into cache for cluster %s due to existing collection", remoteCollection, c.ID)
+			return nil
 		}
 
 		return remoteCollection
@@ -633,7 +637,6 @@ func mergeServiceInfosWithCluster(
 				Address: a.ip.AsSlice(),
 			}
 		})
-		// log.Infof("VIPs: %v", base.Object.Service.Addresses)
 		base.Object.Service.SubjectAltNames = sans.UnsortedList()
 
 		// Rememeber, we have to re-precompute the serviceinfo since we changed it

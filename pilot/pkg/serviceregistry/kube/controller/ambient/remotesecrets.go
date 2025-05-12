@@ -93,7 +93,7 @@ func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig [
 		// for use inside the package, to close on cleanup
 		initialSync:        atomic.NewBool(false),
 		initialSyncTimeout: atomic.NewBool(false),
-		initialized:       atomic.NewBool(false),
+		initialized:        atomic.NewBool(false),
 		kubeConfigSha:      sha256.Sum256(kubeConfig),
 	}, nil
 }

@@ -856,7 +856,7 @@ func TestAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
 		s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
- 		s.addService(t, "wp",
+		s.addService(t, "wp",
 			map[string]string{},
 			map[string]string{},
 			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")
@@ -2233,6 +2233,7 @@ func (s *ambientTestServer) addWaypointSpecificAddressForClient(
 	grc.CreateOrUpdate(&gateway)
 }
 
+// nolint: unparam // (trafficType isn't used today due to refactors, but not worth confusion of unparaming)
 func (s *ambientTestServer) addWaypointSpecificAddress(t *testing.T, ip, hostname, name, trafficType string, ready bool) {
 	s.addWaypointSpecificAddressForClient(t, ip, hostname, name, trafficType, ready, s.grc)
 }
@@ -2321,7 +2322,14 @@ func (s *ambientTestServer) addWorkloadEntries(t *testing.T, ip string, name, sa
 	s.addWorkloadEntriesForClient(t, ip, name, sa, labels, s.we)
 }
 
-func (s *ambientTestServer) addWorkloadEntriesForClient(t *testing.T, ip string, name, sa string, labels map[string]string, we clienttest.TestWriter[*apiv1alpha3.WorkloadEntry]) {
+func (s *ambientTestServer) addWorkloadEntriesForClient(
+	t *testing.T,
+	ip string,
+	name,
+	sa string,
+	labels map[string]string,
+	we clienttest.TestWriter[*apiv1alpha3.WorkloadEntry],
+) {
 	t.Helper()
 	we.CreateOrUpdate(generateWorkloadEntry(ip, name, "ns1", sa, labels, nil))
 }

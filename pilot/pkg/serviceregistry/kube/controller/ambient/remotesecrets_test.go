@@ -23,7 +23,6 @@ import (
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -62,7 +61,7 @@ type simpleCluster struct {
 }
 
 func makeSecret(namespace string, secret string, clusterConfigs ...clusterCredential) *corev1.Secret {
-	s := &v1.Secret{
+	s := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secret,
 			Namespace: namespace,
@@ -326,13 +325,13 @@ func TestObjectFilter(t *testing.T) {
 	stop := test.NewStop(t)
 	clientWithNamespace := func() kube.Client {
 		return kube.NewFakeClient(
-			&v1.Namespace{
+			&corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   "allowed",
 					Labels: map[string]string{"kubernetes.io/metadata.name": "allowed"},
 				},
 			},
-			&v1.Namespace{
+			&corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   "not-allowed",
 					Labels: map[string]string{"kubernetes.io/metadata.name": "not-allowed"},
@@ -427,18 +426,18 @@ func TestSeamlessMigration(t *testing.T) {
 
 	tt := assert.NewTracker[string](t)
 	initial := kube.NewFakeClient(
-		&v1.ConfigMap{
+		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Name: "initial"},
 		},
-		&v1.ConfigMap{
+		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Name: "common"},
 		},
 	)
 	later := kube.NewFakeClient(
-		&v1.ConfigMap{
+		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Name: "later"},
 		},
-		&v1.ConfigMap{
+		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{Name: "common"},
 		},
 	)
@@ -478,7 +477,7 @@ func TestSeamlessMigration(t *testing.T) {
 
 	retry.UntilOrFail(t, tc.clusters.HasSynced, retry.Timeout(2*time.Second))
 	retry.UntilOrFail(t, infs.HasSynced, retry.Timeout(2*time.Second))
-	var c0Client *informerHandler[*v1.ConfigMap]
+	var c0Client *informerHandler[*corev1.ConfigMap]
 	assert.EventuallyEqual(t, func() bool {
 		c0Client = ptr.Flatten(infs.GetKey("c0"))
 		return c0Client != nil
@@ -494,7 +493,7 @@ func TestSeamlessMigration(t *testing.T) {
 	tc.AddSecret("s0", "c0")
 	var fatal error
 	retry.UntilOrFail(t, func() bool {
-		var c0Client *informerHandler[*v1.ConfigMap]
+		var c0Client *informerHandler[*corev1.ConfigMap]
 		assert.EventuallyEqual(t, func() bool {
 			c0Client = ptr.Flatten(infs.GetKey("c0"))
 			return c0Client != nil

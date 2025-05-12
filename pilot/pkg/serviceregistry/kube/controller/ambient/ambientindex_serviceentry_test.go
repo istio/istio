@@ -16,13 +16,13 @@ package ambient
 
 import (
 	"net/netip"
-	"slices"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/workloadapi"
