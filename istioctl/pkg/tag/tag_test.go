@@ -259,7 +259,7 @@ func TestRemoveTag(t *testing.T) {
 		// simple remove should succeed, base case
 		simpleRemove := makeTc("TestSimpleRemove", "sample", "sample", rt, true)
 
-		// Attempting to remove a non existant tag should error
+		// Attempting to remove a non existent tag should error
 		wrongTagNotRemoved := makeTc("TestWrongTagLabelNotRemoved", "wrong", "sample", rt, false)
 		wrongTagNotRemoved.error = "cannot remove tag \"sample\""
 
