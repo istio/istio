@@ -49,6 +49,21 @@ func (m *mappedIndexer[T, U]) Lookup(k string) []U {
 	return res
 }
 
+var _ Collection[int] = &mapCollection[bool, int]{}
+
+type mappedIndexer[T any, U any] struct {
+	indexer indexer[T]
+	mapFunc func(T) U
+}
+
+func (m *mappedIndexer[T, U]) Lookup(k string) []U {
+	var res []U
+	for _, obj := range m.indexer.Lookup(k) {
+		res = append(res, m.mapFunc(obj))
+	}
+	return res
+}
+
 func (m *mapCollection[T, U]) GetKey(k string) *U {
 	if obj := m.collection.GetKey(k); obj != nil {
 		return ptr.Of(m.mapFunc(*obj))
