@@ -250,19 +250,20 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 		// if any host in the list matches one service hostname, select the virtual service
 		// and break out of the loop.
 		for _, h := range rule.Hosts {
+			lch := host.Name(strings.ToLower(h))
 			// TODO: This is a bug. VirtualServices can have many hosts
 			// while the user might be importing only a single host
 			// We need to generate a new VirtualService with just the matched host
-			if servicesByName[host.Name(h)] != nil {
+			if servicesByName[lch] != nil {
 				match = true
 				break
 			}
 
-			if host.Name(h).IsWildCarded() {
+			if lch.IsWildCarded() {
 				// Process wildcard vs host as it need to follow the slow path of
 				// looping through all services in the map.
 				for svcHost := range servicesByName {
-					if host.Name(h).Matches(svcHost) {
+					if lch.Matches(svcHost) {
 						match = true
 						break
 					}
@@ -271,7 +272,7 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 				// If non wildcard vs host isn't be found in service map, only loop through
 				// wildcard service hosts to avoid repeated matching.
 				for _, svcHost := range wcSvcHosts {
-					if host.Name(h).Matches(svcHost) {
+					if lch.Matches(svcHost) {
 						match = true
 						break
 					}
@@ -287,7 +288,6 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 			out = append(out, virtualServices[i])
 		}
 	}
-
 	return out
 }
 
@@ -392,8 +392,9 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			// Expect virtualServices to resolve to right port
 			servicesByName[svc.Hostname] = svc
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
-			servicesByName[svc.Hostname] = &model.Service{
-				Hostname:       svc.Hostname,
+			h := host.Name(strings.ToLower(string(svc.Hostname)))
+			servicesByName[h] = &model.Service{
+				Hostname:       h,
 				DefaultAddress: svc.GetAddressForProxy(node),
 				ClusterVIPs:    *svc.ClusterVIPs.DeepCopy(),
 				MeshExternal:   svc.MeshExternal,
@@ -533,7 +534,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
-			if vhost := buildVirtualHost(hostname, virtualHostWrapper, nil); vhost != nil {
+			if vhost := buildVirtualHost(strings.ToLower(hostname), virtualHostWrapper, nil); vhost != nil {
 				virtualHosts = append(virtualHosts, vhost)
 			}
 		}
