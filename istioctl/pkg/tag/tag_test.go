@@ -24,6 +24,7 @@ import (
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/api/label"
@@ -31,7 +32,18 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-var resourceTypes = []string{"both", "svc", "mwh"}
+var (
+	resourceTypes   = []string{"both", "svc", "mwh"}
+	revisionService = corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "istiod-revision",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				label.IoIstioRev.Name: "revision",
+			},
+		},
+	}
+)
 
 func TestTagList(t *testing.T) {
 	type testCase struct {
@@ -313,14 +325,23 @@ func TestSetTagErrors(t *testing.T) {
 		tag           string
 		revision      string
 		webhookBefore *admitv1.MutatingWebhookConfiguration
+		serviceBefore *corev1.Service
 		outputMatches []string
 		error         string
 	}{
 		{
-			name:          "TestErrorWhenRevisionWithNameCollision",
+			name:          "TestErrorWhenRevisionWithNameCollisionWebhook",
 			tag:           "revision",
 			revision:      "revision",
 			webhookBefore: &revisionCanonicalWebhook,
+			outputMatches: []string{},
+			error:         "cannot create revision tag \"revision\"",
+		},
+		{
+			name:          "TestErrorWhenRevisionWithNameCollisionService",
+			tag:           "revision",
+			revision:      "revision",
+			serviceBefore: &revisionService,
 			outputMatches: []string{},
 			error:         "cannot create revision tag \"revision\"",
 		},
@@ -330,7 +351,16 @@ func TestSetTagErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
 
-			client := kube.NewFakeClient(tc.webhookBefore)
+			objects := []runtime.Object{}
+			if tc.webhookBefore != nil {
+				objects = append(objects, tc.webhookBefore)
+			}
+
+			if tc.serviceBefore != nil {
+				objects = append(objects, tc.serviceBefore)
+			}
+			client := kube.NewFakeClient(objects...)
+
 			skipConfirmation = true
 			err := setTag(context.Background(), client, tc.tag, tc.revision, "istio-system", false, &out, nil)
 			if tc.error == "" && err != nil {

@@ -356,8 +356,6 @@ func generateTagService(opts *GenerateOptions) (string, error) {
 		"components.pilot.enabled=true",
 		"revision=" + opts.Revision,
 		"values.revisionTags.[0]=" + opts.Tag,
-		// TODO: How to handle auto inject namespaces for ambient?
-		"values.sidecarInjectorWebhook.enableNamespacesByDefault=" + strconv.FormatBool(opts.AutoInjectNamespaces),
 		"values.global.istioNamespace=" + opts.IstioNamespace,
 	}
 
