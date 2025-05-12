@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 54002
+releaseNotes:
+  - |
+    **Removed** support of `Lightstep` tracing provider.
+
+
+upgradeNotes:
+  - |
+    **Removed** support of `Lightstep` tracing provider.
+    The `Lightstep` tracing provider is deprecated and will be removed in a future release. Please use the `OpenTelemetry` tracing provider instead.
