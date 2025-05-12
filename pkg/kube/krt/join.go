@@ -19,7 +19,6 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -278,13 +277,13 @@ func (j *join[I]) dump() CollectionDump {
 }
 
 // nolint: unused // (not true)
-type joinIndexer struct {
-	indexers []kclient.RawIndexer
+type joinIndexer[T any] struct {
+	indexers []indexer[T]
 }
 
 // nolint: unused // (not true)
-func (j joinIndexer) Lookup(key string) []any {
-	var res []any
+func (j joinIndexer[T]) Lookup(key string) []T {
+	var res []T
 	first := true
 	for _, i := range j.indexers {
 		l := i.Lookup(key)
@@ -300,8 +299,8 @@ func (j joinIndexer) Lookup(key string) []any {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (j *join[T]) index(name string, extract func(o T) []string) kclient.RawIndexer {
-	ji := joinIndexer{indexers: make([]kclient.RawIndexer, 0, len(j.collections))}
+func (j *join[T]) index(name string, extract func(o T) []string) indexer[T] {
+	ji := joinIndexer[T]{indexers: make([]indexer[T], 0, len(j.collections))}
 	for _, c := range j.collections {
 		ji.indexers = append(ji.indexers, c.index(name, extract))
 	}

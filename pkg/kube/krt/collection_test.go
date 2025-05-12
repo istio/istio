@@ -42,6 +42,11 @@ func testOptions(t test.Failer) krt.OptionsBuilder {
 	return krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler)
 }
 
+type SimpleSizedPod struct {
+	SimplePod
+	Size string
+}
+
 type SimplePod struct {
 	Named
 	Labeled
@@ -122,6 +127,7 @@ func (l Labeled) GetLabels() map[string]string {
 type SimpleService struct {
 	Named
 	Selector map[string]string
+	IP       string
 }
 
 func NamedSimpleServiceCollection(services krt.Collection[*corev1.Service], opts krt.OptionsBuilder, name string) krt.Collection[SimpleService] {
@@ -703,4 +709,31 @@ func TestCollectionDiscardResult(t *testing.T) {
 		// Should see only one update -- the skip is ignored.
 		tt.WaitOrdered("add/static", "update/static")
 	})
+}
+
+func TestCollectionMetadata(t *testing.T) {
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	kpc := kclient.New[*corev1.Pod](c)
+	meta := krt.Metadata{
+		"key1": "value1",
+	}
+	pods := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	c.RunAndWait(opts.Stop())
+
+	SimplePods := krt.NewCollection(pods, func(ctx krt.HandlerContext, i *corev1.Pod) *SimplePod {
+		if i.Status.PodIP == "" {
+			return nil
+		}
+		return &SimplePod{
+			Named:   NewNamed(i),
+			Labeled: NewLabeled(i.Labels),
+			IP:      i.Status.PodIP,
+		}
+	}, opts.With(
+		krt.WithName("SimplePods"),
+		krt.WithMetadata(meta),
+	)...)
+
+	assert.Equal(t, SimplePods.Metadata(), meta)
 }

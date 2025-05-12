@@ -19,7 +19,6 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
@@ -128,8 +127,8 @@ func (j *nestedjoin[T]) List() []T {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (j *nestedjoin[T]) index(name string, extract func(o T) []string) kclient.RawIndexer {
-	ji := &dynamicJoinIndexer{indexers: make(map[collectionUID]kclient.RawIndexer)}
+func (j *nestedjoin[T]) index(name string, extract func(o T) []string) indexer[T] {
+	ji := &dynamicJoinIndexer[T]{indexers: make(map[collectionUID]indexer[T])}
 	for _, c := range j.collections.List() {
 		ic := c.(internalCollection[T])
 		ji.indexers[ic.uid()] = ic.index(name, extract)
