@@ -388,6 +388,11 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 		cl.logger.Debugf("added resource that already exists: %v", resourceGVK)
 		return
 	}
+	translateFunc, f := translationMap[resourceGVK]
+	if !f {
+		cl.logger.Errorf("translation function for %v not found", resourceGVK)
+		return
+	}
 
 	// We need multiple filters:
 	// 1. Is it in this revision?
@@ -426,12 +431,6 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 			kubetypes.StandardInformer,
 			filter,
 		)
-	}
-
-	translateFunc, f := translationMap[resourceGVK]
-	if !f {
-		cl.logger.Errorf("unknown type %v", resourceGVK)
-		return
 	}
 
 	wrappedClient := krt.WrapClient(kc, opts.WithName("informer/"+resourceGVK.Kind)...)
