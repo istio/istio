@@ -30,6 +30,21 @@ type mapCollection[T any, U any] struct {
 	mapFunc        func(T) U
 }
 
+var _ Collection[int] = &mapCollection[bool, int]{}
+
+type mappedIndexer[T any, U any] struct {
+	indexer indexer[T]
+	mapFunc func(T) U
+}
+
+func (m *mappedIndexer[T, U]) Lookup(k string) []U {
+	var res []U
+	for _, obj := range m.indexer.Lookup(k) {
+		res = append(res, m.mapFunc(obj))
+	}
+	return res
+}
+
 func (m *mapCollection[T, U]) GetKey(k string) *U {
 	if obj := m.collection.GetKey(k); obj != nil {
 		return ptr.Of(m.mapFunc(*obj))
@@ -105,11 +120,15 @@ func (m *mapCollection[T, U]) dump() CollectionDump {
 }
 
 // nolint: unused // (not true, its to implement an interface)
-func (m *mapCollection[T, U]) index(name string, extract func(o U) []string) indexer[T] {
+func (m *mapCollection[T, U]) index(name string, extract func(o U) []string) indexer[U] {
 	t := func(o T) []string {
 		return extract(m.mapFunc(o))
 	}
-	return m.collection.index(name, t)
+	idxs := m.collection.index(name, t)
+	return &mappedIndexer[T, U]{
+		indexer: idxs,
+		mapFunc: m.mapFunc,
+	}
 }
 
 func (m *mapCollection[T, U]) HasSynced() bool {
