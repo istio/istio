@@ -364,6 +364,9 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 	tagServiceExists := len(services) != 0
 
 	webhooks, err := GetWebhooksWithTag(ctx, kubeClient, tagName)
+	if err != nil {
+		return err
+	}
 	tagWebhookExists := len(webhooks) != 0
 
 	if !tagServiceExists && !tagWebhookExists {
