@@ -163,6 +163,22 @@ func TestProcessor(t *testing.T) {
 		tracker.WaitOrdered("add//b")
 		assert.EventuallyEqual(t, reg.HasSynced, true)
 	})
+	t.Run("handler removed before initial sync", func(t *testing.T) {
+		hs := newHandlerSet[Named]()
+		tracker := assert.NewTracker[string](t)
+		handler := BatchedTrackerHandler[Named](tracker)
+		stop := test.NewStop(t)
+
+		ready := make(chan struct{})
+		sync := channelSyncer{synced: ready}
+
+		reg := hs.Insert(handler, sync, nil, stop)
+		reg.UnregisterHandler()
+
+		close(ready) // mark ready _after_ handler is unregistered
+
+		tracker.Empty()
+	})
 }
 
 func BlockingBatchedTrackerHandler[T any](allowEvents chan struct{}, tracker *assert.Tracker[string]) func([]Event[T]) {
