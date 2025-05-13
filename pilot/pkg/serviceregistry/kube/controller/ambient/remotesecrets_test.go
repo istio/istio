@@ -136,7 +136,7 @@ func TestBuildRemoteClustersCollection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Cleanup(tt.options.Client.Shutdown)
-			opts := krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler)
+			opts := krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler, nil)
 			builderClient := kube.NewFakeClient(namespace)
 			builder := func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 				if tt.expectedError {
@@ -172,7 +172,7 @@ func TestKubeConfigOverride(t *testing.T) {
 	fakeRestConfig := &rest.Config{}
 	client := kube.NewFakeClient()
 	stopCh := test.NewStop(t)
-	opts := krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler)
+	opts := krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler, nil)
 	builder := func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		for _, override := range configOverrides {
 			override(fakeRestConfig)

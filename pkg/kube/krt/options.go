@@ -22,13 +22,15 @@ type OptionsBuilder struct {
 	namePrefix string
 	stop       <-chan struct{}
 	debugger   *DebugHandler
+	metadata   Metadata
 }
 
-func NewOptionsBuilder(stop <-chan struct{}, namePrefix string, debugger *DebugHandler) OptionsBuilder {
+func NewOptionsBuilder(stop <-chan struct{}, namePrefix string, debugger *DebugHandler, metadata Metadata) OptionsBuilder {
 	return OptionsBuilder{
 		namePrefix: namePrefix,
 		stop:       stop,
 		debugger:   debugger,
+		metadata:   metadata,
 	}
 }
 
@@ -38,12 +40,12 @@ func (k OptionsBuilder) WithName(n string) []CollectionOption {
 	if k.namePrefix != "" {
 		name = k.namePrefix + "/" + name
 	}
-	return []CollectionOption{WithDebugging(k.debugger), WithStop(k.stop), WithName(name)}
+	return []CollectionOption{WithDebugging(k.debugger), WithStop(k.stop), WithName(name), WithMetadata(k.metadata)}
 }
 
 // With applies arbitrary options along with the base options.
 func (k OptionsBuilder) With(opts ...CollectionOption) []CollectionOption {
-	return append([]CollectionOption{WithDebugging(k.debugger), WithStop(k.stop)}, opts...)
+	return append([]CollectionOption{WithDebugging(k.debugger), WithStop(k.stop), WithMetadata(k.metadata)}, opts...)
 }
 
 func (k OptionsBuilder) Stop() <-chan struct{} {

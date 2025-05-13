@@ -81,5 +81,5 @@ func extractType[T any](items *[]any) []T {
 }
 
 func Options(t test.Failer) krt.OptionsBuilder {
-	return krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler)
+	return krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler, nil)
 }

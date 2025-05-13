@@ -61,7 +61,7 @@ func TestQueue(t *testing.T) {
 	c := kube.NewFakeClient()
 	svc := kclient.New[*v1.Service](c)
 	stop := test.NewStop(t)
-	opts := krt.NewOptionsBuilder(stop, "", krt.GlobalDebugHandler)
+	opts := krt.NewOptionsBuilder(stop, "", krt.GlobalDebugHandler, nil)
 	svcs := krt.WrapClient[*v1.Service](svc, opts.WithName("Services")...)
 	col := krt.NewCollection(svcs, func(ctx krt.HandlerContext, i *v1.Service) *serviceStatus {
 		conds := model.ConditionSet{
@@ -136,7 +136,7 @@ func TestQueue(t *testing.T) {
 
 func TestQueueLeaderElection(t *testing.T) {
 	stop := test.NewStop(t)
-	opts := krt.NewOptionsBuilder(stop, "", krt.GlobalDebugHandler)
+	opts := krt.NewOptionsBuilder(stop, "", krt.GlobalDebugHandler, nil)
 	notifier := activenotifier.New(false)
 	q := statusqueue.NewQueue(notifier)
 	c := kube.NewFakeClient()

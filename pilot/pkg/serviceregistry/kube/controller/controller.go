@@ -289,6 +289,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			SystemNamespace: options.SystemNamespace,
 			DomainSuffix:    options.DomainSuffix,
 			ClusterID:       options.ClusterID,
+			IsConfigCluster: options.ConfigCluster,
 			Revision:        options.Revision,
 			XDSUpdater:      options.XDSUpdater,
 			MeshConfig:      options.MeshWatcher,

@@ -117,7 +117,7 @@ func NewController(
 	xdsUpdater xdsConfigUpdater,
 ) *Controller {
 	stop := make(chan struct{})
-	opts := krt.NewOptionsBuilder(stop, "ingress", options.KrtDebugger)
+	opts := krt.NewOptionsBuilder(stop, "ingress", options.KrtDebugger, nil)
 
 	c := &Controller{
 		client:     client,

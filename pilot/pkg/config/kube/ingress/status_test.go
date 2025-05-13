@@ -249,7 +249,7 @@ func makeTestInformers(t *testing.T, name string) informers {
 	stop := test.NewStop(t)
 	meshHolder := fakeMeshHolder(name)
 	client := kube.NewFakeClient(testObjects...)
-	opts := krt.NewOptionsBuilder(stop, "ingress", krt.GlobalDebugHandler)
+	opts := krt.NewOptionsBuilder(stop, "ingress", krt.GlobalDebugHandler, nil)
 	services := krt.WrapClient(
 		kclient.NewFiltered[*corev1.Service](client, kclient.Filter{
 			ObjectFilter: client.ObjectFilter(),

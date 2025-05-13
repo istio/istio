@@ -1773,7 +1773,7 @@ func newAmbientUnitTest(t test.Failer) *index {
 		Options{
 			SystemNamespace: systemNS,
 			ClusterID:       testC,
-		}, krt.NewOptionsBuilder(test.NewStop(t), "", krt.GlobalDebugHandler))
+		}, krt.NewOptionsBuilder(test.NewStop(t), "", krt.GlobalDebugHandler, nil))
 	idx := &index{
 		networks:        networks,
 		SystemNamespace: systemNS,

@@ -136,6 +136,7 @@ type Options struct {
 	SystemNamespace string
 	DomainSuffix    string
 	ClusterID       cluster.ID
+	IsConfigCluster bool
 	XDSUpdater      model.XDSUpdater
 	StatusNotifier  *activenotifier.ActiveNotifier
 	Flags           FeatureFlags
@@ -164,17 +165,13 @@ func New(options Options) Index {
 	filter := kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
 	}
-	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
+	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger, krt.Metadata{
+		ClusterKRTMetadataKey: options.ClusterID,
+	})
 
 	a.meshConfig = options.MeshConfig
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
-	Namespaces := krt.NewInformer[*corev1.Namespace](options.Client, opts.With(
-		append(opts.WithName("informer/Namespaces"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
-	)...)
+	Namespaces := krt.NewInformer[*corev1.Namespace](options.Client, opts.WithName("informer/Namespaces")...)
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
 		gvr.AuthorizationPolicy, kubetypes.StandardInformer, filter)
 	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, opts.WithName("informer/AuthorizationPolicies")...)
@@ -184,26 +181,14 @@ func New(options Options) Index {
 	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, opts.WithName("informer/PeerAuthentications")...)
 
 	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](options.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
-	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, opts.With(
-		append(opts.WithName("informer/Gateways"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
-	)...)
+	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, opts.WithName("informer/Gateways")...)
 
 	gatewayClassClient := kclient.NewDelayedInformer[*v1beta1.GatewayClass](options.Client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
 	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, opts.WithName("informer/GatewayClasses")...)
 	Pods := krt.NewInformerFiltered[*corev1.Pod](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
-	}, opts.With(
-		append(opts.WithName("informer/Pods"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
-	)...)
+	}, opts.WithName("informer/Pods")...)
 
 	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](options.Client,
 		gvr.ServiceEntry, kubetypes.StandardInformer, filter)
@@ -214,46 +199,23 @@ func New(options Options) Index {
 	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, opts.WithName("informer/WorkloadEntries")...)
 
 	servicesClient := kclient.NewFiltered[*corev1.Service](options.Client, filter)
-	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.With(
-		append(opts.WithName("informer/Services"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
-	)...)
+	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.WithName("informer/Services")...)
 	Nodes := krt.NewInformerFiltered[*corev1.Node](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripNodeUnusedFields,
-	}, opts.With(
-		append(opts.WithName("informer/Nodes"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
-	)...)
+	}, opts.WithName("informer/Nodes")...)
 
 	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
-	}, opts.With(
-		append(opts.WithName("informer/EndpointSlices"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
-	)...)
+	}, opts.WithName("informer/EndpointSlices")...)
 
 	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](options.Client, kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
-	}, opts.With(
-		append(opts.WithName("informer/ConfigMaps"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
-	)...)
+	}, opts.WithName("informer/ConfigMaps")...)
 
-	// In the multicluster use-case, we populate the collections with global, dynamically changing data
-	if features.EnableAmbientMultiNetwork {
+	// In the multicluster use-case, we populate the collections with global, dynamically changing data.
+	// We only do this if this cluster is the config cluster
+	if features.EnableAmbientMultiNetwork && options.IsConfigCluster {
 		LocalCluster := &Cluster{
 			ID:                 options.ClusterID,
 			Client:             options.Client,
