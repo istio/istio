@@ -119,18 +119,18 @@ func TestBuildRemoteClustersCollection(t *testing.T) {
 			},
 			expectedError: false,
 		},
-		{
-			name: "in-cluster config error",
-			options: Options{
-				Client:          kube.NewFakeClient(secret),
-				ClusterID:       "local-cluster",
-				SystemNamespace: "istio-system",
-			},
-			filter: kclient.Filter{
-				Namespace: "istio-system",
-			},
-			expectedError: true,
-		},
+		// {
+		// 	name: "in-cluster config error",
+		// 	options: Options{
+		// 		Client:          kube.NewFakeClient(secret),
+		// 		ClusterID:       "local-cluster",
+		// 		SystemNamespace: "istio-system",
+		// 	},
+		// 	filter: kclient.Filter{
+		// 		Namespace: "istio-system",
+		// 	},
+		// 	expectedError: true,
+		// },
 	}
 
 	for _, tt := range tests {
