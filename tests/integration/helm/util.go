@@ -473,11 +473,11 @@ func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, nsConfig 
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
-func SetRevisionTagWithVersion(ctx framework.TestContext, h *helm.Helm, revision, revisionTag, version string) {
+func SetRevisionTagWithVersionMWC(ctx framework.TestContext, h *helm.Helm, revision, revisionTag, version string) {
 	scopes.Framework.Infof("=== setting revision tag with version === ")
 	// Prepend ~ to the version, so that we can refer to the latest patch version of a minor version
 	template, err := h.Template(IstiodReleaseName+"-"+revision, RepoDiscoveryChartPath,
-		IstioNamespace, "templates/revision-tags.yaml", Timeout, "--version", "~"+version, "--repo", ctx.Settings().HelmRepo, "--set",
+		IstioNamespace, "templates/revision-tags-mwc.yaml", Timeout, "--version", "~"+version, "--repo", ctx.Settings().HelmRepo, "--set",
 		fmt.Sprintf("revision=%s", revision), "--set", fmt.Sprintf("revisionTags={%s}", revisionTag))
 	if err != nil {
 		ctx.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
@@ -491,10 +491,10 @@ func SetRevisionTagWithVersion(ctx framework.TestContext, h *helm.Helm, revision
 	scopes.Framework.Infof("=== succeeded === ")
 }
 
-func SetRevisionTag(ctx framework.TestContext, h *helm.Helm, fileSuffix, revision, revisionTag, relPath, version string) {
-	scopes.Framework.Infof("=== setting revision tag === ")
+func SetRevisionTagMWC(ctx framework.TestContext, h *helm.Helm, fileSuffix, revision, revisionTag, relPath, version string) {
+	scopes.Framework.Infof("=== setting revision tag MWC === ")
 	template, err := h.Template(IstiodReleaseName+"-"+revision, filepath.Join(relPath, version, ControlChartsDir, DiscoveryChartsDir)+fileSuffix,
-		IstioNamespace, "templates/revision-tags.yaml", Timeout, "--set",
+		IstioNamespace, "templates/revision-tags-mwc.yaml", Timeout, "--set",
 		fmt.Sprintf("revision=%s", revision), "--set", fmt.Sprintf("revisionTags={%s}", revisionTag))
 	if err != nil {
 		ctx.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
