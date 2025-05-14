@@ -65,7 +65,10 @@ func GetWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, r
 // This retrieves the services created at revision installation rather than tag services.
 func GetServicesWithRevision(ctx context.Context, client kubernetes.Interface, istioNS, rev string) ([]corev1.Service, error) {
 	services, err := client.CoreV1().Services(istioNS).List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, rev, label.IoIstioTag.Name),
+		LabelSelector: fmt.Sprintf("%s=%s,!%s,%s=%s",
+			label.IoIstioRev.Name, rev,
+			label.IoIstioTag.Name,
+			"app", "istiod"),
 	})
 	if err != nil {
 		return nil, err
