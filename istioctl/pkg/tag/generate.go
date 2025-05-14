@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -375,7 +376,31 @@ func generateTagService(opts *GenerateOptions) (string, error) {
 	if tagServiceYaml == "" {
 		return "", fmt.Errorf("could not find Service tag in manifests")
 	}
-	return tagServiceYaml, nil
+
+	scheme := runtime.NewScheme()
+	codecFactory := serializer.NewCodecFactory(scheme)
+	deserializer := codecFactory.UniversalDeserializer()
+	serializer := json.NewSerializerWithOptions(
+		json.DefaultMetaFactory, nil, nil, json.SerializerOptions{
+			Yaml:   true,
+			Pretty: true,
+			Strict: true,
+		})
+
+	whService, _, err := deserializer.Decode([]byte(tagServiceYaml), nil, &corev1.Service{})
+	if err != nil {
+		return "", fmt.Errorf("could not decode generated webhook: %w", err)
+	}
+	decodedSvc := whService.(*corev1.Service)
+
+	decodedSvc.Labels = generateLabels(decodedSvc.Labels, map[string]string{}, opts.CustomLabels, opts.UserManaged)
+
+	svcBuf := new(bytes.Buffer)
+	if err = serializer.Encode(decodedSvc, svcBuf); err != nil {
+		return "", err
+	}
+
+	return svcBuf.String(), nil
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
