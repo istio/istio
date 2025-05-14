@@ -40,6 +40,7 @@ var (
 			Namespace: "istio-system",
 			Labels: map[string]string{
 				label.IoIstioRev.Name: "revision",
+				"app":                 "istiod",
 			},
 		},
 	}
