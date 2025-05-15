@@ -57,6 +57,7 @@ import (
 type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
+	AllGlobalServices() []model.ServiceInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	Run(stop <-chan struct{})
@@ -313,7 +314,7 @@ func New(options Options) Index {
 		opts,
 	)
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, opts)
+	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts)
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
@@ -592,13 +593,20 @@ func translateKubernetesCondition(conds []metav1.Condition) map[string]model.Con
 	return res
 }
 
-// Lookup finds all addresses associated with a given key. Many different key formats are supported; see inline comments.
+// Try lookup of endpoints by:
+//  1. workload UID
+//  2. workload IP
+//  3. Service (key: network/IP or namespace/hostname)
+//
+// When using Lookup for ns/hostname we will filter by scope determined from service or namespace label
 func (a *index) Lookup(key string) []model.AddressInfo {
 	// 1. Workload UID
+	// Check that work
 	if w := a.workloads.GetKey(key); w != nil {
 		return []model.AddressInfo{w.AsAddress}
 	}
 
+	// 2. Workload by IP
 	network, ip, found := strings.Cut(key, "/")
 	if !found {
 		log.Warnf(`key (%v) did not contain the expected "/" character`, key)
@@ -606,15 +614,26 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 	}
 	networkAddr := networkAddress{network: network, ip: ip}
 
-	// 2. Workload by IP
 	if wls := a.workloads.ByAddress.Lookup(networkAddr); len(wls) > 0 {
 		return slices.Map(wls, modelWorkloadToAddressInfo)
 	}
 
 	// 3. Service
+	// Remove Service if the corresponding workload is local, but has a different cluster ID
+	// lookup service by namespace hostname key
 	if svc := a.lookupService(key); svc != nil {
 		res := []model.AddressInfo{svc.AsAddress}
+		// grab all workloads that reference this service
 		for _, w := range a.workloads.ByServiceKey.Lookup(svc.ResourceName()) {
+			// Only select endpoints from workloads that belong to a service with a global scope or a local scope in the same cluster
+			log.Debugf("Workload %s has service %s, scope %s, and cluster id %s", w.ResourceName(), svc.ResourceName(), w.ScopeForService[key], w.Workload.ClusterId)
+			// TODO(jaellio): I am not sure we need a scopeForService defined on the workload. As far as I know we only lookup workload by
+			// service and therefor already have the service scope we don't need an additional mapping back to service from the workload
+			if w.Workload.ClusterId != string(a.ClusterID) && w.ScopeForService[key] == model.Local {
+				log.Debugf("Skipping workload %s for service %s because it is not local to the cluster but has a %s scope",
+					w.ResourceName(), svc.ResourceName(), w.ScopeForService[key])
+				continue
+			}
 			res = append(res, w.AsAddress)
 		}
 		return res
@@ -649,9 +668,36 @@ func (a *index) inRevision(obj any) bool {
 
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
-	res := slices.Map(a.workloads.List(), modelWorkloadToAddressInfo)
+	var res []model.AddressInfo
+	// Only include workloads that are local to the cluster or have a global scope
+	for _, wl := range a.workloads.List() {
+		if wl.Workload.ClusterId == string(a.ClusterID) {
+			res = append(res, wl.AsAddress)
+			continue
+		}
+		// jaellio: Another example of where ScopeForService is not ideal
+		for _, scope := range wl.ScopeForService {
+			if scope == model.Global {
+				res = append(res, wl.AsAddress)
+				break
+			}
+		}
+	}
+	// Include all services since we are assuming uniform configuration
+	// TODO(jaellio): Gracefully handle non uniform configurations
 	for _, s := range a.services.List() {
 		res = append(res, s.AsAddress)
+	}
+	return res
+}
+
+// AllGlobalServices return all known globally scoped services. Result is un-ordered
+func (a *index) AllGlobalServices() []model.ServiceInfo {
+	var res []model.ServiceInfo
+	for _, svc := range a.services.List() {
+		if svc.Scope == model.Global {
+			res = append(res, svc)
+		}
 	}
 	return res
 }
@@ -682,7 +728,13 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 }
 
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	if key.IsGateway {
+		// If this is a gateway waypoint, we only return the global services
+		return a.AllGlobalServices()
+	}
+
 	out := map[string]model.ServiceInfo{}
+
 	for _, host := range key.Hostnames {
 		for _, res := range a.services.ByOwningWaypointHostname.Lookup(NamespaceHostname{
 			Namespace: key.Namespace,
@@ -711,6 +763,10 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 }
 
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
+	if key.IsGateway {
+		// TODO(jaellio): Support workloads for gateway waypoint
+		return nil
+	}
 	out := map[string]model.WorkloadInfo{}
 	for _, host := range key.Hostnames {
 		for _, res := range a.workloads.ByOwningWaypointHostname.Lookup(NamespaceHostname{
