@@ -29,4 +29,5 @@ issue: [55848]
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
 releaseNotes:
-  - "**Added** Support for PreferSameNode and PreferSameZone on Kubernetes Service trafficDistribution field."
+  - "**Added** support for PreferSameNode and PreferSameZone on the Kubernetes Service trafficDistribution field."
+  - "**Updated** traffic distribution to disregard subzone when the Kubernetes Service trafficDistribution field is set to PreferClose."

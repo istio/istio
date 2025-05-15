@@ -52,12 +52,11 @@ func GetLocalityLbSetting(
 		case model.TrafficDistributionPreferSameZone:
 			return &v1alpha3.LocalityLoadBalancerSetting{
 				Enabled: wrappers.Bool(true),
-				// Prefer same subzone, zone, region, network
+				// Prefer same zone, region, network
 				FailoverPriority: []string{
 					label.TopologyNetwork.Name,
 					registrylabel.LabelTopologyRegion,
 					registrylabel.LabelTopologyZone,
-					label.TopologySubzone.Name,
 				},
 			}, true
 		case model.TrafficDistributionPreferSameNode:

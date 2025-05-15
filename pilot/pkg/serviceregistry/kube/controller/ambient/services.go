@@ -175,7 +175,7 @@ func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingc
 	var lb *workloadapi.LoadBalancing
 	preferClose := strings.EqualFold(svc.Annotations[apiannotation.NetworkingTrafficDistribution.Name], v1.ServiceTrafficDistributionPreferClose)
 	if preferClose {
-		lb = preferCloseLoadBalancer
+		lb = preferSameZoneLoadBalancer
 	}
 
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
@@ -237,7 +237,7 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 		// Check traffic distribution.
 		trafficDistribution := kube.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
 		if trafficDistribution == model.TrafficDistributionPreferSameZone {
-			lb = preferCloseLoadBalancer
+			lb = preferSameZoneLoadBalancer
 		} else if trafficDistribution == model.TrafficDistributionPreferSameNode {
 			lb = preferSameNodeLoadBalancer
 		}
@@ -274,13 +274,12 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 	}
 }
 
-var preferCloseLoadBalancer = &workloadapi.LoadBalancing{
+var preferSameZoneLoadBalancer = &workloadapi.LoadBalancing{
 	// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
 	RoutingPreference: []workloadapi.LoadBalancing_Scope{
 		workloadapi.LoadBalancing_NETWORK,
 		workloadapi.LoadBalancing_REGION,
 		workloadapi.LoadBalancing_ZONE,
-		workloadapi.LoadBalancing_SUBZONE,
 	},
 	Mode: workloadapi.LoadBalancing_FAILOVER,
 }
