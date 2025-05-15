@@ -339,7 +339,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
 
 		// helm template istiod-1-15-0 istio/istiod --version 1.15.0 -s templates/revision-tags.yaml --set revision=1-15-0 --set revisionTags={prod}
-		helmtest.SetRevisionTagWithVersionMWC(t, h, previousRevision, prodTag, previousVersion)
+		helmtest.SetRevisionTagWithVersion(t, h, previousRevision, prodTag, previousVersion)
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
 			"istio-revision-tag-prod",
 			fmt.Sprintf("istio-sidecar-injector-%s", previousRevision),
@@ -361,7 +361,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 
 		// helm template istiod-latest ../manifests/charts/istio-control/istio-discovery --namespace istio-system
 		//    -s templates/revision-tags.yaml --set revision=latest --set revisionTags={canary}
-		helmtest.SetRevisionTagMWC(t, h, "", latestRevisionTag, canaryTag, helmtest.ManifestsChartPath, "")
+		helmtest.SetRevisionTag(t, h, "", latestRevisionTag, canaryTag, helmtest.ManifestsChartPath, "")
 		helmtest.VerifyMutatingWebhookConfigurations(t, cs, []string{
 			"istio-revision-tag-prod",
 			fmt.Sprintf("istio-sidecar-injector-%v", previousRevision),
@@ -380,7 +380,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		// change the mutating webhook configuration to use the latest revision (istiod-latest service in istio-system)
 		// helm template istiod-latest ../manifests/charts/istio-control/istio-discovery --namespace istio-system
 		//    -s templates/revision-tags.yaml --set revision=latest --set revisionTags={prod}
-		helmtest.SetRevisionTagMWC(t, h, "", latestRevisionTag, prodTag, helmtest.ManifestsChartPath, "")
+		helmtest.SetRevisionTag(t, h, "", latestRevisionTag, prodTag, helmtest.ManifestsChartPath, "")
 
 		// change the old namespace that was pointing to the old prod (1-15-0) to point to the
 		// 'latest' revision by setting the `istio.io/rev=prod` label on the namespace
