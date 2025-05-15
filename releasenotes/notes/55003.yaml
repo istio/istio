@@ -1,7 +1,8 @@
 apiVersion: release-notes/v2
 kind: feature
 area: istioctl
-
+issue:
+  - 54777
 releaseNotes:
 - |
   **Added** support for `istioctl uninstall` to delete waypoint resources.
