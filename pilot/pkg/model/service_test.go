@@ -883,6 +883,9 @@ func TestWaypointKeyForProxy(t *testing.T) {
 										"cluster1": {"192.168.0.1"},
 									},
 								},
+								Labels: map[string]string{
+									"istio.io/global": "true",
+								},
 							},
 						},
 					},
@@ -894,6 +897,7 @@ func TestWaypointKeyForProxy(t *testing.T) {
 				Network:   "network1",
 				Hostnames: []string{"service1.default.svc.cluster.local"},
 				Addresses: []string{"192.168.0.1"},
+				IsGateway: true,
 			},
 		},
 		{
