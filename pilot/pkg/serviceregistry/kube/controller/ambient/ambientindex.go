@@ -165,9 +165,8 @@ func New(options Options) Index {
 	filter := kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
 	}
-	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger, krt.Metadata{
-		ClusterKRTMetadataKey: options.ClusterID,
-	})
+	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
+	opts = opts.WithMetadata(krt.Metadata{ClusterKRTMetadataKey: options.ClusterID})
 
 	a.meshConfig = options.MeshConfig
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?

@@ -25,12 +25,13 @@ type OptionsBuilder struct {
 	metadata   Metadata
 }
 
-func NewOptionsBuilder(stop <-chan struct{}, namePrefix string, debugger *DebugHandler, metadata Metadata) OptionsBuilder {
+type BuilderOption func(opt CollectionOption) OptionsBuilder
+
+func NewOptionsBuilder(stop <-chan struct{}, namePrefix string, debugger *DebugHandler) OptionsBuilder {
 	return OptionsBuilder{
 		namePrefix: namePrefix,
 		stop:       stop,
 		debugger:   debugger,
-		metadata:   metadata,
 	}
 }
 
@@ -41,6 +42,11 @@ func (k OptionsBuilder) WithName(n string) []CollectionOption {
 		name = k.namePrefix + "/" + name
 	}
 	return []CollectionOption{WithDebugging(k.debugger), WithStop(k.stop), WithName(name), WithMetadata(k.metadata)}
+}
+
+func (k OptionsBuilder) WithMetadata(m Metadata) OptionsBuilder {
+	k.metadata = m
+	return k
 }
 
 // With applies arbitrary options along with the base options.

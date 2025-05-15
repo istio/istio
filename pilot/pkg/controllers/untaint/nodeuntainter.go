@@ -81,7 +81,7 @@ func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sy
 }
 
 func (n *NodeUntainter) setup(stop <-chan struct{}, debugger *krt.DebugHandler) {
-	opts := krt.NewOptionsBuilder(stop, "node-untaint", debugger, nil)
+	opts := krt.NewOptionsBuilder(stop, "node-untaint", debugger)
 	nodes := krt.WrapClient[*v1.Node](n.nodesClient, opts.WithName("nodes")...)
 	pods := krt.WrapClient[*v1.Pod](n.podsClient, opts.WithName("pods")...)
 

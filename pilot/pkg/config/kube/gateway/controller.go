@@ -152,7 +152,7 @@ func NewController(
 	xdsUpdater model.XDSUpdater,
 ) *Controller {
 	stop := make(chan struct{})
-	opts := krt.NewOptionsBuilder(stop, "gateway", options.KrtDebugger, nil)
+	opts := krt.NewOptionsBuilder(stop, "gateway", options.KrtDebugger)
 
 	tw := revisions.NewTagWatcher(kc, options.Revision)
 	c := &Controller{

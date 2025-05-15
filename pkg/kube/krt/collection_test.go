@@ -39,7 +39,7 @@ import (
 )
 
 func testOptions(t test.Failer) krt.OptionsBuilder {
-	return krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler, nil)
+	return krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler)
 }
 
 type SimpleSizedPod struct {

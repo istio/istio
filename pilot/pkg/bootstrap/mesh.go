@@ -61,7 +61,7 @@ func (s *Server) initMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.
 func (s *Server) getMeshConfiguration(args *PilotArgs, fileWatcher filewatcher.FileWatcher) krt.Singleton[meshwatcher.MeshConfigResource] {
 	// We need to get mesh configuration up-front, before we start anything, so we use internalStop rather than scheduling a task to run
 	// later.
-	opts := krt.NewOptionsBuilder(s.internalStop, "", args.KrtDebugger, nil)
+	opts := krt.NewOptionsBuilder(s.internalStop, "", args.KrtDebugger)
 	sources := s.getConfigurationSources(args, fileWatcher, args.MeshConfigFile, kubemesh.MeshConfigKey)
 	if len(sources) == 0 {
 		log.Warnf("Using default mesh - missing file %s and no k8s client", args.MeshConfigFile)
@@ -82,7 +82,7 @@ func (s *Server) initMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileW
 func (s *Server) getMeshNetworks(args *PilotArgs, fileWatcher filewatcher.FileWatcher) krt.Singleton[meshwatcher.MeshNetworksResource] {
 	// We need to get mesh networks up-front, before we start anything, so we use internalStop rather than scheduling a task to run
 	// later.
-	opts := krt.NewOptionsBuilder(s.internalStop, "", args.KrtDebugger, nil)
+	opts := krt.NewOptionsBuilder(s.internalStop, "", args.KrtDebugger)
 	sources := s.getConfigurationSources(args, fileWatcher, args.NetworksConfigFile, kubemesh.MeshNetworksKey)
 	if len(sources) == 0 {
 		log.Warnf("Using default mesh networks - missing file %s and no k8s client", args.NetworksConfigFile)
@@ -106,7 +106,7 @@ func getMeshConfigMapName(revision string) string {
 // * default + configmap + configmap
 // * default
 func (s *Server) getConfigurationSources(args *PilotArgs, fileWatcher filewatcher.FileWatcher, file string, cmKey string) []meshwatcher.MeshConfigSource {
-	opts := krt.NewOptionsBuilder(s.internalStop, "", args.KrtDebugger, nil)
+	opts := krt.NewOptionsBuilder(s.internalStop, "", args.KrtDebugger)
 	// Watcher will be merging more than one mesh config source?
 	var userMeshConfig *meshwatcher.MeshConfigSource
 	if features.SharedMeshConfig != "" && s.kubeClient != nil {

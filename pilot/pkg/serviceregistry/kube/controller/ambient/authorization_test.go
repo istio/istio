@@ -221,7 +221,7 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 
 func TestWaypointPolicyStatusCollection(t *testing.T) {
 	stop := test.NewStop(t)
-	opts := krt.NewOptionsBuilder(stop, "", krt.GlobalDebugHandler, nil)
+	opts := krt.NewOptionsBuilder(stop, "", krt.GlobalDebugHandler)
 	c := kube.NewFakeClient()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

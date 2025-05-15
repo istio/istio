@@ -117,9 +117,8 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, debugger *krt.DebugHan
 		})
 	}
 
-	opts := krt.NewOptionsBuilder(c.stop, fmt.Sprintf("ambient/cluster[%s]", c.ID), debugger, krt.Metadata{
-		ClusterKRTMetadataKey: c.ID,
-	})
+	opts := krt.NewOptionsBuilder(c.stop, fmt.Sprintf("ambient/cluster[%s]", c.ID), debugger)
+	opts = opts.WithMetadata(krt.Metadata{ClusterKRTMetadataKey: c.ID})
 	namespaces := kclient.New[*corev1.Namespace](c.Client)
 	// This will start a namespace informer and wait for it to be ready. So we must start it in a go routine to avoid blocking.
 	filter := filter.NewDiscoveryNamespacesFilter(namespaces, mesh, c.stop)
