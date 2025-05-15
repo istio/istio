@@ -27,7 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
-	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
 )
@@ -48,30 +47,6 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 	`{"metadata":{"annotations":{"%s":null}}}`,
 	annotation.AmbientRedirection.Name,
 ))
-
-// PodRedirectionEnabled determines if a pod should or should not be configured
-// to have traffic redirected thru the node proxy.
-func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
-	if !(namespace.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient ||
-		pod.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient) {
-		// Neither namespace nor pod has ambient mode enabled
-		return false
-	}
-	if podHasSidecar(pod) {
-		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
-		return false
-	}
-	if pod.GetLabels()[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeNone {
-		// Pod explicitly asked to not have ambient redirection enabled
-		return false
-	}
-	if pod.Spec.HostNetwork {
-		// Host network pods cannot be captured, as we require inserting rules into the pod network namespace.
-		// If we were to allow them, we would be writing these rules into the host network namespace, effectively breaking the host.
-		return false
-	}
-	return true
-}
 
 // PodFullyEnrolled reports on whether the pod _has_ actually been fully configured for traffic redirection.
 //
@@ -101,8 +76,8 @@ func PodPartiallyEnrolled(pod *corev1.Pod) bool {
 	return false
 }
 
-func podHasSidecar(pod *corev1.Pod) bool {
-	if _, f := pod.GetAnnotations()[annotation.SidecarStatus.Name]; f {
+func podHasSidecar(podAnnotations map[string]string) bool {
+	if _, f := podAnnotations[annotation.SidecarStatus.Name]; f {
 		return true
 	}
 	return false

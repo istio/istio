@@ -32,6 +32,15 @@ _internal_defaults_do_not_set:
 
   # Additional volumes to the ztunnel pod
   volumes: []
+  
+  # Tolerations for the ztunnel pod
+  tolerations:
+    - effect: NoSchedule
+      operator: Exists
+    - key: CriticalAddonsOnly
+      operator: Exists
+    - effect: NoExecute
+      operator: Exists
 
   # Annotations added to each pod. The default annotations are required for scraping prometheus (in most environments).
   podAnnotations:

@@ -48,13 +48,10 @@ spec:
 {{ toYaml .Values.affinity | trim | indent 8 }}
 {{- end }}
       serviceAccountName: {{ include "ztunnel.release-name" . }}
+{{- if .Values.tolerations }}
       tolerations:
-        - effect: NoSchedule
-          operator: Exists
-        - key: CriticalAddonsOnly
-          operator: Exists
-        - effect: NoExecute
-          operator: Exists
+{{ toYaml .Values.tolerations | trim | indent 8 }}
+{{- end }}
       containers:
       - name: istio-proxy
 {{- if contains "/" .Values.image }}
@@ -191,11 +188,11 @@ spec:
         projected:
           sources:
           - clusterTrustBundle:
-              name: istio.io:istiod-ca:root-cert
+              name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
               path: root-cert.pem
         {{- else }}
         configMap:
-          name: istio-ca-root-cert
+          name: {{ .Values.trustBundleName | default "istio-ca-root-cert" }}
         {{- end }}
       - name: cni-ztunnel-sock-dir
         hostPath:

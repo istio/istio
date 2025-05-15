@@ -299,6 +299,17 @@
         },
         "priorityClassName": {
           "type": "string"
+        },
+        "lifecycle": {
+          "type": "object",
+          "properties": {
+            "postStart": {
+              "type": "object"
+            },
+            "preStop": {
+              "type": "object"
+            }
+          }
         }
       }
     }

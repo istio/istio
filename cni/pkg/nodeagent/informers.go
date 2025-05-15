@@ -27,9 +27,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/util/workqueue"
 
-	"istio.io/api/label"
 	"istio.io/istio/cni/pkg/util"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -51,17 +49,20 @@ type K8sHandlers interface {
 }
 
 type InformerHandlers struct {
-	ctx             context.Context
-	dataplane       MeshDataplane
-	systemNamespace string
+	ctx                context.Context
+	dataplane          MeshDataplane
+	systemNamespace    string
+	enablementSelector *util.CompiledEnablementSelectors
 
 	queue      controllers.Queue
 	pods       kclient.Client[*corev1.Pod]
 	namespaces kclient.Client[*corev1.Namespace]
 }
 
-func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDataplane, systemNamespace string) *InformerHandlers {
-	s := &InformerHandlers{ctx: ctx, dataplane: dataplane, systemNamespace: systemNamespace}
+func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDataplane,
+	systemNamespace string, enablementSelector *util.CompiledEnablementSelectors,
+) *InformerHandlers {
+	s := &InformerHandlers{ctx: ctx, dataplane: dataplane, systemNamespace: systemNamespace, enablementSelector: enablementSelector}
 	s.queue = controllers.NewQueue("ambient",
 		controllers.WithGenericReconciler(s.reconcile),
 		// Effectively uncapped max attempts.
@@ -125,7 +126,7 @@ func (s *InformerHandlers) GetPodIfAmbientEnabled(podName, podNamespace string) 
 	if pod == nil {
 		return nil, fmt.Errorf("failed to find pod %v", ns)
 	}
-	if util.PodRedirectionEnabled(ns, pod) {
+	if s.enablementSelector.Matches(pod.Labels, pod.Annotations, ns.Labels) {
 		return pod, nil
 	}
 	return nil, nil
@@ -170,7 +171,7 @@ func (s *InformerHandlers) GetActiveAmbientPodSnapshot() []*corev1.Pod {
 func (s *InformerHandlers) enqueueNamespace(o controllers.Object) {
 	namespace := o.GetName()
 	labels := o.GetLabels()
-	matchAmbient := labels[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient
+	matchAmbient := s.enablementSelector.MatchesNamespace(labels)
 	if matchAmbient {
 		log.Infof("Namespace %s is enabled in ambient mesh", namespace)
 	} else {
@@ -220,18 +221,12 @@ func (s *InformerHandlers) reconcileNamespace(input any) {
 		newNs := event.New.(*corev1.Namespace)
 		oldNs := event.Old.(*corev1.Namespace)
 
-		if getModeLabel(oldNs.Labels) != getModeLabel(newNs.Labels) {
+		if s.enablementSelector.MatchesNamespace(oldNs.Labels) !=
+			s.enablementSelector.MatchesNamespace(newNs.Labels) {
 			log.Debugf("Namespace %s updated", newNs.Name)
 			s.enqueueNamespace(newNs)
 		}
 	}
-}
-
-func getModeLabel(m map[string]string) string {
-	if m == nil {
-		return ""
-	}
-	return m[label.IoIstioDataplaneMode.Name]
 }
 
 func (s *InformerHandlers) reconcilePod(input any) error {
@@ -275,7 +270,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		oldPod := event.Old.(*corev1.Pod)
 		isEnrolled := util.PodFullyEnrolled(currentPod)
 		isPartiallyEnrolled := util.PodPartiallyEnrolled(currentPod)
-		shouldBeEnabled := util.PodRedirectionEnabled(ns, currentPod)
+		shouldBeEnabled := s.enablementSelector.Matches(currentPod.Labels, currentPod.Annotations, ns.Labels)
 		isTerminated := kube.CheckPodTerminal(currentPod)
 		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
 		changeNeeded := (isEnrolled != shouldBeEnabled) || isPartiallyEnrolled

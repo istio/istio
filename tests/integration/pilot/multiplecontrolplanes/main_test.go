@@ -46,8 +46,10 @@ var (
 	echo1NS    namespace.Instance
 	echo2NS    namespace.Instance
 	echo3NS    namespace.Instance
+	sharedNS   namespace.Instance
 	externalNS namespace.Instance
-	apps       deployment.Echos
+	apps1      deployment.Echos
+	apps2      deployment.Echos
 )
 
 // TestMain defines the entrypoint for multiple controlplane tests using revisions and discoverySelectors.
@@ -86,6 +88,8 @@ meshConfig:
   discoverySelectors:
     - matchLabels:
         usergroup: usergroup-1
+    - matchLabels:
+        usergroup: shared
 values:
   global:
     istioNamespace: %s`,
@@ -98,6 +102,11 @@ values:
 
 			cfg.Values["global.istioNamespace"] = userGroup2NS.Name()
 			cfg.SystemNamespace = userGroup2NS.Name()
+			cfg.EastWestGatewayValues = `
+values:
+  global:
+    trustBundleName: usergroup-2-ca-root-cert
+`
 			cfg.ControlPlaneValues = fmt.Sprintf(`
 namespace: %s
 revision: usergroup-2
@@ -106,26 +115,45 @@ meshConfig:
   discoverySelectors:
     - matchLabels:
         usergroup: usergroup-2
+    - matchLabels:
+        usergroup: shared
 values:
   global:
-    istioNamespace: %s`,
-				userGroup2NS.Name(), userGroup2NS.Name())
+    trustBundleName: usergroup-2-ca-root-cert
+    istioNamespace: %s`, userGroup2NS.Name(), userGroup2NS.Name())
 		})).
 		SetupParallel(
 			// application namespaces are labeled according to the required control plane ownership.
 			namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true, Revision: "usergroup-1", Labels: map[string]string{"usergroup": "usergroup-1"}}),
 			namespace.Setup(&echo2NS, namespace.Config{Prefix: "echo2", Inject: true, Revision: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}}),
 			namespace.Setup(&echo3NS, namespace.Config{Prefix: "echo3", Inject: true, Revision: "usergroup-2", Labels: map[string]string{"usergroup": "usergroup-2"}}),
+			namespace.Setup(&sharedNS, namespace.Config{Prefix: "echo-shared", Inject: true, Revision: "usergroup-1", Labels: map[string]string{"usergroup": "shared"}}),
 			namespace.Setup(&externalNS, namespace.Config{Prefix: "external", Inject: false})).
 		SetupParallel(
-			deployment.Setup(&apps, deployment.Config{
+			deployment.Setup(&apps1, deployment.Config{
 				Namespaces: []namespace.Getter{
 					namespace.Future(&echo1NS),
-					namespace.Future(&echo2NS),
-					namespace.Future(&echo3NS),
+					namespace.Future(&sharedNS),
 				},
 				ExternalNamespace: namespace.Future(&externalNS),
+				// we're using the ServiceNamePrefix field to prefix service names, as we deploy two echo instances to the sharedNS namespace
+				ServiceNamePrefix: "usergroup-1-",
 			})).
+		Setup(func(ctx resource.Context) error {
+			return sharedNS.SetLabel("istio.io/rev", "usergroup-2")
+		}).
+		Setup(func(ctx resource.Context) error {
+			return deployment.Setup(&apps2, deployment.Config{
+				Namespaces: []namespace.Getter{
+					namespace.Future(&echo2NS),
+					namespace.Future(&echo3NS),
+					namespace.Future(&sharedNS),
+				},
+				ExternalNamespace: namespace.Future(&externalNS),
+				// we're using the ServiceNamePrefix field to prefix service names, as we deploy two echo instances to the sharedNS namespace
+				ServiceNamePrefix: "usergroup-2-",
+			})(ctx)
+		}).
 		Run()
 }
 
@@ -145,26 +173,44 @@ func TestMultiControlPlane(t *testing.T) {
 				{
 					name:       "workloads within same usergroup can communicate, same namespace",
 					statusCode: http.StatusOK,
-					from:       apps.NS[0].A,
-					to:         apps.NS[0].B,
+					from:       apps1.NS[0].A,
+					to:         apps1.NS[0].B,
 				},
 				{
 					name:       "workloads within same usergroup can communicate, different namespaces",
 					statusCode: http.StatusOK,
-					from:       apps.NS[1].A,
-					to:         apps.NS[2].B,
+					from:       apps2.NS[0].A,
+					to:         apps2.NS[1].B,
+				},
+				{
+					name:       "workloads within same usergroup can communicate, different namespaces, one of them shared",
+					statusCode: http.StatusOK,
+					from:       apps2.NS[0].A,
+					to:         apps2.NS[2].B,
+				},
+				{
+					name:       "workloads within same usergroup can communicate, shared namespace",
+					statusCode: http.StatusOK,
+					from:       apps1.NS[1].A,
+					to:         apps1.NS[1].B,
 				},
 				{
 					name:       "workloads within different usergroups cannot communicate, registry only",
 					statusCode: http.StatusBadGateway,
-					from:       apps.NS[0].A,
-					to:         apps.NS[1].B,
+					from:       apps1.NS[0].A,
+					to:         apps2.NS[0].B,
 				},
 				{
 					name:       "workloads within different usergroups cannot communicate, default passthrough",
 					statusCode: http.StatusServiceUnavailable,
-					from:       apps.NS[2].B,
-					to:         apps.NS[0].B,
+					from:       apps2.NS[1].B,
+					to:         apps1.NS[0].B,
+				},
+				{
+					name:       "workloads within different usergroups cannot communicate, shared namespace",
+					statusCode: http.StatusServiceUnavailable,
+					from:       apps2.NS[2].B,
+					to:         apps1.NS[1].B,
 				},
 			}
 
@@ -190,7 +236,7 @@ func TestCustomResourceScoping(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			// allow access to external service only for app-ns-2 namespace which is under usergroup-2
-			allowExternalService(t, apps.NS[1].Namespace.Name(), externalNS.Name(), "usergroup-2")
+			allowExternalService(t, apps2.NS[0].Namespace.Name(), externalNS.Name(), "usergroup-2")
 
 			testCases := []struct {
 				name       string
@@ -200,25 +246,25 @@ func TestCustomResourceScoping(t *testing.T) {
 				{
 					name:       "workloads in SE configured namespace can reach external service",
 					statusCode: http.StatusOK,
-					from:       apps.NS[1].A,
+					from:       apps2.NS[0].A,
 				},
 				{
 					name:       "workloads in non-SE configured namespace, but same usergroup can reach external service",
 					statusCode: http.StatusOK,
-					from:       apps.NS[2].A,
+					from:       apps2.NS[1].A,
 				},
 				{
 					name:       "workloads in non-SE configured usergroup cannot reach external service",
 					statusCode: http.StatusBadGateway,
-					from:       apps.NS[0].A,
+					from:       apps1.NS[0].A,
 				},
 			}
 			for _, tc := range testCases {
 				t.NewSubTestf(tc.name).Run(func(t framework.TestContext) {
 					tc.from[0].CallOrFail(t, echo.CallOptions{
-						Address: apps.External.All[0].Address(),
+						Address: apps1.External.All[0].Address(),
 						HTTP: echo.HTTP{
-							Headers: HostHeader(apps.External.All[0].Config().DefaultHostHeader),
+							Headers: HostHeader(apps1.External.All[0].Config().DefaultHostHeader),
 						},
 						Port:   echo.Port{Name: "http", ServicePort: 80},
 						Scheme: scheme.HTTP,

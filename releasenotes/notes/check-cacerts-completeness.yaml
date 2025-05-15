@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** an issue in the `pluginca` feature where `istiod` would silently fallback to the self-signed CA if the provided `cacerts` bundle was incomplete. 
+    The system now properly validates the presence of all required CA files and fails with an error if the bundle is incomplete.
+upgradeNote:
+  - title: Pluginca CA Bundle Validation
+    content: |
+      Previously, `istiod` would silently fallback to the self-signed CA if the `cacerts` bundle was incomplete—only the signing key file was being checked for presence. 
+      This behavior could lead to unexpected use of a self-signed CA without operator awareness. 
+      With this fix, `istiod` will now validate the entire CA bundle and return an explicit error if any required file is missing, rather than falling back silently.

@@ -1,0 +1,9 @@
+spec:
+  values:
+    initContainers:
+    - name: init-container
+      image: init-image:latest
+      command:
+      - /bin/sh
+      - -c
+      - echo Hello

@@ -530,7 +530,7 @@ func buildMeshAndGatewayRoutes[T any](parentRefs []routeParentReference, convert
 }
 
 // RouteResult holds the result of a route collection
-type RouteResult[I, IStatus any] struct {
+type RouteResult[I controllers.Object, IStatus any] struct {
 	// VirtualServices are the primary output that configures the internal routing logic
 	VirtualServices krt.Collection[*config.Config]
 	// RouteAttachments holds information about parent attachment to routes, used for computed the `attachedRoutes` count.

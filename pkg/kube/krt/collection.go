@@ -19,7 +19,6 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/kube/kclient"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
@@ -225,11 +224,12 @@ type collectionIndex[I, O any] struct {
 	parent  *manyCollection[I, O]
 }
 
-func (c collectionIndex[I, O]) Lookup(key string) []any {
+func (c collectionIndex[I, O]) Lookup(key string) []O {
 	c.parent.mu.Lock()
 	defer c.parent.mu.Unlock()
 	keys := c.index[key]
-	res := make([]any, 0, len(keys))
+
+	res := make([]O, 0, len(keys))
 	for k := range keys {
 		v, f := c.parent.collectionState.outputs[k]
 		if !f {
@@ -367,7 +367,7 @@ func (h *manyCollection[I, O]) augment(a any) any {
 }
 
 // nolint: unused // (not true)
-func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) kclient.RawIndexer {
+func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) indexer[O] {
 	if idx, ok := h.indexes[name]; ok {
 		return idx
 	}

@@ -44,10 +44,9 @@ func TestCollectionStatus(t *testing.T) {
 	pc := clienttest.Wrap(t, kclient.New[*corev1.Pod](c))
 	sc := clienttest.Wrap(t, kclient.New[*corev1.Service](c))
 	SimplePods := SimplePodCollection(pods, opts)
-	SimpleServices := SimpleServiceCollection(services, opts)
-	Status, SimpleEndpoints := krt.NewStatusManyCollection[SimpleService, SimpleServiceStatus, SimpleEndpoint](SimpleServices,
-		func(ctx krt.HandlerContext, svc SimpleService) (*SimpleServiceStatus, []SimpleEndpoint) {
-			pods := krt.Fetch(ctx, SimplePods, krt.FilterLabel(svc.Selector))
+	Status, SimpleEndpoints := krt.NewStatusManyCollection[*corev1.Service, SimpleServiceStatus, SimpleEndpoint](services,
+		func(ctx krt.HandlerContext, svc *corev1.Service) (*SimpleServiceStatus, []SimpleEndpoint) {
+			pods := krt.Fetch(ctx, SimplePods, krt.FilterLabel(svc.Spec.Selector))
 			status := &SimpleServiceStatus{
 				ValidName:      len(svc.Name) == 5, // arbitrary rule for tests
 				TotalEndpoints: len(pods),
@@ -69,7 +68,7 @@ func TestCollectionStatus(t *testing.T) {
 		}, opts.WithName("SimpleEndpoints")...)
 
 	tt := assert.NewTracker[string](t)
-	Status.Register(TrackerHandler[krt.ObjectWithStatus[SimpleService, SimpleServiceStatus]](tt))
+	Status.Register(TrackerHandler[krt.ObjectWithStatus[*corev1.Service, SimpleServiceStatus]](tt))
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{

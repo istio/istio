@@ -194,6 +194,10 @@ spec:
           - name: EXTERNAL_ISTIOD
             value: "{{ .Values.global.externalIstiod }}"
 {{- end }}
+{{- if .Values.global.trustBundleName }}
+          - name: PILOT_CA_CERT_CONFIGMAP
+            value: "{{ .Values.global.trustBundleName }}"
+{{- end }}
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
@@ -284,12 +288,12 @@ spec:
         projected:
           sources:
           - clusterTrustBundle:
-              name: istio.io:istiod-ca:root-cert
+              name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
               path: root-cert.pem
               optional: true
   {{- else }}
         configMap:
-          name: istio-ca-root-cert
+          name: {{ .Values.global.trustBundleName | default "istio-ca-root-cert" }}
           defaultMode: 420
           optional: true
   {{- end }}

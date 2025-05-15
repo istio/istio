@@ -187,18 +187,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 			return datadogConfig(serviceCluster, hostname, cluster)
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
-		//nolint: staticcheck  // Lightstep deprecated
-		maxTagLength = provider.Lightstep.GetMaxTagLength()
-		providerName = envoyOpenTelemetry
-		//nolint: staticcheck  // Lightstep deprecated
-		providerConfig = func() (*anypb.Any, error) {
-			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Lightstep.GetService(), int(provider.Lightstep.GetPort()))
-			if err != nil {
-				model.IncLookupClusterFailures("lightstep")
-				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
-			}
-			return otelLightStepConfig(clusterName, hostname, provider.Lightstep.GetAccessToken())
-		}
+		log.Warnf("Lightstep provider is deprecated, please use OpenTelemetry instead")
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 		maxTagLength = 0
 		providerName = envoySkywalking
@@ -354,26 +343,6 @@ func skywalkingConfig(clusterName, hostname string) (*anypb.Any, error) {
 	}
 
 	return protoconv.MessageToAnyWithError(s)
-}
-
-func otelLightStepConfig(clusterName, hostname, accessToken string) (*anypb.Any, error) {
-	dc := &tracingcfg.OpenTelemetryConfig{
-		GrpcService: &core.GrpcService{
-			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-					ClusterName: clusterName,
-					Authority:   hostname,
-				},
-			},
-			InitialMetadata: []*core.HeaderValue{
-				{
-					Key:   "lightstep-access-token",
-					Value: accessToken,
-				},
-			},
-		},
-	}
-	return anypb.New(dc)
 }
 
 func configureDynatraceSampler(hostname, cluster string,
