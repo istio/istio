@@ -173,7 +173,7 @@ func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingc
 
 	var lb *workloadapi.LoadBalancing
 
-	trafficDistribution := kube.GetTrafficDistribution(nil, svc.Annotations)
+	trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations)
 	switch trafficDistribution {
 	case model.TrafficDistributionPreferSameZone:
 		lb = preferSameZoneLoadBalancer
@@ -238,8 +238,7 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 		}
 	} else {
 		// Check traffic distribution.
-		// Check traffic distribution.
-		trafficDistribution := kube.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
+		trafficDistribution := model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
 		switch trafficDistribution {
 		case model.TrafficDistributionPreferSameZone:
 			lb = preferSameZoneLoadBalancer

@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
@@ -179,7 +178,7 @@ func convertServices(cfg config.Config) []*model.Service {
 		resolution = model.ClientSideLB
 	}
 
-	trafficDistribution := kube.GetTrafficDistribution(nil, cfg.Annotations)
+	trafficDistribution := model.GetTrafficDistribution(nil, cfg.Annotations)
 
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
 	var portOverrides map[uint32]uint32
