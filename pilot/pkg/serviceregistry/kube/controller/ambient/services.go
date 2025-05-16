@@ -21,7 +21,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	apiannotation "istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
@@ -173,9 +172,13 @@ func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingc
 	}
 
 	var lb *workloadapi.LoadBalancing
-	preferClose := strings.EqualFold(svc.Annotations[apiannotation.NetworkingTrafficDistribution.Name], v1.ServiceTrafficDistributionPreferClose)
-	if preferClose {
+
+	trafficDistribution := kube.GetTrafficDistribution(nil, svc.Annotations)
+	switch trafficDistribution {
+	case model.TrafficDistributionPreferSameZone:
 		lb = preferSameZoneLoadBalancer
+	case model.TrafficDistributionPreferSameNode:
+		lb = preferSameNodeLoadBalancer
 	}
 
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
@@ -235,10 +238,12 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 		}
 	} else {
 		// Check traffic distribution.
+		// Check traffic distribution.
 		trafficDistribution := kube.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
-		if trafficDistribution == model.TrafficDistributionPreferSameZone {
+		switch trafficDistribution {
+		case model.TrafficDistributionPreferSameZone:
 			lb = preferSameZoneLoadBalancer
-		} else if trafficDistribution == model.TrafficDistributionPreferSameNode {
+		case model.TrafficDistributionPreferSameNode:
 			lb = preferSameNodeLoadBalancer
 		}
 	}

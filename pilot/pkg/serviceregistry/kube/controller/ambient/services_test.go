@@ -44,23 +44,417 @@ func TestServiceEntryServices(t *testing.T) {
 		se     *networkingclient.ServiceEntry
 		result []*workloadapi.Service
 	}{
+		// {
+		// 	name:   "DNS service entry with address",
+		// 	inputs: []any{},
+		// 	se: &networkingclient.ServiceEntry{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:      "name",
+		// 			Namespace: "ns",
+		// 		},
+		// 		Spec: networking.ServiceEntry{
+		// 			Addresses: []string{"1.2.3.4"},
+		// 			Hosts:     []string{"a.example.com", "b.example.com"},
+		// 			Ports: []*networking.ServicePort{{
+		// 				Number: 80,
+		// 				Name:   "http",
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 			Resolution:      networking.ServiceEntry_DNS,
+		// 		},
+		// 	},
+		// 	result: []*workloadapi.Service{
+		// 		{
+		// 			Name:      "name",
+		// 			Namespace: "ns",
+		// 			Hostname:  "a.example.com",
+		// 			Addresses: []*workloadapi.NetworkAddress{{
+		// 				Network: testNW,
+		// 				Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+		// 			}},
+		// 			Ports: []*workloadapi.Port{{
+		// 				ServicePort: 80,
+		// 				TargetPort:  80,
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 		},
+		// 		{
+		// 			Name:      "name",
+		// 			Namespace: "ns",
+		// 			Hostname:  "b.example.com",
+		// 			Addresses: []*workloadapi.NetworkAddress{{
+		// 				Network: testNW,
+		// 				Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+		// 			}},
+		// 			Ports: []*workloadapi.Port{{
+		// 				ServicePort: 80,
+		// 				TargetPort:  80,
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	name:   "Uses auto-assigned addresses",
+		// 	inputs: []any{},
+		// 	se: &networkingclient.ServiceEntry{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:      "auto-assigned",
+		// 			Namespace: "ns",
+		// 		},
+		// 		Spec: networking.ServiceEntry{
+		// 			Hosts: []string{"assign-me.example.com"},
+		// 			Ports: []*networking.ServicePort{{
+		// 				Number: 80,
+		// 				Name:   "http",
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 			Resolution:      networking.ServiceEntry_DNS,
+		// 		},
+		// 		Status: networking.ServiceEntryStatus{
+		// 			Addresses: []*networking.ServiceEntryAddress{
+		// 				{
+		// 					Host:  "assign-me.example.com",
+		// 					Value: "240.240.0.1",
+		// 				},
+		// 				{
+		// 					Host:  "assign-me.example.com",
+		// 					Value: "2001:2::1",
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// 	result: []*workloadapi.Service{
+		// 		{
+		// 			Name:      "auto-assigned",
+		// 			Namespace: "ns",
+		// 			Hostname:  "assign-me.example.com",
+		// 			Addresses: []*workloadapi.NetworkAddress{
+		// 				{
+		// 					Network: testNW,
+		// 					Address: netip.AddrFrom4([4]byte{240, 240, 0, 1}).AsSlice(),
+		// 				},
+		// 				{
+		// 					Network: testNW,
+		// 					Address: netip.MustParseAddr("2001:2::1").AsSlice(),
+		// 				},
+		// 			},
+		// 			Ports: []*workloadapi.Port{{
+		// 				ServicePort: 80,
+		// 				TargetPort:  80,
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	name:   "Uses multiple auto-assigned addresses",
+		// 	inputs: []any{},
+		// 	se: &networkingclient.ServiceEntry{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:      "multi-host-auto-assigned",
+		// 			Namespace: "ns",
+		// 		},
+		// 		Spec: networking.ServiceEntry{
+		// 			Hosts: []string{
+		// 				"multi-host-assign-me.example.com",
+		// 				"second-host-assign-me.example.com",
+		// 			},
+		// 			Ports: []*networking.ServicePort{{
+		// 				Number: 80,
+		// 				Name:   "http",
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 			Resolution:      networking.ServiceEntry_DNS,
+		// 		},
+		// 		Status: networking.ServiceEntryStatus{
+		// 			Addresses: []*networking.ServiceEntryAddress{
+		// 				{
+		// 					Host:  "multi-host-assign-me.example.com",
+		// 					Value: "240.240.0.1",
+		// 				},
+		// 				{
+		// 					Host:  "multi-host-assign-me.example.com",
+		// 					Value: "2001:2::1",
+		// 				},
+		// 				{
+		// 					Host:  "second-host-assign-me.example.com",
+		// 					Value: "240.240.0.2",
+		// 				},
+		// 				{
+		// 					Host:  "second-host-assign-me.example.com",
+		// 					Value: "2001:2::2",
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// 	result: []*workloadapi.Service{
+		// 		{
+		// 			Name:      "multi-host-auto-assigned",
+		// 			Namespace: "ns",
+		// 			Hostname:  "multi-host-assign-me.example.com",
+		// 			Addresses: []*workloadapi.NetworkAddress{
+		// 				{
+		// 					Network: testNW,
+		// 					Address: netip.AddrFrom4([4]byte{240, 240, 0, 1}).AsSlice(),
+		// 				},
+		// 				{
+		// 					Network: testNW,
+		// 					Address: netip.MustParseAddr("2001:2::1").AsSlice(),
+		// 				},
+		// 			},
+		// 			Ports: []*workloadapi.Port{{
+		// 				ServicePort: 80,
+		// 				TargetPort:  80,
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 		},
+		// 		{
+		// 			Name:      "multi-host-auto-assigned",
+		// 			Namespace: "ns",
+		// 			Hostname:  "second-host-assign-me.example.com",
+		// 			Addresses: []*workloadapi.NetworkAddress{
+		// 				{
+		// 					Network: testNW,
+		// 					Address: netip.AddrFrom4([4]byte{240, 240, 0, 2}).AsSlice(),
+		// 				},
+		// 				{
+		// 					Network: testNW,
+		// 					Address: netip.MustParseAddr("2001:2::2").AsSlice(),
+		// 				},
+		// 			},
+		// 			Ports: []*workloadapi.Port{{
+		// 				ServicePort: 80,
+		// 				TargetPort:  80,
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	name:   "Does not use auto-assigned addresses user provided address",
+		// 	inputs: []any{},
+		// 	se: &networkingclient.ServiceEntry{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:      "user-provided",
+		// 			Namespace: "ns",
+		// 		},
+		// 		Spec: networking.ServiceEntry{
+		// 			Addresses: []string{"1.2.3.4"},
+		// 			Hosts:     []string{"user-provided.example.com"},
+		// 			Ports: []*networking.ServicePort{{
+		// 				Number: 80,
+		// 				Name:   "http",
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 			Resolution:      networking.ServiceEntry_DNS,
+		// 		},
+		// 		Status: networking.ServiceEntryStatus{
+		// 			Addresses: []*networking.ServiceEntryAddress{
+		// 				{
+		// 					Host:  "user-provided.example.com",
+		// 					Value: "240.240.0.1",
+		// 				},
+		// 				{
+		// 					Host:  "user-provided.example.com",
+		// 					Value: "2001:2::1",
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// 	result: []*workloadapi.Service{
+		// 		{
+		// 			Name:      "user-provided",
+		// 			Namespace: "ns",
+		// 			Hostname:  "user-provided.example.com",
+		// 			Addresses: []*workloadapi.NetworkAddress{
+		// 				{
+		// 					Network: testNW,
+		// 					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+		// 				},
+		// 			},
+		// 			Ports: []*workloadapi.Port{{
+		// 				ServicePort: 80,
+		// 				TargetPort:  80,
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	name:   "Does not use auto-assigned addresses none resolution",
+		// 	inputs: []any{},
+		// 	se: &networkingclient.ServiceEntry{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:      "none-resolution",
+		// 			Namespace: "ns",
+		// 		},
+		// 		Spec: networking.ServiceEntry{
+		// 			Hosts: []string{"none-resolution.example.com"},
+		// 			Ports: []*networking.ServicePort{{
+		// 				Number: 80,
+		// 				Name:   "http",
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 			Resolution:      networking.ServiceEntry_NONE,
+		// 		},
+		// 		Status: networking.ServiceEntryStatus{
+		// 			Addresses: []*networking.ServiceEntryAddress{
+		// 				{
+		// 					Host:  "none-resolution.example.com",
+		// 					Value: "240.240.0.1",
+		// 				},
+		// 				{
+		// 					Host:  "none-resolution.example.com",
+		// 					Value: "2001:2::1",
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// 	result: []*workloadapi.Service{
+		// 		{
+		// 			Name:      "none-resolution",
+		// 			Namespace: "ns",
+		// 			Hostname:  "none-resolution.example.com",
+		// 			Addresses: []*workloadapi.NetworkAddress{},
+		// 			Ports: []*workloadapi.Port{{
+		// 				ServicePort: 80,
+		// 				TargetPort:  80,
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	name:   "Does not use auto-assigned addresses user opted out",
+		// 	inputs: []any{},
+		// 	se: &networkingclient.ServiceEntry{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:      "user-opt-out",
+		// 			Namespace: "ns",
+		// 			Labels: map[string]string{
+		// 				label.NetworkingEnableAutoallocateIp.Name: "false",
+		// 			},
+		// 		},
+		// 		Spec: networking.ServiceEntry{
+		// 			Hosts: []string{"user-opt-out.example.com"},
+		// 			Ports: []*networking.ServicePort{{
+		// 				Number: 80,
+		// 				Name:   "http",
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 			Resolution:      networking.ServiceEntry_DNS,
+		// 		},
+		// 		Status: networking.ServiceEntryStatus{
+		// 			Addresses: []*networking.ServiceEntryAddress{
+		// 				{
+		// 					Host:  "user-opt-out.example.com",
+		// 					Value: "240.240.0.1",
+		// 				},
+		// 				{
+		// 					Host:  "user-opt-out.example.com",
+		// 					Value: "2001:2::1",
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// 	result: []*workloadapi.Service{
+		// 		{
+		// 			Name:      "user-opt-out",
+		// 			Namespace: "ns",
+		// 			Hostname:  "user-opt-out.example.com",
+		// 			Addresses: []*workloadapi.NetworkAddress{},
+		// 			Ports: []*workloadapi.Port{{
+		// 				ServicePort: 80,
+		// 				TargetPort:  80,
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 		},
+		// 	},
+		// },
+		// {
+		// 	name:   "Does not use auto-assigned addresses for wildcard host",
+		// 	inputs: []any{},
+		// 	se: &networkingclient.ServiceEntry{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:      "partial-wildcard",
+		// 			Namespace: "ns",
+		// 		},
+		// 		Spec: networking.ServiceEntry{
+		// 			Hosts: []string{"*.wildcard.example.com", "this-is-ok.example.com"},
+		// 			Ports: []*networking.ServicePort{{
+		// 				Number: 80,
+		// 				Name:   "http",
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 			Resolution:      networking.ServiceEntry_DNS,
+		// 		},
+		// 		Status: networking.ServiceEntryStatus{
+		// 			Addresses: []*networking.ServiceEntryAddress{
+		// 				{
+		// 					Host:  "this-is-ok.example.com",
+		// 					Value: "240.240.0.1",
+		// 				},
+		// 				{
+		// 					Host:  "this-is-ok.example.com",
+		// 					Value: "2001:2::1",
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// 	result: []*workloadapi.Service{
+		// 		{
+		// 			Name:      "partial-wildcard",
+		// 			Namespace: "ns",
+		// 			Hostname:  "*.wildcard.example.com",
+		// 			Addresses: []*workloadapi.NetworkAddress{},
+		// 			Ports: []*workloadapi.Port{{
+		// 				ServicePort: 80,
+		// 				TargetPort:  80,
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 		},
+		// 		{
+		// 			Name:      "partial-wildcard",
+		// 			Namespace: "ns",
+		// 			Hostname:  "this-is-ok.example.com",
+		// 			Addresses: []*workloadapi.NetworkAddress{
+		// 				{
+		// 					Network: testNW,
+		// 					Address: netip.AddrFrom4([4]byte{240, 240, 0, 1}).AsSlice(),
+		// 				},
+		// 				{
+		// 					Network: testNW,
+		// 					Address: netip.MustParseAddr("2001:2::1").AsSlice(),
+		// 				},
+		// 			},
+		// 			Ports: []*workloadapi.Port{{
+		// 				ServicePort: 80,
+		// 				TargetPort:  80,
+		// 			}},
+		// 			SubjectAltNames: []string{"san1"},
+		// 		},
+		// 	},
+		// },
 		{
-			name:   "DNS service entry with address",
+			name:   "prefer same node traffic distribution",
 			inputs: []any{},
 			se: &networkingclient.ServiceEntry{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "name",
 					Namespace: "ns",
+					Annotations: map[string]string{
+						"networking.istio.io/traffic-distribution": "PreferSameNode",
+					},
 				},
 				Spec: networking.ServiceEntry{
 					Addresses: []string{"1.2.3.4"},
-					Hosts:     []string{"a.example.com", "b.example.com"},
+					Hosts:     []string{"a.example.com"},
 					Ports: []*networking.ServicePort{{
 						Number: 80,
 						Name:   "http",
 					}},
-					SubjectAltNames: []string{"san1"},
-					Resolution:      networking.ServiceEntry_DNS,
+					Resolution: networking.ServiceEntry_DNS,
 				},
 			},
 			result: []*workloadapi.Service{
@@ -72,367 +466,110 @@ func TestServiceEntryServices(t *testing.T) {
 						Network: testNW,
 						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
 					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						RoutingPreference: []workloadapi.LoadBalancing_Scope{
+							workloadapi.LoadBalancing_NETWORK,
+							workloadapi.LoadBalancing_REGION,
+							workloadapi.LoadBalancing_ZONE,
+							workloadapi.LoadBalancing_SUBZONE,
+							workloadapi.LoadBalancing_NODE,
+						},
+						Mode: workloadapi.LoadBalancing_FAILOVER,
+					},
 					Ports: []*workloadapi.Port{{
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
 				},
+			},
+		},
+		{
+			name:   "prefer same zone distribution",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Annotations: map[string]string{
+						"networking.istio.io/traffic-distribution": "PreferSameZone",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"a.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number: 80,
+						Name:   "http",
+					}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
 				{
 					Name:      "name",
 					Namespace: "ns",
-					Hostname:  "b.example.com",
+					Hostname:  "a.example.com",
 					Addresses: []*workloadapi.NetworkAddress{{
 						Network: testNW,
 						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
 					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						RoutingPreference: []workloadapi.LoadBalancing_Scope{
+							workloadapi.LoadBalancing_NETWORK,
+							workloadapi.LoadBalancing_REGION,
+							workloadapi.LoadBalancing_ZONE,
+						},
+						Mode: workloadapi.LoadBalancing_FAILOVER,
+					},
 					Ports: []*workloadapi.Port{{
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
 				},
 			},
 		},
 		{
-			name:   "Uses auto-assigned addresses",
+			name:   "prefer close traffic distribution",
 			inputs: []any{},
 			se: &networkingclient.ServiceEntry{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "auto-assigned",
+					Name:      "name",
 					Namespace: "ns",
-				},
-				Spec: networking.ServiceEntry{
-					Hosts: []string{"assign-me.example.com"},
-					Ports: []*networking.ServicePort{{
-						Number: 80,
-						Name:   "http",
-					}},
-					SubjectAltNames: []string{"san1"},
-					Resolution:      networking.ServiceEntry_DNS,
-				},
-				Status: networking.ServiceEntryStatus{
-					Addresses: []*networking.ServiceEntryAddress{
-						{
-							Host:  "assign-me.example.com",
-							Value: "240.240.0.1",
-						},
-						{
-							Host:  "assign-me.example.com",
-							Value: "2001:2::1",
-						},
+					Annotations: map[string]string{
+						"networking.istio.io/traffic-distribution": "PreferClose",
 					},
-				},
-			},
-			result: []*workloadapi.Service{
-				{
-					Name:      "auto-assigned",
-					Namespace: "ns",
-					Hostname:  "assign-me.example.com",
-					Addresses: []*workloadapi.NetworkAddress{
-						{
-							Network: testNW,
-							Address: netip.AddrFrom4([4]byte{240, 240, 0, 1}).AsSlice(),
-						},
-						{
-							Network: testNW,
-							Address: netip.MustParseAddr("2001:2::1").AsSlice(),
-						},
-					},
-					Ports: []*workloadapi.Port{{
-						ServicePort: 80,
-						TargetPort:  80,
-					}},
-					SubjectAltNames: []string{"san1"},
-				},
-			},
-		},
-		{
-			name:   "Uses multiple auto-assigned addresses",
-			inputs: []any{},
-			se: &networkingclient.ServiceEntry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "multi-host-auto-assigned",
-					Namespace: "ns",
-				},
-				Spec: networking.ServiceEntry{
-					Hosts: []string{
-						"multi-host-assign-me.example.com",
-						"second-host-assign-me.example.com",
-					},
-					Ports: []*networking.ServicePort{{
-						Number: 80,
-						Name:   "http",
-					}},
-					SubjectAltNames: []string{"san1"},
-					Resolution:      networking.ServiceEntry_DNS,
-				},
-				Status: networking.ServiceEntryStatus{
-					Addresses: []*networking.ServiceEntryAddress{
-						{
-							Host:  "multi-host-assign-me.example.com",
-							Value: "240.240.0.1",
-						},
-						{
-							Host:  "multi-host-assign-me.example.com",
-							Value: "2001:2::1",
-						},
-						{
-							Host:  "second-host-assign-me.example.com",
-							Value: "240.240.0.2",
-						},
-						{
-							Host:  "second-host-assign-me.example.com",
-							Value: "2001:2::2",
-						},
-					},
-				},
-			},
-			result: []*workloadapi.Service{
-				{
-					Name:      "multi-host-auto-assigned",
-					Namespace: "ns",
-					Hostname:  "multi-host-assign-me.example.com",
-					Addresses: []*workloadapi.NetworkAddress{
-						{
-							Network: testNW,
-							Address: netip.AddrFrom4([4]byte{240, 240, 0, 1}).AsSlice(),
-						},
-						{
-							Network: testNW,
-							Address: netip.MustParseAddr("2001:2::1").AsSlice(),
-						},
-					},
-					Ports: []*workloadapi.Port{{
-						ServicePort: 80,
-						TargetPort:  80,
-					}},
-					SubjectAltNames: []string{"san1"},
-				},
-				{
-					Name:      "multi-host-auto-assigned",
-					Namespace: "ns",
-					Hostname:  "second-host-assign-me.example.com",
-					Addresses: []*workloadapi.NetworkAddress{
-						{
-							Network: testNW,
-							Address: netip.AddrFrom4([4]byte{240, 240, 0, 2}).AsSlice(),
-						},
-						{
-							Network: testNW,
-							Address: netip.MustParseAddr("2001:2::2").AsSlice(),
-						},
-					},
-					Ports: []*workloadapi.Port{{
-						ServicePort: 80,
-						TargetPort:  80,
-					}},
-					SubjectAltNames: []string{"san1"},
-				},
-			},
-		},
-		{
-			name:   "Does not use auto-assigned addresses user provided address",
-			inputs: []any{},
-			se: &networkingclient.ServiceEntry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "user-provided",
-					Namespace: "ns",
 				},
 				Spec: networking.ServiceEntry{
 					Addresses: []string{"1.2.3.4"},
-					Hosts:     []string{"user-provided.example.com"},
+					Hosts:     []string{"a.example.com"},
 					Ports: []*networking.ServicePort{{
 						Number: 80,
 						Name:   "http",
 					}},
-					SubjectAltNames: []string{"san1"},
-					Resolution:      networking.ServiceEntry_DNS,
-				},
-				Status: networking.ServiceEntryStatus{
-					Addresses: []*networking.ServiceEntryAddress{
-						{
-							Host:  "user-provided.example.com",
-							Value: "240.240.0.1",
-						},
-						{
-							Host:  "user-provided.example.com",
-							Value: "2001:2::1",
-						},
-					},
+					Resolution: networking.ServiceEntry_DNS,
 				},
 			},
 			result: []*workloadapi.Service{
 				{
-					Name:      "user-provided",
+					Name:      "name",
 					Namespace: "ns",
-					Hostname:  "user-provided.example.com",
-					Addresses: []*workloadapi.NetworkAddress{
-						{
-							Network: testNW,
-							Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						RoutingPreference: []workloadapi.LoadBalancing_Scope{
+							workloadapi.LoadBalancing_NETWORK,
+							workloadapi.LoadBalancing_REGION,
+							workloadapi.LoadBalancing_ZONE,
 						},
+						Mode: workloadapi.LoadBalancing_FAILOVER,
 					},
 					Ports: []*workloadapi.Port{{
 						ServicePort: 80,
 						TargetPort:  80,
 					}},
-					SubjectAltNames: []string{"san1"},
-				},
-			},
-		},
-		{
-			name:   "Does not use auto-assigned addresses none resolution",
-			inputs: []any{},
-			se: &networkingclient.ServiceEntry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "none-resolution",
-					Namespace: "ns",
-				},
-				Spec: networking.ServiceEntry{
-					Hosts: []string{"none-resolution.example.com"},
-					Ports: []*networking.ServicePort{{
-						Number: 80,
-						Name:   "http",
-					}},
-					SubjectAltNames: []string{"san1"},
-					Resolution:      networking.ServiceEntry_NONE,
-				},
-				Status: networking.ServiceEntryStatus{
-					Addresses: []*networking.ServiceEntryAddress{
-						{
-							Host:  "none-resolution.example.com",
-							Value: "240.240.0.1",
-						},
-						{
-							Host:  "none-resolution.example.com",
-							Value: "2001:2::1",
-						},
-					},
-				},
-			},
-			result: []*workloadapi.Service{
-				{
-					Name:      "none-resolution",
-					Namespace: "ns",
-					Hostname:  "none-resolution.example.com",
-					Addresses: []*workloadapi.NetworkAddress{},
-					Ports: []*workloadapi.Port{{
-						ServicePort: 80,
-						TargetPort:  80,
-					}},
-					SubjectAltNames: []string{"san1"},
-				},
-			},
-		},
-		{
-			name:   "Does not use auto-assigned addresses user opted out",
-			inputs: []any{},
-			se: &networkingclient.ServiceEntry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "user-opt-out",
-					Namespace: "ns",
-					Labels: map[string]string{
-						label.NetworkingEnableAutoallocateIp.Name: "false",
-					},
-				},
-				Spec: networking.ServiceEntry{
-					Hosts: []string{"user-opt-out.example.com"},
-					Ports: []*networking.ServicePort{{
-						Number: 80,
-						Name:   "http",
-					}},
-					SubjectAltNames: []string{"san1"},
-					Resolution:      networking.ServiceEntry_DNS,
-				},
-				Status: networking.ServiceEntryStatus{
-					Addresses: []*networking.ServiceEntryAddress{
-						{
-							Host:  "user-opt-out.example.com",
-							Value: "240.240.0.1",
-						},
-						{
-							Host:  "user-opt-out.example.com",
-							Value: "2001:2::1",
-						},
-					},
-				},
-			},
-			result: []*workloadapi.Service{
-				{
-					Name:      "user-opt-out",
-					Namespace: "ns",
-					Hostname:  "user-opt-out.example.com",
-					Addresses: []*workloadapi.NetworkAddress{},
-					Ports: []*workloadapi.Port{{
-						ServicePort: 80,
-						TargetPort:  80,
-					}},
-					SubjectAltNames: []string{"san1"},
-				},
-			},
-		},
-		{
-			name:   "Does not use auto-assigned addresses for wildcard host",
-			inputs: []any{},
-			se: &networkingclient.ServiceEntry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "partial-wildcard",
-					Namespace: "ns",
-				},
-				Spec: networking.ServiceEntry{
-					Hosts: []string{"*.wildcard.example.com", "this-is-ok.example.com"},
-					Ports: []*networking.ServicePort{{
-						Number: 80,
-						Name:   "http",
-					}},
-					SubjectAltNames: []string{"san1"},
-					Resolution:      networking.ServiceEntry_DNS,
-				},
-				Status: networking.ServiceEntryStatus{
-					Addresses: []*networking.ServiceEntryAddress{
-						{
-							Host:  "this-is-ok.example.com",
-							Value: "240.240.0.1",
-						},
-						{
-							Host:  "this-is-ok.example.com",
-							Value: "2001:2::1",
-						},
-					},
-				},
-			},
-			result: []*workloadapi.Service{
-				{
-					Name:      "partial-wildcard",
-					Namespace: "ns",
-					Hostname:  "*.wildcard.example.com",
-					Addresses: []*workloadapi.NetworkAddress{},
-					Ports: []*workloadapi.Port{{
-						ServicePort: 80,
-						TargetPort:  80,
-					}},
-					SubjectAltNames: []string{"san1"},
-				},
-				{
-					Name:      "partial-wildcard",
-					Namespace: "ns",
-					Hostname:  "this-is-ok.example.com",
-					Addresses: []*workloadapi.NetworkAddress{
-						{
-							Network: testNW,
-							Address: netip.AddrFrom4([4]byte{240, 240, 0, 1}).AsSlice(),
-						},
-						{
-							Network: testNW,
-							Address: netip.MustParseAddr("2001:2::1").AsSlice(),
-						},
-					},
-					Ports: []*workloadapi.Port{{
-						ServicePort: 80,
-						TargetPort:  80,
-					}},
-					SubjectAltNames: []string{"san1"},
 				},
 			},
 		},
