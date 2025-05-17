@@ -198,4 +198,7 @@ var (
 
 	CACertConfigMapName = env.Register("PILOT_CA_CERT_CONFIGMAP", "istio-ca-root-cert",
 		"The name of the ConfigMap that stores the Root CA Certificate that is used by istiod").Get()
+
+	EnableVirtualServiceController = env.Register("PILOT_ENABLE_VIRTUAL_SERVICE_CONTROLLER", true,
+		"If true, an new optimized VirtualService merging controller is used.").Get()
 )

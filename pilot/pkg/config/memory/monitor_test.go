@@ -27,8 +27,7 @@ import (
 
 func TestMonitorLifecycle(t *testing.T) {
 	// Regression test to ensure no race conditions during monitor shutdown
-	store := memory.Make(collections.Mocks)
-	m := memory.NewMonitor(store)
+	m := memory.NewMonitor(collections.Mocks)
 	stop := make(chan struct{})
 	go m.Run(stop)
 	m.ScheduleProcessEvent(memory.ConfigEvent{})
@@ -37,8 +36,7 @@ func TestMonitorLifecycle(t *testing.T) {
 }
 
 func TestEventConsistency(t *testing.T) {
-	store := memory.Make(collections.Mocks)
-	controller := memory.NewController(store)
+	controller := memory.NewController(collections.Mocks)
 
 	testConfig := mock.Make(TestNamespace, 0)
 	var testEvent model.Event
