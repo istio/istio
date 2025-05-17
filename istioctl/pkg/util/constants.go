@@ -18,6 +18,9 @@ const (
 	// DefaultProxyAdminPort is the default port for the proxy admin server
 	DefaultProxyAdminPort = 15000
 
+	// DefaultControlzPort is the default port for the ControlZ server
+	DefaultControlZPort = 9876
+
 	// DefaultMeshConfigMapName is the default name of the ConfigMap with the mesh config
 	// The actual name can be different - use getMeshConfigMapName
 	DefaultMeshConfigMapName = "istio"

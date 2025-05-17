@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/completion"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/pkg/log"
 )
 
@@ -479,7 +480,7 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 	}
 	opts.AttachControlPlaneFlags(logCmd)
 	logCmd.PersistentFlags().BoolVar(&istiodReset, "reset", istiodReset, "Reset levels to default value. (info)")
-	logCmd.PersistentFlags().IntVar(&controlzPort, "ctrlz_port", 9876, "ControlZ port")
+	logCmd.PersistentFlags().IntVar(&controlzPort, "ctrlz_port", util.DefaultControlZPort, "ControlZ port")
 	logCmd.PersistentFlags().StringVar(&outputLogLevel, "level", outputLogLevel,
 		"Comma-separated list of output logging level for scopes in the format of <scope>:<level>[,<scope>:<level>,...]. "+
 			"Possible values for <level>: none, error, warn, info, debug")
