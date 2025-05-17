@@ -57,11 +57,16 @@ func Keys[M ~map[K]V, K comparable, V any](m M) []K {
 // When a key in override is already present in base,
 // the value in base will be overwritten by the value associated
 // with the key in override.
-func MergeCopy[M1 ~map[K]V, M2 ~map[K]V, K comparable, V any](base M1, override M2) M1 {
-	dst := make(M1, len(base)+len(override))
+func MergeCopy[M1 ~map[K]V, M2 ~map[K]V, K comparable, V any](base M1, override M2) (M1, error) {
+	baseLen := len(base)
+	overrideLen := len(override)
+	if baseLen > (int(^uint(0) >> 1)) - overrideLen { // Check for overflow
+		return nil, fmt.Errorf("map size computation overflow: base size %d, override size %d", baseLen, overrideLen)
+	}
+	dst := make(M1, baseLen+overrideLen)
 	maps.Copy(dst, base)
 	maps.Copy(dst, override)
-	return dst
+	return dst, nil
 }
 
 // Contains checks if all key-value pairs in 'subset' are present in 'superset'.
