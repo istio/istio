@@ -674,7 +674,7 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			stop := make(chan struct{})
 
-			s.istiodCertBundleWatcher.SetAndNotify(testcerts.ServerKey, tt.certToWatch, testcerts.CACert)
+			s.istiodCertBundleWatcher.SetAndNotify(testcerts.ServerKey, tt.certToWatch, testcerts.CACert, nil)
 			go s.RotateDNSCertForK8sCA(stop, "", "test-signer", true, time.Duration(0))
 
 			var certRotated bool
