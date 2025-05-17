@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue: [55022]
+releaseNotes:
+- |
+  **Fixed** an issue where analysis included Kubernetes system namespaces (e.g., `kube-system`, `kube-node-lease`).
