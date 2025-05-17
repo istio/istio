@@ -87,8 +87,7 @@ func initServiceDiscovery(t test.Failer) (model.ConfigStore, *Controller, *xdsfa
 // initServiceDiscoveryWithoutEvents initializes a test setup with no events. This avoids excessive attempts to push
 // EDS updates to a full queue
 func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Controller) {
-	store := memory.Make(collections.Pilot)
-	configController := memory.NewController(store)
+	configController := memory.NewController(collections.Pilot)
 
 	stop := test.NewStop(t)
 	go configController.Run(stop)
@@ -109,8 +108,7 @@ func initServiceDiscoveryWithoutEvents(t test.Failer) (model.ConfigStore, *Contr
 }
 
 func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Option) (model.ConfigStore, *Controller, *xdsfake.Updater) {
-	store := memory.Make(collections.Pilot)
-	configController := memory.NewSyncController(store)
+	configController := memory.NewController(collections.Pilot)
 
 	stop := test.NewStop(t)
 	go configController.Run(stop)
@@ -882,6 +880,12 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 
 	t.Run("cleanup", func(t *testing.T) {
 		deleteConfigs([]*config.Config{wle, selector, dnsSelector, dnsWle, wle3}, store, t)
+		expectEvents(t, events,
+			Event{Type: "service", ID: "selector.com"},
+			Event{Type: "service", ID: "dns.selector.com"},
+			Event{Type: "xds full", ID: "selector.com"},
+			Event{Type: "xds full", ID: "dns.selector.com"},
+		)
 		assertControllerEmpty(t, sd)
 	})
 }
