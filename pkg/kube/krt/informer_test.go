@@ -111,3 +111,18 @@ func TestUnregisteredTypeCollection(t *testing.T) {
 	c.RunAndWait(test.NewStop(t))
 	assert.Equal(t, npcoll.List(), []*v1.NetworkPolicy{np})
 }
+
+func TestInformerCollectionMetadata(t *testing.T) {
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	meta := krt.Metadata{
+		"key1": "value1",
+	}
+	ConfigMaps := krt.NewInformer[*corev1.ConfigMap](c, opts.With(
+		krt.WithName("ConfigMaps"),
+		krt.WithMetadata(meta),
+	)...)
+	c.RunAndWait(opts.Stop())
+
+	assert.Equal(t, ConfigMaps.Metadata(), meta)
+}
