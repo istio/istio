@@ -64,6 +64,11 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+var (
+	copyLabelsAnnotationsEnabled  = true
+	copyLabelsAnnotationsDisabled = false
+)
+
 func TestConfigureIstioGateway(t *testing.T) {
 	discoveryNamespacesFilter := buildFilter("default")
 	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
@@ -138,6 +143,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		values                   string
 		discoveryNamespaceFilter kubetypes.DynamicObjectFilter
 		ignore                   bool
+		copyLabelsAnnotations    *bool
 	}{
 		{
 			name: "simple",
@@ -501,9 +507,64 @@ metadata:
 			}),
 			values: ``,
 		},
+		{
+			name: "copy-labels-annotations-disabled-infra-set",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default",
+					Namespace:   "default",
+					Labels:      map[string]string{"should-not": "see"},
+					Annotations: map[string]string{"should-not": "see"},
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Infrastructure: &k8s.GatewayInfrastructure{
+						Labels:      map[k8s.LabelKey]k8s.LabelValue{"should": "see-infra-label"},
+						Annotations: map[k8s.AnnotationKey]k8s.AnnotationValue{"should": "see-infra-annotation"},
+					},
+				},
+			},
+			objects:               defaultObjects,
+			copyLabelsAnnotations: &copyLabelsAnnotationsDisabled,
+		},
+		{
+			name: "copy-labels-annotations-disabled-infra-nil",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default",
+					Namespace:   "default",
+					Labels:      map[string]string{"should-not": "see"},
+					Annotations: map[string]string{"should-not": "see"},
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+				},
+			},
+			objects:               defaultObjects,
+			copyLabelsAnnotations: &copyLabelsAnnotationsDisabled,
+		},
+		{
+			name: "copy-labels-annotations-enabled-infra-nil",
+			gw: k8sbeta.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default",
+					Namespace:   "default",
+					Labels:      map[string]string{"should": "see"},
+					Annotations: map[string]string{"should": "see"},
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+				},
+			},
+			objects:               defaultObjects,
+			copyLabelsAnnotations: &copyLabelsAnnotationsEnabled,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.copyLabelsAnnotations != nil {
+				test.SetForTest(t, &features.EnableGatewayAPICopyLabelsAnnotations, *tt.copyLabelsAnnotations)
+			}
 			buf := &bytes.Buffer{}
 			client := kube.NewFakeClient(tt.objects...)
 			kube.SetObjectFilter(client, tt.discoveryNamespaceFilter)
