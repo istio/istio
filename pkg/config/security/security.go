@@ -39,7 +39,9 @@ type JwksInfo struct {
 }
 
 const (
-	attrRequestHeader     = "request.headers"        // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+	attrRequestHeader       = "request.headers"                     // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+	attrRequestInlineHeader = "request.experimental.inline.headers" // header name is surrounded by brackets,
+	// e.g. "request.experimental.inline.headers[User-Agent]".
 	attrSrcIP             = "source.ip"              // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
 	attrRemoteIP          = "remote.ip"              // original client ip determined from x-forwarded-for or proxy protocol.
 	attrSrcNamespace      = "source.namespace"       // e.g. "default".
@@ -202,6 +204,8 @@ func ValidateAttribute(key string, values []string) error {
 	}
 	switch {
 	case hasPrefix(key, attrRequestHeader):
+		return validateMapKey(key)
+	case hasPrefix(key, attrRequestInlineHeader):
 		return validateMapKey(key)
 	case isEqual(key, attrSrcIP):
 		return ValidateIPs(values)

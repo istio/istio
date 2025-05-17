@@ -33,7 +33,9 @@ const (
 	RBACShadowRulesDenyStatPrefix     = "istio_dry_run_deny_"
 	RBACExtAuthzShadowRulesStatPrefix = "istio_ext_authz_"
 
-	attrRequestHeader     = "request.headers"             // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+	attrRequestHeader       = "request.headers"                     // header name is surrounded by brackets, e.g. "request.headers[User-Agent]".
+	attrRequestInlineHeader = "request.experimental.inline.headers" // header name is surrounded by brackets,
+	// e.g. "request.experimental.inline.headers[User-Agent]".
 	attrSrcIP             = "source.ip"                   // supports both single ip and cidr, e.g. "10.1.2.3" or "10.1.0.0/16".
 	attrRemoteIP          = "remote.ip"                   // original client ip determined from x-forwarded-for or proxy protocol.
 	attrSrcNamespace      = "source.namespace"            // e.g. "default".
@@ -111,6 +113,8 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 			basePrincipal.appendLastExtended(requestPresenterGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestHeader):
 			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
+		case strings.HasPrefix(k, attrRequestInlineHeader):
+			basePrincipal.appendLast(requestInlineHeaderGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestClaims):
 			basePrincipal.appendLastExtended(requestClaimGenerator{}, k, when.Values, when.NotValues)
 		default:
