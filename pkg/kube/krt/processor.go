@@ -73,6 +73,12 @@ func (o *handlerSet[O]) Insert(
 		o.wg.Start(func() {
 			// If we didn't start synced, register a callback to mark ourselves synced once the parent is synced.
 			if parentSynced.WaitUntilSynced(stopCh) {
+				o.mu.RLock()
+				defer o.mu.RUnlock()
+				if !o.handlers.Contains(l) {
+					return
+				}
+
 				select {
 				case <-l.stop:
 					return

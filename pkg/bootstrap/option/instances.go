@@ -271,10 +271,6 @@ func MetricsLocalhostAccessOnly(proxyMetadata map[string]string) Instance {
 	return newOption("metrics_localhost_access_only", false)
 }
 
-func DeferredStatsCreation(deferred bool) Instance {
-	return newOption("deferred_stats_creation", deferred)
-}
-
 func BypassOverloadManagerForStaticListeners(bypass bool) Instance {
 	return newOption("bypass_overload_manager", bypass)
 }

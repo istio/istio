@@ -443,10 +443,8 @@
       "event_log_path": "/dev/stdout"
     }
   }
-  
   ,
   "deferred_stat_options": {
     "enable_deferred_creation_stats": true
   }
-  
 }
