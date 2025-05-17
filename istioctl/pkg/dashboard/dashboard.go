@@ -649,7 +649,7 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	dashboardCmd.AddCommand(proxy)
 
 	controlz := controlZDashCmd(cliContext)
-	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
+	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", util.DefaultControlZPort, "ControlZ port")
 	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	dashboardCmd.AddCommand(controlz)
 
