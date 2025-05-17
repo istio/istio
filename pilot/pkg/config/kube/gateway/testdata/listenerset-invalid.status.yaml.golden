@@ -1,0 +1,364 @@
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  creationTimestamp: null
+  name: invalid-class
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: The "istio-waypoint" GatewayClass does not support ListenerSet
+    reason: NotAllowed
+    status: "False"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: The "istio-waypoint" GatewayClass does not support ListenerSet
+    reason: NotAllowed
+    status: "False"
+    type: Programmed
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  creationTimestamp: null
+  name: not-accepted-parent
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: 'Parent not accepted: only Hostname is supported, ignoring [0.0.0.0]'
+    reason: UnsupportedAddress
+    status: "False"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Failed to assign to any requested addresses
+    reason: UnsupportedAddress
+    status: "False"
+    type: Programmed
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  creationTimestamp: null
+  name: not-allowed
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'
+    reason: NotAllowed
+    status: "False"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'
+    reason: NotAllowed
+    status: "False"
+    type: Programmed
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  creationTimestamp: null
+  name: port-not-in-service
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: port 12345 not found for
+      hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: first
+    port: 12345
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  creationTimestamp: null
+  name: istio
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Handled by Istio controller
+    reason: Accepted
+    status: "True"
+    type: Accepted
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: not-accepted-parent
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: only Hostname is supported, ignoring [0.0.0.0]
+    reason: UnsupportedAddress
+    status: "False"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: AllowedListeners is configured, but no ListenerSets are attached
+    reason: NoListenersAttached
+    status: "False"
+    type: AttachedListenerSets
+  - lastTransitionTime: fake
+    message: Failed to assign to any requested addresses
+    reason: UnsupportedAddress
+    status: "False"
+    type: Programmed
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: parent-gateway
+  namespace: istio-system
+spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: At least one ListenerSet is attached
+    reason: ListenersAttached
+    status: "True"
+    type: AttachedListenerSets
+  - lastTransitionTime: fake
+    message: 'Assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80,
+      but failed to assign to all requested addresses: port 12345 not found for hostname
+      "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: foo
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: parent-no-allowed-listeners
+  namespace: istio-system
+spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: foo
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: parent-with-no-children
+  namespace: istio-system
+spec: null
+status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: AllowedListeners is configured, but no ListenerSets are attached
+    reason: NoListenersAttached
+    status: "False"
+    type: AttachedListenerSets
+  - lastTransitionTime: fake
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    reason: Programmed
+    status: "True"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: foo
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: waypoint
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: port 15008 not found for
+      hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: mesh
+    supportedKinds: []
+---
