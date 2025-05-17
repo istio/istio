@@ -449,6 +449,16 @@ func TestInjection(t *testing.T) {
 				}
 			},
 		},
+		{
+			in:         "sidecar-spire.yaml",
+			want:       "sidecar-spire.yaml.injected",
+			inFilePath: "spire-template.iop.yaml",
+		},
+		{
+			in:         "gateway-spire.yaml",
+			want:       "gateway-spire.yaml.injected",
+			inFilePath: "spire-template.iop.yaml",
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
