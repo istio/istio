@@ -87,6 +87,8 @@ func TestMain(m *testing.M) {
 			}
 			cfg.ControlPlaneValues = `
 values:
+  pilot:
+    trustedZtunnelNamespace: istio-system
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
