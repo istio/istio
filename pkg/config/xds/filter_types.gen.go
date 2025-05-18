@@ -226,6 +226,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/original_ip_detection/custom_header/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/original_ip_detection/xff/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/envelope/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/header/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/internal_redirect/allow_listed_routes/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/internal_redirect/previous_routes/v3"
