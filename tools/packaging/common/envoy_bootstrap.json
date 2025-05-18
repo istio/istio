@@ -805,7 +805,7 @@
     {{ end }}
   ]
   {{ end }}
-  {{ if or .outlier_log_path .load_stats_config_json_str .deferred_cluster_creation}}
+  {{ if or .outlier_log_path .load_stats_config_json_str}}
   ,
   "cluster_manager": {
     "enable_deferred_cluster_creation": true,
