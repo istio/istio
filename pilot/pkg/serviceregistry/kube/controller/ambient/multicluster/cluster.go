@@ -107,7 +107,7 @@ func NewRemoteClusterCollections(
 	}
 }
 
-func NewCluster(id cluster.ID, client kube.Client, sourceSecret *types.NamespacedName, kubeConfigSha *[sha256.Size]byte, collections *RemoteClusterCollections) *Cluster {
+func NewCluster(id cluster.ID, client kube.Client, source *types.NamespacedName, kubeConfigSha *[sha256.Size]byte, collections *RemoteClusterCollections) *Cluster {
 	c := &Cluster{
 		ID:                 id,
 		Client:             client,
@@ -121,8 +121,8 @@ func NewCluster(id cluster.ID, client kube.Client, sourceSecret *types.Namespace
 		c.RemoteClusterCollections = collections
 	}
 
-	if sourceSecret != nil {
-		c.SourceSecret = *sourceSecret
+	if source != nil {
+		c.SourceSecret = *source
 	}
 
 	if kubeConfigSha != nil {
