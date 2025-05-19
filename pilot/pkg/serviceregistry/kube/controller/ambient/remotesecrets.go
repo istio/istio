@@ -20,13 +20,13 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/go-multierror"
-	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube"
@@ -43,12 +43,6 @@ const (
 )
 
 var (
-	clusterLabel = monitoring.CreateLabel("cluster")
-	timeouts     = monitoring.NewSum(
-		"ambient_remote_cluster_sync_timeouts_total",
-		"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
-	)
-
 	clusterType = monitoring.CreateLabel("ambient_cluster_type")
 
 	clustersCount = monitoring.NewGauge(
@@ -59,9 +53,6 @@ var (
 	localClusters  = clustersCount.With(clusterType.Value("local"))
 	remoteClusters = clustersCount.With(clusterType.Value("remote"))
 )
-
-// ClientBuilder builds a new kube.Client from a kubeconfig. Mocked out for testing
-type ClientBuilder = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error)
 
 type ACTION int
 
@@ -80,22 +71,18 @@ func (a ACTION) String() string {
 	return "Unknown"
 }
 
-func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig []byte, clusterID string) (*Cluster, error) {
+func (a *index) createRemoteCluster(secretKey types.NamespacedName, kubeConfig []byte, clusterID string) (*multicluster.Cluster, error) {
 	client, err := a.clientBuilder(kubeConfig, cluster.ID(clusterID), a.remoteClientConfigOverrides...)
 	if err != nil {
 		return nil, err
 	}
-	return &Cluster{
-		ID:           cluster.ID(clusterID),
-		Client:       client,
-		SourceSecret: secretKey,
-		stop:         make(chan struct{}),
-		// for use inside the package, to close on cleanup
-		initialSync:        atomic.NewBool(false),
-		initialSyncTimeout: atomic.NewBool(false),
-		initialized:        atomic.NewBool(false),
-		kubeConfigSha:      sha256.Sum256(kubeConfig),
-	}, nil
+	return multicluster.NewCluster(
+		cluster.ID(clusterID),
+		client,
+		&secretKey,
+		ptr.Of(sha256.Sum256(kubeConfig)),
+		nil,
+	), nil
 }
 
 func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger *krt.DebugHandler) error {
@@ -109,7 +96,7 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 	}
 
 	var errs *multierror.Error
-	addedClusters := make([]*Cluster, 0, len(s.Data))
+	addedClusters := make([]*multicluster.Cluster, 0, len(s.Data))
 	for clusterID, kubeConfig := range s.Data {
 		logger := log.WithLabels("cluster", clusterID, "secret", secretKey)
 		if cluster.ID(clusterID) == a.ClusterID {
@@ -122,7 +109,7 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 			action = Update
 			// clusterID must be unique even across multiple secrets
 			kubeConfigSha := sha256.Sum256(kubeConfig)
-			if bytes.Equal(kubeConfigSha[:], prev.kubeConfigSha[:]) {
+			if bytes.Equal(kubeConfigSha[:], prev.KubeConfigSha[:]) {
 				logger.Infof("skipping update (kubeconfig are identical)")
 				continue
 			}
@@ -147,7 +134,7 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 		go remoteCluster.Run(a.meshConfig, debugger)
 	}
 
-	syncers := slices.Map(addedClusters, func(c *Cluster) cache.InformerSynced { return c.HasSynced })
+	syncers := slices.Map(addedClusters, func(c *multicluster.Cluster) cache.InformerSynced { return c.HasSynced })
 	// Don't allow the event handler to continue without the cluster being synced
 	if !kube.WaitForCacheSync("remoteClusters", a.stop, syncers...) {
 		return fmt.Errorf("Timed out waiting for remote clusters %#v to sync", addedClusters)
@@ -170,7 +157,7 @@ func (a *index) deleteSecret(secretKey string) {
 	log.Infof("Number of remote clusters: %d", a.cs.Len())
 }
 
-func (a *index) deleteCluster(secretKey string, cluster *Cluster) {
+func (a *index) deleteCluster(secretKey string, cluster *multicluster.Cluster) {
 	log.Infof("Deleting cluster_id=%v configured by secret=%v", cluster.ID, secretKey)
 	cluster.Stop()
 	// The delete event will be processed within the ClusterStore
@@ -199,7 +186,7 @@ func (a *index) buildRemoteClustersCollection(
 	options Options,
 	opts krt.OptionsBuilder,
 	configOverrides ...func(*rest.Config),
-) krt.Collection[*Cluster] {
+) krt.Collection[*multicluster.Cluster] {
 	informerClient := options.Client
 
 	// When these two are set to true, Istiod will be watching the namespace in which
@@ -247,17 +234,17 @@ func (a *index) buildRemoteClustersCollection(
 		if !Secrets.WaitUntilSynced(a.stop) {
 			log.Errorf("Timed out waiting for remote secrets to sync")
 		}
-		a.cs.rt.MarkSynced() // Mark clusters as synced iff secrets are synced
+		a.cs.MarkSynced() // Mark clusters as synced iff secrets are synced
 	}()
 
-	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []*Cluster {
-		a.cs.rt.MarkDependant(ctx) // Subscribe to updates from the clusterStore
+	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []*multicluster.Cluster {
+		a.cs.MarkDependant(ctx) // Subscribe to updates from the clusterStore
 		// Wait for all of the clusters to be synced
 		if !kube.WaitForCacheSync("multicluster remote secrets", a.stop, a.cs.HasSynced) {
 			log.Warnf("remote cluster cache sync failed")
 		}
 		remoteClustersBySecretThenID := a.cs.All()
-		var remoteClusters []*Cluster
+		var remoteClusters []*multicluster.Cluster
 		for _, clusters := range remoteClustersBySecretThenID {
 			for _, cluster := range clusters {
 				remoteClusters = append(remoteClusters, cluster)

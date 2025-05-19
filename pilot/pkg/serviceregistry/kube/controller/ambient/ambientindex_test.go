@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/activenotifier"
@@ -2150,7 +2151,7 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 	up.SplitEvents = true
 	cl := kubeclient.NewFakeClient()
 	t.Cleanup(cl.Shutdown)
-	var clientBuilder ClientBuilder
+	var clientBuilder multicluster.ClientBuilder
 	if features.EnableAmbientMultiNetwork {
 		clientBuilder = TestingBuildClientsFromConfig
 	}

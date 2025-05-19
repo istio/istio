@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ambient
+package multicluster
 
 import (
 	"crypto/sha256"
@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -35,10 +36,23 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/monitoring"
 )
 
 var _ krt.ResourceNamer = &Cluster{}
+
+var (
+	clusterLabel = monitoring.CreateLabel("cluster")
+	timeouts     = monitoring.NewSum(
+		"ambient_remote_cluster_sync_timeouts_total",
+		"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
+	)
+)
+
+const ClusterKRTMetadataKey = "cluster"
+
+// ClientBuilder builds a new kube.Client from a kubeconfig. Mocked out for testing
+type ClientBuilder = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error)
 
 type Cluster struct {
 	// ID of the cluster.
@@ -48,53 +62,94 @@ type Cluster struct {
 
 	SourceSecret types.NamespacedName
 
-	kubeConfigSha [sha256.Size]byte
+	KubeConfigSha [sha256.Size]byte
 	// initialSync is marked when RunAndWait completes
 	initialSync *atomic.Bool
 	// initialSyncTimeout is set when RunAndWait timed out
 	initialSyncTimeout *atomic.Bool
 	stop               chan struct{}
-	namespaces         krt.Collection[*corev1.Namespace]
-	pods               krt.Collection[*corev1.Pod]
-	services           krt.Collection[*corev1.Service]
-	endpointSlices     krt.Collection[*discovery.EndpointSlice]
-	nodes              krt.Collection[*corev1.Node]
-	gateways           krt.Collection[*v1beta1.Gateway]
+	initialized        *atomic.Bool
+	*RemoteClusterCollections
+}
 
+type RemoteClusterCollections struct {
+	namespaces     krt.Collection[*corev1.Namespace]
+	pods           krt.Collection[*corev1.Pod]
+	services       krt.Collection[*corev1.Service]
+	endpointSlices krt.Collection[*discovery.EndpointSlice]
+	nodes          krt.Collection[*corev1.Node]
+	gateways       krt.Collection[*v1beta1.Gateway]
 	// xref: https://github.com/istio/istio/pull/56097
 	// TODO: Figure out if we really want to keep doing this
 	// Note that the impl details of TestSeamlessMigration
 	// depend on this, so if we remove it, we'll need to
 	// adjust the test.
 	configmaps krt.Collection[*corev1.ConfigMap]
+}
 
-	initialized *atomic.Bool
+func NewRemoteClusterCollections(
+	namespaces krt.Collection[*corev1.Namespace],
+	pods krt.Collection[*corev1.Pod],
+	services krt.Collection[*corev1.Service],
+	endpointSlices krt.Collection[*discovery.EndpointSlice],
+	nodes krt.Collection[*corev1.Node],
+	gateways krt.Collection[*v1beta1.Gateway],
+	configmaps krt.Collection[*corev1.ConfigMap],
+) *RemoteClusterCollections {
+	return &RemoteClusterCollections{
+		namespaces:     namespaces,
+		pods:           pods,
+		services:       services,
+		endpointSlices: endpointSlices,
+		nodes:          nodes,
+		gateways:       gateways,
+		configmaps:     configmaps,
+	}
+}
+
+func NewCluster(id cluster.ID, client kube.Client, sourceSecret *types.NamespacedName, kubeConfigSha *[sha256.Size]byte, collections *RemoteClusterCollections) *Cluster {
+	c := &Cluster{
+		ID:                 id,
+		Client:             client,
+		stop:               make(chan struct{}),
+		initialSync:        atomic.NewBool(false),
+		initialSyncTimeout: atomic.NewBool(false),
+		initialized:        atomic.NewBool(false),
+	}
+
+	if collections != nil {
+		c.RemoteClusterCollections = collections
+	}
+
+	if sourceSecret != nil {
+		c.SourceSecret = *sourceSecret
+	}
+
+	if kubeConfigSha != nil {
+		c.KubeConfigSha = *kubeConfigSha
+	}
+
+	return c
 }
 
 func (c *Cluster) ResourceName() string {
 	return c.ID.String()
 }
 
-func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, debugger *krt.DebugHandler) {
+func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *krt.DebugHandler) {
 	// Check and see if this is a local cluster or not
-	syncers := []krt.Syncer{
-		c.namespaces,
-		c.gateways,
-		c.services,
-		c.nodes,
-		c.endpointSlices,
-		c.pods,
-		c.configmaps,
-	}
-
-	existingCollection := slices.FindFunc(syncers, func(s krt.Syncer) bool {
-		return s != nil
-	})
-
-	// There's at least one pre-existing informer, so we can skip the rest of the setup
-	if existingCollection != nil {
+	if c.RemoteClusterCollections != nil {
 		c.initialized.Store(true)
 		log.Infof("Configuring cluster %s with existing informers", c.ID)
+		syncers := []krt.Syncer{
+			c.namespaces,
+			c.gateways,
+			c.services,
+			c.nodes,
+			c.endpointSlices,
+			c.pods,
+			c.configmaps,
+		}
 		// Just wait for all syncers to be synced
 		for _, syncer := range syncers {
 			if !syncer.WaitUntilSynced(c.stop) {
@@ -121,7 +176,7 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, debugger *krt.DebugHan
 	opts = opts.WithMetadata(krt.Metadata{ClusterKRTMetadataKey: c.ID})
 	namespaces := kclient.New[*corev1.Namespace](c.Client)
 	// This will start a namespace informer and wait for it to be ready. So we must start it in a go routine to avoid blocking.
-	filter := filter.NewDiscoveryNamespacesFilter(namespaces, mesh, c.stop)
+	filter := filter.NewDiscoveryNamespacesFilter(namespaces, localMeshConfig, c.stop)
 	kube.SetObjectFilter(c.Client, filter)
 	// Register all of the informers before starting the client
 	defaultFilter := kclient.Filter{
@@ -157,23 +212,26 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, debugger *krt.DebugHan
 		return
 	}
 
-	c.namespaces = Namespaces
-	c.gateways = Gateways
-	c.services = Services
-	c.nodes = Nodes
-	c.endpointSlices = EndpointSlices
-	c.pods = Pods
-	c.configmaps = ConfigMaps
+	c.RemoteClusterCollections = &RemoteClusterCollections{
+		namespaces:     Namespaces,
+		pods:           Pods,
+		services:       Services,
+		endpointSlices: EndpointSlices,
+		nodes:          Nodes,
+		gateways:       Gateways,
+		configmaps:     ConfigMaps,
+	}
+
 	c.initialized.Store(true)
 
-	// Reassign syncers for the check
-	syncers = []krt.Syncer{
+	syncers := []krt.Syncer{
 		c.namespaces,
 		c.gateways,
 		c.services,
 		c.nodes,
 		c.endpointSlices,
 		c.pods,
+		c.configmaps,
 	}
 
 	for _, syncer := range syncers {

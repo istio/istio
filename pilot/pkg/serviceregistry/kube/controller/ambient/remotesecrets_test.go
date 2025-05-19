@@ -31,6 +31,7 @@ import (
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
@@ -216,7 +217,7 @@ func TestingBuildClientsFromConfig(kubeConfig []byte, c cluster.ID, configOverri
 }
 
 type testController struct {
-	clusters krt.Collection[*Cluster]
+	clusters krt.Collection[*multicluster.Cluster]
 
 	client  kube.Client
 	t       *testing.T
@@ -266,13 +267,13 @@ func TestListRemoteClusters(t *testing.T) {
 	// before sync
 	getSimpleClusters := func() []simpleCluster {
 		clusters := tc.clusters.List()
-		sortedClusters := slices.SortBy(clusters, func(c *Cluster) cluster.ID {
+		sortedClusters := slices.SortBy(clusters, func(c *multicluster.Cluster) cluster.ID {
 			return c.ID
 		})
-		return slices.Map(sortedClusters, func(c *Cluster) simpleCluster {
+		return slices.Map(sortedClusters, func(c *multicluster.Cluster) simpleCluster {
 			sc := simpleCluster{
 				ID:           c.ID,
-				InitialSync:  c.initialSync.Load(),
+				InitialSync:  c.HasSynced() && !c.SyncDidTimeout(),
 				SourceSecret: c.SourceSecret,
 			}
 			return sc
@@ -294,7 +295,7 @@ func TestShutdown(t *testing.T) {
 	retry.UntilOrFail(t, tc.clusters.HasSynced, retry.Timeout(2*time.Second))
 
 	// Remove secret, it should be marked as closed
-	var c *Cluster
+	var c *multicluster.Cluster
 	assert.EventuallyEqual(t, func() bool {
 		c = ptr.Flatten(tc.clusters.GetKey("c0"))
 		return c != nil
@@ -376,7 +377,7 @@ func TestObjectFilter(t *testing.T) {
 	tc.mesh = mesh
 
 	var wg sync.WaitGroup
-	_ = krt.NewCollection(tc.clusters, func(ctx krt.HandlerContext, cluster *Cluster) *testHandler {
+	_ = krt.NewCollection(tc.clusters, func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *testHandler {
 		assert.Equal(t, cluster.Client.ObjectFilter() != nil, true, "cluster "+cluster.ID.String())
 		assert.Equal(t, cluster.Client.ObjectFilter().Filter("allowed"), true)
 		assert.Equal(t, cluster.Client.ObjectFilter().Filter("not-allowed"), false)
@@ -468,7 +469,7 @@ func TestSeamlessMigration(t *testing.T) {
 	tc.mesh = watcher
 	tc.secrets = a.sec
 
-	infs := krt.NewCollection(tc.clusters, func(ctx krt.HandlerContext, cluster *Cluster) **informerHandler[*corev1.ConfigMap] {
+	infs := krt.NewCollection(tc.clusters, func(ctx krt.HandlerContext, cluster *multicluster.Cluster) **informerHandler[*corev1.ConfigMap] {
 		cl := kclient.New[*corev1.ConfigMap](cluster.Client)
 		cl.AddEventHandler(clienttest.TrackerHandler(tt))
 		return ptr.Of(&informerHandler[*corev1.ConfigMap]{client: cl, clusterID: cluster.ID})
@@ -664,7 +665,7 @@ func TestSecretController(t *testing.T) {
 	secrets := tc.secrets
 	iter := 1 // the config cluster starts at 1, so we'll start at 2
 
-	remoteHandlers := krt.NewCollection(tc.clusters, func(ctx krt.HandlerContext, cluster *Cluster) *testHandler {
+	remoteHandlers := krt.NewCollection(tc.clusters, func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *testHandler {
 		iter++
 		return &testHandler{
 			ID:     cluster.ID,

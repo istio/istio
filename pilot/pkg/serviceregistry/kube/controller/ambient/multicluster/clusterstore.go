@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ambient
+package multicluster
 
 import (
 	"sync"
@@ -29,15 +29,15 @@ type ClusterStore struct {
 	// keyed by secret key(ns/name)->clusterID
 	remoteClusters map[string]map[cluster.ID]*Cluster
 	clusters       sets.String
-	rt             *krt.RecomputeTrigger
+	*krt.RecomputeTrigger
 }
 
-// newClustersStore initializes data struct to store clusters information
-func newClustersStore() *ClusterStore {
+// NewClustersStore initializes data struct to store clusters information
+func NewClustersStore() *ClusterStore {
 	return &ClusterStore{
-		remoteClusters: make(map[string]map[cluster.ID]*Cluster),
-		clusters:       sets.New[string](),
-		rt:             krt.NewRecomputeTrigger(false),
+		remoteClusters:   make(map[string]map[cluster.ID]*Cluster),
+		clusters:         sets.New[string](),
+		RecomputeTrigger: krt.NewRecomputeTrigger(false),
 	}
 }
 
@@ -49,7 +49,7 @@ func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Clus
 	}
 	c.remoteClusters[secretKey][clusterID] = value
 	c.clusters.Insert(string(clusterID))
-	c.rt.TriggerRecomputation()
+	c.TriggerRecomputation()
 }
 
 func (c *ClusterStore) Delete(secretKey string, clusterID cluster.ID) {
@@ -60,7 +60,7 @@ func (c *ClusterStore) Delete(secretKey string, clusterID cluster.ID) {
 	if len(c.remoteClusters[secretKey]) == 0 {
 		delete(c.remoteClusters, secretKey)
 	}
-	c.rt.TriggerRecomputation()
+	c.TriggerRecomputation()
 }
 
 func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {

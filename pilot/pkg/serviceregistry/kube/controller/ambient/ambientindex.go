@@ -18,7 +18,6 @@ import (
 	"net/netip"
 	"strings"
 
-	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +31,7 @@ import (
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
 	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
@@ -116,10 +116,10 @@ type index struct {
 
 	stop chan struct{}
 
-	cs                          *ClusterStore
-	clientBuilder               ClientBuilder
+	cs                          *multicluster.ClusterStore
+	clientBuilder               multicluster.ClientBuilder
 	secrets                     krt.Collection[*corev1.Secret]
-	remoteClusters              krt.Collection[*Cluster]
+	remoteClusters              krt.Collection[*multicluster.Cluster]
 	meshConfig                  meshwatcher.WatcherCollection
 	remoteClientConfigOverrides []func(*rest.Config)
 }
@@ -144,7 +144,7 @@ type Options struct {
 	MeshConfig meshwatcher.WatcherCollection
 
 	Debugger                    *krt.DebugHandler
-	ClientBuilder               ClientBuilder
+	ClientBuilder               multicluster.ClientBuilder
 	RemoteClientConfigOverrides []func(*rest.Config)
 }
 
@@ -158,7 +158,7 @@ func New(options Options) Index {
 		Flags:                       options.Flags,
 		clientBuilder:               options.ClientBuilder,
 		stop:                        make(chan struct{}),
-		cs:                          newClustersStore(),
+		cs:                          multicluster.NewClustersStore(),
 		remoteClientConfigOverrides: options.RemoteClientConfigOverrides,
 	}
 
@@ -166,7 +166,7 @@ func New(options Options) Index {
 		ObjectFilter: options.Client.ObjectFilter(),
 	}
 	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
-	opts = opts.WithMetadata(krt.Metadata{ClusterKRTMetadataKey: options.ClusterID})
+	opts = opts.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: options.ClusterID})
 
 	a.meshConfig = options.MeshConfig
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
@@ -215,21 +215,23 @@ func New(options Options) Index {
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data.
 	// We only do this if this cluster is the config cluster
 	if features.EnableAmbientMultiNetwork && options.IsConfigCluster {
-		LocalCluster := &Cluster{
-			ID:                 options.ClusterID,
-			Client:             options.Client,
-			stop:               make(chan struct{}),
-			initialSync:        &atomic.Bool{},
-			initialSyncTimeout: &atomic.Bool{},
-			initialized:        &atomic.Bool{},
-			namespaces:         Namespaces,
-			gateways:           Gateways,
-			services:           Services,
-			pods:               Pods,
-			nodes:              Nodes,
-			endpointSlices:     EndpointSlices,
-			configmaps:         ConfigMaps,
-		}
+		mcCollections := multicluster.NewRemoteClusterCollections(
+			Namespaces,
+			Pods,
+			Services,
+			EndpointSlices,
+			Nodes,
+			Gateways,
+			ConfigMaps,
+		)
+		LocalCluster := multicluster.NewCluster(
+			options.ClusterID,
+			options.Client,
+			nil,
+			nil,
+			mcCollections,
+		)
+
 		// We can run this in a goroutine because all of the dependent collections will wait for the initial sync
 		go LocalCluster.Run(a.meshConfig, a.Debugger)
 		a.buildGlobalCollections(

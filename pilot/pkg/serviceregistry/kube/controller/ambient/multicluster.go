@@ -21,14 +21,13 @@ import (
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 )
 
-const ClusterKRTMetadataKey = "cluster"
-
 func (a *index) buildGlobalCollections(
-	_ *Cluster,
+	_ *multicluster.Cluster,
 	_ krt.Collection[*securityclient.AuthorizationPolicy],
 	_ krt.Collection[*securityclient.PeerAuthentication],
 	_ krt.Collection[*v1beta1.GatewayClass],
