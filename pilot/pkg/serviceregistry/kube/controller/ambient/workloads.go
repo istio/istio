@@ -660,6 +660,8 @@ func MergedGlobalWorkloadsCollection(
 	return krt.MapCollection(col, unwrapObjectWithCluster[model.WorkloadInfo], opts.WithName("MergedGlobalWorkloads")...)
 }
 
+// jaellio - a workload entry must be associated with a service entry
+// What should the scope be of a workload entry?
 func workloadEntryWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
@@ -728,12 +730,19 @@ func workloadEntryWorkloadBuilder(
 		w.WorkloadType = workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(wle.Labels, w.WorkloadName)
 
+		scopeForService := make(map[string]model.ServiceScope)
+		for _, service := range services {
+			// TODO:  Should the scopo come from the service entry? But the service entry will always be local?
+			scopeForService[service.ResourceName()] = model.Local
+		}
+
 		setTunnelProtocol(wle.Labels, wle.Annotations, w)
 		return precomputeWorkloadPtr(&model.WorkloadInfo{
 			Workload:     w,
 			Labels:       wle.Labels,
 			Source:       kind.WorkloadEntry,
 			CreationTime: wle.CreationTimestamp.Time,
+			ScopeForService: scopeForService,
 		})
 	}
 }
@@ -884,12 +893,20 @@ func podWorkloadBuilder(
 		w.WorkloadType = workloadapi.WorkloadType_POD // backwards compatibility
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(p.Labels, w.WorkloadName)
 
+		// populate service to scope mapping
+		// TODO(jaellio): What is the ordering of Service and workload creation? Will service.Scope be populated by the time we get here?
+		scopeForService :=  make(map[string]model.ServiceScope)
+		for _, service := range services {
+			scopeForService[service.ResourceName()] = service.Scope
+		}
+
 		setTunnelProtocol(p.Labels, p.Annotations, w)
 		return precomputeWorkloadPtr(&model.WorkloadInfo{
 			Workload:     w,
 			Labels:       p.Labels,
 			Source:       kind.Pod,
 			CreationTime: p.CreationTimestamp.Time,
+			ScopeForService: scopeForService,
 		})
 	}
 }
@@ -1126,12 +1143,20 @@ func serviceEntryWorkloadBuilder(
 			w.WorkloadName, w.WorkloadType = se.Name, workloadapi.WorkloadType_POD // XXX(shashankram): HACK to impersonate pod
 			w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(se.Labels, w.WorkloadName)
 
+			// populate service to scope mapping
+			scopeForService := make(map[string]model.ServiceScope)
+			for _, service := range services {
+				// TODO(jaellio): Should this be hardcoded to local?
+				scopeForService[service.ResourceName()] = service.Scope
+			}
+
 			setTunnelProtocol(se.Labels, se.Annotations, w)
 			res = append(res, precomputeWorkload(model.WorkloadInfo{
 				Workload:     w,
 				Labels:       se.Labels,
 				Source:       kind.WorkloadEntry,
 				CreationTime: se.CreationTimestamp.Time,
+				ScopeForService: scopeForService,
 			}))
 		}
 		return res
