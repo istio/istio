@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 56352
+releaseNotes:
+- |
+  **Fixed** an issue where mTLS was disabled unexpectedly when `PILOT_ENABLE_TELEMETRY_LABEL` or `PILOT_ENDPOINT_TELEMETRY_LABEL` was set to `false`
