@@ -66,6 +66,7 @@ spec:
       grpc: 3550
       http: 8080
     serviceAccount: test
+    weight: 100
 `
 )
 
@@ -106,14 +107,14 @@ func TestWorkloadGroupCreate(t *testing.T) {
 		{
 			description: "valid case - create full workload group",
 			args: strings.Split("group create --name foo --namespace bar --labels app=foo,bar=baz "+
-				" --annotations annotation=foobar --ports grpc=3550,http=8080 --serviceAccount test", " "),
+				" --annotations annotation=foobar --ports grpc=3550,http=8080 --serviceAccount test --weight 100", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},
 		{
 			description: "valid case - create full workload group with shortnames",
 			args: strings.Split("group create --name foo -n bar -l app=foo,bar=baz -p grpc=3550,http=8080"+
-				" -a annotation=foobar --serviceAccount test", " "),
+				" -a annotation=foobar --serviceAccount test --weight 100", " "),
 			expectedException: false,
 			expectedOutput:    customYAML,
 		},
