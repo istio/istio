@@ -17,6 +17,7 @@ package iptables
 import (
 	"net/netip"
 
+	"istio.io/istio/cni/pkg/scopes"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -68,3 +69,5 @@ type HostRuler interface {
 	CreateHostRulesForHealthChecks() error
 	DeleteHostRules()
 }
+
+var log = scopes.CNIAgent
