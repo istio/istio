@@ -24,6 +24,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
@@ -33,6 +34,7 @@ import (
 	"istio.io/istio/cni/pkg/nodeagent"
 	"istio.io/istio/cni/pkg/repair"
 	"istio.io/istio/cni/pkg/scopes"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/env"
@@ -100,11 +102,22 @@ var rootCmd = &cobra.Command{
 			// as well as listen for messages from the CNI binary.
 			cniEventAddr := filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.CNIEventSocketName)
 			log.Infof("Starting ambient node agent with inpod redirect mode on socket %s", cniEventAddr)
+
+			// instantiate and validate the ambient enablement selector
+			selectors := []util.EnablementSelector{}
+			if err = yaml.Unmarshal([]byte(cfg.InstallConfig.AmbientEnablementSelector), &selectors); err != nil {
+				return fmt.Errorf("failed to parse ambient enablement selector: %v", err)
+			}
+			compiledSelectors, err := util.NewCompiledEnablementSelectors(selectors)
+			if err != nil {
+				return fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
+			}
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
 					SystemNamespace:            nodeagent.SystemNamespace,
 					Revision:                   nodeagent.Revision,
 					ServerSocket:               cfg.InstallConfig.ZtunnelUDSAddress,
+					EnablementSelector:         compiledSelectors,
 					DNSCapture:                 cfg.InstallConfig.AmbientDNSCapture,
 					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,
@@ -298,6 +311,7 @@ func constructConfig() (*config.Config, error) {
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
 		AmbientEnabled:                    viper.GetBool(constants.AmbientEnabled),
+		AmbientEnablementSelector:         viper.GetString(constants.AmbientEnablementSelector),
 		AmbientDNSCapture:                 viper.GetBool(constants.AmbientDNSCapture),
 		AmbientIPv6:                       viper.GetBool(constants.AmbientIPv6),
 		AmbientDisableSafeUpgrade:         viper.GetBool(constants.AmbientDisableSafeUpgrade),

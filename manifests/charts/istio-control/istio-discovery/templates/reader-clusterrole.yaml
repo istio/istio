@@ -20,7 +20,9 @@ rules:
     resources: ["*"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
-    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces", "secrets"]
+    # TODO(keithmattix): See if we can conditionally give permission to read secrets and configmaps iff externalIstiod
+    # is enabled. Best I can tell, these two resources are only needed for configuring proxy TLS (i.e. CA certs).
+    resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces", "secrets", "configmaps"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.istio.io"]
     verbs: [ "get", "watch", "list" ]

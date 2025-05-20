@@ -182,9 +182,6 @@ var (
 	Enable100ContinueHeaders = env.Register("ENABLE_100_CONTINUE_HEADERS", true,
 		"If enabled, istiod will proxy 100-continue headers as is").Get()
 
-	EnableDeferredStatsCreation = env.Register("ENABLE_DEFERRED_STATS_CREATION", true,
-		"If enabled, Istio will lazily initialize a subset of the stats").Get()
-
 	EnableLocalityWeightedLbConfig = env.Register("ENABLE_LOCALITY_WEIGHTED_LB_CONFIG", false,
 		"If enabled, always set LocalityWeightedLbConfig for a cluster, "+
 			" otherwise only apply it when locality lb is specified by DestinationRule for a service").Get()
@@ -198,4 +195,7 @@ var (
 
 	UnifiedSidecarScoping = env.Register("PILOT_UNIFIED_SIDECAR_SCOPE", true,
 		"If true, unified SidecarScope creation will be used. This is only intended as a temporary feature flag for backwards compatibility.").Get()
+
+	CACertConfigMapName = env.Register("PILOT_CA_CERT_CONFIGMAP", "istio-ca-root-cert",
+		"The name of the ConfigMap that stores the Root CA Certificate that is used by istiod").Get()
 )

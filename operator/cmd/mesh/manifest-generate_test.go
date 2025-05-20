@@ -579,10 +579,27 @@ func TestManifestGeneratePilot(t *testing.T) {
 	})
 }
 
+func TestManifestGenerateCni(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:       "istio-cni",
+			diffSelect: "DaemonSet:*:istio-cni",
+		},
+		{
+			desc:       "istio-cni_tolerations",
+			diffSelect: "DaemonSet:*:istio-cni",
+		},
+	})
+}
+
 func TestManifestGenerateZtunnel(t *testing.T) {
 	runTestGroup(t, testGroup{
 		{
 			desc:       "ztunnel",
+			diffSelect: "DaemonSet:*:ztunnel",
+		},
+		{
+			desc:       "ztunnel_tolerations",
 			diffSelect: "DaemonSet:*:ztunnel",
 		},
 	})

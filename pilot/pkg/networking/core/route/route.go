@@ -171,7 +171,7 @@ func separateVSHostsAndServices(virtualService config.Config,
 	// As a performance optimization, process non wildcard hosts first, so that they can be
 	// looked up directly in the service registry map.
 	for _, hostname := range rule.Hosts {
-		vshost := host.Name(hostname)
+		vshost := host.Name(strings.ToLower(hostname))
 		if vshost.IsWildCarded() {
 			// We'll process wild card hosts later
 			wchosts = append(wchosts, vshost)
@@ -224,7 +224,7 @@ func separateVSHostsAndServices(virtualService config.Config,
 
 		// If we never found a match for this hostname in the service registry, add it to the list of non-service hosts
 		if !foundSvcMatch {
-			nonServiceRegistryHosts = append(nonServiceRegistryHosts, string(hostname))
+			nonServiceRegistryHosts = append(nonServiceRegistryHosts, strings.ToLower(string(hostname)))
 		}
 	}
 
@@ -1253,7 +1253,7 @@ func BuildDefaultHTTPInboundRoute(proxy *model.Proxy, clusterName string, operat
 		GrpcTimeoutHeaderMax: Notimeout,
 	}
 	// "reset-before-request" does not work well for gRPC streaming services.
-	if util.VersionGreaterOrEqual124(proxy) && !protocol.IsGRPC() {
+	if !protocol.IsGRPC() {
 		out.GetRoute().RetryPolicy = &route.RetryPolicy{
 			RetryOn: "reset-before-request",
 			NumRetries: &wrapperspb.UInt32Value{

@@ -45,6 +45,15 @@ _internal_defaults_do_not_set:
   ambient:
     # If enabled, ambient redirection will be enabled
     enabled: false
+    # If ambient is enabled, this selector will be used to identify the ambient-enabled pods
+    enablementSelectors: 
+    - podSelector:
+        matchLabels: {istio.io/dataplane-mode: ambient}
+    - podSelector:
+        matchExpressions:
+        - { key: istio.io/dataplane-mode, operator: NotIn, values: [none] }
+      namespaceSelector:
+        matchLabels: {istio.io/dataplane-mode: ambient}
     # Set ambient config dir path: defaults to /etc/ambient-config
     configDir: ""
     # If enabled, and ambient is enabled, DNS redirection will be enabled
@@ -97,6 +106,16 @@ _internal_defaults_do_not_set:
   resourceQuotas:
     enabled: false
     pods: 5000
+
+  tolerations:
+    # Make sure istio-cni-node gets scheduled on all nodes.
+    - effect: NoSchedule
+      operator: Exists
+    # Mark the pod as a critical add-on for rescheduling.
+    - key: CriticalAddonsOnly
+      operator: Exists
+    - effect: NoExecute
+      operator: Exists
 
   # K8s DaemonSet update strategy.
   # https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/daemon-set-v1/#DaemonSetSpec).

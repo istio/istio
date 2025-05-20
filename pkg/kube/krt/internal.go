@@ -162,13 +162,17 @@ func getLabelSelector(a any) map[string]string {
 
 // equal checks if two objects are equal. This is done through a variety of different methods, depending on the input type.
 func equal[O any](a, b O) bool {
-	ak, ok := any(a).(Equaler[O])
-	if ok {
+	if ak, ok := any(a).(Equaler[O]); ok {
 		return ak.Equals(b)
 	}
-	pk, ok := any(&a).(Equaler[O])
-	if ok {
+	if ak, ok := any(a).(Equaler[*O]); ok {
+		return ak.Equals(&b)
+	}
+	if pk, ok := any(&a).(Equaler[O]); ok {
 		return pk.Equals(b)
+	}
+	if pk, ok := any(&a).(Equaler[*O]); ok {
+		return pk.Equals(&b)
 	}
 	// Future improvement: add a default Kubernetes object implementation
 	// ResourceVersion is tempting but probably not safe. If we are comparing objects from the API server its fine,

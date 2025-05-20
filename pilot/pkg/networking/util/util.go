@@ -884,10 +884,6 @@ func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.Tr
 	return ret
 }
 
-func VersionGreaterOrEqual124(proxy *model.Proxy) bool {
-	return proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 24, Patch: -1})
-}
-
 func DelimitedStatsPrefix(statPrefix string) string {
 	statPrefix += constants.StatPrefixDelimiter
 	return statPrefix

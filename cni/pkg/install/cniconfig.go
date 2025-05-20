@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/containernetworking/cni/libcni"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/plugin"
@@ -32,12 +33,17 @@ import (
 )
 
 func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string, error) {
+	selectors := []util.EnablementSelector{}
+	if err := yaml.Unmarshal([]byte(cfg.AmbientEnablementSelector), &selectors); err != nil {
+		return "", fmt.Errorf("failed to parse ambient enablement selector: %v", err)
+	}
 	pluginConfig := plugin.Config{
-		PluginLogLevel:    cfg.PluginLogLevel,
-		CNIAgentRunDir:    cfg.CNIAgentRunDir,
-		AmbientEnabled:    cfg.AmbientEnabled,
-		ExcludeNamespaces: strings.Split(cfg.ExcludeNamespaces, ","),
-		PodNamespace:      cfg.PodNamespace,
+		PluginLogLevel:      cfg.PluginLogLevel,
+		CNIAgentRunDir:      cfg.CNIAgentRunDir,
+		AmbientEnabled:      cfg.AmbientEnabled,
+		EnablementSelectors: selectors,
+		ExcludeNamespaces:   strings.Split(cfg.ExcludeNamespaces, ","),
+		PodNamespace:        cfg.PodNamespace,
 	}
 
 	pluginConfig.Name = "istio-cni"
@@ -170,6 +176,7 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 				continue
 			}
 		} else {
+			//nolint:staticcheck
 			conf, err := libcni.ConfFromFile(confFile)
 			if err != nil {
 				installLog.Warnf("Error loading CNI config file %s: %v", confFile, err)
@@ -182,6 +189,7 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 				continue
 			}
 
+			//nolint:staticcheck
 			confList, err = libcni.ConfListFromConf(conf)
 			if err != nil {
 				installLog.Warnf("Error converting CNI config file %s to list: %v", confFile, err)

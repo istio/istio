@@ -104,10 +104,23 @@ func TestIndexCollection(t *testing.T) {
 	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ip", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
+	LabelIndex := krt.NewIndex[string, SimplePod](SimplePods, "label", func(o SimplePod) []string {
+		var out []string
+		for k, v := range o.GetLabels() {
+			out = append(out, k+"="+v)
+		}
+		return out
+	})
 	Collection := krt.NewSingleton[string](func(ctx krt.HandlerContext) *string {
+		// two fetches by the same index
 		a := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "2.2.2.2"))
 		b := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "3.3.3.3"))
+		// a third fetch on the same SimplePods but with another index
+		c := krt.Fetch(ctx, SimplePods, krt.FilterIndex(LabelIndex, "marker=true"))
+
 		pods := append(a, b...)
+		pods = append(pods, c...)
+
 		names := slices.Sort(slices.Map(pods, SimplePod.ResourceName))
 		return ptr.Of(strings.Join(names, ","))
 	}, opts.WithName("Collection")...)
@@ -121,20 +134,20 @@ func TestIndexCollection(t *testing.T) {
 	SimplePods.Register(TrackerHandler[SimplePod](tt))
 
 	var pods []*corev1.Pod
-	for i := range 3 {
+	for i := range 4 {
 		pods = append(pods, &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "name" + strconv.Itoa(i+1),
 				Namespace: "namespace",
+				Labels:    map[string]string{},
 			},
 			Status: corev1.PodStatus{PodIP: fmt.Sprintf("%d.%d.%d.%d", i+1, i+1, i+1, i+1)},
 		})
-
-		println("make ", pods[len(pods)-1].Name)
 	}
 	pod := pods[0]
 	pod2 := pods[1]
 	pod3 := pods[2]
+	pod4 := pods[3]
 
 	// pod 1 with 1.1.1.1 doesn't show up in the collection
 	pc.CreateOrUpdateStatus(pod)
@@ -157,11 +170,22 @@ func TestIndexCollection(t *testing.T) {
 	tt.WaitUnordered("add/namespace/name3")
 	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name1,namespace/name2,namespace/name3"))
 
+	// make sure the separate index fetch works
+	pod4.GetLabels()["marker"] = "true"
+	pc.CreateOrUpdateStatus(pod4)
+	tt.WaitUnordered("add/namespace/name4")
+	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name1,namespace/name2,namespace/name3,namespace/name4"))
+
 	// delete everything
-	pc.Delete(pod.Name, pod.Namespace)
-	pc.Delete(pod2.Name, pod2.Namespace)
-	pc.Delete(pod3.Name, pod3.Namespace)
-	tt.WaitUnordered("delete/namespace/name1", "delete/namespace/name2", "delete/namespace/name3")
+	for _, pod := range pods {
+		pc.Delete(pod.Name, pod.Namespace)
+	}
+	tt.WaitUnordered(
+		"delete/namespace/name1",
+		"delete/namespace/name2",
+		"delete/namespace/name3",
+		"delete/namespace/name4",
+	)
 	assert.Equal(t, fetchSorted("1.1.1.1"), []SimplePod{})
 }
 

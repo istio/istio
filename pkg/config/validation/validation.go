@@ -2016,6 +2016,10 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 
 		duplicateMatches := 0
 		for matchn, match := range route.Match {
+			if emptyMatchEncountered >= 0 {
+				reportUnreachable(routeName(route, rulen), "route without matches defined before")
+				continue
+			}
 			dupn, ok := matchesEncountered[asJSON(match)]
 			if ok {
 				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))
@@ -2075,6 +2079,10 @@ func analyzeUnreachableTCPRules(routes []*networking.TCPRoute,
 
 		duplicateMatches := 0
 		for matchn, match := range route.Match {
+			if emptyMatchEncountered >= 0 {
+				reportUnreachable(routeName(route, rulen), "route without matches defined before")
+				continue
+			}
 			dupn, ok := matchesEncountered[asJSON(match)]
 			if ok {
 				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))
@@ -2109,6 +2117,10 @@ func analyzeUnreachableTLSRules(routes []*networking.TLSRoute,
 
 		duplicateMatches := 0
 		for matchn, match := range route.Match {
+			if emptyMatchEncountered >= 0 {
+				reportUnreachable(routeName(route, rulen), "route without matches defined before")
+				continue
+			}
 			dupn, ok := matchesEncountered[asJSON(match)]
 			if ok {
 				reportIneffective(routeName(route, rulen), requestName(match, matchn), routeName(routes[dupn], dupn))

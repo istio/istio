@@ -25,7 +25,7 @@ import (
 // For example: with a Service input and []Endpoint output, I might report (ServiceStatus, []Endpoint) where ServiceStatus counts
 // the number of attached endpoints.
 // Two collections will be output: the status collection and the original output collection.
-func NewStatusManyCollection[I, IStatus, O any](
+func NewStatusManyCollection[I controllers.Object, IStatus, O any](
 	c Collection[I],
 	hf TransformationMultiStatus[I, IStatus, O],
 	opts ...CollectionOption,
@@ -75,7 +75,7 @@ func NewStatusManyCollection[I, IStatus, O any](
 	return status, primary
 }
 
-func NewStatusCollection[I, IStatus, O any](
+func NewStatusCollection[I controllers.Object, IStatus, O any](
 	c Collection[I],
 	hf TransformationSingleStatus[I, IStatus, O],
 	opts ...CollectionOption,
@@ -90,9 +90,9 @@ func NewStatusCollection[I, IStatus, O any](
 	return NewStatusManyCollection(c, hm, opts...)
 }
 
-type StatusCollection[I, IStatus any] = Collection[ObjectWithStatus[I, IStatus]]
+type StatusCollection[I controllers.Object, IStatus any] = Collection[ObjectWithStatus[I, IStatus]]
 
-type ObjectWithStatus[I any, IStatus any] struct {
+type ObjectWithStatus[I controllers.Object, IStatus any] struct {
 	Obj    I
 	Status IStatus
 }
@@ -102,5 +102,8 @@ func (c ObjectWithStatus[I, IStatus]) ResourceName() string {
 }
 
 func (c ObjectWithStatus[I, IStatus]) Equals(o ObjectWithStatus[I, IStatus]) bool {
-	return equal(c.Status, o.Status)
+	// we need to include object generation in the comparison to allow retrying status updates
+	// if a conflict occurs
+	return c.Obj.GetGeneration() == o.Obj.GetGeneration() &&
+		equal(c.Status, o.Status)
 }

@@ -92,6 +92,10 @@ func (m *Message) Unstructured(includeOrigin bool) map[string]any {
 	}
 	result["documentationUrl"] = fmt.Sprintf("%s/%s/%s", url.ConfigAnalysis, strings.ToLower(m.Type.Code()), docQueryString)
 
+	if m.PrintCluster {
+		result["cluster"] = m.Resource.Origin.ClusterName()
+	}
+
 	return result
 }
 

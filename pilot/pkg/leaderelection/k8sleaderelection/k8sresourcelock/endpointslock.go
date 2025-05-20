@@ -27,6 +27,8 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
+// Endpoints is deprecated in k8s >=1.33, but we should still support it.
+// nolint: staticcheck
 type EndpointsLock struct {
 	// EndpointsMeta should contain a Name and a Namespace of an
 	// Endpoints object that the LeaderElector will attempt to lead.
@@ -63,6 +65,8 @@ func (el *EndpointsLock) Create(ctx context.Context, ler LeaderElectionRecord) e
 	if err != nil {
 		return err
 	}
+	// Endpoints is deprecated in k8s >=1.33, but we should still support it.
+	// nolint: staticcheck
 	el.e, err = el.Client.Endpoints(el.EndpointsMeta.Namespace).Create(ctx, &v1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      el.EndpointsMeta.Name,
@@ -102,6 +106,8 @@ func (el *EndpointsLock) RecordEvent(s string) {
 		return
 	}
 	events := fmt.Sprintf("%v %v", el.LockConfig.Identity, s)
+	// Endpoints is deprecated in k8s >=1.33, but we should still support it.
+	// nolint: staticcheck
 	el.LockConfig.EventRecorder.Eventf(&v1.Endpoints{ObjectMeta: el.e.ObjectMeta}, v1.EventTypeNormal, "LeaderElection", events)
 }
 

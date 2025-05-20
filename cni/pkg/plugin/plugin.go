@@ -63,11 +63,12 @@ type Config struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	PluginLogLevel    string   `json:"plugin_log_level"`
-	CNIAgentRunDir    string   `json:"cni_agent_run_dir"`
-	AmbientEnabled    bool     `json:"ambient_enabled"`
-	ExcludeNamespaces []string `json:"exclude_namespaces"`
-	PodNamespace      string   `json:"pod_namespace"`
+	PluginLogLevel      string                    `json:"plugin_log_level"`
+	CNIAgentRunDir      string                    `json:"cni_agent_run_dir"`
+	AmbientEnabled      bool                      `json:"ambient_enabled"`
+	EnablementSelectors []util.EnablementSelector `json:"enablement_selectors"`
+	ExcludeNamespaces   []string                  `json:"exclude_namespaces"`
+	PodNamespace        string                    `json:"pod_namespace"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -215,7 +216,7 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 	// For ambient pods, this is all the logic we need to run
 	if conf.AmbientEnabled {
 		log.Debugf("istio-cni ambient cmdAdd podName: %s - checking if ambient enabled", podName)
-		podIsAmbient, err := isAmbientPod(kClient, podName, podNamespace)
+		podIsAmbient, err := isAmbientPod(kClient, podName, podNamespace, conf.EnablementSelectors)
 		if err != nil {
 			log.Errorf("istio-cni cmdAdd failed to check ambient: %s", err)
 		}
@@ -364,7 +365,12 @@ func CmdDelete(args *skel.CmdArgs) (err error) {
 	return nil
 }
 
-func isAmbientPod(client kubernetes.Interface, podName, podNamespace string) (bool, error) {
+func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, selectors []util.EnablementSelector) (bool, error) {
+	compiledSelectors, err := util.NewCompiledEnablementSelectors(selectors)
+	if err != nil {
+		return false, fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
+	}
+
 	pod, err := client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 	if err != nil {
 		return false, err
@@ -374,5 +380,5 @@ func isAmbientPod(client kubernetes.Interface, podName, podNamespace string) (bo
 		return false, err
 	}
 
-	return util.PodRedirectionEnabled(ns, pod), nil
+	return compiledSelectors.Matches(pod.Labels, pod.Annotations, ns.Labels), nil
 }

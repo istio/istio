@@ -197,3 +197,7 @@ func (s *CAServer) Check(ctx context.Context, in *ghc.HealthCheckRequest) (*ghc.
 func (s *CAServer) Watch(_ *ghc.HealthCheckRequest, _ ghc.Health_WatchServer) error {
 	return nil
 }
+
+func (s *CAServer) List(_ context.Context, _ *ghc.HealthListRequest) (*ghc.HealthListResponse, error) {
+	return &ghc.HealthListResponse{}, nil
+}

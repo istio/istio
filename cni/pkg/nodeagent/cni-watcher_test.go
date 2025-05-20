@@ -35,6 +35,40 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
+var defaultAmbientSelector = compileDefaultSelectors()
+
+func compileDefaultSelectors() *util.CompiledEnablementSelectors {
+	compiled, err := util.NewCompiledEnablementSelectors([]util.EnablementSelector{
+		{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
+				},
+			},
+		},
+		{
+			NamespaceSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
+				},
+			},
+			PodSelector: metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      label.IoIstioDataplaneMode.Name,
+						Operator: metav1.LabelSelectorOpNotIn,
+						Values:   []string{constants.DataplaneModeNone},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	return compiled
+}
+
 func TestProcessAddEventGoodPayload(t *testing.T) {
 	valid := CNIPluginAddEvent{
 		Netns:        "/var/netns/foo",
@@ -111,7 +145,7 @@ func TestCNIPluginServer(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
+	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector)
 
 	// We are not going to start the server, so the sockpath is irrelevant
 	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)
@@ -184,7 +218,7 @@ func TestGetPodWithRetry(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
+	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector)
 
 	// We are not going to start the server, so the sockpath is irrelevant
 	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)
@@ -259,7 +293,7 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system")
+	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector)
 
 	// We are not going to start the server, so the sockpath is irrelevant
 	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)

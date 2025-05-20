@@ -30,4 +30,5 @@ func Test_AddRootFlags(t *testing.T) {
 	assert.Equal(t, *r.impersonate, impersonateConfig.UserName)
 	assert.Equal(t, *r.impersonateUID, impersonateConfig.UID)
 	assert.Equal(t, *r.impersonateGroup, impersonateConfig.Groups)
+	assert.Equal(t, *r.kubeTimeout, "15s")
 }
