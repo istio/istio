@@ -794,9 +794,9 @@ const (
 	// TrafficDistributionAny allows any destination
 	TrafficDistributionAny TrafficDistribution = iota
 	// TrafficDistributionPreferPreferSameZone prefers traffic in same zone, failing over to same region and then network.
-	TrafficDistributionPreferSameZone TrafficDistribution = iota
+	TrafficDistributionPreferSameZone
 	// TrafficDistributionPreferNode prefers traffic in same node, failing over to same subzone, then zone, region, and network.
-	TrafficDistributionPreferSameNode = iota
+	TrafficDistributionPreferSameNode
 )
 
 func GetTrafficDistribution(specValue *string, annotations map[string]string) TrafficDistribution {
@@ -810,12 +810,16 @@ func GetTrafficDistribution(specValue *string, annotations map[string]string) Tr
 	}
 	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
 	// This also has some custom types
-	switch strings.ToLower(annotations[annotation.NetworkingTrafficDistribution.Name]) {
+	trafficDistributionAnnotationValue := strings.ToLower(annotations[annotation.NetworkingTrafficDistribution.Name])
+	switch trafficDistributionAnnotationValue {
 	case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
 		return TrafficDistributionPreferSameZone
 	case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
 		return TrafficDistributionPreferSameNode
 	default:
+		if trafficDistributionAnnotationValue != "" {
+			log.Warnf("Unknown traffic distribution annotation, defaulting to any")
+		}
 		return TrafficDistributionAny
 	}
 }
