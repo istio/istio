@@ -29,5 +29,6 @@ issue: [56083]
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
 releaseNotes:
-  - "**Fixed** false positive with `istioctl analyze` raising IST0134 even when `PILOT_ENABLE_IP_AUTOALLOCATE` is set to `true`."
+  - |
+    **Fixed** false positive with `istioctl analyze` raising IST0134 even when `PILOT_ENABLE_IP_AUTOALLOCATE` is set to `true`.
 
