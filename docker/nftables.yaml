@@ -1,0 +1,25 @@
+contents:
+  repositories:
+    - https://packages.wolfi.dev/os
+  keyring:
+    - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+  packages:
+    - ca-certificates-bundle
+    - wolfi-baselayout
+    - libnftnl
+    - nftables
+archs:
+  - x86_64
+  - aarch64
+paths:
+- path: /run
+  type: directory
+  permissions: 0o755
+accounts:
+  users:
+    - username: nonroot
+      uid: 65532
+    - username: nobody
+      uid: 65534
+  run-as: 65532
+work-dir: /home/nonroot
