@@ -69,18 +69,18 @@ type ipAllocateTestRig struct {
 	t      *testing.T
 }
 
-func setupIPAllocateTest(t *testing.T, IPV4Prefix, IPV6Prefix string) (*ipallocate.IPAllocator, ipAllocateTestRig) {
+func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) (*ipallocate.IPAllocator, ipAllocateTestRig) {
 	t.Helper()
 	s := test.NewStop(t)
 	c := kubelib.NewFakeClient()
 	clienttest.MakeCRD(t, c, gvr.ServiceEntry)
 
 	// if no prefixes are set, use the default ones
-	if IPV4Prefix == "" {
-		IPV4Prefix = TestIPV4Prefix
+	if ipv4Prefix == "" {
+		ipv4Prefix = TestIPV4Prefix
 	}
-	if IPV6Prefix == "" {
-		IPV6Prefix = TestIPV6Prefix
+	if ipv6Prefix == "" {
+		ipv6Prefix = TestIPV6Prefix
 	}
 
 	se := clienttest.NewDirectClient[*networkingv1alpha3.ServiceEntry, networkingv1alpha3.ServiceEntry, *networkingv1alpha3.ServiceEntryList](t, c)
@@ -101,11 +101,11 @@ func setupIPAllocateTest(t *testing.T, IPV4Prefix, IPV6Prefix string) (*ipalloca
 			Status: v1alpha3.ServiceEntryStatus{Addresses: []*v1alpha3.ServiceEntryAddress{
 				{
 					Host:  "test.testing.io",
-					Value: newV4AddressString(IPV4Prefix, 1),
+					Value: newV4AddressString(ipv4Prefix, 1),
 				},
 				{
 					Host:  "test.testing.io",
-					Value: newV6AddressString(IPV6Prefix, 1),
+					Value: newV6AddressString(ipv6Prefix, 1),
 				},
 			}},
 		},
