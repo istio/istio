@@ -188,6 +188,8 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      nodeSelector:
+        kubernetes.io/os: linux
       serviceAccountName: test-upgrade
       terminationGracePeriodSeconds: 2
       volumes:
