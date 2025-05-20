@@ -62,7 +62,7 @@ _internal_defaults_do_not_set:
     ipv6: true
     # If enabled, and ambient is enabled, the CNI agent will reconcile incompatible iptables rules and chains at startup.
     # This will eventually be enabled by default
-    reconcileIptablesOnStartup: false
+    reconcileIptablesOnStartup: true
     # If enabled, and ambient is enabled, the CNI agent will always share the network namespace of the host node it is running on
     shareHostNetworkNamespace: false
 

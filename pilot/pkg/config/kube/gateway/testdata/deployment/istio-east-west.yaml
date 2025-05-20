@@ -186,6 +186,8 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      nodeSelector:
+        kubernetes.io/os: linux
       serviceAccountName: eastwestgateway
       terminationGracePeriodSeconds: 2
       volumes:

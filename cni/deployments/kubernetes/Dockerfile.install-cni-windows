@@ -1,0 +1,14 @@
+ARG WINBASE=mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:v1.0.0
+FROM --platform=$BUILDPLATFORM golang:1.24 AS build
+WORKDIR /go/src/github.com/istio/istio
+RUN apt-get update && apt-get install -y mingw-w64 --no-install-recommends
+RUN mkdir -p out/x86_64-pc-windows-gnu
+COPY . .
+RUN GOOS=windows GOARCH=amd64 go build -o out/x86_64-pc-windows-gnu/install-cni.exe ./cni/cmd/install-cni
+RUN GOOS=windows GOARCH=amd64 go build -o out/x86_64-pc-windows-gnu/istio-cni.exe ./cni/cmd/istio-cni
+
+# hadolint ignore=DL3006
+FROM ${WINBASE}
+COPY --from=build /go/src/github.com/istio/istio/out/x86_64-pc-windows-gnu/install-cni.exe /install-cni.exe
+COPY --from=build /go/src/github.com/istio/istio/out/x86_64-pc-windows-gnu/istio-cni.exe /opt/cni/bin/istio-cni.exe
+ENTRYPOINT [ "/install-cni.exe" ]

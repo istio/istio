@@ -155,6 +155,8 @@ spec:
         - mountPath: /var/run/secrets/istiod/ca
           name: istio-csr-ca-configmap
           readOnly: true
+      nodeSelector:
+        kubernetes.io/os: linux
       serviceAccountName: istiod
       tolerations:
       - key: cni.istio.io/not-ready

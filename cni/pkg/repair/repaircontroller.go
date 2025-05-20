@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/cni/pkg/config"
-	"istio.io/istio/cni/pkg/plugin"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -92,20 +91,6 @@ func (c *Controller) ReconcilePod(pod *corev1.Pod) (err error) {
 		return c.deleteBrokenPod(pod)
 	} else if c.cfg.LabelPods {
 		return c.labelBrokenPod(pod)
-	}
-	return nil
-}
-
-// redirectRunningPod dynamically enters the provided pod, that is already running, and programs it's networking configuration.
-func redirectRunningPod(pod *corev1.Pod, netns string) error {
-	pi := plugin.ExtractPodInfo(pod)
-	redirect, err := plugin.NewRedirect(pi)
-	if err != nil {
-		return fmt.Errorf("setup redirect: %v", err)
-	}
-	rulesMgr := plugin.IptablesInterceptRuleMgr()
-	if err := rulesMgr.Program(pod.Name, netns, redirect); err != nil {
-		return fmt.Errorf("program redirection: %v", err)
 	}
 	return nil
 }

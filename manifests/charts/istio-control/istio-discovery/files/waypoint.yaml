@@ -76,8 +76,9 @@ spec:
       topologySpreadConstraints:
       {{- toYaml .Values.global.waypoint.topologySpreadConstraints | nindent 8 }}
       {{- end }}
-      {{- if .Values.global.waypoint.nodeSelector }}
       nodeSelector:
+        kubernetes.io/os: linux
+      {{- if .Values.global.waypoint.nodeSelector }}
       {{- toYaml .Values.global.waypoint.nodeSelector | nindent 8 }}
       {{- end }}
       {{- if .Values.global.waypoint.tolerations }}

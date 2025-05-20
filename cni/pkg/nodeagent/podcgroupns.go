@@ -21,22 +21,20 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// Create a type to make sure we consider the possibility of both
+// an ip hash or a uid. Linux uses UIDs and Windows uses a hash of IPs
+// as the key for the map.
 type PodToNetns map[string]WorkloadInfo
 
 func (p PodToNetns) Close() {
 	for _, wl := range p {
-		wl.Netns.Close()
+		wl.NetnsCloser().Close()
 	}
 }
 
 type PodNetnsFinder interface {
 	FindNetnsForPods(filter map[types.UID]*corev1.Pod) (PodToNetns, error)
 }
-
-func isNotNumber(r rune) bool {
-	return r < '0' || r > '9'
-}
-
 type PodNetnsEntry struct {
 	uid                types.UID
 	netns              fs.File

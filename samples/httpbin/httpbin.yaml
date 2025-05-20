@@ -51,6 +51,8 @@ spec:
         app: httpbin
         version: v1
     spec:
+      nodeSelector:
+        kubernetes.io/os: linux
       serviceAccountName: httpbin
       containers:
       - image: docker.io/mccutchen/go-httpbin:v2.15.0
