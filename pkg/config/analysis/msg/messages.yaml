@@ -286,7 +286,8 @@ messages:
   - name: "ServiceEntryAddressesRequired"
     code: IST0134
     level: Warning
-    description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol when ISTIO_META_DNS_AUTO_ALLOCATE is not set on a proxy"
+    description: "Virtual IP addresses are required for ports serving TCP (or unset) protocol when PILOT_ENABLE_IP_AUTOALLOCATE is not set on a proxy"
+
     template: "ServiceEntry addresses are required for this protocol."
 
   - name: "DeprecatedAnnotation"
@@ -656,4 +657,35 @@ messages:
     - name: clusters
       type: "[]string"
     - name: error
+      type: string
+
+  - name: "NegativeConditionStatus"
+    code: IST0171
+    level: Warning
+    description: "A condition with a negative status is present"
+    template: "A condition with a negative status is present: type=%s, reason=%s, message=%s."
+    args:
+      - name: conditionType
+        type: string
+      - name: reason
+        type: string
+      - name: message
+        type: string
+
+  - name: "DestinationRuleSubsetNotSelectPods"
+    code: IST0173
+    level: Error
+    description: "Subsets defined in destination does not select any pods."
+    template: "The Subset %s defined in the DestinationRule does not select any pods. Which may lead to 503 UH (NoHealthyUpstream)."
+    args:
+    - name: subset
+      type: string
+
+  - name: "UnknownDestinationRuleHost"
+    code: IST0174
+    level: Warning
+    description: "Host defined in destination rule does not match any services in the mesh."
+    template: "The host %s defined in the DestinationRule does not match any services in the mesh."
+    args:
+    - name: host
       type: string
