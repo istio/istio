@@ -67,7 +67,6 @@ rpm/fpm:
 		--description "Istio Sidecar" \
 		--depends iproute \
 		--depends iptables \
-		--depends nftables \
 		--depends sudo \
 		--depends hostname \
 		$(RPM_COMPRESSION) \
@@ -88,7 +87,6 @@ deb/fpm:
 		--description "Istio Sidecar" \
 		--depends iproute2 \
 		--depends iptables \
-		--depends nftables \
 		--depends sudo \
 		--depends hostname \
 		$(DEB_COMPRESSION) \
