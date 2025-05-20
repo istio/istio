@@ -665,11 +665,16 @@ const file_zdsapi_zds_proto_rawDesc = "" +
 	"\n" +
 	"\x10zdsapi/zds.proto\x12\x12istio.workload.zds\"A\n" +
 	"\bZdsHello\x125\n" +
-	"\aversion\x18\x01 \x01(\x0e2\x1b.istio.workload.zds.VersionR\aversion\"}\n" +
+	"\aversion\x18\x01 \x01(\x0e2\x1b.istio.workload.zds.VersionR\aversion\"\xeb\x01\n" +
 	"\fWorkloadInfo\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12'\n" +
-	"\x0fservice_account\x18\x03 \x01(\tR\x0eserviceAccountJ\x04\b\x04\x10\x05R\ftrust_domain\"f\n" +
+	"\x0fservice_account\x18\x03 \x01(\tR\x0eserviceAccount\x12V\n" +
+	"\x11windows_namespace\x18\x05 \x01(\v2$.istio.workload.zds.WindowsNamespaceH\x00R\x10windowsNamespace\x88\x01\x01B\x14\n" +
+	"\x12_windows_namespaceJ\x04\b\x04\x10\x05R\ftrust_domain\"6\n" +
+	"\x10WindowsNamespace\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\rR\x02id\x12\x12\n" +
+	"\x04guid\x18\x02 \x01(\tR\x04guid\"f\n" +
 	"\vAddWorkload\x12\x10\n" +
 	"\x03uid\x18\x01 \x01(\tR\x03uid\x12E\n" +
 	"\rworkload_info\x18\x02 \x01(\v2 .istio.workload.zds.WorkloadInfoR\fworkloadInfo\" \n" +
