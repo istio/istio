@@ -21,7 +21,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	apiannotation "istio.io/api/annotation"
 	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
@@ -173,9 +172,13 @@ func (a *index) constructServiceEntries(ctx krt.HandlerContext, svc *networkingc
 	}
 
 	var lb *workloadapi.LoadBalancing
-	preferClose := strings.EqualFold(svc.Annotations[apiannotation.NetworkingTrafficDistribution.Name], v1.ServiceTrafficDistributionPreferClose)
-	if preferClose {
-		lb = preferCloseLoadBalancer
+
+	trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations)
+	switch trafficDistribution {
+	case model.TrafficDistributionPreferSameZone:
+		lb = preferSameZoneLoadBalancer
+	case model.TrafficDistributionPreferSameNode:
+		lb = preferSameNodeLoadBalancer
 	}
 
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
@@ -224,14 +227,7 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 
 	var lb *workloadapi.LoadBalancing
 
-	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
-	preferClose := strings.EqualFold(svc.Annotations[apiannotation.NetworkingTrafficDistribution.Name], v1.ServiceTrafficDistributionPreferClose)
-	if svc.Spec.TrafficDistribution != nil {
-		preferClose = *svc.Spec.TrafficDistribution == v1.ServiceTrafficDistributionPreferClose
-	}
-	if preferClose {
-		lb = preferCloseLoadBalancer
-	}
+	// First, use internal traffic policy if set.
 	if itp := svc.Spec.InternalTrafficPolicy; itp != nil && *itp == v1.ServiceInternalTrafficPolicyLocal {
 		lb = &workloadapi.LoadBalancing{
 			// Only allow endpoints on the same node.
@@ -240,7 +236,17 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 			},
 			Mode: workloadapi.LoadBalancing_STRICT,
 		}
+	} else {
+		// Check traffic distribution.
+		trafficDistribution := model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
+		switch trafficDistribution {
+		case model.TrafficDistributionPreferSameZone:
+			lb = preferSameZoneLoadBalancer
+		case model.TrafficDistributionPreferSameNode:
+			lb = preferSameNodeLoadBalancer
+		}
 	}
+
 	if svc.Spec.PublishNotReadyAddresses {
 		if lb == nil {
 			lb = &workloadapi.LoadBalancing{}
@@ -272,13 +278,24 @@ func (a *index) constructService(ctx krt.HandlerContext, svc *v1.Service, w *Way
 	}
 }
 
-var preferCloseLoadBalancer = &workloadapi.LoadBalancing{
+var preferSameZoneLoadBalancer = &workloadapi.LoadBalancing{
+	// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
+	RoutingPreference: []workloadapi.LoadBalancing_Scope{
+		workloadapi.LoadBalancing_NETWORK,
+		workloadapi.LoadBalancing_REGION,
+		workloadapi.LoadBalancing_ZONE,
+	},
+	Mode: workloadapi.LoadBalancing_FAILOVER,
+}
+
+var preferSameNodeLoadBalancer = &workloadapi.LoadBalancing{
 	// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
 	RoutingPreference: []workloadapi.LoadBalancing_Scope{
 		workloadapi.LoadBalancing_NETWORK,
 		workloadapi.LoadBalancing_REGION,
 		workloadapi.LoadBalancing_ZONE,
 		workloadapi.LoadBalancing_SUBZONE,
+		workloadapi.LoadBalancing_NODE,
 	},
 	Mode: workloadapi.LoadBalancing_FAILOVER,
 }
