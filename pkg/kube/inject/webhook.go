@@ -27,12 +27,14 @@ import (
 	"text/template"
 	"time"
 
+	goversion "github.com/hashicorp/go-version"
 	"github.com/prometheus/prometheus/util/strutil"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -46,11 +48,13 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	opconfig "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
@@ -109,6 +113,7 @@ type Webhook struct {
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig ValuesConfig
 	namespaces   *multicluster.KclientComponent[*corev1.Namespace]
+	nodes        *multicluster.KclientComponent[*corev1.Node]
 
 	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
 	watcher   Watcher
@@ -210,6 +215,10 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		if platform.IsOpenShift() {
 			wh.namespaces = multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](p.MultiCluster, kubetypes.Filter{})
 		}
+	}
+
+	if features.EnableNativeSidecars.Get() {
+		wh.nodes = multicluster.BuildMultiClusterKclientComponent[*corev1.Node](p.MultiCluster, kubetypes.Filter{})
 	}
 
 	mc := NewMulticast(p.Watcher, wh.GetConfig)
@@ -378,6 +387,7 @@ type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          types.NamespacedName
 	namespace           *corev1.Namespace
+	nativeSidecar       bool
 	typeMeta            metav1.TypeMeta
 	templates           map[string]*template.Template
 	defaultTemplate     []string
@@ -1142,11 +1152,12 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		proxyEnvs:           parseInjectEnvs(path),
 	}
 
+	clusterID, _ := extractClusterAndNetwork(params)
+	if clusterID == "" {
+		clusterID = constants.DefaultClusterName
+	}
+
 	if platform.IsOpenShift() && wh.namespaces != nil {
-		clusterID, _ := extractClusterAndNetwork(params)
-		if clusterID == "" {
-			clusterID = constants.DefaultClusterName
-		}
 		client := wh.namespaces.ForCluster(cluster.ID(clusterID))
 		if client != nil {
 			params.namespace = client.Get(pod.Namespace, "")
@@ -1170,6 +1181,16 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 			}
 		}
 	}
+
+	var nodes kclient.Client[*corev1.Node]
+	if wh.nodes != nil {
+		nodes = wh.nodes.ForCluster(cluster.ID(clusterID))
+		if nodes != nil {
+			log.Warnf("unable to fetch nodes, failed to get client for %q", clusterID)
+		}
+	}
+	params.nativeSidecar = detectNativeSidecar(nodes)
+
 	wh.mu.RUnlock()
 
 	patchBytes, err := injectPod(params)
@@ -1204,6 +1225,39 @@ func isSidecarUserMatchingAppUser(containers []corev1.Container) bool {
 	}
 
 	return sideCarUser == appUser
+}
+
+func detectNativeSidecar(nodes kclient.Client[*corev1.Node]) bool {
+	if !features.EnableNativeSidecars.Get() {
+		return false
+	}
+
+	if nodes == nil {
+		log.Warnf("configured to auto detect native sidecar support, but couldn't find a client")
+		return false
+	}
+
+	minVersion := 30
+	allNodesValid := false
+	for _, n := range nodes.List(metav1.NamespaceAll, klabels.Everything()) {
+		nodeKubeletVersion := n.Status.NodeInfo.KubeletVersion
+		ver, err := goversion.NewVersion(nodeKubeletVersion)
+		if err != nil {
+			log.Warnf("could not read node version for %v %v: %v", n.Name, nodeKubeletVersion, err)
+			continue
+		}
+		minor := ver.Segments()[1]
+		if minor < minVersion {
+			log.Debugf("detected kubelet version 1.%v < 1.%v; native sidecars disabled",
+				n.Name, minor, minVersion)
+			return false
+		}
+		allNodesValid = true
+	}
+	if !allNodesValid {
+		return false
+	}
+	return true
 }
 
 func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
