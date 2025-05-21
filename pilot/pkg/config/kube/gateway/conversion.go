@@ -1451,7 +1451,7 @@ type parentInfo struct {
 	// AllowedKinds indicates which kinds can be admitted by this parent
 	AllowedKinds []k8s.RouteGroupKind
 	// Hostnames is the hostnames that must be match to reference to the parent. For gateway this is listener hostname
-	// Format is ns/hostname
+	// Format is ns/hostname or just hostname, which is equivalent to */hostname
 	Hostnames []string
 	// OriginalHostname is the unprocessed form of Hostnames; how it appeared in users' config
 	OriginalHostname string
