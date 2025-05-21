@@ -7,5 +7,3 @@ issue:
 releaseNotes:
 - |
   **Fixed** Regression in Istio 1.26.0 that caused a panic in istiod when processing Gateway API hostnames. 
-  The issue occurred in a setup with multiple gateways targeting the same workload, while merging gateways into a single logical Gateway, 
-  due to inconsistent handling of namespace-prefixed hostname formats during concurrent reconciliation operations.
