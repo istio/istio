@@ -24,6 +24,9 @@ func init() {
 		"Specifies the namespace where the istiod resides in a typical deployment. Defaults to istio-system")
 	flag.StringVar(&settingsFromCommandline.TelemetryNamespace, "istio.test.kube.telemetryNamespace", settingsFromCommandline.TelemetryNamespace,
 		"Specifies the namespace in which kiali, tracing providers, graphana, prometheus are deployed.")
+	flag.StringVar(&settingsFromCommandline.TrustedZtunnelNamespace, "istio.test.kube.trustedZtunnelNamespace",
+		settingsFromCommandline.TrustedZtunnelNamespace,
+		"Specifies the trusted namespace for ztunnel. Used in Ambient mode.")
 	flag.BoolVar(&settingsFromCommandline.DeployIstio, "istio.test.kube.deploy", settingsFromCommandline.DeployIstio,
 		"Deploy Istio into the target Kubernetes environment.")
 	flag.StringVar(&settingsFromCommandline.PrimaryClusterIOPFile, "istio.test.kube.helm.iopFile", settingsFromCommandline.PrimaryClusterIOPFile,

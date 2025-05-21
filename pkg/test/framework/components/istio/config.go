@@ -213,6 +213,10 @@ type Config struct {
 	// ControlPlaneInstaller allows installation of custom control planes on istio deployments via an external script
 	// This field should only be set when DeployIstio is false
 	ControlPlaneInstaller string
+
+	// TrustedZtunnelNamespace allows to override the trusted namespace of ztunnel daemonset location.
+	// Used in Ambient mode
+	TrustedZtunnelNamespace string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {
