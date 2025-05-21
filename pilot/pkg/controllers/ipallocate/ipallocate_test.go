@@ -69,7 +69,7 @@ type ipAllocateTestRig struct {
 	t      *testing.T
 }
 
-func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) (*ipallocate.IPAllocator, ipAllocateTestRig) {
+func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) ipAllocateTestRig {
 	t.Helper()
 	s := test.NewStop(t)
 	c := kubelib.NewFakeClient()
@@ -113,7 +113,7 @@ func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) (*ipalloca
 	go ipController.Run(s)
 	c.RunAndWait(s)
 
-	return ipController, ipAllocateTestRig{
+	return ipAllocateTestRig{
 		client: c,
 		se:     se,
 		stop:   s,
@@ -122,7 +122,7 @@ func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) (*ipalloca
 }
 
 func TestIPAllocate(t *testing.T) {
-	_, rig := setupIPAllocateTest(t, TestIPV4Prefix, TestIPV6Prefix)
+	rig := setupIPAllocateTest(t, TestIPV4Prefix, TestIPV6Prefix)
 	rig.se.Create(
 		&networkingv1alpha3.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
@@ -475,7 +475,8 @@ func TestIPAllocate(t *testing.T) {
 func TestIPAllocateWithEnvCIDR(t *testing.T) {
 	features.IPAutoallocateIPv4Prefix = TestNonDefaultIPV4PrefixCIDR
 	features.IPAutoallocateIPv6Prefix = TestNonDefaultIPV6PrefixCIDR
-	_, rig := setupIPAllocateTest(t, TestNonDefaultIPV4Prefix, TestNonDefaultIPV6Prefix)
+
+	rig := setupIPAllocateTest(t, TestNonDefaultIPV4Prefix, TestNonDefaultIPV6Prefix)
 	se := rig.se.Get("pre-existing", "default")
 	// test that the non-default CIDR prefixes are used
 	se.Spec.Hosts = append(se.Spec.Hosts, "added.testing.io")
