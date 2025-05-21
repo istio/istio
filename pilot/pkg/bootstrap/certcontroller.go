@@ -105,7 +105,7 @@ func (s *Server) initDNSCertsIstiod() error {
 	}
 	log.Infof("Generating istiod-signed cert for %v:\n %s", s.dnsNames, certChain)
 
-	fileBundle, err := detectSigningCABundle()
+	fileBundle, err := detectSigningCABundleAndCRL()
 	if err != nil {
 		return fmt.Errorf("unable to determine signing file format %v", err)
 	}

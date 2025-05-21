@@ -220,10 +220,11 @@ func detectAuthEnv(jwt string) (*authenticate.JwtPayload, error) {
 	return structuredPayload, nil
 }
 
-// detectSigningCABundle determines in which format the signing ca files are created.
+// detectSigningCABundleAndCRL determines in which format the signing ca files are created.
 // kubernetes tls secrets mount files as tls.crt,tls.key,ca.crt
 // istiod secret is ca-cert.pem ca-key.pem cert-chain.pem root-cert.pem
-func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
+// it also checks for optional crl file and adds its file path if it exists
+func detectSigningCABundleAndCRL() (ca.SigningCAFileBundle, error) {
 	tlsSigningFile := path.Join(LocalCertDir.Get(), ca.TLSSecretCACertFile)
 
 	// looking for tls file format (tls.crt)
@@ -254,7 +255,7 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 	// load crl file if it exists
 	crlFilePath := path.Join(LocalCertDir.Get(), ca.CACRLFile)
 	if _, err := os.Stat(crlFilePath); err == nil {
-		log.Info("Detected CRL file change")
+		log.Info("Detected CRL file")
 		signingCAFileBundle.CRLFile = crlFilePath
 	}
 
@@ -320,6 +321,9 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 // newly introduced cacerts are intermediate CA which is generated
 // from current root-cert.pem. Then it updates and keycertbundle
 // and generates new dns certs.
+// similarly, if crl file is created/modified,
+// it updates the crl file in keycertbundle and notifies the watcher
+// to replicate the new crl data.
 func handleEvent(s *Server) {
 	log.Info("Update Istiod cacerts")
 
@@ -327,19 +331,20 @@ func handleEvent(s *Server) {
 	var err error
 	var updateRootCA, updateCRL bool
 
-	fileBundle, err := detectSigningCABundle()
+	fileBundle, err := detectSigningCABundleAndCRL()
 	if err != nil {
 		log.Errorf("unable to determine signing file format %v", err)
 		return
 	}
 
 	// check if CA bundle is updated
-	currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 	newCABundle, err = os.ReadFile(fileBundle.RootCertFile)
 	if err != nil {
 		log.Errorf("failed reading root-cert.pem: %v", err)
 		return
 	}
+
+	currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 
 	// Only updating intermediate CA is supported now
 	if !bytes.Equal(currentCABundle, newCABundle) {
@@ -398,7 +403,7 @@ func handleEvent(s *Server) {
 		caserver.RecordCertsExpiry(s.CA.GetCAKeyCertBundle())
 	}
 
-	// notify watcher to replicate new crl data
+	// notify watcher to replicate new or updated crl data
 	if updateCRL {
 		s.istiodCertBundleWatcher.SetAndNotify(nil, nil, nil, s.CA.GetCAKeyCertBundle().GetCRLPem())
 		log.Infof("Istiod has detected the newly added CRL file and updated its CRL accordingly")
@@ -457,10 +462,10 @@ func (s *Server) addCACertsFileWatcher(dir string) error {
 	return nil
 }
 
-// initCACertsWatcher initializes the cacerts (/etc/cacerts) directory.
-// In particular it monitors 'ca-key.pem', 'ca-cert.pem', 'root-cert.pem'
-// and 'cert-chain.pem'.
-func (s *Server) initCACertsWatcher() {
+// initCACertsAndCRLWatcher initializes the cacerts (/etc/cacerts) directory.
+// In particular, it monitors 'ca-key.pem', 'ca-cert.pem', 'root-cert.pem',
+// 'cert-chain.pem' and 'ca-crl.pem'.
+func (s *Server) initCACertsAndCRLWatcher() {
 	var err error
 
 	s.cacertsWatcher, err = fsnotify.NewWatcher()
@@ -489,7 +494,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	var istioGenerated bool
 	var err error
 
-	fileBundle, err := detectSigningCABundle()
+	fileBundle, err := detectSigningCABundleAndCRL()
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine signing file format %v", err)
 	}
@@ -554,7 +559,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			s.istiodCertBundleWatcher.SetAndNotify(nil, nil, nil, crlBytes)
 		}
 
-		s.initCACertsWatcher()
+		s.initCACertsAndCRLWatcher()
 	}
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
