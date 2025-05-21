@@ -63,7 +63,7 @@ func (w *Watcher) RemoveWatcher(id int32) {
 	delete(w.watchers, id)
 }
 
-// SetAndNotify sets the key, cert, root cert, crl and notify the watchers.
+// SetAndNotify sets the key, cert, root cert, crl and notifies the watchers.
 func (w *Watcher) SetAndNotify(key, cert, caBundle, crl []byte) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
