@@ -11,7 +11,7 @@ spec:
   template:
     metadata:
       annotations:
-        inject.istio.io/templates: gateway
+        inject.istio.io/templates: gateway,spire
         istio.io/rev: default
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
@@ -118,6 +118,7 @@ spec:
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket
+          readOnly: true
         - mountPath: /var/run/secrets/credential-uds
           name: credential-socket
         - mountPath: /var/run/secrets/workload-spiffe-credentials
@@ -137,7 +138,10 @@ spec:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
       volumes:
-      - name: workload-socket
+      - csi:
+          driver: csi.spiffe.io
+          readOnly: true
+        name: workload-socket
       - emptyDir: {}
         name: credential-socket
       - emptyDir: {}
