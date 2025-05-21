@@ -108,6 +108,7 @@ type SidecarTemplateData struct {
 	MeshConfig               *meshconfig.MeshConfig
 	Values                   map[string]any
 	Revision                 string
+	NativeSidecars           bool
 	ProxyImage               string
 	ProxyUID                 int64
 	ProxyGID                 int64
@@ -438,6 +439,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		Values:                   params.valuesConfig.asMap,
 		Revision:                 params.revision,
 		ProxyImage:               ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		NativeSidecars:           params.nativeSidecar,
 		ProxyUID:                 proxyUID,
 		ProxyGID:                 proxyGID,
 		InboundTrafficPolicyMode: InboundTrafficPolicyMode(meshConfig),
@@ -470,7 +472,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		// So if we see the proxy container in `containers` in the original pod, and in `initContainers` in the template pod,
 		// move the container.
 		// The sidecar.istio.io/nativeSidecar annotation takes precedence over the global feature flag.
-		native := features.EnableNativeSidecars.Get()
+		native := params.nativeSidecar
 		if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "true" {
 			native = true
 		} else if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "false" {
@@ -812,6 +814,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			meshConfig:          meshconfig,
 			proxyConfig:         meshconfig.GetDefaultConfig(),
 			valuesConfig:        valuesConfig,
+			nativeSidecar:       features.EnableNativeSidecars.Get(),
 			revision:            revision,
 			proxyEnvs:           map[string]string{},
 			injectedAnnotations: nil,
