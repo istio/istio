@@ -439,6 +439,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 
 		KubeVersion:               kube.GetVersionAsInt(d.client),
 		Revision:                  d.revision,
+		NativeSidecars:            features.EnableNativeSidecars.Get(),
 		ServiceType:               serviceType,
 		ProxyUID:                  proxyUID,
 		ProxyGID:                  proxyGID,
@@ -868,6 +869,7 @@ type TemplateInput struct {
 	ClusterID                 string
 	KubeVersion               int
 	Revision                  string
+	NativeSidecars            bool
 	ProxyUID                  int64
 	ProxyGID                  int64
 	CompliancePolicy          string
