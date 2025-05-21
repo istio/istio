@@ -607,6 +607,10 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 		args.AppendSet("components.cni.enabled", "true")
 	}
 
+	if cfg.TrustedZtunnelNamespace != "" {
+		args.AppendSet("values.pilot.trustedZtunnelNamespace", cfg.TrustedZtunnelNamespace)
+	}
+
 	if len(ctx.Settings().IPFamilies) > 1 {
 		args.AppendSet("values.pilot.env.ISTIO_DUAL_STACK", "true")
 		args.AppendSet("values.pilot.ipFamilyPolicy", string(corev1.IPFamilyPolicyRequireDualStack))
