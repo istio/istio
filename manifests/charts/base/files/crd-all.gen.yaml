@@ -16038,8 +16038,6 @@ spec:
                       x-kubernetes-validations:
                       - message: must be a valid duration greater than 1ms
                         rule: duration(self) >= duration('1ms')
-                  required:
-                  - issuer
                   type: object
                   x-kubernetes-validations:
                   - message: only one of jwks or jwksUri can be set
@@ -16321,8 +16319,6 @@ spec:
                       x-kubernetes-validations:
                       - message: must be a valid duration greater than 1ms
                         rule: duration(self) >= duration('1ms')
-                  required:
-                  - issuer
                   type: object
                   x-kubernetes-validations:
                   - message: only one of jwks or jwksUri can be set
