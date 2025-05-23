@@ -147,7 +147,7 @@ func TestBuildRemoteClustersCollection(t *testing.T) {
 				return builderClient, nil
 			}
 			tt.options.ClientBuilder = builder
-			a := newAmbientTestServerFromOptions(t, testNW, tt.options)
+			a := newAmbientTestServerFromOptions(t, testNW, tt.options, true)
 
 			assert.Equal(t, a.remoteClusters.WaitUntilSynced(opts.Stop()), true)
 
@@ -192,7 +192,7 @@ func TestKubeConfigOverride(t *testing.T) {
 		},
 	}
 	t.Cleanup(options.Client.Shutdown)
-	a := newAmbientTestServerFromOptions(t, testNW, options)
+	a := newAmbientTestServerFromOptions(t, testNW, options, false)
 	a.clientBuilder = builder
 	clusters := a.remoteClusters
 
@@ -212,7 +212,7 @@ func TestKubeConfigOverride(t *testing.T) {
 	})
 }
 
-func TestingBuildClientsFromConfig(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+func testingBuildClientsFromConfig(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 	return kube.NewFakeClient(), nil
 }
 
@@ -225,7 +225,7 @@ type testController struct {
 	mesh    meshwatcher.WatcherCollection
 }
 
-func buildTestController(t *testing.T) testController {
+func buildTestControllerBase(t *testing.T, startClient bool) testController {
 	tc := testController{
 		client: kube.NewFakeClient(),
 		t:      t,
@@ -237,14 +237,18 @@ func buildTestController(t *testing.T) testController {
 		SystemNamespace: "istio-system",
 		DomainSuffix:    "company.com",
 		MeshConfig:      watcher,
-		ClientBuilder:   TestingBuildClientsFromConfig,
+		ClientBuilder:   testingBuildClientsFromConfig,
 	}
 	t.Cleanup(options.Client.Shutdown)
-	a := newAmbientTestServerFromOptions(t, testNW, options)
+	a := newAmbientTestServerFromOptions(t, testNW, options, startClient)
 	tc.clusters = a.remoteClusters
 	tc.mesh = watcher
 	tc.secrets = a.sec
 	return tc
+}
+
+func buildTestController(t *testing.T) testController {
+	return buildTestControllerBase(t, true)
 }
 
 var kubeconfig = 0
@@ -289,7 +293,8 @@ func TestListRemoteClusters(t *testing.T) {
 func TestShutdown(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	stop := make(chan struct{}) // Don't use test stop because we manually close it
-	tc := buildTestController(t)
+	tc := buildTestControllerBase(t, false)
+	tc.client.RunAndWait(stop)
 	tc.AddSecret("s0", "c0")
 	tc.AddSecret("s1", "c1")
 	retry.UntilOrFail(t, tc.clusters.HasSynced, retry.Timeout(2*time.Second))
@@ -371,7 +376,7 @@ func TestObjectFilter(t *testing.T) {
 			return clientWithNamespace(), nil
 		},
 	}
-	a := newAmbientTestServerFromOptions(t, testNW, options)
+	a := newAmbientTestServerFromOptions(t, testNW, options, true)
 
 	tc.clusters = a.remoteClusters
 	tc.mesh = mesh
@@ -464,7 +469,7 @@ func TestSeamlessMigration(t *testing.T) {
 	}
 	t.Cleanup(options.Client.Shutdown)
 
-	a := newAmbientTestServerFromOptions(t, testNW, options)
+	a := newAmbientTestServerFromOptions(t, testNW, options, true)
 	tc.clusters = a.remoteClusters
 	tc.mesh = watcher
 	tc.secrets = a.sec
@@ -658,7 +663,7 @@ func TestSecretController(t *testing.T) {
 	}
 	t.Cleanup(options.Client.Shutdown)
 
-	a := newAmbientTestServerFromOptions(t, testNW, options)
+	a := newAmbientTestServerFromOptions(t, testNW, options, false)
 	tc.clusters = a.remoteClusters
 	tc.mesh = watcher
 	tc.secrets = a.sec

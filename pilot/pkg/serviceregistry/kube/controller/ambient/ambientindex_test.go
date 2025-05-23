@@ -2043,7 +2043,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	})
 }
 
-func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options) *ambientTestServer {
+func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options, runClient bool) *ambientTestServer {
 	if options.Client == nil {
 		c := kubeclient.NewFakeClient()
 		// only cleanup when we create a new client
@@ -2088,7 +2088,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	}
 
 	if options.ClientBuilder == nil && features.EnableAmbientMultiNetwork {
-		options.ClientBuilder = TestingBuildClientsFromConfig
+		options.ClientBuilder = testingBuildClientsFromConfig
 	}
 
 	// The index is always for the config cluster
@@ -2153,7 +2153,7 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 	t.Cleanup(cl.Shutdown)
 	var clientBuilder multicluster.ClientBuilder
 	if features.EnableAmbientMultiNetwork {
-		clientBuilder = TestingBuildClientsFromConfig
+		clientBuilder = testingBuildClientsFromConfig
 	}
 
 	debugger := krt.GlobalDebugHandler
@@ -2170,7 +2170,7 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		ClientBuilder:   clientBuilder,
 	}
 
-	return newAmbientTestServerFromOptions(t, networkID, o)
+	return newAmbientTestServerFromOptions(t, networkID, o, true)
 }
 
 func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
