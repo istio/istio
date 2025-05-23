@@ -289,17 +289,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			SystemNamespace: options.SystemNamespace,
 			DomainSuffix:    options.DomainSuffix,
 			ClusterID:       options.ClusterID,
+			IsConfigCluster: options.ConfigCluster,
 			Revision:        options.Revision,
 			XDSUpdater:      options.XDSUpdater,
 			MeshConfig:      options.MeshWatcher,
-			LookupNetwork:   c.Network,
-			LookupNetworkGateways: func() []model.NetworkGateway {
-				return slices.Filter(c.NetworkGateways(), func(g model.NetworkGateway) bool {
-					return g.HBONEPort != 0
-				})
-			},
-			StatusNotifier: options.StatusWritingEnabled,
-			Debugger:       options.KrtDebugger,
+			StatusNotifier:  options.StatusWritingEnabled,
+			Debugger:        options.KrtDebugger,
 			Flags: ambient.FeatureFlags{
 				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
