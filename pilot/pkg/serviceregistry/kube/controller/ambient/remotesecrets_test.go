@@ -172,7 +172,6 @@ func TestKubeConfigOverride(t *testing.T) {
 	)
 	fakeRestConfig := &rest.Config{}
 	client := kube.NewFakeClient()
-	stopCh := test.NewStop(t)
 	opts := krt.NewOptionsBuilder(test.NewStop(t), "test", krt.GlobalDebugHandler)
 	builder := func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		for _, override := range configOverrides {
@@ -191,12 +190,11 @@ func TestKubeConfigOverride(t *testing.T) {
 			},
 		},
 	}
-	t.Cleanup(options.Client.Shutdown)
-	a := newAmbientTestServerFromOptions(t, testNW, options, false)
+
+	a := newAmbientTestServerFromOptions(t, testNW, options, true)
 	a.clientBuilder = builder
 	clusters := a.remoteClusters
 
-	client.RunAndWait(stopCh)
 	assert.Equal(t, clusters.WaitUntilSynced(opts.Stop()), true)
 	secret0 := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0-0")})
 	secrets := a.sec
@@ -328,7 +326,6 @@ func TestShutdown(t *testing.T) {
 // This ensures we do not load everything, then later filter it out.
 func TestObjectFilter(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-	stop := test.NewStop(t)
 	clientWithNamespace := func() kube.Client {
 		return kube.NewFakeClient(
 			&corev1.Namespace{
@@ -363,6 +360,8 @@ func TestObjectFilter(t *testing.T) {
 	clusterID := cluster.ID("config")
 	// For primary cluster, we need to set it up ourselves.
 	namespaces := kclient.New[*corev1.Namespace](tc.client)
+	t.Cleanup(tc.client.Shutdown) // Executed last on the cleanup stack
+	stop := test.NewStop(t)       // stop is closed as the first item on the cleanup stack
 	filter := namespace.NewDiscoveryNamespacesFilter(namespaces, mesh, stop)
 	tc.client = kube.SetObjectFilter(tc.client, filter)
 	tc.secrets = clienttest.NewWriter[*corev1.Secret](t, tc.client)
@@ -376,7 +375,8 @@ func TestObjectFilter(t *testing.T) {
 			return clientWithNamespace(), nil
 		},
 	}
-	a := newAmbientTestServerFromOptions(t, testNW, options, true)
+	a := newAmbientTestServerFromOptions(t, testNW, options, false)
+	options.Client.RunAndWait(stop)
 
 	tc.clusters = a.remoteClusters
 	tc.mesh = mesh
@@ -647,7 +647,6 @@ func TestSecretController(t *testing.T) {
 		},
 	}
 
-	stopCh := test.NewStop(t)
 	watcher := meshwatcher.NewTestWatcher(nil)
 	tc := testController{
 		client: client,
@@ -662,6 +661,8 @@ func TestSecretController(t *testing.T) {
 		MeshConfig:      watcher,
 	}
 	t.Cleanup(options.Client.Shutdown)
+	// The creation of the stop has to be after the cleanup is registered because cleanup is LIFO
+	stopCh := test.NewStop(t)
 
 	a := newAmbientTestServerFromOptions(t, testNW, options, false)
 	tc.clusters = a.remoteClusters

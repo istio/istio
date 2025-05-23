@@ -2045,12 +2045,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 
 func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options, runClient bool) *ambientTestServer {
 	if options.Client == nil {
-		c := kubeclient.NewFakeClient()
-		// only cleanup when we create a new client
-		// Certain tests will hang forever if we execute this
-		// (e.g. TestObjectFilter)
-		t.Cleanup(c.Shutdown)
-		options.Client = c
+		options.Client = kubeclient.NewFakeClient()
 	}
 	cl := options.Client
 	for _, crd := range []schema.GroupVersionResource{
@@ -2142,7 +2137,11 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 		},
 	})
 
-	cl.RunAndWait(test.NewStop(t))
+	if runClient {
+		// We can run this cleanup safely because the stop will be closed before we wait for informers
+		t.Cleanup(cl.Shutdown)
+		cl.RunAndWait(test.NewStop(t))
+	}
 	return a
 }
 
