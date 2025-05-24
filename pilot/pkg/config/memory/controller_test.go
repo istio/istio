@@ -29,28 +29,24 @@ const (
 )
 
 func TestControllerEvents(t *testing.T) {
-	store := memory.Make(collections.Mocks)
-	ctl := memory.NewController(store)
+	ctl := memory.NewController(collections.Mocks)
 	// Note that the operations must go through the controller since the store does not trigger back events
 	mock.CheckCacheEvents(ctl, ctl, TestNamespace, 5, t)
 }
 
 func TestControllerCacheFreshness(t *testing.T) {
-	store := memory.Make(collections.Mocks)
-	ctl := memory.NewController(store)
+	ctl := memory.NewController(collections.Mocks)
 	mock.CheckCacheFreshness(ctl, TestNamespace, t)
 }
 
 func TestControllerClientSync(t *testing.T) {
-	store := memory.Make(collections.Mocks)
-	ctl := memory.NewController(store)
-	mock.CheckCacheSync(store, ctl, TestNamespace, 5, t)
+	ctl := memory.NewController(collections.Mocks)
+	mock.CheckCacheSync(ctl, ctl, TestNamespace, 5, t)
 }
 
 func TestControllerHashSynced(t *testing.T) {
-	store := memory.Make(collections.Mocks)
 	var v int32
-	ctl := memory.NewController(store)
+	ctl := memory.NewController(collections.Mocks)
 
 	ctl.RegisterHasSyncedHandler(func() bool {
 		return atomic.LoadInt32(&v) > 0

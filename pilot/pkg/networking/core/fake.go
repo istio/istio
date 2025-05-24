@@ -32,6 +32,7 @@ import (
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -43,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
@@ -72,7 +74,7 @@ type TestOptions struct {
 	ServiceRegistries []serviceregistry.Instance
 
 	// Base ConfigController to use. If not set, a in-memory store will be used
-	ConfigController model.ConfigStoreController
+	ConfigController *memory.Controller
 
 	// Additional ConfigStoreController to use
 	ConfigStoreCaches []model.ConfigStoreController
@@ -106,7 +108,8 @@ func (to TestOptions) FuzzValidate() bool {
 
 type ConfigGenTest struct {
 	t                    test.Failer
-	store                model.ConfigStoreController
+	store                *memory.Controller
+	aggregateStore       model.ConfigStoreController
 	env                  *model.Environment
 	ConfigGen            *ConfigGeneratorImpl
 	MemRegistry          *memregistry.ServiceDiscovery
@@ -122,7 +125,14 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	configs := getConfigs(t, opts)
 	cc := opts.ConfigController
 	if cc == nil {
-		cc = memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
+		cc = memory.NewControllerOptions(
+			collections.PilotGatewayAPI(),
+			memory.Options{
+				Sync:           true,
+				SkipValidation: true,
+				KrtDebugger:    krt.GlobalDebugHandler,
+			},
+		)
 	}
 	controllers := []model.ConfigStoreController{cc}
 	if opts.CreateConfigStore != nil {
@@ -130,7 +140,6 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 	controllers = append(controllers, opts.ConfigStoreCaches...)
 	configController, _ := configaggregate.MakeWriteableCache(controllers, cc)
-
 	m := opts.MeshConfig
 	if m == nil {
 		m = mesh.DefaultMeshConfig()
@@ -142,6 +151,17 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
 		xdsUpdater = model.NewEndpointIndexUpdater(env.EndpointIndex)
+	}
+
+	if features.EnableVirtualServiceController {
+		configController = model.NewVirtualServiceController(
+			configController,
+			model.VSControllerOptions{
+				KrtDebugger: krt.GlobalDebugHandler,
+				XDSUpdater:  xdsUpdater,
+			},
+			env.Watcher,
+		)
 	}
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
@@ -178,7 +198,8 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 
 	fake := &ConfigGenTest{
 		t:                    t,
-		store:                configController,
+		store:                cc,
+		aggregateStore:       configController,
 		env:                  env,
 		initialConfigs:       configs,
 		stop:                 test.NewStop(t),
@@ -200,17 +221,18 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 
 func (f *ConfigGenTest) Run() {
 	go f.Registry.Run(f.stop)
-	go f.store.Run(f.stop)
+	go f.aggregateStore.Run(f.stop)
 	// Setup configuration. This should be done after registries are added so they can process events.
 	for _, cfg := range f.initialConfigs {
-		if _, err := f.store.Create(cfg); err != nil {
+		if _, err := f.aggregateStore.Create(cfg); err != nil {
 			f.t.Fatalf("failed to create config %v: %v", cfg.Name, err)
 		}
 	}
+	f.store.MarkSynced()
 
 	// TODO allow passing event handlers for controller
 
-	retry.UntilOrFail(f.t, f.store.HasSynced, retry.Delay(time.Millisecond))
+	retry.UntilOrFail(f.t, f.aggregateStore.HasSynced, retry.Delay(time.Millisecond))
 	retry.UntilOrFail(f.t, f.Registry.HasSynced, retry.Delay(time.Millisecond))
 
 	f.ServiceEntryRegistry.ResyncEDS()
