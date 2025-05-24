@@ -1,0 +1,37 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: parent-gateway
+  namespace: istio-system
+spec:
+  allowedListeners:
+    namespaces:
+      from: All
+  addresses:
+    - value: istio-ingressgateway
+      type: Hostname
+  gatewayClassName: istio
+  listeners: []
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: single-entry-http
+  namespace: istio-system
+spec:
+  parentRef:
+    name: parent-gateway
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: first
+      hostname: first.foo.com
+      protocol: HTTP
+      port: 80

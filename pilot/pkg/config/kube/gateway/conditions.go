@@ -20,11 +20,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -319,13 +319,13 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	return existingConditions
 }
 
-func reportListenerCondition(index int, l k8s.Listener, obj *k8sbeta.Gateway,
-	gs *k8sbeta.GatewayStatus, conditions map[string]*condition,
-) {
-	for index >= len(gs.Listeners) {
-		gs.Listeners = append(gs.Listeners, k8s.ListenerStatus{})
+func reportListenerCondition(index int, l k8s.Listener, obj controllers.Object,
+	statusListeners []k8s.ListenerStatus, conditions map[string]*condition,
+) []k8s.ListenerStatus {
+	for index >= len(statusListeners) {
+		statusListeners = append(statusListeners, k8s.ListenerStatus{})
 	}
-	cond := gs.Listeners[index].Conditions
+	cond := statusListeners[index].Conditions
 	supported, valid := generateSupportedKinds(l)
 	if !valid {
 		conditions[string(k8s.ListenerConditionResolvedRefs)] = &condition{
@@ -334,12 +334,13 @@ func reportListenerCondition(index int, l k8s.Listener, obj *k8sbeta.Gateway,
 			message: "Invalid route kinds",
 		}
 	}
-	gs.Listeners[index] = k8s.ListenerStatus{
+	statusListeners[index] = k8s.ListenerStatus{
 		Name:           l.Name,
 		AttachedRoutes: 0, // this will be reported later
 		SupportedKinds: supported,
-		Conditions:     setConditions(obj.Generation, cond, conditions),
+		Conditions:     setConditions(obj.GetGeneration(), cond, conditions),
 	}
+	return statusListeners
 }
 
 func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
