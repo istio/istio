@@ -394,7 +394,6 @@ func MergedGlobalWorkloadsCollection(
 			}
 
 			// Now we create everything anew
-
 			nodes := krt.MapCollection(clusteredNodes, unwrapObjectWithCluster, opts.WithName(fmt.Sprintf("NodeLocality[%s]", c.ID))...)
 
 			globalWorkloadServicesWithCluster := *workloadServicesPtr
