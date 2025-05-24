@@ -555,6 +555,41 @@ typedConfig:
                       presentMatch: true
             - orIds:
                 ids:
+                - header:
+                    name: X-inline-header
+                    safeRegexMatch:
+                      regex: ^header$|^header,.*|.*,header,.*|.*,header$
+                - header:
+                    name: X-inline-header
+                    safeRegexMatch:
+                      regex: ^header-prefix-.*$|^header-prefix-.*,.*|.*,header-prefix-.*,.*|.*,header-prefix-.*$
+                - header:
+                    name: X-inline-header
+                    safeRegexMatch:
+                      regex: ^.*-suffix-header$|^.*-suffix-header,.*|.*,.*-suffix-header,.*|.*,.*-suffix-header$
+                - header:
+                    name: X-inline-header
+                    presentMatch: true
+            - notId:
+                orIds:
+                  ids:
+                  - header:
+                      name: X-inline-header
+                      safeRegexMatch:
+                        regex: ^not-header$|^not-header,.*|.*,not-header,.*|.*,not-header$
+                  - header:
+                      name: X-inline-header
+                      safeRegexMatch:
+                        regex: ^not-header-prefix-.*$|^not-header-prefix-.*,.*|.*,not-header-prefix-.*,.*|.*,not-header-prefix-.*$
+                  - header:
+                      name: X-inline-header
+                      safeRegexMatch:
+                        regex: ^.*-not-suffix-header$|^.*-not-suffix-header,.*|.*,.*-not-suffix-header,.*|.*,.*-not-suffix-header$
+                  - header:
+                      name: X-inline-header
+                      presentMatch: true
+            - orIds:
+                ids:
                 - directRemoteIp:
                     addressPrefix: 10.10.10.10
                     prefixLen: 32

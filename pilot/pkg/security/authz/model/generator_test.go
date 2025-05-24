@@ -378,6 +378,17 @@ func TestGenerator(t *testing.T) {
             exact: foo`),
 		},
 		{
+			name:  "requestInlineHeaderGenerator",
+			g:     requestInlineHeaderGenerator{},
+			key:   "request.experimental.inline.headers[x-foo]",
+			value: "foo",
+			want: yamlPrincipal(t, `
+         header:
+          name: x-foo
+          safeRegexMatch:
+            regex: ^foo$|^foo,.*|.*,foo,.*|.*,foo$`),
+		},
+		{
 			name:  "hostGenerator",
 			g:     hostGenerator{},
 			value: "foo",
