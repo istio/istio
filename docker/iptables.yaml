@@ -9,6 +9,7 @@ contents:
     - glibc
     - iptables
     - ip6tables
+    - nftables
     - libnetfilter_conntrack
     - libnfnetlink
     - libmnl
