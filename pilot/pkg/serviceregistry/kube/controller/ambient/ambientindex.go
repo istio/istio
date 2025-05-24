@@ -255,7 +255,7 @@ func New(options Options) Index {
 			a.remoteClientConfigOverrides...,
 		)
 
-		// TODO: return a here once we've built out all of the global collections
+		return a
 	}
 
 	Networks := buildNetworkCollections(Namespaces, Gateways, options, opts)
