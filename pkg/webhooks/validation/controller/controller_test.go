@@ -155,7 +155,7 @@ func createTestController(t *testing.T) (*Controller, *atomic.Pointer[error]) {
 	revision := "default"
 	ns := "default"
 	watcher := keycertbundle.NewWatcher()
-	watcher.SetAndNotify(nil, nil, caBundle0)
+	watcher.SetAndNotify(nil, nil, caBundle0, nil)
 	control := newController(Options{
 		WatchedNamespace: ns,
 		CABundleWatcher:  watcher,
@@ -176,7 +176,7 @@ func unstartedTestController(c kube.Client) *Controller {
 	revision := "default"
 	ns := "default"
 	watcher := keycertbundle.NewWatcher()
-	watcher.SetAndNotify(nil, nil, caBundle0)
+	watcher.SetAndNotify(nil, nil, caBundle0, nil)
 	control := newController(Options{
 		WatchedNamespace: ns,
 		CABundleWatcher:  watcher,
@@ -292,7 +292,7 @@ func TestCABundleChange(t *testing.T) {
 		LongRetry,
 	)
 
-	c.o.CABundleWatcher.SetAndNotify(nil, nil, caBundle1)
+	c.o.CABundleWatcher.SetAndNotify(nil, nil, caBundle1, nil)
 	webhookConfigAfterCAUpdate := webhookConfigWithCABundleFail.DeepCopyObject().(*admission.ValidatingWebhookConfiguration)
 	webhookConfigAfterCAUpdate.Webhooks[0].ClientConfig.CABundle = caBundle1
 	webhookConfigAfterCAUpdate.Webhooks[1].ClientConfig.CABundle = caBundle1
