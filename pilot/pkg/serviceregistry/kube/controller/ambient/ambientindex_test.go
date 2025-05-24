@@ -2032,12 +2032,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 
 func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options, runClient bool) *ambientTestServer {
 	if options.Client == nil {
-		c := kubeclient.NewFakeClient()
-		// only cleanup when we create a new client
-		// Certain tests will hang forever if we execute this
-		// (e.g. TestObjectFilter)
-		t.Cleanup(c.Shutdown)
-		options.Client = c
+		options.Client = kubeclient.NewFakeClient()
 	}
 	cl := options.Client
 	for _, crd := range []schema.GroupVersionResource{
@@ -2050,11 +2045,6 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	} {
 		clienttest.MakeCRD(t, cl, crd)
 	}
-
-	// The index is always for the config cluster
-	options.IsConfigCluster = true
-
-	idx := New(options)
 
 	// Don't auto-create feature flags here because we can't distinguish between
 	// the zero-value and some user set flags
@@ -2082,6 +2072,11 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	if options.ClientBuilder == nil && features.EnableAmbientMultiNetwork {
 		options.ClientBuilder = testingBuildClientsFromConfig
 	}
+
+	// The index is always for the config cluster
+	options.IsConfigCluster = true
+
+	idx := New(options)
 
 	dumpOnFailure(t, options.Debugger)
 	a := &ambientTestServer{

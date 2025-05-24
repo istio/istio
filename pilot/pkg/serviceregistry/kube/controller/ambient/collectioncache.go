@@ -70,7 +70,6 @@ func (c *collectionCacheByCluster[T]) Insert(collection krt.Collection[T]) bool 
 	}
 
 	c.collections[clusterID] = collection
-
 	return true
 }
 
