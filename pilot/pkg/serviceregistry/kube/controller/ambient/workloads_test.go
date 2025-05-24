@@ -1275,6 +1275,127 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			},
 		},
 		{
+			name: "we with target port name and port name",
+			inputs: []any{
+				model.ServiceInfo{
+					Source: model.TypedObject{Kind: kind.Service},
+					Service: &workloadapi.Service{
+
+						Name:      "svc",
+						Namespace: "ns",
+						Hostname:  "hostname",
+						Ports: []*workloadapi.Port{{
+							ServicePort: 80,
+						}},
+					},
+					PortNames: map[int32]model.ServicePortName{
+						80: model.ServicePortName{
+							TargetPortName: "http",
+							PortName:       "failure",
+						},
+					},
+					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+				},
+			},
+			we: &networkingclient.WorkloadEntry{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						"app": "foo",
+					},
+				},
+				Spec: networking.WorkloadEntry{
+					Address: "1.2.3.4",
+					Ports: map[string]uint32{
+						"http": 8080,
+					},
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0/networking.istio.io/WorkloadEntry/ns/name",
+				Name:              "name",
+				Namespace:         "ns",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "foo",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "name",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
+				Services: map[string]*workloadapi.PortList{
+					"ns/hostname": {
+						Ports: []*workloadapi.Port{{
+							ServicePort: 80,
+							TargetPort:  8080,
+						}},
+					},
+				},
+			},
+		},
+		{
+			name: "we with port name",
+			inputs: []any{
+				model.ServiceInfo{
+					Source: model.TypedObject{Kind: kind.Service},
+					Service: &workloadapi.Service{
+
+						Name:      "svc",
+						Namespace: "ns",
+						Hostname:  "hostname",
+						Ports: []*workloadapi.Port{{
+							ServicePort: 80,
+						}},
+					},
+					PortNames: map[int32]model.ServicePortName{
+						80: model.ServicePortName{
+							PortName: "http",
+						},
+					},
+					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+				},
+			},
+			we: &networkingclient.WorkloadEntry{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						"app": "foo",
+					},
+				},
+				Spec: networking.WorkloadEntry{
+					Address: "1.2.3.4",
+					Ports: map[string]uint32{
+						"http": 8080,
+					},
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0/networking.istio.io/WorkloadEntry/ns/name",
+				Name:              "name",
+				Namespace:         "ns",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "foo",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "name",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
+				Services: map[string]*workloadapi.PortList{
+					"ns/hostname": {
+						Ports: []*workloadapi.Port{{
+							ServicePort: 80,
+							TargetPort:  8080,
+						}},
+					},
+				},
+			},
+		},
+		{
 			name: "waypoint binding",
 			inputs: []any{
 				Waypoint{
