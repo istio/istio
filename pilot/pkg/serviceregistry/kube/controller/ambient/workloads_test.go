@@ -1289,9 +1289,9 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 						}},
 					},
 					PortNames: map[int32]model.ServicePortName{
-						80: model.ServicePortName{
+						80: {
 							TargetPortName: "http",
-							PortName:       "failure",
+							PortName:       "80",
 						},
 					},
 					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
@@ -1350,7 +1350,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 						}},
 					},
 					PortNames: map[int32]model.ServicePortName{
-						80: model.ServicePortName{
+						80: {
 							PortName: "http",
 						},
 					},
