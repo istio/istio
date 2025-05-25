@@ -1340,7 +1340,6 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 				model.ServiceInfo{
 					Source: model.TypedObject{Kind: kind.Service},
 					Service: &workloadapi.Service{
-
 						Name:      "svc",
 						Namespace: "ns",
 						Hostname:  "hostname",
