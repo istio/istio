@@ -705,14 +705,22 @@ func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, ser
 			// Named targetPort has different semantics from Service vs ServiceEntry
 			if svc.Source.Kind == kind.Service {
 				// Service has explicit named targetPorts.
-				if named, f := svc.PortNames[int32(port.ServicePort)]; f && named.TargetPortName != "" {
-					// This port is a named target port, look it up
-					tv, ok := p.Ports[named.TargetPortName]
-					if !ok {
-						// We needed an explicit port, but didn't find one - skip this port
-						continue
+				if named, f := svc.PortNames[int32(port.ServicePort)]; f {
+					// Target port name should be respected first. Otherwise, fallback to port name
+					portName := named.TargetPortName
+					if named.TargetPortName == "" {
+						portName = named.PortName
 					}
-					targetPort = tv
+
+					if portName != "" {
+						// This port is a named target port, look it up
+						tv, ok := p.Ports[portName]
+						if !ok {
+							// We needed an explicit port, but didn't find one - skip this port
+							continue
+						}
+						targetPort = tv
+					}
 				}
 			} else {
 				// ServiceEntry has no explicit named targetPorts; targetPort only allows a number
