@@ -81,6 +81,14 @@ func TestIsCatchAllRoute(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "catch all with empty match",
+			route: &route.Route{
+				Name:  "catch-all",
+				Match: &route.RouteMatch{},
+			},
+			want: true,
+		},
+		{
 			name: "catch all prefix with headers",
 			route: &route.Route{
 				Name: "catch-all",

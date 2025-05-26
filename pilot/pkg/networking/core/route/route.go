@@ -1580,6 +1580,9 @@ func IsCatchAllRoute(r *route.Route) bool {
 		catchall = ir.PathSeparatedPrefix == "/"
 	case *route.RouteMatch_SafeRegex:
 		catchall = ir.SafeRegex.GetRegex() == ".*"
+	case nil:
+		// If there is no path specified, it is a catchall route.
+		catchall = true
 	}
 
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
