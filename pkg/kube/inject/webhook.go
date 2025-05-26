@@ -217,7 +217,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		}
 	}
 
-	if features.EnableNativeSidecars.Get() {
+	if features.EnableNativeSidecars {
 		wh.nodes = multicluster.BuildMultiClusterKclientComponent[*corev1.Node](p.MultiCluster, kubetypes.Filter{})
 	}
 
@@ -284,26 +284,70 @@ func moveContainer(from, to []corev1.Container, name string) ([]corev1.Container
 	return from, to
 }
 
+// func modifyContainers(cl []corev1.Container, name string, modifier ContainerReorder) []corev1.Container {
+// 	containers := []corev1.Container{}
+// 	var match *corev1.Container
+// 	for _, c := range cl {
+// 		if c.Name != name {
+// 			containers = append(containers, c)
+// 		} else {
+// 			match = &c
+// 		}
+// 	}
+// 	if match == nil {
+// 		return containers
+// 	}
+// 	switch modifier {
+// 	case MoveFirst:
+// 		return append([]corev1.Container{*match}, containers...)
+// 	case MoveLast:
+// 		return append(containers, *match)
+// 	case Remove:
+// 		return containers
+// 	default:
+// 		return cl
+// 	}
+// }
+
 func modifyContainers(cl []corev1.Container, name string, modifier ContainerReorder) []corev1.Container {
-	containers := []corev1.Container{}
-	var match *corev1.Container
-	for _, c := range cl {
-		if c.Name != name {
-			containers = append(containers, c)
-		} else {
-			match = &c
+	if name == "" {
+		return cl
+	}
+
+	// Check if the container exists
+	var idx int = -1
+	for i, c := range cl {
+		if c.Name == name {
+			idx = i
+			break
 		}
 	}
-	if match == nil {
-		return containers
+
+	// If container not found, return the original list
+	if idx == -1 {
+		return cl
 	}
+
+	// Make a copy of the container we want to modify/move
+	// This ensures we keep a complete copy of the container with all fields
+	match := cl[idx]
+
+	// Create a new list without the target container
+	result := make([]corev1.Container, 0, len(cl))
+	for i, c := range cl {
+		if i != idx {
+			result = append(result, c)
+		}
+	}
+
+	// Apply the modification
 	switch modifier {
 	case MoveFirst:
-		return append([]corev1.Container{*match}, containers...)
+		return append([]corev1.Container{match}, result...)
 	case MoveLast:
-		return append(containers, *match)
+		return append(result, match)
 	case Remove:
-		return containers
+		return result
 	default:
 		return cl
 	}
@@ -1174,7 +1218,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		// application container's value. At the same time, if user explicitly configures a RunAsUser in the istio-proxy
 		// container which is different to the application container's value, that setting is still honored.
 		if sideCarProxy := FindSidecar(params.pod); sideCarProxy != nil && sideCarProxy.SecurityContext != nil {
-			if isSidecarUserMatchingAppUser(params.pod.Spec.Containers) {
+			if isSidecarUserMatchingAppUser(params.pod) {
 				log.Infof("Resetting the UserID of sideCar proxy as it matches with the app container for Pod %q", params.pod.Name)
 				sideCarProxy.SecurityContext.RunAsUser = nil
 				sideCarProxy.SecurityContext.RunAsGroup = nil
@@ -1185,7 +1229,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	var nodes kclient.Client[*corev1.Node]
 	if wh.nodes != nil {
 		nodes = wh.nodes.ForCluster(cluster.ID(clusterID))
-		if nodes != nil {
+		if nodes == nil {
 			log.Warnf("unable to fetch nodes, failed to get client for %q", clusterID)
 		}
 	}
@@ -1210,7 +1254,10 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	return &reviewResponse
 }
 
-func isSidecarUserMatchingAppUser(containers []corev1.Container) bool {
+func isSidecarUserMatchingAppUser(pod *corev1.Pod) bool {
+	containers := append([]corev1.Container{}, pod.Spec.Containers...)
+	containers = append(containers, pod.Spec.InitContainers...)
+
 	var sideCarUser, appUser int64
 	for i := range containers {
 		if containers[i].Name == ProxyContainerName {
@@ -1228,7 +1275,7 @@ func isSidecarUserMatchingAppUser(containers []corev1.Container) bool {
 }
 
 func detectNativeSidecar(nodes kclient.Client[*corev1.Node]) bool {
-	if !features.EnableNativeSidecars.Get() {
+	if !features.EnableNativeSidecars {
 		return false
 	}
 
@@ -1237,7 +1284,7 @@ func detectNativeSidecar(nodes kclient.Client[*corev1.Node]) bool {
 		return false
 	}
 
-	minVersion := 30
+	minVersion := 29
 	allNodesValid := false
 	for _, n := range nodes.List(metav1.NamespaceAll, klabels.Everything()) {
 		nodeKubeletVersion := n.Status.NodeInfo.KubeletVersion
