@@ -25,7 +25,7 @@ spec:
             FOO: bar
             ISTIO_META_TLS_CLIENT_KEY: /etc/identity2/client/keys/client-key.pem
         sidecar.istio.io/proxyCPU: 4000m
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
         traffic.sidecar.istio.io/excludeInboundPorts: 4,5,6
         traffic.sidecar.istio.io/excludeOutboundIPRanges: 10.96.0.2/24,10.96.0.3/24
         traffic.sidecar.istio.io/excludeOutboundPorts: 7,8,9
@@ -45,6 +45,51 @@ spec:
         - containerPort: 80
           name: http
         resources: {}
+      initContainers:
+      - args:
+        - istio-iptables
+        - -p
+        - "15001"
+        - -z
+        - "15006"
+        - -u
+        - "1337"
+        - -m
+        - REDIRECT
+        - -i
+        - 127.0.0.1/24,10.96.0.1/24
+        - -x
+        - 10.96.0.2/24,10.96.0.3/24
+        - -b
+        - 1,2,3
+        - -d
+        - 15090,15021,4,5,6,15020
+        - -o
+        - 7,8,9
+        - --log_output_level=default:info
+        env:
+        - name: FOO
+          value: bar
+        - name: ISTIO_META_TLS_CLIENT_KEY
+          value: /etc/identity2/client/keys/client-key.pem
+        image: gcr.io/istio-testing/proxyv2:latest
+        name: istio-init
+        resources:
+          requests:
+            cpu: "4"
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
       - args:
         - proxy
         - sidecar
@@ -124,6 +169,15 @@ spec:
         - name: ISTIO_META_TLS_CLIENT_KEY
           value: /etc/identity2/client/keys/client-key.pem
         image: gcr.io/istio-testing/proxyv2:latest
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - pilot-agent
+              - request
+              - --debug-port=15020
+              - POST
+              - drain
         name: istio-proxy
         ports:
         - containerPort: 15090
@@ -139,6 +193,7 @@ spec:
         resources:
           requests:
             cpu: "4"
+        restartPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -165,8 +220,6 @@ spec:
           name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
-        - mountPath: /var/run/secrets/istio/crl
-          name: istio-ca-crl
         - mountPath: /var/lib/istio/data
           name: istio-data
         - mountPath: /etc/istio/proxy
@@ -175,51 +228,6 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
-      initContainers:
-      - args:
-        - istio-iptables
-        - -p
-        - "15001"
-        - -z
-        - "15006"
-        - -u
-        - "1337"
-        - -m
-        - REDIRECT
-        - -i
-        - 127.0.0.1/24,10.96.0.1/24
-        - -x
-        - 10.96.0.2/24,10.96.0.3/24
-        - -b
-        - 1,2,3
-        - -d
-        - 15090,15021,4,5,6,15020
-        - -o
-        - 7,8,9
-        - --log_output_level=default:info
-        env:
-        - name: FOO
-          value: bar
-        - name: ISTIO_META_TLS_CLIENT_KEY
-          value: /etc/identity2/client/keys/client-key.pem
-        image: gcr.io/istio-testing/proxyv2:latest
-        name: istio-init
-        resources:
-          requests:
-            cpu: "4"
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
-            drop:
-            - ALL
-          privileged: false
-          readOnlyRootFilesystem: false
-          runAsGroup: 0
-          runAsNonRoot: false
-          runAsUser: 0
       volumes:
       - name: workload-socket
       - name: credential-socket
@@ -248,9 +256,5 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
-      - configMap:
-          name: istio-ca-crl
-          optional: true
-        name: istio-ca-crl
 status: {}
 ---

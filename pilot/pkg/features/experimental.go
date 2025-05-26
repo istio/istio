@@ -178,10 +178,6 @@ var (
 	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
 		"If true, Istio will enable the Dual Stack feature.").Get()
 
-	// This is used in injection templates, it is not unused.
-	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", true,
-		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
-
 	Enable100ContinueHeaders = env.Register("ENABLE_100_CONTINUE_HEADERS", true,
 		"If enabled, istiod will proxy 100-continue headers as is").Get()
 
