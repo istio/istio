@@ -193,7 +193,7 @@ type manyCollection[I, O any] struct {
 	// This can be acquired with blockNewEvents held, but only with strict ordering (mu inside blockNewEvents)
 	// mu protects all items grouped below.
 	// This is acquired for reads and writes of data.
-	mu              sync.Mutex
+	mu              sync.RWMutex
 	collectionState multiIndex[I, O]
 	dependencyState dependencyState[I]
 
@@ -225,8 +225,8 @@ type collectionIndex[I, O any] struct {
 }
 
 func (c collectionIndex[I, O]) Lookup(key string) []O {
-	c.parent.mu.Lock()
-	defer c.parent.mu.Unlock()
+	c.parent.mu.RLock()
+	defer c.parent.mu.RUnlock()
 	keys := c.index[key]
 
 	res := make([]O, 0, len(keys))
@@ -324,8 +324,8 @@ func (h *manyCollection[I, O]) WaitUntilSynced(stop <-chan struct{}) bool {
 
 // nolint: unused // (not true, its to implement an interface)
 func (h *manyCollection[I, O]) dump() CollectionDump {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 
 	inputs := make(map[string]InputDump, len(h.collectionState.inputs))
 	for k, v := range h.collectionState.mappings {
@@ -377,8 +377,8 @@ func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) in
 		index:   make(map[string]sets.Set[Key[O]]),
 		parent:  h,
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	for k, v := range h.collectionState.outputs {
 		idx.update(Event[O]{
 			Old:   nil,
@@ -696,8 +696,8 @@ func (h *manyCollection[I, O]) _internalHandler() {
 }
 
 func (h *manyCollection[I, O]) GetKey(k string) (res *O) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	rf, f := h.collectionState.outputs[Key[O](k)]
 	if f {
 		return &rf
@@ -706,8 +706,8 @@ func (h *manyCollection[I, O]) GetKey(k string) (res *O) {
 }
 
 func (h *manyCollection[I, O]) List() (res []O) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	return maps.Values(h.collectionState.outputs)
 }
 
@@ -724,8 +724,8 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingSt
 	// We should get "ADD initialObject1, ADD initialObjectN, UPDATE someLaterUpdate" without mixing the initial ADDs
 	// To do this we block any new event processing
 	// Get initial state
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 
 	events := make([]Event[O], 0, len(h.collectionState.outputs))
 	for _, o := range h.collectionState.outputs {
