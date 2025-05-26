@@ -284,70 +284,26 @@ func moveContainer(from, to []corev1.Container, name string) ([]corev1.Container
 	return from, to
 }
 
-// func modifyContainers(cl []corev1.Container, name string, modifier ContainerReorder) []corev1.Container {
-// 	containers := []corev1.Container{}
-// 	var match *corev1.Container
-// 	for _, c := range cl {
-// 		if c.Name != name {
-// 			containers = append(containers, c)
-// 		} else {
-// 			match = &c
-// 		}
-// 	}
-// 	if match == nil {
-// 		return containers
-// 	}
-// 	switch modifier {
-// 	case MoveFirst:
-// 		return append([]corev1.Container{*match}, containers...)
-// 	case MoveLast:
-// 		return append(containers, *match)
-// 	case Remove:
-// 		return containers
-// 	default:
-// 		return cl
-// 	}
-// }
-
 func modifyContainers(cl []corev1.Container, name string, modifier ContainerReorder) []corev1.Container {
-	if name == "" {
-		return cl
-	}
-
-	// Check if the container exists
-	var idx int = -1
-	for i, c := range cl {
-		if c.Name == name {
-			idx = i
-			break
+	containers := []corev1.Container{}
+	var match *corev1.Container
+	for _, c := range cl {
+		if c.Name != name {
+			containers = append(containers, c)
+		} else {
+			match = &c
 		}
 	}
-
-	// If container not found, return the original list
-	if idx == -1 {
-		return cl
+	if match == nil {
+		return containers
 	}
-
-	// Make a copy of the container we want to modify/move
-	// This ensures we keep a complete copy of the container with all fields
-	match := cl[idx]
-
-	// Create a new list without the target container
-	result := make([]corev1.Container, 0, len(cl))
-	for i, c := range cl {
-		if i != idx {
-			result = append(result, c)
-		}
-	}
-
-	// Apply the modification
 	switch modifier {
 	case MoveFirst:
-		return append([]corev1.Container{match}, result...)
+		return append([]corev1.Container{*match}, containers...)
 	case MoveLast:
-		return append(result, match)
+		return append(containers, *match)
 	case Remove:
-		return result
+		return containers
 	default:
 		return cl
 	}
