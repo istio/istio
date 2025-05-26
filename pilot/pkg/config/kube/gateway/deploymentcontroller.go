@@ -483,7 +483,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 
 		KubeVersion:               kube.GetVersionAsInt(d.client),
 		Revision:                  d.revision,
-		NativeSidecars:            features.EnableNativeSidecars.Get(),
+		NativeSidecars:            features.EnableNativeSidecars,
 		ServiceType:               serviceType,
 		ProxyUID:                  proxyUID,
 		ProxyGID:                  proxyGID,
