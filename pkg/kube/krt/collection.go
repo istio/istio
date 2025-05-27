@@ -191,12 +191,11 @@ type manyCollection[I, O any] struct {
 	// log is a logger for the collection, with additional labels already added to identify it.
 	log *istiolog.Scope
 	// This can be acquired with blockNewEvents held, but only with strict ordering (mu inside blockNewEvents)
-	// mu protects all items grouped below.
+	// mu protects all items grouped below(collectionState, dependencyState, indexes).
 	// This is acquired for reads and writes of data.
 	mu              sync.RWMutex
 	collectionState multiIndex[I, O]
 	dependencyState dependencyState[I]
-
 	// internal indexes
 	indexes map[string]collectionIndex[I, O]
 
@@ -368,6 +367,8 @@ func (h *manyCollection[I, O]) augment(a any) any {
 
 // nolint: unused // (not true)
 func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) indexer[O] {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	if idx, ok := h.indexes[name]; ok {
 		return idx
 	}
@@ -377,8 +378,6 @@ func (h *manyCollection[I, O]) index(name string, extract func(o O) []string) in
 		index:   make(map[string]sets.Set[Key[O]]),
 		parent:  h,
 	}
-	h.mu.RLock()
-	defer h.mu.RUnlock()
 	for k, v := range h.collectionState.outputs {
 		idx.update(Event[O]{
 			Old:   nil,
