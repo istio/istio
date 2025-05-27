@@ -215,8 +215,6 @@ type Controller struct {
 
 	*networkManager
 
-	ambientIndex
-
 	// initialSyncTimedout is set to true after performing an initial processing timed out.
 	initialSyncTimedout *atomic.Bool
 	meshWatcher         mesh.Watcher

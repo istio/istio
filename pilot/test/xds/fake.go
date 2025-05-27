@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pilot/pkg/xds"
@@ -127,14 +128,18 @@ type FakeDiscoveryServer struct {
 	MemRegistry    *memregistry.ServiceDiscovery
 }
 
-func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
+func NewFakeAmbientDiscoveryServer(t test.Failer, opts FakeOptions) (*FakeDiscoveryServer, ambient.Index) {
 	m := opts.MeshConfig
 	if m == nil {
 		m = mesh.DefaultMeshConfig()
 	}
 
+	e := model.NewEnvironment()
+	if !features.EnableAmbient {
+		e.AmbientIndexes = &model.NoopAmbientIndexes{}
+	}
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := xds.NewDiscoveryServer(model.NewEnvironment(), map[string]string{}, krt.GlobalDebugHandler)
+	s := xds.NewDiscoveryServer(e, map[string]string{}, krt.GlobalDebugHandler)
 	// Disable debounce to reduce test times
 	s.DebounceOptions.DebounceAfter = opts.DebounceTime
 	// Setup time to Now instead of process start to make logs not misleading
@@ -180,12 +185,13 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			return kubelib.NewFakeClientWithVersion(opts.KubernetesVersion, objects...)
 		}
 	}
+	var ambientIndex ambient.Index
 	for k8sCluster, objs := range k8sObjects {
 		client := clientBuilder(objs...)
 		if opts.KubeClientModifier != nil {
 			opts.KubeClientModifier(client)
 		}
-		k8s, _ := kube.NewFakeControllerWithOptions(t, kube.FakeControllerOptions{
+		k8s, _, idx := kube.NewAmbientFakeControllerWithOptions(t, kube.FakeControllerOptions{
 			ServiceHandler:  serviceHandler,
 			Client:          client,
 			ClusterID:       k8sCluster,
@@ -210,6 +216,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 				gvr.ServiceEntry,
 			},
 		})
+
+		if features.EnableAmbient && ambientIndex == nil {
+			ambientIndex = idx
+			e.AmbientIndexes = ambientIndex
+		}
 		stop := test.NewStop(t)
 		// start default client informers after creating ingress/secret controllers
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
@@ -370,6 +381,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		MemRegistry:    memRegistry,
 	}
 
+	return fake, ambientIndex
+}
+
+func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServer {
+	fake, _ := NewFakeAmbientDiscoveryServer(t, opts)
 	return fake
 }
 

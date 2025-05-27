@@ -258,7 +258,7 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 	systemNS := "istio-system"
 
 	networksWatcher := meshwatcher.NewFixedNetworksWatcher(nil)
-	s, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+	s, fx, idx := NewAmbientFakeControllerWithOptions(t, FakeControllerOptions{
 		SystemNamespace: systemNS,
 		NetworksWatcher: networksWatcher,
 	})
@@ -278,7 +278,7 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 			}
 			podNames := sets.New[string]("pod1", "pod2")
 			svcNames := sets.New[string]("svc1")
-			addresses := c.ambientIndex.All()
+			addresses := idx.All()
 			for _, addr := range addresses {
 				wl := addr.GetWorkload()
 				if wl != nil {
@@ -360,7 +360,7 @@ func TestAmbientSync(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	systemNS := "istio-system"
 	stop := test.NewStop(t)
-	s, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
+	s, _, idx := NewAmbientFakeControllerWithOptions(t, FakeControllerOptions{
 		SystemNamespace: systemNS,
 		NetworksWatcher: meshwatcher.NewFixedNetworksWatcher(nil),
 		SkipRun:         true,
@@ -368,7 +368,7 @@ func TestAmbientSync(t *testing.T) {
 		ConfigCluster:   true,
 	})
 	go s.Run(stop)
-	assert.EventuallyEqual(t, s.ambientIndex.HasSynced, true)
+	assert.EventuallyEqual(t, idx.HasSynced, true)
 
 	gtw := clienttest.NewWriter[*v1beta1.Gateway](t, s.client)
 
@@ -408,7 +408,7 @@ func TestAmbientSync(t *testing.T) {
 	}
 	gtw.Create(gateway)
 	assert.EventuallyEqual(t, func() int {
-		return len(s.ambientIndex.All())
+		return len(idx.All())
 	}, 1)
 }
 

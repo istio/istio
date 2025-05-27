@@ -21,8 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
@@ -63,7 +65,7 @@ type FakeController struct {
 	Endpoints *model.EndpointIndex
 }
 
-func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*FakeController, *xdsfake.Updater) {
+func NewAmbientFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*FakeController, *xdsfake.Updater, ambient.Index) {
 	xdsUpdater := opts.XDSUpdater
 	var endpoints *model.EndpointIndex
 	if xdsUpdater == nil {
@@ -111,6 +113,29 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		StatusWritingEnabled:  activenotifier.New(false),
 		KrtDebugger:           new(krt.DebugHandler),
 	}
+
+	var ambientIndexes ambient.Index
+	if features.EnableAmbient {
+		idx := ambient.New(ambient.Options{
+			Client:          opts.Client,
+			SystemNamespace: options.SystemNamespace,
+			DomainSuffix:    options.DomainSuffix,
+			ClusterID:       options.ClusterID,
+			Revision:        options.Revision,
+			XDSUpdater:      options.XDSUpdater,
+			MeshConfig:      options.MeshWatcher,
+			StatusNotifier:  options.StatusWritingEnabled,
+			Debugger:        options.KrtDebugger,
+			Flags: ambient.FeatureFlags{
+				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
+			},
+		})
+
+		ambientIndexes = idx
+
+		go idx.Run(stop)
+	}
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)
 
@@ -146,5 +171,10 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		kubelib.WaitForCacheSync("test", c.stop, c.HasSynced)
 	}
 
-	return &FakeController{Controller: c, Endpoints: endpoints}, fx
+	return &FakeController{Controller: c, Endpoints: endpoints}, fx, ambientIndexes
+}
+
+func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*FakeController, *xdsfake.Updater) {
+	fakeController, xDSUpdater, _ := NewAmbientFakeControllerWithOptions(t, opts)
+	return fakeController, xDSUpdater
 }

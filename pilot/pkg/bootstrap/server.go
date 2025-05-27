@@ -133,6 +133,8 @@ type Server struct {
 
 	metricsExporter http.Handler
 
+	additionalSyncFuncs []func() bool
+
 	// httpMux listens on the httpAddr (8080).
 	// If a Gateway is used in front and https is off it is also multiplexing
 	// the rest of the features if their port is empty.
@@ -329,7 +331,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 
 	if features.EnableAmbient {
-		e.AmbientIndexes = ambient.New(ambient.Options{
+		idx := ambient.New(ambient.Options{
 			Client:          s.kubeClient,
 			SystemNamespace: args.RegistryOptions.KubeOptions.SystemNamespace,
 			DomainSuffix:    e.DomainSuffix,
@@ -344,6 +346,14 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 			},
 		})
+
+		e.AmbientIndexes = idx
+
+		go idx.Run(s.internalStop)
+
+		s.additionalSyncFuncs = append(s.additionalSyncFuncs, idx.HasSynced)
+	} else {
+		e.AmbientIndexes = &model.NoopAmbientIndexes{}
 	}
 
 	InitGenerators(s.XDSServer, configGen, args.Namespace, s.clusterID, s.internalDebugMux)
@@ -899,6 +909,13 @@ func (s *Server) cachesSynced() bool {
 	if !s.configController.HasSynced() {
 		return false
 	}
+
+	for _, fn := range s.additionalSyncFuncs {
+		if !fn() {
+			return false
+		}
+	}
+
 	return true
 }
 

@@ -102,7 +102,7 @@ func buildExpectAddedAndRemoved(t *testing.T) func(resp *discovery.DeltaDiscover
 func TestWorkloadReconnect(t *testing.T) {
 	t.Run("ondemand", func(t *testing.T) {
 		expect := buildExpect(t)
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		s, idx := xds.NewFakeAmbientDiscoveryServer(t, xds.FakeOptions{
 			KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
 		})
 		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
@@ -123,7 +123,7 @@ func TestWorkloadReconnect(t *testing.T) {
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
 		// Wait for it to be ready
 		assert.EventuallyEqual(t, func() int {
-			return len(s.KubeRegistry.All())
+			return len(idx.All())
 		}, 2)
 
 		// Reconnect
@@ -139,7 +139,7 @@ func TestWorkloadReconnect(t *testing.T) {
 	})
 	t.Run("wildcard", func(t *testing.T) {
 		expect := buildExpect(t)
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		s, idx := xds.NewFakeAmbientDiscoveryServer(t, xds.FakeOptions{
 			KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
 		})
 		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
@@ -157,7 +157,7 @@ func TestWorkloadReconnect(t *testing.T) {
 		createPod(s, "pod2", "sa", "127.0.0.2", "node")
 		// Wait for it to be ready
 		assert.EventuallyEqual(t, func() int {
-			return len(s.KubeRegistry.All())
+			return len(idx.All())
 		}, 2)
 
 		// Reconnect
