@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+
+kind: feature
+area: installation
+issue:
+- 48794
+releaseNotes:
+- |
+   **Native sidecars are now enabled by default**. The environment variable `ENABLE_NATIVE_SIDECARS` is now set to `true` by default, which means native sidecars will be injected into all eligible pods unless explicitly disabled. 
+   Users can still disable native sidecars for specific workloads by adding the annotation `sidecar.istio.io/native-side: "false"` to individual pods or pod templates.
