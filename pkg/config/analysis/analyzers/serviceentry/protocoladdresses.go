@@ -53,6 +53,9 @@ func (serviceEntry *ProtocolAddressesAnalyzer) Analyze(context analysis.Context)
 		if v, ok := mc.DefaultConfig.ProxyMetadata["ISTIO_META_DNS_AUTO_ALLOCATE"]; ok && v == "true" {
 			autoAllocated = true
 		}
+		if v, ok := mc.DefaultConfig.ProxyMetadata["PILOT_ENABLE_IP_AUTOALLOCATE"]; ok && v == "true" {
+			autoAllocated = true
+		}
 		return true
 	})
 
