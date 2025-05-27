@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 56414
+releaseNotes:
+  - |
+    **Fixed**  existing iptables rules matched and handled targeted traffic before it reached Istio's rules.
+
+
