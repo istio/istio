@@ -35,7 +35,6 @@ import (
 
 	"istio.io/api/annotation"
 	meshapi "istio.io/api/mesh/v1alpha1"
-	meshconfig "istio.io/api/mesh/v1alpha1"
 	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pilot/pkg/features"
@@ -526,11 +525,6 @@ func TestInjection(t *testing.T) {
 			testName = fmt.Sprintf("[%02d] %s", i, c.in)
 		}
 		t.Run(testName, func(t *testing.T) {
-			defaultNativeSidecars := features.EnableNativeSidecars
-			t.Cleanup(func() {
-				features.EnableNativeSidecars = defaultNativeSidecars
-			})
-			features.EnableNativeSidecars = true
 			if c.setup != nil {
 				c.setup(t)
 			} else {
@@ -1318,9 +1312,8 @@ spec:
 `))
 
 	cases := []struct {
-		name        string
-		annotations map[string]string
-		//setup           func(t test.Failer)
+		name            string
+		annotations     map[string]string
 		nativeSidecar   bool
 		expectContainer string
 	}{
@@ -1380,7 +1373,7 @@ spec:
 				meshConfig:      meshConfig,
 				valuesConfig:    valuesConfig,
 				nativeSidecar:   tc.nativeSidecar,
-				proxyConfig:     &meshconfig.ProxyConfig{},
+				proxyConfig:     mesh.DefaultProxyConfig(),
 			}
 
 			mergedPod, _, err := RunTemplate(params)
