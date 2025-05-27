@@ -1275,7 +1275,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			},
 		},
 		{
-			name: "we with target port name and port name",
+			name: "Service targetPortName in WorkloadEntry port map",
 			inputs: []any{
 				model.ServiceInfo{
 					Source: model.TypedObject{Kind: kind.Service},
@@ -1335,7 +1335,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			},
 		},
 		{
-			name: "we with port name",
+			name: "Service port name in WorkloadEntry port map",
 			inputs: []any{
 				model.ServiceInfo{
 					Source: model.TypedObject{Kind: kind.Service},
