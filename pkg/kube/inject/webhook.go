@@ -1257,10 +1257,7 @@ func detectNativeSidecar(nodes kclient.Client[*corev1.Node]) bool {
 		}
 		allNodesValid = true
 	}
-	if !allNodesValid {
-		return false
-	}
-	return true
+	return allNodesValid
 }
 
 func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
