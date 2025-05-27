@@ -60,7 +60,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 	if isReq {
 		reqAddresses = nil
 	}
-	addrs, removed := e.Server.Env.ServiceDiscovery.AddressInformation(reqAddresses)
+	addrs, removed := e.Server.Env.AddressInformation(reqAddresses)
 	// Note: while "removed" is a weird name for a resource that never existed, this is how the spec works:
 	// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#id2
 	have := sets.New[string]()
@@ -140,7 +140,7 @@ func (e WorkloadGenerator) generateDeltasOndemand(
 	// We only need this for on-demand. This allows us to subscribe the client to resources they
 	// didn't explicitly request.
 	// For wildcard, they subscribe to everything already.
-	additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
+	additional := e.Server.Env.AdditionalPodSubscriptions(proxy, addresses, subs)
 	if addresses == nil {
 		addresses = additional
 	} else {
@@ -155,7 +155,7 @@ func (e WorkloadGenerator) generateDeltasOndemand(
 		// For NOP pushes, no need
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
-	addrs, removed := e.Server.Env.ServiceDiscovery.AddressInformation(addresses)
+	addrs, removed := e.Server.Env.AddressInformation(addresses)
 	// Note: while "removed" is a weird name for a resource that never existed, this is how the spec works:
 	// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#id2
 	have := sets.New[string]()
@@ -204,7 +204,7 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 	}
 
 	resources := make(model.Resources, 0)
-	policies := e.Server.Env.ServiceDiscovery.Policies(updatedPolicies)
+	policies := e.Server.Env.Policies(updatedPolicies)
 	for _, p := range policies {
 		n := p.ResourceName()
 		expected.Delete(n) // delete the generated policy name, left the removed ones

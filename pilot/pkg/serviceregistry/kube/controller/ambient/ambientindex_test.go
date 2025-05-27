@@ -2073,9 +2073,6 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 		options.ClientBuilder = testingBuildClientsFromConfig
 	}
 
-	// The index is always for the config cluster
-	options.IsConfigCluster = true
-
 	idx := New(options)
 
 	dumpOnFailure(t, options.Debugger)

@@ -17,7 +17,6 @@ package aggregate
 import (
 	"sync"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -28,7 +27,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/sets"
 )
 
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various
@@ -52,96 +50,6 @@ type Controller struct {
 	handlers          model.ControllerHandlers
 	handlersByCluster map[cluster.ID]*model.ControllerHandlers
 	model.NetworkGatewaysHandler
-}
-
-func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
-	if !features.EnableAmbient {
-		return nil
-	}
-	var res []model.ServiceInfo
-	for _, p := range c.GetRegistries() {
-		res = append(res, p.ServicesForWaypoint(key)...)
-	}
-	return res
-}
-
-func (c *Controller) ServicesWithWaypoint(key string) []model.ServiceWaypointInfo {
-	if !features.EnableAmbient {
-		return nil
-	}
-	var res []model.ServiceWaypointInfo
-	for _, p := range c.GetRegistries() {
-		res = append(res, p.ServicesWithWaypoint(key)...)
-	}
-	return res
-}
-
-func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
-	if !features.EnableAmbientWaypoints {
-		return nil
-	}
-	var res []model.WorkloadInfo
-	for _, p := range c.GetRegistries() {
-		res = append(res, p.WorkloadsForWaypoint(key)...)
-	}
-	return res
-}
-
-func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.String) sets.String {
-	if !features.EnableAmbient {
-		return nil
-	}
-	res := sets.New[string]()
-	for _, p := range c.GetRegistries() {
-		res = res.Merge(p.AdditionalPodSubscriptions(proxy, addr, cur))
-	}
-	return res
-}
-
-func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []model.WorkloadAuthorization {
-	var res []model.WorkloadAuthorization
-	if !features.EnableAmbient {
-		return res
-	}
-	for _, p := range c.GetRegistries() {
-		res = append(res, p.Policies(requested)...)
-	}
-	return res
-}
-
-func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressInfo, sets.String) {
-	if !features.EnableAmbient {
-		return nil, nil
-	}
-	var i []model.AddressInfo
-	var removed sets.String
-	foundRegistryCount := 0
-	for _, p := range c.GetRegistries() {
-		wis, r := p.AddressInformation(addresses)
-		if len(wis) == 0 && len(r) == 0 {
-			continue
-		}
-		foundRegistryCount++
-		if foundRegistryCount == 1 {
-			// first registry: use the data structures they provided, to avoid a copy
-			removed = r
-			i = wis
-		} else {
-			i = append(i, wis...)
-			removed.Merge(r)
-		}
-	}
-	if foundRegistryCount > 1 {
-		// We may have 'removed' it in one registry but found it in another
-		// As an optimization, we skip this in the common case of only one registry
-		for _, wl := range i {
-			// TODO(@hzxuzhonghu) This is not right for workload, we may search workload by ip, but the resource name is uid.
-			if removed.Contains(wl.ResourceName()) {
-				removed.Delete(wl.ResourceName())
-			}
-		}
-	}
-	return i, removed
 }
 
 type registryEntry struct {

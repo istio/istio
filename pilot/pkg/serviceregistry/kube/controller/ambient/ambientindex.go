@@ -136,7 +136,6 @@ type Options struct {
 	SystemNamespace string
 	DomainSuffix    string
 	ClusterID       cluster.ID
-	IsConfigCluster bool
 	XDSUpdater      model.XDSUpdater
 	StatusNotifier  *activenotifier.ActiveNotifier
 	Flags           FeatureFlags
@@ -258,7 +257,7 @@ func New(options Options) Index {
 
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data.
 	// We only do this if this cluster is the config cluster
-	if features.EnableAmbientMultiNetwork && options.IsConfigCluster {
+	if features.EnableAmbientMultiNetwork {
 		mcCollections := multicluster.NewRemoteClusterCollections(
 			Namespaces,
 			Pods,

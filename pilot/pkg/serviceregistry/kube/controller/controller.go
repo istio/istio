@@ -283,25 +283,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
-	if features.EnableAmbient {
-		c.ambientIndex = ambient.New(ambient.Options{
-			Client:          kubeClient,
-			SystemNamespace: options.SystemNamespace,
-			DomainSuffix:    options.DomainSuffix,
-			ClusterID:       options.ClusterID,
-			IsConfigCluster: options.ConfigCluster,
-			Revision:        options.Revision,
-			XDSUpdater:      options.XDSUpdater,
-			MeshConfig:      options.MeshWatcher,
-			StatusNotifier:  options.StatusWritingEnabled,
-			Debugger:        options.KrtDebugger,
-			Flags: ambient.FeatureFlags{
-				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
-				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
-			},
-		})
-	}
-
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
@@ -619,9 +600,6 @@ func (c *Controller) HasSynced() bool {
 	if c.initialSyncTimedout.Load() {
 		return true
 	}
-	if c.ambientIndex != nil && !c.ambientIndex.HasSynced() {
-		return false
-	}
 	return c.queue.HasSynced()
 }
 
@@ -660,9 +638,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
-	if c.ambientIndex != nil {
-		go c.ambientIndex.Run(stop)
-	}
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 
