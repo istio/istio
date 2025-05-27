@@ -120,6 +120,17 @@ _internal_defaults_do_not_set:
 
   imagePullSecrets: []
 
+  proxy:
+    image: ""
+
+  # Default hub for Istio images.
+  # Releases are published to docker hub under 'istio' project.
+  # Dev builds from prow are on gcr.io
+  hub: ""
+
+  # Default tag for Istio images.
+  tag: ""
+
   # This value is used to configure a Kubernetes PodDisruptionBudget for the gateway.
   #
   # By default, the `podDisruptionBudget` is disabled (set to `{}`),

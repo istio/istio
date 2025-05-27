@@ -62,8 +62,14 @@ spec:
       {{- end }}
       containers:
         - name: istio-proxy
+{{- if contains "/" .Values.proxy.image }}
+          image: "{{ .Values.proxy.image }}"
+{{- else if not (empty .Values.hub) }}
+          image: "{{ .Values.hub }}/{{ .Values.proxy.image | default "proxyv2" }}:{{ .Values.tag }}{{with (.Values.proxy.variant | default .Values.variant)}}-{{.}}{{end}}"
+{{- else }}
           # "auto" will be populated at runtime by the mutating webhook. See https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#customizing-injection
           image: auto
+{{- end }}
           {{- with .Values.imagePullPolicy }}
           imagePullPolicy: {{ . }}
           {{- end }}
