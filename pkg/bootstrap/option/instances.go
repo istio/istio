@@ -271,10 +271,6 @@ func MetricsLocalhostAccessOnly(proxyMetadata map[string]string) Instance {
 	return newOption("metrics_localhost_access_only", false)
 }
 
-func BypassOverloadManagerForStaticListeners(bypass bool) Instance {
-	return newOption("bypass_overload_manager", bypass)
-}
-
 func LoadStatsConfigJSONStr(node *model.Node) Instance {
 	// JSON string for configuring Load Reporting Service.
 	if json, ok := node.RawMetadata["LOAD_STATS_CONFIG_JSON"].(string); ok {

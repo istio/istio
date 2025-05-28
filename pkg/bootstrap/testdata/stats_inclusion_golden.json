@@ -1,7 +1,7 @@
 {
   "application_log_config": {
     "log_format": {
-        "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
+      "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
     }
   },
   "node": {
@@ -12,16 +12,16 @@
     "metadata": {"ANNOTATIONS":{"sidecar.istio.io/extraStatTags":"dlp_status,dlp_error","sidecar.istio.io/statsHistogramBuckets":"{\"istio\":[1,5,10,50,100,500,1000,5000,10000],\"envoy\":[1,5,10,25,50,100,250,500,1000,2500,5000,10000]}","sidecar.istio.io/statsInclusionPrefixes":"prefix1,prefix2,http.{pod_ip}_","sidecar.istio.io/statsInclusionRegexps":"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time","sidecar.istio.io/statsInclusionSuffixes":"suffix1,suffix2,upstream_rq_1xx,upstream_rq_2xx,upstream_rq_3xx,upstream_rq_4xx,upstream_rq_5xx,upstream_rq_time,upstream_cx_tx_bytes_total,upstream_cx_rx_bytes_total,upstream_cx_total,downstream_rq_1xx,downstream_rq_2xx,downstream_rq_3xx,downstream_rq_4xx,downstream_rq_5xx,downstream_rq_time,downstream_cx_tx_bytes_total,downstream_cx_rx_bytes_total,downstream_cx_total"},"ENVOY_PROMETHEUS_PORT":15090,"ENVOY_STATUS_PORT":15021,"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","ISTIO_VERSION":"binary-1.0","METADATA_DISCOVERY":"false","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/stats_inclusion","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","extraStatTags":["dlp_success"],"proxyAdminPort":15000,"serviceCluster":"istio-proxy","statusPort":15020},"WORKLOAD_IDENTITY_SOCKET_FILE":"test.sock","sidecar.istio.io/extraStatTags":"dlp_status,dlp_error","sidecar.istio.io/statsHistogramBuckets":"{\"istio\":[1,5,10,50,100,500,1000,5000,10000],\"envoy\":[1,5,10,25,50,100,250,500,1000,2500,5000,10000]}","sidecar.istio.io/statsInclusionPrefixes":"prefix1,prefix2,http.{pod_ip}_","sidecar.istio.io/statsInclusionRegexps":"http.[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*_8080.downstream_rq_time","sidecar.istio.io/statsInclusionSuffixes":"suffix1,suffix2,upstream_rq_1xx,upstream_rq_2xx,upstream_rq_3xx,upstream_rq_4xx,upstream_rq_5xx,upstream_rq_time,upstream_cx_tx_bytes_total,upstream_cx_rx_bytes_total,upstream_cx_total,downstream_rq_1xx,downstream_rq_2xx,downstream_rq_3xx,downstream_rq_4xx,downstream_rq_5xx,downstream_rq_time,downstream_cx_tx_bytes_total,downstream_cx_rx_bytes_total,downstream_cx_total"}
   },
   "layered_runtime": {
-      "layers": [
-          {
-            "name": "global config",
-            "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":true,"envoy.reloadable_features.http_reject_path_with_fragment":false,"overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
-          },
-          {
-              "name": "admin",
-              "admin_layer": {}
-          }
-      ]
+    "layers": [
+      {
+        "name": "global config",
+        "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":true,"envoy.reloadable_features.http_reject_path_with_fragment":false,"overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
+      },
+      {
+        "name": "admin",
+        "admin_layer": {}
+      }
+    ]
   },
   "bootstrap_extensions": [
     {
@@ -430,7 +430,6 @@
         },
         "ignore_global_conn_limit": true,
         "bypass_overload_manager": true,
-        
         "filter_chains": [
           {
             "filters": [
@@ -484,7 +483,6 @@
         },
         "ignore_global_conn_limit": true,
         "bypass_overload_manager": true,
-        
         "filter_chains": [
           {
             "filters": [

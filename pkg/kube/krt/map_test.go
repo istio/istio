@@ -197,7 +197,7 @@ func TestMapCollectionMetadata(t *testing.T) {
 			if tt.useParentMetadata {
 				parentOptions = append(parentOptions, krt.WithMetadata(tt.metadata))
 			}
-			pods := krt.NewInformer[*corev1.Pod](c, append(parentOptions, opts.WithName("Pods")...)...)
+			pods := krt.NewInformer[*corev1.Pod](c, append(opts.WithName("Pods"), parentOptions...)...)
 			var options []krt.CollectionOption
 			if !tt.useParentMetadata {
 				options = append(options, krt.WithMetadata(tt.metadata))
@@ -213,7 +213,7 @@ func TestMapCollectionMetadata(t *testing.T) {
 					},
 					IP: p.Status.PodIP,
 				}
-			}, append(options, opts.WithName("SimplePods")...)...)
+			}, append(opts.WithName("SimplePods"), options...)...)
 			assert.Equal(t, simplePods.Metadata(), tt.metadata)
 			c.RunAndWait(opts.Stop())
 		})

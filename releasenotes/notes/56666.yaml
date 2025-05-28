@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** support `--weight` parameter for `istioctl experimental workload group create`.

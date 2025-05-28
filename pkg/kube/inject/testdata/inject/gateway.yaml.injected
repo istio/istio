@@ -137,8 +137,7 @@ spec:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
       volumes:
-      - emptyDir: {}
-        name: workload-socket
+      - name: workload-socket
       - emptyDir: {}
         name: credential-socket
       - emptyDir: {}

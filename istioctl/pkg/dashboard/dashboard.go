@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
@@ -649,7 +650,7 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	dashboardCmd.AddCommand(proxy)
 
 	controlz := controlZDashCmd(cliContext)
-	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
+	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", ctrlz.DefaultControlZPort, "ControlZ port")
 	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	dashboardCmd.AddCommand(controlz)
 

@@ -35,8 +35,10 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -791,9 +793,36 @@ type TrafficDistribution int
 const (
 	// TrafficDistributionAny allows any destination
 	TrafficDistributionAny TrafficDistribution = iota
-	// TrafficDistributionPreferClose prefers traffic in same region/zone/network if possible, with failover allowed.
-	TrafficDistributionPreferClose TrafficDistribution = iota
+	// TrafficDistributionPreferPreferSameZone prefers traffic in same zone, failing over to same region and then network.
+	TrafficDistributionPreferSameZone
+	// TrafficDistributionPreferNode prefers traffic in same node, failing over to same subzone, then zone, region, and network.
+	TrafficDistributionPreferSameNode
 )
+
+func GetTrafficDistribution(specValue *string, annotations map[string]string) TrafficDistribution {
+	if specValue != nil {
+		switch *specValue {
+		case corev1.ServiceTrafficDistributionPreferSameZone, corev1.ServiceTrafficDistributionPreferClose:
+			return TrafficDistributionPreferSameZone
+		case corev1.ServiceTrafficDistributionPreferSameNode:
+			return TrafficDistributionPreferSameNode
+		}
+	}
+	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
+	// This also has some custom types
+	trafficDistributionAnnotationValue := strings.ToLower(annotations[annotation.NetworkingTrafficDistribution.Name])
+	switch trafficDistributionAnnotationValue {
+	case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
+		return TrafficDistributionPreferSameZone
+	case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
+		return TrafficDistributionPreferSameNode
+	default:
+		if trafficDistributionAnnotationValue != "" {
+			log.Warnf("Unknown traffic distribution annotation, defaulting to any")
+		}
+		return TrafficDistributionAny
+	}
+}
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
 func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
