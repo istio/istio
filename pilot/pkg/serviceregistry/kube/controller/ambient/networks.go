@@ -116,13 +116,11 @@ func buildGlobalNetworkCollections(
 	RemoteSystemNamespaceNetworksByCluster := krt.NewIndex(RemoteSystemNamespaceNetworks, "cluster", func(o krt.Singleton[string]) []cluster.ID {
 		val, ok := o.Metadata()[multicluster.ClusterKRTMetadataKey]
 		if !ok {
-			log.Warnf("Cluster metadata not set on network collection %v", o)
-			return nil
+			panic(fmt.Sprintf("Cluster metadata not set on network collection %v", o))
 		}
 		id, ok := val.(cluster.ID)
 		if !ok {
-			log.Warnf("Invalid cluster metadata set on collection %v: %v", o, val)
-			return nil
+			panic(fmt.Sprintf("Invalid cluster metadata set on collection %v: %v", o, val))
 		}
 		return []cluster.ID{id}
 	})
