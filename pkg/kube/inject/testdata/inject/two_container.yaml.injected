@@ -126,8 +126,6 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        - name: ISTIO_KUBE_APP_PROBERS
-          value: '{"/app-health/hello/readyz":{"httpGet":{"path":"/ip","port":8000}},"/app-health/world/readyz":{"httpGet":{"path":"/ipv6","port":9000}}}'
         image: gcr.io/istio-testing/proxyv2:latest
         name: istio-proxy
         ports:
