@@ -61,9 +61,10 @@ func TestProxyStatus(t *testing.T) {
 			expectedOutput: "Error: no running Istio pods in \"istio-system\"\n",
 			wantException:  true,
 		},
-		{ // case 1, with Istiod instance
+		{ // case 1, with Istiod instance but no proxies
 			args:           []string{},
-			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ECDS     ISTIOD",
+			expectedOutput: "Error: failed to setup status print: no proxies found (checked 1 istiods)\n",
+			wantException:  true,
 		},
 		{ // case 2: supplying nonexistent pod name should result in error with flag
 			args:          strings.Split("deployment/random-gibberish", " "),
@@ -81,10 +82,11 @@ func TestProxyStatus(t *testing.T) {
 			args:          strings.Split("random-gibberish-podname-61789237418234", " "),
 			wantException: true,
 		},
-		{ // case 6: new --revision argument
+		{ // case 6: new --revision argument, but no proxies
 			args:           strings.Split("--revision canary", " "),
-			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ECDS     ISTIOD",
+			expectedOutput: "Error: failed to setup status print: no proxies found (checked 1 istiods)\n",
 			revision:       "canary",
+			wantException:  true,
 		},
 		{ // case 7: supplying type that doesn't select pods should fail
 			args:          strings.Split("serviceaccount/sleep", " "),

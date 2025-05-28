@@ -32,15 +32,14 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/test/util/assert"
 	istioversion "istio.io/istio/pkg/version"
-	"istio.io/istio/tests/util"
 )
 
 func TestXdsStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   map[string]*discovery.DiscoveryResponse
-		want    string
-		wantErr bool
+		name     string
+		input    map[string]*discovery.DiscoveryResponse
+		wantFile string
+		wantErr  bool
 	}{
 		{
 			name: "prints multiple istiod inputs to buffer in alphabetical order by pod name",
@@ -94,7 +93,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					},
 				}),
 			},
-			want: "testdata/multiXdsStatusMultiPilot.txt",
+			wantFile: "testdata/multiXdsStatusMultiPilot.txt",
 		},
 		{
 			name: "prints single istiod input to buffer in alphabetical order by pod name",
@@ -122,7 +121,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					},
 				}),
 			},
-			want: "testdata/multiXdsStatusSinglePilot.txt",
+			wantFile: "testdata/multiXdsStatusSinglePilot.txt",
 		},
 	}
 	for _, tt := range tests {
@@ -140,9 +139,9 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			want, _ := os.ReadFile(tt.want)
-			if err := util.Compare(got.Bytes(), want); err != nil {
-				t.Error(err)
+			want, _ := os.ReadFile(tt.wantFile)
+			if got.String() != string(want) {
+				t.Errorf("Unexpected output for '%s'\n got: %q\nwant: %q", tt.name, got.String(), string(want))
 			}
 		})
 	}

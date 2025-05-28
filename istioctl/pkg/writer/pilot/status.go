@@ -158,12 +158,30 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 		return nil, nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
 	}
 
-	// Sort types for consistent output
-	allTypes := make([]string, 0, len(allTypesSet))
-	for t := range allTypesSet {
-		allTypes = append(allTypes, t)
+	// Sort types for consistent output, preserving legacy order for core types
+	coreOrder := []string{
+		xdsresource.ClusterType,  // CDS
+		xdsresource.ListenerType, // LDS
+		xdsresource.EndpointType, // EDS
+		xdsresource.RouteType,    // RDS
 	}
-	sort.Strings(allTypes)
+	var allTypes []string
+	added := map[string]bool{}
+	for _, t := range coreOrder {
+		if _, ok := allTypesSet[t]; ok {
+			allTypes = append(allTypes, t)
+			added[t] = true
+		}
+	}
+	// Add any extra types in sorted order
+	var extras []string
+	for t := range allTypesSet {
+		if !added[t] {
+			extras = append(extras, t)
+		}
+	}
+	sort.Strings(extras)
+	allTypes = append(allTypes, extras...)
 
 	// Sort proxies by proxyID
 	sort.Slice(fullStatus, func(i, j int) bool {
