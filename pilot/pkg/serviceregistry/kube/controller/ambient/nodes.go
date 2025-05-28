@@ -51,8 +51,7 @@ func GlobalNodesCollection(
 		func(ctx krt.HandlerContext, col krt.Collection[config.ObjectWithCluster[*v1.Node]]) *krt.Collection[config.ObjectWithCluster[Node]] {
 			clusterID := col.Metadata()[multicluster.ClusterKRTMetadataKey]
 			if clusterID == nil {
-				log.Warnf("ClusterID is nil, skipping")
-				return nil
+				panic("cluster metadata is nil for Node collection")
 			}
 			nc := krt.NewCollection(col, func(ctx krt.HandlerContext, obj config.ObjectWithCluster[*v1.Node]) *config.ObjectWithCluster[Node] {
 				k := ptr.Flatten(obj.Object)
