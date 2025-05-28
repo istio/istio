@@ -1248,6 +1248,36 @@ func TestMergeOrAppendProbers(t *testing.T) {
 				},
 			},
 		},
+		{
+			// this is to test previously injected without probe rewrites
+			name:               "Merge Prober with absent of KubeAppProberEnv",
+			perviouslyInjected: true,
+			in: []corev1.EnvVar{
+				{
+					Name:  "TEST_ENV_VAR1",
+					Value: "value1",
+				},
+				{
+					Name:  "TEST_ENV_VAR2",
+					Value: "value2",
+				},
+			},
+			probers: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}}}`,
+			want: []corev1.EnvVar{
+				{
+					Name:  "TEST_ENV_VAR1",
+					Value: "value1",
+				},
+				{
+					Name:  "TEST_ENV_VAR2",
+					Value: "value2",
+				},
+				{
+					Name:  status.KubeAppProberEnvName,
+					Value: `{"/app-health/bar/livez":{"httpGet":{"path":"/","port":9000,"scheme":"HTTP"}}}`,
+				},
+			},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
