@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -36,8 +37,10 @@ type XdsStatusWriter struct {
 	Writer                 io.Writer
 	Namespace              string
 	InternalDebugAllIstiod bool
+	OutputFormat           string // Output format: "table" or "json"
 }
 
+// xdsWriterStatus represents the status of a single proxy's XDS configuration
 type xdsWriterStatus struct {
 	proxyID       string
 	clusterID     string
@@ -52,65 +55,95 @@ const ignoredStatus = "IGNORED"
 func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryResponse) error {
 	w, fullStatus, allTypes, err := s.setupStatusPrint(statuses)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to setup status print: %w", err)
 	}
-	// Print header dynamically
+
+	// Print header dynamically with shortened type names
 	headers := []string{"NAME", "CLUSTER"}
-	headers = append(headers, allTypes...)
+	for _, t := range allTypes {
+		headers = append(headers, xdsresource.GetShortType(t))
+	}
 	headers = append(headers, "ISTIOD", "VERSION")
 	fmt.Fprintln(w, joinWithTabs(headers))
+
+	// Print each proxy's status
 	for _, status := range fullStatus {
 		if err := xdsStatusPrintlnDynamic(w, status, allTypes); err != nil {
-			return err
+			return fmt.Errorf("failed to print status for proxy %s: %w", status.proxyID, err)
 		}
 	}
+
 	if w != nil {
-		return w.Flush()
+		if err := w.Flush(); err != nil {
+			return fmt.Errorf("failed to flush tabwriter: %w", err)
+		}
 	}
 	return nil
 }
 
 // joinWithTabs joins a string slice with tabs
 func joinWithTabs(fields []string) string {
-	return fmt.Sprintf("%s", stringJoin(fields, "\t"))
+	return stringJoin(fields, "\t")
 }
 
+// stringJoin efficiently joins a string slice with a separator
 func stringJoin(a []string, sep string) string {
 	if len(a) == 0 {
 		return ""
 	}
-	res := a[0]
-	for _, s := range a[1:] {
-		res += sep + s
+	if len(a) == 1 {
+		return a[0]
 	}
-	return res
+
+	// Pre-allocate buffer with approximate size
+	n := len(sep) * (len(a) - 1)
+	for _, s := range a {
+		n += len(s)
+	}
+
+	var b strings.Builder
+	b.Grow(n)
+	b.WriteString(a[0])
+	for _, s := range a[1:] {
+		b.WriteString(sep)
+		b.WriteString(s)
+	}
+	return b.String()
 }
 
+// setupStatusPrint processes the discovery responses and prepares them for printing
 func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryResponse) (*tabwriter.Writer, []*xdsWriterStatus, []string, error) {
 	var fullStatus []*xdsWriterStatus
 	allTypesSet := map[string]struct{}{}
 	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
+
+	// Process each discovery response
 	for _, dr := range drs {
 		for _, resource := range dr.Resources {
 			clientConfig := xdsstatus.ClientConfig{}
 			if err := resource.UnmarshalTo(&clientConfig); err != nil {
 				return nil, nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 			}
+
 			meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
 			if err != nil {
 				return nil, nil, nil, fmt.Errorf("could not parse node metadata: %w", err)
 			}
+
+			// Skip if namespace filter is set and doesn't match
 			if s.Namespace != "" && meta.Namespace != s.Namespace {
 				continue
 			}
+
+			// Process XDS configs
 			configs := handleAndGetXdsConfigs(&clientConfig)
-			typeStatus := map[string]string{}
+			typeStatus := make(map[string]string, len(configs))
 			for _, config := range configs {
 				typeURL := config.GetTypeUrl()
 				allTypesSet[typeURL] = struct{}{}
 				typeStatus[typeURL] = formatStatus(config)
 			}
-			// For types not present, mark as IGNORED
+
 			fullStatus = append(fullStatus, &xdsWriterStatus{
 				proxyID:       clientConfig.GetNode().GetId(),
 				clusterID:     meta.ClusterID.String(),
@@ -120,25 +153,31 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 			})
 		}
 	}
+
 	if len(fullStatus) == 0 {
 		return nil, nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
 	}
+
 	// Sort types for consistent output
 	allTypes := make([]string, 0, len(allTypesSet))
 	for t := range allTypesSet {
 		allTypes = append(allTypes, t)
 	}
 	sort.Strings(allTypes)
+
 	// Sort proxies by proxyID
 	sort.Slice(fullStatus, func(i, j int) bool {
 		return fullStatus[i].proxyID < fullStatus[j].proxyID
 	})
+
 	return w, fullStatus, allTypes, nil
 }
 
-// Print a row for each proxy, filling in status for each type
+// xdsStatusPrintlnDynamic prints a single row of proxy status with dynamic type columns
 func xdsStatusPrintlnDynamic(w io.Writer, status *xdsWriterStatus, allTypes []string) error {
 	fields := []string{status.proxyID, status.clusterID}
+
+	// Add status for each type, using IGNORED if not present
 	for _, t := range allTypes {
 		val, ok := status.typeStatus[t]
 		if !ok {
@@ -146,11 +185,13 @@ func xdsStatusPrintlnDynamic(w io.Writer, status *xdsWriterStatus, allTypes []st
 		}
 		fields = append(fields, val)
 	}
+
 	fields = append(fields, status.istiodID, status.istiodVersion)
 	_, err := fmt.Fprintln(w, joinWithTabs(fields))
 	return err
 }
 
+// formatStatus converts a GenericXdsConfig status to a human-readable string
 func formatStatus(s *xdsstatus.ClientConfig_GenericXdsConfig) string {
 	switch s.GetConfigStatus() {
 	case xdsstatus.ConfigStatus_UNKNOWN:
@@ -164,6 +205,39 @@ func formatStatus(s *xdsstatus.ClientConfig_GenericXdsConfig) string {
 		}
 		return status
 	}
+}
+
+// handleAndGetXdsConfigs processes both new and legacy XDS config formats
+func handleAndGetXdsConfigs(clientConfig *xdsstatus.ClientConfig) []*xdsstatus.ClientConfig_GenericXdsConfig {
+	// Try new format first
+	if clientConfig.GetGenericXdsConfigs() != nil {
+		return clientConfig.GetGenericXdsConfigs()
+	}
+
+	// Fall back to legacy format
+	configs := make([]*xdsstatus.ClientConfig_GenericXdsConfig, 0)
+	for _, config := range clientConfig.GetXdsConfig() {
+		var typeURL string
+		switch config.PerXdsConfig.(type) {
+		case *xdsstatus.PerXdsConfig_ListenerConfig:
+			typeURL = xdsresource.ListenerType
+		case *xdsstatus.PerXdsConfig_ClusterConfig:
+			typeURL = xdsresource.ClusterType
+		case *xdsstatus.PerXdsConfig_RouteConfig:
+			typeURL = xdsresource.RouteType
+		case *xdsstatus.PerXdsConfig_EndpointConfig:
+			typeURL = xdsresource.EndpointType
+		}
+
+		if typeURL != "" {
+			configs = append(configs, &xdsstatus.ClientConfig_GenericXdsConfig{
+				TypeUrl:      typeURL,
+				ConfigStatus: config.Status,
+			})
+		}
+	}
+
+	return configs
 }
 
 func getSyncStatus(clientConfig *xdsstatus.ClientConfig) (cds, lds, eds, rds, ecds string) {
@@ -192,38 +266,4 @@ func getSyncStatus(clientConfig *xdsstatus.ClientConfig) (cds, lds, eds, rds, ec
 		}
 	}
 	return
-}
-
-func handleAndGetXdsConfigs(clientConfig *xdsstatus.ClientConfig) []*xdsstatus.ClientConfig_GenericXdsConfig {
-	configs := make([]*xdsstatus.ClientConfig_GenericXdsConfig, 0)
-	if clientConfig.GetGenericXdsConfigs() != nil {
-		configs = clientConfig.GetGenericXdsConfigs()
-		return configs
-	}
-
-	// FIXME: currently removing the deprecated code below may result in functions not working
-	// if there is a mismatch of versions between istiod and istioctl
-	// nolint: staticcheck
-	for _, config := range clientConfig.GetXdsConfig() {
-		var typeURL string
-		switch config.PerXdsConfig.(type) {
-		case *xdsstatus.PerXdsConfig_ListenerConfig:
-			typeURL = xdsresource.ListenerType
-		case *xdsstatus.PerXdsConfig_ClusterConfig:
-			typeURL = xdsresource.ClusterType
-		case *xdsstatus.PerXdsConfig_RouteConfig:
-			typeURL = xdsresource.RouteType
-		case *xdsstatus.PerXdsConfig_EndpointConfig:
-			typeURL = xdsresource.EndpointType
-		}
-
-		if typeURL != "" {
-			configs = append(configs, &xdsstatus.ClientConfig_GenericXdsConfig{
-				TypeUrl:      typeURL,
-				ConfigStatus: config.Status,
-			})
-		}
-	}
-
-	return configs
 }
