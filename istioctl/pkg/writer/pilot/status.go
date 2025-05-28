@@ -15,7 +15,6 @@
 package pilot
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -40,27 +39,28 @@ type XdsStatusWriter struct {
 }
 
 type xdsWriterStatus struct {
-	proxyID               string
-	clusterID             string
-	istiodID              string
-	istiodVersion         string
-	clusterStatus         string
-	listenerStatus        string
-	routeStatus           string
-	endpointStatus        string
-	extensionconfigStatus string
+	proxyID       string
+	clusterID     string
+	istiodID      string
+	istiodVersion string
+	typeStatus    map[string]string // typeURL -> status
 }
 
 const ignoredStatus = "IGNORED"
 
 // PrintAll takes a slice of Istiod syncz responses and outputs them using a tabwriter
 func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryResponse) error {
-	w, fullStatus, err := s.setupStatusPrint(statuses)
+	w, fullStatus, allTypes, err := s.setupStatusPrint(statuses)
 	if err != nil {
 		return err
 	}
+	// Print header dynamically
+	headers := []string{"NAME", "CLUSTER"}
+	headers = append(headers, allTypes...)
+	headers = append(headers, "ISTIOD", "VERSION")
+	fmt.Fprintln(w, joinWithTabs(headers))
 	for _, status := range fullStatus {
-		if err := xdsStatusPrintln(w, status); err != nil {
+		if err := xdsStatusPrintlnDynamic(w, status, allTypes); err != nil {
 			return err
 		}
 	}
@@ -70,66 +70,84 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryRespo
 	return nil
 }
 
-func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryResponse) (*tabwriter.Writer, []*xdsWriterStatus, error) {
-	// Gather the statuses before printing so they may be sorted
+// joinWithTabs joins a string slice with tabs
+func joinWithTabs(fields []string) string {
+	return fmt.Sprintf("%s", stringJoin(fields, "\t"))
+}
+
+func stringJoin(a []string, sep string) string {
+	if len(a) == 0 {
+		return ""
+	}
+	res := a[0]
+	for _, s := range a[1:] {
+		res += sep + s
+	}
+	return res
+}
+
+func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryResponse) (*tabwriter.Writer, []*xdsWriterStatus, []string, error) {
 	var fullStatus []*xdsWriterStatus
-	mappedResp := map[string]string{}
+	allTypesSet := map[string]struct{}{}
 	w := new(tabwriter.Writer).Init(s.Writer, 0, 8, 5, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tCLUSTER\tCDS\tLDS\tEDS\tRDS\tECDS\tISTIOD\tVERSION")
 	for _, dr := range drs {
 		for _, resource := range dr.Resources {
 			clientConfig := xdsstatus.ClientConfig{}
-			err := resource.UnmarshalTo(&clientConfig)
-			if err != nil {
-				return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
+			if err := resource.UnmarshalTo(&clientConfig); err != nil {
+				return nil, nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 			}
 			meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
 			if err != nil {
-				return nil, nil, fmt.Errorf("could not parse node metadata: %w", err)
+				return nil, nil, nil, fmt.Errorf("could not parse node metadata: %w", err)
 			}
 			if s.Namespace != "" && meta.Namespace != s.Namespace {
 				continue
 			}
-			cds, lds, eds, rds, ecds := getSyncStatus(&clientConfig)
-			cp := multixds.CpInfo(dr)
-			fullStatus = append(fullStatus, &xdsWriterStatus{
-				proxyID:               clientConfig.GetNode().GetId(),
-				clusterID:             meta.ClusterID.String(),
-				istiodID:              cp.ID,
-				istiodVersion:         meta.IstioVersion,
-				clusterStatus:         cds,
-				listenerStatus:        lds,
-				routeStatus:           rds,
-				endpointStatus:        eds,
-				extensionconfigStatus: ecds,
-			})
-			if len(fullStatus) == 0 {
-				return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
+			configs := handleAndGetXdsConfigs(&clientConfig)
+			typeStatus := map[string]string{}
+			for _, config := range configs {
+				typeURL := config.GetTypeUrl()
+				allTypesSet[typeURL] = struct{}{}
+				typeStatus[typeURL] = formatStatus(config)
 			}
-
-			sort.Slice(fullStatus, func(i, j int) bool {
-				return fullStatus[i].proxyID < fullStatus[j].proxyID
+			// For types not present, mark as IGNORED
+			fullStatus = append(fullStatus, &xdsWriterStatus{
+				proxyID:       clientConfig.GetNode().GetId(),
+				clusterID:     meta.ClusterID.String(),
+				istiodID:      multixds.CpInfo(dr).ID,
+				istiodVersion: meta.IstioVersion,
+				typeStatus:    typeStatus,
 			})
 		}
 	}
-	if len(mappedResp) > 0 {
-		mresp, err := json.MarshalIndent(mappedResp, "", "  ")
-		if err != nil {
-			return nil, nil, err
-		}
-		_, _ = s.Writer.Write(mresp)
-		_, _ = s.Writer.Write([]byte("\n"))
+	if len(fullStatus) == 0 {
+		return nil, nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
 	}
-
-	return w, fullStatus, nil
+	// Sort types for consistent output
+	allTypes := make([]string, 0, len(allTypesSet))
+	for t := range allTypesSet {
+		allTypes = append(allTypes, t)
+	}
+	sort.Strings(allTypes)
+	// Sort proxies by proxyID
+	sort.Slice(fullStatus, func(i, j int) bool {
+		return fullStatus[i].proxyID < fullStatus[j].proxyID
+	})
+	return w, fullStatus, allTypes, nil
 }
 
-func xdsStatusPrintln(w io.Writer, status *xdsWriterStatus) error {
-	_, err := fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
-		status.proxyID, status.clusterID,
-		status.clusterStatus, status.listenerStatus, status.endpointStatus, status.routeStatus,
-		status.extensionconfigStatus,
-		status.istiodID, status.istiodVersion)
+// Print a row for each proxy, filling in status for each type
+func xdsStatusPrintlnDynamic(w io.Writer, status *xdsWriterStatus, allTypes []string) error {
+	fields := []string{status.proxyID, status.clusterID}
+	for _, t := range allTypes {
+		val, ok := status.typeStatus[t]
+		if !ok {
+			val = ignoredStatus
+		}
+		fields = append(fields, val)
+	}
+	fields = append(fields, status.istiodID, status.istiodVersion)
+	_, err := fmt.Fprintln(w, joinWithTabs(fields))
 	return err
 }
 
