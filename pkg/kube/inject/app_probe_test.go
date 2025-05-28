@@ -15,11 +15,11 @@ package inject
 
 import (
 	"encoding/json"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/api/annotation"
@@ -455,7 +455,17 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					},
 				},
 			},
-			expected:      `{"/app-health/foo/startupz":{"httpGet":{"path":"/health/full","port":8080,"host":"localhost","scheme":"http"},"timeoutSeconds":10}}`,
+			expected: `{
+				"/app-health/foo/startupz":{
+					"httpGet":{
+						"path":"/health/full",
+						"port":8080,
+						"host":"localhost",
+						"scheme":"http"
+					},
+					"timeoutSeconds":10
+				}
+			}`,
 			errorExpected: false,
 		},
 		{
@@ -496,7 +506,25 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					},
 				},
 			},
-			expected: `{"/app-health/multi-probe-container/livez":{"httpGet":{"path":"/health","port":8080}},"/app-health/multi-probe-container/readyz":{"grpc":{"port":9090,"service":null}},"/app-health/multi-probe-container/startupz":{"tcpSocket":{"port":7070}}}`,
+			expected: `{
+				"/app-health/multi-probe-container/livez": {
+					"httpGet": {
+						"path": "/health",
+						"port": 8080
+					}
+				},
+				"/app-health/multi-probe-container/readyz": {
+					"grpc": {
+						"port": 9090,
+						"service": null
+					}
+				},
+				"/app-health/multi-probe-container/startupz": {
+					"tcpSocket": {
+						"port": 7070
+					}
+				}
+			}`,
 		},
 		{
 			name: "http liveness probe on excluded port",
@@ -654,7 +682,15 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					},
 				},
 			},
-			expected: `{"/app-lifecycle/poststart-http-container/poststartz":{"httpGet":{"path":"/startup","port":8080,"scheme":"HTTP"}}}`,
+			expected: `{
+				"/app-lifecycle/poststart-http-container/poststartz": {
+					"httpGet": {
+						"path": "/startup",
+						"port": 8080,
+						"scheme": "HTTP"
+					}
+				}
+			}`,
 		},
 		{
 			name: "both preStop and postStart lifecycle hooks",
@@ -687,7 +723,22 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					},
 				},
 			},
-			expected: `{"/app-lifecycle/lifecycle-hooks-container/poststartz":{"httpGet":{"path":"/startup","port":9090,"scheme":"HTTP"}},"/app-lifecycle/lifecycle-hooks-container/prestopz":{"httpGet":{"path":"/shutdown","port":8080,"scheme":"HTTP"}}}`,
+			expected: `{
+				  "/app-lifecycle/lifecycle-hooks-container/poststartz": {
+					"httpGet": {
+					  "path": "/startup",
+					  "port": 9090,
+					  "scheme": "HTTP"
+					}
+				  },
+				  "/app-lifecycle/lifecycle-hooks-container/prestopz": {
+					"httpGet": {
+					  "path": "/shutdown",
+					  "port": 8080,
+					  "scheme": "HTTP"
+					}
+				  }
+				}`,
 		},
 		{
 			name: "preStop with TCP handler",
@@ -791,7 +842,34 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					},
 				},
 			},
-			expected: `{"/app-health/multi-handler-container/livez":{"httpGet":{"path":"/health","port":8080}},"/app-health/multi-handler-container/readyz":{"grpc":{"port":9090,"service":null}},"/app-lifecycle/multi-handler-container/poststartz":{"httpGet":{"path":"/startup","port":6060,"scheme":"HTTP"}},"/app-lifecycle/multi-handler-container/prestopz":{"httpGet":{"path":"/shutdown","port":7070,"scheme":"HTTP"}}}`,
+			expected: `{
+				"/app-health/multi-handler-container/livez": {
+					"httpGet": {
+						"path": "/health",
+						"port": 8080
+					}
+				},
+				"/app-health/multi-handler-container/readyz": {
+					"grpc": {
+						"port": 9090,
+						"service": null
+					}
+				},
+				"/app-lifecycle/multi-handler-container/poststartz": {
+					"httpGet": {
+						"path": "/startup",
+						"port": 6060,
+						"scheme": "HTTP"
+					}
+				},
+				"/app-lifecycle/multi-handler-container/prestopz": {
+					"httpGet": {
+						"path": "/shutdown",
+						"port": 7070,
+						"scheme": "HTTP"
+					}
+				}
+			}`,
 		},
 		{
 			name: "lifecycle hooks with string port",
@@ -823,7 +901,15 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					},
 				},
 			},
-			expected: `{"/app-lifecycle/string-port-container/prestopz":{"httpGet":{"path":"/shutdown","port":8080,"scheme":"HTTP"}}}`,
+			expected: `{
+				"/app-lifecycle/string-port-container/prestopz": {
+					"httpGet": {
+						"path": "/shutdown",
+						"port": 8080,
+						"scheme": "HTTP"
+					}
+				}
+			}`,
 		},
 	}
 
