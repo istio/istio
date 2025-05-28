@@ -528,13 +528,11 @@ func informerIndexByCluster[T controllers.ComparableObject](
 	return krt.NewIndex[cluster.ID, krt.Collection[T]](informerCollection, "cluster", func(col krt.Collection[T]) []cluster.ID {
 		val, ok := col.Metadata()[multicluster.ClusterKRTMetadataKey]
 		if !ok {
-			log.Warnf("Cluster metadata not set on informer %v", col)
-			return nil
+			panic(fmt.Sprintf("Cluster metadata not set on informer %v", col))
 		}
 		id, ok := val.(cluster.ID)
 		if !ok {
-			log.Warnf("Invalid cluster metadata set on collection %v: %v", col, val)
-			return nil
+			panic(fmt.Sprintf("Invalid cluster metadata set on collection %v: %v", col, val))
 		}
 		return []cluster.ID{id}
 	})
@@ -546,13 +544,11 @@ func nestedCollectionIndexByCluster[T any](
 	return krt.NewIndex[cluster.ID, krt.Collection[T]](collection, "cluster", func(col krt.Collection[T]) []cluster.ID {
 		val, ok := col.Metadata()[multicluster.ClusterKRTMetadataKey]
 		if !ok {
-			log.Warnf("Cluster metadata not set on collection %v", col)
-			return nil
+			panic(fmt.Sprintf("Cluster metadata not set on collection %v", col))
 		}
 		id, ok := val.(cluster.ID)
 		if !ok {
-			log.Warnf("Invalid cluster metadata set on collection %v: %v", col, val)
-			return nil
+			panic(fmt.Sprintf("Invalid cluster metadata set on collection %v: %v", col, val))
 		}
 		return []cluster.ID{id}
 	})
