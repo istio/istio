@@ -262,28 +262,15 @@ func GlobalWaypointsCollection(
 	localWaypoints krt.Collection[Waypoint],
 	clusters krt.Collection[*multicluster.Cluster],
 	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
-	globalGateways krt.Collection[krt.Collection[*v1beta1.Gateway]],
-	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[*v1beta1.Gateway]],
-	globalPods krt.Collection[krt.Collection[*v1.Pod]],
-	podsByCluster krt.Index[cluster.ID, krt.Collection[*v1.Pod]],
 	globalNetworks networkCollections,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[Waypoint]] {
 	return nestedCollectionFromLocalAndRemote(localWaypoints, clusters, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[Waypoint] {
-		podsPtr := krt.FetchOne[krt.Collection[*v1.Pod]](ctx, globalPods, krt.FilterIndex(podsByCluster, c.ID))
-		if podsPtr == nil {
-			log.Warnf("Cluster %s does not have any pods assigned, skipping waypoints", c.ID)
-			return nil
-		}
-		pods := *podsPtr
-		// TODO: Is this going to work correctly since we're creating an index within a transformation?
+		pods := c.Pods()
+		krt.Subscribe(ctx, pods)
 		podsByNamespace := krt.NewNamespaceIndex(pods)
-		gatewaysPtr := krt.FetchOne[krt.Collection[*v1beta1.Gateway]](ctx, globalGateways, krt.FilterIndex(gatewaysByCluster, c.ID))
-		if gatewaysPtr == nil {
-			log.Warnf("Cluster %s does not have any gateways assigned, skipping waypoints", c.ID)
-			return nil
-		}
-		gateways := *gatewaysPtr
+		gateways := c.Gateways()
+		krt.Subscribe(ctx, gateways)
 
 		clusterWaypoints := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
 			if len(gateway.Status.Addresses) == 0 {

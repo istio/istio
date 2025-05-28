@@ -102,31 +102,16 @@ func GlobalMergedWorkloadServicesCollection(
 		LocalServiceInfosWithCluster,
 		clusters,
 		func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
-			servicesPtr := krt.FetchOne(ctx, globalServices, krt.FilterIndex(servicesByCluster, cluster.ID))
-			// This usually happens because the event for a new cluster
-			// triggers the global services|waypoints|etc. transformations in parallel
-			// with this transformation. This Fetch is racing
-			// with that computation and will almost always lose.
-			// While we're looking for a way to make this ordering predictable
-			// to avoid hacks like this, we can deal with eventually consistent
-			// collection state for now.
-			if servicesPtr == nil {
-				log.Warnf("Cluster %s does not have services assigned, skipping", cluster.ID)
-				return nil
-			}
-			services := *servicesPtr
+			services := cluster.Services()
+			krt.Subscribe(ctx, services)
 			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
 			if waypointsPtr == nil {
 				log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID)
 				return nil
 			}
 			waypoints := *waypointsPtr
-			namespacesPtr := krt.FetchOne(ctx, globalNamespaces, krt.FilterIndex(namespacesByCluster, cluster.ID))
-			if namespacesPtr == nil {
-				log.Warnf("Cluster %s does not have namespaces assigned, skipping", cluster.ID)
-				return nil
-			}
-			namespaces := *namespacesPtr
+			namespaces := cluster.Namespaces()
+			krt.Subscribe(ctx, namespaces)
 			// We can't have duplicate collections (otherwise FetchOne will panic) so use
 			// sync.Once to ensure we only create the collection once and return that same value
 			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {

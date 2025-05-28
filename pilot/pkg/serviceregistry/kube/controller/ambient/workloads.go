@@ -140,8 +140,6 @@ func MergedGlobalWorkloadsCollection(
 	clusters krt.Collection[*multicluster.Cluster],
 	workloadEntries krt.Collection[*networkingclient.WorkloadEntry],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
-	globalPods krt.Collection[krt.Collection[*v1.Pod]],
-	podsByCluster krt.Index[cluster.ID, krt.Collection[*v1.Pod]],
 	globalNodes krt.Collection[krt.Collection[config.ObjectWithCluster[Node]]],
 	nodesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[Node]]],
 	meshConfig krt.Singleton[MeshConfig],
@@ -152,10 +150,6 @@ func MergedGlobalWorkloadsCollection(
 	localWorkloadServices krt.Collection[model.ServiceInfo],
 	globalWorkloadServices krt.Collection[krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]],
 	globalWorkloadServicesByCluster krt.Index[cluster.ID, krt.Collection[config.ObjectWithCluster[model.ServiceInfo]]],
-	globalEndpointSlices krt.Collection[krt.Collection[*discovery.EndpointSlice]],
-	endpointSlicesByCluster krt.Index[cluster.ID, krt.Collection[*discovery.EndpointSlice]],
-	globalNamespaces krt.Collection[krt.Collection[*v1.Namespace]],
-	namespacesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Namespace]],
 	globalNetworks networkCollections,
 	localClusterID cluster.ID,
 	flags FeatureFlags,
@@ -290,6 +284,10 @@ func MergedGlobalWorkloadsCollection(
 		wrapObjectWithCluster[model.WorkloadInfo](localCluster.ID),
 		opts.WithName("LocalNetworkGatewayWorkloadsWithCluster")...,
 	)
+	// This is the same algorithm as nestedCollectionFromLocalAndRemote, but generalized since WorkloadInfo has 5 potential
+	// sources instead of 1. We start off with this static collection with all of the local WorkloadInfos. Then, we create a
+	// remoteWorkloadinfos collection that has clusters as its primary input. Whenever the remote collection changes, we update
+	// the global collection.
 	GlobalWorkloadInfosWithCluster := krt.NewStaticCollection(
 		localCluster,
 		[]krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]]{
@@ -302,11 +300,13 @@ func MergedGlobalWorkloadsCollection(
 		opts.WithName("GlobalWorkloadsInfoWithCluster")...,
 	)
 
-	podWorkloadsCache := newCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
-	workloadEntryWorkloadsCache := newCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
-	serviceEntryWorkloadsCache := newCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
-	endpointSliceWorkloadsCache := newCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
-	networkGatewayWorkloadsCache := newCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
+	// Create caches for the per-cluster WorkloadInfo collections so that they aren't re-created every time the clusters collection changes
+	// We have multiple caches here because there are multiple sources that might create a WorkloadInfo (pods, workload entries, etc.)
+	podWorkloadInfosCache := newCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
+	workloadEntryWorkloadInfosCache := newCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
+	serviceEntryWorkloadInfosCache := newCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
+	endpointSliceWorkloadInfosCache := newCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
+	networkGatewayWorkloadInfosCache := newCollectionCacheByClusterFromMetadata[config.ObjectWithCluster[model.WorkloadInfo]]()
 
 	clusters.Register(func(e krt.Event[*multicluster.Cluster]) {
 		if e.Event != controllers.EventDelete {
@@ -316,49 +316,42 @@ func MergedGlobalWorkloadsCollection(
 
 		old := ptr.Flatten(e.Old)
 		// Remove any existing collections in the caches for this cluster
-		if !podWorkloadsCache.Remove(old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, podWorkloadsCache)
+		if !podWorkloadInfosCache.Remove(old.ID) {
+			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, podWorkloadInfosCache)
 		}
-		if !workloadEntryWorkloadsCache.Remove(old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, workloadEntryWorkloadsCache)
+		if !workloadEntryWorkloadInfosCache.Remove(old.ID) {
+			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, workloadEntryWorkloadInfosCache)
 		}
-		if !serviceEntryWorkloadsCache.Remove(old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, serviceEntryWorkloadsCache)
+		if !serviceEntryWorkloadInfosCache.Remove(old.ID) {
+			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, serviceEntryWorkloadInfosCache)
 		}
-		if !endpointSliceWorkloadsCache.Remove(old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, endpointSliceWorkloadsCache)
+		if !endpointSliceWorkloadInfosCache.Remove(old.ID) {
+			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, endpointSliceWorkloadInfosCache)
 		}
-		if !networkGatewayWorkloadsCache.Remove(old.ID) {
-			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, networkGatewayWorkloadsCache)
+		if !networkGatewayWorkloadInfosCache.Remove(old.ID) {
+			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, networkGatewayWorkloadInfosCache)
 		}
 	})
 	RemoteWorkloadInfosWithCluster := krt.NewManyCollection(
 		clusters,
 		func(ctx krt.HandlerContext, c *multicluster.Cluster) []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]] {
-			endpointSlicesPtr := krt.FetchOne(ctx, globalEndpointSlices, krt.FilterIndex(endpointSlicesByCluster, c.ID))
-			if endpointSlicesPtr == nil {
-				log.Warnf("Cluster %s does not have endpoint slices, skipping global workloads", c.ID)
-				return nil
-			}
-			endpointSlices := *endpointSlicesPtr
-			podsPtr := krt.FetchOne(ctx, globalPods, krt.FilterIndex(podsByCluster, c.ID))
-			if podsPtr == nil {
-				log.Warnf("Cluster %s does not have pods, skipping global workloads", c.ID)
-				return nil
-			}
-			pods := *podsPtr
+			endpointSlices := c.EndpointSlices()
+			pods := c.Pods()
 			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, c.ID))
+			// This usually happens because the event for a new cluster
+			// triggers the global services|waypoints|etc. transformations in parallel
+			// with this transformation. This Fetch is racing
+			// with that computation and will almost always lose.
+			// While we're looking for a way to make this ordering predictable
+			// to avoid hacks like this, we can deal with eventually consistent
+			// collection state for now.
 			if waypointsPtr == nil {
 				log.Warnf("Cluster %s does not have waypoints, skipping global workloads", c.ID)
 				return nil
 			}
 			waypoints := *waypointsPtr
-			namespacesPtr := krt.FetchOne(ctx, globalNamespaces, krt.FilterIndex(namespacesByCluster, c.ID))
-			if namespacesPtr == nil {
-				log.Warnf("Cluster %s does not have namespaces, skipping global workloads", c.ID)
-				return nil
-			}
-			namespaces := *namespacesPtr
+
+			namespaces := c.Namespaces()
 			clusteredNodesPtr := krt.FetchOne(ctx, globalNodes, krt.FilterIndex(nodesByCluster, c.ID))
 			if clusteredNodesPtr == nil {
 				log.Warnf("Cluster %s does not have nodes, skipping global workloads", c.ID)
@@ -373,20 +366,20 @@ func MergedGlobalWorkloadsCollection(
 			}
 
 			existing := []krt.Collection[config.ObjectWithCluster[model.WorkloadInfo]]{
-				podWorkloadsCache.Get(c.ID),
-				workloadEntryWorkloadsCache.Get(c.ID),
-				serviceEntryWorkloadsCache.Get(c.ID),
-				endpointSliceWorkloadsCache.Get(c.ID),
-				networkGatewayWorkloadsCache.Get(c.ID),
+				podWorkloadInfosCache.Get(c.ID),
+				workloadEntryWorkloadInfosCache.Get(c.ID),
+				serviceEntryWorkloadInfosCache.Get(c.ID),
+				endpointSliceWorkloadInfosCache.Get(c.ID),
+				networkGatewayWorkloadInfosCache.Get(c.ID),
 			}
 
 			if slices.Contains(existing, nil) {
 				// At least of of these isn't initialized yet; remove everything for this cluster
-				podWorkloadsCache.Remove(c.ID)
-				workloadEntryWorkloadsCache.Remove(c.ID)
-				serviceEntryWorkloadsCache.Remove(c.ID)
-				endpointSliceWorkloadsCache.Remove(c.ID)
-				networkGatewayWorkloadsCache.Remove(c.ID)
+				podWorkloadInfosCache.Remove(c.ID)
+				workloadEntryWorkloadInfosCache.Remove(c.ID)
+				serviceEntryWorkloadInfosCache.Remove(c.ID)
+				endpointSliceWorkloadInfosCache.Remove(c.ID)
+				networkGatewayWorkloadInfosCache.Remove(c.ID)
 			} else {
 				// We have all of the collections in the cache
 				log.Info("Using cache for global workloads")
@@ -612,11 +605,11 @@ func MergedGlobalWorkloadsCollection(
 			)
 
 			results := map[*collectionCacheByCluster[config.ObjectWithCluster[model.WorkloadInfo]]]bool{
-				podWorkloadsCache:            podWorkloadsCache.Insert(PodWorkloadsWithCluster),
-				workloadEntryWorkloadsCache:  workloadEntryWorkloadsCache.Insert(WorkloadEntryWorkloadsWithCluster),
-				serviceEntryWorkloadsCache:   serviceEntryWorkloadsCache.Insert(ServiceEntryWorkloadsWithCluster),
-				endpointSliceWorkloadsCache:  endpointSliceWorkloadsCache.Insert(EndpointSliceWorkloadsWithCluster),
-				networkGatewayWorkloadsCache: networkGatewayWorkloadsCache.Insert(NetworkGatewayWorkloadsWithCluster),
+				podWorkloadInfosCache:            podWorkloadInfosCache.Insert(PodWorkloadsWithCluster),
+				workloadEntryWorkloadInfosCache:  workloadEntryWorkloadInfosCache.Insert(WorkloadEntryWorkloadsWithCluster),
+				serviceEntryWorkloadInfosCache:   serviceEntryWorkloadInfosCache.Insert(ServiceEntryWorkloadsWithCluster),
+				endpointSliceWorkloadInfosCache:  endpointSliceWorkloadInfosCache.Insert(EndpointSliceWorkloadsWithCluster),
+				networkGatewayWorkloadInfosCache: networkGatewayWorkloadInfosCache.Insert(NetworkGatewayWorkloadsWithCluster),
 			}
 
 			if slices.Contains(maps.Values(results), false) {
