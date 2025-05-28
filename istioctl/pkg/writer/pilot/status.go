@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/pilot/pkg/model"
 	xdsresource "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/log"
 )
 
 // XdsStatusWriter enables printing of sync status using multiple xdsapi.DiscoveryResponse Istiod responses
@@ -64,7 +63,9 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryRespo
 		headers = append(headers, xdsresource.GetShortType(t))
 	}
 	headers = append(headers, "ISTIOD", "VERSION")
-	fmt.Fprintln(w, joinWithTabs(headers))
+	if _, err := fmt.Fprintln(w, joinWithTabs(headers)); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
 
 	// Print each proxy's status
 	for _, status := range fullStatus {
@@ -232,9 +233,9 @@ func handleAndGetXdsConfigs(clientConfig *xdsstatus.ClientConfig) []*xdsstatus.C
 		return clientConfig.GetGenericXdsConfigs()
 	}
 
-	// Fall back to legacy format
+	// Fall back to legacy format (deprecated GetXdsConfig)
 	configs := make([]*xdsstatus.ClientConfig_GenericXdsConfig, 0)
-	for _, config := range clientConfig.GetXdsConfig() {
+	for _, config := range clientConfig.GetXdsConfig() { //nolint:staticcheck // backward compatibility for legacy data
 		var typeURL string
 		switch config.PerXdsConfig.(type) {
 		case *xdsstatus.PerXdsConfig_ListenerConfig:
@@ -256,32 +257,4 @@ func handleAndGetXdsConfigs(clientConfig *xdsstatus.ClientConfig) []*xdsstatus.C
 	}
 
 	return configs
-}
-
-func getSyncStatus(clientConfig *xdsstatus.ClientConfig) (cds, lds, eds, rds, ecds string) {
-	// If type is not found at all, it is considered ignored
-	lds = ignoredStatus
-	cds = ignoredStatus
-	rds = ignoredStatus
-	eds = ignoredStatus
-	ecds = ignoredStatus
-	configs := handleAndGetXdsConfigs(clientConfig)
-	for _, config := range configs {
-		cfgType := config.GetTypeUrl()
-		switch cfgType {
-		case xdsresource.ListenerType:
-			lds = formatStatus(config)
-		case xdsresource.ClusterType:
-			cds = formatStatus(config)
-		case xdsresource.RouteType:
-			rds = formatStatus(config)
-		case xdsresource.EndpointType:
-			eds = formatStatus(config)
-		case xdsresource.ExtensionConfigurationType:
-			ecds = formatStatus(config)
-		default:
-			log.Infof("GenericXdsConfig unexpected type %s\n", xdsresource.GetShortType(cfgType))
-		}
-	}
-	return
 }
