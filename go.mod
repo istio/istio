@@ -18,8 +18,8 @@ require (
 	github.com/coreos/go-oidc/v3 v3.14.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v28.1.1+incompatible
-	github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250516173751-e44f1b522ba4
-	github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250516173751-e44f1b522ba4
+	github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250522035732-2abf4a44739f
+	github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250522035732-2abf4a44739f
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.18.0
 	github.com/felixge/fgprof v0.9.5
@@ -87,7 +87,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20250505200425-f936aa4a68b2
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250505200425-f936aa4a68b2
-	google.golang.org/grpc v1.72.0
+	google.golang.org/grpc v1.72.1
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0

@@ -71,7 +71,7 @@ func All() []analysis.Analyzer {
 		&virtualservice.JWTClaimRouteAnalyzer{},
 		&serviceentry.ProtocolAddressesAnalyzer{},
 		&webhook.Analyzer{},
-		&telemetry.ProdiverAnalyzer{},
+		&telemetry.ProviderAnalyzer{},
 		&telemetry.SelectorAnalyzer{},
 		&telemetry.DefaultSelectorAnalyzer{},
 		&telemetry.LightstepAnalyzer{},
