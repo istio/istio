@@ -1509,7 +1509,7 @@ func TestDetectNativeSidecar(t *testing.T) {
 			name: "env disabled should be always disabled",
 			nodes: []*corev1.Node{
 				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
-				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.32.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.34.0"}}},
 			},
 			setup: func(t test.Failer) {
 				test.SetForTest(t, &features.EnableNativeSidecars, false)
@@ -1517,10 +1517,10 @@ func TestDetectNativeSidecar(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "kube versions greater than 1.28 with env enabled should enable native sidecar",
+			name: "kube versions greater than 1.33 with env enabled should enable native sidecar",
 			nodes: []*corev1.Node{
 				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
-				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.32.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.34.0"}}},
 			},
 			setup: func(t test.Failer) {
 				test.SetForTest(t, &features.EnableNativeSidecars, true)
@@ -1528,10 +1528,10 @@ func TestDetectNativeSidecar(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "kube versions less than or equal to 1.28 with env enabled should enable native sidecar",
+			name: "kube versions less than 1.33 with env enabled should disable native sidecar",
 			nodes: []*corev1.Node{
 				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
-				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.29.0"}}},
 			},
 			setup: func(t test.Failer) {
 				test.SetForTest(t, &features.EnableNativeSidecars, true)
@@ -1541,7 +1541,7 @@ func TestDetectNativeSidecar(t *testing.T) {
 		{
 			name: "clusters with at least one node on unsupported version should disable native sidecar",
 			nodes: []*corev1.Node{
-				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.29.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
 				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
 			},
 			setup: func(t test.Failer) {
@@ -1573,7 +1573,7 @@ func TestDetectNativeSidecar(t *testing.T) {
 			kubeClient.RunAndWait(test.NewStop(t))
 			kube.WaitForCacheSync("test", test.NewStop(t), nodes.HasSynced)
 
-			if got := detectNativeSidecar(nodes); got != tt.want {
+			if got := detectNativeSidecar(nodes, ""); got != tt.want {
 				t.Errorf("detectNativeSidecar() = %v, want %v", got, tt.want)
 			}
 		})
