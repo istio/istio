@@ -474,7 +474,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		// So if we see the proxy container in `containers` in the original pod, and in `initContainers` in the template pod,
 		// move the container.
 		// The sidecar.istio.io/nativeSidecar annotation takes precedence over the global feature flag.
-		native := params.nativeSidecar
+		native := features.EnableNativeSidecars
 		if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "true" {
 			native = true
 		} else if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "false" {
