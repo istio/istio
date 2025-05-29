@@ -528,6 +528,9 @@ func TranslateRoute(
 							RequestHeaderMode: extproc.ProcessingMode_SEND,
 							// open AI standard includes the model and other information the ext_proc server needs in the request body
 							RequestBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
+							ResponseHeaderMode: extproc.ProcessingMode_SEND,
+							// GIE colelcts statistics present in the open AI standard response message
+							ResponseBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
 						},
 					},
 				},
