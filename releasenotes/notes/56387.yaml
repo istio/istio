@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 53759
+releaseNotes:
+  - |
+    **Fixed** - rewrite probe only when the port needs to be intercepted
