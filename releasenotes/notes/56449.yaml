@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** logic issue where `--selector` flag of `istioctl admin log` was not set to empty as expected.
