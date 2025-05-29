@@ -26,10 +26,7 @@
 {{- end }}
 {{ $tproxy := (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) }}
 {{ $capNetBindService := (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) }}
-{{ $nativeSidecar := .NativeSidecars }}
-{{ if (isset .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar`) }}
-  {{ $nativeSidecar = eq (index .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar`) "true" }}
-{{ end }}
+{{ $nativeSidecar := ne (index .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar` | default (printf "%t" .NativeSidecars)) "false" }}
 {{- $containers := list }}
 {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
 metadata:
