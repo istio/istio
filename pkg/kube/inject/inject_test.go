@@ -62,7 +62,17 @@ func TestInjection(t *testing.T) {
 			},
 			Status: corev1.NodeStatus{
 				NodeInfo: corev1.NodeSystemInfo{
-					KubeletVersion: "v1.29.0",
+					KubeletVersion: "v1.33.0",
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-2",
+			},
+			Status: corev1.NodeStatus{
+				NodeInfo: corev1.NodeSystemInfo{
+					KubeletVersion: "v1.34.0",
 				},
 			},
 		},
@@ -1290,25 +1300,28 @@ func BenchmarkInjection(b *testing.B) {
 }
 
 func TestNativeSidecarAnnotationOverride(t *testing.T) {
-	tmpl := template.Must(template.New("inject").Parse(`
-{{ $nativeSidecar := .NativeSidecars }}
-{{ $annotation := "" }}
-{{ if .ObjectMeta.Annotations }}
-  {{ if (index .ObjectMeta.Annotations "sidecar.istio.io/nativeSidecar") }}
-    {{ $annotation = index .ObjectMeta.Annotations "sidecar.istio.io/nativeSidecar" }}
-  {{ end }}
-{{ end }}
-{{ if ne $annotation "" }}
-  {{ $nativeSidecar = eq $annotation "true" }}
-{{ end }}
+	funcMap := template.FuncMap{
+		"default": func(defaultVal, val string) string {
+			if val == "" {
+				return defaultVal
+			}
+			return val
+		},
+	}
+
+	tmpl := template.Must(template.New("inject").Funcs(funcMap).Parse(`
+{{- $nativeSidecar := ne (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/nativeSidecar` + "`" + ` | default (printf "%t" .NativeSidecars)) "false" }}
+{{- if $nativeSidecar }}
 spec:
-  {{- if $nativeSidecar }}
   initContainers:
-  {{- else }}
-  containers:
-  {{- end }}
   - name: istio-proxy
     image: proxy
+{{- else }}
+spec:
+  containers:
+  - name: istio-proxy
+    image: proxy
+{{- end }}
 `))
 
 	cases := []struct {

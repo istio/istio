@@ -1188,8 +1188,10 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		if nodes == nil {
 			log.Warnf("unable to fetch nodes, failed to get client for %q", clusterID)
 		}
+	} else if features.EnableNativeSidecars {
+		log.Warnf("Native sidecars feature is enabled but node client wasn't initialized")
 	}
-	params.nativeSidecar = detectNativeSidecar(nodes)
+	params.nativeSidecar = detectNativeSidecar(nodes, pod.Spec.NodeName)
 
 	wh.mu.RUnlock()
 
@@ -1230,7 +1232,7 @@ func isSidecarUserMatchingAppUser(pod *corev1.Pod) bool {
 	return sideCarUser == appUser
 }
 
-func detectNativeSidecar(nodes kclient.Client[*corev1.Node]) bool {
+func detectNativeSidecar(nodes kclient.Client[*corev1.Node], podNodeName string) bool {
 	if !features.EnableNativeSidecars {
 		return false
 	}
@@ -1240,19 +1242,39 @@ func detectNativeSidecar(nodes kclient.Client[*corev1.Node]) bool {
 		return false
 	}
 
-	minVersion := 29
+	// Native sidecars feature graduated to stable in Kubernetes 1.33
+	// See https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/753-sidecar-containers/README.md#implementation-history
+	minVersion := 33
 	allNodesValid := false
-	for _, n := range nodes.List(metav1.NamespaceAll, klabels.Everything()) {
+
+	checkNodeVersion := func(n *corev1.Node) bool {
 		nodeKubeletVersion := n.Status.NodeInfo.KubeletVersion
 		ver, err := goversion.NewVersion(nodeKubeletVersion)
 		if err != nil {
 			log.Warnf("could not read node version for %v %v: %v", n.Name, nodeKubeletVersion, err)
-			continue
+			return false
 		}
 		minor := ver.Segments()[1]
 		if minor < minVersion {
-			log.Debugf("detected kubelet version 1.%v < 1.%v; native sidecars disabled",
-				n.Name, minor, minVersion)
+			log.Debugf("detected kubelet version 1.%v < 1.%v on node %v; native sidecars disabled",
+				minor, minVersion, n.Name)
+			return false
+		}
+		return true
+	}
+
+	if podNodeName != "" {
+		node := nodes.Get(podNodeName, "")
+		if node != nil {
+			return checkNodeVersion(node)
+		}
+		log.Warnf("pod assigned to node %q but node not found in cluster", podNodeName)
+	}
+	// Check all nodes to see if they are eligible to support native sidecars. If any node is below the minimum version, we disable the feature.
+	// This means when an older ineligible node is added to the cluster and the webhook runs, native sidecars will be disabled since that node will fail the kubelet version check.
+	// This is to avoid issues with mixed clusters where some nodes support native sidecars and others do not.
+	for _, n := range nodes.List(metav1.NamespaceAll, klabels.Everything()) {
+		if !checkNodeVersion(n) {
 			return false
 		}
 		allNodesValid = true
