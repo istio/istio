@@ -427,9 +427,9 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 					opts.Revision = "default"
 				}
 				if len(istiodLabelSelector) > 0 {
-					istiodLabelSelector = fmt.Sprintf("%s,%s=%s", istiodLabelSelector, label.IoIstioRev.Name, opts.Revision)
+					istiodLabelSelector = fmt.Sprintf("%s,%s=%s,app=istiod", istiodLabelSelector, label.IoIstioRev.Name, opts.Revision)
 				} else {
-					istiodLabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, opts.Revision)
+					istiodLabelSelector = fmt.Sprintf("%s=%s,app=istiod", label.IoIstioRev.Name, opts.Revision)
 				}
 				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.IstioNamespace()), istiodLabelSelector)
 				if err != nil {
