@@ -5,6 +5,6 @@ issue:
   - 56414
 releaseNotes:
   - |
-    **Fixed**  existing iptables rules matched and handled targeted traffic before it reached Istio's rules.
+    **Fixed**  Ambient host network iptables rules were being skipped due to higher-priority CNI rules in some deployments.
 
 
