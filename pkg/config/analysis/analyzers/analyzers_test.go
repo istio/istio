@@ -920,7 +920,7 @@ var testGrid = []testCase{
 	{
 		name:       "Analyze invalid telemetry",
 		inputFiles: []string{"testdata/telemetry-invalid-provider.yaml"},
-		analyzer:   &telemetry.ProdiverAnalyzer{},
+		analyzer:   &telemetry.ProviderAnalyzer{},
 		expected: []message{
 			{msg.InvalidTelemetryProvider, "Telemetry istio-system/mesh-default"},
 		},
@@ -928,7 +928,7 @@ var testGrid = []testCase{
 	{
 		name:       "Analyze invalid telemetry",
 		inputFiles: []string{"testdata/telemetry-disable-provider.yaml"},
-		analyzer:   &telemetry.ProdiverAnalyzer{},
+		analyzer:   &telemetry.ProviderAnalyzer{},
 		expected:   []message{},
 	},
 	{
