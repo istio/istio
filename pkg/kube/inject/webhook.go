@@ -1271,8 +1271,9 @@ func detectNativeSidecar(nodes kclient.Client[*corev1.Node], podNodeName string)
 		log.Warnf("pod assigned to node %q but node not found in cluster", podNodeName)
 	}
 	// Check all nodes to see if they are eligible to support native sidecars. If any node is below the minimum version, we disable the feature.
-	// This means when an older ineligible node is added to the cluster and the webhook runs, native sidecars will be disabled since that node will fail the kubelet version check.
-	// This is to avoid issues with mixed clusters where some nodes support native sidecars and others do not.
+	// This means when an older ineligible node is added to the cluster and the webhook runs
+	// NativeSidecar will be disabled since that node will fail the kubelet version check.
+	// This avoids issues with mixed clusters where some nodes support native sidecars and others do not.
 	for _, n := range nodes.List(metav1.NamespaceAll, klabels.Everything()) {
 		if !checkNodeVersion(n) {
 			return false
