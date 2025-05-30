@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"istio.io/istio/pkg/test/echo/proto"
 )
 
