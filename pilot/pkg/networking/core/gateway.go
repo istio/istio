@@ -1091,3 +1091,31 @@ func isGatewayMatch(gateway string, gatewayNames []string) bool {
 	}
 	return false
 }
+
+type gatewayServices struct {
+	services        map[host.Name]*model.Service
+	orderedServices []*model.Service
+}
+
+// findGatewayResources returns workloads and services associated with the gateway proxy
+// TODO(jaellio): Add support for workloads
+// TODO(jaellio): Don't return waypointServer, only need orderedServices or create a new type
+func findGatewayResources(node *model.Proxy, push *model.PushContext) ([]model.WorkloadInfo, *waypointServices) {
+	serviceInfos := push.ServicesForGateway()
+	gatewayServices := &waypointServices{}
+
+	gwServices := make([]*model.Service, len(serviceInfos))
+	for _, s := range serviceInfos {
+		hostName := host.Name(s.Service.Hostname)
+		svc, ok := push.ServiceIndex.HostnameAndNamespace[hostName][s.Service.Namespace]
+		if !ok {
+			continue
+		}
+		gwServices = append(gwServices, svc)
+	}
+	if len(serviceInfos) > 0 {
+		gwServices = model.SortServicesByCreationTime(gwServices)
+	}
+	gatewayServices.orderedServices = gwServices
+	return nil, gatewayServices
+}

@@ -206,7 +206,8 @@ func serviceServiceBuilder(
 
 		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
 
-		// TODO(jaellio): update on meshConfig change? Need a lock?
+		// TODO(jaellio): When should FetchOne be used? Prior to passing the meshConfig or
+		// when it is needed (in MatchServiceScope)?
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		var serviceScope model.ServiceScope
 		if meshCfg != nil {
@@ -223,86 +224,6 @@ func serviceServiceBuilder(
 		})
 	}
 }
-/*
-type EnablementSelector struct {
-	PodSelector       metav1.LabelSelector
-	NamespaceSelector metav1.LabelSelector
-}
-
-type CompiledEnablementSelectors struct {
-	SourceSelectors    []EnablementSelector
-	podSelectors       []labels.Selector
-	namespaceSelectors []labels.Selector
-}
-
-func NewCompiledEnablementSelectors(selectors []EnablementSelector) (*CompiledEnablementSelectors, error) {
-	podSelectors := []labels.Selector{}
-	namespaceSelectors := []labels.Selector{}
-
-	for _, selector := range selectors {
-		var podSelector labels.Selector
-		var namespaceSelector labels.Selector
-		var err error
-
-		// TODO (mitch): there has got to be a better way to do equality here...
-		s := selector.PodSelector.String()
-		o := (&metav1.LabelSelector{}).String()
-		if s == o {
-			// if selector.PodSelector.String() == (&metav1.LabelSelector{}).String() {
-			podSelector = labels.Everything()
-		} else {
-			podSelector, err = metav1.LabelSelectorAsSelector(&selector.PodSelector)
-			if err != nil {
-				return nil, fmt.Errorf("failed to instantiate ambient enablement pod selector: %v", err)
-			}
-		}
-		if selector.NamespaceSelector.String() == ((&metav1.LabelSelector{}).String()) {
-			namespaceSelector = labels.Everything()
-		} else {
-			namespaceSelector, err = metav1.LabelSelectorAsSelector(&selector.NamespaceSelector)
-			if err != nil {
-				return nil, fmt.Errorf("failed to instantiate ambient enablement namespace selector: %v", err)
-			}
-		}
-
-		podSelectors = append(podSelectors, podSelector)
-		namespaceSelectors = append(namespaceSelectors, namespaceSelector)
-	}
-
-	return &CompiledEnablementSelectors{
-		SourceSelectors:    selectors,
-		podSelectors:       podSelectors,
-		namespaceSelectors: namespaceSelectors,
-	}, nil
-}
-
-func (c *CompiledEnablementSelectors) Matches(podLabels, podAnnotations, namespaceLabels map[string]string) bool {
-	if podHasSidecar(podAnnotations) {
-		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
-		return false
-	}
-	podls := labels.Set(podLabels)
-	namespacels := labels.Set(namespaceLabels)
-	for i, podSelector := range c.podSelectors {
-		if podSelector.Matches(podls) && c.namespaceSelectors[i].Matches(namespacels) {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *CompiledEnablementSelectors) MatchesNamespace(nsLabels map[string]string) bool {
-	namespacels := labels.Set(nsLabels)
-	for _, namespaceSelector := range c.namespaceSelectors {
-		if namespaceSelector.Empty() {
-			continue
-		}
-		if namespaceSelector.Matches(namespacels) {
-			return true
-		}
-	}
-	return false
-}*/
 
 // TODO(jaellio): does there need to be a lock on reading the meshConfig serviceScopeConfig selectors?
 // There is a filter in discoveryNamespacesFilter that does this, but it is not clear if it is needed here.
@@ -354,24 +275,24 @@ func MatchServiceScope(meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namesp
 	// Check if the service matches any label selectors defined in the meshConfig's serviceScopeConfig.
     for _, scopeConfig := range meshCfg.ServiceScopeConfigs {
         // Match namespace labels
+		// Treat Nothing selectors as Everything selectors
 		nss, err := LabelSelectorAsSelector(scopeConfig.NamespaceSelector)
 		if err != nil {
 			log.Warnf("failed to convert namespace selector: %v", err)
 			continue
 		}
-		// TODO(jaellio): is this a sufficient way to check if the selector is empty?
-		if nss == labels.NewSelector() {
+		if nss.String() == labels.Nothing().String() {
 			nss = labels.Everything()
 		}
 		ss, err := LabelSelectorAsSelector(scopeConfig.ServicesSelector)
 		if err != nil {
 			log.Warnf("failed to convert service selector: %v", err)
 		}
-		if ss == labels.NewSelector() {
+		if ss.String() == labels.Nothing().String() {
             ss = labels.Everything()
         }
         
-		// Get labels from the services namespace
+		// Get labels from the service and service's namespace
 		// TODO(jaellio): How do we know this namespace is the one we want from the right cluster?
 		namespace := namespaces.GetKey(s.Namespace)
 		// TODO(jaellio): Not sure how this scenario is possible
@@ -382,14 +303,16 @@ func MatchServiceScope(meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namesp
 		serviceLabels := labels.Set(s.Labels)
 
 		if nss.Matches(namespaceLabels) && ss.Matches(serviceLabels) {
-			if scopeConfig.GetScope() == meshapi.MeshConfig_ServiceScopeConfigs_LOCAL {
-				continue
+			// If the service matches a global scope config, return global scope
+			if scopeConfig.GetScope() == meshapi.MeshConfig_ServiceScopeConfigs_GLOBAL {
+				log.Debugf("jaellio - Service %s/%s is globally scoped", s.Namespace, s.Name)
+				return model.Global
 			}
-			return model.Global
 		}
     }
 
     // Default to local scope if no match is found
+	log.Debugf("jaellio - Service %s/%s is locally scoped", s.Namespace, s.Name)
     return model.Local
 }
 

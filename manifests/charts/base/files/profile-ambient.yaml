@@ -7,6 +7,17 @@ meshConfig:
   defaultConfig:
     proxyMetadata:
       ISTIO_META_ENABLE_HBONE: "true"
+  serviceScopeConfigs:
+    - namespacesSelector:
+        matchExpressions:
+            - key: istio.io/global
+              operator: In
+              values: [true]
+      servicesSelector:
+        matchExpressions:
+          - key: istio.io/global
+            operator: Exists
+      scope: GLOBAL
 global:
   variant: distroless
 pilot:

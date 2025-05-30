@@ -76,6 +76,17 @@ func (c *Controller) ServicesWithWaypoint(key string) []model.ServiceWaypointInf
 	return res
 }
 
+func (c *Controller) ServicesForGateway() []model.ServiceInfo {
+	if !features.EnableAmbient {
+		return nil
+	}
+	var res []model.ServiceInfo
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.ServicesForGateway()...)
+	}
+	return res
+}
+
 func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
 	if !features.EnableAmbientWaypoints {
 		return nil

@@ -25,10 +25,13 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
+	meshConfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/ptr"
@@ -1125,6 +1128,95 @@ func TestServiceConditions(t *testing.T) {
 			)
 			res := builder(krt.TestingDummyContext{}, tt.svc)
 			assert.Equal(t, res.GetConditions(), tt.conditions)
+		})
+	}
+}
+
+func TestMatchServiceScope(t *testing.T) {
+	ns := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName: "ns",
+				"istio.io/dataplane-mode": "ambient",
+			},
+		},
+	}
+	
+	serviceOptInMeshConfig := mesh.DefaultMeshConfig()
+	serviceOptInMeshConfig.ServiceScopeConfigs = []*meshConfig.MeshConfig_ServiceScopeConfigs{
+		{
+			ServicesSelector: &meshConfig.LabelSelector{
+				MatchExpressions: []*meshConfig.LabelSelectorRequirement{
+					{
+						Key:      "istio.io/global",
+						Operator: string(metav1.LabelSelectorOpExists),
+					},
+				},
+			},
+			Scope: meshConfig.MeshConfig_ServiceScopeConfigs_GLOBAL,
+		},
+	}
+	serviceOptInMeshConfigResource := &meshwatcher.MeshConfigResource{
+		MeshConfig: serviceOptInMeshConfig,
+	}
+
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc",
+			Namespace: "ns",
+			Labels: map[string]string{
+				v1.LabelMetadataName: "svc",
+				"istio.io/global":    "true",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+		},
+	}
+
+	tests := []struct {
+		name string
+		inputs     []any
+		meshCfg *MeshConfig
+		svc 	  *v1.Service
+		want model.ServiceScope
+	}{
+		{
+			name: "srv with global label - match",
+			inputs:  []any{
+				ns,
+			},
+			meshCfg: serviceOptInMeshConfigResource,
+			svc: svc,
+			want: model.Global,
+		},
+		{
+			name: "srv without a global label - no match",
+			inputs:  []any{
+				ns,
+			},
+			meshCfg: serviceOptInMeshConfigResource,
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "svc-global",
+					Namespace: "ns",
+					Labels: map[string]string{
+						v1.LabelMetadataName: "svc-global",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeClusterIP,
+				},
+			},
+			want: model.Local,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := krttest.NewMock(t, tt.inputs)
+			got := MatchServiceScope(tt.meshCfg, krttest.GetMockCollection[*v1.Namespace](mock), tt.svc)
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }

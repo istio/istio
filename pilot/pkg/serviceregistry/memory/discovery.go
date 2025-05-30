@@ -380,6 +380,10 @@ func (sd *ServiceDiscovery) ServicesWithWaypoint(string) []model.ServiceWaypoint
 	return nil
 }
 
+func (sd *ServiceDiscovery) ServicesForGateway() []model.ServiceInfo {
+	return nil
+}
+
 func (sd *ServiceDiscovery) Waypoint(string, string) []netip.Addr {
 	return nil
 }

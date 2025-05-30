@@ -897,6 +897,7 @@ func podWorkloadBuilder(
 		// TODO(jaellio): What is the ordering of Service and workload creation? Will service.Scope be populated by the time we get here?
 		scopeForService :=  make(map[string]model.ServiceScope)
 		for _, service := range services {
+			log.Debugf("jaellio podWorkloadBuilder - Service %s has scope %s", service.NamespacedName(), service.Scope)
 			scopeForService[service.ResourceName()] = service.Scope
 		}
 
@@ -1147,6 +1148,7 @@ func serviceEntryWorkloadBuilder(
 			scopeForService := make(map[string]model.ServiceScope)
 			for _, service := range services {
 				// TODO(jaellio): Should this be hardcoded to local?
+				log.Debugf("jaellio serviceentryWorkloadBuilder - Service %s has scope %s", service.NamespacedName(), service.Scope)
 				scopeForService[service.ResourceName()] = service.Scope
 			}
 

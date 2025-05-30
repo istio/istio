@@ -257,8 +257,10 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, wps.services)...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
+		// Get the global services for the gateway
+		_, gws := findGatewayResources(proxy, req.Push)
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
-		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, services)
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, gws.orderedServices)
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Gateways do not require the default passthrough cluster as they do not have original dst listeners.
