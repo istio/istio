@@ -49,7 +49,7 @@ var (
 	waitReady     bool
 	allNamespaces bool
 
-	waypointTimeout string
+	waypointTimeout time.Duration
 
 	deleteAll bool
 
@@ -284,7 +284,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					if programmed {
 						break
 					}
-					if time.Since(startTime) > waitTimeout {
+					if time.Since(startTime) > waypointTimeout {
 						return errorWithMessage("timed out while waiting for waypoint", gwc, err)
 					}
 				}
@@ -458,8 +458,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 
 	waypointApplyCmd.Flags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointApplyCmd.Flags().BoolVarP(&waitReady, "wait", "w", false, "Wait for the waypoint to be ready")
+	waypointApplyCmd.Flags().DurationVar(&waypointTimeout, "waypoint-timeout", waitTimeout, "Timeout for waiting for waypoint ready")
 	waypointGenerateCmd.Flags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
-	waypointStatusCmd.Flags().StringVar(&waypointTimeout, "waypoint-timeout", waitTimeout.String(), "Timeout for retrieving status for waypoint")
+	waypointStatusCmd.Flags().DurationVar(&waypointTimeout, "waypoint-timeout", waitTimeout, "Timeout for retrieving status for waypoint")
 	waypointCmd.AddCommand(waypointGenerateCmd)
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
@@ -627,11 +628,8 @@ func printWaypointStatus(ctx cli.Context, w *tabwriter.Writer, kubeClient kube.C
 			if programmed {
 				break
 			}
-			timeoutDuration, err := time.ParseDuration(waypointTimeout)
-			if err != nil {
-				return err
-			}
-			if time.Since(startTime) > timeoutDuration {
+
+			if time.Since(startTime) > waypointTimeout {
 				return errorWithMessage("timed out while retrieving status for waypoint", gwc, err)
 			}
 		}

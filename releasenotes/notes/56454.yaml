@@ -5,4 +5,4 @@ issue:
   - 56453
 releaseNotes:
 - |
-  **Added** support for customizing the timeout of `istioctl waypoint status`.
+  **Added** support for customizing the timeout of `istioctl waypoint status` and `istioctl waypoint apply`.
