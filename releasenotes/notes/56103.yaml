@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 56102
+releaseNotes:
+- |
+  **Fixed** an issue when the ISTIO_KUBE_APP_PROBERS environment variable was not set for probe rewrites when the Istio webhook reinvoked.

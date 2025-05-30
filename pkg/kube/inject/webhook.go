@@ -865,7 +865,7 @@ func mergeOrAppendProbers(previouslyInjected bool, envVars []corev1.EnvVar, newP
 			return envVars
 		}
 	}
-	return envVars
+	return append(envVars, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: newProbers})
 }
 
 var emptyScrape = status.PrometheusScrapeConfiguration{}

@@ -11,7 +11,7 @@
         "thread": "%t"
       }
 {{- else }}
-        "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
+      "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
 {{- end }}
     }
   },
@@ -38,16 +38,16 @@
     "metadata": {{ .meta_json_str }}
   },
   "layered_runtime": {
-      "layers": [
-          {
-            "name": "global config",
-            "static_layer": {{ .runtime_flags }}
-          },
-          {
-              "name": "admin",
-              "admin_layer": {}
-          }
-      ]
+    "layers": [
+      {
+        "name": "global config",
+        "static_layer": {{ .runtime_flags }}
+      },
+      {
+        "name": "admin",
+        "admin_layer": {}
+      }
+    ]
   },
   "bootstrap_extensions": [
     {{- if .metadata_discovery }}
@@ -570,10 +570,8 @@
             "port_value": {{ .envoy_prometheus_port }}
           }
         },
-        {{- if .bypass_overload_manager}}
         "ignore_global_conn_limit": true,
         "bypass_overload_manager": true,
-        {{ end}}
         {{- if .dual_stack }}
         "additionalAddresses": [
           {
@@ -672,10 +670,8 @@
              "port_value": {{ .envoy_status_port }}
            }
         },
-        {{- if .bypass_overload_manager}}
         "ignore_global_conn_limit": true,
         "bypass_overload_manager": true,
-        {{ end}}
         {{- if .dual_stack }}
         "additionalAddresses": [
           {
@@ -805,7 +801,7 @@
     {{ end }}
   ]
   {{ end }}
-  {{ if or .outlier_log_path .load_stats_config_json_str .deferred_cluster_creation}}
+  {{ if or .outlier_log_path .load_stats_config_json_str}}
   ,
   "cluster_manager": {
     "enable_deferred_cluster_creation": true,

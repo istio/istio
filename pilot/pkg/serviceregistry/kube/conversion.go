@@ -154,7 +154,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 
 	istioService.Attributes.Type = string(svc.Spec.Type)
 	istioService.Attributes.ExternalName = externalName
-	istioService.Attributes.TrafficDistribution = GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
+	istioService.Attributes.TrafficDistribution = model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations)
 	istioService.Attributes.NodeLocal = nodeLocal
 	istioService.Attributes.PublishNotReadyAddresses = svc.Spec.PublishNotReadyAddresses
 	if len(svc.Spec.ExternalIPs) > 0 {
@@ -228,21 +228,4 @@ func hasListenerMode(l v1beta1.Listener, mode string) bool {
 
 func GatewaySA(gw *v1beta1.Gateway) string {
 	return model.GetOrDefault(gw.GetAnnotations()[annotation.GatewayServiceAccount.Name], fmt.Sprintf("%s-%s", gw.Name, gw.Spec.GatewayClassName))
-}
-
-func GetTrafficDistribution(specValue *string, annotations map[string]string) model.TrafficDistribution {
-	if specValue != nil {
-		preferClose := *specValue == corev1.ServiceTrafficDistributionPreferClose
-		if preferClose {
-			return model.TrafficDistributionPreferClose
-		}
-	}
-	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
-	// This also has some custom types
-	switch strings.ToLower(annotations[annotation.NetworkingTrafficDistribution.Name]) {
-	case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose):
-		return model.TrafficDistributionPreferClose
-	default:
-		return model.TrafficDistributionAny
-	}
 }

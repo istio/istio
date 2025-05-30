@@ -1,7 +1,7 @@
 {
   "application_log_config": {
     "log_format": {
-        "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
+      "text_format": "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t"
     }
   },
   "node": {
@@ -12,16 +12,16 @@
     "metadata": {"ENVOY_PROMETHEUS_PORT":15090,"ENVOY_STATUS_PORT":15021,"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","ISTIO_VERSION":"binary-1.0","METADATA_DISCOVERY":"false","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_tls","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","statusPort":15020,"tracing":{"tlsSettings":{"caCertificates":"/etc/zipkin/ca.pem","mode":"SIMPLE"},"zipkin":{"address":"localhost:6000"}}},"WORKLOAD_IDENTITY_SOCKET_FILE":"test.sock"}
   },
   "layered_runtime": {
-      "layers": [
-          {
-            "name": "global config",
-            "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":true,"envoy.reloadable_features.http_reject_path_with_fragment":false,"overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
-          },
-          {
-              "name": "admin",
-              "admin_layer": {}
-          }
-      ]
+    "layers": [
+      {
+        "name": "global config",
+        "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":true,"envoy.reloadable_features.http_reject_path_with_fragment":false,"overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
+      },
+      {
+        "name": "admin",
+        "admin_layer": {}
+      }
+    ]
   },
   "bootstrap_extensions": [
     {
@@ -361,7 +361,6 @@
         },
         "ignore_global_conn_limit": true,
         "bypass_overload_manager": true,
-        
         "filter_chains": [
           {
             "filters": [
@@ -415,7 +414,6 @@
         },
         "ignore_global_conn_limit": true,
         "bypass_overload_manager": true,
-        
         "filter_chains": [
           {
             "filters": [
