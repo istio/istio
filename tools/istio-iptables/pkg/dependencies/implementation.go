@@ -148,16 +148,7 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 
 	// 1. What binaries we have
 	// 2. What binary we should use, based on existing rules defined in our current context.
-	// does the nft binary set exist, and are nft rules present?
-	nftVer, err := shouldUseBinaryForCurrentContext(nftBin)
-	if err == nil && nftVer.ExistingRules {
-		// if so, immediately use it.
-		return nftVer, nil
-	}
-	// not critical, may find another.
-	log.Debugf("did not find (or cannot use) iptables binary, error was %w: %+v", err, nftVer)
-
-	// Check again
+	//
 	// does the legacy binary set exist, and are legacy rules present?
 	legVer, err := shouldUseBinaryForCurrentContext(legacyBin)
 	if err == nil && legVer.ExistingRules {
@@ -167,11 +158,24 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 	// not critical, may find another.
 	log.Debugf("did not find (or cannot use) iptables binary, error was %w: %+v", err, legVer)
 
+	// Check again
+	// does the nft binary set exist and seem usable?
+	// (at this point we don't need to check for existing rules,
+	// since we know legacy doesn't have any, and `nft` is usable, prefer `nft`)
+	nftVer, err := shouldUseBinaryForCurrentContext(nftBin)
+	if err == nil {
+		// if so, immediately use it.
+		return nftVer, nil
+	}
+	// not critical, may find another.
+	log.Debugf("did not find (or cannot use) iptables binary, error was %v: %+v", err, nftVer)
+
 	// regular non-suffixed binary set is our last resort.
 	//
-	// If it's there, and rules do not already exist for a specific variant,
-	// we should use the default non-suffixed binary.
-	// If it's NOT there, just propagate the error, we can't do anything, no iptables here
+	// If the aliased/non-suffixed binary is available and appears to work where the others did not,
+	// just use it. In practice this should *never* happen, as the non-suffixed binary is invariably
+	// softlinked to one or the other binary.
+	// Either way, this is our last option, so just propagate the error if it fails, we can't do anything either way.
 	return shouldUseBinaryForCurrentContext(plainBin)
 }
 
