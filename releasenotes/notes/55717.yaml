@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 55717
+releaseNotes:
+  - |
+    **Fixed**  Gateway status controller leader election was not running per revision, which could lead to issues in multi-revision setups. The leader election is now correctly scoped to each revision, ensuring that the gateway status controller operates independently for each revision.
