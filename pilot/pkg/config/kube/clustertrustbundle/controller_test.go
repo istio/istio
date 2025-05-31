@@ -47,7 +47,7 @@ func TestController(t *testing.T) {
 	clientSet := kube.NewFakeClient()
 	stop := test.NewStop(t)
 	watcher := keycertbundle.NewWatcher()
-	watcher.SetAndNotify(nil, nil, []byte(initialRootCert))
+	watcher.SetAndNotify(nil, nil, []byte(initialRootCert), nil)
 	controller := NewController(clientSet, watcher)
 	clientSet.RunAndWait(stop)
 	go controller.Run(stop)
@@ -61,7 +61,7 @@ func TestController(t *testing.T) {
 	for _, tc := range testCases {
 		expectedTrustBundle := initialRootCert
 		if tc.rootcertUpdate != "" {
-			watcher.SetAndNotify(nil, nil, []byte(tc.rootcertUpdate))
+			watcher.SetAndNotify(nil, nil, []byte(tc.rootcertUpdate), nil)
 			expectedTrustBundle = tc.rootcertUpdate
 		} else if tc.trustbundleUpdate != "" {
 			controller.clustertrustbundles.Update(&v1alpha1.ClusterTrustBundle{

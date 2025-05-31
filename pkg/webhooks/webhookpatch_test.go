@@ -58,7 +58,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 	testRevisionLabel := map[string]string{label.IoIstioRev.Name: testRevision}
 	wrongRevisionLabel := map[string]string{label.IoIstioRev.Name: wrongRevision}
 	watcher := &keycertbundle.Watcher{}
-	watcher.SetAndNotify(nil, nil, caBundle0)
+	watcher.SetAndNotify(nil, nil, caBundle0, nil)
 	ts := []struct {
 		name        string
 		configs     admissionregistrationv1.MutatingWebhookConfigurationList
@@ -230,7 +230,7 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			}
 
 			watcher := keycertbundle.NewWatcher()
-			watcher.SetAndNotify(nil, nil, tc.pemData)
+			watcher.SetAndNotify(nil, nil, tc.pemData, nil)
 			whPatcher, err := NewWebhookCertPatcher(client, tc.revision, tc.webhookName, watcher)
 			if err != nil {
 				t.Fatal(err)
