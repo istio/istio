@@ -21,7 +21,7 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -132,13 +132,14 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 			continue
 		}
 		applied := false
-		if lp.Operation == networking.EnvoyFilter_Patch_ADD {
+		switch lp.Operation {
+		case networking.EnvoyFilter_Patch_ADD:
 			lis.ListenerFilters = append(lis.ListenerFilters, proto.Clone(lp.Value).(*listener.ListenerFilter))
 			applied = true
-		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
+		case networking.EnvoyFilter_Patch_INSERT_FIRST:
 			lis.ListenerFilters = append([]*listener.ListenerFilter{proto.Clone(lp.Value).(*listener.ListenerFilter)}, lis.ListenerFilters...)
 			applied = true
-		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
+		case networking.EnvoyFilter_Patch_INSERT_AFTER:
 			// Insert after without a filter match is same as ADD in the end
 			if !hasListenerFilterMatch(lp) {
 				lis.ListenerFilters = append(lis.ListenerFilters, proto.Clone(lp.Value).(*listener.ListenerFilter))
@@ -154,7 +155,7 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 					return false, nil
 				},
 			)
-		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+		case networking.EnvoyFilter_Patch_INSERT_BEFORE:
 			// insert before without a filter match is same as insert in the beginning
 			if !hasListenerFilterMatch(lp) {
 				lis.ListenerFilters = append([]*listener.ListenerFilter{proto.Clone(lp.Value).(*listener.ListenerFilter)}, lis.ListenerFilters...)
@@ -169,7 +170,7 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 					return false, nil
 				},
 			)
-		} else if lp.Operation == networking.EnvoyFilter_Patch_REPLACE {
+		case networking.EnvoyFilter_Patch_REPLACE:
 			if !hasListenerFilterMatch(lp) {
 				continue
 			}
@@ -182,13 +183,25 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 					return false, nil
 				},
 			)
-		} else if lp.Operation == networking.EnvoyFilter_Patch_REMOVE {
+		case networking.EnvoyFilter_Patch_REMOVE:
 			if !hasListenerFilterMatch(lp) {
 				continue
 			}
 			lis.ListenerFilters = slices.FilterInPlace(lis.ListenerFilters, func(filter *listener.ListenerFilter) bool {
 				return !listenerFilterMatch(filter, lp)
 			})
+		case networking.EnvoyFilter_Patch_MERGE:
+			if !hasListenerFilterMatch(lp) {
+				continue
+			}
+			for _, lisFilter := range lis.ListenerFilters {
+				merged := mergeListenerFilter(patchContext, lp, lis, lisFilter)
+				if merged {
+					applied = true
+				}
+			}
+		default:
+			log.Debugf("unknown listener filter operation %v for listener %s, skipping", lp.Operation, lis.Name)
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, applied)
 	}
@@ -575,6 +588,62 @@ func mergeHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 	}
+}
+
+func mergeListenerFilter(patchContext networking.EnvoyFilter_PatchContext,
+	lp *model.EnvoyFilterConfigPatchWrapper,
+	lis *listener.Listener, lisFilter *listener.ListenerFilter,
+) bool {
+	if lp.Operation != networking.EnvoyFilter_Patch_MERGE {
+		return false
+	}
+
+	if !commonConditionMatch(patchContext, lp) ||
+		!listenerMatch(lis, lp) ||
+		!listenerFilterMatch(lisFilter, lp) {
+		return false
+	}
+
+	// proto merge doesn't work well when merging two filters with ANY typed configs
+	// especially when the incoming cp.Value is a struct that could contain the json config
+	// of an ANY typed filter. So convert our filter's typed config to Struct (retaining the any
+	// typed output of json)
+	if lisFilter.GetTypedConfig() == nil {
+		// skip this op as we would possibly have to do a merge of Any with struct
+		// which doesn't seem to work well.
+		return false
+	}
+	userListenerFilter := lp.Value.(*listener.ListenerFilter)
+	var (
+		err    error
+		retVal *anypb.Any
+	)
+	if userListenerFilter.GetTypedConfig() != nil {
+		// user has any typed struct
+		// The type may not match up exactly. For example, if we use v2 internally but they use v3.
+		// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
+		// If we did not do this, merge.Merge below will panic (which is recovered), so even though this
+		// is not 100% reliable its better than doing nothing
+		if userListenerFilter.GetTypedConfig().TypeUrl != lisFilter.GetTypedConfig().TypeUrl {
+			userListenerFilter.ConfigType.(*listener.ListenerFilter_TypedConfig).TypedConfig.TypeUrl = lisFilter.GetTypedConfig().TypeUrl
+		}
+		if retVal, err = util.MergeAnyWithAny(lisFilter.GetTypedConfig(), userListenerFilter.GetTypedConfig()); err != nil {
+			retVal = lisFilter.GetTypedConfig()
+		}
+	}
+
+	// we need to be able to overwrite filter names or simply empty out a filter's configs
+	// as they could be supplied through per route filter configs
+	lisFilterName := lisFilter.Name
+	if userListenerFilter.Name != "" {
+		lisFilterName = userListenerFilter.Name
+	}
+	userListenerFilter.Name = lisFilterName
+	if retVal != nil {
+		lisFilter.ConfigType = &listener.ListenerFilter_TypedConfig{TypedConfig: retVal}
+	}
+
+	return true
 }
 
 func listenerMatch(listener *listener.Listener, lp *model.EnvoyFilterConfigPatchWrapper) bool {
