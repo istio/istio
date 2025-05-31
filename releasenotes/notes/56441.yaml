@@ -4,4 +4,4 @@ area: istioctl
 issue: [56005]
 releaseNotes: 
 - |
-  **Refactored** `istioctl proxy-status` to dynamically display all xDS/CRD types as columns in the output table.
+  **Changed** `istioctl proxy-status` to dynamically display all xDS/CRD types as columns in the output table.
