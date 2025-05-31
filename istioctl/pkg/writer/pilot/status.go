@@ -37,6 +37,7 @@ type XdsStatusWriter struct {
 	Namespace              string
 	InternalDebugAllIstiod bool
 	OutputFormat           string // Output format: "table" or "json"
+	Verbosity              int    // Verbosity level: 0=default, 1=max
 }
 
 // xdsWriterStatus represents the status of a single proxy's XDS configuration
@@ -52,6 +53,9 @@ const ignoredStatus = "IGNORED"
 
 // PrintAll takes a slice of Istiod syncz responses and outputs them using a tabwriter
 func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryResponse) error {
+	if s.Verbosity > 0 {
+		return s.printAllVerbose(statuses)
+	}
 	w, fullStatus, allTypes, err := s.setupStatusPrint(statuses)
 	if err != nil {
 		return fmt.Errorf("failed to setup status print: %w", err)
@@ -80,6 +84,70 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryRespo
 		}
 	}
 	return nil
+}
+
+// printAllVerbose prints all known xDS types for all proxies, even if not present in the data.
+func (s *XdsStatusWriter) printAllVerbose(statuses map[string]*discovery.DiscoveryResponse) error {
+	// Collect all types ever seen, plus all known xDS types (including CRDs, etc.)
+	w, fullStatus, allTypes, err := s.setupStatusPrint(statuses)
+	if err != nil {
+		return fmt.Errorf("failed to setup status print: %w", err)
+	}
+
+	// Add all known xDS types (from pilotxds.TypeURLs)
+	knownTypes := getAllKnownXdsTypes()
+	typeSet := map[string]struct{}{}
+	for _, t := range allTypes {
+		typeSet[t] = struct{}{}
+	}
+	for _, t := range knownTypes {
+		typeSet[t] = struct{}{}
+	}
+	// Rebuild allTypes with all known types, sorted
+	allTypesVerbose := make([]string, 0, len(typeSet))
+	for t := range typeSet {
+		allTypesVerbose = append(allTypesVerbose, t)
+	}
+	sort.Strings(allTypesVerbose)
+
+	// Print header
+	headers := []string{"NAME", "CLUSTER"}
+	for _, t := range allTypesVerbose {
+		headers = append(headers, xdsresource.GetShortType(t))
+	}
+	headers = append(headers, "ISTIOD", "VERSION")
+	if _, err := fmt.Fprintln(w, joinWithTabs(headers)); err != nil {
+		return fmt.Errorf("failed to write header: %w", err)
+	}
+
+	// Print each proxy's status
+	for _, status := range fullStatus {
+		if err := xdsStatusPrintlnDynamic(w, status, allTypesVerbose); err != nil {
+			return fmt.Errorf("failed to print status for proxy %s: %w", status.proxyID, err)
+		}
+	}
+
+	if w != nil {
+		if err := w.Flush(); err != nil {
+			return fmt.Errorf("failed to flush tabwriter: %w", err)
+		}
+	}
+	return nil
+}
+
+// getAllKnownXdsTypes returns a list of all known xDS type URLs, including core and extension types.
+func getAllKnownXdsTypes() []string {
+	// Core types
+	types := []string{
+		xdsresource.ClusterType,
+		xdsresource.ListenerType,
+		xdsresource.EndpointType,
+		xdsresource.RouteType,
+		xdsresource.ExtensionConfigurationType,
+		// Add more known types here as needed
+	}
+	// In the future, this could be extended to include CRDs or dynamically discovered types
+	return types
 }
 
 // joinWithTabs joins a string slice with tabs

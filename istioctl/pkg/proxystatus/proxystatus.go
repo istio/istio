@@ -79,6 +79,7 @@ func XdsStatusCommand(ctx cli.Context) *cobra.Command {
 	var centralOpts clioptions.CentralControlPlaneOptions
 	var multiXdsOpts multixds.Options
 	var outputFormat string
+	var verbosity int
 
 	statusCmd := &cobra.Command{
 		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
@@ -169,6 +170,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				Writer:       c.OutOrStdout(),
 				Namespace:    ctx.Namespace(),
 				OutputFormat: outputFormat,
+				Verbosity:    verbosity,
 			}
 			return sw.PrintAll(xdsResponses)
 		},
@@ -179,8 +181,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	centralOpts.AttachControlPlaneFlags(statusCmd)
 	statusCmd.PersistentFlags().StringVar(&configDumpFile, "file", "",
 		"Envoy config dump JSON file")
+
 	statusCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table",
 		"Output format: table or json")
+	statusCmd.PersistentFlags().IntVarP(&verbosity, "verbosity", "v", 0,
+		"Verbosity level for proxy status output. 0=default, 1=show all xDS types (max verbosity)")
 
 	return statusCmd
 }

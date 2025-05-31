@@ -51,6 +51,9 @@ type execTestCase struct {
 	expectedString string // String output is expected to contain
 
 	wantException bool
+
+	// Optionally set verbosity for the test (for future expansion)
+	verbosity int
 }
 
 func TestProxyStatus(t *testing.T) {
@@ -133,7 +136,12 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 	t.Helper()
 
 	var out bytes.Buffer
-	cmd.SetArgs(c.args)
+	args := c.args
+	// If verbosity is set, inject it into the args for the command
+	if c.verbosity > 0 {
+		args = append(args, fmt.Sprintf("--verbosity=%d", c.verbosity))
+	}
+	cmd.SetArgs(args)
 	cmd.SilenceUsage = true
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
@@ -142,21 +150,21 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 	output := out.String()
 
 	if c.expectedOutput != "" && c.expectedOutput != output {
-		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q", strings.Join(c.args, " "), output, c.expectedOutput)
+		t.Fatalf("Unexpected output for 'istioctl %s' (verbosity=%d)\n got: %q\nwant: %q", strings.Join(args, " "), c.verbosity, output, c.expectedOutput)
 	}
 
 	if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
-		t.Fatalf("Output didn't match for '%s %s'\n got %v\nwant: %v", cmd.Name(), strings.Join(c.args, " "), output, c.expectedString)
+		t.Fatalf("Output didn't match for '%s %s' (verbosity=%d)\n got %v\nwant: %v", cmd.Name(), strings.Join(args, " "), c.verbosity, output, c.expectedString)
 	}
 
 	if c.wantException {
 		if fErr == nil {
-			t.Fatalf("Wanted an exception for 'istioctl %s', didn't get one, output was %q",
-				strings.Join(c.args, " "), output)
+			t.Fatalf("Wanted an exception for 'istioctl %s' (verbosity=%d), didn't get one, output was %q",
+				strings.Join(args, " "), c.verbosity, output)
 		}
 	} else {
 		if fErr != nil {
-			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
+			t.Fatalf("Unwanted exception for 'istioctl %s' (verbosity=%d): %v", strings.Join(args, " "), c.verbosity, fErr)
 		}
 	}
 }
