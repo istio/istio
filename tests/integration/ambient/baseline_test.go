@@ -3690,51 +3690,6 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 			k8sPods := tc.Clusters().Default().Kube().CoreV1().Pods(istioSystemNS)
 			patchOpts := metav1.PatchOptions{}
 
-			// Label the istio-system namespace as ambient
-			nsLabelPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": "ambient"}}}`, "istio.io/dataplane-mode")
-			_, err := tc.Clusters().Default().Kube().CoreV1().Namespaces().Patch(context.Background(),
-				istioSystemNS, types.StrategicMergePatchType, []byte(nsLabelPatch), patchOpts)
-			if err != nil {
-				tc.Fatalf("Failed to label namespace %s as ambient: %v", istioSystemNS, err)
-			}
-			tc.Cleanup(func() {
-				cleanupPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": null}}}`, "istio.io/dataplane-mode")
-				_, err = tc.Clusters().Default().Kube().CoreV1().Namespaces().Patch(context.Background(),
-					istioSystemNS, types.StrategicMergePatchType, []byte(cleanupPatch), patchOpts)
-				if err != nil {
-					tc.Logf("Failed to remove ambient label from namespace %s: %v", istioSystemNS, err)
-				}
-				tc.Logf("Removed ambient label from namespace %s", istioSystemNS)
-			})
-
-			// Label Prometheus pod as ambient
-			promPods, err := k8sPods.List(context.TODO(), metav1.ListOptions{
-				LabelSelector: "app.kubernetes.io/name=prometheus",
-			})
-			if err != nil {
-				tc.Fatalf("Failed to list Prometheus pods in %s: %v", istioSystemNS, err)
-			}
-			if len(promPods.Items) == 0 {
-				tc.Logf("No Prometheus pods found with label app.kubernetes.io/name=prometheus in %s. Skipping Prometheus labeling.", istioSystemNS)
-			} else {
-				for _, promPod := range promPods.Items {
-					promPodName := promPod.Name
-					promLabelPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": "ambient"}}}`, "istio.io/dataplane-mode")
-					_, err = k8sPods.Patch(context.Background(), promPodName, types.StrategicMergePatchType, []byte(promLabelPatch), patchOpts)
-					if err != nil {
-						tc.Fatalf("Failed to label Prometheus pod %s for ambient: %v", promPodName, err)
-					}
-
-					tc.Cleanup(func() {
-						promCleanupPatch := fmt.Sprintf(`{"metadata":{"labels": {"%s": null}}}`, "istio.io/dataplane-mode")
-						_, err = k8sPods.Patch(context.Background(), promPodName, types.StrategicMergePatchType, []byte(promCleanupPatch), patchOpts)
-						if err != nil {
-							tc.Logf("Failed to remove istio.io/dataplane-mode label from Prometheus pod %s: %v", promPodName, err)
-						}
-						tc.Logf("Removed ambient label from Prometheus pod %s", promPodName)
-					})
-				}
-			}
 
 			// Get ztunnel pod info
 			ztunnelPods, err := k8sPods.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel"})
