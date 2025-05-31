@@ -3660,7 +3660,7 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 					"connection_security_policy":     "mutual_tls",
 					"destination_workload_namespace": istioSystemNS,
 					"destination_workload":           "ztunnel",
-					"destination_principal":          fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, istioSystemNS, ztunnelServiceAccount), // Restored usage of ztunnelServiceAccount
+					"destination_principal":          fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, istioSystemNS, ztunnelServiceAccount),
 					"destination_canonical_service":  ztunnelAppLabel,
 					"destination_canonical_revision": ztunnelVersionLabel,
 					"source_workload_namespace":      sourceNamespace,
