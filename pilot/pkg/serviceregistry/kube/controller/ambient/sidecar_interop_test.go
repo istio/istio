@@ -28,7 +28,7 @@ import (
 
 func TestIngressInterop(t *testing.T) {
 	// Test that we can get updates for EDS when we have service bound waypoints.
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServer(t, testC, testNW, "")
 	// the two types return different keys.. rename to make it more clear
 	addressUpdate := s.svcXdsName
 	edsUpdate := s.hostnameForService
