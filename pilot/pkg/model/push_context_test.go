@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/model"
 	"reflect"
 	"sort"
 	"sync"
@@ -51,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
