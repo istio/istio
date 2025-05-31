@@ -3550,7 +3550,7 @@ func restartZtunnel(t framework.TestContext) {
 					}
 				}
 			}
-		}`, time.Now().Format(time.RFC3339)) // e.g., "2006-01-02T15:04:05Z07:00"
+		}`, time.Now().Format(time.RFC3339)) // e.g., “2006-01-02T15:04:05Z07:00”
 	ds := t.Clusters().Default().Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace)
 	_, err := ds.Patch(context.Background(), "ztunnel", types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
