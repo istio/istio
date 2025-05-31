@@ -631,9 +631,10 @@ kind: EnvoyFilter
 metadata:
   name: inbound
 spec:
-  workloadSelector:
-    labels:
-      gateway.networking.k8s.io/gateway-name: "{{.Destination}}"
+  targetRefs:
+  - kind: Gateway
+    name: waypoint
+    group: gateway.networking.k8s.io
   configPatches:
   - applyTo: HTTP_FILTER
     match:
