@@ -3767,6 +3767,7 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 			tc.Logf("Prometheus query for ztunnel secure metrics: %#v", query)
 
 			retry.UntilSuccessOrFail(tc, func() error {
+				clientInstance.CallOrFail(tc, opts)
 				count, err := prom.QuerySum(tc.Clusters().Default(), query)
 				if err != nil {
 					tc.Logf("Prometheus query failed (will retry for query %s): %v", query.String(), err)
