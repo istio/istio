@@ -1,0 +1,159 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: parent-gateway
+  namespace: istio-system
+spec:
+  allowedListeners:
+    namespaces:
+      from: All
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+    - name: foo
+      hostname: foo.com
+      protocol: HTTP
+      port: 80
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: single-entry-http
+  namespace: istio-system
+spec:
+  parentRef:
+    name: parent-gateway
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: first
+      hostname: first.foo.com
+      protocol: HTTP
+      port: 80
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: single-entry-tls
+  namespace: istio-system
+spec:
+  parentRef:
+    name: parent-gateway
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: second
+      hostname: second.foo.com
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            group: ""
+            name: my-cert-http
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: multi-entry
+  namespace: istio-system
+spec:
+  parentRef:
+    name: parent-gateway
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: third
+      hostname: third.foo.com
+      protocol: HTTP
+      port: 80
+    - name: forth
+      hostname: forth.foo.com
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            group: ""
+            name: my-cert-http
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: no-port
+  namespace: istio-system
+spec:
+  parentRef:
+    name: parent-gateway
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: fifth
+      hostname: fifth.foo.com
+      protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: bind-set
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: single-entry-http
+      namespace: istio-system
+      kind: XListenerSet
+      group: gateway.networking.x-k8s.io
+  rules:
+    - matches:
+        - path:
+            value: /set
+      backendRefs:
+        - name: httpbin
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: bind-both
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: parent-gateway
+    - name: single-entry-http
+      namespace: istio-system
+      kind: XListenerSet
+      group: gateway.networking.x-k8s.io
+  rules:
+    - matches:
+        - path:
+            value: /both
+      backendRefs:
+        - name: httpbin
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: bind-parent
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: parent-gateway
+  rules:
+    - matches:
+        - path:
+            value: /parent
+      backendRefs:
+        - name: httpbin
+          port: 80
