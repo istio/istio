@@ -1,13 +1,7 @@
 apiVersion: release-notes/v2
-
-kind: 
- - istioctl
-
-area: user experience
-
-issue:
-  - 56005
-
+kind: feature
+area: istioctl
+issue: [56005]
 releaseNotes: 
 - |
-  **Refactored** `istioctl proxy-status` to dynamically display all xDS/CRD types as columns in the output table. 
+  **Refactored** `istioctl proxy-status` to dynamically display all xDS/CRD types as columns in the output table.
