@@ -275,6 +275,9 @@ var (
 			" (e.g., my-service.my-ns.svc.cluster.local.) to the domains"+
 			" list for VirtualHost entries.",
 	).Get()
+
+	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", true,
+		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

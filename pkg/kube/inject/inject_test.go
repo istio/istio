@@ -21,6 +21,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -54,18 +55,50 @@ import (
 // TestInjection tests both the mutating webhook and kube-inject. It does this by sharing the same input and output
 // test files and running through the two different code paths.
 func TestInjection(t *testing.T) {
-	multi := multicluster.NewFakeController()
-	client := kube.NewFakeClient(
-		&corev1.Namespace{
+	nodes := []*corev1.Node{
+		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "test-ns",
-				Annotations: map[string]string{
-					securityv1.UIDRangeAnnotation:           "1000620000/10000",
-					securityv1.SupplementalGroupsAnnotation: "1000620000/10000",
+				Name: "node-1",
+			},
+			Status: corev1.NodeStatus{
+				NodeInfo: corev1.NodeSystemInfo{
+					KubeletVersion: "v1.33.0",
 				},
 			},
-		})
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-2",
+			},
+			Status: corev1.NodeStatus{
+				NodeInfo: corev1.NodeSystemInfo{
+					KubeletVersion: "v1.34.0",
+				},
+			},
+		},
+	}
+
+	// Convert nodes to runtime.Object
+	var objects []runtime.Object
+	for _, node := range nodes {
+		objects = append(objects, node)
+	}
+
+	objects = append(objects, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-ns",
+			Annotations: map[string]string{
+				securityv1.UIDRangeAnnotation:           "1000620000/10000",
+				securityv1.SupplementalGroupsAnnotation: "1000620000/10000",
+			},
+		},
+	})
+
+	multi := multicluster.NewFakeController()
+	client := kube.NewFakeClient(objects...)
 	multiclusterNamespaceController := multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](multi, kubetypes.Filter{})
+	multiclusterNodeController := multicluster.BuildMultiClusterKclientComponent[*corev1.Node](multi, kubetypes.Filter{})
+
 	stop := test.NewStop(t)
 	multi.Add(constants.DefaultClusterName, client, stop)
 	client.RunAndWait(stop)
@@ -328,9 +361,6 @@ func TestInjection(t *testing.T) {
 		{
 			in:   "proxy-override-args.yaml",
 			want: "proxy-override-args-native.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
-			},
 		},
 		{
 			in:   "gateway.yaml",
@@ -339,43 +369,31 @@ func TestInjection(t *testing.T) {
 		{
 			in:   "gateway.yaml",
 			want: "gateway.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
-			},
 		},
 		{
 			in:   "native-sidecar.yaml",
 			want: "native-sidecar.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
-			},
+		},
+		{
+			in:   "native-sidecar-opt-in.yaml",
+			want: "native-sidecar-opt-in.yaml.injected",
 		},
 		{
 			in:   "native-sidecar-opt-in.yaml",
 			want: "native-sidecar-opt-in.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
-			},
-		},
-		{
-			in:   "native-sidecar-opt-in.yaml",
-			want: "native-sidecar-opt-in.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "false")
+				test.SetForTest(t, &features.EnableNativeSidecars, false)
 			},
 		},
 		{
 			in:   "native-sidecar-opt-out.yaml",
 			want: "native-sidecar-opt-out.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
-			},
 		},
 		{
 			in:   "native-sidecar-opt-out.yaml",
 			want: "native-sidecar-opt-out.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "false")
+				test.SetForTest(t, &features.EnableNativeSidecars, false)
 			},
 		},
 		{
@@ -602,6 +620,7 @@ func TestInjection(t *testing.T) {
 					valuesConfig: valuesConfig,
 					revision:     "default",
 					namespaces:   multiclusterNamespaceController,
+					nodes:        multiclusterNodeController,
 				}
 
 				// Split multi-part yaml documents. Input and output will have the same number of parts.
@@ -1264,6 +1283,120 @@ func BenchmarkInjection(b *testing.B) {
 						Namespace: tt.in.Namespace,
 					},
 				}, "")
+			}
+		})
+	}
+}
+
+func TestNativeSidecarAnnotationOverride(t *testing.T) {
+	funcMap := template.FuncMap{
+		"default": func(defaultVal, val string) string {
+			if val == "" {
+				return defaultVal
+			}
+			return val
+		},
+	}
+
+	tmpl := template.Must(template.New("inject").Funcs(funcMap).Parse(`
+{{- $nativeSidecar := ne (index .ObjectMeta.Annotations ` + "`" + `sidecar.istio.io/nativeSidecar` + "`" + ` | default (printf "%t" .NativeSidecars)) "false" }}
+{{- if $nativeSidecar }}
+spec:
+  initContainers:
+  - name: istio-proxy
+    image: proxy
+{{- else }}
+spec:
+  containers:
+  - name: istio-proxy
+    image: proxy
+{{- end }}
+`))
+
+	cases := []struct {
+		name            string
+		annotations     map[string]string
+		nativeSidecar   bool
+		expectContainer string
+	}{
+		{
+			name:            "global flag enabled, no annotation",
+			annotations:     map[string]string{},
+			nativeSidecar:   true,
+			expectContainer: "initContainers",
+		},
+		{
+			name: "global flag enabled, annotation disabled",
+			annotations: map[string]string{
+				"sidecar.istio.io/nativeSidecar": "false",
+			},
+			nativeSidecar:   true,
+			expectContainer: "containers",
+		},
+		{
+			name: "global flag disabled, annotation enabled",
+			annotations: map[string]string{
+				"sidecar.istio.io/nativeSidecar": "true",
+			},
+			nativeSidecar:   false,
+			expectContainer: "initContainers",
+		},
+		{
+			name:            "global flag disabled, no annotation",
+			annotations:     map[string]string{},
+			nativeSidecar:   false,
+			expectContainer: "containers",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tc.annotations,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "app",
+						},
+						{
+							Name: "istio-proxy",
+						},
+					},
+				},
+			}
+			_, valuesConfig, meshConfig := getInjectionSettings(t, nil, "")
+
+			params := InjectionParameters{
+				pod:             pod,
+				templates:       Templates{SidecarTemplateName: tmpl},
+				defaultTemplate: []string{SidecarTemplateName},
+				meshConfig:      meshConfig,
+				valuesConfig:    valuesConfig,
+				nativeSidecar:   tc.nativeSidecar,
+				proxyConfig:     mesh.DefaultProxyConfig(),
+			}
+
+			mergedPod, _, err := RunTemplate(params)
+			if err != nil {
+				t.Fatalf("RunTemplate() error = %v", err)
+			}
+
+			if tc.expectContainer == "initContainers" {
+				if FindContainer(ProxyContainerName, mergedPod.Spec.InitContainers) == nil {
+					t.Errorf("Expected to find istio-proxy in initContainers")
+				}
+				if FindContainer(ProxyContainerName, mergedPod.Spec.Containers) != nil {
+					t.Errorf("Expected not to find istio-proxy in containers")
+				}
+			} else {
+				if FindContainer(ProxyContainerName, mergedPod.Spec.Containers) == nil {
+					t.Errorf("Expected to find istio-proxy in containers")
+				}
+				if FindContainer(ProxyContainerName, mergedPod.Spec.InitContainers) != nil {
+					t.Errorf("Expected not to find istio-proxy in initContainers")
+				}
 			}
 		})
 	}
