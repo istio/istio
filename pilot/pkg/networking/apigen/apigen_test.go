@@ -68,8 +68,7 @@ func TestAPIGen(t *testing.T) {
 			Generator: "api",
 		}}
 		adscConn := ds.ConnectUnstarted(ds.SetupProxy(proxy), xds.APIWatches())
-		store := memory.Make(collections.Pilot)
-		configController := memory.NewController(store)
+		configController := memory.NewController(collections.Pilot)
 		adscConn.Store = configController
 		err := adscConn.Run()
 		if err != nil {
@@ -103,8 +102,7 @@ func TestAPIGenWithMulAddresses(t *testing.T) {
 			Generator: "api",
 		}}
 		adscConn := ds.ConnectUnstarted(ds.SetupProxy(proxy), xds.APIWatches())
-		store := memory.Make(collections.Pilot)
-		configController := memory.NewController(store)
+		configController := memory.NewController(collections.Pilot)
 		adscConn.Store = configController
 		err := adscConn.Run()
 		if err != nil {
