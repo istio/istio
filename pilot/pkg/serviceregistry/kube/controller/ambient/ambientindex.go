@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
 	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -112,6 +113,7 @@ type index struct {
 	ClusterID       cluster.ID
 	XDSUpdater      model.XDSUpdater
 	Flags           FeatureFlags
+	revision        string
 	Debugger        *krt.DebugHandler
 
 	stop chan struct{}
@@ -156,6 +158,7 @@ func New(options Options) Index {
 		XDSUpdater:                  options.XDSUpdater,
 		Debugger:                    options.Debugger,
 		Flags:                       options.Flags,
+		revision:                    options.Revision,
 		clientBuilder:               options.ClientBuilder,
 		stop:                        make(chan struct{}),
 		cs:                          multicluster.NewClustersStore(),
@@ -163,7 +166,7 @@ func New(options Options) Index {
 	}
 
 	filter := kclient.Filter{
-		ObjectFilter: options.Client.ObjectFilter(),
+		ObjectFilter: kubetypes.ComposeFilters(options.Client.ObjectFilter(), a.inRevision),
 	}
 	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
 	opts = opts.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: options.ClusterID})
@@ -573,6 +576,15 @@ func (a *index) lookupService(key string) *model.ServiceInfo {
 		ip:      ip,
 	})
 	return slices.First(services)
+}
+
+func (a *index) inRevision(obj any) bool {
+	object := controllers.ExtractObject(obj)
+	if object == nil {
+		return false
+	}
+	result := config.LabelsInRevision(object.GetLabels(), a.revision)
+	return result
 }
 
 // All return all known workloads. Result is un-ordered
