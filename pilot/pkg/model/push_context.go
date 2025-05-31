@@ -2326,8 +2326,15 @@ func (ps *PushContext) EnvoyFilters(proxy *Proxy) *MergedEnvoyFilterWrapper {
 // if there is a workload selector, check for matching workload labels
 func (ps *PushContext) getMatchedEnvoyFilters(proxy *Proxy, namespaces string) []*EnvoyFilterWrapper {
 	matchedEnvoyFilters := make([]*EnvoyFilterWrapper, 0)
+	matcher := PolicyMatcherForProxy(proxy)
 	for _, efw := range ps.envoyFiltersByNamespace[namespaces] {
-		if efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Labels) {
+		if matcher.ShouldAttachPolicy(gvk.EnvoyFilter, types.NamespacedName{Namespace: efw.Namespace, Name: efw.Name}, efw) {
+			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
+			continue
+		}
+
+		if len(efw.GetTargetRefs()) == 0 && // no targetRefs, let's check workloadSelector.
+			(efw.workloadSelector == nil || efw.workloadSelector.SubsetOf(proxy.Labels)) {
 			matchedEnvoyFilters = append(matchedEnvoyFilters, efw)
 		}
 	}
