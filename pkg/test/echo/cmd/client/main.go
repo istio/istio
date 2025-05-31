@@ -283,16 +283,14 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 	}
 
 	for _, header := range headers {
-		parts := strings.Split(header, ":")
-
-		// require name:value format
-		if len(parts) != 2 {
+		headerKey, headerVal, colonFound := strings.Cut(header, ":")
+		if !colonFound {
 			return nil, fmt.Errorf("invalid header format: %q (want name:value)", header)
 		}
 
 		request.Headers = append(request.Headers, &proto.Header{
-			Key:   parts[0],
-			Value: strings.Trim(parts[1], " "),
+			Key:   headerKey,
+			Value: strings.TrimSpace(headerVal),
 		})
 	}
 
