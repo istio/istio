@@ -3722,7 +3722,7 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 				tc.Logf("Removed networking.istio.io/tunnel label from ztunnel pod %s", ztunnelPod.Name)
 			})
 
-			tc.Logf("Using client %s (%s) to query ztunnel %s (%s) metrics on port %d. Expecting transparent HBONE.",
+			tc.Logf("Using client %s (%s) to query ztunnel %s (%s) metrics on port %d. Expecting transport HBONE.",
 				clientInstance.Config().Service, clientInstance.WorkloadsOrFail(tc)[0].PodName(), ztunnelPod.Name, ztunnelPodIP, ztunnelMetricsPort)
 
 			// Client calls ztunnel's `/metrics` endpoint.
