@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
+	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/type/v1beta1"
@@ -42,6 +43,13 @@ type EnvoyFilterWrapper struct {
 	creationTime                 time.Time
 
 	fullSpec *networking.EnvoyFilter
+}
+
+func (efw *EnvoyFilterWrapper) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      efw.Name,
+		Namespace: efw.Namespace,
+	}
 }
 
 var _ TargetablePolicy = &EnvoyFilterWrapper{}

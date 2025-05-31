@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 56417
+releaseNotes:
+  - |
+    **Fixed** an issue that `EnvoyFilter` with `targetRefs` matched wrong resources.
