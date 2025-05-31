@@ -349,6 +349,7 @@ func (cl *Client) addCRD(name string) {
 	// 3. Does it have a special per-type object filter?
 	var extraFilter func(obj any) bool
 	var transform func(obj any) (any, error)
+	var fieldSelector string
 	if of, f := cl.filtersByGVK[resourceGVK]; f {
 		if of.ObjectFilter != nil {
 			extraFilter = of.ObjectFilter.Filter
@@ -356,6 +357,7 @@ func (cl *Client) addCRD(name string) {
 		if of.ObjectTransform != nil {
 			transform = of.ObjectTransform
 		}
+		fieldSelector = of.FieldSelector
 	}
 
 	var namespaceFilter kubetypes.DynamicObjectFilter
@@ -365,6 +367,7 @@ func (cl *Client) addCRD(name string) {
 	filter := kubetypes.Filter{
 		ObjectFilter:    kubetypes.ComposeFilters(namespaceFilter, cl.inRevision, extraFilter),
 		ObjectTransform: transform,
+		FieldSelector:   fieldSelector,
 	}
 	if resourceGVK == gvk.KubernetesGateway {
 		filter.ObjectFilter = kubetypes.ComposeFilters(namespaceFilter, extraFilter)
