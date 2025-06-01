@@ -117,10 +117,10 @@ github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.m
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
 github.com/envoyproxy/go-control-plane v0.13.5-0.20250416141339-b5bc3390bc94 h1:LD/vt8fAVneDi38XmLvsV5F01nxaN8lkeOVCHBL9eAo=
 github.com/envoyproxy/go-control-plane v0.13.5-0.20250416141339-b5bc3390bc94/go.mod h1:Kf4hNGzgvzKhoKdlSXD+IZtG55h9r2SOpO1kRKLI03o=
-github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250522035732-2abf4a44739f h1:64K9E3D0OjIWE4h1xueJ2aUIJn2T9qCqAHT+1xx3HBE=
-github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250522035732-2abf4a44739f/go.mod h1:eKJsw+2b2fJU+GAIaFJrGYn7xs+uStStN+p7lRuxphY=
-github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250522035732-2abf4a44739f h1:ilrT7MoQ1ayPiV+izoayNFDGksLAyoCiIUDpP90dwf4=
-github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250522035732-2abf4a44739f/go.mod h1:mSbVb++Cgemk7vwglDDza7/0hptregMQhRyTmGu10ec=
+github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250529131204-17588c61bef7 h1:ULIGbrmUTb9pVAfQJsblNUGjgC/JJj4myOwH3+YeErA=
+github.com/envoyproxy/go-control-plane/contrib v1.32.5-0.20250529131204-17588c61bef7/go.mod h1:b/fqkGF5D7gbUZUWIFcFk5mPCPGc9XQpdu0OnsxhBPQ=
+github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250529131204-17588c61bef7 h1:xVvUDtTYPyTSFxn1e5DFmoOfki2pjAsr/NWutYgyMIg=
+github.com/envoyproxy/go-control-plane/envoy v1.32.5-0.20250529131204-17588c61bef7/go.mod h1:yu2wMJHLle4tLf5JseY7fsTStNTURZ2zAdL7Kv78W+4=
 github.com/envoyproxy/go-control-plane/ratelimit v0.1.0 h1:/G9QYbddjL25KvtKTv3an9lx6VBE2cnb8wp1vEGNYGI=
 github.com/envoyproxy/go-control-plane/ratelimit v0.1.0/go.mod h1:Wk+tMFAFbCXaJPzVVHnPgRKdUdwW/KdbRt94AzgRee4=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
@@ -588,8 +588,8 @@ google.golang.org/grpc v1.23.0/go.mod h1:Y5yQAOtifL1yxbo5wqy6BxZv8vAUGQwXBOALyac
 google.golang.org/grpc v1.25.1/go.mod h1:c3i+UQWmh7LiEpx4sFZnkU36qjEYZ0imhYfXVyQciAY=
 google.golang.org/grpc v1.27.0/go.mod h1:qbnxyOmOxrQa7FizSgH+ReBfzJrCY1pSN7KXBS8abTk=
 google.golang.org/grpc v1.29.1/go.mod h1:itym6AZVZYACWQqET3MqgPpjcuV5QH3BxFS3IjizoKk=
-google.golang.org/grpc v1.72.1 h1:HR03wO6eyZ7lknl75XlxABNVLLFc2PAb6mHlYh756mA=
-google.golang.org/grpc v1.72.1/go.mod h1:wH5Aktxcg25y1I3w7H69nHfXdOG3UiadoBtjh3izSDM=
+google.golang.org/grpc v1.72.2 h1:TdbGzwb82ty4OusHWepvFWGLgIbNo1/SUynEN0ssqv8=
+google.golang.org/grpc v1.72.2/go.mod h1:wH5Aktxcg25y1I3w7H69nHfXdOG3UiadoBtjh3izSDM=
 google.golang.org/protobuf v1.36.6 h1:z1NpPI8ku2WgiWnf+t9wTPsn6eP1L7ksHUlkfLvd9xY=
 google.golang.org/protobuf v1.36.6/go.mod h1:jduwjTPXsFjZGTmRluh+L6NjiWu7pchiJ2/5YcXBHnY=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
