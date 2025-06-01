@@ -5,4 +5,4 @@ issue:
   - 56417
 releaseNotes:
   - |
-    **Fixed** an issue that `EnvoyFilter` with `targetRefs` matched wrong resources.
+    **Fixed** an issue where `EnvoyFilter` with `targetRefs` matched incorrect resources.
