@@ -950,7 +950,6 @@ type AmbientIndexes interface {
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
 	ServicesForWaypoint(WaypointKey) []ServiceInfo
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
-	ServicesForGateway() []ServiceInfo
 }
 
 // WaypointKey is a multi-address extension of NetworkAddress which is commonly used for lookups in AmbientIndex
@@ -963,6 +962,8 @@ type WaypointKey struct {
 
 	Network   string
 	Addresses []string
+
+	IsGateway bool // true if this is a network gateway proxy, false if it is a regular waypoint proxy
 }
 
 // WaypointKeyForProxy builds a key from a proxy to lookup
@@ -978,6 +979,7 @@ func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
 	key := WaypointKey{
 		Namespace: node.ConfigNamespace,
 		Network:   node.Metadata.Network.String(),
+		IsGateway: externalAddresses, // true if this is a network gateway proxy, false if it is a regular waypoint proxy
 	}
 	for _, svct := range node.ServiceTargets {
 		key.Hostnames = append(key.Hostnames, svct.Service.Hostname.String())
@@ -1037,10 +1039,6 @@ func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
 }
 
 func (u NoopAmbientIndexes) ServicesWithWaypoint(string) []ServiceWaypointInfo {
-	return nil
-}
-
-func (u NoopAmbientIndexes) ServicesForGateway() []ServiceInfo {
 	return nil
 }
 
@@ -1241,11 +1239,11 @@ const (
 	// Local ServiceScope specifies that istiod will not automatically expose the matching services' endpoints at the
 	// cluster's east/west gateway. Istio will also not automatically share locolly matching endpoints with the
 	// cluster's local dataplane that are not within the local cluster.
-	Local ServiceScope = "local"
+	Local ServiceScope = "LOCAL"
 	// Global ServiceScope specifies that istiod will automatically expose the matching services' endpoints at the
 	// cluster's east/west gateway. Istio will also automatically share globally matching endpoints with the cluster's
 	// local dataplance that in the local and remote clusters.
-	Global ServiceScope = "global"
+	Global ServiceScope = "GLOBAL"
 )
 
 type WorkloadInfo struct {

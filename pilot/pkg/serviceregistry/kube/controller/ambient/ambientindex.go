@@ -601,19 +601,16 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 	// 3. Service
 	// Remove Service if the corresponding workload is local, but has a differnt cluster ID
 	// lookup service by namespace hostname key
-	log.Debugf("jaellio Lookup service by network %s and ip %s", network, ip)
-	log.Debugf("jaellio lookup service by key %s", key)
 	if svc := a.lookupService(key); svc != nil {
-		log.Debugf("jaellio Lookup service %s", svc.ResourceName())
 		res := []model.AddressInfo{svc.AsAddress}
 		// grab all workloads that reference this service
-		log.Debugf("jaellio lookup workloads by service: %v", a.workloads.ByServiceKey)
 		for _, w := range a.workloads.ByServiceKey.Lookup(svc.ResourceName()) {
 			// Only select endpoints from workloads that belong to a service with a global scope or a local scope in the same cluster
-			log.Debugf("jaellio Workload %s has service %s, scope %s, and cluster id %s", w.ResourceName(), svc.ResourceName(), w.ScopeForService[key], w.Workload.ClusterId)
+			log.Debugf("Workload %s has service %s, scope %s, and cluster id %s", w.ResourceName(), svc.ResourceName(), w.ScopeForService[key], w.Workload.ClusterId)
 			// TODO(jaellio): I am not sure we need a scopeForService defined on the workload. As far as I know we only lookup workload by service and therefor already have the service scope
 			// we don't need an additional mapping back to service from the workload
 			if w.Workload.ClusterId != string(a.ClusterID) && w.ScopeForService[key] == model.Local {
+				log.Debugf("Skipping workload %s for service %s because it is not local to the cluster but has a %s scope", w.ResourceName(), svc.ResourceName(), w.ScopeForService[key])
 				continue
 			}
 			res = append(res, w.AsAddress)
@@ -695,11 +692,14 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 	return res, sets.New(removed...)
 }
 
-// TODO(jaellio): Should this be filtered local and globals services?
-// We don't have knowledge of the cluster ID here, so we can't filter by that
-// Should service have a cluster ID?
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	if key.IsGateway {
+		// If this is a gateway waypoint, we only return the global services
+		return a.AllGlobalServices()
+	}
+
 	out := map[string]model.ServiceInfo{}
+
 	for _, host := range key.Hostnames {
 		for _, res := range a.services.ByOwningWaypointHostname.Lookup(NamespaceHostname{
 			Namespace: key.Namespace,
@@ -727,10 +727,11 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 	return maps.Values(out)
 }
 
-// TODO(jaellio): Should this be filtered local and globals services?
-// We don't know the waypoint cluster ID, but we do have the cluster ID of the waypoint
-// What should the view of the world be for the waypoint receiving these workloads?
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
+	if key.IsGateway {
+		// TODO(jaellio): Support workloads for gateway waypoint
+		return nil
+	}
 	out := map[string]model.WorkloadInfo{}
 	for _, host := range key.Hostnames {
 		for _, res := range a.workloads.ByOwningWaypointHostname.Lookup(NamespaceHostname{
@@ -758,9 +759,7 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	return model.SortWorkloadsByCreationTime(maps.Values(out))
 }
 
-// TODO(jaellio): Should this be filtered local and globals services?
-// We don't have knowledge of the cluster ID here, so we can't filter by that
-// Should service have a cluster ID?
+// ServicesForGateway returns all services that are globally scoped
 func (a *index) ServicesForGateway() []model.ServiceInfo {
 	return a.AllGlobalServices()
 }

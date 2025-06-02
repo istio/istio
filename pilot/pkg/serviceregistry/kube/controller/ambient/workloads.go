@@ -732,7 +732,7 @@ func workloadEntryWorkloadBuilder(
 
 		scopeForService := make(map[string]model.ServiceScope)
 		for _, service := range services {
-			// TODO:  Should the scopo come from the service entry? But the service entry will always be local?
+			// since we only discover service/workload entries that are local to the cluster, the scope is always Local
 			scopeForService[service.ResourceName()] = model.Local
 		}
 
@@ -897,7 +897,7 @@ func podWorkloadBuilder(
 		// TODO(jaellio): What is the ordering of Service and workload creation? Will service.Scope be populated by the time we get here?
 		scopeForService :=  make(map[string]model.ServiceScope)
 		for _, service := range services {
-			log.Debugf("jaellio podWorkloadBuilder - Service %s has scope %s", service.NamespacedName(), service.Scope)
+			log.Debugf("podWorkloadBuilder - Service %s has scope %s", service.NamespacedName(), service.Scope)
 			scopeForService[service.ResourceName()] = service.Scope
 		}
 
@@ -1148,7 +1148,7 @@ func serviceEntryWorkloadBuilder(
 			scopeForService := make(map[string]model.ServiceScope)
 			for _, service := range services {
 				// TODO(jaellio): Should this be hardcoded to local?
-				log.Debugf("jaellio serviceentryWorkloadBuilder - Service %s has scope %s", service.NamespacedName(), service.Scope)
+				log.Debugf("service %s has scope %s", service.NamespacedName(), service.Scope)
 				scopeForService[service.ResourceName()] = service.Scope
 			}
 

@@ -135,7 +135,6 @@ func GlobalMergedWorkloadServicesCollection(
 			namespaces := *namespacesPtr
 			// We can't have duplicate collections (otherwise FetchOne will panic) so use
 			// sync.Once to ensure we only create the collection once and return that same value
-			// TODO(jaellio): how are we going to get collections here?
 			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, meshConfig, domainSuffix, func(ctx krt.HandlerContext) network.ID {
 				nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
 				if nwPtr == nil {
@@ -225,9 +224,6 @@ func serviceServiceBuilder(
 	}
 }
 
-// TODO(jaellio): does there need to be a lock on reading the meshConfig serviceScopeConfig selectors?
-// There is a filter in discoveryNamespacesFilter that does this, but it is not clear if it is needed here.
-
 // LabelSelectorAsSelector converts a mesh api LabelSelector to a labels.Selector.
 func LabelSelectorAsSelector(ps *meshapi.LabelSelector) (labels.Selector, error) {
 	if ps == nil {
@@ -305,14 +301,14 @@ func MatchServiceScope(meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namesp
 		if nss.Matches(namespaceLabels) && ss.Matches(serviceLabels) {
 			// If the service matches a global scope config, return global scope
 			if scopeConfig.GetScope() == meshapi.MeshConfig_ServiceScopeConfigs_GLOBAL {
-				log.Debugf("jaellio - Service %s/%s is globally scoped", s.Namespace, s.Name)
+				log.Debugf("service %s/%s is globally scoped", s.Namespace, s.Name)
 				return model.Global
 			}
 		}
     }
 
     // Default to local scope if no match is found
-	log.Debugf("jaellio - Service %s/%s is locally scoped", s.Namespace, s.Name)
+	log.Debugf("service %s/%s is locally scoped", s.Namespace, s.Name)
     return model.Local
 }
 

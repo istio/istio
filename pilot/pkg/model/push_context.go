@@ -867,7 +867,6 @@ func (ps *PushContext) ExtraWaypointServices(proxy *Proxy, patches *MergedEnvoyF
 }
 
 // GatewayServices returns the set of services which are referred from the proxy gateways.
-// TODO(jaellio): Do I need to filter services here? 
 func (ps *PushContext) GatewayServices(proxy *Proxy, patches *MergedEnvoyFilterWrapper) []*Service {
 	svcs := proxy.SidecarScope.services
 
@@ -959,7 +958,6 @@ const addHostsFromMeshConfigProvidersHandled = 14
 // 1. MeshConfig.ExtensionProviders
 // 2. RequestAuthentication.JwtRules.JwksUri
 // 3. EnvoyFilters with explicitly annotated references
-// TODO(jaellio): Should all of these services have a local scope?
 func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyFilterWrapper) (sets.Set[NamespacedHostname], sets.String) {
 	hosts := sets.String{}
 	namespaceScoped := sets.New[NamespacedHostname]()
@@ -2593,11 +2591,4 @@ func (ps *PushContext) ServicesForWaypoint(key WaypointKey) []ServiceInfo {
 // Key can optionally be provided in the form 'namespace/hostname'. If unset, all are returned
 func (ps *PushContext) ServicesWithWaypoint(key string) []ServiceWaypointInfo {
 	return ps.ambientIndex.ServicesWithWaypoint(key)
-}
-
-
-// ServicesForWaypoint returns all services associated with a given waypoint identified by it's WaypointKey
-// Used when calculating the services which should be configured for a specific waypoint proxy
-func (ps *PushContext) ServicesForGateway() []ServiceInfo {
-	return ps.ambientIndex.ServicesForGateway()
 }
