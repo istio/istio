@@ -91,6 +91,9 @@ type InstallConfig struct {
 
 	// Whether reconciliation of iptables at post startup is enabled for Ambient workloads
 	AmbientReconcilePodRulesOnStartup bool
+
+	// Whether native nftables should be used instead of iptable rules for traffic redirection
+	NativeNftables bool
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -124,6 +127,9 @@ type RepairConfig struct {
 	// Label and field selectors to select pods managed by race repair.
 	LabelSelectors string
 	FieldSelectors string
+
+	// Whether to repair pods by running nftables rules
+	NativeNftables bool
 }
 
 func (c InstallConfig) String() string {
@@ -157,6 +163,8 @@ func (c InstallConfig) String() string {
 	b.WriteString("AmbientIPv6: " + fmt.Sprint(c.AmbientIPv6) + "\n")
 	b.WriteString("AmbientDisableSafeUpgrade: " + fmt.Sprint(c.AmbientDisableSafeUpgrade) + "\n")
 	b.WriteString("AmbientReconcilePodRulesOnStartup: " + fmt.Sprint(c.AmbientReconcilePodRulesOnStartup) + "\n")
+
+	b.WriteString("NativeNftables: " + fmt.Sprint(c.NativeNftables) + "\n")
 	return b.String()
 }
 
@@ -174,5 +182,6 @@ func (c RepairConfig) String() string {
 	b.WriteString("InitExitCode: " + fmt.Sprint(c.InitExitCode) + "\n")
 	b.WriteString("LabelSelectors: " + c.LabelSelectors + "\n")
 	b.WriteString("FieldSelectors: " + c.FieldSelectors + "\n")
+	b.WriteString("NativeNftables: " + fmt.Sprint(c.NativeNftables) + "\n")
 	return b.String()
 }
