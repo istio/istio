@@ -278,6 +278,9 @@ _internal_defaults_do_not_set:
     # To output all istio components logs in json format by adding --log_as_json argument to each container argument
     logAsJson: false
 
+    # In order to use native nftable rules instead of iptable rules, set this flag to true.
+    nativeNftables: false
+
     # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
     # The control plane has different scopes depending on component, but can configure default log level across all components
     # If empty, default scope and level will be used as configured in code

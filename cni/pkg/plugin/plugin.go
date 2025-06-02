@@ -69,6 +69,7 @@ type Config struct {
 	EnablementSelectors []util.EnablementSelector `json:"enablement_selectors"`
 	ExcludeNamespaces   []string                  `json:"exclude_namespaces"`
 	PodNamespace        string                    `json:"pod_namespace"`
+	NativeNftables      bool                      `json:"native_nftables"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
