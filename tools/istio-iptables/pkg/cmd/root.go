@@ -22,8 +22,9 @@ import (
 
 	"istio.io/istio/pkg/flag"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tools/common/config"
+	"istio.io/istio/tools/common/tproxy"
 	"istio.io/istio/tools/istio-iptables/pkg/capture"
-	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 	"istio.io/istio/tools/istio-iptables/pkg/validation"
@@ -213,7 +214,7 @@ func ProgramIptables(cfg *config.Config) error {
 		if err := iptConfigurator.Run(); err != nil {
 			return err
 		}
-		if err := capture.ConfigureRoutes(cfg); err != nil {
+		if err := tproxy.ConfigureRoutes(cfg); err != nil {
 			return fmt.Errorf("failed to configure routes: %v", err)
 		}
 	}

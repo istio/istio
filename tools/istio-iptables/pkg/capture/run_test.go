@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	testutil "istio.io/istio/pilot/test/util"
-	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/common/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )

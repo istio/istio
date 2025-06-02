@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/common/config"
 )
 
 type ReturnCode int

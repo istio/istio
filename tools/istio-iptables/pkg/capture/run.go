@@ -20,8 +20,8 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/tools/common/config"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
-	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -238,16 +238,6 @@ func (cfg *IptablesConfigurator) shortCircuitExcludeInterfaces() {
 			cfg.ruleBuilder.AppendRule("OUTPUT", "mangle", "-o", excludeInterface, "-j", "RETURN")
 		}
 	}
-}
-
-func ignoreExists(err error) error {
-	if err == nil {
-		return nil
-	}
-	if strings.Contains(strings.ToLower(err.Error()), "file exists") {
-		return nil
-	}
-	return err
 }
 
 func (cfg *IptablesConfigurator) Run() error {
