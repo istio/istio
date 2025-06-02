@@ -90,6 +90,7 @@ type Config struct {
 	Reconcile                bool       `json:"RECONCILE"`
 	CleanupOnly              bool       `json:"CLEANUP_ONLY"`
 	ForceApply               bool       `json:"FORCE_APPLY"`
+	NativeNftables           bool       `json:"NATIVE_NFTABLES"`
 }
 
 func (c *Config) String() string {
@@ -136,7 +137,8 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("RECONCILE=%t\n", c.Reconcile))
 	b.WriteString(fmt.Sprintf("CLEANUP_ONLY=%t\n", c.CleanupOnly))
 	b.WriteString(fmt.Sprintf("FORCE_APPLY=%t\n", c.ForceApply))
-	log.Infof("Istio iptables variables:\n%s", b.String())
+	b.WriteString(fmt.Sprintf("NATIVE_NFTABLES=%t\n", c.NativeNftables))
+	log.Infof("Istio config:\n%s", b.String())
 }
 
 func (c *Config) Validate() error {
