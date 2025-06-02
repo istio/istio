@@ -3690,7 +3690,6 @@ func TestZtunnelSecureMetrics(t *testing.T) {
 			k8sPods := tc.Clusters().Default().Kube().CoreV1().Pods(istioSystemNS)
 			patchOpts := metav1.PatchOptions{}
 
-
 			// Get ztunnel pod info
 			ztunnelPods, err := k8sPods.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel"})
 			if err != nil || len(ztunnelPods.Items) == 0 {
