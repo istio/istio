@@ -144,6 +144,10 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 	// Consider removing it after several releases with no reported issues.
 	flag.BindEnv(fs, constants.ForceApply, "", "Apply iptables changes even if they appear to already be in place.",
 		&cfg.ForceApply)
+
+	// This mode is an alternative for iptables. It uses nftables rules for traffic redirection.
+	flag.BindEnv(fs, constants.NativeNftables, "", "Use native nftables instead of iptables rules.",
+		&cfg.NativeNftables)
 }
 
 func GetCommand(logOpts *log.Options) *cobra.Command {
