@@ -655,6 +655,11 @@ func (a *index) All() []model.AddressInfo {
 			}
 		}
 	}
+	// Include all services since we are assuming uniform configuration
+	// TODO(jaellio): Gracefully handle non uniform configurations
+	for _, s := range a.services.List() {
+		res = append(res, s.AsAddress)
+	}
 	return res
 }
 
