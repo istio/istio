@@ -46,11 +46,11 @@ func TestWithProcFs(t *testing.T) {
 	}
 
 	expectedUID := "863b91d4-4b68-4efa-917f-4b560e3e86aa"
-	if podUIDNetns[expectedUID] == (WorkloadInfo{}) {
+	if podUIDNetns[expectedUID] == (workloadInfo{}) {
 		t.Fatal("expected to find pod netns under pod uid")
 	}
 
-	foundStart := podUIDNetns[expectedUID].Netns.OwnerProcStarttime()
+	foundStart := podUIDNetns[expectedUID].NetnsCloser().OwnerProcStarttime()
 	// See testdata/cgroupns/1/stat
 	if foundStart != 70298968 {
 		t.Fatalf("didn't find expected starttime, found %d", foundStart)

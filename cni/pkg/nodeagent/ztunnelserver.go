@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -67,7 +66,7 @@ func (c *connMgr) addConn(conn ZtunnelConnection) {
 	defer c.mu.Unlock()
 	log := log.WithLabels("conn_uuid", conn.UUID())
 	c.connectionSet = append(c.connectionSet, conn)
-	log.Infof("new ztunnel connected, total connected: %v", len(c.connectionSet))
+	log.Infof("new ztunnel connected, total connected: %d", len(c.connectionSet))
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
@@ -78,7 +77,7 @@ func (c *connMgr) LatestConn() (ZtunnelConnection, error) {
 		return nil, fmt.Errorf("no connection")
 	}
 	lConn := c.connectionSet[len(c.connectionSet)-1]
-	log.Debugf("latest ztunnel connection is %s, total connected: %v", lConn.UUID(), len(c.connectionSet))
+	log.Debugf("latest ztunnel connection is %s, total connected: %d", lConn.UUID(), len(c.connectionSet))
 	return lConn, nil
 }
 
@@ -98,7 +97,7 @@ func (c *connMgr) deleteConn(conn ZtunnelConnection) {
 		}
 	}
 	c.connectionSet = retainedConns
-	log.Infof("ztunnel disconnected, total connected %s", len(c.connectionSet))
+	log.Infof("ztunnel disconnected, total connected %d", len(c.connectionSet))
 	ztunnelConnected.RecordInt(int64(len(c.connectionSet)))
 }
 
@@ -181,7 +180,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 	}
 
 	log.WithLabels("version", m.Version).Infof("received hello from ztunnel")
-	log.Debug("sending snapshot to ztunnel")
+	log.Infof("sending snapshot to ztunnel")
 	if err := z.sendSnapshot(ctx, conn); err != nil {
 		return err
 	}
@@ -190,7 +189,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 		select {
 		case update, ok := <-conn.Updates():
 			if !ok {
-				log.Debug("update channel closed - returning")
+				log.Infof("update channel closed - returning")
 				return nil
 			}
 			log.Debugf("got update to send to ztunnel")
@@ -215,7 +214,7 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 					log.Errorf("ztunnel responded with an ack error: ackErr %s", resp.GetAck().GetError())
 				}
 			}
-			log.Debugf("ztunnel acked")
+			log.Infof("ztunnel acked")
 			// Safety: Resp is buffered, so this will not block
 			update.Resp() <- updateResponse{
 				err:  err,
@@ -230,15 +229,15 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 			// note that unlike tcp connections, reading is a good enough test here.
 			err := conn.CheckAlive(time.Second / 100)
 			switch {
-			case !errors.Is(err, os.ErrDeadlineExceeded):
-				log.Debugf("ztunnel keepalive failed: %v", err)
+			case !errors.Is(err, z.timeoutError()):
+				log.Infof("ztunnel keepalive failed: %v", err)
 				if errors.Is(err, io.EOF) {
-					log.Debug("ztunnel EOF")
+					log.Info("ztunnel EOF")
 					return nil
 				}
 				return err
 			case err == nil:
-				log.Warn("ztunnel protocol error, unexpected message")
+				log.Info("ztunnel protocol error, unexpected message")
 				return fmt.Errorf("ztunnel protocol error, unexpected message")
 			default:
 				// we get here if error is deadline exceeded, which means ztunnel is alive.
@@ -267,33 +266,14 @@ func (z *ztunnelServer) sendSnapshot(_ context.Context, conn ZtunnelConnection) 
 		var resp *zdsapi.WorkloadResponse
 		var err error
 		log := log.WithLabels("uid", uid)
-		if wl.Workload != nil {
+		if wl.Workload() != nil {
 			log = log.WithLabels(
-				"name", wl.Workload.Name,
-				"namespace", wl.Workload.Namespace,
-				"serviceAccount", wl.Workload.ServiceAccount)
+				"name", wl.Workload().Name,
+				"namespace", wl.Workload().Namespace,
+				"serviceAccount", wl.Workload().ServiceAccount,
+				"windowsNamespaceGuid", wl.Workload().WindowsNamespace)
 		}
-		if wl.Netns != nil {
-			fd := int(wl.Netns.Fd())
-			log.Infof("sending pod to ztunnel as part of snapshot")
-			resp, err = conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
-				Payload: &zdsapi.WorkloadRequest_Add{
-					Add: &zdsapi.AddWorkload{
-						Uid:          uid,
-						WorkloadInfo: wl.Workload,
-					},
-				},
-			}, &fd)
-		} else {
-			log.Infof("netns is not available for pod, sending 'keep' to ztunnel")
-			resp, err = conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
-				Payload: &zdsapi.WorkloadRequest_Keep{
-					Keep: &zdsapi.KeepWorkload{
-						Uid: uid,
-					},
-				},
-			}, nil)
-		}
+		resp, err = z.handleWorkloadInfo(wl, uid, conn)
 		if err != nil {
 			return err
 		}
@@ -309,7 +289,7 @@ func (z *ztunnelServer) sendSnapshot(_ context.Context, conn ZtunnelConnection) 
 	if err != nil {
 		return err
 	}
-	log.Debugf("snapshot sent to ztunnel")
+	log.Infof("snapshot sent to ztunnel")
 	if resp.GetAck().GetError() != "" {
 		log.Errorf("snap-sent: got ack error: %s", resp.GetAck().GetError())
 	}

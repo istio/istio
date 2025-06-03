@@ -1,5 +1,5 @@
-//go:build !linux
-// +build !linux
+//go:build !linux && !windows
+// +build !linux,!windows
 
 // Copyright Istio Authors
 //
@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 
+	"istio.io/istio/pkg/zdsapi"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -31,5 +32,13 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, pod *v1.Pod, netns Netns) 
 }
 
 func (z *ztunnelServer) accept() (ZtunnelConnection, error) {
+	return nil, errNotImplemented
+}
+
+func (z *ztunnelServer) timeoutError() error {
+	return errNotImplemented
+}
+
+func (z *ztunnelServer) handleWorkloadInfo(wl WorkloadInfo, uid string, conn ZtunnelConnection) (*zdsapi.WorkloadResponse, error) {
 	return nil, errNotImplemented
 }

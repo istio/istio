@@ -19,7 +19,9 @@
 // parses prevResult according to the cniVersion
 package plugin
 
-import "errors"
+import (
+	"errors"
+)
 
 // ErrNotImplemented is returned when a requested feature is not implemented.
 var ErrNotImplemented = errors.New("not implemented")

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -117,6 +118,9 @@ func parseConfig(stdin []byte) (*Config, error) {
 func GetLoggingOptions(cfg *Config) *log.Options {
 	loggingOptions := log.DefaultOptions()
 	loggingOptions.OutputPaths = []string{"stderr"}
+	if runtime.GOOS == "windows" {
+		loggingOptions.OutputPaths = append(loggingOptions.OutputPaths, "/k/istio-cni.log")
+	}
 	loggingOptions.JSONEncoding = true
 	if cfg != nil {
 

@@ -220,6 +220,8 @@ func init() {
 
 	// Not configurable in CNI helm charts
 	registerStringParameter(constants.MountedCNINetDir, "/host/etc/cni/net.d", "Directory on the container where CNI networks are installed")
+	registerStringParameter(constants.MountedCNIBinDir, constants.HostCNIBinDir,
+		"Directory on the host where CNI binaries are installed. Should only be used with Windows HostProcess pods")
 	registerStringParameter(constants.CNIAgentRunDir, "/var/run/istio-cni", "Location of the node agent writable path on the node (used for sockets, etc)")
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
 	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
@@ -303,7 +305,7 @@ func constructConfig() (*config.Config, error) {
 		K8sServiceAccountPath: constants.ServiceAccountPath,
 
 		CNIBinSourceDir:  constants.CNIBinDir,
-		CNIBinTargetDirs: []string{constants.HostCNIBinDir},
+		CNIBinTargetDirs: []string{viper.GetString(constants.MountedCNIBinDir)},
 		MonitoringPort:   viper.GetInt(constants.MonitoringPort),
 
 		ExcludeNamespaces: viper.GetString(constants.ExcludeNamespaces),
@@ -324,6 +326,14 @@ func constructConfig() (*config.Config, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if mountPoint := os.Getenv("CONTAINER_SANDBOX_MOUNT_POINT"); mountPoint != "" {
+		// HostProcess containers have their file systems mounted at C:\hpc which is the mount point.
+		// In order to grab the CNI binary from the container FS, we need to make sure we're
+		// use a relative path and not an absolute path (since an absolute path would be looking
+		// on the host).
+		installCfg.CNIBinSourceDir = filepath.Join(mountPoint, installCfg.CNIBinSourceDir)
 	}
 
 	repairCfg := config.RepairConfig{

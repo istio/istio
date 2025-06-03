@@ -1,13 +1,10 @@
-//go:build !unix && !windows
-// +build !unix,!windows
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//	http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -47,7 +44,8 @@ func (signalsTopic) Activate(context fw.TopicContext) {
 	})
 
 	_ = context.JSONRouter().StrictSlash(true).NewRoute().Methods("PUT", "POST").Path("/SIGUSR1").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("SIGUSR1 is not supported on this platform"))
+		//@TODO send signal equivalent on windows:
+		// err := syscall.Kill(os.Getpid(), syscall.SIGUSR1)
+		w.WriteHeader(http.StatusAccepted)
 	})
 }

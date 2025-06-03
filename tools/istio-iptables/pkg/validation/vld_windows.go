@@ -1,6 +1,3 @@
-//go:build !linux && !windows
-// +build !linux,!windows
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,10 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package repair
+package validation
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	"net"
+	"syscall"
+)
 
-func (c *Controller) repairPod(pod *corev1.Pod) error {
-	panic("not implemented")
+// Recover the original address from redirect socket. Supposed to work for tcp over ipv4 and ipv6.
+func GetOriginalDestination(conn net.Conn) (daddr net.IP, dport uint16, err error) {
+	return
+}
+
+// Setup reuse address to run the validation server more robustly
+func reuseAddr(network, address string, conn syscall.RawConn) error {
+	return nil
 }

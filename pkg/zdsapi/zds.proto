@@ -35,6 +35,13 @@ message WorkloadInfo {
   string name = 1;
   string namespace = 2;
   string service_account = 3;
+  // The namespace for the workload. Windows only.
+  optional WindowsNamespace windows_namespace = 5;
+}
+
+message WindowsNamespace {
+  uint32 id = 1;
+  string guid = 2;
 }
 
 // Add a workload to the ztunnel. this will be accompanied by ancillary data contianing
