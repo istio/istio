@@ -269,6 +269,7 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
 	}
 	out.EgressListeners = []*IstioEgressListenerWrapper{defaultEgressListener}
+	out.initFunc = func() {}
 
 	return out
 }
