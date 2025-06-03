@@ -575,9 +575,10 @@ func translateKubernetesCondition(conds []metav1.Condition) map[string]model.Con
 }
 
 // Try lookup of endpoints by:
-//   1. workload UID
-//   2. workload IP
-//   3. Service (key: network/IP or namespace/hostname)
+//  1. workload UID
+//  2. workload IP
+//  3. Service (key: network/IP or namespace/hostname)
+//
 // When using Lookup for ns/hostname we will filter by scope determined from service or namespace label
 func (a *index) Lookup(key string) []model.AddressInfo {
 	// 1. Workload UID
@@ -599,7 +600,7 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 	}
 
 	// 3. Service
-	// Remove Service if the corresponding workload is local, but has a differnt cluster ID
+	// Remove Service if the corresponding workload is local, but has a different cluster ID
 	// lookup service by namespace hostname key
 	if svc := a.lookupService(key); svc != nil {
 		res := []model.AddressInfo{svc.AsAddress}
@@ -607,10 +608,11 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 		for _, w := range a.workloads.ByServiceKey.Lookup(svc.ResourceName()) {
 			// Only select endpoints from workloads that belong to a service with a global scope or a local scope in the same cluster
 			log.Debugf("Workload %s has service %s, scope %s, and cluster id %s", w.ResourceName(), svc.ResourceName(), w.ScopeForService[key], w.Workload.ClusterId)
-			// TODO(jaellio): I am not sure we need a scopeForService defined on the workload. As far as I know we only lookup workload by service and therefor already have the service scope
-			// we don't need an additional mapping back to service from the workload
+			// TODO(jaellio): I am not sure we need a scopeForService defined on the workload. As far as I know we only lookup workload by
+			// service and therefor already have the service scope we don't need an additional mapping back to service from the workload
 			if w.Workload.ClusterId != string(a.ClusterID) && w.ScopeForService[key] == model.Local {
-				log.Debugf("Skipping workload %s for service %s because it is not local to the cluster but has a %s scope", w.ResourceName(), svc.ResourceName(), w.ScopeForService[key])
+				log.Debugf("Skipping workload %s for service %s because it is not local to the cluster but has a %s scope",
+					w.ResourceName(), svc.ResourceName(), w.ScopeForService[key])
 				continue
 			}
 			res = append(res, w.AsAddress)

@@ -212,7 +212,7 @@ func serviceServiceBuilder(
 		if meshCfg != nil {
 			serviceScope = MatchServiceScope(meshCfg, namespaces, s)
 		}
-		
+
 		return precomputeServicePtr(&model.ServiceInfo{
 			Service:       svc,
 			PortNames:     portNames,
@@ -269,8 +269,8 @@ func MatchServiceScope(meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namesp
 	// Apply label selectors from the MeshConfig's servieScopeConfig to determine the scope of the service based on the namespace
 	// or service label matches
 	// Check if the service matches any label selectors defined in the meshConfig's serviceScopeConfig.
-    for _, scopeConfig := range meshCfg.ServiceScopeConfigs {
-        // Match namespace labels
+	for _, scopeConfig := range meshCfg.ServiceScopeConfigs {
+		// Match namespace labels
 		// Treat Nothing selectors as Everything selectors
 		nss, err := LabelSelectorAsSelector(scopeConfig.NamespaceSelector)
 		if err != nil {
@@ -285,9 +285,9 @@ func MatchServiceScope(meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namesp
 			log.Warnf("failed to convert service selector: %v", err)
 		}
 		if ss.String() == labels.Nothing().String() {
-            ss = labels.Everything()
-        }
-        
+			ss = labels.Everything()
+		}
+
 		// Get labels from the service and service's namespace
 		// TODO(jaellio): How do we know this namespace is the one we want from the right cluster?
 		namespace := namespaces.GetKey(s.Namespace)
@@ -305,11 +305,11 @@ func MatchServiceScope(meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namesp
 				return model.Global
 			}
 		}
-    }
+	}
 
-    // Default to local scope if no match is found
+	// Default to local scope if no match is found
 	log.Debugf("service %s/%s is locally scoped", s.Namespace, s.Name)
-    return model.Local
+	return model.Local
 }
 
 func (a *index) serviceServiceBuilder(

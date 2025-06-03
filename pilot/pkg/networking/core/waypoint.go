@@ -56,7 +56,7 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 	} else {
 		key = model.WaypointKeyForNetworkGatewayProxy(node)
 	}
-	
+
 	workloads := push.WorkloadsForWaypoint(key)
 	serviceInfos := push.ServicesForWaypoint(key)
 

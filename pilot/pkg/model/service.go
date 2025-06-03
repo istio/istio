@@ -1108,9 +1108,9 @@ type ServiceInfo struct {
 	// PortNames provides a mapping of ServicePort -> port names. Note these are only used internally, not sent over XDS
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
-	Source   TypedObject
+	Source TypedObject
 	// Scope of the service - either local or global based on namespace or service label matching
-	Scope ServiceScope
+	Scope    ServiceScope
 	Waypoint WaypointBindingStatus
 	// MarshaledAddress contains the pre-marshaled representation.
 	// Note: this is an Address -- not a Service.
@@ -1253,7 +1253,7 @@ type WorkloadInfo struct {
 	// Source is the type that introduced this workload.
 	Source kind.Kind
 	// ScopeForService service key to ServiceScope. This mapping is required since a workload can be a part of
-	// multiple service. A single scope from a service is not sufficiently representive
+	// multiple service. A single scope from a service is not sufficiently representative
 	ScopeForService map[string]ServiceScope
 	// CreationTime is the time when the workload was created. Note this is used internally only.
 	CreationTime time.Time

@@ -1137,12 +1137,12 @@ func TestMatchServiceScope(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "ns",
 			Labels: map[string]string{
-				v1.LabelMetadataName: "ns",
+				v1.LabelMetadataName:      "ns",
 				"istio.io/dataplane-mode": "ambient",
 			},
 		},
 	}
-	
+
 	serviceOptInMeshConfig := mesh.DefaultMeshConfig()
 	serviceOptInMeshConfig.ServiceScopeConfigs = []*meshConfig.MeshConfig_ServiceScopeConfigs{
 		{
@@ -1176,24 +1176,24 @@ func TestMatchServiceScope(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		inputs     []any
+		name    string
+		inputs  []any
 		meshCfg *MeshConfig
-		svc 	  *v1.Service
-		want model.ServiceScope
+		svc     *v1.Service
+		want    model.ServiceScope
 	}{
 		{
 			name: "srv with global label - match",
-			inputs:  []any{
+			inputs: []any{
 				ns,
 			},
 			meshCfg: serviceOptInMeshConfigResource,
-			svc: svc,
-			want: model.Global,
+			svc:     svc,
+			want:    model.Global,
 		},
 		{
 			name: "srv without a global label - no match",
-			inputs:  []any{
+			inputs: []any{
 				ns,
 			},
 			meshCfg: serviceOptInMeshConfigResource,

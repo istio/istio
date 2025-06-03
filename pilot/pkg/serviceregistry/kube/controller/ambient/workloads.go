@@ -738,10 +738,10 @@ func workloadEntryWorkloadBuilder(
 
 		setTunnelProtocol(wle.Labels, wle.Annotations, w)
 		return precomputeWorkloadPtr(&model.WorkloadInfo{
-			Workload:     w,
-			Labels:       wle.Labels,
-			Source:       kind.WorkloadEntry,
-			CreationTime: wle.CreationTimestamp.Time,
+			Workload:        w,
+			Labels:          wle.Labels,
+			Source:          kind.WorkloadEntry,
+			CreationTime:    wle.CreationTimestamp.Time,
 			ScopeForService: scopeForService,
 		})
 	}
@@ -895,7 +895,7 @@ func podWorkloadBuilder(
 
 		// populate service to scope mapping
 		// TODO(jaellio): What is the ordering of Service and workload creation? Will service.Scope be populated by the time we get here?
-		scopeForService :=  make(map[string]model.ServiceScope)
+		scopeForService := make(map[string]model.ServiceScope)
 		for _, service := range services {
 			log.Debugf("podWorkloadBuilder - Service %s has scope %s", service.NamespacedName(), service.Scope)
 			scopeForService[service.ResourceName()] = service.Scope
@@ -903,10 +903,10 @@ func podWorkloadBuilder(
 
 		setTunnelProtocol(p.Labels, p.Annotations, w)
 		return precomputeWorkloadPtr(&model.WorkloadInfo{
-			Workload:     w,
-			Labels:       p.Labels,
-			Source:       kind.Pod,
-			CreationTime: p.CreationTimestamp.Time,
+			Workload:        w,
+			Labels:          p.Labels,
+			Source:          kind.Pod,
+			CreationTime:    p.CreationTimestamp.Time,
 			ScopeForService: scopeForService,
 		})
 	}
@@ -1154,10 +1154,10 @@ func serviceEntryWorkloadBuilder(
 
 			setTunnelProtocol(se.Labels, se.Annotations, w)
 			res = append(res, precomputeWorkload(model.WorkloadInfo{
-				Workload:     w,
-				Labels:       se.Labels,
-				Source:       kind.WorkloadEntry,
-				CreationTime: se.CreationTimestamp.Time,
+				Workload:        w,
+				Labels:          se.Labels,
+				Source:          kind.WorkloadEntry,
+				CreationTime:    se.CreationTimestamp.Time,
 				ScopeForService: scopeForService,
 			}))
 		}
