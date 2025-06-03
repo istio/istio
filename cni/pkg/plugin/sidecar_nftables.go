@@ -12,20 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This is a sample chained plugin that supports multiple CNI versions. It
+// parses prevResult according to the cniVersion
 package plugin
 
-// InterceptRuleMgr configures networking tables (e.g. iptables or nftables) for
-// redirecting traffic to an Istio proxy.
-type InterceptRuleMgr interface {
-	Program(podName, netns string, redirect *Redirect) error
-}
+type nftables struct{}
 
-// Constructor for iptables InterceptRuleMgr
-func IptablesInterceptRuleMgr() InterceptRuleMgr {
-	return newIPTables()
-}
-
-// Constructor for nftables InterceptRuleMgr
-func NftablesInterceptRuleMgr() InterceptRuleMgr {
-	return newNFTables()
+func newNFTables() InterceptRuleMgr {
+	return &nftables{}
 }
