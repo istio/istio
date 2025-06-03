@@ -169,13 +169,11 @@ func (cl *Client) Run(stop <-chan struct{}) {
 
 	t0 := time.Now()
 	cl.logger.Infof("Starting Pilot K8S CRD controller")
-	go func() {
-		if !kube.WaitForCacheSync("crdclient", stop, cl.informerSynced) {
-			cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
-			return
-		}
+	if !kube.WaitForCacheSync("crdclient", stop, cl.informerSynced) {
+		cl.logger.Errorf("Failed to sync Pilot K8S CRD controller cache")
+	} else {
 		cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
-	}()
+	}
 	<-stop
 	close(cl.stop)
 	cl.logger.Infof("controller terminated")
@@ -427,11 +425,6 @@ func (cl *Client) addCRD(name string, opts krt.OptionsBuilder) {
 	}
 
 	wrappedClient := krt.WrapClient(kc, opts.WithName("informer/"+resourceGVK.Kind)...)
-	// TODO: we have to use MapCollection here, instead of NewCollection because standard collections
-	// are asynchronous and this would make crdclient racy with other informer derived controllers.
-	// This happens mostly on Gateway API Controller status handling, where StatusManager depends on
-	// reading configs from crdclient to perform status updates.
-	// Related to https://github.com/istio/istio/issues/56131
 	collection := krt.MapCollection(wrappedClient, func(obj controllers.Object) config.Config {
 		cfg := translateFunc(obj)
 		cfg.Domain = cl.domainSuffix
