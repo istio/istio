@@ -90,7 +90,7 @@ if [[ "${unexpectedFiles}" != "" ]]; then
   echo "Found unexpected binaries: ${unexpectedFiles}"
   exit 1
 fi
-
+popd > /dev/null
 # Now actually build it
 # shellcheck disable=SC2086
 apko publish --arch="${APKO_ARCHES}" docker/iptables.yaml ${APKO_IMAGES}
