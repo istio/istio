@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 	"istio.io/istio/tools/istio-iptables/pkg/validation"
+	nftables "istio.io/istio/tools/istio-nftables/pkg/nft"
 )
 
 const InvalidDropByIptables = "INVALID_DROP"
@@ -169,7 +170,14 @@ func GetCommand(logOpts *log.Options) *cobra.Command {
 			if err := cfg.Validate(); err != nil {
 				handleErrorWithCode(err, 1)
 			}
-			if err := ProgramIptables(cfg); err != nil {
+			runMethod := ProgramIptables
+
+			// If nftables is enabled, use nft rules for traffic redirection.
+			if cfg.NativeNftables {
+				runMethod = nftables.ProgramNftables
+			}
+
+			if err := runMethod(cfg); err != nil {
 				handleErrorWithCode(err, 1)
 			}
 

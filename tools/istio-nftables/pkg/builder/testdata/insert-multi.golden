@@ -1,0 +1,5 @@
+add table inet inet-table
+add chain inet inet-table test-chain
+add rule inet inet-table test-chain meta l4proto tcp jump test-chain
+add rule inet inet-table test-chain meta l4proto tcp redirect to :15001
+add rule inet inet-table test-chain tcp dport 15008 return

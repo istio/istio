@@ -1,0 +1,4 @@
+add table inet inet-table
+add chain inet inet-table test-chain
+add rule inet inet-table test-chain ip6 daddr ::ffff:7f00:1 return
+add rule inet inet-table test-chain tcp dport 15008 return

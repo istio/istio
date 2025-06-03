@@ -57,11 +57,20 @@ func (c *Controller) repairPod(pod *corev1.Pod) error {
 	}
 	log = log.WithLabels("netns", netns)
 
-	if err := redirectRunningPod(pod, netns); err != nil {
-		log.Errorf("failed to setup redirection: %v", err)
-		m.With(resultLabel.Value(resultFail)).Increment()
-		return err
+	if c.cfg.NativeNftables {
+		if err := redirectRunningPodNFT(pod, netns); err != nil {
+			log.Errorf("failed to setup redirection: %v", err)
+			m.With(resultLabel.Value(resultFail)).Increment()
+			return err
+		}
+	} else {
+		if err := redirectRunningPod(pod, netns); err != nil {
+			log.Errorf("failed to setup redirection: %v", err)
+			m.With(resultLabel.Value(resultFail)).Increment()
+			return err
+		}
 	}
+
 	c.repairedPods[key] = pod.UID
 	log.Infof("pod repaired")
 	m.With(resultLabel.Value(resultSuccess)).Increment()
