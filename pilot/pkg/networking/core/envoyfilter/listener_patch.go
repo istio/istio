@@ -195,7 +195,7 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 				continue
 			}
 			for _, lisFilter := range lis.ListenerFilters {
-				merged := mergeListenerFilter(patchContext, lp, lis, lisFilter)
+				merged := mergeListenerFilter(lp, lisFilter)
 				if merged {
 					applied = true
 				}
@@ -590,20 +590,7 @@ func mergeHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 	}
 }
 
-func mergeListenerFilter(patchContext networking.EnvoyFilter_PatchContext,
-	lp *model.EnvoyFilterConfigPatchWrapper,
-	lis *listener.Listener, lisFilter *listener.ListenerFilter,
-) bool {
-	if lp.Operation != networking.EnvoyFilter_Patch_MERGE {
-		return false
-	}
-
-	if !commonConditionMatch(patchContext, lp) ||
-		!listenerMatch(lis, lp) ||
-		!listenerFilterMatch(lisFilter, lp) {
-		return false
-	}
-
+func mergeListenerFilter(lp *model.EnvoyFilterConfigPatchWrapper, lisFilter *listener.ListenerFilter) bool {
 	// proto merge doesn't work well when merging two filters with ANY typed configs
 	// especially when the incoming cp.Value is a struct that could contain the json config
 	// of an ANY typed filter. So convert our filter's typed config to Struct (retaining the any
