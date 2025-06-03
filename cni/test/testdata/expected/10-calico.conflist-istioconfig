@@ -34,6 +34,7 @@
       ],
       "ipam": {},
       "name": "istio-cni",
+      "native_nftables": false,
       "plugin_log_level": "debug",
       "pod_namespace": "",
       "type": "istio-cni"
