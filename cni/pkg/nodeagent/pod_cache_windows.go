@@ -66,7 +66,7 @@ func (p *podNetnsCache) ReadCurrentPodSnapshot() map[string]WorkloadInfo {
 	return maps.Clone(p.currentPodCache)
 }
 
-func (p *podNetnsCache) GetEndpointsForNamespaceID(id uint32) ([]string, error) {
+func (p *podNetnsCache) GetEndpointsForNamespaceGUID(guid string) ([]string, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if len(p.currentPodCache) == 0 {
@@ -77,12 +77,12 @@ func (p *podNetnsCache) GetEndpointsForNamespaceID(id uint32) ([]string, error) 
 		if !ok {
 			return nil, fmt.Errorf("pod cache entry is not a NamespaceCloser")
 		}
-		if namespaceCloser.Namespace().ID == id {
+		if namespaceCloser.Namespace().GUID == guid {
 			return namespaceCloser.Namespace().EndpointIds, nil
 		}
-		log.Infof("workload %s with id %d doesn't match id %d", info.Workload().Name, namespaceCloser.Namespace().ID, id)
+		log.Infof("workload %s with id %s doesn't match id %s", info.Workload().Name, namespaceCloser.Namespace().GUID, guid)
 	}
-	return nil, fmt.Errorf("no namespace found in cache for id %d", id)
+	return nil, fmt.Errorf("no namespace found in cache for guid %s", guid)
 
 }
 
@@ -134,7 +134,7 @@ func (p *podNetnsCache) UpsertPodCacheWithNetns(uid string, workload WorkloadInf
 	}
 
 	// Doesn't exist yet, add it
-	log.Infof("adding pod to cache %s with guid %s", workload.Workload().Name, workloadNetns.Namespace().GUID)
+	log.Infof("adding pod to cache %s with namespace guid %s", workload.Workload().Name, workloadNetns.Namespace().GUID)
 	p.currentPodCache[uid] = workload
 	return workloadNetns
 }

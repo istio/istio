@@ -119,7 +119,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.podIptables.CreateInpodRules(log, podCfg)
+		return s.podIptables.CreateInpodRules(log, podCfg, "")
 	}); err != nil {
 		// We currently treat any failure to create inpod rules as non-retryable/catastrophic,
 		// and return a NonRetryableError in this case.
