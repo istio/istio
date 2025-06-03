@@ -1175,7 +1175,7 @@ func TestMatchServiceScope(t *testing.T) {
 			Namespace: "ns",
 			Labels: map[string]string{
 				v1.LabelMetadataName: "svc-local-label",
-				"istio.io/local":    "true",
+				"istio.io/local":     "true",
 			},
 		},
 		Spec: v1.ServiceSpec{
