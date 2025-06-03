@@ -420,14 +420,6 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 			var retVal *anypb.Any
 			if userFilter.GetTypedConfig() != nil {
 				IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, true)
-				// user has any typed struct
-				// The type may not match up exactly. For example, if we use v2 internally but they use v3.
-				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
-				// If we did not do this, merge.Merge below will panic (which is recovered), so even though this
-				// is not 100% reliable its better than doing nothing
-				if userFilter.GetTypedConfig().TypeUrl != filter.GetTypedConfig().TypeUrl {
-					userFilter.ConfigType.(*listener.Filter_TypedConfig).TypedConfig.TypeUrl = filter.GetTypedConfig().TypeUrl
-				}
 				if retVal, err = util.MergeAnyWithAny(filter.GetTypedConfig(), userFilter.GetTypedConfig()); err != nil {
 					retVal = filter.GetTypedConfig()
 				}
@@ -568,14 +560,6 @@ func mergeHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 			}
 			var retVal *anypb.Any
 			if userHTTPFilter.GetTypedConfig() != nil {
-				// user has any typed struct
-				// The type may not match up exactly. For example, if we use v2 internally but they use v3.
-				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
-				// If we did not do this, merge.Merge below will panic (which is recovered), so even though this
-				// is not 100% reliable its better than doing nothing
-				if userHTTPFilter.GetTypedConfig().TypeUrl != httpFilter.GetTypedConfig().TypeUrl {
-					userHTTPFilter.ConfigType.(*hcm.HttpFilter_TypedConfig).TypedConfig.TypeUrl = httpFilter.GetTypedConfig().TypeUrl
-				}
 				if retVal, err = util.MergeAnyWithAny(httpFilter.GetTypedConfig(), userHTTPFilter.GetTypedConfig()); err != nil {
 					retVal = httpFilter.GetTypedConfig()
 				}
@@ -606,14 +590,6 @@ func mergeListenerFilter(lp *model.EnvoyFilterConfigPatchWrapper, lisFilter *lis
 		retVal *anypb.Any
 	)
 	if userListenerFilter.GetTypedConfig() != nil {
-		// user has any typed struct
-		// The type may not match up exactly. For example, if we use v2 internally but they use v3.
-		// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
-		// If we did not do this, merge.Merge below will panic (which is recovered), so even though this
-		// is not 100% reliable its better than doing nothing
-		if userListenerFilter.GetTypedConfig().TypeUrl != lisFilter.GetTypedConfig().TypeUrl {
-			userListenerFilter.ConfigType.(*listener.ListenerFilter_TypedConfig).TypedConfig.TypeUrl = lisFilter.GetTypedConfig().TypeUrl
-		}
 		if retVal, err = util.MergeAnyWithAny(lisFilter.GetTypedConfig(), userListenerFilter.GetTypedConfig()); err != nil {
 			retVal = lisFilter.GetTypedConfig()
 		}
