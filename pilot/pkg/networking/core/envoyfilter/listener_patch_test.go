@@ -23,6 +23,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
+	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -172,9 +174,31 @@ func TestApplyListenerPatches(t *testing.T) {
 				Operation: networking.EnvoyFilter_Patch_REMOVE,
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber:     80,
+						ListenerFilter: "envoy.filters.listener.tls_inspector",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`{
+    "name": "envoy.filters.listener.tls_inspector",
+    "typedConfig": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector",
+        "initialReadBufferSize": 8192
+    }
+}`),
+			},
+		},
 	}
 	priorities := []int32{
-		2, 1,
+		2, 1, 0,
 	}
 
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
@@ -1919,6 +1943,9 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
+			ListenerFilters: []*listener.ListenerFilter{
+				{Name: "envoy.filters.listener.tls_inspector", ConfigType: xdsfilters.TLSInspector.ConfigType},
+			},
 		},
 	}
 
@@ -1947,6 +1974,16 @@ func TestApplyListenerPatches(t *testing.T) {
 								}),
 							},
 						},
+					},
+				},
+			},
+			ListenerFilters: []*listener.ListenerFilter{
+				{
+					Name: "envoy.filters.listener.tls_inspector",
+					ConfigType: &listener.ListenerFilter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&tlsinspector.TlsInspector{
+							InitialReadBufferSize: &wrapperspb.UInt32Value{Value: 8192},
+						}),
 					},
 				},
 			},
