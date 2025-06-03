@@ -155,6 +155,10 @@ spec:
           value: "{{ $value }}"
         {{- end }}
         {{- end }}
+        - name: ZTUNNEL_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
         {{- with .Values.env }}
         {{- range $key, $val := . }}
         - name: {{ $key }}
