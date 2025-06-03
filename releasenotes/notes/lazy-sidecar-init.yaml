@@ -4,5 +4,7 @@ area: traffic-management
 releaseNotes:
 - |
   **Added** feature ENABLE_LAZY_SIDECAR_EVALUATION that allows to enable lazy initialization of sidecar resources,
-  Only computing internal indexes when SidecarScopes are actually used by a Proxy.
+  Only computing internal indexes when SidecarScopes are actually used by a Proxy. This feature superseds the
+  previous PILOT_CONVERT_SIDECAR_SCOPE_CONCURRENCY which would allow concurrent conversion with specific given concurrency,
+  instead ENABLE_LAZY_SIDECAR_EVALUATION will use the same concurrency as PILOT_PUSH_THROTTLE.
 
