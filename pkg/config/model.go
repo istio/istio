@@ -434,11 +434,16 @@ func (meta *Meta) ToObjectMeta() metav1.ObjectMeta {
 	}
 }
 
+func (meta Meta) DeepCopy() Meta {
+	nm := meta
+	nm.Labels = maps.Clone(meta.Labels)
+	nm.Annotations = maps.Clone(meta.Annotations)
+	return nm
+}
+
 func (c Config) DeepCopy() Config {
 	var clone Config
-	clone.Meta = c.Meta
-	clone.Labels = maps.Clone(c.Labels)
-	clone.Annotations = maps.Clone(clone.Annotations)
+	clone.Meta = c.Meta.DeepCopy()
 	clone.Spec = DeepCopy(c.Spec)
 	if c.Status != nil {
 		clone.Status = DeepCopy(c.Status)

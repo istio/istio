@@ -595,7 +595,14 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 	finalVirtualServices := krt.NewCollection(idx, func(ctx krt.HandlerContext, object krt.IndexObject[string, RouteWithKey]) **config.Config {
 		configs := object.Objects
 		if len(configs) == 1 {
-			return &configs[0].Config
+			base := configs[0].Config
+			nm := base.Meta.DeepCopy()
+			nm.Name = object.Key
+			return ptr.Of(&config.Config{
+				Meta:   nm,
+				Spec:   base.Spec,
+				Status: base.Status,
+			})
 		}
 		sortRoutesByCreationTime(configs)
 		base := configs[0].DeepCopy()
@@ -608,6 +615,7 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 				base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
 		}
 		sortHTTPRoutes(baseVS.Http)
+		base.Name = object.Key
 		return ptr.Of(&base)
 	}, opts...)
 	return finalVirtualServices
