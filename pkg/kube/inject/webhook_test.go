@@ -1573,7 +1573,7 @@ func TestDetectNativeSidecar(t *testing.T) {
 			kubeClient.RunAndWait(test.NewStop(t))
 			kube.WaitForCacheSync("test", test.NewStop(t), nodes.HasSynced)
 
-			if got := detectNativeSidecar(nodes, ""); got != tt.want {
+			if got := DetectNativeSidecar(nodes, ""); got != tt.want {
 				t.Errorf("detectNativeSidecar() = %v, want %v", got, tt.want)
 			}
 		})

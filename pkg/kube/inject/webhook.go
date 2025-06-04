@@ -800,7 +800,6 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	// Proxy container should be last, unless HoldApplicationUntilProxyStarts is set
 	// This is to ensure `kubectl exec` and similar commands continue to default to the user's container
 	pod.Spec.Containers = modifyContainers(pod.Spec.Containers, ProxyContainerName, proxyLocation)
-
 	if hasContainer(pod.Spec.InitContainers, ProxyContainerName) {
 		// This is using native sidecar support in K8s.
 		// We want istio to be first in this case, so init containers are part of the mesh
@@ -1183,15 +1182,15 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	}
 
 	var nodes kclient.Client[*corev1.Node]
+
 	if wh.nodes != nil {
 		nodes = wh.nodes.ForCluster(cluster.ID(clusterID))
-		if nodes == nil {
-			log.Warnf("unable to fetch nodes, failed to get client for %q", clusterID)
-		}
-	} else if features.EnableNativeSidecars {
-		log.Warnf("Native sidecars feature is enabled but node client wasn't initialized")
+		params.nativeSidecar = DetectNativeSidecar(nodes, pod.Spec.NodeName)
+	} else {
+		// only enable native sidecars if the feature is explicitly enabled
+		log.Warnf("Node client wasn't initialized")
+		params.nativeSidecar = features.EnableNativeSidecarsSet && features.EnableNativeSidecars
 	}
-	params.nativeSidecar = detectNativeSidecar(nodes, pod.Spec.NodeName)
 
 	wh.mu.RUnlock()
 
@@ -1232,7 +1231,7 @@ func isSidecarUserMatchingAppUser(pod *corev1.Pod) bool {
 	return sideCarUser == appUser
 }
 
-func detectNativeSidecar(nodes kclient.Client[*corev1.Node], podNodeName string) bool {
+func DetectNativeSidecar(nodes kclient.Client[*corev1.Node], podNodeName string) bool {
 	if !features.EnableNativeSidecars {
 		return false
 	}
@@ -1245,7 +1244,6 @@ func detectNativeSidecar(nodes kclient.Client[*corev1.Node], podNodeName string)
 	// Native sidecars feature graduated to stable in Kubernetes 1.33
 	// See https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/753-sidecar-containers/README.md#implementation-history
 	minVersion := 33
-	allNodesValid := false
 
 	checkNodeVersion := func(n *corev1.Node) bool {
 		nodeKubeletVersion := n.Status.NodeInfo.KubeletVersion
@@ -1278,9 +1276,8 @@ func detectNativeSidecar(nodes kclient.Client[*corev1.Node], podNodeName string)
 		if !checkNodeVersion(n) {
 			return false
 		}
-		allNodesValid = true
 	}
-	return allNodesValid
+	return true
 }
 
 func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
