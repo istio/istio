@@ -47,6 +47,15 @@ type SimpleSizedPod struct {
 	Size string
 }
 
+type RenamedSimplePod struct {
+	Key string
+	SimplePod
+}
+
+func (r RenamedSimplePod) ResourceName() string {
+	return r.Key
+}
+
 type SimplePod struct {
 	Named
 	Labeled
