@@ -5,10 +5,10 @@ kind: ServiceAccount
 automountServiceAccountToken: false
 metadata:
   labels:
-    helm.sh/chart: grafana-8.6.3
+    helm.sh/chart: grafana-9.2.2
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.3.1"
+    app.kubernetes.io/version: "12.0.1"
   name: grafana
   namespace: istio-system
 ---
@@ -19,10 +19,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-8.6.3
+    helm.sh/chart: grafana-9.2.2
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.3.1"
+    app.kubernetes.io/version: "12.0.1"
 data:
   
   grafana.ini: |
@@ -85,10 +85,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-8.6.3
+    helm.sh/chart: grafana-9.2.2
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.3.1"
+    app.kubernetes.io/version: "12.0.1"
 spec:
   type: ClusterIP
   ports:
@@ -107,10 +107,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-8.6.3
+    helm.sh/chart: grafana-9.2.2
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "11.3.1"
+    app.kubernetes.io/version: "12.0.1"
 spec:
   replicas: 1
   revisionHistoryLimit: 10
@@ -123,10 +123,10 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: grafana-8.6.3
+        helm.sh/chart: grafana-9.2.2
         app.kubernetes.io/name: grafana
         app.kubernetes.io/instance: grafana
-        app.kubernetes.io/version: "11.3.1"
+        app.kubernetes.io/version: "12.0.1"
         sidecar.istio.io/inject: "false"
       annotations:
         checksum/config: 68c00ea91b7ba5c04efc55555ef2307f52aaf738b04e9665e91bb756c8f32b22
@@ -136,10 +136,11 @@ spec:
       
       serviceAccountName: grafana
       automountServiceAccountToken: true
+      shareProcessNamespace: false
       enableServiceLinks: true
       containers:
         - name: grafana
-          image: "docker.io/grafana/grafana:11.3.1"
+          image: "docker.io/grafana/grafana:12.0.1"
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -174,6 +175,9 @@ spec:
             - name: gossip-udp
               containerPort: 9094
               protocol: UDP
+            - name: profiling
+              containerPort: 6060
+              protocol: TCP
           env:
             - name: POD_IP
               valueFrom:
