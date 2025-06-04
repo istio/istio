@@ -366,17 +366,19 @@ func (pc *PodCache) getPodByProxy(proxy *model.Proxy) *v1.Pod {
 	case 0:
 		return nil
 	case 1:
-		return pods[0]
+		if proxy.ConfigNamespace == pods[0].Namespace {
+			return pods[0]
+		}
+		return nil
 	default:
 		// This should only happen with hostNetwork pods, which cannot be proxy clients...
 		log.Errorf("unexpected: found multiple pods for proxy %v (%v)", proxy.ID, proxyIP)
 		// Try to handle it gracefully
 		for _, p := range pods {
 			// At least filter out wrong namespaces...
-			if proxy.ConfigNamespace != p.Namespace {
-				continue
+			if proxy.ConfigNamespace == p.Namespace {
+				return p
 			}
-			return p
 		}
 		return nil
 	}
