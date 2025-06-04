@@ -217,7 +217,7 @@ func NewController(
 	handlers := []krt.HandlerRegistration{}
 
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
-	registerStatus(c, GatewayClassStatus)
+	registerStatus(c, GatewayClassStatus, GetStatus)
 
 	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
 
@@ -260,25 +260,25 @@ func NewController(
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, tcpRoutes.Status)
+	registerStatus(c, tcpRoutes.Status, GetStatus)
 	tlsRoutes := TLSRouteCollection(
 		inputs.TLSRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, tlsRoutes.Status)
+	registerStatus(c, tlsRoutes.Status, GetStatus)
 	httpRoutes := HTTPRouteCollection(
 		inputs.HTTPRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, httpRoutes.Status)
+	registerStatus(c, httpRoutes.Status, GetStatus)
 	grpcRoutes := GRPCRouteCollection(
 		inputs.GRPCRoutes,
 		routeInputs,
 		opts,
 	)
-	registerStatus(c, grpcRoutes.Status)
+	registerStatus(c, grpcRoutes.Status, GetStatus)
 
 	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
 		tcpRoutes.RouteAttachments,
@@ -291,7 +291,7 @@ func NewController(
 	})
 
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
-	registerStatus(c, GatewayFinalStatus)
+	registerStatus(c, GatewayFinalStatus, GetStatus)
 
 	VirtualServices := krt.JoinCollection([]krt.Collection[*config.Config]{
 		tcpRoutes.VirtualServices,
