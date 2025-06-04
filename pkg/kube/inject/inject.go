@@ -850,16 +850,6 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	return out, nil
 }
 
-func detectNativeSidecarForIntoObject(injector Injector, pod *corev1.Pod) bool {
-	if injector != nil && injector.GetKubeClient() != nil {
-		nodes := kclient.New[*corev1.Node](injector.GetKubeClient())
-		return DetectNativeSidecar(nodes, pod.Spec.NodeName)
-	}
-
-	// if injector is nil, enable native sidecars if the feature is explicitly enabled
-	return features.EnableNativeSidecars && features.EnableNativeSidecarsSet
-}
-
 func applyJSONPatchToPod(input *corev1.Pod, patch []byte) ([]byte, error) {
 	objJS, err := runtime.Encode(jsonSerializer, input)
 	if err != nil {
