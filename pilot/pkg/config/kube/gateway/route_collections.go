@@ -17,6 +17,7 @@ package gateway
 import (
 	"fmt"
 	"iter"
+	"strings"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -597,7 +598,10 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		if len(configs) == 1 {
 			base := configs[0].Config
 			nm := base.Meta.DeepCopy()
-			nm.Name = object.Key
+			// When dealing with a merge, we MUST take into account the merge key into the name.
+			// Otherwise, we end up with broken state, where two inputs map to the same output which is not allowed by krt.
+			// Because a lot of code assumes the object key is 'namespace/name', and the key always has slashes, we also translate the /
+			nm.Name = strings.ReplaceAll(object.Key, "/", "~")
 			return ptr.Of(&config.Config{
 				Meta:   nm,
 				Spec:   base.Spec,
@@ -615,7 +619,7 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 				base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
 		}
 		sortHTTPRoutes(baseVS.Http)
-		base.Name = object.Key
+		base.Name = strings.ReplaceAll(object.Key, "/", "~")
 		return ptr.Of(&base)
 	}, opts...)
 	return finalVirtualServices
