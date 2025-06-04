@@ -42,7 +42,7 @@ type RouteParentResult struct {
 	WaypointError *WaypointError
 }
 
-func createRouteStatus(parentResults []RouteParentResult, generation int64, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
+func createRouteStatus(parentResults []RouteParentResult, objectNamespace string, generation int64, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
 	parents := make([]k8s.RouteParentStatus, 0, len(parentResults))
 	// Fill in all the gateways that are already present but not owned by us. This is non-trivial as there may be multiple
 	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
@@ -170,9 +170,10 @@ func createRouteStatus(parentResults []RouteParentResult, generation int64, curr
 			conds[string(RouteConditionResolvedWaypoints)] = cond
 		}
 
+		myRef := parentRefString(gw.OriginalReference, objectNamespace)
 		var currentConditions []metav1.Condition
 		currentStatus := slices.FindFunc(currentParents, func(s k8s.RouteParentStatus) bool {
-			return parentRefString(s.ParentRef) == parentRefString(gw.OriginalReference) &&
+			return parentRefString(s.ParentRef, objectNamespace) == myRef &&
 				s.ControllerName == k8s.GatewayController(features.ManagedGatewayController)
 		})
 		if currentStatus != nil {
@@ -187,7 +188,7 @@ func createRouteStatus(parentResults []RouteParentResult, generation int64, curr
 	// Ensure output is deterministic.
 	// TODO: will we fight over other controllers doing similar (but not identical) ordering?
 	sort.SliceStable(parents, func(i, j int) bool {
-		return parentRefString(parents[i].ParentRef) > parentRefString(parents[j].ParentRef)
+		return parentRefString(parents[i].ParentRef, objectNamespace) > parentRefString(parents[j].ParentRef, objectNamespace)
 	})
 	return parents
 }
