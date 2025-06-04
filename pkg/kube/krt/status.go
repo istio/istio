@@ -102,10 +102,8 @@ func (c ObjectWithStatus[I, IStatus]) ResourceName() string {
 }
 
 func (c ObjectWithStatus[I, IStatus]) Equals(o ObjectWithStatus[I, IStatus]) bool {
-	// we need to include object generation/resource version in the comparison to allow retrying status updates
+	// we need to include object generation in the comparison to allow retrying status updates
 	// if a conflict occurs
 	return c.Obj.GetGeneration() == o.Obj.GetGeneration() &&
-		c.Obj.GetResourceVersion() == o.Obj.GetResourceVersion() &&
-		c.Obj.GetUID() == o.Obj.GetUID() &&
 		equal(c.Status, o.Status)
 }

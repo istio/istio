@@ -17,8 +17,6 @@
 package status
 
 import (
-	"strings"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -42,8 +40,7 @@ func NewManager(store model.ConfigStore) *Manager {
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
 			// TODO: need better error handling
-			name := strings.Join([]string{m.GroupVersionKind.String(), m.Namespace, m.Name, m.ResourceVersion}, "/")
-			scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", name, err)
+			scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", m, err)
 			return
 		}
 	}
