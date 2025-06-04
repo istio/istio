@@ -102,8 +102,6 @@ func newProxyCommand(sds istioagent.SDSServiceFactory) *cobra.Command {
 			cmd.PrintFlags(c.Flags())
 			log.Infof("Version %s", version.Info.String())
 
-			raiseLimits()
-
 			err := initProxy(args)
 			if err != nil {
 				return err
@@ -338,13 +336,4 @@ func getExcludeInterfaces() sets.String {
 
 	log.Infof("Exclude IPs %v based on %s annotation", excludeAddrs, annotation.SidecarTrafficExcludeInterfaces.Name)
 	return excludeAddrs
-}
-
-func raiseLimits() {
-	limit, err := RaiseFileLimits()
-	if err != nil {
-		log.Warnf("failed setting file limit: %v", err)
-	} else {
-		log.Infof("Set max file descriptors (ulimit -n) to: %d", limit)
-	}
 }
