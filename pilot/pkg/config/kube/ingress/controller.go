@@ -165,7 +165,9 @@ func NewController(
 		c.inputs.Pods,
 		opts,
 	)
-	status.RegisterStatus(c.status, Status)
+	status.RegisterStatus(c.status, Status, func(ingress *knetworking.Ingress) knetworking.IngressStatus {
+		return ingress.Status
+	})
 
 	_, RuleHostIndex := RuleCollection(
 		SupportedIngresses,

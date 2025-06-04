@@ -102,7 +102,7 @@ func (c *ClassController) reconcileClass(class gateway.ObjectName) error {
 	return nil
 }
 
-func GetClassStatus(existing *k8sv1.GatewayClassStatus, gen int64) k8sv1.GatewayClassStatus {
+func GetClassStatus(existing *k8sv1.GatewayClassStatus, gen int64) *k8sv1.GatewayClassStatus {
 	if existing == nil {
 		existing = &k8sv1.GatewayClassStatus{}
 	}
@@ -114,5 +114,5 @@ func GetClassStatus(existing *k8sv1.GatewayClassStatus, gen int64) k8sv1.Gateway
 		Reason:             string(k8sv1.GatewayClassConditionStatusAccepted),
 		Message:            "Handled by Istio controller",
 	})
-	return *existing
+	return existing
 }
