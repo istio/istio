@@ -25,6 +25,10 @@ import (
 //
 // Indexes are thread-safe.
 type Index interface {
+	// Get attempts to find the given workload instance in the index.
+	//
+	// Returns value in the index, or nil otherwise.
+	Get(*model.WorkloadInstance) *model.WorkloadInstance
 	// Insert adds/updates given workload instance to the index.
 	//
 	// Returns previous value in the index, or nil otherwise.
@@ -71,6 +75,14 @@ type index struct {
 	keyToInstance map[string]*model.WorkloadInstance
 	// map of ip -> set of namespace/name
 	ipToKeys MultiValueMap
+}
+
+// Get implements Index.
+func (i *index) Get(wi *model.WorkloadInstance) *model.WorkloadInstance {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+
+	return i.keyToInstance[i.keyFunc(wi)]
 }
 
 // Insert implements Index.

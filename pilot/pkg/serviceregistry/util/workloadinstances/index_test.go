@@ -92,6 +92,10 @@ func TestIndex(t *testing.T) {
 	index.Insert(wi2)
 	index.Insert(wi3)
 
+	assert.Equal(t, wi1, index.Get(wi1))
+	assert.Equal(t, wi2, index.Get(wi2))
+	assert.Equal(t, wi3, index.Get(wi3))
+
 	verifyGetByIP := func(ip string, expected []*model.WorkloadInstance) {
 		assert.Equal(t, expected, index.GetByIP(ip))
 	}
