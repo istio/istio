@@ -42,7 +42,12 @@ type RouteParentResult struct {
 	WaypointError *WaypointError
 }
 
-func createRouteStatus(parentResults []RouteParentResult, objectNamespace string, generation int64, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
+func createRouteStatus(
+	parentResults []RouteParentResult,
+	objectNamespace string,
+	generation int64,
+	currentParents []k8s.RouteParentStatus,
+) []k8s.RouteParentStatus {
 	parents := slices.Clone(currentParents)
 	parentIndexes := map[string]int{}
 	for idx, p := range parents {
