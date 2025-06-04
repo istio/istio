@@ -95,6 +95,8 @@ func WithIndexCollectionFromString[K any](f func(string) K) CollectionOption {
 // * Building an index is not allowed
 // * Events are not 100% precise; only Add and Delete events are triggered. Updates will be `Add` events.
 // The intended use case for this is to do merging within a collection (like a SQL 'group by').
+// WARNING: when merging, its critical the output key includes the merge key. Otherwise, you may end up with multiple
+// input keys mapping to the same output key, corrupting krt state.
 func (i index[K, O]) AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]] {
 	o := buildCollectionOptions(opts...)
 
