@@ -101,12 +101,6 @@ metadata:
 spec: null
 status:
   parents:
-  - controllerName: example.com/not-istio
-    parentRef:
-      group: gateway.networking.k8s.io
-      kind: Gateway
-      name: not-istio
-      namespace: istio-system
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid, bound to 2 parents
@@ -121,6 +115,12 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
+  - controllerName: example.com/not-istio
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: not-istio
+      namespace: istio-system
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -185,12 +185,6 @@ metadata:
 spec: null
 status:
   parents:
-  - controllerName: example.com/not-istio
-    parentRef:
-      group: gateway.networking.k8s.io
-      kind: Gateway
-      name: not-istio
-      namespace: istio-system
   - conditions:
     - lastTransitionTime: fake
       message: Route was valid, bound to 2 parents
@@ -205,4 +199,10 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
+  - controllerName: example.com/not-istio
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: not-istio
+      namespace: istio-system
 ---
