@@ -574,7 +574,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if !labelsChanged && !labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels) {
+		if se.WorkloadSelector == nil || (!labelsChanged && !labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels)) {
 			continue
 		}
 		cpKey := configKeyWithParent{configKey: key, parent: config.NamespacedName(cfg)}
@@ -686,13 +686,20 @@ func (s *Controller) HasSynced() bool {
 
 // Services list declarations of all services in the system
 func (s *Controller) Services() []*model.Service {
-	s.mutex.Lock()
-	allServices := s.services.getAllServices()
-	if s.services.allocateNeeded {
-		autoAllocateIPs(allServices)
-		s.services.allocateNeeded = false
+	var allServices []*model.Service
+	if features.EnableIPAutoallocate {
+		s.mutex.RLock()
+		allServices = s.services.getAllServices()
+		s.mutex.RUnlock()
+	} else {
+		s.mutex.Lock()
+		allServices := s.services.getAllServices()
+		if s.services.allocateNeeded {
+			autoAllocateIPs(allServices)
+			s.services.allocateNeeded = false
+		}
+		s.mutex.Unlock()
 	}
-	s.mutex.Unlock()
 	for i, svc := range allServices {
 		// shallow copy, copy `AutoAllocatedIPv4Address` and `AutoAllocatedIPv6Address`
 		// if return the pointer directly, there will be a race with `BuildNameTable`
