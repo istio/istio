@@ -68,6 +68,10 @@ type ExternalInjector struct {
 	injectorAddress string
 }
 
+func (e ExternalInjector) GetKubeClient() kube.Client {
+	return e.client
+}
+
 func (e ExternalInjector) Inject(pod *corev1.Pod, deploymentNS string) ([]byte, error) {
 	cc := e.clientConfig
 	if cc == nil {
