@@ -506,30 +506,20 @@ func (s *Controller) affectedServiceEntries(wi *model.WorkloadInstance, event mo
 	// and that the event can be ignored due to no relevant change in the workloadentry
 	redundantEventForPod := false
 
-	// Used to indicate if the wi labels changed and we need to recheck all instances
-	labelsChanged := false
-
 	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	oldWi = s.workloadInstances.Get(wi)
 	switch event {
 	case model.EventDelete:
 		redundantEventForPod = oldWi == nil
 	default: // add or update
-		if oldWi != nil {
+		if oldWi != nil && model.WorkloadInstancesEqual(oldWi, wi) {
 			// If multiple k8s services select the same pod or a service has multiple ports,
 			// we may be getting multiple events ignore them as we only care about the Endpoint IP itself.
-			if model.WorkloadInstancesEqual(oldWi, wi) {
-				// ignore the update as nothing has changed
-				redundantEventForPod = true
-			}
-			// Check if the old labels still match the new labels. If they don't then we need to
-			// refresh the list of instances for this wi
-			if !oldWi.Endpoint.Labels.Equals(wi.Endpoint.Labels) {
-				labelsChanged = true
-			}
+			// ignore the update as nothing has changed
+			redundantEventForPod = true
 		}
 	}
-	s.mutex.RUnlock()
 
 	if redundantEventForPod {
 		return nil
@@ -544,8 +534,10 @@ func (s *Controller) affectedServiceEntries(wi *model.WorkloadInstance, event mo
 	res := make([]config.Config, 0, len(cfgs))
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if se.WorkloadSelector == nil || (!labelsChanged && !labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels)) {
-			// If the labels didn't change. And the new SE doesn't match then the old didn't match either and we can skip processing it.
+		if se.WorkloadSelector == nil {
+			continue
+		}
+		if event == model.EventDelete && !labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels) {
 			continue
 		}
 
@@ -572,17 +564,28 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 
 	var addressesToDelete []string
 	var oldWi *model.WorkloadInstance
+	// Used to indicate if the wi labels changed and we need to recheck all instances
+	labelsChanged := false
 
 	s.mutex.Lock()
 	// this is from a pod. Store it in separate map so that
 	// the refreshIndexes function can use these as well as the store ones.
 	switch event {
 	case model.EventDelete:
-		s.workloadInstances.Delete(wi)
+		oldWi = s.workloadInstances.Delete(wi)
+		if oldWi == nil {
+			s.mutex.Unlock()
+			return
+		}
 	default: // add or update
 		if oldWi = s.workloadInstances.Insert(wi); oldWi != nil {
 			if oldWi.Endpoint.FirstAddressOrNil() != wi.Endpoint.FirstAddressOrNil() {
 				addressesToDelete = oldWi.Endpoint.Addresses
+			}
+			// Check if the old labels still match the new labels. If they don't then we need to
+			// refresh the list of instances for this wi
+			if !oldWi.Endpoint.Labels.Equals(wi.Endpoint.Labels) {
+				labelsChanged = true
 			}
 		}
 	}
@@ -593,6 +596,9 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	fullPush := false
 	for _, cfg := range cfgs {
 		se := cfg.Spec.(*networking.ServiceEntry)
+		if !labelsChanged && !labels.Instance(se.WorkloadSelector.Labels).Match(wi.Endpoint.Labels) {
+			continue
+		}
 		cpKey := configKeyWithParent{configKey: key, parent: config.NamespacedName(cfg)}
 
 		// If we are here, then there are 3 possible cases :
