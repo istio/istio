@@ -43,16 +43,21 @@ type RouteParentResult struct {
 }
 
 func createRouteStatus(parentResults []RouteParentResult, objectNamespace string, generation int64, currentParents []k8s.RouteParentStatus) []k8s.RouteParentStatus {
-	parents := make([]k8s.RouteParentStatus, 0, len(parentResults))
-	// Fill in all the gateways that are already present but not owned by us. This is non-trivial as there may be multiple
-	// gateway controllers that are exposing their status on the same route. We need to attempt to manage ours properly (including
-	// removing gateway references when they are removed), without mangling other Controller's status.
-	for _, r := range currentParents {
-		if r.ControllerName != k8s.GatewayController(features.ManagedGatewayController) {
-			// We don't own this status, so keep it around
-			parents = append(parents, r)
+	parents := slices.Clone(currentParents)
+	parentIndexes := map[string]int{}
+	for idx, p := range parents {
+		// Only consider our own
+		if p.ControllerName != k8s.GatewayController(features.ManagedGatewayController) {
+			continue
+		}
+		rs := parentRefString(p.ParentRef, objectNamespace)
+		if _, f := parentIndexes[rs]; f {
+			log.Warnf("invalid HTTPRoute detected: duplicate parent: %v", rs)
+		} else {
+			parentIndexes[rs] = idx
 		}
 	}
+
 	// Collect all of our unique parent references. There may be multiple when we have a route without section name,
 	// but reference a parent with multiple sections.
 	// While we process these internally for-each sectionName, in the status we are just supposed to report one merged entry
@@ -128,6 +133,7 @@ func createRouteStatus(parentResults []RouteParentResult, objectNamespace string
 	}
 
 	// Now we fill in all the parents we do own
+	var toAppend []k8s.RouteParentStatus
 	for k, gw := range report {
 		msg := "Route was valid"
 		if successCount[k] > 1 {
@@ -179,17 +185,36 @@ func createRouteStatus(parentResults []RouteParentResult, objectNamespace string
 		if currentStatus != nil {
 			currentConditions = currentStatus.Conditions
 		}
-		parents = append(parents, k8s.RouteParentStatus{
+		ns := k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
 			ControllerName: k8s.GatewayController(features.ManagedGatewayController),
 			Conditions:     setConditions(generation, currentConditions, conds),
-		})
+		}
+		// Parent ref already exists, insert in the same place
+		if idx, f := parentIndexes[myRef]; f {
+			parents[idx] = ns
+			// Clear it out so we can detect which ones we need to delete later
+			delete(parentIndexes, myRef)
+		} else {
+			// Else queue it up to append to the end. We don't append now since we will want to sort them.
+			toAppend = append(toAppend, ns)
+		}
 	}
 	// Ensure output is deterministic.
 	// TODO: will we fight over other controllers doing similar (but not identical) ordering?
-	sort.SliceStable(parents, func(i, j int) bool {
-		return parentRefString(parents[i].ParentRef, objectNamespace) > parentRefString(parents[j].ParentRef, objectNamespace)
+	sort.SliceStable(toAppend, func(i, j int) bool {
+		return parentRefString(toAppend[i].ParentRef, objectNamespace) > parentRefString(toAppend[j].ParentRef, objectNamespace)
 	})
+	parents = append(parents, toAppend...)
+	toDelete := sets.New(maps.Values(parentIndexes)...)
+	parents = FilterInPlaceByIndex(parents, func(i int) bool {
+		_, f := toDelete[i]
+		return !f
+	})
+
+	if parents == nil {
+		return []k8s.RouteParentStatus{}
+	}
 	return parents
 }
 
@@ -377,4 +402,17 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 		return intersection, len(intersection) == len(l.AllowedRoutes.Kinds)
 	}
 	return supported, true
+}
+
+func FilterInPlaceByIndex[E any](s []E, keep func(int) bool) []E {
+	i := 0
+	for j := 0; j < len(s); j++ {
+		if keep(j) {
+			s[i] = s[j]
+			i++
+		}
+	}
+
+	clear(s[i:]) // zero/nil out the obsolete elements, for GC
+	return s[:i]
 }
