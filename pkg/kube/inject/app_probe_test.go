@@ -538,9 +538,6 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: "excluded-port-container",
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-							},
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -569,9 +566,6 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: "excluded-port-container",
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-							},
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -607,10 +601,6 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					Containers: []corev1.Container{
 						{
 							Name: "partial-included-ports",
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-								{ContainerPort: 9090},
-							},
 							LivenessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{

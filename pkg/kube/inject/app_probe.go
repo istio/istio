@@ -167,13 +167,13 @@ type Prober struct {
 // Also update the probers so that all usages of named port will be resolved to integer.
 func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 	out := KubeAppProbers{}
-	updateNamedPort := func(p *Prober, includedPorts map[int32]bool) *Prober {
+	updateNamedPort := func(p *Prober, portMap map[int32]bool) *Prober {
 		if p == nil {
 			return nil
 		}
 		if p.GRPC != nil {
 			grpcPort := p.GRPC.Port
-			if _, exists := includedPorts[grpcPort]; !exists {
+			if _, exists := portMap[grpcPort]; !exists && len(portMap) > 0 {
 				return nil
 			}
 			// don't need to update for gRPC probe port as it only supports integer
@@ -193,12 +193,12 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 		if probePort.Type == intstr.String {
 			portValInt64, _ := strconv.ParseInt(probePort.StrVal, 10, 32)
 			portValInt := int32(portValInt64)
-			if _, exists := includedPorts[portValInt]; !exists {
+			if _, exists := portMap[portValInt]; !exists && len(portMap) > 0 {
 				return nil
 			}
 			*probePort = intstr.FromInt32(portValInt)
 		} else if probePort.Type == intstr.Int {
-			if _, exists := includedPorts[probePort.IntVal]; !exists {
+			if _, exists := portMap[probePort.IntVal]; !exists && len(portMap) > 0 {
 				return nil
 			}
 			*probePort = intstr.FromInt32(probePort.IntVal)
@@ -208,32 +208,27 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 		}
 		return p
 	}
-	includedPorts := getIncludedPorts(pod)
+	portMap := getIncludedPorts(pod)
 	for _, c := range allContainers(pod) {
 		if c.Name == ProxyContainerName {
 			continue
 		}
 		readyz, livez, startupz, prestopz, poststartz := status.FormatProberURL(c.Name)
-		portMap := map[string]int32{}
-		for _, p := range c.Ports {
-			if p.Name != "" {
-				portMap[p.Name] = p.ContainerPort
-			}
-		}
-		if h := updateNamedPort(kubeProbeToInternalProber(c.ReadinessProbe), includedPorts); h != nil {
+
+		if h := updateNamedPort(kubeProbeToInternalProber(c.ReadinessProbe), portMap); h != nil {
 			out[readyz] = h
 		}
-		if h := updateNamedPort(kubeProbeToInternalProber(c.LivenessProbe), includedPorts); h != nil {
+		if h := updateNamedPort(kubeProbeToInternalProber(c.LivenessProbe), portMap); h != nil {
 			out[livez] = h
 		}
-		if h := updateNamedPort(kubeProbeToInternalProber(c.StartupProbe), includedPorts); h != nil {
+		if h := updateNamedPort(kubeProbeToInternalProber(c.StartupProbe), portMap); h != nil {
 			out[startupz] = h
 		}
 		if c.Lifecycle != nil {
-			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PreStop), includedPorts); h != nil {
+			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PreStop), portMap); h != nil {
 				out[prestopz] = h
 			}
-			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PostStart), includedPorts); h != nil {
+			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PostStart), portMap); h != nil {
 				out[poststartz] = h
 			}
 		}
@@ -252,10 +247,11 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 
 func getIncludedPorts(pod *corev1.Pod) map[int32]bool {
 	// Get pod annotations
+	blankPorts := make(map[int32]bool)
 	annotations := pod.Annotations
 	if annotations == nil {
 		// If no annotations, include all ports by default
-		return getAllPorts(pod)
+		return blankPorts
 	}
 
 	includedPorts := make(map[int32]bool)
@@ -266,7 +262,7 @@ func getIncludedPorts(pod *corev1.Pod) map[int32]bool {
 		// If includeInboundPorts is specified, only include those ports
 		if includePortsStr == "*" {
 			// "*" means include all ports
-			return getAllPorts(pod)
+			return blankPorts
 		}
 
 		// Parse comma-separated list of ports
@@ -279,7 +275,7 @@ func getIncludedPorts(pod *corev1.Pod) map[int32]bool {
 		}
 	} else {
 		// If includeInboundPorts is not specified, include all ports by default
-		includedPorts = getAllPorts(pod)
+		includedPorts = blankPorts
 
 		excludeInboundPortsKey := annotation.SidecarTrafficExcludeInboundPorts.Name
 		// Then exclude ports specified in excludeInboundPorts
@@ -294,17 +290,6 @@ func getIncludedPorts(pod *corev1.Pod) map[int32]bool {
 		}
 	}
 	return includedPorts
-}
-
-// getAllPorts returns a map of all container ports in the pod
-func getAllPorts(pod *corev1.Pod) map[int32]bool {
-	ports := make(map[int32]bool)
-	for _, container := range allContainers(pod) {
-		for _, port := range container.Ports {
-			ports[port.ContainerPort] = true
-		}
-	}
-	return ports
 }
 
 func allContainers(pod *corev1.Pod) []corev1.Container {
