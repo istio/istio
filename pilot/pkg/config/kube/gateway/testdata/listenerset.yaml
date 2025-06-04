@@ -88,21 +88,6 @@ spec:
             group: ""
             name: my-cert-http
 ---
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
-metadata:
-  name: no-port
-  namespace: istio-system
-spec:
-  parentRef:
-    name: parent-gateway
-    kind: Gateway
-    group: gateway.networking.k8s.io
-  listeners:
-    - name: fifth
-      hostname: fifth.foo.com
-      protocol: HTTP
----
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
