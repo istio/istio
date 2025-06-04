@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
@@ -124,6 +125,7 @@ type (
 
 type Injector interface {
 	Inject(pod *corev1.Pod, namespace string) ([]byte, error)
+	GetKubeClient() kube.Client
 }
 
 // Config specifies the sidecar injection configuration This includes
@@ -472,7 +474,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		// So if we see the proxy container in `containers` in the original pod, and in `initContainers` in the template pod,
 		// move the container.
 		// The sidecar.istio.io/nativeSidecar annotation takes precedence over the global feature flag.
-		native := features.EnableNativeSidecars
+		native := params.nativeSidecar
 		if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "true" {
 			native = true
 		} else if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "false" {
@@ -804,6 +806,16 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			warningHandler(warningStr)
 			return out, nil
 		}
+
+		var nativeSidecar bool
+		if injector != nil && injector.GetKubeClient() != nil {
+			nodes := kclient.New[*corev1.Node](injector.GetKubeClient())
+			nativeSidecar = DetectNativeSidecar(nodes, pod.Spec.NodeName)
+		} else {
+			// if injector or client is nil, enable native sidecars if the feature is explicitly enabled
+			nativeSidecar = features.EnableNativeSidecars && features.EnableNativeSidecarsSet
+		}
+
 		params := InjectionParameters{
 			pod:        pod,
 			deployMeta: deploymentMetadata,
@@ -814,7 +826,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			meshConfig:          meshconfig,
 			proxyConfig:         meshconfig.GetDefaultConfig(),
 			valuesConfig:        valuesConfig,
-			nativeSidecar:       features.EnableNativeSidecars,
+			nativeSidecar:       nativeSidecar,
 			revision:            revision,
 			proxyEnvs:           map[string]string{},
 			injectedAnnotations: nil,
@@ -836,6 +848,16 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 	*metadata = patchedPod.ObjectMeta
 	*podSpec = patchedPod.Spec
 	return out, nil
+}
+
+func detectNativeSidecarForIntoObject(injector Injector, pod *corev1.Pod) bool {
+	if injector != nil && injector.GetKubeClient() != nil {
+		nodes := kclient.New[*corev1.Node](injector.GetKubeClient())
+		return DetectNativeSidecar(nodes, pod.Spec.NodeName)
+	}
+
+	// if injector is nil, enable native sidecars if the feature is explicitly enabled
+	return features.EnableNativeSidecars && features.EnableNativeSidecarsSet
 }
 
 func applyJSONPatchToPod(input *corev1.Pod, patch []byte) ([]byte, error) {
