@@ -2233,7 +2233,6 @@ func namespacesFromSelector(ctx krt.HandlerContext, localNamespace string, names
 // namespaceAcceptedByAllowListeners determines a list of allowed namespaces for a given AllowedListener
 func namespaceAcceptedByAllowListeners(localNamespace string, parent *k8sbeta.Gateway, lookupNamespace func(string) *corev1.Namespace) bool {
 	lr := parent.Spec.AllowedListeners
-	// Default is to allow only the same namespace
 	// Default allows none
 	if lr == nil || lr.Namespaces == nil {
 		return false

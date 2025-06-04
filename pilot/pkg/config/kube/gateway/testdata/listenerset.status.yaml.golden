@@ -82,56 +82,6 @@ apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XListenerSet
 metadata:
   creationTimestamp: null
-  name: no-port
-  namespace: istio-system
-spec: null
-status:
-  conditions:
-  - lastTransitionTime: fake
-    message: Resource accepted
-    reason: Accepted
-    status: "True"
-    type: Accepted
-  - lastTransitionTime: fake
-    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
-    reason: Programmed
-    status: "True"
-    type: Programmed
-  listeners:
-  - attachedRoutes: 0
-    conditions:
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
-      type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
-      type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    name: fifth
-    port: 80
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-    - group: gateway.networking.k8s.io
-      kind: GRPCRoute
----
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
-metadata:
-  creationTimestamp: null
   name: single-entry-http
   namespace: istio-system
 spec: null
