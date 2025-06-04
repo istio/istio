@@ -493,7 +493,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 				oldRes, oldExists := h.collectionState.outputs[key]
 				e := Event[O]{}
 				if newExists && oldExists {
-					if equal(newRes, oldRes) {
+					if Equal(newRes, oldRes) {
 						// NOP change, skip
 						continue
 					}

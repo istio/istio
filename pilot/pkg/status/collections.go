@@ -24,6 +24,7 @@ import (
 	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -67,11 +68,23 @@ func (s *StatusCollections) SetQueue(queue Queue) []krt.Syncer {
 	})
 }
 
-// registerStatus takes a status collection and registers it to be managed by the status queue.
-func RegisterStatus[I controllers.Object, IS any](s *StatusCollections, statusCol krt.StatusCollection[I, IS]) {
+// RegisterStatus takes a status collection and registers it to be managed by the status queue.
+// krt.ObjectWithStatus, in theory, can contain anything in the "object" field. This function requires it to contain
+// the current live *status*, and a passed in getStatus to extract it from the object.
+// It will then compare the live status to the desired status to determine whether to write or not.
+func RegisterStatus[I controllers.Object, IS any](s *StatusCollections, statusCol krt.StatusCollection[I, IS], getStatus func(I) IS) {
 	reg := func(statusWriter Queue) krt.HandlerRegistration {
 		h := statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[I, IS]]) {
 			l := o.Latest()
+			liveStatus := getStatus(l.Obj)
+			if krt.Equal(liveStatus, l.Status) {
+				// We want the same status we already have! No need for a write so skip this.
+				// Note: the Equals() function on ObjectWithStatus does not compare these. It only compares "old live + desired" == "new live + desired".
+				// So if either the live OR the desired status changes, this callback will trigger.
+				// Here, we do smarter filtering and can just check whether we meet the desired state.
+				log.Debugf("suppress change for %v %v", l.ResourceName(), l.Obj.GetResourceVersion())
+				return
+			}
 			status := &l.Status
 			if o.Event == controllers.EventDelete {
 				// if the object is being deleted, we should not reset status
