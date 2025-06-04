@@ -98,9 +98,6 @@ data:
       tsdb_shipper:
         index_gateway_client:
           server_address: ""
-    table_manager:
-      retention_deletes_enabled: false
-      retention_period: 0
     tracing:
       enabled: false
 ---
@@ -264,7 +261,7 @@ spec:
   template:
     metadata:
       annotations:
-        checksum/config: 0b5ca2c2498eddb3bb0b5158b8d74a9c136b34fe934d99fcca138fb25bfda2be
+        checksum/config: 65f45e07d0596b0b96b33e41e6d153bd55f4f5da04824b4f0a4f7b2937f5b3f0
       labels:
         app.kubernetes.io/name: loki
         app.kubernetes.io/instance: loki
