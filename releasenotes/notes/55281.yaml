@@ -3,5 +3,5 @@ kind: bug-fix
 area: traffic-management
 releaseNotes:
   - |
-    **Improved** iptables binary detection to verify a degree of baseline kernel support exists,
-    and prefer `nft` in a `tie` situation where both legacy and nft are available, but neither has any rules.
+    **Fixed** an issue where Istio upgrade from 1.24 to 1.25 caused service disruption due to pre-existing iptables rules.
+    The iptables binary detection logic has been improved to verify a degree of baseline kernel support exists, and prefer `nft` in a `tie` situation.
