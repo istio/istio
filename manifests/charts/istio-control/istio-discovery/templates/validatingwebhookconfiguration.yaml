@@ -1,5 +1,4 @@
 # Created if this is not a remote istiod, OR if it is and is also a config cluster
-{{- if or (and .Values.istiodRemote.enabled .Values.global.configCluster) (not .Values.istiodRemote.enabled) }}
 {{- if .Values.global.configValidation }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -22,7 +21,11 @@ webhooks:
       url: {{ .Values.base.validationURL }}
       {{- else }}
       service:
+        {{- if and .Values.istiodRemote.enabled (not .Values.istiodRemote.enabledLocalInjectorIstiod) }}
+        name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-remote
+        {{- else }}
         name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+        {{- end }}
         namespace: {{ .Values.global.istioNamespace }}
         path: "/validate"
       {{- end }}
@@ -64,5 +67,4 @@ webhooks:
           - "{{ .Values.revision }}"
           {{- end }}
 ---
-{{- end }}
 {{- end }}
