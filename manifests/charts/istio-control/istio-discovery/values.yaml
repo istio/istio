@@ -170,6 +170,11 @@ _internal_defaults_do_not_set:
     # and istiod itself will NOT be installed in this cluster - only the support resources necessary
     # to utilize a remote instance.
     enabled: false
+
+    # If `true`, indicates that this cluster/install should consume a "local istiod" installation,
+    # local istiod inject sidecars
+    enabledLocalInjectorIstiod: false
+
     # Sidecar injector mutating webhook configuration clientConfig.url value.
     # For example: https://$remotePilotAddress:15017/inject
     # The host should not refer to a service running in the cluster; use a service reference by specifying
