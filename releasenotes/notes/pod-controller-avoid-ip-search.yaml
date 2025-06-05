@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** the ability to turn off the ability to associate Pods to Proxies by IP address if association by name and namespace fails.
+  This is on by default, matching the old behavior, and can be disabled with `ENABLE_PROXY_FIND_POD_BY_IP=off`.
+  Future versions have this off by default.
