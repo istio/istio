@@ -59,8 +59,8 @@ type IptablesConfig struct {
 
 type InPodRouter interface {
 	// by convention use 1st Addr for ipv4 and 2nd for ipv6 SNAT host
-	CreateInpodRules(*istiolog.Scope, PodLevelOverrides) error
-	DeleteInpodRules(*istiolog.Scope) error
+	CreateInpodRules(*istiolog.Scope, PodLevelOverrides, string) error
+	DeleteInpodRules(*istiolog.Scope, string) error
 	ReconcileModeEnabled() bool
 }
 

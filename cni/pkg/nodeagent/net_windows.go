@@ -112,23 +112,22 @@ func (s *NetServer) scanNamespacesForPodsAndCache(pods map[types.UID]*corev1.Pod
 // which always has the firsthand info of the IPs, even before K8S does - so we pass them separately here because
 // we actually may have them before K8S in the Pod object.
 func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
-	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
+	log := log.WithLabels("k8sns", pod.Namespace, "name", pod.Name, "netns", netNs)
 	log.Infof("adding pod to the mesh")
 	// make sure the cache is aware of the pod, even if we don't have the netns yet.
 	s.currentPodSnapshot.Ensure(string(pod.UID))
+	// This can be simplified for Windows. All we need is the network namespace GUID.
 	openNetns, err := s.getOrOpenNetns(pod, netNs)
 	if err != nil {
 		return err
 	}
 
 	log.Debug("calling CreateInpodRules")
-	// TODO: We may not actually even need to change namespaces; perhaps this hostprocesscontainer
-	// can just apply the policies directly to the endpoints in HNS
-	if err := s.netnsRunner(openNetns, func() error {
-		podCfg := getPodLevelTrafficOverrides(pod)
-		return s.podIptables.CreateInpodRules(log, podCfg)
-	}); err != nil {
-		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
+	// On Windows we don't need to enter a namespace like in linux, PodIptables can
+	// just call HCN/HNS directly to apply the needed policies to the right endpoints.
+	podCfg := getPodLevelTrafficOverrides(pod)
+	if err := s.podIptables.CreateInpodRules(log, podCfg, openNetns.Namespace().GUID); err != nil {
+		log.Errorf("failed to create inpod rules for %s/%s: %v", pod.Namespace, pod.Name, err)
 		return err
 	}
 
@@ -168,7 +167,7 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 			// pod is removed from the mesh, but is still running. remove iptables rules
 			log.Debugf("calling DeleteInpodRules")
 			if err := s.netnsRunner(openNetns, func() error {
-				return s.podIptables.DeleteInpodRules(log)
+				return s.podIptables.DeleteInpodRules(log, openNetns.Namespace().GUID)
 			}); err != nil {
 				return fmt.Errorf("failed to delete inpod rules: %w", err)
 			}
