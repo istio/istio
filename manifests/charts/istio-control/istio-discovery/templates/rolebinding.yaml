@@ -1,5 +1,5 @@
 # Created if this is not a remote istiod, OR if it is and is also a config cluster
-{{- if or (and .Values.istiodRemote.enabled .Values.global.configCluster) (not .Values.istiodRemote.enabled) }}
+{{- if not .Values.istiodRemote.enabledLocalInjectorIstiod }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
