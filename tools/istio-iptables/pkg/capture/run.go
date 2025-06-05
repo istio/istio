@@ -41,16 +41,30 @@ const (
 type IptablesConfigurator struct {
 	ruleBuilder *builder.IptablesRuleBuilder
 	// TODO(abhide): Fix dep.Dependencies with better interface
-	ext dep.Dependencies
-	cfg *config.Config
+	ext   dep.Dependencies
+	cfg   *config.Config
+	iptV  dep.IptablesVersion
+	ipt6V dep.IptablesVersion
 }
 
-func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) *IptablesConfigurator {
+func NewIptablesConfigurator(cfg *config.Config, ext dep.Dependencies) (*IptablesConfigurator, error) {
+	iptVer, err := ext.DetectIptablesVersion(false)
+	if err != nil {
+		return nil, err
+	}
+
+	ipt6Ver, err := ext.DetectIptablesVersion(true)
+	if err != nil {
+		return nil, err
+	}
+
 	return &IptablesConfigurator{
 		ruleBuilder: builder.NewIptablesRuleBuilder(cfg),
 		ext:         ext,
 		cfg:         cfg,
-	}
+		iptV:        iptVer,
+		ipt6V:       ipt6Ver,
+	}, nil
 }
 
 type NetworkRange struct {
@@ -267,23 +281,13 @@ func configureIPv6Addresses(cfg *config.Config) error {
 }
 
 func (cfg *IptablesConfigurator) Run() error {
-	iptVer, err := cfg.ext.DetectIptablesVersion(false)
-	if err != nil {
-		return err
-	}
-
-	ipt6Ver, err := cfg.ext.DetectIptablesVersion(true)
-	if err != nil {
-		return err
-	}
-
 	defer func() {
 		// Best effort since we don't know if the commands exist
-		if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &iptVer, nil); err == nil {
+		if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &cfg.iptV, nil); err == nil {
 			log.Infof("Final iptables state (IPv4):\n%s", state)
 		}
 		if cfg.cfg.EnableIPv6 {
-			if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &ipt6Ver, nil); err == nil {
+			if state, err := cfg.ext.Run(log.WithLabels(), true, constants.IPTablesSave, &cfg.ipt6V, nil); err == nil {
 				log.Infof("Final iptables state (IPv6):\n%s", state)
 			}
 		}
@@ -517,7 +521,7 @@ func (cfg *IptablesConfigurator) Run() error {
 		cfg.ruleBuilder.InsertRule(constants.ISTIOINBOUND, "mangle", 3,
 			"-p", "tcp", "-i", "lo", "-m", "mark", "!", "--mark", constants.OutboundMark, "-j", "RETURN")
 	}
-	return cfg.executeCommands(&iptVer, &ipt6Ver)
+	return cfg.executeCommands(&cfg.iptV, &cfg.ipt6V)
 }
 
 // SetupDNSRedir is a helper function to tackle with DNS UDP specific operations.
