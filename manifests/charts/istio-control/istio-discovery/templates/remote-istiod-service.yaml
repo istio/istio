@@ -1,9 +1,9 @@
 # This file is only used for remote `istiod` installs.
-{{- if .Values.global.remotePilotAddress }}
+{{- if or .Values.global.remotePilotAddress .Values.istiodRemote.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
-  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-remote
   namespace: {{ .Release.Namespace }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" | quote }}

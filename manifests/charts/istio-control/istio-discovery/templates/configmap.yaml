@@ -61,8 +61,8 @@
           maxNumberOfMessageEvents: {{ (($.Values.global.tracer).stackdriver).maxNumberOfMessageEvents | default "200" }}
       {{- end }}
       {{- end }}
-      {{- if .Values.global.remotePilotAddress }}
-      discoveryAddress: {{ printf "istiod.%s.svc" .Release.Namespace }}:15012
+      {{- if or .Values.global.remotePilotAddress .Values.istiodRemote.enabled }}
+      discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
       {{- else }}
       discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
       {{- end }}
