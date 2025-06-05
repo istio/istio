@@ -292,15 +292,6 @@ var (
 
 	EnableNativeSidecars, EnableNativeSidecarsSet = env.Register("ENABLE_NATIVE_SIDECARS", true,
 		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.").Lookup()
-
-	EnableProxyFindPodByIP = env.Register("ENABLE_PROXY_FIND_POD_BY_IP", false,
-		"If enabled, the pod controller will allow findig pods matching proxies by IP if it fails to find them by name.").Get()
-
-	EnableNativeSidecars, EnableNativeSidecarsSet = env.Register("ENABLE_NATIVE_SIDECARS", true,
-		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.").Lookup()
-
-	EnableProxyFindPodByIP = env.Register("ENABLE_PROXY_FIND_POD_BY_IP", false,
-		"If enabled, the pod controller will allow findig pods matching proxies by IP if it fails to find them by name.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
