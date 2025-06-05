@@ -140,6 +140,12 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 	return out
 }
 
+func (cl *Client) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
+	cl.kindsMu.RLock()
+	defer cl.kindsMu.RUnlock()
+	return cl.kinds[kind].collection
+}
+
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
 	if c, ok := cl.kind(kind); ok {
 		c.handlers = append(c.handlers, c.collection.RegisterBatch(func(o []krt.Event[config.Config]) {
@@ -153,7 +159,7 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler mod
 					handler(config.Config{}, *event.Old, model.Event(event.Event))
 				}
 			}
-		}, false))
+		}, true))
 		return
 	}
 

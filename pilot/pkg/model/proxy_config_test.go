@@ -29,6 +29,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -471,6 +473,11 @@ func newProxyConfigStore(t *testing.T, configs []config.Config) ConfigStore {
 	for _, cfg := range configs {
 		store.Create(cfg)
 	}
+
+	stop := test.NewStop(t)
+	go store.Run(stop)
+	store.MarkSynced()
+	kube.WaitForCacheSync("test", stop, store.HasSynced)
 
 	return store
 }
