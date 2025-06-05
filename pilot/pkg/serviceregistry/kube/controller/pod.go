@@ -356,5 +356,31 @@ func (pc *PodCache) getPodByProxy(proxy *model.Proxy) *v1.Pod {
 		}
 	}
 
+	if features.EnableProxyFindPodByIP {
+		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
+		// because multiple ips belong to the same pod
+		proxyIP := proxy.IPAddresses[0]
+		// just in case the proxy ID is bad formatted
+		pods := pc.getPodsByIP(proxyIP)
+		switch len(pods) {
+		case 0:
+			return nil
+		case 1:
+			return pods[0]
+		default:
+			// This should only happen with hostNetwork pods, which cannot be proxy clients...
+			log.Errorf("unexpected: found multiple pods for proxy %v (%v)", proxy.ID, proxyIP)
+			// Try to handle it gracefully
+			for _, p := range pods {
+				// At least filter out wrong namespaces...
+				if proxy.ConfigNamespace != p.Namespace {
+					continue
+				}
+				return p
+			}
+			return nil
+		}
+	}
+
 	return nil
 }
