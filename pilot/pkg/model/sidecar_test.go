@@ -3034,7 +3034,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 			ps.setDestinationRules(destinationRules)
 			sidecarScope := convertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {
-				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
+				sidecarScope = convertToSidecarScope(ps, nil, "default")
 			}
 			if features.EnableLazySidecarEvaluation {
 				sidecarScope.initFunc()
@@ -3096,7 +3096,7 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 			ps.Mesh = meshConfig
 			sidecarScope := convertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {
-				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
+				sidecarScope = convertToSidecarScope(ps, nil, "default")
 			}
 			if features.EnableLazySidecarEvaluation {
 				sidecarScope.initFunc()
@@ -3229,7 +3229,7 @@ outboundTrafficPolicy:
 
 			var sidecarScope *SidecarScope
 			if test.sidecar == nil {
-				sidecarScope = DefaultSidecarScopeForNamespace(ps, "not-default")
+				sidecarScope = convertToSidecarScope(ps, nil, "not-default")
 			} else {
 				sidecarScope = convertToSidecarScope(ps, test.sidecar, test.sidecar.Namespace)
 			}

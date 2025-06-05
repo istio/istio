@@ -1944,7 +1944,7 @@ func (ps *PushContext) convertSidecarScopes(sidecarConfigs []config.Config) {
 	if len(sidecarConfigs) == 0 {
 		return
 	}
-	if features.ConvertSidecarScopeConcurrency > 1 && !features.EnableLazySidecarEvaluation {
+	if features.ConvertSidecarScopeConcurrency > 1 {
 		ps.concurrentConvertToSidecarScope(sidecarConfigs)
 	} else {
 		for _, sidecarConfig := range sidecarConfigs {
