@@ -133,7 +133,7 @@ func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir str
 	defer watcher.Close()
 
 	for len(cniConfName) == 0 {
-		cniConfNames, err := getHighestPriorityConfigFilename(mountedCNINetDir)
+		cniConfNames, err := getConfigFilenames(mountedCNINetDir)
 		if err == nil || len(cniConfNames) > 0 {
 			cniConfName = cniConfNames[0]
 			break
@@ -167,10 +167,10 @@ func getCNIConfigFilepath(ctx context.Context, cniConfName, mountedCNINetDir str
 	return cniConfigFilepath, err
 }
 
-// Follows the same semantics as kubelet
-// May return defaultCNI network config or istio config - returns the highest priority valid config name
+// Follows similar semantics as kubelet
+// Will return all CNI config filenames in the given directory with .conf or .conflist extensions
 // https://github.com/kubernetes/kubernetes/blob/954996e231074dc7429f7be1256a579bedd8344c/pkg/kubelet/dockershim/network/cni/cni.go#L144-L184
-func getHighestPriorityConfigFilename(confDir string) ([]string, error) {
+func getConfigFilenames(confDir string) ([]string, error) {
 	files, err := libcni.ConfFiles(confDir, []string{".conf", ".conflist"})
 	switch {
 	case err != nil:
@@ -180,8 +180,6 @@ func getHighestPriorityConfigFilename(confDir string) ([]string, error) {
 	}
 
 	sort.Strings(files)
-	// TODO(jaellio): Remove log
-	installLog.Infof("Jackie - files from ConfFiles: %v", files)
 
 	var validFiles []string
 	for _, confFile := range files {
@@ -217,8 +215,6 @@ func getHighestPriorityConfigFilename(confDir string) ([]string, error) {
 			installLog.Warnf("CNI config list %s has no networks, skipping", confList.Name)
 			continue
 		}
-		// TODO(jaellio): Remove log
-		installLog.Infof("Jackie - ConfFile: %s", confFile)
 		validFiles = append(validFiles, filepath.Base(confFile))
 	}
 

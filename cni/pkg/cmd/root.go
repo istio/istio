@@ -286,12 +286,12 @@ func bindViper(name string) {
 
 func constructConfig() (*config.Config, error) {
 	installCfg := config.InstallConfig{
-		MountedCNINetDir: viper.GetString(constants.MountedCNINetDir),
-		CNIConfName:      viper.GetString(constants.CNIConfName),
-		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
-		CNIAgentRunDir:   viper.GetString(constants.CNIAgentRunDir),
+		MountedCNINetDir:            viper.GetString(constants.MountedCNINetDir),
+		CNIConfName:                 viper.GetString(constants.CNIConfName),
+		ChainedCNIPlugin:            viper.GetBool(constants.ChainedCNIPlugin),
+		CNIAgentRunDir:              viper.GetString(constants.CNIAgentRunDir),
 		IstioOwnedCNIConfigFilename: viper.GetString(constants.IstioOwnedCNIConfigFilename),
-		IstioOwnedCNIConfig:          viper.GetBool(constants.IstioOwnedCNIConfig),
+		IstioOwnedCNIConfig:         viper.GetBool(constants.IstioOwnedCNIConfig),
 
 		// Whatever user has set (with --log_output_level) for 'cni-plugin', pass it down to the plugin. It will use this to determine
 		// what level to use for itself.

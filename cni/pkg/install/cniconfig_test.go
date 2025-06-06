@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestGetHighestPriorityConfigFilename(t *testing.T) {
+func TestGetConfigFilenames(t *testing.T) {
 	tempDir := t.TempDir()
 
 	cases := []struct {
@@ -104,7 +104,7 @@ func TestGetHighestPriorityConfigFilename(t *testing.T) {
 				}
 			}
 
-			result, err := getHighestPriorityConfigFilename(c.dir)
+			result, err := getConfigFilenames(c.dir)
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
 				t.Fatalf("expected failure: %t, got %v", c.expectedFailure, err)
 			}

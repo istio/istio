@@ -259,8 +259,7 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 	// OR filename of the Istio owned config which may contain the primary CNI config
 	// and/or the Istio CNI plugin (if enabled)
 	// firstCNIConfigFilename is the name of the highest priority, valid config
-	cniConfigFilenames, err := getHighestPriorityConfigFilename(cfg.MountedCNINetDir)
-	log.Infof("jaellio - defautlCNICOnfigFilename: %v", cniConfigFilenames)
+	cniConfigFilenames, err := getConfigFilenames(cfg.MountedCNINetDir)
 	if err != nil || len(cniConfigFilenames) == 0 {
 		return err
 	}
@@ -273,16 +272,27 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 		if len(cniConfigFilenames) >= 2 {
 			secondCNIConfigFilename = cniConfigFilenames[1]
 		}
+
+		// if Istio owned CNI config is enabled, the first CNI config file must be the Istio owned CNI config
 		if firstCNIConfigFilename != cfg.IstioOwnedCNIConfigFilename {
+			// if the default or specified CNI config file doesn't exist or is not the highest priority return
+			// an error
+
+			// check the priority of the IstioOwnedCNIConfigFilename compared to the first CNI config file
+			// warn if the istio owned CNI config is not the highest priority - this is undefined behavior
+			if strings.Compare(firstCNIConfigFilename, cfg.IstioOwnedCNIConfigFilename) <= 0 {
+				log.Warnf("Istio owned CNI config %s has lower priority than %s. "+
+					" This will lead to undefined behavior and potential bypass of the service mesh.",
+					cfg.IstioOwnedCNIConfigFilename, firstCNIConfigFilename)
+			}
 			if len(cfg.CNIConfName) == 0 {
 				// We found the primary CNI config file (or the highest priority config file).
 				// Set the filename to the the CNIConfName if it isn't set
 				cfg.CNIConfName = firstCNIConfigFilename
 			}
 			return fmt.Errorf("istio owned CNI config does not exist or is not the highest priority. Got %s instead", firstCNIConfigFilename)
-		} else {
-			log.Debugf("istio owned CNI config is the highest priority: %s", firstCNIConfigFilename)
 		}
+		log.Debugf("istio owned CNI config is the highest priority: %s", firstCNIConfigFilename)
 	}
 
 	// filepath for the highest priority, valid config
@@ -381,12 +391,7 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 					return fmt.Errorf("plugin of type %s from primary CNI config is missing in Istio CNI config file", primaryType)
 				}
 
-				// TODO(jaellio): check plugin equality (?)
-				/*
-					if !equalPlugins(plugin, primaryPlugin) {
-						return fmt.Errorf("plugin of type %s does match between %s and %s", primaryType, cniConfigFilepath, primaryCNIConfigFilepath)
-					}
-				*/
+				// TODO(jaellio): Do we want to check plugin equality?
 			}
 		}
 
