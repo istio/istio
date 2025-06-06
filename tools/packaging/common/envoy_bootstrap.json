@@ -685,6 +685,17 @@
           }
         ],
         {{- end}}
+        {{- if .envoy_status_port_enable_proxy_protocol }}
+        "listener_filters": [
+          {
+            "name": "envoy.listener.proxy_protocol",
+            "typed_config": {
+              "@type": "type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol",
+              "allow_requests_without_proxy_protocol": true,
+            }
+          }
+        ],
+        {{- end }}
         "filter_chains": [
           {
             "filters": [

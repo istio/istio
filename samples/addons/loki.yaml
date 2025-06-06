@@ -6,10 +6,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.30.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.0"
 automountServiceAccountToken: true
 ---
 # Source: loki/templates/config.yaml
@@ -19,10 +19,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.30.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.0"
 data:
   config.yaml: |
     
@@ -111,10 +111,10 @@ metadata:
   name: loki-runtime
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.30.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.0"
 data:
   runtime-config.yaml: |
     {}
@@ -124,10 +124,10 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.30.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.0"
   name: loki-clusterrole
 rules:
 - apiGroups: [""] # "" indicates the core API group
@@ -140,10 +140,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: loki-clusterrolebinding
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.30.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.0"
 subjects:
   - kind: ServiceAccount
     name: loki
@@ -160,10 +160,10 @@ metadata:
   name: loki-memberlist
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.30.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.0"
   annotations:
 spec:
   type: ClusterIP
@@ -185,10 +185,10 @@ metadata:
   name: loki-headless
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.30.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.0"
     variant: headless
     prometheus.io/service-monitor: "false"
   annotations:
@@ -210,10 +210,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.30.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.0"
   annotations:
 spec:
   type: ClusterIP
@@ -238,10 +238,10 @@ metadata:
   name: loki
   namespace: istio-system
   labels:
-    helm.sh/chart: loki-6.29.0
+    helm.sh/chart: loki-6.30.1
     app.kubernetes.io/name: loki
     app.kubernetes.io/instance: loki
-    app.kubernetes.io/version: "3.4.2"
+    app.kubernetes.io/version: "3.5.0"
     app.kubernetes.io/component: single-binary
     app.kubernetes.io/part-of: memberlist
 spec:
@@ -283,7 +283,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: loki-sc-rules
-          image: "kiwigrid/k8s-sidecar:1.30.2"
+          image: "kiwigrid/k8s-sidecar:1.30.3"
           imagePullPolicy: IfNotPresent
           env:
             - name: METHOD
@@ -310,7 +310,7 @@ spec:
             - name: sc-rules-volume
               mountPath: "/rules"
         - name: loki
-          image: docker.io/grafana/loki:3.4.2
+          image: docker.io/grafana/loki:3.5.0
           imagePullPolicy: IfNotPresent
           args:
             - -config.file=/etc/loki/config/config.yaml

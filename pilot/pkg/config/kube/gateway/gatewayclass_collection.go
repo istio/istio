@@ -42,8 +42,9 @@ func GatewayClassesCollection(
 		if !known {
 			return nil, nil
 		}
-		status := GetClassStatus(&obj.Status, obj.Generation)
-		return &status, &GatewayClass{
+		status := obj.Status.DeepCopy()
+		status = GetClassStatus(status, obj.Generation)
+		return status, &GatewayClass{
 			Name:       obj.Name,
 			Controller: obj.Spec.ControllerName,
 		}
