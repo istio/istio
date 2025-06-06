@@ -881,11 +881,22 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 	})
 
 	t.Run("cleanup", func(t *testing.T) {
-		deleteConfigs([]*config.Config{wle, selector, dnsSelector, dnsWle, wle3}, store, t)
+		deleteConfigs([]*config.Config{wle, wle3}, store, t)
+		expectEvents(t, events,
+			Event{Type: "eds", ID: "selector.com"},
+		)
+		deleteConfigs([]*config.Config{selector}, store, t)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com"},
-			Event{Type: "service", ID: "dns.selector.com"},
 			Event{Type: "xds full", ID: "selector.com"},
+		)
+		deleteConfigs([]*config.Config{dnsWle}, store, t)
+		expectEvents(t, events,
+			Event{Type: "eds cache", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
+			Event{Type: "xds full", ID: "dns.selector.com"})
+		deleteConfigs([]*config.Config{dnsSelector}, store, t)
+		expectEvents(t, events,
+			Event{Type: "service", ID: "dns.selector.com"},
 			Event{Type: "xds full", ID: "dns.selector.com"},
 		)
 		assertControllerEmpty(t, sd)
