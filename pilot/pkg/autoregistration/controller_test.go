@@ -165,10 +165,11 @@ var (
 
 func TestNonAutoRegisteredWorkloads(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
-	go store.Run(test.NewStop(t))
+	stop := test.NewStop(t)
+	go store.Run(stop)
 	c := NewController(store, "", time.Duration(math.MaxInt64))
 	createOrFail(t, store, wgA)
-	go c.Run(test.NewStop(t))
+	go c.Run(stop)
 
 	cases := map[string]*model.Proxy{
 		"missing group":      {IPAddresses: []string{"1.2.3.4"}, Metadata: &model.NodeMetadata{Namespace: wgA.Namespace}},
@@ -355,11 +356,12 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 func TestAutoregistrationDisabled(t *testing.T) {
 	test.SetForTest(t, &features.WorkloadEntryAutoRegistration, false)
 	store := memory.NewController(memory.Make(collections.All))
-	go store.Run(test.NewStop(t))
+	stop := test.NewStop(t)
+	go store.Run(stop)
 	createOrFail(t, store, weB)
 
 	c := NewController(store, "pilot-x", keepalive.Infinity)
-	go c.Run(test.NewStop(t))
+	go c.Run(stop)
 
 	t.Run("health check still works", func(t *testing.T) {
 		proxy := fakeProxySuitableForHealthChecks(weB)
@@ -476,11 +478,12 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 
 func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_WorkloadEntryNotFound(t *testing.T) {
 	store := memory.NewController(memory.Make(collections.All))
-	go store.Run(test.NewStop(t))
+	stop := test.NewStop(t)
+	go store.Run(stop)
 	createOrFail(t, store, weB)
 
 	c := NewController(store, "pilot-x", keepalive.Infinity)
-	go c.Run(test.NewStop(t))
+	go c.Run(stop)
 
 	proxy := fakeProxySuitableForHealthChecks(weB)
 	// change proxy metadata to make it unsuitable for health checks
@@ -521,11 +524,12 @@ func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreated
 			we := tc.we()
 
 			store := memory.NewController(memory.Make(collections.All))
-			go store.Run(test.NewStop(t))
+			stop := test.NewStop(t)
+			go store.Run(stop)
 			createOrFail(t, store, we)
 
 			c := NewController(store, "pilot-x", keepalive.Infinity)
-			go c.Run(test.NewStop(t))
+			go c.Run(stop)
 
 			proxy := tc.proxy(we)
 
@@ -551,11 +555,12 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldBeTreatedAsCon
 			we.Annotations["proxy.istio.io/health-checks-enabled"] = value
 
 			store := memory.NewController(memory.Make(collections.All))
-			go store.Run(test.NewStop(t))
+			stop := test.NewStop(t)
+			go store.Run(stop)
 			createOrFail(t, store, we)
 
 			c := NewController(store, "pilot-x", keepalive.Infinity)
-			go c.Run(test.NewStop(t))
+			go c.Run(stop)
 
 			proxy := fakeProxySuitableForHealthChecks(we)
 

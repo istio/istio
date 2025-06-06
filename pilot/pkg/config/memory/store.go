@@ -18,8 +18,9 @@ package memory
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -69,7 +70,7 @@ func (c *syncer) HasSynced() bool {
 	}
 }
 
-func (c *syncer) MarkSynced() {
+func (c *syncer) markSynced() {
 	close(c.synced)
 }
 
@@ -106,7 +107,6 @@ type Store struct {
 	schemas        collection.Schemas
 	data           map[config.GroupVersionKind]kindStore
 	skipValidation bool
-	mutex          sync.RWMutex
 	syncer         *syncer
 	stop           chan struct{}
 }
@@ -121,13 +121,15 @@ func (cr *Store) hasSynced() bool {
 	return true
 }
 
+func (cr *Store) markSynced() {
+	cr.syncer.markSynced()
+}
+
 func (cr *Store) Schemas() collection.Schemas {
 	return cr.schemas
 }
 
 func (cr *Store) Get(kind config.GroupVersionKind, name, namespace string) *config.Config {
-	cr.mutex.RLock()
-	defer cr.mutex.RUnlock()
 	data, ok := cr.data[kind]
 	if !ok {
 		return nil
@@ -142,14 +144,12 @@ func (cr *Store) Get(kind config.GroupVersionKind, name, namespace string) *conf
 }
 
 func (cr *Store) List(kind config.GroupVersionKind, namespace string) []config.Config {
-	cr.mutex.RLock()
-	defer cr.mutex.RUnlock()
 	data, exists := cr.data[kind]
 	if !exists {
 		return nil
 	}
 
-	if namespace == "" {
+	if namespace == metav1.NamespaceAll {
 		return data.collection.List()
 	}
 
@@ -157,8 +157,6 @@ func (cr *Store) List(kind config.GroupVersionKind, namespace string) []config.C
 }
 
 func (cr *Store) Delete(kind config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
-	cr.mutex.Lock()
-	defer cr.mutex.Unlock()
 	data, ok := cr.data[kind]
 	if !ok {
 		return fmt.Errorf("unknown type %v", kind)
@@ -180,8 +178,6 @@ func (cr *Store) Delete(kind config.GroupVersionKind, name, namespace string, re
 }
 
 func (cr *Store) Create(cfg config.Config) (string, error) {
-	cr.mutex.Lock()
-	defer cr.mutex.Unlock()
 	kind := cfg.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
@@ -214,8 +210,6 @@ func (cr *Store) Create(cfg config.Config) (string, error) {
 }
 
 func (cr *Store) Update(cfg config.Config) (string, error) {
-	cr.mutex.Lock()
-	defer cr.mutex.Unlock()
 	kind := cfg.GroupVersionKind
 	s, ok := cr.schemas.FindByGroupVersionKind(kind)
 	if !ok {
