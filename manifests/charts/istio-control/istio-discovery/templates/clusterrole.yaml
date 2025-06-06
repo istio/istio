@@ -1,5 +1,5 @@
 # Created if this is not a remote istiod, OR if it is and is also a config cluster
-{{- if not .Values.istiodRemote.enabledLocalInjectorIstiod }}
+{{- if not (and .Values.istiodRemote.enabled (not .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
 {{ $mcsAPIGroup := or .Values.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
