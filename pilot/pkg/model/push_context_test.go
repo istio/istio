@@ -1626,6 +1626,12 @@ func TestInitPushContext(t *testing.T) {
 	old := NewPushContext()
 	old.InitContext(env, nil, nil)
 
+	for _, sidecars := range old.sidecarIndex.sidecarsByNamespace {
+		for _, sidecar := range sidecars {
+			sidecar.initFunc()
+		}
+	}
+
 	// Create a new one, copying from the old one
 	// Pass a ConfigsUpdated otherwise we would just copy it directly
 	newPush := NewPushContext()
@@ -1634,6 +1640,12 @@ func TestInitPushContext(t *testing.T) {
 			{Kind: kind.Secret}: {},
 		},
 	})
+
+	for _, sidecars := range newPush.sidecarIndex.sidecarsByNamespace {
+		for _, sidecar := range sidecars {
+			sidecar.initFunc()
+		}
+	}
 
 	// Check to ensure the update is identical to the old one
 	// There is probably a better way to do this.
@@ -1644,7 +1656,7 @@ func TestInitPushContext(t *testing.T) {
 			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{},
 			ClusterLocalHosts{}),
 		// These are not feasible/worth comparing
-		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
+		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}, func() {}),
 		cmpopts.IgnoreUnexported(IstioEndpoint{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
 		protocmp.Transform(),
