@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type StaticCollection[T any] struct {
@@ -37,6 +38,7 @@ type staticList[T any] struct {
 	collectionName string
 	syncer         Syncer
 	metadata       Metadata
+	indexes        map[string]staticListIndex[T]
 }
 
 func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) StaticCollection[T] {
@@ -61,6 +63,7 @@ func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOptio
 		stop:           o.stop,
 		collectionName: o.name,
 		syncer:         synced,
+		indexes:        make(map[string]staticListIndex[T]),
 	}
 
 	if o.metadata != nil {
@@ -81,6 +84,9 @@ func (s *staticList[T]) DeleteObject(k string) {
 	old, f := s.vals[k]
 	if f {
 		delete(s.vals, k)
+		for _, index := range s.indexes {
+			index.delete(old, k)
+		}
 		s.eventHandlers.Distribute([]Event[T]{{
 			Old:   &old,
 			Event: controllers.EventDelete,
@@ -96,6 +102,9 @@ func (s StaticCollection[T]) DeleteObjects(filter func(obj T) bool) {
 	for k, v := range s.vals {
 		if filter(v) {
 			delete(s.vals, k)
+			for _, index := range s.indexes {
+				index.delete(v, k)
+			}
 			removed = append(removed, Event[T]{
 				Old:   &v,
 				Event: controllers.EventDelete,
@@ -117,21 +126,32 @@ func (s StaticCollection[T]) Reset(newState []T) {
 		nv[k] = incoming
 		if old, f := s.vals[k]; f {
 			if !Equal(old, incoming) {
-				updates = append(updates, Event[T]{
+				ev := Event[T]{
 					Old:   &old,
 					New:   &incoming,
 					Event: controllers.EventUpdate,
-				})
+				}
+				for _, index := range s.indexes {
+					index.update(ev, k)
+				}
+				updates = append(updates, ev)
 			}
 		} else {
-			updates = append(updates, Event[T]{
+			ev := Event[T]{
 				New:   &incoming,
 				Event: controllers.EventAdd,
-			})
+			}
+			for _, index := range s.indexes {
+				index.update(ev, k)
+			}
+			updates = append(updates, ev)
 		}
 		delete(s.vals, k)
 	}
-	for _, remaining := range s.vals {
+	for k, remaining := range s.vals {
+		for _, index := range s.indexes {
+			index.delete(remaining, k)
+		}
 		updates = append(updates, Event[T]{
 			Old:   &remaining,
 			Event: controllers.EventDelete,
@@ -145,46 +165,43 @@ func (s StaticCollection[T]) Reset(newState []T) {
 
 // UpdateObject adds or updates an object into the collection.
 func (s *staticList[T]) UpdateObject(obj T) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	k := GetKey(obj)
-	old, f := s.vals[k]
-	s.vals[k] = obj
-	if f {
-		s.eventHandlers.Distribute([]Event[T]{{
-			Old:   &old,
-			New:   &obj,
-			Event: controllers.EventUpdate,
-		}}, false)
-	} else {
-		s.eventHandlers.Distribute([]Event[T]{{
-			New:   &obj,
-			Event: controllers.EventAdd,
-		}}, false)
-	}
+	s.updateObject(obj, false)
 }
 
 // ConditionalUpdateObject adds or updates an object into the collection.
 func (s *staticList[T]) ConditionalUpdateObject(obj T) {
+	s.updateObject(obj, true)
+}
+
+func (s *staticList[T]) updateObject(obj T, conditional bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	k := GetKey(obj)
 	old, f := s.vals[k]
 	s.vals[k] = obj
 	if f {
-		if Equal(old, obj) {
+		if conditional && Equal(old, obj) {
 			return
 		}
-		s.eventHandlers.Distribute([]Event[T]{{
+
+		ev := Event[T]{
 			Old:   &old,
 			New:   &obj,
 			Event: controllers.EventUpdate,
-		}}, false)
+		}
+		for _, index := range s.indexes {
+			index.update(ev, k)
+		}
+		s.eventHandlers.Distribute([]Event[T]{ev}, false)
 	} else {
-		s.eventHandlers.Distribute([]Event[T]{{
+		ev := Event[T]{
 			New:   &obj,
 			Event: controllers.EventAdd,
-		}}, false)
+		}
+		for _, index := range s.indexes {
+			index.update(ev, k)
+		}
+		s.eventHandlers.Distribute([]Event[T]{ev}, false)
 	}
 }
 
@@ -227,30 +244,71 @@ func (s *staticList[T]) augment(a any) any {
 // nolint: unused // (not true)
 type staticListIndex[T any] struct {
 	extract func(o T) []string
+	index   map[string]sets.Set[string]
 	parent  *staticList[T]
 }
 
 // nolint: unused // (not true)
 func (s staticListIndex[T]) Lookup(key string) []T {
-	var res []T
 	s.parent.mu.RLock()
 	defer s.parent.mu.RUnlock()
+	keys := s.index[key]
 
-	for _, v := range s.parent.vals {
-		have := s.extract(v)
-		if slices.Contains(have, key) {
-			res = append(res, v)
+	res := make([]T, 0, len(keys))
+	for k := range keys {
+		v, f := s.parent.vals[k]
+		if !f {
+			log.WithLabels("key", k).Errorf("invalid index state, object does not exist")
+			continue
 		}
+		res = append(res, v)
 	}
 	return res
 }
 
+func (s staticListIndex[T]) delete(o T, oKey string) {
+	oldIndexKeys := s.extract(o)
+	for _, oldIndexKey := range oldIndexKeys {
+		sets.DeleteCleanupLast(s.index, oldIndexKey, oKey)
+	}
+}
+
+func (s staticListIndex[T]) update(ev Event[T], oKey string) {
+	if ev.Old != nil {
+		s.delete(*ev.Old, oKey)
+	}
+	if ev.New != nil {
+		newIndexKeys := s.extract(*ev.New)
+		for _, newIndexKey := range newIndexKeys {
+			sets.InsertOrNew(s.index, newIndexKey, oKey)
+		}
+	}
+}
+
 // nolint: unused // (not true, its to implement an interface)
 func (s *staticList[T]) index(name string, extract func(o T) []string) indexer[T] {
-	return staticListIndex[T]{
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if idx, ok := s.indexes[name]; ok {
+		return idx
+	}
+
+	idx := staticListIndex[T]{
 		extract: extract,
+		index:   make(map[string]sets.Set[string]),
 		parent:  s,
 	}
+
+	for k, v := range s.vals {
+		idx.update(Event[T]{
+			Old:   nil,
+			New:   &v,
+			Event: controllers.EventAdd,
+		}, k)
+	}
+	s.indexes[name] = idx
+
+	return idx
 }
 
 func (s *staticList[T]) List() []T {
