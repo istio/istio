@@ -15,12 +15,9 @@
 package memory
 
 import (
-	"fmt"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 )
@@ -41,7 +38,6 @@ type Controller struct {
 
 // NewController return an implementation of ConfigStoreController
 func NewController(store *Store) *Controller {
-	fmt.Println("new memory controller")
 	return &Controller{
 		store: store,
 	}
@@ -51,13 +47,7 @@ func (c *Controller) RegisterHasSyncedHandler(cb func() bool) {
 	c.hasSynced = cb
 }
 
-func (c *Controller) WaitUntilSynced(stop <-chan struct{}) bool {
-	return kube.WaitForCacheSync("memory", stop, c.HasSynced)
-}
-
 func (c *Controller) RegisterEventHandler(kind config.GroupVersionKind, f model.EventHandler) {
-	c.store.mutex.Lock()
-	defer c.store.mutex.Unlock()
 	if kindStore, ok := c.store.data[kind]; ok {
 		c.handlers = append(c.handlers, kindStore.collection.RegisterBatch(func(o []krt.Event[config.Config]) {
 			for _, event := range o {
@@ -76,20 +66,17 @@ func (c *Controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 
 // HasSynced return whether store has synced
 // It can be controlled externally (such as by the data source),
-// otherwise it'll always consider synced.
 func (c *Controller) HasSynced() bool {
 	if c.hasSynced != nil {
 		return c.hasSynced()
 	}
 
 	if !c.store.hasSynced() {
-		fmt.Println("syncer not synced")
 		return false
 	}
 
 	for _, handler := range c.handlers {
 		if !handler.HasSynced() {
-			fmt.Println("handler not synced")
 			return false
 		}
 	}
@@ -98,9 +85,8 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	fmt.Println("memory controller run")
 	// marked as synced on run to allow clients to store data before the store is marked as synced
-	c.store.syncer.MarkSynced()
+	c.store.markSynced()
 	<-stop
 	close(c.store.stop)
 }
