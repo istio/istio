@@ -164,8 +164,10 @@ func New(options Options) Index {
 		cs:                          multicluster.NewClustersStore(),
 		remoteClientConfigOverrides: options.RemoteClientConfigOverrides,
 	}
-
 	filter := kclient.Filter{
+		ObjectFilter: options.Client.ObjectFilter(),
+	}
+	configFilter := kclient.Filter{
 		ObjectFilter: kubetypes.ComposeFilters(options.Client.ObjectFilter(), a.inRevision),
 	}
 	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
@@ -175,11 +177,11 @@ func New(options Options) Index {
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
 	Namespaces := krt.NewInformer[*corev1.Namespace](options.Client, opts.WithName("informer/Namespaces")...)
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
-		gvr.AuthorizationPolicy, kubetypes.StandardInformer, filter)
+		gvr.AuthorizationPolicy, kubetypes.StandardInformer, configFilter)
 	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, opts.WithName("informer/AuthorizationPolicies")...)
 
 	peerAuths := kclient.NewDelayedInformer[*securityclient.PeerAuthentication](options.Client,
-		gvr.PeerAuthentication, kubetypes.StandardInformer, filter)
+		gvr.PeerAuthentication, kubetypes.StandardInformer, configFilter)
 	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, opts.WithName("informer/PeerAuthentications")...)
 
 	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](options.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
@@ -193,11 +195,11 @@ func New(options Options) Index {
 	}, opts.WithName("informer/Pods")...)
 
 	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](options.Client,
-		gvr.ServiceEntry, kubetypes.StandardInformer, filter)
+		gvr.ServiceEntry, kubetypes.StandardInformer, configFilter)
 	ServiceEntries := krt.WrapClient[*networkingclient.ServiceEntry](serviceEntries, opts.WithName("informer/ServiceEntries")...)
 
 	workloadEntries := kclient.NewDelayedInformer[*networkingclient.WorkloadEntry](options.Client,
-		gvr.WorkloadEntry, kubetypes.StandardInformer, filter)
+		gvr.WorkloadEntry, kubetypes.StandardInformer, configFilter)
 	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, opts.WithName("informer/WorkloadEntries")...)
 
 	servicesClient := kclient.NewFiltered[*corev1.Service](options.Client, filter)
