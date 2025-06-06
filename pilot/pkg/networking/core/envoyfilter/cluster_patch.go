@@ -45,6 +45,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Merg
 	}
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		applied := false
+		// For removed patches, skip the merge if the patch matches.
 		if cp.Operation == networking.EnvoyFilter_Patch_REMOVE &&
 			commonConditionMatch(pctx, cp) &&
 			clusterMatch(c, cp, hosts) {
