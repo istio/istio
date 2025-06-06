@@ -277,7 +277,7 @@ var (
 	).Get()
 
 	EnableProxyFindPodByIP = env.Register("ENABLE_PROXY_FIND_POD_BY_IP", false,
-		"If enabled, the pod controller will allow findig pods matching proxies by IP if it fails to find them by name.").Get()
+		"If enabled, the pod controller will allow finding pods matching proxies by IP if it fails to find them by name.").Get()
 
 	EnableLazySidecarEvaluation = env.Register("ENABLE_LAZY_SIDECAR_EVALUATION", true,
 		"If enabled, pilot will only compute sidecar resources when actually used").Get()
