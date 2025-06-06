@@ -216,6 +216,8 @@ func init() {
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI configuration template as a string")
+	registerStringParameter(constants.IstioOwnedCNIConfigFilename, "", "Filename for Istio owned CNI configuration")
+	registerBooleanParameter(constants.IstioOwnedCNIConfig, false, "Whether an Istio owned CNI configuration is enabled")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 
 	// Not configurable in CNI helm charts
@@ -288,6 +290,8 @@ func constructConfig() (*config.Config, error) {
 		CNIConfName:      viper.GetString(constants.CNIConfName),
 		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
 		CNIAgentRunDir:   viper.GetString(constants.CNIAgentRunDir),
+		IstioOwnedCNIConfigFilename: viper.GetString(constants.IstioOwnedCNIConfigFilename),
+		IstioOwnedCNIConfig:          viper.GetBool(constants.IstioOwnedCNIConfig),
 
 		// Whatever user has set (with --log_output_level) for 'cni-plugin', pass it down to the plugin. It will use this to determine
 		// what level to use for itself.
@@ -324,6 +328,12 @@ func constructConfig() (*config.Config, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if installCfg.IstioOwnedCNIConfig && len(installCfg.IstioOwnedCNIConfigFilename) == 0 {
+		// If Istio owned CNI config is enabled, but no filename is specified, use the default one.
+		// The filename is not set to the default value if Istio owned CNI config is not enabled.
+		installCfg.IstioOwnedCNIConfigFilename = constants.DefaultIstioOwnedCNIConfigFilename
 	}
 
 	repairCfg := config.RepairConfig{

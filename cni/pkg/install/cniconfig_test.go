@@ -377,17 +377,20 @@ const (
 
 func TestCreateCNIConfigFile(t *testing.T) {
 	cases := []struct {
-		name              string
-		chainedCNIPlugin  bool
-		specifiedConfName string
-		expectedConfName  string
-		goldenConfName    string
-		existingConfFiles map[string]string // {srcFilename: targetFilename, ...}
+		name                    string
+		chainedCNIPlugin        bool
+		specifiedConfName       string
+		expectedConfName        string
+		goldenConfName          string
+		existingConfFiles       map[string]string // {srcFilename: targetFilename, ...}
+		ambientEnabled          bool
+		istioOwnedCNIConfig     bool
+		istioOwnedCNIConfigFile string
 	}{
 		{
 			name:              "unspecified existing CNI config file (existing .conf to conflist)",
 			chainedCNIPlugin:  true,
-			expectedConfName:  "02-istio-conf.conflist",
+			expectedConfName:  "bridge.conflist",
 			goldenConfName:    "bridge.conf.golden",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
@@ -399,7 +402,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			name:              "specified existing CNI config file",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "list.conflist",
-			expectedConfName:  "02-istio-conf.conflist",
+			expectedConfName:  "list.conflist",
 			goldenConfName:    "list.conflist.golden",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
@@ -407,7 +410,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			name:              "specified existing CNI config file (specified .conf to .conflist)",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "list.conf",
-			expectedConfName:  "02-istio-conf.conflist",
+			expectedConfName:  "list.conflist",
 			goldenConfName:    "list.conflist.golden",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
@@ -415,21 +418,21 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			name:              "specified existing CNI config file (existing .conf to .conflist)",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "bridge.conflist",
-			expectedConfName:  "02-istio-conf.conflist",
+			expectedConfName:  "bridge.conflist",
 			goldenConfName:    "bridge.conf.golden",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
 		{
 			name:              "specified CNI config file never created",
 			chainedCNIPlugin:  true,
-			specifiedConfName: "02-istio-conf.conflist",
+			specifiedConfName: "never-created.conf",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
 		},
 		{
 			name:              "specified CNI config file undetectable",
 			chainedCNIPlugin:  true,
 			specifiedConfName: "undetectable.file",
-			expectedConfName:  "02-istio-conf.conflist",
+			expectedConfName:  "undetectable.file",
 			goldenConfName:    "list.conflist.golden",
 			existingConfFiles: map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "undetectable.file"},
 		},
@@ -437,32 +440,99 @@ func TestCreateCNIConfigFile(t *testing.T) {
 		// expected config name should remain YYY-istio-cni.conf
 		{
 			name:             "standalone CNI plugin unspecified CNI config file",
-			expectedConfName: "02-istio-conf.conflist",
+			expectedConfName: "YYY-istio-cni.conf",
 			goldenConfName:   "istio-cni.conf",
 		},
 		{
 			name:              "standalone CNI plugin specified CNI config file",
 			specifiedConfName: "specific-name.conf",
-			expectedConfName:  "02-istio-conf.conflist",
+			expectedConfName:  "specific-name.conf",
 			goldenConfName:    "istio-cni.conf",
+		},
+		{
+			name:                "specified existing .conf primary CNI config file - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "bridge.conflist",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned-bridge.conflist.golden",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "specified existing primary .conflist CNI config file - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "list.conflist",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned.conflist.golden",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "specified existing CNI config file (specified .conf to .conflist) - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "list.conf",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned.conflist.golden",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "specified existing CNI config file (existing .conf to .conflist) - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "bridge.conflist",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned-bridge.conflist.golden",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "specified CNI config file never created - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "02-istio-conf.conflist",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "list.conflist"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
+		},
+		{
+			name:                "specified CNI config file undetectable - istio owned",
+			chainedCNIPlugin:    true,
+			specifiedConfName:   "undetectable.file",
+			expectedConfName:    "02-istio-conf.conflist",
+			goldenConfName:      "istio-owned.conflist.golden",
+			existingConfFiles:   map[string]string{"bridge.conf": "bridge.conf", "list.conflist": "undetectable.file"},
+			ambientEnabled:      true,
+			istioOwnedCNIConfig: true,
 		},
 	}
 
 	for _, c := range cases {
+		if c.istioOwnedCNIConfig && len(c.istioOwnedCNIConfigFile) == 0 {
+			c.istioOwnedCNIConfigFile = "02-istio-conf.conflist"
+		}
 		cfgFile := config.InstallConfig{
-			CNIConfName:      c.specifiedConfName,
-			ChainedCNIPlugin: c.chainedCNIPlugin,
-			PluginLogLevel:   "debug",
-			CNIAgentRunDir:   kubeconfigFilename,
-			PodNamespace:     "my-namespace",
+			CNIConfName:                 c.specifiedConfName,
+			ChainedCNIPlugin:            c.chainedCNIPlugin,
+			PluginLogLevel:              "debug",
+			CNIAgentRunDir:              kubeconfigFilename,
+			PodNamespace:                "my-namespace",
+			AmbientEnabled:              c.ambientEnabled,
+			IstioOwnedCNIConfig:         c.istioOwnedCNIConfig,
+			IstioOwnedCNIConfigFilename: c.istioOwnedCNIConfigFile,
 		}
 
 		cfg := config.InstallConfig{
-			CNIConfName:      c.specifiedConfName,
-			ChainedCNIPlugin: c.chainedCNIPlugin,
-			PluginLogLevel:   "debug",
-			CNIAgentRunDir:   kubeconfigFilename,
-			PodNamespace:     "my-namespace",
+			CNIConfName:                 c.specifiedConfName,
+			ChainedCNIPlugin:            c.chainedCNIPlugin,
+			PluginLogLevel:              "debug",
+			CNIAgentRunDir:              kubeconfigFilename,
+			PodNamespace:                "my-namespace",
+			AmbientEnabled:              c.ambientEnabled,
+			IstioOwnedCNIConfig:         c.istioOwnedCNIConfig,
+			IstioOwnedCNIConfigFilename: c.istioOwnedCNIConfigFile,
 		}
 		test := func(cfg config.InstallConfig) func(t *testing.T) {
 			return func(t *testing.T) {

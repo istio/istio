@@ -62,19 +62,19 @@ func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string
 // writeCNIConfig will
 // 1. read in the existing CNI config file from the primary config
 // 2. append the `istio`-specific entry
-// 3. write the combined result to the istio owned CNI config path, overwriting the original if
-// the file already existed
+// 3. write the combined result back out to the same path (or
+// to the istio owned CNI config path if enabled), overwriting the original
 func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.InstallConfig) (string, error) {
-	// TODO(jaellio): Remove log
-	installLog.Infof("Jackie CNIConfName: %s", cfg.CNIConfName)
-	// get the CNI config file path for the pinary CNI config (not the Istio owned config)
-	// TODO(jaellio) This might not always be the primary cni conf if istio installed when an istioownerd config already exists
+	// if useIstioOwnedCNIConfig is true, cfg.CNIConfigName should not be empty
+	if len(cfg.CNIConfName) == 0 && useIstioOwnedCNIConfig(cfg) {
+		// primary CNI config name is not specified, undefined behavior
+		return "", fmt.Errorf("primary CNI config name is not specified, cannot write CNI config")
+	}
+	// get the CNI config file path for the primary CNI config
 	cniConfigFilepath, err := getCNIConfigFilepath(ctx, cfg.CNIConfName, cfg.MountedCNINetDir, cfg.ChainedCNIPlugin)
 	if err != nil {
 		return "", err
 	}
-	// TODO(jaellio): Remove log
-	installLog.Infof("Jackie CNIConfName: %s", cniConfigFilepath)
 
 	if cfg.ChainedCNIPlugin {
 		if !file.Exists(cniConfigFilepath) {
@@ -91,18 +91,29 @@ func writeCNIConfig(ctx context.Context, pluginConfig []byte, cfg *config.Instal
 		}
 	}
 
-	// TODO(jaellio): Check priority and allow configurable priority
-	istioOwnedCniConfigFilename := "02-istio-conf.conflist"
-	istioOwnedCniConfigFilepath := filepath.Join(cfg.MountedCNINetDir, istioOwnedCniConfigFilename)
-
-	if err = file.AtomicWrite(istioOwnedCniConfigFilepath, pluginConfig, os.FileMode(0o644)); err != nil {
-		installLog.Errorf("Failed to write CNI config file %v: %v", istioOwnedCniConfigFilepath, err)
-		return istioOwnedCniConfigFilepath, err
+	if useIstioOwnedCNIConfig(cfg) {
+		// if useIstioOwnedCNIConfig is true, write to the istio owned CNI config path
+		cniConfigFilepath = filepath.Join(cfg.MountedCNINetDir, cfg.IstioOwnedCNIConfigFilename)
 	}
 
-	installLog.Infof("created CNI config %s", istioOwnedCniConfigFilepath)
-	installLog.Debugf("CNI config: %s", pluginConfig)
-	return istioOwnedCniConfigFilepath, nil
+	if err = file.AtomicWrite(cniConfigFilepath, pluginConfig, os.FileMode(0o644)); err != nil {
+		installLog.Errorf("Failed to write CNI config file %v: %v", cniConfigFilepath, err)
+		return cniConfigFilepath, err
+	}
+
+	if cfg.ChainedCNIPlugin && strings.HasSuffix(cniConfigFilepath, ".conf") {
+		// If the old CNI config filename ends with .conf, rename it to .conflist, because it has to be changed to a list
+		installLog.Infof("Renaming %s extension to .conflist", cniConfigFilepath)
+		err = os.Rename(cniConfigFilepath, cniConfigFilepath+"list")
+		if err != nil {
+			installLog.Errorf("Failed to rename CNI config file %v: %v", cniConfigFilepath, err)
+			return cniConfigFilepath, err
+		}
+		cniConfigFilepath += "list"
+	}
+
+	installLog.Infof("created CNI config %s", cniConfigFilepath)
+	return cniConfigFilepath, nil
 }
 
 // If configured as chained CNI plugin, waits indefinitely for a main CNI config file to exist before returning
