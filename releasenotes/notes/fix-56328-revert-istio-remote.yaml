@@ -1,34 +1,8 @@
 apiVersion: release-notes/v2
-
-# This YAML file describes the format for specifying a release notes entry for Istio.
-# This should be filled in for all user facing changes.
-
-# kind describes the type of change that this represents.
-# Valid Values are:
-# - bug-fix -- Used to specify that this change represents a bug fix.
-# - security-fix -- Used to specify that this change represents a vulnerability fix.
-# - feature -- Used to specify a new feature that has been added.
-# - test -- Used to describe additional testing added. This file is optional for
-#   tests, but included for completeness.
 kind: bug-fix
-
-# area describes the area that this change affects.
-# Valid values are:
-# - traffic-management
-# - security
-# - telemetry
-# - installation
-# - istioctl
-# - documentation
 area: installation
-
-# issue is a list of GitHub issues resolved in this note.
-# If issue is not in the current repo, specify its full URL instead.
-issue: https://github.com/istio/istio/issues/56328
-
-# releaseNotes is a markdown listing of any user facing changes. This will appear in the
-# release notes.
+issue:
+  - https://github.com/istio/istio/issues/56328
 releaseNotes:
   - |
     **Fixed** Revert the istio-remote `Service` in profil=remote.
-
