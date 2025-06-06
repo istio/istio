@@ -231,6 +231,10 @@ func EnvoyStatusPort(value int) Instance {
 	return newOption("envoy_status_port", value)
 }
 
+func EnvoyStatusPortEnableProxyProtocol(value bool) Instance {
+	return newOption("envoy_status_port_enable_proxy_protocol", value)
+}
+
 func EnvoyPrometheusPort(value int) Instance {
 	return newOption("envoy_prometheus_port", value)
 }
