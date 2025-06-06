@@ -5,6 +5,8 @@
  "revision" .Values.revision
   "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
   "namespace" .Release.Namespace }}
+
+{{- $_ := set $whv "istiodRemote" .Values.istiodRemote }}
 {{- if not .Values.istiodRemote.enabledLocalInjectorIstiod }}
 {{- $_ := set $whv "injectionPath" .Values.istiodRemote.injectionPath }}
 {{- $_ := set $whv "injectionURL" .Values.istiodRemote.injectionURL }}
@@ -19,7 +21,7 @@ a unique prefix to each. */}}
     url: "{{ .injectionURL }}"
     {{- else }}
     service:
-      {{- if and .Values.istiodRemote.enabled (not .Values.istiodRemote.enabledLocalInjectorIstiod) }}
+      {{- if and .istiodRemote.enabled (not .istiodRemote.enabledLocalInjectorIstiod) }}
       name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}-remote
       {{- else }}
       name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
