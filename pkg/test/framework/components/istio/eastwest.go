@@ -86,11 +86,6 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 		setArgs = append(setArgs, "values.global.istioNamespace="+i.cfg.SystemNamespace)
 	}
 
-	// Include all user-specified values.
-	for k, v := range i.cfg.Values {
-		setArgs = append(setArgs, fmt.Sprintf("values.%s=%s", k, v))
-	}
-
 	for k, v := range i.cfg.OperatorOptions {
 		setArgs = append(setArgs, fmt.Sprintf("%s=%s", k, v))
 	}
