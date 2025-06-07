@@ -1,6 +1,7 @@
-NAMESPACE     NAME                   REVISION     PROGRAMMED
-bookinfo      bookinfo-rev           rev1         True
-bookinfo      bookinfo-valid         default      True
-default       bookinfo               default      False
-default       no-name-convention     default      True
-default       waypoint               default      False
+NAMESPACE     NAME                      REVISION     TRAFFIC TYPE     PROGRAMMED
+bookinfo      bookinfo-rev              rev1         none             True
+bookinfo      bookinfo-traffic-type     default      all              True
+bookinfo      bookinfo-valid            default      none             True
+default       bookinfo                  default      none             False
+default       no-name-convention        default      none             True
+default       waypoint                  default      none             False

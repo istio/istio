@@ -406,9 +406,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				filteredGws = append(filteredGws, gw)
 			}
 			if allNamespaces {
-				fmt.Fprintln(w, "NAMESPACE\tNAME\tREVISION\tPROGRAMMED")
+				fmt.Fprintln(w, "NAMESPACE\tNAME\tREVISION\tTRAFFIC TYPE\tPROGRAMMED")
 			} else {
-				fmt.Fprintln(w, "NAME\tREVISION\tPROGRAMMED")
+				fmt.Fprintln(w, "NAME\tREVISION\tTRAFFIC TYPE\tPROGRAMMED")
 			}
 			for _, gw := range filteredGws {
 				programmed := kstatus.StatusFalse
@@ -416,15 +416,19 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				if rev == "" {
 					rev = "default"
 				}
+				typeTraffic := gw.Labels[label.IoIstioWaypointFor.Name]
+				if typeTraffic == "" {
+					typeTraffic = "none"
+				}
 				for _, cond := range gw.Status.Conditions {
 					if cond.Type == string(gateway.GatewayConditionProgrammed) {
 						programmed = string(cond.Status)
 					}
 				}
 				if allNamespaces {
-					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, rev, programmed)
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, rev, typeTraffic, programmed)
 				} else {
-					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", gw.Name, rev, programmed)
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Name, rev, typeTraffic, programmed)
 				}
 			}
 			return w.Flush()
