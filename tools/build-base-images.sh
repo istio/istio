@@ -79,6 +79,7 @@ unexpectedFiles="$(
 )"
 expectedFiles=(
   "usr/bin/xtables-legacy-multi"
+  "usr/bin/nft"
 )
 for want in "${expectedFiles[@]}"; do
   if ! grep -q "${want}" <<<"${exefiles}"; then
