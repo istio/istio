@@ -38,7 +38,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-func WebhooksToDeploy(iop values.Map, clt kube.Client, dryRun bool) ([]manifest.Manifest, error) {
+func WebhooksToDeploy(iop values.Map, clt kube.Client, baseLabels map[string]string, dryRun bool) ([]manifest.Manifest, error) {
 	exists := revtag.PreviousInstallExists(context.Background(), clt.Kube())
 	needed := detectIfTagWebhookIsNeeded(iop, exists)
 	if !needed {
@@ -47,20 +47,23 @@ func WebhooksToDeploy(iop values.Map, clt kube.Client, dryRun bool) ([]manifest.
 	rev := ptr.NonEmptyOrDefault(iop.GetPathString("spec.values.revision"), "default")
 	autoInject := iop.GetPathBool("spec.values.sidecarInjectorWebhook.enableNamespacesByDefault")
 
-	ignorePruneLabel := map[string]string{
-		manifest.OwningResourceNotPruned: "true",
+	customLabels := map[string]string{}
+	for label, val := range baseLabels {
+		customLabels[label] = val
 	}
+	customLabels[manifest.OwningResourceNotPruned] = "true"
 	ns := ptr.NonEmptyOrDefault(iop.GetPathString("metadata.namespace"), "istio-system")
 	o := &revtag.GenerateOptions{
 		Tag:                  revtag.DefaultRevisionName,
 		Revision:             rev,
 		Overwrite:            true,
 		AutoInjectNamespaces: autoInject,
-		CustomLabels:         ignorePruneLabel,
+		CustomLabels:         customLabels,
 		Generate:             dryRun,
+		IstioNamespace:       ns,
 	}
 	// If tag cannot be created could be remote cluster install, don't fail out.
-	tagManifests, err := revtag.Generate(context.Background(), clt, o, ns)
+	tagManifests, err := revtag.Generate(context.Background(), clt, o)
 	if err != nil {
 		return nil, nil
 	}
