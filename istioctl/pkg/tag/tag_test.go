@@ -314,7 +314,7 @@ func TestRemoveTag(t *testing.T) {
 			}
 
 			if len(servicesAfter.Items) != len(tc.servicesAfter.Items) {
-				t.Fatalf("expected %d services after running, got %d", len(tc.webhooksAfter.Items), len(webhooksAfter.Items))
+				t.Fatalf("expected %d services after running, got %d", len(tc.servicesAfter.Items), len(servicesAfter.Items))
 			}
 		})
 	}
