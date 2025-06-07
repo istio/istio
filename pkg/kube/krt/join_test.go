@@ -347,4 +347,6 @@ func TestJoinWithMergeCollection(t *testing.T) {
 
 	// Should be a fresh add
 	tt.WaitOrdered("add/namespace/svc")
+
+	// TODO: Add test for merge and that the event.old is correct
 }

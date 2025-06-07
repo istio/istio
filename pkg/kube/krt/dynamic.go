@@ -26,9 +26,8 @@ type dynamicJoinHandlerRegistration struct {
 
 func (hr *dynamicJoinHandlerRegistration) HasSynced() bool {
 	hr.RLock()
-	syncers := hr.syncers
-	hr.RUnlock()
-	for _, syncer := range syncers {
+	defer hr.RUnlock()
+	for _, syncer := range hr.syncers {
 		if !syncer.HasSynced() {
 			return false
 		}
@@ -38,9 +37,8 @@ func (hr *dynamicJoinHandlerRegistration) HasSynced() bool {
 
 func (hr *dynamicJoinHandlerRegistration) WaitUntilSynced(stop <-chan struct{}) bool {
 	hr.RLock()
-	syncers := hr.syncers
-	hr.RUnlock()
-	for _, syncer := range syncers {
+	defer hr.RUnlock()
+	for _, syncer := range hr.syncers {
 		if !syncer.WaitUntilSynced(stop) {
 			return false
 		}
@@ -50,10 +48,10 @@ func (hr *dynamicJoinHandlerRegistration) WaitUntilSynced(stop <-chan struct{}) 
 
 func (hr *dynamicJoinHandlerRegistration) UnregisterHandler() {
 	hr.RLock()
-	removes := hr.removes
-	hr.RUnlock()
+	defer hr.RUnlock()
+
 	// Unregister all the handlers
-	for _, remover := range removes {
+	for _, remover := range hr.removes {
 		remover()
 	}
 }
