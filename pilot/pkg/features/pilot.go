@@ -281,6 +281,9 @@ var (
 
 	EnableLazySidecarEvaluation = env.Register("ENABLE_LAZY_SIDECAR_EVALUATION", true,
 		"If enabled, pilot will only compute sidecar resources when actually used").Get()
+
+	EnableNativeSidecars, EnableNativeSidecarsSet = env.Register("ENABLE_NATIVE_SIDECARS", true,
+		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.").Lookup()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

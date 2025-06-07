@@ -8,20 +8,13 @@ metadata:
     prometheus.io/path: /stats/prometheus
     prometheus.io/port: "15020"
     prometheus.io/scrape: "true"
-    sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+    sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
   creationTimestamp: null
-  generateName: helloworld-
   labels:
     security.istio.io/tlsMode: istio
-    service.istio.io/canonical-name: helloworld-helloworld-helloworld-helloworld-helloworld-hellowo
+    service.istio.io/canonical-name: hellopod
     service.istio.io/canonical-revision: latest
-  name: helloworld-helloworld
-  ownerReferences:
-  - apiVersion: foo/v1
-    controller: true
-    kind: Bar
-    name: helloworld-helloworld-helloworld-helloworld-helloworld-hellowo-ld
-    uid: 12345678-1234-1234-1234-123456789012
+  name: hellopod
 spec:
   containers:
   - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -30,48 +23,6 @@ spec:
     - containerPort: 80
       name: http
     resources: {}
-  initContainers:
-  - args:
-    - istio-iptables
-    - -p
-    - "15001"
-    - -z
-    - "15006"
-    - -u
-    - "1337"
-    - -m
-    - REDIRECT
-    - -i
-    - '*'
-    - -x
-    - ""
-    - -b
-    - '*'
-    - -d
-    - 15090,15021,15020
-    - --log_output_level=default:info
-    image: gcr.io/istio-testing/proxyv2:latest
-    name: istio-init
-    resources:
-      limits:
-        cpu: "2"
-        memory: 1Gi
-      requests:
-        cpu: 100m
-        memory: 128Mi
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        add:
-        - NET_ADMIN
-        - NET_RAW
-        drop:
-        - ALL
-      privileged: false
-      readOnlyRootFilesystem: false
-      runAsGroup: 0
-      runAsNonRoot: false
-      runAsUser: 0
   - args:
     - proxy
     - sidecar
@@ -139,23 +90,14 @@ spec:
     - name: ISTIO_META_INTERCEPTION_MODE
       value: REDIRECT
     - name: ISTIO_META_WORKLOAD_NAME
-      value: helloworld-helloworld-helloworld-helloworld-helloworld-hellowo-ld
+      value: hellopod
     - name: ISTIO_META_OWNER
-      value: kubernetes://apis/foo/v1/namespaces/default/bars/helloworld-helloworld-helloworld-helloworld-helloworld-hellowo-ld
+      value: kubernetes://apis/v1/namespaces/default/pods/hellopod
     - name: ISTIO_META_MESH_ID
       value: cluster.local
     - name: TRUST_DOMAIN
       value: cluster.local
     image: gcr.io/istio-testing/proxyv2:latest
-    lifecycle:
-      preStop:
-        exec:
-          command:
-          - pilot-agent
-          - request
-          - --debug-port=15020
-          - POST
-          - drain
     name: istio-proxy
     ports:
     - containerPort: 15090
@@ -175,7 +117,6 @@ spec:
       requests:
         cpu: 100m
         memory: 128Mi
-    restartPolicy: Always
     securityContext:
       allowPrivilegeEscalation: false
       capabilities:
@@ -210,6 +151,48 @@ spec:
       name: istio-token
     - mountPath: /etc/istio/pod
       name: istio-podinfo
+  initContainers:
+  - args:
+    - istio-iptables
+    - -p
+    - "15001"
+    - -z
+    - "15006"
+    - -u
+    - "1337"
+    - -m
+    - REDIRECT
+    - -i
+    - '*'
+    - -x
+    - ""
+    - -b
+    - '*'
+    - -d
+    - 15090,15021,15020
+    - --log_output_level=default:info
+    image: gcr.io/istio-testing/proxyv2:latest
+    name: istio-init
+    resources:
+      limits:
+        cpu: "2"
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        add:
+        - NET_ADMIN
+        - NET_RAW
+        drop:
+        - ALL
+      privileged: false
+      readOnlyRootFilesystem: false
+      runAsGroup: 0
+      runAsNonRoot: false
+      runAsUser: 0
   volumes:
   - name: workload-socket
   - name: credential-socket
