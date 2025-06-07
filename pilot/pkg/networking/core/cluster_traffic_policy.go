@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -54,7 +55,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 			tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
-				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
+				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode, spiffe.GetExtraTrustDomains(opts.mesh))
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
 			cb.applyUpstreamProxyProtocol(&opts, proxyProtocol)
 		}
