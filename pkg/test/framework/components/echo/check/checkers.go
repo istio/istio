@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -244,6 +245,16 @@ func Hostname(expected string) echo.Checker {
 	return Each(func(r echoClient.Response) error {
 		if r.Hostname != expected {
 			return fmt.Errorf("expected hostname %s, received %s", expected, r.Hostname)
+		}
+		return nil
+	})
+}
+
+// Hostnames check whether the hostname the request landed on is from the expected slice. This differs from Host which is the request we called.
+func Hostnames(expects []string) echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if !slices.Contains(expects, r.Hostname) {
+			return fmt.Errorf("expected hostnames %v, received %s", expects, r.Hostname)
 		}
 		return nil
 	})
