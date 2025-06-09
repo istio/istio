@@ -123,10 +123,21 @@ func newDeployment(ctx resource.Context, cfg echo.Config) (*deployment, error) {
 // This is analogous to `kubectl rollout restart` on the echo deployment and waits for
 // `kubectl rollout status` to complete before returning, but uses direct API calls.
 func (d *deployment) Restart() error {
+	settings, err := resource.SettingsFromCommandLine("restart")
+	if err != nil {
+		return err
+	}
+
 	var deploymentNames []string
 	for _, s := range d.cfg.Subsets {
 		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
-		deploymentNames = append(deploymentNames, fmt.Sprintf("%s-%s", d.cfg.Service, s.Version))
+		if settings.Compatibility {
+			for rev, _ := range settings.Revisions {
+				deploymentNames = append(deploymentNames, fmt.Sprintf("%s-%s-%s", d.cfg.Service, s.Version, rev))
+			}
+		} else {
+			deploymentNames = append(deploymentNames, fmt.Sprintf("%s-%s", d.cfg.Service, s.Version))
+		}
 	}
 	curTimestamp := time.Now().Format(time.RFC3339)
 
