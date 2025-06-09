@@ -832,8 +832,17 @@ func (cfg *NftablesConfigurator) addIstioTableRules(
 	// Create a new transaction
 	tx := nft.NewTransaction()
 
+	if cfg.cfg.CleanupOnly {
+		// Delete the table
+		tx.Delete(&knftables.Table{})
+		return tx, nft.Run(context.TODO(), tx)
+	}
+
 	// Ensure that the table exists
 	tx.Add(&knftables.Table{})
+
+	// Flush the table to remove all existing rules before applying new ones
+	tx.Flush(&knftables.Table{})
 
 	// Add the chains that have rules
 	for _, chain := range chainsWithRules {
