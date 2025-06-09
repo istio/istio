@@ -36,14 +36,14 @@ add chain inet istio-proxy-raw output { type filter hook output priority -300 ; 
 add chain inet istio-proxy-raw istio-inbound
 add chain inet istio-proxy-raw istio-output-dns
 add rule inet istio-proxy-raw output jump istio-output-dns
-add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skuid 3 CT zone set 1
-add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skuid 3 CT zone set 2
-add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skuid 4 CT zone set 1
-add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skuid 4 CT zone set 2
-add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skgid 1 CT zone set 1
-add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skgid 1 CT zone set 2
-add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skgid 2 CT zone set 1
-add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skgid 2 CT zone set 2
+add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skuid 3 ct zone set 1
+add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skuid 3 ct zone set 2
+add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skuid 4 ct zone set 1
+add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skuid 4 ct zone set 2
+add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skgid 1 ct zone set 1
+add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skgid 1 ct zone set 2
+add rule inet istio-proxy-raw istio-output-dns udp dport 53 meta skgid 2 ct zone set 1
+add rule inet istio-proxy-raw istio-output-dns udp sport 15053 meta skgid 2 ct zone set 2
 add rule inet istio-proxy-raw prerouting jump istio-inbound
-add rule inet istio-proxy-raw istio-output-dns udp dport 53 ip daddr 127.0.0.53/32 CT zone set 2
-add rule inet istio-proxy-raw istio-inbound udp sport 53 ip daddr 127.0.0.53/32 CT zone set 1
+add rule inet istio-proxy-raw istio-output-dns udp dport 53 ip daddr 127.0.0.53/32 ct zone set 2
+add rule inet istio-proxy-raw istio-inbound udp sport 53 ip daddr 127.0.0.53/32 ct zone set 1
