@@ -607,11 +607,7 @@ func (cfg *NftablesConfigurator) SetupDNSRedir(nft *builder.NftablesRuleBuilder,
 	//
 	// TODO we should probably *conditionally* create jumps if and only if rules exist in the jumped-to table,
 	// in a more automatic fashion.
-	if captureAllDNS || len(dnsServersV4) > 0 {
-		nft.AppendRule(constants.IstioOutputChain, constants.IstioProxyNatTable, "jump", constants.IstioOutputDNSChain)
-	}
-
-	if captureAllDNS || len(dnsServersV6) > 0 {
+	if captureAllDNS || len(dnsServersV4) > 0 || len(dnsServersV6) > 0 {
 		nft.AppendRule(constants.IstioOutputChain, constants.IstioProxyNatTable, "jump", constants.IstioOutputDNSChain)
 	}
 
@@ -697,13 +693,13 @@ func (cfg *NftablesConfigurator) addDNSConntrackZones(
 			"udp dport", "53",
 			"meta",
 			"skuid", uid,
-			"CT", "zone", "set", "1")
+			"ct", "zone", "set", "1")
 		// Packets with src port 15053 from istio to zone 2. These are Istio response packets to application clients
 		nft.AppendRule(constants.IstioOutputDNSChain, constants.IstioProxyRawTable,
 			"udp sport", "15053",
 			"meta",
 			"skuid", uid,
-			"CT", "zone", "set", "2")
+			"ct", "zone", "set", "2")
 	}
 	for _, gid := range split(proxyGID) {
 		// Packets with dst port 53 from istio to zone 1. These are Istio calls to upstream resolvers
@@ -711,13 +707,13 @@ func (cfg *NftablesConfigurator) addDNSConntrackZones(
 			"udp dport", "53",
 			"meta",
 			"skgid", gid,
-			"CT", "zone", "set", "1")
+			"ct", "zone", "set", "1")
 		// Packets with src port 15053 from istio to zone 2. These are Istio response packets to application clients
 		nft.AppendRule(constants.IstioOutputDNSChain, constants.IstioProxyRawTable,
 			"udp sport", "15053",
 			"meta",
 			"skgid", gid,
-			"CT", "zone", "set", "2")
+			"ct", "zone", "set", "2")
 	}
 
 	// For DNS conntrack, we need (at least one) inbound rule in raw/PREROUTING, so make a chain
@@ -732,11 +728,11 @@ func (cfg *NftablesConfigurator) addDNSConntrackZones(
 		// Mark all UDP dns traffic with dst port 53 as zone 2. These are application client packets towards DNS resolvers.
 		nft.AppendRule(constants.IstioOutputDNSChain, constants.IstioProxyRawTable,
 			"udp dport", "53",
-			"CT", "zone", "set", "2")
+			"ct", "zone", "set", "2")
 		// Mark all UDP dns traffic with src port 53 as zone 1. These are response packets from the DNS resolvers.
 		nft.AppendRule(constants.IstioInboundChain, constants.IstioProxyRawTable,
 			"udp sport", "53",
-			"CT", "zone", "set", "1")
+			"ct", "zone", "set", "1")
 	} else {
 
 		if len(dnsServersV4) != 0 || len(dnsServersV6) != 0 {
@@ -748,12 +744,12 @@ func (cfg *NftablesConfigurator) addDNSConntrackZones(
 			nft.AppendRule(constants.IstioOutputDNSChain, constants.IstioProxyRawTable,
 				"udp dport", "53",
 				"ip daddr", s+"/32",
-				"CT", "zone", "set", "2")
+				"ct", "zone", "set", "2")
 			// Mark all UDP dns traffic with src port 53 as zone 1. These are response packets from the DNS resolvers.
 			nft.AppendRule(constants.IstioInboundChain, constants.IstioProxyRawTable,
 				"udp sport", "53",
 				"ip daddr", s+"/32",
-				"CT", "zone", "set", "1")
+				"ct", "zone", "set", "1")
 		}
 
 		for _, s := range dnsServersV6 {
@@ -761,12 +757,12 @@ func (cfg *NftablesConfigurator) addDNSConntrackZones(
 			nft.AppendV6RuleIfSupported(constants.IstioOutputDNSChain, constants.IstioProxyRawTable,
 				"udp dport", "53",
 				"ip6 daddr", s+"/128",
-				"CT", "zone", "set", "2")
+				"ct", "zone", "set", "2")
 			// Mark all UDP dns traffic with src port 53 as zone 1. These are response packets from the DNS resolvers.
 			nft.AppendV6RuleIfSupported(constants.IstioInboundChain, constants.IstioProxyRawTable,
 				"udp sport", "53",
 				"ip6 daddr", s+"/128",
-				"CT", "zone", "set", "1")
+				"ct", "zone", "set", "1")
 		}
 	}
 }
