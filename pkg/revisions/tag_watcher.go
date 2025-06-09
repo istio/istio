@@ -147,12 +147,6 @@ func (p *tagWatcher) GetMyTags() sets.String {
 			mwhTags.Delete(tagName)
 		}
 	}
-
-	for _, mwhTag := range mwhTags {
-		log.Warnf(
-			"Tag name %s is defined using a MutatingWebhookConfiguration, which is deprecated. Run `istioctl tag set %s --revision '%s' to use a service instead",
-			mwhTag, mwhTag, p.revision)
-	}
 	return res
 }
 
