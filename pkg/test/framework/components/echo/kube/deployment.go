@@ -132,7 +132,7 @@ func (d *deployment) Restart() error {
 	for _, s := range d.cfg.Subsets {
 		// TODO(Monkeyanator) move to common place so doesn't fall out of sync with templates
 		if settings.Compatibility {
-			for rev, _ := range settings.Revisions {
+			for rev := range settings.Revisions {
 				deploymentNames = append(deploymentNames, fmt.Sprintf("%s-%s-%s", d.cfg.Service, s.Version, rev))
 			}
 		} else {

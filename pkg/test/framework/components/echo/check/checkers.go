@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -27,6 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/slices"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
