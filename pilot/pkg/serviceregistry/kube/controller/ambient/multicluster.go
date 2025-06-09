@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -74,30 +73,12 @@ func (a *index) buildGlobalCollections(
 	LocalServices := localCluster.Services()
 	LocalNamespaces := localCluster.Namespaces()
 	LocalNodes := localCluster.Nodes()
-	LocalEndpointSlices := localCluster.EndpointSlices()
 	LocalGateways := localCluster.Gateways()
 	LocalWaypoints := a.WaypointsCollection(options.ClusterID, LocalGateways, localGatewayClasses, LocalPods, opts)
 
 	LocalMeshConfig := options.MeshConfig
 	// These first collections can't be merged since the Kubernetes APIs don't have enough room
 	// for e.g. duplicate IPs, etc. So we keep around collections of collections and indexes per cluster.
-	GlobalPods := nestedCollectionFromLocalAndRemote(LocalPods, clusters, func(_ krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[*v1.Pod] {
-		return ptr.Of(c.Pods())
-	}, "Pods", opts)
-	// Pod informers indexable by cluster ID
-	podInformersByCluster := informerIndexByCluster(GlobalPods)
-
-	GlobalEndpointSlices := nestedCollectionFromLocalAndRemote(
-		LocalEndpointSlices,
-		clusters,
-		func(_ krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[*discovery.EndpointSlice] {
-			return ptr.Of(c.EndpointSlices())
-		},
-		"EndpointSlices",
-		opts,
-	)
-	endpointSliceInformersByCluster := informerIndexByCluster(GlobalEndpointSlices)
-
 	GlobalServices := nestedCollectionFromLocalAndRemote(
 		LocalServices,
 		clusters,
@@ -108,17 +89,6 @@ func (a *index) buildGlobalCollections(
 		opts,
 	)
 	serviceInformersByCluster := informerIndexByCluster(GlobalServices)
-
-	GlobalGateways := nestedCollectionFromLocalAndRemote(
-		LocalGateways,
-		clusters,
-		func(_ krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[*v1beta1.Gateway] {
-			return ptr.Of(c.Gateways())
-		},
-		"Gateways",
-		opts,
-	)
-	gatewayInformersByCluster := informerIndexByCluster(GlobalGateways)
 
 	LocalGatewaysWithCluster := krt.MapCollection(LocalGateways, func(obj *v1beta1.Gateway) config.ObjectWithCluster[*v1beta1.Gateway] {
 		return config.ObjectWithCluster[*v1beta1.Gateway]{
@@ -195,10 +165,6 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		clusters,
 		localGatewayClasses,
-		GlobalGateways,
-		gatewayInformersByCluster,
-		GlobalPods,
-		podInformersByCluster,
 		GlobalNetworks,
 		opts,
 	)
@@ -355,8 +321,6 @@ func (a *index) buildGlobalCollections(
 		clusters,
 		localWorkloadEntries,
 		localServiceEntries,
-		GlobalPods,
-		podInformersByCluster,
 		GlobalNodeLocality,
 		GlobalNodeLocalityByCluster,
 		options.MeshConfig,
@@ -367,10 +331,6 @@ func (a *index) buildGlobalCollections(
 		LocalWorkloadServices,
 		GlobalWorkloadServicesWithCluster,
 		GobalWorkloadServicesWithClusterByCluster,
-		GlobalEndpointSlices,
-		endpointSliceInformersByCluster,
-		GlobalNamespaces,
-		namespaceInformersByCluster,
 		GlobalNetworks,
 		options.ClusterID,
 		options.Flags,

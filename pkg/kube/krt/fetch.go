@@ -41,6 +41,39 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 	return fetch[T](ctx, cc, false, opts...)
 }
 
+// Subscribe just subscribes to the collection, without fetching any initial state.
+func Subscribe[T any](ctx HandlerContext, cc Collection[T]) {
+	c := cc.(internalCollection[T])
+	d := &dependency{
+		id:             c.uid(),
+		collectionName: c.name(),
+		filter:         &filter{},
+	}
+	var parent string
+	if ctx != nil {
+		h := ctx.(registerDependency)
+		// Important: register before we List(), so we cannot miss any events
+		h.registerDependency(d, c, func(f erasedEventHandler) Syncer {
+			ff := func(o []Event[T]) {
+				f(slices.Map(o, castEvent[T, any]))
+			}
+			// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
+			// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
+			return c.RegisterBatch(ff, false)
+		})
+		parent = h.name()
+	} else {
+		panic("Subscribe() requires a valid context")
+	}
+
+	if log.DebugEnabled() {
+		log.WithLabels(
+			"parent", parent,
+			"subscribedTo", c.name(),
+		).Debugf("Subscribe")
+	}
+}
+
 func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool, opts ...FetchOption) []T {
 	c := cc.(internalCollection[T])
 	d := &dependency{
