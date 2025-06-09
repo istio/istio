@@ -39,6 +39,6 @@ add rule inet istio-proxy-mangle output oifname lo meta l4proto tcp mark 1337 re
 add rule inet istio-proxy-mangle output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 skuid 1337 meta mark set 1338
 add rule inet istio-proxy-mangle output oifname lo meta l4proto tcp ip daddr != 127.0.0.1/32 skgid 1337 meta mark set 1338
 add rule inet istio-proxy-mangle output meta l4proto tcp ct mark 1337 meta mark set ct mark
-add rule inet istio-proxy-mangle istio-inbound index 0 meta l4proto tcp mark 1337 return
-add rule inet istio-proxy-mangle istio-inbound index 1 iifname lo meta l4proto tcp ip saddr 127.0.0.6/32 return
-add rule inet istio-proxy-mangle istio-inbound index 2 iifname lo meta l4proto tcp mark != 1338 return
+insert rule inet istio-proxy-mangle istio-inbound index 0 meta l4proto tcp mark 1337 return
+insert rule inet istio-proxy-mangle istio-inbound index 1 iifname lo meta l4proto tcp ip saddr 127.0.0.6/32 return
+insert rule inet istio-proxy-mangle istio-inbound index 2 iifname lo meta l4proto tcp mark != 1338 return
