@@ -25,6 +25,6 @@ add chain inet istio-proxy-mangle output { type filter hook output priority -150
 add chain inet istio-proxy-mangle istio-divert
 add chain inet istio-proxy-mangle istio-tproxy
 add chain inet istio-proxy-mangle istio-inbound
-add chain inet istio-proxy-mangle ISTIO_DROP
-add rule inet istio-proxy-mangle prerouting meta l4proto tcp ct state INVALID jump ISTIO_DROP
-add rule inet istio-proxy-mangle ISTIO_DROP drop
+add chain inet istio-proxy-mangle istio-drop
+add rule inet istio-proxy-mangle prerouting meta l4proto tcp ct state invalid jump istio-drop
+add rule inet istio-proxy-mangle istio-drop drop
