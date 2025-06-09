@@ -124,7 +124,7 @@ func TestCreateCertificateE2EUsingClientCertAuthenticator(t *testing.T) {
 	server := &Server{
 		ca: &mockca.FakeCA{
 			SignedCert:    []byte(testCert),
-			KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
+			KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert), nil),
 		},
 		Authenticators: []security.Authenticator{auth},
 		monitoring:     newMonitoringMetrics(),
@@ -264,7 +264,7 @@ func TestCreateCertificate(t *testing.T) {
 			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte(testCert),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert), nil),
 			},
 			certChain: []string{testCert, testCertChain, testRootCert},
 			code:      codes.OK,
@@ -276,6 +276,7 @@ func TestCreateCertificate(t *testing.T) {
 				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil,
 					[]byte(testMultiCertChain),
 					[]byte(testRootCert),
+					nil,
 				),
 			},
 			certChain: []string{testCert, testIntermediateCert, testIntermediateCert2, testRootCert}, // the response should have one cert per element in slice
@@ -388,7 +389,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			}},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte(testCert),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert), nil),
 			},
 			certChain:           []string{testCert, testCertChain, testRootCert},
 			trustedNodeAccounts: sets.Set[types.NamespacedName]{},
@@ -402,7 +403,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			}},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte(testCert),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert), nil),
 			},
 			certChain:           []string{testCert, testCertChain, testRootCert},
 			pods:                []pod{ztunnelPod, podOtherNode},
@@ -419,7 +420,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			}},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte(testCert),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert), nil),
 			},
 			certChain:           []string{testCert, testCertChain, testRootCert},
 			pods:                []pod{ztunnelPod, podSameNode},
@@ -436,7 +437,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			}},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte(testCert),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert), nil),
 			},
 			certChain:           []string{testCert, testCertChain, testRootCert},
 			pods:                []pod{ztunnelPod},
@@ -455,7 +456,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			}},
 			ca: &mockca.FakeCA{
 				SignedCert:    []byte(testCert),
-				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert)),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte(testCertChain), []byte(testRootCert), nil),
 			},
 			certChain:           []string{testCert, testCertChain, testRootCert},
 			pods:                []pod{ztunnelPod, podSameNode},
@@ -584,7 +585,7 @@ func TestRecordCertsExipryMetrics(t *testing.T) {
 		}
 
 		kb := util.NewKeyCertBundleFromPem(
-			caCertBytes, caCertKeyBytes, caCertBytes, rootCertBytes,
+			caCertBytes, caCertKeyBytes, caCertBytes, rootCertBytes, nil,
 		)
 
 		RecordCertsExpiry(kb)
@@ -638,7 +639,7 @@ func TestRecordCertsExipryMetrics(t *testing.T) {
 		}
 
 		kb = util.NewKeyCertBundleFromPem(
-			caCertBytes, caCertKeyBytes, caCertBytes, rootCertBytes,
+			caCertBytes, caCertKeyBytes, caCertBytes, rootCertBytes, nil,
 		)
 
 		RecordCertsExpiry(kb)

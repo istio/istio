@@ -22,7 +22,7 @@ spec:
         readiness.status.sidecar.istio.io/failureThreshold: "300"
         readiness.status.sidecar.istio.io/initialDelaySeconds: "100"
         readiness.status.sidecar.istio.io/periodSeconds: "200"
-        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
         status.sidecar.istio.io/port: "0"
       creationTimestamp: null
       labels:
@@ -144,6 +144,8 @@ spec:
           name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
+        - mountPath: /var/run/secrets/istio/crl
+          name: istio-ca-crl
         - mountPath: /var/lib/istio/data
           name: istio-data
         - mountPath: /etc/istio/proxy
@@ -222,5 +224,9 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
+      - configMap:
+          name: istio-ca-crl
+          optional: true
+        name: istio-ca-crl
 status: {}
 ---

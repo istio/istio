@@ -281,6 +281,14 @@ var (
 
 	EnableLazySidecarEvaluation = env.Register("ENABLE_LAZY_SIDECAR_EVALUATION", true,
 		"If enabled, pilot will only compute sidecar resources when actually used").Get()
+
+	// EnableCACRL ToDo (nilekh): remove this feature flag once https://github.com/istio/istio/issues/56529 is closed
+	EnableCACRL = env.Register(
+		"PILOT_ENABLE_CA_CRL",
+		false, // Default value (false = feature disabled by default)
+		"If set to true, Istio will watch for ca-crl.pem file in /etc/cacerts directory "+
+			"and will distribute crl data in each namespace in the cluster for proxies to consume. ",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

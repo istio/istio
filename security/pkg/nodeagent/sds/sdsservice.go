@@ -18,6 +18,7 @@ package sds
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -37,6 +38,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	mesh "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/log"
@@ -299,7 +301,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 		cfg, ok = security.SdsCertificateConfigFromResourceName(s.ResourceName)
 	}
 	if s.ResourceName == security.RootCertReqResourceName || (ok && cfg.IsRootCertificate()) {
-		secret.Type = &tls.Secret_ValidationContext{
+		secretValidationContext := &tls.Secret_ValidationContext{
 			ValidationContext: &tls.CertificateValidationContext{
 				TrustedCa: &core.DataSource{
 					Specifier: &core.DataSource_InlineBytes{
@@ -308,6 +310,19 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 				},
 			},
 		}
+
+		if features.EnableCACRL {
+			// Check if the plugged-in CA CRL file is present and update the secretValidationContext accordingly.
+			if isCrlFileProvided() {
+				secretValidationContext.ValidationContext.Crl = &core.DataSource{
+					Specifier: &core.DataSource_Filename{
+						Filename: security.CACRLFilePath,
+					},
+				}
+			}
+		}
+
+		secret.Type = secretValidationContext
 	} else {
 		switch pkpConf.GetProvider().(type) {
 		case *mesh.PrivateKeyProvider_Cryptomb:
@@ -380,4 +395,20 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 		}
 	}
 	return secret
+}
+
+// isCrlFileProvided checks if the Plugged-in CA CRL file is present
+func isCrlFileProvided() bool {
+	_, err := os.Stat(security.CACRLFilePath)
+	if err == nil {
+		return true
+	}
+
+	if os.IsNotExist(err) {
+		sdsServiceLog.Debugf("CRL is not configured, %s does not exist", security.CACRLFilePath)
+		return false
+	}
+
+	sdsServiceLog.Errorf("Error checking for CA CRL file: %v", err)
+	return false
 }
