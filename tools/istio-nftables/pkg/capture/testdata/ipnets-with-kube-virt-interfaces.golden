@@ -5,7 +5,6 @@ add chain inet istio-proxy-nat istio-inbound
 add chain inet istio-proxy-nat istio-redirect
 add chain inet istio-proxy-nat istio-in-redirect
 add chain inet istio-proxy-nat istio-output
-add chain inet istio-proxy-nat istio-output-dns
 add rule inet istio-proxy-nat prerouting iifname eth1 return
 insert rule inet istio-proxy-nat prerouting index 0 iifname eth2 return
 add rule inet istio-proxy-nat istio-inbound meta l4proto tcp tcp dport 15008 return

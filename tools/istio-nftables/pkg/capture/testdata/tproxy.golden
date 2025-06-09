@@ -36,7 +36,6 @@ add chain inet istio-proxy-mangle output { type filter hook output priority -150
 add chain inet istio-proxy-mangle istio-divert
 add chain inet istio-proxy-mangle istio-tproxy
 add chain inet istio-proxy-mangle istio-inbound
-add chain inet istio-proxy-mangle istio-drop
 add rule inet istio-proxy-mangle prerouting iifname not-istio-nic return
 add rule inet istio-proxy-mangle output oifname not-istio-nic return
 add rule inet istio-proxy-mangle istio-divert meta mark set 1337

@@ -1,11 +1,9 @@
 add table inet istio-proxy-nat
-add chain inet istio-proxy-nat prerouting { type nat hook prerouting priority -100 ; }
 add chain inet istio-proxy-nat output { type nat hook output priority -100 ; }
 add chain inet istio-proxy-nat istio-inbound
 add chain inet istio-proxy-nat istio-redirect
 add chain inet istio-proxy-nat istio-in-redirect
 add chain inet istio-proxy-nat istio-output
-add chain inet istio-proxy-nat istio-output-dns
 add rule inet istio-proxy-nat istio-inbound meta l4proto tcp tcp dport 15008 return
 add rule inet istio-proxy-nat istio-redirect meta l4proto tcp redirect to :15001
 add rule inet istio-proxy-nat istio-in-redirect meta l4proto tcp redirect to :15006
@@ -25,7 +23,6 @@ add chain inet istio-proxy-mangle output { type filter hook output priority -150
 add chain inet istio-proxy-mangle istio-divert
 add chain inet istio-proxy-mangle istio-tproxy
 add chain inet istio-proxy-mangle istio-inbound
-add chain inet istio-proxy-mangle istio-drop
 add rule inet istio-proxy-mangle istio-divert meta mark set 1337
 add rule inet istio-proxy-mangle istio-divert accept
 add rule inet istio-proxy-mangle istio-tproxy meta l4proto tcp ip daddr != 127.0.0.1/32 tproxy ip to :15006 meta mark set 1337 accept
