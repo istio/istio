@@ -17,8 +17,9 @@ spec:
       number: 443
       protocol: HTTPS
     tls:
+      caCertCredentialName: configmap://default/auth-cert-cacert
       credentialName: kubernetes-gateway://cert/cert
-      mode: SIMPLE
+      mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1
 kind: VirtualService

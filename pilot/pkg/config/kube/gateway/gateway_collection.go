@@ -77,6 +77,7 @@ func ListenerSetCollection(
 	gatewayClasses krt.Collection[GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants ReferenceGrants,
+	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	domainSuffix string,
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]],
@@ -150,7 +151,8 @@ func ListenerSetCollection(
 				l.Port = port
 				standardListener := convertListenerSetToListener(l)
 				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
-				server, updatedStatus, programmed := buildListener(ctx, secrets, grants, namespaces, obj, originalStatus, standardListener, i, controllerName, portErr)
+				server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces,
+					obj, originalStatus, standardListener, i, controllerName, portErr)
 				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
 
 				servers = append(servers, server)
@@ -217,6 +219,7 @@ func GatewayCollection(
 	gatewayClasses krt.Collection[GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants ReferenceGrants,
+	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
 	domainSuffix string,
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]],
@@ -266,7 +269,7 @@ func GatewayCollection(
 		}
 
 		for i, l := range kgw.Listeners {
-			server, updatedStatus, programmed := buildListener(ctx, secrets, grants, namespaces, obj, status.Listeners, l, i, controllerName, nil)
+			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
 			servers = append(servers, server)
