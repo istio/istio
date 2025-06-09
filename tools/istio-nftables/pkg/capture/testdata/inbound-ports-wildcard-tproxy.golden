@@ -1,4 +1,5 @@
 add table inet istio-proxy-nat
+flush table inet istio-proxy-nat
 add chain inet istio-proxy-nat output { type nat hook output priority -100 ; }
 add chain inet istio-proxy-nat istio-inbound
 add chain inet istio-proxy-nat istio-redirect
@@ -18,6 +19,7 @@ add rule inet istio-proxy-nat istio-output skgid 1337 return
 add rule inet istio-proxy-nat istio-output ip daddr 127.0.0.1/32 return
 
 add table inet istio-proxy-mangle
+flush table inet istio-proxy-mangle
 add chain inet istio-proxy-mangle prerouting { type filter hook prerouting priority -150 ; }
 add chain inet istio-proxy-mangle output { type filter hook output priority -150 ; }
 add chain inet istio-proxy-mangle istio-divert
