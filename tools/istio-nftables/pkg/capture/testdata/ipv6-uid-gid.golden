@@ -1,4 +1,5 @@
 add table inet istio-proxy-nat
+flush table inet istio-proxy-nat
 add chain inet istio-proxy-nat prerouting { type nat hook prerouting priority -100 ; }
 add chain inet istio-proxy-nat output { type nat hook output priority -100 ; }
 add chain inet istio-proxy-nat istio-inbound
