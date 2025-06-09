@@ -40,7 +40,7 @@ const (
 	IstioDivertChain     = "istio-divert"
 	IstioTproxyChain     = "istio-tproxy"
 	IstioPreroutingChain = "istio-prerouting"
-	IstioDropChain       = "ISTIO_DROP"
+	IstioDropChain       = "istio-drop"
 )
 
 // In TPROXY mode, mark the packet from envoy outbound to app by podIP,

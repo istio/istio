@@ -310,7 +310,7 @@ func (cfg *NftablesConfigurator) Run() (map[string]*knftables.Transaction, error
 	if dropInvalid {
 		cfg.ruleBuilder.AppendRule(constants.PreroutingChain, constants.IstioProxyMangleTable,
 			"meta l4proto tcp",
-			"ct state", "INVALID",
+			"ct state", "invalid",
 			"jump", constants.IstioDropChain)
 		cfg.ruleBuilder.AppendRule(constants.IstioDropChain, constants.IstioProxyMangleTable, "drop")
 	}
