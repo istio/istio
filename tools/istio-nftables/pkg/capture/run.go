@@ -808,19 +808,40 @@ func (cfg *NftablesConfigurator) addIstioTableRules(
 		return nil, err
 	}
 
+	// Track how many rules have been added to each chain
+	chainRuleCount := make(map[string]int)
+
+	// Count the number of rules present in each of the chains
+	for _, rule := range rules {
+		chainRuleCount[rule.Chain]++
+	}
+
+	// Lets filter out the chains that have rules
+	chainsWithRules := []knftables.Chain{}
+	for _, chain := range chains {
+		if chainRuleCount[chain.Name] > 0 {
+			chainsWithRules = append(chainsWithRules, chain)
+		}
+	}
+
+	// Skip creating the table itself if none of the chains have any rules
+	if len(chainsWithRules) == 0 {
+		return nil, nil
+	}
+
 	// Create a new transaction
 	tx := nft.NewTransaction()
 
 	// Ensure that the table exists
 	tx.Add(&knftables.Table{})
 
-	// Add the specified chains
-	for _, chain := range chains {
+	// Add the chains that have rules
+	for _, chain := range chainsWithRules {
 		tx.Add(&chain)
 	}
 
-	// Track how many rules have been added to each chain
-	chainRuleCount := make(map[string]int)
+	// Reset chainRuleCount to handle the use-case mentioned below.
+	chainRuleCount = make(map[string]int)
 
 	// Add the rules to the transaction
 	for _, rule := range rules {
