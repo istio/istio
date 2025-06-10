@@ -21,7 +21,7 @@ spec:
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
-        proxy.istio.io/overrides: '{"initContainers":[{"name":"istio-proxy","resources":{},"securityContext":{"runAsUser":1000620000,"readOnlyRootFilesystem":false}}]}'
+        proxy.istio.io/overrides: '{"initContainers":[{"name":"istio-proxy","resources":{},"securityContext":{"readOnlyRootFilesystem":false}}]}'
         sidecar.istio.io/interceptionMode: REDIRECT
         sidecar.istio.io/status: '{"initContainers":["istio-validation","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
@@ -54,7 +54,7 @@ spec:
         - -z
         - "15006"
         - -u
-        - "1000620000"
+        - "1000629999"
         - -m
         - REDIRECT
         - -i
@@ -84,9 +84,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: true
-          runAsGroup: 1337
+          runAsGroup: 1000629999
           runAsNonRoot: true
-          runAsUser: 1000620000
+          runAsUser: 1000629999
       - args:
         - proxy
         - sidecar
@@ -198,9 +198,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: false
-          runAsGroup: 1337
+          runAsGroup: 1000629999
           runAsNonRoot: true
-          runAsUser: 1000620000
+          runAsUser: 1000629999
         startupProbe:
           failureThreshold: 600
           httpGet:
