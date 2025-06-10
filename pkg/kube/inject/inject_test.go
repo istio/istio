@@ -440,6 +440,17 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			in:   "hello-openshift-tproxy.yaml",
+			want: "hello-openshift-tproxy.yaml.injected",
+			setFlags: []string{
+				"components.cni.enabled=true",
+			},
+			skipInjection: true,
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, platform.Platform.Name, platform.OpenShift)
+			},
+		},
+		{
 			// Validates localhost probes get injected correctly
 			in:   "hello-probes-localhost.yaml",
 			want: "hello-probes-localhost.yaml.injected",
