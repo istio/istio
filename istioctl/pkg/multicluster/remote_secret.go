@@ -440,7 +440,7 @@ func generateServiceAccountYAML(opt RemoteSecretOptions) (string, error) {
 			continue
 		}
 		for _, m := range mf.Manifests {
-			if m.GetKind() == "ClusterRole" || m.GetKind() == "ClusterRoleBinding" {
+			if (m.GetKind() == "ClusterRole" || m.GetKind() == "ClusterRoleBinding") && strings.HasPrefix(m.GetName(), "istio-reader-clusterrole") {
 				included = append(included, m.Content)
 			}
 			if m.GetKind() == "ServiceAccount" && m.GetName() == "istio-reader-service-account" {
