@@ -1,9 +1,10 @@
 apiVersion: release-notes/v2
-
 kind: feature
 area: installation
+
 issue:
 - 48794
+
 releaseNotes:
 - |
    **Promoted** the environment variable `ENABLE_NATIVE_SIDECARS` to default to `true`. This means native sidecars will be injected into all eligible pods unless explicitly disabled. 
@@ -12,6 +13,6 @@ releaseNotes:
 upgradeNotes:
   - title: Native sidecar enabled by default
     content: |
-      Native sidecars are now enabled by default for eligible pods. This change changes `istio-proxy`from a container to an init container. 
-      This can cause compatibility issues with other mutating webhooks or controllers in your cluster that  expect to modify the `istio-proxy` as a regular container.
+      Native sidecars are now enabled by default for eligible pods. This changes `istio-proxy`from a container to an init container. 
+      This can cause compatibility issues with other mutating webhooks or controllers in your cluster that expect to modify the `istio-proxy` as a regular container.
       Please test your workloads and controllers to ensure they are compatible with this change.
