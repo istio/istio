@@ -6,13 +6,8 @@ contents:
   packages:
     - ca-certificates-bundle
     - wolfi-baselayout
-    - glibc
-    - iptables
-    - ip6tables
-    - libnetfilter_conntrack
-    - libnfnetlink
-    - libmnl
-    - libgcc
+    - libnftnl
+    - nftables
 archs:
   - x86_64
   - aarch64
