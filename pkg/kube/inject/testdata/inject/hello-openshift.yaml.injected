@@ -50,7 +50,7 @@ spec:
         - -z
         - "15006"
         - -u
-        - "1337"
+        - "1000629999"
         - -m
         - REDIRECT
         - -i
@@ -80,9 +80,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: true
-          runAsGroup: 1337
+          runAsGroup: 1000629999
           runAsNonRoot: true
-          runAsUser: 1337
+          runAsUser: 1000629999
       - args:
         - proxy
         - sidecar
@@ -194,9 +194,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: true
-          runAsGroup: 1337
+          runAsGroup: 1000629999
           runAsNonRoot: true
-          runAsUser: 1337
+          runAsUser: 1000629999
         startupProbe:
           failureThreshold: 600
           httpGet:
