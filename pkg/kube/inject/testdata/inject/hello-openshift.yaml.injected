@@ -22,7 +22,7 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
         sidecar.istio.io/interceptionMode: REDIRECT
-        sidecar.istio.io/status: '{"initContainers":["istio-validation","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
+        sidecar.istio.io/status: '{"initContainers":["istio-validation","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
         traffic.sidecar.istio.io/excludeInboundPorts: "15020"
         traffic.sidecar.istio.io/includeInboundPorts: '*'
         traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
@@ -50,7 +50,7 @@ spec:
         - -z
         - "15006"
         - -u
-        - "1000629999"
+        - "1337"
         - -m
         - REDIRECT
         - -i
@@ -80,9 +80,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: true
-          runAsGroup: 1000629999
+          runAsGroup: 1337
           runAsNonRoot: true
-          runAsUser: 1000629999
+          runAsUser: 1337
       - args:
         - proxy
         - sidecar
@@ -194,9 +194,9 @@ spec:
             - ALL
           privileged: false
           readOnlyRootFilesystem: true
-          runAsGroup: 1000629999
+          runAsGroup: 1337
           runAsNonRoot: true
-          runAsUser: 1000629999
+          runAsUser: 1337
         startupProbe:
           failureThreshold: 600
           httpGet:
@@ -213,6 +213,8 @@ spec:
           name: workload-certs
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
+        - mountPath: /var/run/secrets/istio/crl
+          name: istio-ca-crl
         - mountPath: /var/lib/istio/data
           name: istio-data
         - mountPath: /etc/istio/proxy
@@ -249,5 +251,9 @@ spec:
       - configMap:
           name: istio-ca-root-cert
         name: istiod-ca-cert
+      - configMap:
+          name: istio-ca-crl
+          optional: true
+        name: istio-ca-crl
 status: {}
 ---
