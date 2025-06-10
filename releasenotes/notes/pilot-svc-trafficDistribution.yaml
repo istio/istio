@@ -37,9 +37,8 @@ releaseNotes:
 # process. This will appear in the release notes.
 upgradeNotes:
   - title: Traffic Distribution Mode
-    content:
-      - |
-        **Added** support to specify traffic distribution mode for services.
+    content: |
+      **Added** support to specify traffic distribution mode for services.
 
 # docs is a list of related docs to the change.
 docs:
@@ -48,4 +47,4 @@ docs:
 
 # securityNotes is a markdown listing of any changes related to the security of
 # Istio.
-securityNotes:
+securityNotes: []
