@@ -67,6 +67,13 @@ func TestRender(t *testing.T) {
 			chartName:   "gateway",
 			diffSelect:  "Deployment:*:istio-ingress",
 		},
+		{
+			desc:        "istiod-traffic-distribution",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "Service:*:istiod",
+		},
 	}
 
 	for _, tc := range cases {

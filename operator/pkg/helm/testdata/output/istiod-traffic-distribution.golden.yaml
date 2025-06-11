@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    istio: pilot
+    release: istiod
+  annotations:
+    trafficDistribution: PreferClose 
