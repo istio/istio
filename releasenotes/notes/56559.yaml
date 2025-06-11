@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** `create-remote-secret` create redundant rbac resources.
+  **Fixed** `create-remote-secret` no longer creates redundant rbac resources.
