@@ -22,9 +22,12 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	overridehost "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
+	roundrobin "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/round_robin/v3"
 	cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	metadatav3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -41,11 +44,13 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 var maxSecondsValue = int64((math.MaxInt64 - 999999999) / (1000 * 1000 * 1000)) // 9223372035, which is about 292 years.
@@ -175,8 +180,65 @@ func newClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
 	}
 }
 
+func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper, subsetSelectorKey string) {
+
+	// `locality_weighted_lb_config` is not compatible with
+	// `load_balancing_policy`.
+	if cw.cluster.CommonLbConfig != nil {
+		if cw.cluster.GetCommonLbConfig().GetLocalityWeightedLbConfig() != nil {
+			cw.cluster.GetCommonLbConfig().LocalityConfigSpecifier = nil
+		}
+	}
+
+	// `LOAD_BALANCING_POLICY_CONFIG` is technically deprecated, but `lb_policy`
+	// is an Enum, with `ROUND_ROBIN` as the default value, so to avoid any
+	// confusion, we're explicitly setting it.
+	cw.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+
+	// TODO(liorlieberman) move this art somewhere else potentially.
+	// completely override any previously selected LB Policy
+	if cw.cluster.GetLoadBalancingPolicy() != nil {
+		cw.cluster.LoadBalancingPolicy.Policies = []*cluster.LoadBalancingPolicy_Policy{
+			&cluster.LoadBalancingPolicy_Policy{
+				TypedExtensionConfig: &core.TypedExtensionConfig{
+					Name: wellknown.EnvoyOverrideHostLbPolicy,
+					TypedConfig: protoconv.MessageToAny(&overridehost.OverrideHost{
+						OverrideHostSources: []*overridehost.OverrideHost_OverrideHostSource{
+							&overridehost.OverrideHost_OverrideHostSource{
+								Metadata: &metadatav3.MetadataKey{
+									Key: constants.EnvoySubsetNamespace,
+									Path: []*metadatav3.MetadataKey_PathSegment{
+										&metadatav3.MetadataKey_PathSegment{
+											Segment: &metadatav3.MetadataKey_PathSegment_Key{
+												Key: constants.GatewayInferenceExtensionEndpointHintKey,
+											},
+										},
+									},
+								},
+							},
+						},
+						// TODO(liorlieberman): Check if we are aligned with new fallback guidance by inference. I think we need to infer fallback from the "x-gateway-destination-endpoint" key
+						FallbackPolicy: &cluster.LoadBalancingPolicy{
+							Policies: []*cluster.LoadBalancingPolicy_Policy{
+								&cluster.LoadBalancingPolicy_Policy{
+									TypedExtensionConfig: &core.TypedExtensionConfig{
+										Name:        wellknown.EnvoyRoundRobinLbPolicy,
+										TypedConfig: protoconv.MessageToAny(&roundrobin.RoundRobin{}),
+									},
+								},
+							},
+						},
+					}),
+				},
+			},
+		}
+	}
+}
+
+// TODO(liorlieberman) delete this function before merging to main
 func (cb *ClusterBuilder) applyLbSubsetConfig(cw *clusterWrapper, subsetSelectorKey string) {
 	// TODO(liorlieberman) handle a case where subsetConfig already exist?
+
 	if cw.cluster.LbSubsetConfig == nil {
 		cw.cluster.LbSubsetConfig = &cluster.Cluster_LbSubsetConfig{}
 	}
