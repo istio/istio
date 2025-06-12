@@ -241,7 +241,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl ztunnel-config workloads --file ztunnel-config.json
 
   # Retrieve workload summary for a specific namespace
-  istioctl ztunnel-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
+  istioctl ztunnel-config workloads <ztunnel-name[.namespace]> --workload-namespace foo
 `,
 		Aliases: []string{"w", "workloads"},
 		Args:    common.validateArgs,
