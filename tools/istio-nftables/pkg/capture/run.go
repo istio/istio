@@ -832,12 +832,6 @@ func (cfg *NftablesConfigurator) addIstioTableRules(
 	// Create a new transaction
 	tx := nft.NewTransaction()
 
-	if cfg.cfg.CleanupOnly {
-		// Delete the table
-		tx.Delete(&knftables.Table{})
-		return tx, nft.Run(context.TODO(), tx)
-	}
-
 	// Ensure that the table exists
 	tx.Add(&knftables.Table{})
 
@@ -876,9 +870,30 @@ func (cfg *NftablesConfigurator) addIstioTableRules(
 	return tx, nft.Run(context.TODO(), tx)
 }
 
+// cleanupTable deletes all the chains and rules from the specific table.
+func (cfg *NftablesConfigurator) cleanupTable(tableName string) (*knftables.Transaction, error) {
+	nft, err := cfg.nftProvider(tableName)
+	if err != nil {
+		return nil, err
+	}
+
+	tx := nft.NewTransaction()
+	tx.Add(&knftables.Table{})
+	tx.Delete(&knftables.Table{})
+	return tx, nft.Run(context.TODO(), tx)
+}
+
 // addIstioNatTableRules sets up nftables rules in the IstioProxyNatTable table for Istio proxy.
 // It makes sure the table and the necessary chains exist, then adds rules from the rule builder.
 func (cfg *NftablesConfigurator) addIstioNatTableRules() (*knftables.Transaction, error) {
+	if cfg.cfg.CleanupOnly {
+		return cfg.cleanupTable(constants.IstioProxyNatTable)
+	}
+
+	if len(cfg.ruleBuilder.Rules[constants.IstioProxyNatTable]) == 0 {
+		return nil, nil
+	}
+
 	chains := []knftables.Chain{
 		{
 			Name:     constants.PreroutingChain,
@@ -907,6 +922,10 @@ func (cfg *NftablesConfigurator) addIstioNatTableRules() (*knftables.Transaction
 // addIstioMangleTableRules adds nftables rules to the IstioProxyMangleTable table for Istio proxy.
 // It makes sure the table and the necessary chains exist, then adds rules from the rule builder.
 func (cfg *NftablesConfigurator) addIstioMangleTableRules() (*knftables.Transaction, error) {
+	if cfg.cfg.CleanupOnly {
+		return cfg.cleanupTable(constants.IstioProxyMangleTable)
+	}
+
 	if len(cfg.ruleBuilder.Rules[constants.IstioProxyMangleTable]) == 0 {
 		return nil, nil
 	}
@@ -938,6 +957,10 @@ func (cfg *NftablesConfigurator) addIstioMangleTableRules() (*knftables.Transact
 // addIstioRawTableRules adds nftables rules to the IstioProxyRawTable table for Istio proxy.
 // It makes sure the table and the necessary chains exist, then adds rules from the rule builder.
 func (cfg *NftablesConfigurator) addIstioRawTableRules() (*knftables.Transaction, error) {
+	if cfg.cfg.CleanupOnly {
+		return cfg.cleanupTable(constants.IstioProxyRawTable)
+	}
+
 	if len(cfg.ruleBuilder.Rules[constants.IstioProxyRawTable]) == 0 {
 		return nil, nil
 	}
