@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
@@ -51,6 +52,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
@@ -283,7 +285,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
-	if features.EnableAmbient {
+	if features.EnableAmbient && options.ConfigCluster {
 		c.ambientIndex = ambient.New(ambient.Options{
 			Client:          kubeClient,
 			SystemNamespace: options.SystemNamespace,
@@ -298,6 +300,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			Flags: ambient.FeatureFlags{
 				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
+			},
+			ClientBuilder: multicluster.DefaultBuildClientsFromConfig,
+			RemoteClientConfigOverrides: []func(*rest.Config){
+				func(r *rest.Config) {
+					r.QPS = options.KubernetesAPIQPS
+					r.Burst = options.KubernetesAPIBurst
+				},
 			},
 		})
 	}
