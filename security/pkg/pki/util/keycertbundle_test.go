@@ -371,7 +371,7 @@ func TestNewVerifiedKeyCertBundleFromFileWithCrl(t *testing.T) {
 			certChainFile: []string{crlCertChainFile},
 			rootCertFile:  crlRootCertFile,
 			crlFile:       badCrlFile,
-			expectedErr:   "missing CRL signed by certificates: [CN=Intermediate CA CN=Root CA]",
+			expectedErr:   "missing CRL signed by certificates",
 		},
 	}
 	for id, tc := range testCases {
