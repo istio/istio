@@ -84,10 +84,10 @@ func DestinationRuleCollection(
 	opts krt.OptionsBuilder,
 ) krt.Collection[*config.Config] {
 	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, opts)
-	registerStatus(c, trafficPolicyStatus)
+	registerStatus(c, trafficPolicyStatus, GetStatus)
 
 	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, references, opts)
-	registerStatus(c, tlsPolicyStatus)
+	registerStatus(c, tlsPolicyStatus, GetStatus)
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies})

@@ -112,7 +112,7 @@ func (s StaticCollection[T]) Reset(newState []T) {
 		k := GetKey(incoming)
 		nv[k] = incoming
 		if old, f := s.vals[k]; f {
-			if !equal(old, incoming) {
+			if !Equal(old, incoming) {
 				updates = append(updates, Event[T]{
 					Old:   &old,
 					New:   &incoming,
@@ -168,7 +168,7 @@ func (s *staticList[T]) ConditionalUpdateObject(obj T) {
 	old, f := s.vals[k]
 	s.vals[k] = obj
 	if f {
-		if equal(old, obj) {
+		if Equal(old, obj) {
 			return
 		}
 		s.eventHandlers.Distribute([]Event[T]{{

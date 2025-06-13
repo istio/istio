@@ -32,7 +32,9 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -2170,4 +2172,28 @@ func routeGroupKindEqual(rgk1, rgk2 k8s.RouteGroupKind) bool {
 
 func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
 	return ptr.OrDefault(rgk.Group, k8s.Group(gvk.KubernetesGateway.Group))
+}
+
+func GetStatus[I, IS any](spec I) IS {
+	switch t := any(spec).(type) {
+	case *k8salpha.TCPRoute:
+		return any(t.Status).(IS)
+	case *k8salpha.TLSRoute:
+		return any(t.Status).(IS)
+	case *k8sbeta.HTTPRoute:
+		return any(t.Status).(IS)
+	case *k8s.GRPCRoute:
+		return any(t.Status).(IS)
+	case *k8sbeta.Gateway:
+		return any(t.Status).(IS)
+	case *k8sbeta.GatewayClass:
+		return any(t.Status).(IS)
+	case *gatewayx.XBackendTrafficPolicy:
+		return any(t.Status).(IS)
+	case *gatewayalpha3.BackendTLSPolicy:
+		return any(t.Status).(IS)
+	default:
+		log.Fatalf("unknown type %T", t)
+		return ptr.Empty[IS]()
+	}
 }

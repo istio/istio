@@ -17,6 +17,8 @@
 package status
 
 import (
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -39,8 +41,12 @@ func NewManager(store model.ConfigStore) *Manager {
 		scope.Debugf("writing status for resource %s/%s", m.Namespace, m.Name)
 		_, err := store.UpdateStatus(*m)
 		if err != nil {
-			// TODO: need better error handling
-			scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", m, err)
+			if kerrors.IsConflict(err) {
+				scope.Debugf("warning: object has changed %s/%s: %v", m.Namespace, m.Name, err)
+			} else {
+				// TODO: need better error handling
+				scope.Errorf("Encountered unexpected error updating status for %v, will try again later: %s", m, err)
+			}
 			return
 		}
 	}

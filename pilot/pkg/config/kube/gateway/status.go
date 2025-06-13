@@ -65,12 +65,30 @@ func (s *StatusCollections) SetQueue(queue status.Queue) []krt.Syncer {
 	})
 }
 
-// registerStatus takes a status collection and registers it to be managed by the status queue.
-func registerStatus[I controllers.Object, IS any](c *Controller, statusCol krt.StatusCollection[I, IS]) {
+// RegisterStatus takes a status collection and registers it to be managed by the status queue.
+// krt.ObjectWithStatus, in theory, can contain anything in the "object" field. This function requires it to contain
+// the current live *status*, and a passed in getStatus to extract it from the object.
+// It will then compare the live status to the desired status to determine whether to write or not.
+func registerStatus[I controllers.Object, IS any](c *Controller, statusCol krt.StatusCollection[I, IS], getStatus func(I) IS) {
 	reg := func(statusWriter status.Queue) krt.HandlerRegistration {
 		h := statusCol.Register(func(o krt.Event[krt.ObjectWithStatus[I, IS]]) {
 			l := o.Latest()
-			enqueueStatus(statusWriter, l.Obj, &l.Status)
+			liveStatus := getStatus(l.Obj)
+			if krt.Equal(liveStatus, l.Status) {
+				// We want the same status we already have! No need for a write so skip this.
+				// Note: the Equals() function on ObjectWithStatus does not compare these. It only compares "old live + desired" == "new live + desired".
+				// So if either the live OR the desired status changes, this callback will trigger.
+				// Here, we do smarter filtering and can just check whether we meet the desired state.
+				log.Debugf("suppress change for %v %v", l.ResourceName(), l.Obj.GetResourceVersion())
+				return
+			}
+			status := &l.Status
+			if o.Event == controllers.EventDelete {
+				// if the object is being deleted, we should not reset status
+				var empty IS
+				status = &empty
+			}
+			enqueueStatus(statusWriter, l.Obj, status)
 		})
 		return h
 	}
