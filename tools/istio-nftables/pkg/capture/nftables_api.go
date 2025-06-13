@@ -35,7 +35,7 @@ type RealNftables struct {
 // Dump is part of the interface but not used in the real implementation. It's used as part of unit tests.
 func (r *RealNftables) Dump(tx *knftables.Transaction) string {
 	// We do not use Dump in the real Interface.
-	return ""
+	return tx.String()
 }
 
 // NewRealNftables creates and returns a RealNftables object.
