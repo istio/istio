@@ -134,10 +134,9 @@ check_loop:
 				if nonEmptyExpectedState {
 					log.Info("Found a clean state in IPv4 requiring new rules while IPv6 had compatible residues. Reconciliation is recommended")
 					return true, true
-				} else {
-					log.Info("Found a clean state in IPv4 requiring new rules while IPv6 had compatible residues but no planned rules from Istio. Reconciliation is not needed")
-					return false, true
 				}
+				log.Info("Found a clean state in IPv4 requiring new rules while IPv6 had compatible residues but no planned rules from Istio. Reconciliation is not needed")
+				return false, true
 			}
 		}
 
