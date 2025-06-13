@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 56548
+releaseNotes:
+- |
+  **Fixed** e2e tests when using `--istio.test.revisions` option to specify multiple revisions. Make sure e2e tests deal with correct deployments and pods with revisions in their names.
