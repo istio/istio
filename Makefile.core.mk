@@ -114,6 +114,7 @@ export REPO_ROOT := $(shell git rev-parse --show-toplevel)
 # Make directories needed by the build system
 $(shell mkdir -p $(TARGET_OUT_LINUX))
 $(shell mkdir -p $(TARGET_OUT_LINUX)/logs)
+$(shell mkdir -p $(TARGET_OUT_WINDOWS))
 $(shell mkdir -p $(dir $(JUNIT_OUT)))
 
 # Need separate target for init:
@@ -174,6 +175,7 @@ depend: init | $(TARGET_OUT)
 
 DIRS_TO_CLEAN := $(TARGET_OUT)
 DIRS_TO_CLEAN += $(TARGET_OUT_LINUX)
+DIRS_TO_CLEAN += $(TARGET_OUT_WINDOWS)
 
 $(OUTPUT_DIRS):
 	@mkdir -p $@
@@ -215,12 +217,20 @@ STANDARD_BINARIES:=./istioctl/cmd/istioctl \
 
 CNI_BINARIES:=./cni/cmd/istio-cni \
 	./cni/cmd/install-cni
+
+WINDOWS_CNI_GO_TARGETS:=./cni/cmd/istio-cni \
+	./cni/cmd/install-cni
+WINDOWS_CNI_BINARIES:=./cni/cmd/istio-cni.exe \
+	./cni/cmd/install-cni.exe
+
 # These are binaries that require Linux to build, and should
 # be skipped on other platforms. Notably this includes the current Linux-only Istio CNI plugin
 LINUX_AGENT_BINARIES:=$(CNI_BINARIES) \
   $(AGENT_BINARIES)
 
-BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES) $(LINUX_AGENT_BINARIES)
+# TODO: double check this: where is this being used, as WINDOWS_CNI_BINARIES is exactly the same
+# as LINUX_AGENT_BINARIES?
+BINARIES:=$(STANDARD_BINARIES) $(AGENT_BINARIES) $(LINUX_AGENT_BINARIES) $(WINDOWS_CNI_BINARIES)
 
 # List of binaries that have their size tested
 RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl envoy ztunnel client server
@@ -233,8 +243,10 @@ AGENT_TAGS=agent,disable_pgv
 # vtprotobuf: enables optimized protobuf marshalling.
 STANDARD_TAGS=vtprotobuf,disable_pgv
 
+GOARCH_WINDOWS=${TARGET_WINDOWS_ARCH}
+
 .PHONY: build
-build: depend ## Builds all go binaries.
+build: depend build-cni-windows ## Builds all go binaries.
 	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
 	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(AGENT_TAGS) $(AGENT_BINARIES)
 
@@ -247,8 +259,12 @@ build-linux: depend
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(AGENT_TAGS) $(LINUX_AGENT_BINARIES)
 
+.PHONY: build-cni-windows
+build-cni-windows: depend
+	GOOS=windows GOARCH=$(GOARCH_WINDOWS) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_WINDOWS)/ -tags=$(AGENT_TAGS) $(WINDOWS_CNI_GO_TARGETS)
+
 .PHONY: build-cni
-build-cni: depend
+build-cni: depend build-cni-windows
 	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(AGENT_TAGS) $(CNI_BINARIES)
 
 # Create targets for TARGET_OUT_LINUX/binary
@@ -256,6 +272,7 @@ build-cni: depend
 # * Building all docker images (generally in CI). In this case we want to build everything at once, so they share work
 # * Building a single docker image (generally during dev). In this case we just want to build the single binary alone
 BUILD_ALL ?= true
+
 define build-linux
 .PHONY: $(TARGET_OUT_LINUX)/$(shell basename $(1))
 ifeq ($(BUILD_ALL),true)
@@ -267,8 +284,20 @@ $(TARGET_OUT_LINUX)/$(shell basename $(1)): $(TARGET_OUT_LINUX)
 endif
 endef
 
+define build-cni-windows
+.PHONY: $(TARGET_OUT_WINDOWS)/$(shell basename $(1))
+ifeq ($(BUILD_ALL),true)
+$(TARGET_OUT_WINDOWS)/$(shell basename $(1)): build-cni-windows
+	@:
+else
+$(TARGET_OUT_WINDOWS)/$(shell basename $(1)): $(TARGET_OUT_WINDOWS)
+	GOOS=windows GOARCH=$(GOARCH_WINDOWS) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_WINDOWS)/ -tags=$(2) $(1)
+endif
+endef
+
 $(foreach bin,$(STANDARD_BINARIES),$(eval $(call build-linux,$(bin),$(STANDARD_TAGS))))
 $(foreach bin,$(LINUX_AGENT_BINARIES),$(eval $(call build-linux,$(bin),$(AGENT_TAGS))))
+$(foreach bin,$(WINDOWS_CNI_BINARIES),$(eval $(call build-cni-windows,$(bin),$(AGENT_TAGS))))
 
 # Create helper targets for each binary, like "pilot-discovery"
 # As an optimization, these still build everything
@@ -407,12 +436,15 @@ ${ISTIO_BIN}/go-junit-report:
 # This is just an alias for racetest now
 test: racetest ## Runs all unit tests
 
+test-windows:
+
 # For now, keep a minimal subset. This can be expanded in the future.
 BENCH_TARGETS ?= ./pilot/...
 
 PKG ?= ./...
 .PHONY: racetest
 racetest: $(JUNIT_REPORT)
+	@echo ${GOBUILDFLAGS}
 	go test ${GOBUILDFLAGS} ${T} -race $(PKG) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest

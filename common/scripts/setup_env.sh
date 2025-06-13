@@ -54,6 +54,9 @@ else
     exit 1
 fi
 
+# If no architecture is set for Windows, it defaults to amd64
+TARGET_WINDOWS_ARCH="${TARGET_WINDOWS_ARCH:-amd64}"
+
 LOCAL_OS=$(uname)
 
 # Pass environment set target operating-system to build system
@@ -87,9 +90,11 @@ TIMEZONE=$(readlink "$readlink_flags" /etc/localtime | sed -e 's/^.*zoneinfo\///
 
 TARGET_OUT="${TARGET_OUT:-$(pwd)/out/${TARGET_OS}_${TARGET_ARCH}}"
 TARGET_OUT_LINUX="${TARGET_OUT_LINUX:-$(pwd)/out/linux_${TARGET_ARCH}}"
+TARGET_OUT_WINDOWS="${TARGET_OUT_WINDOWS:-$(pwd)/out/windows_${TARGET_WINDOWS_ARCH}}"
 
 CONTAINER_TARGET_OUT="${CONTAINER_TARGET_OUT:-/work/out/${TARGET_OS}_${TARGET_ARCH}}"
 CONTAINER_TARGET_OUT_LINUX="${CONTAINER_TARGET_OUT_LINUX:-/work/out/linux_${TARGET_ARCH}}"
+CONTAINER_TARGET_OUT_WINDOWS="${CONTAINER_TARGET_OUT_WINDOWS:-/work/out/windows_${TARGET_WINDOWS_ARCH}}"
 
 IMG="${IMG:-${TOOLS_REGISTRY_PROVIDER}/${PROJECT_ID}/${IMAGE_NAME}:${IMAGE_VERSION}}"
 
@@ -199,6 +204,7 @@ if [[ "${FOR_BUILD_CONTAINER:-0}" -eq "1" ]]; then
   # Override variables with container specific
   TARGET_OUT=${CONTAINER_TARGET_OUT}
   TARGET_OUT_LINUX=${CONTAINER_TARGET_OUT_LINUX}
+  TARGET_OUT_WINDOWS=${CONTAINER_TARGET_OUT_WINDOWS}
   REPO_ROOT=/work
   LOCAL_OUT="${TARGET_OUT_LINUX}"
 else
@@ -217,6 +223,7 @@ VARS=(
       CONTAINER_TARGET_OUT_LINUX
       TARGET_OUT
       TARGET_OUT_LINUX
+      TARGET_OUT_WINDOWS
       LOCAL_GO_OS
       LOCAL_GO_ARCH
       LOCAL_OUT
@@ -224,6 +231,7 @@ VARS=(
       TARGET_OS
       LOCAL_ARCH
       TARGET_ARCH
+      TARGET_WINDOWS_ARCH
       TIMEZONE
       KUBECONFIG
       CONDITIONAL_HOST_MOUNTS
