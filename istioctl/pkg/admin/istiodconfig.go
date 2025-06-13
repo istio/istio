@@ -80,6 +80,60 @@ func (rs *resetState) run(_ io.Writer) error {
 	return nil
 }
 
+type logResetState struct {
+	client *ControlzClient
+}
+
+func (rs *logResetState) run(_ io.Writer) error {
+	const (
+		defaultOutputLevel = "info"
+	)
+	allScopes, err := rs.client.GetScopes()
+	if err != nil {
+		return fmt.Errorf("could not get all scopes: %v", err)
+	}
+	var defaultScopes []*ScopeInfo
+	for _, scope := range allScopes {
+		defaultScopes = append(defaultScopes, &ScopeInfo{
+			Name:        scope.Name,
+			OutputLevel: defaultOutputLevel,
+		})
+	}
+	err = rs.client.PutScopes(defaultScopes)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type stackTraceResetState struct {
+	client *ControlzClient
+}
+
+func (rs *stackTraceResetState) run(_ io.Writer) error {
+	const (
+		defaultStackTraceLevel = "none"
+	)
+	allScopes, err := rs.client.GetScopes()
+	if err != nil {
+		return fmt.Errorf("could not get all scopes: %v", err)
+	}
+	var defaultScopes []*ScopeInfo
+	for _, scope := range allScopes {
+		defaultScopes = append(defaultScopes, &ScopeInfo{
+			Name:            scope.Name,
+			StackTraceLevel: defaultStackTraceLevel,
+		})
+	}
+	err = rs.client.PutScopes(defaultScopes)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 type logLevelState struct {
 	client         *ControlzClient
 	outputLogLevel string
@@ -178,9 +232,13 @@ func (id *istiodConfigLog) execute(out io.Writer) error {
 	return id.state.run(out)
 }
 
-func chooseClientFlag(ctrzClient *ControlzClient, reset bool, outputLogLevel, stackTraceLevel, outputFormat string) *istiodConfigLog {
+func chooseClientFlag(ctrzClient *ControlzClient, logRest bool, strackTraceReset bool, reset bool, outputLogLevel, stackTraceLevel, outputFormat string) *istiodConfigLog {
 	if reset {
 		return &istiodConfigLog{state: &resetState{ctrzClient}}
+	} else if logRest {
+		return &istiodConfigLog{state: &logResetState{ctrzClient}}
+	} else if strackTraceReset {
+		return &istiodConfigLog{state: &stackTraceResetState{ctrzClient}}
 	} else if outputLogLevel != "" {
 		return &istiodConfigLog{state: &logLevelState{
 			client:         ctrzClient,
@@ -374,6 +432,8 @@ func (c *ControlzClient) GetScope(scope string) (*ScopeInfo, error) {
 var (
 	istiodLabelSelector = ""
 	istiodReset         = false
+	logReset            = false
+	stackTraceReset     = false
 	validationPattern   = `^[\w\- ]+:(none|error|warn|info|debug)`
 )
 
@@ -407,13 +467,13 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 `,
 		Aliases: []string{"l"},
 		Args: func(logCmd *cobra.Command, args []string) error {
-			if istiodReset && outputLogLevel != "" {
+			if istiodReset && logReset && outputLogLevel != "" {
 				logCmd.Println(logCmd.UsageString())
-				return fmt.Errorf("--level cannot be combined with --reset")
+				return fmt.Errorf("--level cannot be combined with --reset, --log-reset")
 			}
-			if istiodReset && stackTraceLevel != "" {
+			if istiodReset && stackTraceReset && stackTraceLevel != "" {
 				logCmd.Println(logCmd.UsageString())
-				return fmt.Errorf("--stack-trace-level cannot be combined with --reset")
+				return fmt.Errorf("--stack-trace-level cannot be combined with --reset, --stack-trace-reset")
 			}
 			return nil
 		},
@@ -471,7 +531,7 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 				},
 				httpClient: &http.Client{},
 			}
-			istiodConfigCmd := chooseClientFlag(ctrlzClient, istiodReset, outputLogLevel, stackTraceLevel, outputFormat)
+			istiodConfigCmd := chooseClientFlag(ctrlzClient, logReset, stackTraceReset, istiodReset, outputLogLevel, stackTraceLevel, outputFormat)
 			err = istiodConfigCmd.execute(logCmd.OutOrStdout())
 			if err != nil {
 				return err
@@ -481,7 +541,9 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 		ValidArgsFunction: completion.ValidPodsNameArgs(ctx),
 	}
 	opts.AttachControlPlaneFlags(logCmd)
-	logCmd.PersistentFlags().BoolVar(&istiodReset, "reset", istiodReset, "Reset levels to default value. (info)")
+	logCmd.PersistentFlags().BoolVar(&istiodReset, "reset", istiodReset, "Reset all levels to default value. (info)")
+	logCmd.PersistentFlags().BoolVar(&logReset, "log-reset", logReset, "Reset log levels to default value. (info)")
+	logCmd.PersistentFlags().BoolVar(&stackTraceReset, "stack-trace-reset", stackTraceReset, "Reset stack stace levels to default value. (none)")
 	logCmd.PersistentFlags().IntVar(&controlzPort, "ctrlz_port", ctrlz.DefaultControlZPort, "ControlZ port")
 	logCmd.PersistentFlags().StringVar(&outputLogLevel, "level", outputLogLevel,
 		"Comma-separated list of output logging level for scopes in the format of <scope>:<level>[,<scope>:<level>,...]. "+
