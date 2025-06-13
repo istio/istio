@@ -261,6 +261,7 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 	s, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		SystemNamespace: systemNS,
 		NetworksWatcher: networksWatcher,
+		ConfigCluster:   true,
 	})
 
 	tracker := assert.NewTracker[string](t)
