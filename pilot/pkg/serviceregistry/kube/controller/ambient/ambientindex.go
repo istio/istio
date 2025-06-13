@@ -664,6 +664,9 @@ func (a *index) All() []model.AddressInfo {
 		// jaellio: Another example of where ScopeForService is not ideal
 		for _, scope := range wl.ScopeForService {
 			if scope == model.Global {
+				gw := a.networks.GatewaysByNetwork.Lookup(network.ID(wl.Workload.Network))
+				var _ = gw
+
 				res = append(res, wl.AsAddress)
 				break
 			}
@@ -674,6 +677,8 @@ func (a *index) All() []model.AddressInfo {
 	for _, s := range a.services.List() {
 		res = append(res, s.AsAddress)
 	}
+
+	// TODO(stevenjin8) merge here
 	return res
 }
 

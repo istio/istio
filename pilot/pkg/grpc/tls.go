@@ -44,13 +44,13 @@ func getTLSDialOption(opts *TLSOptions) (grpc.DialOption, error) {
 	if err != nil {
 		return nil, err
 	}
-	  f, err := os.OpenFile("keylog", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-  if err != nil {
-    panic(err)
-  }
+	// f, err := os.OpenFile("keylog", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	// if err != nil {
+	// 	f = nil
+	// }
 
 	config := tls.Config{
-		KeyLogWriter: f,
+		// KeyLogWriter: f,
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			var certificate tls.Certificate
 			key, cert := opts.Key, opts.Cert

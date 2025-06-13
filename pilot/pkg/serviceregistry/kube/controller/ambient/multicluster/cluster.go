@@ -202,6 +202,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		return
 	}
 
+	// time.Sleep(time.Second * 5)
 	// We're about to start modifying the cluster, so we need to lock it
 	if features.RemoteClusterTimeout > 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {

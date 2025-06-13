@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -136,7 +137,13 @@ func newCitadelClient(endpoint string, rootCert []byte) (pb.IstioCertificateServ
 	if !ok {
 		return nil, fmt.Errorf("failed to append certificates")
 	}
+	// open keylog file
+	// f, err := os.OpenFile("keylog", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	// if err != nil {
+	// 	f = nil
+	// }
 	config := tls.Config{
+		// KeyLogWriter:       f,
 		RootCAs:            certPool,
 		InsecureSkipVerify: true, // nolint: gosec // test only code
 	}

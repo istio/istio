@@ -231,7 +231,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.DomainSuffix = args.RegistryOptions.KubeOptions.DomainSuffix
 
 	ac := aggregate.NewController(aggregate.Options{
-		MeshHolder: e,
+		MeshHolder:      e,
 		ConfigClusterID: getClusterID(args),
 	})
 	e.ServiceDiscovery = ac
@@ -780,16 +780,16 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 		return nil
 	}
 	log.Info("initializing secure discovery service")
-	f, err := os.OpenFile("keylog", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		panic(err)
-	}
+	// f, err := os.OpenFile("keylog", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	// if err != nil {
+	// 	f = nil
+	// }
 
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,
 		ClientCAs:      peerCertVerifier.GetGeneralCertPool(),
-		KeyLogWriter:   f,
+		// KeyLogWriter:   f,
 		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 			err := peerCertVerifier.VerifyPeerCert(rawCerts, verifiedChains)
 			if err != nil {
