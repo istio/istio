@@ -675,7 +675,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	// 	}
 	// 	ep.Metadata.FilterMetadata[constants.EnvoySubsetNamespace] = &structpb.Struct{
 	// 		Fields: map[string]*structpb.Value{
-	// 			constants.GatewayInferenceExtensionEndpointHintKey: {Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("%s:%d", e.Addresses[0], e.EndpointPort)}},
+	// 			constants.GatewayInferenceExtensionEndpointHintKey:{
+	//            Kind: &structpb.Value_StringValue{StringValue: fmt.Sprintf("%s:%d", e.Addresses[0], e.EndpointPort)}},
 	// 		},
 	// 	}
 	// }

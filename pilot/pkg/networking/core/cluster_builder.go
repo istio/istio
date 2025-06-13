@@ -48,7 +48,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -180,14 +179,11 @@ func newClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
 	}
 }
 
-func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper, subsetSelectorKey string) {
-
+func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {
 	// `locality_weighted_lb_config` is not compatible with
 	// `load_balancing_policy`.
-	if cw.cluster.CommonLbConfig != nil {
-		if cw.cluster.GetCommonLbConfig().GetLocalityWeightedLbConfig() != nil {
-			cw.cluster.GetCommonLbConfig().LocalityConfigSpecifier = nil
-		}
+	if cw.cluster.GetCommonLbConfig() != nil && cw.cluster.GetCommonLbConfig().GetLocalityWeightedLbConfig() != nil {
+		cw.cluster.GetCommonLbConfig().LocalityConfigSpecifier = nil
 	}
 
 	// `LOAD_BALANCING_POLICY_CONFIG` is technically deprecated, but `lb_policy`
@@ -197,73 +193,75 @@ func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper, subsetSele
 
 	// TODO(liorlieberman) move this art somewhere else potentially.
 	// completely override any previously selected LB Policy
-	if cw.cluster.GetLoadBalancingPolicy() != nil {
-		cw.cluster.LoadBalancingPolicy.Policies = []*cluster.LoadBalancingPolicy_Policy{
-			&cluster.LoadBalancingPolicy_Policy{
-				TypedExtensionConfig: &core.TypedExtensionConfig{
-					Name: wellknown.EnvoyOverrideHostLbPolicy,
-					TypedConfig: protoconv.MessageToAny(&overridehost.OverrideHost{
-						OverrideHostSources: []*overridehost.OverrideHost_OverrideHostSource{
-							&overridehost.OverrideHost_OverrideHostSource{
-								Metadata: &metadatav3.MetadataKey{
-									Key: constants.EnvoySubsetNamespace,
-									Path: []*metadatav3.MetadataKey_PathSegment{
-										&metadatav3.MetadataKey_PathSegment{
-											Segment: &metadatav3.MetadataKey_PathSegment_Key{
-												Key: constants.GatewayInferenceExtensionEndpointHintKey,
-											},
+	if cw.cluster.GetLoadBalancingPolicy() == nil {
+		cw.cluster.LoadBalancingPolicy = &cluster.LoadBalancingPolicy{Policies: []*cluster.LoadBalancingPolicy_Policy{}}
+	}
+	cw.cluster.LoadBalancingPolicy.Policies = []*cluster.LoadBalancingPolicy_Policy{
+		{
+			TypedExtensionConfig: &core.TypedExtensionConfig{
+				Name: wellknown.EnvoyOverrideHostLbPolicy,
+				TypedConfig: protoconv.MessageToAny(&overridehost.OverrideHost{
+					OverrideHostSources: []*overridehost.OverrideHost_OverrideHostSource{
+						{
+							Metadata: &metadatav3.MetadataKey{
+								Key: constants.EnvoySubsetNamespace,
+								Path: []*metadatav3.MetadataKey_PathSegment{
+									{
+										Segment: &metadatav3.MetadataKey_PathSegment_Key{
+											Key: constants.GatewayInferenceExtensionEndpointHintKey,
 										},
 									},
 								},
 							},
 						},
-						// TODO(liorlieberman): Check if we are aligned with new fallback guidance by inference. I think we need to infer fallback from the "x-gateway-destination-endpoint" key
-						FallbackPolicy: &cluster.LoadBalancingPolicy{
-							Policies: []*cluster.LoadBalancingPolicy_Policy{
-								&cluster.LoadBalancingPolicy_Policy{
-									TypedExtensionConfig: &core.TypedExtensionConfig{
-										Name:        wellknown.EnvoyRoundRobinLbPolicy,
-										TypedConfig: protoconv.MessageToAny(&roundrobin.RoundRobin{}),
-									},
+					},
+					// TODO(liorlieberman): Check if we are aligned with new fallback guidance by inference.
+					// I think we need to infer fallback from the "x-gateway-destination-endpoint" key.
+					FallbackPolicy: &cluster.LoadBalancingPolicy{
+						Policies: []*cluster.LoadBalancingPolicy_Policy{
+							{
+								TypedExtensionConfig: &core.TypedExtensionConfig{
+									Name:        wellknown.EnvoyRoundRobinLbPolicy,
+									TypedConfig: protoconv.MessageToAny(&roundrobin.RoundRobin{}),
 								},
 							},
 						},
-					}),
-				},
+					},
+				}),
 			},
-		}
+		},
 	}
 }
 
 // TODO(liorlieberman) delete this function before merging to main
-func (cb *ClusterBuilder) applyLbSubsetConfig(cw *clusterWrapper, subsetSelectorKey string) {
-	// TODO(liorlieberman) handle a case where subsetConfig already exist?
+// func (cb *ClusterBuilder) applyLbSubsetConfig(cw *clusterWrapper, subsetSelectorKey string) {
+// 	// TODO(liorlieberman) handle a case where subsetConfig already exist?
 
-	if cw.cluster.LbSubsetConfig == nil {
-		cw.cluster.LbSubsetConfig = &cluster.Cluster_LbSubsetConfig{}
-	}
-	cw.cluster.LbSubsetConfig.FallbackPolicy = cluster.Cluster_LbSubsetConfig_ANY_ENDPOINT
-	if len(cw.cluster.LbSubsetConfig.SubsetSelectors) == 0 {
-		cw.cluster.LbSubsetConfig.SubsetSelectors = []*cluster.Cluster_LbSubsetConfig_LbSubsetSelector{}
-	}
+// 	if cw.cluster.LbSubsetConfig == nil {
+// 		cw.cluster.LbSubsetConfig = &cluster.Cluster_LbSubsetConfig{}
+// 	}
+// 	cw.cluster.LbSubsetConfig.FallbackPolicy = cluster.Cluster_LbSubsetConfig_ANY_ENDPOINT
+// 	if len(cw.cluster.LbSubsetConfig.SubsetSelectors) == 0 {
+// 		cw.cluster.LbSubsetConfig.SubsetSelectors = []*cluster.Cluster_LbSubsetConfig_LbSubsetSelector{}
+// 	}
 
-	// TODO(liorlieberman) think about this logic - should we handle a case where subsetSelectors already exist
-	// and do we put the selector needed for inference before?
-	// TODO(liorlieberman) Maybe this function should be more Inference related and not generic "applySubsetConfig"?
-	addKey := true
-	for _, ss := range cw.cluster.LbSubsetConfig.SubsetSelectors {
-		if slices.Contains(ss.Keys, subsetSelectorKey) {
-			addKey = false
-		}
-	}
-	if addKey {
-		cw.cluster.LbSubsetConfig.SubsetSelectors = append(cw.cluster.LbSubsetConfig.SubsetSelectors, &cluster.Cluster_LbSubsetConfig_LbSubsetSelector{
-			Keys: []string{
-				subsetSelectorKey,
-			},
-		})
-	}
-}
+// 	// TODO(liorlieberman) think about this logic - should we handle a case where subsetSelectors already exist
+// 	// and do we put the selector needed for inference before?
+// 	// TODO(liorlieberman) Maybe this function should be more Inference related and not generic "applySubsetConfig"?
+// 	addKey := true
+// 	for _, ss := range cw.cluster.LbSubsetConfig.SubsetSelectors {
+// 		if slices.Contains(ss.Keys, subsetSelectorKey) {
+// 			addKey = false
+// 		}
+// 	}
+// 	if addKey {
+// 		cw.cluster.LbSubsetConfig.SubsetSelectors = append(cw.cluster.LbSubsetConfig.SubsetSelectors, &cluster.Cluster_LbSubsetConfig_LbSubsetSelector{
+// 			Keys: []string{
+// 				subsetSelectorKey,
+// 			},
+// 		})
+// 	}
+// }
 
 // sidecarProxy returns true if the clusters are being built for sidecar proxy otherwise false.
 func (cb *ClusterBuilder) sidecarProxy() bool {
