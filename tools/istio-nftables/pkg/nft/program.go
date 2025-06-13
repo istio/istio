@@ -17,6 +17,8 @@ package nft
 import (
 	"fmt"
 
+	"sigs.k8s.io/knftables"
+
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/common/config"
 	"istio.io/istio/tools/common/tproxy"
@@ -34,12 +36,41 @@ func ProgramNftables(cfg *config.Config) error {
 			return err
 		}
 
-		if _, err := nftConfigurator.Run(); err != nil {
+		rules, err := nftConfigurator.Run()
+		if err != nil {
 			return err
 		}
+
 		if err := tproxy.ConfigureRoutes(cfg); err != nil {
 			return fmt.Errorf("failed to configure routes: %v", err)
 		}
+		logNftRules(rules)
 	}
 	return nil
+}
+
+func logNftRules(rules map[string]*knftables.Transaction) {
+	if len(rules) == 0 {
+		log.Infof("There are no nftables rules to log")
+		return
+	}
+
+	for table, tx := range rules {
+		// Create Nftables provider for the current table
+		nftProvider, err := capture.NewRealNftables(knftables.InetFamily, table)
+		if err != nil {
+			log.Errorf("Error creating NewRealNftables interface for table [%s]: %v", table, err)
+			continue
+		}
+
+		// Check if the table contains any rules
+		if tx != nil {
+			dump := nftProvider.Dump(tx)
+			if dump != "" {
+				log.Infof("nftables rules programmed in table [%s]:\n%s \n", table, dump)
+			} else {
+				log.Infof("There are no nftables rules in table [%s]", table)
+			}
+		}
+	}
 }
