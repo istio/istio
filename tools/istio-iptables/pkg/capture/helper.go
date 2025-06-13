@@ -53,8 +53,9 @@ func VerifyIptablesState(log *istiolog.Scope, ext dep.Dependencies, ruleBuilder 
 	iptVer, ipt6Ver *dep.IptablesVersion,
 ) (bool, bool) {
 	// These variables track the status of iptables installation
-	residueExists := false // Flag to indicate if iptables residues from previous executions are found
-	deltaExists := false   // Flag to indicate if a difference is found between expected and current state
+	residueExists := false            // Flag to indicate if iptables residues from previous executions are found
+	deltaExists := false              // Flag to indicate if a difference is found between expected and current state
+	foundCleanStateWithDelta := false // tracks whether at least one IP family has a completely clean iptables state that requires new rules
 
 check_loop:
 	for _, ipCfg := range []struct {
@@ -78,11 +79,22 @@ check_loop:
 				}
 				residueExists = len(value) != 0
 			}
-			if !residueExists {
-				continue
-			}
 			expectedState := ruleBuilder.GetStateFromSave(ipCfg.expected)
 			log.Debugf("Expected iptables state: %#v", expectedState)
+
+			nonEmptyExpectedState := false
+			for _, chains := range expectedState {
+				if len(chains) != 0 {
+					nonEmptyExpectedState = true
+					break
+				}
+			}
+			if !residueExists && nonEmptyExpectedState {
+				foundCleanStateWithDelta = true
+				continue
+			} else if !residueExists {
+				continue
+			}
 			for table, chains := range expectedState {
 				_, ok := currentState[table]
 				if !ok {
@@ -116,6 +128,15 @@ check_loop:
 					deltaExists = true
 					log.Debugf("iptables check rules failed")
 					break
+				}
+			}
+			if foundCleanStateWithDelta {
+				if nonEmptyExpectedState {
+					log.Info("Found a clean state in IPv4 requiring new rules while IPv6 had compatible residues. Reconciliation is recommended")
+					return true, true
+				} else {
+					log.Info("Found a clean state in IPv4 requiring new rules while IPv6 had compatible residues but no planned rules from Istio. Reconciliation is not needed")
+					return false, true
 				}
 			}
 		}
