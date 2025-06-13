@@ -120,6 +120,8 @@ type ImagePlan struct {
 	// as most building in Istio is done outside of docker.
 	// When this is set, cross-compile is disabled for components unless emulation is epxlicitly specified
 	EmulationRequired bool `json:"emulationRequired"`
+	// Platforms for which this image can be built.
+	Platforms []string `json:"platforms"`
 }
 
 func (p ImagePlan) Dependencies() []string {

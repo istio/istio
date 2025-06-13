@@ -82,6 +82,7 @@ func runDocker(args Args) error {
 
 	makeStart := time.Now()
 	for _, arch := range args.Architectures {
+		log.Infof("Running make for %v", args.PlanFor(arch).Targets())
 		if err := RunMake(context.Background(), args, arch, args.PlanFor(arch).Targets()...); err != nil {
 			return err
 		}
@@ -146,24 +147,38 @@ func RunSave(a Args, files map[string]string) error {
 func RunBake(args Args) error {
 	out := filepath.Join(testenv.LocalOut, "dockerx_build", "docker-bake.json")
 	_ = os.MkdirAll(filepath.Join(testenv.LocalOut, "release", "docker"), 0o755)
-	if err := createBuildxBuilderIfNeeded(args); err != nil {
+	builderName, err := createBuildxBuilderIfNeeded(args)
+	if err != nil {
 		return err
 	}
-	c := VerboseCommand("docker", "buildx", "bake", "-f", out, "all")
+	c := VerboseCommand("docker", "buildx", "bake", "--builder", builderName, "-f", out, "all")
 	c.Stdout = os.Stdout
 	return c.Run()
 }
 
 // --save requires a custom builder. Automagically create it if needed
-func createBuildxBuilderIfNeeded(a Args) error {
+func createBuildxBuilderIfNeeded(a Args) (string, error) {
+	log.Infof("Checking builder for architectures: %v, save: %v", a.Architectures, a.Save)
+	for _, arch := range a.Architectures {
+		if strings.HasPrefix(arch, "windows/") {
+			log.Infof("Creating windows builder for %v", arch)
+			return "windows-builder", exec.Command("sh", "-c", `
+export DOCKER_CLI_EXPERIMENTAL=enabled
+if ! docker buildx ls | grep -q windows-builder; then
+  docker buildx create --name windows-builder --platform=windows/amd64
+  # Pre-warm the builder. If it fails, fetch logs, but continue
+  docker buildx inspect --bootstrap windows-builder || docker logs windows-builder0 || true
+fi`).Run()
+		}
+	}
 	if !a.Save {
-		return nil // default builder supports all but .save
+		return "default", nil // default builder supports all but .save
 	}
 	if _, f := os.LookupEnv("CI"); !f {
 		// If we are not running in CI and the user is not using --save, assume the current
 		// builder is OK.
 		if !a.Save {
-			return nil
+			return "", nil
 		}
 		// --save is specified so verify if the current builder's driver is `docker-container` (needed to satisfy the export)
 		// This is typically used when running release-builder locally.
@@ -173,24 +188,23 @@ func createBuildxBuilderIfNeeded(a Args) error {
 		c.Stdout = out
 		err := c.Run()
 		if err != nil {
-			return fmt.Errorf("command failed: %v", err)
+			return "", fmt.Errorf("command failed: %v", err)
 		}
 		matches := regexp.MustCompile(`Driver:\s+(.*)`).FindStringSubmatch(out.String())
 		if len(matches) == 0 || matches[1] != "docker-container" {
-			return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
+			return "", fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
 				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0" +
 				" --name container-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
 		}
-		return nil
+		return "container-builder", nil
 	}
-	return exec.Command("sh", "-c", `
+	return "container-builder", exec.Command("sh", "-c", `
 export DOCKER_CLI_EXPERIMENTAL=enabled
 if ! docker buildx ls | grep -q container-builder; then
   docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name container-builder --buildkitd-flags="--debug"
   # Pre-warm the builder. If it fails, fetch logs, but continue
   docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
-fi
-docker buildx use container-builder`).Run()
+fi`).Run()
 }
 
 // ConstructBakeFile constructs a docker-bake.json to be passed to `docker buildx bake`.
@@ -244,7 +258,7 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			// See https://docs.docker.com/engine/reference/commandline/buildx_build/#output
 			if a.Push {
 				t.Outputs = []string{"type=registry"}
-			} else if a.Save {
+			} else if a.Save || strings.HasPrefix(a.Architectures[0], "windows/") {
 				n := target
 				if variant != "" && variant != DefaultVariant { // For default variant, we do not add it.
 					n += "-" + variant

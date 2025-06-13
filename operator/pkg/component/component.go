@@ -129,11 +129,13 @@ type Name string
 const (
 	// IstioComponent names corresponding to the IstioOperator proto component names. Must be the same, since these
 	// are used for struct traversal.
-	BaseComponentName  Name = "Base"
-	PilotComponentName Name = "Pilot"
+	BaseComponentName         Name = "Base"
+	PilotComponentName        Name = "Pilot"
+	PilotWindowsComponentName Name = "PilotWindows"
 
-	CNIComponentName     Name = "Cni"
-	ZtunnelComponentName Name = "Ztunnel"
+	CNIComponentName            Name = "Cni"
+	ZtunnelComponentName        Name = "Ztunnel"
+	ZtunnelWindowsComponentName Name = "ZtunnelWindows"
 
 	IngressComponentName Name = "IngressGateways"
 	EgressComponentName  Name = "EgressGateways"
@@ -158,6 +160,17 @@ var AllComponents = []Component{
 		HelmSubdir:           "istio-control/istio-discovery",
 		ToHelmValuesTreeRoot: "pilot",
 		ReleaseName:          "istiod",
+	},
+	{
+		UserFacingName:       PilotWindowsComponentName,
+		SpecName:             "pilot-windows",
+		Default:              true,
+		ResourceType:         "Deployment",
+		ResourceName:         "istiod-windows",
+		ContainerName:        "discovery-windows",
+		HelmSubdir:           "istio-control/istio-discover-windows",
+		ToHelmValuesTreeRoot: "pilot-windows",
+		ReleaseName:          "istiod-windows",
 	},
 	{
 		UserFacingName:       IngressComponentName,
@@ -202,6 +215,17 @@ var AllComponents = []Component{
 		ContainerName:        "istio-proxy",
 		FlattenValues:        true,
 		ReleaseName:          "ztunnel",
+	},
+	{
+		UserFacingName:       ZtunnelWindowsComponentName,
+		SpecName:             "ztunnel-windows",
+		ResourceType:         "DaemonSet",
+		ResourceName:         "ztunnel-windows",
+		HelmSubdir:           "ztunnel-windows",
+		ToHelmValuesTreeRoot: "ztunnel-windows",
+		ContainerName:        "istio-proxy-windows",
+		FlattenValues:        true,
+		ReleaseName:          "ztunnel-windows",
 	},
 }
 
