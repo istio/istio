@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issues:
+  - 56594
+releaseNotes:
+  - |
+    **Fixed** an issue that namespace controller failed to start when both revision and discovery selector enabled at the same time.
