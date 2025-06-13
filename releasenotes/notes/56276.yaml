@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes: 
+- |
+  **Added** Pilot environment variables `PILOT_IP_AUTOALLOCATE_IPV4_PREFIX` and `PILOT_IP_AUTOALLOCATE_IPV6_PREFIX` to configure the IP CIDR prefix(es) for auto-allocated IPs. This allows users to set a specific range of IPs for auto-allocation, providing more control over the IP address space used for VIPs by the ipallocate controller.
