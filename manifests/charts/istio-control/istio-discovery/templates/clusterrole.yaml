@@ -144,6 +144,7 @@ rules:
   - apiGroups: ["gateway.networking.x-k8s.io"]
     resources:
     - xbackendtrafficpolicies/status
+    - xlistenersets/status
     verbs: ["update", "patch"]
   - apiGroups: ["gateway.networking.k8s.io"]
     resources:

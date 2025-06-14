@@ -372,7 +372,7 @@ type fakeController struct {
 func (f fakeController) Reconcile(_ *PushContext) {}
 
 // NOTE: To simplify test setup, if CredentialName contains 'allowed-ns', always return true.
-func (f fakeController) SecretAllowed(resourceName string, namespace string) bool {
+func (f fakeController) SecretAllowed(_ config.GroupVersionKind, resourceName string, namespace string) bool {
 	parse, err := credentials.ParseResourceName(resourceName, namespace, "", "")
 	if err != nil {
 		return false
