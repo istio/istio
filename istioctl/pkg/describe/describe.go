@@ -102,12 +102,18 @@ var (
 func podDescribeCmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:     "pod <pod>",
+		Use:     "pod <pod-name>[.<namespace>]",
 		Aliases: []string{"po"},
 		Short:   "Describe pods and their Istio configuration [kube-only]",
 		Long: `Analyzes pod, its Services, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that pod.`,
-		Example: `  istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
+		Example: `  #Pod query with inferred namespace (current context's namespace)
+  istioctl experimental describe pod helloworld-v1-676yyy3y5r-d8hdl
+
+  # Pod query with explicit namespace 
+  istioctl experimental describe pod istio-eastwestgateway-7f4b4f44b-6zd95.istio-system
+  or
+  istioctl experimental describe pod istio-eastwestgateway-7f4b4f44b-6zd95 -n istio-system`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
 			if len(args) != 1 {
@@ -1197,12 +1203,18 @@ func printIngressService(writer io.Writer, initPrintNum int,
 func svcDescribeCmd(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	cmd := &cobra.Command{
-		Use:     "service <svc>",
+		Use:     "service <svc-name>[.<namespace>]",
 		Aliases: []string{"svc"},
 		Short:   "Describe services and their Istio configuration [kube-only]",
 		Long: `Analyzes service, pods, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that service.`,
-		Example: `  istioctl experimental describe service productpage`,
+		Example: `  #Service query with inferred namespace (current context's namespace)
+  istioctl experimental describe service productpage
+
+  # Service query with explicit namespace
+  istioctl experimental describe service istio-ingressgateway.istio-system
+  or
+  istioctl experimental describe service istio-ingressgateway -n istio-system`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				cmd.Println(cmd.UsageString())
@@ -1212,7 +1224,7 @@ the configuration objects that affect that service.`,
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
-			svcName, ns := handlers.InferPodInfo(args[0], ctx.NamespaceOrDefault(ctx.Namespace()))
+			svcName, ns := handlers.InferPodInfo(args[0], describeNamespace)
 
 			client, err := ctx.CLIClient()
 			if err != nil {
