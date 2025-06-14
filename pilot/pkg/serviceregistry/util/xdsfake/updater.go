@@ -202,6 +202,7 @@ func (fx *Updater) matchOrFail(t test.Failer, strict bool, events ...Event) {
 		}
 		select {
 		case e := <-fx.Events:
+			t.Logf("got event %q/%v", e.Type, e.ID)
 			found := false
 			for i, want := range events {
 				if e.Type == want.Type &&
