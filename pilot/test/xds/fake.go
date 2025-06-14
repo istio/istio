@@ -173,7 +173,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	mc := multicluster.NewFakeController()
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName, mc)
 
-	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
+	configController := memory.NewController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	clientBuilder := opts.KubeClientBuilder
 	if clientBuilder == nil {
 		clientBuilder = func(objects ...runtime.Object) kubelib.Client {
