@@ -1,0 +1,136 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: a
+    hostname: "a.example"
+    port: 80
+    protocol: HTTP
+  - name: b
+    hostname: "b.example"
+    port: 80
+    protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: existing-istio-last
+  namespace: istio-system
+spec:
+  parentRefs:
+  - name: gateway
+  - name: not-istio
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 80
+status:
+  parents:
+  - controllerName: example.com/not-istio
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: not-istio
+      namespace: istio-system
+  - controllerName: istio.io/gateway-controller
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: existing-istio-first
+  namespace: istio-system
+spec:
+  parentRefs:
+  - name: gateway
+  - name: not-istio
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 80
+status:
+  parents:
+  - controllerName: istio.io/gateway-controller
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: istio-system
+  - controllerName: example.com/not-istio
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: not-istio
+      namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: stale-istio-reference
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: gateway
+  rules:
+    - backendRefs:
+        - name: httpbin
+          port: 80
+status:
+  parents:
+    - controllerName: istio.io/gateway-controller
+      parentRef:
+        group: gateway.networking.k8s.io
+        kind: Gateway
+        name: gateway
+        namespace: istio-system
+    - controllerName: istio.io/gateway-controller # We do own this one so should prune it
+      parentRef:
+        group: gateway.networking.k8s.io
+        kind: Gateway
+        name: not-istio
+        namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: stale-other-reference
+  namespace: istio-system
+spec:
+  parentRefs:
+  - name: gateway
+  rules:
+  - backendRefs:
+    - name: httpbin
+      port: 80
+status:
+  parents:
+  - controllerName: istio.io/gateway-controller
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: istio-system
+  - controllerName: example.com/not-istio # We don't own this one so will leave it
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: not-istio
+      namespace: istio-system
