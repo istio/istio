@@ -261,13 +261,14 @@ func TestObjectFilter(t *testing.T) {
 		},
 	})
 
+	clusterID := cluster.ID("config")
 	// For primary cluster, we need to set it up ourselves.
 	namespaces := kclient.New[*v1.Namespace](tc.client)
 	filter := namespace.NewDiscoveryNamespacesFilter(namespaces, mesh, stop)
 	tc.client = kube.SetObjectFilter(tc.client, filter)
 
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
-	tc.controller = NewController(tc.client, secretNamespace, "config", mesh)
+	tc.controller = NewController(tc.client, secretNamespace, clusterID, mesh)
 	tc.controller.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		return clientWithNamespace(), nil
 	}
@@ -283,6 +284,7 @@ func TestObjectFilter(t *testing.T) {
 			Synced: atomic.NewBool(true),
 		}
 	})
+
 	tc.AddSecret("s0", "c0")
 	tc.AddSecret("s1", "c1")
 	tc.Run(stop)
