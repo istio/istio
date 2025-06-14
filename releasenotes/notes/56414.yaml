@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 56414
+releaseNotes:
+  - |
+    **Fixed**  Ambient host network iptables rules were being skipped due to higher-priority CNI rules in some deployments.
+
+
