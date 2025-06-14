@@ -45,6 +45,12 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Merg
 	}
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		applied := false
+		// For removed patches, skip the merge if the patch matches.
+		if cp.Operation == networking.EnvoyFilter_Patch_REMOVE &&
+			commonConditionMatch(pctx, cp) &&
+			clusterMatch(c, cp, hosts) {
+			return nil
+		}
 		if cp.Operation != networking.EnvoyFilter_Patch_MERGE {
 			IncrementEnvoyFilterMetric(cp.Key(), Cluster, applied)
 			continue
@@ -118,22 +124,6 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		}
 	}
 	return true, nil
-}
-
-// ShouldKeepCluster checks if there is a REMOVE patch on the cluster, returns false if there is one so that it is removed.
-func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.MergedEnvoyFilterWrapper, c *cluster.Cluster, hosts []host.Name) bool {
-	if efw == nil {
-		return true
-	}
-	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
-		if cp.Operation != networking.EnvoyFilter_Patch_REMOVE {
-			continue
-		}
-		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, hosts) {
-			return false
-		}
-	}
-	return true
 }
 
 // InsertedClusters collects all clusters that are added via ADD operation and match the patch context.
