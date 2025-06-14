@@ -107,7 +107,7 @@ func podDescribeCmd(ctx cli.Context) *cobra.Command {
 		Short:   "Describe pods and their Istio configuration [kube-only]",
 		Long: `Analyzes pod, its Services, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that pod.`,
-		Example: `  istioctl experimental describe pod productpage-v1-c7765c886-7zzd4`,
+		Example: `  istioctl experimental describe pod <pod-name>[.<namespace>]`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
 			if len(args) != 1 {
@@ -1202,7 +1202,7 @@ func svcDescribeCmd(ctx cli.Context) *cobra.Command {
 		Short:   "Describe services and their Istio configuration [kube-only]",
 		Long: `Analyzes service, pods, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that service.`,
-		Example: `  istioctl experimental describe service productpage`,
+		Example: `  istioctl experimental describe service <service-name>[.<namespace>]`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				cmd.Println(cmd.UsageString())
@@ -1212,7 +1212,7 @@ the configuration objects that affect that service.`,
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			describeNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
-			svcName, ns := handlers.InferPodInfo(args[0], ctx.NamespaceOrDefault(ctx.Namespace()))
+			svcName, ns := handlers.InferPodInfo(args[0], describeNamespace)
 
 			client, err := ctx.CLIClient()
 			if err != nil {
