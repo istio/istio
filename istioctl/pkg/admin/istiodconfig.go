@@ -232,28 +232,30 @@ func (id *istiodConfigLog) execute(out io.Writer) error {
 	return id.state.run(out)
 }
 
-func chooseClientFlag(ctrzClient *ControlzClient, logRest bool, strackTraceReset bool, reset bool, outputLogLevel, stackTraceLevel, outputFormat string) *istiodConfigLog {
-	if reset {
+func chooseClientFlag(ctrzClient *ControlzClient, logRest, stackTraceReset, reset bool, outputLogLevel, stackTraceLevel, outputFormat string) *istiodConfigLog {
+	switch {
+	case reset:
 		return &istiodConfigLog{state: &resetState{ctrzClient}}
-	} else if logRest {
+	case logRest:
 		return &istiodConfigLog{state: &logResetState{ctrzClient}}
-	} else if strackTraceReset {
+	case stackTraceReset:
 		return &istiodConfigLog{state: &stackTraceResetState{ctrzClient}}
-	} else if outputLogLevel != "" {
+	case outputLogLevel != "":
 		return &istiodConfigLog{state: &logLevelState{
 			client:         ctrzClient,
 			outputLogLevel: outputLogLevel,
 		}}
-	} else if stackTraceLevel != "" {
+	case stackTraceLevel != "":
 		return &istiodConfigLog{state: &stackTraceLevelState{
 			client:          ctrzClient,
 			stackTraceLevel: stackTraceLevel,
 		}}
+	default:
+		return &istiodConfigLog{state: &getAllLogLevelsState{
+			client:       ctrzClient,
+			outputFormat: outputFormat,
+		}}
 	}
-	return &istiodConfigLog{state: &getAllLogLevelsState{
-		client:       ctrzClient,
-		outputFormat: outputFormat,
-	}}
 }
 
 type ScopeInfo struct {
