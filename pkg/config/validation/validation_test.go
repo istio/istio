@@ -1001,6 +1001,34 @@ func TestValidateTlsOptions(t *testing.T) {
 			},
 			"", "",
 		},
+		{
+			"mutual no server cert",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+			},
+			"MUTUAL TLS requires a server certificate", "",
+		},
+		{
+			"mutual no private key",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "Khan Noonien Singh",
+				PrivateKey:        "",
+				CaCertificates:    "Commander William T. Riker",
+			},
+			"MUTUAL TLS requires a private key", "",
+		},
+		{
+			"with CredentialNames",
+			&networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_MUTUAL,
+				CredentialNames: []string{"credential1", "credential2"},
+			},
+			"", "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
