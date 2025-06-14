@@ -1127,6 +1127,12 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 
 // DelegateVirtualServices lists all the delegate virtual services configkeys associated with the provided virtual services
 func (ps *PushContext) DelegateVirtualServices(vses []config.Config) []ConfigHash {
+	// when using VirtualServiceController we don't need to keep track of delegates since they are already merged by the controller
+	// and we're ensured we're going to receive a push for the parent virtual service whenever a delegate changes
+	if features.EnableVirtualServiceController {
+		return nil
+	}
+
 	var out []ConfigHash
 	for _, vs := range vses {
 		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {
@@ -1748,18 +1754,19 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
 	}
 
-	virtualServices := env.List(gvk.VirtualService, NamespaceAll)
+	vservices := env.List(gvk.VirtualService, NamespaceAll)
 
-	vservices := make([]config.Config, len(virtualServices))
+	totalVirtualServices.Record(float64(len(vservices)))
 
-	totalVirtualServices.Record(float64(len(virtualServices)))
+	// only perform resolution and merging if we're not using the virtual service controller
+	if !features.EnableVirtualServiceController {
+		// convert all shortnames in virtual services into FQDNs
+		for i, r := range vservices {
+			vservices[i] = ResolveVirtualServiceShortnames(r)
+		}
 
-	// convert all shortnames in virtual services into FQDNs
-	for i, r := range virtualServices {
-		vservices[i] = resolveVirtualServiceShortnames(r)
+		vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
 	}
-
-	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
