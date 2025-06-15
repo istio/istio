@@ -598,19 +598,19 @@ spec:
       version: v2
     name: v2
 `).ApplyOrFail(t)
-				var exp string
+				var exps []string
 				for _, w := range dst.WorkloadsOrFail(t) {
 					if t.Settings().AmbientMultiNetwork && src.Config().Cluster != w.Cluster() {
 						t.Skip("skipping cross-cluster test")
 					}
 					if strings.Contains(w.PodName(), "-v1") {
-						exp = w.PodName()
+						exps = append(exps, w.PodName())
 					}
 				}
 				opt.Count = 10
 				opt.Check = check.And(
 					check.OK(),
-					check.Hostname(exp))
+					check.Hostnames(exps))
 				src.CallOrFail(t, opt)
 			})
 		})
