@@ -2058,19 +2058,6 @@ func TestPolicyAfterPod(t *testing.T) {
 	}
 }
 
-type ambientclients struct {
-	pc    clienttest.TestClient[*corev1.Pod]
-	sc    clienttest.TestClient[*corev1.Service]
-	sec   clienttest.TestWriter[*corev1.Secret]
-	ns    clienttest.TestWriter[*corev1.Namespace]
-	grc   clienttest.TestWriter[*k8sbeta.Gateway]
-	gwcls clienttest.TestWriter[*k8sbeta.GatewayClass]
-	se    clienttest.TestWriter[*apiv1alpha3.ServiceEntry]
-	we    clienttest.TestWriter[*apiv1alpha3.WorkloadEntry]
-	pa    clienttest.TestWriter[*clientsecurityv1beta1.PeerAuthentication]
-	authz clienttest.TestWriter[*clientsecurityv1beta1.AuthorizationPolicy]
-}
-
 type ambientTestServer struct {
 	*index
 	*ambientclients
