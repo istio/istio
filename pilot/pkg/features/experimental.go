@@ -201,4 +201,7 @@ var (
 
 	EnvoyStatusPortEnableProxyProtocol = env.Register("ENVOY_STATUS_PORT_ENABLE_PROXY_PROTOCOL", false,
 		"If enabled, Envoy will support requests with proxy protocol on its status port").Get()
+
+	EnableVirtualServiceController = env.Register("PILOT_ENABLE_VIRTUAL_SERVICE_CONTROLLER", true,
+		"If true, an new optimized VirtualService merging controller is used.").Get()
 )
