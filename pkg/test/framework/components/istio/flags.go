@@ -29,7 +29,8 @@ func init() {
 	flag.StringVar(&settingsFromCommandline.PrimaryClusterIOPFile, "istio.test.kube.helm.iopFile", settingsFromCommandline.PrimaryClusterIOPFile,
 		"IstioOperator spec file. This can be an absolute path or relative to repository root.")
 	flag.StringVar(&helmValues, "istio.test.kube.helm.values", helmValues,
-		"Manual overrides for Helm values file. Only valid when deploying Istio.")
+		`DEPRECATED: Use istio.test.kube.helm.iopFile or istio.test.istio.operatorOptions instead.
+		Manual overrides for Helm values file. Only valid when deploying Istio.`)
 	flag.BoolVar(&settingsFromCommandline.DeployEastWestGW, "istio.test.kube.deployEastWestGW", settingsFromCommandline.DeployEastWestGW,
 		"Deploy Istio east west gateway into the target Kubernetes environment.")
 	flag.BoolVar(&settingsFromCommandline.DumpKubernetesManifests, "istio.test.istio.dumpManifests", settingsFromCommandline.DumpKubernetesManifests,
