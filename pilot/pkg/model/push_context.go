@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
@@ -2413,9 +2414,10 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
 			gwsvcs := strings.Split(gwsvcstr, ",")
 			known := sets.New[string](gwsvcs...)
+			cfgNamespace := ptr.NonEmptyOrDefault(cfg.Annotations[constants.InternalParentNamespace], cfg.Namespace)
 			matchingInstances := make([]ServiceTarget, 0, len(proxy.ServiceTargets))
 			for _, si := range proxy.ServiceTargets {
-				if _, f := known[string(si.Service.Hostname)]; f && si.Service.Attributes.Namespace == cfg.Namespace {
+				if _, f := known[string(si.Service.Hostname)]; f && si.Service.Attributes.Namespace == cfgNamespace {
 					matchingInstances = append(matchingInstances, si)
 				}
 			}
@@ -2549,21 +2551,13 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) {
 	}
 }
 
-// ReferenceAllowed determines if a given resource (of type `kind` and name `resourceName`) can be
+// SecretAllowed determines if a given resource (of type `Secret` and name `resourceName`) can be
 // accessed by `namespace`, based of specific reference policies.
 // Note: this function only determines if a reference is *explicitly* allowed; the reference may not require
 // explicit authorization to be made at all in most cases. Today, this only is for allowing cross-namespace
 // secret access.
-func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceName string, namespace string) bool {
-	// Currently, only Secret has reference policy, and only implemented by Gateway API controller.
-	switch kind {
-	case gvk.Secret:
-		if ps.GatewayAPIController != nil {
-			return ps.GatewayAPIController.SecretAllowed(resourceName, namespace)
-		}
-	default:
-	}
-	return false
+func (ps *PushContext) SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool {
+	return ps.GatewayAPIController.SecretAllowed(ourKind, resourceName, namespace)
 }
 
 func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string) []string {

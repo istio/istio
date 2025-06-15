@@ -1,0 +1,158 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: waypoint
+  namespace: istio-system
+spec:
+  addresses:
+    - value: istio-ingressgateway
+      type: Hostname
+  gatewayClassName: istio-waypoint
+  listeners:
+    - name: mesh
+      port: 15008
+      protocol: HBONE
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: parent-gateway
+  namespace: istio-system
+spec:
+  allowedListeners:
+    namespaces:
+      from: All
+  addresses:
+    - value: istio-ingressgateway
+      type: Hostname
+  gatewayClassName: istio
+  listeners:
+    - name: foo
+      hostname: foo.com
+      protocol: HTTP
+      port: 80
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: port-not-in-service
+  namespace: istio-system
+spec:
+  parentRef:
+    name: parent-gateway
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: first
+      hostname: first.foo.com
+      protocol: HTTP
+      port: 12345
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: not-accepted-parent
+  namespace: istio-system
+spec:
+  allowedListeners:
+    namespaces:
+      from: All
+  addresses:
+    - value: 0.0.0.0
+      type: test.example.com/custom
+  gatewayClassName: istio
+  listeners:
+    - name: foo
+      hostname: foo.com
+      protocol: HTTP
+      port: 80
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: not-accepted-parent
+  namespace: istio-system
+spec:
+  parentRef:
+    name: not-accepted-parent
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: first
+      hostname: first.foo.com
+      protocol: HTTP
+      port: 80
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: invalid-class
+  namespace: istio-system
+spec:
+  parentRef:
+    name: waypoint
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: first
+      hostname: first.foo.com
+      protocol: HTTP
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: parent-with-no-children
+  namespace: istio-system
+spec:
+  allowedListeners:
+    namespaces:
+      from: All
+  addresses:
+    - value: istio-ingressgateway
+      type: Hostname
+  gatewayClassName: istio
+  listeners:
+    - name: foo
+      hostname: foo.com
+      protocol: HTTP
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: parent-no-allowed-listeners
+  namespace: istio-system
+spec:
+  addresses:
+    - value: istio-ingressgateway
+      type: Hostname
+  gatewayClassName: istio
+  listeners:
+    - name: foo
+      hostname: foo.com
+      protocol: HTTP
+      port: 80
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: not-allowed
+  namespace: istio-system
+spec:
+  parentRef:
+    name: parent-no-allowed-listeners
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: first
+      hostname: first.foo.com
+      protocol: HTTP
+      port: 80
