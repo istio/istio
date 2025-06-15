@@ -33,8 +33,8 @@ GRAFANA_VERSION=${GRAFANA_VERSION:-"9.2.2"}
 {
 helm3 template kiali-server \
   --namespace istio-system \
-  --version 2.10.0 \
-  --set deployment.image_version=v2.10 \
+  --version 2.11.0 \
+  --set deployment.image_version=v2.11 \
   --include-crds \
   kiali-server \
   --repo https://kiali.org/helm-charts \
