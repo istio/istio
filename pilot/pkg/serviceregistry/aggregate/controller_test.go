@@ -71,7 +71,8 @@ func buildMockController() *Controller {
 		DiscoveryController: discovery2,
 	}
 
-	ctls := NewController(Options{&mockMeshConfigHolder{}})
+	// No config cluster (should be fine since this is a test)
+	ctls := NewController(Options{&mockMeshConfigHolder{}, ""})
 	ctls.AddRegistry(registry1)
 	ctls.AddRegistry(registry2)
 
