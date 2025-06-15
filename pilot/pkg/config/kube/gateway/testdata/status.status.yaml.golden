@@ -35,7 +35,7 @@ status:
     status: "True"
     type: Programmed
   listeners:
-  - attachedRoutes: 1
+  - attachedRoutes: 4
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -57,7 +57,35 @@ status:
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: default
+    name: a
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 4
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: b
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
@@ -68,30 +96,14 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   creationTimestamp: null
-  name: mixed-parent-ref-validity
-  namespace: default
+  name: existing-istio-first
+  namespace: istio-system
 spec: null
 status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      group: networking.istio.io
-      kind: ServiceEntry
-      name: egress
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
+      message: Route was valid, bound to 2 parents
       reason: Accepted
       status: "True"
       type: Accepted
@@ -103,13 +115,33 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
+  - controllerName: example.com/not-istio
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: not-istio
       namespace: istio-system
-      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: existing-istio-last
+  namespace: istio-system
+spec: null
+status:
+  parents:
+  - controllerName: example.com/not-istio
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: not-istio
+      namespace: istio-system
   - conditions:
     - lastTransitionTime: fake
-      message: port 1234 not found
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid, bound to 2 parents
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -119,13 +151,21 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
-      namespace: istio-system
-      port: 1234
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: stale-istio-reference
+  namespace: istio-system
+spec: null
+status:
+  parents:
   - conditions:
     - lastTransitionTime: fake
-      message: 'parent service: "random" not found'
-      reason: NoMatchingParent
-      status: "False"
+      message: Route was valid, bound to 2 parents
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: All references resolved
@@ -134,8 +174,35 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      group: ""
-      kind: Service
-      name: random
-      namespace: nonexistent
+      name: gateway
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: stale-other-reference
+  namespace: istio-system
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid, bound to 2 parents
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+  - controllerName: example.com/not-istio
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: not-istio
+      namespace: istio-system
 ---
