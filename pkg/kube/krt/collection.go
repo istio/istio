@@ -178,12 +178,6 @@ func objectChanged(dependencies []*dependency, sourceCollection collectionUID, e
 
 // manyCollection builds a mapping from I->O.
 // This can be built from transformation functions of I->*O or I->[]O; both are implemented by this same struct.
-// Locking used here is somewhat complex. We use two locks, mu and recomputeMu.
-//   - mu is responsible for locking the actual data we are storing. List()/Get() calls will lock this.
-//   - recomputeMu is responsible for ensuring there is mutually exclusive access to recomputation. Typically, in a controller
-//     pattern this would be accomplished by a queue. However, these add operational and performance overhead that is not required here.
-//     Instead, we ensure at most one goroutine is recomputing things at a time.
-//     This avoids two dependency updates happening concurrently and writing events out of order.
 type manyCollection[I, O any] struct {
 	// collectionName provides the collectionName for this collection.
 	collectionName string
@@ -413,12 +407,11 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 		}
 		items[idx] = ev
 	}
-	h.onPrimaryInputEventLocked(items)
+	h.handleChangedPrimaryInputEvents(items)
 }
 
-// onPrimaryInputEventLocked takes a list of I's that changed and reruns the handler over them.
-// This should be called with recomputeMu acquired.
-func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
+// handleChangedPrimaryInputEvents takes a list of I's that changed and reruns the handler over them.
+func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I]) {
 	var events []Event[O]
 	recomputedResults := make([]map[Key[O]]O, len(items))
 
@@ -438,7 +431,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		pendingDepStateUpdates[iKey] = ctx
 	}
 
-	// Now acquire the full lock. Note we still have recomputeMu held!
+	// Now acquire the full lock.
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for idx, a := range items {
@@ -695,7 +688,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 			})
 		}
 	}
-	h.onPrimaryInputEventLocked(toRun)
+	h.handleChangedPrimaryInputEvents(toRun)
 }
 
 // nolint: unused // it is used to implement interface
