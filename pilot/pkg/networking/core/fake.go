@@ -122,7 +122,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	configs := getConfigs(t, opts)
 	cc := opts.ConfigController
 	if cc == nil {
-		cc = memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
+		cc = memory.NewController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	}
 	controllers := []model.ConfigStoreController{cc}
 	if opts.CreateConfigStore != nil {
@@ -199,14 +199,15 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 }
 
 func (f *ConfigGenTest) Run() {
-	go f.Registry.Run(f.stop)
-	go f.store.Run(f.stop)
 	// Setup configuration. This should be done after registries are added so they can process events.
 	for _, cfg := range f.initialConfigs {
 		if _, err := f.store.Create(cfg); err != nil {
 			f.t.Fatalf("failed to create config %v: %v", cfg.Name, err)
 		}
 	}
+
+	go f.Registry.Run(f.stop)
+	go f.store.Run(f.stop)
 
 	// TODO allow passing event handlers for controller
 
