@@ -32,15 +32,15 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/test/util/assert"
 	istioversion "istio.io/istio/pkg/version"
-	"istio.io/istio/tests/util"
 )
 
 func TestXdsStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   map[string]*discovery.DiscoveryResponse
-		want    string
-		wantErr bool
+		name      string
+		input     map[string]*discovery.DiscoveryResponse
+		wantFile  string
+		wantErr   bool
+		verbosity int
 	}{
 		{
 			name: "prints multiple istiod inputs to buffer in alphabetical order by pod name",
@@ -94,7 +94,8 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					},
 				}),
 			},
-			want: "testdata/multiXdsStatusMultiPilot.txt",
+			wantFile:  "testdata/multiXdsStatusMultiPilot.txt",
+			verbosity: 0,
 		},
 		{
 			name: "prints single istiod input to buffer in alphabetical order by pod name",
@@ -122,13 +123,33 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					},
 				}),
 			},
-			want: "testdata/multiXdsStatusSinglePilot.txt",
+			wantFile:  "testdata/multiXdsStatusSinglePilot.txt",
+			verbosity: 0,
+		},
+		{
+			name: "prints all known xds types at max verbosity",
+			input: map[string]*discovery.DiscoveryResponse{
+				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
+					{
+						proxyID:        "proxy1",
+						clusterID:      "cluster1",
+						version:        "1.20",
+						cdsSyncStatus:  status.ConfigStatus_STALE,
+						ldsSyncStatus:  status.ConfigStatus_SYNCED,
+						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
+						edsSyncStatus:  status.ConfigStatus_SYNCED,
+						ecdsSyncStatus: status.ConfigStatus_SYNCED,
+					},
+				}),
+			},
+			wantFile:  "testdata/multiXdsStatusMultiPilot_verbose.txt",
+			verbosity: 1,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
-			sw := XdsStatusWriter{Writer: got}
+			sw := XdsStatusWriter{Writer: got, Verbosity: tt.verbosity}
 			input := map[string]*discovery.DiscoveryResponse{}
 			for key, ss := range tt.input {
 				input[key] = ss
@@ -140,9 +161,9 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-			want, _ := os.ReadFile(tt.want)
-			if err := util.Compare(got.Bytes(), want); err != nil {
-				t.Error(err)
+			want, _ := os.ReadFile(tt.wantFile)
+			if got.String() != string(want) {
+				t.Errorf("Unexpected output for '%s' (verbosity=%d)\n got: %q\nwant: %q", tt.name, tt.verbosity, got.String(), string(want))
 			}
 		})
 	}
