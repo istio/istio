@@ -210,6 +210,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 				timeouts.With(clusterLabel.Value(string(c.ID))).Increment()
 			}
 			c.initialSyncTimeout.Store(true)
+			c.initialized.Store(true)
 		})
 	}
 
@@ -289,11 +290,6 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		)...,
 	)...)
 
-	if !c.Client.RunAndWait(c.stop) {
-		log.Warnf("remote cluster %s failed to sync", c.ID)
-		return
-	}
-
 	c.RemoteClusterCollections = &RemoteClusterCollections{
 		namespaces:     Namespaces,
 		pods:           Pods,
@@ -302,6 +298,11 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		nodes:          Nodes,
 		gateways:       Gateways,
 		configmaps:     ConfigMaps,
+	}
+
+	if !c.Client.RunAndWait(c.stop) {
+		log.Warnf("remote cluster %s failed to sync", c.ID)
+		return
 	}
 
 	c.initialized.Store(true)
@@ -319,7 +320,7 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 	for _, syncer := range syncers {
 		if !syncer.WaitUntilSynced(c.stop) {
 			log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
-			continue
+			return
 		}
 	}
 
