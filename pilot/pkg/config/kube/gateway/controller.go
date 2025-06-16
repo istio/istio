@@ -235,7 +235,7 @@ func NewController(
 		c.tagWatcher,
 		opts,
 	)
-	status.RegisterStatus(c.status, ListenerSetStatus)
+	status.RegisterStatus(c.status, ListenerSetStatus, GetStatus)
 
 	DestinationRules := DestinationRuleCollection(
 		inputs.BackendTrafficPolicy,

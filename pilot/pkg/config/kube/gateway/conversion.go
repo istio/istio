@@ -2390,6 +2390,8 @@ func GetStatus[I, IS any](spec I) IS {
 		return any(t.Status).(IS)
 	case *gatewayalpha3.BackendTLSPolicy:
 		return any(t.Status).(IS)
+	case *gatewayx.XListenerSet:
+		return any(t.Status).(IS)
 	default:
 		log.Fatalf("unknown type %T", t)
 		return ptr.Empty[IS]()
