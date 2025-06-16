@@ -1,3 +1,3 @@
-NAMESPACE     NAME         REVISION     PROGRAMMED
-default       waypoint     default      True
-fake          waypoint     default      True
+NAMESPACE     NAME         REVISION     TRAFFIC TYPE     PROGRAMMED
+default       waypoint     default      none             True
+fake          waypoint     default      none             True
