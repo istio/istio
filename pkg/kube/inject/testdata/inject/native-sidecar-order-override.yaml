@@ -15,6 +15,15 @@ spec:
       ports:
         - name: http
           containerPort: 80
+    - name: override-sidecar
+      restartPolicy: Always
+      readinessProbe:
+        httpGet:
+          port: 3333
+      image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+      ports:
+        - name: http
+          containerPort: 80
   containers:
     - name: hello
       image: "fake.docker.io/google-samples/hello-go-gke:1.0"
