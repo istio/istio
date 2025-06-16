@@ -5,4 +5,4 @@ issue:
   - 56587
 releaseNotes:
 - |
-  **Fixed** `istio-iptables`` ignoring certain IPv4 states in favor of IPv6 when deciding whether new iptables rules needed to be applied.
+  **Fixed** `istio-iptables` sometimes ignoring the IPv4 state in favor of the IPv6 one when deciding whether new iptables rules needed to be applied.
