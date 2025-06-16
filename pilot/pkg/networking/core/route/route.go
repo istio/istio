@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -381,7 +382,7 @@ type RouteOptions struct {
 	LookupDestinationCluster  func(destination *networking.Destination, service *model.Service, listenerPort int) string
 	LookupHash                func(*networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB
 
-	InferencePoolExtensionRefs map[string]string
+	InferencePoolExtensionRefs map[string]kube.InferencePoolRouteRuleConfig
 }
 
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
@@ -506,35 +507,34 @@ func TranslateRoute(
 	}
 
 	var hostnames []host.Name
-	if opts.InferencePoolExtensionRefs != nil {
-		if infPoolExtRef, ok := opts.InferencePoolExtensionRefs[in.Name]; ok {
-			extSvc, extPort := strings.Split(infPoolExtRef, ":")[0], strings.Split(infPoolExtRef, ":")[1]
-			p, _ := strconv.ParseInt(extPort, 10, 32)
-			if out.TypedPerFilterConfig == nil {
-				out.TypedPerFilterConfig = make(map[string]*anypb.Any)
-			}
-			out.TypedPerFilterConfig[wellknown.HTTPExternalProcessing] = protoconv.MessageToAny(&extproc.ExtProcPerRoute{
-				Override: &extproc.ExtProcPerRoute_Overrides{
-					Overrides: &extproc.ExtProcOverrides{
-						GrpcService: &core.GrpcService{
-							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-									ClusterName: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", host.Name(extSvc), int(p)),
-								},
+	if infPoolRouteRuleCfg, ok := opts.InferencePoolExtensionRefs[in.Name]; ok {
+		// This route has an inference pool config, set up ext_proc
+		extSvcHost := host.Name(infPoolRouteRuleCfg.FQDN)
+		extPortNum, _ := strconv.Atoi(infPoolRouteRuleCfg.Port)
+		if out.TypedPerFilterConfig == nil {
+			out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+		}
+		out.TypedPerFilterConfig[wellknown.HTTPExternalProcessing] = protoconv.MessageToAny(&extproc.ExtProcPerRoute{
+			Override: &extproc.ExtProcPerRoute_Overrides{
+				Overrides: &extproc.ExtProcOverrides{
+					GrpcService: &core.GrpcService{
+						TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+							EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+								ClusterName: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", extSvcHost, extPortNum),
 							},
 						},
-						ProcessingMode: &extproc.ProcessingMode{
-							RequestHeaderMode: extproc.ProcessingMode_SEND,
-							// open AI standard includes the model and other information the ext_proc server needs in the request body
-							RequestBodyMode:    extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
-							ResponseHeaderMode: extproc.ProcessingMode_SEND,
-							// GIE collects statistics present in the open AI standard response message
-							ResponseBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
-						},
+					},
+					ProcessingMode: &extproc.ProcessingMode{
+						RequestHeaderMode: extproc.ProcessingMode_SEND,
+						// open AI standard includes the model and other information the ext_proc server needs in the request body
+						RequestBodyMode:    extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
+						ResponseHeaderMode: extproc.ProcessingMode_SEND,
+						// GIE collects statistics present in the open AI standard response message
+						ResponseBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
 					},
 				},
-			})
-		}
+			},
+		})
 	}
 	if in.Redirect != nil {
 		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
@@ -1630,18 +1630,13 @@ func cutPrefix(s, prefix string) (after string, found bool) {
 	return s[len(prefix):], true
 }
 
-func CheckAndGetInferencePoolConfigs(virtualService config.Config) map[string]string {
-	vs := virtualService.Spec.(*networking.VirtualService)
-	infPoolConfigs := map[string]string{}
-	for _, httpRoute := range vs.Http {
-		routeNameParts := strings.Split(httpRoute.Name, "%%")
-		if len(routeNameParts) > 2 {
-			// TODO(liorlieberman): support configurable domain names
-			fqdn := fmt.Sprintf("%s.%s.svc.%s", routeNameParts[1], virtualService.Namespace, "cluster.local")
-			ipcfg := fqdn + ":" + routeNameParts[2]
-			infPoolConfigs[httpRoute.Name] = ipcfg
-
+// CheckAndGetInferencePoolConfigs extracts inference pool configurations from a VirtualService's Extra field.
+// The expected structure in Extra is map[string]model.InferencePoolRouteRuleConfig.
+func CheckAndGetInferencePoolConfigs(virtualService config.Config) map[string]kube.InferencePoolRouteRuleConfig {
+	if virtualService.Extra != nil {
+		if infPoolConfigs, ok := virtualService.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs].(map[string]kube.InferencePoolRouteRuleConfig); ok {
+			return infPoolConfigs
 		}
 	}
-	return infPoolConfigs
+	return nil
 }

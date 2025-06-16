@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
@@ -49,6 +50,9 @@ func HTTPRouteCollection(
 		[]RouteWithKey,
 	) {
 		ctx := inputs.WithCtx(krtctx)
+		// routeRuleToInferencePoolCfg stores inference pool configs discovered during route rule conversion,
+		// keyed by the istio.HTTPRoute.Name.
+		routeRuleToInferencePoolCfg := make(map[string]*inferencePoolConfig)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(mesh bool, obj *gateway.HTTPRoute) iter.Seq2[*istio.HTTPRoute, *ConfigError] {
@@ -63,7 +67,11 @@ func HTTPRouteCollection(
 						if m != nil {
 							r.Matches = []gateway.HTTPRouteMatch{*m}
 						}
-						if !yield(convertHTTPRoute(ctx, r, obj, n, !mesh)) {
+						istioRoute, ipCfg, configErr := convertHTTPRoute(ctx, r, obj, n, !mesh)
+						if istioRoute != nil && ipCfg != nil && ipCfg.enableExtProc {
+							routeRuleToInferencePoolCfg[istioRoute.Name] = ipCfg
+						}
+						if !yield(istioRoute, configErr) {
 							return
 						}
 					}
@@ -116,6 +124,22 @@ func HTTPRouteCollection(
 				}
 				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
 				sortHTTPRoutes(routes)
+
+				// Populate Extra field for inference pool configs
+				extraData := make(map[string]any)
+				currentRouteInferenceConfigs := make(map[string]kube.InferencePoolRouteRuleConfig)
+				for _, httpRule := range routes { // These are []*istio.HTTPRoute
+					if ipCfg, found := routeRuleToInferencePoolCfg[httpRule.Name]; found {
+						currentRouteInferenceConfigs[httpRule.Name] = kube.InferencePoolRouteRuleConfig{
+							FQDN: ipCfg.endpointPickerDst,
+							Port: ipCfg.endpointPickerPort,
+						}
+					}
+				}
+				if len(currentRouteInferenceConfigs) > 0 {
+					extraData[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = currentRouteInferenceConfigs
+				}
+
 				cfg := &config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
@@ -130,6 +154,7 @@ func HTTPRouteCollection(
 						Gateways: []string{parent.InternalName},
 						Http:     routes,
 					},
+					Extra: extraData,
 				}
 				virtualServices = append(virtualServices, RouteWithKey{
 					Config: cfg,
@@ -165,6 +190,9 @@ func GRPCRouteCollection(
 		[]RouteWithKey,
 	) {
 		ctx := inputs.WithCtx(krtctx)
+		// routeRuleToInferencePoolCfg stores inference pool configs discovered during route rule conversion.
+		// Note: GRPCRoute currently doesn't have inference pool logic, but adding for consistency.
+		routeRuleToInferencePoolCfg := make(map[string]*inferencePoolConfig)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(mesh bool, obj *gatewayv1.GRPCRoute) iter.Seq2[*istio.HTTPRoute, *ConfigError] {
@@ -179,7 +207,13 @@ func GRPCRouteCollection(
 						if m != nil {
 							r.Matches = []gatewayv1.GRPCRouteMatch{*m}
 						}
-						if !yield(convertGRPCRoute(ctx, r, obj, n, !mesh)) {
+						// GRPCRoute conversion currently doesn't return ipCfg.
+						istioRoute, configErr := convertGRPCRoute(ctx, r, obj, n, !mesh)
+						// Placeholder if GRPCRoute ever supports inference pools via ipCfg:
+						// if istioRoute != nil && ipCfg != nil && ipCfg.enableExtProc {
+						// 	routeRuleToInferencePoolCfg[istioRoute.Name] = ipCfg
+						// }
+						if !yield(istioRoute, configErr) {
 							return
 						}
 					}
@@ -232,6 +266,22 @@ func GRPCRouteCollection(
 				}
 				name := fmt.Sprintf("%s-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
 				sortHTTPRoutes(routes)
+
+				// Populate Extra field for inference pool configs (if GRPCRoute supports them)
+				extraData := make(map[string]any)
+				currentRouteInferenceConfigs := make(map[string]kube.InferencePoolRouteRuleConfig)
+				for _, httpRule := range routes {
+					if ipCfg, found := routeRuleToInferencePoolCfg[httpRule.Name]; found { // This map will be empty for GRPCRoute for now
+						currentRouteInferenceConfigs[httpRule.Name] = kube.InferencePoolRouteRuleConfig{
+							FQDN: ipCfg.endpointPickerDst,
+							Port: ipCfg.endpointPickerPort,
+						}
+					}
+				}
+				if len(currentRouteInferenceConfigs) > 0 {
+					extraData[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = currentRouteInferenceConfigs
+				}
+
 				cfg := &config.Config{
 					Meta: config.Meta{
 						CreationTimestamp: obj.CreationTimestamp.Time,
@@ -246,6 +296,7 @@ func GRPCRouteCollection(
 						Gateways: []string{parent.InternalName},
 						Http:     routes,
 					},
+					Extra: extraData,
 				}
 				virtualServices = append(virtualServices, RouteWithKey{
 					Config: cfg,
