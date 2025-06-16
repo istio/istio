@@ -620,7 +620,10 @@ message GlobalConfig {
 
   // Select a custom name for istiod's CA Root Cert ConfigMap.
   string trustBundleName = 73;
-  // The next available key is 74
+
+  // Specifies whether native nftables rules should be used instead of iptables rules for traffic redirection.
+  google.protobuf.BoolValue nativeNftables = 74;
+  // The next available key is 75
 }
 
 // Configuration for Security Token Service (STS) server.
