@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -101,6 +102,8 @@ type Controller struct {
 	// Currently, the only usage of this controller is from non-krt things (PushContext) so this is not exposed directly.
 	// If desired in the future, it could be.
 	outputs Outputs
+
+	domainSuffix string // the domain suffix to use for generated resources
 }
 
 type ParentInfo struct {
@@ -118,10 +121,11 @@ type TypedResource struct {
 }
 
 type Outputs struct {
-	Gateways         krt.Collection[Gateway]
-	VirtualServices  krt.Collection[*config.Config]
-	ReferenceGrants  ReferenceGrants
-	DestinationRules krt.Collection[*config.Config]
+	Gateways              krt.Collection[Gateway]
+	VirtualServices       krt.Collection[*config.Config]
+	ReferenceGrants       ReferenceGrants
+	DestinationRules      krt.Collection[*config.Config]
+	InferencePoolServices krt.Collection[*corev1.Service]
 }
 
 type Inputs struct {
@@ -141,6 +145,7 @@ type Inputs struct {
 	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
 	BackendTLSPolicies   krt.Collection[*gatewayalpha3.BackendTLSPolicy]
 	ServiceEntries       krt.Collection[*networkingclient.ServiceEntry]
+	InferencePools       krt.Collection[*inferencev1alpha2.InferencePool]
 }
 
 var _ model.GatewayController = &Controller{}
@@ -165,6 +170,7 @@ func NewController(
 		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[GatewayContext](nil), false, opts.WithName("gatewayContext")...),
 		stop:           stop,
 		xdsUpdater:     xdsUpdater,
+		domainSuffix:   options.DomainSuffix,
 	}
 	tw.AddHandler(func(s sets.String) {
 		c.tagWatcher.TriggerRecomputation()
@@ -208,6 +214,13 @@ func NewController(
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
 	}
 
+	if features.SupportGatewayAPIInferenceExtension {
+		inputs.InferencePools = buildClient[*inferencev1alpha2.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
+	} else {
+		// If disabled, still build a collection but make it always empty
+		inputs.InferencePools = krt.NewStaticCollection[*inferencev1alpha2.InferencePool](nil, nil, opts.WithName("disable/InferencePools")...)
+	}
+
 	references := NewReferenceSet(
 		AddReference(inputs.Services),
 		AddReference(inputs.ConfigMaps),
@@ -215,6 +228,8 @@ func NewController(
 	)
 
 	handlers := []krt.HandlerRegistration{}
+
+	httpRoutesByNamespace := krt.NewNamespaceIndex(inputs.HTTPRoutes)
 
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
 	status.RegisterStatus(c.status, GatewayClassStatus, GetStatus)
@@ -225,12 +240,12 @@ func NewController(
 		inputs.BackendTrafficPolicy,
 		inputs.BackendTLSPolicies,
 		references,
-		options.DomainSuffix,
+		c.domainSuffix,
 		c,
 		opts,
 	)
 
-	// GatewaysStatus cannot is not fully complete until its join with route attachments to report attachedRoutes.
+	// GatewaysStatus is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
 	GatewaysStatus, Gateways := GatewayCollection(
 		inputs.Gateways,
@@ -238,21 +253,43 @@ func NewController(
 		inputs.Namespaces,
 		ReferenceGrants,
 		inputs.Secrets,
-		options.DomainSuffix,
+		c.domainSuffix,
 		c.gatewayContext,
 		c.tagWatcher,
 		opts,
 	)
+
+	InferencePoolStatus, InferencePools := InferencePoolCollection(
+		inputs.InferencePools,
+		inputs.Services,
+		inputs.HTTPRoutes,
+		inputs.Gateways,
+		httpRoutesByNamespace,
+		c,
+		opts,
+	)
+	status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
+
+	InferencePoolServices := krt.NewCollection(InferencePools, func(ctx krt.HandlerContext, ip InferencePool) **corev1.Service {
+		svc := krt.FetchOne(ctx, inputs.Services, krt.FilterKey(ip.shadowService.key.String()))
+		if svc == nil {
+			log.Debugf("InferencePool %s has no shadow service", ip.Namespace+"/"+ip.Name)
+			return nil
+		}
+
+		return svc
+	}, opts.WithName("InferencePoolShadowServices")...)
 
 	RouteParents := BuildRouteParents(Gateways)
 
 	routeInputs := RouteContextInputs{
 		Grants:          ReferenceGrants,
 		RouteParents:    RouteParents,
-		DomainSuffix:    options.DomainSuffix,
+		DomainSuffix:    c.domainSuffix,
 		Services:        inputs.Services,
 		Namespaces:      inputs.Namespaces,
 		ServiceEntries:  inputs.ServiceEntries,
+		InferencePools:  inputs.InferencePools,
 		internalContext: c.gatewayContext,
 	}
 	tcpRoutes := TCPRouteCollection(
@@ -301,10 +338,11 @@ func NewController(
 	}, opts.WithName("DerivedVirtualServices")...)
 
 	outputs := Outputs{
-		ReferenceGrants:  ReferenceGrants,
-		Gateways:         Gateways,
-		VirtualServices:  VirtualServices,
-		DestinationRules: DestinationRules,
+		ReferenceGrants:       ReferenceGrants,
+		Gateways:              Gateways,
+		VirtualServices:       VirtualServices,
+		DestinationRules:      DestinationRules,
+		InferencePoolServices: InferencePoolServices,
 	}
 	c.outputs = outputs
 
@@ -388,6 +426,24 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 	case gvk.DestinationRule:
 		return slices.Map(c.outputs.DestinationRules.List(), func(e *config.Config) config.Config {
 			return *e
+		})
+	case gvk.Service:
+		if !features.SupportGatewayAPIInferenceExtension {
+			return nil
+		}
+		return slices.Map(c.outputs.InferencePoolServices.List(), func(svc *corev1.Service) config.Config {
+			return config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Service,
+					Name:             svc.Name,
+					Namespace:        svc.Namespace,
+					Labels:           svc.Labels,
+					Annotations:      svc.Annotations,
+					Domain:           c.domainSuffix,
+				},
+				Spec:   svc.Spec,
+				Status: svc.Status,
+			}
 		})
 	default:
 		return nil
