@@ -701,6 +701,45 @@ func TestValidateTlsOptions(t *testing.T) {
 			"server certificate", "",
 		},
 		{
+			"credential names and certificates",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "/etc/istio/certs/server/cert",
+				PrivateKey:        "/etc/istio/certs/server/key",
+				CredentialNames:   []string{"server-certs"},
+			},
+			"one of credential_name, credential_names", "",
+		},
+		{
+			"credential names and tls certificates",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "/etc/istio/certs/server/cert",
+						PrivateKey:        "/etc/istio/certs/server/key",
+						CaCertificates:    "/etc/istio/certs/server/cacert2",
+					},
+				},
+				CredentialNames: []string{"server-certs"},
+			},
+			"one of credential_name, credential_names", "",
+		},
+		{
+			"only tls certificates",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "/etc/istio/certs/server/cert",
+						PrivateKey:        "/etc/istio/certs/server/key",
+					},
+				},
+				CaCertificates: "/etc/istio/certs/server/cacert2",
+			},
+			"", "",
+		},
+		{
 			"mutual sds no server cert",
 			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_MUTUAL,
