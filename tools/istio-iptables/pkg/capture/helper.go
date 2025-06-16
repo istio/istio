@@ -157,8 +157,9 @@ func VerifyIptablesState(
 	for _, res := range results {
 		globalDeltaExists = globalDeltaExists || res.deltaExists
 		if res.residueExists && res.plannedIstioRules {
-			log.Infof("Ignoring residues because no rules are planned for %s", res.versionName)
 			globalResidueExists = true
+		} else if res.residueExists {
+			log.Infof("Ignoring residues because no rules are planned for %s", res.versionName)
 		}
 	}
 
