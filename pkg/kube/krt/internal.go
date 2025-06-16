@@ -159,8 +159,8 @@ func getLabelSelector(a any) map[string]string {
 	}
 }
 
-// equal checks if two objects are equal. This is done through a variety of different methods, depending on the input type.
-func equal[O any](a, b O) bool {
+// Equal checks if two objects are equal. This is done through a variety of different methods, depending on the input type.
+func Equal[O any](a, b O) bool {
 	ak, ok := any(a).(Equaler[O])
 	if ok {
 		return ak.Equals(b)
