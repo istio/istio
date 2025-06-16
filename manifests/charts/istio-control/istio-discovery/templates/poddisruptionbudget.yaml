@@ -16,7 +16,14 @@ metadata:
     app.kubernetes.io/name: "istiod"
     {{- include "istio.labels" . | nindent 4 }}
 spec:
-  minAvailable: 1
+  {{- if and .Values.minAvailable (not (hasKey .Values "maxUnavailable")) }}
+  minAvailable: {{ .Values.minAvailable }}
+  {{- else if .Values.maxUnavailable }}
+  maxUnavailable: {{ .Values.maxUnavailable }}
+  {{- end }}
+  {{- if .Values.unhealthyPodEvictionPolicy }}
+  unhealthyPodEvictionPolicy: {{ .Values.unhealthyPodEvictionPolicy }}
+  {{- end }}
   selector:
     matchLabels:
       app: istiod
