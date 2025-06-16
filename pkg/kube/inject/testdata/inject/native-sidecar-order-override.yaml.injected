@@ -67,6 +67,17 @@ spec:
       runAsNonRoot: false
       runAsUser: 0
   - image: fake.docker.io/google-samples/hello-go-gke:1.0
+    name: override-sidecar
+    ports:
+    - containerPort: 80
+      name: http
+    readinessProbe:
+      httpGet:
+        path: /app-health/override-sidecar/readyz
+        port: 15020
+    resources: {}
+    restartPolicy: Always
+  - image: fake.docker.io/google-samples/hello-go-gke:1.0
     name: other-sidecar
     ports:
     - containerPort: 80
@@ -152,7 +163,7 @@ spec:
     - name: TRUST_DOMAIN
       value: cluster.local
     - name: ISTIO_KUBE_APP_PROBERS
-      value: '{"/app-health/other-sidecar/readyz":{"httpGet":{"port":3333}}}'
+      value: '{"/app-health/other-sidecar/readyz":{"httpGet":{"port":3333}},"/app-health/override-sidecar/readyz":{"httpGet":{"port":3333}}}'
     image: gcr.io/istio-testing/proxyv2:latest
     lifecycle:
       preStop:

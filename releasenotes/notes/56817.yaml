@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 56817
+releaseNotes:
+  - |
+    **Fixed** - adding option to reorder init sidecar containers when native sidecar is enabled based on istio-proxy container location

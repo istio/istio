@@ -46,6 +46,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	opconfig "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -95,6 +96,8 @@ const (
 	// Containers is the name of the property in k8s pod spec
 	Containers = "containers"
 )
+
+const InitContainersBeforeProxy = "sidecar.istio.io/init-containers-before-proxy"
 
 type WebhookConfig struct {
 	Templates  Templates
@@ -787,16 +790,39 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 		proxyLocation = MoveFirst
 	}
 
+	// Check for annotation describing containers to order before the proxy container
+	var initContainersBeforeProxy = make([]string, 0)
+	var dedupInitContainersBeforeProxy = make(map[string]bool)
+
+	// Combine feature and annotation values into a single string
+	containersBeforeProxy := features.InitContainerBeforeProxy.Get()
+	if value, ok := pod.Annotations[InitContainersBeforeProxy]; ok && value != "" {
+		containersBeforeProxy = strings.Join([]string{containersBeforeProxy, value}, ",")
+	}
+
+	// Populate the map only if containersBeforeProxy is not empty
+	if containersBeforeProxy != "" {
+		for _, containerName := range strings.Split(containersBeforeProxy, ",") {
+			if _, exists := dedupInitContainersBeforeProxy[containerName]; !exists {
+				initContainersBeforeProxy = append(initContainersBeforeProxy, containerName)
+				dedupInitContainersBeforeProxy[containerName] = true
+			}
+		}
+	}
+
 	// Proxy container should be last, unless HoldApplicationUntilProxyStarts is set
 	// This is to ensure `kubectl exec` and similar commands continue to default to the user's container
 	pod.Spec.Containers = modifyContainers(pod.Spec.Containers, ProxyContainerName, proxyLocation)
 
 	if hasContainer(pod.Spec.InitContainers, ProxyContainerName) {
 		// This is using native sidecar support in K8s.
-		// We want istio to be first in this case, so init containers are part of the mesh
 		// This is {istio-init/istio-validation} => proxy => rest.
 		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, EnableCoreDumpName, MoveFirst)
 		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, ProxyContainerName, MoveFirst)
+		// Ensure containersBeforeProxy are ordered before the proxy container
+		for i := len(initContainersBeforeProxy) - 1; i >= 0; i-- {
+			pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, initContainersBeforeProxy[i], MoveFirst)
+		}
 		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, ValidationContainerName, MoveFirst)
 		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, InitContainerName, MoveFirst)
 	} else {
