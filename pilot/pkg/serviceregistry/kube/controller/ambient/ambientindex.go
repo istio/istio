@@ -19,6 +19,8 @@ import (
 	"strings"
 
 	"google.golang.org/protobuf/types/known/wrapperspb"
+
+	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,6 +54,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -661,6 +664,11 @@ func (a *index) All() []model.AddressInfo {
 	// Only include workloads that are local to the cluster or have a global scope
 	// create map for eds workloads
 	edsWorkloads := map[string]*model.WorkloadInfo{}
+	// key is service, value is sans of remote workloads in full spiffe format
+	remoteWlSans := map[string]map[string]struct{}{}
+
+	// Loop through every workload,service pair to create EDS workloads
+	// Also keep track of identities of remote workloads to add to the corresponding services' sans.
 	for _, wl := range a.workloads.List() {
 		if wl.Workload.ClusterId == string(a.ClusterID) {
 			res = append(res, wl.AsAddress)
@@ -671,12 +679,21 @@ func (a *index) All() []model.AddressInfo {
 		// jaellio: Another example of where ScopeForService is not ideal
 		// For each services
 		for namespacedSvc, scope := range wl.ScopeForService {
-			wlNetwork := network.ID(wl.Workload.Network)
-
-			// Just add local workloads
+			// only add EDS workloads for global services
 			if scope != model.Global {
 				continue
 			}
+			wlNetwork := network.ID(wl.Workload.Network)
+
+			// Take note of the workload's SAN.
+			saName := wl.Workload.ServiceAccount
+			if saName == "" {
+				saName = "default"
+			}
+			if _, ok := remoteWlSans[namespacedSvc]; !ok {
+				remoteWlSans[namespacedSvc] = map[string]struct{}{}
+			}
+			remoteWlSans[namespacedSvc][spiffe.MustGenSpiffeURI(a.meshConfig.Mesh(), wl.Workload.Namespace, saName)] = struct{}{}
 
 			// parse the service key
 			parts := strings.Split(namespacedSvc, "/")
@@ -729,11 +746,33 @@ func (a *index) All() []model.AddressInfo {
 
 	// Include all services since we are assuming uniform configuration
 	// TODO(jaellio): Gracefully handle non uniform configurations
-	for _, s := range a.services.List() {
-		res = append(res, s.AsAddress)
+	for _, orig_svc := range a.services.List() {
+		sans, ok := remoteWlSans[orig_svc.ResourceName()]
+		if !ok {
+			// No remote workloads for this service, just append the original service
+			res = append(res, orig_svc.AsAddress)
+			continue
+		}
+		// There are remote workloads for this service, so we need to create a new service with the remote SANs.
+		// TODO(stevenjin8): DeepCopy is a bit of an overkill.
+		newSvc := orig_svc
+		newSvc.Service, ok = proto.Clone(orig_svc.Service).(*workloadapi.Service)
+		if !ok {
+			// panic?
+			log.Errorf("Failed to clone service %s/%s", orig_svc.Service.Namespace, orig_svc.Service.Name)
+			continue
+		}
+		for s := range sans {
+			sans[s] = struct{}{}
+		}
+		newSvc.Service.SubjectAltNames = nil
+		for s, _ := range sans {
+			newSvc.Service.SubjectAltNames = append(newSvc.Service.SubjectAltNames, s)
+		}
+		// We need to precompute the workload for this service, so that we can get the address
+		res = append(res, precomputeService(newSvc).AsAddress)
 	}
 
-	// TODO(stevenjin8) merge here
 	return res
 }
 
@@ -748,7 +787,7 @@ func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, loca
 		Namespace:      networkGateway.Source.Namespace,
 		Network:        networkGateway.Network.String(),
 		TrustDomain:    pickTrustDomain(a.meshConfig.Get()), // TODO(stevenjin8): We assume uniform trust domains right?
-		ServiceAccount: networkGateway.ServiceAccount.String(),
+		ServiceAccount: networkGateway.ServiceAccount.Name,
 		Capacity:       &wrapperspb.UInt32Value{Value: 1},
 		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
 		Addresses:      [][]byte{address.AsSlice()},
@@ -776,13 +815,13 @@ func (a *index) createEDSWorkload(
 	}
 
 	wl := workloadapi.Workload{
-		Uid:            edsWorkloadUID,
-		Name:           edsWorkloadUID, // TODO(stevenjin8): better name?
-		Namespace:      svcNamespace,
-		Network:        networkGateway.Network.String(),
-		TrustDomain:    pickTrustDomain(a.meshConfig.Get()), // TODO(stevenjin8): We assume uniform trust domains right?
-		Capacity:       &wrapperspb.UInt32Value{Value: 1},
-		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
+		Uid:          edsWorkloadUID,
+		Name:         edsWorkloadUID, // TODO(stevenjin8): better name?
+		Namespace:    svcNamespace,
+		Network:      networkGateway.Network.String(),
+		TrustDomain:  pickTrustDomain(a.meshConfig.Get()), // TODO(stevenjin8): We assume uniform trust domains right?
+		Capacity:     &wrapperspb.UInt32Value{Value: 1},
+		WorkloadType: workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
 		NetworkGateway: &workloadapi.GatewayAddress{
 			Destination: &workloadapi.GatewayAddress_Address{
 				Address: &workloadapi.NetworkAddress{
