@@ -313,8 +313,13 @@ spec:
 }
 
 func TaggedGatewayTest(t framework.TestContext) {
+	revision := "default"
+	if t.Settings().Revision != "" {
+		revision = t.Settings().Revision
+	}
+
 	istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(
-		t, strings.Split("tag set tag --revision default", " "))
+		t, append(strings.Split("tag set tag --revision", " "), revision))
 
 	testCases := []struct {
 		check         echo.Checker
