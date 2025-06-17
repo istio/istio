@@ -230,7 +230,7 @@ spec:
           exact: some-value
       uri:
         prefix: /infpool
-    name: '%%ext-proc-svc%%9002%%default.multiple-inferencepool-backend-refs.0'
+    name: default.multiple-inferencepool-backend-refs.0
     route:
     - destination:
         host: infpool-gen-ip-6580eb2c.default.svc.domain.suffix
@@ -240,7 +240,7 @@ spec:
           exact: some-value-2
       uri:
         prefix: /infpool
-    name: '%%ext-proc-svc-2%%9002%%default.multiple-inferencepool-backend-refs.1'
+    name: default.multiple-inferencepool-backend-refs.1
     route:
     - destination:
         host: infpool-gen2-ip-97b729d1.default.svc.domain.suffix
