@@ -1512,29 +1512,29 @@ func TestDetectNativeSidecar(t *testing.T) {
 				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.34.0"}}},
 			},
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, false)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 			want: false,
 		},
 		{
-			name: "kube versions greater than 1.33 with env enabled should enable native sidecar",
+			name: "kube versions greater than 1.33 with env auto should enable native sidecar",
 			nodes: []*corev1.Node{
 				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
 				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.34.0"}}},
 			},
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, true)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
 			},
 			want: true,
 		},
 		{
-			name: "kube versions less than 1.33 with env enabled should disable native sidecar",
+			name: "kube versions less than 1.33 with env auto should disable native sidecar",
 			nodes: []*corev1.Node{
 				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
 				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.29.0"}}},
 			},
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, true)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
 			},
 			want: false,
 		},
@@ -1545,7 +1545,7 @@ func TestDetectNativeSidecar(t *testing.T) {
 				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
 			},
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, true)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
 			},
 			want: false,
 		},
@@ -1553,9 +1553,20 @@ func TestDetectNativeSidecar(t *testing.T) {
 			name:  "no nodes should disable native sidecar",
 			nodes: []*corev1.Node{{}},
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, true)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
 			},
 			want: false,
+		},
+		{
+			name: "clusters with at least one node on unsupported version should enable native sidecar if explicitly enabled",
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
+			},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeEnabled)
+			},
+			want: true,
 		},
 	}
 
