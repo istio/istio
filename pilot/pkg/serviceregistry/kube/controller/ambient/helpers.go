@@ -36,6 +36,11 @@ func generateWorkloadEntryUID(clusterID cluster.ID, wkEntryNamespace, wkEntryNam
 	return clusterID.String() + "/networking.istio.io/WorkloadEntry/" + wkEntryNamespace + "/" + wkEntryName
 }
 
+// UID for split-horizon EDS workload that represents all the remote workloads of a service in another network.
+func generateEDSWorkloadUID(networkID network.ID, remoteWorkloadNamespace, remoteServiceName string) string {
+	return networkID.String() + "/SplitHorizonEDSWorkload/" + remoteWorkloadNamespace + "/" + remoteServiceName
+}
+
 func generateServiceEntryUID(clusterID cluster.ID, svcEntryNamespace, svcEntryName, addr string) string {
 	return clusterID.String() + "/networking.istio.io/ServiceEntry/" + svcEntryNamespace + "/" + svcEntryName + "/" + addr
 }
