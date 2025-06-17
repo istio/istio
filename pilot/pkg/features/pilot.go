@@ -293,9 +293,9 @@ var (
 
 	EnableNativeSidecars = func() NativeSidecarMode {
 		v := env.Register("ENABLE_NATIVE_SIDECARS", "auto",
-			"If set to true, use Kubernetes native Sidecar container support. Requires SidecarContainer feature flag. "+
+			"If set to true, use Kubernetes native sidecar container support. Requires SidecarContainer feature flag. "+
 				"Set to true to unconditionally enable, false to unconditionally disable. "+
-				"Set to auto to automatically enable for supported senarios").Get()
+				"Set to auto to automatically enable for supported scenarios").Get()
 		switch v {
 		case "false":
 			return NativeSidecarModeDisabled
