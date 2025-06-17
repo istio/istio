@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -132,12 +133,7 @@ func (p ImagePlan) Dependencies() []string {
 }
 
 func (p ImagePlan) CanBuildForPlatform(t string) bool {
-	for _, platform := range p.Platforms {
-		if platform == t {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(p.Platforms, t)
 }
 
 type BuildPlan struct {
