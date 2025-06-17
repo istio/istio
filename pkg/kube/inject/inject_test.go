@@ -167,7 +167,7 @@ func TestInjection(t *testing.T) {
 			in:   "hello.yaml",
 			want: "hello-old-version.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, false)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{
@@ -318,7 +318,7 @@ func TestInjection(t *testing.T) {
 			in:   "cronjob.yaml",
 			want: "cronjob-old-version.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, false)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 			skipWebhook: true,
 		},
@@ -326,35 +326,35 @@ func TestInjection(t *testing.T) {
 			in:   "daemonset.yaml",
 			want: "daemonset-old-version.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, false)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{
 			in:   "job.yaml",
 			want: "job-old-version.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, false)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{
 			in:   "pod.yaml",
 			want: "pod-old-version.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, false)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{
 			in:   "replicaset.yaml",
 			want: "replicaset-old-version.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, false)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{
 			in:   "statefulset.yaml",
 			want: "statefulset-old-version.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, false)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{
@@ -441,7 +441,7 @@ func TestInjection(t *testing.T) {
 			in:   "native-sidecar.yaml",
 			want: "native-sidecar-old-version.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, false)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{
@@ -452,7 +452,7 @@ func TestInjection(t *testing.T) {
 			in:   "native-sidecar-opt-in.yaml",
 			want: "native-sidecar-opt-in.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, false)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{
@@ -463,7 +463,7 @@ func TestInjection(t *testing.T) {
 			in:   "native-sidecar-opt-out.yaml",
 			want: "native-sidecar-opt-out.yaml.injected",
 			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableNativeSidecars, false)
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
 			},
 		},
 		{

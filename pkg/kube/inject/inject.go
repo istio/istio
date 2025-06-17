@@ -813,7 +813,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			nativeSidecar = DetectNativeSidecar(nodes, pod.Spec.NodeName)
 		} else {
 			// if injector or client is nil, enable native sidecars if the feature is explicitly enabled
-			nativeSidecar = features.EnableNativeSidecars && features.EnableNativeSidecarsSet
+			nativeSidecar = (features.EnableNativeSidecars == features.NativeSidecarModeEnabled)
 		}
 
 		params := InjectionParameters{
