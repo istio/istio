@@ -272,7 +272,7 @@ func remoteK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway
 	}
 	gateways := []NetworkGateway{}
 	source := config.NamespacedName(gw)
-	for _, addr := range gw.Spec.Addresses {
+	for _, addr := range gw.Status.Addresses {
 		if addr.Type == nil {
 			continue
 		}
@@ -315,7 +315,7 @@ func localK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway)
 	}
 	gateways := []NetworkGateway{}
 	source := config.NamespacedName(gw)
-	for _, addr := range gw.Spec.Addresses {
+	for _, addr := range gw.Status.Addresses {
 		if addr.Type == nil {
 			continue
 		}
