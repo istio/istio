@@ -24,21 +24,17 @@ import (
 )
 
 type EndpointsFinder interface {
-	GetEndpointsForNamespaceID(id uint32) ([]string, error)
+	GetEndpointsForNamespaceGUID(guid string) ([]string, error)
 }
 type WFPConfigurator struct {
 	EndpointsFinder EndpointsFinder
 	Cfg             *IptablesConfig
 }
 
-func (w *WFPConfigurator) CreateInpodRules(logger *istiolog.Scope, podOverrides PodLevelOverrides) error {
-	currentNS := hcn.GetCurrentThreadCompartmentId()
-	if currentNS == 0 {
-		return fmt.Errorf("failed to get current compartment id")
-	}
-	endpointIDs, err := w.EndpointsFinder.GetEndpointsForNamespaceID(currentNS)
+func (w *WFPConfigurator) CreateInpodRules(logger *istiolog.Scope, podOverrides PodLevelOverrides, netNsGuid string) error {
+	endpointIDs, err := w.EndpointsFinder.GetEndpointsForNamespaceGUID(netNsGuid)
 	if err != nil {
-		return fmt.Errorf("failed to get endpoints for namespace id %d: %v", currentNS, err)
+		return fmt.Errorf("failed to get endpoints for namespace guid %s: %v", netNsGuid, err)
 	}
 	// @TODO implement:
 	/*
@@ -132,19 +128,11 @@ func (w *WFPConfigurator) getPoliciesToRemove(endpoint *hcn.HostComputeEndpoint)
 	return deletePol
 }
 
-func (w *WFPConfigurator) DeleteInpodRules(*istiolog.Scope) error {
-	// @TODO implement:
-	/*
-		Discover the correct NS for the pod
-		drop all policies for the pod ?
-	*/
-	currentNS := hcn.GetCurrentThreadCompartmentId()
-	if currentNS == 0 {
-		return fmt.Errorf("failed to get current compartment id")
-	}
-	endpointIDs, err := w.EndpointsFinder.GetEndpointsForNamespaceID(currentNS)
+func (w *WFPConfigurator) DeleteInpodRules(_ *istiolog.Scope, netNs string) error {
+	// TODO: should we drop all policies for the pod?
+	endpointIDs, err := w.EndpointsFinder.GetEndpointsForNamespaceGUID(netNs)
 	if err != nil {
-		return fmt.Errorf("failed to get endpoints for namespace id %d: %v", currentNS, err)
+		return fmt.Errorf("failed to get endpoints for namespace guid %s: %v", netNs, err)
 	}
 	for _, endpointID := range endpointIDs {
 		endpoint, err := hcn.GetEndpointByID(endpointID)

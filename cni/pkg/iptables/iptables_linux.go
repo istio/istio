@@ -245,7 +245,7 @@ func NewIptablesConfigurator(
 	return configurator, inPodConfigurator, nil
 }
 
-func (cfg *IptablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
+func (cfg *IptablesConfigurator) DeleteInpodRules(log *istiolog.Scope, ns string) error {
 	var inpodErrs []error
 
 	log.Debug("deleting iptables rules")
@@ -294,7 +294,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides PodLevelOverrides) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides PodLevelOverrides, ns string) error {
 	// Append our rules here
 	builder := cfg.AppendInpodRules(podOverrides)
 

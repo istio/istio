@@ -38,7 +38,7 @@ func TestIptablesPodOverrides(t *testing.T) {
 				tt.config(cfg)
 				ext := &dep.DependenciesStub{}
 				iptConfigurator, _, _ := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
-				err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides)
+				err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides, "")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -82,7 +82,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 			tt.config(cfg)
 			ext := &dep.DependenciesStub{}
 			iptConfigurator, _, _ := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
-			err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides)
+			err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -90,7 +90,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 
 			*ext = dep.DependenciesStub{}
 			// run another time to make sure we are idempotent
-			err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides)
+			err = iptConfigurator.CreateInpodRules(scopes.CNIAgent, tt.podOverrides, "")
 			if err != nil {
 				t.Fatal(err)
 			}
