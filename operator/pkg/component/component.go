@@ -132,8 +132,10 @@ const (
 	BaseComponentName  Name = "Base"
 	PilotComponentName Name = "Pilot"
 
-	CNIComponentName     Name = "Cni"
-	ZtunnelComponentName Name = "Ztunnel"
+	CNIComponentName            Name = "Cni"
+	CNIWindowsComponentName     Name = "CniWindows"
+	ZtunnelComponentName        Name = "Ztunnel"
+	ZtunnelWindowsComponentName Name = "ZtunnelWindows"
 
 	IngressComponentName Name = "IngressGateways"
 	EgressComponentName  Name = "EgressGateways"
@@ -193,6 +195,16 @@ var AllComponents = []Component{
 		ReleaseName:          "cni",
 	},
 	{
+		UserFacingName:       CNIWindowsComponentName,
+		SpecName:             "cni-windows",
+		ResourceType:         "DaemonSet",
+		ResourceName:         "istio-cni-node-windows",
+		ContainerName:        "install-cni-windows",
+		HelmSubdir:           "istio-cni-windows",
+		ToHelmValuesTreeRoot: "cni-windows",
+		ReleaseName:          "cni-windows",
+	},
+	{
 		UserFacingName:       ZtunnelComponentName,
 		SpecName:             "ztunnel",
 		ResourceType:         "DaemonSet",
@@ -202,6 +214,17 @@ var AllComponents = []Component{
 		ContainerName:        "istio-proxy",
 		FlattenValues:        true,
 		ReleaseName:          "ztunnel",
+	},
+	{
+		UserFacingName:       ZtunnelWindowsComponentName,
+		SpecName:             "ztunnel-windows",
+		ResourceType:         "DaemonSet",
+		ResourceName:         "ztunnel-windows",
+		HelmSubdir:           "ztunnel-windows",
+		ToHelmValuesTreeRoot: "ztunnel-windows",
+		ContainerName:        "istio-proxy-windows",
+		FlattenValues:        true,
+		ReleaseName:          "ztunnel-windows",
 	},
 }
 

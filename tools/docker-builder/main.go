@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -68,6 +69,7 @@ var privilegedHubs = sets.New[string](
 	"gcr.io/istio-testing",
 )
 
+// TODO: make the help command work
 var rootCmd = &cobra.Command{
 	SilenceUsage: true,
 	Short:        "Builds Istio docker images",
@@ -91,6 +93,8 @@ var rootCmd = &cobra.Command{
 		}
 
 		args, err := ReadPlan(ctx, globalArgs)
+		b, _ := json.MarshalIndent(args.Plan, "", "  ")
+		log.Infof("Plan: %s", string(b))
 		if err != nil {
 			return fmt.Errorf("plan: %v", err)
 		}
@@ -211,6 +215,10 @@ func ReadPlan(ctx context.Context, a Args) (Args, error) {
 			if tgt.Contains(i.Name) {
 				if !canBuild {
 					log.Infof("Skipping %s for %s as --qemu is not passed", i.Name, arch)
+					continue
+				}
+				if !i.CanBuildForPlatform(arch) {
+					log.Infof("Skipping %s for %s as it is not supported on this architecture", i.Name, arch)
 					continue
 				}
 				desiredImages = append(desiredImages, i)
