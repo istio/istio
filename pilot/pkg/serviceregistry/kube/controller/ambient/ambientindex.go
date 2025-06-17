@@ -18,6 +18,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,6 +51,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -666,21 +668,177 @@ func (a *index) All() []model.AddressInfo {
 		if features.EnableAmbientMultiNetwork && wl.Workload.ClusterId != string(a.ClusterID) {
 			continue
 		}
-		res = append(res, wl.AsAddress)
-	}
-	// Add all services
-	for _, s := range a.services.List() {
-		if features.EnableAmbientMultiNetwork && s.Scope == model.Global {
-			// If EnableAmbientMultiNetwork is enabled, we want to add workloads that correspond to global services
-			for _, wl := range a.workloads.ByServiceKey.Lookup(s.ResourceName()) {
-				if wl.Workload.ClusterId != string(a.ClusterID) {
-					res = append(res, wl.AsAddress)
+		localNetwork := a.networks.LocalSystemNamespace.Get()
+		// jaellio: Another example of where ScopeForService is not ideal
+		// For each services
+		for namespacedSvc, scope := range wl.ScopeForService {
+			// only add EDS workloads for global services
+			if scope != model.Global {
+				continue
+			}
+			wlNetwork := network.ID(wl.Workload.Network)
+
+			// Take note of the workload's SAN.
+			saName := wl.Workload.ServiceAccount
+			if saName == "" {
+				saName = "default"
+			}
+			if _, ok := remoteWlSans[namespacedSvc]; !ok {
+				remoteWlSans[namespacedSvc] = map[string]struct{}{}
+			}
+			remoteWlSans[namespacedSvc][spiffe.MustGenSpiffeURI(a.meshConfig.Mesh(), wl.Workload.Namespace, saName)] = struct{}{}
+
+			// parse the service key
+			parts := strings.Split(namespacedSvc, "/")
+			if len(parts) != 2 {
+				log.Warnf("Workload %s has an invalid service key %s", wl.ResourceName(), namespacedSvc)
+				continue
+			}
+			svcNamespace, svcName := parts[0], parts[1]
+			edsWorkloadUID := generateEDSWorkloadUID(wlNetwork, svcNamespace, svcName)
+
+			// Check if we have already encountered a workload with this network, service pair.
+			if existing, ok := edsWorkloads[edsWorkloadUID]; ok {
+				// Increment capacity and continue
+				// TODO(sjinxuan): this is wrong because we will double count the capacity if there are multiple gateways
+				existing.Workload.Capacity.Value++
+				continue
+			}
+
+			// We have not seen this workload before, so we create a new one for each gateway
+			gws := a.networks.GatewaysByNetwork.Lookup(network.ID(wl.Workload.Network))
+			for _, gw := range gws {
+				edsWorkload, err := a.createEDSWorkload(
+					namespacedSvc, svcNamespace, svcName, edsWorkloadUID, *localNetwork, gw, wl.Workload.Services[namespacedSvc],
+				)
+				if err != nil {
+					log.Errorf("Failed to create EDS workload for %s/%s: %v", svcNamespace, svcName, err)
+					continue
 				}
+				edsWorkloads[edsWorkloadUID] = edsWorkload
 			}
 		}
-		res = append(res, s.AsAddress)
 	}
+
+	// add all EDS workloads to the result
+	for _, edsWorkload := range edsWorkloads {
+		// Add the EDS workload to the result
+		res = append(res, precomputeWorkload(*edsWorkload).AsAddress)
+
+	}
+
+	// Create workloads for all gateways
+	// TODO(stevenjin8): maybe we should only create EDS workloads for gateways that are actually used by a service?
+	for _, gw := range a.networks.NetworkGateways.List() {
+		w, err := a.createNetworkGatewayWorkload(gw, *a.networks.LocalSystemNamespace.Get())
+		if err != nil {
+			log.Warnf("Failed to create workload for network gateway %s: %v", gw.ResourceName(), err)
+		}
+		res = append(res, precomputeWorkload(*w).AsAddress)
+	}
+
+	// Include all services since we are assuming uniform configuration
+	// TODO(jaellio): Gracefully handle non uniform configurations
+	for _, orig_svc := range a.services.List() {
+		sans, ok := remoteWlSans[orig_svc.ResourceName()]
+		if !ok {
+			// No remote workloads for this service, just append the original service
+			res = append(res, orig_svc.AsAddress)
+			continue
+		}
+		// There are remote workloads for this service, so we need to create a new service with the remote SANs.
+		// TODO(stevenjin8): DeepCopy is a bit of an overkill.
+		newSvc := orig_svc
+		newSvc.Service, ok = proto.Clone(orig_svc.Service).(*workloadapi.Service)
+		if !ok {
+			// panic?
+			log.Errorf("Failed to clone service %s/%s", orig_svc.Service.Namespace, orig_svc.Service.Name)
+			continue
+		}
+		for s := range sans {
+			sans[s] = struct{}{}
+		}
+		newSvc.Service.SubjectAltNames = nil
+		for s, _ := range sans {
+			newSvc.Service.SubjectAltNames = append(newSvc.Service.SubjectAltNames, s)
+		}
+		// We need to precompute the workload for this service, so that we can get the address
+		res = append(res, precomputeService(newSvc).AsAddress)
+	}
+
 	return res
+}
+
+func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, localNetwork string) (*model.WorkloadInfo, error) {
+	address, err := netip.ParseAddr(networkGateway.Addr)
+	if err != nil {
+		return nil, err
+	}
+	wl := workloadapi.Workload{
+		Uid:            networkGateway.ResourceName(),
+		Name:           networkGateway.ResourceName(), // TODO(stevenjin8): better name?
+		Namespace:      networkGateway.Source.Namespace,
+		Network:        networkGateway.Network.String(),
+		TrustDomain:    pickTrustDomain(a.meshConfig.Get()), // TODO(stevenjin8): We assume uniform trust domains right?
+		ServiceAccount: networkGateway.ServiceAccount.Name,
+		Capacity:       &wrapperspb.UInt32Value{Value: 1},
+		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
+		Addresses:      [][]byte{address.AsSlice()},
+		ClusterId:      networkGateway.Cluster.String(),
+	}
+	return &model.WorkloadInfo{
+		Workload:        &wl,
+		Source:          kind.KubernetesGateway,
+		ScopeForService: map[string]model.ServiceScope{},
+		Labels:          labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
+	}, nil
+}
+
+// svc is the full ns/name of the service, while svcNamespace and svcName are the parsed components of svc.
+func (a *index) createEDSWorkload(
+	svc, svcNamespace, svcName, edsWorkloadUID, localNetwork string, networkGateway NetworkGateway, ports *workloadapi.PortList,
+) (*model.WorkloadInfo, error) {
+	address, err := netip.ParseAddr(networkGateway.Addr)
+	if err != nil {
+		return nil, err
+	}
+	hboneMtlsPort := networkGateway.HBONEPort
+	if hboneMtlsPort == 0 {
+		hboneMtlsPort = 15008
+	}
+
+	wl := workloadapi.Workload{
+		Uid:          edsWorkloadUID,
+		Name:         edsWorkloadUID, // TODO(stevenjin8): better name?
+		Namespace:    svcNamespace,
+		Network:      networkGateway.Network.String(),
+		TrustDomain:  pickTrustDomain(a.meshConfig.Get()), // TODO(stevenjin8): We assume uniform trust domains right?
+		Capacity:     &wrapperspb.UInt32Value{Value: 1},
+		WorkloadType: workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
+		NetworkGateway: &workloadapi.GatewayAddress{
+			Destination: &workloadapi.GatewayAddress_Address{
+				Address: &workloadapi.NetworkAddress{
+					Network: networkGateway.Network.String(),
+					Address: address.AsSlice(),
+				},
+			},
+			HboneMtlsPort: hboneMtlsPort,
+		},
+		ClusterId: networkGateway.Cluster.String(),
+
+		// TODO(stevenjin8): Skip authorization policies
+		Services: map[string]*workloadapi.PortList{
+			svc: ports,
+		},
+	}
+	// TODO(stevenjin8): is ScopeForService necessary?
+	wi := &model.WorkloadInfo{
+		Workload:        &wl,
+		Source:          kind.KubernetesGateway,
+		ScopeForService: map[string]model.ServiceScope{svc: model.Global},
+		Labels:          labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
+	}
+	return wi, nil
 }
 
 // AllGlobalServices return all known globally scoped services. Result is un-ordered
