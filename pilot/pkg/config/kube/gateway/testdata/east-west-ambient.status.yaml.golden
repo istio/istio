@@ -13,7 +13,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "eastwestgateway.istio-system.svc.domain.suffix"
+    message: 'Failed to assign to any requested addresses: hostname "eastwestgateway-istio-east-west.istio-system.svc.domain.suffix"
       not found'
     reason: AddressNotUsable
     status: "False"
@@ -59,7 +59,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: hostname "invalid.istio-system.svc.domain.suffix"
+    message: 'Failed to assign to any requested addresses: hostname "invalid-istio-east-west.istio-system.svc.domain.suffix"
       not found'
     reason: AddressNotUsable
     status: "False"
