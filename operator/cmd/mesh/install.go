@@ -140,7 +140,6 @@ func InstallCmd(ctx cli.Context) *cobra.Command {
 
 func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, stdOut io.Writer, l clog.Logger, p Printer,
 ) error {
-
 	if err := k8sversion.IsK8VersionSupported(kubeClient, l); err != nil {
 		return fmt.Errorf("check minimum supported Kubernetes version: %v", err)
 	}
