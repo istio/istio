@@ -212,22 +212,12 @@ func ReadPlan(ctx context.Context, a Args) (Args, error) {
 		desiredImages := []ImagePlan{}
 		for _, i := range plan.Images {
 			canBuild := !i.EmulationRequired || (arch == LocalArch)
-			archAllowed := false
-			if i.Platforms != nil {
-				for _, v := range i.Platforms {
-					if v == arch {
-						archAllowed = true
-					}
-				}
-			} else {
-				archAllowed = true
-			}
 			if tgt.Contains(i.Name) {
 				if !canBuild {
 					log.Infof("Skipping %s for %s as --qemu is not passed", i.Name, arch)
 					continue
 				}
-				if !archAllowed {
+				if !i.CanBuildForPlatform(arch) {
 					log.Infof("Skipping %s for %s as it is not supported on this architecture", i.Name, arch)
 					continue
 				}

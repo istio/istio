@@ -131,6 +131,15 @@ func (p ImagePlan) Dependencies() []string {
 	return v
 }
 
+func (p ImagePlan) CanBuildForPlatform(t string) bool {
+	for _, platform := range p.Platforms {
+		if platform == t {
+			return true
+		}
+	}
+	return false
+}
+
 type BuildPlan struct {
 	Images []ImagePlan `json:"images"`
 }

@@ -243,7 +243,7 @@ AGENT_TAGS=agent,disable_pgv
 # vtprotobuf: enables optimized protobuf marshalling.
 STANDARD_TAGS=vtprotobuf,disable_pgv
 
-GOARCH_WINDOWS=${TARGET_WINDOWS_ARCH}
+GOARCH_WINDOWS=${TARGET_ARCH_WINDOWS}
 
 .PHONY: build
 build: depend build-cni-windows ## Builds all go binaries.
@@ -436,15 +436,12 @@ ${ISTIO_BIN}/go-junit-report:
 # This is just an alias for racetest now
 test: racetest ## Runs all unit tests
 
-test-windows:
-
 # For now, keep a minimal subset. This can be expanded in the future.
 BENCH_TARGETS ?= ./pilot/...
 
 PKG ?= ./...
 .PHONY: racetest
 racetest: $(JUNIT_REPORT)
-	@echo ${GOBUILDFLAGS}
 	go test ${GOBUILDFLAGS} ${T} -race $(PKG) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest

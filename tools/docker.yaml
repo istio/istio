@@ -20,10 +20,12 @@ images:
 - name: base
   dockerfile: docker/Dockerfile.base
   base: true
+  platforms: [ "linux/amd64", "linux/arm64" ]
 
 - name: distroless
   dockerfile: docker/Dockerfile.distroless
   base: true
+  platforms: [ "linux/amd64", "linux/arm64" ]
 
 # Production images
 - name: proxyv2
@@ -141,13 +143,17 @@ images:
 - name: app_sidecar_base_debian_12 # latest debian
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
   base: true
+  platforms: [ "linux/amd64", "linux/arm64" ]
 - name: app_sidecar_base_ubuntu_noble # newest ubuntu
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
   base: true
+  platforms: [ "linux/amd64", "linux/arm64" ]
 - name: app_sidecar_base_ubuntu_bionic # oldest supported ubuntu
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
   base: true
+  platforms: [ "linux/amd64", "linux/arm64" ]
 #  TODO(https://github.com/istio/istio/issues/38224)
 - name: app_sidecar_base_rockylinux_9 # newest RHEL-based
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base_centos
   base: true
+  platforms: [ "linux/amd64", "linux/arm64" ]

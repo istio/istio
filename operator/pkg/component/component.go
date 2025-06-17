@@ -129,11 +129,11 @@ type Name string
 const (
 	// IstioComponent names corresponding to the IstioOperator proto component names. Must be the same, since these
 	// are used for struct traversal.
-	BaseComponentName         Name = "Base"
-	PilotComponentName        Name = "Pilot"
-	PilotWindowsComponentName Name = "PilotWindows"
+	BaseComponentName  Name = "Base"
+	PilotComponentName Name = "Pilot"
 
 	CNIComponentName            Name = "Cni"
+	CNIWindowsComponentName     Name = "CniWindows"
 	ZtunnelComponentName        Name = "Ztunnel"
 	ZtunnelWindowsComponentName Name = "ZtunnelWindows"
 
@@ -160,17 +160,6 @@ var AllComponents = []Component{
 		HelmSubdir:           "istio-control/istio-discovery",
 		ToHelmValuesTreeRoot: "pilot",
 		ReleaseName:          "istiod",
-	},
-	{
-		UserFacingName:       PilotWindowsComponentName,
-		SpecName:             "pilot-windows",
-		Default:              true,
-		ResourceType:         "Deployment",
-		ResourceName:         "istiod-windows",
-		ContainerName:        "discovery-windows",
-		HelmSubdir:           "istio-control/istio-discover-windows",
-		ToHelmValuesTreeRoot: "pilot-windows",
-		ReleaseName:          "istiod-windows",
 	},
 	{
 		UserFacingName:       IngressComponentName,
@@ -204,6 +193,16 @@ var AllComponents = []Component{
 		HelmSubdir:           "istio-cni",
 		ToHelmValuesTreeRoot: "cni",
 		ReleaseName:          "cni",
+	},
+	{
+		UserFacingName:       CNIWindowsComponentName,
+		SpecName:             "cni-windows",
+		ResourceType:         "DaemonSet",
+		ResourceName:         "istio-cni-node-windows",
+		ContainerName:        "install-cni-windows",
+		HelmSubdir:           "istio-cni-windows",
+		ToHelmValuesTreeRoot: "cni-windows",
+		ReleaseName:          "cni-windows",
 	},
 	{
 		UserFacingName:       ZtunnelComponentName,
