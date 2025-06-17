@@ -217,7 +217,7 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		}
 	}
 
-	if features.EnableNativeSidecars {
+	if features.EnableNativeSidecars != features.NativeSidecarModeDisabled {
 		wh.nodes = multicluster.BuildMultiClusterKclientComponent[*corev1.Node](p.MultiCluster, kubetypes.Filter{})
 	}
 
@@ -1188,8 +1188,7 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		params.nativeSidecar = DetectNativeSidecar(nodes, pod.Spec.NodeName)
 	} else {
 		// only enable native sidecars if the feature is explicitly enabled
-		log.Warnf("Node client wasn't initialized")
-		params.nativeSidecar = features.EnableNativeSidecarsSet && features.EnableNativeSidecars
+		params.nativeSidecar = (features.EnableNativeSidecars == features.NativeSidecarModeEnabled)
 	}
 
 	wh.mu.RUnlock()
@@ -1232,8 +1231,12 @@ func isSidecarUserMatchingAppUser(pod *corev1.Pod) bool {
 }
 
 func DetectNativeSidecar(nodes kclient.Client[*corev1.Node], podNodeName string) bool {
-	if !features.EnableNativeSidecars {
+	if features.EnableNativeSidecars == features.NativeSidecarModeDisabled {
 		return false
+	}
+
+	if features.EnableNativeSidecars == features.NativeSidecarModeEnabled {
+		return true
 	}
 
 	if nodes == nil {

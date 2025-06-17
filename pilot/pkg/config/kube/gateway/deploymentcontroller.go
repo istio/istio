@@ -430,6 +430,13 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		serviceType = corev1.ServiceType(o)
 	}
 
+	var nativeSidecarModeEnabled bool
+	if features.EnableNativeSidecars == features.NativeSidecarModeDisabled {
+		nativeSidecarModeEnabled = false
+	} else {
+		nativeSidecarModeEnabled = true
+	}
+
 	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: model.GetOrDefault(gw.Annotations[annotation.GatewayNameOverride.Name], defaultName),
@@ -439,7 +446,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 
 		KubeVersion:               kube.GetVersionAsInt(d.client),
 		Revision:                  d.revision,
-		NativeSidecars:            features.EnableNativeSidecars,
+		NativeSidecars:            nativeSidecarModeEnabled,
 		ServiceType:               serviceType,
 		ProxyUID:                  proxyUID,
 		ProxyGID:                  proxyGID,
