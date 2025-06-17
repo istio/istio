@@ -121,11 +121,11 @@ type TypedResource struct {
 }
 
 type Outputs struct {
-	Gateways              krt.Collection[Gateway]
-	VirtualServices       krt.Collection[*config.Config]
-	ReferenceGrants       ReferenceGrants
-	DestinationRules      krt.Collection[*config.Config]
-	InferencePoolServices krt.Collection[*corev1.Service]
+	Gateways         krt.Collection[Gateway]
+	VirtualServices  krt.Collection[*config.Config]
+	ReferenceGrants  ReferenceGrants
+	DestinationRules krt.Collection[*config.Config]
+	InferencePools   krt.Collection[InferencePool]
 }
 
 type Inputs struct {
@@ -176,6 +176,8 @@ func NewController(
 		c.tagWatcher.TriggerRecomputation()
 	})
 
+	svcClient := kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()})
+
 	inputs := Inputs{
 		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("informer/Namespaces")...),
 		Secrets: krt.WrapClient[*corev1.Secret](
@@ -189,10 +191,7 @@ func NewController(
 			kclient.NewFiltered[*corev1.ConfigMap](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
 			opts.WithName("informer/ConfigMaps")...,
 		),
-		Services: krt.WrapClient[*corev1.Service](
-			kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
-			opts.WithName("informer/Services")...,
-		),
+		Services:       krt.WrapClient[*corev1.Service](svcClient, opts.WithName("informer/Services")...),
 		GatewayClasses: buildClient[*gateway.GatewayClass](c, kc, gvr.GatewayClass, opts, "informer/GatewayClasses"),
 		Gateways:       buildClient[*gateway.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
 		HTTPRoutes:     buildClient[*gateway.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
@@ -268,17 +267,8 @@ func NewController(
 		c,
 		opts,
 	)
+
 	status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
-
-	InferencePoolServices := krt.NewCollection(InferencePools, func(ctx krt.HandlerContext, ip InferencePool) **corev1.Service {
-		svc := krt.FetchOne(ctx, inputs.Services, krt.FilterKey(ip.shadowService.key.String()))
-		if svc == nil {
-			log.Debugf("InferencePool %s has no shadow service", ip.Namespace+"/"+ip.Name)
-			return nil
-		}
-
-		return svc
-	}, opts.WithName("InferencePoolShadowServices")...)
 
 	RouteParents := BuildRouteParents(Gateways)
 
@@ -338,11 +328,11 @@ func NewController(
 	}, opts.WithName("DerivedVirtualServices")...)
 
 	outputs := Outputs{
-		ReferenceGrants:       ReferenceGrants,
-		Gateways:              Gateways,
-		VirtualServices:       VirtualServices,
-		DestinationRules:      DestinationRules,
-		InferencePoolServices: InferencePoolServices,
+		ReferenceGrants:  ReferenceGrants,
+		Gateways:         Gateways,
+		VirtualServices:  VirtualServices,
+		DestinationRules: DestinationRules,
+		InferencePools:   InferencePools,
 	}
 	c.outputs = outputs
 
@@ -370,7 +360,18 @@ func NewController(
 					Name:      t.Name,
 					Namespace: t.Namespace,
 				}
-			}), false))
+			}), false),
+		outputs.InferencePools.RegisterBatch(func(o []krt.Event[InferencePool]) {
+			for _, e := range o {
+				obj := e.Latest()
+				svc := translateShadowServiceToService(obj.shadowService, obj.extRef)
+				err := c.reconcileShadowService(e.Event, svc, inputs.Services)
+				if err != nil {
+					log.Errorf("failed to reconcile shadow inferencepool service %s/%s: %v", svc.Namespace, svc.Name, err)
+				}
+			}
+		}, true), // reconcile on initialization
+	)
 	c.handlers = handlers
 
 	return c
@@ -426,24 +427,6 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 	case gvk.DestinationRule:
 		return slices.Map(c.outputs.DestinationRules.List(), func(e *config.Config) config.Config {
 			return *e
-		})
-	case gvk.Service:
-		if !features.SupportGatewayAPIInferenceExtension {
-			return nil
-		}
-		return slices.Map(c.outputs.InferencePoolServices.List(), func(svc *corev1.Service) config.Config {
-			return config.Config{
-				Meta: config.Meta{
-					GroupVersionKind: gvk.Service,
-					Name:             svc.Name,
-					Namespace:        svc.Namespace,
-					Labels:           svc.Labels,
-					Annotations:      svc.Annotations,
-					Domain:           c.domainSuffix,
-				},
-				Spec:   svc.Spec,
-				Status: svc.Status,
-			}
 		})
 	default:
 		return nil

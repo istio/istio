@@ -58,8 +58,14 @@ func TestReconcileInferencePool(t *testing.T) {
 
 	// Verify the service was created
 	var service *corev1.Service
+	var err error
 	assert.EventuallyEqual(t, func() bool {
-		service = ptr.Flatten(controller.outputs.InferencePoolServices.GetKey("default/" + "test-pool-ip-" + generateHash("test-pool", hashSize)))
+		svcName := "test-pool-ip-" + generateHash("test-pool", hashSize)
+		service, err = controller.client.Kube().CoreV1().Services("default").Get(t.Context(), svcName, metav1.GetOptions{})
+		if err != nil {
+			t.Logf("Service %s not found yet: %v", svcName, err)
+			return false
+		}
 		return service != nil
 	}, true)
 
