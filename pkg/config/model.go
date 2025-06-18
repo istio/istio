@@ -454,6 +454,7 @@ func (c Config) DeepCopy() Config {
 	if c.Status != nil {
 		clone.Status = DeepCopy(c.Status)
 	}
+	// Note that this is effectively a shallow clone, but this is fine as it is not manipulated.
 	if c.Extra != nil {
 		clone.Extra = maps.Clone(c.Extra)
 	}

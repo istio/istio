@@ -50,9 +50,10 @@ func HTTPRouteCollection(
 		[]RouteWithKey,
 	) {
 		ctx := inputs.WithCtx(krtctx)
-		// routeRuleToInferencePoolCfg stores inference pool configs discovered during route rule conversion,
-		// keyed by the istio.HTTPRoute.Name.
-		routeRuleToInferencePoolCfg := make(map[string]*inferencePoolConfig)
+		inferencePoolCfgPairs := []struct {
+			name string
+			cfg  *inferencePoolConfig
+		}{}
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj, func(mesh bool, obj *gateway.HTTPRoute) iter.Seq2[*istio.HTTPRoute, *ConfigError] {
@@ -69,7 +70,10 @@ func HTTPRouteCollection(
 						}
 						istioRoute, ipCfg, configErr := convertHTTPRoute(ctx, r, obj, n, !mesh)
 						if istioRoute != nil && ipCfg != nil && ipCfg.enableExtProc {
-							routeRuleToInferencePoolCfg[istioRoute.Name] = ipCfg
+							inferencePoolCfgPairs = append(inferencePoolCfgPairs, struct {
+								name string
+								cfg  *inferencePoolConfig
+							}{name: istioRoute.Name, cfg: ipCfg})
 						}
 						if !yield(istioRoute, configErr) {
 							return
@@ -78,6 +82,13 @@ func HTTPRouteCollection(
 				}
 			}
 		})
+
+		// routeRuleToInferencePoolCfg stores inference pool configs discovered during route rule conversion,
+		// keyed by the istio.HTTPRoute.Name.
+		routeRuleToInferencePoolCfg := make(map[string]*inferencePoolConfig)
+		for _, pair := range inferencePoolCfgPairs {
+			routeRuleToInferencePoolCfg[pair.name] = pair.cfg
+		}
 		status.Parents = parentStatus
 
 		count := 0
