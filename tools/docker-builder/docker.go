@@ -36,6 +36,9 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+const WindowsBuilderName = "windows-builder"
+const LinuxBuilderName = "container-builder"
+
 // RunDocker builds docker images using the `docker buildx bake` commands. Buildx is the
 // next-generation docker builder, and `bake` is an important part of that which allows us to
 // construct a big build plan which docker can execute in parallel. This provides order of magnitude
@@ -169,13 +172,13 @@ func createBuildxBuilderIfNeeded(a Args) (string, error) {
 	for _, arch := range a.Architectures {
 		if strings.HasPrefix(arch, "windows/") {
 			log.Infof("Creating windows builder for %v", arch)
-			return "windows-builder", exec.Command("sh", "-c", `
+			return WindowsBuilderName, exec.Command("sh", "-c", strings.ReplaceAll(`
 export DOCKER_CLI_EXPERIMENTAL=enabled
-if ! docker buildx ls | grep -q windows-builder; then
-  docker buildx create --name windows-builder --platform=windows/amd64
+if ! docker buildx ls | grep -q {{builder-name}}; then
+  docker buildx create --name {{builder-name}} --platform=windows/amd64
   # Pre-warm the builder. If it fails, fetch logs, but continue
-  docker buildx inspect --bootstrap windows-builder || docker logs windows-builder0 || true
-fi`).Run()
+  docker buildx inspect --bootstrap {{builder-name}} || docker logs buildx_buildkit_{{builder-name}}0 || true
+fi`, "{{builder-name}}", WindowsBuilderName)).Run()
 		}
 	}
 	if !a.Save {
@@ -199,19 +202,19 @@ fi`).Run()
 		}
 		matches := regexp.MustCompile(`Driver:\s+(.*)`).FindStringSubmatch(out.String())
 		if len(matches) == 0 || matches[1] != "docker-container" {
-			return "", fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
-				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0" +
-				" --name container-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
+			return "", fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n"+
+				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0"+
+				" --name %s --driver docker-container --buildkitd-flags=\"--debug\" --use)", LinuxBuilderName)
 		}
-		return "container-builder", nil
+		return LinuxBuilderName, nil
 	}
-	return "container-builder", exec.Command("sh", "-c", `
+	return LinuxBuilderName, exec.Command("sh", "-c", strings.ReplaceAll(`
 export DOCKER_CLI_EXPERIMENTAL=enabled
-if ! docker buildx ls | grep -q container-builder; then
-  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name container-builder --buildkitd-flags="--debug"
+if ! docker buildx ls | grep -q {{builder-name}}; then
+  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name {{builder-name}} --buildkitd-flags="--debug"
   # Pre-warm the builder. If it fails, fetch logs, but continue
-  docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
-fi`).Run()
+  docker buildx inspect --bootstrap {{builder-name}} || docker logs buildx_buildkit_{{builder-name}}0 || true
+fi`, "{{builder-name}}", LinuxBuilderName)).Run()
 }
 
 // ConstructBakeFiles constructs json files to be passed to `docker buildx bake`.
