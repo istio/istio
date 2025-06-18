@@ -103,11 +103,12 @@ func buildGlobalNetworkCollections(
 			if ns == nil {
 				// If the namespace for the remote cluster is not found, we default to the empty string
 				// to indicate that this cluster is a part of the default network
-				// TODO: Should we return nil here instead?
-				return &ClusterNetwork{
-					ID:      c.ID,
-					Network: network.ID(""),
-				}
+				// TODO: Should we return nil here instead? We return nil for single cluster so trying it
+				// return &ClusterNetwork{
+				// 	ID:      c.ID,
+				// 	Network: network.ID(""),
+				// }
+				return nil
 			}
 			nw, f := ns.Labels[label.TopologyNetwork.Name]
 			if !f {

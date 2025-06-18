@@ -807,12 +807,12 @@ func (a *index) HasSynced() bool {
 }
 
 func (a *index) Network(ctx krt.HandlerContext) network.ID {
-	localNet := a.networks.NetworksByCluster.Lookup(a.ClusterID)
-	if len(localNet) == 0 {
+	localNet := krt.FetchOne(ctx, a.networks.GlobalClusterNetworks, krt.FilterIndex(a.networks.NetworksByCluster, a.ClusterID))
+	if localNet == nil {
 		log.Warnf("No network found for cluster %s", a.ClusterID)
 		return ""
 	}
-	return localNet[0].Network
+	return localNet.Network
 }
 
 func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {
