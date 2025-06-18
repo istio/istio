@@ -120,7 +120,7 @@ rules:
 {{- if eq (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
   - apiGroups: ["certificates.k8s.io"]
     resources: ["clustertrustbundles"]
-    verbs: ["update", "create", "delete"]
+    verbs: ["update", "create", "delete", "list", "watch", "get"]
   - apiGroups: ["certificates.k8s.io"]
     resources: ["signers"]
     resourceNames: ["istio.io/istiod-ca"]
