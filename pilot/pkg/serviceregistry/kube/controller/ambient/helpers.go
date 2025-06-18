@@ -37,8 +37,9 @@ func generateWorkloadEntryUID(clusterID cluster.ID, wkEntryNamespace, wkEntryNam
 }
 
 // UID for split-horizon EDS workload that represents all the remote workloads of a service in another network.
-func generateEDSWorkloadUID(networkID network.ID, remoteWorkloadNamespace, remoteServiceName string) string {
-	return networkID.String() + "/SplitHorizonEDSWorkload/" + remoteWorkloadNamespace + "/" + remoteServiceName
+// gw and service should be namespaced names
+func generateSplitHorizonWorkloadUID(networkID, gw, service string) string {
+	return networkID + "/SplitHorizonWorkload/" + gw + "/" + service
 }
 
 func generateServiceEntryUID(clusterID cluster.ID, svcEntryNamespace, svcEntryName, addr string) string {
