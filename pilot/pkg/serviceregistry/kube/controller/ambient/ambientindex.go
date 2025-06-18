@@ -15,10 +15,12 @@
 package ambient
 
 import (
+	"math"
 	"net/netip"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
+	"istio.io/istio/pkg/util/protomarshal"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,6 +54,7 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
+	istiomath "istio.io/istio/pkg/util/math"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -84,6 +87,7 @@ type workloadsCollection struct {
 	ByServiceKey             krt.Index[string, model.WorkloadInfo]
 	ByOwningWaypointHostname krt.Index[NamespaceHostname, model.WorkloadInfo]
 	ByOwningWaypointIP       krt.Index[networkAddress, model.WorkloadInfo]
+	ByNetwork                krt.Index[network.ID, NetworkGateway]
 }
 
 type waypointsCollection struct {
@@ -658,6 +662,11 @@ func (a *index) inRevision(obj any) bool {
 	return result
 }
 
+type networkServiceKey struct {
+	network string
+	service string
+}
+
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
 	var res []model.AddressInfo
@@ -676,7 +685,6 @@ func (a *index) All() []model.AddressInfo {
 			if scope != model.Global {
 				continue
 			}
-			wlNetwork := network.ID(wl.Workload.Network)
 
 			// Take note of the workload's SAN.
 			saName := wl.Workload.ServiceAccount
@@ -684,51 +692,60 @@ func (a *index) All() []model.AddressInfo {
 				saName = "default"
 			}
 			if _, ok := remoteWlSans[namespacedSvc]; !ok {
-				remoteWlSans[namespacedSvc] = map[string]struct{}{}
+				remoteWlSans[namespacedSvc] = sets.String{}
 			}
-			remoteWlSans[namespacedSvc][spiffe.MustGenSpiffeURI(a.meshConfig.Mesh(), wl.Workload.Namespace, saName)] = struct{}{}
+			remoteWlSans[namespacedSvc].Insert(spiffe.MustGenSpiffeURI(a.meshConfig.Mesh(), wl.Workload.Namespace, saName))
 
-			// parse the service key
-			parts := strings.Split(namespacedSvc, "/")
-			if len(parts) != 2 {
-				log.Warnf("Workload %s has an invalid service key %s", wl.ResourceName(), namespacedSvc)
-				continue
+			key := networkServiceKey{
+				network: wlNetwork.String(),
+				service: namespacedSvc,
 			}
-			svcNamespace, svcName := parts[0], parts[1]
-			edsWorkloadUID := generateEDSWorkloadUID(wlNetwork, svcNamespace, svcName)
+			capacity := wl.Workload.Capacity.GetValue()
+			if capacity == 0 {
+				capacity = 1 // avoid zero capacity.
+			}
 
 			// Check if we have already encountered a workload with this network, service pair.
-			if existing, ok := edsWorkloads[edsWorkloadUID]; ok {
+			if _, ok := splitHorizonWorkloadRemoteCapacity[key]; ok {
 				// Increment capacity and continue
-				// TODO(sjinxuan): this is wrong because we will double count the capacity if there are multiple gateways
-				existing.Workload.Capacity.Value++
-				continue
-			}
-
-			// We have not seen this workload before, so we create a new one for each gateway
-			gws := a.networks.GatewaysByNetwork.Lookup(network.ID(wl.Workload.Network))
-			for _, gw := range gws {
-				edsWorkload, err := a.createEDSWorkload(
-					namespacedSvc, svcNamespace, svcName, edsWorkloadUID, *localNetwork, gw, wl.Workload.Services[namespacedSvc],
-				)
-				if err != nil {
-					log.Errorf("Failed to create EDS workload for %s/%s: %v", svcNamespace, svcName, err)
-					continue
-				}
-				edsWorkloads[edsWorkloadUID] = edsWorkload
+				splitHorizonWorkloadRemoteCapacity[key] += capacity
+			} else {
+				splitHorizonWorkloadRemoteCapacity[key] = capacity
 			}
 		}
 	}
 
-	// add all EDS workloads to the result
-	for _, edsWorkload := range edsWorkloads {
-		// Add the EDS workload to the result
-		res = append(res, precomputeWorkload(*edsWorkload).AsAddress)
+	// Create split horizon workloads for each (global) service in each network
+	for key, rawCapacity := range splitHorizonWorkloadRemoteCapacity {
+		service := a.services.GetKey(key.service)
+		if service == nil || service.Service == nil {
+			log.Errorf("Failed to find service %s for split horizon workload in network %s", key.service, key.network)
+		}
+		gws := a.networks.GatewaysByNetwork.Lookup(network.ID(key.network))
+		if len(gws) == 0 {
+			log.Warnf("No gateways found for network %s, skipping split horizon workload for service %s", key.network, key.service)
+			continue
+		}
+		capacity := uint32(math.MaxUint32)
+		if int(rawCapacity) < math.MaxUint32/(scaleFactor/len(gws)) {
+			capacity = rawCapacity * uint32(scaleFactor/len(gws))
+			if capacity == 0 && rawCapacity > 0 {
+				capacity = 1 // avoid zero capacity. This should not be possible.
+			}
+		}
+
+		for _, gw := range gws {
+			splitHorizonWorkload, err := a.createSplitHorizonWorkload(service.ResourceName(), service.Service, &gw, uint32(capacity))
+			if err != nil {
+				log.Warnf("Failed to create split horizon workload for service %s in network %s: %v", key.service, key.network, err)
+				continue
+			}
+			res = append(res, precomputeWorkload(*splitHorizonWorkload).AsAddress)
+		}
 
 	}
 
 	// Create workloads for all gateways
-	// TODO(stevenjin8): maybe we should only create EDS workloads for gateways that are actually used by a service?
 	for _, gw := range a.networks.NetworkGateways.List() {
 		w, err := a.createNetworkGatewayWorkload(gw, *a.networks.LocalSystemNamespace.Get())
 		if err != nil {
@@ -739,24 +756,24 @@ func (a *index) All() []model.AddressInfo {
 
 	// Include all services since we are assuming uniform configuration
 	// TODO(jaellio): Gracefully handle non uniform configurations
-	for _, orig_svc := range a.services.List() {
-		sans, ok := remoteWlSans[orig_svc.ResourceName()]
+	for _, origSvc := range a.services.List() {
+		sans, ok := remoteWlSans[origSvc.ResourceName()]
 		if !ok {
 			// No remote workloads for this service, just append the original service
-			res = append(res, orig_svc.AsAddress)
+			res = append(res, origSvc.AsAddress)
 			continue
 		}
 		// There are remote workloads for this service, so we need to create a new service with the remote SANs.
-		// TODO(stevenjin8): DeepCopy is a bit of an overkill.
-		newSvc := orig_svc
-		newSvc.Service, ok = proto.Clone(orig_svc.Service).(*workloadapi.Service)
+		newSvc := &model.ServiceInfo{
+			Service:  protomarshal.Clone(origSvc.Service)
+		}
 		if !ok {
 			// panic?
-			log.Errorf("Failed to clone service %s/%s", orig_svc.Service.Namespace, orig_svc.Service.Name)
+			log.Errorf("Failed to clone service %s/%s", origSvc.Service.Namespace, origSvc.Service.Name)
 			continue
 		}
-		for s := range sans {
-			sans[s] = struct{}{}
+		for _, s := range origSvc.Service.SubjectAltNames {
+			sans.Insert(s)
 		}
 		newSvc.Service.SubjectAltNames = nil
 		for s, _ := range sans {
@@ -779,7 +796,7 @@ func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, loca
 		Name:           networkGateway.ResourceName(), // TODO(stevenjin8): better name?
 		Namespace:      networkGateway.Source.Namespace,
 		Network:        networkGateway.Network.String(),
-		TrustDomain:    pickTrustDomain(a.meshConfig.Get()), // TODO(stevenjin8): We assume uniform trust domains right?
+		TrustDomain:    pickTrustDomain(a.meshConfig.Get()),
 		ServiceAccount: networkGateway.ServiceAccount.Name,
 		Capacity:       &wrapperspb.UInt32Value{Value: 1},
 		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
@@ -787,16 +804,15 @@ func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, loca
 		ClusterId:      networkGateway.Cluster.String(),
 	}
 	return &model.WorkloadInfo{
-		Workload:        &wl,
-		Source:          kind.KubernetesGateway,
-		ScopeForService: map[string]model.ServiceScope{},
-		Labels:          labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
+		Workload: &wl,
+		Source:   kind.KubernetesGateway,
+		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
 	}, nil
 }
 
 // svc is the full ns/name of the service, while svcNamespace and svcName are the parsed components of svc.
-func (a *index) createEDSWorkload(
-	svc, svcNamespace, svcName, edsWorkloadUID, localNetwork string, networkGateway NetworkGateway, ports *workloadapi.PortList,
+func (a *index) createSplitHorizonWorkload(
+	svcNamespacedName string, svc *workloadapi.Service, networkGateway *NetworkGateway, capacity uint32,
 ) (*model.WorkloadInfo, error) {
 	address, err := netip.ParseAddr(networkGateway.Addr)
 	if err != nil {
@@ -806,14 +822,14 @@ func (a *index) createEDSWorkload(
 	if hboneMtlsPort == 0 {
 		hboneMtlsPort = 15008
 	}
-
+	uid := generateSplitHorizonWorkloadUID(networkGateway.Network.String(), networkGateway.ResourceName(), svcNamespacedName)
 	wl := workloadapi.Workload{
-		Uid:          edsWorkloadUID,
-		Name:         edsWorkloadUID, // TODO(stevenjin8): better name?
-		Namespace:    svcNamespace,
+		Uid:          uid,
+		Name:         uid, // TODO(stevenjin8): better name?
+		Namespace:    svc.Namespace,
 		Network:      networkGateway.Network.String(),
-		TrustDomain:  pickTrustDomain(a.meshConfig.Get()), // TODO(stevenjin8): We assume uniform trust domains right?
-		Capacity:     &wrapperspb.UInt32Value{Value: 1},
+		TrustDomain:  pickTrustDomain(a.meshConfig.Get()),
+		Capacity:     &wrapperspb.UInt32Value{Value: capacity},
 		WorkloadType: workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
 		NetworkGateway: &workloadapi.GatewayAddress{
 			Destination: &workloadapi.GatewayAddress_Address{
@@ -826,17 +842,16 @@ func (a *index) createEDSWorkload(
 		},
 		ClusterId: networkGateway.Cluster.String(),
 
-		// TODO(stevenjin8): Skip authorization policies
 		Services: map[string]*workloadapi.PortList{
-			svc: ports,
+			svcNamespacedName: &workloadapi.PortList{
+				Ports: svc.Ports,
+			},
 		},
 	}
-	// TODO(stevenjin8): is ScopeForService necessary?
 	wi := &model.WorkloadInfo{
-		Workload:        &wl,
-		Source:          kind.KubernetesGateway,
-		ScopeForService: map[string]model.ServiceScope{svc: model.Global},
-		Labels:          labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
+		Workload: &wl,
+		Source:   kind.KubernetesGateway,
+		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
 	}
 	return wi, nil
 }
