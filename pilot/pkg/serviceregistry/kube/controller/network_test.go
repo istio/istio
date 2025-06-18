@@ -265,7 +265,7 @@ func TestAmbientSystemNamespaceNetworkChange(t *testing.T) {
 
 	tracker := assert.NewTracker[string](t)
 
-	s.systemNamespace.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+	s.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		tracker.Record(o.GetName())
 	}))
 
@@ -421,5 +421,5 @@ func createOrUpdateNamespace(t *testing.T, c *FakeController, name, network stri
 			},
 		},
 	}
-	clienttest.Wrap(t, c.systemNamespace).CreateOrUpdate(namespace)
+	clienttest.Wrap(t, c.namespaces).CreateOrUpdate(namespace)
 }
