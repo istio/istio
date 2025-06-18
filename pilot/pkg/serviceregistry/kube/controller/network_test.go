@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
-	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/annotation"
@@ -408,7 +407,7 @@ func TestAmbientSync(t *testing.T) {
 			},
 		},
 		Status: v1beta1.GatewayStatus{
-			Addresses: []v1.GatewayStatusAddress{
+			Addresses: []k8sv1.GatewayStatusAddress{
 				{
 					Type:  ptr.Of(v1beta1.IPAddressType),
 					Value: "172.18.1.45",
