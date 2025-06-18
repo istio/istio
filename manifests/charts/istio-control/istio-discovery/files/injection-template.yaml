@@ -494,8 +494,8 @@ spec:
     projected:
       sources:
       - clusterTrustBundle:
-        name: istio.io:istiod-ca:root-cert
-        path: root-cert.pem
+          name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
+          path: root-cert.pem
   {{- else }}
     configMap:
       name: istio-ca-root-cert
