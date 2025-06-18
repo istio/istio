@@ -178,8 +178,8 @@ type Controller struct {
 
 	queue queue.Instance
 
-	namespaces kclient.Client[*v1.Namespace]
-	services   kclient.Client[*v1.Service]
+	systemNamespace kclient.Client[*v1.Namespace]
+	services        kclient.Client[*v1.Service]
 
 	endpoints *endpointSliceController
 
@@ -245,12 +245,17 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 	c.networkManager = initNetworkManager(c, options)
 
-	c.namespaces = kclient.NewFiltered[*v1.Namespace](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
+	// currently NOT using kubeClient.ObjectFilter() here as we only care about the system namespace
+	// if in the future we want to watch other namespaces here, we will need to alter the discoveryNamespacesFilter
+	// to have an exception for the system namespace
+	c.systemNamespace = kclient.NewFiltered[*v1.Namespace](kubeClient, kclient.Filter{
+		LabelSelector: "kubernetes.io/metadata.name=" + c.opts.SystemNamespace,
+	})
 
 	if c.opts.SystemNamespace != "" {
 		registerHandlers[*v1.Namespace](
 			c,
-			c.namespaces,
+			c.systemNamespace,
 			"Namespaces",
 			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
 				if cur.Name == c.opts.SystemNamespace {
@@ -630,7 +635,7 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) informersSynced() bool {
-	return c.namespaces.HasSynced() &&
+	return c.systemNamespace.HasSynced() &&
 		c.services.HasSynced() &&
 		c.endpoints.slices.HasSynced() &&
 		c.pods.pods.HasSynced() &&
