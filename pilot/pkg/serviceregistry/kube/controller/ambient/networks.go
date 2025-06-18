@@ -46,18 +46,26 @@ func (n NetworkGateway) ResourceName() string {
 	return n.Source.String() + "/" + n.Addr
 }
 
+type ClusterNetwork struct {
+	// ID is the cluster ID for this network.
+	ID cluster.ID
+	// Network is the network ID for this cluster.
+	Network network.ID
+}
+
+func (c ClusterNetwork) ResourceName() string {
+	return fmt.Sprintf("%s/%s", c.Network, c.ID)
+}
+
 type networkCollections struct {
-	LocalSystemNamespace          krt.Singleton[string]
-	RemoteSystemNamespaceNetworks krt.Collection[krt.Singleton[string]]
-	// SystemNamespaceNetworkByCluster is an index of cluster ID to the system namespace network
-	// for that cluster.
-	SystemNamespaceNetworkByCluster krt.Index[cluster.ID, krt.Singleton[string]]
-	NetworkGateways                 krt.Collection[NetworkGateway]
-	GatewaysByNetwork               krt.Index[network.ID, NetworkGateway]
+	GlobalClusterNetworks krt.Collection[ClusterNetwork]
+	NetworksByCluster     krt.Index[cluster.ID, ClusterNetwork]
+	NetworkGateways       krt.Collection[NetworkGateway]
+	GatewaysByNetwork     krt.Index[network.ID, NetworkGateway]
 }
 
 func (c networkCollections) HasSynced() bool {
-	return c.LocalSystemNamespace.AsCollection().HasSynced() &&
+	return c.GlobalClusterNetworks.HasSynced() &&
 		c.NetworkGateways.HasSynced()
 }
 
@@ -70,7 +78,7 @@ func buildGlobalNetworkCollections(
 	options Options,
 	opts krt.OptionsBuilder,
 ) networkCollections {
-	LocalSystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+	LocalSystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterNetwork {
 		ns := ptr.Flatten(krt.FetchOne(ctx, localNamespaces, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
 			return nil
@@ -79,17 +87,14 @@ func buildGlobalNetworkCollections(
 		if !f {
 			return nil
 		}
-		return &nw
+		return &ClusterNetwork{
+			ID:      options.ClusterID,
+			Network: network.ID(nw),
+		}
 	}, opts.WithName("LocalSystemNamespaceNetwork")...)
 	RemoteSystemNamespaceNetworks := krt.NewCollection(
 		clusters,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Singleton[string] {
-			singletonOpts := opts.With(
-				krt.WithName(fmt.Sprintf("SystemNamespaceNetwork[%s]", c.ID)),
-				krt.WithMetadata(krt.Metadata{
-					multicluster.ClusterKRTMetadataKey: c.ID,
-				}),
-			)
+		func(ctx krt.HandlerContext, c *multicluster.Cluster) *ClusterNetwork {
 			if !kubectrl.WaitForCacheSync(fmt.Sprintf("remote cluster[%s] namespaces", c.ID), opts.Stop(), c.HasSynced) {
 				log.Errorf("Timed out waiting for cluster %s to sync namespaces", c.ID)
 				return nil
@@ -98,31 +103,31 @@ func buildGlobalNetworkCollections(
 			if ns == nil {
 				// If the namespace for the remote cluster is not found, we default to the empty string
 				// to indicate that this cluster is a part of the default network
-				return ptr.Of(krt.NewSingleton(func(ctx krt.HandlerContext) *string {
-					return ptr.Of("")
-				}, singletonOpts...))
+				// TODO: Should we return nil here instead?
+				return &ClusterNetwork{
+					ID:      c.ID,
+					Network: network.ID(""),
+				}
 			}
 			nw, f := ns.Labels[label.TopologyNetwork.Name]
 			if !f {
 				nw = ""
 			}
-			return ptr.Of(krt.NewSingleton(func(ctx krt.HandlerContext) *string {
-				return ptr.Of(nw)
-			}, singletonOpts...))
+			return &ClusterNetwork{
+				ID:      c.ID,
+				Network: network.ID(nw),
+			}
 		},
 		opts.WithName("RemoteSystemNamespaceNetworks")...,
 	)
 
-	RemoteSystemNamespaceNetworksByCluster := krt.NewIndex(RemoteSystemNamespaceNetworks, "cluster", func(o krt.Singleton[string]) []cluster.ID {
-		val, ok := o.Metadata()[multicluster.ClusterKRTMetadataKey]
-		if !ok {
-			panic(fmt.Sprintf("Cluster metadata not set on network collection %v", o))
-		}
-		id, ok := val.(cluster.ID)
-		if !ok {
-			panic(fmt.Sprintf("Invalid cluster metadata set on collection %v: %v", o, val))
-		}
-		return []cluster.ID{id}
+	GlobalSystemNamespaceNetwork := krt.JoinCollection([]krt.Collection[ClusterNetwork]{
+		LocalSystemNamespaceNetwork.AsCollection(),
+		RemoteSystemNamespaceNetworks,
+	}, opts.WithName("GlobalSystemNamespaceNetwork")...)
+
+	NetworkByCluster := krt.NewIndex(GlobalSystemNamespaceNetwork, "cluster", func(o ClusterNetwork) []cluster.ID {
+		return []cluster.ID{o.ID}
 	})
 
 	localNetworkGateways := krt.NewManyCollection(localGateways, func(ctx krt.HandlerContext, gw *v1beta1.Gateway) []config.ObjectWithCluster[NetworkGateway] {
@@ -193,11 +198,10 @@ func buildGlobalNetworkCollections(
 	})
 
 	return networkCollections{
-		SystemNamespaceNetworkByCluster: RemoteSystemNamespaceNetworksByCluster,
-		NetworkGateways:                 MergedNetworkGateways,
-		GatewaysByNetwork:               GatewaysByNetwork,
-		LocalSystemNamespace:            LocalSystemNamespaceNetwork,
-		RemoteSystemNamespaceNetworks:   RemoteSystemNamespaceNetworks,
+		NetworkGateways:       MergedNetworkGateways,
+		GatewaysByNetwork:     GatewaysByNetwork,
+		GlobalClusterNetworks: GlobalSystemNamespaceNetwork,
+		NetworksByCluster:     NetworkByCluster,
 	}
 }
 
@@ -207,7 +211,7 @@ func buildNetworkCollections(
 	options Options,
 	opts krt.OptionsBuilder,
 ) networkCollections {
-	SystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *string {
+	SystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterNetwork {
 		ns := ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
 			return nil
@@ -216,8 +220,16 @@ func buildNetworkCollections(
 		if !f {
 			return nil
 		}
-		return &nw
+		return &ClusterNetwork{
+			ID:      options.ClusterID,
+			Network: network.ID(nw),
+		}
 	}, opts.WithName("SystemNamespaceNetwork")...)
+
+	NetworkByCluster := krt.NewIndex(SystemNamespaceNetwork.AsCollection(), "cluster", func(o ClusterNetwork) []cluster.ID {
+		return []cluster.ID{o.ID}
+	})
+
 	NetworkGateways := krt.NewManyCollection(
 		gateways,
 		fromGatewayBuilder(options.ClusterID, options.ClusterID),
@@ -228,9 +240,10 @@ func buildNetworkCollections(
 	})
 
 	return networkCollections{
-		LocalSystemNamespace: SystemNamespaceNetwork,
-		NetworkGateways:      NetworkGateways,
-		GatewaysByNetwork:    GatewaysByNetwork,
+		GlobalClusterNetworks: SystemNamespaceNetwork.AsCollection(),
+		NetworkGateways:       NetworkGateways,
+		GatewaysByNetwork:     GatewaysByNetwork,
+		NetworksByCluster:     NetworkByCluster,
 	}
 }
 

@@ -303,15 +303,14 @@ func GlobalWaypointsCollection(
 				trafficType = tt
 			}
 
-			nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-			if nwPtr == nil {
-				log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
+			cNet := krt.FetchOne(ctx, globalNetworks.GlobalClusterNetworks, krt.FilterIndex(globalNetworks.NetworksByCluster, c.ID))
+			if cNet == nil {
+				log.Warnf("Cluster %s does not have network assigned yet, skipping", c.ID)
+				ctx.DiscardResult()
 				return nil
 			}
-			nw := ptr.OrEmpty(nwPtr)
-			clusterNetwork := ptr.OrEmpty(nw.Get())
 
-			w := makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, network.ID(clusterNetwork))
+			w := makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, cNet.Network)
 			return w
 		}, opts.With(
 			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),

@@ -115,14 +115,13 @@ func GlobalMergedWorkloadServicesCollection(
 			// We can't have duplicate collections (otherwise FetchOne will panic) so use
 			// sync.Once to ensure we only create the collection once and return that same value
 			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {
-				nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
-				if nwPtr == nil {
+				cNet := krt.FetchOne(ctx, globalNetworks.GlobalClusterNetworks, krt.FilterIndex(globalNetworks.NetworksByCluster, cluster.ID))
+				if cNet == nil {
 					log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
 					ctx.DiscardResult()
 					return ""
 				}
-				nw := *nwPtr
-				return network.ID(ptr.OrEmpty(nw.Get()))
+				return cNet.Network
 			}), opts.With(
 				append(
 					opts.WithName(fmt.Sprintf("ServiceServiceInfos[%s]", cluster.ID)),

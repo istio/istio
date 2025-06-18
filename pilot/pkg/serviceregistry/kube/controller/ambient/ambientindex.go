@@ -48,7 +48,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -808,8 +807,12 @@ func (a *index) HasSynced() bool {
 }
 
 func (a *index) Network(ctx krt.HandlerContext) network.ID {
-	net := krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection())
-	return network.ID(ptr.OrEmpty(net))
+	localNet := a.networks.NetworksByCluster.Lookup(a.ClusterID)
+	if len(localNet) == 0 {
+		log.Warnf("No network found for cluster %s", a.ClusterID)
+		return ""
+	}
+	return localNet[0].Network
 }
 
 func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {

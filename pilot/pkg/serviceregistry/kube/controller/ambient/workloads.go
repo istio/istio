@@ -177,8 +177,8 @@ func MergedGlobalWorkloadsCollection(
 				return localCluster.ID
 			},
 			func(hc krt.HandlerContext) network.ID {
-				nw := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.LocalSystemNamespace.AsCollection()))
-				return network.ID(nw)
+				cn := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.GlobalClusterNetworks, krt.FilterIndex(globalNetworks.NetworksByCluster, localCluster.ID)))
+				return cn.Network
 			},
 			globalNetworks.NetworkGateways,
 			globalNetworks.GatewaysByNetwork,
@@ -205,8 +205,8 @@ func MergedGlobalWorkloadsCollection(
 				return localCluster.ID
 			},
 			func(hc krt.HandlerContext) network.ID {
-				nw := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.LocalSystemNamespace.AsCollection()))
-				return network.ID(nw)
+				cn := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.GlobalClusterNetworks, krt.FilterIndex(globalNetworks.NetworksByCluster, localCluster.ID)))
+				return cn.Network
 			},
 			globalNetworks.NetworkGateways,
 			globalNetworks.GatewaysByNetwork,
@@ -233,8 +233,8 @@ func MergedGlobalWorkloadsCollection(
 				return localCluster.ID
 			},
 			func(hc krt.HandlerContext) network.ID {
-				nw := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.LocalSystemNamespace.AsCollection()))
-				return network.ID(nw)
+				cn := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.GlobalClusterNetworks, krt.FilterIndex(globalNetworks.NetworksByCluster, localCluster.ID)))
+				return cn.Network
 			},
 			globalNetworks.NetworkGateways,
 			globalNetworks.GatewaysByNetwork,
@@ -261,8 +261,8 @@ func MergedGlobalWorkloadsCollection(
 				return localCluster.ID
 			},
 			func(hc krt.HandlerContext) network.ID {
-				nw := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.LocalSystemNamespace.AsCollection()))
-				return network.ID(nw)
+				cn := ptr.OrEmpty(krt.FetchOne(hc, globalNetworks.GlobalClusterNetworks, krt.FilterIndex(globalNetworks.NetworksByCluster, localCluster.ID)))
+				return cn.Network
 			},
 		),
 		opts.WithName("LocalEndpointSliceWorkloads")...,
@@ -422,14 +422,13 @@ func MergedGlobalWorkloadsCollection(
 						return c.ID
 					},
 					func(hc krt.HandlerContext) network.ID {
-						nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-						if nwPtr == nil {
-							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							hc.DiscardResult()
+						cNet := krt.FetchOne(ctx, globalNetworks.GlobalClusterNetworks, krt.FilterIndex(globalNetworks.NetworksByCluster, c.ID))
+						if cNet == nil {
+							log.Warnf("Cluster %s does not have network assigned yet, skipping", c.ID)
+							ctx.DiscardResult()
 							return ""
 						}
-						nw := *nwPtr
-						return network.ID(ptr.OrEmpty(nw.Get()))
+						return cNet.Network
 					},
 					globalNetworks.NetworkGateways,
 					globalNetworks.GatewaysByNetwork,
@@ -467,14 +466,13 @@ func MergedGlobalWorkloadsCollection(
 						return c.ID
 					},
 					func(hc krt.HandlerContext) network.ID {
-						nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-						if nwPtr == nil {
-							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							hc.DiscardResult()
+						cNet := krt.FetchOne(ctx, globalNetworks.GlobalClusterNetworks, krt.FilterIndex(globalNetworks.NetworksByCluster, c.ID))
+						if cNet == nil {
+							log.Warnf("Cluster %s does not have network assigned yet, skipping", c.ID)
+							ctx.DiscardResult()
 							return ""
 						}
-						nw := *nwPtr
-						return network.ID(*nw.Get())
+						return cNet.Network
 					},
 					globalNetworks.NetworkGateways,
 					globalNetworks.GatewaysByNetwork,
@@ -511,14 +509,13 @@ func MergedGlobalWorkloadsCollection(
 						return c.ID
 					},
 					func(hc krt.HandlerContext) network.ID {
-						nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-						if nwPtr == nil {
-							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							hc.DiscardResult()
+						cNet := krt.FetchOne(ctx, globalNetworks.GlobalClusterNetworks, krt.FilterIndex(globalNetworks.NetworksByCluster, c.ID))
+						if cNet == nil {
+							log.Warnf("Cluster %s does not have network assigned yet, skipping", c.ID)
+							ctx.DiscardResult()
 							return ""
 						}
-						nw := *nwPtr
-						return network.ID(*nw.Get())
+						return cNet.Network
 					},
 					globalNetworks.NetworkGateways,
 					globalNetworks.GatewaysByNetwork,
@@ -555,14 +552,13 @@ func MergedGlobalWorkloadsCollection(
 						return c.ID
 					},
 					func(hc krt.HandlerContext) network.ID {
-						nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-						if nwPtr == nil {
-							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							hc.DiscardResult()
+						cNet := krt.FetchOne(ctx, globalNetworks.GlobalClusterNetworks, krt.FilterIndex(globalNetworks.NetworksByCluster, c.ID))
+						if cNet == nil {
+							log.Warnf("Cluster %s does not have network assigned yet, skipping", c.ID)
+							ctx.DiscardResult()
 							return ""
 						}
-						nw := *nwPtr
-						return network.ID(*nw.Get())
+						return cNet.Network
 					},
 				),
 				append(
