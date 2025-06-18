@@ -28,6 +28,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/util/math"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/istiomultierror"
@@ -203,7 +204,7 @@ func (gws *NetworkGateways) update(gatewaySet NetworkGatewaySet) bool {
 	lcmVal := 1
 	// calculate lcm
 	for _, num := range gwNum {
-		lcmVal = lcm(lcmVal, num)
+		lcmVal = math.Lcm(lcmVal, num)
 	}
 
 	gws.lcm = uint32(lcmVal)
@@ -331,25 +332,6 @@ func SortGateways(gws []NetworkGateway) []NetworkGateway {
 		}
 		return cmp.Compare(a.Port, b.Port)
 	})
-}
-
-// greatest common divisor of x and y
-func gcd(x, y int) int {
-	var tmp int
-	for {
-		tmp = x % y
-		if tmp > 0 {
-			x = y
-			y = tmp
-		} else {
-			return y
-		}
-	}
-}
-
-// least common multiple of x and y
-func lcm(x, y int) int {
-	return x * y / gcd(x, y)
 }
 
 // NetworkGatewaySet is a helper to manage a set of NetworkGateway instances.
