@@ -21,6 +21,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/annotation"
@@ -1723,17 +1724,19 @@ func newAmbientUnitTest(t test.Failer) *index {
 			},
 			Spec: v1beta1.GatewaySpec{
 				GatewayClassName: "istio-remote",
-				Addresses: []v1beta1.GatewaySpecAddress{
-					{
-						Type:  ptr.Of(v1beta1.IPAddressType),
-						Value: "9.9.9.9",
-					},
-				},
 				Listeners: []v1beta1.Listener{
 					{
 						Name:     "cross-network",
 						Port:     15008,
 						Protocol: "HBONE",
+					},
+				},
+			},
+			Status: v1beta1.GatewayStatus{
+				Addresses: []gatewayv1.GatewayStatusAddress{
+					{
+						Type:  ptr.Of(gatewayv1.IPAddressType),
+						Value: "9.9.9.9",
 					},
 				},
 			},
@@ -1751,17 +1754,19 @@ func newAmbientUnitTest(t test.Failer) *index {
 			},
 			Spec: v1beta1.GatewaySpec{
 				GatewayClassName: "istio-remote",
-				Addresses: []v1beta1.GatewaySpecAddress{
-					{
-						Type:  ptr.Of(v1beta1.HostnameAddressType),
-						Value: "networkgateway.example.com",
-					},
-				},
 				Listeners: []v1beta1.Listener{
 					{
 						Name:     "cross-network",
 						Port:     15008,
 						Protocol: "HBONE",
+					},
+				},
+			},
+			Status: v1beta1.GatewayStatus{
+				Addresses: []gatewayv1.GatewayStatusAddress{
+					{
+						Type:  ptr.Of(gatewayv1.HostnameAddressType),
+						Value: "networkgateway.example.com",
 					},
 				},
 			},
