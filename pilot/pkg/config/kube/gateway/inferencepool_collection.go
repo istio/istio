@@ -89,7 +89,7 @@ func InferencePoolCollection(
 	services krt.Collection[*corev1.Service],
 	httpRoutes krt.Collection[*gateway.HTTPRoute],
 	gateways krt.Collection[*gateway.Gateway],
-	routesByNamespace krt.Index[string, *gateway.HTTPRoute],
+	routesByInferencePool krt.Index[string, *gateway.HTTPRoute],
 	c *Controller,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*inferencev1alpha2.InferencePool, inferencev1alpha2.InferencePoolStatus], krt.Collection[InferencePool]) {
@@ -130,23 +130,36 @@ func InferencePoolCollection(
 			}
 
 			gatewayParentsToEnsure := sets.New[types.NamespacedName]()
-			routeList := krt.Fetch(ctx, httpRoutes, krt.FilterIndex(routesByNamespace, pool.Namespace))
+			routeList := krt.Fetch(ctx, httpRoutes, krt.FilterIndex(routesByInferencePool, pool.Namespace+"/"+pool.Name))
 			for _, r := range routeList {
 				for _, rule := range r.Spec.Rules {
 					for _, httpBackendRef := range rule.BackendRefs {
 						if httpBackendRef.BackendRef.Group == nil || httpBackendRef.BackendRef.Kind == nil {
 							continue
 						}
+
 						if string(*httpBackendRef.BackendRef.Group) == gvk.InferencePool.Group &&
 							string(*httpBackendRef.BackendRef.Kind) == gvk.InferencePool.Kind &&
 							string(httpBackendRef.BackendRef.Name) == pool.ObjectMeta.Name {
-							for _, p := range r.Status.Parents {
-								if supportedControllers.Contains(p.ControllerName) {
-									ns := r.Namespace
-									if p.ParentRef.Namespace != nil && *p.ParentRef.Namespace != "" {
-										ns = string(*p.ParentRef.Namespace)
+
+							// Check if the backendRef namespace matches the InferencePool namespace.
+							// If BackendRef.Namespace is not specified, the backend is in the same namespace as the HTTPRoute's.
+							backendRefNamespace := r.Namespace
+							if httpBackendRef.BackendRef.Namespace != nil && *httpBackendRef.BackendRef.Namespace != "" {
+								backendRefNamespace = string(*httpBackendRef.BackendRef.Namespace)
+							}
+
+							if backendRefNamespace == pool.Namespace {
+								// If the backendRef points to the InferencePool in the correct namespace,
+								// check the HTTPRoute's parent status.
+								for _, p := range r.Status.Parents {
+									if supportedControllers.Contains(p.ControllerName) {
+										ns := r.Namespace
+										if p.ParentRef.Namespace != nil && *p.ParentRef.Namespace != "" {
+											ns = string(*p.ParentRef.Namespace)
+										}
+										gatewayParentsToEnsure.Insert(types.NamespacedName{Name: string(p.ParentRef.Name), Namespace: ns})
 									}
-									gatewayParentsToEnsure.Insert(types.NamespacedName{Name: string(p.ParentRef.Name), Namespace: ns})
 								}
 							}
 						}
@@ -154,41 +167,55 @@ func InferencePoolCollection(
 				}
 			}
 
-			existingParents := pool.Status.DeepCopy().Parents
-			existingParentsMap := make(map[types.NamespacedName]inferencev1alpha2.PoolStatus, len(existingParents))
-			newParents := []inferencev1alpha2.PoolStatus{}
-			for gtw := range gatewayParentsToEnsure {
-				newParents = append(newParents, *poolStatusTmpl(gtw.Name, gtw.Namespace, pool.Generation))
-			}
+			extensionReferenceResolvedStatus := resolveExtensionRef(services, *pool)
 
+			// Upate the parents status list;
+			//   - remove ours that are no longer used
+			//   - keep parents from other controllers as is
+			//   - update our current parents
+			existingParents := pool.Status.DeepCopy().Parents
+
+			// All ours from this reconciliation in a default unknown state
+			ourParents := []inferencev1alpha2.PoolStatus{}
 			finalParents := []inferencev1alpha2.PoolStatus{}
-			// First, look at existing parents and add them unconditionally if they are NOT managed by this controller
+			// Add all existing parents from other controllers
 			for _, existingParent := range existingParents {
-				gwKey := types.NamespacedName{Name: existingParent.GatewayRef.Name, Namespace: existingParent.GatewayRef.Namespace}
-				existingParentsMap[gwKey] = existingParent
 				if !isManagedGateway(gateways, existingParent) {
 					finalParents = append(finalParents, existingParent)
+				} else if gatewayParentsToEnsure.Contains(types.NamespacedName{Name: string(existingParent.GatewayRef.Name), Namespace: string(existingParent.GatewayRef.Namespace)}) {
+					// only add our parents that are still referenced by an HTTPRoute
+					ourParents = append(ourParents, existingParent)
 				}
 			}
-			for _, newParent := range newParents {
-				gwKey := types.NamespacedName{Name: newParent.GatewayRef.Name, Namespace: newParent.GatewayRef.Namespace}
-				if parent, ok := existingParentsMap[gwKey]; ok {
-					// There's an update of an existing parent we control, update it to accepted
-					// TODO: Update this is there are ever more conditions to consider
-					finalParents = append(finalParents, inferencev1alpha2.PoolStatus{
-						GatewayRef: newParent.GatewayRef,
-						Conditions: setConditions(pool.Generation, parent.Conditions, map[string]*condition{
-							string(inferencev1alpha2.InferencePoolConditionAccepted): {
-								reason:  string(inferencev1alpha2.InferencePoolReasonAccepted),
-								status:  metav1.ConditionTrue,
-								message: "Referenced by an HTTPRoute accepted by the parentRef Gateway",
-							},
-						}),
-					})
-				} else {
-					// If this is a net new parent, just add it
-					finalParents = append(finalParents, newParent)
+
+			// Create new default parents if this is a new parent
+			for gtw := range gatewayParentsToEnsure {
+				found := false
+				for _, ourExistingParent := range ourParents {
+					if ourExistingParent.GatewayRef.Name == gtw.Name && ourExistingParent.GatewayRef.Namespace == gtw.Namespace {
+						found = true
+						break
+					}
 				}
+				if !found {
+					ourParents = append(ourParents, *defaultUnknownStatus(gtw.Name, gtw.Namespace, pool.Generation))
+				}
+			}
+
+			// Add all our parents and update the conditions from previous default unknown state
+			for _, ourParent := range ourParents {
+				// TODO: Update this is there are ever more conditions to consider
+				finalParents = append(finalParents, inferencev1alpha2.PoolStatus{
+					GatewayRef: ourParent.GatewayRef,
+					Conditions: setConditions(pool.Generation, ourParent.Conditions, map[string]*condition{
+						string(inferencev1alpha2.InferencePoolConditionAccepted): {
+							reason:  string(inferencev1alpha2.InferencePoolReasonAccepted),
+							status:  metav1.ConditionTrue,
+							message: "Referenced by an HTTPRoute accepted by the parentRef Gateway",
+						},
+						string(inferencev1alpha2.ModelConditionResolvedRefs): extensionReferenceResolvedStatus,
+					}),
+				})
 			}
 
 			ipoolStatus := inferencev1alpha2.InferencePoolStatus{
@@ -203,6 +230,39 @@ func InferencePoolCollection(
 		}, opts.WithName("InferenceExtension")...)
 }
 
+// resolveExtensionRef checks if the extension ref is valid and returns a condition
+// checks if the kind is supported and if the service exists in the same namespace as the InferencePool
+func resolveExtensionRef(services krt.Collection[*corev1.Service], pool inferencev1alpha2.InferencePool) *condition {
+	// defaults to service
+	if pool.Spec.ExtensionRef.Kind != nil && string(*pool.Spec.ExtensionRef.Kind) != gvk.Service.Kind {
+		return &condition{
+			reason:  string(inferencev1alpha2.ModelReasonInvalidExtensionRef),
+			status:  metav1.ConditionFalse,
+			message: "Unsupported ExtensionRef kind " + string(*pool.Spec.ExtensionRef.Kind),
+		}
+	}
+	if string(pool.Spec.ExtensionRef.Name) == "" {
+		return &condition{
+			reason:  string(inferencev1alpha2.ModelReasonInvalidExtensionRef),
+			status:  metav1.ConditionFalse,
+			message: "ExtensionRef not defined",
+		}
+	}
+	svc := ptr.Flatten(services.GetKey(fmt.Sprintf("%s/%s", pool.Namespace, pool.Spec.ExtensionRef.Name)))
+	if svc == nil {
+		return &condition{
+			reason:  string(inferencev1alpha2.ModelReasonInvalidExtensionRef),
+			status:  metav1.ConditionFalse,
+			message: "Referenced ExtensionRef not found " + string(pool.Spec.ExtensionRef.Name),
+		}
+	}
+	return &condition{
+		reason:  string(inferencev1alpha2.ModelConditionResolvedRefs),
+		status:  metav1.ConditionTrue,
+		message: "Referenced ExtensionRef resolved successfully ",
+	}
+}
+
 // isManagedGateway checks if the Gateway is controlled by this controller
 func isManagedGateway(gateways krt.Collection[*gateway.Gateway], parent inferencev1alpha2.PoolStatus) bool {
 	gtw := ptr.Flatten(gateways.GetKey(fmt.Sprintf("%s/%s", parent.GatewayRef.Namespace, parent.GatewayRef.Name)))
@@ -213,7 +273,7 @@ func isManagedGateway(gateways krt.Collection[*gateway.Gateway], parent inferenc
 	return ok
 }
 
-func poolStatusTmpl(gwName, ns string, generation int64) *inferencev1alpha2.PoolStatus {
+func defaultUnknownStatus(gwName, ns string, generation int64) *inferencev1alpha2.PoolStatus {
 	return &inferencev1alpha2.PoolStatus{
 		GatewayRef: corev1.ObjectReference{
 			APIVersion: gatewayv1.GroupVersion.String(),
@@ -224,9 +284,17 @@ func poolStatusTmpl(gwName, ns string, generation int64) *inferencev1alpha2.Pool
 		Conditions: []metav1.Condition{
 			{
 				Type:               string(inferencev1alpha2.InferencePoolConditionAccepted),
-				Status:             metav1.ConditionTrue,
+				Status:             metav1.ConditionUnknown,
 				Reason:             string(inferencev1alpha2.InferencePoolReasonAccepted),
-				Message:            "Referenced by an HTTPRoute accepted by the parentRef Gateway",
+				Message:            "Unknown acceptance status",
+				ObservedGeneration: generation,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+			},
+			{
+				Type:               string(inferencev1alpha2.ModelConditionResolvedRefs),
+				Status:             metav1.ConditionUnknown,
+				Reason:             string(inferencev1alpha2.ModelReasonResolvedRefs),
+				Message:            "Unknown resolved refs status",
 				ObservedGeneration: generation,
 				LastTransitionTime: metav1.NewTime(time.Now()),
 			},
@@ -355,4 +423,23 @@ func (c *Controller) canManageShadowServiceForInference(obj *corev1.Service) (bo
 	_, inferencePoolManaged := obj.GetLabels()[InferencePoolRefLabel]
 	// We can manage if it has no manager or if we are the manager
 	return inferencePoolManaged, obj.GetResourceVersion()
+}
+
+func indexHTTPRouteByInferencePool(o *gateway.HTTPRoute) []string {
+	var keys []string
+	for _, rule := range o.Spec.Rules {
+		for _, backendRef := range rule.BackendRefs {
+			if string(*backendRef.BackendRef.Group) == gvk.InferencePool.Group &&
+				string(*backendRef.BackendRef.Kind) == gvk.InferencePool.Kind {
+				// If BackendRef.Namespace is not specified, the backend is in the same namespace as the HTTPRoute's
+				backendRefNamespace := o.Namespace
+				if backendRef.BackendRef.Namespace != nil && *backendRef.BackendRef.Namespace != "" {
+					backendRefNamespace = string(*backendRef.BackendRef.Namespace)
+				}
+				key := backendRefNamespace + "/" + string(backendRef.Name)
+				keys = append(keys, key)
+			}
+		}
+	}
+	return keys
 }
