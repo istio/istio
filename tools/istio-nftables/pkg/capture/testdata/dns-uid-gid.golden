@@ -35,7 +35,6 @@ add rule inet istio-proxy-nat istio-output-dns ip daddr 127.0.0.53/32 udp dport 
 add rule inet istio-proxy-nat istio-output-dns ip6 daddr ::127.0.0.53/128 udp dport 53 redirect to :15053
 add rule inet istio-proxy-nat istio-output ip daddr 127.0.0.1/32 return
 add rule inet istio-proxy-nat istio-output ip6 daddr ::1/128 return
-
 add table inet istio-proxy-raw
 flush table inet istio-proxy-raw
 add chain inet istio-proxy-raw prerouting { type filter hook prerouting priority -300 ; }

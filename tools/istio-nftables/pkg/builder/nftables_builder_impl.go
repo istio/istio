@@ -49,9 +49,11 @@ func NewNftablesRuleBuilder(cfg *config.Config) *NftablesRuleBuilder {
 // InsertRule adds a rule at a specific position in the given chain and table.
 func (rb *NftablesRuleBuilder) InsertRule(chain string, table string, position int, params ...string) *NftablesRuleBuilder {
 	rule := knftables.Rule{
-		Chain: chain,
-		Rule:  knftables.Concat(params),
-		Index: knftables.PtrTo(position),
+		Chain:  chain,
+		Table:  table,
+		Family: knftables.InetFamily,
+		Rule:   knftables.Concat(params),
+		Index:  knftables.PtrTo(position),
 	}
 	rb.Rules[table] = append(rb.Rules[table], rule)
 	return rb
@@ -69,8 +71,10 @@ func (rb *NftablesRuleBuilder) InsertV6RuleIfSupported(chain string, table strin
 // AppendRule adds a rule to the end of the chain in the given table.
 func (rb *NftablesRuleBuilder) AppendRule(chain string, table string, params ...string) *NftablesRuleBuilder {
 	rule := knftables.Rule{
-		Chain: chain,
-		Rule:  knftables.Concat(params),
+		Chain:  chain,
+		Table:  table,
+		Family: knftables.InetFamily,
+		Rule:   knftables.Concat(params),
 	}
 	rb.Rules[table] = append(rb.Rules[table], rule)
 	return rb
