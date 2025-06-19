@@ -27,7 +27,7 @@ import (
 )
 
 func TestAmbientIndexDuplicates(t *testing.T) {
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServer(t, testC, testNW, "")
 	s.addWorkloadEntries(t, "140.140.0.10", "name0", "sa1", map[string]string{"app": "a"})
 	s.addPods(t, "140.140.0.10", "pod0", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.addWorkloadEntries(t, "140.140.0.10", "name1", "sa1", map[string]string{"app": "a"})
@@ -37,7 +37,7 @@ func TestAmbientIndexDuplicates(t *testing.T) {
 }
 
 func TestAmbientIndex_ServiceEntry(t *testing.T) {
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServer(t, testC, testNW, "")
 
 	// test code path where service entry creates a workload entry via `ServiceEntry.endpoints`
 	// and the inlined WE has a port override
@@ -417,7 +417,7 @@ func TestAmbientIndex_ServiceEntry_DisableK8SServiceSelectWorkloadEntries(t *tes
 	s := newAmbientTestServerWithFlags(t, testC, testNW, FeatureFlags{
 		DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 		EnableK8SServiceSelectWorkloadEntries: false,
-	})
+	}, "")
 
 	s.addPods(t, "140.140.0.10", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod1"))
