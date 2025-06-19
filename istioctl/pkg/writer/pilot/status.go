@@ -67,7 +67,7 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryRespo
 		headers = append(headers, xdsresource.GetShortType(t))
 	}
 	headers = append(headers, "ISTIOD", "VERSION")
-	if _, err := fmt.Fprintln(w, joinWithTabs(headers)); err != nil {
+	if _, err := fmt.Fprintln(w, strings.Join(headers, "\t")); err != nil {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
@@ -116,7 +116,7 @@ func (s *XdsStatusWriter) printAllVerbose(statuses map[string]*discovery.Discove
 		headers = append(headers, xdsresource.GetShortType(t))
 	}
 	headers = append(headers, "ISTIOD", "VERSION")
-	if _, err := fmt.Fprintln(w, joinWithTabs(headers)); err != nil {
+	if _, err := fmt.Fprintln(w, strings.Join(headers, "\t")); err != nil {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
@@ -148,36 +148,6 @@ func getAllKnownXdsTypes() []string {
 	}
 	// In the future, this could be extended to include CRDs or dynamically discovered types
 	return types
-}
-
-// joinWithTabs joins a string slice with tabs
-func joinWithTabs(fields []string) string {
-	return stringJoin(fields, "\t")
-}
-
-// stringJoin efficiently joins a string slice with a separator
-func stringJoin(a []string, sep string) string {
-	if len(a) == 0 {
-		return ""
-	}
-	if len(a) == 1 {
-		return a[0]
-	}
-
-	// Pre-allocate buffer with approximate size
-	n := len(sep) * (len(a) - 1)
-	for _, s := range a {
-		n += len(s)
-	}
-
-	var b strings.Builder
-	b.Grow(n)
-	b.WriteString(a[0])
-	for _, s := range a[1:] {
-		b.WriteString(sep)
-		b.WriteString(s)
-	}
-	return b.String()
 }
 
 // setupStatusPrint processes the discovery responses and prepares them for printing
@@ -274,7 +244,7 @@ func xdsStatusPrintlnDynamic(w io.Writer, status *xdsWriterStatus, allTypes []st
 	}
 
 	fields = append(fields, status.istiodID, status.istiodVersion)
-	_, err := fmt.Fprintln(w, joinWithTabs(fields))
+	_, err := fmt.Fprintln(w, strings.Join(fields, "\t"))
 	return err
 }
 
