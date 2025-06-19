@@ -658,23 +658,25 @@ func (a *index) inRevision(obj any) bool {
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
 	var res []model.AddressInfo
-	// Only include workloads that are local to the cluster or have a global scope
+	// Add all workloads
 	for _, wl := range a.workloads.List() {
-		if wl.Workload.ClusterId == string(a.ClusterID) {
-			res = append(res, wl.AsAddress)
+		// If EnableAmbientMultiNetwork is enabled, we only want to add workloads that are local to this cluster
+		// Non cluster local workloads will be added by the service lookup
+		if features.EnableAmbientMultiNetwork && wl.Workload.ClusterId != string(a.ClusterID) {
 			continue
 		}
-		// jaellio: Another example of where ScopeForService is not ideal
-		for _, scope := range wl.ScopeForService {
-			if scope == model.Global {
-				res = append(res, wl.AsAddress)
-				break
+		res = append(res, wl.AsAddress)
+	}
+	// Add all services
+	for _, s := range a.services.List() {
+		if features.EnableAmbientMultiNetwork && s.Scope == model.Global {
+			// If EnableAmbientMultiNetwork is enabled, we want to add workloads that correspond to global services
+			for _, wl := range a.workloads.ByServiceKey.Lookup(s.ResourceName()) {
+				if wl.Workload.ClusterId != string(a.ClusterID) {
+					res = append(res, wl.AsAddress)
+				}
 			}
 		}
-	}
-	// Include all services since we are assuming uniform configuration
-	// TODO(jaellio): Gracefully handle non uniform configurations
-	for _, s := range a.services.List() {
 		res = append(res, s.AsAddress)
 	}
 	return res
