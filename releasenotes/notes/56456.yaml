@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+area: traffic-management
+issue:
+  - 56456
+releaseNotes:
+  - |
+    **Fixed** an issue where changing a `HTTPRoute` object could cause `istiod` to crash. 

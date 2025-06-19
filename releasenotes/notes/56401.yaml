@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 56401
+releaseNotes:
+  - |
+    **Fixed** a race condition where status updates for Kubernetes objects could be missed by `istiod`.
