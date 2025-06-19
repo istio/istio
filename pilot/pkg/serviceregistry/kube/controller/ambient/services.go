@@ -28,6 +28,7 @@ import (
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -118,16 +119,22 @@ func GlobalMergedWorkloadServicesCollection(
 			namespaces := cluster.Namespaces()
 			// We can't have duplicate collections (otherwise FetchOne will panic) so use
 			// sync.Once to ensure we only create the collection once and return that same value
-			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, meshConfig, domainSuffix, func(ctx krt.HandlerContext) network.ID {
-				nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
-				if nwPtr == nil {
-					log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
-					ctx.DiscardResult()
-					return ""
-				}
-				nw := *nwPtr
-				return network.ID(ptr.OrEmpty(nw.Get()))
-			}), opts.With(
+			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(
+				waypoints,
+				namespaces,
+				meshConfig,
+				domainSuffix, 
+				false,
+				func(ctx krt.HandlerContext) network.ID {
+					nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
+					if nwPtr == nil {
+						log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
+						ctx.DiscardResult()
+						return ""
+					}
+					nw := *nwPtr
+					return network.ID(ptr.OrEmpty(nw.Get()))
+				}), opts.With(
 				append(
 					opts.WithName(fmt.Sprintf("ServiceServiceInfos[%s]", cluster.ID)),
 					krt.WithMetadata(krt.Metadata{
@@ -155,9 +162,23 @@ func serviceServiceBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
 	domainSuffix string,
+	localCluster bool,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
+		serviceScope := model.Local
+		if features.EnableAmbientMultiNetwork {
+			meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+			if meshCfg != nil {
+				serviceScope = MatchServiceScope(meshCfg, namespaces, s)
+			}
+			if !localCluster && serviceScope != model.Global {
+				// If this is a remote service, we only want to return it if it is globally scoped.
+				// This is because we do not want to expose local services from other clusters.
+				log.Debugf("Skipping non-global service %s/%s in remote cluster", s.Namespace, s.Name)
+				return nil
+			}
+		}
 		if s.Spec.Type == v1.ServiceTypeExternalName {
 			// ExternalName services are not implemented by ambient (but will still work).
 			// The DNS requests will forward to the upstream DNS server, then Ztunnel can handle the request based on the target
@@ -187,14 +208,6 @@ func serviceServiceBuilder(
 		waypointStatus.Error = wperr
 
 		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
-
-		// TODO(jaellio): When should FetchOne be used? Prior to passing the meshConfig or
-		// when it is needed (in MatchServiceScope)?
-		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
-		var serviceScope model.ServiceScope
-		if meshCfg != nil {
-			serviceScope = MatchServiceScope(meshCfg, namespaces, s)
-		}
 
 		return precomputeServicePtr(&model.ServiceInfo{
 			Service:       svc,
@@ -266,16 +279,16 @@ func MatchServiceScope(meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namesp
 		ss, err := LabelSelectorAsSelector(scopeConfig.ServicesSelector)
 		if err != nil {
 			log.Warnf("failed to convert service selector: %v", err)
+			continue
 		}
 		if ss.String() == labels.Nothing().String() {
 			ss = labels.Everything()
 		}
 
 		// Get labels from the service and service's namespace
-		// TODO(jaellio): How do we know this namespace is the one we want from the right cluster?
 		namespace := namespaces.GetKey(s.Namespace)
-		// TODO(jaellio): Not sure how this scenario is possible
 		if namespace == nil || *namespace == nil {
+			log.Warnf("namespace %s not found for service %s/%s in namespaces %v", s.Namespace, s.Name, s.UID, namespaces.List())
 			continue
 		}
 		namespaceLabels := labels.Set((*namespace).Labels)
@@ -300,7 +313,7 @@ func (a *index) serviceServiceBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
-	return serviceServiceBuilder(waypoints, namespaces, meshConfig, a.DomainSuffix, func(ctx krt.HandlerContext) network.ID {
+	return serviceServiceBuilder(waypoints, namespaces, meshConfig, a.DomainSuffix, true, func(ctx krt.HandlerContext) network.ID {
 		return a.Network(ctx)
 	})
 }

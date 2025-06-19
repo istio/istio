@@ -31,6 +31,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	auth "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
@@ -2182,9 +2183,6 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 	cl := kubeclient.NewFakeClient()
 	t.Cleanup(cl.Shutdown)
 	var clientBuilder multicluster.ClientBuilder
-	if features.EnableAmbientMultiNetwork {
-		clientBuilder = testingBuildClientsFromConfig
-	}
 
 	debugger := krt.GlobalDebugHandler
 	o := Options{
@@ -2199,6 +2197,34 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		Flags:           flags,
 		MeshConfig:      meshwatcher.NewTestWatcher(nil),
 		ClientBuilder:   clientBuilder,
+	}
+
+	if features.EnableAmbientMultiNetwork {
+		o.ClientBuilder = testingBuildClientsFromConfig
+		o.MeshConfig.Mesh().ServiceScopeConfigs = []*v1alpha1.MeshConfig_ServiceScopeConfigs{
+			{
+				ServicesSelector: &v1alpha1.LabelSelector{
+					MatchExpressions: []*v1alpha1.LabelSelectorRequirement{
+						{
+							Key:      "istio.io/global",
+							Operator: "Exists",
+						},
+					},
+				},
+				Scope: v1alpha1.MeshConfig_ServiceScopeConfigs_GLOBAL,
+			},
+			{
+				NamespaceSelector: &v1alpha1.LabelSelector{
+					MatchExpressions: []*v1alpha1.LabelSelectorRequirement{
+						{
+							Key:      "istio.io/global",
+							Operator: "Exists",
+						},
+					},
+				},
+				Scope: v1alpha1.MeshConfig_ServiceScopeConfigs_GLOBAL,
+			},
+		}
 	}
 
 	return newAmbientTestServerFromOptions(t, networkID, o, true)

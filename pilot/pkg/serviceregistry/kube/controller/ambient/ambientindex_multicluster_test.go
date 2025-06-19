@@ -192,6 +192,12 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 							Labels: map[string]string{label.TopologyNetwork.Name: clusterToNetwork[client.clusterID]},
 						},
 					})
+					client.ns.Create(&corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   testNS,
+							Labels: map[string]string{label.TopologyNetwork.Name: clusterToNetwork[client.clusterID]},
+						},
+					})
 				}
 
 				// These steps happen for every test regardless of traffic type.
@@ -203,7 +209,9 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 					map[string]string{"app": "a"}, nil, true, corev1.PodRunning, client.pc)
 				s.assertEvent(t, s.podXdsNameForCluster("pod1", client.clusterID))
 				s.addServiceForClient(t, "svc2",
-					map[string]string{},
+					map[string]string{
+						"istio.io/global": "true",
+					},
 					map[string]string{},
 					[]int32{80}, map[string]string{"app": "a"}, ips["svc2"], client.sc)
 				s.assertEvent(t, s.svcXdsName("svc2"), s.podXdsNameForCluster("pod1", client.clusterID))
@@ -238,7 +246,10 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 
 			// Label the service and check that the correct event is produced.
 			s.labelService(t, "svc2", testNS,
-				map[string]string{label.IoIstioUseWaypoint.Name: "test-wp"})
+				map[string]string{
+					label.IoIstioUseWaypoint.Name: "test-wp",
+					"istio.io/global":             "true",
+				})
 			c.svcAssertion(s)
 
 			// clean up resources
