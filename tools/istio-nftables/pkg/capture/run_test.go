@@ -17,7 +17,6 @@ import (
 	"net/netip"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	"sigs.k8s.io/knftables"
@@ -269,9 +268,9 @@ func constructTestConfig() *config.Config {
 	}
 }
 
-func compareToGolden(t *testing.T, name string, actual []string) {
+func compareToGolden(t *testing.T, name string, actual string) {
 	t.Helper()
-	gotBytes := []byte(strings.Join(actual, "\n"))
+	gotBytes := []byte(actual)
 	goldenFile := filepath.Join("testdata", name+".golden")
 	testutil.CompareContent(t, gotBytes, goldenFile)
 }
@@ -281,37 +280,21 @@ func TestNftables(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
 			tt.config(cfg)
-
 			// Create a map to store mock instances for each table.
-			mocks := make(map[string]*MockNftables)
+			mock := NewMockNftables("", "")
 
-			nftProvider := func(table string) (NftablesAPI, error) {
-				mock := NewMockNftables(knftables.InetFamily, table)
-				mocks[table] = mock
+			nftProvider := func(_ knftables.Family, table string) (NftablesAPI, error) {
 				return mock, nil
 			}
 
 			nftConfigurator, _ := NewNftablesConfigurator(cfg, nftProvider)
-			tableTx, err := nftConfigurator.Run()
+			tx, err := nftConfigurator.Run()
 			if err != nil {
 				t.Fatal(err)
 			}
-
 			// Collect the output/dump from all tables
-			var dumps []string
-			for _, table := range []string{
-				constants.IstioProxyNatTable,
-				constants.IstioProxyMangleTable,
-				constants.IstioProxyRawTable,
-			} {
-				if mock, exists := mocks[table]; exists {
-					dump := mock.Dump(tableTx[table])
-					if dump != "" {
-						dumps = append(dumps, dump)
-					}
-				}
-			}
-			compareToGolden(t, tt.name, dumps)
+			dump := mock.Dump(tx)
+			compareToGolden(t, tt.name, dump)
 		})
 	}
 }
@@ -354,8 +337,8 @@ func TestSeparateV4V6(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := constructTestConfig()
-			nftProvider := func(table string) (NftablesAPI, error) {
-				return NewMockNftables(knftables.InetFamily, table), nil
+			nftProvider := func(family knftables.Family, table string) (NftablesAPI, error) {
+				return NewMockNftables(family, table), nil
 			}
 			nftConfigurator, _ := NewNftablesConfigurator(cfg, nftProvider)
 			v4Range, v6Range, err := nftConfigurator.separateV4V6(tt.cidr)

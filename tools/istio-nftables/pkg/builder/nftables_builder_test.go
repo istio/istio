@@ -39,11 +39,13 @@ func compareToGolden(t *testing.T, name string, actual string) {
 
 // buildRules creates a knftables.Fake interface for testing. It does not apply rules to the target system.
 func buildRules(t *testing.T, builder *NftablesRuleBuilder) string {
-	nft := knftables.NewFake(knftables.InetFamily, testTable)
+	nft := knftables.NewFake("", "")
 	tx := nft.NewTransaction()
-	tx.Add(&knftables.Table{})
+	tx.Add(&knftables.Table{Name: testTable, Family: knftables.InetFamily})
 	tx.Add(&knftables.Chain{
-		Name: testChain,
+		Name:   testChain,
+		Table:  testTable,
+		Family: knftables.InetFamily,
 	})
 
 	// we use chainRuleCount to keep track of how many rules have been added to each chain.
