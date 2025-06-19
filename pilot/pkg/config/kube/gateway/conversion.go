@@ -97,7 +97,7 @@ func sortedConfigByCreationTime(configs []config.Config) []config.Config {
 
 func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 	obj *k8sbeta.HTTPRoute, pos int, enforceRefGrant bool,
-) (*istio.HTTPRoute, *ConfigError) {
+) (*istio.HTTPRoute, *inferencePoolConfig, *ConfigError) {
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
 		vs.Name = string(*r.Name)
@@ -110,19 +110,19 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 	for _, match := range r.Matches {
 		uri, err := createURIMatch(match)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		headers, err := createHeadersMatch(match)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		qp, err := createQueryParamsMatch(match)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		method, err := createMethodMatch(match)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		vs.Match = append(vs.Match, &istio.HTTPMatchRequest{
 			Uri:         uri,
@@ -166,7 +166,7 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 		case k8s.HTTPRouteFilterCORS:
 			vs.CorsPolicy = createCorsFilter(filter.CORS)
 		default:
-			return nil, &ConfigError{
+			return nil, nil, &ConfigError{
 				Reason:  InvalidFilter,
 				Message: fmt.Sprintf("unsupported filter type %q", filter.Type),
 			}
@@ -225,16 +225,13 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 	} else {
 		route, ipCfg, backendErr, err := buildHTTPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
 		if err != nil {
-			return nil, err
-		}
-		if ipCfg != nil && ipCfg.enableExtProc {
-			vs.Name = "%%" + ipCfg.endpointPickerDst + "%%" + ipCfg.endpointPickerPort + "%%" + vs.Name
+			return nil, nil, err
 		}
 		vs.Route = route
-		return vs, joinErrors(backendErr, mirrorBackendErr)
+		return vs, ipCfg, joinErrors(backendErr, mirrorBackendErr)
 	}
 
-	return vs, mirrorBackendErr
+	return vs, nil, mirrorBackendErr
 }
 
 func joinErrors(a *ConfigError, b *ConfigError) *ConfigError {
@@ -250,7 +247,7 @@ func joinErrors(a *ConfigError, b *ConfigError) *ConfigError {
 
 func convertGRPCRoute(ctx RouteContext, r k8s.GRPCRouteRule,
 	obj *k8s.GRPCRoute, pos int, enforceRefGrant bool,
-) (*istio.HTTPRoute, *ConfigError) {
+) (*istio.HTTPRoute, *ConfigError) { // Assuming GRPCRoute doesn't need inferencePoolConfig for now
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
 		vs.Name = string(*r.Name)
