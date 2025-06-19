@@ -8,4 +8,4 @@ issue:
 # release notes.
 releaseNotes:
 - |
-  **Fixed** Fixed ambient index to filter configs by revision
+  **Fixed** ambient index to filter configs by revision.
