@@ -325,7 +325,11 @@ func TaggedGatewayTest(t framework.TestContext) {
 		revision = t.Settings().Revision
 	}
 
-	istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(
+	i := istio.DefaultConfigOrFail(t, t)
+	istioctlCfg := istioctl.Config{
+		IstioNamespace: i.SystemNamespace,
+	}
+	istioctl.NewOrFail(t, istioctlCfg).InvokeOrFail(
 		t, append(strings.Split("tag set tag --revision", " "), revision))
 
 	testCases := []struct {
