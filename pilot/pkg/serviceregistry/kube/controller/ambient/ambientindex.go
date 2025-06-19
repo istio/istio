@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
 	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
@@ -110,6 +111,7 @@ type index struct {
 	DomainSuffix    string
 	ClusterID       cluster.ID
 	XDSUpdater      model.XDSUpdater
+	revision        string
 	Flags           FeatureFlags
 
 	stop chan struct{}
@@ -144,30 +146,33 @@ func New(options Options) Index {
 		DomainSuffix:    options.DomainSuffix,
 		ClusterID:       options.ClusterID,
 		XDSUpdater:      options.XDSUpdater,
+		revision:        options.Revision,
 		Flags:           options.Flags,
 		stop:            make(chan struct{}),
 	}
-
 	filter := kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
+	}
+	configFilter := kclient.Filter{
+		ObjectFilter: kubetypes.ComposeFilters(options.Client.ObjectFilter(), a.inRevision),
 	}
 	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
 
 	MeshConfig := options.MeshConfig
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
-		gvr.AuthorizationPolicy, kubetypes.StandardInformer, filter)
+		gvr.AuthorizationPolicy, kubetypes.StandardInformer, configFilter)
 	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, opts.WithName("informer/AuthorizationPolicies")...)
 
 	peerAuths := kclient.NewDelayedInformer[*securityclient.PeerAuthentication](options.Client,
-		gvr.PeerAuthentication, kubetypes.StandardInformer, filter)
+		gvr.PeerAuthentication, kubetypes.StandardInformer, configFilter)
 	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, opts.WithName("informer/PeerAuthentications")...)
 
 	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](options.Client,
-		gvr.ServiceEntry, kubetypes.StandardInformer, filter)
+		gvr.ServiceEntry, kubetypes.StandardInformer, configFilter)
 	ServiceEntries := krt.WrapClient[*networkingclient.ServiceEntry](serviceEntries, opts.WithName("informer/ServiceEntries")...)
 
 	workloadEntries := kclient.NewDelayedInformer[*networkingclient.WorkloadEntry](options.Client,
-		gvr.WorkloadEntry, kubetypes.StandardInformer, filter)
+		gvr.WorkloadEntry, kubetypes.StandardInformer, configFilter)
 	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, opts.WithName("informer/WorkloadEntries")...)
 
 	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](options.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
@@ -496,6 +501,15 @@ func (a *index) lookupService(key string) *model.ServiceInfo {
 		ip:      ip,
 	})
 	return slices.First(services)
+}
+
+func (a *index) inRevision(obj any) bool {
+	object := controllers.ExtractObject(obj)
+	if object == nil {
+		return false
+	}
+	result := config.LabelsInRevision(object.GetLabels(), a.revision)
+	return result
 }
 
 // All return all known workloads. Result is un-ordered
