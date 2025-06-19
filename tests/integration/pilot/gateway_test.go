@@ -149,10 +149,17 @@ spec:
 }
 
 func ManagedGatewayTest(t framework.TestContext) {
-	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1beta1
+	templateArgs := map[string]string{
+		"revision": t.Settings().Revision,
+	}
+	t.ConfigIstio().Eval(apps.Namespace.Name(), templateArgs, `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: gateway
+  {{- if .revision }}
+  labels:
+    istio.io/rev: {{.revision}}
+  {{- end }}
 spec:
   gatewayClassName: istio
   listeners:
