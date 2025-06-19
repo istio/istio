@@ -212,4 +212,9 @@ const (
 	EnvoySubsetNamespace string = "envoy.lb"
 	// The metadata key used for endpoint selection. This key is set from the InferencePool EPP (Endpoint Picker)
 	GatewayInferenceExtensionEndpointHintKey string = "x-gateway-destination-endpoint"
+
+	// config.Config.Extra well-known key values
+
+	// TODO: think about a better name?
+	ConfigExtraPerRouteRuleInferencePoolConfigs = "perRouteRuleInferencePoolConfigs"
 )

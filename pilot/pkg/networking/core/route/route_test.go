@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -1269,8 +1270,8 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
 
 		routeOpts := buildRouteOpts(serviceRegistry, nil)
-		routeOpts.InferencePoolExtensionRefs = map[string]string{
-			"routeA": "ext-proc-svc.test-namespace.svc.cluster.local:9002",
+		routeOpts.InferencePoolExtensionRefs = map[string]kube.InferencePoolRouteRuleConfig{
+			"routeA": {FQDN: "ext-proc-svc.test-namespace.svc.cluster.local", Port: "9002"},
 		}
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, 8080, gatewayNames, routeOpts)
 		xdstest.ValidateRoutes(t, routes)
@@ -3081,19 +3082,22 @@ func TestInboundHTTPRoute(t *testing.T) {
 func TestCheckAndGetInferencePoolConfig(t *testing.T) {
 	virtualService := config.Config{
 		Meta: config.Meta{
-			Namespace: "test-namespace",
+			Namespace: "default",
+			Name:      "vs-with-inference",
 		},
-		Spec: &networking.VirtualService{
-			Http: []*networking.HTTPRoute{
-				{
-					Name: "%%service-name%%8080%%route-name",
-				},
+		Spec: &networking.VirtualService{}, // Spec content doesn't matter for this test
+		Extra: map[string]any{
+			constants.ConfigExtraPerRouteRuleInferencePoolConfigs: map[string]kube.InferencePoolRouteRuleConfig{
+				"route-for-pool1": {FQDN: "pool1.default.svc.cluster.local", Port: "8001"},
+				"route-for-pool2": {FQDN: "pool2.default.svc.cluster.local", Port: "8002"},
 			},
 		},
 	}
 
-	expected := map[string]string{}
-	expected["%%service-name%%8080%%route-name"] = "service-name.test-namespace.svc.cluster.local:8080"
+	expected := map[string]kube.InferencePoolRouteRuleConfig{
+		"route-for-pool1": {FQDN: "pool1.default.svc.cluster.local", Port: "8001"},
+		"route-for-pool2": {FQDN: "pool2.default.svc.cluster.local", Port: "8002"},
+	}
 	result := route.CheckAndGetInferencePoolConfigs(virtualService)
 
 	if !reflect.DeepEqual(result, expected) {
