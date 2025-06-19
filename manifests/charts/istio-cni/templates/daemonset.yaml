@@ -102,33 +102,7 @@ spec:
               path: /readyz
               port: 8000
           securityContext:
-            privileged: false
-            runAsGroup: 0
-            runAsUser: 0
-            runAsNonRoot: false
-            # Both ambient and sidecar repair mode require elevated node privileges to function.
-            # But we don't need _everything_ in `privileged`, so explicitly set it to false and
-            # add capabilities based on feature.
-            capabilities:
-              drop:
-              - ALL
-              add:
-              # CAP_NET_ADMIN is required to allow ipset and route table access
-              - NET_ADMIN
-              # CAP_NET_RAW is required to allow iptables mutation of the `nat` table
-              - NET_RAW
-              # CAP_SYS_PTRACE is required for repair and ambient mode to describe
-              # the pod's network namespace.
-              - SYS_PTRACE
-              # CAP_SYS_ADMIN is required for both ambient and repair, in order to open
-              # network namespaces in `/proc` to obtain descriptors for entering pod network
-              # namespaces. There does not appear to be a more granular capability for this.
-              - SYS_ADMIN
-              # While we run as a 'root' (UID/GID 0), since we drop all capabilities we lose
-              # the typical ability to read/write to folders owned by others.
-              # This can cause problems if the hostPath mounts we use, which we require write access into,
-              # are owned by non-root. DAC_OVERRIDE bypasses these and gives us write access into any folder.
-              - DAC_OVERRIDE
+{{ toYaml .Values.securityContext | trim | indent 14 }}
 {{- if .Values.seLinuxOptions }}
 {{ with (merge .Values.seLinuxOptions (dict "type" "spc_t")) }}
             seLinuxOptions:
