@@ -49,28 +49,22 @@ func ProgramNftables(cfg *config.Config) error {
 	return nil
 }
 
-func logNftRules(rules map[string]*knftables.Transaction) {
-	if len(rules) == 0 {
+func logNftRules(rules *knftables.Transaction) {
+	if rules.NumOperations() == 0 {
 		log.Infof("There are no nftables rules to log")
 		return
 	}
 
-	for table, tx := range rules {
-		// Create Nftables provider for the current table
-		nftProvider, err := capture.NewRealNftables(knftables.InetFamily, table)
-		if err != nil {
-			log.Errorf("Error creating NewRealNftables interface for table [%s]: %v", table, err)
-			continue
-		}
+	nftProvider, err := capture.NewRealNftables("", "")
+	if err != nil {
+		log.Errorf("Error creating NewRealNftables interface: %v", err)
+		return
+	}
 
-		// Check if the table contains any rules
-		if tx != nil {
-			dump := nftProvider.Dump(tx)
-			if dump != "" {
-				log.Infof("nftables rules programmed in table [%s]:\n%s \n", table, dump)
-			} else {
-				log.Infof("There are no nftables rules in table [%s]", table)
-			}
-		}
+	dump := nftProvider.Dump(rules)
+	if dump != "" {
+		log.Infof("nftables rules programmed:\n%s \n", dump)
+	} else {
+		log.Info("There are no nftables rules.")
 	}
 }

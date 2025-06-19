@@ -34,7 +34,7 @@ type NftablesConfigurator struct {
 	cfg              *config.Config
 	NetworkNamespace string
 	ruleBuilder      *builder.NftablesRuleBuilder // Helper to construct nftables rules
-	nftProvider      func(table string) (NftablesAPI, error)
+	nftProvider      func(family knftables.Family, table string) (NftablesAPI, error)
 }
 
 // NetworkRange is used to hold IPv4 or IPv6 ranges.
@@ -50,14 +50,14 @@ func split(s string) []string {
 
 // NewNftablesConfigurator initializes a new configurator instance.
 // If nftProvider is not supplied, it uses the real system provider with the default inet family.
-func NewNftablesConfigurator(cfg *config.Config, nftProvider func(table string) (NftablesAPI, error)) (*NftablesConfigurator, error) {
+func NewNftablesConfigurator(cfg *config.Config, nftProvider func(family knftables.Family, table string) (NftablesAPI, error)) (*NftablesConfigurator, error) {
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
 
 	if nftProvider == nil {
-		nftProvider = func(table string) (NftablesAPI, error) {
-			return NewRealNftables(knftables.InetFamily, table)
+		nftProvider = func(family knftables.Family, table string) (NftablesAPI, error) {
+			return NewRealNftables(family, table)
 		}
 	}
 
@@ -275,7 +275,7 @@ func (cfg *NftablesConfigurator) shortCircuitExcludeInterfaces() {
 // Run is the main function that builds and applies nftables rules based on the provided configuration.
 // It handles exclusion and inclusion logic for inbound and outbound traffic, DNS redirection,
 // owner-based filtering, TPROXY mark handling, and finally applies all the rules.
-func (cfg *NftablesConfigurator) Run() (map[string]*knftables.Transaction, error) {
+func (cfg *NftablesConfigurator) Run() (*knftables.Transaction, error) {
 	// Since OUTBOUND_IP_RANGES_EXCLUDE could carry ipv4 and ipv6 ranges
 	// need to split them in different arrays one for ipv4 and one for ipv6
 	// in order to not to fail
@@ -798,16 +798,11 @@ func (cfg *NftablesConfigurator) handleCaptureByOwnerGroup(filter config.Interce
 }
 
 func (cfg *NftablesConfigurator) addIstioTableRules(
+	tx *knftables.Transaction,
 	tableName string,
 	chains []knftables.Chain,
 	rules []knftables.Rule,
-) (*knftables.Transaction, error) {
-	// Get the nftables provider for the specified table
-	nft, err := cfg.nftProvider(tableName)
-	if err != nil {
-		return nil, err
-	}
-
+) *knftables.Transaction {
 	// Track how many rules have been added to each chain
 	chainRuleCount := make(map[string]int)
 
@@ -816,7 +811,7 @@ func (cfg *NftablesConfigurator) addIstioTableRules(
 		chainRuleCount[rule.Chain]++
 	}
 
-	// Lets filter out the chains that have rules
+	// Let's filter out the chains that have rules
 	chainsWithRules := []knftables.Chain{}
 	for _, chain := range chains {
 		if chainRuleCount[chain.Name] > 0 {
@@ -826,17 +821,14 @@ func (cfg *NftablesConfigurator) addIstioTableRules(
 
 	// Skip creating the table itself if none of the chains have any rules
 	if len(chainsWithRules) == 0 {
-		return nil, nil
+		return tx
 	}
 
-	// Create a new transaction
-	tx := nft.NewTransaction()
-
 	// Ensure that the table exists
-	tx.Add(&knftables.Table{})
+	tx.Add(&knftables.Table{Name: tableName, Family: knftables.InetFamily})
 
 	// Flush the table to remove all existing rules before applying new ones
-	tx.Flush(&knftables.Table{})
+	tx.Flush(&knftables.Table{Name: tableName, Family: knftables.InetFamily})
 
 	// Add the chains that have rules
 	for _, chain := range chainsWithRules {
@@ -866,152 +858,150 @@ func (cfg *NftablesConfigurator) addIstioTableRules(
 		chainRuleCount[chain]++
 	}
 
-	// Apply changes in this transaction
-	return tx, nft.Run(context.TODO(), tx)
+	return tx
 }
 
 // cleanupTable deletes all the chains and rules from the specific table.
-func (cfg *NftablesConfigurator) cleanupTable(tableName string) (*knftables.Transaction, error) {
-	nft, err := cfg.nftProvider(tableName)
-	if err != nil {
-		return nil, err
-	}
-
-	tx := nft.NewTransaction()
-	tx.Add(&knftables.Table{})
-	tx.Delete(&knftables.Table{})
-	return tx, nft.Run(context.TODO(), tx)
+func (cfg *NftablesConfigurator) cleanupTable(tableName string, tx *knftables.Transaction) *knftables.Transaction {
+	tx.Add(&knftables.Table{Name: tableName, Family: knftables.InetFamily})
+	tx.Delete(&knftables.Table{Name: tableName, Family: knftables.InetFamily})
+	return tx
 }
 
-// addIstioNatTableRules sets up nftables rules in the IstioProxyNatTable table for Istio proxy.
+// addIstioNatTableRules updates a transaction to include the nftables rules for the IstioProxyNat table.
 // It makes sure the table and the necessary chains exist, then adds rules from the rule builder.
-func (cfg *NftablesConfigurator) addIstioNatTableRules() (*knftables.Transaction, error) {
+func (cfg *NftablesConfigurator) addIstioNatTableRules(tx *knftables.Transaction) *knftables.Transaction {
 	if cfg.cfg.CleanupOnly {
-		return cfg.cleanupTable(constants.IstioProxyNatTable)
+		return cfg.cleanupTable(constants.IstioProxyNatTable, tx)
 	}
 
 	if len(cfg.ruleBuilder.Rules[constants.IstioProxyNatTable]) == 0 {
-		return nil, nil
+		return tx
 	}
 
 	chains := []knftables.Chain{
 		{
 			Name:     constants.PreroutingChain,
+			Table:    constants.IstioProxyNatTable,
+			Family:   knftables.InetFamily,
 			Type:     knftables.PtrTo(knftables.NATType),
 			Hook:     knftables.PtrTo(knftables.PreroutingHook),
 			Priority: knftables.PtrTo(knftables.DNATPriority),
 		},
 		{
 			Name:     constants.OutputChain,
+			Table:    constants.IstioProxyNatTable,
+			Family:   knftables.InetFamily,
 			Type:     knftables.PtrTo(knftables.NATType),
 			Hook:     knftables.PtrTo(knftables.OutputHook),
 			Priority: knftables.PtrTo(knftables.DNATPriority),
 		},
-		{Name: constants.IstioInboundChain},
-		{Name: constants.IstioRedirectChain},
-		{Name: constants.IstioInRedirectChain},
-		{Name: constants.IstioOutputChain},
-		{Name: constants.IstioOutputDNSChain},
+		{Name: constants.IstioInboundChain, Table: constants.IstioProxyNatTable, Family: knftables.InetFamily},
+		{Name: constants.IstioRedirectChain, Table: constants.IstioProxyNatTable, Family: knftables.InetFamily},
+		{Name: constants.IstioInRedirectChain, Table: constants.IstioProxyNatTable, Family: knftables.InetFamily},
+		{Name: constants.IstioOutputChain, Table: constants.IstioProxyNatTable, Family: knftables.InetFamily},
+		{Name: constants.IstioOutputDNSChain, Table: constants.IstioProxyNatTable, Family: knftables.InetFamily},
 	}
 
 	rules := cfg.ruleBuilder.Rules[constants.IstioProxyNatTable]
 
-	return cfg.addIstioTableRules(constants.IstioProxyNatTable, chains, rules)
+	return cfg.addIstioTableRules(tx, constants.IstioProxyNatTable, chains, rules)
 }
 
-// addIstioMangleTableRules adds nftables rules to the IstioProxyMangleTable table for Istio proxy.
+// addIstioMangleTableRules updates a transaction to include the nftables rules for the IstioProxyMangle table.
 // It makes sure the table and the necessary chains exist, then adds rules from the rule builder.
-func (cfg *NftablesConfigurator) addIstioMangleTableRules() (*knftables.Transaction, error) {
+func (cfg *NftablesConfigurator) addIstioMangleTableRules(tx *knftables.Transaction) *knftables.Transaction {
 	if cfg.cfg.CleanupOnly {
-		return cfg.cleanupTable(constants.IstioProxyMangleTable)
+		return cfg.cleanupTable(constants.IstioProxyMangleTable, tx)
 	}
 
 	if len(cfg.ruleBuilder.Rules[constants.IstioProxyMangleTable]) == 0 {
-		return nil, nil
+		return tx
 	}
 
 	chains := []knftables.Chain{
 		{
 			Name:     constants.PreroutingChain,
+			Table:    constants.IstioProxyMangleTable,
+			Family:   knftables.InetFamily,
 			Type:     knftables.PtrTo(knftables.FilterType),
 			Hook:     knftables.PtrTo(knftables.PreroutingHook),
 			Priority: knftables.PtrTo(knftables.ManglePriority),
 		},
 		{
 			Name:     constants.OutputChain,
+			Table:    constants.IstioProxyMangleTable,
+			Family:   knftables.InetFamily,
 			Type:     knftables.PtrTo(knftables.FilterType),
 			Hook:     knftables.PtrTo(knftables.OutputHook),
 			Priority: knftables.PtrTo(knftables.ManglePriority),
 		},
-		{Name: constants.IstioDivertChain},
-		{Name: constants.IstioTproxyChain},
-		{Name: constants.IstioInboundChain},
-		{Name: constants.IstioDropChain},
+		{Name: constants.IstioDivertChain, Table: constants.IstioProxyMangleTable, Family: knftables.InetFamily},
+		{Name: constants.IstioTproxyChain, Table: constants.IstioProxyMangleTable, Family: knftables.InetFamily},
+		{Name: constants.IstioInboundChain, Table: constants.IstioProxyMangleTable, Family: knftables.InetFamily},
+		{Name: constants.IstioDropChain, Table: constants.IstioProxyMangleTable, Family: knftables.InetFamily},
 	}
 
 	rules := cfg.ruleBuilder.Rules[constants.IstioProxyMangleTable]
 
-	return cfg.addIstioTableRules(constants.IstioProxyMangleTable, chains, rules)
+	return cfg.addIstioTableRules(tx, constants.IstioProxyMangleTable, chains, rules)
 }
 
-// addIstioRawTableRules adds nftables rules to the IstioProxyRawTable table for Istio proxy.
+// addIstioRawTableRules updates a transaction to include the nftables rules for the IstioProxyRaw table.
 // It makes sure the table and the necessary chains exist, then adds rules from the rule builder.
-func (cfg *NftablesConfigurator) addIstioRawTableRules() (*knftables.Transaction, error) {
+func (cfg *NftablesConfigurator) addIstioRawTableRules(tx *knftables.Transaction) *knftables.Transaction {
 	if cfg.cfg.CleanupOnly {
-		return cfg.cleanupTable(constants.IstioProxyRawTable)
+		return cfg.cleanupTable(constants.IstioProxyRawTable, tx)
 	}
 
 	if len(cfg.ruleBuilder.Rules[constants.IstioProxyRawTable]) == 0 {
-		return nil, nil
+		return tx
 	}
 
 	chains := []knftables.Chain{
 		{
 			Name:     constants.PreroutingChain,
+			Table:    constants.IstioProxyRawTable,
+			Family:   knftables.InetFamily,
 			Type:     knftables.PtrTo(knftables.FilterType),
 			Hook:     knftables.PtrTo(knftables.PreroutingHook),
 			Priority: knftables.PtrTo(knftables.RawPriority),
 		},
 		{
 			Name:     constants.OutputChain,
+			Table:    constants.IstioProxyRawTable,
+			Family:   knftables.InetFamily,
 			Type:     knftables.PtrTo(knftables.FilterType),
 			Hook:     knftables.PtrTo(knftables.OutputHook),
 			Priority: knftables.PtrTo(knftables.RawPriority),
 		},
-		{Name: constants.IstioInboundChain},
-		{Name: constants.IstioOutputDNSChain},
+		{Name: constants.IstioInboundChain, Table: constants.IstioProxyRawTable, Family: knftables.InetFamily},
+		{Name: constants.IstioOutputDNSChain, Table: constants.IstioProxyRawTable, Family: knftables.InetFamily},
 	}
 
 	rules := cfg.ruleBuilder.Rules[constants.IstioProxyRawTable]
 
-	return cfg.addIstioTableRules(constants.IstioProxyRawTable, chains, rules)
+	return cfg.addIstioTableRules(tx, constants.IstioProxyRawTable, chains, rules)
 }
 
-// executeCommands runs all the steps to add nftables rules for Istio.
-// It calls separate functions to add rules for NAT, MANGLE, and RAW tables one by one.
-// If any step fails, it stops and returns the error right away.
-func (cfg *NftablesConfigurator) executeCommands() (map[string]*knftables.Transaction, error) {
-	tableTx := make(map[string]*knftables.Transaction)
-
-	tx, addErr := cfg.addIstioNatTableRules()
-	if addErr != nil {
-		return nil, addErr
+// executeCommands creates a transaction including all needed modifications and runs it.
+func (cfg *NftablesConfigurator) executeCommands() (*knftables.Transaction, error) {
+	nft, err := cfg.nftProvider("", "")
+	if err != nil {
+		return nil, err
 	}
-	tableTx[constants.IstioProxyNatTable] = tx
+	tx := nft.NewTransaction()
+	tx = cfg.addIstioNatTableRules(tx)
+	tx = cfg.addIstioMangleTableRules(tx)
+	tx = cfg.addIstioRawTableRules(tx)
 
-	tx, addErr = cfg.addIstioMangleTableRules()
-	if addErr != nil {
-		return nil, addErr
+	// If there are any transactions to apply, run them in a batch.
+	if tx.NumOperations() > 0 {
+		if err := nft.Run(context.TODO(), tx); err != nil {
+			return tx, fmt.Errorf("nftables run failed: %w", err)
+		}
 	}
-	tableTx[constants.IstioProxyMangleTable] = tx
-
-	tx, addErr = cfg.addIstioRawTableRules()
-	if addErr != nil {
-		return nil, addErr
-	}
-	tableTx[constants.IstioProxyRawTable] = tx
-
-	return tableTx, nil
+	return tx, nil
 }
 
 // CombineMatchers takes a list of values and a matcher function.
