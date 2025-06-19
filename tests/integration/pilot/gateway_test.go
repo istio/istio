@@ -439,11 +439,23 @@ spec:
 }
 
 func UnmanagedGatewayTest(t framework.TestContext) {
-	ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
-		false, t.Clusters().Configs()...)
+	i := istio.DefaultConfigOrFail(t, t)
+
+	ingressGatewayNs := i.IngressGatewayServiceNamespace
+	ingressutil.CreateIngressKubeSecretInNamespace(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
+		false, ingressGatewayNs, t.Clusters().Configs()...)
 	ingressutil.CreateIngressKubeSecretInNamespace(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
 		false, apps.Namespace.Name(), t.Clusters().Configs()...)
 
+	systemNamespace := i.SystemNamespace
+
+	templateArgs := map[string]string{
+		"systemNamespace":         systemNamespace,
+		"ingressSvcName":          i.IngressGatewayServiceName,
+		"ingressGatewayNamespace": i.IngressGatewayServiceNamespace,
+		"appNamespace":            apps.Namespace.Name(),
+		"revision":                t.Settings().Revision,
+	}
 	t.ConfigIstio().
 		YAML("", `
 apiVersion: gateway.networking.k8s.io/v1beta1
@@ -453,15 +465,18 @@ metadata:
 spec:
   controllerName: istio.io/gateway-controller
 `).
-		YAML("", fmt.Sprintf(`
+		Eval(ingressGatewayNs, templateArgs, `
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: gateway
-  namespace: istio-system
+  {{- if .revision }}
+  labels:
+    istio.io/rev: {{.revision}}
+  {{- end }}
 spec:
   addresses:
-  - value: istio-ingressgateway
+  - value: {{.ingressSvcName}}.{{.ingressGatewayNamespace}}.svc.cluster.local
     type: Hostname
   gatewayClassName: custom-istio
   listeners:
@@ -490,7 +505,7 @@ spec:
       certificateRefs:
       - kind: Secret
         name: test-gateway-cert-cross
-        namespace: "%s"
+        namespace: "{{.appNamespace}}"
   - name: tls-same
     hostname: same-namespace.domain.example
     port: 443
@@ -503,8 +518,8 @@ spec:
       certificateRefs:
       - kind: Secret
         name: test-gateway-cert-same
-`, apps.Namespace.Name())).
-		YAML(apps.Namespace.Name(), `
+`).
+		Eval(apps.Namespace.Name(), templateArgs, `
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
@@ -513,7 +528,7 @@ spec:
   hostnames: ["my.domain.example"]
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: {{.ingressGatewayNamespace}}
   rules:
   - matches:
     - path:
@@ -530,7 +545,7 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
-    namespace: istio-system
+    namespace: {{.ingressGatewayNamespace}}
   rules:
   - backendRefs:
     - name: b
@@ -546,7 +561,7 @@ spec:
     kind: Service
     name: b
   - name: gateway
-    namespace: istio-system
+    namespace: {{.ingressGatewayNamespace}}
   hostnames: ["b"]
   rules:
   - matches:
@@ -573,7 +588,7 @@ spec:
     kind: Service
     name: c
   - name: gateway
-    namespace: istio-system
+    namespace: {{.ingressGatewayNamespace}}
   rules:
   - matches:
     - method:
@@ -596,7 +611,7 @@ spec:
   parentRefs:
   - name: gateway
     sectionName: tls-same
-    namespace: istio-system
+    namespace: {{.ingressGatewayNamespace}}
   rules:
   - backendRefs:
     - name: b
@@ -610,26 +625,25 @@ spec:
   parentRefs:
   - name: gateway
     sectionName: tls-cross
-    namespace: istio-system
+    namespace: {{.ingressGatewayNamespace}}
   rules:
   - backendRefs:
     - name: b
       port: 80
-`).YAML(apps.Namespace.Name(), fmt.Sprintf(`
+`).Eval(apps.Namespace.Name(), templateArgs, `
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
-  namespace: "%s"
 spec:
   from:
   - group: gateway.networking.k8s.io
     kind: Gateway
-    namespace: istio-system
+    namespace: "{{.ingressGatewayNamespace}}"
   to:
   - group: ""
     kind: Secret
-`, apps.Namespace.Name())).
+`).
 		ApplyOrFail(t)
 	for _, ingr := range istio.IngressesOrFail(t, t) {
 		t.NewSubTest(ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
