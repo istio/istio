@@ -30,7 +30,6 @@ add rule inet istio-proxy-nat istio-output ip daddr 127.0.0.1/32 return
 add rule inet istio-proxy-nat istio-output ip6 daddr ::1/128 return
 add rule inet istio-proxy-nat istio-output ip daddr 1.1.0.0/16 return
 add rule inet istio-proxy-nat istio-output ip daddr 9.9.0.0/16 jump istio-redirect
-
 add table inet istio-proxy-mangle
 flush table inet istio-proxy-mangle
 add chain inet istio-proxy-mangle prerouting { type filter hook prerouting priority -150 ; }
@@ -58,7 +57,6 @@ insert rule inet istio-proxy-mangle istio-inbound index 0 meta l4proto tcp mark 
 insert rule inet istio-proxy-mangle istio-inbound index 1 iifname lo meta l4proto tcp ip saddr 127.0.0.6/32 return
 insert rule inet istio-proxy-mangle istio-inbound index 1 iifname lo meta l4proto tcp ip6 saddr ::6/128 return
 insert rule inet istio-proxy-mangle istio-inbound index 2 iifname lo meta l4proto tcp mark != 1338 return
-
 add table inet istio-proxy-raw
 flush table inet istio-proxy-raw
 add chain inet istio-proxy-raw prerouting { type filter hook prerouting priority -300 ; }

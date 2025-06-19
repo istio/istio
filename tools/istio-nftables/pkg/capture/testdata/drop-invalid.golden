@@ -17,7 +17,6 @@ add rule inet istio-proxy-nat istio-output oifname lo meta l4proto tcp ip daddr 
 add rule inet istio-proxy-nat istio-output oifname lo skgid != 1337 return
 add rule inet istio-proxy-nat istio-output skgid 1337 return
 add rule inet istio-proxy-nat istio-output ip daddr 127.0.0.1/32 return
-
 add table inet istio-proxy-mangle
 flush table inet istio-proxy-mangle
 add chain inet istio-proxy-mangle prerouting { type filter hook prerouting priority -150 ; }
