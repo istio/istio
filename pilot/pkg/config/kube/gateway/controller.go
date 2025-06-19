@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -101,6 +102,8 @@ type Controller struct {
 	// Currently, the only usage of this controller is from non-krt things (PushContext) so this is not exposed directly.
 	// If desired in the future, it could be.
 	outputs Outputs
+
+	domainSuffix string // the domain suffix to use for generated resources
 }
 
 type ParentInfo struct {
@@ -122,6 +125,7 @@ type Outputs struct {
 	VirtualServices  krt.Collection[*config.Config]
 	ReferenceGrants  ReferenceGrants
 	DestinationRules krt.Collection[*config.Config]
+	InferencePools   krt.Collection[InferencePool]
 }
 
 type Inputs struct {
@@ -141,6 +145,7 @@ type Inputs struct {
 	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
 	BackendTLSPolicies   krt.Collection[*gatewayalpha3.BackendTLSPolicy]
 	ServiceEntries       krt.Collection[*networkingclient.ServiceEntry]
+	InferencePools       krt.Collection[*inferencev1alpha2.InferencePool]
 }
 
 var _ model.GatewayController = &Controller{}
@@ -165,10 +170,13 @@ func NewController(
 		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[GatewayContext](nil), false, opts.WithName("gatewayContext")...),
 		stop:           stop,
 		xdsUpdater:     xdsUpdater,
+		domainSuffix:   options.DomainSuffix,
 	}
 	tw.AddHandler(func(s sets.String) {
 		c.tagWatcher.TriggerRecomputation()
 	})
+
+	svcClient := kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()})
 
 	inputs := Inputs{
 		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("informer/Namespaces")...),
@@ -183,10 +191,7 @@ func NewController(
 			kclient.NewFiltered[*corev1.ConfigMap](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
 			opts.WithName("informer/ConfigMaps")...,
 		),
-		Services: krt.WrapClient[*corev1.Service](
-			kclient.NewFiltered[*corev1.Service](kc, kubetypes.Filter{ObjectFilter: kc.ObjectFilter()}),
-			opts.WithName("informer/Services")...,
-		),
+		Services:       krt.WrapClient[*corev1.Service](svcClient, opts.WithName("informer/Services")...),
 		GatewayClasses: buildClient[*gateway.GatewayClass](c, kc, gvr.GatewayClass, opts, "informer/GatewayClasses"),
 		Gateways:       buildClient[*gateway.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
 		HTTPRoutes:     buildClient[*gateway.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
@@ -208,6 +213,13 @@ func NewController(
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
 	}
 
+	if features.SupportGatewayAPIInferenceExtension {
+		inputs.InferencePools = buildClient[*inferencev1alpha2.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
+	} else {
+		// If disabled, still build a collection but make it always empty
+		inputs.InferencePools = krt.NewStaticCollection[*inferencev1alpha2.InferencePool](nil, nil, opts.WithName("disable/InferencePools")...)
+	}
+
 	references := NewReferenceSet(
 		AddReference(inputs.Services),
 		AddReference(inputs.ConfigMaps),
@@ -215,6 +227,8 @@ func NewController(
 	)
 
 	handlers := []krt.HandlerRegistration{}
+
+	httpRoutesByNamespace := krt.NewNamespaceIndex(inputs.HTTPRoutes)
 
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
 	status.RegisterStatus(c.status, GatewayClassStatus, GetStatus)
@@ -225,12 +239,12 @@ func NewController(
 		inputs.BackendTrafficPolicy,
 		inputs.BackendTLSPolicies,
 		references,
-		options.DomainSuffix,
+		c.domainSuffix,
 		c,
 		opts,
 	)
 
-	// GatewaysStatus cannot is not fully complete until its join with route attachments to report attachedRoutes.
+	// GatewaysStatus is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
 	GatewaysStatus, Gateways := GatewayCollection(
 		inputs.Gateways,
@@ -238,21 +252,34 @@ func NewController(
 		inputs.Namespaces,
 		ReferenceGrants,
 		inputs.Secrets,
-		options.DomainSuffix,
+		c.domainSuffix,
 		c.gatewayContext,
 		c.tagWatcher,
 		opts,
 	)
+
+	InferencePoolStatus, InferencePools := InferencePoolCollection(
+		inputs.InferencePools,
+		inputs.Services,
+		inputs.HTTPRoutes,
+		inputs.Gateways,
+		httpRoutesByNamespace,
+		c,
+		opts,
+	)
+
+	status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
 
 	RouteParents := BuildRouteParents(Gateways)
 
 	routeInputs := RouteContextInputs{
 		Grants:          ReferenceGrants,
 		RouteParents:    RouteParents,
-		DomainSuffix:    options.DomainSuffix,
+		DomainSuffix:    c.domainSuffix,
 		Services:        inputs.Services,
 		Namespaces:      inputs.Namespaces,
 		ServiceEntries:  inputs.ServiceEntries,
+		InferencePools:  inputs.InferencePools,
 		internalContext: c.gatewayContext,
 	}
 	tcpRoutes := TCPRouteCollection(
@@ -305,6 +332,7 @@ func NewController(
 		Gateways:         Gateways,
 		VirtualServices:  VirtualServices,
 		DestinationRules: DestinationRules,
+		InferencePools:   InferencePools,
 	}
 	c.outputs = outputs
 
@@ -332,7 +360,18 @@ func NewController(
 					Name:      t.Name,
 					Namespace: t.Namespace,
 				}
-			}), false))
+			}), false),
+		outputs.InferencePools.RegisterBatch(func(o []krt.Event[InferencePool]) {
+			for _, e := range o {
+				obj := e.Latest()
+				svc := translateShadowServiceToService(obj.shadowService, obj.extRef)
+				err := c.reconcileShadowService(e.Event, svc, inputs.Services)
+				if err != nil {
+					log.Errorf("failed to reconcile shadow inferencepool service %s/%s: %v", svc.Namespace, svc.Name, err)
+				}
+			}
+		}, true), // reconcile on initialization
+	)
 	c.handlers = handlers
 
 	return c

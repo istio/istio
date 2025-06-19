@@ -92,6 +92,7 @@ func RegisterStatus[I controllers.Object, IS any](s *StatusCollections, statusCo
 				status = &empty
 			}
 			enqueueStatus(statusWriter, l.Obj, status)
+			log.Debugf("Enqueued status update for %v %v: %v", l.ResourceName(), l.Obj.GetResourceVersion(), status)
 		})
 		return h
 	}

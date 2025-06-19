@@ -211,28 +211,6 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					Run(stop)
 				return nil
 			})
-			// We should revisit this depending on the results of https://github.com/kubernetes-sigs/gateway-api-inference-extension/issues/521.
-			if features.SupportGatewayAPIInferenceExtension {
-				s.addTerminatingStartFunc("inference gateway controller", func(stop <-chan struct{}) error {
-					leaderelection.
-						NewPerRevisionLeaderElection(args.Namespace, args.PodName, leaderelection.InferencePoolController, args.Revision, s.kubeClient).
-						AddRunFunction(func(leaderStop <-chan struct{}) {
-							// We can only run this if the InferencePool CRD is created
-							if s.kubeClient.CrdWatcher().WaitForCRD(gvr.InferencePool, leaderStop) {
-								controller := gateway.NewInferencePoolController(s.kubeClient)
-								// Start informers again. This fixes the case where informers for namespace do not start,
-								// as we create them only after acquiring the leader lock
-								// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
-								// basically lazy loading the informer, if we stop it when we lose the lock we will never
-								// recreate it again.
-								s.kubeClient.RunAndWait(stop)
-								controller.Run(leaderStop)
-							}
-						}).
-						Run(stop)
-					return nil
-				})
-			}
 		}
 	}
 	if features.EnableAmbientStatus {
@@ -382,6 +360,9 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
 		schemas = collections.PilotGatewayAPI()
+	}
+	if features.SupportGatewayAPIInferenceExtension {
+		schemas = schemas.Add(collections.InferencePool)
 	}
 	schemas = schemas.Add(collections.Ingress)
 

@@ -17,25 +17,17 @@ package gateway
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeVersion "k8s.io/apimachinery/pkg/version"
-	fakediscovery "k8s.io/client-go/discovery/fake"
 	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestReconcileInferencePool(t *testing.T) {
-	discoveryNamespacesFilter := buildFilter("default")
-	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
-	client := kube.NewFakeClient(defaultNamespace)
-	kube.SetObjectFilter(client, discoveryNamespacesFilter)
 	pool := &inferencev1alpha2.InferencePool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pool",
@@ -57,19 +49,25 @@ func TestReconcileInferencePool(t *testing.T) {
 			},
 		},
 	}
-	client.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: "28"}
-	kclient.NewWriteClient[*inferencev1alpha2.InferencePool](client).Create(pool)
-	stop := test.NewStop(t)
+	controller := setupController(t,
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}},
+		pool,
+	)
 
-	controller := NewInferencePoolController(client)
-	client.RunAndWait(stop)
-
-	go controller.Run(stop)
-	kube.WaitForCacheSync("test", stop, controller.queue.HasSynced)
+	dumpOnFailure(t, krt.GlobalDebugHandler)
 
 	// Verify the service was created
-	service := controller.services.Get("test-pool-ip-"+generateHash("test-pool", hashSize), "default")
-	assert.NotNil(t, service)
+	var service *corev1.Service
+	var err error
+	assert.EventuallyEqual(t, func() bool {
+		svcName := "test-pool-ip-" + generateHash("test-pool", hashSize)
+		service, err = controller.client.Kube().CoreV1().Services("default").Get(t.Context(), svcName, metav1.GetOptions{})
+		if err != nil {
+			t.Logf("Service %s not found yet: %v", svcName, err)
+			return false
+		}
+		return service != nil
+	}, true)
 
 	assert.Equal(t, service.ObjectMeta.Labels[constants.InternalServiceSemantics], constants.ServiceSemanticsInferencePool)
 	assert.Equal(t, service.ObjectMeta.Labels[InferencePoolRefLabel], pool.Name)
