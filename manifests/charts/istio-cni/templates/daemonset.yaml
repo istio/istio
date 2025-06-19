@@ -172,10 +172,12 @@ spec:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.memory
+                  divisor: '0'
             - name: GOMAXPROCS
               valueFrom:
                 resourceFieldRef:
                   resource: limits.cpu
+                  divisor: '0'
             - name: POD_NAME
               valueFrom:
                 fieldRef:
