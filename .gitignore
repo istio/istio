@@ -65,3 +65,4 @@ var/
 /manifests/charts/**/Chart.lock
 coverage.out
 /cni/pkg/plugin/istio-cni.log
+.qodo

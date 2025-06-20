@@ -167,11 +167,15 @@ type Prober struct {
 // Also update the probers so that all usages of named port will be resolved to integer.
 func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 	out := KubeAppProbers{}
-	updateNamedPort := func(p *Prober, portMap map[string]int32) *Prober {
+	updateNamedPort := func(p *Prober, portMap map[int32]bool) *Prober {
 		if p == nil {
 			return nil
 		}
 		if p.GRPC != nil {
+			grpcPort := p.GRPC.Port
+			if _, exists := portMap[grpcPort]; !exists && len(portMap) > 0 {
+				return nil
+			}
 			// don't need to update for gRPC probe port as it only supports integer
 			return p
 		}
@@ -187,28 +191,30 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 		}
 
 		if probePort.Type == intstr.String {
-			port, exists := portMap[probePort.StrVal]
-			if !exists {
+			portValInt64, _ := strconv.ParseInt(probePort.StrVal, 10, 32)
+			portValInt := int32(portValInt64)
+			if _, exists := portMap[portValInt]; !exists && len(portMap) > 0 {
 				return nil
 			}
-			*probePort = intstr.FromInt32(port)
+			*probePort = intstr.FromInt32(portValInt)
+		} else if probePort.Type == intstr.Int {
+			if _, exists := portMap[probePort.IntVal]; !exists && len(portMap) > 0 {
+				return nil
+			}
+			*probePort = intstr.FromInt32(probePort.IntVal)
 		} else if probePort.IntVal == targetPort {
 			// Already is rewritten
 			return nil
 		}
 		return p
 	}
+	portMap := getIncludedPorts(pod)
 	for _, c := range allContainers(pod) {
 		if c.Name == ProxyContainerName {
 			continue
 		}
 		readyz, livez, startupz, prestopz, poststartz := status.FormatProberURL(c.Name)
-		portMap := map[string]int32{}
-		for _, p := range c.Ports {
-			if p.Name != "" {
-				portMap[p.Name] = p.ContainerPort
-			}
-		}
+
 		if h := updateNamedPort(kubeProbeToInternalProber(c.ReadinessProbe), portMap); h != nil {
 			out[readyz] = h
 		}
@@ -237,6 +243,53 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 		return ""
 	}
 	return string(b)
+}
+
+func getIncludedPorts(pod *corev1.Pod) map[int32]bool {
+	// Get pod annotations
+	blankPorts := make(map[int32]bool)
+	annotations := pod.Annotations
+	if annotations == nil {
+		// If no annotations, include all ports by default
+		return blankPorts
+	}
+
+	includedPorts := make(map[int32]bool)
+
+	includeInboundPortsKey := annotation.SidecarTrafficIncludeInboundPorts.Name
+	// Check if includeInboundPorts annotation is present
+	if includePortsStr, exists := annotations[includeInboundPortsKey]; exists && includePortsStr != "" {
+		// If includeInboundPorts is specified, only include those ports
+		if includePortsStr == "*" {
+			// "*" means include all ports
+			return blankPorts
+		}
+
+		// Parse comma-separated list of ports
+		for _, portStr := range splitPorts(includePortsStr) {
+			if port, err := strconv.Atoi(portStr); err == nil {
+				includedPorts[int32(port)] = true
+			} else {
+				log.Errorf("Failed to parse port %v from includeInboundPorts: %v", portStr, err)
+			}
+		}
+	} else {
+		// If includeInboundPorts is not specified, include all ports by default
+		includedPorts = blankPorts
+
+		excludeInboundPortsKey := annotation.SidecarTrafficExcludeInboundPorts.Name
+		// Then exclude ports specified in excludeInboundPorts
+		if excludePortsStr, exists := annotations[excludeInboundPortsKey]; exists && excludePortsStr != "" {
+			for _, portStr := range splitPorts(excludePortsStr) {
+				if port, err := strconv.Atoi(portStr); err == nil {
+					delete(includedPorts, int32(port))
+				} else {
+					log.Errorf("Failed to parse port %v from excludeInboundPorts: %v", portStr, err)
+				}
+			}
+		}
+	}
+	return includedPorts
 }
 
 func allContainers(pod *corev1.Pod) []corev1.Container {
