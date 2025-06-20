@@ -529,14 +529,14 @@ func New(options Options) Index {
 }
 
 func (a *index) buildAndRegisterPolicyCollections(
-	AuthzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
-	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
-	Waypoints krt.Collection[Waypoint],
+	authzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
+	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	waypoints krt.Collection[Waypoint],
 	opts krt.OptionsBuilder,
-) (AuthorizationPolicies krt.Collection[model.WorkloadAuthorization], AllPolicies krt.Collection[model.WorkloadAuthorization]) {
+) (authorizationPolicies krt.Collection[model.WorkloadAuthorization], allPolicies krt.Collection[model.WorkloadAuthorization]) {
 	// AllPolicies includes peer-authentication converted policies
-	AuthorizationPolicies, AllPolicies = PolicyCollections(AuthzPolicies, PeerAuths, a.meshConfig, Waypoints, opts, a.Flags)
-	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater,
+	authorizationPolicies, allPolicies = PolicyCollections(authzPolicies, peerAuths, a.meshConfig, waypoints, opts, a.Flags)
+	allPolicies.RegisterBatch(PushXds(a.XDSUpdater,
 		func(i model.WorkloadAuthorization) model.ConfigKey {
 			if i.Authorization == nil {
 				return model.ConfigKey{} // nop, filter this out
