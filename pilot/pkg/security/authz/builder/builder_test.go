@@ -50,10 +50,11 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
 					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
-						Service:       "my-custom-ext-authz.foo.svc.cluster.local",
-						Port:          9000,
-						FailOpen:      true,
-						StatusOnError: "403",
+						Service:         "my-custom-ext-authz.foo.svc.cluster.local",
+						Port:            9000,
+						FailOpen:        true,
+						ClearRouteCache: true,
+						StatusOnError:   "403",
 					},
 				},
 			},
@@ -65,11 +66,12 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
 					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
-						Service:       "foo/my-custom-ext-authz.foo.svc.cluster.local",
-						Port:          9000,
-						Timeout:       &durationpb.Duration{Nanos: 2000 * 1000},
-						FailOpen:      true,
-						StatusOnError: "403",
+						Service:         "foo/my-custom-ext-authz.foo.svc.cluster.local",
+						Port:            9000,
+						Timeout:         &durationpb.Duration{Nanos: 2000 * 1000},
+						FailOpen:        true,
+						ClearRouteCache: true,
+						StatusOnError:   "403",
 						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{
 							MaxRequestBytes:     4096,
 							AllowPartialMessage: true,
@@ -89,6 +91,7 @@ var (
 						Port:                         9000,
 						Timeout:                      &durationpb.Duration{Seconds: 10},
 						FailOpen:                     true,
+						ClearRouteCache:              true,
 						StatusOnError:                "403",
 						PathPrefix:                   "/check",
 						IncludeRequestHeadersInCheck: []string{"x-custom-id", "x-prefix-*", "*-suffix"},
