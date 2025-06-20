@@ -150,7 +150,7 @@ spec:
 
 func ManagedGatewayTest(t framework.TestContext) {
 	templateArgs := map[string]string{
-		"revision": t.Settings().Revision,
+		"revision": t.Settings().Revisions.Default(),
 	}
 	t.ConfigIstio().Eval(apps.Namespace.Name(), templateArgs, `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -320,9 +320,9 @@ spec:
 }
 
 func TaggedGatewayTest(t framework.TestContext) {
-	revision := "default"
-	if t.Settings().Revision != "" {
-		revision = t.Settings().Revision
+	revision := t.Settings().Revisions.Default()
+	if revision == "" {
+		revision = "default"
 	}
 
 	i := istio.DefaultConfigOrFail(t, t)
@@ -458,7 +458,7 @@ func UnmanagedGatewayTest(t framework.TestContext) {
 		"ingressSvcName":          i.IngressGatewayServiceName,
 		"ingressGatewayNamespace": i.IngressGatewayServiceNamespace,
 		"appNamespace":            apps.Namespace.Name(),
-		"revision":                t.Settings().Revision,
+		"revision":                t.Settings().Revisions.Default(),
 	}
 	t.ConfigIstio().
 		YAML("", `
