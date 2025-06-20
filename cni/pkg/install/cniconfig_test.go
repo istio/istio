@@ -461,6 +461,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			PluginLogLevel:   "debug",
 			CNIAgentRunDir:   kubeconfigFilename,
 			PodNamespace:     "my-namespace",
+			NativeNftables:   false,
 		}
 		test := func(cfg config.InstallConfig) func(t *testing.T) {
 			return func(t *testing.T) {
