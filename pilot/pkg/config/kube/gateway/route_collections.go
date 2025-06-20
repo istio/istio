@@ -468,7 +468,7 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 		}
 		return res
 	})
-	parents := createRouteStatus(rpResults, obj.GetGeneration(), GetCommonRouteStateParents(obj))
+	parents := createRouteStatus(rpResults, obj.GetNamespace(), obj.GetGeneration(), GetCommonRouteStateParents(obj))
 	return parents, parentRefs, meshResult, gwResult
 }
 
