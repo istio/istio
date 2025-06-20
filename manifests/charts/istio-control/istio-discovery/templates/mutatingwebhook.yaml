@@ -2,16 +2,12 @@
 {{- /* Core defines the common configuration used by all webhook segments */}}
 {{/* Copy just what we need to avoid expensive deepCopy */}}
 {{- $whv := dict
- "revision" .Values.revision
+"revision" .Values.revision
+  "injectionPath" .Values.istiodRemote.injectionPath
+  "injectionURL" .Values.istiodRemote.injectionURL
   "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
+  "caBundle" .Values.istiodRemote.injectionCABundle
   "namespace" .Release.Namespace }}
-
-{{- $_ := set $whv "istiodRemote" .Values.istiodRemote }}
-{{- if not .Values.istiodRemote.enabledLocalInjectorIstiod }}
-{{- $_ := set $whv "injectionPath" .Values.istiodRemote.injectionPath }}
-{{- $_ := set $whv "injectionURL" .Values.istiodRemote.injectionURL }}
-{{- $_ := set $whv "caBundle" .Values.istiodRemote.injectionCABundle }}
-{{- end }}
 {{- define "core" }}
 {{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
 a unique prefix to each. */}}
@@ -21,11 +17,7 @@ a unique prefix to each. */}}
     url: "{{ .injectionURL }}"
     {{- else }}
     service:
-      {{- if and .istiodRemote.enabled (not .istiodRemote.enabledLocalInjectorIstiod) }}
-      name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}-remote
-      {{- else }}
       name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
-      {{- end }}
       namespace: {{ .namespace }}
       path: "{{ .injectionPath }}"
       port: 443
