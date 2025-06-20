@@ -144,7 +144,9 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		xdsUpdater = model.NewEndpointIndexUpdater(env.EndpointIndex)
 	}
 
-	serviceDiscovery := aggregate.NewController(aggregate.Options{})
+	serviceDiscovery := aggregate.NewController(aggregate.Options{
+		ConfigClusterID: opts.ClusterID,
+	})
 	se := serviceentry.NewController(
 		configController,
 		xdsUpdater,
