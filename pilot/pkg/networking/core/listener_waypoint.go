@@ -85,7 +85,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	var wps *waypointServices
 	var forwarder *listener.Listener
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
-		wps = nil // TODO: implement service export functionality
+		_, wps = findWaypointResources(lb.node, lb.push)
 		forwarder = buildWaypointForwardInnerConnectListener(lb.push, lb.node)
 	} else {
 		wls, wps = findWaypointResources(lb.node, lb.push)

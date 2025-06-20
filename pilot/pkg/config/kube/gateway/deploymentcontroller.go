@@ -202,7 +202,7 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			controller:         constants.ManagedGatewayEastWestController,
 			description:        "The default GatewayClass for Istio East West Gateways",
 			templates:          "waypoint",
-			disableNameSuffix:  true,
+			disableNameSuffix:  false,
 			defaultServiceType: corev1.ServiceTypeLoadBalancer,
 			addressType:        "",
 			controllerLabel:    constants.ManagedGatewayEastWestControllerLabel,

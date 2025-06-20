@@ -48,7 +48,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -57,6 +56,7 @@ import (
 type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
+	AllGlobalServices() []model.ServiceInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	Run(stop <-chan struct{})
@@ -171,11 +171,19 @@ func New(options Options) Index {
 		ObjectFilter: kubetypes.ComposeFilters(options.Client.ObjectFilter(), a.inRevision),
 	}
 	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
-	opts = opts.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: options.ClusterID})
 
 	a.meshConfig = options.MeshConfig
+	// First, we're going to build the collections necessary for multicluster ambient in case that feature flag is turned on.
+	// All of these collections need cluster ID metadata stored in krt for merging purposes.
+
 	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
-	Namespaces := krt.NewInformer[*corev1.Namespace](options.Client, opts.WithName("informer/Namespaces")...)
+	Namespaces := krt.NewInformer[*corev1.Namespace](options.Client, opts.With(
+		append(opts.WithName("informer/Namespaces"),
+			krt.WithMetadata(krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
 	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
 		gvr.AuthorizationPolicy, kubetypes.StandardInformer, configFilter)
 	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, opts.WithName("informer/AuthorizationPolicies")...)
@@ -185,14 +193,26 @@ func New(options Options) Index {
 	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, opts.WithName("informer/PeerAuthentications")...)
 
 	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](options.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
-	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, opts.WithName("informer/Gateways")...)
+	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, opts.With(
+		append(opts.WithName("informer/Gateways"),
+			krt.WithMetadata(krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
 
 	gatewayClassClient := kclient.NewDelayedInformer[*v1beta1.GatewayClass](options.Client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
 	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, opts.WithName("informer/GatewayClasses")...)
 	Pods := krt.NewInformerFiltered[*corev1.Pod](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripPodUnusedFields,
-	}, opts.WithName("informer/Pods")...)
+	}, opts.With(
+		append(opts.WithName("informer/Pods"),
+			krt.WithMetadata(krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
 
 	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](options.Client,
 		gvr.ServiceEntry, kubetypes.StandardInformer, configFilter)
@@ -203,19 +223,43 @@ func New(options Options) Index {
 	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, opts.WithName("informer/WorkloadEntries")...)
 
 	servicesClient := kclient.NewFiltered[*corev1.Service](options.Client, filter)
-	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.WithName("informer/Services")...)
+	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.With(
+		append(opts.WithName("informer/Services"),
+			krt.WithMetadata(krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
 	Nodes := krt.NewInformerFiltered[*corev1.Node](options.Client, kclient.Filter{
 		ObjectFilter:    options.Client.ObjectFilter(),
 		ObjectTransform: kubeclient.StripNodeUnusedFields,
-	}, opts.WithName("informer/Nodes")...)
+	}, opts.With(
+		append(opts.WithName("informer/Nodes"),
+			krt.WithMetadata(krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
 
 	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
-	}, opts.WithName("informer/EndpointSlices")...)
+	}, opts.With(
+		append(opts.WithName("informer/EndpointSlices"),
+			krt.WithMetadata(krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
 
 	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](options.Client, kclient.Filter{
 		ObjectFilter: options.Client.ObjectFilter(),
-	}, opts.WithName("informer/ConfigMaps")...)
+	}, opts.With(
+		append(opts.WithName("informer/ConfigMaps"),
+			krt.WithMetadata(krt.Metadata{
+				multicluster.ClusterKRTMetadataKey: options.ClusterID,
+			}),
+		)...,
+	)...)
 
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data.
 	// We only do this if this cluster is the config cluster
@@ -254,13 +298,13 @@ func New(options Options) Index {
 			a.remoteClientConfigOverrides...,
 		)
 
-		// TODO: return a here once we've built out all of the global collections
+		return a
 	}
 
 	Networks := buildNetworkCollections(Namespaces, Gateways, options, opts)
 	a.networks = Networks
 	// N.B Waypoints depends on networks
-	Waypoints := a.WaypointsCollection(Gateways, GatewayClasses, Pods, opts)
+	Waypoints := a.WaypointsCollection(options.ClusterID, Gateways, GatewayClasses, Pods, opts)
 
 	// AllPolicies includes peer-authentication converted policies
 	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, a.meshConfig, Waypoints, opts, a.Flags)
@@ -273,7 +317,7 @@ func New(options Options) Index {
 		}), false)
 
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := a.ServicesCollection(Services, ServiceEntries, Waypoints, Namespaces, opts)
+	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts)
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
@@ -534,13 +578,20 @@ func translateKubernetesCondition(conds []metav1.Condition) map[string]model.Con
 	return res
 }
 
-// Lookup finds all addresses associated with a given key. Many different key formats are supported; see inline comments.
+// Try lookup of endpoints by:
+//  1. workload UID
+//  2. workload IP
+//  3. Service (key: network/IP or namespace/hostname)
+//
+// When using Lookup for ns/hostname we will filter by scope determined from service or namespace label
 func (a *index) Lookup(key string) []model.AddressInfo {
 	// 1. Workload UID
+	// Check that work
 	if w := a.workloads.GetKey(key); w != nil {
 		return []model.AddressInfo{w.AsAddress}
 	}
 
+	// 2. Workload by IP
 	network, ip, found := strings.Cut(key, "/")
 	if !found {
 		log.Warnf(`key (%v) did not contain the expected "/" character`, key)
@@ -548,15 +599,26 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 	}
 	networkAddr := networkAddress{network: network, ip: ip}
 
-	// 2. Workload by IP
 	if wls := a.workloads.ByAddress.Lookup(networkAddr); len(wls) > 0 {
 		return slices.Map(wls, modelWorkloadToAddressInfo)
 	}
 
 	// 3. Service
+	// Remove Service if the corresponding workload is local, but has a different cluster ID
+	// lookup service by namespace hostname key
 	if svc := a.lookupService(key); svc != nil {
 		res := []model.AddressInfo{svc.AsAddress}
+		// grab all workloads that reference this service
 		for _, w := range a.workloads.ByServiceKey.Lookup(svc.ResourceName()) {
+			// Only select endpoints from workloads that belong to a service with a global scope or a local scope in the same cluster
+			log.Debugf("Workload %s has service %s, scope %s, and cluster id %s", w.ResourceName(), svc.ResourceName(), w.ScopeForService[key], w.Workload.ClusterId)
+			// TODO(jaellio): I am not sure we need a scopeForService defined on the workload. As far as I know we only lookup workload by
+			// service and therefor already have the service scope we don't need an additional mapping back to service from the workload
+			if w.Workload.ClusterId != string(a.ClusterID) && w.ScopeForService[key] == model.Local {
+				log.Debugf("Skipping workload %s for service %s because it is not local to the cluster but has a %s scope",
+					w.ResourceName(), svc.ResourceName(), w.ScopeForService[key])
+				continue
+			}
 			res = append(res, w.AsAddress)
 		}
 		return res
@@ -591,9 +653,38 @@ func (a *index) inRevision(obj any) bool {
 
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
-	res := slices.Map(a.workloads.List(), modelWorkloadToAddressInfo)
+	var res []model.AddressInfo
+	// Add all workloads
+	for _, wl := range a.workloads.List() {
+		// If EnableAmbientMultiNetwork is enabled, we only want to add workloads that are local to this cluster
+		// Non cluster local workloads will be added by the service lookup
+		if features.EnableAmbientMultiNetwork && wl.Workload.ClusterId != string(a.ClusterID) {
+			continue
+		}
+		res = append(res, wl.AsAddress)
+	}
+	// Add all services
 	for _, s := range a.services.List() {
+		if features.EnableAmbientMultiNetwork && s.Scope == model.Global {
+			// If EnableAmbientMultiNetwork is enabled, we want to add workloads that correspond to global services
+			for _, wl := range a.workloads.ByServiceKey.Lookup(s.ResourceName()) {
+				if wl.Workload.ClusterId != string(a.ClusterID) {
+					res = append(res, wl.AsAddress)
+				}
+			}
+		}
 		res = append(res, s.AsAddress)
+	}
+	return res
+}
+
+// AllGlobalServices return all known globally scoped services. Result is un-ordered
+func (a *index) AllGlobalServices() []model.ServiceInfo {
+	var res []model.ServiceInfo
+	for _, svc := range a.services.List() {
+		if svc.Scope == model.Global {
+			res = append(res, svc)
+		}
 	}
 	return res
 }
@@ -624,7 +715,13 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 }
 
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	if key.IsGateway {
+		// If this is a gateway waypoint, we only return the global services
+		return a.AllGlobalServices()
+	}
+
 	out := map[string]model.ServiceInfo{}
+
 	for _, host := range key.Hostnames {
 		for _, res := range a.services.ByOwningWaypointHostname.Lookup(NamespaceHostname{
 			Namespace: key.Namespace,
@@ -653,6 +750,10 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 }
 
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
+	if key.IsGateway {
+		// TODO(jaellio): Support workloads for gateway waypoint
+		return nil
+	}
 	out := map[string]model.WorkloadInfo{}
 	for _, host := range key.Hostnames {
 		for _, res := range a.workloads.ByOwningWaypointHostname.Lookup(NamespaceHostname{
@@ -764,8 +865,12 @@ func (a *index) HasSynced() bool {
 }
 
 func (a *index) Network(ctx krt.HandlerContext) network.ID {
-	net := krt.FetchOne(ctx, a.networks.SystemNamespace.AsCollection())
-	return network.ID(ptr.OrEmpty(net))
+	localNet := krt.FetchOne(ctx, a.networks.GlobalClusterNetworks, krt.FilterIndex(a.networks.NetworksByCluster, a.ClusterID))
+	if localNet == nil {
+		log.Warnf("No network found for cluster %s", a.ClusterID)
+		return ""
+	}
+	return localNet.Network
 }
 
 func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {

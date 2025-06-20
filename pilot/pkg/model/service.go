@@ -962,6 +962,8 @@ type WaypointKey struct {
 
 	Network   string
 	Addresses []string
+
+	IsGateway bool // true if this is a network gateway proxy, false if it is a regular waypoint proxy
 }
 
 // WaypointKeyForProxy builds a key from a proxy to lookup
@@ -977,6 +979,7 @@ func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
 	key := WaypointKey{
 		Namespace: node.ConfigNamespace,
 		Network:   node.Metadata.Network.String(),
+		IsGateway: externalAddresses, // true if this is a network gateway proxy, false if it is a regular waypoint proxy
 	}
 	for _, svct := range node.ServiceTargets {
 		key.Hostnames = append(key.Hostnames, svct.Service.Hostname.String())
@@ -1105,7 +1108,9 @@ type ServiceInfo struct {
 	// PortNames provides a mapping of ServicePort -> port names. Note these are only used internally, not sent over XDS
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
-	Source   TypedObject
+	Source TypedObject
+	// Scope of the service - either local or global based on namespace or service label matching
+	Scope    ServiceScope
 	Waypoint WaypointBindingStatus
 	// MarshaledAddress contains the pre-marshaled representation.
 	// Note: this is an Address -- not a Service.
@@ -1228,12 +1233,28 @@ func serviceResourceName(s *workloadapi.Service) string {
 	return s.Namespace + "/" + s.Hostname
 }
 
+type ServiceScope string
+
+const (
+	// Local ServiceScope specifies that istiod will not automatically expose the matching services' endpoints at the
+	// cluster's east/west gateway. Istio will also not automatically share locolly matching endpoints with the
+	// cluster's local dataplane that are not within the local cluster.
+	Local ServiceScope = "LOCAL"
+	// Global ServiceScope specifies that istiod will automatically expose the matching services' endpoints at the
+	// cluster's east/west gateway. Istio will also automatically share globally matching endpoints with the cluster's
+	// local dataplance that in the local and remote clusters.
+	Global ServiceScope = "GLOBAL"
+)
+
 type WorkloadInfo struct {
 	Workload *workloadapi.Workload
 	// Labels for the workload. Note these are only used internally, not sent over XDS
 	Labels map[string]string
 	// Source is the type that introduced this workload.
 	Source kind.Kind
+	// ScopeForService service key to ServiceScope. This mapping is required since a workload can be a part of
+	// multiple service. A single scope from a service is not sufficiently representative
+	ScopeForService map[string]ServiceScope
 	// CreationTime is the time when the workload was created. Note this is used internally only.
 	CreationTime time.Time
 	// MarshaledAddress contains the pre-marshaled representation.
