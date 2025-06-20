@@ -59,7 +59,6 @@ func (r *remoteAmbientClients) ResourceName() string {
 }
 
 func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	cases := []struct {
 		name         string
 		trafficType  string
@@ -118,6 +117,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			s := newAmbientTestServer(t, testC, testNW, "")
 			s.AddSecret("s1", "c1") // overlapping ips
 			s.AddSecret("s2", "c2") // Non-overlapping ips

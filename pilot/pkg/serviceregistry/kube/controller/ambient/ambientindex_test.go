@@ -336,6 +336,8 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 			s.assertAddresses(t, "", "pod1", "pod2", "pod3")
 			s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
 			s.assertAddresses(t, s.addrXdsName("127.0.0.2"), "pod2")
+
+			// TODO(jaellio): Add test to lookup by service key
 			for _, key := range []string{s.podXdsName("pod3"), s.addrXdsName("127.0.0.3")} {
 				assert.Equal(t, s.lookup(key), []model.AddressInfo{
 					{
