@@ -267,10 +267,8 @@ func GlobalWaypointsCollection(
 ) krt.Collection[krt.Collection[Waypoint]] {
 	return nestedCollectionFromLocalAndRemote(localWaypoints, clusters, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[Waypoint] {
 		pods := c.Pods()
-		krt.Subscribe(ctx, pods)
 		podsByNamespace := krt.NewNamespaceIndex(pods)
 		gateways := c.Gateways()
-		krt.Subscribe(ctx, gateways)
 
 		clusterWaypoints := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
 			if len(gateway.Status.Addresses) == 0 {

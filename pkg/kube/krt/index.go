@@ -19,7 +19,6 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -47,16 +46,6 @@ func (i IndexObject[K, O]) ResourceName() string {
 func NewNamespaceIndex[O Namespacer](c Collection[O]) Index[string, O] {
 	return NewIndex(c, cache.NamespaceIndex, func(o O) []string {
 		return []string{o.GetNamespace()}
-	})
-}
-
-func ObjectWithClusterNamespaceIndex[O Namespacer](c Collection[config.ObjectWithCluster[O]]) Index[string, config.ObjectWithCluster[O]] {
-	return NewIndex(c, "namespace", func(o config.ObjectWithCluster[O]) []string {
-		if o.Object == nil {
-			return nil
-		}
-		obj := any(*o.Object).(Namespacer)
-		return []string{obj.GetNamespace()}
 	})
 }
 

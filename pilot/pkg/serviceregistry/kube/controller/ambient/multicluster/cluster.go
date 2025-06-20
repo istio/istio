@@ -300,12 +300,13 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		configmaps:     ConfigMaps,
 	}
 
+	// Mark initialized before starting the client so that we don't have to wait for informers to sync.
+	c.initialized.Store(true)
+
 	if !c.Client.RunAndWait(c.stop) {
 		log.Warnf("remote cluster %s failed to sync", c.ID)
 		return
 	}
-
-	c.initialized.Store(true)
 
 	syncers := []krt.Syncer{
 		c.namespaces,
@@ -360,17 +361,21 @@ func (c *Cluster) Stop() {
 	}
 }
 
+func (c *Cluster) IsInitialized() bool {
+	// If the cluster is initialized, it means that the remote collections have been created
+	return c.initialized.Load()
+}
+
 func (c *Cluster) WaitUntilSynced(stop <-chan struct{}) bool {
 	if c.HasSynced() {
 		return true
 	}
-	for !c.initialized.Load() {
-		select {
-		case <-stop:
-			return false
-		default:
-		}
+
+	if !kube.WaitForCacheSync(fmt.Sprintf("remote cluster %s init", c.ID), stop, c.IsInitialized) {
+		log.Errorf("Timed out waiting for remote cluster %s to initialize", c.ID)
+		return false
 	}
+
 	// Wait for all syncers to be synced
 	for _, syncer := range []krt.Syncer{
 		c.namespaces,

@@ -103,7 +103,6 @@ func GlobalMergedWorkloadServicesCollection(
 		clusters,
 		func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *krt.Collection[config.ObjectWithCluster[model.ServiceInfo]] {
 			services := cluster.Services()
-			krt.Subscribe(ctx, services)
 			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
 			if waypointsPtr == nil {
 				log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID)
@@ -111,7 +110,6 @@ func GlobalMergedWorkloadServicesCollection(
 			}
 			waypoints := *waypointsPtr
 			namespaces := cluster.Namespaces()
-			krt.Subscribe(ctx, namespaces)
 			// We can't have duplicate collections (otherwise FetchOne will panic) so use
 			// sync.Once to ensure we only create the collection once and return that same value
 			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {
