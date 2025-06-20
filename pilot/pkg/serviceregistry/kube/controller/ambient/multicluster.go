@@ -171,14 +171,12 @@ func (a *index) buildGlobalCollections(
 
 	WaypointsByCluster := nestedCollectionIndexByCluster(GlobalWaypoints)
 	// AllPolicies includes peer-authentication converted policies
-	AuthorizationPolicies, AllPolicies := PolicyCollections(localAuthzPolicies, localPeerAuths, LocalMeshConfig, LocalWaypoints, opts, a.Flags)
-	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater,
-		func(i model.WorkloadAuthorization) model.ConfigKey {
-			if i.Authorization == nil {
-				return model.ConfigKey{} // nop, filter this out
-			}
-			return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
-		}), false)
+	AuthorizationPolicies, AllPolicies := a.buildAndRegisterPolicyCollections(
+		localAuthzPolicies,
+		localPeerAuths,
+		LocalWaypoints,
+		opts,
+	)
 
 	LocalWorkloadServices := a.ServicesCollection(localCluster.ID, localCluster.Services(), localServiceEntries, LocalWaypoints, LocalNamespaces, opts)
 	// All of this is local only, but we need to do it here so we don't have to rebuild collections in ambientindex

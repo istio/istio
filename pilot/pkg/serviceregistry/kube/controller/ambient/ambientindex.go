@@ -306,16 +306,12 @@ func New(options Options) Index {
 	// N.B Waypoints depends on networks
 	Waypoints := a.WaypointsCollection(options.ClusterID, Gateways, GatewayClasses, Pods, opts)
 
-	// AllPolicies includes peer-authentication converted policies
-	AuthorizationPolicies, AllPolicies := PolicyCollections(AuthzPolicies, PeerAuths, a.meshConfig, Waypoints, opts, a.Flags)
-	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater,
-		func(i model.WorkloadAuthorization) model.ConfigKey {
-			if i.Authorization == nil {
-				return model.ConfigKey{} // nop, filter this out
-			}
-			return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
-		}), false)
-
+	AuthorizationPolicies, AllPolicies := a.buildAndRegisterPolicyCollections(
+		AuthzPolicies,
+		PeerAuths,
+		Waypoints,
+		opts,
+	)
 	// these are workloadapi-style services combined from kube services and service entries
 	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, opts)
 
@@ -530,6 +526,24 @@ func New(options Options) Index {
 	a.authorizationPolicies = AllPolicies
 
 	return a
+}
+
+func (a *index) buildAndRegisterPolicyCollections(
+	AuthzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
+	PeerAuths krt.Collection[*securityclient.PeerAuthentication],
+	Waypoints krt.Collection[Waypoint],
+	opts krt.OptionsBuilder,
+) (AuthorizationPolicies krt.Collection[model.WorkloadAuthorization], AllPolicies krt.Collection[model.WorkloadAuthorization]) {
+	// AllPolicies includes peer-authentication converted policies
+	AuthorizationPolicies, AllPolicies = PolicyCollections(AuthzPolicies, PeerAuths, a.meshConfig, Waypoints, opts, a.Flags)
+	AllPolicies.RegisterBatch(PushXds(a.XDSUpdater,
+		func(i model.WorkloadAuthorization) model.ConfigKey {
+			if i.Authorization == nil {
+				return model.ConfigKey{} // nop, filter this out
+			}
+			return model.ConfigKey{Kind: kind.AuthorizationPolicy, Name: i.Authorization.Name, Namespace: i.Authorization.Namespace}
+		}), false)
+	return
 }
 
 func getConditions[T controllers.ComparableObject](name types.NamespacedName, i kclient.Informer[T]) map[string]model.Condition {
