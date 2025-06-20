@@ -5,4 +5,4 @@ issue:
   - https://github.com/istio/istio/issues/56328
 releaseNotes:
   - |
-    **Fixed** Revert the istio-remote `Service` in profil=remote.
+    **Fixed** Revert the removal of istio-remote `Service` when `profile=remote & istiodRemote.enabledLocalInjectorIstiod=true`.

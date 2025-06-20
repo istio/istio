@@ -1,5 +1,5 @@
 # Not created if istiod is running remotely
-{{- if not (and .Values.istiodRemote.enabled (not .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
+{{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 {{- if .Values.global.defaultPodDisruptionBudget.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget

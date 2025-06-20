@@ -394,7 +394,7 @@ func runRevisionedWebhookTest(t *testing.T, testResourceFile, whSource string) {
 func TestManifestGenerateIstiodRemote(t *testing.T) {
 	g := NewWithT(t)
 
-	const istiodRemoteServiceName = "istiod-remote"
+	const primarySVCName = "istiod"
 	objss := runManifestCommands(t, "istiod_remote", "", liveCharts, nil)
 
 	for _, objs := range objss {
@@ -407,15 +407,91 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
 
 		g.Expect(objs.kind(gvk.ConfigMap.Kind).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
-		g.Expect(objs.kind(gvk.Service.Kind).nameEquals(istiodRemoteServiceName)).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.Service.Kind).nameEquals(primarySVCName)).Should(Not(BeNil()))
 		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
 
 		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured.Object
 		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
 
-		ep := mustGetEndpoint(g, objs, istiodRemoteServiceName).Unstructured.Object
+		ep := mustGetEndpoint(g, objs, primarySVCName).Unstructured.Object
 		g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
 		g.Expect(ep).Should(HavePathValueContain(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
+
+		checkClusterRoleBindingsReferenceRoles(g, objs)
+	}
+}
+
+func TestManifestGenerateIstiodRemoteConfigCluster(t *testing.T) {
+	g := NewWithT(t)
+
+	const primarySVCName = "istiod"
+	objss := runManifestCommands(t, "istiod_remote_config", "", liveCharts, nil)
+
+	for _, objs := range objss {
+		// check core CRDs exists
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("adapters.config.istio.io")).Should(BeNil())
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
+
+		g.Expect(objs.kind(gvk.ConfigMap.Kind).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.Service.Kind).nameEquals(primarySVCName)).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+
+		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured.Object
+		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.service.name", primarySVCName}))
+
+		g.Expect(objs.kind(gvk.Service.Kind).nameEquals(primarySVCName)).Should(Not(BeNil()))
+		ep := mustGetEndpoint(g, objs, primarySVCName).Unstructured.Object
+
+		g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
+		g.Expect(ep).Should(HavePathValueContain(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
+
+		// validation webhook
+		vwc := mustGetValidatingWebhookConfiguration(g, objs, "istio-validator-istio-system").Unstructured.Object
+		g.Expect(vwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/validate"}))
+
+		checkClusterRoleBindingsReferenceRoles(g, objs)
+	}
+}
+
+func TestManifestGenerateIstiodRemoteLocalInjection(t *testing.T) {
+	g := NewWithT(t)
+
+	const istiodPrimaryXDSServiceName = "istiod-remote"
+	const istiodInjectionServiceName = "istiod"
+	objss := runManifestCommands(t, "istiod_remote_local", "", liveCharts, nil)
+
+	for _, objs := range objss {
+		// check core CRDs exists
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("adapters.config.istio.io")).Should(BeNil())
+		g.Expect(objs.kind(gvk.CustomResourceDefinition.Kind).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
+
+		g.Expect(objs.kind(gvk.ConfigMap.Kind).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.Service.Kind).nameEquals(istiodInjectionServiceName)).Should(Not(BeNil()))
+		// injection istiod service & deployment
+		g.Expect(objs.kind(gvk.Service.Kind).nameEquals(istiodInjectionServiceName)).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.Deployment.Kind).nameEquals(istiodInjectionServiceName)).Should(Not(BeNil()))
+
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+
+		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured.Object
+		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.service.name", istiodInjectionServiceName}))
+
+		ep := mustGetEndpoint(g, objs, istiodPrimaryXDSServiceName).Unstructured.Object
+		g.Expect(objs.kind(gvk.Service.Kind).nameEquals(istiodPrimaryXDSServiceName)).Should(Not(BeNil()))
+		g.Expect(ep).Should(HavePathValueEqual(PathValue{"subsets.[0].addresses.[0]", endpointSubsetAddressVal("", "169.10.112.88", "")}))
+		g.Expect(ep).Should(HavePathValueContain(PathValue{"subsets.[0].ports.[0]", portVal("tcp-istiod", 15012, -1)}))
+
+		// validation webhook
+		vwc := mustGetValidatingWebhookConfiguration(g, objs, "istio-validator-istio-system").Unstructured.Object
+		g.Expect(vwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.service.name", istiodInjectionServiceName}))
 
 		checkClusterRoleBindingsReferenceRoles(g, objs)
 	}
