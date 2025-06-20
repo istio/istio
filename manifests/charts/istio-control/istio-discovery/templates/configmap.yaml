@@ -64,8 +64,13 @@
 {{ toYaml $.Values.meshConfig.defaultConfig.tracing | indent 8 }}
       {{- end }}
       {{- end }}
-      {{- if or .Values.global.remotePilotAddress .Values.istiodRemote.enabled }}
+      {{- if .Values.global.remotePilotAddress }}
+      {{- if and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod }}
+      #  only primary `istiod` to xds and local `istiod` injection installs.
       discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
+      {{- else }}
+      discoveryAddress: {{ printf "istiod.%s.svc" .Release.Namespace }}:15012
+      {{- end }}
       {{- else }}
       discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
       {{- end }}
