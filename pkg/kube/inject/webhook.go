@@ -27,12 +27,14 @@ import (
 	"text/template"
 	"time"
 
+	goversion "github.com/hashicorp/go-version"
 	"github.com/prometheus/prometheus/util/strutil"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	kubeApiAdmissionv1beta1 "k8s.io/api/admission/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -46,11 +48,13 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	opconfig "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
@@ -109,6 +113,7 @@ type Webhook struct {
 	meshConfig   *meshconfig.MeshConfig
 	valuesConfig ValuesConfig
 	namespaces   *multicluster.KclientComponent[*corev1.Namespace]
+	nodes        *multicluster.KclientComponent[*corev1.Node]
 
 	// please do not call SetHandler() on this watcher, instead us MultiCast.AddHandler()
 	watcher   Watcher
@@ -210,6 +215,10 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 		if platform.IsOpenShift() {
 			wh.namespaces = multicluster.BuildMultiClusterKclientComponent[*corev1.Namespace](p.MultiCluster, kubetypes.Filter{})
 		}
+	}
+
+	if features.EnableNativeSidecars != features.NativeSidecarModeDisabled {
+		wh.nodes = multicluster.BuildMultiClusterKclientComponent[*corev1.Node](p.MultiCluster, kubetypes.Filter{})
 	}
 
 	mc := NewMulticast(p.Watcher, wh.GetConfig)
@@ -378,6 +387,7 @@ type InjectionParameters struct {
 	pod                 *corev1.Pod
 	deployMeta          types.NamespacedName
 	namespace           *corev1.Namespace
+	nativeSidecar       bool
 	typeMeta            metav1.TypeMeta
 	templates           map[string]*template.Template
 	defaultTemplate     []string
@@ -790,7 +800,6 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	// Proxy container should be last, unless HoldApplicationUntilProxyStarts is set
 	// This is to ensure `kubectl exec` and similar commands continue to default to the user's container
 	pod.Spec.Containers = modifyContainers(pod.Spec.Containers, ProxyContainerName, proxyLocation)
-
 	if hasContainer(pod.Spec.InitContainers, ProxyContainerName) {
 		// This is using native sidecar support in K8s.
 		// We want istio to be first in this case, so init containers are part of the mesh
@@ -1142,11 +1151,12 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		proxyEnvs:           parseInjectEnvs(path),
 	}
 
+	clusterID, _ := extractClusterAndNetwork(params)
+	if clusterID == "" {
+		clusterID = constants.DefaultClusterName
+	}
+
 	if platform.IsOpenShift() && wh.namespaces != nil {
-		clusterID, _ := extractClusterAndNetwork(params)
-		if clusterID == "" {
-			clusterID = constants.DefaultClusterName
-		}
 		client := wh.namespaces.ForCluster(cluster.ID(clusterID))
 		if client != nil {
 			params.namespace = client.Get(pod.Namespace, "")
@@ -1163,13 +1173,24 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 		// application container's value. At the same time, if user explicitly configures a RunAsUser in the istio-proxy
 		// container which is different to the application container's value, that setting is still honored.
 		if sideCarProxy := FindSidecar(params.pod); sideCarProxy != nil && sideCarProxy.SecurityContext != nil {
-			if isSidecarUserMatchingAppUser(params.pod.Spec.Containers) {
+			if isSidecarUserMatchingAppUser(params.pod) {
 				log.Infof("Resetting the UserID of sideCar proxy as it matches with the app container for Pod %q", params.pod.Name)
 				sideCarProxy.SecurityContext.RunAsUser = nil
 				sideCarProxy.SecurityContext.RunAsGroup = nil
 			}
 		}
 	}
+
+	var nodes kclient.Client[*corev1.Node]
+
+	if wh.nodes != nil {
+		nodes = wh.nodes.ForCluster(cluster.ID(clusterID))
+		params.nativeSidecar = DetectNativeSidecar(nodes, pod.Spec.NodeName)
+	} else {
+		// only enable native sidecars if the feature is explicitly enabled
+		params.nativeSidecar = (features.EnableNativeSidecars == features.NativeSidecarModeEnabled)
+	}
+
 	wh.mu.RUnlock()
 
 	patchBytes, err := injectPod(params)
@@ -1189,7 +1210,10 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	return &reviewResponse
 }
 
-func isSidecarUserMatchingAppUser(containers []corev1.Container) bool {
+func isSidecarUserMatchingAppUser(pod *corev1.Pod) bool {
+	containers := append([]corev1.Container{}, pod.Spec.Containers...)
+	containers = append(containers, pod.Spec.InitContainers...)
+
 	var sideCarUser, appUser int64
 	for i := range containers {
 		if containers[i].Name == ProxyContainerName {
@@ -1204,6 +1228,59 @@ func isSidecarUserMatchingAppUser(containers []corev1.Container) bool {
 	}
 
 	return sideCarUser == appUser
+}
+
+func DetectNativeSidecar(nodes kclient.Client[*corev1.Node], podNodeName string) bool {
+	if features.EnableNativeSidecars == features.NativeSidecarModeDisabled {
+		return false
+	}
+
+	if features.EnableNativeSidecars == features.NativeSidecarModeEnabled {
+		return true
+	}
+
+	if nodes == nil {
+		log.Warnf("configured to auto detect native sidecar support, but couldn't find a client")
+		return false
+	}
+
+	// Native sidecars feature graduated to stable in Kubernetes 1.33
+	// See https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/753-sidecar-containers/README.md#implementation-history
+	minVersion := 33
+
+	checkNodeVersion := func(n *corev1.Node) bool {
+		nodeKubeletVersion := n.Status.NodeInfo.KubeletVersion
+		ver, err := goversion.NewVersion(nodeKubeletVersion)
+		if err != nil {
+			log.Warnf("could not read node version for %v %v: %v", n.Name, nodeKubeletVersion, err)
+			return false
+		}
+		minor := ver.Segments()[1]
+		if minor < minVersion {
+			log.Debugf("detected kubelet version 1.%v < 1.%v on node %v; native sidecars disabled",
+				minor, minVersion, n.Name)
+			return false
+		}
+		return true
+	}
+
+	if podNodeName != "" {
+		node := nodes.Get(podNodeName, "")
+		if node != nil {
+			return checkNodeVersion(node)
+		}
+		log.Warnf("pod assigned to node %q but node not found in cluster", podNodeName)
+	}
+	// Check all nodes to see if they are eligible to support native sidecars. If any node is below the minimum version, we disable the feature.
+	// This means when an older ineligible node is added to the cluster and the webhook runs
+	// NativeSidecar will be disabled since that node will fail the kubelet version check.
+	// This avoids issues with mixed clusters where some nodes support native sidecars and others do not.
+	for _, n := range nodes.List(metav1.NamespaceAll, klabels.Everything()) {
+		if !checkNodeVersion(n) {
+			return false
+		}
+	}
+	return true
 }
 
 func (wh *Webhook) serveInject(w http.ResponseWriter, r *http.Request) {
