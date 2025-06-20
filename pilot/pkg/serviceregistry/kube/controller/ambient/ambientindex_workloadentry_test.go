@@ -30,7 +30,7 @@ import (
 )
 
 func TestAmbientIndex_WorkloadEntries(t *testing.T) {
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServer(t, testC, testNW, "")
 
 	s.addWorkloadEntries(t, "127.0.0.1", "name1", "sa1", map[string]string{"app": "a"})
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "name1")
@@ -281,7 +281,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 }
 
 func TestAmbientIndex_EmptyAddrWorkloadEntries(t *testing.T) {
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServer(t, testC, testNW, "")
 	s.addWorkloadEntries(t, "", "emptyaddr1", "sa1", map[string]string{"app": "a"})
 	s.assertEvent(t, s.wleXdsName("emptyaddr1"))
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "emptyaddr1")
@@ -304,7 +304,7 @@ func TestAmbientIndex_EmptyAddrWorkloadEntries(t *testing.T) {
 }
 
 func TestAmbientIndex_UpdateExistingWorkloadEntry(t *testing.T) {
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServer(t, testC, testNW, "")
 	s.addWorkloadEntries(t, "", "emptyaddr1", "sa1", map[string]string{"app": "a"})
 	s.assertEvent(t, s.wleXdsName("emptyaddr1"))
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "emptyaddr1")
@@ -316,7 +316,7 @@ func TestAmbientIndex_UpdateExistingWorkloadEntry(t *testing.T) {
 }
 
 func TestAmbientIndex_InlinedWorkloadEntries(t *testing.T) {
-	s := newAmbientTestServer(t, testC, testNW)
+	s := newAmbientTestServer(t, testC, testNW, "")
 
 	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "se1", testNS, map[string]string{"app": "a"}, []string{"127.0.0.1", "127.0.0.2"})
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "se1")
@@ -348,7 +348,7 @@ func TestAmbientIndex_WorkloadEntries_DisableK8SServiceSelectWorkloadEntries(t *
 	s := newAmbientTestServerWithFlags(t, testC, testNW, FeatureFlags{
 		DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 		EnableK8SServiceSelectWorkloadEntries: false,
-	})
+	}, "")
 
 	s.addWorkloadEntries(t, "127.0.0.1", "name1", "sa1", map[string]string{"app": "a"})
 	s.assertEvent(t, s.wleXdsName("name1"))
