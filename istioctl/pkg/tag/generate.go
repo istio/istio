@@ -48,6 +48,7 @@ const (
 
 // tagWebhookConfig holds config needed to render a tag webhook.
 type tagWebhookConfig struct {
+	WebHookService string
 	Tag            string
 	Revision       string
 	URL            string
@@ -317,6 +318,8 @@ func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (s
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 		if decodedWh.Webhooks[i].ClientConfig.Service != nil {
 			decodedWh.Webhooks[i].ClientConfig.Service.Path = &config.Path
+			// if profile=remote, need specify service istiod-remote to compatibility
+			decodedWh.Webhooks[i].ClientConfig.Service.Name = config.WebHookService
 		}
 	}
 	if opts.WebhookName != "" {
@@ -343,7 +346,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 		rev = ""
 	}
 
-	var injectionURL, caBundle, path string
+	var injectionURL, caBundle, path, service string
 	found := false
 	for _, w := range wh.Webhooks {
 		if strings.HasSuffix(w.Name, istioInjectionWebhookSuffix) {
@@ -356,6 +359,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 				if w.ClientConfig.Service.Path != nil {
 					path = *w.ClientConfig.Service.Path
 				}
+				service = w.ClientConfig.Service.Name
 			}
 			break
 		}
@@ -377,6 +381,7 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 	}
 
 	return &tagWebhookConfig{
+		WebHookService: service,
 		Tag:            tagName,
 		Revision:       rev,
 		URL:            injectionURL,

@@ -1,5 +1,5 @@
 # Created if this is not a remote istiod, OR if it is and is also a config cluster
-{{- if not (and .Values.istiodRemote.enabled (not .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
+{{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled (or .Values.global.configCluster .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
 {{- if .Values.experimental.stableValidationPolicy }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
