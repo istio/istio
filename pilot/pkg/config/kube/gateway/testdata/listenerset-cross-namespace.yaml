@@ -1,0 +1,128 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: parent-gateway
+  namespace: istio-system
+spec:
+  allowedListeners:
+    namespaces:
+      from: All
+  addresses:
+    - value: istio-ingressgateway
+      type: Hostname
+  gatewayClassName: istio
+  listeners:
+    - name: foo
+      hostname: foo.com
+      protocol: HTTP
+      port: 80
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: single-entry-http
+  namespace: ns1
+spec:
+  parentRef:
+    name: parent-gateway
+    namespace: istio-system
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: first
+      hostname: first.foo.com
+      protocol: HTTP
+      port: 80
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: same-ns-cert
+  namespace: ns2
+spec:
+  parentRef:
+    name: parent-gateway
+    namespace: istio-system
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: second
+      hostname: second.foo.com
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            group: ""
+            name: ns2-cert
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XListenerSet
+metadata:
+  name: cross-ns-cert
+  namespace: ns2
+spec:
+  parentRef:
+    name: parent-gateway
+    namespace: istio-system
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: allowed
+      hostname: allowed.foo.com
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            group: ""
+            name: ns3-cert
+            namespace: ns3
+    - name: denied
+      hostname: denied.foo.com
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            group: ""
+            name: ns4-cert
+            namespace: ns4
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: do-not-allow-cert-transitively
+  namespace: ns4
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      namespace: istio-system
+  to:
+    - group: ""
+      kind: Secret
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-listenerset
+  namespace: ns3
+spec:
+  from:
+    - group: gateway.networking.x-k8s.io
+      kind: XListenerSet
+      namespace: ns2
+  to:
+    - group: ""
+      kind: Secret
