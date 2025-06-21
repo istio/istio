@@ -240,8 +240,8 @@ func NewPerRevisionLeaderElection(namespace, name, electionID, revision string, 
 	return newLeaderElection(namespace, name, electionID, revision, true, false, true, client)
 }
 
-func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, remote bool, client kube.Client) *LeaderElection {
-	return newLeaderElection(namespace, name, electionID, revision, false, remote, false, client)
+func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, perRevision, remote bool, client kube.Client) *LeaderElection {
+	return newLeaderElection(namespace, name, electionID, revision, perRevision, remote, false, client)
 }
 
 func newLeaderElection(namespace, name, electionID, revision string, perRevision bool, remote bool, leaseLock bool, client kube.Client) *LeaderElection {
