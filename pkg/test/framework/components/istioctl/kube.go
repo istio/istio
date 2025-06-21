@@ -88,7 +88,8 @@ func (c *kubeComponent) Invoke(args []string) (string, string, error) {
 	if !slices.Contains(args, "--kubeconfig") {
 		cmdArgs = []string{"--kubeconfig", c.kubeconfig}
 	}
-	if !slices.Contains(args, "--istioNamespace") {
+
+	if c.istioNamespace != "" && !slices.Contains(args, "--istioNamespace") {
 		cmdArgs = append(cmdArgs, "--istioNamespace", c.istioNamespace)
 	}
 
