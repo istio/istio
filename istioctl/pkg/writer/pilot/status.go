@@ -61,19 +61,15 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryRespo
 		return fmt.Errorf("failed to setup status print: %w", err)
 	}
 
-	// Print header dynamically with shortened type names
-	headers := []string{"NAME", "CLUSTER"}
-	for _, t := range allTypes {
-		headers = append(headers, xdsresource.GetShortType(t))
-	}
-	headers = append(headers, "ISTIOD", "VERSION")
+	// Print new header
+	headers := []string{"NAME", "CLUSTER", "ISTIOD", "VERSION", "SUBSCRIBED TYPES"}
 	if _, err := fmt.Fprintln(w, strings.Join(headers, "\t")); err != nil {
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
-	// Print each proxy's status
+	// Print each proxy's status in the new format
 	for _, status := range fullStatus {
-		if err := xdsStatusPrintlnDynamic(w, status, allTypes); err != nil {
+		if err := xdsStatusPrintlnSubscribedTypes(w, status, allTypes); err != nil {
 			return fmt.Errorf("failed to print status for proxy %s: %w", status.proxyID, err)
 		}
 	}
@@ -295,4 +291,24 @@ func handleAndGetXdsConfigs(clientConfig *xdsstatus.ClientConfig) []*xdsstatus.C
 	}
 
 	return configs
+}
+
+// xdsStatusPrintlnSubscribedTypes prints a single row with the new format
+func xdsStatusPrintlnSubscribedTypes(w io.Writer, status *xdsWriterStatus, allTypes []string) error {
+	// Collect types with a non-IGNORED status
+	subscribed := []string{}
+	for _, t := range allTypes {
+		val, ok := status.typeStatus[t]
+		if ok && val != ignoredStatus {
+			subscribed = append(subscribed, xdsresource.GetShortType(t))
+		}
+	}
+	count := len(subscribed)
+	subscribedStr := "0"
+	if count > 0 {
+		subscribedStr = fmt.Sprintf("%d (%s)", count, strings.Join(subscribed, ","))
+	}
+	fields := []string{status.proxyID, status.clusterID, status.istiodID, status.istiodVersion, subscribedStr}
+	_, err := fmt.Fprintln(w, strings.Join(fields, "\t"))
+	return err
 }
