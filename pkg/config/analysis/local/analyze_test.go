@@ -144,7 +144,7 @@ func TestAddInMemorySource(t *testing.T) {
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
 	src := model.NewFakeStore()
-	sa.AddSource(dfCache{ConfigStore: src})
+	sa.AddSource(dfCache{ConfigStoreController: src})
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
 	g.Expect(sa.stores).To(HaveLen(1))
