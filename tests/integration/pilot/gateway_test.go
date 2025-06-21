@@ -444,12 +444,15 @@ spec:
 
 func UnmanagedGatewayTest(t framework.TestContext) {
 	i := istio.DefaultConfigOrFail(t, t)
-	systemNamespace := i.SystemNamespace
-
 	ingressGatewayNs := i.IngressGatewayServiceNamespace
-	// Assumes it the ingress gateway was installed in the same system namespace
+	ingressGatewaySvcName := i.IngressGatewayServiceName
+
+	// Fair assumption that the ingress gateway is installed in the same system namespace
 	if ingressGatewayNs == "" {
-		ingressGatewayNs = systemNamespace
+		ingressGatewayNs = i.SystemNamespace
+	}
+	if ingressGatewaySvcName == "" {
+		ingressGatewaySvcName = "istio-ingressgateway"
 	}
 	ingressutil.CreateIngressKubeSecretInNamespace(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
 		false, ingressGatewayNs, t.Clusters().Configs()...)
@@ -457,9 +460,8 @@ func UnmanagedGatewayTest(t framework.TestContext) {
 		false, apps.Namespace.Name(), t.Clusters().Configs()...)
 
 	templateArgs := map[string]string{
-		"systemNamespace":         systemNamespace,
-		"ingressSvcName":          i.IngressGatewayServiceName,
-		"ingressGatewayNamespace": i.IngressGatewayServiceNamespace,
+		"ingressSvcName":          ingressGatewaySvcName,
+		"ingressGatewayNamespace": ingressGatewayNs,
 		"appNamespace":            apps.Namespace.Name(),
 		"revision":                t.Settings().Revisions.Default(),
 	}
