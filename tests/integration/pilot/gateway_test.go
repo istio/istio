@@ -444,14 +444,17 @@ spec:
 
 func UnmanagedGatewayTest(t framework.TestContext) {
 	i := istio.DefaultConfigOrFail(t, t)
+	systemNamespace := i.SystemNamespace
 
 	ingressGatewayNs := i.IngressGatewayServiceNamespace
+	// Assumes it the ingress gateway was installed in the same system namespace
+	if ingressGatewayNs == "" {
+		ingressGatewayNs = systemNamespace
+	}
 	ingressutil.CreateIngressKubeSecretInNamespace(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
 		false, ingressGatewayNs, t.Clusters().Configs()...)
 	ingressutil.CreateIngressKubeSecretInNamespace(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
 		false, apps.Namespace.Name(), t.Clusters().Configs()...)
-
-	systemNamespace := i.SystemNamespace
 
 	templateArgs := map[string]string{
 		"systemNamespace":         systemNamespace,
