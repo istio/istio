@@ -397,9 +397,6 @@ func (p clusterPatcher) patch(hosts []host.Name, c *cluster.Cluster) *discovery.
 }
 
 func (p clusterPatcher) doPatch(hosts []host.Name, c *cluster.Cluster) *cluster.Cluster {
-	if !envoyfilter.ShouldKeepCluster(p.pctx, p.efw, c, hosts) {
-		return nil
-	}
 	return envoyfilter.ApplyClusterMerge(p.pctx, p.efw, c, hosts)
 }
 
