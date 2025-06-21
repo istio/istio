@@ -652,8 +652,8 @@ func (cfg *IptablesConfigurator) AppendHostRules() *builder.IptablesRuleBuilder 
 
 	// For easier cleanup, insert a jump into an owned chain
 	// -A POSTROUTING -p tcp -j ISTIO_POSTRT
-	iptablesBuilder.AppendRule(
-		"POSTROUTING", "nat",
+	iptablesBuilder.InsertRule(
+		"POSTROUTING", "nat", 1,
 		"-j", ChainHostPostrouting,
 	)
 
