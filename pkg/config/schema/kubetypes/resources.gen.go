@@ -7,7 +7,7 @@ import (
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapiautoscalingv2 "k8s.io/api/autoscaling/v2"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
-	k8sioapicertificatesv1alpha1 "k8s.io/api/certificates/v1alpha1"
+	k8sioapicertificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
@@ -46,7 +46,7 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.BackendTLSPolicy, true
 	case *k8sioapicertificatesv1.CertificateSigningRequest:
 		return gvk.CertificateSigningRequest, true
-	case *k8sioapicertificatesv1alpha1.ClusterTrustBundle:
+	case *k8sioapicertificatesv1beta1.ClusterTrustBundle:
 		return gvk.ClusterTrustBundle, true
 	case *k8sioapicorev1.ConfigMap:
 		return gvk.ConfigMap, true

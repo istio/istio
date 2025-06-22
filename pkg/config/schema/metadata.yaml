@@ -154,11 +154,11 @@ resources:
   - kind: "ClusterTrustBundle"
     plural: "clustertrustbundles"
     group: "certificates.k8s.io"
-    version: "v1alpha1"
+    version: "v1beta1"
     builtin: true
     clusterScoped: true
-    proto: "k8s.io.api.certificates.v1alpha1.ClusterTrustBundleSpec"
-    protoPackage: "k8s.io/api/certificates/v1alpha1"
+    proto: "k8s.io.api.certificates.v1beta1.ClusterTrustBundleSpec"
+    protoPackage: "k8s.io/api/certificates/v1beta1"
 
   - kind: "Ingress"
     plural: "ingresses"

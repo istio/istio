@@ -12,7 +12,7 @@ import (
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapiautoscalingv2 "k8s.io/api/autoscaling/v2"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
-	k8sioapicertificatesv1alpha1 "k8s.io/api/certificates/v1alpha1"
+	k8sioapicertificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
@@ -92,10 +92,10 @@ var (
 		Group:         "certificates.k8s.io",
 		Kind:          "ClusterTrustBundle",
 		Plural:        "clustertrustbundles",
-		Version:       "v1alpha1",
-		Proto:         "k8s.io.api.certificates.v1alpha1.ClusterTrustBundleSpec",
-		ReflectType:   reflect.TypeOf(&k8sioapicertificatesv1alpha1.ClusterTrustBundleSpec{}).Elem(),
-		ProtoPackage:  "k8s.io/api/certificates/v1alpha1",
+		Version:       "v1beta1",
+		Proto:         "k8s.io.api.certificates.v1beta1.ClusterTrustBundleSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapicertificatesv1beta1.ClusterTrustBundleSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/certificates/v1beta1",
 		ClusterScoped: true,
 		Synthetic:     false,
 		Builtin:       true,
