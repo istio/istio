@@ -610,7 +610,7 @@ spec:
 				opt.Count = 10
 				opt.Check = check.And(
 					check.OK(),
-					check.Hostnames(exps))
+					check.ResponseHosts(exps))
 				src.CallOrFail(t, opt)
 			})
 		})

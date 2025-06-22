@@ -250,8 +250,8 @@ func Hostname(expected string) echo.Checker {
 	})
 }
 
-// Hostnames check whether the hostname the request landed on is from the expected slice. This differs from Host which is the request we called.
-func Hostnames(expects []string) echo.Checker {
+// ResponseHosts checks that the response hostnames match the expected values.
+func ResponseHosts(expects []string) echo.Checker {
 	return Each(func(r echoClient.Response) error {
 		if !slices.Contains(expects, r.Hostname) {
 			return fmt.Errorf("expected hostnames %v, received %s", expects, r.Hostname)
