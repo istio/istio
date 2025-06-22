@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
-	"k8s.io/api/certificates/v1alpha1"
+	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/keycertbundle"
@@ -64,11 +64,11 @@ func TestController(t *testing.T) {
 			watcher.SetAndNotify(nil, nil, []byte(tc.rootcertUpdate))
 			expectedTrustBundle = tc.rootcertUpdate
 		} else if tc.trustbundleUpdate != "" {
-			controller.clustertrustbundles.Update(&v1alpha1.ClusterTrustBundle{
+			controller.clustertrustbundles.Update(&certificatesv1beta1.ClusterTrustBundle{
 				ObjectMeta: v1.ObjectMeta{
 					Name: istioClusterTrustBundleName,
 				},
-				Spec: v1alpha1.ClusterTrustBundleSpec{
+				Spec: certificatesv1beta1.ClusterTrustBundleSpec{
 					SignerName:  istioClusterTrustBundleSignerName,
 					TrustBundle: tc.trustbundleUpdate,
 				},

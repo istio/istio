@@ -15,7 +15,7 @@
 package clustertrustbundle
 
 import (
-	certificatesv1alpha1 "k8s.io/api/certificates/v1alpha1"
+	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -47,7 +47,7 @@ const (
 type Controller struct {
 	caBundleWatcher     *keycertbundle.Watcher
 	queue               controllers.Queue
-	clustertrustbundles kclient.Client[*certificatesv1alpha1.ClusterTrustBundle]
+	clustertrustbundles kclient.Client[*certificatesv1beta1.ClusterTrustBundle]
 }
 
 // NewController creates a new ClusterTrustBundleController
@@ -60,7 +60,7 @@ func NewController(kubeClient kube.Client, caBundleWatcher *keycertbundle.Watche
 		controllers.WithReconciler(c.reconcileClusterTrustBundle),
 		controllers.WithMaxAttempts(maxRetries))
 
-	c.clustertrustbundles = kclient.NewFiltered[*certificatesv1alpha1.ClusterTrustBundle](kubeClient, kclient.Filter{
+	c.clustertrustbundles = kclient.NewFiltered[*certificatesv1beta1.ClusterTrustBundle](kubeClient, kclient.Filter{
 		FieldSelector: "metadata.name=" + istioClusterTrustBundleName,
 		ObjectFilter:  kubeClient.ObjectFilter(),
 	})
@@ -77,7 +77,7 @@ func (c *Controller) startCaBundleWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case <-watchCh:
-			c.queue.AddObject(&certificatesv1alpha1.ClusterTrustBundle{
+			c.queue.AddObject(&certificatesv1beta1.ClusterTrustBundle{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: istioClusterTrustBundleName,
 				},
@@ -103,7 +103,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	go c.startCaBundleWatcher(stopCh)
 
 	// queue an initial event
-	c.queue.AddObject(&certificatesv1alpha1.ClusterTrustBundle{
+	c.queue.AddObject(&certificatesv1beta1.ClusterTrustBundle{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: istioClusterTrustBundleName,
 		},
@@ -115,11 +115,11 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 
 // updateClusterTrustBundle updates the root certificate in the ClusterTrustBundle
 func (c *Controller) updateClusterTrustBundle(rootCert []byte) error {
-	bundle := &certificatesv1alpha1.ClusterTrustBundle{
+	bundle := &certificatesv1beta1.ClusterTrustBundle{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: istioClusterTrustBundleName,
 		},
-		Spec: certificatesv1alpha1.ClusterTrustBundleSpec{
+		Spec: certificatesv1beta1.ClusterTrustBundleSpec{
 			SignerName:  istioClusterTrustBundleSignerName,
 			TrustBundle: string(rootCert),
 		},
