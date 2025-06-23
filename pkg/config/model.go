@@ -395,7 +395,8 @@ func (c *Config) Equals(other *Config) bool {
 	if !equals(c.Status, other.Status) {
 		return false
 	}
-	if !maps.Equal(c.Extra, other.Extra) {
+	// Can't use map.Equal because store maps as the value
+	if !equals(c.Extra, other.Extra) {
 		return false
 	}
 	return true
