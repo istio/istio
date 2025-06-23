@@ -30,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -1067,22 +1068,34 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case gvk.InferencePool:
-		if !features.SupportGatewayAPIInferenceExtension || strings.Contains(string(to.Name), ".") {
+		if !features.SupportGatewayAPIInferenceExtension {
+			return nil, nil, &ConfigError{
+				Reason:  InvalidDestinationKind,
+				Message: "InferencePool is not enabled. To enable, set SUPPORT_GATEWAY_API_INFERENCE_EXTENSION to true in istiod",
+			}
+		}
+		if strings.Contains(string(to.Name), ".") {
 			return nil, nil, &ConfigError{
 				Reason:  InvalidDestination,
 				Message: "InferencePool.Name invalid; the name of the InferencePool must be used, not the hostname.",
 			}
+		}
+		infPool := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.InferencePools, krt.FilterKey(namespace+"/"+string(to.Name))))
+		if infPool == nil {
+			// Inference pool doesn't exist
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", to.Name)}
+			return &istio.Destination{}, nil, invalidBackendErr
 		}
 		inferencePoolServiceName, _ := InferencePoolServiceName(string(to.Name))
 		hostname := fmt.Sprintf("%s.%s.svc.%s", inferencePoolServiceName, namespace, ctx.DomainSuffix)
 		svc := ctx.LookupHostname(hostname, namespace)
 		if svc == nil {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
-			return nil, nil, invalidBackendErr
+			return &istio.Destination{}, nil, invalidBackendErr
 		}
 		if svc.Attributes.Labels == nil {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
-			return nil, nil, invalidBackendErr
+			return &istio.Destination{}, nil, invalidBackendErr
 		}
 
 		ipCfg := &inferencePoolConfig{
@@ -2434,6 +2447,8 @@ func GetStatus[I, IS any](spec I) IS {
 	case *gatewayalpha3.BackendTLSPolicy:
 		return any(t.Status).(IS)
 	case *gatewayx.XListenerSet:
+		return any(t.Status).(IS)
+	case *inferencev1alpha2.InferencePool:
 		return any(t.Status).(IS)
 	default:
 		log.Fatalf("unknown type %T", t)
