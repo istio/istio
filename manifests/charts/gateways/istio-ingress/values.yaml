@@ -257,18 +257,9 @@ _internal_defaults_do_not_set:
     mountMtlsCerts: false
 
     multiCluster:
-      # Set to true to connect two kubernetes clusters via their respective
-      # ingressgateway services when pods in each cluster cannot directly
-      # talk to one another. All clusters should be using Istio mTLS and must
-      # have a shared root CA for this model to work.
-      enabled: false
       # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
       # to properly label proxies
       clusterName: ""
-      # The suffix for global service names
-      globalDomainSuffix: "global"
-      # Enable envoy filter to translate `globalDomainSuffix` to cluster local suffix for cross cluster communication
-      includeEnvoyFilter: true
 
     # Network defines the network this cluster belong to. This name
     # corresponds to the networks in the map of mesh networks.
