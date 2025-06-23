@@ -376,11 +376,14 @@ func NewController(
 			obj := e.Latest()
 			if e.Event == controllers.EventDelete {
 				// Just delete the shadow service
-				c.client.Kube().CoreV1().Services(obj.shadowService.key.Namespace).Delete(
+				err := c.client.Kube().CoreV1().Services(obj.shadowService.key.Namespace).Delete(
 					context.Background(),
 					obj.shadowService.key.Name,
 					v1.DeleteOptions{},
 				)
+				if err != nil {
+					log.Errorf("failed to clean up shadow service %s/%s for inference pool %s: %v")
+				}
 				return
 			}
 			c.shadowServiceReconciler.Add(types.NamespacedName{

@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
@@ -192,7 +191,7 @@ func InferencePoolCollection(
 			}
 
 			ipoolStatus := inferencev1alpha2.InferencePoolStatus{
-				Parents: newParents,
+				Parents: finalParents,
 			}
 
 			return &ipoolStatus, &InferencePool{
@@ -203,7 +202,7 @@ func InferencePoolCollection(
 }
 
 // isManagedGateway checks if the Gateway is controlled by this controller
-func isManagedGateway(gateways krt.Collection[*v1beta1.Gateway], parent inferencev1alpha2.PoolStatus) bool {
+func isManagedGateway(gateways krt.Collection[*gateway.Gateway], parent inferencev1alpha2.PoolStatus) bool {
 	gtw := ptr.Flatten(gateways.GetKey(fmt.Sprintf("%s/%s", parent.GatewayRef.Namespace, parent.GatewayRef.Name)))
 	if gtw == nil {
 		return false
