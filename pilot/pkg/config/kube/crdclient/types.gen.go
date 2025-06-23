@@ -18,7 +18,7 @@ import (
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapiautoscalingv2 "k8s.io/api/autoscaling/v2"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
-	k8sioapicertificatesv1alpha1 "k8s.io/api/certificates/v1alpha1"
+	k8sioapicertificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
@@ -914,7 +914,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 	gvk.ClusterTrustBundle: func(r runtime.Object) config.Config {
-		obj := r.(*k8sioapicertificatesv1alpha1.ClusterTrustBundle)
+		obj := r.(*k8sioapicertificatesv1beta1.ClusterTrustBundle)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.ClusterTrustBundle,
