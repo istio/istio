@@ -274,44 +274,10 @@ func NewController(
 		opts,
 	)
 
+	// Create a queue for handling service updates.
 	c.shadowServiceReconciler = controllers.NewQueue("inference pool shadow service reconciler",
 		controllers.WithReconciler(c.reconcileShadowService(InferencePools, inputs.Services)),
 		controllers.WithMaxAttempts(5))
-
-	inputs.Services.Register(func(o krt.Event[*corev1.Service]) {
-		obj := o.Latest()
-		// We only care about services that are tagged with the internal service semantics label.
-		if obj.GetLabels()[constants.InternalServiceSemantics] != constants.ServiceSemanticsInferencePool {
-			return
-		}
-		// We only care about delete events
-		if o.Event != controllers.EventDelete && o.Event != controllers.EventUpdate {
-			return
-		}
-
-		poolName, ok := obj.Labels[InferencePoolRefLabel]
-		if !ok && o.Event == controllers.EventUpdate && o.Old != nil {
-			// Try and find the label from the old object
-			old := ptr.Flatten(o.Old)
-			poolName, ok = old.Labels[InferencePoolRefLabel]
-		}
-
-		if !ok {
-			log.Errorf("service %s/%s is missing the %s label, cannot reconcile shadow service",
-				obj.Namespace, obj.Name, InferencePoolRefLabel)
-			return
-		}
-
-		// Add it back
-		c.shadowServiceReconciler.Add(types.NamespacedName{
-			Namespace: obj.Namespace,
-			Name:      poolName,
-		})
-		log.Infof("Re-adding shadow service for deleted inference pool service %s/%s",
-			obj.Namespace, obj.Name)
-	})
-
-	// Create a queue for handling service updates.
 
 	status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
 
@@ -421,6 +387,39 @@ func NewController(
 				Namespace: obj.shadowService.key.Namespace,
 				Name:      obj.shadowService.poolName,
 			})
+		}),
+		// Reconcile shadow services if users break them.
+		inputs.Services.Register(func(o krt.Event[*corev1.Service]) {
+			obj := o.Latest()
+			// We only care about services that are tagged with the internal service semantics label.
+			if obj.GetLabels()[constants.InternalServiceSemantics] != constants.ServiceSemanticsInferencePool {
+				return
+			}
+			// We only care about delete events
+			if o.Event != controllers.EventDelete && o.Event != controllers.EventUpdate {
+				return
+			}
+
+			poolName, ok := obj.Labels[InferencePoolRefLabel]
+			if !ok && o.Event == controllers.EventUpdate && o.Old != nil {
+				// Try and find the label from the old object
+				old := ptr.Flatten(o.Old)
+				poolName, ok = old.Labels[InferencePoolRefLabel]
+			}
+
+			if !ok {
+				log.Errorf("service %s/%s is missing the %s label, cannot reconcile shadow service",
+					obj.Namespace, obj.Name, InferencePoolRefLabel)
+				return
+			}
+
+			// Add it back
+			c.shadowServiceReconciler.Add(types.NamespacedName{
+				Namespace: obj.Namespace,
+				Name:      poolName,
+			})
+			log.Infof("Re-adding shadow service for deleted inference pool service %s/%s",
+				obj.Namespace, obj.Name)
 		}),
 	)
 	c.handlers = handlers
@@ -541,6 +540,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	tw := c.tagWatcher.AccessUnprotected()
 	go tw.Run(stop)
+	go c.shadowServiceReconciler.Run(stop)
 	go func() {
 		kube.WaitForCacheSync("gateway tag watcher", stop, tw.HasSynced)
 		c.tagWatcher.MarkSynced()

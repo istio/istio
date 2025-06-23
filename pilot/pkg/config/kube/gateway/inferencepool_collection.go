@@ -213,7 +213,7 @@ func isManagedGateway(gateways krt.Collection[*v1beta1.Gateway], parent inferenc
 }
 
 func poolStatusTmpl(gwName, ns string, generation int64) *inferencev1alpha2.PoolStatus {
-	ps := &inferencev1alpha2.PoolStatus{
+	return &inferencev1alpha2.PoolStatus{
 		GatewayRef: corev1.ObjectReference{
 			APIVersion: gatewayv1.GroupVersion.String(),
 			Kind:       gvk.Gateway.Kind,
@@ -231,8 +231,6 @@ func poolStatusTmpl(gwName, ns string, generation int64) *inferencev1alpha2.Pool
 			},
 		},
 	}
-
-	return ps
 }
 
 // generateHash generates an 8-character SHA256 hash of the input string.
@@ -320,7 +318,9 @@ func (c *Controller) reconcileShadowService(
 		existingService := ptr.Flatten(servicesCollection.GetKey(pool.shadowService.key.String()))
 
 		// Check if we can manage this service
+		var existingLabels map[string]string
 		if existingService != nil {
+			existingLabels = existingService.GetLabels()
 			canManage, _ := c.canManageShadowServiceForInference(existingService)
 			if !canManage {
 				log.Debugf("skipping service %s/%s, already managed by another controller", key.Namespace, key.Name)
@@ -328,7 +328,7 @@ func (c *Controller) reconcileShadowService(
 			}
 		}
 
-		service := translateShadowServiceToService(existingService.Labels, pool.shadowService, pool.extRef)
+		service := translateShadowServiceToService(existingLabels, pool.shadowService, pool.extRef)
 
 		var err error
 		if existingService == nil {
