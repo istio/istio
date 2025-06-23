@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"google.golang.org/protobuf/proto"
+
 	"istio.io/istio/pkg/util/protomarshal"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -667,6 +668,53 @@ type networkServiceKey struct {
 	service string
 }
 
+// We want to distribute traffic evenly across all network gateways in a network.
+// This can be tough if the number of gateways does not divide the number of backends for a service.
+// Get a round this by scaling workload capacity so that everything divides evenly
+func (a *index) globalScaleFactor() int {
+	scaleFactor := 1
+	if a.networks.RemoteSystemNamespaceNetworks != nil {
+		for _, nw := range a.networks.RemoteSystemNamespaceNetworks.List() {
+			nwName := ptr.OrEmpty(nw.Get())
+
+			if nwName == "" || nwName == ptr.OrEmpty(a.networks.LocalSystemNamespace.Get()) {
+				continue
+			}
+			gws := a.networks.GatewaysByNetwork.Lookup(network.ID(nwName))
+			if len(gws) != 0 {
+				scaleFactor = istiomath.Lcm(scaleFactor, len(gws))
+			}
+		}
+		if scaleFactor > math.MaxUint32 {
+			log.Warnf("Scale factor for split horizon workloads is too large (%d), using 1 instead", scaleFactor)
+			scaleFactor = 1
+		}
+	}
+	return scaleFactor
+}
+
+func workloadCapacity(capacity uint32, scaleFactor int) uint32 {
+	if capacity == 0 { // if set to zero or unset
+		return 1
+	}
+	if capacity > math.MaxUint32/uint32(scaleFactor) {
+		return math.MaxUint32
+	} else {
+		return capacity * uint32(scaleFactor)
+	}
+}
+
+func gatewayCapacity(totalWorkloadCapacity uint32, scaleFactor int, gws []NetworkGateway) uint32 {
+	capacity := uint32(math.MaxUint32)
+	if int(totalWorkloadCapacity) < math.MaxUint32/(scaleFactor/len(gws)) {
+		capacity = totalWorkloadCapacity * uint32(scaleFactor/len(gws))
+		if capacity == 0 && totalWorkloadCapacity > 0 {
+			capacity = 1 // avoid zero capacity. This should not be possible.
+		}
+	}
+	return capacity
+}
+
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
 	var res []model.AddressInfo
@@ -691,18 +739,18 @@ func (a *index) All() []model.AddressInfo {
 			if saName == "" {
 				saName = "default"
 			}
-			if _, ok := remoteWlSans[namespacedSvc]; !ok {
-				remoteWlSans[namespacedSvc] = sets.String{}
+			if _, ok := globalWlSans[namespacedSvc]; !ok {
+				globalWlSans[namespacedSvc] = sets.String{}
 			}
-			remoteWlSans[namespacedSvc].Insert(spiffe.MustGenSpiffeURI(a.meshConfig.Mesh(), wl.Workload.Namespace, saName))
+			globalWlSans[namespacedSvc].Insert(spiffe.MustGenSpiffeURI(a.meshConfig.Mesh(), wl.Workload.Namespace, saName))
 
 			key := networkServiceKey{
-				network: wlNetwork.String(),
+				network: wlNetwork,
 				service: namespacedSvc,
 			}
 			capacity := wl.Workload.Capacity.GetValue()
 			if capacity == 0 {
-				capacity = 1 // avoid zero capacity.
+				capacity = 1
 			}
 
 			// Check if we have already encountered a workload with this network, service pair.
@@ -726,28 +774,20 @@ func (a *index) All() []model.AddressInfo {
 			log.Warnf("No gateways found for network %s, skipping split horizon workload for service %s", key.network, key.service)
 			continue
 		}
-		capacity := uint32(math.MaxUint32)
-		if int(rawCapacity) < math.MaxUint32/(scaleFactor/len(gws)) {
-			capacity = rawCapacity * uint32(scaleFactor/len(gws))
-			if capacity == 0 && rawCapacity > 0 {
-				capacity = 1 // avoid zero capacity. This should not be possible.
-			}
-		}
-
+		capacity := gatewayCapacity(rawCapacity, scaleFactor, gws)
 		for _, gw := range gws {
-			splitHorizonWorkload, err := a.createSplitHorizonWorkload(service.ResourceName(), service.Service, &gw, uint32(capacity))
+			splitHorizonWorkload, err := a.createSplitHorizonWorkload(service.ResourceName(), service.Service, &gw, capacity)
 			if err != nil {
 				log.Warnf("Failed to create split horizon workload for service %s in network %s: %v", key.service, key.network, err)
 				continue
 			}
 			res = append(res, precomputeWorkload(*splitHorizonWorkload).AsAddress)
 		}
-
 	}
 
 	// Create workloads for all gateways
 	for _, gw := range a.networks.NetworkGateways.List() {
-		w, err := a.createNetworkGatewayWorkload(gw, *a.networks.LocalSystemNamespace.Get())
+		w, err := a.createNetworkGatewayWorkload(gw, localNetwork)
 		if err != nil {
 			log.Warnf("Failed to create workload for network gateway %s: %v", gw.ResourceName(), err)
 		}
@@ -757,7 +797,7 @@ func (a *index) All() []model.AddressInfo {
 	// Include all services since we are assuming uniform configuration
 	// TODO(jaellio): Gracefully handle non uniform configurations
 	for _, origSvc := range a.services.List() {
-		sans, ok := remoteWlSans[origSvc.ResourceName()]
+		sans, ok := globalWlSans[origSvc.ResourceName()]
 		if !ok {
 			// No remote workloads for this service, just append the original service
 			res = append(res, origSvc.AsAddress)
@@ -765,25 +805,25 @@ func (a *index) All() []model.AddressInfo {
 		}
 		// There are remote workloads for this service, so we need to create a new service with the remote SANs.
 		newSvc := &model.ServiceInfo{
-			Service:  protomarshal.Clone(origSvc.Service)
-		}
-		if !ok {
-			// panic?
-			log.Errorf("Failed to clone service %s/%s", origSvc.Service.Namespace, origSvc.Service.Name)
-			continue
-		}
-		for _, s := range origSvc.Service.SubjectAltNames {
-			sans.Insert(s)
-		}
-		newSvc.Service.SubjectAltNames = nil
-		for s, _ := range sans {
-			newSvc.Service.SubjectAltNames = append(newSvc.Service.SubjectAltNames, s)
+			Service: createSplitHorizonService(origSvc.Service, &sans),
 		}
 		// We need to precompute the workload for this service, so that we can get the address
-		res = append(res, precomputeService(newSvc).AsAddress)
+		res = append(res, precomputeService(*newSvc).AsAddress)
 	}
 
 	return res
+}
+
+func createSplitHorizonService(svc *workloadapi.Service, remoteWlSans *sets.String) *workloadapi.Service {
+	newSvc := protomarshal.Clone(svc)
+	for _, s := range svc.SubjectAltNames {
+		remoteWlSans.Insert(s)
+	}
+	newSvc.SubjectAltNames = nil
+	for s, _ := range *remoteWlSans {
+		newSvc.SubjectAltNames = append(newSvc.SubjectAltNames, s)
+	}
+	return newSvc
 }
 
 func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, localNetwork string) (*model.WorkloadInfo, error) {
@@ -796,6 +836,7 @@ func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, loca
 		Name:           networkGateway.ResourceName(), // TODO(stevenjin8): better name?
 		Namespace:      networkGateway.Source.Namespace,
 		Network:        networkGateway.Network.String(),
+		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
 		TrustDomain:    pickTrustDomain(a.meshConfig.Get()),
 		ServiceAccount: networkGateway.ServiceAccount.Name,
 		Capacity:       &wrapperspb.UInt32Value{Value: 1},
@@ -824,13 +865,14 @@ func (a *index) createSplitHorizonWorkload(
 	}
 	uid := generateSplitHorizonWorkloadUID(networkGateway.Network.String(), networkGateway.ResourceName(), svcNamespacedName)
 	wl := workloadapi.Workload{
-		Uid:          uid,
-		Name:         uid, // TODO(stevenjin8): better name?
-		Namespace:    svc.Namespace,
-		Network:      networkGateway.Network.String(),
-		TrustDomain:  pickTrustDomain(a.meshConfig.Get()),
-		Capacity:     &wrapperspb.UInt32Value{Value: capacity},
-		WorkloadType: workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
+		Uid:            uid,
+		Name:           uid, // TODO(stevenjin8): better name?
+		Namespace:      svc.Namespace,
+		Network:        networkGateway.Network.String(),
+		TrustDomain:    pickTrustDomain(a.meshConfig.Get()),
+		Capacity:       &wrapperspb.UInt32Value{Value: capacity},
+		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
+		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
 		NetworkGateway: &workloadapi.GatewayAddress{
 			Destination: &workloadapi.GatewayAddress_Address{
 				Address: &workloadapi.NetworkAddress{
