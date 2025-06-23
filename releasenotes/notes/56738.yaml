@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 56738
+releaseNotes:
+- |
+  **Fixed** CNI incorrectly handled pod deletion when the pod was not yet marked as enrolled in the mesh. In some cases, this could cause a pod which has been deleted to be included in the zds snapshot and never cleaned up. If this occurs ztunnel will not be able to become ready.
