@@ -15,10 +15,12 @@
 package gateway
 
 import (
+	"context"
 	"fmt"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
@@ -36,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -47,6 +50,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -104,6 +108,8 @@ type Controller struct {
 	outputs Outputs
 
 	domainSuffix string // the domain suffix to use for generated resources
+
+	shadowServiceReconciler controllers.Queue
 }
 
 type ParentInfo struct {
@@ -268,6 +274,45 @@ func NewController(
 		opts,
 	)
 
+	c.shadowServiceReconciler = controllers.NewQueue("inference pool shadow service reconciler",
+		controllers.WithReconciler(c.reconcileShadowService(InferencePools, inputs.Services)),
+		controllers.WithMaxAttempts(5))
+
+	inputs.Services.Register(func(o krt.Event[*corev1.Service]) {
+		obj := o.Latest()
+		// We only care about services that are tagged with the internal service semantics label.
+		if obj.GetLabels()[constants.InternalServiceSemantics] != constants.ServiceSemanticsInferencePool {
+			return
+		}
+		// We only care about delete events
+		if o.Event != controllers.EventDelete && o.Event != controllers.EventUpdate {
+			return
+		}
+
+		poolName, ok := obj.Labels[InferencePoolRefLabel]
+		if !ok && o.Event == controllers.EventUpdate && o.Old != nil {
+			// Try and find the label from the old object
+			old := ptr.Flatten(o.Old)
+			poolName, ok = old.Labels[InferencePoolRefLabel]
+		}
+
+		if !ok {
+			log.Errorf("service %s/%s is missing the %s label, cannot reconcile shadow service",
+				obj.Namespace, obj.Name, InferencePoolRefLabel)
+			return
+		}
+
+		// Add it back
+		c.shadowServiceReconciler.Add(types.NamespacedName{
+			Namespace: obj.Namespace,
+			Name:      poolName,
+		})
+		log.Infof("Re-adding shadow service for deleted inference pool service %s/%s",
+			obj.Namespace, obj.Name)
+	})
+
+	// Create a queue for handling service updates.
+
 	status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
 
 	RouteParents := BuildRouteParents(Gateways)
@@ -361,16 +406,22 @@ func NewController(
 					Namespace: t.Namespace,
 				}
 			}), false),
-		outputs.InferencePools.RegisterBatch(func(o []krt.Event[InferencePool]) {
-			for _, e := range o {
-				obj := e.Latest()
-				svc := translateShadowServiceToService(obj.shadowService, obj.extRef)
-				err := c.reconcileShadowService(e.Event, svc, inputs.Services)
-				if err != nil {
-					log.Errorf("failed to reconcile shadow inferencepool service %s/%s: %v", svc.Namespace, svc.Name, err)
-				}
+		outputs.InferencePools.Register(func(e krt.Event[InferencePool]) {
+			obj := e.Latest()
+			if e.Event == controllers.EventDelete {
+				// Just delete the shadow service
+				c.client.Kube().CoreV1().Services(obj.shadowService.key.Namespace).Delete(
+					context.Background(),
+					obj.shadowService.key.Name,
+					v1.DeleteOptions{},
+				)
+				return
 			}
-		}, true), // reconcile on initialization
+			c.shadowServiceReconciler.Add(types.NamespacedName{
+				Namespace: obj.shadowService.key.Namespace,
+				Name:      obj.shadowService.poolName,
+			})
+		}),
 	)
 	c.handlers = handlers
 

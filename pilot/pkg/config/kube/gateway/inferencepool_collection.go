@@ -15,7 +15,6 @@
 package gateway
 
 import (
-	"context"
 	"crypto/sha256"
 	"fmt"
 	"strconv"
@@ -27,12 +26,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -128,9 +129,6 @@ func InferencePoolCollection(
 				shadowSvcInfo.selector[string(k)] = string(v)
 			}
 
-			// Make sure we reconcile the service if it is manually changed
-			_ = krt.FetchOne(ctx, services, krt.FilterKey(shadowSvcInfo.key.String()))
-
 			gatewayParentsToEnsure := sets.New[types.NamespacedName]()
 			routeList := krt.Fetch(ctx, httpRoutes, krt.FilterIndex(routesByNamespace, pool.Namespace))
 			for _, r := range routeList {
@@ -156,9 +154,41 @@ func InferencePoolCollection(
 				}
 			}
 
+			existingParents := pool.Status.DeepCopy().Parents
+			existingParentsMap := make(map[types.NamespacedName]inferencev1alpha2.PoolStatus, len(existingParents))
 			newParents := []inferencev1alpha2.PoolStatus{}
 			for gtw := range gatewayParentsToEnsure {
 				newParents = append(newParents, *poolStatusTmpl(gtw.Name, gtw.Namespace, pool.Generation))
+			}
+
+			finalParents := []inferencev1alpha2.PoolStatus{}
+			// First, look at existing parents and add them unconditionally if they are NOT managed by this controller
+			for _, existingParent := range existingParents {
+				gwKey := types.NamespacedName{Name: existingParent.GatewayRef.Name, Namespace: existingParent.GatewayRef.Namespace}
+				existingParentsMap[gwKey] = existingParent
+				if !isManagedGateway(gateways, existingParent) {
+					finalParents = append(finalParents, existingParent)
+				}
+			}
+			for _, newParent := range newParents {
+				gwKey := types.NamespacedName{Name: newParent.GatewayRef.Name, Namespace: newParent.GatewayRef.Namespace}
+				if parent, ok := existingParentsMap[gwKey]; ok {
+					// There's an update of an existing parent we control, update it to accepted
+					// TODO: Update this is there are ever more conditions to consider
+					finalParents = append(finalParents, inferencev1alpha2.PoolStatus{
+						GatewayRef: newParent.GatewayRef,
+						Conditions: setConditions(pool.Generation, parent.Conditions, map[string]*condition{
+							string(inferencev1alpha2.InferencePoolConditionAccepted): {
+								reason:  string(inferencev1alpha2.InferencePoolReasonAccepted),
+								status:  metav1.ConditionTrue,
+								message: "Referenced by an HTTPRoute accepted by the parentRef Gateway",
+							},
+						}),
+					})
+				} else {
+					// If this is a net new parent, just add it
+					finalParents = append(finalParents, newParent)
+				}
 			}
 
 			ipoolStatus := inferencev1alpha2.InferencePoolStatus{
@@ -172,8 +202,18 @@ func InferencePoolCollection(
 		}, opts.WithName("InferenceExtension")...)
 }
 
+// isManagedGateway checks if the Gateway is controlled by this controller
+func isManagedGateway(gateways krt.Collection[*v1beta1.Gateway], parent inferencev1alpha2.PoolStatus) bool {
+	gtw := ptr.Flatten(gateways.GetKey(fmt.Sprintf("%s/%s", parent.GatewayRef.Namespace, parent.GatewayRef.Name)))
+	if gtw == nil {
+		return false
+	}
+	_, ok := builtinClasses[gtw.Spec.GatewayClassName]
+	return ok
+}
+
 func poolStatusTmpl(gwName, ns string, generation int64) *inferencev1alpha2.PoolStatus {
-	return &inferencev1alpha2.PoolStatus{
+	ps := &inferencev1alpha2.PoolStatus{
 		GatewayRef: corev1.ObjectReference{
 			APIVersion: gatewayv1.GroupVersion.String(),
 			Kind:       gvk.Gateway.Kind,
@@ -187,11 +227,12 @@ func poolStatusTmpl(gwName, ns string, generation int64) *inferencev1alpha2.Pool
 				Reason:             string(inferencev1alpha2.InferencePoolReasonAccepted),
 				Message:            "Referenced by an HTTPRoute accepted by the parentRef Gateway",
 				ObservedGeneration: generation,
-				// TODO(liorlieberman): verify that this is good.
 				LastTransitionTime: metav1.NewTime(time.Now()),
 			},
 		},
 	}
+
+	return ps
 }
 
 // generateHash generates an 8-character SHA256 hash of the input string.
@@ -220,18 +261,18 @@ func InferencePoolServiceName(poolName string) (string, error) {
 	return svcName, nil
 }
 
-func translateShadowServiceToService(shadow shadowServiceInfo, extRef extRefInfo) *corev1.Service {
+func translateShadowServiceToService(existingLabels map[string]string, shadow shadowServiceInfo, extRef extRefInfo) *corev1.Service {
 	// Create a new service object based on the shadow service info
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      shadow.key.Name,
 			Namespace: shadow.key.Namespace,
-			Labels: map[string]string{
+			Labels: maps.MergeCopy(map[string]string{
 				InferencePoolRefLabel:              shadow.poolName,
 				InferencePoolExtensionRefSvc:       extRef.name,
 				InferencePoolExtensionRefPort:      strconv.Itoa(int(extRef.port)),
 				constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
-			},
+			}, existingLabels),
 		},
 		Spec: corev1.ServiceSpec{
 			Selector:  shadow.selector,
@@ -260,50 +301,47 @@ func translateShadowServiceToService(shadow shadowServiceInfo, extRef extRefInfo
 }
 
 func (c *Controller) reconcileShadowService(
-	event controllers.EventType,
-	service *corev1.Service,
+	inferencePools krt.Collection[InferencePool],
 	servicesCollection krt.Collection[*corev1.Service],
-) error {
-	// Get the existing service if it exists
-	key := service.Namespace + "/" + service.Name
-	existingService := ptr.Flatten(servicesCollection.GetKey(key))
-
-	// Check if we can manage this service
-	if existingService != nil {
-		canManage, _ := c.canManageShadowServiceForInference(existingService)
-		if !canManage {
-			log.Debugf("skipping service %s/%s, already managed by another controller", service.Namespace, service.Name)
+) func(key types.NamespacedName) error {
+	services := kclient.NewFiltered[*corev1.Service](c.client, kclient.Filter{
+		ObjectFilter: c.client.ObjectFilter(),
+	})
+	return func(key types.NamespacedName) error {
+		// Find the InferencePool that matches the key
+		pool := inferencePools.GetKey(key.String())
+		if pool == nil {
+			log.Debugf("skipping reconciliation for key %s, no InferencePool found", key.String())
 			return nil
 		}
-	}
 
-	var err error
-	// TODO: Retry?
-	switch event {
-	case controllers.EventAdd, controllers.EventUpdate:
+		// We found the InferencePool, now we need to translate it to a shadow Service
+		// and check if it exists already
+		existingService := ptr.Flatten(servicesCollection.GetKey(pool.shadowService.key.String()))
+
+		// Check if we can manage this service
+		if existingService != nil {
+			canManage, _ := c.canManageShadowServiceForInference(existingService)
+			if !canManage {
+				log.Debugf("skipping service %s/%s, already managed by another controller", key.Namespace, key.Name)
+				return nil
+			}
+		}
+
+		service := translateShadowServiceToService(existingService.Labels, pool.shadowService, pool.extRef)
+
+		var err error
 		if existingService == nil {
 			// Create the service if it doesn't exist
-			_, err = c.client.Kube().CoreV1().Services(service.Namespace).Create(
-				context.Background(), service, metav1.CreateOptions{})
+			_, err = services.Create(service)
 		} else {
 			// TODO: Don't overwrite resources: https://github.com/istio/istio/issues/56667
 			service.ResourceVersion = existingService.ResourceVersion
-			_, err = c.client.Kube().CoreV1().Services(service.Namespace).Update(
-				context.Background(), service, metav1.UpdateOptions{})
-		}
-	case controllers.EventDelete:
-		if existingService == nil {
-			log.Debugf("skipping delete for service %s/%s, it does not exist", service.Namespace, service.Name)
-			return nil
+			_, err = services.Update(service)
 		}
 
-		// Delete the service if it exists
-		err = c.client.Kube().CoreV1().Services(service.Namespace).Delete(
-			context.Background(), service.Name, metav1.DeleteOptions{},
-		)
+		return err
 	}
-
-	return err
 }
 
 // canManage checks if a service should be managed by this controller
