@@ -39,6 +39,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
+
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -1935,6 +1936,8 @@ func buildTLS(
 			switch tls.Options[gatewayTLSTerminateModeKey] {
 			case "MUTUAL":
 				out.Mode = istio.ServerTLSSettings_MUTUAL
+			case "OPTIONAL_MUTUAL":
+				out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
 			case "ISTIO_SIMPLE":
 				// Simple TLS but with builtin workload certificate.
 				// equivalent to `credentialName: builtin://
