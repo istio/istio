@@ -498,6 +498,7 @@ var allowedParentReferences = sets.New(
 	gvk.KubernetesGateway,
 	gvk.Service,
 	gvk.ServiceEntry,
+	gvk.XListenerSet,
 )
 
 func toInternalParentReference(p k8s.ParentReference, localNamespace string) (parentKey, error) {
@@ -1582,6 +1583,7 @@ func reportGatewayStatus(
 	classInfo classInfo,
 	gatewayServices []string,
 	servers []*istio.Server,
+	listenerSetCount int,
 	gatewayErr *ConfigError,
 ) {
 	// TODO: we lose address if servers is empty due to an error
@@ -1602,41 +1604,32 @@ func reportGatewayStatus(
 			message: "Resource programmed",
 		},
 	}
-
 	if gatewayErr != nil {
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
 	}
 
-	if len(internal) > 0 {
-		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
-		gatewayConditions[string(k8s.GatewayConditionProgrammed)].message = msg
+	// Not defined in upstream API
+	const AttachedListenerSets = "AttachedListenerSets"
+	if obj.Spec.AllowedListeners != nil {
+		gatewayConditions[AttachedListenerSets] = &condition{
+			reason:  "ListenersAttached",
+			message: "At least one ListenerSet is attached",
+		}
+		if !features.EnableAlphaGatewayAPI {
+			gatewayConditions[AttachedListenerSets].error = &ConfigError{
+				Reason: "Unsupported",
+				Message: fmt.Sprintf("AllowedListeners is configured, but ListenerSets are not enabled (set %v=true)",
+					features.EnableAlphaGatewayAPIName),
+			}
+		} else if listenerSetCount == 0 {
+			gatewayConditions[AttachedListenerSets].error = &ConfigError{
+				Reason:  "NoListenersAttached",
+				Message: "AllowedListeners is configured, but no ListenerSets are attached",
+			}
+		}
 	}
 
-	if len(gatewayServices) == 0 {
-		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
-			Reason:  InvalidAddress,
-			Message: "Failed to assign to any requested addresses",
-		}
-	} else if len(warnings) > 0 {
-		var msg string
-		var reason string
-		if len(internal) != 0 {
-			msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
-				humanReadableJoin(internal), strings.Join(warnings, "; "))
-		} else {
-			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
-		}
-		if allUsable {
-			reason = string(k8s.GatewayReasonAddressNotAssigned)
-		} else {
-			reason = string(k8s.GatewayReasonAddressNotUsable)
-		}
-		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
-			// TODO: this only checks Service ready, we should also check Deployment ready?
-			Reason:  reason,
-			Message: msg,
-		}
-	}
+	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
 	addressesToReport := external
 	if len(addressesToReport) == 0 {
@@ -1687,6 +1680,75 @@ func reportGatewayStatus(
 	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 }
 
+func reportListenerSetStatus(
+	r *GatewayContext,
+	parentGwObj *k8sbeta.Gateway,
+	obj *gatewayx.XListenerSet,
+	gs *gatewayx.ListenerSetStatus,
+	gatewayServices []string,
+	servers []*istio.Server,
+	gatewayErr *ConfigError,
+) {
+	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
+
+	// Setup initial conditions to the success state. If we encounter errors, we will update this.
+	// We have two status
+	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
+	// be tied to listeners, so this is always accepted
+	// Programmed: is the data plane "ready" (note: eventually consistent)
+	gatewayConditions := map[string]*condition{
+		string(k8s.GatewayConditionAccepted): {
+			reason:  string(k8s.GatewayReasonAccepted),
+			message: "Resource accepted",
+		},
+		string(k8s.GatewayConditionProgrammed): {
+			reason:  string(k8s.GatewayReasonProgrammed),
+			message: "Resource programmed",
+		},
+	}
+	if gatewayErr != nil {
+		gatewayErr.Message = "Parent not accepted: " + gatewayErr.Message
+		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
+	}
+
+	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
+
+	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
+}
+
+func setProgrammedCondition(gatewayConditions map[string]*condition, internal []string, gatewayServices []string, warnings []string, allUsable bool) {
+	if len(internal) > 0 {
+		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].message = msg
+	}
+
+	if len(gatewayServices) == 0 {
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
+			Reason:  InvalidAddress,
+			Message: "Failed to assign to any requested addresses",
+		}
+	} else if len(warnings) > 0 {
+		var msg string
+		var reason string
+		if len(internal) != 0 {
+			msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
+				humanReadableJoin(internal), strings.Join(warnings, "; "))
+		} else {
+			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
+		}
+		if allUsable {
+			reason = string(k8s.GatewayReasonAddressNotAssigned)
+		} else {
+			reason = string(k8s.GatewayReasonAddressNotUsable)
+		}
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
+			// TODO: this only checks Service ready, we should also check Deployment ready?
+			Reason:  reason,
+			Message: msg,
+		}
+	}
+}
+
 // reportUnmanagedGatewayStatus reports a status message for an unmanaged gateway.
 // For these gateways, we don't deploy them. However, all gateways ought to have a status message, even if its basically
 // just to say something read it
@@ -1709,6 +1771,50 @@ func reportUnmanagedGatewayStatus(
 	status.Addresses = slices.Map(obj.Spec.Addresses, func(e k8s.GatewaySpecAddress) k8s.GatewayStatusAddress {
 		return k8s.GatewayStatusAddress(e)
 	})
+	status.Listeners = nil
+	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
+}
+
+// reportUnsupportedListenerSet reports a status message for a ListenerSet that is not supported
+func reportUnsupportedListenerSet(class string, status *gatewayx.ListenerSetStatus, obj *gatewayx.XListenerSet) {
+	gatewayConditions := map[string]*condition{
+		string(k8s.GatewayConditionAccepted): {
+			reason: string(k8s.GatewayReasonAccepted),
+			error: &ConfigError{
+				Reason:  string(gatewayx.ListenerSetReasonNotAllowed),
+				Message: fmt.Sprintf("The %q GatewayClass does not support ListenerSet", class),
+			},
+		},
+		string(k8s.GatewayConditionProgrammed): {
+			reason: string(k8s.GatewayReasonProgrammed),
+			error: &ConfigError{
+				Reason:  string(gatewayx.ListenerSetReasonNotAllowed),
+				Message: fmt.Sprintf("The %q GatewayClass does not support ListenerSet", class),
+			},
+		},
+	}
+	status.Listeners = nil
+	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
+}
+
+// reportNotAllowedListenerSet reports a status message for a ListenerSet that is not allowed to be selected
+func reportNotAllowedListenerSet(status *gatewayx.ListenerSetStatus, obj *gatewayx.XListenerSet) {
+	gatewayConditions := map[string]*condition{
+		string(k8s.GatewayConditionAccepted): {
+			reason: string(k8s.GatewayReasonAccepted),
+			error: &ConfigError{
+				Reason:  string(gatewayx.ListenerSetReasonNotAllowed),
+				Message: "The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'",
+			},
+		},
+		string(k8s.GatewayConditionProgrammed): {
+			reason: string(k8s.GatewayReasonProgrammed),
+			error: &ConfigError{
+				Reason:  string(gatewayx.ListenerSetReasonNotAllowed),
+				Message: "The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'",
+			},
+		},
+	}
 	status.Listeners = nil
 	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
 }
@@ -1796,12 +1902,13 @@ func buildListener(
 	secrets krt.Collection[*corev1.Secret],
 	grants ReferenceGrants,
 	namespaces krt.Collection[*corev1.Namespace],
-	obj *k8sbeta.Gateway,
-	status *k8sbeta.GatewayStatus,
+	obj controllers.Object,
+	status []k8s.ListenerStatus,
 	l k8s.Listener,
 	listenerIndex int,
 	controllerName k8s.GatewayController,
-) (*istio.Server, bool) {
+	portErr error,
+) (*istio.Server, []k8s.ListenerStatus, bool) {
 	listenerConditions := map[string]*condition{
 		string(k8s.ListenerConditionAccepted): {
 			reason:  string(k8s.ListenerReasonAccepted),
@@ -1823,7 +1930,7 @@ func buildListener(
 	}
 
 	ok := true
-	tls, err := buildTLS(ctx, secrets, grants, l.TLS, obj, kube.IsAutoPassthrough(obj.Labels, l))
+	tls, err := buildTLS(ctx, secrets, grants, l.TLS, obj, kube.IsAutoPassthrough(obj.GetLabels(), l))
 	if err != nil {
 		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
 		listenerConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
@@ -1832,7 +1939,14 @@ func buildListener(
 		}
 		ok = false
 	}
-	hostnames := buildHostnameMatch(ctx, obj.Namespace, namespaces, l)
+	hostnames := buildHostnameMatch(ctx, obj.GetNamespace(), namespaces, l)
+	if portErr != nil {
+		listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+			Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
+			Message: portErr.Error(),
+		}
+		ok = false
+	}
 	protocol, perr := listenerProtocolToIstio(controllerName, l.Protocol)
 	if perr != nil {
 		listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
@@ -1869,8 +1983,8 @@ func buildListener(
 		Tls:   tls,
 	}
 
-	reportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
-	return server, ok
+	updatedStatus := reportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
+	return server, updatedStatus, ok
 }
 
 var supportedProtocols = sets.New(
@@ -1912,7 +2026,7 @@ func buildTLS(
 	secrets krt.Collection[*corev1.Secret],
 	grants ReferenceGrants,
 	tls *k8s.GatewayTLSConfig,
-	gw *k8sbeta.Gateway,
+	gw controllers.Object,
 	isAutoPassthrough bool,
 ) (*istio.ServerTLSSettings, *ConfigError) {
 	if tls == nil {
@@ -1927,7 +2041,7 @@ func buildTLS(
 	if tls.Mode != nil {
 		mode = *tls.Mode
 	}
-	namespace := gw.Namespace
+	namespace := gw.GetNamespace()
 	switch mode {
 	case k8s.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
@@ -1963,7 +2077,8 @@ func buildTLS(
 			}
 			credNs := ptr.OrDefault((*string)(certRef.Namespace), namespace)
 			sameNamespace := credNs == namespace
-			if !sameNamespace && !grants.SecretAllowed(ctx, creds.ToResourceName(cred), namespace) {
+			objectKind := schematypes.GvkFromObject(gw)
+			if !sameNamespace && !grants.SecretAllowed(ctx, objectKind, creds.ToResourceName(cred), namespace) {
 				combinedErr = joinErrors(combinedErr, &ConfigError{
 					Reason: InvalidListenerRefNotPermitted,
 					Message: fmt.Sprintf(
@@ -1997,7 +2112,7 @@ func buildTLS(
 func buildSecretReference(
 	ctx krt.HandlerContext,
 	ref k8s.SecretObjectReference,
-	gw *k8sbeta.Gateway,
+	gw controllers.Object,
 	secrets krt.Collection[*corev1.Secret],
 ) (string, *ConfigError) {
 	if normalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
@@ -2007,7 +2122,7 @@ func buildSecretReference(
 	secret := model.ConfigKey{
 		Kind:      kind.Secret,
 		Name:      string(ref.Name),
-		Namespace: ptr.OrDefault((*string)(ref.Namespace), gw.Namespace),
+		Namespace: ptr.OrDefault((*string)(ref.Namespace), gw.GetNamespace()),
 	}
 
 	key := secret.Namespace + "/" + secret.Name
@@ -2109,6 +2224,43 @@ func namespacesFromSelector(ctx krt.HandlerContext, localNamespace string, names
 	// Ensure stable order
 	sort.Strings(namespaces)
 	return namespaces
+}
+
+// namespaceAcceptedByAllowListeners determines a list of allowed namespaces for a given AllowedListener
+func namespaceAcceptedByAllowListeners(localNamespace string, parent *k8sbeta.Gateway, lookupNamespace func(string) *corev1.Namespace) bool {
+	lr := parent.Spec.AllowedListeners
+	// Default allows none
+	if lr == nil || lr.Namespaces == nil {
+		return false
+	}
+	n := *lr.Namespaces
+	if n.From != nil {
+		switch *n.From {
+		case k8s.NamespacesFromAll:
+			return true
+		case k8s.NamespacesFromSame:
+			return localNamespace == parent.Namespace
+		case k8s.NamespacesFromNone:
+			return false
+		default:
+			// Unknown?
+			return false
+		}
+	}
+	if lr.Namespaces.Selector == nil {
+		// Should never happen, invalid config
+		return false
+	}
+	ls, err := metav1.LabelSelectorAsSelector(lr.Namespaces.Selector)
+	if err != nil {
+		return false
+	}
+	localNamespaceObject := lookupNamespace(localNamespace)
+	if localNamespaceObject == nil {
+		// Couldn't find the namespace
+		return false
+	}
+	return ls.Matches(toNamespaceSet(localNamespaceObject.Name, localNamespaceObject.Labels))
 }
 
 func humanReadableJoin(ss []string) string {
@@ -2233,6 +2385,8 @@ func GetStatus[I, IS any](spec I) IS {
 	case *gatewayx.XBackendTrafficPolicy:
 		return any(t.Status).(IS)
 	case *gatewayalpha3.BackendTLSPolicy:
+		return any(t.Status).(IS)
+	case *gatewayx.XListenerSet:
 		return any(t.Status).(IS)
 	default:
 		log.Fatalf("unknown type %T", t)
