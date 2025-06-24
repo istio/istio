@@ -128,9 +128,20 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	s.configController = aggregateConfigController
 
-	// Create the config store.
+	if features.EnableVirtualServiceController {
+		// wrap a virtual service controller around the aggregate config controller
+		aggregateConfigController = model.NewVirtualServiceController(
+			aggregateConfigController,
+			model.VSControllerOptions{
+				KrtDebugger: args.RegistryOptions.KubeOptions.KrtDebugger,
+				XDSUpdater:  s.XDSServer,
+			},
+			s.environment.Watcher,
+		)
+	}
+
+	s.configController = aggregateConfigController
 	s.environment.ConfigStore = aggregateConfigController
 
 	// Defer starting the controller until after the service is created.
