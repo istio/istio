@@ -34,7 +34,10 @@ import (
 
 func TestClusterTrustBundleInjectionAndRBAC(t *testing.T) {
 	framework.NewTest(t).Run(func(ctx framework.TestContext) {
-		ns := namespace.NewOrFail(ctx, namespace.Config{Inject: true})
+		ns := namespace.NewOrFail(ctx, namespace.Config{
+			Prefix: "ctbtest",
+			Inject: true,
+		})
 		cluster := ctx.Clusters().Default()
 
 		// Deploy with ENABLE_CLUSTER_TRUST_BUNDLE_API=true
