@@ -1604,6 +1604,10 @@ func reportGatewayStatus(
 			message: "Resource programmed",
 		},
 	}
+	if gatewayErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
+	}
+
 	// Not defined in upstream API
 	const AttachedListenerSets = "AttachedListenerSets"
 	if obj.Spec.AllowedListeners != nil {
@@ -1623,10 +1627,6 @@ func reportGatewayStatus(
 				Message: "AllowedListeners is configured, but no ListenerSets are attached",
 			}
 		}
-	}
-
-	if gatewayErr != nil {
-		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
 	}
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
@@ -1713,18 +1713,6 @@ func reportListenerSetStatus(
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
-	// Prune listeners that have been removed
-	haveListeners := sets.New(slices.Map(obj.Spec.Listeners, func(e gatewayx.ListenerEntry) gatewayx.SectionName {
-		return e.Name
-	})...)
-	listeners := make([]gatewayx.ListenerEntryStatus, 0, len(gs.Listeners))
-	for _, l := range gs.Listeners {
-		if haveListeners.Contains(l.Name) {
-			haveListeners.Delete(l.Name)
-			listeners = append(listeners, l)
-		}
-	}
-	gs.Listeners = listeners
 	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 }
 
@@ -1919,6 +1907,7 @@ func buildListener(
 	l k8s.Listener,
 	listenerIndex int,
 	controllerName k8s.GatewayController,
+	portErr error,
 ) (*istio.Server, []k8s.ListenerStatus, bool) {
 	listenerConditions := map[string]*condition{
 		string(k8s.ListenerConditionAccepted): {
@@ -1951,6 +1940,13 @@ func buildListener(
 		ok = false
 	}
 	hostnames := buildHostnameMatch(ctx, obj.GetNamespace(), namespaces, l)
+	if portErr != nil {
+		listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+			Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
+			Message: portErr.Error(),
+		}
+		ok = false
+	}
 	protocol, perr := listenerProtocolToIstio(controllerName, l.Protocol)
 	if perr != nil {
 		listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{

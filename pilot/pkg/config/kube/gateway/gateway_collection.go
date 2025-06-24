@@ -146,16 +146,15 @@ func ListenerSetCollection(
 
 			servers := []*istio.Server{}
 			for i, l := range ls.Listeners {
-				port, err := detectListenerPort(l)
-				_ = err // TODO
+				port, portErr := detectListenerPortNumber(l)
 				l.Port = port
 				standardListener := convertListenerSetToListener(l)
 				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
-				server, updatedStatus, programmed := buildListener(ctx, secrets, grants, namespaces, obj, originalStatus, standardListener, i, controllerName)
+				server, updatedStatus, programmed := buildListener(ctx, secrets, grants, namespaces, obj, originalStatus, standardListener, i, controllerName, portErr)
 				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
 
 				servers = append(servers, server)
-				if controllerName == constants.ManagedGatewayMeshController {
+				if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
 					// Waypoint doesn't actually convert the routes to VirtualServices
 					continue
 				}
@@ -267,7 +266,7 @@ func GatewayCollection(
 		}
 
 		for i, l := range kgw.Listeners {
-			server, updatedStatus, programmed := buildListener(ctx, secrets, grants, namespaces, obj, status.Listeners, l, i, controllerName)
+			server, updatedStatus, programmed := buildListener(ctx, secrets, grants, namespaces, obj, status.Listeners, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
 			servers = append(servers, server)
@@ -405,7 +404,7 @@ func BuildRouteParents(
 	}
 }
 
-func detectListenerPort(l gatewayx.ListenerEntry) (gatewayx.PortNumber, error) {
+func detectListenerPortNumber(l gatewayx.ListenerEntry) (gatewayx.PortNumber, error) {
 	if l.Port != 0 {
 		return l.Port, nil
 	}
@@ -422,7 +421,7 @@ func convertStandardStatusToListenerSetStatus(l gatewayx.ListenerEntry) func(e g
 	return func(e gateway.ListenerStatus) gatewayx.ListenerEntryStatus {
 		return gatewayx.ListenerEntryStatus{
 			Name:           e.Name,
-			Port:           l.Port, // TODO: we need to support optional port
+			Port:           l.Port,
 			SupportedKinds: e.SupportedKinds,
 			AttachedRoutes: e.AttachedRoutes,
 			Conditions:     e.Conditions,
