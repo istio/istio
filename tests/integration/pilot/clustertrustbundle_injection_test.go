@@ -44,7 +44,7 @@ func TestClusterTrustBundleInjectionAndRBAC(t *testing.T) {
 		values := map[string]string{
 			"pilot.env.ENABLE_CLUSTER_TRUST_BUNDLE_API": "true",
 		}
-		ctx.ConfigIstio().EvalFile(ns.Name(), values, "tests/integration/pilot/testdata/clustertrustbundle-injection.yaml")
+		ctx.ConfigIstio().EvalFile(ns.Name(), values, "testdata/clustertrustbundle-injection.yaml")
 
 		// Check that the ClusterTrustBundle exists
 		dyn := cluster.Dynamic()
