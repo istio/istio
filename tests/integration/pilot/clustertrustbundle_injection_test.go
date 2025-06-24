@@ -91,9 +91,8 @@ func TestClusterTrustBundleInjectionAndRBAC(t *testing.T) {
 						if src.ClusterTrustBundle.Name != nil && *src.ClusterTrustBundle.Name == "test-bundle" {
 							// Success
 							return
-						} else {
-							t.Fatalf("clusterTrustBundle volume found but name mismatch: %+v", src.ClusterTrustBundle)
 						}
+						t.Fatalf("clusterTrustBundle volume found but name mismatch: %+v", src.ClusterTrustBundle)
 					}
 				}
 			}
