@@ -355,13 +355,17 @@ func (sa *IstiodAnalyzer) GetFiltersByGVK() map[config.GroupVersionKind]kubetype
 	}
 }
 
-func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string, remote bool) {
+func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string, remote bool, excludeNamespaces ...string) {
 	// This makes the assumption we don't care about Helm secrets or SA token secrets - two common
 	// large secrets in clusters.
 	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
 
 	ignoredNamespacesSelectorForField := func(field string) string {
-		selectors := make([]fields.Selector, 0, len(inject.IgnoredNamespaces))
+		selectors := make([]fields.Selector, 0, len(excludeNamespaces)+len(inject.IgnoredNamespaces))
+		for _, ns := range excludeNamespaces {
+			selectors = append(selectors, fields.OneTermNotEqualSelector(field, ns))
+		}
+
 		for _, ns := range inject.IgnoredNamespaces.UnsortedList() {
 			selectors = append(selectors, fields.OneTermNotEqualSelector(field, ns))
 		}
