@@ -238,6 +238,12 @@ func mustGetMutatingWebhookConfiguration(g *WithT, objs *ObjectSet, mutatingWebh
 	return obj
 }
 
+func mustGetValidatingWebhookConfiguration(g *WithT, objs *ObjectSet, cName string) *manifest.Manifest {
+	obj := objs.kind(gvk.ValidatingWebhookConfiguration.Kind).nameEquals(cName)
+	g.Expect(obj).Should(Not(BeNil()))
+	return obj
+}
+
 // HavePathValueEqual matches map[string]interface{} tree against a PathValue.
 func HavePathValueEqual(expected any) types.GomegaMatcher {
 	return &HavePathValueEqualMatcher{

@@ -9,7 +9,6 @@ spec:
       network: network2
       remotePilotAddress: 169.10.112.88
       omitSidecarInjectorConfigMap: false
-    istiodRemote:
-      injectionURL: https://xxx:15017/inject
+      configCluster: true
     base:
       validationURL: https://xxx:15017/validate
