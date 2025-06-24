@@ -360,7 +360,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// pod information from the triggering event.
 		if util.PodFullyEnrolled(latestEventPod) ||
 			util.PodPartiallyEnrolled(latestEventPod) ||
-			s.enablementSelector.Matches(latestEventPod.Labels, latestEventPod.Annotations, ns.Labels) {
+			util.PodRedirectionEnabled(ns, latestEventPod) {
 			log.Debugf("pod is deleted and was or should be captured, removing from ztunnel")
 			if err := s.dataplane.RemovePodFromMesh(s.ctx, latestEventPod, true); err != nil {
 				log.Warnf("Unable to send pod to ztunnel for removal. Will retry. RemovePodFrmMesh returned: %v", err)
