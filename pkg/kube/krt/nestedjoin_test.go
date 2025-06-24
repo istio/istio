@@ -43,10 +43,18 @@ func TestNestedJoinCollection(t *testing.T) {
 		c3.AsCollection(),
 	}, opts.WithName("joined")...)
 
+	meta := krt.Metadata{
+		"foo": "bar",
+	}
 	nj := krt.NestedJoinCollection(
 		joined,
-		opts.WithName("NestedJoin")...,
+		opts.With(
+			krt.WithName("NestedJoin"),
+			krt.WithMetadata(meta),
+		)...,
 	)
+
+	assert.Equal(t, nj.Metadata(), meta)
 
 	last := atomic.NewString("")
 	tt := assert.NewTracker[string](t)
@@ -73,9 +81,11 @@ func TestNestedJoinCollection(t *testing.T) {
 	sortf := func(a Named) string {
 		return a.ResourceName()
 	}
+
+	a := nj.List()
 	assert.Equal(
 		t,
-		slices.SortBy(nj.List(), sortf),
+		slices.SortBy(a, sortf),
 		slices.SortBy([]Named{
 			{"c1", "b"},
 			{"c2", "a"},
@@ -269,7 +279,6 @@ func TestNestedJoinCollectionTransform(t *testing.T) {
 		}
 	}, opts.WithName("SimplePods")...)
 
-	tt := assert.NewTracker[string](t)
 	IPIndex := krt.NewIndex[string, SimplePod](SimplePods, "ips", func(o SimplePod) []string {
 		return []string{o.IP}
 	})
@@ -280,6 +289,7 @@ func TestNestedJoinCollectionTransform(t *testing.T) {
 		})
 	}
 
+	tt := assert.NewTracker[string](t)
 	SimplePods.Register(TrackerHandler[SimplePod](tt))
 
 	pod := &corev1.Pod{

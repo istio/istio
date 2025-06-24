@@ -132,6 +132,11 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 		a.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		addedClusters = append(addedClusters, remoteCluster)
 		go remoteCluster.Run(a.meshConfig, debugger)
+		// Don't wait for sync since the client hasn't been started yet, but do wait for init (i.e. the remote collections are set)
+		if !kube.WaitForCacheSync(fmt.Sprintf("remote cluster %s init", remoteCluster.ID), a.stop, remoteCluster.IsInitialized) {
+			log.Errorf("Timed out waiting for remote cluster %s to initialize", remoteCluster.ID)
+			continue
+		}
 	}
 
 	syncers := slices.Map(addedClusters, func(c *multicluster.Cluster) cache.InformerSynced { return c.HasSynced })
@@ -239,7 +244,7 @@ func (a *index) buildRemoteClustersCollection(
 
 	Clusters := krt.NewManyFromNothing(func(ctx krt.HandlerContext) []*multicluster.Cluster {
 		a.cs.MarkDependant(ctx) // Subscribe to updates from the clusterStore
-		// Wait for all of the clusters to be synced
+		// Wait for the clusterStore to be synced
 		if !kube.WaitForCacheSync("multicluster remote secrets", a.stop, a.cs.HasSynced) {
 			log.Warnf("remote cluster cache sync failed")
 		}

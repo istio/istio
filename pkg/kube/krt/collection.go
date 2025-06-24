@@ -615,7 +615,7 @@ func newManyCollection[I, O any](
 	// Create our queue. When it syncs (that is, all items that were present when Run() was called), we mark ourselves as synced.
 	h.queue = queue.NewWithSync(func() {
 		close(h.synced)
-		h.log.Infof("%v synced", h.name())
+		h.log.Infof("%v synced (uid %v)", h.name(), h.uid())
 	}, h.collectionName)
 
 	// Finally, async wait for the primary to be synced. Once it has, we know it has enqueued the initial state.
@@ -718,6 +718,8 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) HandlerRegistration 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingState bool) HandlerRegistration {
 	if !runExistingState {
 		// If we don't to run the initial state this is simple, we just register the handler.
+		h.mu.Lock()
+		defer h.mu.Unlock()
 		return h.eventHandlers.Insert(f, h, nil, h.stop)
 	}
 	// We need to run the initial state, but we don't want to get duplicate events.

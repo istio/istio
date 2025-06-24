@@ -236,7 +236,9 @@ func DefaultBuildClientsFromConfig(kubeConfig []byte, clusterID cluster.ID, conf
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
-	if features.WorkloadEntryCrossCluster {
+
+	// We need to read remote gateways in ambient multicluster mode
+	if features.WorkloadEntryCrossCluster || features.EnableAmbientMultiNetwork {
 		clients = kube.EnableCrdWatcher(clients)
 	}
 
