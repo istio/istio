@@ -1,0 +1,68 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterTrustBundle
+metadata:
+  name: test-bundle
+spec:
+  signerName: example.com/signer
+  trustBundle: |
+    -----BEGIN CERTIFICATE-----
+    MIIDCTCCAfGgAwIBAgIUMDIk9EGP0COllfPAsPPgLTXWB7owDQYJKoZIhvcNAQEL
+    BQAwFDESMBAGA1UEAwwJVGVzdCBSb290MB4XDTI1MDYyNDE2MDEzNloXDTI2MDYy
+    NDE2MDEzNlowFDESMBAGA1UEAwwJVGVzdCBSb290MIIBIjANBgkqhkiG9w0BAQEF
+    AAOCAQ8AMIIBCgKCAQEAxdUCy059tfleXgP54iS1MaOJJt767WmTIEE5zgkHE8M+
+    R7Gnw5ZiOOrvSqsaYtyATrzSSLDJltuY9swg5rm21qs4KyW0msOcD2y7xnCHaart
+    RPCxS55vSzs+RzN7oI1vqLQRDDNTZVyutwpiykcAe1euVYOhstpdx9lD+W+9l+8z
+    F0X3ZocSFobmc/bOl+dn1HwQA6KGT8N6MpdB6iUluDBo/I/gnHUDw6hec1eJx40y
+    eDbXahNiJT79cFK4YHtsrIWMn60QlYXiP2W4JwVZ9+u21o61YvUjicHAm1hyEVH+
+    WYRwx3UcyjYpdz5fVZZ5zSGTjj/OJj0XWJpfVm3oXwIDAQABo1MwUTAdBgNVHQ4E
+    FgQUwxA7sKeFPL3t/Runu07pHfWsLDYwHwYDVR0jBBgwFoAUwxA7sKeFPL3t/Run
+    u07pHfWsLDYwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAWM+7
+    tAEnMod3N8LsSkjdl4OcyqMoUCBTWAM3nKRZBbvjjxhsponrL+dMSkDaWs+ob/Qt
+    97AblJ2s9i6jBHLo/aneNoiSv4XW3g4wHcX150biwFHIgydixtJgTFL7EztyJQxw
+    FpQ4mT9yNsVyj22IUTMmqU5O0fHRvDTPpMEKcpyzBOmNzB5HHtTT5v+uFfWBpikm
+    ZVTNLRzLPYdASaZLWRUqlaAiLEUOPK/3A0FjDbKb8dn2rdcjJyP9MY2bolS4DAnj
+    9eDCdvRpBzR21DtyXeEuhAB5VOB3IVqpgNzt8d4q9eoWtTz5vvNcUHOmozMZvUAH
+    7UTWTG2dbrSQzDm7kQ==
+    -----END CERTIFICATE-----
+  description: "Test bundle for injection"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-app
+  namespace: {{ .Namespace }}
+  labels:
+    app: test-app
+spec:
+  selector:
+    app: test-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-app
+  namespace: {{ .Namespace }}
+  labels:
+    app: test-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-app
+  template:
+    metadata:
+      labels:
+        app: test-app
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+        - name: app
+          image: busybox
+          command: ["sleep", "3600"]
+          ports:
+            - containerPort: 8080
