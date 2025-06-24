@@ -1252,9 +1252,6 @@ type WorkloadInfo struct {
 	Labels map[string]string
 	// Source is the type that introduced this workload.
 	Source kind.Kind
-	// ScopeForService service key to ServiceScope. This mapping is required since a workload can be a part of
-	// multiple service. A single scope from a service is not sufficiently representative
-	ScopeForService map[string]ServiceScope
 	// CreationTime is the time when the workload was created. Note this is used internally only.
 	CreationTime time.Time
 	// MarshaledAddress contains the pre-marshaled representation.
