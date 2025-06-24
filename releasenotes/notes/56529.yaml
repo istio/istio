@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 56529
+releaseNotes:
+- |
+  **Added** CRL support for plugged-in CA, enabling Istio to watch for ca-crl.pem files and 
+  automatically distribute Certificate Revocation Lists across all namespaces in the cluster. This enhancement allows 
+  proxies to validate and reject revoked certificates, strengthening the security posture of service mesh deployments 
+  using plugged-in CAs.
