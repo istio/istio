@@ -232,7 +232,7 @@ func (id *istiodConfigLog) execute(out io.Writer) error {
 	return id.state.run(out)
 }
 
-func chooseClientFlag(ctrzClient *ControlzClient, logReset, stackTraceReset, reset bool, outputLogLevel, stackTraceLevel, outputFormat string) *istiodConfigLog {
+func chooseClientFlag(ctrzClient *ControlzClient, logReset, stackTraceReset, reset bool, logLevel, stackTraceLevel, outputFormat string) *istiodConfigLog {
 	switch {
 	case reset:
 		return &istiodConfigLog{state: &resetState{ctrzClient}}
@@ -240,10 +240,10 @@ func chooseClientFlag(ctrzClient *ControlzClient, logReset, stackTraceReset, res
 		return &istiodConfigLog{state: &logResetState{ctrzClient}}
 	case stackTraceReset:
 		return &istiodConfigLog{state: &stackTraceResetState{ctrzClient}}
-	case outputLogLevel != "":
+	case logLevel != "":
 		return &istiodConfigLog{state: &logLevelState{
 			client:         ctrzClient,
-			outputLogLevel: outputLogLevel,
+			outputLogLevel: logLevel,
 		}}
 	case stackTraceLevel != "":
 		return &istiodConfigLog{state: &stackTraceLevelState{
