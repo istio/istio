@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -47,23 +46,18 @@ func TestClusterTrustBundleInjectionAndRBAC(t *testing.T) {
 		}
 		ctx.ConfigIstio().EvalFile(ns.Name(), values, "testdata/clustertrustbundle-injection.yaml")
 
-		// Wait and check that the ClusterTrustBundle exists
-		gvr := schema.GroupVersionResource{
-			Group:    "cert-manager.io",
-			Version:  "v1",
-			Resource: "clustertrustbundles",
+		// Check that the ClusterTrustBundle exists
+		dyn := cluster.Dynamic()
+		ctbs, err := dyn.Resource(
+			schema.GroupVersionResource{
+				Group:    "cert-manager.io",
+				Version:  "v1",
+				Resource: "clustertrustbundles",
+			},
+		).List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			t.Fatalf("failed to list ClusterTrustBundles: %v", err)
 		}
-
-		var ctbs *unstructured.UnstructuredList
-		retry.UntilSuccessOrFail(t, func() error {
-			var err error
-			ctbs, err = cluster.Dynamic().Resource(gvr).List(context.Background(), metav1.ListOptions{})
-			if err != nil {
-				return fmt.Errorf("ClusterTrustBundle CRD not available yet: %v", err)
-			}
-			return nil
-		}, retry.Timeout(30*time.Second), retry.Delay(2*time.Second))
-
 		foundCTB := false
 		for _, ctb := range ctbs.Items {
 			if ctb.GetName() == "test-bundle" {
@@ -75,14 +69,14 @@ func TestClusterTrustBundleInjectionAndRBAC(t *testing.T) {
 			t.Fatalf("ClusterTrustBundle 'test-bundle' not found")
 		}
 
-		// Wait for pod to be ready
+		// Wait for pod
 		var pod *corev1.Pod
 		retry.UntilSuccessOrFail(t, func() error {
 			pods, err := cluster.PodsForSelector(context.Background(), ns.Name(), "app=test-app")
 			if err != nil || len(pods.Items) == 0 {
 				return fmt.Errorf("no pods: %v", err)
 			}
-			p = &pods.Items[0]
+			p := &pods.Items[0]
 			if p.Status.Phase != corev1.PodRunning {
 				return fmt.Errorf("pod not running: %v", p.Status.Phase)
 			}
@@ -90,7 +84,7 @@ func TestClusterTrustBundleInjectionAndRBAC(t *testing.T) {
 			return nil
 		}, retry.Timeout(2*time.Minute), retry.Delay(2*time.Second))
 
-		// Check for projected ClusterTrustBundle volume referencing 'test-bundle'
+		// Check for projected clusterTrustBundle volume referencing 'test-bundle'
 		found := false
 		for _, v := range pod.Spec.Volumes {
 			if v.Projected != nil {
@@ -99,15 +93,15 @@ func TestClusterTrustBundleInjectionAndRBAC(t *testing.T) {
 						found = true
 						if src.ClusterTrustBundle.Name != nil && *src.ClusterTrustBundle.Name == "test-bundle" {
 							// Success
-							break
+							return
 						}
-						t.Fatalf("ClusterTrustBundle volume found but name mismatch: %+v", src.ClusterTrustBundle)
+						t.Fatalf("clusterTrustBundle volume found but name mismatch: %+v", src.ClusterTrustBundle)
 					}
 				}
 			}
 		}
 		if !found {
-			t.Fatalf("No projected ClusterTrustBundle volume found in pod spec")
+			t.Fatalf("No projected clusterTrustBundle volume found in pod spec")
 		}
 
 		// Check ClusterRole for clustertrustbundles RBAC
