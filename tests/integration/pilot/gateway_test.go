@@ -149,17 +149,10 @@ spec:
 }
 
 func ManagedGatewayTest(t framework.TestContext) {
-	templateArgs := map[string]string{
-		"revision": t.Settings().Revisions.Default(),
-	}
-	t.ConfigIstio().Eval(apps.Namespace.Name(), templateArgs, `apiVersion: gateway.networking.k8s.io/v1beta1
+	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: gateway
-  {{- if .revision }}
-  labels:
-    istio.io/rev: {{.revision}}
-  {{- end }}
 spec:
   gatewayClassName: istio
   listeners:
@@ -459,6 +452,9 @@ func UnmanagedGatewayTest(t framework.TestContext) {
 	ingressutil.CreateIngressKubeSecretInNamespace(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
 		false, apps.Namespace.Name(), t.Clusters().Configs()...)
 
+	// TODO: If we run this test choosing an specific istio revision, the Gateway
+	// will not be programmed unless we add istio.io/rev
+	// See: https://github.com/istio/istio/issues/56767
 	templateArgs := map[string]string{
 		"ingressSvcName":          ingressGatewaySvcName,
 		"ingressGatewayNamespace": ingressGatewayNs,
