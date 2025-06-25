@@ -123,7 +123,7 @@ func GlobalMergedWorkloadServicesCollection(
 				waypoints,
 				namespaces,
 				meshConfig,
-				domainSuffix, 
+				domainSuffix,
 				false,
 				func(ctx krt.HandlerContext) network.ID {
 					nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
