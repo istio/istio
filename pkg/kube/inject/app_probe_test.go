@@ -904,7 +904,6 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 			} else {
 				assert.Equal(t, 0, len(got))
 			}
-
 		})
 	}
 }
@@ -1067,6 +1066,7 @@ func TestGetIncludedPorts(t *testing.T) {
 		})
 	}
 }
+
 func TestPatchRewriteProbe(t *testing.T) {
 	svc := "foo"
 	annotations := map[string]string{}
