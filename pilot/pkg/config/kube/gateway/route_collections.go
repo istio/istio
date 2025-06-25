@@ -670,6 +670,7 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 				Meta:   nm,
 				Spec:   base.Spec,
 				Status: base.Status,
+				Extra:  base.Extra,
 			})
 		}
 		sortRoutesByCreationTime(configs)
