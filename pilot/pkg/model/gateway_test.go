@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config"
@@ -367,6 +369,10 @@ func makePushContext() *PushContext {
 
 type fakeController struct {
 	ConfigStoreController
+}
+
+func (f fakeController) HasInferencePool(_ types.NamespacedName) bool {
+	return false
 }
 
 func (f fakeController) Reconcile(_ *PushContext) {}
