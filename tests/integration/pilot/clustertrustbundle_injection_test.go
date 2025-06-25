@@ -78,7 +78,7 @@ func TestClusterTrustBundleTrafficBasic(t *testing.T) {
 			ns.Name(),
 			"app=sleep",
 			"sleep",
-			[]string{"curl", "-sS", "http://httpbin:8000/get"},
+			"curl -sS http://httpbin:8000/get",
 		)
 		if err != nil {
 			t.Fatalf("failed to exec curl from sleep to httpbin: %v\nstdout: %s\nstderr: %s", err, stdout, stderr)
