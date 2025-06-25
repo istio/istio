@@ -173,7 +173,7 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 		}
 		if p.GRPC != nil {
 			grpcPort := p.GRPC.Port
-			if _, exists := portMap[grpcPort]; !exists && len(portMap) > 0 {
+			if _, exists := portMap[grpcPort]; !exists && (len(portMap) > 0 || isPortExcluded(pod, intstr.FromInt32(grpcPort))) {
 				return nil
 			}
 			// don't need to update for gRPC probe port as it only supports integer
@@ -193,12 +193,12 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 		if probePort.Type == intstr.String {
 			portValInt64, _ := strconv.ParseInt(probePort.StrVal, 10, 32)
 			portValInt := int32(portValInt64)
-			if _, exists := portMap[portValInt]; !exists && len(portMap) > 0 {
+			if _, exists := portMap[portValInt]; !exists && (len(portMap) > 0 || isPortExcluded(pod, intstr.FromInt32(portValInt))) {
 				return nil
 			}
 			*probePort = intstr.FromInt32(portValInt)
 		} else if probePort.Type == intstr.Int {
-			if _, exists := portMap[probePort.IntVal]; !exists && len(portMap) > 0 {
+			if _, exists := portMap[probePort.IntVal]; !exists && (len(portMap) > 0 || isPortExcluded(pod, intstr.FromInt32(probePort.IntVal))) {
 				return nil
 			}
 			*probePort = intstr.FromInt32(probePort.IntVal)
@@ -274,9 +274,6 @@ func getIncludedPorts(pod *corev1.Pod) map[int32]bool {
 			}
 		}
 	} else {
-		// If includeInboundPorts is not specified, include all ports by default
-		includedPorts = blankPorts
-
 		excludeInboundPortsKey := annotation.SidecarTrafficExcludeInboundPorts.Name
 		// Then exclude ports specified in excludeInboundPorts
 		if excludePortsStr, exists := annotations[excludeInboundPortsKey]; exists && excludePortsStr != "" {
@@ -290,6 +287,23 @@ func getIncludedPorts(pod *corev1.Pod) map[int32]bool {
 		}
 	}
 	return includedPorts
+}
+
+func isPortExcluded(pod *corev1.Pod, port intstr.IntOrString) bool {
+	portIntVal := port.IntVal
+	excludeInboundPortsKey := annotation.SidecarTrafficExcludeInboundPorts.Name
+	if excludePortsStr, exists := pod.Annotations[excludeInboundPortsKey]; exists && excludePortsStr != "" {
+		for _, portStr := range splitPorts(excludePortsStr) {
+			if excludedPort, err := strconv.Atoi(portStr); err == nil {
+				if excludedPort == int(portIntVal) {
+					return true
+				}
+			} else {
+				log.Errorf("Failed to parse port %v from excludeInboundPorts: %v", portStr, err)
+			}
+		}
+	}
+	return false
 }
 
 func allContainers(pod *corev1.Pod) []corev1.Container {

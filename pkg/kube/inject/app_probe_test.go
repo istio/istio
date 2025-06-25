@@ -14,7 +14,6 @@
 package inject
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -255,10 +254,9 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 	svc := "foo"
 
 	tests := []struct {
-		name          string
-		pod           *corev1.Pod
-		expected      string
-		errorExpected bool
+		name     string
+		pod      *corev1.Pod
+		expected string
 	}{
 		{
 			name: "simple gRPC liveness probe",
@@ -406,8 +404,7 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					},
 				},
 			},
-			expected:      `{}`,
-			errorExpected: true,
+			expected: "",
 		},
 		{
 			name: "startup probe with includeInboundPorts annotation and one of the ports in the list",
@@ -466,7 +463,6 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					"timeoutSeconds":10
 				}
 			}`,
-			errorExpected: false,
 		},
 		{
 			name: "http, grpc, and tcp probes on different ports",
@@ -550,8 +546,7 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					},
 				},
 			},
-			expected:      `{}`,
-			errorExpected: true,
+			expected: "",
 		},
 		{
 			name: "http liveness probe on excluded port and readinessProbe on included port",
@@ -586,8 +581,7 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					},
 				},
 			},
-			expected:      `{"/app-health/excluded-port-container/readyz":{"httpGet":{"path":"/health","port":7070}}}`,
-			errorExpected: false,
+			expected: `{"/app-health/excluded-port-container/readyz":{"httpGet":{"path":"/health","port":7070}}}`,
 		},
 		{
 			name: "liveness and readiness probes on different http ports with one included",
@@ -781,8 +775,7 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 					},
 				},
 			},
-			expected:      `{}`,
-			errorExpected: true,
+			expected: "",
 		},
 		{
 			name: "probes and lifecycle hooks on different ports",
@@ -906,15 +899,12 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			got := DumpAppProbers(tc.pod, targetPort)
-
-			if tc.errorExpected {
-				var data map[string]interface{}
-				if err := json.Unmarshal([]byte(got), &data); err == nil {
-					t.Fatal("Expected error unmarshaling invalid JSON, but got nil")
-				}
-			} else {
+			if len(tc.expected) > 0 {
 				test.JSONEquals(t, got, tc.expected)
+			} else {
+				assert.Equal(t, 0, len(got))
 			}
+
 		})
 	}
 }
