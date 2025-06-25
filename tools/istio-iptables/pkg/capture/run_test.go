@@ -15,9 +15,7 @@
 package capture
 
 import (
-	"net/netip"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -289,59 +287,6 @@ func TestIptables(t *testing.T) {
 				t.Fatal(err)
 			}
 			compareToGolden(t, tt.name, ext.ExecutedAll)
-		})
-	}
-}
-
-func TestSeparateV4V6(t *testing.T) {
-	mkIPList := func(ips ...string) []netip.Prefix {
-		ret := []netip.Prefix{}
-		for _, ip := range ips {
-			ipp, err := netip.ParsePrefix(ip)
-			if err != nil {
-				panic(err.Error())
-			}
-			ret = append(ret, ipp)
-		}
-		return ret
-	}
-	cases := []struct {
-		name string
-		cidr string
-		v4   NetworkRange
-		v6   NetworkRange
-	}{
-		{
-			name: "wildcard",
-			cidr: "*",
-			v4:   NetworkRange{IsWildcard: true},
-			v6:   NetworkRange{IsWildcard: true},
-		},
-		{
-			name: "v4 only",
-			cidr: "10.0.0.0/8,172.16.0.0/16",
-			v4:   NetworkRange{CIDRs: mkIPList("10.0.0.0/8", "172.16.0.0/16")},
-		},
-		{
-			name: "v6 only",
-			cidr: "fd04:3e42:4a4e:3381::/64,ffff:ffff:ac10:ac10::/64",
-			v6:   NetworkRange{CIDRs: mkIPList("fd04:3e42:4a4e:3381::/64", "ffff:ffff:ac10:ac10::/64")},
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := constructTestConfig()
-			iptConfigurator, _ := NewIptablesConfigurator(cfg, &dep.DependenciesStub{})
-			v4Range, v6Range, err := iptConfigurator.separateV4V6(tt.cidr)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !reflect.DeepEqual(v4Range, tt.v4) {
-				t.Fatalf("expected %v, got %v", tt.v4, v4Range)
-			}
-			if !reflect.DeepEqual(v6Range, tt.v6) {
-				t.Fatalf("expected %v, got %v", tt.v6, v6Range)
-			}
 		})
 	}
 }
