@@ -75,8 +75,9 @@ type extRefInfo struct {
 }
 
 type InferencePool struct {
-	shadowService shadowServiceInfo
-	extRef        extRefInfo
+	shadowService  shadowServiceInfo
+	extRef         extRefInfo
+	gatewayParents sets.Set[types.NamespacedName] // Gateways that reference this InferencePool
 }
 
 func (i InferencePool) ResourceName() string {
@@ -195,8 +196,9 @@ func InferencePoolCollection(
 			}
 
 			return &ipoolStatus, &InferencePool{
-				shadowService: shadowSvcInfo,
-				extRef:        extRef,
+				shadowService:  shadowSvcInfo,
+				extRef:         extRef,
+				gatewayParents: gatewayParentsToEnsure,
 			}
 		}, opts.WithName("InferenceExtension")...)
 }
