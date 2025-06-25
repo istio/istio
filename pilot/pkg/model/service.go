@@ -1222,6 +1222,7 @@ func (i ServiceInfo) Equals(other ServiceInfo) bool {
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
 		i.Source == other.Source &&
+		i.Scope == other.Scope &&
 		i.Waypoint.Equals(other.Waypoint)
 }
 
