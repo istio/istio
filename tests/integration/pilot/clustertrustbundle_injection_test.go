@@ -20,6 +20,7 @@ package pilot
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -83,21 +84,8 @@ func TestClusterTrustBundleTrafficBasic(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to exec curl from sleep to httpbin: %v\nstdout: %s\nstderr: %s", err, stdout, stderr)
 		}
-		if !containsString(stdout, "\"url\": \"/get\"") {
+		if !strings.Contains(stdout, "\"url\": \"/get\"") {
 			t.Fatalf("unexpected response from httpbin: %s", stdout)
 		}
 	})
-}
-
-func contains(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
-	}
-	return false
-}
-
-func containsString(s, substr string) bool {
-	return (len(s) >= len(substr)) && (s == substr || (len(s) > len(substr) && (containsString(s[1:], substr) || containsString(s[:len(s)-1], substr))))
 }
