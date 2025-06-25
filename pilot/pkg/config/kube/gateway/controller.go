@@ -127,11 +127,12 @@ type TypedResource struct {
 }
 
 type Outputs struct {
-	Gateways         krt.Collection[Gateway]
-	VirtualServices  krt.Collection[*config.Config]
-	ReferenceGrants  ReferenceGrants
-	DestinationRules krt.Collection[*config.Config]
-	InferencePools   krt.Collection[InferencePool]
+	Gateways                krt.Collection[Gateway]
+	VirtualServices         krt.Collection[*config.Config]
+	ReferenceGrants         ReferenceGrants
+	DestinationRules        krt.Collection[*config.Config]
+	InferencePools          krt.Collection[InferencePool]
+	InferencePoolsByGateway krt.Index[types.NamespacedName, InferencePool]
 }
 
 type Inputs struct {
@@ -338,12 +339,17 @@ func NewController(
 		grpcRoutes.VirtualServices,
 	}, opts.WithName("DerivedVirtualServices")...)
 
+	InferencePoolsByGateway := krt.NewIndex(InferencePools, "byGateway", func(i InferencePool) []types.NamespacedName {
+		return i.gatewayParents.UnsortedList()
+	})
+
 	outputs := Outputs{
-		ReferenceGrants:  ReferenceGrants,
-		Gateways:         Gateways,
-		VirtualServices:  VirtualServices,
-		DestinationRules: DestinationRules,
-		InferencePools:   InferencePools,
+		ReferenceGrants:         ReferenceGrants,
+		Gateways:                Gateways,
+		VirtualServices:         VirtualServices,
+		DestinationRules:        DestinationRules,
+		InferencePools:          InferencePools,
+		InferencePoolsByGateway: InferencePoolsByGateway,
 	}
 	c.outputs = outputs
 
@@ -595,6 +601,10 @@ func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		})
 	}
+}
+
+func (c *Controller) HasInferencePool(gw types.NamespacedName) bool {
+	return len(c.outputs.InferencePoolsByGateway.Lookup(gw)) > 0
 }
 
 func (c *Controller) inRevision(obj any) bool {
