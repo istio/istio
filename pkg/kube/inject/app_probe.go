@@ -19,6 +19,7 @@ package inject
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -267,7 +268,7 @@ func getIncludedPorts(pod *corev1.Pod) map[int32]bool {
 
 		// Parse comma-separated list of ports
 		for _, portStr := range splitPorts(includePortsStr) {
-			if port, err := strconv.Atoi(portStr); err == nil {
+			if port, err := strconv.Atoi(strings.TrimSpace(portStr)); err == nil {
 				includedPorts[int32(port)] = true
 			} else {
 				log.Errorf("Failed to parse port %v from includeInboundPorts: %v", portStr, err)

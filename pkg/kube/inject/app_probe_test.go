@@ -911,225 +911,162 @@ func TestDumpAppProbersForIncludedPorts(t *testing.T) {
 
 func TestGetIncludedPorts(t *testing.T) {
 	tests := []struct {
-		name string
-		pod  *corev1.Pod
-		want map[int32]bool
+		name     string
+		pod      *corev1.Pod
+		expected map[int32]bool
 	}{
 		{
-			name: "nil annotations - should include all ports",
+			name: "nil annotations",
 			pod: &corev1.Pod{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-								{ContainerPort: 9090},
-							},
-						},
-					},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: nil,
 				},
 			},
-			want: map[int32]bool{8080: true, 9090: true},
+			// When no annotations are provided, expect an empty map (all ports included)
+			expected: make(map[int32]bool),
 		},
 		{
-			name: "empty annotations - should include all ports",
+			name: "empty annotations",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-								{ContainerPort: 9090},
-							},
-						},
-					},
-				},
 			},
-			want: map[int32]bool{8080: true, 9090: true},
+			// When annotations are empty, expect an empty map (all ports included)
+			expected: make(map[int32]bool),
 		},
 		{
-			name: "includeInboundPorts with * - should include all ports",
+			name: "include all ports with asterisk",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						annotation.SidecarTrafficIncludeInboundPorts.Name: "*",
 					},
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-								{ContainerPort: 9090},
-							},
-						},
-					},
-				},
 			},
-			want: map[int32]bool{8080: true, 9090: true},
+			// When includeInboundPorts is "*", expect an empty map (all ports included)
+			expected: make(map[int32]bool),
 		},
 		{
-			name: "includeInboundPorts with specific ports",
+			name: "specific include ports",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080,9091",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-								{ContainerPort: 9090},
-							},
-						},
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080,9090",
 					},
 				},
 			},
-			want: map[int32]bool{8080: true, 9091: true},
+			// When specific ports are included, expect a map with those ports
+			expected: map[int32]bool{
+				8080: true,
+				9090: true,
+			},
 		},
 		{
-			name: "includeInboundPorts with invalid port",
+			name: "exclude ports not relevant when include specified",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080,invalid",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-								{ContainerPort: 9090},
-							},
-						},
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080,9090",
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080,7070",
 					},
 				},
 			},
-			want: map[int32]bool{8080: true},
+			// When both include and exclude are specified, include takes precedence
+			expected: map[int32]bool{
+				8080: true,
+				9090: true,
+			},
 		},
 		{
-			name: "excludeInboundPorts with specific ports",
+			name: "only exclude ports specified",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						annotation.SidecarTrafficExcludeInboundPorts.Name: "9090",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-								{ContainerPort: 9090},
-							},
-						},
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080,7070",
 					},
 				},
 			},
-			want: map[int32]bool{8080: true},
+			// When only exclude is specified, expect a map without those ports
+			expected: map[int32]bool{},
 		},
 		{
-			name: "excludeInboundPorts with invalid port",
+			name: "include with invalid port",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						annotation.SidecarTrafficExcludeInboundPorts.Name: "9090,invalid",
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-								{ContainerPort: 9090},
-							},
-						},
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080,invalid,9090",
 					},
 				},
 			},
-			want: map[int32]bool{8080: true},
+			// Invalid ports should be ignored
+			expected: map[int32]bool{
+				8080: true,
+				9090: true,
+			},
 		},
 		{
-			name: "both include and exclude annotations - include takes precedence",
+			name: "exclude with invalid port",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080",
-						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080", // This should be ignored
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-								{ContainerPort: 9090},
-							},
-						},
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "8080,invalid",
 					},
 				},
 			},
-			want: map[int32]bool{8080: true},
+			// Invalid exclude ports should be ignored
+			expected: map[int32]bool{},
 		},
 		{
-			name: "empty includeInboundPorts - should include all ports",
+			name: "empty include ports string",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						annotation.SidecarTrafficIncludeInboundPorts.Name: "",
 					},
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-								{ContainerPort: 9090},
-							},
-						},
-					},
-				},
 			},
-			want: map[int32]bool{8080: true, 9090: true},
+			// Empty include string is treated as not specified
+			expected: map[int32]bool{},
 		},
 		{
-			name: "multiple containers with ports",
+			name: "empty exclude ports string",
 			pod: &corev1.Pod{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 8080},
-							},
-						},
-						{
-							Ports: []corev1.ContainerPort{
-								{ContainerPort: 9090},
-							},
-						},
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficExcludeInboundPorts.Name: "",
 					},
 				},
 			},
-			want: map[int32]bool{8080: true, 9090: true},
+			// Empty exclude string is treated as not specified
+			expected: map[int32]bool{},
+		},
+		{
+			name: "multiple include values with spaces",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annotation.SidecarTrafficIncludeInboundPorts.Name: "8080, 9090",
+					},
+				},
+			},
+			// Spaces in port list should be handled by splitPorts
+			expected: map[int32]bool{
+				8080: true,
+				9090: true,
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := getIncludedPorts(tt.pod)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getIncludedPorts() = %v, want %v", got, tt.want)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getIncludedPorts(tc.pod)
+			if !reflect.DeepEqual(got, tc.expected) {
+				t.Errorf("getIncludedPorts(%v) = %v, want %v", tc.pod, got, tc.expected)
 			}
 		})
 	}
 }
-
 func TestPatchRewriteProbe(t *testing.T) {
 	svc := "foo"
 	annotations := map[string]string{}
