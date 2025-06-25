@@ -7660,6 +7660,57 @@ func TestValidateTelemetryFilter(t *testing.T) {
 	}
 }
 
+func TestStrictParseURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectedURL string
+		valid       bool
+	}{
+		{
+			name:        "with explicit http scheme",
+			input:       "http://example.com/path",
+			expectedURL: "http://example.com/path",
+			valid:       true,
+		},
+		{
+			name:        "with explicit https scheme",
+			input:       "https://example.com/path",
+			expectedURL: "https://example.com/path",
+			valid:       true,
+		},
+		{
+			name:        "with explicit oci scheme",
+			input:       "oci://example.com/path",
+			expectedURL: "oci://example.com/path",
+			valid:       true,
+		},
+		{
+			name:        "without scheme - should default to oci",
+			input:       "example.com/path",
+			expectedURL: "oci://example.com/path",
+			valid:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := strictParseURL(tt.input)
+			if tt.valid && err != nil {
+				t.Errorf("strictParseURL(%q) returned unexpected error: %v", tt.input, err)
+			} else if !tt.valid && err == nil {
+				t.Errorf("strictParseURL(%q) did not return expected error", tt.input)
+			}
+
+			if tt.valid {
+				if result.String() != tt.expectedURL {
+					t.Errorf("strictParseURL(%q) = %q, want %q", tt.input, result.String(), tt.expectedURL)
+				}
+			}
+		})
+	}
+}
+
 func TestValidateWasmPlugin(t *testing.T) {
 	tests := []struct {
 		name    string

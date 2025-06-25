@@ -3281,7 +3281,8 @@ func strictParseURL(originalURL string) (*url.URL, error) {
 	u := originalURL
 	ur, err := url.ParseRequestURI(u)
 	if err != nil {
-		u = "http://" + originalURL
+		// When no scheme is given, default to oci:// to be consistent with the runtime behavior
+		u = "oci://" + originalURL
 		nu, nerr := url.ParseRequestURI(u)
 		if nerr != nil {
 			return nil, fmt.Errorf("failed to parse url: %s", err) // return original err
