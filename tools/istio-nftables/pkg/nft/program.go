@@ -55,9 +55,9 @@ func logNftRules(rules *knftables.Transaction) {
 		return
 	}
 
-	nftProvider, err := capture.NewRealNftables("", "")
+	nftProvider, err := capture.NewNftImpl("", "")
 	if err != nil {
-		log.Errorf("Error creating NewRealNftables interface: %v", err)
+		log.Errorf("Error creating NftImpl interface: %v", err)
 		return
 	}
 

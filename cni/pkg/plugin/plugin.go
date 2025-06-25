@@ -171,14 +171,12 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	// Actually do the add
+	mgr := IptablesInterceptRuleMgr()
 	if conf.NativeNftables {
-		if err := doAddRun(args, conf, client, NftablesInterceptRuleMgr()); err != nil {
-			return err
-		}
-	} else {
-		if err := doAddRun(args, conf, client, IptablesInterceptRuleMgr()); err != nil {
-			return err
-		}
+		mgr = NftablesInterceptRuleMgr()
+	}
+	if err := doAddRun(args, conf, client, mgr); err != nil {
+		return err
 	}
 	return pluginResponse(conf)
 }

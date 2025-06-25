@@ -27,34 +27,33 @@ type NftablesAPI interface {
 	Dump(tx *knftables.Transaction) string
 }
 
-// RealNftables is the real implementation of NftablesAPI using the actual knftables backend.
-type RealNftables struct {
+// NftImpl is the real implementation of NftablesAPI using the actual knftables backend.
+type NftImpl struct {
 	nft knftables.Interface
 }
 
-// Dump is part of the interface but not used in the real implementation. It's used as part of unit tests.
-func (r *RealNftables) Dump(tx *knftables.Transaction) string {
-	// We do not use Dump in the real Interface.
+// Dump is used for logging purposes.
+func (r *NftImpl) Dump(tx *knftables.Transaction) string {
 	return tx.String()
 }
 
-// NewRealNftables creates and returns a RealNftables object.
+// NewNftImpl creates and returns a NftImpl object.
 // It sets up the actual knftables interface for the given family and table.
-func NewRealNftables(family knftables.Family, table string) (*RealNftables, error) {
+func NewNftImpl(family knftables.Family, table string) (*NftImpl, error) {
 	nft, err := knftables.New(family, table)
 	if err != nil {
 		return nil, err
 	}
-	return &RealNftables{nft: nft}, nil
+	return &NftImpl{nft: nft}, nil
 }
 
 // NewTransaction starts a new transaction using the real knftables backend.
-func (r *RealNftables) NewTransaction() *knftables.Transaction {
+func (r *NftImpl) NewTransaction() *knftables.Transaction {
 	return r.nft.NewTransaction()
 }
 
 // Run applies a transaction using the real knftables interface.
-func (r *RealNftables) Run(ctx context.Context, tx *knftables.Transaction) error {
+func (r *NftImpl) Run(ctx context.Context, tx *knftables.Transaction) error {
 	return r.nft.Run(ctx, tx)
 }
 

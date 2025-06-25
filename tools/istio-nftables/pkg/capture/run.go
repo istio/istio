@@ -16,7 +16,6 @@ package capture
 import (
 	"context"
 	"fmt"
-	"net/netip"
 	"os"
 	"strings"
 
@@ -28,36 +27,28 @@ import (
 	"istio.io/istio/tools/istio-nftables/pkg/constants"
 )
 
+// NftProviderFunc is a type for the function signature of the nftProvider function.
+type NftProviderFunc func(family knftables.Family, table string) (NftablesAPI, error)
+
 // NftablesConfigurator is the main struct used to create nftables rules based on Istio configuration.
 // It builds the necessary rules and applies them using a provided nftProvider function.
 type NftablesConfigurator struct {
 	cfg              *config.Config
 	NetworkNamespace string
 	ruleBuilder      *builder.NftablesRuleBuilder // Helper to construct nftables rules
-	nftProvider      func(family knftables.Family, table string) (NftablesAPI, error)
-}
-
-// NetworkRange is used to hold IPv4 or IPv6 ranges.
-type NetworkRange struct {
-	IsWildcard    bool
-	CIDRs         []netip.Prefix
-	HasLoopBackIP bool
-}
-
-func split(s string) []string {
-	return config.Split(s)
+	nftProvider      NftProviderFunc
 }
 
 // NewNftablesConfigurator initializes a new configurator instance.
 // If nftProvider is not supplied, it uses the real system provider with the default inet family.
-func NewNftablesConfigurator(cfg *config.Config, nftProvider func(family knftables.Family, table string) (NftablesAPI, error)) (*NftablesConfigurator, error) {
+func NewNftablesConfigurator(cfg *config.Config, nftProvider NftProviderFunc) (*NftablesConfigurator, error) {
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
 
 	if nftProvider == nil {
 		nftProvider = func(family knftables.Family, table string) (NftablesAPI, error) {
-			return NewRealNftables(family, table)
+			return NewNftImpl(family, table)
 		}
 	}
 
@@ -67,38 +58,6 @@ func NewNftablesConfigurator(cfg *config.Config, nftProvider func(family knftabl
 		ruleBuilder:      builder.NewNftablesRuleBuilder(cfg),
 		nftProvider:      nftProvider,
 	}, nil
-}
-
-// separateV4V6 takes a comma-separated CIDR string and splits it into separate IPv4 and IPv6 ranges.
-// It also marks whether loopback IPs are included and handles wildcard ("*") case.
-func (cfg *NftablesConfigurator) separateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
-	if cidrList == "*" {
-		return NetworkRange{IsWildcard: true}, NetworkRange{IsWildcard: true}, nil
-	}
-	ipv6Ranges := NetworkRange{}
-	ipv4Ranges := NetworkRange{}
-	for _, ipRange := range split(cidrList) {
-		ipp, err := netip.ParsePrefix(ipRange)
-		if err != nil {
-			_, err = fmt.Fprintf(os.Stderr, "Ignoring error for bug compatibility with istio-nftables: %s\n", err.Error())
-			if err != nil {
-				return ipv4Ranges, ipv6Ranges, err
-			}
-			continue
-		}
-		if ipp.Addr().Is4() {
-			ipv4Ranges.CIDRs = append(ipv4Ranges.CIDRs, ipp)
-			if ipp.Addr().IsLoopback() {
-				ipv4Ranges.HasLoopBackIP = true
-			}
-		} else {
-			ipv6Ranges.CIDRs = append(ipv6Ranges.CIDRs, ipp)
-			if ipp.Addr().IsLoopback() {
-				ipv6Ranges.HasLoopBackIP = true
-			}
-		}
-	}
-	return ipv4Ranges, ipv6Ranges, nil
 }
 
 // logConfig prints out the current environment variable values and the loaded config.
@@ -128,7 +87,7 @@ func (cfg *NftablesConfigurator) logConfig() {
 // The goal here is to make sure incoming traffic reaches Envoy before going to the actual app.
 func (cfg *NftablesConfigurator) handleInboundPortsInclude() {
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
-	// to the local service. If not set, no inbound port will be intercepted by istio nftablesOrFail.
+	// to the local service. If InboundPortsInclude is not set, no inbound ports will be intercepted by Istio nftables.
 	var table string
 	if cfg.cfg.InboundPortsInclude != "" {
 		if cfg.cfg.InboundInterceptionMode == "TPROXY" {
@@ -169,7 +128,7 @@ func (cfg *NftablesConfigurator) handleInboundPortsInclude() {
 		if cfg.cfg.InboundPortsInclude == "*" {
 			// Apply any user-specified port exclusions.
 			if cfg.cfg.InboundPortsExclude != "" {
-				for _, port := range split(cfg.cfg.InboundPortsExclude) {
+				for _, port := range config.Split(cfg.cfg.InboundPortsExclude) {
 					cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, table,
 						"meta l4proto tcp",
 						"tcp dport", port, "return")
@@ -193,7 +152,7 @@ func (cfg *NftablesConfigurator) handleInboundPortsInclude() {
 			}
 		} else {
 			// User has specified a non-empty list of ports to be redirected to Envoy.
-			for _, port := range split(cfg.cfg.InboundPortsInclude) {
+			for _, port := range config.Split(cfg.cfg.InboundPortsInclude) {
 				if cfg.cfg.InboundInterceptionMode == "TPROXY" {
 					cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
 						"meta l4proto tcp",
@@ -216,19 +175,19 @@ func (cfg *NftablesConfigurator) handleInboundPortsInclude() {
 // handleOutboundIncludeRules sets up redirection for outbound traffic to Envoy based on the IP ranges included in the config.
 // If the config contains "*", it means all outbound traffic should be captured.
 // Otherwise, only the specified IPv4 and IPv6 CIDRs will be captured and redirected.
-func (cfg *NftablesConfigurator) handleOutboundIncludeRules(ipv4NwRange NetworkRange, ipv6NwRange NetworkRange) {
+func (cfg *NftablesConfigurator) handleOutboundIncludeRules(ipv4NwRange config.NetworkRange, ipv6NwRange config.NetworkRange) {
 	// Apply outbound IP inclusions.
 	if ipv4NwRange.IsWildcard || ipv6NwRange.IsWildcard {
 		cfg.ruleBuilder.AppendRule(constants.IstioOutputChain, constants.IstioProxyNatTable, "jump", constants.IstioRedirectChain)
 		// Wildcard specified. Redirect all remaining outbound traffic to Envoy.
-		for _, internalInterface := range split(cfg.cfg.RerouteVirtualInterfaces) {
+		for _, internalInterface := range config.Split(cfg.cfg.RerouteVirtualInterfaces) {
 			cfg.ruleBuilder.InsertRule(
 				constants.PreroutingChain, constants.IstioProxyNatTable, 0, "iifname", internalInterface, "jump", constants.IstioRedirectChain)
 		}
 	} else if len(ipv4NwRange.CIDRs) > 0 || len(ipv6NwRange.CIDRs) > 0 {
 		// User has specified a non-empty list of cidrs to be redirected to Envoy.
 		for _, cidr := range ipv4NwRange.CIDRs {
-			for _, internalInterface := range split(cfg.cfg.RerouteVirtualInterfaces) {
+			for _, internalInterface := range config.Split(cfg.cfg.RerouteVirtualInterfaces) {
 				cfg.ruleBuilder.InsertRule(constants.PreroutingChain, constants.IstioProxyNatTable, 0, "iifname", internalInterface,
 					"ip daddr", cidr.String(), "jump", constants.IstioRedirectChain)
 			}
@@ -236,7 +195,7 @@ func (cfg *NftablesConfigurator) handleOutboundIncludeRules(ipv4NwRange NetworkR
 		}
 
 		for _, cidr := range ipv6NwRange.CIDRs {
-			for _, internalInterface := range split(cfg.cfg.RerouteVirtualInterfaces) {
+			for _, internalInterface := range config.Split(cfg.cfg.RerouteVirtualInterfaces) {
 				cfg.ruleBuilder.InsertV6RuleIfSupported(constants.PreroutingChain, constants.IstioProxyNatTable, 0, "iifname", internalInterface,
 					"ip6 daddr", cidr.String(), "jump", constants.IstioRedirectChain)
 			}
@@ -248,7 +207,7 @@ func (cfg *NftablesConfigurator) handleOutboundIncludeRules(ipv4NwRange NetworkR
 
 // shortCircuitKubeInternalInterface adds a rule to skip traffic redirection for configured interfaces.
 func (cfg *NftablesConfigurator) shortCircuitKubeInternalInterface() {
-	for _, internalInterface := range split(cfg.cfg.RerouteVirtualInterfaces) {
+	for _, internalInterface := range config.Split(cfg.cfg.RerouteVirtualInterfaces) {
 		cfg.ruleBuilder.InsertRule(constants.PreroutingChain, constants.IstioProxyNatTable, 0, "iifname", internalInterface, "return")
 	}
 }
@@ -257,13 +216,13 @@ func (cfg *NftablesConfigurator) shortCircuitKubeInternalInterface() {
 // for the interfaces listed in ExcludeInterfaces. This is useful when you want to avoid capturing
 // traffic from specific network interfaces.
 func (cfg *NftablesConfigurator) shortCircuitExcludeInterfaces() {
-	for _, excludeInterface := range split(cfg.cfg.ExcludeInterfaces) {
+	for _, excludeInterface := range config.Split(cfg.cfg.ExcludeInterfaces) {
 		cfg.ruleBuilder.AppendRule(
 			constants.PreroutingChain, constants.IstioProxyNatTable, "iifname", excludeInterface, "return")
 		cfg.ruleBuilder.AppendRule(constants.OutputChain, constants.IstioProxyNatTable, "oifname", excludeInterface, "return")
 	}
 	if cfg.cfg.InboundInterceptionMode == "TPROXY" {
-		for _, excludeInterface := range split(cfg.cfg.ExcludeInterfaces) {
+		for _, excludeInterface := range config.Split(cfg.cfg.ExcludeInterfaces) {
 
 			cfg.ruleBuilder.AppendRule(
 				constants.PreroutingChain, constants.IstioProxyMangleTable, "iifname", excludeInterface, "return")
@@ -279,7 +238,7 @@ func (cfg *NftablesConfigurator) Run() (*knftables.Transaction, error) {
 	// Since OUTBOUND_IP_RANGES_EXCLUDE could carry ipv4 and ipv6 ranges
 	// need to split them in different arrays one for ipv4 and one for ipv6
 	// in order to not to fail
-	ipv4RangesExclude, ipv6RangesExclude, err := cfg.separateV4V6(cfg.cfg.OutboundIPRangesExclude)
+	ipv4RangesExclude, ipv6RangesExclude, err := config.SeparateV4V6(cfg.cfg.OutboundIPRangesExclude)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +246,7 @@ func (cfg *NftablesConfigurator) Run() (*knftables.Transaction, error) {
 		return nil, fmt.Errorf("invalid value for OUTBOUND_IP_RANGES_EXCLUDE")
 	}
 
-	ipv4RangesInclude, ipv6RangesInclude, err := cfg.separateV4V6(cfg.cfg.OutboundIPRangesInclude)
+	ipv4RangesInclude, ipv6RangesInclude, err := config.SeparateV4V6(cfg.cfg.OutboundIPRangesInclude)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +303,7 @@ func (cfg *NftablesConfigurator) Run() (*knftables.Transaction, error) {
 
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
 	if cfg.cfg.OutboundPortsExclude != "" {
-		for _, port := range split(cfg.cfg.OutboundPortsExclude) {
+		for _, port := range config.Split(cfg.cfg.OutboundPortsExclude) {
 			cfg.ruleBuilder.AppendRule(constants.IstioOutputChain, constants.IstioProxyNatTable, "tcp dport", port, "return")
 			cfg.ruleBuilder.AppendRule(constants.IstioOutputChain, constants.IstioProxyNatTable, "udp dport", port, "return")
 		}
@@ -354,7 +313,7 @@ func (cfg *NftablesConfigurator) Run() (*knftables.Transaction, error) {
 	cfg.ruleBuilder.AppendRule(constants.IstioOutputChain, constants.IstioProxyNatTable, "oifname", "lo", "ip saddr", "127.0.0.6/32", "return")
 	cfg.ruleBuilder.AppendV6RuleIfSupported(constants.IstioOutputChain, constants.IstioProxyNatTable, "oifname", "lo", "ip6 saddr", "::6/128", "return")
 
-	for _, uid := range split(cfg.cfg.ProxyUID) {
+	for _, uid := range config.Split(cfg.cfg.ProxyUID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
 		// nolint: lll
@@ -430,7 +389,7 @@ func (cfg *NftablesConfigurator) Run() (*knftables.Transaction, error) {
 			"return")
 	}
 
-	for _, gid := range split(cfg.cfg.ProxyGID) {
+	for _, gid := range config.Split(cfg.cfg.ProxyGID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
 		cfg.ruleBuilder.AppendRule(constants.IstioOutputChain, constants.IstioProxyNatTable,
@@ -530,7 +489,7 @@ func (cfg *NftablesConfigurator) Run() (*knftables.Transaction, error) {
 			"meta l4proto tcp",
 			"mark", cfg.cfg.InboundTProxyMark,
 			"return")
-		for _, uid := range split(cfg.cfg.ProxyUID) {
+		for _, uid := range config.Split(cfg.cfg.ProxyUID) {
 			// mark outgoing packets from envoy to workload by pod ip
 			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
 			cfg.ruleBuilder.AppendRule(constants.OutputChain, constants.IstioProxyMangleTable,
@@ -546,7 +505,7 @@ func (cfg *NftablesConfigurator) Run() (*knftables.Transaction, error) {
 				"skuid", uid,
 				"meta mark set", constants.OutboundMark)
 		}
-		for _, gid := range split(cfg.cfg.ProxyGID) {
+		for _, gid := range config.Split(cfg.cfg.ProxyGID) {
 			// mark outgoing packets from envoy to workload by pod ip
 			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
 			cfg.ruleBuilder.AppendRule(constants.OutputChain, constants.IstioProxyMangleTable,
@@ -687,7 +646,7 @@ func (cfg *NftablesConfigurator) SetupDNSRedir(nft *builder.NftablesRuleBuilder,
 func (cfg *NftablesConfigurator) addDNSConntrackZones(
 	nft *builder.NftablesRuleBuilder, proxyUID, proxyGID string, dnsServersV4 []string, dnsServersV6 []string, captureAllDNS bool,
 ) {
-	for _, uid := range split(proxyUID) {
+	for _, uid := range config.Split(proxyUID) {
 		// Packets with dst port 53 from istio to zone 1. These are Istio calls to upstream resolvers
 		nft.AppendRule(constants.IstioOutputDNSChain, constants.IstioProxyRawTable,
 			"udp dport", "53",
@@ -701,7 +660,7 @@ func (cfg *NftablesConfigurator) addDNSConntrackZones(
 			"skuid", uid,
 			"ct", "zone", "set", "2")
 	}
-	for _, gid := range split(proxyGID) {
+	for _, gid := range config.Split(proxyGID) {
 		// Packets with dst port 53 from istio to zone 1. These are Istio calls to upstream resolvers
 		nft.AppendRule(constants.IstioOutputDNSChain, constants.IstioProxyRawTable,
 			"udp dport", "53",
@@ -772,7 +731,7 @@ func (cfg *NftablesConfigurator) addDNSConntrackZones(
 // This makes sure traffic to these ports gets redirected properly in the IstioProxyNatTable table.
 func (cfg *NftablesConfigurator) handleOutboundPortsInclude() {
 	if cfg.cfg.OutboundPortsInclude != "" {
-		for _, port := range split(cfg.cfg.OutboundPortsInclude) {
+		for _, port := range config.Split(cfg.cfg.OutboundPortsInclude) {
 			// For each port, add a rule to redirect TCP traffic on that port from the OUTPUT chain in the NAT table to the redirect chain
 			cfg.ruleBuilder.AppendRule(
 				constants.IstioOutputChain, constants.IstioProxyNatTable, "tcp dport", port, "jump", constants.IstioRedirectChain)

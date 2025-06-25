@@ -93,6 +93,12 @@ type Config struct {
 	NativeNftables           bool       `json:"NATIVE_NFTABLES"`
 }
 
+type NetworkRange struct {
+	IsWildcard    bool
+	CIDRs         []netip.Prefix
+	HasLoopBackIP bool
+}
+
 func (c *Config) String() string {
 	output, err := json.MarshalIndent(c, "", "\t")
 	if err != nil {
@@ -239,4 +245,30 @@ func getLocalIP(dualStack bool) (netip.Addr, bool, error) {
 	}
 
 	return netip.Addr{}, isIPv6, fmt.Errorf("no valid local IP address found")
+}
+
+func SeparateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
+	if cidrList == "*" {
+		return NetworkRange{IsWildcard: true}, NetworkRange{IsWildcard: true}, nil
+	}
+	ipv6Ranges := NetworkRange{}
+	ipv4Ranges := NetworkRange{}
+	for _, ipRange := range Split(cidrList) {
+		ipp, err := netip.ParsePrefix(ipRange)
+		if err != nil {
+			return ipv4Ranges, ipv6Ranges, err
+		}
+		if ipp.Addr().Is4() {
+			ipv4Ranges.CIDRs = append(ipv4Ranges.CIDRs, ipp)
+			if ipp.Addr().IsLoopback() {
+				ipv4Ranges.HasLoopBackIP = true
+			}
+		} else {
+			ipv6Ranges.CIDRs = append(ipv6Ranges.CIDRs, ipp)
+			if ipp.Addr().IsLoopback() {
+				ipv6Ranges.HasLoopBackIP = true
+			}
+		}
+	}
+	return ipv4Ranges, ipv6Ranges, nil
 }

@@ -58,7 +58,7 @@ func TestIdempotentEquivalentRerun(t *testing.T) {
 			}
 			// This provider function will interact with the real system's nftables.
 			nftProvider := func(_ knftables.Family, _ string) (NftablesAPI, error) {
-				return NewRealNftables("", "")
+				return NewNftImpl("", "")
 			}
 
 			// Cleanup logic
