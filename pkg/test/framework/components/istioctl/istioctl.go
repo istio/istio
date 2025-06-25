@@ -39,6 +39,9 @@ type Instance interface {
 type Config struct {
 	// Cluster to be used in a multicluster environment
 	Cluster cluster.Cluster
+
+	// IstioNamespace where istio is deployed
+	IstioNamespace string
 }
 
 // New returns a new instance of "istioctl".
