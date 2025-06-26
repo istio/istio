@@ -15,11 +15,8 @@
 package ambient
 
 import (
-	"math"
 	"net/netip"
 	"strings"
-
-	"google.golang.org/protobuf/proto"
 
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -53,7 +50,6 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
-	istiomath "istio.io/istio/pkg/util/math"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -725,111 +721,6 @@ func (a *index) inRevision(obj any) bool {
 	return result
 }
 
-type networkServiceKey struct {
-	network string
-	service string
-}
-
-// We want to distribute traffic evenly across all network gateways in a network.
-// This can be tough if the number of gateways does not divide the number of backends for a service.
-// Get a round this by scaling workload capacity so that everything divides evenly
-func (a *index) globalScaleFactor() int {
-	scaleFactor := 1
-	if a.networks.RemoteSystemNamespaceNetworks != nil {
-		for _, nw := range a.networks.RemoteSystemNamespaceNetworks.List() {
-			nwName := ptr.OrEmpty(nw.Get())
-
-			if nwName == "" || nwName == ptr.OrEmpty(a.networks.LocalSystemNamespace.Get()) {
-				continue
-			}
-			gws := a.networks.GatewaysByNetwork.Lookup(network.ID(nwName))
-			if len(gws) != 0 {
-				scaleFactor = istiomath.Lcm(scaleFactor, len(gws))
-			}
-		}
-		if scaleFactor > math.MaxUint32 {
-			log.Warnf("Scale factor for split horizon workloads is too large (%d), using 1 instead", scaleFactor)
-			scaleFactor = 1
-		}
-	}
-	return scaleFactor
-}
-
-func workloadCapacity(capacity uint32, scaleFactor int) uint32 {
-	if capacity == 0 { // if set to zero or unset
-		return 1
-	}
-	if capacity > math.MaxUint32/uint32(scaleFactor) {
-		return math.MaxUint32
-	} else {
-		return capacity * uint32(scaleFactor)
-	}
-}
-
-func gatewayCapacity(totalWorkloadCapacity uint32, scaleFactor int, gws []NetworkGateway) uint32 {
-	if len(gws) == 0 {
-		return 0
-	}
-	capacity := uint32(math.MaxUint32)
-	if int(totalWorkloadCapacity) < math.MaxUint32/(scaleFactor/len(gws)) {
-		capacity = totalWorkloadCapacity * uint32(scaleFactor/len(gws))
-		if capacity == 0 && totalWorkloadCapacity > 0 {
-			capacity = 1 // avoid zero capacity. This should not be possible.
-		}
-	}
-	return capacity
-}
-
-// func (a *index) splitHorizonServiceAddresses(svc model.ServiceInfo) (model.AddressInfo, []model.AddressInfo) {
-// res := []model.AddressInfo{}
-// localNetwork := ptr.OrEmpty(a.networks.LocalSystemNamespace.Get())
-// capacityByNetwork := make(map[network.ID]uint32)
-// serviceSans := sets.String{}
-// for _, wl := range a.workloads.ByServiceKey.Lookup(svc.ResourceName()) {
-// 	if wl.Workload.Network == localNetwork || wl.Workload.Network == "" {
-// 		continue
-// 	}
-// 	capacity := wl.Workload.Capacity.GetValue()
-// 	if capacity == 0 {
-// 		capacity = 1
-// 	}
-// 	if _, ok := capacityByNetwork[network.ID(wl.Workload.Network)]; ok {
-// 		capacityByNetwork[network.ID(wl.Workload.Network)] += capacity
-// 	} else {
-// 		capacityByNetwork[network.ID(wl.Workload.Network)] = capacity
-// 	}
-// 	serviceSans.Insert(spiffe.MustGenSpiffeURI(a.meshConfig.Mesh(), wl.Workload.Namespace, wl.Workload.ServiceAccount))
-// }
-//
-// // Create the service with extra sans
-// for _, san := range svc.Service.SubjectAltNames {
-// 	serviceSans.Insert(san)
-// }
-// splitHorizonSvc := model.ServiceInfo{
-// 	Service: protomarshal.Clone(svc.Service),
-// }
-// splitHorizonSvc.Service.SubjectAltNames = serviceSans.UnsortedList()
-// splitHorizonSvc = precomputeService(splitHorizonSvc)
-//
-// for nw, rawCapacity := range capacityByNetwork {
-// 	gws := a.networks.GatewaysByNetwork.Lookup(network.ID(nw))
-// 	if len(gws) == 0 {
-// 		log.Infof("No gateways found for network %s, skipping split horizon workload for service %s", nw, svc.Service)
-// 		continue
-// 	}
-// 	capacity := gatewayCapacity(rawCapacity, a.globalScaleFactor(), gws)
-// 	for _, gw := range gws {
-// 		splitHorizonWorkload, err := a.createSplitHorizonWorkload(svc.ResourceName(), svc.Service, &gw, capacity)
-// 		if err != nil {
-// 			log.Warnf("Failed to create split horizon workload for service %s in network %s: %v", svc.Service, nw, err)
-// 			continue
-// 		}
-// 		res = append(res, precomputeWorkload(*splitHorizonWorkload).AsAddress)
-// 	}
-// }
-// return splitHorizonSvc.AsAddress, res
-// }
-
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
 	var res []model.AddressInfo
@@ -848,79 +739,6 @@ func (a *index) All() []model.AddressInfo {
 		}
 	}
 	return res
-}
-
-func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, meshCfg *MeshConfig,
-) (*model.WorkloadInfo, error) {
-	address, err := netip.ParseAddr(networkGateway.Addr)
-	if err != nil {
-		return nil, err
-	}
-	wl := workloadapi.Workload{
-		Uid:            networkGateway.ResourceName(),
-		Name:           networkGateway.ResourceName(), // TODO(stevenjin8): better name?
-		Namespace:      networkGateway.Source.Namespace,
-		Network:        networkGateway.Network.String(),
-		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
-		TrustDomain:    pickTrustDomain(meshCfg),
-		ServiceAccount: networkGateway.ServiceAccount.Name,
-		Capacity:       &wrapperspb.UInt32Value{Value: 1},
-		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
-		Addresses:      [][]byte{address.AsSlice()},
-		ClusterId:      networkGateway.Cluster.String(),
-	}
-	return &model.WorkloadInfo{
-		Workload: &wl,
-		Source:   kind.KubernetesGateway,
-		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
-	}, nil
-}
-
-// svc is the full ns/name of the service, while svcNamespace and svcName are the parsed components of svc.
-func (a *index) createSplitHorizonWorkload(
-	svcNamespacedName string, svc *workloadapi.Service, networkGateway *NetworkGateway, capacity uint32, meshCfg *MeshConfig,
-) (*model.WorkloadInfo, error) {
-	address, err := netip.ParseAddr(networkGateway.Addr)
-	if err != nil {
-		return nil, err
-	}
-	hboneMtlsPort := networkGateway.HBONEPort
-	if hboneMtlsPort == 0 {
-		hboneMtlsPort = 15008
-	}
-	uid := generateSplitHorizonWorkloadUID(networkGateway.Network.String(), networkGateway.ResourceName(), svcNamespacedName)
-	wl := workloadapi.Workload{
-		Uid:            uid,
-		Name:           uid, // TODO(stevenjin8): better name?
-		Namespace:      svc.Namespace,
-		Network:        networkGateway.Network.String(),
-		TrustDomain:    pickTrustDomain(meshCfg),
-		Capacity:       &wrapperspb.UInt32Value{Value: capacity},
-		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
-		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
-		NetworkGateway: &workloadapi.GatewayAddress{
-			Destination: &workloadapi.GatewayAddress_Address{
-				Address: &workloadapi.NetworkAddress{
-					Network: networkGateway.Network.String(),
-					Address: address.AsSlice(),
-				},
-			},
-			HboneMtlsPort: hboneMtlsPort,
-		},
-		ClusterId: networkGateway.Cluster.String(),
-
-		Services: map[string]*workloadapi.PortList{
-			svcNamespacedName: &workloadapi.PortList{
-				Ports: svc.Ports,
-			},
-		},
-	}
-	wi := &model.WorkloadInfo{
-		Workload: &wl,
-		Source:   kind.KubernetesGateway,
-		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
-	}
-	return wi, nil
 }
 
 // AllGlobalServices return all known globally scoped services. Result is un-ordered

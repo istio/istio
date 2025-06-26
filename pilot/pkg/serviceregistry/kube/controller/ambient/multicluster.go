@@ -19,6 +19,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -796,4 +798,76 @@ func wrapObjectWithCluster[T any](clusterID cluster.ID) func(obj T) config.Objec
 	return func(obj T) config.ObjectWithCluster[T] {
 		return config.ObjectWithCluster[T]{ClusterID: clusterID, Object: &obj}
 	}
+}
+
+func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, meshCfg *MeshConfig,
+) (*model.WorkloadInfo, error) {
+	address, err := netip.ParseAddr(networkGateway.Addr)
+	if err != nil {
+		return nil, err
+	}
+	wl := workloadapi.Workload{
+		Uid:            networkGateway.ResourceName(), // Definitely make this a better name
+		Name:           networkGateway.ResourceName(), // TODO(stevenjin8): better name?
+		Namespace:      networkGateway.Source.Namespace,
+		Network:        networkGateway.Network.String(),
+		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
+		TrustDomain:    pickTrustDomain(meshCfg),
+		ServiceAccount: networkGateway.ServiceAccount.Name,
+		Capacity:       &wrapperspb.UInt32Value{Value: 1},
+		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
+		Addresses:      [][]byte{address.AsSlice()},
+		ClusterId:      networkGateway.Cluster.String(),
+	}
+	return &model.WorkloadInfo{
+		Workload: &wl,
+		Source:   kind.KubernetesGateway,
+		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
+	}, nil
+}
+
+func (a *index) createSplitHorizonWorkload(
+	svcNamespacedName string, svc *workloadapi.Service, networkGateway *NetworkGateway, capacity uint32, meshCfg *MeshConfig,
+) (*model.WorkloadInfo, error) {
+	address, err := netip.ParseAddr(networkGateway.Addr)
+	if err != nil {
+		return nil, err
+	}
+	hboneMtlsPort := networkGateway.HBONEPort
+	if hboneMtlsPort == 0 {
+		hboneMtlsPort = 15008
+	}
+	uid := generateSplitHorizonWorkloadUID(networkGateway.Network.String(), networkGateway.ResourceName(), svcNamespacedName)
+	wl := workloadapi.Workload{
+		Uid:            uid,
+		Name:           uid, // TODO(stevenjin8): better name?
+		Namespace:      svc.Namespace,
+		Network:        networkGateway.Network.String(),
+		TrustDomain:    pickTrustDomain(meshCfg),
+		Capacity:       &wrapperspb.UInt32Value{Value: capacity},
+		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
+		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
+		NetworkGateway: &workloadapi.GatewayAddress{
+			Destination: &workloadapi.GatewayAddress_Address{
+				Address: &workloadapi.NetworkAddress{
+					Network: networkGateway.Network.String(),
+					Address: address.AsSlice(),
+				},
+			},
+			HboneMtlsPort: hboneMtlsPort,
+		},
+		ClusterId: networkGateway.Cluster.String(),
+
+		Services: map[string]*workloadapi.PortList{
+			svcNamespacedName: &workloadapi.PortList{
+				Ports: svc.Ports,
+			},
+		},
+	}
+	wi := &model.WorkloadInfo{
+		Workload: &wl,
+		Source:   kind.KubernetesGateway,
+		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
+	}
+	return wi, nil
 }
