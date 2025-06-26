@@ -504,7 +504,7 @@ func New(options Options) Index {
 
 		return []networkAddress{netaddr}
 	})
-	// We register this in the multinetwor implementation
+	// We register this in the multinetwork implementation
 	if !(features.EnableAmbientMultiNetwork && options.IsConfigCluster) {
 		Workloads.RegisterBatch(krt.BatchedEventFilter(
 			func(a model.WorkloadInfo) *workloadapi.Workload {
@@ -526,14 +526,6 @@ func New(options Options) Index {
 			opts,
 		)
 	}
-
-	// workloadNetworkServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, "service", func(o model.WorkloadInfo) []string {
-	// 	res := make([]string, 0, len(o.Workload.Services))
-	// 	for svc, _ := range o.Workload.Services {
-	// 		res = append(res, strings.Join([]string{o.Workload.Network, svc}, ";"))
-	// 	}
-	// 	return res
-	// })
 
 	a.namespaces = NamespacesInfo
 	a.workloads = workloadsCollection{
@@ -660,22 +652,7 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 		res := []model.AddressInfo{svc.AsAddress}
 		// grab all workloads that reference this service
 		var ws []model.WorkloadInfo
-		if a.splitHorizon.workloadByServiceKey != nil {
-			ws = a.splitHorizon.workloadByServiceKey.Lookup(key)
-		} else {
-			ws = a.workloads.ByServiceKey.Lookup(key)
-		}
 		for _, w := range ws {
-			// Only select endpoints from workloads that belong to a service with a global scope or a local scope in the same cluster
-			log.Debugf("Workload %s has service %s, scope %s, and cluster id %s", w.ResourceName(), svc.ResourceName(), w.ScopeForService[key], w.Workload.ClusterId)
-			// TODO(jaellio): I am not sure we need a scopeForService defined on the workload. As far as I know we only lookup workload by
-
-			// service and therefor already have the service scope we don't need an additional mapping back to service from the workload
-			if w.Workload.ClusterId != string(a.ClusterID) && w.ScopeForService[key] == model.Local {
-				log.Debugf("Skipping workload %s for service %s because it is not local to the cluster but has a %s scope",
-					w.ResourceName(), svc.ResourceName(), w.ScopeForService[key])
-				continue
-			}
 			res = append(res, w.AsAddress)
 		}
 		return res
