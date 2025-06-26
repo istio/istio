@@ -146,7 +146,7 @@ func configureTracingFromTelemetry(
 // configureFromProviderConfigHandled contains the number of providers we handle below.
 // This is to ensure this stays in sync as new handlers are added
 // STOP. DO NOT UPDATE THIS WITHOUT UPDATING configureFromProviderConfig.
-const configureFromProviderConfigHandled = 14
+const configureFromProviderConfigHandled = 15
 
 func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider,
@@ -217,6 +217,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		*meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls,
 		*meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls,
 		*meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog,
+		*meshconfig.MeshConfig_ExtensionProvider_Sds,
 		*meshconfig.MeshConfig_ExtensionProvider_Prometheus:
 		return nil, false, fmt.Errorf("provider %T does not support tracing", provider)
 		// Should never happen, but just in case we forget to add one
