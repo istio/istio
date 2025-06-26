@@ -922,7 +922,7 @@ func getMatches(match *tpb.MetricSelector) []string {
 // telemetryFilterHandled contains the number of providers we handle below.
 // This is to ensure this stays in sync as new handlers are added
 // STOP. DO NOT UPDATE THIS WITHOUT UPDATING buildHTTPTelemetryFilter and buildTCPTelemetryFilter.
-const telemetryFilterHandled = 14
+const telemetryFilterHandled = 15
 
 func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*hcm.HttpFilter {
 	res := make([]*hcm.HttpFilter, 0, len(metricsCfg))
