@@ -730,7 +730,7 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 	}
 	// Ensure stable order
 	slices.SortBy(parentRefs, func(a routeParentReference) string {
-		return parentRefString(a.OriginalReference)
+		return parentRefString(a.OriginalReference, localNamespace)
 	})
 	return parentRefs
 }
@@ -2159,14 +2159,14 @@ func objectReferenceString(ref k8s.SecretObjectReference) string {
 		ptr.OrEmpty(ref.Namespace))
 }
 
-func parentRefString(ref k8s.ParentReference) string {
+func parentRefString(ref k8s.ParentReference, objectNamespace string) string {
 	return fmt.Sprintf("%s/%s/%s/%s/%d.%s",
-		ptr.OrEmpty(ref.Group),
-		ptr.OrEmpty(ref.Kind),
+		defaultString(ref.Group, gvk.KubernetesGateway.Group),
+		defaultString(ref.Kind, gvk.KubernetesGateway.Kind),
 		ref.Name,
 		ptr.OrEmpty(ref.SectionName),
 		ptr.OrEmpty(ref.Port),
-		ptr.OrEmpty(ref.Namespace))
+		defaultString(ref.Namespace, objectNamespace))
 }
 
 // buildHostnameMatch generates a Gateway.spec.servers.hosts section from a listener
