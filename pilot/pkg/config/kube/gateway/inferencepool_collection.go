@@ -40,9 +40,9 @@ import (
 const (
 	maxServiceNameLength          = 63
 	hashSize                      = 8
-	InferencePoolRefLabel         = "inference.x-k8s.io/inference-pool-name"
-	InferencePoolExtensionRefSvc  = "inference.x-k8s.io/extension-service"
-	InferencePoolExtensionRefPort = "inference.x-k8s.io/extension-port"
+	InferencePoolRefLabel         = "istio.io/inferencepool-name"
+	InferencePoolExtensionRefSvc  = "istio.io/inferencepool-extension-service"
+	InferencePoolExtensionRefPort = "istio.io/inferencepool-extension-port"
 )
 
 // // ManagedLabel is the label used to identify resources managed by this controller
