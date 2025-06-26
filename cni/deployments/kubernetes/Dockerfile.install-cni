@@ -1,9 +1,6 @@
 # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
 ARG BASE_DISTRIBUTION=debug
 
-# FILTER_FRAMEWORK is used to switch between the old iptables and nftables in the distroless base images
-ARG FILTER_FRAMEWORK=iptables
-
 # Version is the base image version from the TLD Makefile
 ARG BASE_VERSION=latest
 ARG ISTIO_BASE_REGISTRY=gcr.io/istio-release
@@ -12,7 +9,7 @@ ARG ISTIO_BASE_REGISTRY=gcr.io/istio-release
 FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION} AS debug
 
 # The following section is used as base image if BASE_DISTRIBUTION=distroless
-FROM ${ISTIO_BASE_REGISTRY}/${FILTER_FRAMEWORK}:${BASE_VERSION} AS distroless
+FROM ${ISTIO_BASE_REGISTRY}/iptables:${BASE_VERSION} AS distroless
 
 # This will build the final image based on either debug or distroless from above
 # hadolint ignore=DL3006

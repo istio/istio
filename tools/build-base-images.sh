@@ -50,11 +50,9 @@ DOCKER_TARGETS="${DOCKER_TARGETS:-${defaultTargets}}"
 "${ROOT}/tools/docker" --push --no-cache --no-clobber --targets="${DOCKER_TARGETS}"
 
 APKO_IMAGES=""
-APKO_NFT_IMAGES=""
 for h in ${HUBS}; do
   for t in ${TAGS:-$TAG}; do
     APKO_IMAGES+="${h}/iptables:$t "
-    APKO_NFT_IMAGES+="${h}/nftables:$t "
   done
 done
 
@@ -96,27 +94,3 @@ fi
 # Now actually build it
 # shellcheck disable=SC2086
 apko publish --arch="${APKO_ARCHES}" docker/iptables.yaml ${APKO_IMAGES}
-
-# Build apko nft base image, which isn't part of our image building tool
-# Verify the image contains only expected binaries.
-dir=$(mktemp -d)
-pushd "${dir}" > /dev/nul
-apko build "${ROOT}/docker/nftables.yaml" dummy-tag "${dir}/img-nft.tar"
-tar xf "${dir}/img-nft.tar"
-echo "write ${dir}"
-for f in *.tar.gz; do
-  exefiles+="$(tar tvfz "${f}" | grep '^-..x' |  awk '{print $6}')"
-  exefiles+="\n"
-done
-expectedFiles=(
-  "usr/bin/nft"
-)
-for want in "${expectedFiles[@]}"; do
-  if ! grep -q "${want}" <<<"${exefiles}"; then
-    echo "Missing expected binary! ${want}"
-    exit 1
-  fi
-done
-# Now actually build it
-# shellcheck disable=SC2086
-apko publish --arch="${APKO_ARCHES}" docker/nftables.yaml ${APKO_NFT_IMAGES}
