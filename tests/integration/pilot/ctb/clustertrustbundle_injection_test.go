@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package ctb
 
 import (
 	"context"
@@ -35,16 +35,17 @@ import (
 func TestClusterTrustBundleInjectionAndRBAC(t *testing.T) {
 	framework.NewTest(t).Run(func(ctx framework.TestContext) {
 		ns := namespace.NewOrFail(ctx, namespace.Config{
-			Prefix: "ctbtest",
+			Prefix: "ctb-traffic",
 			Inject: true,
 		})
 		cluster := ctx.Clusters().Default()
 
-		// Deploy with ENABLE_CLUSTER_TRUST_BUNDLE_API=true
-		values := map[string]string{
-			"pilot.env.ENABLE_CLUSTER_TRUST_BUNDLE_API": "true",
-		}
-		ctx.ConfigIstio().EvalFile(ns.Name(), values, "testdata/clustertrustbundle-injection.yaml")
+		// Apply the ClusterTrustBundle first
+		ctx.ConfigIstio().EvalFile(ns.Name(), nil, "testdata/clustertrustbundle-injection.yaml")
+
+		// Deploy httpbin and sleep in the test namespace
+		ctx.ConfigIstio().EvalFile(ns.Name(), nil, "testdata/httpbin.yaml")
+		ctx.ConfigIstio().EvalFile(ns.Name(), nil, "testdata/sleep.yaml")
 
 		// Check that the ClusterTrustBundle exists
 		dyn := cluster.Dynamic()
