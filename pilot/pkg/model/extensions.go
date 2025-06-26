@@ -23,7 +23,7 @@ import (
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	anypb "google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,6 +43,8 @@ const (
 	defaultRuntime = "envoy.wasm.runtime.v8"
 	fileScheme     = "file"
 	ociScheme      = "oci"
+	httpScheme     = "http"
+	httpsScheme    = "https"
 
 	WasmSecretEnv          = pm.WasmSecretEnv
 	WasmPolicyEnv          = pm.WasmPolicyEnv
@@ -87,6 +89,33 @@ func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.W
 		return typeapi.WorkloadMode_CLIENT
 	}
 	return typeapi.WorkloadMode_CLIENT
+}
+
+// parseWasmPluginURL parses the URL of a WasmPlugin.
+// This supports:
+//   - file:// scheme for local files
+//   - oci:// scheme for OCI images
+//   - http:// and https:// schemes for remote files
+//   - if no scheme is given, defaults to oci://
+//   - Note: Special care must be taken because foo.bar:5000/baz:latest is a valid OCI image reference,
+//     but url.Parse will determine the scheme to be "foo.bar"
+func parseWasmPluginURL(urlStr string) (*url.URL, error) {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check to see if the URL is a valid scheme, if not, default to oci://
+	if u.Scheme == ociScheme || u.Scheme == fileScheme || u.Scheme == httpScheme || u.Scheme == httpsScheme {
+		// Valid scheme, return the URL as is
+		return u, nil
+	}
+
+	u, err = url.Parse(ociScheme + "://" + urlStr)
+	if err != nil {
+		return nil, err
+	}
+	return u, nil
 }
 
 type WasmPluginWrapper struct {
@@ -147,14 +176,10 @@ func (p *WasmPluginWrapper) buildPluginConfig(proxy *Proxy) *wasmextensions.Plug
 		})
 	}
 
-	u, err := url.Parse(plugin.Url)
+	u, err := parseWasmPluginURL(plugin.Url)
 	if err != nil {
 		log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", p.Namespace, p.Name, err)
 		return nil
-	}
-	// when no scheme is given, default to oci://
-	if u.Scheme == "" {
-		u.Scheme = ociScheme
 	}
 
 	datasource := buildDataSource(u, plugin)
@@ -262,15 +287,12 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 		}
 	}
 
-	u, err := url.Parse(wasmPlugin.Url)
+	_, err := parseWasmPluginURL(wasmPlugin.Url)
 	if err != nil {
 		log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", plugin.Namespace, plugin.Name, err)
 		return nil
 	}
-	// when no scheme is given, default to oci://
-	if u.Scheme == "" {
-		u.Scheme = ociScheme
-	}
+
 	// Normalize the image pull secret to the full resource name.
 	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace)
 	return &WasmPluginWrapper{
