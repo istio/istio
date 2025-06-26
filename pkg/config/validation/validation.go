@@ -3267,7 +3267,7 @@ func validateWasmPluginURL(pluginURL string) error {
 		"": true, "file": true, "http": true, "https": true, "oci": true,
 	}
 
-	u, err := strictParseURL(pluginURL)
+	u, err := strictParseWasmPluginURL(pluginURL)
 	if err != nil {
 		return err
 	}
@@ -3277,23 +3277,22 @@ func validateWasmPluginURL(pluginURL string) error {
 	return nil
 }
 
-func strictParseURL(originalURL string) (*url.URL, error) {
-	u := originalURL
-	ur, err := url.ParseRequestURI(u)
-	if err != nil {
-		// When no scheme is given, default to oci:// to be consistent with the runtime behavior
-		u = "oci://" + originalURL
-		nu, nerr := url.ParseRequestURI(u)
-		if nerr != nil {
-			return nil, fmt.Errorf("failed to parse url: %s", err) // return original err
+func strictParseWasmPluginURL(originalURL string) (*url.URL, error) {
+	// Check if URL has any scheme prefix (including ones we don't support like ftp://)
+	if strings.Contains(originalURL, "://") {
+		// Parse with existing scheme
+		ur, err := url.Parse(originalURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse url: %s", err)
 		}
-		if _, err := url.Parse(u); err != nil {
-			return nil, fmt.Errorf("failed to strict parse url: %s", err)
-		}
-		return nu, nil
+		return ur, nil
 	}
-	if _, err := url.Parse(u); err != nil {
-		return nil, fmt.Errorf("failed to strict parse url: %s", err)
+
+	// If URL doesn't have a scheme, add oci:// prefix
+	oclURL := "oci://" + originalURL
+	ur, err := url.Parse(oclURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse url with oci:// prefix: %s", err)
 	}
 	return ur, nil
 }

@@ -7686,25 +7686,49 @@ func TestStrictParseURL(t *testing.T) {
 			valid:       true,
 		},
 		{
-			name:        "without scheme - should default to oci",
+			name:        "with explicit oci scheme and tag",
+			input:       "oci://example.com/path:tag",
+			expectedURL: "oci://example.com/path:tag",
+			valid:       true,
+		},
+		{
+			name:        "with explicit oci scheme port and tag",
+			input:       "oci://example.com:5000/path:tag",
+			expectedURL: "oci://example.com:5000/path:tag",
+			valid:       true,
+		},
+		{
+			name:        "without scheme or tag - should default to oci",
 			input:       "example.com/path",
 			expectedURL: "oci://example.com/path",
+			valid:       true,
+		},
+		{
+			name:        "without scheme with tag - should default to oci",
+			input:       "example.com/path:tag",
+			expectedURL: "oci://example.com/path:tag",
+			valid:       true,
+		},
+		{
+			name:        "without scheme with tag and port number",
+			input:       "foo.bar.com:8080/repo/app:latest",
+			expectedURL: "oci://foo.bar.com:8080/repo/app:latest",
 			valid:       true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := strictParseURL(tt.input)
+			result, err := strictParseWasmPluginURL(tt.input)
 			if tt.valid && err != nil {
-				t.Errorf("strictParseURL(%q) returned unexpected error: %v", tt.input, err)
+				t.Errorf("strictParseWasmPluginURL(%q) returned unexpected error: %v", tt.input, err)
 			} else if !tt.valid && err == nil {
-				t.Errorf("strictParseURL(%q) did not return expected error", tt.input)
+				t.Errorf("strictParseWasmPluginURL(%q) did not return expected error", tt.input)
 			}
 
 			if tt.valid {
 				if result.String() != tt.expectedURL {
-					t.Errorf("strictParseURL(%q) = %q, want %q", tt.input, result.String(), tt.expectedURL)
+					t.Errorf("strictParseWasmPluginURL(%q) = %q, want %q", tt.input, result.String(), tt.expectedURL)
 				}
 			}
 		})
