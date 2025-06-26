@@ -168,7 +168,7 @@ type Prober struct {
 // Also update the probers so that all usages of named port will be resolved to integer.
 func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 	out := KubeAppProbers{}
-	updateNamedPort := func(p *Prober, portMap map[int32]bool) *Prober {
+	updateNamedPort := func(p *Prober, portMap map[int32]bool, containerName string) *Prober {
 		if p == nil {
 			return nil
 		}
@@ -192,12 +192,28 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 		}
 
 		if probePort.Type == intstr.String {
-			portValInt64, _ := strconv.ParseInt(probePort.StrVal, 10, 32)
-			portValInt := int32(portValInt64)
-			if _, exists := portMap[portValInt]; !exists && (len(portMap) > 0 || isPortExcluded(pod, intstr.FromInt32(portValInt))) {
-				return nil
+			// First, check if the string port refers to a named port in the specific container
+			containerPortNum := lookupNamedPort(pod, probePort.StrVal, containerName)
+			if containerPortNum > 0 {
+				// Found a matching named port in container
+				portValInt := containerPortNum
+				if _, exists := portMap[portValInt]; !exists && (len(portMap) > 0 || isPortExcluded(pod, intstr.FromInt32(portValInt))) {
+					return nil
+				}
+				*probePort = intstr.FromInt32(portValInt)
+			} else {
+				// No named port found, try to parse as integer
+				portValInt64, err := strconv.ParseInt(probePort.StrVal, 10, 32)
+				if err != nil {
+					// If we can't parse it as an integer and it's not a named port, we can't continue
+					return nil
+				}
+				portValInt := int32(portValInt64)
+				if _, exists := portMap[portValInt]; !exists && (len(portMap) > 0 || isPortExcluded(pod, intstr.FromInt32(portValInt))) {
+					return nil
+				}
+				*probePort = intstr.FromInt32(portValInt)
 			}
-			*probePort = intstr.FromInt32(portValInt)
 		} else if probePort.Type == intstr.Int {
 			if _, exists := portMap[probePort.IntVal]; !exists && (len(portMap) > 0 || isPortExcluded(pod, intstr.FromInt32(probePort.IntVal))) {
 				return nil
@@ -216,20 +232,20 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 		}
 		readyz, livez, startupz, prestopz, poststartz := status.FormatProberURL(c.Name)
 
-		if h := updateNamedPort(kubeProbeToInternalProber(c.ReadinessProbe), portMap); h != nil {
+		if h := updateNamedPort(kubeProbeToInternalProber(c.ReadinessProbe), portMap, c.Name); h != nil {
 			out[readyz] = h
 		}
-		if h := updateNamedPort(kubeProbeToInternalProber(c.LivenessProbe), portMap); h != nil {
+		if h := updateNamedPort(kubeProbeToInternalProber(c.LivenessProbe), portMap, c.Name); h != nil {
 			out[livez] = h
 		}
-		if h := updateNamedPort(kubeProbeToInternalProber(c.StartupProbe), portMap); h != nil {
+		if h := updateNamedPort(kubeProbeToInternalProber(c.StartupProbe), portMap, c.Name); h != nil {
 			out[startupz] = h
 		}
 		if c.Lifecycle != nil {
-			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PreStop), portMap); h != nil {
+			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PreStop), portMap, c.Name); h != nil {
 				out[prestopz] = h
 			}
-			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PostStart), portMap); h != nil {
+			if h := updateNamedPort(kubeLifecycleHandlerToInternalProber(c.Lifecycle.PostStart), portMap, c.Name); h != nil {
 				out[poststartz] = h
 			}
 		}
@@ -244,6 +260,51 @@ func DumpAppProbers(pod *corev1.Pod, targetPort int32) string {
 		return ""
 	}
 	return string(b)
+}
+
+// lookupNamedPort finds the port number for a named port in the pod containers
+// If containerName is specified, it will first look for the port in that container before checking other containers
+func lookupNamedPort(pod *corev1.Pod, name string, containerName string) int32 {
+	// First look in the specified container if provided
+	if containerName != "" {
+		// Check regular containers
+		for _, container := range pod.Spec.Containers {
+			if container.Name == containerName {
+				for _, port := range container.Ports {
+					if port.Name == name {
+						return port.ContainerPort
+					}
+				}
+				break // Found the container but no matching port
+			}
+		}
+
+		// Check init containers
+		for _, container := range pod.Spec.InitContainers {
+			if container.Name == containerName {
+				for _, port := range container.Ports {
+					if port.Name == name {
+						return port.ContainerPort
+					}
+				}
+				break // Found the container but no matching port
+			}
+		}
+	}
+
+	// Fall back to checking all containers if not found in the specified container
+	for _, container := range allContainers(pod) {
+		// Skip the container we already checked
+		if container.Name == containerName {
+			continue
+		}
+		for _, port := range container.Ports {
+			if port.Name == name {
+				return port.ContainerPort
+			}
+		}
+	}
+	return 0
 }
 
 func getIncludedPorts(pod *corev1.Pod) map[int32]bool {

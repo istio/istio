@@ -125,6 +125,206 @@ func TestShouldRewriteAppHTTPProbers(t *testing.T) {
 	}
 }
 
+func TestLookupNamedPort(t *testing.T) {
+	testCases := []struct {
+		name          string
+		pod           *corev1.Pod
+		portName      string
+		containerName string
+		expected      int32
+	}{
+		{
+			name: "port found in specified regular container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+								{Name: "metrics", ContainerPort: 9090},
+							},
+						},
+						{
+							Name: "container2",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8081},
+							},
+						},
+					},
+				},
+			},
+			portName:      "http",
+			containerName: "container1",
+			expected:      8080,
+		},
+		{
+			name: "port found in specified init container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						{
+							Name: "init-container",
+							Ports: []corev1.ContainerPort{
+								{Name: "init-port", ContainerPort: 7070},
+							},
+						},
+					},
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+							},
+						},
+					},
+				},
+			},
+			portName:      "init-port",
+			containerName: "init-container",
+			expected:      7070,
+		},
+		{
+			name: "port not found in specified container but found in another container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+							},
+						},
+						{
+							Name: "container2",
+							Ports: []corev1.ContainerPort{
+								{Name: "metrics", ContainerPort: 9090},
+							},
+						},
+					},
+				},
+			},
+			portName:      "metrics",
+			containerName: "container1",
+			expected:      9090, // Should find it in container2 as fallback
+		},
+		{
+			name: "port not found in any container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+							},
+						},
+					},
+				},
+			},
+			portName:      "nonexistent",
+			containerName: "container1",
+			expected:      0, // Not found
+		},
+		{
+			name: "container not found but port found in another container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+							},
+						},
+					},
+				},
+			},
+			portName:      "http",
+			containerName: "nonexistent",
+			expected:      8080, // Should find it in container1 as fallback
+		},
+		{
+			name: "no container specified, find in any container",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+							},
+						},
+						{
+							Name: "container2",
+							Ports: []corev1.ContainerPort{
+								{Name: "metrics", ContainerPort: 9090},
+							},
+						},
+					},
+				},
+			},
+			portName:      "metrics",
+			containerName: "",
+			expected:      9090,
+		},
+		{
+			name: "same port name in multiple containers, no container specified",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "container1",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8080},
+							},
+						},
+						{
+							Name: "container2",
+							Ports: []corev1.ContainerPort{
+								{Name: "http", ContainerPort: 8081},
+							},
+						},
+					},
+				},
+			},
+			portName:      "http",
+			containerName: "",
+			expected:      8080, // Should find the first one
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := lookupNamedPort(tc.pod, tc.portName, tc.containerName)
+			if result != tc.expected {
+				t.Errorf("Expected port %d but got %d", tc.expected, result)
+			}
+		})
+	}
+}
+
 func TestDumpAppGRPCProbers(t *testing.T) {
 	svc := "foo"
 	for _, tc := range []struct {
