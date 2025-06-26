@@ -40,8 +40,10 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -253,14 +255,10 @@ func (a *index) buildGlobalCollections(
 		opts.WithName("GlobalMergedServiceInfos")...,
 	)
 
-	// TODO: confirm expected functionality before we register
-	GlobalMergedWorkloadServices.RegisterBatch(krt.BatchedEventFilter(
-		func(a model.ServiceInfo) *workloadapi.Service {
-			// Only trigger push if the XDS object changed; the rest is just for computation of others
-			return a.Service
-		},
-		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
-	), false)
+	type serviceAndScope struct {
+		service *workloadapi.Service
+		scope   model.ServiceScope
+	}
 
 	GobalWorkloadServicesWithClusterByCluster := nestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
 	LocalServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](LocalWorkloadServices, "serviceAddress", networkAddressFromService)
@@ -390,14 +388,139 @@ func (a *index) buildGlobalCollections(
 
 		return []networkAddress{netaddr}
 	})
-	// TODO: confirm expected functionality before we register
-	GlobalWorkloads.RegisterBatch(krt.BatchedEventFilter(
+
+	workloadNetworkServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, "network;service", func(o model.WorkloadInfo) []string {
+		res := make([]string, 0, len(o.Workload.Services))
+		for svc, _ := range o.Workload.Services {
+			res = append(res, strings.Join([]string{o.Workload.Network, svc}, ";"))
+		}
+		return res
+	})
+
+	coalesedWorkloads := krt.NewManyCollection(
+		workloadNetworkServiceIndex.AsCollection(),
+		func(ctx krt.HandlerContext, i krt.IndexObject[string, model.WorkloadInfo]) []model.WorkloadInfo {
+			ret := []model.WorkloadInfo{}
+			parts := strings.Split(i.Key, ";")
+			if len(parts) != 2 {
+				log.Errorf("Invalid key %s for SplitHorizonWorkloads, expected <network>;<service>", i.Key)
+				return ret
+			}
+			networkID := network.ID(parts[0])
+			localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
+			if networkID.String() == localNetwork {
+				// We don't coalese workloads for the local network
+				return ret
+			}
+
+			svcName := parts[1]
+			svc := krt.FetchOne(ctx, a.services.Collection, krt.FilterKey(svcName))
+			if svc == nil {
+				log.Errorf("Failed to find service %s to coalese workloads", svcName)
+				return ret
+			}
+			if svc.Scope != model.Global {
+				return ret
+			}
+
+			gws := LookupNetworkGateway(ctx, networkID, a.networks.NetworkGateways, a.networks.GatewaysByNetwork)
+			capacity := uint32(0)
+			for _, wl := range i.Objects {
+				if wl.Workload.GetCapacity().GetValue() == 0 {
+					capacity += 1
+				} else {
+					capacity += wl.Workload.Capacity.GetValue()
+				}
+			}
+			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
+			for _, gw := range gws {
+				wi, err := a.createSplitHorizonWorkload(svcName, svc.Service, &gw, capacity, meshCfg)
+				if err != nil {
+					log.Errorf("Failed to create split horizon workload for %s/%s: %v", networkID, svcName, err)
+				}
+				ret = append(ret, precomputeWorkload(*wi))
+			}
+			return ret
+		}, opts.WithName("remoteCoalesedWorkloads")...,
+	)
+
+	localWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, i model.WorkloadInfo) *model.WorkloadInfo {
+		localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
+		if i.Workload.Network == localNetwork {
+			return &i
+		}
+		return nil
+	}, opts.WithName("LocalWorkloads")...)
+
+	remoteGwWorkloads := krt.NewCollection(
+		a.networks.NetworkGateways,
+		func(ctx krt.HandlerContext, g NetworkGateway) *model.WorkloadInfo {
+			localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
+			if g.Network.String() == localNetwork {
+				// We don't want to create split horizon workloads for the local network
+				return nil
+			}
+			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
+			if meshCfg == nil {
+				log.Errorf("Failed to find mesh config for remote gateway %s", g.ResourceName())
+				return nil
+			}
+			wi, err := a.createNetworkGatewayWorkload(g, meshCfg)
+			if err != nil {
+				log.Errorf("Failed to create network gateway workload for cluster %s: %v", g.Cluster, err)
+				return nil
+			}
+			return ptr.Of(precomputeWorkload(*wi))
+
+		},
+	)
+
+	SplitHorizonWorkloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{coalesedWorkloads, localWorkloads, remoteGwWorkloads}, opts.WithName("SplitHorizonWorkloads")...)
+	SplitHorizonWorkloads.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.WorkloadInfo) *workloadapi.Workload {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
 		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName),
 	), false)
+	SplitHorizonWorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](SplitHorizonWorkloads, "service", func(o model.WorkloadInfo) []string {
+		return maps.Keys(o.Workload.Services)
+	})
+
+	SplitHorizonServices := krt.NewCollection(WorkloadServiceIndex.AsCollection(), func(ctx krt.HandlerContext, i krt.IndexObject[string, model.WorkloadInfo]) *model.ServiceInfo {
+		svc := krt.FetchOne(ctx, a.services.Collection, krt.FilterKey(i.Key))
+		if svc == nil {
+			log.Errorf("Failed to find service %s for SplitHorizonServices", i.Key)
+			return nil
+		}
+		if svc.Scope != model.Global {
+			return svc
+		}
+		newSvc := &model.ServiceInfo{
+			Service: protomarshal.Clone(svc.Service),
+			Scope:   svc.Scope,
+		}
+		meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
+		if meshCfg == nil {
+			log.Errorf("Failed to find mesh config")
+			return nil
+		}
+		sans := sets.New[string](svc.Service.SubjectAltNames...)
+		for _, wl := range i.Objects {
+			sans.Insert(spiffe.MustGenSpiffeURI(meshCfg.MeshConfig, wl.Workload.Namespace, wl.Workload.ServiceAccount))
+		}
+		newSvc.Service.SubjectAltNames = sans.UnsortedList()
+		return precomputeServicePtr(newSvc)
+	}, opts.WithName("SplitHorizonServices")...)
+
+	SplitHorizonServices.RegisterBatch(krt.BatchedEventFilter(
+		func(a model.ServiceInfo) *workloadapi.Service {
+			// Only trigger push if the XDS object changed; the rest is just for computation of others
+			return a.Service
+		},
+		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
+	), false)
+	SplitHorizonServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](SplitHorizonServices, "serviceAddress", networkAddressFromService)
 
 	if features.EnableIngressWaypointRouting {
 		RegisterEdsShim(
@@ -418,6 +541,13 @@ func (a *index) buildGlobalCollections(
 		ByServiceKey:             WorkloadServiceIndex,
 		ByOwningWaypointHostname: WorkloadWaypointIndexHostname,
 		ByOwningWaypointIP:       WorkloadWaypointIndexIP,
+	}
+
+	a.splitHorizon = splitHorizon{
+		workloads:            SplitHorizonWorkloads,
+		workloadByServiceKey: SplitHorizonWorkloadServiceIndex,
+		services:             SplitHorizonServices,
+		servicesByAddress:    SplitHorizonServiceAddressIndex,
 	}
 
 	a.services = servicesCollection{
