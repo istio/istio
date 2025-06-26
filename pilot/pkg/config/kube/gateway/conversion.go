@@ -1102,7 +1102,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			enableExtProc: true,
 		}
 		if dst, ok := svc.Attributes.Labels[InferencePoolExtensionRefSvc]; ok {
-			ipCfg.endpointPickerDst = dst
+			ipCfg.endpointPickerDst = fmt.Sprintf("%s.%s.svc.%s", dst, infPool.Namespace, ctx.DomainSuffix)
 		}
 		if p, ok := svc.Attributes.Labels[InferencePoolExtensionRefPort]; ok {
 			ipCfg.endpointPickerPort = p
