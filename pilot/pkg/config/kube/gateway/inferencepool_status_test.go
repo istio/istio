@@ -1,18 +1,27 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package gateway
 
 import (
 	"fmt"
 	"strings"
-	"testing" // Only for context, not strictly needed for the scenario definitions themselves
+	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"istio.io/istio/pilot/pkg/status"
-	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/test"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,16 +29,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+
+	"istio.io/istio/pilot/pkg/status"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/test"
 )
 
-const IstioController = "istio.io/gateway-controller"
-const DefaultTestNS = "default"
-const GatewayTestNS = "gateway-ns"
-const AppTestNS = "app-ns"
-const EmptyTestNS = ""
+const (
+	IstioController = "istio.io/gateway-controller"
+	DefaultTestNS   = "default"
+	GatewayTestNS   = "gateway-ns"
+	AppTestNS       = "app-ns"
+	EmptyTestNS     = ""
+)
 
 func TestInferencePoolStatusReconciliation(t *testing.T) {
-
 	testCases := []struct {
 		name         string
 		givens       []runtime.Object                 // Objects to create before the test
@@ -50,8 +65,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, DefaultTestNS, string(status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, DefaultTestNS, status.Parents[0].GatewayRef.Namespace)
 				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
 					Type:    string(inferencev1alpha2.InferencePoolConditionAccepted),
 					Status:  metav1.ConditionTrue,
@@ -61,7 +76,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			},
 		},
 		{
-			name: "should add only 1 gateway parentRef to status for multiple routes on different gateways wiht different controllers",
+			name: "should add only 1 gateway parentRef to status for multiple routes on different gateways with different controllers",
 			givens: []runtime.Object{
 				NewGateway("gateway-1", InNamespace(DefaultTestNS), WithGatewayClass("istio")),
 				NewGateway("gateway-2", InNamespace(DefaultTestNS), WithGatewayClass("other")),
@@ -73,8 +88,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "gateway-1", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, DefaultTestNS, string(status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, DefaultTestNS, status.Parents[0].GatewayRef.Namespace)
 			},
 		},
 		{
@@ -94,7 +109,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				require.Len(t, status.Parents, 2, "Expected two parent references")
 				assert.ElementsMatch(t,
 					[]string{"gateway-1", "gateway-2"},
-					[]string{string(status.Parents[0].GatewayRef.Name), string(status.Parents[1].GatewayRef.Name)},
+					[]string{status.Parents[0].GatewayRef.Name, status.Parents[1].GatewayRef.Name},
 				)
 			},
 		},
@@ -115,7 +130,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				require.Len(t, status.Parents, 2, "Expected two parent references")
 				assert.ElementsMatch(t,
 					[]string{"gateway-1", "gateway-2"},
-					[]string{string(status.Parents[0].GatewayRef.Name), string(status.Parents[1].GatewayRef.Name)},
+					[]string{status.Parents[0].GatewayRef.Name, status.Parents[1].GatewayRef.Name},
 				)
 			},
 		},
@@ -131,7 +146,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS), WithParentStatus("gateway-2", DefaultTestNS, WithAcceptedConditions())),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "gateway-1", string(status.Parents[0].GatewayRef.Name))
+				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
 			},
 		},
 		{
@@ -148,7 +163,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				require.Len(t, status.Parents, 2, "Expected two parent references")
 				assert.ElementsMatch(t,
 					[]string{"gateway-1", "gateway-2"},
-					[]string{string(status.Parents[0].GatewayRef.Name), string(status.Parents[1].GatewayRef.Name)},
+					[]string{status.Parents[0].GatewayRef.Name, status.Parents[1].GatewayRef.Name},
 				)
 			},
 		},
@@ -163,8 +178,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(AppTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, GatewayTestNS, string(status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, GatewayTestNS, status.Parents[0].GatewayRef.Namespace)
 			},
 		},
 		{
@@ -178,8 +193,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, GatewayTestNS, string(status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, GatewayTestNS, status.Parents[0].GatewayRef.Namespace)
 			},
 		},
 		{
@@ -193,8 +208,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(AppTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, GatewayTestNS, string(status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, GatewayTestNS, status.Parents[0].GatewayRef.Namespace)
 			},
 		},
 		{
@@ -208,8 +223,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(AppTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
-				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
-				assert.Equal(t, AppTestNS, string(status.Parents[0].GatewayRef.Namespace))
+				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, AppTestNS, status.Parents[0].GatewayRef.Namespace)
 			},
 		},
 		{
@@ -226,7 +241,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected only one parent reference for the same gateway")
-				assert.Equal(t, "main-gateway", string(status.Parents[0].GatewayRef.Name))
+				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
 			},
 		},
 		{
@@ -334,7 +349,6 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			stop := test.NewStop(t)
 
 			controller := setupController(t,
@@ -363,7 +377,6 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			poolStatus := getInferencePoolStatus()
 			assert.NotNil(t, poolStatus)
 
-			// 5. Run the specific assertions for this test case.
 			tc.expectations(t, poolStatus)
 		})
 	}
@@ -390,6 +403,7 @@ func assertConditionContains(t *testing.T, conditions []metav1.Condition, expect
 
 // Option is a function that mutates an object.
 type Option func(client.Object)
+
 type ParentOption func(*inferencev1alpha2.PoolStatus)
 
 // --- Helper functions to mutate objects ---
@@ -469,6 +483,8 @@ func WithBackendRef(name, namespace string) Option {
 			if hr.Spec.Rules == nil {
 				hr.Spec.Rules = []gateway.HTTPRouteRule{}
 			}
+			group := gateway.Group(gvk.InferencePool.Group)
+			kind := gateway.Kind(gvk.InferencePool.Kind)
 			hr.Spec.Rules = append(hr.Spec.Rules, gateway.HTTPRouteRule{
 				BackendRefs: []gateway.HTTPBackendRef{
 					{
@@ -476,8 +492,8 @@ func WithBackendRef(name, namespace string) Option {
 							BackendObjectReference: gateway.BackendObjectReference{
 								Name:      gateway.ObjectName(name),
 								Namespace: &namespaceName,
-								Kind:      &[]gateway.Kind{gateway.Kind(gvk.InferencePool.Kind)}[0],
-								Group:     &[]gateway.Group{gateway.Group(gvk.InferencePool.Group)}[0],
+								Kind:      &kind,
+								Group:     &group,
 							},
 						},
 					},
@@ -514,22 +530,23 @@ func WithAcceptedConditions() ParentOption {
 		if parentStatusRef.Conditions == nil {
 			parentStatusRef.Conditions = []metav1.Condition{}
 		}
-		parentStatusRef.Conditions = append(parentStatusRef.Conditions, metav1.Condition{
-			Type:               string(inferencev1alpha2.InferencePoolConditionAccepted),
-			Status:             metav1.ConditionTrue,
-			Reason:             string(inferencev1alpha2.InferencePoolReasonAccepted),
-			Message:            "Accepted by the parentRef Gateway",
-			ObservedGeneration: 1,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		})
-		parentStatusRef.Conditions = append(parentStatusRef.Conditions, metav1.Condition{
-			Type:               string(inferencev1alpha2.ModelConditionResolvedRefs),
-			Status:             metav1.ConditionTrue,
-			Reason:             string(inferencev1alpha2.ModelReasonResolvedRefs),
-			Message:            "Resolved Ex",
-			ObservedGeneration: 1,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-		})
+		parentStatusRef.Conditions = append(parentStatusRef.Conditions,
+			metav1.Condition{
+				Type:               string(inferencev1alpha2.InferencePoolConditionAccepted),
+				Status:             metav1.ConditionTrue,
+				Reason:             string(inferencev1alpha2.InferencePoolReasonAccepted),
+				Message:            "Accepted by the parentRef Gateway",
+				ObservedGeneration: 1,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+			},
+			metav1.Condition{
+				Type:               string(inferencev1alpha2.ModelConditionResolvedRefs),
+				Status:             metav1.ConditionTrue,
+				Reason:             string(inferencev1alpha2.ModelReasonResolvedRefs),
+				Message:            "Resolved Ex",
+				ObservedGeneration: 1,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+			})
 	}
 }
 
@@ -537,11 +554,11 @@ func WithExtensionRef(kind, name string) Option {
 	return func(obj client.Object) {
 		ip, ok := obj.(*inferencev1alpha2.InferencePool)
 		if ok {
-			kind := inferencev1alpha2.Kind(kind)
+			typedKind := inferencev1alpha2.Kind(kind)
 			ip.Spec.EndpointPickerConfig.ExtensionRef = &inferencev1alpha2.Extension{
 				ExtensionReference: inferencev1alpha2.ExtensionReference{
 					Name: inferencev1alpha2.ObjectName(name),
-					Kind: &kind,
+					Kind: &typedKind,
 				},
 			}
 		}
