@@ -85,6 +85,7 @@ var (
 	WorkloadGroup_v1alpha3         = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "WorkloadGroup"}
 	WorkloadGroup_v1beta1          = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "WorkloadGroup"}
 	XBackendTrafficPolicy          = config.GroupVersionKind{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Kind: "XBackendTrafficPolicy"}
+	XListenerSet                   = config.GroupVersionKind{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Kind: "XListenerSet"}
 )
 
 // ToGVR converts a GVK to a GVR.
@@ -238,6 +239,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.WorkloadGroup_v1beta1, true
 	case XBackendTrafficPolicy:
 		return gvr.XBackendTrafficPolicy, true
+	case XListenerSet:
+		return gvr.XListenerSet, true
 	}
 
 	return schema.GroupVersionResource{}, false
@@ -341,6 +344,8 @@ func MustToKind(g config.GroupVersionKind) kind.Kind {
 		return kind.WorkloadGroup
 	case XBackendTrafficPolicy:
 		return kind.XBackendTrafficPolicy
+	case XListenerSet:
+		return kind.XListenerSet
 	}
 
 	panic("unknown kind: " + g.String())
@@ -455,6 +460,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return WorkloadGroup, true
 	case gvr.XBackendTrafficPolicy:
 		return XBackendTrafficPolicy, true
+	case gvr.XListenerSet:
+		return XListenerSet, true
 	}
 
 	return config.GroupVersionKind{}, false

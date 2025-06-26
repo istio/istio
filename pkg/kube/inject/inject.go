@@ -61,15 +61,15 @@ const (
 	// InjectionPolicyDisabled specifies that the sidecar injector
 	// will not inject the sidecar into resources by default for the
 	// namespace(s) being watched. Resources can enable injection
-	// using the "sidecar.istio.io/inject" annotation with value of
-	// true.
+	// using the "sidecar.istio.io/inject" label with value of
+	// "true".
 	InjectionPolicyDisabled InjectionPolicy = "disabled"
 
 	// InjectionPolicyEnabled specifies that the sidecar injector will
 	// inject the sidecar into resources by default for the
 	// namespace(s) being watched. Resources can disable injection
-	// using the "sidecar.istio.io/inject" annotation with value of
-	// false.
+	// using the "sidecar.istio.io/inject" label with value of
+	// "false".
 	InjectionPolicyEnabled InjectionPolicy = "enabled"
 )
 
@@ -222,11 +222,16 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 		// The label is the new API; if both are present we prefer the label
 		objectSelector = lbl
 	}
-	switch strings.ToLower(objectSelector) {
-	// http://yaml.org/type/bool.html
-	case "y", "yes", "true", "on":
+	switch objectSelector {
+	case "true":
 		inject = true
+	case "false":
+		inject = false
 	case "":
+		useDefault = true
+	default:
+		log.Warnf("Invalid value for %s: %q. Only 'true' and 'false' are accepted. Falling back to default injection policy.",
+			label.SidecarInject.Name, objectSelector)
 		useDefault = true
 	}
 

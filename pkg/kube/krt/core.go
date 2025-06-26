@@ -109,6 +109,7 @@ type Singleton[T any] interface {
 	// Register adds an event watcher to the object. Any time it changes, the handler will be called
 	Register(f func(o Event[T])) HandlerRegistration
 	AsCollection() Collection[T]
+	Metadata() Metadata
 }
 
 // Event represents a point in time change for a collection.

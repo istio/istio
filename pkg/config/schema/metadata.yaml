@@ -317,6 +317,16 @@ resources:
     statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
     statusProto: "k8s.io.gateway_api.api.v1alpha2.PolicyStatus"
 
+  - kind: "XListenerSet"
+    identifier: XListenerSet
+    plural: "xlistenersets"
+    group: "gateway.networking.x-k8s.io"
+    version: "v1alpha1"
+    protoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1"
+    proto: "ListenerSetSpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1"
+    statusProto: "ListenerSetStatus"
+
   ## Istio resources
   - kind: "VirtualService"
     plural: "virtualservices"

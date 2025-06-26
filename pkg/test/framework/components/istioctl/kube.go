@@ -35,8 +35,9 @@ import (
 var invokeMutex sync.Mutex
 
 type kubeComponent struct {
-	config     Config
-	kubeconfig string
+	config         Config
+	kubeconfig     string
+	istioNamespace string
 }
 
 // Filenamer is an interface to avoid importing kubecluster package, instead build our own interface
@@ -51,8 +52,9 @@ func newKube(ctx resource.Context, config Config) (Instance, error) {
 		return nil, fmt.Errorf("cluster does not support fetching kube config")
 	}
 	n := &kubeComponent{
-		config:     config,
-		kubeconfig: fn.Filename(),
+		config:         config,
+		kubeconfig:     fn.Filename(),
+		istioNamespace: config.IstioNamespace,
 	}
 
 	return n, nil
@@ -86,6 +88,11 @@ func (c *kubeComponent) Invoke(args []string) (string, string, error) {
 	if !slices.Contains(args, "--kubeconfig") {
 		cmdArgs = []string{"--kubeconfig", c.kubeconfig}
 	}
+
+	if c.istioNamespace != "" && !slices.Contains(args, "--istioNamespace") {
+		cmdArgs = append(cmdArgs, "--istioNamespace", c.istioNamespace)
+	}
+
 	cmdArgs = append(cmdArgs, args...)
 
 	var out bytes.Buffer

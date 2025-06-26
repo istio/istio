@@ -193,6 +193,42 @@ func TestInjectRequired(t *testing.T) {
 			config: &Config{
 				Policy: InjectionPolicyEnabled,
 			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "invalid-inject-value-yes",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "yes"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyDisabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:        "invalid-inject-value-on",
+				Namespace:   "test-namespace",
+				Annotations: map[string]string{annotation.SidecarInject.Name: "on"},
+			},
+			want: false,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyEnabled,
+			},
+			podSpec: podSpec,
+			meta: metav1.ObjectMeta{
+				Name:      "invalid-inject-value-random",
+				Namespace: "test-namespace",
+				Labels:    map[string]string{label.SidecarInject.Name: "random"},
+			},
+			want: true,
+		},
+		{
+			config: &Config{
+				Policy: InjectionPolicyEnabled,
+			},
 			podSpec: podSpecHostNetwork,
 			meta: metav1.ObjectMeta{
 				Name:        "force-off-policy",

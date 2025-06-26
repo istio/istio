@@ -174,6 +174,8 @@ func (p *WasmPluginWrapper) buildPluginConfig(proxy *Proxy) *wasmextensions.Plug
 			wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
 		case extensions.FailStrategy_FAIL_CLOSE:
 			wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_CLOSED
+		case extensions.FailStrategy_FAIL_RELOAD:
+			wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_RELOAD
 		}
 		// TODO: support more failure policies
 	} else {
