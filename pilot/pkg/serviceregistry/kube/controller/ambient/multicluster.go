@@ -257,10 +257,6 @@ func (a *index) buildGlobalCollections(
 		opts.WithName("GlobalMergedServiceInfos")...,
 	)
 
-	type serviceAndScope struct {
-		service *workloadapi.Service
-		scope   model.ServiceScope
-	}
 
 	GobalWorkloadServicesWithClusterByCluster := nestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
 	LocalServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](LocalWorkloadServices, "serviceAddress", networkAddressFromService)
@@ -402,30 +398,28 @@ func (a *index) buildGlobalCollections(
 	coalesedWorkloads := krt.NewManyCollection(
 		workloadNetworkServiceIndex.AsCollection(),
 		func(ctx krt.HandlerContext, i krt.IndexObject[string, model.WorkloadInfo]) []model.WorkloadInfo {
-			ret := []model.WorkloadInfo{}
 			parts := strings.Split(i.Key, ";")
 			if len(parts) != 2 {
 				log.Errorf("Invalid key %s for SplitHorizonWorkloads, expected <network>;<service>", i.Key)
-				return ret
+				return nil
 			}
 			networkID := network.ID(parts[0])
 			localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
 			if networkID.String() == localNetwork {
 				// We don't coalese workloads for the local network
-				return ret
+				return nil
 			}
 
 			svcName := parts[1]
 			svc := krt.FetchOne(ctx, a.services.Collection, krt.FilterKey(svcName))
 			if svc == nil {
 				log.Errorf("Failed to find service %s to coalese workloads", svcName)
-				return ret
+				return nil
 			}
 			if svc.Scope != model.Global {
-				return ret
+				return nil
 			}
 
-			gws := LookupNetworkGateway(ctx, networkID, a.networks.NetworkGateways, a.networks.GatewaysByNetwork)
 			capacity := uint32(0)
 			for _, wl := range i.Objects {
 				if wl.Workload.GetCapacity().GetValue() == 0 {
@@ -434,15 +428,22 @@ func (a *index) buildGlobalCollections(
 					capacity += wl.Workload.Capacity.GetValue()
 				}
 			}
+			gws := LookupNetworkGateway(ctx, networkID, a.networks.NetworkGateways, a.networks.GatewaysByNetwork)
 			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
-			for _, gw := range gws {
-				wi, err := a.createSplitHorizonWorkload(svcName, svc.Service, &gw, capacity, meshCfg)
-				if err != nil {
-					log.Errorf("Failed to create split horizon workload for %s/%s: %v", networkID, svcName, err)
-				}
-				ret = append(ret, precomputeWorkload(*wi))
+			if meshCfg == nil {
+				log.Errorf("Failed to find mesh config for network %s", networkID)
+				return nil
 			}
-			return ret
+			if len(gws) == 0 {
+				log.Warnf("No network gateway found for network %s", networkID)
+				return nil
+			}
+			if len(gws) > 1 {
+				log.Warnf("Multiple gateways found for network %s, using the first one", networkID)
+			}
+			gw = gws[0]
+			wi := a.createSplitHorizonWorkload(svcName, svc.Service, &gw, capacity, meshCfg)
+			return []model.WorkloadInfo{*wi}
 		}, opts.WithName("remoteCoalesedWorkloads")...,
 	)
 
@@ -513,7 +514,10 @@ func (a *index) buildGlobalCollections(
 		}
 		newSvc.Service.SubjectAltNames = sans.UnsortedList()
 		return precomputeServicePtr(newSvc)
-	}, opts.WithName("SplitHorizonServices")...)
+	}, opts.WithName("SplitHorizonServicesWithWorkloads")...)
+
+	// Give the SplitHorizonServicesWithWorkloads priority as they also have the sans set.
+	SplitHorizonServices = krt.JoinCollection([]krt.Collection[model.ServiceInfo]{SplitHorizonServices, GlobalMergedWorkloadServices}, opts.WithName("SplitHorizonServices")...)
 
 	SplitHorizonServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *workloadapi.Service {
@@ -828,11 +832,8 @@ func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, mesh
 
 func (a *index) createSplitHorizonWorkload(
 	svcNamespacedName string, svc *workloadapi.Service, networkGateway *NetworkGateway, capacity uint32, meshCfg *MeshConfig,
-) (*model.WorkloadInfo, error) {
-	address, err := netip.ParseAddr(networkGateway.Addr)
-	if err != nil {
-		return nil, err
-	}
+) *model.WorkloadInfo {
+
 	hboneMtlsPort := networkGateway.HBONEPort
 	if hboneMtlsPort == 0 {
 		hboneMtlsPort = 15008
@@ -848,12 +849,7 @@ func (a *index) createSplitHorizonWorkload(
 		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
 		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
 		NetworkGateway: &workloadapi.GatewayAddress{
-			Destination: &workloadapi.GatewayAddress_Address{
-				Address: &workloadapi.NetworkAddress{
-					Network: networkGateway.Network.String(),
-					Address: address.AsSlice(),
-				},
-			},
+			Destination: &workloadapi.GatewayAddress_Address{},
 			HboneMtlsPort: hboneMtlsPort,
 		},
 		ClusterId: networkGateway.Cluster.String(),
@@ -864,6 +860,24 @@ func (a *index) createSplitHorizonWorkload(
 			},
 		},
 	}
+	address, err := netip.ParseAddr(networkGateway.Addr)
+	if err != nil {
+		// Assume address is a hostname
+		wl.NetworkGateway.Destination = &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{
+				Namespace: networkGateway.Source.Namespace
+				Hostname:  networkGateway.Addr,
+			}
+		}
+	} else {
+		wl.NetworkGateway.Destination = &workloadapi.GatewayAddress_Address{
+			Address: &workloadapi.NetworkAddress{
+				Network: networkGateway.Network.String(),
+				Address: address.AsSlice(),
+			},
+		}
+	}
+
 	wi := &model.WorkloadInfo{
 		Workload: &wl,
 		Source:   kind.KubernetesGateway,

@@ -93,7 +93,7 @@ type splitHorizon struct {
 }
 
 func (s *splitHorizon) HasSynced() bool {
-	return s.workloads.HasSynced() && s.services.HasSynced()
+	return s == nil || (s.workloads == nil || s.workloads.HasSynced()) && (s.services == nil || s.services.HasSynced())
 }
 
 type waypointsCollection struct {
@@ -504,7 +504,7 @@ func New(options Options) Index {
 
 		return []networkAddress{netaddr}
 	})
-	// We register this in the multinetwor implementation
+	// We register this in the multinetwork implementation
 	if !(features.EnableAmbientMultiNetwork && options.IsConfigCluster) {
 		Workloads.RegisterBatch(krt.BatchedEventFilter(
 			func(a model.WorkloadInfo) *workloadapi.Workload {
@@ -526,14 +526,6 @@ func New(options Options) Index {
 			opts,
 		)
 	}
-
-	// workloadNetworkServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, "service", func(o model.WorkloadInfo) []string {
-	// 	res := make([]string, 0, len(o.Workload.Services))
-	// 	for svc, _ := range o.Workload.Services {
-	// 		res = append(res, strings.Join([]string{o.Workload.Network, svc}, ";"))
-	// 	}
-	// 	return res
-	// })
 
 	a.namespaces = NamespacesInfo
 	a.workloads = workloadsCollection{
@@ -649,7 +641,7 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 	}
 	networkAddr := networkAddress{network: network, ip: ip}
 
-	// Don't really need to check split horizon here beucause the coalesed workloads dont have addresses
+	// Don't really need to check split horizon here because the coalesed workloads dont have addresses
 	if wls := a.workloads.ByAddress.Lookup(networkAddr); len(wls) > 0 {
 		return slices.Map(wls, modelWorkloadToAddressInfo)
 	}
@@ -661,21 +653,11 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 		// grab all workloads that reference this service
 		var ws []model.WorkloadInfo
 		if a.splitHorizon.workloadByServiceKey != nil {
-			ws = a.splitHorizon.workloadByServiceKey.Lookup(key)
+			ws = a.splitHorizon.workloadByServiceKey.Lookup(svc.ResourceName())
 		} else {
-			ws = a.workloads.ByServiceKey.Lookup(key)
+			ws = a.workloads.ByServiceKey.Lookup(svc.ResourceName())
 		}
 		for _, w := range ws {
-			// Only select endpoints from workloads that belong to a service with a global scope or a local scope in the same cluster
-			log.Debugf("Workload %s has service %s, scope %s, and cluster id %s", w.ResourceName(), svc.ResourceName(), w.ScopeForService[key], w.Workload.ClusterId)
-			// TODO(jaellio): I am not sure we need a scopeForService defined on the workload. As far as I know we only lookup workload by
-
-			// service and therefor already have the service scope we don't need an additional mapping back to service from the workload
-			if w.Workload.ClusterId != string(a.ClusterID) && w.ScopeForService[key] == model.Local {
-				log.Debugf("Skipping workload %s for service %s because it is not local to the cluster but has a %s scope",
-					w.ResourceName(), svc.ResourceName(), w.ScopeForService[key])
-				continue
-			}
 			res = append(res, w.AsAddress)
 		}
 		return res
