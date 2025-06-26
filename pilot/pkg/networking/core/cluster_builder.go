@@ -574,7 +574,7 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		},
 	}
 	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster)
-	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{})
+	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{}, nil)
 	cb.applyMetadataExchange(cluster)
 	return cluster
 }
