@@ -18,10 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
@@ -363,27 +360,8 @@ func makeProxy(fn func() *spiffe.Identity) *Proxy {
 
 func makePushContext() *PushContext {
 	return &PushContext{
-		GatewayAPIController: fakeController{},
+		GatewayAPIController: FakeController{},
 	}
-}
-
-type fakeController struct {
-	ConfigStoreController
-}
-
-func (f fakeController) HasInferencePool(_ types.NamespacedName) bool {
-	return false
-}
-
-func (f fakeController) Reconcile(_ *PushContext) {}
-
-// NOTE: To simplify test setup, if CredentialName contains 'allowed-ns', always return true.
-func (f fakeController) SecretAllowed(resourceName string, namespace string) bool {
-	parse, err := credentials.ParseResourceName(resourceName, namespace, "", "")
-	if err != nil {
-		return false
-	}
-	return parse.Namespace == AllowedNamespace
 }
 
 func BenchmarkParseGatewayRDSRouteName(b *testing.B) {
