@@ -787,7 +787,7 @@ func TestApplyDestinationRule(t *testing.T) {
 			}},
 		},
 		{
-			name:        "destination rule with retry budget",
+			name:        "destination rule with empty retry budget",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
 			service:     service,
@@ -826,6 +826,56 @@ func TestApplyDestinationRule(t *testing.T) {
 								RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
 									BudgetPercent:       &xdstype.Percent{Value: 0.2},
 									MinRetryConcurrency: &wrappers.UInt32Value{Value: 3},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:        "destination rule with retry budget",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							ConnectionPool: &networking.ConnectionPoolSettings{
+								Http: &networking.ConnectionPoolSettings_HTTPSettings{
+									MaxRetries: 10,
+								},
+							},
+							RetryBudget: &networking.TrafficPolicy_RetryBudget{
+								Percent:             wrappers.Double(0.3),
+								MinRetryConcurrency: uint32(4),
+							},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{
+				{
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+						ServiceName: "outbound|8080|foobar|foo.default.svc.cluster.local",
+					},
+					CircuitBreakers: &cluster.CircuitBreakers{
+						Thresholds: []*cluster.CircuitBreakers_Thresholds{
+							{
+								MaxRetries: &wrappers.UInt32Value{
+									Value: 10,
+								},
+								RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
+									BudgetPercent:       &xdstype.Percent{Value: 0.3},
+									MinRetryConcurrency: &wrappers.UInt32Value{Value: 4},
 								},
 							},
 						},
