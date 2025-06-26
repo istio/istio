@@ -81,93 +81,109 @@ func (cfg *NftablesConfigurator) logConfig() {
 	cfg.cfg.Print()
 }
 
-// handleInboundPortsInclude sets up rules to redirect inbound TCP traffic to Envoy.
-// If TPROXY is enabled, it adds rules to mark packets and route them through mangle tables.
-// It also handles excluded ports and loopback exceptions, based on the config.
-// The goal here is to make sure incoming traffic reaches Envoy before going to the actual app.
+// handleInboundTProxyMode sets up all rules for TPROXY mode inbound traffic redirection.
+// This includes setting up the divert chain, and handling both wildcard and specific ports.
+func (cfg *NftablesConfigurator) handleInboundTProxyMode() {
+	// When using TPROXY, create a new chain for routing all inbound traffic to
+	// Envoy. Any packet entering this chain gets marked with the ${INBOUND_TPROXY_MARK} mark,
+	// so that they get routed to the loopback interface in order to get redirected to Envoy.
+	// In the IstioInboundChain chain, 'jump IstioDivertChain' reroutes to the loopback
+	// interface.
+	// Mark all inbound packets.
+	cfg.ruleBuilder.AppendRule(constants.IstioDivertChain, constants.IstioProxyMangleTable,
+		"meta mark set", cfg.cfg.InboundTProxyMark)
+	cfg.ruleBuilder.AppendRule(constants.IstioDivertChain, constants.IstioProxyMangleTable, "accept")
+
+	// Create a new chain for redirecting inbound traffic to the common Envoy port.
+	// In the IstioInboundChain chain, 'return' bypasses Envoy and
+	// 'jump IstioTproxyChain' redirects to Envoy.
+	cfg.ruleBuilder.AppendRule(constants.IstioTproxyChain, constants.IstioProxyMangleTable,
+		"meta l4proto tcp",
+		"ip daddr", "!=", cfg.cfg.HostIPv4LoopbackCidr,
+		"tproxy ip to", ":"+cfg.cfg.InboundCapturePort,
+		"meta mark set", cfg.cfg.InboundTProxyMark,
+		"accept")
+	cfg.ruleBuilder.AppendV6RuleIfSupported(constants.IstioTproxyChain, constants.IstioProxyMangleTable,
+		"meta l4proto tcp",
+		"ip6 daddr", "!=", "::1/128",
+		"tproxy ip6 to", ":"+cfg.cfg.InboundCapturePort,
+		"meta mark set", cfg.cfg.InboundTProxyMark,
+		"accept")
+
+	// Add jump rule in prerouting chain
+	cfg.ruleBuilder.AppendRule(constants.PreroutingChain, constants.IstioProxyMangleTable,
+		"meta l4proto tcp",
+		"jump", constants.IstioInboundChain)
+
+	// Handle port exclusions if wildcard is specified
+	if cfg.cfg.InboundPortsInclude == "*" {
+		if cfg.cfg.InboundPortsExclude != "" {
+			for _, port := range config.Split(cfg.cfg.InboundPortsExclude) {
+				cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
+					"meta l4proto tcp",
+					"tcp dport", port, "return")
+			}
+		}
+		// If an inbound packet belongs to an established socket, route it to the loopback interface.
+		cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
+			"meta l4proto tcp",
+			"ct state", "related,established",
+			"jump", constants.IstioDivertChain)
+		// Otherwise, it's a new connection. Redirect it using TPROXY.
+		cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
+			"meta l4proto tcp",
+			"jump", constants.IstioTproxyChain)
+	} else {
+		// User has specified a non-empty list of ports to be redirected to Envoy.
+		for _, port := range config.Split(cfg.cfg.InboundPortsInclude) {
+			cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
+				"meta l4proto tcp",
+				"ct state", "related,established",
+				"tcp dport", port,
+				"jump", constants.IstioDivertChain)
+			cfg.ruleBuilder.AppendRule(
+				constants.IstioInboundChain, constants.IstioProxyMangleTable,
+				"meta l4proto tcp", "tcp dport", port, "jump", constants.IstioTproxyChain)
+		}
+	}
+}
+
 func (cfg *NftablesConfigurator) handleInboundPortsInclude() {
 	// Handling of inbound ports. Traffic will be redirected to Envoy, which will process and forward
 	// to the local service. If InboundPortsInclude is not set, no inbound ports will be intercepted by Istio nftables.
-	var table string
-	if cfg.cfg.InboundPortsInclude != "" {
-		if cfg.cfg.InboundInterceptionMode == "TPROXY" {
-			// When using TPROXY, create a new chain for routing all inbound traffic to
-			// Envoy. Any packet entering this chain gets marked with the ${INBOUND_TPROXY_MARK} mark,
-			// so that they get routed to the loopback interface in order to get redirected to Envoy.
-			// In the IstioInboundChain chain, 'counter jump IstioDivertChain' reroutes to the loopback
-			// interface.
-			// Mark all inbound packets.
-			cfg.ruleBuilder.AppendRule(constants.IstioDivertChain, constants.IstioProxyMangleTable,
-				"meta mark set", cfg.cfg.InboundTProxyMark)
-			cfg.ruleBuilder.AppendRule(constants.IstioDivertChain, constants.IstioProxyMangleTable, "accept")
+	if cfg.cfg.InboundPortsInclude == "" {
+		return
+	}
 
-			// Create a new chain for redirecting inbound traffic to the common Envoy port.
-			// In the IstioInboundChain chain, 'return' bypasses Envoy and
-			// 'jump IstioTproxyChain' redirects to Envoy.
-			cfg.ruleBuilder.AppendRule(constants.IstioTproxyChain, constants.IstioProxyMangleTable,
-				"meta l4proto tcp",
-				"ip daddr", "!=", cfg.cfg.HostIPv4LoopbackCidr,
-				"tproxy ip to", ":"+cfg.cfg.InboundCapturePort,
-				"meta mark set", cfg.cfg.InboundTProxyMark,
-				"accept")
-			cfg.ruleBuilder.AppendV6RuleIfSupported(constants.IstioTproxyChain, constants.IstioProxyMangleTable,
-				"meta l4proto tcp",
-				"ip6 daddr", "!=", "::1/128",
-				"tproxy ip6 to", ":"+cfg.cfg.InboundCapturePort,
-				"meta mark set", cfg.cfg.InboundTProxyMark,
-				"accept")
+	if cfg.cfg.InboundInterceptionMode == "TPROXY" {
+		cfg.handleInboundTProxyMode()
+		return
+	}
 
-			table = constants.IstioProxyMangleTable
-		} else {
-			table = constants.IstioProxyNatTable
-		}
-		cfg.ruleBuilder.AppendRule(constants.PreroutingChain, table,
-			"meta l4proto tcp",
-			"jump", constants.IstioInboundChain)
+	// Handle NAT table redirection
+	cfg.ruleBuilder.AppendRule(constants.PreroutingChain, constants.IstioProxyNatTable,
+		"meta l4proto tcp",
+		"jump", constants.IstioInboundChain)
 
-		if cfg.cfg.InboundPortsInclude == "*" {
-			// Apply any user-specified port exclusions.
-			if cfg.cfg.InboundPortsExclude != "" {
-				for _, port := range config.Split(cfg.cfg.InboundPortsExclude) {
-					cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, table,
-						"meta l4proto tcp",
-						"tcp dport", port, "return")
-				}
-			}
-			// Redirect remaining inbound traffic to Envoy.
-			if cfg.cfg.InboundInterceptionMode == "TPROXY" {
-				// If an inbound packet belongs to an established socket, route it to the loopback interface.
-				cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
-					"meta l4proto tcp",
-					"ct state", "related,established",
-					"jump", constants.IstioDivertChain)
-				// Otherwise, it's a new connection. Redirect it using TPROXY.
-				cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
-					"meta l4proto tcp",
-					"jump", constants.IstioTproxyChain)
-			} else {
+	if cfg.cfg.InboundPortsInclude == "*" {
+		// Apply any user-specified port exclusions.
+		if cfg.cfg.InboundPortsExclude != "" {
+			for _, port := range config.Split(cfg.cfg.InboundPortsExclude) {
 				cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyNatTable,
 					"meta l4proto tcp",
-					"jump", constants.IstioInRedirectChain)
+					"tcp dport", port, "return")
 			}
-		} else {
-			// User has specified a non-empty list of ports to be redirected to Envoy.
-			for _, port := range config.Split(cfg.cfg.InboundPortsInclude) {
-				if cfg.cfg.InboundInterceptionMode == "TPROXY" {
-					cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyMangleTable,
-						"meta l4proto tcp",
-						"ct state", "related,established",
-						"tcp dport", port,
-						"jump", constants.IstioDivertChain)
-					cfg.ruleBuilder.AppendRule(
-						constants.IstioInboundChain, constants.IstioProxyMangleTable,
-						"meta l4proto tcp", "tcp dport", port, "jump", constants.IstioTproxyChain)
-				} else {
-					cfg.ruleBuilder.AppendRule(
-						constants.IstioInboundChain, constants.IstioProxyNatTable,
-						"meta l4proto tcp", "tcp dport", port, "jump", constants.IstioInRedirectChain)
-				}
-			}
+		}
+		// Redirect remaining inbound traffic to Envoy.
+		cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyNatTable,
+			"meta l4proto tcp",
+			"jump", constants.IstioInRedirectChain)
+	} else {
+		// User has specified a non-empty list of ports to be redirected to Envoy.
+		for _, port := range config.Split(cfg.cfg.InboundPortsInclude) {
+			cfg.ruleBuilder.AppendRule(
+				constants.IstioInboundChain, constants.IstioProxyNatTable,
+				"meta l4proto tcp", "tcp dport", port, "jump", constants.IstioInRedirectChain)
 		}
 	}
 }
