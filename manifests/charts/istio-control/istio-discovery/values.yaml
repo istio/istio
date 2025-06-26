@@ -86,6 +86,9 @@ _internal_defaults_do_not_set:
   # Additional labels to apply to the deployment.
   deploymentLabels: {}
 
+  # Annotations to apply to the istiod deployment.
+  deploymentAnnotations: {}
+
   ## Mesh config settings
 
   # Install the mesh config map, generated from values.yaml.
