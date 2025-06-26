@@ -138,7 +138,7 @@ var (
 // configureFromProviderConfigHandled contains the number of providers we handle below.
 // This is to ensure this stays in sync as new handlers are added
 // STOP. DO NOT UPDATE THIS WITHOUT UPDATING telemetryAccessLog.
-const telemetryAccessLogHandled = 14
+const telemetryAccessLogHandled = 15
 
 func telemetryAccessLog(push *PushContext, proxy *Proxy, fp *meshconfig.MeshConfig_ExtensionProvider) *accesslog.AccessLog {
 	// Skip built-in formatter if Istio version is >= 1.26
@@ -171,6 +171,7 @@ func telemetryAccessLog(push *PushContext, proxy *Proxy, fp *meshconfig.MeshConf
 		*meshconfig.MeshConfig_ExtensionProvider_Opencensus,
 		*meshconfig.MeshConfig_ExtensionProvider_Opentelemetry,
 		*meshconfig.MeshConfig_ExtensionProvider_Prometheus,
+		*meshconfig.MeshConfig_ExtensionProvider_Sds,
 		*meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 		// No access logs supported for this provider
 		// Stackdriver is a special case as its handled in the Metrics logic, as it uses a shared filter
