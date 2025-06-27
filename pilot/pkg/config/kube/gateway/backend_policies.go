@@ -341,7 +341,7 @@ func BackendTrafficPolicyCollection(
 		if i.Spec.RetryConstraint != nil {
 			// TODO: add support for interval.
 			retryBudget = &networking.TrafficPolicy_RetryBudget{}
-			if i.Spec.RetryConstraint != nil {
+			if i.Spec.RetryConstraint.Budget.Percent != nil {
 				retryBudget.Percent = &wrapperspb.DoubleValue{Value: float64(*i.Spec.RetryConstraint.Budget.Percent)}
 			}
 			retryBudget.MinRetryConcurrency = 10 // Gateway API default
