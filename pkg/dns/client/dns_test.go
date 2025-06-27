@@ -680,21 +680,3 @@ func equalsDNSrecords(got []dns.RR, want []dns.RR) bool {
 	}
 	return reflect.DeepEqual(got, want)
 }
-
-func TestAlternateHosts(t *testing.T) {
-	server := initDNS(t, false)
-	server.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
-	server.UpdateLookupTable(&dnsProto.NameTable{
-		Table: map[string]*dnsProto.NameTable_NameInfo{
-			"productpage.ns1.svc.cluster.local": {
-				Ips:       []string{"9.9.9.9"},
-				Registry:  "Kubernetes",
-				Namespace: "ns1",
-				Shortname: "productpage",
-			},
-		},
-	})
-	nt := server.NameTable()
-	fmt.Println(nt)
-	t.Cleanup(server.Close)
-}
