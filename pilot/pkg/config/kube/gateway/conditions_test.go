@@ -114,7 +114,7 @@ func TestCreateRouteStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createRouteStatus(tt.args.gateways, tt.args.obj.Generation, tt.args.current)
+			got := createRouteStatus(tt.args.gateways, "default", tt.args.obj.Generation, tt.args.current)
 			equal := reflect.DeepEqual(got, tt.args.current)
 			if equal != tt.wantEqual {
 				t.Errorf("route status: old: %+v, new: %+v", tt.args.current, got)
