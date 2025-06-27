@@ -226,6 +226,8 @@ github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 h1:+ngKgrYPPJr
 github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79/go.mod h1:FecbI9+v66THATjSRHfNgh1IVFe/9kFxbXtjV0ctIMA=
 github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 h1:UH//fgunKIs4JdUbpDl1VZCDaL56wXCB/5+wF6uHfaI=
 github.com/grpc-ecosystem/go-grpc-middleware v1.4.0/go.mod h1:g5qyo/la0ALbONm6Vbp88Yd8NsDy6rZz+RcrMPxvld8=
+github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2 h1:sGm2vDRFUrQJO/Veii4h4zG2vvqG6uWNkBHSTqXOZk0=
+github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2/go.mod h1:wd1YpapPLivG6nQgbf7ZkG1hhSOXDhhn4MLTknx2aAc=
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 h1:Ovs26xHkKqVztRpIrF/92BcuyuQ/YW4NSIpoGtfXNho=
 github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0/go.mod h1:8NvIoxWQoOIhqOTXgfV/d3M/q6VIi02HzZEHgUlZvzk=
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3 h1:5ZPtiqj0JL5oKWmcsq4VMaAW5ukBEgSGXEN89zeH1Jo=
@@ -618,8 +620,8 @@ honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 istio.io/api v1.26.0-alpha.0.0.20250625165318-09a4d534f2ad h1:a/Gtv2ZYOTMmdiDgayaMKx02L73RhVNAdcm8du9JL48=
 istio.io/api v1.26.0-alpha.0.0.20250625165318-09a4d534f2ad/go.mod h1:DTVGH6CLXj5W8FF9JUD3Tis78iRgT1WeuAnxfTz21Wg=
-istio.io/client-go v1.26.0-alpha.0.0.20250625165717-b9ea5c72f80d h1:nN+JBElRSfwqWI61TtRCJN0DjVbIbfyQg1V/CQy0I4Y=
-istio.io/client-go v1.26.0-alpha.0.0.20250625165717-b9ea5c72f80d/go.mod h1:RYncfDaZGDPStL/U+N1ugOhlvEd7g3Th5J8TbwDGhHs=
+istio.io/client-go v1.26.0-alpha.0.0.20250626121618-c837cb7868ae h1:RGYisWvWJh7QDac0nCWh3/HMNLTjjbmzNcIqZH/ICB8=
+istio.io/client-go v1.26.0-alpha.0.0.20250626121618-c837cb7868ae/go.mod h1:RYncfDaZGDPStL/U+N1ugOhlvEd7g3Th5J8TbwDGhHs=
 k8s.io/api v0.33.0 h1:yTgZVn1XEe6opVpP1FylmNrIFWuDqe2H0V8CT5gxfIU=
 k8s.io/api v0.33.0/go.mod h1:CTO61ECK/KU7haa3qq8sarQ0biLq2ju405IZAd9zsiM=
 k8s.io/apiextensions-apiserver v0.33.0 h1:d2qpYL7Mngbsc1taA4IjJPRJ9ilnsXIrndH+r9IimOs=

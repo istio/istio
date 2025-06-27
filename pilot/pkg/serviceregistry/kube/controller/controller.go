@@ -247,7 +247,10 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	}
 	c.networkManager = initNetworkManager(c, options)
 
-	c.namespaces = kclient.NewFiltered[*v1.Namespace](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
+	// currently NOT using kubeClient.ObjectFilter() here as we only care about the system namespace
+	// if in the future we want to watch other namespaces here, we will need to alter the discoveryNamespacesFilter
+	// to have an exception for the system namespace
+	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
 	if c.opts.SystemNamespace != "" {
 		registerHandlers[*v1.Namespace](
