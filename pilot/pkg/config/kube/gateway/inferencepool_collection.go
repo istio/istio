@@ -38,11 +38,12 @@ import (
 )
 
 const (
-	maxServiceNameLength          = 63
-	hashSize                      = 8
-	InferencePoolRefLabel         = "istio.io/inferencepool-name"
-	InferencePoolExtensionRefSvc  = "istio.io/inferencepool-extension-service"
-	InferencePoolExtensionRefPort = "istio.io/inferencepool-extension-port"
+	maxServiceNameLength                 = 63
+	hashSize                             = 8
+	InferencePoolRefLabel                = "istio.io/inferencepool-name"
+	InferencePoolExtensionRefSvc         = "istio.io/inferencepool-extension-service"
+	InferencePoolExtensionRefPort        = "istio.io/inferencepool-extension-port"
+	InferencePoolExtensionRefFailureMode = "istio.io/inferencepool-extension-failure-mode"
 )
 
 // // ManagedLabel is the label used to identify resources managed by this controller
@@ -70,8 +71,9 @@ type shadowServiceInfo struct {
 }
 
 type extRefInfo struct {
-	name string
-	port int32
+	name        string
+	port        int32
+	failureMode string
 }
 
 type InferencePool struct {
@@ -106,6 +108,11 @@ func InferencePoolCollection(
 				extRef.port = int32(*pool.Spec.ExtensionRef.PortNumber)
 			} else {
 				extRef.port = 9002 // Default port for the inference extension
+			}
+			if pool.Spec.ExtensionRef.FailureMode != nil {
+				extRef.failureMode = string(*pool.Spec.ExtensionRef.FailureMode)
+			} else {
+				extRef.failureMode = string(inferencev1alpha2.FailClose) // Default port for the inference extension
 			}
 
 			svcName, err := InferencePoolServiceName(pool.Name)
@@ -267,10 +274,11 @@ func translateShadowServiceToService(existingLabels map[string]string, shadow sh
 			Name:      shadow.key.Name,
 			Namespace: shadow.key.Namespace,
 			Labels: maps.MergeCopy(map[string]string{
-				InferencePoolRefLabel:              shadow.poolName,
-				InferencePoolExtensionRefSvc:       extRef.name,
-				InferencePoolExtensionRefPort:      strconv.Itoa(int(extRef.port)),
-				constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
+				InferencePoolRefLabel:                shadow.poolName,
+				InferencePoolExtensionRefSvc:         extRef.name,
+				InferencePoolExtensionRefPort:        strconv.Itoa(int(extRef.port)),
+				InferencePoolExtensionRefFailureMode: extRef.failureMode,
+				constants.InternalServiceSemantics:   constants.ServiceSemanticsInferencePool,
 			}, existingLabels),
 		},
 		Spec: corev1.ServiceSpec{
