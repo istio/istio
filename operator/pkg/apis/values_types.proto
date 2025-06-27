@@ -1341,7 +1341,9 @@ message IstiodRemoteConfig {
   string injectionCABundle = 3;
   // Indicates if this cluster/install should consume a "remote" istiod instance,
   google.protobuf.BoolValue enabled = 5;
-
+  // If `true`, indicates that this cluster/install should consume a "local istiod" installation,
+  // local istiod inject sidecars
+  google.protobuf.BoolValue enabledLocalInjectorIstiod = 6;
 }
 
 message Values {
