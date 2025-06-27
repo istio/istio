@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -61,6 +62,7 @@ type BackendPolicy struct {
 	Target       TypedNamedspacedName
 	TLS          *networking.ClientTLSSettings
 	LoadBalancer *networking.LoadBalancerSettings
+	RetryBudget  *networking.TrafficPolicy_RetryBudget
 	CreationTime time.Time
 }
 
@@ -71,7 +73,8 @@ func (b BackendPolicy) ResourceName() string {
 func (b BackendPolicy) Equals(other BackendPolicy) bool {
 	return b.Source == other.Source &&
 		protoconv.Equals(b.TLS, other.TLS) &&
-		protoconv.Equals(b.LoadBalancer, other.LoadBalancer)
+		protoconv.Equals(b.LoadBalancer, other.LoadBalancer) &&
+		protoconv.Equals(b.RetryBudget, other.RetryBudget)
 }
 
 // DestinationRuleCollection returns a collection of DestinationRule objects. These are built from a few different
@@ -125,6 +128,7 @@ func DestinationRuleCollection(
 			})
 			tlsSet := false
 			lbSet := false
+			rbSet := false
 			spec := &networking.DestinationRule{
 				Host:          fmt.Sprintf("%s.%s.svc.%v", svc.Name, svc.Namespace, domainSuffix),
 				TrafficPolicy: &networking.TrafficPolicy{},
@@ -146,6 +150,14 @@ func DestinationRuleCollection(
 					}
 					lbSet = true
 					spec.TrafficPolicy.LoadBalancer = pol.LoadBalancer
+				}
+				if pol.RetryBudget != nil {
+					if rbSet {
+						// We only allow 1. TODO: report status if there are multiple
+						continue
+					}
+					rbSet = true
+					spec.TrafficPolicy.RetryBudget = pol.RetryBudget
 				}
 				parents = append(parents, fmt.Sprintf("%s/%s.%s", pol.Source.Kind, pol.Source.Namespace, pol.Source.Name))
 			}
@@ -312,6 +324,7 @@ func BackendTrafficPolicyCollection(
 		ancestors := make([]gatewayalpha2.PolicyAncestorStatus, 0, len(i.Spec.TargetRefs))
 
 		lb := &networking.LoadBalancerSettings{}
+		var retryBudget *networking.TrafficPolicy_RetryBudget
 
 		conds := map[string]*condition{
 			string(gatewayalpha2.PolicyConditionAccepted): {
@@ -325,9 +338,16 @@ func BackendTrafficPolicyCollection(
 		if i.Spec.SessionPersistence != nil {
 			unsupported = append(unsupported, "sessionPersistence")
 		}
-		// TODO(https://github.com/istio/istio/issues/55838): implement i.Spec.RetryConstraint. This doesn't have upstream Envoy support
 		if i.Spec.RetryConstraint != nil {
-			unsupported = append(unsupported, "retryConstraint")
+			// TODO: add support for interval.
+			retryBudget = &networking.TrafficPolicy_RetryBudget{}
+			if i.Spec.RetryConstraint.Budget.Percent != nil {
+				retryBudget.Percent = &wrapperspb.DoubleValue{Value: float64(*i.Spec.RetryConstraint.Budget.Percent)}
+			}
+			retryBudget.MinRetryConcurrency = 10 // Gateway API default
+			if i.Spec.RetryConstraint.MinRetryRate != nil {
+				retryBudget.MinRetryConcurrency = uint32(*i.Spec.RetryConstraint.MinRetryRate.Count)
+			}
 		}
 		if len(unsupported) > 0 {
 			msg := fmt.Sprintf("Configuration is valid, but Istio does not support the following fields: %v", humanReadableJoin(unsupported))
@@ -366,6 +386,7 @@ func BackendTrafficPolicyCollection(
 					},
 					TLS:          nil,
 					LoadBalancer: lb,
+					RetryBudget:  retryBudget,
 					CreationTime: i.CreationTimestamp.Time,
 				})
 			}

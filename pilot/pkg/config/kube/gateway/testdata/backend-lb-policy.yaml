@@ -13,7 +13,7 @@ spec:
       interval: "1s"
       count: 5
     budget:
-      percent: 20
+      percent: 30
       interval: "10s"
 
   sessionPersistence:
