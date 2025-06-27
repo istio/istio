@@ -14,7 +14,7 @@ status:
     conditions:
     - lastTransitionTime: fake
       message: 'Configuration is valid, but Istio does not support the following fields:
-        sessionPersistence and retryConstraint'
+        sessionPersistence'
       reason: Accepted
       status: "True"
       type: Accepted
