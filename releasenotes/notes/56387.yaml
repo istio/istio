@@ -5,4 +5,4 @@ issue:
   - 53759
 releaseNotes:
   - |
-    **Fixed** - an issue where the app probes were getting rewritten for all the ports for a pod even if istio does NOT intend to intercept the traffic to that port. With this fix, we account for `traffic.sidecar.istio.io/includeInboundPorts` and `traffic.sidecar.istio.io/excludeInboundPorts` annotations before rewriting the probes. 
+    **Fixed** an issue where the app probes were getting rewritten for all the ports for a pod, even if Istio does not intend to intercept the traffic to that port. With this fix, we account for `traffic.sidecar.istio.io/includeInboundPorts` and `traffic.sidecar.istio.io/excludeInboundPorts` annotations before rewriting the probes. 
