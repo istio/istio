@@ -155,6 +155,21 @@ func Test_chooseClientFlag(t *testing.T) {
 			}},
 		},
 		{
+			name: "given --log-reset and --stack-trace-reset flag return reset command",
+			args: args{
+				ctrzClient:      ctrzClient,
+				reset:           false,
+				logReset:        true,
+				stackTraceReset: true,
+				outputLogLevel:  "",
+				stackTraceLevel: "",
+				outputFormat:    "",
+			},
+			want: &istiodConfigLog{state: &resetState{
+				client: ctrzClient,
+			}},
+		},
+		{
 			name: "given --level flag return outputLogLevel command",
 			args: args{
 				ctrzClient:      ctrzClient,

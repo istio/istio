@@ -234,7 +234,7 @@ func (id *istiodConfigLog) execute(out io.Writer) error {
 
 func chooseClientFlag(ctrzClient *ControlzClient, logReset, stackTraceReset, reset bool, logLevel, stackTraceLevel, outputFormat string) *istiodConfigLog {
 	switch {
-	case reset:
+	case reset || (logReset && stackTraceReset):
 		return &istiodConfigLog{state: &resetState{ctrzClient}}
 	case logReset:
 		return &istiodConfigLog{state: &logResetState{ctrzClient}}
@@ -476,9 +476,6 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 			if istiodReset && stackTraceReset && stackTraceLevel != "" {
 				logCmd.Println(logCmd.UsageString())
 				return fmt.Errorf("--stack-trace-level cannot be combined with --reset, --stack-trace-reset")
-			}
-			if stackTraceReset && logReset {
-				return fmt.Errorf("--log-reset cannot be combined with --stack-trace-reset, please use --reset if you want to reset both stack trace and log level")
 			}
 			return nil
 		},
