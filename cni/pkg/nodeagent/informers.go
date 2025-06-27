@@ -358,8 +358,10 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// we *do not* want to check the cache for the pod - because it (probably)
 		// won't be there anymore. So for this case *alone*, we check the most recent
 		// pod information from the triggering event.
-		if util.PodFullyEnrolled(latestEventPod) || util.PodPartiallyEnrolled(latestEventPod) {
-			log.Debugf("pod is deleted and was (fully or partially) captured, removing from ztunnel")
+		if util.PodFullyEnrolled(latestEventPod) ||
+			util.PodPartiallyEnrolled(latestEventPod) ||
+			util.PodRedirectionEnabled(ns, latestEventPod) {
+			log.Debugf("pod is deleted and was or should be captured, removing from ztunnel")
 			if err := s.dataplane.RemovePodFromMesh(s.ctx, latestEventPod, true); err != nil {
 				log.Warnf("Unable to send pod to ztunnel for removal. Will retry. RemovePodFrmMesh returned: %v", err)
 				return err
