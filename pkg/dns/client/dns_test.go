@@ -158,6 +158,10 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 			expected: a("productpage.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}),
 		},
 		{
+			name: "not found: k8s host, fqdn with search namespace[0]",
+			host: "productpage.ns1.svc.cluster.local.ns1.svc.cluster.local.", // This should not exist in the table.
+		},
+		{
 			name:     "success: k8s host - name.namespace",
 			host:     "productpage.ns1.",
 			expected: a("productpage.ns1.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}),
@@ -675,4 +679,22 @@ func equalsDNSrecords(got []dns.RR, want []dns.RR) bool {
 		got[i].Header().Rdlength = 0
 	}
 	return reflect.DeepEqual(got, want)
+}
+
+func TestAlternateHosts(t *testing.T) {
+	server := initDNS(t, false)
+	server.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+	server.UpdateLookupTable(&dnsProto.NameTable{
+		Table: map[string]*dnsProto.NameTable_NameInfo{
+			"productpage.ns1.svc.cluster.local": {
+				Ips:       []string{"9.9.9.9"},
+				Registry:  "Kubernetes",
+				Namespace: "ns1",
+				Shortname: "productpage",
+			},
+		},
+	})
+	nt := server.NameTable()
+	fmt.Println(nt)
+	t.Cleanup(server.Close)
 }
