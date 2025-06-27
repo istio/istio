@@ -180,7 +180,8 @@ func InferencePoolCollection(
 			finalParents := []inferencev1alpha2.PoolStatus{}
 			// Add all existing parents from other controllers
 			for _, existingParent := range existingParents {
-				if !isManagedGateway(gateways, existingParent) {
+				// ignore default status parent
+				if !isManagedGateway(gateways, existingParent) && !(existingParent.GatewayRef.Kind == "Status" && existingParent.GatewayRef.Name == "default") {
 					finalParents = append(finalParents, existingParent)
 				} else if gatewayParentsToEnsure.Contains(types.NamespacedName{Name: existingParent.GatewayRef.Name, Namespace: existingParent.GatewayRef.Namespace}) {
 					// only add our parents that are still referenced by an HTTPRoute

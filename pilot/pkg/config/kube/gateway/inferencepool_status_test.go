@@ -168,6 +168,20 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			},
 		},
 		{
+			name: "should remove default parent 'waiting for controller' status",
+			givens: []runtime.Object{
+				NewGateway("gateway-1", InNamespace(DefaultTestNS), WithGatewayClass("istio")),
+				NewHTTPRoute("route-1", InNamespace(DefaultTestNS),
+					WithParentRefAndStatus("gateway-1", DefaultTestNS, IstioController),
+					WithBackendRef("test-pool", DefaultTestNS)),
+			},
+			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS), WithParentStatus("default", DefaultTestNS, AsDefaultStatus())),
+			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
+				require.Len(t, status.Parents, 1, "Expected two parent references")
+				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
+			},
+		},
+		{
 			name: "should handle cross-namespace gateway references correctly",
 			givens: []runtime.Object{
 				NewGateway("main-gateway", InNamespace(GatewayTestNS), WithGatewayClass("istio")),
@@ -520,6 +534,21 @@ func WithParentStatus(gatewayName, namespace string, opt ...ParentOption) Option
 				opt(&poolStatus)
 			}
 			ip.Status.Parents = append(ip.Status.Parents, poolStatus)
+		}
+	}
+}
+
+func AsDefaultStatus() ParentOption {
+	return func(parentStatusRef *inferencev1alpha2.PoolStatus) {
+		parentStatusRef.GatewayRef.Name = "default"
+		parentStatusRef.GatewayRef.Kind = "Status"
+		parentStatusRef.Conditions = []metav1.Condition{
+			{
+				Type:    string(inferencev1alpha2.InferencePoolConditionAccepted),
+				Status:  metav1.ConditionUnknown,
+				Reason:  string(inferencev1alpha2.InferencePoolReasonPending),
+				Message: "Waiting for controller",
+			},
 		}
 	}
 }
