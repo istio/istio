@@ -264,8 +264,8 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 	return tmpl.Execute(deploy, params)
 }
 
-func GenerateService(cfg echo.Config, openshift bool) (string, error) {
-	params := serviceParams(cfg, openshift)
+func GenerateService(cfg echo.Config, isOpenShift bool) (string, error) {
+	params := serviceParams(cfg, isOpenShift)
 	return tmpl.Execute(getTemplate(serviceTemplateFile), params)
 }
 
@@ -423,7 +423,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	return params, nil
 }
 
-func serviceParams(cfg echo.Config, openshift bool) map[string]any {
+func serviceParams(cfg echo.Config, isOpenShift bool) map[string]any {
 	if cfg.ServiceWaypointProxy != "" {
 		if cfg.ServiceLabels == nil {
 			cfg.ServiceLabels = make(map[string]string)
@@ -440,7 +440,7 @@ func serviceParams(cfg echo.Config, openshift bool) map[string]any {
 		"IPFamilyPolicy":     cfg.IPFamilyPolicy,
 		"ServiceAnnotations": cfg.ServiceAnnotations,
 		"Namespace":          cfg.Namespace.Name(),
-		"OpenShift":          openshift,
+		"OpenShift":          isOpenShift,
 	}
 }
 
