@@ -83,6 +83,26 @@ spec:
       options:
         gateway.istio.io/tls-terminate-mode: ISTIO_SIMPLE
 ---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway2
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: passthrough
+    port: 34000
+    protocol: TLS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Passthrough
+---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
@@ -91,6 +111,8 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
+    namespace: istio-system
+  - name: gateway2
     namespace: istio-system
   rules:
   - backendRefs:

@@ -291,6 +291,7 @@ func TCPRouteCollection(
 		status.Parents = parentStatus
 
 		vs := []*config.Config{}
+		count := 0
 		for _, parent := range filteredReferences(parentRefs) {
 			routes := gwResult.routes
 			vsHosts := []string{"*"}
@@ -315,8 +316,8 @@ func TCPRouteCollection(
 					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, ctx.DomainSuffix)}
 				}
 			}
-			for i, host := range vsHosts {
-				name := fmt.Sprintf("%s-tcp-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
+			for _, host := range vsHosts {
+				name := fmt.Sprintf("%s-tcp-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
 				// Create one VS per hostname with a single hostname.
 				// This ensures we can treat each hostname independently, as the spec requires
 				vs = append(vs, &config.Config{
@@ -336,6 +337,7 @@ func TCPRouteCollection(
 						Tcp:      routes,
 					},
 				})
+				count++
 			}
 		}
 		return status, vs
@@ -373,6 +375,7 @@ func TLSRouteCollection(
 			})
 		status.Parents = parentStatus
 
+		count := 0
 		vs := []*config.Config{}
 		for _, parent := range filteredReferences(parentRefs) {
 			routes := gwResult.routes
@@ -396,8 +399,8 @@ func TLSRouteCollection(
 				}
 				routes = augmentTLSPortMatch(routes, parent.OriginalReference.Port, vsHosts)
 			}
-			for i, host := range vsHosts {
-				name := fmt.Sprintf("%s-tls-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
+			for _, host := range vsHosts {
+				name := fmt.Sprintf("%s-tls-%d-%s", obj.Name, count, constants.KubernetesGatewayName)
 				filteredRoutes := routes
 				if parent.IsMesh() {
 					filteredRoutes = compatibleRoutesForHost(routes, host)
@@ -419,6 +422,7 @@ func TLSRouteCollection(
 						Tls:      filteredRoutes,
 					},
 				})
+				count++
 			}
 		}
 		return status, vs

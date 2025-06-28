@@ -23,6 +23,25 @@ spec:
       namespaces:
         from: All
 ---
+# Test we can bind to two parents
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway2
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    port: 34000
+    protocol: TCP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
@@ -31,6 +50,8 @@ metadata:
 spec:
   parentRefs:
   - name: gateway
+    namespace: istio-system
+  - name: gateway2
     namespace: istio-system
   rules:
   - backendRefs:
