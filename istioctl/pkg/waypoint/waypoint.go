@@ -35,19 +35,22 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/workload"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
 var (
-	revision      = ""
-	waitReady     bool
-	allNamespaces bool
+	revision          = ""
+	namespaceSelector []string
+	waitReady         bool
+	allNamespaces     bool
 
 	waypointTimeout time.Duration
 
@@ -92,6 +95,25 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					Protocol: gateway.ProtocolType(protocol.HBONE),
 				}},
 			},
+		}
+
+		if namespaceSelector != nil {
+			gw.Spec = gateway.GatewaySpec{
+				GatewayClassName: constants.WaypointGatewayClassName,
+				Listeners: []gateway.Listener{{
+					Name:     "mesh",
+					Port:     15008,
+					Protocol: gateway.ProtocolType(protocol.HBONE),
+					AllowedRoutes: &gateway.AllowedRoutes{
+						Namespaces: &gateway.RouteNamespaces{
+							From: ptr.Of(gateway.NamespacesFromSelector),
+							Selector: &metav1.LabelSelector{
+								MatchLabels: workload.ConvertToStringMap(namespaceSelector),
+							},
+						},
+					},
+				}},
+			}
 		}
 
 		// only label if the user has provided their own value, otherwise we let istiod choose a default at runtime (service)
@@ -463,7 +485,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	waypointApplyCmd.Flags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointApplyCmd.Flags().BoolVarP(&waitReady, "wait", "w", false, "Wait for the waypoint to be ready")
 	waypointApplyCmd.Flags().DurationVar(&waypointTimeout, "waypoint-timeout", waitTimeout, "Timeout for waiting for waypoint ready")
+	waypointApplyCmd.Flags().StringSliceVar(&namespaceSelector, "cross-namespace-selector", nil, "Configure the label selector of the namespace that is allowed to be routed")
 	waypointGenerateCmd.Flags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
+	waypointGenerateCmd.Flags().StringSliceVar(&namespaceSelector, "cross-namespace-selector", nil, "Configure the label selector of the namespace that is allowed to be routed")
 	waypointStatusCmd.Flags().DurationVar(&waypointTimeout, "waypoint-timeout", waitTimeout, "Timeout for retrieving status for waypoint")
 	waypointCmd.AddCommand(waypointGenerateCmd)
 	waypointCmd.AddCommand(waypointDeleteCmd)

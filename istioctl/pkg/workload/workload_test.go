@@ -453,8 +453,8 @@ func TestConvertToMap(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := convertToStringMap(tt.arg); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("convertToStringMap() = %v, want %v", got, tt.want)
+			if got := ConvertToStringMap(tt.arg); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ConvertToStringMap() = %v, want %v", got, tt.want)
 			}
 		})
 	}

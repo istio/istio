@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** support specifying cross-namespace args for `istioctl waypoint generate` and `istioctl waypoint apply`.
