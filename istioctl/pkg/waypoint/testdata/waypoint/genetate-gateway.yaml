@@ -1,0 +1,20 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  labels:
+    istio.io/rev: v1.0
+    istio.io/waypoint-for: all
+  name: foo
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            foo1: bar1
+            foo2: bar2
+    name: mesh
+    port: 15008
+    protocol: HBONE
