@@ -150,7 +150,22 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			},
 		},
 		{
-			name: "should keep others status from previous reconciliation that is no longer referenced by any HTTPRoute",
+			name: "should update/recreate our status from previous reconciliation",
+			givens: []runtime.Object{
+				NewGateway("gateway-1", InNamespace(DefaultTestNS), WithGatewayClass("istio")),
+				NewHTTPRoute("route-1", InNamespace(DefaultTestNS),
+					WithParentRefAndStatus("gateway-1", DefaultTestNS, IstioController),
+					WithBackendRef("test-pool", DefaultTestNS)),
+			},
+			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS), WithParentStatus("gateway-1", DefaultTestNS, WithConditions(metav1.ConditionUnknown, "X", "Y", "Dummy"))),
+			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
+				require.Len(t, status.Parents, 1, "Expected one parent reference")
+				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
+				require.Len(t, status.Parents[0].Conditions, 2, "Expected two conditions")
+			},
+		},
+		{
+			name: "should keep others status from previous reconciliation",
 			givens: []runtime.Object{
 				NewGateway("gateway-1", InNamespace(DefaultTestNS), WithGatewayClass("istio")),
 				NewGateway("gateway-2", InNamespace(DefaultTestNS), WithGatewayClass("other-class")),
@@ -542,18 +557,16 @@ func AsDefaultStatus() ParentOption {
 	return func(parentStatusRef *inferencev1alpha2.PoolStatus) {
 		parentStatusRef.GatewayRef.Name = "default"
 		parentStatusRef.GatewayRef.Kind = "Status"
-		parentStatusRef.Conditions = []metav1.Condition{
-			{
-				Type:    string(inferencev1alpha2.InferencePoolConditionAccepted),
-				Status:  metav1.ConditionUnknown,
-				Reason:  string(inferencev1alpha2.InferencePoolReasonPending),
-				Message: "Waiting for controller",
-			},
-		}
+		WithConditions(
+			metav1.ConditionUnknown,
+			string(inferencev1alpha2.InferencePoolConditionAccepted),
+			string(inferencev1alpha2.InferencePoolReasonPending),
+			"Waiting for controller",
+		)
 	}
 }
 
-func WithAcceptedConditions() ParentOption {
+func WithConditions(status metav1.ConditionStatus, conType, reason, message string) ParentOption {
 	return func(parentStatusRef *inferencev1alpha2.PoolStatus) {
 		// Add condition to the first parent status
 		if parentStatusRef.Conditions == nil {
@@ -561,21 +574,30 @@ func WithAcceptedConditions() ParentOption {
 		}
 		parentStatusRef.Conditions = append(parentStatusRef.Conditions,
 			metav1.Condition{
-				Type:               string(inferencev1alpha2.InferencePoolConditionAccepted),
-				Status:             metav1.ConditionTrue,
-				Reason:             string(inferencev1alpha2.InferencePoolReasonAccepted),
-				Message:            "Accepted by the parentRef Gateway",
+				Type:               conType,
+				Status:             status,
+				Reason:             reason,
+				Message:            message,
 				ObservedGeneration: 1,
 				LastTransitionTime: metav1.NewTime(time.Now()),
 			},
-			metav1.Condition{
-				Type:               string(inferencev1alpha2.ModelConditionResolvedRefs),
-				Status:             metav1.ConditionTrue,
-				Reason:             string(inferencev1alpha2.ModelReasonResolvedRefs),
-				Message:            "Resolved Ex",
-				ObservedGeneration: 1,
-				LastTransitionTime: metav1.NewTime(time.Now()),
-			})
+		)
+	}
+}
+
+func WithAcceptedConditions() ParentOption {
+	return func(parentStatusRef *inferencev1alpha2.PoolStatus) {
+		WithConditions(
+			metav1.ConditionTrue,
+			string(inferencev1alpha2.InferencePoolConditionAccepted),
+			string(inferencev1alpha2.InferencePoolReasonAccepted),
+			"Accepted by the parentRef Gateway",
+		)
+		WithConditions(
+			metav1.ConditionTrue,
+			string(inferencev1alpha2.ModelConditionResolvedRefs),
+			string(inferencev1alpha2.ModelReasonResolvedRefs),
+			"Resolved ExtensionRef") // Add condition to the first parent status
 	}
 }
 

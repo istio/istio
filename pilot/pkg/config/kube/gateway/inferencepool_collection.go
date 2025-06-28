@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -205,6 +206,10 @@ func InferencePoolCollection(
 
 			// Add all our parents and update the conditions from previous default unknown state
 			for _, ourParent := range ourParents {
+				ourParent.Conditions = filterUsedConditions(ourParent.Conditions,
+					inferencev1alpha2.InferencePoolConditionAccepted,
+					inferencev1alpha2.ModelConditionResolvedRefs)
+
 				// TODO: Update this is there are ever more conditions to consider
 				finalParents = append(finalParents, inferencev1alpha2.PoolStatus{
 					GatewayRef: ourParent.GatewayRef,
@@ -262,6 +267,16 @@ func resolveExtensionRef(services krt.Collection[*corev1.Service], pool inferenc
 		status:  metav1.ConditionTrue,
 		message: "Referenced ExtensionRef resolved successfully ",
 	}
+}
+
+func filterUsedConditions(conditions []metav1.Condition, usedConditions ...inferencev1alpha2.InferencePoolConditionType) []metav1.Condition {
+	var result []metav1.Condition
+	for _, condition := range conditions {
+		if slices.Contains(usedConditions, inferencev1alpha2.InferencePoolConditionType(condition.Type)) {
+			result = append(result, condition)
+		}
+	}
+	return result
 }
 
 // isManagedGateway checks if the Gateway is controlled by this controller
