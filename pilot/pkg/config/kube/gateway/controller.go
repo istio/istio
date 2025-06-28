@@ -235,7 +235,7 @@ func NewController(
 
 	handlers := []krt.HandlerRegistration{}
 
-	httpRoutesByNamespace := krt.NewNamespaceIndex(inputs.HTTPRoutes)
+	httpRoutesByInferencePool := krt.NewIndex(inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
 
 	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
 	status.RegisterStatus(c.status, GatewayClassStatus, GetStatus)
@@ -270,7 +270,7 @@ func NewController(
 		inputs.Services,
 		inputs.HTTPRoutes,
 		inputs.Gateways,
-		httpRoutesByNamespace,
+		httpRoutesByInferencePool,
 		c,
 		opts,
 	)
