@@ -7660,6 +7660,81 @@ func TestValidateTelemetryFilter(t *testing.T) {
 	}
 }
 
+func TestStrictParseURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expectedURL string
+		valid       bool
+	}{
+		{
+			name:        "with explicit http scheme",
+			input:       "http://example.com/path",
+			expectedURL: "http://example.com/path",
+			valid:       true,
+		},
+		{
+			name:        "with explicit https scheme",
+			input:       "https://example.com/path",
+			expectedURL: "https://example.com/path",
+			valid:       true,
+		},
+		{
+			name:        "with explicit oci scheme",
+			input:       "oci://example.com/path",
+			expectedURL: "oci://example.com/path",
+			valid:       true,
+		},
+		{
+			name:        "with explicit oci scheme and tag",
+			input:       "oci://example.com/path:tag",
+			expectedURL: "oci://example.com/path:tag",
+			valid:       true,
+		},
+		{
+			name:        "with explicit oci scheme port and tag",
+			input:       "oci://example.com:5000/path:tag",
+			expectedURL: "oci://example.com:5000/path:tag",
+			valid:       true,
+		},
+		{
+			name:        "without scheme or tag - should default to oci",
+			input:       "example.com/path",
+			expectedURL: "oci://example.com/path",
+			valid:       true,
+		},
+		{
+			name:        "without scheme with tag - should default to oci",
+			input:       "example.com/path:tag",
+			expectedURL: "oci://example.com/path:tag",
+			valid:       true,
+		},
+		{
+			name:        "without scheme with tag and port number",
+			input:       "foo.bar.com:8080/repo/app:latest",
+			expectedURL: "oci://foo.bar.com:8080/repo/app:latest",
+			valid:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := strictParseWasmPluginURL(tt.input)
+			if tt.valid && err != nil {
+				t.Errorf("strictParseWasmPluginURL(%q) returned unexpected error: %v", tt.input, err)
+			} else if !tt.valid && err == nil {
+				t.Errorf("strictParseWasmPluginURL(%q) did not return expected error", tt.input)
+			}
+
+			if tt.valid {
+				if result.String() != tt.expectedURL {
+					t.Errorf("strictParseWasmPluginURL(%q) = %q, want %q", tt.input, result.String(), tt.expectedURL)
+				}
+			}
+		})
+	}
+}
+
 func TestValidateWasmPlugin(t *testing.T) {
 	tests := []struct {
 		name    string
