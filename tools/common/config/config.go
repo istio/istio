@@ -90,6 +90,13 @@ type Config struct {
 	Reconcile                bool       `json:"RECONCILE"`
 	CleanupOnly              bool       `json:"CLEANUP_ONLY"`
 	ForceApply               bool       `json:"FORCE_APPLY"`
+	NativeNftables           bool       `json:"NATIVE_NFTABLES"`
+}
+
+type NetworkRange struct {
+	IsWildcard    bool
+	CIDRs         []netip.Prefix
+	HasLoopBackIP bool
 }
 
 func (c *Config) String() string {
@@ -136,7 +143,8 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("RECONCILE=%t\n", c.Reconcile))
 	b.WriteString(fmt.Sprintf("CLEANUP_ONLY=%t\n", c.CleanupOnly))
 	b.WriteString(fmt.Sprintf("FORCE_APPLY=%t\n", c.ForceApply))
-	log.Infof("Istio iptables variables:\n%s", b.String())
+	b.WriteString(fmt.Sprintf("NATIVE_NFTABLES=%t\n", c.NativeNftables))
+	log.Infof("Istio config:\n%s", b.String())
 }
 
 func (c *Config) Validate() error {
@@ -237,4 +245,30 @@ func getLocalIP(dualStack bool) (netip.Addr, bool, error) {
 	}
 
 	return netip.Addr{}, isIPv6, fmt.Errorf("no valid local IP address found")
+}
+
+func SeparateV4V6(cidrList string) (NetworkRange, NetworkRange, error) {
+	if cidrList == "*" {
+		return NetworkRange{IsWildcard: true}, NetworkRange{IsWildcard: true}, nil
+	}
+	ipv6Ranges := NetworkRange{}
+	ipv4Ranges := NetworkRange{}
+	for _, ipRange := range Split(cidrList) {
+		ipp, err := netip.ParsePrefix(ipRange)
+		if err != nil {
+			return ipv4Ranges, ipv6Ranges, err
+		}
+		if ipp.Addr().Is4() {
+			ipv4Ranges.CIDRs = append(ipv4Ranges.CIDRs, ipp)
+			if ipp.Addr().IsLoopback() {
+				ipv4Ranges.HasLoopBackIP = true
+			}
+		} else {
+			ipv6Ranges.CIDRs = append(ipv6Ranges.CIDRs, ipp)
+			if ipp.Addr().IsLoopback() {
+				ipv6Ranges.HasLoopBackIP = true
+			}
+		}
+	}
+	return ipv4Ranges, ipv6Ranges, nil
 }
