@@ -31,6 +31,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -610,5 +611,21 @@ func TestIdentity(t *testing.T) {
 				t.Fatalf("round trip failed, expected %q got %q", tt.input, roundTrip)
 			}
 		})
+	}
+}
+
+func TestGetExtraTrustDomains(t *testing.T) {
+	mesh := &meshconfig.MeshConfig{
+		CaCertificates: []*meshconfig.MeshConfig_CertificateData{
+			{
+				TrustDomains: []string{"b", "a"},
+			},
+			{
+				TrustDomains: []string{"c"},
+			},
+		},
+	}
+	if result := GetExtraTrustDomains(mesh); !slices.Equal(result, []string{"b", "a", "c"}) {
+		t.Errorf("Unexpected trust domains. expected: [b a c], got: %v", result)
 	}
 }

@@ -163,6 +163,14 @@ func GetTrustDomainFromURISAN(uriSan string) (string, error) {
 	return parsed.TrustDomain, nil
 }
 
+func GetExtraTrustDomains(meshCfg *meshconfig.MeshConfig) []string {
+	var extraTrustDomains []string
+	for _, ca := range meshCfg.CaCertificates {
+		extraTrustDomains = append(extraTrustDomains, ca.GetTrustDomains()...)
+	}
+	return extraTrustDomains
+}
+
 // RetrieveSpiffeBundleRootCerts retrieves the trusted CA certificates from a list of SPIFFE bundle endpoints.
 // It can use the system cert pool and the supplied certificates to validate the endpoints.
 func RetrieveSpiffeBundleRootCerts(config map[string]string, caCertPool *x509.CertPool, retryTimeout time.Duration) (
