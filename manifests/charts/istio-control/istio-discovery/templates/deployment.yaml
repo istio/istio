@@ -17,6 +17,10 @@ metadata:
 {{- range $key, $val := .Values.deploymentLabels }}
     {{ $key }}: "{{ $val }}"
 {{- end }}
+  {{- if .Values.deploymentAnnotations }}
+  annotations:
+{{ toYaml .Values.deploymentAnnotations | indent 4 }}
+  {{- end }}
 spec:
 {{- if not .Values.autoscaleEnabled }}
 {{- if .Values.replicaCount }}
