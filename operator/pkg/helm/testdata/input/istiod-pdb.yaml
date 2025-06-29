@@ -1,0 +1,4 @@
+spec:
+  values:
+    pdb:
+      minAvailable: 1
