@@ -25,6 +25,7 @@ import (
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/cluster"
@@ -192,6 +193,12 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 							Labels: map[string]string{label.TopologyNetwork.Name: clusterToNetwork[client.clusterID]},
 						},
 					})
+					client.ns.Create(&corev1.Namespace{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:   testNS,
+							Labels: map[string]string{label.TopologyNetwork.Name: clusterToNetwork[client.clusterID]},
+						},
+					})
 				}
 
 				// These steps happen for every test regardless of traffic type.
@@ -203,7 +210,9 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 					map[string]string{"app": "a"}, nil, true, corev1.PodRunning, client.pc)
 				s.assertEvent(t, s.podXdsNameForCluster("pod1", client.clusterID))
 				s.addServiceForClient(t, "svc2",
-					map[string]string{},
+					map[string]string{
+						"istio.io/global": "true",
+					},
 					map[string]string{},
 					[]int32{80}, map[string]string{"app": "a"}, ips["svc2"], client.sc)
 				s.assertEvent(t, s.svcXdsName("svc2"), s.podXdsNameForCluster("pod1", client.clusterID))
@@ -238,7 +247,10 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 
 			// Label the service and check that the correct event is produced.
 			s.labelService(t, "svc2", testNS,
-				map[string]string{label.IoIstioUseWaypoint.Name: "test-wp"})
+				map[string]string{
+					label.IoIstioUseWaypoint.Name: "test-wp",
+					"istio.io/global":             "true",
+				})
 			c.svcAssertion(s)
 
 			// clean up resources
@@ -261,6 +273,79 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			s.clearEvents()
 		})
 	}
+}
+
+func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	wpKey := model.WaypointKey{
+		Namespace: testNS,
+		Hostnames: []string{fmt.Sprintf("%s.%s.svc.company.com", "wp", testNS)},
+		Addresses: []string{"10.0.0.1"},
+		Network:   testNW,
+	}
+	t.Run("hostname (multicluster but unused)", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+		s.addService(t, "svc1",
+			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		s.addWaypointSpecificAddress(t, "", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
+		s.addService(t, "wp",
+			map[string]string{},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
+		assert.Equal(t, len(svc1Host), 1)
+		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+			return s.ServicesForWaypoint(wpKey)
+		}, svc1Host)
+	})
+	t.Run("ip (multicluster but unused)", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+		s.addService(t, "svc1",
+			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		s.addWaypointSpecificAddress(t, "10.0.0.1", "", "wp", constants.AllTraffic, true)
+		s.addService(t, "wp",
+			map[string]string{},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
+		assert.Equal(t, len(svc1Host), 1)
+		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+			return s.ServicesForWaypoint(wpKey)
+		}, svc1Host)
+	})
+	t.Run("mixed (multicluster but unused)", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+		s.addService(t, "svc1",
+			map[string]string{label.IoIstioUseWaypoint.Name: "wp"},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		s.addWaypointSpecificAddress(t, "10.0.0.1", s.hostnameForService("wp"), "wp", constants.AllTraffic, true)
+		s.addService(t, "wp",
+			map[string]string{},
+			map[string]string{},
+			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
+		s.assertEvent(s.t, s.svcXdsName("svc1"))
+
+		svc1Host := ptr.ToList(s.services.GetKey(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1"))))
+		assert.Equal(t, len(svc1Host), 1)
+		assert.EventuallyEqual(t, func() []model.ServiceInfo {
+			return s.ServicesForWaypoint(wpKey)
+		}, svc1Host)
+	})
 }
 
 // TODO: Test the merging details (the correct number of VIPs, no duplicates, etc.)
