@@ -148,8 +148,8 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 			}
 			spec := &networkingv1alpha3.WorkloadGroup{
 				Metadata: &networkingv1alpha3.WorkloadGroup_ObjectMeta{
-					Labels:      convertToStringMap(resourceLabels),
-					Annotations: convertToStringMap(annotations),
+					Labels:      ConvertToStringMap(resourceLabels),
+					Annotations: ConvertToStringMap(annotations),
 				},
 				Template: &networkingv1alpha3.WorkloadEntry{
 					Ports:          convertToUnsignedInt32Map(ports),
@@ -658,7 +658,7 @@ func convertToUnsignedInt32Map(s []string) map[string]uint32 {
 	return out
 }
 
-func convertToStringMap(s []string) map[string]string {
+func ConvertToStringMap(s []string) map[string]string {
 	out := make(map[string]string, len(s))
 	for _, l := range s {
 		k, v := splitEqual(l)

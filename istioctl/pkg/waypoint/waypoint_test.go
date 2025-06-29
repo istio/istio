@@ -117,6 +117,48 @@ func TestWaypointList(t *testing.T) {
 	}
 }
 
+func TestWaypointGenerate(t *testing.T) {
+	cases := []struct {
+		name            string
+		args            []string
+		expectedOutFile string
+	}{
+		{
+			name:            "Add all parameters",
+			args:            strings.Split("generate --cross-namespace-selector foo1=bar1,foo2=bar2 --name foo --for all --revision v1.0", " "),
+			expectedOutFile: "genetate-gateway.yaml",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{})
+			defaultFile, err := os.ReadFile(fmt.Sprintf("testdata/waypoint/%s", tt.expectedOutFile))
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedOut := string(defaultFile)
+			if len(expectedOut) == 0 {
+				t.Fatal("expected output is empty")
+			}
+
+			var out bytes.Buffer
+			rootCmd := Cmd(ctx)
+			rootCmd.SetArgs(tt.args)
+			rootCmd.SetOut(&out)
+			rootCmd.SetErr(&out)
+
+			fErr := rootCmd.Execute()
+			if fErr != nil {
+				t.Fatal(fErr)
+			}
+			output := out.String()
+			if output != expectedOut {
+				t.Fatalf("expected %s, got %s", expectedOut, output)
+			}
+		})
+	}
+}
+
 func makeGateway(name, namespace string, programmed, isWaypoint bool) *gateway.Gateway {
 	conditions := make([]metav1.Condition, 0)
 	if programmed {
