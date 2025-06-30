@@ -79,6 +79,8 @@ func ReferenceGrantsCollection(referenceGrants krt.Collection[*gateway.Reference
 					toKey.Kind = gvk.Secret
 				} else if to.Group == "" && string(to.Kind) == gvk.Service.Kind {
 					toKey.Kind = gvk.Service
+				} else if string(to.Group) == gvk.InferencePool.Group && string(to.Kind) == gvk.InferencePool.Kind {
+					toKey.Kind = gvk.InferencePool
 				} else {
 					// Not supported type. Not an error; may be for another controller
 					continue
@@ -147,12 +149,13 @@ func (refs ReferenceGrants) SecretAllowed(ctx krt.HandlerContext, resourceName s
 
 func (refs ReferenceGrants) BackendAllowed(ctx krt.HandlerContext,
 	k config.GroupVersionKind,
+	toGVK config.GroupVersionKind,
 	backendName gateway.ObjectName,
 	backendNamespace gateway.Namespace,
 	routeNamespace string,
 ) bool {
 	from := Reference{Kind: k, Namespace: gateway.Namespace(routeNamespace)}
-	to := Reference{Kind: gvk.Service, Namespace: backendNamespace}
+	to := Reference{Kind: toGVK, Namespace: backendNamespace}
 	pair := ReferencePair{From: from, To: to}
 	grants := krt.Fetch(ctx, refs.collection, krt.FilterIndex(refs.index, pair))
 	for _, g := range grants {
