@@ -79,12 +79,6 @@ type RemoteClusterCollections struct {
 	endpointSlices krt.Collection[*discovery.EndpointSlice]
 	nodes          krt.Collection[*corev1.Node]
 	gateways       krt.Collection[*v1beta1.Gateway]
-	// xref: https://github.com/istio/istio/pull/56097
-	// TODO: Figure out if we really want to keep doing this
-	// Note that the impl details of TestSeamlessMigration
-	// depend on this, so if we remove it, we'll need to
-	// adjust the test.
-	configmaps krt.Collection[*corev1.ConfigMap]
 }
 
 // Namespaces returns the namespaces collection.
@@ -117,11 +111,6 @@ func (r *RemoteClusterCollections) Gateways() krt.Collection[*v1beta1.Gateway] {
 	return r.gateways
 }
 
-// ConfigMaps returns the configmaps collection.
-func (r *RemoteClusterCollections) ConfigMaps() krt.Collection[*corev1.ConfigMap] {
-	return r.configmaps
-}
-
 func NewRemoteClusterCollections(
 	namespaces krt.Collection[*corev1.Namespace],
 	pods krt.Collection[*corev1.Pod],
@@ -129,7 +118,6 @@ func NewRemoteClusterCollections(
 	endpointSlices krt.Collection[*discovery.EndpointSlice],
 	nodes krt.Collection[*corev1.Node],
 	gateways krt.Collection[*v1beta1.Gateway],
-	configmaps krt.Collection[*corev1.ConfigMap],
 ) *RemoteClusterCollections {
 	return &RemoteClusterCollections{
 		namespaces:     namespaces,
@@ -138,7 +126,6 @@ func NewRemoteClusterCollections(
 		endpointSlices: endpointSlices,
 		nodes:          nodes,
 		gateways:       gateways,
-		configmaps:     configmaps,
 	}
 }
 
@@ -189,7 +176,6 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 			c.nodes,
 			c.endpointSlices,
 			c.pods,
-			c.configmaps,
 		}
 		// Just wait for all syncers to be synced
 		for _, syncer := range syncers {
@@ -280,15 +266,10 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		)...,
 	)...)
 
-	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](c.Client, kclient.Filter{
-		ObjectFilter: c.Client.ObjectFilter(),
-	}, opts.With(
-		append(opts.WithName("informer/ConfigMaps"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: c.ID,
-			}),
-		)...,
-	)...)
+	if !c.Client.RunAndWait(c.stop) {
+		log.Warnf("remote cluster %s failed to sync", c.ID)
+		return
+	}
 
 	c.RemoteClusterCollections = &RemoteClusterCollections{
 		namespaces:     Namespaces,
@@ -297,7 +278,6 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		endpointSlices: EndpointSlices,
 		nodes:          Nodes,
 		gateways:       Gateways,
-		configmaps:     ConfigMaps,
 	}
 
 	// Mark initialized before starting the client so that we don't have to wait for informers to sync.
@@ -315,7 +295,6 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		c.nodes,
 		c.endpointSlices,
 		c.pods,
-		c.configmaps,
 	}
 
 	for _, syncer := range syncers {
