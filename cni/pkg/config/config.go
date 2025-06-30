@@ -34,6 +34,10 @@ type InstallConfig struct {
 	CNIConfName string
 	// Whether to install CNI plugin as a chained or standalone
 	ChainedCNIPlugin bool
+	// Name of the Istio owned CNI config file
+	IstioOwnedCNIConfigFilename string
+	// Whether an Istio owned CNI config is enabled
+	IstioOwnedCNIConfig bool
 
 	// Logging level for the CNI plugin
 	// Since it runs out-of-process, it has to be separately configured
@@ -132,6 +136,8 @@ func (c InstallConfig) String() string {
 	b.WriteString("CNIConfName: " + c.CNIConfName + "\n")
 	b.WriteString("ChainedCNIPlugin: " + fmt.Sprint(c.ChainedCNIPlugin) + "\n")
 	b.WriteString("CNIAgentRunDir: " + fmt.Sprint(c.CNIAgentRunDir) + "\n")
+	b.WriteString("IstioOwnedCNIConfigFilename: " + c.IstioOwnedCNIConfigFilename + "\n")
+	b.WriteString("IstioOwnedCNIConfig: " + fmt.Sprint(c.IstioOwnedCNIConfig) + "\n")
 
 	b.WriteString("PluginLogLevel: " + c.PluginLogLevel + "\n")
 	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")
