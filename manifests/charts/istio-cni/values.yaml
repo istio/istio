@@ -24,6 +24,10 @@ _internal_defaults_do_not_set:
   cniConfFileName: ""
   cniNetnsDir: "/var/run/netns"
 
+  # If Istio owned CNI config is enabled, defaults to 02-istio-cni.conflist
+  istioOwnedCNIConfigFileName: "" 
+  istioOwnedCNIConfig: false
+
   excludeNamespaces:
     - kube-system
 
