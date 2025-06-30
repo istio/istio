@@ -25,7 +25,7 @@ require (
 	github.com/felixge/fgprof v0.9.5
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-jose/go-jose/v4 v4.1.0
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.4
 	github.com/google/cel-go v0.25.0
@@ -55,7 +55,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.2
-	github.com/prometheus/common v0.63.0
+	github.com/prometheus/common v0.65.0
 	github.com/prometheus/procfs v0.16.1
 	github.com/prometheus/prometheus v0.303.1
 	github.com/quic-go/quic-go v0.51.0
@@ -96,18 +96,18 @@ require (
 	helm.sh/helm/v3 v3.17.3
 	istio.io/api v1.26.0-alpha.0.0.20250630204523-5abba3652826
 	istio.io/client-go v1.26.0-alpha.0.0.20250630205222-6cb549ffed6d
-	k8s.io/api v0.33.0
-	k8s.io/apiextensions-apiserver v0.33.0
-	k8s.io/apimachinery v0.33.0
-	k8s.io/apiserver v0.33.0
+	k8s.io/api v0.33.2
+	k8s.io/apiextensions-apiserver v0.33.2
+	k8s.io/apimachinery v0.33.2
+	k8s.io/apiserver v0.33.2
 	k8s.io/cli-runtime v0.33.0
-	k8s.io/client-go v0.33.0
+	k8s.io/client-go v0.33.2
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kubectl v0.33.0
 	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979
-	sigs.k8s.io/controller-runtime v0.20.4
+	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/gateway-api v1.3.0
-	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250305175347-5b823746a009
+	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250627230429-b20b9998a164
 	sigs.k8s.io/mcs-api v0.1.1-0.20240624222831-d7001fe1d21c
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -217,7 +217,7 @@ require (
 	golang.org/x/tools v0.33.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/component-base v0.33.0 // indirect
+	k8s.io/component-base v0.33.2 // indirect
 	k8s.io/component-helpers v0.33.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.1 // indirect

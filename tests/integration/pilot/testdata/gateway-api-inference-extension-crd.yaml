@@ -1,4 +1,4 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=5b823746a009da23cd6eacca68c1fb0a35be7bac"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=b20b9998a164285a1f7c405b4217b73a56837c35"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -14,7 +14,20 @@ spec:
     singular: inferencemodel
   scope: Namespaced
   versions:
-  - name: v1alpha2
+  - additionalPrinterColumns:
+    - jsonPath: .spec.modelName
+      name: Model Name
+      type: string
+    - jsonPath: .spec.poolRef.name
+      name: Inference Pool
+      type: string
+    - jsonPath: .spec.criticality
+      name: Criticality
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha2
     schema:
       openAPIV3Schema:
         description: InferenceModel is the Schema for the InferenceModels API.
@@ -75,7 +88,7 @@ spec:
                   ModelNames must be unique for a referencing InferencePool
                   (names can be reused for a different pool in the same cluster).
                   The modelName with the oldest creation timestamp is retained, and the incoming
-                  InferenceModel is sets the Ready status to false with a corresponding reason.
+                  InferenceModel's Ready status is set to false with a corresponding reason.
                   In the rare case of a race condition, one Model will be selected randomly to be considered valid, and the other rejected.
                   Names can be reserved without an underlying model configured in the pool.
                   This can be done by specifying a target model and setting the weight to zero,
@@ -377,16 +390,32 @@ spec:
             - targetPortNumber
             type: object
           status:
-            description: InferencePoolStatus defines the observed state of InferencePool
+            default:
+              parent:
+              - conditions:
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: Pending
+                  status: Unknown
+                  type: Accepted
+                parentRef:
+                  kind: Status
+                  name: default
+            description: Status defines the observed state of InferencePool.
             properties:
               parent:
                 description: |-
                   Parents is a list of parent resources (usually Gateways) that are
-                  associated with the route, and the status of the InferencePool with respect to
+                  associated with the InferencePool, and the status of the InferencePool with respect to
                   each parent.
 
-                  A maximum of 32 Gateways will be represented in this list. An empty list
-                  means the route has not been attached to any Gateway.
+                  A maximum of 32 Gateways will be represented in this list. When the list contains
+                  `kind: Status, name: default`, it indicates that the InferencePool is not
+                  associated with any Gateway and a controller must perform the following:
+
+                   - Remove the parent when setting the "Accepted" condition.
+                   - Add the parent when the controller will no longer manage the InferencePool
+                     and no other parents exist.
                 items:
                   description: PoolStatus defines the observed state of InferencePool
                     from a Gateway.

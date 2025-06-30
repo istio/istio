@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/istio/pilot/pkg/status"
@@ -60,6 +61,7 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				NewGateway("main-gateway", InNamespace(DefaultTestNS), WithGatewayClass("istio")),
 				NewHTTPRoute("test-route", InNamespace(DefaultTestNS),
 					WithParentRefAndStatus("main-gateway", DefaultTestNS, IstioController),
+					WithRouteParentCondition(string(gatewayv1.RouteConditionAccepted), metav1.ConditionTrue, "Accepted", "Accepted"),
 					WithBackendRef("test-pool", DefaultTestNS)),
 			},
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
@@ -143,7 +145,10 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 					WithParentRefAndStatus("gateway-1", DefaultTestNS, IstioController),
 					WithBackendRef("test-pool", DefaultTestNS)),
 			},
-			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS), WithParentStatus("gateway-2", DefaultTestNS, WithAcceptedConditions())),
+			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS),
+				WithParentStatus("gateway-2", DefaultTestNS,
+					WithAcceptedConditions(),
+				)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
@@ -159,7 +164,8 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			},
 			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS),
 				WithParentStatus("gateway-1", DefaultTestNS,
-					WithConditions(metav1.ConditionUnknown, "X", "Y", "Dummy"))),
+					WithAcceptedConditions(),
+				)),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
@@ -196,6 +202,29 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected two parent references")
 				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
+			},
+		},
+		{
+			name: "should remove unknown condition types from controlled parents",
+			givens: []runtime.Object{
+				NewGateway("gateway-1", InNamespace(DefaultTestNS), WithGatewayClass("istio")),
+				NewHTTPRoute("route-1", InNamespace(DefaultTestNS),
+					WithParentRefAndStatus("gateway-1", DefaultTestNS, IstioController),
+					WithBackendRef("test-pool", DefaultTestNS)),
+			},
+			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS),
+				WithParentStatus("gateway-1", DefaultTestNS,
+					WithAcceptedConditions(),
+					WithConditions(metav1.ConditionUnknown, "X", "Y", "Dummy"),
+				)),
+			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
+				require.Len(t, status.Parents, 1, "Expected two parent references")
+				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
+				require.Len(t, status.Parents[0].Conditions, 2, "Expected two conditions")
+				assert.ElementsMatch(t,
+					[]string{string(inferencev1alpha2.InferencePoolConditionAccepted), string(inferencev1alpha2.InferencePoolConditionResolvedRefs)},
+					[]string{status.Parents[0].Conditions[0].Type, status.Parents[0].Conditions[1].Type},
+				)
 			},
 		},
 		{
@@ -289,11 +318,55 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				require.Len(t, status.Parents[0].Conditions, 2, "Expected two condition")
 				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
-					Type:    string(inferencev1alpha2.ModelConditionResolvedRefs),
+					Type:    string(inferencev1alpha2.InferencePoolConditionResolvedRefs),
 					Status:  metav1.ConditionTrue,
-					Reason:  string(inferencev1alpha2.ModelReasonResolvedRefs),
+					Reason:  string(inferencev1alpha2.InferencePoolReasonResolvedRefs),
 					Message: "Referenced ExtensionRef resolved",
 				}, "Expected condition with InvalidExtensionRef")
+			},
+		},
+		{
+			name: "should report HTTPRoute not accepted when parent gateway rejects HTTPRoute",
+			givens: []runtime.Object{
+				NewGateway("main-gateway", InNamespace(DefaultTestNS), WithGatewayClass("istio")),
+				NewHTTPRoute("test-route", InNamespace(DefaultTestNS),
+					WithParentRefAndStatus("main-gateway", DefaultTestNS, IstioController),
+					WithRouteParentCondition(string(gatewayv1.RouteConditionAccepted), metav1.ConditionFalse, "GatewayNotReady", "Gateway not ready"),
+					WithBackendRef("test-pool", DefaultTestNS)),
+			},
+			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
+			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
+				require.Len(t, status.Parents, 1, "Expected one parent reference")
+				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, DefaultTestNS, status.Parents[0].GatewayRef.Namespace)
+				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
+					Type:    string(inferencev1alpha2.InferencePoolConditionAccepted),
+					Status:  metav1.ConditionFalse,
+					Reason:  string(inferencev1alpha2.InferencePoolReasonHTTPRouteNotAccepted),
+					Message: "Referenced HTTPRoute default/test-route not accepted by Gateway default/main-gateway",
+				}, "Expected condition with HTTPRouteNotAccepted")
+			},
+		},
+		{
+			name: "should report unknown status when HTTPRoute parent status has no Accepted condition",
+			givens: []runtime.Object{
+				NewGateway("main-gateway", InNamespace(DefaultTestNS), WithGatewayClass("istio")),
+				NewHTTPRoute("test-route", InNamespace(DefaultTestNS),
+					WithParentRefAndStatus("main-gateway", DefaultTestNS, IstioController),
+					// Note: No WithRouteParentCondition for Accepted - parent is listed but has no conditions
+					WithBackendRef("test-pool", DefaultTestNS)),
+			},
+			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS)),
+			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
+				require.Len(t, status.Parents, 1, "Expected one parent reference")
+				assert.Equal(t, "main-gateway", status.Parents[0].GatewayRef.Name)
+				assert.Equal(t, DefaultTestNS, status.Parents[0].GatewayRef.Namespace)
+				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
+					Type:    string(inferencev1alpha2.InferencePoolConditionAccepted),
+					Status:  metav1.ConditionUnknown,
+					Reason:  string(inferencev1alpha2.InferencePoolReasonAccepted),
+					Message: "Referenced by an HTTPRoute unknown parentRef Gateway status",
+				}, "Expected condition with ConditionUnknown")
 			},
 		},
 
@@ -349,9 +422,9 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				require.Len(t, status.Parents[0].Conditions, 2, "Expected two condition")
 				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
-					Type:    string(inferencev1alpha2.ModelConditionResolvedRefs),
+					Type:    string(inferencev1alpha2.InferencePoolConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
-					Reason:  string(inferencev1alpha2.ModelReasonInvalidExtensionRef),
+					Reason:  string(inferencev1alpha2.InferencePoolReasonInvalidExtensionRef),
 					Message: "Referenced ExtensionRef not found",
 				}, "Expected condition with InvalidExtensionRef")
 			},
@@ -369,9 +442,9 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				require.Len(t, status.Parents[0].Conditions, 2, "Expected two condition")
 				assertConditionContains(t, status.Parents[0].Conditions, metav1.Condition{
-					Type:    string(inferencev1alpha2.ModelConditionResolvedRefs),
+					Type:    string(inferencev1alpha2.InferencePoolConditionResolvedRefs),
 					Status:  metav1.ConditionFalse,
-					Reason:  string(inferencev1alpha2.ModelReasonInvalidExtensionRef),
+					Reason:  string(inferencev1alpha2.InferencePoolReasonInvalidExtensionRef),
 					Message: "Unsupported ExtensionRef kind",
 				}, "Expected condition with InvalidExtensionRef")
 			},
@@ -506,6 +579,29 @@ func WithParentRefAndStatus(name, namespace, controllerName string) Option {
 	}
 }
 
+func WithRouteParentCondition(conditionType string, status metav1.ConditionStatus, reason, message string) Option {
+	return func(obj client.Object) {
+		hr, ok := obj.(*gateway.HTTPRoute)
+		if ok && len(hr.Status.Parents) > 0 {
+			// Add condition to the last parent status (most recently added)
+			lastParentIdx := len(hr.Status.Parents) - 1
+			if hr.Status.Parents[lastParentIdx].Conditions == nil {
+				hr.Status.Parents[lastParentIdx].Conditions = []metav1.Condition{}
+			}
+			hr.Status.Parents[lastParentIdx].Conditions = append(hr.Status.Parents[lastParentIdx].Conditions,
+				metav1.Condition{
+					Type:               conditionType,
+					Status:             status,
+					Reason:             reason,
+					Message:            message,
+					ObservedGeneration: 1,
+					LastTransitionTime: metav1.NewTime(time.Now()),
+				},
+			)
+		}
+	}
+}
+
 func WithBackendRef(name, namespace string) Option {
 	return func(obj client.Object) {
 		hr, ok := obj.(*gateway.HTTPRoute)
@@ -570,7 +666,6 @@ func AsDefaultStatus() ParentOption {
 
 func WithConditions(status metav1.ConditionStatus, conType, reason, message string) ParentOption {
 	return func(parentStatusRef *inferencev1alpha2.PoolStatus) {
-		// Add condition to the first parent status
 		if parentStatusRef.Conditions == nil {
 			parentStatusRef.Conditions = []metav1.Condition{}
 		}
@@ -594,12 +689,13 @@ func WithAcceptedConditions() ParentOption {
 			string(inferencev1alpha2.InferencePoolConditionAccepted),
 			string(inferencev1alpha2.InferencePoolReasonAccepted),
 			"Accepted by the parentRef Gateway",
-		)
+		)(parentStatusRef)
 		WithConditions(
 			metav1.ConditionTrue,
-			string(inferencev1alpha2.ModelConditionResolvedRefs),
-			string(inferencev1alpha2.ModelReasonResolvedRefs),
-			"Resolved ExtensionRef") // Add condition to the first parent status
+			string(inferencev1alpha2.InferencePoolConditionResolvedRefs),
+			string(inferencev1alpha2.InferencePoolReasonResolvedRefs),
+			"Resolved ExtensionRef",
+		)(parentStatusRef)
 	}
 }
 
