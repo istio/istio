@@ -576,8 +576,7 @@ func indexHTTPRouteByInferencePool(o *gateway.HTTPRoute) []string {
 	var keys []string
 	for _, rule := range o.Spec.Rules {
 		for _, backendRef := range rule.BackendRefs {
-			if (backendRef.BackendRef.Group != nil && string(*backendRef.BackendRef.Group) == gvk.InferencePool.Group) &&
-				(backendRef.BackendRef.Kind != nil && string(*backendRef.BackendRef.Kind) == gvk.InferencePool.Kind) {
+			if isInferencePoolBackendRef(backendRef.BackendRef) {
 				// If BackendRef.Namespace is not specified, the backend is in the same namespace as the HTTPRoute's
 				backendRefNamespace := o.Namespace
 				if backendRef.BackendRef.Namespace != nil && *backendRef.BackendRef.Namespace != "" {
