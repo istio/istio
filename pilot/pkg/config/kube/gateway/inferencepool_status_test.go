@@ -157,7 +157,9 @@ func TestInferencePoolStatusReconciliation(t *testing.T) {
 					WithParentRefAndStatus("gateway-1", DefaultTestNS, IstioController),
 					WithBackendRef("test-pool", DefaultTestNS)),
 			},
-			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS), WithParentStatus("gateway-1", DefaultTestNS, WithConditions(metav1.ConditionUnknown, "X", "Y", "Dummy"))),
+			targetPool: NewInferencePool("test-pool", InNamespace(DefaultTestNS),
+				WithParentStatus("gateway-1", DefaultTestNS,
+					WithConditions(metav1.ConditionUnknown, "X", "Y", "Dummy"))),
 			expectations: func(t *testing.T, status *inferencev1alpha2.InferencePoolStatus) {
 				require.Len(t, status.Parents, 1, "Expected one parent reference")
 				assert.Equal(t, "gateway-1", status.Parents[0].GatewayRef.Name)
