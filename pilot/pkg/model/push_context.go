@@ -1469,7 +1469,10 @@ func (ps *PushContext) updateContext(
 		ps.AuthzPolicies = oldPushContext.AuthzPolicies
 	}
 
-	if telemetryChanged {
+	// we should reinitialize telemetry only if it is changed
+	// or service is changed, as telemetry depends on services
+	// referenced in the provider.
+	if telemetryChanged || servicesChanged {
 		ps.initTelemetry(env)
 	} else {
 		ps.Telemetry = oldPushContext.Telemetry
