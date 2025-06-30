@@ -109,8 +109,12 @@ func InferencePoolCollection(
 			// TODO: If no gateway parents, we should not do anything
 			// 		note: we stil need to filter out our Status to clean up previous reconciliations
 
-			// Create the InferencePool object
-			inferencePool := createInferencePoolObject(pool, gatewayParents)
+			// Create the InferencePool only if there are Gateways connected
+			var inferencePool *InferencePool
+			if len(gatewayParents) > 0 {
+				// Create the InferencePool object
+				inferencePool = createInferencePoolObject(pool, gatewayParents)
+			}
 
 			// Calculate status
 			status := calculateInferencePoolStatus(pool, gatewayParents, services, gateways, routeList)

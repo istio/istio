@@ -51,6 +51,11 @@ func TestReconcileInferencePool(t *testing.T) {
 	}
 	controller := setupController(t,
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}},
+		NewGateway("test-gw", InNamespace(DefaultTestNS), WithGatewayClass("istio")),
+		NewHTTPRoute("test-route", InNamespace(DefaultTestNS),
+			WithParentRefAndStatus("test-gw", DefaultTestNS, IstioController),
+			WithBackendRef("test-pool", DefaultTestNS),
+		),
 		pool,
 	)
 
