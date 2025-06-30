@@ -68,7 +68,6 @@ type Cluster struct {
 	// initialSyncTimeout is set when RunAndWait timed out
 	initialSyncTimeout *atomic.Bool
 	stop               chan struct{}
-	initialized        *atomic.Bool
 	*RemoteClusterCollections
 }
 
@@ -142,7 +141,6 @@ func NewCluster(
 		stop:               make(chan struct{}),
 		initialSync:        atomic.NewBool(false),
 		initialSyncTimeout: atomic.NewBool(false),
-		initialized:        atomic.NewBool(false),
 	}
 
 	if collections != nil {
@@ -167,7 +165,6 @@ func (c *Cluster) ResourceName() string {
 func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *krt.DebugHandler) {
 	// Check and see if this is a local cluster or not
 	if c.RemoteClusterCollections != nil {
-		c.initialized.Store(true)
 		log.Infof("Configuring cluster %s with existing informers", c.ID)
 		syncers := []krt.Syncer{
 			c.namespaces,
@@ -196,7 +193,6 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 				timeouts.With(clusterLabel.Value(string(c.ID))).Increment()
 			}
 			c.initialSyncTimeout.Store(true)
-			c.initialized.Store(true)
 		})
 	}
 
@@ -266,11 +262,6 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		)...,
 	)...)
 
-	if !c.Client.RunAndWait(c.stop) {
-		log.Warnf("remote cluster %s failed to sync", c.ID)
-		return
-	}
-
 	c.RemoteClusterCollections = &RemoteClusterCollections{
 		namespaces:     Namespaces,
 		pods:           Pods,
@@ -280,31 +271,30 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		gateways:       Gateways,
 	}
 
-	// Mark initialized before starting the client so that we don't have to wait for informers to sync.
-	c.initialized.Store(true)
-
-	if !c.Client.RunAndWait(c.stop) {
-		log.Warnf("remote cluster %s failed to sync", c.ID)
-		return
-	}
-
-	syncers := []krt.Syncer{
-		c.namespaces,
-		c.gateways,
-		c.services,
-		c.nodes,
-		c.endpointSlices,
-		c.pods,
-	}
-
-	for _, syncer := range syncers {
-		if !syncer.WaitUntilSynced(c.stop) {
-			log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
+	go func() {
+		if !c.Client.RunAndWait(c.stop) {
+			log.Warnf("remote cluster %s failed to sync", c.ID)
 			return
 		}
-	}
 
-	c.initialSync.Store(true)
+		syncers := []krt.Syncer{
+			c.namespaces,
+			c.gateways,
+			c.services,
+			c.nodes,
+			c.endpointSlices,
+			c.pods,
+		}
+
+		for _, syncer := range syncers {
+			if !syncer.WaitUntilSynced(c.stop) {
+				log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
+				return
+			}
+		}
+
+		c.initialSync.Store(true)
+	}()
 }
 
 func (c *Cluster) HasSynced() bool {
@@ -340,19 +330,9 @@ func (c *Cluster) Stop() {
 	}
 }
 
-func (c *Cluster) IsInitialized() bool {
-	// If the cluster is initialized, it means that the remote collections have been created
-	return c.initialized.Load()
-}
-
 func (c *Cluster) WaitUntilSynced(stop <-chan struct{}) bool {
 	if c.HasSynced() {
 		return true
-	}
-
-	if !kube.WaitForCacheSync(fmt.Sprintf("remote cluster %s init", c.ID), stop, c.IsInitialized) {
-		log.Errorf("Timed out waiting for remote cluster %s to initialize", c.ID)
-		return false
 	}
 
 	// Wait for all syncers to be synced
