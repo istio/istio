@@ -148,7 +148,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	}
 	configController := s.makeKubeConfigController(args)
 	s.ConfigStores = append(s.ConfigStores, configController)
-	tw := revisions.NewTagWatcher(s.kubeClient, args.Revision, args.Namespace)
+	tw := revisions.NewTagWatcher(s.kubeClient, args.Revision)
 	s.addStartFunc("tag-watcher", func(stop <-chan struct{}) error {
 		go tw.Run(stop)
 		return nil
@@ -195,7 +195,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
 						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
-							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision, args.Namespace)
+							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
 							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
 								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision, args.Namespace)
 							// Start informers again. This fixes the case where informers for namespace do not start,
