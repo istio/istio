@@ -79,8 +79,7 @@ func (i Installer) InstallManifests(manifests []manifest.ManifestSet) error {
 	}
 
 	// We may need to manually deploy some webhooks out-of-band from the install, making this th
-	ownerLabels := getOwnerLabels(i.Values, "")
-	webhooks, err := webhook.WebhooksToDeploy(i.Values, i.Kube, ownerLabels, i.DryRun)
+	webhooks, err := webhook.WebhooksToDeploy(i.Values, i.Kube, i.DryRun)
 	if err != nil {
 		return fmt.Errorf("failed generating webhooks: %v", err)
 	}
