@@ -20,7 +20,6 @@ rules:
     resources: ["*"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
-    # configmaps removed as remote clusters should not read configmaps for security reasons.
     resources: ["endpoints", "pods", "services", "nodes", "replicationcontrollers", "namespaces", "secrets"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["networking.istio.io"]
