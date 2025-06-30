@@ -201,6 +201,13 @@ func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {
 			TypedExtensionConfig: &core.TypedExtensionConfig{
 				Name: wellknown.EnvoyOverrideHostLbPolicy,
 				TypedConfig: protoconv.MessageToAny(&overridehost.OverrideHost{
+					// A list of sources to get host addresses from. The host sources are searched in the order
+					// specified. The request is forwarded to the first address and subsequent addresses are used
+					// for request retries or hedging.
+					//
+					// Note that if an overridden host address is not present in the current endpoint set, it is
+					// skipped and the next found address is used. If there are not enough overridden addresses to
+					// satisfy all retry attempts the fallback load balancing policy is used to pick a host.
 					OverrideHostSources: []*overridehost.OverrideHost_OverrideHostSource{
 						{
 							Metadata: &metadatav3.MetadataKey{
@@ -215,8 +222,8 @@ func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {
 							},
 						},
 					},
-					// TODO(liorlieberman): Check if we are aligned with new fallback guidance by inference.
-					// I think we need to infer fallback from the "x-gateway-destination-endpoint" key.
+					// The fallback LB policy is triggered in case neither header nor metadata with selected
+					// hosts is present or there were not enough endpoints to satisfy all retry attempts.
 					FallbackPolicy: &cluster.LoadBalancingPolicy{
 						Policies: []*cluster.LoadBalancingPolicy_Policy{
 							{

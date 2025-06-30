@@ -109,8 +109,9 @@ var services = []*model.Service{
 		Attributes: model.ServiceAttributes{
 			Namespace: "default",
 			Labels: map[string]string{
-				InferencePoolExtensionRefSvc:  "ext-proc-svc",
-				InferencePoolExtensionRefPort: "9002",
+				InferencePoolExtensionRefSvc:         "ext-proc-svc",
+				InferencePoolExtensionRefPort:        "9002",
+				InferencePoolExtensionRefFailureMode: "FailClose",
 			},
 		},
 		Ports:    ports,
@@ -120,8 +121,9 @@ var services = []*model.Service{
 		Attributes: model.ServiceAttributes{
 			Namespace: "default",
 			Labels: map[string]string{
-				InferencePoolExtensionRefSvc:  "ext-proc-svc-2",
-				InferencePoolExtensionRefPort: "9002",
+				InferencePoolExtensionRefSvc:         "ext-proc-svc-2",
+				InferencePoolExtensionRefPort:        "9002",
+				InferencePoolExtensionRefFailureMode: "FailClose",
 			},
 		},
 		Ports:    ports,
