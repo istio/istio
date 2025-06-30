@@ -187,7 +187,7 @@ var (
 	// This feature is used when the native sidecar is enabled and applies to all workloads,
 	// not just specific workloads.
 	InitContainerBeforeProxy = env.Register("INIT_CONTAINERS_BEFORE_PROXY", "",
-		"If set, and native sidecar is enabled, the init containers listed, as comma seperated value, will be started before the istio-proxy container.")
+		"If set, and native sidecar is enabled, the init containers listed, as comma separated value, will be started before the istio-proxy container.")
 
 	Enable100ContinueHeaders = env.Register("ENABLE_100_CONTINUE_HEADERS", true,
 		"If enabled, istiod will proxy 100-continue headers as is").Get()

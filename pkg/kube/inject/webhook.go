@@ -791,8 +791,8 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	}
 
 	// Check for annotation describing containers to order before the proxy container
-	var initContainersBeforeProxy = make([]string, 0)
-	var dedupInitContainersBeforeProxy = make(map[string]bool)
+	initContainersBeforeProxy := make([]string, 0)
+	deduplicateContainersBeforeProxy := make(map[string]bool)
 
 	// Combine feature and annotation values into a single string
 	containersBeforeProxy := features.InitContainerBeforeProxy.Get()
@@ -803,9 +803,9 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	// Populate the map only if containersBeforeProxy is not empty
 	if containersBeforeProxy != "" {
 		for _, containerName := range strings.Split(containersBeforeProxy, ",") {
-			if _, exists := dedupInitContainersBeforeProxy[containerName]; !exists {
+			if _, exists := deduplicateContainersBeforeProxy[containerName]; !exists {
 				initContainersBeforeProxy = append(initContainersBeforeProxy, containerName)
-				dedupInitContainersBeforeProxy[containerName] = true
+				deduplicateContainersBeforeProxy[containerName] = true
 			}
 		}
 	}
