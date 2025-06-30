@@ -143,8 +143,9 @@ func HTTPRouteCollection(
 				for _, httpRule := range routes { // These are []*istio.HTTPRoute
 					if ipCfg, found := routeRuleToInferencePoolCfg[httpRule.Name]; found {
 						currentRouteInferenceConfigs[httpRule.Name] = kube.InferencePoolRouteRuleConfig{
-							FQDN: ipCfg.endpointPickerDst,
-							Port: ipCfg.endpointPickerPort,
+							FQDN:             ipCfg.endpointPickerDst,
+							Port:             ipCfg.endpointPickerPort,
+							FailureModeAllow: ipCfg.endpointPickerFailureMode == string(inferencev1alpha2.FailOpen),
 						}
 					}
 				}
@@ -285,8 +286,9 @@ func GRPCRouteCollection(
 				for _, httpRule := range routes {
 					if ipCfg, found := routeRuleToInferencePoolCfg[httpRule.Name]; found { // This map will be empty for GRPCRoute for now
 						currentRouteInferenceConfigs[httpRule.Name] = kube.InferencePoolRouteRuleConfig{
-							FQDN: ipCfg.endpointPickerDst,
-							Port: ipCfg.endpointPickerPort,
+							FQDN:             ipCfg.endpointPickerDst,
+							Port:             ipCfg.endpointPickerPort,
+							FailureModeAllow: ipCfg.endpointPickerFailureMode == string(inferencev1alpha2.FailOpen),
 						}
 					}
 				}

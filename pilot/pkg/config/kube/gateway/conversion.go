@@ -1011,9 +1011,10 @@ func buildGRPCDestination(
 }
 
 type inferencePoolConfig struct {
-	enableExtProc      bool
-	endpointPickerDst  string
-	endpointPickerPort string
+	enableExtProc             bool
+	endpointPickerDst         string
+	endpointPickerPort        string
+	endpointPickerFailureMode string
 }
 
 func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
@@ -1107,7 +1108,10 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		if p, ok := svc.Attributes.Labels[InferencePoolExtensionRefPort]; ok {
 			ipCfg.endpointPickerPort = p
 		}
-		if ipCfg.endpointPickerDst == "" || ipCfg.endpointPickerPort == "" {
+		if fm, ok := svc.Attributes.Labels[InferencePoolExtensionRefFailureMode]; ok {
+			ipCfg.endpointPickerFailureMode = fm
+		}
+		if ipCfg.endpointPickerDst == "" || ipCfg.endpointPickerPort == "" || ipCfg.endpointPickerFailureMode == "" {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
 		}
 		return &istio.Destination{
