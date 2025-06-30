@@ -227,7 +227,7 @@ func findGatewayParents(
 
 			// Get the gateway namespace (default to route namespace if not specified)
 			gatewayNamespace := route.Namespace
-			if parentStatus.ParentRef.Namespace != nil && *parentStatus.ParentRef.Namespace != "" {
+			if ptr.OrEmpty(parentStatus.ParentRef.Namespace) != "" {
 				gatewayNamespace = string(*parentStatus.ParentRef.Namespace)
 			}
 
@@ -256,7 +256,7 @@ func routeReferencesInferencePool(route *gateway.HTTPRoute, pool *inferencev1alp
 
 			// Check namespace match
 			backendRefNamespace := route.Namespace
-			if backendRef.BackendRef.Namespace != nil && *backendRef.BackendRef.Namespace != "" {
+			if ptr.OrEmpty(backendRef.BackendRef.Namespace) != "" {
 				backendRefNamespace = string(*backendRef.BackendRef.Namespace)
 			}
 
@@ -270,8 +270,8 @@ func routeReferencesInferencePool(route *gateway.HTTPRoute, pool *inferencev1alp
 
 // isInferencePoolBackendRef checks if a BackendRef is pointing to an InferencePool
 func isInferencePoolBackendRef(backendRef gatewayv1.BackendRef) bool {
-	return backendRef.Group != nil && string(*backendRef.Group) == gvk.InferencePool.Group &&
-		backendRef.Kind != nil && string(*backendRef.Kind) == gvk.InferencePool.Kind
+	return ptr.OrEmpty(backendRef.Group) == gatewayv1.Group(gvk.InferencePool.Group) &&
+		ptr.OrEmpty(backendRef.Kind) == gatewayv1.Kind(gvk.InferencePool.Kind)
 }
 
 // calculateSingleParentStatus calculates the status for a single gateway parent
@@ -340,7 +340,7 @@ func calculateAcceptedStatus(
 
 			// Check if this parent refers to our gateway
 			gatewayNamespace := route.Namespace
-			if parentStatus.ParentRef.Namespace != nil && *parentStatus.ParentRef.Namespace != "" {
+			if ptr.OrEmpty(parentStatus.ParentRef.Namespace) != "" {
 				gatewayNamespace = string(*parentStatus.ParentRef.Namespace)
 			}
 
@@ -579,7 +579,7 @@ func indexHTTPRouteByInferencePool(o *gateway.HTTPRoute) []string {
 			if isInferencePoolBackendRef(backendRef.BackendRef) {
 				// If BackendRef.Namespace is not specified, the backend is in the same namespace as the HTTPRoute's
 				backendRefNamespace := o.Namespace
-				if backendRef.BackendRef.Namespace != nil && *backendRef.BackendRef.Namespace != "" {
+				if ptr.OrEmpty(backendRef.BackendRef.Namespace) != "" {
 					backendRefNamespace = string(*backendRef.BackendRef.Namespace)
 				}
 				key := backendRefNamespace + "/" + string(backendRef.Name)
