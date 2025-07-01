@@ -69,7 +69,7 @@ func New(cfg Config) (Instance, error) {
 		case protocol.UDP:
 			return newUDP(cfg), nil
 		default:
-			return nil, fmt.Errorf("unsupported protocol: %s", cfg.Port.Protocol)
+			return nil, fmt.Errorf("jaellio1 unsupported protocol: %s", cfg.Port.Protocol)
 		}
 	}
 

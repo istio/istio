@@ -67,6 +67,7 @@ func (d *doubleDialer) DialContext(ctx context.Context, network, address string)
 		return net.Dial(network, address)
 	}
 	// TODO: use context
+	log.Infof("jaellio in the doubleDialer %v + %v", address, d.outerCfg)
 	c, s := net.Pipe()
 	resp, pw, err := hbone(s, address, d.outerCfg, d.outerTransport, false)
 	if err != nil {

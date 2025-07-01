@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/crd"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -92,7 +92,7 @@ func NewWaypointProxyForCluster(ctx resource.Context, ns namespace.Instance, nam
 		ns: ns,
 	}
 	server.id = ctx.TrackResource(server)
-	if err := crd.DeployGatewayAPI(ctx); err != nil {
+	if err := istio.DeployGatewayAPI(ctx); err != nil {
 		return nil, err
 	}
 
@@ -152,7 +152,7 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 		ns: ns,
 	}
 	server.id = ctx.TrackResource(server)
-	if err := crd.DeployGatewayAPI(ctx); err != nil {
+	if err := istio.DeployGatewayAPI(ctx); err != nil {
 		return nil, err
 	}
 

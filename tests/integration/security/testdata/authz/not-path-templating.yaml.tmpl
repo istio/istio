@@ -1,0 +1,15 @@
+kubectl apply -f - <<EOF
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: httpbin
+spec:
+  selector:
+    matchLabels:
+      "app": "httpbin"
+  action: ALLOW
+  rules:
+    - to:
+        - operation:
+            notPaths: ["/{**}"]
+EOF

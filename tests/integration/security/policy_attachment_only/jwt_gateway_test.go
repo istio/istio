@@ -26,13 +26,13 @@ import (
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/config"
 	"istio.io/istio/pkg/test/framework/components/echo/config/param"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/tests/common/jwt"
@@ -42,7 +42,7 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
-			crd.DeployGatewayAPIOrSkip(t)
+			istio.DeployGatewayAPIOrSkip(t)
 			config.New(t).
 				Source(config.File("testdata/requestauthn/gateway-api.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Namespace,
@@ -193,7 +193,7 @@ func TestGatewayAPIAuthorizationPolicy(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
-			crd.DeployGatewayAPIOrSkip(t)
+			istio.DeployGatewayAPIOrSkip(t)
 			config.New(t).
 				Source(config.File("testdata/authz/gateway-api.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Namespace,

@@ -149,6 +149,7 @@ func TestMain(m *testing.M) {
 			cfg.ControlPlaneValues = ambientControlPlaneValues
 			if ctx.Settings().AmbientMultiNetwork {
 				cfg.DeployEastWestGW = true
+				cfg.DeployGatewayAPI = true
 				cfg.ControlPlaneValues = ambientMultiNetworkControlPlaneValues
 				// TODO: Remove once we're actually ready to test the multi-cluster
 				// features
@@ -350,6 +351,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	if t.Settings().AmbientMultiNetwork {
 		builder = builder.WithConfig(echo.Config{
 			Service:        Global,
+			ServiceLabels:  map[string]string{"istio.io/global": "true"},
 			Namespace:      apps.Namespace,
 			Ports:          ports.All(),
 			ServiceAccount: true,
@@ -357,16 +359,10 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas: 1,
 					Version:  "v1",
-					Labels: map[string]string{
-						"istio.io/global": "true",
-					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
-					Labels: map[string]string{
-						"istio.io/global": "true",
-					},
 				},
 			},
 		}).WithConfig(echo.Config{
