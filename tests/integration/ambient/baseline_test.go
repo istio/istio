@@ -3313,6 +3313,66 @@ func TestDirect(t *testing.T) {
 				Check: check.Status(503),
 			})
 		})
+		t.NewSubTest("east west gateway").Run(func(t framework.TestContext) {
+			if !t.Settings().AmbientMultiNetwork {
+				t.Skip("only test east west gateway service scope in multi-network mode")
+			}
+			c := common.NewCaller()
+			run := func(name string, options echo.CallOptions) {
+				t.NewSubTest(name).Run(func(t framework.TestContext) {
+					_, err := c.CallEcho(nil, options)
+					if err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+			cluster := t.Clusters().Default() // TODO: support multicluster
+
+			i := istio.GetOrFail(t)
+			ewgaddr := i.EastWestGatewayForAmbient(cluster).DiscoveryAddresses()[0].Addr()
+			cert, err := istio.CreateCertificate(t, i, apps.Global.ServiceName(), apps.Namespace.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			hbsvc := echo.HBONE{
+				Address:            fmt.Sprintf("%s:%v", ewgaddr.String(), 15008),
+				Headers:            nil,
+				Cert:               string(cert.ClientCert),
+				Key:                string(cert.Key),
+				CaCert:             string(cert.RootCert),
+				InsecureSkipVerify: true,
+			}
+
+			hbsvci := echo.HBONE{
+				Address:            ewgaddr.String(),
+				Headers:            nil,
+				Cert:               string(cert.ClientCert),
+				Key:                string(cert.Key),
+				CaCert:             string(cert.RootCert),
+				InsecureSkipVerify: true,
+			}
+
+			run("global service", echo.CallOptions{
+				To:      apps.Global.ForCluster(cluster.Name()),
+				Count:   1,
+				Address: apps.Global.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Port:    echo.Port{Name: ports.HTTP.Name},
+				HBONE: hbsvci,
+				DoubleHBONE:   hbsvc,
+				// Global services are expected to be reachable via the east-west gateway
+				Check: check.OK(),
+			})
+			run("local service", echo.CallOptions{
+				To:      apps.Local.ForCluster(cluster.Name()),
+				Count:   1,
+				Address: apps.Local.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Port:    echo.Port{Name: ports.HTTP.Name},
+				HBONE: hbsvci,
+				DoubleHBONE:   hbsvc,
+				// Local services are not expected to be reachable via the east-west gateway
+				Check: check.Error(),
+			})
+		})
 	})
 }
 
