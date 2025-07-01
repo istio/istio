@@ -14,26 +14,48 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package ctb
 
 import (
 	"testing"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
+var (
+	clustertbI    istio.Instance
+	clustertbApps = deployment.SingleNamespaceView{}
+)
+
+// TestMain defines the entrypoint for ClusterTrustBundle tests using a custom Istio installation
+// with ClusterTrustBundle support enabled for issues #56676 and #56675.
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
+		Label(label.CustomSetup).
+		RequiresMinKubeVersion(27). // ClusterTrustBundle is available in K8s 1.27+
+		Setup(istio.Setup(&clustertbI, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
   pilot:
     env:
-      ENABLE_CLUSTER_TRUST_BUNDLE_API: true
+      PILOT_ENABLE_CLUSTERTB_WORKLOAD_ENTRIES: true
+      EXTERNAL_ISTIOD: true
+components:
+  pilot:
+    k8s:
+      env:
+        - name: PILOT_ENABLE_CLUSTERTB_WORKLOAD_ENTRIES
+          value: "true"
+        - name: EXTERNAL_ISTIOD
+          value: "true"
 `
 		})).
+		Setup(deployment.SetupSingleNamespace(&clustertbApps, deployment.Config{})).
 		Run()
 }
