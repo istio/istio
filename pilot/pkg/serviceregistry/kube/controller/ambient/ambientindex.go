@@ -251,16 +251,6 @@ func New(options Options) Index {
 		)...,
 	)...)
 
-	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](options.Client, kclient.Filter{
-		ObjectFilter: options.Client.ObjectFilter(),
-	}, opts.With(
-		append(opts.WithName("informer/ConfigMaps"),
-			krt.WithMetadata(krt.Metadata{
-				multicluster.ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
-	)...)
-
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data.
 	// We only do this if this cluster is the config cluster
 	if features.EnableAmbientMultiNetwork && options.IsConfigCluster {
@@ -271,7 +261,6 @@ func New(options Options) Index {
 			EndpointSlices,
 			Nodes,
 			Gateways,
-			ConfigMaps,
 		)
 		LocalCluster := multicluster.NewCluster(
 			options.ClusterID,

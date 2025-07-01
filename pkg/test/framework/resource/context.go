@@ -71,7 +71,7 @@ type Context interface {
 	// CreateTmpDirectory creates a new temporary directory within this context.
 	CreateTmpDirectory(prefix string) (string, error)
 
-	// ConfigKube returns a Context that writes config to the provided clusters. If
+	// ConfigKube returns a Context sthat writes config to the provided clusters. If
 	// no clusters are provided, writes to all clusters in the mesh.
 	ConfigKube(clusters ...cluster.Cluster) config.Factory
 
