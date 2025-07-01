@@ -20,6 +20,7 @@ package ctb
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -81,10 +82,24 @@ spec:
 `
 
 // TestClusterTrustBundleBasicFunctionality tests basic ClusterTrustBundle operations
-// This addresses issue #56676 for ClusterTrustBundle CRUD operations
-func TestClusterTrustBundleBasicFunctionality(t *testing.T) {
+func TestClusterTrustBundleBasicFunctionality(t *testing.T) { // Simple unit test that validates our test setup without requiring Kubernetes
+	t.Run("basic-setup", func(t *testing.T) {
+		// Test that our templates are valid
+		cert := generateTestCertificateString()
+		if cert == "" {
+			t.Error("generateTestCertificateString returned empty string")
+		}
+
+		indented := indentCertificate(cert)
+		if indented == "" {
+			t.Error("indentCertificate returned empty string")
+		}
+
+		t.Logf("Successfully generated and indented certificate")
+	})
+
+	// Integration test that requires Kubernetes - skip if no cluster available
 	framework.NewTest(t).
-		RequiresLocalControlPlane().
 		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
 			ctx := context.Background()
@@ -152,7 +167,6 @@ defaultConfig:
 // This addresses issue #56675 for ClusterTrustBundle integration with WorkloadEntry
 func TestClusterTrustBundleWorkloadEntryIntegration(t *testing.T) {
 	framework.NewTest(t).
-		RequiresLocalControlPlane().
 		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
 			ctx := context.Background()
@@ -253,7 +267,6 @@ defaultConfig:
 // TestClusterTrustBundleCertificateValidation tests certificate validation in ClusterTrustBundle
 func TestClusterTrustBundleCertificateValidation(t *testing.T) {
 	framework.NewTest(t).
-		RequiresLocalControlPlane().
 		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
 			ctx := context.Background()
@@ -289,7 +302,6 @@ func TestClusterTrustBundleCertificateValidation(t *testing.T) {
 // TestClusterTrustBundleMultipleSigners tests multiple ClusterTrustBundles with different signers
 func TestClusterTrustBundleMultipleSigners(t *testing.T) {
 	framework.NewTest(t).
-		RequiresLocalControlPlane().
 		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
 			ctx := context.Background()
@@ -353,7 +365,7 @@ func TestClusterTrustBundleMultipleSigners(t *testing.T) {
 
 // Helper functions
 
-func generateTestCertificate(t framework.TestContext) string {
+func generateTestCertificateString() string {
 	// This is a test certificate - in real scenarios this would be a proper CA certificate
 	return `-----BEGIN CERTIFICATE-----
 MIICsDCCAZgCCQDK1JHvSmZUGDANBgkqhkiG9w0BAQsFADAaMRgwFgYDVQQDDA90
@@ -374,28 +386,17 @@ LfY9vGzKn2oRt8wN3yF7jKpY9v2qV8rG3tLfY7+pK9vN8qF2wO7zV3jY1qNtL+bF
 -----END CERTIFICATE-----`
 }
 
+func generateTestCertificate(t framework.TestContext) string {
+	return generateTestCertificateString()
+}
+
 func indentCertificate(cert string) string {
 	lines := ""
-	for _, line := range []string{
-		"-----BEGIN CERTIFICATE-----",
-		"MIICsDCCAZgCCQDK1JHvSmZUGDANBgkqhkiG9w0BAQsFADAaMRgwFgYDVQQDDA90",
-		"ZXN0LmV4YW1wbGUuY29tMB4XDTIzMDEwMTAwMDAwMFoXDTI0MDEwMTAwMDAwMFow",
-		"GjEYMBYGA1UEAwwPdGVzdC5leGFtcGxlLmNvbTCCASIwDQYJKoZIhvcNAQEBBQAD",
-		"ggEPADCCAQoCggEBALn7fJl2Qi8K9VzR9vG7XcDnm8/yGqCPwv8n7XqQ1g3HK4N5",
-		"bS9J3XoKZQJ6fPqL+Np2Qrt8N7+xJ0Rc+8A6B4K5xOGKJQqKt8Jc7GhJ3YpP9z5n",
-		"XoUt9VkqJ+J5cFkV3YAu6L6sT8Q5FhR7Q8LlG9Y3e2K6bN8u8RqT7K8nVlO4a3zX",
-		"hHJfV6GKZQn8A9qPxZF9c7zQ9oN5Y8K3zG8bJ5dN7Q2rO3eFsN8+xL6KZQR7H9vQ",
-		"tZCt8R9q2wYNnXkbJ4Z8u6KvV7qRzN8L2mOqX8a3zQF7cJ0bwL9mKfQ5Y8nY2ZeP",
-		"tL3z7v9a1xV6KJ3mFr5GNqL8K9Xz3F9qR7Y2GZsCAwEAATANBgkqhkiG9w0BAQsF",
-		"AAOCAQEAp8v7/uN8w8Xf3t7Q+aDzHn2KJ8vF0tOd7YQg1o2bFl8n8wYr9hHp4uNj",
-		"kV8nOq2zK7dP9r3F5vCt8wKn0YXg9L7G2bK5QN1vCr8VeH4L7jZ8pOq8tYr6nKfV",
-		"z3rK9wK1Y8vF2bGpF8k6oNz7Q5Y3tLr7JpK9vO3xF8nG7zYeQ+L1qV8pKt9oFbYv",
-		"Zc8L5wG3o2Y1qV+9tF3xKc7Q9pOvF7Y2bL8kN5Y7vG3qFpY8jK2cQr7dJ8yV3tO+",
-		"LfY9vGzKn2oRt8wN3yF7jKpY9v2qV8rG3tLfY7+pK9vN8qF2wO7zV3jY1qNtL+bF",
-		"9pO2xK8v7nGrY3t2qVkL9wC3oY8sJg==",
-		"-----END CERTIFICATE-----",
-	} {
-		lines += "    " + line + "\n"
+	// Split the certificate into lines and add indentation
+	for _, line := range strings.Split(strings.TrimSpace(cert), "\n") {
+		if line != "" {
+			lines += "    " + line + "\n"
+		}
 	}
 	return lines
 }
