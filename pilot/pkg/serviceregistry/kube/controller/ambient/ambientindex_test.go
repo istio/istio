@@ -2181,10 +2181,6 @@ func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 	})
 }
 
-func (s *ambientTestServer) addNetworkGateway(t *testing.T, ip, name string, ready bool) {
-	s.addNetworkGatewayForClient(t, ip, name, s.network.String(), ready, s.grc)
-}
-
 func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, name, network string, ready bool, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
 	s.addNetworkGatewaySpecificAddressForClient(t, ip, "", name, network, ready, grc)
 }
