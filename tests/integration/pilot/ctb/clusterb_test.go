@@ -114,7 +114,7 @@ defaultConfig:
 
 			// Test ClusterTrustBundle creation and validation
 			ctbName := "test-cluster-trust-bundle"
-			testCert := generateTestCertificate(t)
+			testCert := generateTestCertificate()
 
 			ctbYAML := tmpl.EvaluateOrFail(t, clusterTrustBundleTemplate, map[string]interface{}{
 				"Name":        ctbName,
@@ -134,7 +134,7 @@ defaultConfig:
 			}, retry.Timeout(30*time.Second))
 
 			// Test ClusterTrustBundle update
-			updatedCert := generateTestCertificate(t)
+			updatedCert := generateTestCertificate()
 			updatedCTBYAML := tmpl.EvaluateOrFail(t, clusterTrustBundleTemplate, map[string]interface{}{
 				"Name":        ctbName,
 				"SignerName":  "test.example.com/test-signer",
@@ -186,7 +186,7 @@ defaultConfig:
 
 			// Create ClusterTrustBundle first
 			ctbName := "workload-trust-bundle"
-			testCert := generateTestCertificate(t)
+			testCert := generateTestCertificate()
 
 			ctbYAML := tmpl.EvaluateOrFail(t, clusterTrustBundleTemplate, map[string]interface{}{
 				"Name":        ctbName,
@@ -273,7 +273,7 @@ func TestClusterTrustBundleCertificateValidation(t *testing.T) {
 			client := t.Clusters().Default().Kube()
 
 			// Test valid certificate acceptance
-			validCert := generateTestCertificate(t)
+			validCert := generateTestCertificate()
 			validCTBYAML := tmpl.EvaluateOrFail(t, clusterTrustBundleTemplate, map[string]interface{}{
 				"Name":        "valid-cert-bundle",
 				"SignerName":  "valid.example.com/signer",
@@ -318,7 +318,7 @@ func TestClusterTrustBundleMultipleSigners(t *testing.T) {
 
 			// Create multiple ClusterTrustBundles
 			for _, bundle := range bundles {
-				cert := generateTestCertificate(t)
+				cert := generateTestCertificate()
 				ctbYAML := tmpl.EvaluateOrFail(t, clusterTrustBundleTemplate, map[string]interface{}{
 					"Name":        bundle.name,
 					"SignerName":  bundle.signerName,
@@ -386,7 +386,7 @@ LfY9vGzKn2oRt8wN3yF7jKpY9v2qV8rG3tLfY7+pK9vN8qF2wO7zV3jY1qNtL+bF
 -----END CERTIFICATE-----`
 }
 
-func generateTestCertificate(t framework.TestContext) string {
+func generateTestCertificate() string {
 	return generateTestCertificateString()
 }
 
