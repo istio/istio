@@ -2186,7 +2186,7 @@ func (s *ambientTestServer) addNetworkGateway(t *testing.T, ip, name string, rea
 }
 
 func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, name, network string, ready bool, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
-	s.addNetworkGatewaySpecificAddressForClient(t, ip, fmt.Sprintf("%s.%s.svc.%s", name, testNS, s.DomainSuffix), name, network, ready, grc)
+	s.addNetworkGatewaySpecificAddressForClient(t, ip, "", name, network, ready, grc)
 }
 
 func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(

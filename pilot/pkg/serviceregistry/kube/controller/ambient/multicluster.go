@@ -257,7 +257,6 @@ func (a *index) buildGlobalCollections(
 		opts.WithName("GlobalMergedServiceInfos")...,
 	)
 
-
 	GobalWorkloadServicesWithClusterByCluster := nestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
 	LocalServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](LocalWorkloadServices, "serviceAddress", networkAddressFromService)
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](GlobalMergedWorkloadServices, "serviceAddress", networkAddressFromService)
@@ -441,19 +440,19 @@ func (a *index) buildGlobalCollections(
 			if len(gws) > 1 {
 				log.Warnf("Multiple gateways found for network %s, using the first one", networkID)
 			}
-			gw = gws[0]
+			gw := gws[0]
 			wi := a.createSplitHorizonWorkload(svcName, svc.Service, &gw, capacity, meshCfg)
 			return []model.WorkloadInfo{*wi}
 		}, opts.WithName("remoteCoalesedWorkloads")...,
 	)
 
-	localWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, i model.WorkloadInfo) *model.WorkloadInfo {
+	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, i model.WorkloadInfo) *model.WorkloadInfo {
 		localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
 		if i.Workload.Network == localNetwork {
 			return &i
 		}
 		return nil
-	}, opts.WithName("LocalWorkloads")...)
+	}, opts.WithName("NetworkLocalWorkloads")...)
 
 	remoteGwWorkloads := krt.NewCollection(
 		a.networks.NetworkGateways,
@@ -475,10 +474,9 @@ func (a *index) buildGlobalCollections(
 			}
 			return ptr.Of(precomputeWorkload(*wi))
 
-		},
-	)
+		}, opts.WithName("RemoteGatewayWorkloads")...)
 
-	SplitHorizonWorkloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{coalesedWorkloads, localWorkloads, remoteGwWorkloads}, opts.WithName("SplitHorizonWorkloads")...)
+	SplitHorizonWorkloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{coalesedWorkloads, networkLocalWorkloads, remoteGwWorkloads}, opts.WithName("SplitHorizonWorkloads")...)
 	SplitHorizonWorkloads.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.WorkloadInfo) *workloadapi.Workload {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
@@ -811,8 +809,8 @@ func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, mesh
 		return nil, err
 	}
 	wl := workloadapi.Workload{
-		Uid:            networkGateway.ResourceName(), // Definitely make this a better name
-		Name:           networkGateway.ResourceName(), // TODO(stevenjin8): better name?
+		Uid:            networkGateway.ResourceName(),
+		Name:           networkGateway.ResourceName(),
 		Namespace:      networkGateway.Source.Namespace,
 		Network:        networkGateway.Network.String(),
 		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
@@ -849,7 +847,7 @@ func (a *index) createSplitHorizonWorkload(
 		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
 		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
 		NetworkGateway: &workloadapi.GatewayAddress{
-			Destination: &workloadapi.GatewayAddress_Address{},
+			Destination:   &workloadapi.GatewayAddress_Address{},
 			HboneMtlsPort: hboneMtlsPort,
 		},
 		ClusterId: networkGateway.Cluster.String(),
@@ -865,9 +863,9 @@ func (a *index) createSplitHorizonWorkload(
 		// Assume address is a hostname
 		wl.NetworkGateway.Destination = &workloadapi.GatewayAddress_Hostname{
 			Hostname: &workloadapi.NamespacedHostname{
-				Namespace: networkGateway.Source.Namespace
+				Namespace: networkGateway.Source.Namespace,
 				Hostname:  networkGateway.Addr,
-			}
+			},
 		}
 	} else {
 		wl.NetworkGateway.Destination = &workloadapi.GatewayAddress_Address{
@@ -883,5 +881,5 @@ func (a *index) createSplitHorizonWorkload(
 		Source:   kind.KubernetesGateway,
 		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
 	}
-	return wi, nil
+	return wi
 }
