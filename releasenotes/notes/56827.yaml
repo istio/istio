@@ -5,4 +5,4 @@ issue:
   - 56825
 releaseNotes:
   - |
-    **Fixed** an issue where access log not being updated when referenced service created later then the Telemetry resource.
+    **Fixed** an issue where access log not being updated when referenced service created later than the Telemetry resource.
