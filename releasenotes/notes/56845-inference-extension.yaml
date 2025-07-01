@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 55768
+
+releaseNotes:
+- |
+  **Added** support for Gateway API Inference Extension https://gateway-api-inference-extension.sigs.k8s.io/.
+  This feature is off by default and can be turned on with SUPPORT_GATEWAY_API_INFERENCE_EXTENSION env var.
