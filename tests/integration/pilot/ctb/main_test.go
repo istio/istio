@@ -38,7 +38,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		RequiresMinKubeVersion(27). // ClusterTrustBundle is available in K8s 1.27+
 		Setup(istio.Setup(&clustertbI, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:

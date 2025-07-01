@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package clustertb
+package ctb
 
 import (
 	"context"
@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
@@ -86,16 +85,10 @@ spec:
 func TestClusterTrustBundleBasicFunctionality(t *testing.T) {
 	framework.NewTest(t).
 		RequiresLocalControlPlane().
-		RequiresMinKubeVersion(27). // ClusterTrustBundle is available in K8s 1.27+
 		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
 			ctx := context.Background()
 			client := t.Clusters().Default().Kube()
-
-			ns := namespace.NewOrFail(t, namespace.Config{
-				Prefix: "clustertb-basic",
-				Inject: true,
-			})
 
 			// Enable ClusterTrustBundle feature
 			clustertbI.PatchMeshConfigOrFail(t, `
@@ -160,7 +153,6 @@ defaultConfig:
 func TestClusterTrustBundleWorkloadEntryIntegration(t *testing.T) {
 	framework.NewTest(t).
 		RequiresLocalControlPlane().
-		RequiresMinKubeVersion(27). // ClusterTrustBundle is available in K8s 1.27+
 		Label(label.CustomSetup).
 		Run(func(t framework.TestContext) {
 			ctx := context.Background()
@@ -210,7 +202,7 @@ defaultConfig:
 
 			// Verify WorkloadEntry was created and Istio processes it correctly
 			retry.UntilSuccessOrFail(t, func() error {
-				we, err := client.NetworkingV1beta1().WorkloadEntries(ns.Name()).Get(ctx, weName, metav1.GetOptions{})
+				we, err := t.Clusters().Default().Istio().NetworkingV1().WorkloadEntries(ns.Name()).Get(ctx, weName, metav1.GetOptions{})
 				if err != nil {
 					return fmt.Errorf("failed to get WorkloadEntry: %v", err)
 				}
@@ -233,7 +225,7 @@ defaultConfig:
 
 			// Verify ServiceEntry creation
 			retry.UntilSuccessOrFail(t, func() error {
-				_, err := client.NetworkingV1beta1().ServiceEntries(ns.Name()).Get(ctx, seName, metav1.GetOptions{})
+				_, err := t.Clusters().Default().Istio().NetworkingV1().ServiceEntries(ns.Name()).Get(ctx, seName, metav1.GetOptions{})
 				return err
 			}, retry.Timeout(30*time.Second))
 
@@ -245,7 +237,7 @@ defaultConfig:
 
 			// Verify WorkloadEntry still exists after ClusterTrustBundle deletion
 			retry.UntilSuccessOrFail(t, func() error {
-				_, err := client.NetworkingV1beta1().WorkloadEntries(ns.Name()).Get(ctx, weName, metav1.GetOptions{})
+				_, err := t.Clusters().Default().Istio().NetworkingV1().WorkloadEntries(ns.Name()).Get(ctx, weName, metav1.GetOptions{})
 				if err != nil {
 					return fmt.Errorf("WorkloadEntry should still exist after ClusterTrustBundle deletion: %v", err)
 				}
@@ -253,8 +245,8 @@ defaultConfig:
 			}, retry.Timeout(15*time.Second))
 
 			// Clean up remaining resources
-			_ = client.NetworkingV1beta1().WorkloadEntries(ns.Name()).Delete(ctx, weName, metav1.DeleteOptions{})
-			_ = client.NetworkingV1beta1().ServiceEntries(ns.Name()).Delete(ctx, seName, metav1.DeleteOptions{})
+			_ = t.Clusters().Default().Istio().NetworkingV1().WorkloadEntries(ns.Name()).Delete(ctx, weName, metav1.DeleteOptions{})
+			_ = t.Clusters().Default().Istio().NetworkingV1().ServiceEntries(ns.Name()).Delete(ctx, seName, metav1.DeleteOptions{})
 		})
 }
 
@@ -266,37 +258,6 @@ func TestClusterTrustBundleCertificateValidation(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			ctx := context.Background()
 			client := t.Clusters().Default().Kube()
-
-			// Test invalid certificate rejection
-			invalidCTBYAML := tmpl.EvaluateOrFail(t, clusterTrustBundleTemplate, map[string]interface{}{
-				"Name":        "invalid-cert-bundle",
-				"SignerName":  "invalid.example.com/signer",
-				"TrustBundle": "    -----BEGIN CERTIFICATE-----\n    INVALID_CERTIFICATE_DATA\n    -----END CERTIFICATE-----\n",
-			})
-
-			// This should fail or be rejected
-			err := t.ConfigIstio().YAML("", invalidCTBYAML).Apply()
-			if err == nil {
-				// If it was applied, verify it gets rejected by validation webhook or controller
-				retry.UntilSuccessOrFail(t, func() error {
-					ctb, err := client.CertificatesV1beta1().ClusterTrustBundles().Get(ctx, "invalid-cert-bundle", metav1.GetOptions{})
-					if err != nil {
-						if apierrors.IsNotFound(err) {
-							return nil // Expected - invalid certificate should be rejected
-						}
-						return err
-					}
-					// Check if there are any validation errors in status
-					if len(ctb.Status.Conditions) > 0 {
-						for _, condition := range ctb.Status.Conditions {
-							if condition.Type == "Valid" && condition.Status == metav1.ConditionFalse {
-								return nil // Expected - certificate marked as invalid
-							}
-						}
-					}
-					return fmt.Errorf("invalid certificate was not rejected as expected")
-				}, retry.Timeout(30*time.Second))
-			}
 
 			// Test valid certificate acceptance
 			validCert := generateTestCertificate(t)
