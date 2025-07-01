@@ -253,15 +253,6 @@ func (a *index) buildGlobalCollections(
 		opts.WithName("GlobalMergedServiceInfos")...,
 	)
 
-	// TODO: confirm expected functionality before we register
-	GlobalMergedWorkloadServices.RegisterBatch(krt.BatchedEventFilter(
-		func(a model.ServiceInfo) *workloadapi.Service {
-			// Only trigger push if the XDS object changed; the rest is just for computation of others
-			return a.Service
-		},
-		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
-	), false)
-
 	GobalWorkloadServicesWithClusterByCluster := nestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
 	LocalServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](LocalWorkloadServices, "serviceAddress", networkAddressFromService)
 	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](GlobalMergedWorkloadServices, "serviceAddress", networkAddressFromService)
@@ -390,8 +381,99 @@ func (a *index) buildGlobalCollections(
 
 		return []networkAddress{netaddr}
 	})
-	// TODO: confirm expected functionality before we register
-	GlobalWorkloads.RegisterBatch(krt.BatchedEventFilter(
+
+	workloadNetworkServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, "network;service", func(o model.WorkloadInfo) []string {
+		res := make([]string, 0, len(o.Workload.Services))
+		for svc, _ := range o.Workload.Services {
+			res = append(res, strings.Join([]string{o.Workload.Network, svc}, ";"))
+		}
+		return res
+	})
+
+	coalesedWorkloads := krt.NewManyCollection(
+		workloadNetworkServiceIndex.AsCollection(),
+		func(ctx krt.HandlerContext, i krt.IndexObject[string, model.WorkloadInfo]) []model.WorkloadInfo {
+			parts := strings.Split(i.Key, ";")
+			if len(parts) != 2 {
+				log.Errorf("Invalid key %s for SplitHorizonWorkloads, expected <network>;<service>", i.Key)
+				return nil
+			}
+			networkID := network.ID(parts[0])
+			localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
+			if networkID.String() == localNetwork {
+				// We don't coalese workloads for the local network
+				return nil
+			}
+
+			svcName := parts[1]
+			svc := krt.FetchOne(ctx, a.services.Collection, krt.FilterKey(svcName))
+			if svc == nil {
+				log.Errorf("Failed to find service %s to coalese workloads", svcName)
+				return nil
+			}
+			if svc.Scope != model.Global {
+				return nil
+			}
+
+			capacity := uint32(0)
+			for _, wl := range i.Objects {
+				if wl.Workload.GetCapacity().GetValue() == 0 {
+					capacity += 1
+				} else {
+					capacity += wl.Workload.Capacity.GetValue()
+				}
+			}
+			gws := LookupNetworkGateway(ctx, networkID, a.networks.NetworkGateways, a.networks.GatewaysByNetwork)
+			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
+			if meshCfg == nil {
+				log.Errorf("Failed to find mesh config for network %s", networkID)
+				return nil
+			}
+			if len(gws) == 0 {
+				log.Warnf("No network gateway found for network %s", networkID)
+				return nil
+			}
+			if len(gws) > 1 {
+				log.Warnf("Multiple gateways found for network %s, using the first one", networkID)
+			}
+			gw := gws[0]
+			wi := a.createSplitHorizonWorkload(svcName, svc.Service, &gw, capacity, meshCfg)
+			return []model.WorkloadInfo{*wi}
+		}, opts.WithName("remoteCoalesedWorkloads")...,
+	)
+
+	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, i model.WorkloadInfo) *model.WorkloadInfo {
+		localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
+		if i.Workload.Network == localNetwork {
+			return &i
+		}
+		return nil
+	}, opts.WithName("NetworkLocalWorkloads")...)
+
+	remoteGwWorkloads := krt.NewCollection(
+		a.networks.NetworkGateways,
+		func(ctx krt.HandlerContext, g NetworkGateway) *model.WorkloadInfo {
+			localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
+			if g.Network.String() == localNetwork {
+				// We don't want to create split horizon workloads for the local network
+				return nil
+			}
+			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
+			if meshCfg == nil {
+				log.Errorf("Failed to find mesh config for remote gateway %s", g.ResourceName())
+				return nil
+			}
+			wi, err := a.createNetworkGatewayWorkload(g, meshCfg)
+			if err != nil {
+				log.Errorf("Failed to create network gateway workload for cluster %s: %v", g.Cluster, err)
+				return nil
+			}
+			return ptr.Of(precomputeWorkload(*wi))
+
+		}, opts.WithName("RemoteGatewayWorkloads")...)
+
+	SplitHorizonWorkloads := krt.JoinCollection([]krt.Collection[model.WorkloadInfo]{coalesedWorkloads, networkLocalWorkloads, remoteGwWorkloads}, opts.WithName("SplitHorizonWorkloads")...)
+	SplitHorizonWorkloads.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.WorkloadInfo) *workloadapi.Workload {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
@@ -666,4 +748,86 @@ func wrapObjectWithCluster[T any](clusterID cluster.ID) func(obj T) config.Objec
 	return func(obj T) config.ObjectWithCluster[T] {
 		return config.ObjectWithCluster[T]{ClusterID: clusterID, Object: &obj}
 	}
+}
+
+func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, meshCfg *MeshConfig,
+) (*model.WorkloadInfo, error) {
+	address, err := netip.ParseAddr(networkGateway.Addr)
+	if err != nil {
+		return nil, err
+	}
+	wl := workloadapi.Workload{
+		Uid:            networkGateway.ResourceName(),
+		Name:           networkGateway.ResourceName(),
+		Namespace:      networkGateway.Source.Namespace,
+		Network:        networkGateway.Network.String(),
+		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
+		TrustDomain:    pickTrustDomain(meshCfg),
+		ServiceAccount: networkGateway.ServiceAccount.Name,
+		Capacity:       &wrapperspb.UInt32Value{Value: 1},
+		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
+		Addresses:      [][]byte{address.AsSlice()},
+		ClusterId:      networkGateway.Cluster.String(),
+	}
+	return &model.WorkloadInfo{
+		Workload: &wl,
+		Source:   kind.KubernetesGateway,
+		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
+	}, nil
+}
+
+func (a *index) createSplitHorizonWorkload(
+	svcNamespacedName string, svc *workloadapi.Service, networkGateway *NetworkGateway, capacity uint32, meshCfg *MeshConfig,
+) *model.WorkloadInfo {
+
+	hboneMtlsPort := networkGateway.HBONEPort
+	if hboneMtlsPort == 0 {
+		hboneMtlsPort = 15008
+	}
+	uid := generateSplitHorizonWorkloadUID(networkGateway.Network.String(), networkGateway.ResourceName(), svcNamespacedName)
+	wl := workloadapi.Workload{
+		Uid:            uid,
+		Name:           uid, // TODO(stevenjin8): better name?
+		Namespace:      svc.Namespace,
+		Network:        networkGateway.Network.String(),
+		TrustDomain:    pickTrustDomain(meshCfg),
+		Capacity:       &wrapperspb.UInt32Value{Value: capacity},
+		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
+		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
+		NetworkGateway: &workloadapi.GatewayAddress{
+			Destination:   &workloadapi.GatewayAddress_Address{},
+			HboneMtlsPort: hboneMtlsPort,
+		},
+		ClusterId: networkGateway.Cluster.String(),
+
+		Services: map[string]*workloadapi.PortList{
+			svcNamespacedName: &workloadapi.PortList{
+				Ports: svc.Ports,
+			},
+		},
+	}
+	address, err := netip.ParseAddr(networkGateway.Addr)
+	if err != nil {
+		// Assume address is a hostname
+		wl.NetworkGateway.Destination = &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{
+				Namespace: networkGateway.Source.Namespace,
+				Hostname:  networkGateway.Addr,
+			},
+		}
+	} else {
+		wl.NetworkGateway.Destination = &workloadapi.GatewayAddress_Address{
+			Address: &workloadapi.NetworkAddress{
+				Network: networkGateway.Network.String(),
+				Address: address.AsSlice(),
+			},
+		}
+	}
+
+	wi := &model.WorkloadInfo{
+		Workload: &wl,
+		Source:   kind.KubernetesGateway,
+		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
+	}
+	return wi
 }

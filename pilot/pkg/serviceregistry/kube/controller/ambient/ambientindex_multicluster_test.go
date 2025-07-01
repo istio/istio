@@ -27,6 +27,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
+
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -200,6 +202,9 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 						},
 					})
 				}
+				if networkGatewayIps[client.clusterID] != "" {
+					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], "east-west", clusterToNetwork[client.clusterID], true, client.grc)
+				}
 
 				// These steps happen for every test regardless of traffic type.
 				// It involves creating a waypoint for the specified traffic type
@@ -217,6 +222,22 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 					[]int32{80}, map[string]string{"app": "a"}, ips["svc2"], client.sc)
 				s.assertEvent(t, s.svcXdsName("svc2"), s.podXdsNameForCluster("pod1", client.clusterID))
 			}
+			// Service configuration needs to be uniform, so we add services to all clusters first,
+			// then check for events
+			for _, client := range clients {
+				ips := clusterToIPs[client.clusterID]
+				s.addPodsForClient(t, ips["pod1"], "pod1", "sa1",
+					map[string]string{"app": "a"}, nil, true, corev1.PodRunning, client.pc)
+				if clusterToNetwork[client.clusterID] == clusterToNetwork[s.clusterID] {
+					s.assertEvent(t, s.podXdsNameForCluster("pod1", client.clusterID))
+				} else if networkGatewayIps[client.clusterID] != "" {
+					s.assertEvent(t, fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
+						clusterToNetwork[client.clusterID],
+						networkGatewayIps[client.clusterID],
+						s.svcXdsName("svc2"),
+					))
+				}
+			}
 
 			t.Run("xds event filtering", func(t *testing.T) {
 				// Test that label selector change doesn't cause xDS push
@@ -233,7 +254,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				})
 				s.sc.Update(svc2)
 				// We should get another event from the pod being a part of the
-				// service again. Again, we should NOT get a service enent.
+				// service again. Again, we should NOT get a service event.
 				s.fx.StrictMatchOrFail(t, xdsfake.Event{
 					Type: "xds",
 					ID:   s.podXdsName("pod1"),
@@ -261,13 +282,24 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			s.deleteWaypoint(t, "test-wp")
 
 			for _, rc := range remoteClients.List() {
-				s.deleteServiceForClient(t, "svc2", rc.sc)
 				// Removing the service changes the WDS workload in that cluster due to service attachments.
 				// Note that we should NOT get an event changing the service attachment in our local cluster.
 				// We also get a service event because we lost an IP
-				s.assertEvent(t, s.podXdsNameForCluster("pod1", rc.clusterID), s.svcXdsName("svc2"))
-				s.deletePodForClient(t, "pod1", rc.pc)
-				s.assertEvent(t, s.podXdsNameForCluster("pod1", rc.clusterID))
+
+				if clusterToNetwork[rc.clusterID] == clusterToNetwork[s.clusterID] {
+					s.deleteServiceForClient(t, "svc2", rc.sc)
+					s.assertEvent(t, s.podXdsNameForCluster("pod1", rc.clusterID), s.svcXdsName("svc2"))
+					s.deletePodForClient(t, "pod1", rc.pc)
+					s.assertEvent(t, s.podXdsNameForCluster("pod1", rc.clusterID))
+				} else {
+					s.deleteServiceForClient(t, "svc2", rc.sc)
+					s.assertEvent(t, fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
+						clusterToNetwork[rc.clusterID],
+						networkGatewayIps[rc.clusterID],
+						s.svcXdsName("svc2"),
+					), s.svcXdsName("svc2"))
+					s.deletePodForClient(t, "pod1", rc.pc)
+				}
 				s.deleteWaypointForClient(t, "test-wp", rc.grc)
 			}
 			s.clearEvents()
