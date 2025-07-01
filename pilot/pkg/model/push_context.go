@@ -942,6 +942,7 @@ var wellknownProviders = sets.New(
 	"envoy_otel_als",
 	"opentelemetry",
 	"envoy_file_access_log",
+	"sds", // TODO: implement this
 )
 
 func AssertProvidersHandled(expected int) {
@@ -953,7 +954,7 @@ func AssertProvidersHandled(expected int) {
 // addHostsFromMeshConfigProvidersHandled contains the number of providers we handle below.
 // This is to ensure this stays in sync as new handlers are added
 // STOP. DO NOT UPDATE THIS WITHOUT UPDATING extraServicesForProxy.
-const addHostsFromMeshConfigProvidersHandled = 14
+const addHostsFromMeshConfigProvidersHandled = 15
 
 // extraServicesForProxy returns a subset of services referred from the proxy gateways, including:
 // 1. MeshConfig.ExtensionProviders
@@ -997,6 +998,9 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyF
 			addService(p.EnvoyTcpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
 			addService(p.EnvoyOtelAls.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Sds:
+			addService(p.Sds.Service)
+			// TODO: implement SDS provider
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog: // No services
 		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus: // No services
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver: // No services
