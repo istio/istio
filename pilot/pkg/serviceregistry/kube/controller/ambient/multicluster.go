@@ -442,6 +442,7 @@ func (a *index) buildGlobalCollections(
 			}
 			gw := gws[0]
 			wi := a.createSplitHorizonWorkload(svcName, svc.Service, &gw, capacity, meshCfg)
+			wi = ptr.Of(precomputeWorkload(*wi))
 			return []model.WorkloadInfo{*wi}
 		}, opts.WithName("remoteCoalesedWorkloads")...,
 	)
@@ -496,29 +497,42 @@ func (a *index) buildGlobalCollections(
 		},
 	)
 
+	// This is a first pass at creating the collection of services for local workloads.
+	// Here, we only include services that have a remote workload.
+	// Later, we join with all services, giving this ones here priority.
 	SplitHorizonServices := krt.NewCollection(
 		WorkloadServiceIndex.AsCollection(),
 		func(ctx krt.HandlerContext, i krt.IndexObject[string, model.WorkloadInfo]) *model.ServiceInfo {
+localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
 			svc := krt.FetchOne(ctx, a.services.Collection, krt.FilterKey(i.Key))
 			if svc == nil {
 				log.Errorf("Failed to find service %s for SplitHorizonServices", i.Key)
 				return nil
 			}
 			if svc.Scope != model.Global {
-				return svc
-			}
-			newSvc := &model.ServiceInfo{
-				Service: protomarshal.Clone(svc.Service),
-				Scope:   svc.Scope,
+				return nil
 			}
 			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
 			if meshCfg == nil {
 				log.Errorf("Failed to find mesh config")
 				return nil
 			}
-			sans := sets.New[string](svc.Service.SubjectAltNames...)
+			sans := sets.String{}
 			for _, wl := range i.Objects {
+				if wl.Workload.Network == localNetwork {
+					continue
+				}
 				sans.Insert(spiffe.MustGenSpiffeURI(meshCfg.MeshConfig, wl.Workload.Namespace, wl.Workload.ServiceAccount))
+			}
+			if sans.IsEmpty() {
+				// Ignore workloads without remote workloads
+				return nil
+			}
+			sans = sans.Union(sets.New(svc.Service.SubjectAltNames...))
+
+			newSvc := &model.ServiceInfo{
+				Service: protomarshal.Clone(svc.Service),
+				Scope:   svc.Scope,
 			}
 			newSvc.Service.SubjectAltNames = sans.UnsortedList()
 			return precomputeServicePtr(newSvc)
