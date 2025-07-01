@@ -339,8 +339,8 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
   istioctl dashboard controlz deployment/istiod.istio-system
 
   # with short syntax
-  istioctl dash controlz pilot-123-456.istio-system
-  istioctl d controlz pilot-123-456.istio-system
+  istioctl dash controlz istiod-56dd66799-jfdvs.istio-system
+  istioctl d controlz istiod-56dd66799-jfdvs.istio-system
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			if labelSelector == "" && opts.Revision == "" && len(args) < 1 {
@@ -413,8 +413,8 @@ func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
   istioctl dashboard istiod-debug deployment/istiod.istio-system
 
   # with short syntax
-  istioctl dash istiod-debug pilot-123-456.istio-system
-  istioctl d istiod-debug pilot-123-456.istio-system
+  istioctl dash istiod-debug istiod-56dd66799-jfdvs.istio-system
+  istioctl d istiod-debug istiod-56dd66799-jfdvs.istio-system
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			if labelSelector == "" && opts.Revision == "" && len(args) < 1 {
