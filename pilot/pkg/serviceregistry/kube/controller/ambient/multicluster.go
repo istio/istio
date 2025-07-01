@@ -499,7 +499,7 @@ func (a *index) buildGlobalCollections(
 	SplitHorizonServices := krt.NewCollection(
 		WorkloadServiceIndex.AsCollection(),
 		func(ctx krt.HandlerContext, i krt.IndexObject[string, model.WorkloadInfo]) *model.ServiceInfo {
-localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
+			localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
 			svc := krt.FetchOne(ctx, a.services.Collection, krt.FilterKey(i.Key))
 			if svc == nil {
 				log.Errorf("Failed to find service %s for SplitHorizonServices", i.Key)

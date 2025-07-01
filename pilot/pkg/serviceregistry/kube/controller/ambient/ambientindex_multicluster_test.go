@@ -379,6 +379,80 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 	})
 }
 
+// func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
+// 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+// 	s := newAmbientTestServer(t, testC, testNW, "")
+// 	s.AddSecret("s1", "remote-cluster") // overlapping ips
+// 	remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
+// 		cl := c.Client
+// 		return ptr.Of(&remoteAmbientClients{
+// 			clusterID: c.ID,
+// 			ambientclients: &ambientclients{
+// 				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
+// 				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
+// 				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
+// 				grc:   clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
+// 				gwcls: clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
+// 				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
+// 				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+// 				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
+// 				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
+// 				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
+// 			},
+// 		})
+// 	})
+//
+// 	const remoteNetwork = "remote-network"
+//
+// 	assert.EventuallyEqual(t, func() int {
+// 		return len(remoteClients.List())
+// 	}, 1, retry.Timeout(time.Second*5))
+//
+// 	remote_client := remoteClients.List()[0]
+// 	local_client := remoteAmbientClients{
+// 		clusterID: s.clusterID,
+// 		ambientclients: &ambientclients{
+// 			pc:    s.pc,
+// 			sc:    s.sc,
+// 			ns:    s.ns,
+// 			grc:   s.grc,
+// 			gwcls: s.gwcls,
+// 			se:    s.se,
+// 			we:    s.we,
+// 			pa:    s.pa,
+// 			authz: s.authz,
+// 			sec:   s.sec,
+// 		},
+// 	}
+// 	clients := []*remoteAmbientClients{
+// 		&local_client,
+// 		remote_client,
+// 	}
+// 	remote_client.ns.Create(&corev1.Namespace{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:   systemNS,
+// 			Labels: map[string]string{label.TopologyNetwork.Name: remoteNetwork},
+// 		},
+// 	})
+// 	time.Sleep(2 * time.Second) // wait for the namespace to be created
+// 	s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], "east-west", remoteNetwork true, remote_client.grc)
+//
+// 	// These steps happen for every test regardless of traffic type.
+// 	// It involves creating a waypoint for the specified traffic type
+// 	// then creating a workload and a service with no annotations set
+// 	// on these objects yet.
+// 	s.addWaypointForClient(t, ips["waypoint"], "test-wp", c.trafficType, true, client.grc)
+//
+// 	s.addServiceForClient(t, "svc2",
+// 		map[string]string{
+// 			"istio.io/global": "",
+// 		},
+// 		map[string]string{},
+// 		[]int32{80}, map[string]string{"app": "a"}, ips["svc2"], client.sc)
+// 	s.assertEvent(t, s.svcXdsName("svc2"))
+//
+// }
+//
 // TODO: Test the merging details (the correct number of VIPs, no duplicates, etc.)
 
 func (a *ambientTestServer) DeleteSecret(secretName string) {
