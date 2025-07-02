@@ -476,7 +476,7 @@ func (i *istioImpl) installControlPlaneCluster(c cluster.Cluster) error {
 				return err
 			}
 		}
-		
+
 		if i.ctx.Settings().AmbientMultiNetwork {
 			return i.deployAmbientEastWestGateway(c)
 		}

@@ -653,8 +653,6 @@ func MergedGlobalWorkloadsCollection(
 	return krt.MapCollection(col, unwrapObjectWithCluster[model.WorkloadInfo], opts.WithName("MergedGlobalWorkloads")...)
 }
 
-// jaellio - a workload entry must be associated with a service entry
-// What should the scope be of a workload entry?
 func workloadEntryWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
