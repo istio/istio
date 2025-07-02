@@ -6650,7 +6650,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "empty issuer",
+			name:       "empty issuer and jwksUri",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
@@ -6660,6 +6660,19 @@ func TestValidateRequestAuthentication(t *testing.T) {
 				},
 			},
 			valid: false,
+		},
+		{
+			name:       "empty issuer and set jwksUri",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: true,
 		},
 		{
 			name:       "bad JwksUri - no protocol",
