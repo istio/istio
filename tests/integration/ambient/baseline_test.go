@@ -2272,7 +2272,17 @@ spec:
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
 			ingress := istio.DefaultIngressOrFail(t, t)
-			ips, ports := ingress.HTTPAddresses()
+			rawIPs, ports := ingress.HTTPAddresses()
+			var ips []string
+			for _, ip := range rawIPs {
+				// Resolve ingress domain name into ip address
+				addr, err := kubetest.WaitUntilReachableIngress(ip)
+				if err != nil {
+					t.Fatalf("unable to resolve domain name to ip address - %q: %v", ip, err)
+				}
+				t.Logf("Resolved ingress %q to %q", ip, addr)
+				ips = append(ips, addr)
+			}
 			for _, tc := range testCases {
 				for i, ip := range ips {
 					t.Logf("run %s test with ingress IP %s", tc.resolution, ip)
