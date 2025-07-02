@@ -290,7 +290,8 @@ func (cfg *NftablesConfigurator) Run() (*knftables.Transaction, error) {
 		cfg.ruleBuilder.AppendRule(constants.IstioDropChain, constants.IstioProxyMangleTable, "drop")
 	}
 
-	// Create a new chain for to hit tunnel port directly. Envoy will be listening on port acting as VPN tunnel.
+	// Create a rule to directly route traffic to the tunnel port. Envoy will listen on port 15008, serving
+	// as an HBONE tunnel for Ambient traffic.
 	cfg.ruleBuilder.AppendRule(constants.IstioInboundChain, constants.IstioProxyNatTable,
 		"meta l4proto tcp",
 		"tcp dport", cfg.cfg.InboundTunnelPort,
