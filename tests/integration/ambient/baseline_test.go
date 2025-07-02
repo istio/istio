@@ -3324,16 +3324,6 @@ func TestDirect(t *testing.T) {
 				InsecureSkipVerify: true,
 			}
 
-			// TODO(jaellio): Is it correct that the address of the inner tunnel doesn't matter?
-			/*hbsvci := echo.HBONE{
-				Address:            apps.Global.ForCluster(cluster.Name()).ClusterLocalFQDN(),
-				Headers:            nil,
-				Cert:               string(cert.ClientCert),
-				Key:                string(cert.Key),
-				CaCert:             string(cert.RootCert),
-				InsecureSkipVerify: true,
-			}*/
-
 			run("global service", echo.CallOptions{
 				To:          apps.Global.ForCluster(cluster.Name()),
 				Count:       1,

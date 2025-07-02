@@ -104,6 +104,8 @@ func GlobalMergedWorkloadServicesCollection(
 		wrapObjectWithCluster[model.ServiceInfo](localCluster.ID),
 		opts.WithName("LocalServiceInfosWithCluster")...)
 
+	checkServiceScope := features.EnableAmbientMultiNetwork
+
 	// This will contain the serviceinfos derived from ServiceEntries only
 	return nestedCollectionFromLocalAndRemote(
 		LocalServiceInfosWithCluster,
@@ -125,6 +127,7 @@ func GlobalMergedWorkloadServicesCollection(
 				meshConfig,
 				domainSuffix,
 				false,
+				checkServiceScope,
 				func(ctx krt.HandlerContext) network.ID {
 					nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
 					if nwPtr == nil {
@@ -163,11 +166,12 @@ func serviceServiceBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	domainSuffix string,
 	localCluster bool,
+	checkServiceScope bool,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
 		serviceScope := model.Local
-		if features.EnableAmbientMultiNetwork {
+		if checkServiceScope {
 			meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 			if meshCfg != nil {
 				serviceScope = MatchServiceScope(meshCfg, namespaces, s)
@@ -313,9 +317,17 @@ func (a *index) serviceServiceBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
-	return serviceServiceBuilder(waypoints, namespaces, meshConfig, a.DomainSuffix, true, func(ctx krt.HandlerContext) network.ID {
-		return a.Network(ctx)
-	})
+	return serviceServiceBuilder(
+		waypoints,
+		namespaces,
+		meshConfig,
+		a.DomainSuffix,
+		true,
+		features.EnableAmbientMultiNetwork,
+		func(ctx krt.HandlerContext) network.ID {
+			return a.Network(ctx)
+		},
+	)
 }
 
 // MakeSource is a helper to turn an Object into a model.TypedObject.

@@ -471,13 +471,12 @@ func (i *istioImpl) installControlPlaneCluster(c cluster.Cluster) error {
 			return nil
 		}
 
-		if i.cfg.DeployGatewayAPI {
+		// only deploy gateway API resources during cluster creation if ambientMultiNetwork
+		// is enabled
+		if i.cfg.DeployGatewayAPI && i.ctx.Settings().AmbientMultiNetwork {
 			if err := DeployGatewayAPI(i.ctx); err != nil {
 				return err
 			}
-		}
-
-		if i.ctx.Settings().AmbientMultiNetwork {
 			return i.deployAmbientEastWestGateway(c)
 		}
 
