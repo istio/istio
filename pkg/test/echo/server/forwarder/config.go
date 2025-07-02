@@ -57,7 +57,8 @@ type Config struct {
 	method                  string
 	secure                  bool
 
-	hboneTLSConfig       *tls.Config
+	hboneTLSConfig *tls.Config
+	// TODO(jaellio): What is the difference between this and hboneTLSConfig?
 	hboneClientConfig    func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
 	innerHboneTLSConfig  *tls.Config
 	hboneHeaders         http.Header
@@ -101,6 +102,7 @@ func (c *Config) fillDefaults() error {
 		return err
 	}
 
+	// To
 	if c.Request.DoubleHbone != nil && c.Request.DoubleHbone.Address != "" {
 		c.hboneClientConfig, err = getHBONEClientConfig(c.Request.DoubleHbone)
 		if err != nil {

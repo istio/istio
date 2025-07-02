@@ -3318,19 +3318,20 @@ func TestDirect(t *testing.T) {
 				t.Skip("only test east west gateway service scope in multi-network mode")
 			}
 			c := common.NewCaller()
+			cluster := t.Clusters().Default() // TODO: support multicluster
+			ewginstance := i.EastWestGatewayForAmbient(cluster)
 			run := func(name string, options echo.CallOptions) {
 				t.NewSubTest(name).Run(func(t framework.TestContext) {
+					// TODO(jaellio): When is a from necessary here?
 					_, err := c.CallEcho(nil, options)
 					if err != nil {
 						t.Fatal(err)
 					}
 				})
 			}
-			cluster := t.Clusters().Default() // TODO: support multicluster
-
 			i := istio.GetOrFail(t)
-			ewgaddr := i.EastWestGatewayForAmbient(cluster).DiscoveryAddresses()[0].Addr()
-			cert, err := istio.CreateCertificate(t, i, apps.Global.ServiceName(), apps.Namespace.Name())
+			ewgaddr := ewginstance.DiscoveryAddresses()[0].Addr()
+			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -3343,32 +3344,33 @@ func TestDirect(t *testing.T) {
 				InsecureSkipVerify: true,
 			}
 
-			hbsvci := echo.HBONE{
-				Address:            ewgaddr.String(),
+			// TODO(jaellio): Is it correct that the address of the inner tunnel doesn't matter?
+			/*hbsvci := echo.HBONE{
+				Address:            apps.Global.ForCluster(cluster.Name()).ClusterLocalFQDN(),
 				Headers:            nil,
 				Cert:               string(cert.ClientCert),
 				Key:                string(cert.Key),
 				CaCert:             string(cert.RootCert),
 				InsecureSkipVerify: true,
-			}
+			}*/
 
 			run("global service", echo.CallOptions{
-				To:      apps.Global.ForCluster(cluster.Name()),
-				Count:   1,
-				Address: apps.Global.ForCluster(cluster.Name()).ClusterLocalFQDN(),
-				Port:    echo.Port{Name: ports.HTTP.Name},
-				HBONE: hbsvci,
-				DoubleHBONE:   hbsvc,
+				To:          apps.Global.ForCluster(cluster.Name()),
+				Count:       1,
+				Address:     apps.Global.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Port:        echo.Port{Name: ports.HTTP.Name},
+				HBONE:       hbsvc,
+				DoubleHBONE: hbsvc,
 				// Global services are expected to be reachable via the east-west gateway
 				Check: check.OK(),
 			})
 			run("local service", echo.CallOptions{
-				To:      apps.Local.ForCluster(cluster.Name()),
-				Count:   1,
-				Address: apps.Local.ForCluster(cluster.Name()).ClusterLocalFQDN(),
-				Port:    echo.Port{Name: ports.HTTP.Name},
-				HBONE: hbsvci,
-				DoubleHBONE:   hbsvc,
+				To:          apps.Local.ForCluster(cluster.Name()),
+				Count:       1,
+				Address:     apps.Local.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Port:        echo.Port{Name: ports.HTTP.Name},
+				HBONE:       hbsvc,
+				DoubleHBONE: hbsvc,
 				// Local services are not expected to be reachable via the east-west gateway
 				Check: check.Error(),
 			})
