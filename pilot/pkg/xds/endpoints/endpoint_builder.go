@@ -666,6 +666,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	} else {
 		meta = e.Metadata()
 	}
+
+	// detect if mTLS is possible for this endpoint, used later during ep filtering
+	// this must be done while converting IstioEndpoints because we still have workload labels
 	if !mtlsEnabled {
 		meta.TLSMode = ""
 	}

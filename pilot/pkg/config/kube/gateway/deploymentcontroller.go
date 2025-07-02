@@ -546,16 +546,6 @@ func (d *DeploymentController) setLabelOverrides(gw gateway.Gateway, input Templ
 	if _, ok := gw.GetLabels()[label.TopologyNetwork.Name]; !ok && network != "" && (isWaypointGateway || isEastWestGateway) {
 		input.InfrastructureLabels[label.TopologyNetwork.Name] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
 	}
-
-	// Set Inference ext proc label if not present as infrastructureLabel
-	// TODO(liorlieberman): should this label be part of istio/api?
-	enableInferenceExtProcOnGatewayLabelName := "istio.io/enable-inference-extproc"
-	if _, ok := input.InfrastructureLabels[enableInferenceExtProcOnGatewayLabelName]; ok {
-		return
-	}
-	if enabled, ok := gw.Labels[enableInferenceExtProcOnGatewayLabelName]; ok {
-		input.InfrastructureLabels[enableInferenceExtProcOnGatewayLabelName] = enabled
-	}
 }
 
 func extractInfrastructureLabels(gw gateway.Gateway) map[string]string {

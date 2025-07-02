@@ -128,7 +128,7 @@ const (
 
 	// InternalParentNames declares the original resources of an internally-generated config.
 	// This is used by k8s gateway-api.
-	// It is a comma separated list. For example, "HTTPRoute/foo.
+	// It is a comma separated list. For example, "HTTPRoute/foo.default,HTTPRoute/bar.default"
 	InternalParentNames = "internal.istio.io/parents"
 	// InternalParentNamespace contains, for internally-generated resource, the namespace of the parent, if different then current.
 	InternalParentNamespace       = "internal.istio.io/parent-namespace"
