@@ -220,6 +220,9 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				if networkGatewayIps[client.clusterID] != "" {
 					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], "east-west", clusterToNetwork[client.clusterID], true, client.grc)
 				}
+				if networkGatewayIps[client.clusterID] != "" {
+					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], "east-west", clusterToNetwork[client.clusterID], true, client.grc)
+				}
 
 				// These steps happen for every test regardless of traffic type.
 				// It involves creating a waypoint for the specified traffic type
@@ -234,6 +237,22 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 					map[string]string{},
 					[]int32{80}, map[string]string{"app": "a"}, ips["svc2"], client.sc)
 				s.assertEvent(t, s.svcXdsName("svc2"))
+			}
+			// Service configuration needs to be uniform, so we add services to all clusters first,
+			// then check for events
+			for _, client := range clients {
+				ips := clusterToIPs[client.clusterID]
+				s.addPodsForClient(t, ips["pod1"], "pod1", "sa1",
+					map[string]string{"app": "a"}, nil, true, corev1.PodRunning, client.pc)
+				if clusterToNetwork[client.clusterID] == clusterToNetwork[s.clusterID] {
+					s.assertEvent(t, s.podXdsNameForCluster("pod1", client.clusterID))
+				} else if networkGatewayIps[client.clusterID] != "" {
+					s.assertEvent(t, fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
+						clusterToNetwork[client.clusterID],
+						networkGatewayIps[client.clusterID],
+						s.svcXdsName("svc2"),
+					))
+				}
 			}
 			// Service configuration needs to be uniform, so we add services to all clusters first,
 			// then check for events
