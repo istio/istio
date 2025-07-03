@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/config"
@@ -596,7 +595,7 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 	framework.NewTest(t).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
-			crd.DeployGatewayAPIOrSkip(t)
+			istio.DeployGatewayAPIOrSkip(t)
 			config.New(t).
 				Source(config.File("testdata/requestauthn/gateway-api.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Ns1.Namespace,

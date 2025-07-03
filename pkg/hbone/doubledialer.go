@@ -27,7 +27,7 @@ import (
 )
 
 // NewDialer creates a Dialer that proxies connections over HBONE to the configured proxy.
-func NewDoubleDialer(outerCfg Config, innerTLSConfig *tls.Config) Dialer {
+func NewDoubleDialer(outerCfg Config, innerCfg Config, innerTLSConfig *tls.Config) Dialer {
 	var outerTransport *http2.Transport
 
 	if outerCfg.TLS != nil {
@@ -50,6 +50,7 @@ func NewDoubleDialer(outerCfg Config, innerTLSConfig *tls.Config) Dialer {
 
 	return &doubleDialer{
 		outerCfg:       outerCfg,
+		innerCfg:       innerCfg,
 		innerTLSConfig: innerTLSConfig,
 		outerTransport: outerTransport,
 	}
@@ -57,6 +58,7 @@ func NewDoubleDialer(outerCfg Config, innerTLSConfig *tls.Config) Dialer {
 
 type doubleDialer struct {
 	outerCfg       Config
+	innerCfg       Config
 	innerTLSConfig *tls.Config
 	outerTransport *http2.Transport
 }
@@ -66,7 +68,6 @@ func (d *doubleDialer) DialContext(ctx context.Context, network, address string)
 	if network != "tcp" {
 		return net.Dial(network, address)
 	}
-	// TODO: use context
 	c, s := net.Pipe()
 	resp, pw, err := hbone(s, address, d.outerCfg, d.outerTransport, false)
 	if err != nil {
@@ -85,7 +86,9 @@ func (d *doubleDialer) DialContext(ctx context.Context, network, address string)
 		innerTransport = &http2.Transport{
 			TLSClientConfig: d.innerTLSConfig,
 			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
-				tlsCfg.ServerName = resp.Request.Host
+				// TODO(jaellio): Why isn't this necessary? With this line got errors related to
+				// invalid ServerName/SNI
+				// tlsCfg.ServerName = resp.Request.Host
 				// Upgrade the raw connection to a TLS connection.
 				c := tls.Client(pc, tlsCfg)
 				err := c.HandshakeContext(ctx)
@@ -106,7 +109,7 @@ func (d *doubleDialer) DialContext(ctx context.Context, network, address string)
 		}
 	}
 	// Note: outerCfg is only used to generate the final URL and host header (which is the same for double hbone)
-	_, _, err = hbone(s, address, d.outerCfg, innerTransport, true)
+	_, _, err = hbone(s, address, d.innerCfg, innerTransport, true)
 	if err != nil {
 		return nil, err
 	}
