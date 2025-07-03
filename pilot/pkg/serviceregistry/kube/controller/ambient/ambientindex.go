@@ -57,7 +57,7 @@ import (
 type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
-	AllLocalNetworkGlobalServices(string) []model.ServiceInfo
+	AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	Run(stop <-chan struct{})
@@ -590,7 +590,6 @@ func translateKubernetesCondition(conds []metav1.Condition) map[string]model.Con
 // When using Lookup for ns/hostname we will filter by scope determined from service or namespace label
 func (a *index) Lookup(key string) []model.AddressInfo {
 	// 1. Workload UID
-	// Check that work
 	if w := a.workloads.GetKey(key); w != nil {
 		return []model.AddressInfo{w.AsAddress}
 	}
@@ -674,7 +673,7 @@ func (a *index) All() []model.AddressInfo {
 }
 
 // AllLocalNetworkGlobalServices return all known globally scoped services. Result is un-ordered
-func (a *index) AllLocalNetworkGlobalServices(network string) []model.ServiceInfo {
+func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo {
 	var res []model.ServiceInfo
 	for _, svc := range a.services.List() {
 		workloads := a.workloads.ByServiceKey.Lookup(svc.ResourceName())
@@ -684,7 +683,7 @@ func (a *index) AllLocalNetworkGlobalServices(network string) []model.ServiceInf
 		}
 		// All workloads for a service should belong in the same network
 		// Don't add a service if it is in a different network
-		if workloads[0].Workload.Network == network && svc.Scope == model.Global {
+		if workloads[0].Workload.Network == key.Network && svc.Scope == model.Global {
 			res = append(res, svc)
 		}
 	}
@@ -720,7 +719,7 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 	if key.IsNetworkGateway {
 		// If this is a network gateway waypoint, we only return the global services
 		// that are local to this network and have backing workloads
-		return a.AllLocalNetworkGlobalServices(key.Network)
+		return a.AllLocalNetworkGlobalServices(key)
 	}
 
 	out := map[string]model.ServiceInfo{}

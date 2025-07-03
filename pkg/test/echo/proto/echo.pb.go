@@ -23,13 +23,12 @@
 package proto
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -278,8 +277,6 @@ type ForwardEchoRequest struct {
 	Hbone *HBONE `protobuf:"bytes,24,opt,name=hbone,proto3" json:"hbone,omitempty"`
 	// Double HBONE communication settings. The settings here represent the outer
 	// tunnel and the inner tunnel settigns are specified in the hbone field.
-	// If the inner tunnel is specified, the hbone address is unused and the double hbone
-	// address will be used for the inner tunnel.
 	// If the inner tunnel is not specified, the inner tunnel will
 	// be the same as the outer tunnel.
 	DoubleHbone          *HBONE            `protobuf:"bytes,27,opt,name=double_hbone,json=doubleHbone,proto3" json:"double_hbone,omitempty"`
