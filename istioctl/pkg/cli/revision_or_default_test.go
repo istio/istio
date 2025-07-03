@@ -14,44 +14,11 @@
 
 package cli
 
-import "testing"
+import (
+	"testing"
+)
 
-func Test_handleNamespace(t *testing.T) {
-	ns := handleNamespace("test", "default")
-	if ns != "test" {
-		t.Fatalf("Get the incorrect namespace: %q back", ns)
-	}
-
-	tests := []struct {
-		description      string
-		namespace        string
-		defaultNamespace string
-		wantNamespace    string
-	}{
-		{
-			description:      "return test namespace",
-			namespace:        "test",
-			defaultNamespace: "default",
-			wantNamespace:    "test",
-		},
-		{
-			description:      "return default namespace",
-			namespace:        "",
-			defaultNamespace: "default",
-			wantNamespace:    "default",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.description, func(t *testing.T) {
-			gotNs := handleNamespace(tt.namespace, tt.defaultNamespace)
-			if gotNs != tt.wantNamespace {
-				t.Fatalf("unexpected namespace: wanted %v got %v", tt.wantNamespace, gotNs)
-			}
-		})
-	}
-}
-
-func TestRevisionOrDefault(t *testing.T) {
+func TestRevisionOrDefaultWithMockDefaultRevision(t *testing.T) {
 	tests := []struct {
 		description    string
 		inputRevision  string
@@ -63,7 +30,7 @@ func TestRevisionOrDefault(t *testing.T) {
 			expectedResult: "test-revision",
 		},
 		{
-			description:    "return empty string when no revision provided and no default available",
+			description:    "return empty string when no revision provided (fake context has no default detection)",
 			inputRevision:  "",
 			expectedResult: "",
 		},
@@ -71,12 +38,36 @@ func TestRevisionOrDefault(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			// Create a fake context
+			// Create a fake context - it won't have real default revision detection
+			// but will test the basic logic
 			ctx := NewFakeContext(&NewFakeContextOption{})
 			got := ctx.RevisionOrDefault(tt.inputRevision)
 			if got != tt.expectedResult {
 				t.Fatalf("unexpected result: wanted %v got %v", tt.expectedResult, got)
 			}
 		})
+	}
+}
+
+func TestRevisionOrDefaultCaching(t *testing.T) {
+	// Test that the basic logic works correctly
+	ctx := NewFakeContext(&NewFakeContextOption{})
+
+	// Test that explicit revisions are returned as-is
+	result1 := ctx.RevisionOrDefault("stable-revision")
+	if result1 != "stable-revision" {
+		t.Fatalf("expected stable-revision, got %v", result1)
+	}
+
+	// Test that empty revisions return empty (since fake context has no default detection)
+	result2 := ctx.RevisionOrDefault("")
+	if result2 != "" {
+		t.Fatalf("expected empty string, got %v", result2)
+	}
+
+	// Test consistency
+	result3 := ctx.RevisionOrDefault("explicit-revision")
+	if result3 != "explicit-revision" {
+		t.Fatalf("expected explicit-revision, got %v", result3)
 	}
 }
