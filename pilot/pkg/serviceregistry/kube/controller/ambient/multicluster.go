@@ -403,7 +403,7 @@ func (a *index) buildGlobalCollections(
 				return nil
 			}
 			networkID := network.ID(parts[0])
-			localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
+			localNetwork := a.Network(ctx).String()
 			if networkID.String() == localNetwork {
 				// We don't coalesce workloads for the local network
 				return nil
@@ -448,8 +448,7 @@ func (a *index) buildGlobalCollections(
 	)
 
 	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, i model.WorkloadInfo) *model.WorkloadInfo {
-		localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
-		if i.Workload.Network == localNetwork {
+		if i.Workload.Network == a.Network(ctx).String() {
 			return &i
 		}
 		return nil
@@ -458,7 +457,7 @@ func (a *index) buildGlobalCollections(
 	remoteGwWorkloads := krt.NewCollection(
 		a.networks.NetworkGateways,
 		func(ctx krt.HandlerContext, g NetworkGateway) *model.WorkloadInfo {
-			localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
+			localNetwork := a.Network(ctx).String()
 			if g.Network.String() == localNetwork {
 				// We don't want to create split horizon workloads for the local network
 				return nil
@@ -503,7 +502,7 @@ func (a *index) buildGlobalCollections(
 	SplitHorizonServices := krt.NewCollection(
 		WorkloadServiceIndex.AsCollection(),
 		func(ctx krt.HandlerContext, i krt.IndexObject[string, model.WorkloadInfo]) *model.ServiceInfo {
-			localNetwork := ptr.OrEmpty(krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection()))
+			localNetwork := a.Network(ctx).String()
 			svc := krt.FetchOne(ctx, a.services.Collection, krt.FilterKey(i.Key))
 			if svc == nil {
 				log.Errorf("Failed to find service %s for SplitHorizonServices", i.Key)

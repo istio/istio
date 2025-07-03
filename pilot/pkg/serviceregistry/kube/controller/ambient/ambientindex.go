@@ -405,16 +405,13 @@ func New(options Options) Index {
 		return []networkAddress{netaddr}
 	})
 
-	// We register this in the multinetwor implementation
-	if !(features.EnableAmbientMultiNetwork && options.IsConfigCluster) {
-		WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
-			func(a model.ServiceInfo) *workloadapi.Service {
-				// Only trigger push if the XDS object changed; the rest is just for computation of others
-				return a.Service
-			},
-			PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
-		), false)
-	}
+	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
+		func(a model.ServiceInfo) *workloadapi.Service {
+			// Only trigger push if the XDS object changed; the rest is just for computation of others
+			return a.Service
+		},
+		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
+	), false)
 
 	NamespacesInfo := krt.NewCollection(Namespaces, func(ctx krt.HandlerContext, i *corev1.Namespace) *model.NamespaceInfo {
 		return &model.NamespaceInfo{
@@ -493,16 +490,13 @@ func New(options Options) Index {
 
 		return []networkAddress{netaddr}
 	})
-	// We register this in the multinetwork implementation
-	if !(features.EnableAmbientMultiNetwork && options.IsConfigCluster) {
-		Workloads.RegisterBatch(krt.BatchedEventFilter(
-			func(a model.WorkloadInfo) *workloadapi.Workload {
-				// Only trigger push if the XDS object changed; the rest is just for computation of others
-				return a.Workload
-			},
-			PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName),
-		), false)
-	}
+	Workloads.RegisterBatch(krt.BatchedEventFilter(
+		func(a model.WorkloadInfo) *workloadapi.Workload {
+			// Only trigger push if the XDS object changed; the rest is just for computation of others
+			return a.Workload
+		},
+		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName),
+	), false)
 
 	if features.EnableIngressWaypointRouting {
 		RegisterEdsShim(
@@ -934,43 +928,17 @@ func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 	}
 }
 
-// Sometimes, the addresses we push depend on the event.
-func PushXdsAddressesWithEvent[T any](xds model.XDSUpdater, f func(krt.Event[T]) sets.String) func(events []krt.Event[T]) {
-	return func(events []krt.Event[T]) {
-		au := sets.New[string]()
-		for _, e := range events {
-			au = au.Union(f(e))
-		}
-		au = au.Delete("")
-		if len(au) == 0 {
-			return
-		}
-		cu := sets.NewWithLength[model.ConfigKey](len(au))
-		for v := range au {
-			cu.Insert(model.ConfigKey{
-				Kind: kind.Address,
-				Name: v,
-			})
-		}
-		xds.ConfigUpdate(&model.PushRequest{
-			Full:             false,
-			AddressesUpdated: au,
-			ConfigsUpdated:   cu,
-			Reason:           model.NewReasonStats(model.AmbientUpdate),
-		})
-	}
-}
-
-func PushXdsAddresses[T any](xds model.XDSUpdater, f func(T) sets.String) func(events []krt.Event[T]) {
+func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string) func(events []krt.Event[T]) {
 	return func(events []krt.Event[T]) {
 		au := sets.New[string]()
 		for _, e := range events {
 			for _, i := range e.Items() {
 				c := f(i)
-				au = au.Union(c)
+				if c != "" {
+					au.Insert(c)
+				}
 			}
 		}
-		au = au.Delete("")
 		if len(au) == 0 {
 			return
 		}
@@ -988,12 +956,6 @@ func PushXdsAddresses[T any](xds model.XDSUpdater, f func(T) sets.String) func(e
 			Reason:           model.NewReasonStats(model.AmbientUpdate),
 		})
 	}
-}
-
-func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string) func(events []krt.Event[T]) {
-	return PushXdsAddresses[T](xds, func(i T) sets.String {
-		return sets.New(f(i))
-	})
 }
 
 type MeshConfig = meshwatcher.MeshConfigResource

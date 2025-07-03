@@ -146,7 +146,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 
 			assert.EventuallyEqual(t, func() int {
 				return len(remoteClients.List())
-			}, 2, retry.Timeout(time.Hour*50))
+			}, 2)
 
 			differentCIDRIPs := map[string]string{
 				"waypoint": "10.1.0.10",
@@ -216,7 +216,6 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 						},
 					})
 				}
-				time.Sleep(2 * time.Second) // wait for the namespace to be created
 				if networkGatewayIps[client.clusterID] != "" {
 					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], "east-west", clusterToNetwork[client.clusterID], true, client.grc)
 				}
