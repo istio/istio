@@ -963,7 +963,7 @@ type WaypointKey struct {
 	Network   string
 	Addresses []string
 
-	IsGateway bool // true if this is a network gateway proxy, false if it is a regular waypoint proxy
+	IsNetworkGateway bool
 }
 
 // WaypointKeyForProxy builds a key from a proxy to lookup
@@ -977,9 +977,9 @@ func WaypointKeyForNetworkGatewayProxy(node *Proxy) WaypointKey {
 
 func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
 	key := WaypointKey{
-		Namespace: node.ConfigNamespace,
-		Network:   node.Metadata.Network.String(),
-		IsGateway: externalAddresses, // true if this is a network gateway proxy, false if it is a regular waypoint proxy
+		Namespace:        node.ConfigNamespace,
+		Network:          node.Metadata.Network.String(),
+		IsNetworkGateway: externalAddresses, // true if this is a network gateway proxy, false if it is a regular waypoint proxy
 	}
 	for _, svct := range node.ServiceTargets {
 		key.Hostnames = append(key.Hostnames, svct.Service.Hostname.String())

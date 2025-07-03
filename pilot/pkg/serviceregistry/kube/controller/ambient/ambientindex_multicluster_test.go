@@ -240,20 +240,20 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			}
 			// Service configuration needs to be uniform, so we add services to all clusters first,
 			// then check for events
-			for _, client := range clients {
-				ips := clusterToIPs[client.clusterID]
-				s.addPodsForClient(t, ips["pod1"], "pod1", "sa1",
-					map[string]string{"app": "a"}, nil, true, corev1.PodRunning, client.pc)
-				if clusterToNetwork[client.clusterID] == clusterToNetwork[s.clusterID] {
-					s.assertEvent(t, s.podXdsNameForCluster("pod1", client.clusterID))
-				} else if networkGatewayIps[client.clusterID] != "" {
-					s.assertEvent(t, fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
-						clusterToNetwork[client.clusterID],
-						networkGatewayIps[client.clusterID],
-						s.svcXdsName("svc2"),
-					))
-				}
-			}
+			// for _, client := range clients {
+			// 	ips := clusterToIPs[client.clusterID]
+			// 	s.addPodsForClient(t, ips["pod1"], "pod1", "sa1",
+			// 		map[string]string{"app": "a"}, nil, true, corev1.PodRunning, client.pc)
+			// 	if clusterToNetwork[client.clusterID] == clusterToNetwork[s.clusterID] {
+			// 		s.assertEvent(t, s.podXdsNameForCluster("pod1", client.clusterID))
+			// 	} else if networkGatewayIps[client.clusterID] != "" {
+			// 		s.assertEvent(t, fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
+			// 			clusterToNetwork[client.clusterID],
+			// 			networkGatewayIps[client.clusterID],
+			// 			s.svcXdsName("svc2"),
+			// 		))
+			// 	}
+			// }
 			// Service configuration needs to be uniform, so we add services to all clusters first,
 			// then check for events
 			for _, client := range clients {

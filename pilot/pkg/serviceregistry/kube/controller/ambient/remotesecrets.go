@@ -129,14 +129,11 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 			continue
 		}
 
+		// Run returns after initializing the cluster's fields; it runs all of the expensive operations
+		// in a goroutine, so we can safely call it synchronously here.
+		remoteCluster.Run(a.meshConfig, debugger)
 		a.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		addedClusters = append(addedClusters, remoteCluster)
-		go remoteCluster.Run(a.meshConfig, debugger)
-		// Don't wait for sync since the client hasn't been started yet, but do wait for init (i.e. the remote collections are set)
-		if !kube.WaitForCacheSync(fmt.Sprintf("remote cluster %s init", remoteCluster.ID), a.stop, remoteCluster.IsInitialized) {
-			log.Errorf("Timed out waiting for remote cluster %s to initialize", remoteCluster.ID)
-			continue
-		}
 	}
 
 	syncers := slices.Map(addedClusters, func(c *multicluster.Cluster) cache.InformerSynced { return c.HasSynced })

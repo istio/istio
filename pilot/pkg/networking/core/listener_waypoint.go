@@ -81,19 +81,20 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// 3. One of two options based on the type of waypoint:
 	//    a. East-West Gateway: Forward the inner CONNECT to the backend ztunnel or waypoint.
 	//    b. Regular Waypoint: Encapsulate the inner CONNECT and forward to the ztunnel.
-	var wls []model.WorkloadInfo
-	var wps *waypointServices
 	var forwarder *listener.Listener
+	var orderedWPS []*model.Service
+	wls, wps := findWaypointResources(lb.node, lb.push)
+	if wps != nil {
+		orderedWPS = wps.orderedServices
+	}
 	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
-		_, wps = findWaypointResources(lb.node, lb.push)
 		forwarder = buildWaypointForwardInnerConnectListener(lb.push, lb.node)
 	} else {
-		wls, wps = findWaypointResources(lb.node, lb.push)
 		forwarder = buildWaypointConnectOriginateListener(lb.push, lb.node)
 	}
 	listeners = append(listeners,
 		lb.buildWaypointInboundConnectTerminate(),
-		lb.buildWaypointInternal(wls, wps.orderedServices),
+		lb.buildWaypointInternal(wls, orderedWPS),
 		forwarder)
 
 	return listeners

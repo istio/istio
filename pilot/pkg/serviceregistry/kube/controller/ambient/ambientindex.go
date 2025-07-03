@@ -57,7 +57,7 @@ import (
 type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
-	AllGlobalServices() []model.ServiceInfo
+	AllLocalNetworkGlobalServices(string) []model.ServiceInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	Run(stop <-chan struct{})
@@ -265,16 +265,6 @@ func New(options Options) Index {
 		)...,
 	)...)
 
-	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](options.Client, kclient.Filter{
-		ObjectFilter: options.Client.ObjectFilter(),
-	}, opts.With(
-		append(opts.WithName("informer/ConfigMaps"),
-			krt.WithMetadata(krt.Metadata{
-				multicluster.ClusterKRTMetadataKey: options.ClusterID,
-			}),
-		)...,
-	)...)
-
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data.
 	// We only do this if this cluster is the config cluster
 	if features.EnableAmbientMultiNetwork && options.IsConfigCluster {
@@ -285,7 +275,6 @@ func New(options Options) Index {
 			EndpointSlices,
 			Nodes,
 			Gateways,
-			ConfigMaps,
 		)
 		LocalCluster := multicluster.NewCluster(
 			options.ClusterID,
@@ -723,11 +712,18 @@ func (a *index) All() []model.AddressInfo {
 	return res
 }
 
-// AllGlobalServices return all known globally scoped services. Result is un-ordered
-func (a *index) AllGlobalServices() []model.ServiceInfo {
+// AllLocalNetworkGlobalServices return all known globally scoped services. Result is un-ordered
+func (a *index) AllLocalNetworkGlobalServices(network string) []model.ServiceInfo {
 	var res []model.ServiceInfo
 	for _, svc := range a.services.List() {
-		if svc.Scope == model.Global {
+		workloads := a.workloads.ByServiceKey.Lookup(svc.ResourceName())
+		if len(workloads) == 0 {
+			// If there are no workloads, we don't need to add the service yet
+			continue
+		}
+		// All workloads for a service should belong in the same network
+		// Don't add a service if it is in a different network
+		if workloads[0].Workload.Network == network && svc.Scope == model.Global {
 			res = append(res, svc)
 		}
 	}
@@ -760,9 +756,10 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 }
 
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
-	if key.IsGateway {
-		// If this is a gateway waypoint, we only return the global services
-		return a.AllGlobalServices()
+	if key.IsNetworkGateway {
+		// If this is a network gateway waypoint, we only return the global services
+		// that are local to this network and have backing workloads
+		return a.AllLocalNetworkGlobalServices(key.Network)
 	}
 
 	out := map[string]model.ServiceInfo{}
@@ -795,7 +792,7 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 }
 
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
-	if key.IsGateway {
+	if key.IsNetworkGateway {
 		// TODO(jaellio): Support workloads for gateway waypoint
 		return nil
 	}
