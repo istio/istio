@@ -26,6 +26,7 @@
 {{- end }}
 {{ $nativeSidecar := (or (and (not (isset .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar`)) (eq (env "ENABLE_NATIVE_SIDECARS" "false") "true")) (eq (index .ObjectMeta.Annotations `sidecar.istio.io/nativeSidecar`) "true")) }}
 {{ $tproxy := (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) }}
+{{ $capNetBindService := (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) }}
 {{- $containers := list }}
 {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
 metadata:
@@ -376,12 +377,12 @@ spec:
       {{- else }}
       allowPrivilegeEscalation: {{ .Values.global.proxy.privileged }}
       capabilities:
-        {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
+        {{ if or $tproxy $capNetBindService -}}
         add:
-        {{ if eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY` -}}
+        {{ if $tproxy -}}
         - NET_ADMIN
         {{- end }}
-        {{ if eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true` -}}
+        {{ if $capNetBindService -}}
         - NET_BIND_SERVICE
         {{- end }}
         {{- end }}
@@ -389,7 +390,7 @@ spec:
         - ALL
       privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: true
-      {{ if or ($tproxy) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
+      {{ if or $tproxy $capNetBindService -}}
       runAsNonRoot: false
       runAsUser: 0
       runAsGroup: 1337

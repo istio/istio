@@ -68,7 +68,6 @@ type Cluster struct {
 	// initialSyncTimeout is set when RunAndWait timed out
 	initialSyncTimeout *atomic.Bool
 	stop               chan struct{}
-	initialized        *atomic.Bool
 	*RemoteClusterCollections
 }
 
@@ -79,12 +78,6 @@ type RemoteClusterCollections struct {
 	endpointSlices krt.Collection[*discovery.EndpointSlice]
 	nodes          krt.Collection[*corev1.Node]
 	gateways       krt.Collection[*v1beta1.Gateway]
-	// xref: https://github.com/istio/istio/pull/56097
-	// TODO: Figure out if we really want to keep doing this
-	// Note that the impl details of TestSeamlessMigration
-	// depend on this, so if we remove it, we'll need to
-	// adjust the test.
-	configmaps krt.Collection[*corev1.ConfigMap]
 }
 
 // Namespaces returns the namespaces collection.
@@ -117,11 +110,6 @@ func (r *RemoteClusterCollections) Gateways() krt.Collection[*v1beta1.Gateway] {
 	return r.gateways
 }
 
-// ConfigMaps returns the configmaps collection.
-func (r *RemoteClusterCollections) ConfigMaps() krt.Collection[*corev1.ConfigMap] {
-	return r.configmaps
-}
-
 func NewRemoteClusterCollections(
 	namespaces krt.Collection[*corev1.Namespace],
 	pods krt.Collection[*corev1.Pod],
@@ -129,7 +117,6 @@ func NewRemoteClusterCollections(
 	endpointSlices krt.Collection[*discovery.EndpointSlice],
 	nodes krt.Collection[*corev1.Node],
 	gateways krt.Collection[*v1beta1.Gateway],
-	configmaps krt.Collection[*corev1.ConfigMap],
 ) *RemoteClusterCollections {
 	return &RemoteClusterCollections{
 		namespaces:     namespaces,
@@ -138,7 +125,6 @@ func NewRemoteClusterCollections(
 		endpointSlices: endpointSlices,
 		nodes:          nodes,
 		gateways:       gateways,
-		configmaps:     configmaps,
 	}
 }
 
@@ -155,7 +141,6 @@ func NewCluster(
 		stop:               make(chan struct{}),
 		initialSync:        atomic.NewBool(false),
 		initialSyncTimeout: atomic.NewBool(false),
-		initialized:        atomic.NewBool(false),
 	}
 
 	if collections != nil {
@@ -180,7 +165,6 @@ func (c *Cluster) ResourceName() string {
 func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *krt.DebugHandler) {
 	// Check and see if this is a local cluster or not
 	if c.RemoteClusterCollections != nil {
-		c.initialized.Store(true)
 		log.Infof("Configuring cluster %s with existing informers", c.ID)
 		syncers := []krt.Syncer{
 			c.namespaces,
@@ -189,7 +173,6 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 			c.nodes,
 			c.endpointSlices,
 			c.pods,
-			c.configmaps,
 		}
 		// Just wait for all syncers to be synced
 		for _, syncer := range syncers {
@@ -210,7 +193,6 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 				timeouts.With(clusterLabel.Value(string(c.ID))).Increment()
 			}
 			c.initialSyncTimeout.Store(true)
-			c.initialized.Store(true)
 		})
 	}
 
@@ -280,16 +262,6 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		)...,
 	)...)
 
-	ConfigMaps := krt.NewInformerFiltered[*corev1.ConfigMap](c.Client, kclient.Filter{
-		ObjectFilter: c.Client.ObjectFilter(),
-	}, opts.With(
-		append(opts.WithName("informer/ConfigMaps"),
-			krt.WithMetadata(krt.Metadata{
-				ClusterKRTMetadataKey: c.ID,
-			}),
-		)...,
-	)...)
-
 	c.RemoteClusterCollections = &RemoteClusterCollections{
 		namespaces:     Namespaces,
 		pods:           Pods,
@@ -297,35 +269,32 @@ func (c *Cluster) Run(localMeshConfig meshwatcher.WatcherCollection, debugger *k
 		endpointSlices: EndpointSlices,
 		nodes:          Nodes,
 		gateways:       Gateways,
-		configmaps:     ConfigMaps,
 	}
 
-	// Mark initialized before starting the client so that we don't have to wait for informers to sync.
-	c.initialized.Store(true)
-
-	if !c.Client.RunAndWait(c.stop) {
-		log.Warnf("remote cluster %s failed to sync", c.ID)
-		return
-	}
-
-	syncers := []krt.Syncer{
-		c.namespaces,
-		c.gateways,
-		c.services,
-		c.nodes,
-		c.endpointSlices,
-		c.pods,
-		c.configmaps,
-	}
-
-	for _, syncer := range syncers {
-		if !syncer.WaitUntilSynced(c.stop) {
-			log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
+	go func() {
+		if !c.Client.RunAndWait(c.stop) {
+			log.Warnf("remote cluster %s failed to sync", c.ID)
 			return
 		}
-	}
 
-	c.initialSync.Store(true)
+		syncers := []krt.Syncer{
+			c.namespaces,
+			c.gateways,
+			c.services,
+			c.nodes,
+			c.endpointSlices,
+			c.pods,
+		}
+
+		for _, syncer := range syncers {
+			if !syncer.WaitUntilSynced(c.stop) {
+				log.Errorf("Timed out waiting for cluster %s to sync %v", c.ID, syncer)
+				return
+			}
+		}
+
+		c.initialSync.Store(true)
+	}()
 }
 
 func (c *Cluster) HasSynced() bool {
@@ -361,19 +330,9 @@ func (c *Cluster) Stop() {
 	}
 }
 
-func (c *Cluster) IsInitialized() bool {
-	// If the cluster is initialized, it means that the remote collections have been created
-	return c.initialized.Load()
-}
-
 func (c *Cluster) WaitUntilSynced(stop <-chan struct{}) bool {
 	if c.HasSynced() {
 		return true
-	}
-
-	if !kube.WaitForCacheSync(fmt.Sprintf("remote cluster %s init", c.ID), stop, c.IsInitialized) {
-		log.Errorf("Timed out waiting for remote cluster %s to initialize", c.ID)
-		return false
 	}
 
 	// Wait for all syncers to be synced
