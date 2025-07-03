@@ -893,11 +893,11 @@ func TestWaypointKeyForProxy(t *testing.T) {
 			},
 			externalAddresses: true,
 			expectedKey: WaypointKey{
-				Namespace: "default",
-				Network:   "network1",
-				Hostnames: []string{"service1.default.svc.cluster.local"},
-				Addresses: []string{"192.168.0.1"},
-				IsGateway: true,
+				Namespace:        "default",
+				Network:          "network1",
+				Hostnames:        []string{"service1.default.svc.cluster.local"},
+				Addresses:        []string{"192.168.0.1"},
+				IsNetworkGateway: true,
 			},
 		},
 		{
