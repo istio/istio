@@ -259,48 +259,6 @@ func (a *index) buildGlobalCollections(
 
 	GobalWorkloadServicesWithClusterByCluster := nestedCollectionIndexByCluster(GlobalWorkloadServicesWithCluster)
 	LocalServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](LocalWorkloadServices, "serviceAddress", networkAddressFromService)
-	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](GlobalMergedWorkloadServices, "serviceAddress", networkAddressFromService)
-	ServiceInfosByOwningWaypointHostname := krt.NewIndex(GlobalMergedWorkloadServices, "namespaceHostname", func(s model.ServiceInfo) []NamespaceHostname {
-		// Filter out waypoint services
-		// TODO: we are looking at the *selector* -- we should be looking the labels themselves or something equivalent.
-		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
-			return nil
-		}
-		waypoint := s.Service.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-		waypointAddress := waypoint.GetHostname()
-		if waypointAddress == nil {
-			return nil
-		}
-
-		return []NamespaceHostname{{
-			Namespace: waypointAddress.Namespace,
-			Hostname:  waypointAddress.Hostname,
-		}}
-	})
-	ServiceInfosByOwningWaypointIP := krt.NewIndex(GlobalMergedWorkloadServices, "owningWaypointIp", func(s model.ServiceInfo) []networkAddress {
-		// Filter out waypoint services
-		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
-			return nil
-		}
-		waypoint := s.Service.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-		waypointAddress := waypoint.GetAddress()
-		if waypointAddress == nil {
-			return nil
-		}
-		netip, _ := netip.AddrFromSlice(waypointAddress.Address)
-		netaddr := networkAddress{
-			network: waypointAddress.Network,
-			ip:      netip.String(),
-		}
-
-		return []networkAddress{netaddr}
-	})
 
 	LocalNamespacesInfo := krt.NewCollection(LocalNamespaces, func(ctx krt.HandlerContext, ns *v1.Namespace) *model.NamespaceInfo {
 		return &model.NamespaceInfo{
@@ -339,52 +297,6 @@ func (a *index) buildGlobalCollections(
 		options.DomainSuffix,
 		opts,
 	)
-
-	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](GlobalWorkloads, "networkAddress", networkAddressFromWorkload)
-	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, "service", func(o model.WorkloadInfo) []string {
-		return maps.Keys(o.Workload.Services)
-	})
-	WorkloadWaypointIndexHostname := krt.NewIndex(GlobalWorkloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
-		// Filter out waypoints.
-		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
-			return nil
-		}
-		waypoint := w.Workload.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-		waypointAddress := waypoint.GetHostname()
-		if waypointAddress == nil {
-			return nil
-		}
-
-		return []NamespaceHostname{{
-			Namespace: waypointAddress.Namespace,
-			Hostname:  waypointAddress.Hostname,
-		}}
-	})
-	WorkloadWaypointIndexIP := krt.NewIndex(GlobalWorkloads, "waypointIp", func(w model.WorkloadInfo) []networkAddress {
-		// Filter out waypoints.
-		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
-			return nil
-		}
-		waypoint := w.Workload.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-
-		waypointAddress := waypoint.GetAddress()
-		if waypointAddress == nil {
-			return nil
-		}
-		netip, _ := netip.AddrFromSlice(waypointAddress.Address)
-		netaddr := networkAddress{
-			network: waypointAddress.Network,
-			ip:      netip.String(),
-		}
-
-		return []networkAddress{netaddr}
-	})
 
 	workloadNetworkServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, "network;service", func(o model.WorkloadInfo) []string {
 		res := make([]string, 0, len(o.Workload.Services))
@@ -446,7 +358,6 @@ func (a *index) buildGlobalCollections(
 			return []model.WorkloadInfo{*wi}
 		}, opts.WithName("remoteCoalesedWorkloads")...,
 	)
-
 	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, i model.WorkloadInfo) *model.WorkloadInfo {
 		if i.Workload.Network == a.Network(ctx).String() {
 			return &i
@@ -489,12 +400,52 @@ func (a *index) buildGlobalCollections(
 		},
 		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName),
 	), false)
-	SplitHorizonWorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](
-		SplitHorizonWorkloads, "service",
-		func(o model.WorkloadInfo) []string {
-			return maps.Keys(o.Workload.Services)
-		},
-	)
+
+	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](SplitHorizonWorkloads, "networkAddress", networkAddressFromWorkload)
+	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](SplitHorizonWorkloads, "service", func(o model.WorkloadInfo) []string {
+		return maps.Keys(o.Workload.Services)
+	})
+	WorkloadWaypointIndexHostname := krt.NewIndex(SplitHorizonWorkloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
+		// Filter out waypoints.
+		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		waypoint := w.Workload.Waypoint
+		if waypoint == nil {
+			return nil
+		}
+		waypointAddress := waypoint.GetHostname()
+		if waypointAddress == nil {
+			return nil
+		}
+
+		return []NamespaceHostname{{
+			Namespace: waypointAddress.Namespace,
+			Hostname:  waypointAddress.Hostname,
+		}}
+	})
+	WorkloadWaypointIndexIP := krt.NewIndex(SplitHorizonWorkloads, "waypointIp", func(w model.WorkloadInfo) []networkAddress {
+		// Filter out waypoints.
+		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		waypoint := w.Workload.Waypoint
+		if waypoint == nil {
+			return nil
+		}
+
+		waypointAddress := waypoint.GetAddress()
+		if waypointAddress == nil {
+			return nil
+		}
+		netip, _ := netip.AddrFromSlice(waypointAddress.Address)
+		netaddr := networkAddress{
+			network: waypointAddress.Network,
+			ip:      netip.String(),
+		}
+
+		return []networkAddress{netaddr}
+	})
 
 	// This is a first pass at creating the collection of services for local workloads.
 	// Here, we only include services that have a remote workload.
@@ -552,7 +503,49 @@ func (a *index) buildGlobalCollections(
 		},
 		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
 	), false)
-	SplitHorizonServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](SplitHorizonServices, "serviceAddress", networkAddressFromService)
+
+	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](SplitHorizonServices, "serviceAddress", networkAddressFromService)
+	ServiceInfosByOwningWaypointHostname := krt.NewIndex(SplitHorizonServices, "namespaceHostname", func(s model.ServiceInfo) []NamespaceHostname {
+		// Filter out waypoint services
+		// TODO: we are looking at the *selector* -- we should be looking the labels themselves or something equivalent.
+		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		waypoint := s.Service.Waypoint
+		if waypoint == nil {
+			return nil
+		}
+		waypointAddress := waypoint.GetHostname()
+		if waypointAddress == nil {
+			return nil
+		}
+
+		return []NamespaceHostname{{
+			Namespace: waypointAddress.Namespace,
+			Hostname:  waypointAddress.Hostname,
+		}}
+	})
+	ServiceInfosByOwningWaypointIP := krt.NewIndex(SplitHorizonServices, "owningWaypointIp", func(s model.ServiceInfo) []networkAddress {
+		// Filter out waypoint services
+		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
+			return nil
+		}
+		waypoint := s.Service.Waypoint
+		if waypoint == nil {
+			return nil
+		}
+		waypointAddress := waypoint.GetAddress()
+		if waypointAddress == nil {
+			return nil
+		}
+		netip, _ := netip.AddrFromSlice(waypointAddress.Address)
+		netaddr := networkAddress{
+			network: waypointAddress.Network,
+			ip:      netip.String(),
+		}
+
+		return []networkAddress{netaddr}
+	})
 
 	if features.EnableIngressWaypointRouting {
 		RegisterEdsShim(
@@ -568,22 +561,15 @@ func (a *index) buildGlobalCollections(
 	a.namespaces = LocalNamespacesInfo
 
 	a.workloads = workloadsCollection{
-		Collection:               GlobalWorkloads,
+		Collection:               SplitHorizonWorkloads,
 		ByAddress:                WorkloadAddressIndex,
 		ByServiceKey:             WorkloadServiceIndex,
 		ByOwningWaypointHostname: WorkloadWaypointIndexHostname,
 		ByOwningWaypointIP:       WorkloadWaypointIndexIP,
 	}
 
-	a.splitHorizon = splitHorizon{
-		workloads:            SplitHorizonWorkloads,
-		workloadByServiceKey: SplitHorizonWorkloadServiceIndex,
-		services:             SplitHorizonServices,
-		servicesByAddress:    SplitHorizonServiceAddressIndex,
-	}
-
 	a.services = servicesCollection{
-		Collection:               GlobalMergedWorkloadServices,
+		Collection:               SplitHorizonServices,
 		ByAddress:                ServiceAddressIndex,
 		ByOwningWaypointHostname: ServiceInfosByOwningWaypointHostname,
 		ByOwningWaypointIP:       ServiceInfosByOwningWaypointIP,

@@ -85,17 +85,6 @@ type workloadsCollection struct {
 	ByNetwork                krt.Index[network.ID, NetworkGateway]
 }
 
-type splitHorizon struct {
-	workloads            krt.Collection[model.WorkloadInfo]
-	workloadByServiceKey krt.Index[string, model.WorkloadInfo]
-	services             krt.Collection[model.ServiceInfo]
-	servicesByAddress    krt.Index[networkAddress, model.ServiceInfo]
-}
-
-func (s *splitHorizon) HasSynced() bool {
-	return s == nil || (s.workloads == nil || s.workloads.HasSynced()) && (s.services == nil || s.services.HasSynced())
-}
-
 type waypointsCollection struct {
 	krt.Collection[Waypoint]
 }
@@ -112,7 +101,6 @@ type servicesCollection struct {
 type index struct {
 	services     servicesCollection
 	workloads    workloadsCollection
-	splitHorizon splitHorizon
 	waypoints    waypointsCollection
 	networks     networkCollections
 
@@ -606,13 +594,7 @@ func translateKubernetesCondition(conds []metav1.Condition) map[string]model.Con
 func (a *index) Lookup(key string) []model.AddressInfo {
 	// 1. Workload UID
 	// Check that work
-	workloads := a.workloads.Collection
-
-	if a.splitHorizon.workloads != nil {
-		workloads = a.splitHorizon.workloads
-	}
-
-	if w := workloads.GetKey(key); w != nil {
+	if w := a.workloads.Collection.GetKey(key); w != nil {
 		return []model.AddressInfo{w.AsAddress}
 	}
 
@@ -634,13 +616,7 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 	if svc := a.lookupService(key); svc != nil {
 		res := []model.AddressInfo{svc.AsAddress}
 		// grab all workloads that reference this service
-		var ws []model.WorkloadInfo
-		if a.splitHorizon.workloadByServiceKey != nil {
-			ws = a.splitHorizon.workloadByServiceKey.Lookup(svc.ResourceName())
-		} else {
-			ws = a.workloads.ByServiceKey.Lookup(svc.ResourceName())
-		}
-		for _, w := range ws {
+		for _, w := range a.workloads.ByServiceKey.Lookup(svc.ResourceName()) {
 			res = append(res, w.AsAddress)
 		}
 		return res
@@ -650,12 +626,7 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 
 func (a *index) lookupService(key string) *model.ServiceInfo {
 	// 1. namespace/hostname format
-	var s *model.ServiceInfo
-	if a.splitHorizon.services != nil {
-		s = a.splitHorizon.services.GetKey(key)
-	} else {
-		s = a.services.GetKey(key)
-	}
+	s := a.services.GetKey(key)
 	if s != nil {
 		return s
 	}
@@ -663,17 +634,10 @@ func (a *index) lookupService(key string) *model.ServiceInfo {
 	// 2. network/ip format
 	network, ip, _ := strings.Cut(key, "/")
 	var services []model.ServiceInfo
-	if a.splitHorizon.servicesByAddress != nil {
-		services = a.splitHorizon.servicesByAddress.Lookup(networkAddress{
-			network: network,
-			ip:      ip,
-		})
-	} else {
-		services = a.services.ByAddress.Lookup(networkAddress{
-			network: network,
-			ip:      ip,
-		})
-	}
+	services = a.services.ByAddress.Lookup(networkAddress{
+		network: network,
+		ip:      ip,
+	})
 	return slices.First(services)
 }
 
@@ -688,20 +652,9 @@ func (a *index) inRevision(obj any) bool {
 
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
-	var res []model.AddressInfo
-	if a.splitHorizon.workloads != nil {
-		res = slices.Map(a.splitHorizon.workloads.List(), modelWorkloadToAddressInfo)
-	} else {
-		res = slices.Map(a.workloads.List(), modelWorkloadToAddressInfo)
-	}
-	if a.splitHorizon.services != nil {
-		for _, s := range a.splitHorizon.services.List() {
-			res = append(res, s.AsAddress)
-		}
-	} else {
-		for _, s := range a.services.List() {
-			res = append(res, s.AsAddress)
-		}
+	var res = slices.Map(a.workloads.List(), modelWorkloadToAddressInfo)
+	for _, s := range a.services.List() {
+		res = append(res, s.AsAddress)
 	}
 	return res
 }
@@ -897,8 +850,7 @@ func (a *index) HasSynced() bool {
 		a.workloads.HasSynced() &&
 		a.waypoints.HasSynced() &&
 		a.authorizationPolicies.HasSynced() &&
-		a.networks.HasSynced() &&
-		a.splitHorizon.HasSynced()
+		a.networks.HasSynced()
 }
 
 func (a *index) Network(ctx krt.HandlerContext) network.ID {

@@ -1,4 +1,4 @@
-// Copyright Istio Authors
+// Copyright Istio Authorsambientindex_
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package ambient
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 type ambientclients struct {
@@ -411,81 +411,211 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 	})
 }
 
-// func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
-// 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-// 	s := newAmbientTestServer(t, testC, testNW, "")
-// 	s.AddSecret("s1", "remote-cluster") // overlapping ips
-// 	remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
-// 		cl := c.Client
-// 		return ptr.Of(&remoteAmbientClients{
-// 			clusterID: c.ID,
-// 			ambientclients: &ambientclients{
-// 				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
-// 				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
-// 				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-// 				grc:   clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
-// 				gwcls: clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
-// 				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
-// 				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
-// 				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
-// 				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
-// 				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
-// 			},
-// 		})
-// 	})
-//
-// 	const remoteNetwork = "remote-network"
-//
-// 	assert.EventuallyEqual(t, func() int {
-// 		return len(remoteClients.List())
-// 	}, 1, retry.Timeout(time.Second*5))
-//
-// 	remote_client := remoteClients.List()[0]
-// 	local_client := remoteAmbientClients{
-// 		clusterID: s.clusterID,
-// 		ambientclients: &ambientclients{
-// 			pc:    s.pc,
-// 			sc:    s.sc,
-// 			ns:    s.ns,
-// 			grc:   s.grc,
-// 			gwcls: s.gwcls,
-// 			se:    s.se,
-// 			we:    s.we,
-// 			pa:    s.pa,
-// 			authz: s.authz,
-// 			sec:   s.sec,
-// 		},
-// 	}
-// 	clients := []*remoteAmbientClients{
-// 		&local_client,
-// 		remote_client,
-// 	}
-// 	remote_client.ns.Create(&corev1.Namespace{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:   systemNS,
-// 			Labels: map[string]string{label.TopologyNetwork.Name: remoteNetwork},
-// 		},
-// 	})
-// 	time.Sleep(2 * time.Second) // wait for the namespace to be created
-// 	s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], "east-west", remoteNetwork true, remote_client.grc)
-//
-// 	// These steps happen for every test regardless of traffic type.
-// 	// It involves creating a waypoint for the specified traffic type
-// 	// then creating a workload and a service with no annotations set
-// 	// on these objects yet.
-// 	s.addWaypointForClient(t, ips["waypoint"], "test-wp", c.trafficType, true, client.grc)
-//
-// 	s.addServiceForClient(t, "svc2",
-// 		map[string]string{
-// 			"istio.io/global": "",
-// 		},
-// 		map[string]string{},
-// 		[]int32{80}, map[string]string{"app": "a"}, ips["svc2"], client.sc)
-// 	s.assertEvent(t, s.svcXdsName("svc2"))
-//
-// }
-//
-// TODO: Test the merging details (the correct number of VIPs, no duplicates, etc.)
+func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	s := newAmbientTestServer(t, testC, testNW, "")
+	s.AddSecret("s1", "remote-cluster") // overlapping ips
+	remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
+		cl := c.Client
+		return ptr.Of(&remoteAmbientClients{
+			clusterID: c.ID,
+			ambientclients: &ambientclients{
+				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
+				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
+				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
+				grc:   clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
+				gwcls: clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
+				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
+				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
+				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
+				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
+			},
+		})
+	})
+
+	const remoteNetwork = "remote-network"
+
+	assert.EventuallyEqual(t, func() int {
+		return len(remoteClients.List())
+	}, 1)
+
+	remoteClient := remoteClients.List()[0]
+	local_client := remoteAmbientClients{
+		clusterID: s.clusterID,
+		ambientclients: &ambientclients{
+			pc:    s.pc,
+			sc:    s.sc,
+			ns:    s.ns,
+			grc:   s.grc,
+			gwcls: s.gwcls,
+			se:    s.se,
+			we:    s.we,
+			pa:    s.pa,
+			authz: s.authz,
+			sec:   s.sec,
+		},
+	}
+	remoteClient.ns.Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   systemNS,
+			Labels: map[string]string{label.TopologyNetwork.Name: remoteNetwork},
+		},
+	})
+	remoteClient.ns.Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNS,
+		},
+	})
+	networkGateawyIp := "172.0.1.2"
+	s.addNetworkGatewayForClient(t, networkGateawyIp, "east-west", remoteNetwork, true, remoteClient.grc)
+	s.addServiceForClient(t, "svc2",
+		map[string]string{
+			"istio.io/global": "",
+		},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1", local_client.sc,
+	)
+	s.addServiceForClient(t, "svc2",
+		map[string]string{
+			"istio.io/global": "",
+		},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, "127.1.0.1", remoteClient.sc,
+	)
+	retry.UntilSuccessOrFail(t, func() error {
+		svc := s.lookupService("ns1/svc2.ns1.svc.company.com")
+		if svc == nil {
+			return fmt.Errorf("service not found")
+		}
+		if svc.Scope != model.Global {
+			return fmt.Errorf("expected service scope to be Global, got %s", svc.Scope)
+		}
+		return nil
+	})
+
+	s.addPodsForClient(t, "10.0.1.1", "pod1", "sa1",
+		map[string]string{"app": "a"}, nil, true, corev1.PodRunning, local_client.pc)
+	s.addPodsForClient(t, "127.0.0.1", "pod1-abc", "sa1",
+		map[string]string{"app": "a"}, nil, true, corev1.PodRunning, remoteClient.pc)
+
+	splitHorizonName := fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
+		remoteNetwork, networkGateawyIp, s.svcXdsName("svc2"))
+	retry.UntilSuccessOrFail(t, func() error {
+		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
+		if len(ais) != 3 {
+			return fmt.Errorf("expected 3 pods, got %d", len(ais))
+		}
+		shwl := s.workloads.GetKey(splitHorizonName)
+		if len(shwl.Workload.Addresses) != 0 {
+			return fmt.Errorf("expected no addresses in split horizon workload, got %v", shwl.Workload.Addresses)
+		}
+		// if shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Address != []byte{172, 0, 1, 2} {
+		// 	return fmt.Errorf("expected split horizon workload to have network gateway address %s, got %s", networkGateawyIp, shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Address)
+		// }
+		if shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Network != remoteNetwork {
+			return fmt.Errorf("expected split horizon workload to have network %s, got %s", remoteNetwork, shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Network)
+		}
+		if shwl.Workload.Capacity.GetValue() != 1 {
+			return fmt.Errorf("expected split horizon workload to have capacity 1, got %d", shwl.Workload.Capacity.GetValue())
+		}
+		if len(shwl.Workload.Addresses) != 0 {
+			return fmt.Errorf("expected no addresses in split horizon workload, got %v", shwl.Workload.Addresses)
+		}
+		return nil
+	})
+
+	s.addPodsForClient(t, "127.0.0.2", "pod2", "sa1",
+		map[string]string{"app": "a"}, nil, true, corev1.PodRunning, remoteClient.pc)
+	s.assertEvent(t, s.podXdsName("pod1"), splitHorizonName, s.svcXdsName("svc2"))
+
+	retry.UntilSuccessOrFail(t, func() error {
+		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
+		if len(ais) != 3 {
+			return fmt.Errorf("expected 3 pods, got %d", len(ais))
+		}
+		shwl := s.workloads.GetKey(splitHorizonName)
+		if shwl.Workload.Capacity.GetValue() != 2 {
+			return fmt.Errorf("expected split horizon workload to have capacity 2, got %d", shwl.Workload.Capacity.GetValue())
+		}
+		return nil
+	})
+
+	// Remove network gateway: Split horizon workload should be removed
+	s.deleteNetworkGatewayForClient(t, "east-west", remoteClient.grc)
+	assert.EventuallyEqual(t, func() int {
+		return len(s.Lookup("ns1/svc2.ns1.svc.company.com"))
+	}, 2) // 2 pods, no split horizon workload
+	retry.UntilSuccessOrFail(t, func() error {
+		if s.workloads.GetKey(splitHorizonName) != nil {
+			return fmt.Errorf("expected split horizon workload to be removed, but it still exists")
+		}
+		return nil
+	})
+
+	// Add the network gateway back: Split horizon workload should be recreated
+	s.addNetworkGatewayForClient(t, networkGateawyIp, "east-west", remoteNetwork, true, remoteClient.grc)
+	retry.UntilSuccessOrFail(t, func() error {
+		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
+		if len(ais) != 3 {
+			return fmt.Errorf("expected 3 pods, got %d", len(ais))
+		}
+		shwl := s.workloads.GetKey(splitHorizonName)
+		if shwl.Workload.Capacity.GetValue() != 2 {
+			return fmt.Errorf("expected split horizon workload to have capacity 2, got %d", shwl.Workload.Capacity.GetValue())
+		}
+		return nil
+	})
+	// make the service local local
+	s.labelServiceForClient(t, "svc2", testNS, map[string]string{}, local_client.sc)
+	s.labelServiceForClient(t, "svc2", testNS, map[string]string{}, remoteClient.sc)
+	assert.EventuallyEqual(t, func() int {
+		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
+		return len(ais)
+	}, 2)
+	retry.UntilSuccessOrFail(t, func() error {
+		if s.workloads.GetKey(splitHorizonName) != nil {
+			return fmt.Errorf("expected split horizon workload to be removed, but it still exists")
+		}
+		return nil
+	})
+
+	// label remote cluster to have same network local and mark the service as global
+	remoteClient.ns.Update(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   systemNS,
+			Labels: map[string]string{label.TopologyNetwork.Name: testNW},
+		},
+	})
+
+	s.labelServiceForClient(t, "svc2", testNS,
+		map[string]string{"istio.io/global": "true"}, local_client.sc)
+	s.labelServiceForClient(t, "svc2", testNS,
+		map[string]string{"istio.io/global": "true"}, remoteClient.sc)
+	s.assertEvent(t, s.podXdsNameForCluster("pod2", remoteClient.clusterID),
+		s.podXdsNameForCluster("pod1-abc", remoteClient.clusterID),
+	)
+	assert.EventuallyEqual(t, func() int {
+		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
+		return len(ais)
+	}, 4)
+
+	// Finally, change the network back
+	remoteClient.ns.Update(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   systemNS,
+			Labels: map[string]string{label.TopologyNetwork.Name: remoteNetwork},
+		},
+	})
+	assert.EventuallyEqual(t, func() int {
+		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
+		return len(ais)
+	}, 3)
+	s.assertEvent(t, s.podXdsNameForCluster("pod2", remoteClient.clusterID),
+		s.podXdsNameForCluster("pod1-abc", remoteClient.clusterID),
+		splitHorizonName,
+	)
+}
 
 func (a *ambientTestServer) DeleteSecret(secretName string) {
 	a.t.Helper()

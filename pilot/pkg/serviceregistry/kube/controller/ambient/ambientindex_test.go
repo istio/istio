@@ -2057,7 +2057,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 
 	idx := New(options)
 
-	dumpOnFailure(t, options.Debugger)
+	// dumpOnFailure(t, options.Debugger)
 	a := &ambientTestServer{
 		t:         t,
 		clusterID: options.ClusterID,
@@ -2179,6 +2179,11 @@ func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 			t.Log(string(b))
 		}
 	})
+}
+
+func (s *ambientTestServer) deleteNetworkGatewayForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+	t.Helper()
+	grc.Delete(name, testNS)
 }
 
 func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, name, network string, ready bool, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
