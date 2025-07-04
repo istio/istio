@@ -672,19 +672,47 @@ func (a *index) All() []model.AddressInfo {
 	return res
 }
 
-// AllLocalNetworkGlobalServices return all known globally scoped services. Result is un-ordered
+// AllLocalNetworkGlobalServices returns all known globally scoped services and local
+// waypoints containing global services. Result is un-ordered
 func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo {
 	var res []model.ServiceInfo
 	for _, svc := range a.services.List() {
 		workloads := a.workloads.ByServiceKey.Lookup(svc.ResourceName())
-		if len(workloads) == 0 {
-			// If there are no workloads, we don't need to add the service yet
-			continue
-		}
 		// All workloads for a service should belong in the same network
 		// Don't add a service if it is in a different network
-		if workloads[0].Workload.Network == key.Network && svc.Scope == model.Global {
+		if len(workloads) != 0 && workloads[0].Workload.Network != key.Network {
+			log.Debugf("Skipping service %s/%s in network %s, as it is not in the network %s"+
+				" of the network gateway", svc.Service.Namespace, svc.Service.Name, key.Network)
+			continue
+		}
+		if svc.Scope != model.Global {
+			// Check if the service is a waypoint. If the service is not a waypoint
+			// or it's a waypoint containing no services then the Lookup will return
+			// an empty list
+			wpSvcs := a.services.ByOwningWaypointHostname.Lookup(NamespaceHostname{
+				Namespace: svc.Service.Namespace,
+				Hostname:  svc.Service.Hostname,
+			})
+			if len(wpSvcs) == 0 {
+				log.Debugf("Skipping non global service %s/%s in network %s for the network gateway",
+					svc.Service.Namespace, svc.Service.Name, key.Network)
+				continue
+			}
+			for _, resp := range wpSvcs {
+				// Check is the any of the services owned by the waypoint are global
+				// If they are global, then the waypoint should be considered global
+				if resp.Scope == model.Global {
+					res = append(res, svc)
+					log.Debugf("Adding non global waypoint service %s/%s in network %s for the network"+
+						"gateway, as it is a waypoint containing global services", svc.Service.Namespace,
+						svc.Service.Name, key.Network)
+					break
+				}
+			}
+		} else {
 			res = append(res, svc)
+			log.Debugf("Adding global service %s/%s in network %s for the network gateway",
+				svc.Service.Namespace, svc.Service.Name, key.Network)
 		}
 	}
 	return res

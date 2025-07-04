@@ -1243,7 +1243,7 @@ const (
 	Local ServiceScope = "LOCAL"
 	// Global ServiceScope specifies that istiod will automatically expose the matching services' endpoints at the
 	// cluster's east/west gateway. Istio will also automatically share globally matching endpoints with the cluster's
-	// local dataplance that in the local and remote clusters.
+	// local dataplane that are in the local and remote clusters.
 	Global ServiceScope = "GLOBAL"
 )
 
