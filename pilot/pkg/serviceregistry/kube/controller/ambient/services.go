@@ -174,7 +174,7 @@ func serviceServiceBuilder(
 		if checkServiceScope {
 			meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 			if meshCfg != nil {
-				serviceScope = MatchServiceScope(meshCfg, namespaces, s)
+				serviceScope = matchServiceScope(meshCfg, namespaces, s)
 			}
 			if !localCluster && serviceScope != model.Global {
 				// If this is a remote service, we only want to return it if it is globally scoped.
@@ -265,7 +265,7 @@ func LabelSelectorAsSelector(ps *meshapi.LabelSelector) (labels.Selector, error)
 	return selector, nil
 }
 
-func MatchServiceScope(meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namespace], s *v1.Service) model.ServiceScope {
+func matchServiceScope(meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namespace], s *v1.Service) model.ServiceScope {
 	// Apply label selectors from the MeshConfig's servieScopeConfig to determine the scope of the service based on the namespace
 	// or service label matches
 	// Check if the service matches any label selectors defined in the meshConfig's serviceScopeConfig.

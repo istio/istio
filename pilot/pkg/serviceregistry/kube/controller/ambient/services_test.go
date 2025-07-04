@@ -1558,7 +1558,7 @@ func TestMatchServiceScope(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
-			got := MatchServiceScope(tt.meshCfg, krttest.GetMockCollection[*v1.Namespace](mock), tt.svc)
+			got := matchServiceScope(tt.meshCfg, krttest.GetMockCollection[*v1.Namespace](mock), tt.svc)
 			assert.Equal(t, got, tt.want)
 		})
 	}
