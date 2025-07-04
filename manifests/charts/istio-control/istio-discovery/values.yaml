@@ -31,6 +31,8 @@ _internal_defaults_do_not_set:
     enabled: false
     provider: default
 
+  createNetworkPolicy: false
+
   # Additional container arguments
   extraContainerArgs: []
 

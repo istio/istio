@@ -956,6 +956,9 @@ message PilotConfig {
 
   // Configuration for the istio-discovery chart 
   repeated google.protobuf.Struct envVarFrom = 62;
+
+  // Controls whether a default NetworkPolicy for istiod will be created.
+  google.protobuf.BoolValue createNetworkPolicy = 63;
 }
 
 message PilotTaintControllerConfig {
