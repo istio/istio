@@ -36,12 +36,13 @@ const (
 
 	dotdotpwn = "dotdotpwn"
 	wfuzz     = "wfuzz"
+	jwtTool   = "jwttool"
 
-	authzDenyPolicy = `
+	authzDenyPolicy1 = `
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
-  name: policy-deny
+  name: policy-deny-page
 spec:
   action: DENY
   rules:
@@ -49,7 +50,81 @@ spec:
     - operation:
         paths: ["/private/secret.html"]
 `
-	jwtTool            = "jwttool"
+
+	authzDenyPolicy2 = `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-deny-page-with-wildcard
+spec:
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/private/secre*.html"]
+`
+
+	authzDenyPolicy3 = `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-deny-page-with-wildcard
+spec:
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["/private/secret*.html"]
+`
+
+	authzDenyPolicy4 = `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-deny-page-with-wildcard
+spec:
+  action: DENY
+  rules:
+  - to:
+    - operation:
+        paths: ["*/secret.html"]
+`
+	authzAllowPolicy1 = `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-allow-one-url
+spec:
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        paths: ["/private/available.html"]
+`
+	authzAllowPolicy2 = `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-allow-one-url-with-wildcard
+spec:
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        paths: ["/private/avail*.html"]
+`
+	authzAllowPolicy3 = `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-allow-one-url-with-wildcard
+spec:
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        paths: ["*/available.html"]
+`
 	requestAuthnPolicy = `
 apiVersion: security.istio.io/v1
 kind: RequestAuthentication
@@ -63,6 +138,11 @@ spec:
     jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.10/tests/common/jwt/jwks.json"
 `
 )
+
+type TestPolicy struct {
+	name string
+	yaml string
+}
 
 var (
 	// Known unsupported path parameter ("/bla;foo") normalization for Tomcat.
@@ -205,13 +285,40 @@ func runFuzzer(t framework.TestContext, fuzzer, ns, server string) {
 }
 
 func TestFuzzAuthorization(t *testing.T) {
+	policies := []*TestPolicy{
+		{
+			name: "authzDenyPolicy1",
+			yaml: authzDenyPolicy1,
+		},
+		{
+			name: "authzDenyPolicy2",
+			yaml: authzDenyPolicy2,
+		},
+		{
+			name: "authzDenyPolicy3",
+			yaml: authzDenyPolicy3,
+		},
+		{
+			name: "authzDenyPolicy4",
+			yaml: authzDenyPolicy4,
+		},
+		{
+			name: "authzAllowPolicy1",
+			yaml: authzAllowPolicy1,
+		},
+		{
+			name: "authzAllowPolicy2",
+			yaml: authzAllowPolicy2,
+		},
+		{
+			name: "authzAllowPolicy3",
+			yaml: authzAllowPolicy3,
+		},
+	}
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			ns := "fuzz-authz"
 			namespace.ClaimOrFail(t, ns)
-
-			t.ConfigIstio().YAML(ns, authzDenyPolicy).ApplyOrFail(t)
-			t.Logf("authorization policy applied")
 
 			deploy(t, dotdotpwn, ns, "fuzzers/dotdotpwn/dotdotpwn.yaml")
 			t.ConfigIstio().File(ns, "fuzzers/wfuzz/wordlist.yaml").ApplyOrFail(t)
@@ -223,14 +330,21 @@ func TestFuzzAuthorization(t *testing.T) {
 			waitService(t, apacheServer, ns)
 			waitService(t, nginxServer, ns)
 			waitService(t, tomcatServer, ns)
-			for _, fuzzer := range []string{dotdotpwn, wfuzz} {
-				t.NewSubTest(fuzzer).Run(func(t framework.TestContext) {
-					for _, target := range []string{apacheServer, nginxServer, tomcatServer} {
-						t.NewSubTest(target).Run(func(t framework.TestContext) {
-							runFuzzer(t, fuzzer, ns, target)
-						})
-					}
-				})
+
+			for _, policy := range policies {
+				t.ConfigIstio().YAML(ns, policy.yaml).ApplyOrFail(t)
+				t.Logf("authorization policy '%s' applied", policy.name)
+				for _, fuzzer := range []string{dotdotpwn, wfuzz} {
+					t.NewSubTest(fuzzer).Run(func(t framework.TestContext) {
+						for _, target := range []string{apacheServer, nginxServer, tomcatServer} {
+							t.NewSubTest(target).Run(func(t framework.TestContext) {
+								runFuzzer(t, fuzzer, ns, target)
+							})
+						}
+					})
+				}
+				t.ConfigIstio().YAML(ns, policy.yaml).DeleteOrFail(t)
+				t.Logf("authorization policy '%s' deleted", policy.name)
 			}
 		})
 }
