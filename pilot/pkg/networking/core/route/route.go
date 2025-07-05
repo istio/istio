@@ -25,6 +25,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
 	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
+	extproc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
@@ -44,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
@@ -244,6 +246,9 @@ func buildSidecarVirtualHostsForVirtualService(
 	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	meshGateway := sets.New(constants.IstioMeshGateway)
+
+	infPoolConfigs := CheckAndGetInferencePoolConfigs(virtualService)
+
 	opts := RouteOptions{
 		// Sidecar is never terminating TLS
 		IsTLS: false,
@@ -257,7 +262,9 @@ func buildSidecarVirtualHostsForVirtualService(
 		LookupHash: func(destination *networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB {
 			return hashByDestination[destination]
 		},
+		InferencePoolExtensionRefs: infPoolConfigs,
 	}
+
 	routes, err := BuildHTTPRoutesForVirtualService(node, virtualService,
 		listenPort, meshGateway, opts)
 	if err != nil || len(routes) == 0 {
@@ -374,6 +381,8 @@ type RouteOptions struct {
 	LookupService             func(name host.Name) *model.Service
 	LookupDestinationCluster  func(destination *networking.Destination, service *model.Service, listenerPort int) string
 	LookupHash                func(*networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB
+
+	InferencePoolExtensionRefs map[string]kube.InferencePoolRouteRuleConfig
 }
 
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
@@ -498,6 +507,36 @@ func TranslateRoute(
 	}
 
 	var hostnames []host.Name
+	if infPoolRouteRuleCfg, ok := opts.InferencePoolExtensionRefs[in.Name]; ok {
+		// This route has an inference pool config, set up ext_proc
+		extSvcHost := host.Name(infPoolRouteRuleCfg.FQDN)
+		extPortNum, _ := strconv.Atoi(infPoolRouteRuleCfg.Port)
+		if out.TypedPerFilterConfig == nil {
+			out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+		}
+		out.TypedPerFilterConfig[wellknown.HTTPExternalProcessing] = protoconv.MessageToAny(&extproc.ExtProcPerRoute{
+			Override: &extproc.ExtProcPerRoute_Overrides{
+				Overrides: &extproc.ExtProcOverrides{
+					FailureModeAllow: &wrapperspb.BoolValue{Value: infPoolRouteRuleCfg.FailureModeAllow},
+					GrpcService: &core.GrpcService{
+						TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+							EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+								ClusterName: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", extSvcHost, extPortNum),
+							},
+						},
+					},
+					ProcessingMode: &extproc.ProcessingMode{
+						RequestHeaderMode: extproc.ProcessingMode_SEND,
+						// open AI standard includes the model and other information the ext_proc server needs in the request body
+						RequestBodyMode:    extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
+						ResponseHeaderMode: extproc.ProcessingMode_SEND,
+						// GIE collects statistics present in the open AI standard response message
+						ResponseBodyMode: extproc.ProcessingMode_FULL_DUPLEX_STREAMED,
+					},
+				},
+			},
+		})
+	}
 	if in.Redirect != nil {
 		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
@@ -1590,4 +1629,15 @@ func cutPrefix(s, prefix string) (after string, found bool) {
 		return s, false
 	}
 	return s[len(prefix):], true
+}
+
+// CheckAndGetInferencePoolConfigs extracts inference pool configurations from a VirtualService's Extra field.
+// The expected structure in Extra is map[string]model.InferencePoolRouteRuleConfig.
+func CheckAndGetInferencePoolConfigs(virtualService config.Config) map[string]kube.InferencePoolRouteRuleConfig {
+	if virtualService.Extra != nil {
+		if infPoolConfigs, ok := virtualService.Extra[constants.ConfigExtraPerRouteRuleInferencePoolConfigs].(map[string]kube.InferencePoolRouteRuleConfig); ok {
+			return infPoolConfigs
+		}
+	}
+	return nil
 }

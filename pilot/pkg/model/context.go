@@ -29,6 +29,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
+	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/credentials"
@@ -1062,8 +1063,14 @@ func (node *Proxy) DeleteWatchedResource(typeURL string) {
 	delete(node.WatchedResources, typeURL)
 }
 
+type InferenceGatewayContext interface {
+	// HasInferencePool returns whether or not a given gateway has a reference to an InferencePool
+	HasInferencePool(types.NamespacedName) bool
+}
+
 type GatewayController interface {
 	ConfigStoreController
+	InferenceGatewayContext
 	// Reconcile updates the internal state of the gateway controller for a given input. This should be
 	// called before any List/Get calls if the state has changed
 	Reconcile(ctx *PushContext)

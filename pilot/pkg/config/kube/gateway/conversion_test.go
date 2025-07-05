@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	crdvalidation "istio.io/istio/pkg/config/crd"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
@@ -125,6 +126,31 @@ var services = []*model.Service{
 		Ports:    ports,
 		Hostname: "httpbin.default.svc.domain.suffix",
 	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+			Labels: map[string]string{
+				InferencePoolExtensionRefSvc:         "ext-proc-svc",
+				InferencePoolExtensionRefPort:        "9002",
+				InferencePoolExtensionRefFailureMode: "FailClose",
+			},
+		},
+		Ports:    ports,
+		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen")))),
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+			Labels: map[string]string{
+				InferencePoolExtensionRefSvc:         "ext-proc-svc-2",
+				InferencePoolExtensionRefPort:        "9002",
+				InferencePoolExtensionRefFailureMode: "FailClose",
+			},
+		},
+		Ports:    ports,
+		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen2")))),
+	},
+
 	{
 		Attributes: model.ServiceAttributes{
 			Namespace: "apple",
@@ -617,6 +643,12 @@ func TestConvertResources(t *testing.T) {
 				"istio-system/^not-allowed-echo-",
 			),
 		},
+		{
+			name: "reference-policy-inferencepool",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"istio-system/^backend-not-allowed-",
+			),
+		},
 		{name: "serviceentry"},
 		{name: "status"},
 		{name: "eastwest"},
@@ -648,6 +680,8 @@ func TestConvertResources(t *testing.T) {
 		},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
+	test.SetForTest(t, &features.SupportGatewayAPIInferenceExtension, true)
+
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			stop := test.NewStop(t)
@@ -725,6 +759,7 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 		gvr.ServiceEntry,
 		gvr.XBackendTrafficPolicy,
 		gvr.BackendTLSPolicy,
+		gvr.InferencePool,
 	} {
 		clienttest.MakeCRDWithAnnotations(t, kc, crd, map[string]string{
 			consts.BundleVersionAnnotation: "v1.1.0",
@@ -1714,4 +1749,8 @@ func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 		objects = append(objects, o)
 	}
 	return objects, nil
+}
+
+func firstValue[T, U any](val T, _ U) T {
+	return val
 }

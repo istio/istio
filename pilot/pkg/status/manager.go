@@ -59,6 +59,9 @@ func NewManager(store model.ConfigStore) *Manager {
 		}
 
 		current := store.Get(k, resource.Name, resource.Namespace)
+		if current == nil {
+			scope.Debugf("no current config found for %s/%s", resource.Namespace, resource.Name)
+		}
 		return current
 	}
 	return &Manager{

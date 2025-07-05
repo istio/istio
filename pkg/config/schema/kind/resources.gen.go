@@ -23,6 +23,7 @@ const (
 	GatewayClass
 	HTTPRoute
 	HorizontalPodAutoscaler
+	InferencePool
 	Ingress
 	IngressClass
 	KubernetesGateway
@@ -97,6 +98,8 @@ func (k Kind) String() string {
 		return "HTTPRoute"
 	case HorizontalPodAutoscaler:
 		return "HorizontalPodAutoscaler"
+	case InferencePool:
+		return "InferencePool"
 	case Ingress:
 		return "Ingress"
 	case IngressClass:
@@ -206,6 +209,8 @@ func FromString(s string) Kind {
 		return HTTPRoute
 	case "HorizontalPodAutoscaler":
 		return HorizontalPodAutoscaler
+	case "InferencePool":
+		return InferencePool
 	case "Ingress":
 		return Ingress
 	case "IngressClass":

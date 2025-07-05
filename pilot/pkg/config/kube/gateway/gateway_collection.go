@@ -230,7 +230,7 @@ func GatewayCollection(
 		return []types.NamespacedName{o.GatewayParent}
 	})
 	statusCol, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gateway.Gateway) (*gateway.GatewayStatus, []Gateway) {
-		// We currently depend on service discovery information not know to krt; mark we depend on it.
+		// We currently depend on service discovery information not known to krt; mark we depend on it.
 		context := gatewayContext.Get(ctx).Load()
 		if context == nil {
 			return nil, nil

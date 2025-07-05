@@ -30,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -97,7 +98,7 @@ func sortedConfigByCreationTime(configs []config.Config) []config.Config {
 
 func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 	obj *k8sbeta.HTTPRoute, pos int, enforceRefGrant bool,
-) (*istio.HTTPRoute, *ConfigError) {
+) (*istio.HTTPRoute, *inferencePoolConfig, *ConfigError) {
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
 		vs.Name = string(*r.Name)
@@ -110,19 +111,19 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 	for _, match := range r.Matches {
 		uri, err := createURIMatch(match)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		headers, err := createHeadersMatch(match)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		qp, err := createQueryParamsMatch(match)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		method, err := createMethodMatch(match)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		vs.Match = append(vs.Match, &istio.HTTPMatchRequest{
 			Uri:         uri,
@@ -166,7 +167,7 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 		case k8s.HTTPRouteFilterCORS:
 			vs.CorsPolicy = createCorsFilter(filter.CORS)
 		default:
-			return nil, &ConfigError{
+			return nil, nil, &ConfigError{
 				Reason:  InvalidFilter,
 				Message: fmt.Sprintf("unsupported filter type %q", filter.Type),
 			}
@@ -223,15 +224,15 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 			Status: 500,
 		}
 	} else {
-		route, backendErr, err := buildHTTPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
+		route, ipCfg, backendErr, err := buildHTTPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		vs.Route = route
-		return vs, joinErrors(backendErr, mirrorBackendErr)
+		return vs, ipCfg, joinErrors(backendErr, mirrorBackendErr)
 	}
 
-	return vs, mirrorBackendErr
+	return vs, nil, mirrorBackendErr
 }
 
 func joinErrors(a *ConfigError, b *ConfigError) *ConfigError {
@@ -247,7 +248,7 @@ func joinErrors(a *ConfigError, b *ConfigError) *ConfigError {
 
 func convertGRPCRoute(ctx RouteContext, r k8s.GRPCRouteRule,
 	obj *k8s.GRPCRoute, pos int, enforceRefGrant bool,
-) (*istio.HTTPRoute, *ConfigError) {
+) (*istio.HTTPRoute, *ConfigError) { // Assuming GRPCRoute doesn't need inferencePoolConfig for now
 	vs := &istio.HTTPRoute{}
 	if r.Name != nil {
 		vs.Name = string(*r.Name)
@@ -812,7 +813,7 @@ func buildTCPDestination(
 	var invalidBackendErr *ConfigError
 	res := []*istio.RouteDestination{}
 	for i, fwd := range action {
-		dst, err := buildDestination(ctx, fwd, ns, enforceRefGrant, k)
+		dst, _, err := buildDestination(ctx, fwd, ns, enforceRefGrant, k)
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -876,9 +877,9 @@ func buildHTTPDestination(
 	forwardTo []k8s.HTTPBackendRef,
 	ns string,
 	enforceRefGrant bool,
-) ([]*istio.HTTPRouteDestination, *ConfigError, *ConfigError) {
+) ([]*istio.HTTPRouteDestination, *inferencePoolConfig, *ConfigError, *ConfigError) {
 	if forwardTo == nil {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 	weights := []int{}
 	action := []k8s.HTTPBackendRef{}
@@ -895,15 +896,17 @@ func buildHTTPDestination(
 	}
 
 	var invalidBackendErr *ConfigError
+	var ipCfg *inferencePoolConfig
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		dst, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.HTTPRoute)
+		dst, ipconfig, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.HTTPRoute)
+		ipCfg = ipconfig
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
 				// keep going, we will gracefully drop invalid backends
 			} else {
-				return nil, nil, err
+				return nil, ipCfg, nil, err
 			}
 		}
 		rd := &istio.HTTPRouteDestination{
@@ -931,12 +934,12 @@ func buildHTTPDestination(
 				}
 				rd.Headers.Response = h
 			default:
-				return nil, nil, &ConfigError{Reason: InvalidFilter, Message: fmt.Sprintf("unsupported filter type %q", filter.Type)}
+				return nil, ipCfg, nil, &ConfigError{Reason: InvalidFilter, Message: fmt.Sprintf("unsupported filter type %q", filter.Type)}
 			}
 		}
 		res = append(res, rd)
 	}
-	return res, invalidBackendErr, nil
+	return res, ipCfg, invalidBackendErr, nil
 }
 
 func buildGRPCDestination(
@@ -965,7 +968,7 @@ func buildGRPCDestination(
 	var invalidBackendErr *ConfigError
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		dst, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.GRPCRoute)
+		dst, _, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.GRPCRoute)
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1007,12 +1010,22 @@ func buildGRPCDestination(
 	return res, invalidBackendErr, nil
 }
 
-func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRefGrant bool, k config.GroupVersionKind) (*istio.Destination, *ConfigError) {
+type inferencePoolConfig struct {
+	enableExtProc             bool
+	endpointPickerDst         string
+	endpointPickerPort        string
+	endpointPickerFailureMode string
+}
+
+func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
+	enforceRefGrant bool, k config.GroupVersionKind,
+) (*istio.Destination, *inferencePoolConfig, *ConfigError) {
+	ref := normalizeReference(to.Group, to.Kind, gvk.Service)
 	// check if the reference is allowed
 	if enforceRefGrant {
 		if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
-			if !ctx.Grants.BackendAllowed(ctx.Krt, k, to.Name, *toNs, ns) {
-				return &istio.Destination{}, &ConfigError{
+			if !ctx.Grants.BackendAllowed(ctx.Krt, k, ref, to.Name, *toNs, ns) {
+				return &istio.Destination{}, nil, &ConfigError{
 					Reason:  InvalidDestinationPermit,
 					Message: fmt.Sprintf("backendRef %v/%v not accessible to a %s in namespace %q (missing a ReferenceGrant?)", to.Name, *toNs, k.Kind, ns),
 				}
@@ -1023,11 +1036,10 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 	namespace := ptr.OrDefault((*string)(to.Namespace), ns)
 	var invalidBackendErr *ConfigError
 	var hostname string
-	ref := normalizeReference(to.Group, to.Kind, gvk.Service)
 	switch ref {
 	case gvk.Service:
 		if strings.Contains(string(to.Name), ".") {
-			return nil, &ConfigError{Reason: InvalidDestination, Message: "service name invalid; the name of the Service must be used, not the hostname."}
+			return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "service name invalid; the name of the Service must be used, not the hostname."}
 		}
 		hostname = fmt.Sprintf("%s.%s.svc.%s", to.Name, namespace, ctx.DomainSuffix)
 		key := namespace + "/" + string(to.Name)
@@ -1037,7 +1049,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 		}
 	case config.GroupVersionKind{Group: gvk.ServiceEntry.Group, Kind: "Hostname"}:
 		if to.Namespace != nil {
-			return nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
+			return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "namespace may not be set with Hostname type"}
 		}
 		hostname = string(to.Name)
 		if ctx.LookupHostname(hostname, namespace) == nil {
@@ -1056,8 +1068,58 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 		if svc == nil {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
+	case gvk.InferencePool:
+		if !features.SupportGatewayAPIInferenceExtension {
+			return nil, nil, &ConfigError{
+				Reason:  InvalidDestinationKind,
+				Message: "InferencePool is not enabled. To enable, set SUPPORT_GATEWAY_API_INFERENCE_EXTENSION to true in istiod",
+			}
+		}
+		if strings.Contains(string(to.Name), ".") {
+			return nil, nil, &ConfigError{
+				Reason:  InvalidDestination,
+				Message: "InferencePool.Name invalid; the name of the InferencePool must be used, not the hostname.",
+			}
+		}
+		infPool := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.InferencePools, krt.FilterKey(namespace+"/"+string(to.Name))))
+		if infPool == nil {
+			// Inference pool doesn't exist
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", to.Name)}
+			return &istio.Destination{}, nil, invalidBackendErr
+		}
+		inferencePoolServiceName, _ := InferencePoolServiceName(string(to.Name))
+		hostname := fmt.Sprintf("%s.%s.svc.%s", inferencePoolServiceName, namespace, ctx.DomainSuffix)
+		svc := ctx.LookupHostname(hostname, namespace)
+		if svc == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+			return &istio.Destination{}, nil, invalidBackendErr
+		}
+		if svc.Attributes.Labels == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
+			return &istio.Destination{}, nil, invalidBackendErr
+		}
+
+		ipCfg := &inferencePoolConfig{
+			enableExtProc: true,
+		}
+		if dst, ok := svc.Attributes.Labels[InferencePoolExtensionRefSvc]; ok {
+			ipCfg.endpointPickerDst = fmt.Sprintf("%s.%s.svc.%s", dst, infPool.Namespace, ctx.DomainSuffix)
+		}
+		if p, ok := svc.Attributes.Labels[InferencePoolExtensionRefPort]; ok {
+			ipCfg.endpointPickerPort = p
+		}
+		if fm, ok := svc.Attributes.Labels[InferencePoolExtensionRefFailureMode]; ok {
+			ipCfg.endpointPickerFailureMode = fm
+		}
+		if ipCfg.endpointPickerDst == "" || ipCfg.endpointPickerPort == "" || ipCfg.endpointPickerFailureMode == "" {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
+		}
+		return &istio.Destination{
+			Host: hostname,
+			// Port: &istio.PortSelector{Number: uint32(*to.Port)},
+		}, ipCfg, invalidBackendErr
 	default:
-		return &istio.Destination{}, &ConfigError{
+		return &istio.Destination{}, nil, &ConfigError{
 			Reason:  InvalidDestinationKind,
 			Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", ptr.OrEmpty(to.Group), ptr.OrEmpty(to.Kind)),
 		}
@@ -1066,12 +1128,12 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string, enforceRef
 	// that do not require port.
 	if to.Port == nil {
 		// "Port is required when the referent is a Kubernetes Service."
-		return nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
+		return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "port is required in backendRef"}
 	}
 	return &istio.Destination{
 		Host: hostname,
 		Port: &istio.PortSelector{Number: uint32(*to.Port)},
-	}, invalidBackendErr
+	}, nil, invalidBackendErr
 }
 
 // https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L207-L212
@@ -1104,7 +1166,7 @@ func createMirrorFilter(ctx RouteContext, filter *k8s.HTTPRequestMirrorFilter, n
 		return nil, nil
 	}
 	var weightOne int32 = 1
-	dst, err := buildDestination(ctx, k8s.BackendRef{
+	dst, _, err := buildDestination(ctx, k8s.BackendRef{
 		BackendObjectReference: filter.BackendRef,
 		Weight:                 &weightOne,
 	}, ns, enforceRefGrant, k)
@@ -2389,6 +2451,8 @@ func GetStatus[I, IS any](spec I) IS {
 	case *gatewayalpha3.BackendTLSPolicy:
 		return any(t.Status).(IS)
 	case *gatewayx.XListenerSet:
+		return any(t.Status).(IS)
+	case *inferencev1alpha2.InferencePool:
 		return any(t.Status).(IS)
 	default:
 		log.Fatalf("unknown type %T", t)
