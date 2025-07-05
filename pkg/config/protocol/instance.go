@@ -91,6 +91,8 @@ func Parse(s string) Instance {
 		return Redis
 	case "mysql":
 		return MySQL
+	case "DoubleHBONE":
+		return DoubleHBONE
 	}
 
 	return Unsupported

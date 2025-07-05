@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package crd
+package istio
 
 import (
 	"context"
@@ -26,7 +26,6 @@ import (
 
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
@@ -55,7 +54,7 @@ func DeployGatewayAPIOrSkip(ctx framework.TestContext) {
 }
 
 func DeployGatewayAPI(ctx resource.Context) error {
-	cfg, _ := istio.DefaultConfig(ctx)
+	cfg, _ := DefaultConfig(ctx)
 	if !cfg.DeployGatewayAPI {
 		return nil
 	}

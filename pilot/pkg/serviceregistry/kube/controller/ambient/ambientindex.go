@@ -57,6 +57,7 @@ import (
 type Index interface {
 	Lookup(key string) []model.AddressInfo
 	All() []model.AddressInfo
+	AllLocalNetworkGlobalServices(string) []model.ServiceInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
 	Run(stop <-chan struct{})
@@ -81,6 +82,18 @@ type workloadsCollection struct {
 	ByServiceKey             krt.Index[string, model.WorkloadInfo]
 	ByOwningWaypointHostname krt.Index[NamespaceHostname, model.WorkloadInfo]
 	ByOwningWaypointIP       krt.Index[networkAddress, model.WorkloadInfo]
+	ByNetwork                krt.Index[network.ID, NetworkGateway]
+}
+
+type splitHorizon struct {
+	workloads            krt.Collection[model.WorkloadInfo]
+	workloadByServiceKey krt.Index[string, model.WorkloadInfo]
+	services             krt.Collection[model.ServiceInfo]
+	servicesByAddress    krt.Index[networkAddress, model.ServiceInfo]
+}
+
+func (s *splitHorizon) HasSynced() bool {
+	return s == nil || (s.workloads == nil || s.workloads.HasSynced()) && (s.services == nil || s.services.HasSynced())
 }
 
 type waypointsCollection struct {
@@ -97,10 +110,11 @@ type servicesCollection struct {
 // index maintains an index of ambient WorkloadInfo objects by various keys.
 // These are intentionally pre-computed based on events such that lookups are efficient.
 type index struct {
-	services  servicesCollection
-	workloads workloadsCollection
-	waypoints waypointsCollection
-	networks  networkCollections
+	services     servicesCollection
+	workloads    workloadsCollection
+	splitHorizon splitHorizon
+	waypoints    waypointsCollection
+	networks     networkCollections
 
 	namespaces krt.Collection[model.NamespaceInfo]
 
@@ -302,7 +316,7 @@ func New(options Options) Index {
 		opts,
 	)
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, opts)
+	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts)
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
@@ -390,6 +404,7 @@ func New(options Options) Index {
 
 		return []networkAddress{netaddr}
 	})
+
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *workloadapi.Service {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
@@ -425,6 +440,7 @@ func New(options Options) Index {
 	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, "service", func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
 	})
+
 	WorkloadWaypointIndexHostname := krt.NewIndex(Workloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
@@ -581,13 +597,26 @@ func translateKubernetesCondition(conds []metav1.Condition) map[string]model.Con
 	return res
 }
 
-// Lookup finds all addresses associated with a given key. Many different key formats are supported; see inline comments.
+// Try lookup of endpoints by:
+//  1. workload UID
+//  2. workload IP
+//  3. Service (key: network/IP or namespace/hostname)
+//
+// When using Lookup for ns/hostname we will filter by scope determined from service or namespace label
 func (a *index) Lookup(key string) []model.AddressInfo {
 	// 1. Workload UID
-	if w := a.workloads.GetKey(key); w != nil {
+	// Check that work
+	workloads := a.workloads.Collection
+
+	if a.splitHorizon.workloads != nil {
+		workloads = a.splitHorizon.workloads
+	}
+
+	if w := workloads.GetKey(key); w != nil {
 		return []model.AddressInfo{w.AsAddress}
 	}
 
+	// 2. Workload by IP
 	network, ip, found := strings.Cut(key, "/")
 	if !found {
 		log.Warnf(`key (%v) did not contain the expected "/" character`, key)
@@ -595,15 +624,23 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 	}
 	networkAddr := networkAddress{network: network, ip: ip}
 
-	// 2. Workload by IP
+	// Don't really need to check split horizon here because the coalesed workloads dont have addresses
 	if wls := a.workloads.ByAddress.Lookup(networkAddr); len(wls) > 0 {
 		return slices.Map(wls, modelWorkloadToAddressInfo)
 	}
 
 	// 3. Service
+	// Service and workload lookup by Service key
 	if svc := a.lookupService(key); svc != nil {
 		res := []model.AddressInfo{svc.AsAddress}
-		for _, w := range a.workloads.ByServiceKey.Lookup(svc.ResourceName()) {
+		// grab all workloads that reference this service
+		var ws []model.WorkloadInfo
+		if a.splitHorizon.workloadByServiceKey != nil {
+			ws = a.splitHorizon.workloadByServiceKey.Lookup(svc.ResourceName())
+		} else {
+			ws = a.workloads.ByServiceKey.Lookup(svc.ResourceName())
+		}
+		for _, w := range ws {
 			res = append(res, w.AsAddress)
 		}
 		return res
@@ -613,17 +650,30 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 
 func (a *index) lookupService(key string) *model.ServiceInfo {
 	// 1. namespace/hostname format
-	s := a.services.GetKey(key)
+	var s *model.ServiceInfo
+	if a.splitHorizon.services != nil {
+		s = a.splitHorizon.services.GetKey(key)
+	} else {
+		s = a.services.GetKey(key)
+	}
 	if s != nil {
 		return s
 	}
 
 	// 2. network/ip format
 	network, ip, _ := strings.Cut(key, "/")
-	services := a.services.ByAddress.Lookup(networkAddress{
-		network: network,
-		ip:      ip,
-	})
+	var services []model.ServiceInfo
+	if a.splitHorizon.servicesByAddress != nil {
+		services = a.splitHorizon.servicesByAddress.Lookup(networkAddress{
+			network: network,
+			ip:      ip,
+		})
+	} else {
+		services = a.services.ByAddress.Lookup(networkAddress{
+			network: network,
+			ip:      ip,
+		})
+	}
 	return slices.First(services)
 }
 
@@ -638,9 +688,38 @@ func (a *index) inRevision(obj any) bool {
 
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
-	res := slices.Map(a.workloads.List(), modelWorkloadToAddressInfo)
-	for _, s := range a.services.List() {
-		res = append(res, s.AsAddress)
+	var res []model.AddressInfo
+	if a.splitHorizon.workloads != nil {
+		res = slices.Map(a.splitHorizon.workloads.List(), modelWorkloadToAddressInfo)
+	} else {
+		res = slices.Map(a.workloads.List(), modelWorkloadToAddressInfo)
+	}
+	if a.splitHorizon.services != nil {
+		for _, s := range a.splitHorizon.services.List() {
+			res = append(res, s.AsAddress)
+		}
+	} else {
+		for _, s := range a.services.List() {
+			res = append(res, s.AsAddress)
+		}
+	}
+	return res
+}
+
+// AllLocalNetworkGlobalServices return all known globally scoped services. Result is un-ordered
+func (a *index) AllLocalNetworkGlobalServices(network string) []model.ServiceInfo {
+	var res []model.ServiceInfo
+	for _, svc := range a.services.List() {
+		workloads := a.workloads.ByServiceKey.Lookup(svc.ResourceName())
+		if len(workloads) == 0 {
+			// If there are no workloads, we don't need to add the service yet
+			continue
+		}
+		// All workloads for a service should belong in the same network
+		// Don't add a service if it is in a different network
+		if workloads[0].Workload.Network == network && svc.Scope == model.Global {
+			res = append(res, svc)
+		}
 	}
 	return res
 }
@@ -671,7 +750,14 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 }
 
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
+	if key.IsNetworkGateway {
+		// If this is a network gateway waypoint, we only return the global services
+		// that are local to this network and have backing workloads
+		return a.AllLocalNetworkGlobalServices(key.Network)
+	}
+
 	out := map[string]model.ServiceInfo{}
+
 	for _, host := range key.Hostnames {
 		for _, res := range a.services.ByOwningWaypointHostname.Lookup(NamespaceHostname{
 			Namespace: key.Namespace,
@@ -700,6 +786,10 @@ func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 }
 
 func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo {
+	if key.IsNetworkGateway {
+		// TODO(jaellio): Support workloads for gateway waypoint
+		return nil
+	}
 	out := map[string]model.WorkloadInfo{}
 	for _, host := range key.Hostnames {
 		for _, res := range a.workloads.ByOwningWaypointHostname.Lookup(NamespaceHostname{
@@ -807,7 +897,8 @@ func (a *index) HasSynced() bool {
 		a.workloads.HasSynced() &&
 		a.waypoints.HasSynced() &&
 		a.authorizationPolicies.HasSynced() &&
-		a.networks.HasSynced()
+		a.networks.HasSynced() &&
+		a.splitHorizon.HasSynced()
 }
 
 func (a *index) Network(ctx krt.HandlerContext) network.ID {

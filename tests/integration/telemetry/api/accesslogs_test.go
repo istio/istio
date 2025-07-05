@@ -30,9 +30,9 @@ import (
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -50,7 +50,7 @@ func TestAccessLogs(t *testing.T) {
 					"TargetGatewayName": GetTarget().ServiceName() + "-gateway",
 					"Address":           fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", GetTarget().ServiceName(), apps.Namespace.Name()),
 				}
-				crd.DeployGatewayAPIOrSkip(t)
+				istio.DeployGatewayAPIOrSkip(t)
 				t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "./testdata/gateway-api.yaml").ApplyOrFail(t)
 				applyTelemetryResourceWithTargetRef(t, true)
 				// We should not get logs from the client, since the policy only applies to the Gateway.

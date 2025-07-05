@@ -188,7 +188,7 @@ spec:
               expirationSeconds: 43200
               audience: istio-ca
       - name: istiod-ca-cert
-        {{- if eq (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
+        {{- if eq (get .Values.env "ENABLE_CLUSTER_TRUST_BUNDLE_API") "true" }}
         projected:
           sources:
           - clusterTrustBundle:
