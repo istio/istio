@@ -36,6 +36,7 @@ const (
 
 	dotdotpwn = "dotdotpwn"
 	wfuzz     = "wfuzz"
+	ffuf      = "ffuf"
 
 	authzDenyPolicy = `
 apiVersion: security.istio.io/v1
@@ -156,6 +157,29 @@ func runFuzzer(t framework.TestContext, fuzzer, ns, server string) {
 		} else {
 			t.Logf("no potential policy bypass requests found")
 		}
+	case ffuf:
+		command := fmt.Sprintf("/ffuf/run.sh -w /wordlist/dirTraversal.txt -u http://%s:8080/FUZZ -noninteractive -mc 200 -o /ffuf/output-log", server)
+		stdout, _, err := t.Clusters().Default().PodExec(pods.Items[0].Name, ns, ffuf, command)
+		if err != nil {
+			t.Fatalf("failed to run ffuf: %v", err)
+		}
+		var errLines []string
+		for _, line := range strings.Split(stdout, "\n") {
+			if strings.Contains(line, "Status: 200") {
+				// Test the bypass with curl:
+				payload := strings.Split(line, " [Status: 200,")[0]
+				command2 := fmt.Sprintf("curl http://%s:8080/%s", server, payload)
+				stdout2, _, _ := t.Clusters().Default().PodExec(pods.Items[0].Name, ns, ffuf, command2)
+				if strings.Contains(stdout2, "secret_data_leaked") {
+					errLines = append(errLines, payload)
+				}
+			}
+		}
+		if len(errLines) != 0 {
+			t.Errorf("found potential policy bypass requests:\n- %s", strings.Join(errLines, "\n- "))
+		} else {
+			t.Logf("no potential policy bypass requests found")
+		}
 	case wfuzz:
 		// Run the wfuzz fuzz with the following parameters:
 		// -z file,wordlist/dirTraversal.txt,<...>: Fuzz based on the basic directory traversal patterns with various encodings (see details below).
@@ -216,6 +240,8 @@ func TestFuzzAuthorization(t *testing.T) {
 			deploy(t, dotdotpwn, ns, "fuzzers/dotdotpwn/dotdotpwn.yaml")
 			t.ConfigIstio().File(ns, "fuzzers/wfuzz/wordlist.yaml").ApplyOrFail(t)
 			deploy(t, wfuzz, ns, "fuzzers/wfuzz/wfuzz.yaml")
+			t.ConfigIstio().File(ns, "fuzzers/ffuf/wordlist.yaml").ApplyOrFail(t)
+			deploy(t, ffuf, ns, "fuzzers/ffuf/ffuf.yaml")
 
 			deploy(t, apacheServer, ns, "backends/apache/apache.yaml")
 			deploy(t, nginxServer, ns, "backends/nginx/nginx.yaml")
@@ -223,7 +249,7 @@ func TestFuzzAuthorization(t *testing.T) {
 			waitService(t, apacheServer, ns)
 			waitService(t, nginxServer, ns)
 			waitService(t, tomcatServer, ns)
-			for _, fuzzer := range []string{dotdotpwn, wfuzz} {
+			for _, fuzzer := range []string{dotdotpwn, ffuf, wfuzz} {
 				t.NewSubTest(fuzzer).Run(func(t framework.TestContext) {
 					for _, target := range []string{apacheServer, nginxServer, tomcatServer} {
 						t.NewSubTest(target).Run(func(t framework.TestContext) {
