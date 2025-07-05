@@ -615,11 +615,6 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 		args.AppendSet("values.gateways.istio-egressgateway.ipFamilyPolicy", string(corev1.IPFamilyPolicyRequireDualStack))
 	}
 
-	// Include all user-specified values.
-	for k, v := range cfg.Values {
-		args.AppendSet("values."+k, v)
-	}
-
 	for k, v := range cfg.OperatorOptions {
 		args.AppendSet(k, v)
 	}
