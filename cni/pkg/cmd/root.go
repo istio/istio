@@ -320,6 +320,8 @@ func constructConfig() (*config.Config, error) {
 		AmbientIPv6:                       viper.GetBool(constants.AmbientIPv6),
 		AmbientDisableSafeUpgrade:         viper.GetBool(constants.AmbientDisableSafeUpgrade),
 		AmbientReconcilePodRulesOnStartup: viper.GetBool(constants.AmbientReconcilePodRulesOnStartup),
+
+		NativeNftables: viper.GetBool(constants.NativeNftables),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {
@@ -350,6 +352,7 @@ func constructConfig() (*config.Config, error) {
 		InitExitCode:       viper.GetInt(constants.RepairInitExitCode),
 		LabelSelectors:     viper.GetString(constants.RepairLabelSelectors),
 		FieldSelectors:     viper.GetString(constants.RepairFieldSelectors),
+		NativeNftables:     viper.GetBool(constants.NativeNftables),
 	}
 
 	return &config.Config{InstallConfig: installCfg, RepairConfig: repairCfg}, nil
