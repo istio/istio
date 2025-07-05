@@ -27,10 +27,10 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
@@ -264,7 +264,7 @@ func applyAndTestCustomWasmConfigWithHTTP(ctx framework.TestContext, c wasmTestC
 func TestGatewaySelection(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			crd.DeployGatewayAPIOrSkip(t)
+			istio.DeployGatewayAPIOrSkip(t)
 			args := map[string]any{
 				"To": GetTarget().(echo.Instances),
 			}

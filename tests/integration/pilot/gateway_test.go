@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -52,7 +51,7 @@ func TestGateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			crd.DeployGatewayAPIOrSkip(t)
+			istio.DeployGatewayAPIOrSkip(t)
 
 			t.NewSubTest("unmanaged").Run(UnmanagedGatewayTest)
 			t.NewSubTest("managed").Run(ManagedGatewayTest)

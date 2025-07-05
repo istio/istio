@@ -44,6 +44,9 @@ type Instance interface {
 	// EastWestGatewayFor returns an ingress used for east-west traffic and accessing the control plane
 	// from outside of the cluster.
 	EastWestGatewayFor(cluster cluster.Cluster) ingress.Instance
+	// EastWestGatewayForAmbient returns an ingress used for east-west traffic and accessing the control plane
+	// from outside of the cluster when in ambient mode.
+	EastWestGatewayForAmbient(cluster cluster.Cluster) ingress.Instance
 	// CustomIngressFor returns an ingress with a specific service name and "istio" label used for reaching workloads
 	// in the given cluster.
 	CustomIngressFor(cluster cluster.Cluster, service types.NamespacedName, istioLabel string) ingress.Instance

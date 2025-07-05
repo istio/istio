@@ -35,6 +35,10 @@ const (
 	eastWestIngressIstioNameLabel = "eastwestgateway"
 	eastWestIngressIstioLabel     = "istio=" + eastWestIngressIstioNameLabel
 	eastWestIngressServiceName    = "istio-" + eastWestIngressIstioNameLabel
+	eastWestGatewayNameLabel      = "istio.io-eastwest-controller"
+	eastWestGatewayLabel          = "gateway.istio.io/managed=" + eastWestGatewayNameLabel
+	ambientEastWestGatewayClass   = "istio-east-west"
+	eastWestGatewayServiceName    = "istio-eastwestgateway"
 )
 
 var (
@@ -117,9 +121,51 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 				return nil
 			}
 		}
-		return fmt.Errorf("no ready pods for " + eastWestIngressIstioLabel)
+		return fmt.Errorf("no ready pods %v for "+eastWestIngressIstioLabel, pods.Items)
 	}, componentDeployTimeout, componentDeployDelay); err != nil {
-		return fmt.Errorf("failed waiting for %s to become ready: %v", eastWestIngressServiceName, err)
+		return fmt.Errorf("failed waiting for %s to become ready: %v in cluster %s with IOP file %s", eastWestIngressServiceName, err, cluster.Name(), iopFile)
+	}
+
+	return nil
+}
+
+// deployAmbientEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
+func (i *istioImpl) deployAmbientEastWestGateway(cluster cluster.Cluster) error {
+	// generate istio operator yaml
+	args := []string{
+		"--cluster", cluster.Name(),
+		"--network", cluster.NetworkName(),
+		"--mesh", meshID,
+		"--ambient",
+	}
+	if !i.env.IsMultiCluster() {
+		args = []string{"--single-cluster"}
+	}
+	cmd := exec.Command(genGatewayScript, args...)
+	gw, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed generating eastwest gateway yaml: %v: %v", err, string(gw))
+	}
+	if err = i.ctx.ConfigKube(cluster).YAML(i.cfg.SystemNamespace, string(gw)).Apply(); err != nil {
+		return fmt.Errorf("failed applying eastwest gateway yaml: %v", err)
+	}
+
+	// wait for a ready pod
+	if err := retry.UntilSuccess(func() error {
+		pods, err := cluster.Kube().CoreV1().Pods(i.cfg.SystemNamespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: eastWestGatewayLabel,
+		})
+		if err != nil {
+			return err
+		}
+		for _, p := range pods.Items {
+			if p.Status.Phase == corev1.PodRunning {
+				return nil
+			}
+		}
+		return fmt.Errorf("no ready pods %v for "+eastWestGatewayLabel, pods.Items)
+	}, componentDeployTimeout, componentDeployDelay); err != nil {
+		return fmt.Errorf("failed waiting for %s to become ready: %v in cluster %s", eastWestGatewayServiceName, err, cluster.Name())
 	}
 
 	return nil

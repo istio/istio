@@ -25,7 +25,6 @@ import (
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -41,7 +40,7 @@ func TestWorkloadEntryGateway(t *testing.T) {
 	framework.NewTest(t).
 		RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
-			crd.DeployGatewayAPIOrSkip(t)
+			istio.DeployGatewayAPIOrSkip(t)
 			i := istio.GetOrFail(t)
 			type gwAddr struct {
 				ip   string
