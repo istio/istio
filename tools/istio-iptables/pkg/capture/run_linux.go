@@ -30,7 +30,7 @@ import (
 func configureTProxyRoutes(cfg *config.Config) error {
 	if cfg.InboundPortsInclude != "" {
 		if cfg.InboundInterceptionMode == "TPROXY" {
-			link, err := netlink.LinkByName("lo")
+			link, err := config.LinkByNameWithRetries("lo")
 			if err != nil {
 				return fmt.Errorf("failed to find 'lo' link: %v", err)
 			}
@@ -108,7 +108,7 @@ func configureIPv6Addresses(cfg *config.Config) error {
 	if !cfg.EnableIPv6 {
 		return nil
 	}
-	link, err := netlink.LinkByName("lo")
+	link, err := config.LinkByNameWithRetries("lo")
 	if err != nil {
 		return fmt.Errorf("failed to find 'lo' link: %v", err)
 	}
