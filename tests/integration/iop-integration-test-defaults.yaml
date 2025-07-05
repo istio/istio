@@ -39,3 +39,7 @@ spec:
     egressGateways:
       - name: istio-egressgateway
         enabled: true
+  # enable NetworkPolicy creation for istiod
+  values:
+    pilot:
+      createNetworkPolicy: true
