@@ -15,12 +15,10 @@
 package gateway
 
 import (
-	"context"
 	"fmt"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
@@ -293,11 +291,14 @@ func NewController(
 	)
 
 	// Create a queue for handling service updates.
+	// We create the queue even if the env var is off just to prevent nil pointer issues.
 	c.shadowServiceReconciler = controllers.NewQueue("inference pool shadow service reconciler",
-		controllers.WithReconciler(c.reconcileShadowService(InferencePools, inputs.Services)),
+		controllers.WithReconciler(c.reconcileShadowService(svcClient, InferencePools, inputs.Services)),
 		controllers.WithMaxAttempts(5))
 
-	status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
+	if features.SupportGatewayAPIInferenceExtension {
+		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
+	}
 
 	RouteParents := BuildRouteParents(Gateways)
 
@@ -397,18 +398,6 @@ func NewController(
 			}), false),
 		outputs.InferencePools.Register(func(e krt.Event[InferencePool]) {
 			obj := e.Latest()
-			if e.Event == controllers.EventDelete {
-				// Just delete the shadow service
-				err := c.client.Kube().CoreV1().Services(obj.shadowService.key.Namespace).Delete(
-					context.Background(),
-					obj.shadowService.key.Name,
-					v1.DeleteOptions{},
-				)
-				if err != nil {
-					log.Errorf("failed to clean up shadow service %s/%s for inference pool %s: %v")
-				}
-				return
-			}
 			c.shadowServiceReconciler.Add(types.NamespacedName{
 				Namespace: obj.shadowService.key.Namespace,
 				Name:      obj.shadowService.poolName,

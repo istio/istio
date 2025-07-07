@@ -519,17 +519,16 @@ func translateShadowServiceToService(existingLabels map[string]string, shadow sh
 }
 
 func (c *Controller) reconcileShadowService(
+	svcClient kclient.Client[*corev1.Service],
 	inferencePools krt.Collection[InferencePool],
 	servicesCollection krt.Collection[*corev1.Service],
 ) func(key types.NamespacedName) error {
-	services := kclient.NewFiltered[*corev1.Service](c.client, kclient.Filter{
-		ObjectFilter: c.client.ObjectFilter(),
-	})
 	return func(key types.NamespacedName) error {
 		// Find the InferencePool that matches the key
 		pool := inferencePools.GetKey(key.String())
 		if pool == nil {
-			log.Debugf("skipping reconciliation for key %s, no InferencePool found", key.String())
+			// we'll generally ignore these scenarios, since the InferencePool may have been deleted
+			log.Debugf("inferencepool no longer exists", key.String())
 			return nil
 		}
 
@@ -553,11 +552,11 @@ func (c *Controller) reconcileShadowService(
 		var err error
 		if existingService == nil {
 			// Create the service if it doesn't exist
-			_, err = services.Create(service)
+			_, err = svcClient.Create(service)
 		} else {
 			// TODO: Don't overwrite resources: https://github.com/istio/istio/issues/56667
 			service.ResourceVersion = existingService.ResourceVersion
-			_, err = services.Update(service)
+			_, err = svcClient.Update(service)
 		}
 
 		return err
