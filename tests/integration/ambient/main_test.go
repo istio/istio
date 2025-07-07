@@ -19,8 +19,10 @@ package ambient
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -52,39 +54,6 @@ var (
 
 	// used to validate telemetry in-cluster
 	prom prometheus.Instance
-)
-
-const (
-	ambientControlPlaneValues = `
-values:
-  cni:
-    # The CNI repair feature is disabled for these tests because this is a controlled environment,
-    # and it is important to catch issues that might otherwise be automatically fixed.
-    # Refer to issue #49207 for more context.
-    repair:
-      enabled: false
-  ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
-`
-
-	ambientMultiNetworkControlPlaneValues = `
-values:
-  pilot:
-    env:
-      AMBIENT_ENABLE_MULTI_NETWORK: "true"
-  cni:
-    # The CNI repair feature is disabled for these tests because this is a controlled environment,
-    # and it is important to catch issues that might otherwise be automatically fixed.
-    # Refer to issue #49207 for more context.
-    repair:
-      enabled: false
-  ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
-`
 )
 
 type EchoDeployments struct {
@@ -135,9 +104,9 @@ func TestMain(m *testing.M) {
 			ctx.Settings().SkipVMs()
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
-			cfg.ControlPlaneValues = ambientControlPlaneValues
+			cfg.ControlPlaneSpec = ambientControlPlaneValues()
 			if ctx.Settings().AmbientMultiNetwork {
-				cfg.ControlPlaneValues = ambientMultiNetworkControlPlaneValues
+				cfg.ControlPlaneSpec = ambientMultiNetworkControlPlaneValues()
 				// TODO: Remove once we're actually ready to test the multi-cluster
 				// features
 				cfg.SkipDeployCrossClusterSecrets = true
@@ -390,4 +359,47 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 
 	return nil
+}
+
+func ambientControlPlaneValues() *iopv1alpha1.IstioOperatorSpec {
+	return createAmbientControlPlaneValues(false)
+}
+
+func ambientMultiNetworkControlPlaneValues() *iopv1alpha1.IstioOperatorSpec {
+	return createAmbientControlPlaneValues(true)
+}
+
+func createAmbientControlPlaneValues(enableMultiNetwork bool) *iopv1alpha1.IstioOperatorSpec {
+	values := map[string]interface{}{
+		"cni": map[string]interface{}{
+			// The CNI repair feature is disabled for these tests because this is a controlled environment,
+			// and it is important to catch issues that might otherwise be automatically fixed.
+			// Refer to issue #49207 for more context.
+			"repair": map[string]interface{}{
+				"enabled": false,
+			},
+		},
+		"ztunnel": map[string]interface{}{
+			"terminationGracePeriodSeconds": 5,
+			"env": map[string]interface{}{
+				"SECRET_TTL": "5m",
+			},
+		},
+	}
+
+	if enableMultiNetwork {
+		values["pilot"] = map[string]interface{}{
+			"env": map[string]interface{}{
+				"AMBIENT_ENABLE_MULTI_NETWORK": "true",
+			},
+		}
+	}
+
+	valuesConfigJSON, err := json.Marshal(values)
+	if err != nil {
+		scopes.Framework.Fatalf("failed to marshal values: %v", err)
+	}
+	return &iopv1alpha1.IstioOperatorSpec{
+		Values: valuesConfigJSON,
+	}
 }

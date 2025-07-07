@@ -18,11 +18,13 @@
 package cni
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
 	"istio.io/api/label"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -85,13 +87,25 @@ func TestMain(m *testing.M) {
 			if ctx.Settings().AmbientMultiNetwork {
 				cfg.SkipDeployCrossClusterSecrets = true
 			}
-			cfg.ControlPlaneValues = `
-values:
-  ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
-`
+
+			values := map[string]interface{}{
+				"ztunnel": map[string]interface{}{
+					"terminationGracePeriodSeconds": 5,
+					"env": map[string]interface{}{
+						"SECRET_TTL": "5m",
+					},
+				},
+			}
+
+			valuesConfigJSON, err := json.Marshal(values)
+			if err != nil {
+				scopes.Framework.Fatalf("failed to marshal values config: %v", err)
+			}
+
+			cfg.ControlPlaneSpec = &iopv1alpha1.IstioOperatorSpec{
+				Values: valuesConfigJSON,
+			}
+
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)

@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -132,7 +133,14 @@ type Config struct {
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used
 	// These values are applied to non-remote clusters
+	// Deprecated: use ControlPlaneSpec instead
 	ControlPlaneValues string
+
+	// Override values specifically for the ICP crd
+	// This is mostly required for cases where --set cannot be used
+	// These values are applied to primary clusters
+	// using IstioOperatorSpec structure to pass values instead of a ControlPlaneValues string
+	ControlPlaneSpec *iopv1alpha1.IstioOperatorSpec
 
 	// Override values specifically for the ICP crd
 	// This is mostly required for cases where --set cannot be used

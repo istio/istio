@@ -19,9 +19,10 @@ package untaint
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"testing"
 
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -29,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
@@ -55,26 +57,40 @@ func TestMain(m *testing.M) {
 			if ctx.Settings().AmbientMultiNetwork {
 				cfg.SkipDeployCrossClusterSecrets = true
 			}
-			cfg.ControlPlaneValues = fmt.Sprintf(`
-values:
-  pilot:
-    taint:
-      enabled: true
-      namespace: "%s"
-    env:
-      PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS: "true"
-  ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
 
-  gateways:
-    istio-ingressgateway:
-      enabled: false
-    istio-egressgateway:
-      enabled: false
+			values := map[string]interface{}{
+				"pilot": map[string]interface{}{
+					"taint": map[string]interface{}{
+						"enabled":   true,
+						"namespace": cfg.SystemNamespace,
+					},
+					"env": map[string]interface{}{
+						"PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS": "true",
+					},
+				},
+				"ztunnel": map[string]interface{}{
+					"terminationGracePeriodSeconds": 5,
+					"env": map[string]interface{}{
+						"SECRET_TTL": "5m",
+					},
+				},
+				"gateways": map[string]interface{}{
+					"istio-ingressgateway": map[string]interface{}{
+						"enabled": false,
+					},
+					"istio-egressgateway": map[string]interface{}{
+						"enabled": false,
+					},
+				},
+			}
 
-`, cfg.SystemNamespace)
+			valuesConfigJSON, err := json.Marshal(values)
+			if err != nil {
+				scopes.Framework.Fatalf("failed to marshal values: %v", err)
+			}
+			cfg.ControlPlaneSpec = &iopv1alpha1.IstioOperatorSpec{
+				Values: valuesConfigJSON,
+			}
 		}, cert.CreateCASecretAlt)).
 		Teardown(untaintNodes).
 		Run()

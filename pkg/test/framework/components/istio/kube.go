@@ -405,6 +405,34 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 }
 
 func initIOPFile(cfg Config, iopFile string, valuesYaml string) (*iopv1alpha1.IstioOperatorSpec, error) {
+	// If a cfg.ControlPlaneSpec is provided, use it to generate the IstioOperator spec.
+	// TODO: replace all the that uses cfg.ControlPlaneValues with cfg.ControlPlaneSpec to avoid this special handle
+	if cfg.ControlPlaneSpec != nil {
+		scopes.Framework.Infof("============= Generating IstioOperator spec from ControlPlaneSpec =============")
+		operatorCfg := &iopv1alpha1.IstioOperator{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "install.istio.io/v1alpha1",
+				Kind:       "IstioOperator",
+			},
+			Spec: *cfg.ControlPlaneSpec,
+		}
+
+		outb, err := yaml.Marshal(operatorCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal ControlPlaneSpec: %v", err)
+		}
+
+		if err := os.WriteFile(iopFile, outb, os.ModePerm); err != nil {
+			return nil, fmt.Errorf("failed to write iop: %v", err)
+		}
+
+		return &operatorCfg.Spec, nil
+	}
+
+	// If no cfg.ControlPlaneSpec is provided, generate a base IstioOperator spec.
+	// "Old" way of generating the IstioOperator spec from values YAML.
+	// TODO: remove once is replaced with cfg.ControlPlaneSpec.
+	scopes.Framework.Infof("============= Generating IstioOperator spec from values YAML =============")
 	operatorYaml := cfg.IstioOperatorConfigYAML(valuesYaml)
 
 	operatorCfg := &iopv1alpha1.IstioOperator{}
