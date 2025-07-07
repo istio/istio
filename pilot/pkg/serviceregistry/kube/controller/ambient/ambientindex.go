@@ -647,22 +647,27 @@ func (a *index) inRevision(obj any) bool {
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
 	var res []model.AddressInfo
+	var localNetwork string
+	if ln := a.networks.LocalSystemNamespace.Get(); ln != nil {
+		localNetwork = *ln
+	} else {
+		log.Warnf("Local system namespace is not set, cannot determine local network for ambient index")
+	}
 	// Add all workloads
 	for _, wl := range a.workloads.List() {
 		// If EnableAmbientMultiNetwork is enabled, we only want to add workloads that are local to this cluster
 		// Non cluster local workloads will be added by the service lookup
-		if features.EnableAmbientMultiNetwork && wl.Workload.ClusterId != a.ClusterID.String() {
+		if features.EnableAmbientMultiNetwork && wl.Workload.Network != localNetwork{
 			continue
 		}
 		res = append(res, wl.AsAddress)
 	}
 	// Add all services
-	// TODO: Update to split horizon
 	for _, s := range a.services.List() {
 		if features.EnableAmbientMultiNetwork && s.Scope == model.Global {
 			// If EnableAmbientMultiNetwork is enabled, we want to add workloads that correspond to global services
 			for _, wl := range a.workloads.ByServiceKey.Lookup(s.ResourceName()) {
-				if wl.Workload.ClusterId != string(a.ClusterID) {
+				if wl.Workload.Network != localNetwork {
 					res = append(res, wl.AsAddress)
 				}
 			}
