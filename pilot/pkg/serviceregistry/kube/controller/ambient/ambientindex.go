@@ -632,7 +632,7 @@ func (a *index) lookupService(key string) *model.ServiceInfo {
 
 	// 2. network/ip format
 	network, ip, _ := strings.Cut(key, "/")
-	var services []model.ServiceInfo = a.services.ByAddress.Lookup(networkAddress{
+	services := a.services.ByAddress.Lookup(networkAddress{
 		network: network,
 		ip:      ip,
 	})

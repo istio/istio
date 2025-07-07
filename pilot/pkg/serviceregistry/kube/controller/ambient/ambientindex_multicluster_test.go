@@ -1,4 +1,4 @@
-// Copyright Istio Authorsambientindex_
+// Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@ package ambient
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -217,10 +218,10 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 					})
 				}
 				if networkGatewayIps[client.clusterID] != "" {
-					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], "east-west", clusterToNetwork[client.clusterID], true, client.grc)
+					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], clusterToNetwork[client.clusterID], client.grc)
 				}
 				if networkGatewayIps[client.clusterID] != "" {
-					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], "east-west", clusterToNetwork[client.clusterID], true, client.grc)
+					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], clusterToNetwork[client.clusterID], client.grc)
 				}
 
 				// These steps happen for every test regardless of traffic type.
@@ -237,22 +238,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 					[]int32{80}, map[string]string{"app": "a"}, ips["svc2"], client.sc)
 				s.assertEvent(t, s.svcXdsName("svc2"))
 			}
-			// Service configuration needs to be uniform, so we add services to all clusters first,
-			// then check for events
-			// for _, client := range clients {
-			// 	ips := clusterToIPs[client.clusterID]
-			// 	s.addPodsForClient(t, ips["pod1"], "pod1", "sa1",
-			// 		map[string]string{"app": "a"}, nil, true, corev1.PodRunning, client.pc)
-			// 	if clusterToNetwork[client.clusterID] == clusterToNetwork[s.clusterID] {
-			// 		s.assertEvent(t, s.podXdsNameForCluster("pod1", client.clusterID))
-			// 	} else if networkGatewayIps[client.clusterID] != "" {
-			// 		s.assertEvent(t, fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
-			// 			clusterToNetwork[client.clusterID],
-			// 			networkGatewayIps[client.clusterID],
-			// 			s.svcXdsName("svc2"),
-			// 		))
-			// 	}
-			// }
+
 			// Service configuration needs to be uniform, so we add services to all clusters first,
 			// then check for events
 			for _, client := range clients {
@@ -441,7 +427,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	}, 1)
 
 	remoteClient := remoteClients.List()[0]
-	local_client := remoteAmbientClients{
+	localClient := remoteAmbientClients{
 		clusterID: s.clusterID,
 		ambientclients: &ambientclients{
 			pc:    s.pc,
@@ -467,14 +453,14 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			Name: testNS,
 		},
 	})
-	networkGateawyIp := "172.0.1.2"
-	s.addNetworkGatewayForClient(t, networkGateawyIp, "east-west", remoteNetwork, true, remoteClient.grc)
+	networkGatewayIP := "172.0.1.2"
+	s.addNetworkGatewayForClient(t, networkGatewayIP, remoteNetwork, remoteClient.grc)
 	s.addServiceForClient(t, "svc2",
 		map[string]string{
 			"istio.io/global": "",
 		},
 		map[string]string{},
-		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1", local_client.sc,
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1", localClient.sc,
 	)
 	s.addServiceForClient(t, "svc2",
 		map[string]string{
@@ -495,12 +481,12 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	})
 
 	s.addPodsForClient(t, "10.0.1.1", "pod1", "sa1",
-		map[string]string{"app": "a"}, nil, true, corev1.PodRunning, local_client.pc)
+		map[string]string{"app": "a"}, nil, true, corev1.PodRunning, localClient.pc)
 	s.addPodsForClient(t, "127.0.0.1", "pod1-abc", "sa1",
 		map[string]string{"app": "a"}, nil, true, corev1.PodRunning, remoteClient.pc)
 
 	splitHorizonName := fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
-		remoteNetwork, networkGateawyIp, s.svcXdsName("svc2"))
+		remoteNetwork, networkGatewayIP, s.svcXdsName("svc2"))
 	retry.UntilSuccessOrFail(t, func() error {
 		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
 		if len(ais) != 3 {
@@ -510,17 +496,31 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		if len(shwl.Workload.Addresses) != 0 {
 			return fmt.Errorf("expected no addresses in split horizon workload, got %v", shwl.Workload.Addresses)
 		}
-		// if shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Address != []byte{172, 0, 1, 2} {
-		// 	return fmt.Errorf("expected split horizon workload to have network gateway address %s, got %s", networkGateawyIp, shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Address)
-		// }
+		if !reflect.DeepEqual(
+			shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Address,
+			[]byte{172, 0, 1, 2},
+		) {
+			return fmt.Errorf(
+				"expected split horizon workload to have network gateway address %s, got %s",
+				networkGatewayIP,
+				shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Address,
+			)
+		}
 		if shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Network != remoteNetwork {
-			return fmt.Errorf("expected split horizon workload to have network %s, got %s", remoteNetwork, shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Network)
+			return fmt.Errorf("expected split horizon workload to have network %s, got %s",
+				remoteNetwork,
+				shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Network,
+			)
 		}
 		if shwl.Workload.Capacity.GetValue() != 1 {
-			return fmt.Errorf("expected split horizon workload to have capacity 1, got %d", shwl.Workload.Capacity.GetValue())
+			return fmt.Errorf("expected split horizon workload to have capacity 1, got %d",
+				shwl.Workload.Capacity.GetValue(),
+			)
 		}
 		if len(shwl.Workload.Addresses) != 0 {
-			return fmt.Errorf("expected no addresses in split horizon workload, got %v", shwl.Workload.Addresses)
+			return fmt.Errorf("expected no addresses in split horizon workload, got %v",
+				shwl.Workload.Addresses,
+			)
 		}
 		return nil
 	})
@@ -554,7 +554,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	})
 
 	// Add the network gateway back: Split horizon workload should be recreated
-	s.addNetworkGatewayForClient(t, networkGateawyIp, "east-west", remoteNetwork, true, remoteClient.grc)
+	s.addNetworkGatewayForClient(t, networkGatewayIP, remoteNetwork, remoteClient.grc)
 	retry.UntilSuccessOrFail(t, func() error {
 		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
 		if len(ais) != 3 {
@@ -567,7 +567,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		return nil
 	})
 	// make the service local local
-	s.labelServiceForClient(t, "svc2", testNS, map[string]string{}, local_client.sc)
+	s.labelServiceForClient(t, "svc2", testNS, map[string]string{}, localClient.sc)
 	s.labelServiceForClient(t, "svc2", testNS, map[string]string{}, remoteClient.sc)
 	assert.EventuallyEqual(t, func() int {
 		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
@@ -589,7 +589,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	})
 
 	s.labelServiceForClient(t, "svc2", testNS,
-		map[string]string{"istio.io/global": "true"}, local_client.sc)
+		map[string]string{"istio.io/global": "true"}, localClient.sc)
 	s.labelServiceForClient(t, "svc2", testNS,
 		map[string]string{"istio.io/global": "true"}, remoteClient.sc)
 	s.assertEvent(t, s.podXdsNameForCluster("pod2", remoteClient.clusterID),

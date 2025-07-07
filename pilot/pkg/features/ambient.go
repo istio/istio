@@ -60,7 +60,7 @@ var (
 	EnableIngressWaypointRouting = registerAmbient("ENABLE_INGRESS_WAYPOINT_ROUTING", true, false,
 		"If true, Gateways will call service waypoints if the 'istio.io/ingress-use-waypoint' label set on the Service.")
 
-	EnableAmbientMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK", true, false,
+	EnableAmbientMultiNetwork = registerAmbient("AMBIENT_ENABLE_MULTI_NETWORK", false, false,
 		"If true, the multi-network functionality will be enabled.")
 
 	WaypointLayeredAuthorizationPolicies = env.Register(

@@ -2057,7 +2057,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 
 	idx := New(options)
 
-	// dumpOnFailure(t, options.Debugger)
+	dumpOnFailure(t, options.Debugger)
 	a := &ambientTestServer{
 		t:         t,
 		clusterID: options.ClusterID,
@@ -2186,8 +2186,8 @@ func (s *ambientTestServer) deleteNetworkGatewayForClient(t *testing.T, name str
 	grc.Delete(name, testNS)
 }
 
-func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, name, network string, ready bool, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
-	s.addNetworkGatewaySpecificAddressForClient(t, ip, "", name, network, ready, grc)
+func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, network string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+	s.addNetworkGatewaySpecificAddressForClient(t, ip, "", "east-west", network, true, grc)
 }
 
 func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
