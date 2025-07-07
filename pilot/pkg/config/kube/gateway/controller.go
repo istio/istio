@@ -291,11 +291,14 @@ func NewController(
 	)
 
 	// Create a queue for handling service updates.
+	// We create the queue even if the env var is off just to prevent nil pointer issues.
 	c.shadowServiceReconciler = controllers.NewQueue("inference pool shadow service reconciler",
 		controllers.WithReconciler(c.reconcileShadowService(svcClient, InferencePools, inputs.Services)),
 		controllers.WithMaxAttempts(5))
 
-	status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
+	if features.SupportGatewayAPIInferenceExtension {
+		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus)
+	}
 
 	RouteParents := BuildRouteParents(Gateways)
 
