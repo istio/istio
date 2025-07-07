@@ -47,12 +47,17 @@ import (
 	v1beta12 "istio.io/api/networking/v1beta1"
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test"
 )
@@ -920,11 +925,13 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 	if err != nil {
 		t.Fatalf("NewFileWatcher() failed: %v", err)
 	}
+
 	wh, err := NewWebhook(WebhookParameters{
-		Watcher: watcher,
-		Port:    port,
-		Env:     &env,
-		Mux:     http.NewServeMux(),
+		Watcher:      watcher,
+		Port:         port,
+		Env:          &env,
+		Mux:          http.NewServeMux(),
+		MultiCluster: multicluster.NewFakeController(),
 	})
 	if err != nil {
 		t.Fatalf("NewWebhook() failed: %v", err)
@@ -933,9 +940,14 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 }
 
 func TestRunAndServe(t *testing.T) {
+	multi := multicluster.NewFakeController()
+	client := kube.NewFakeClient()
+	stop := test.NewStop(t)
+	multi.Add(constants.DefaultClusterName, client, stop)
+	client.RunAndWait(stop)
 	// TODO: adjust the test to match prod defaults instead of fake defaults.
 	wh := createWebhook(t, minimalSidecarTemplate, 0)
-	stop := make(chan struct{})
+	stop = make(chan struct{})
 	defer func() { close(stop) }()
 	wh.Run(stop)
 
@@ -1427,10 +1439,11 @@ func TestNewWebhookConfigParsingError(t *testing.T) {
 	}
 
 	whParams := WebhookParameters{
-		Watcher: faultyWatcher,
-		Port:    0,
-		Env:     &model.Environment{},
-		Mux:     http.NewServeMux(),
+		Watcher:      faultyWatcher,
+		Port:         0,
+		Env:          &model.Environment{},
+		Mux:          http.NewServeMux(),
+		MultiCluster: multicluster.NewFakeController(),
 	}
 
 	_, err := NewWebhook(whParams)
@@ -1471,7 +1484,8 @@ global:
 		Env: &model.Environment{
 			Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
 		},
-		Mux: http.NewServeMux(),
+		Mux:          http.NewServeMux(),
+		MultiCluster: multicluster.NewFakeController(),
 	}
 
 	wh, err := NewWebhook(whParams)
@@ -1481,5 +1495,98 @@ global:
 
 	if wh.valuesConfig.raw != validValuesConfig {
 		t.Fatalf("Expected valuesConfig to be set correctly, but got: %v", wh.valuesConfig.raw)
+	}
+}
+
+func TestDetectNativeSidecar(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(t test.Failer)
+		nodes []*corev1.Node
+		want  bool
+	}{
+		{
+			name: "env disabled should be always disabled",
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.34.0"}}},
+			},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeDisabled)
+			},
+			want: false,
+		},
+		{
+			name: "kube versions greater than 1.33 with env auto should enable native sidecar",
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.34.0"}}},
+			},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
+			},
+			want: true,
+		},
+		{
+			name: "kube versions less than 1.33 with env auto should disable native sidecar",
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.29.0"}}},
+			},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
+			},
+			want: false,
+		},
+		{
+			name: "clusters with at least one node on unsupported version should disable native sidecar",
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
+			},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
+			},
+			want: false,
+		},
+		{
+			name:  "no nodes should disable native sidecar",
+			nodes: []*corev1.Node{{}},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeAuto)
+			},
+			want: false,
+		},
+		{
+			name: "clusters with at least one node on unsupported version should enable native sidecar if explicitly enabled",
+			nodes: []*corev1.Node{
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.33.0"}}},
+				{Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{KubeletVersion: "1.28.0"}}},
+			},
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &features.EnableNativeSidecars, features.NativeSidecarModeEnabled)
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup(t)
+			var objects []runtime.Object
+			for i, n := range tt.nodes {
+				nodeCopy := n.DeepCopy()
+				nodeCopy.Name = fmt.Sprintf("node-%d", i+1)
+				objects = append(objects, nodeCopy)
+			}
+			kubeClient := kube.NewFakeClient(objects...)
+			nodes := kclient.New[*corev1.Node](kubeClient)
+			kubeClient.RunAndWait(test.NewStop(t))
+			kube.WaitForCacheSync("test", test.NewStop(t), nodes.HasSynced)
+
+			if got := DetectNativeSidecar(nodes, ""); got != tt.want {
+				t.Errorf("detectNativeSidecar() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
