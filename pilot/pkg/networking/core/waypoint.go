@@ -89,7 +89,6 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 // * extraServices: extra services required by the waypoint (extensions configured, etc)
 // * all services
 // We want to find any VirtualServices that are from a waypointServices to a non-waypointService
-// TODO(jaellio): Do we need to filter extraNamespacedHostnames and extraHostnames?
 func filterWaypointOutboundServices(
 	referencedServices map[string]sets.String,
 	waypointServices map[host.Name]*model.Service,

@@ -90,7 +90,7 @@ values:
           matchExpressions:
             - key: istio.io/global
               operator: In
-			  values: ["true"]
+              values: ["true"]
         scope: GLOBAL
 `
 )
