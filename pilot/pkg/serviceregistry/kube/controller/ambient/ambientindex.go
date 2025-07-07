@@ -99,10 +99,10 @@ type servicesCollection struct {
 // index maintains an index of ambient WorkloadInfo objects by various keys.
 // These are intentionally pre-computed based on events such that lookups are efficient.
 type index struct {
-	services     servicesCollection
-	workloads    workloadsCollection
-	waypoints    waypointsCollection
-	networks     networkCollections
+	services  servicesCollection
+	workloads workloadsCollection
+	waypoints waypointsCollection
+	networks  networkCollections
 
 	namespaces krt.Collection[model.NamespaceInfo]
 
@@ -633,8 +633,7 @@ func (a *index) lookupService(key string) *model.ServiceInfo {
 
 	// 2. network/ip format
 	network, ip, _ := strings.Cut(key, "/")
-	var services []model.ServiceInfo
-	services = a.services.ByAddress.Lookup(networkAddress{
+	var services []model.ServiceInfo = a.services.ByAddress.Lookup(networkAddress{
 		network: network,
 		ip:      ip,
 	})
@@ -652,7 +651,7 @@ func (a *index) inRevision(obj any) bool {
 
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
-	var res = slices.Map(a.workloads.List(), modelWorkloadToAddressInfo)
+	res := slices.Map(a.workloads.List(), modelWorkloadToAddressInfo)
 	for _, s := range a.services.List() {
 		res = append(res, s.AsAddress)
 	}
