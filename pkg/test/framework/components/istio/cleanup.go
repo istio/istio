@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/errgroup"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -172,6 +173,15 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 		if e := c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().DeleteCollection(
 			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
+		}
+
+		// Delete the "default" revision tag service that was created similarly to MutatingWebhookConfigurations
+		if e := c.Kube().CoreV1().Services(i.cfg.SystemNamespace).Delete(
+			context.Background(), "istiod-revision-tag-default", metav1.DeleteOptions{}); e != nil {
+			// Only append the error if it's not a NotFound error
+			if !kerrors.IsNotFound(e) {
+				err = multierror.Append(err, e)
+			}
 		}
 
 		// We deleted all resources, but don't report cleanup finished until all Istio pods
