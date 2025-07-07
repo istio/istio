@@ -37,6 +37,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/ptr"
@@ -3115,7 +3116,7 @@ func TestAPIServer(t *testing.T) {
 
 func TestDirect(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		/*t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
+		t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
 			run := func(name string, options echo.CallOptions) {
 				t.NewSubTest(name).Run(func(t framework.TestContext) {
@@ -3311,7 +3312,7 @@ func TestDirect(t *testing.T) {
 				// This port is NOT exposed, so it must not be callable
 				Check: check.Status(503),
 			})
-		})*/
+		})
 		t.NewSubTest("east west gateway").Run(func(t framework.TestContext) {
 			if !t.Settings().AmbientMultiNetwork {
 				t.Skip("only test east west gateway service scope in multi-network mode")

@@ -38,7 +38,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
@@ -70,7 +70,7 @@ func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			istio.DeployGatewayAPIOrSkip(ctx)
+			crd.DeployGatewayAPIOrSkip(ctx)
 
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
 			if ctx.Settings().Image.PullSecret != "" {

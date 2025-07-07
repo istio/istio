@@ -89,7 +89,8 @@ values:
       - servicesSelector:
           matchExpressions:
             - key: istio.io/global
-              operator: Exists
+              operator: In
+			  values: ["true"]
         scope: GLOBAL
 `
 )
