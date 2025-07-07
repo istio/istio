@@ -351,6 +351,14 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			in:   "native-sidecar-order-override.yaml",
+			want: "native-sidecar-order-override.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+				test.SetEnvForTest(t, features.InitContainerBeforeProxy.Name, "override-sidecar")
+			},
+		},
+		{
 			in:   "native-sidecar-opt-in.yaml",
 			want: "native-sidecar-opt-in.yaml.injected",
 			setup: func(t test.Failer) {
