@@ -105,7 +105,6 @@ func TestMain(m *testing.M) {
 			cfg.ControlPlaneSpec = &iopv1alpha1.IstioOperatorSpec{
 				Values: valuesConfigJSON,
 			}
-
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
