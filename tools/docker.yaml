@@ -69,6 +69,12 @@ images:
   - ${TARGET_OUT_LINUX}/ztunnel # TODO "${RELEASE_MODE}" to allow separate debug builds
   platforms: [ "linux/amd64", "linux/arm64" ]
 
+- name: ztunnel-windows
+  dockerfile: pilot/docker/Dockerfile.ztunnel-windows
+  files:
+  - ${TARGET_OUT_WINDOWS}/ztunnel.exe
+  platforms: [ "windows/amd64", "windows/arm64" ]
+
   # Test images
 - name: app
   dockerfile: pkg/test/echo/docker/Dockerfile.app

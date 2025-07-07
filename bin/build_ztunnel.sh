@@ -45,7 +45,7 @@ function set_download_command () {
   echo wget is not installed.
 
   echo Error: curl is not installed or does not support https, wget is not installed. \
-       Cannot download envoy. Please install wget or add support of https to curl.
+       Cannot download ztunnel. Please install wget or add support of https to curl.
   exit 1
 }
 
@@ -81,7 +81,7 @@ function maybe_build_ztunnel() {
   # BUILD_ZTUNNEL=1 with no BUILD_ZTUNNEL_REPO tries to infer BUILD_ZTUNNEL_REPO
   if [[ "${BUILD_ZTUNNEL_REPO:-}" == "" ]] && [[ "${BUILD_ZTUNNEL:-}" != "" ]]; then
     local ZTUNNEL_DIR
-	ZTUNNEL_DIR="$(pwd)/../ztunnel"
+    ZTUNNEL_DIR="$(pwd)/../ztunnel"
     if [[ -d "${ZTUNNEL_DIR}" ]]; then
       BUILD_ZTUNNEL_REPO="${ZTUNNEL_DIR}"
     else
@@ -107,11 +107,19 @@ function maybe_build_ztunnel() {
   else
       ZTUNNEL_BIN_PATH="${BUILD_ZTUNNEL_PROFILE}"
   fi
-  ZTUNNEL_BIN_PATH="out/rust/${BUILD_ZTUNNEL_TARGET:+${BUILD_ZTUNNEL_TARGET}/}${ZTUNNEL_BIN_PATH}/ztunnel"
 
-  echo "Copying $(pwd)/${ZTUNNEL_BIN_PATH} to ${TARGET_OUT_LINUX}/ztunnel"
-  mkdir -p "${TARGET_OUT_LINUX}"
-  cp "${ZTUNNEL_BIN_PATH}" "${TARGET_OUT_LINUX}/ztunnel"
+  ZTUNNEL_BIN=ztunnel
+  TARGET_OUT="${TARGET_OUT_LINUX}"
+  if [[ "$BUILD_ZTUNNEL_TARGET" == *"windows"* ]]; then
+    ZTUNNEL_BIN="${ZTUNNEL_BIN}.exe"
+    TARGET_OUT=${TARGET_OUT_WINDOWS}
+  fi
+
+  ZTUNNEL_BIN_PATH="out/rust/${BUILD_ZTUNNEL_TARGET:+${BUILD_ZTUNNEL_TARGET}/}${ZTUNNEL_BIN_PATH}/${ZTUNNEL_BIN}"
+
+  echo "Copying $(pwd)/${ZTUNNEL_BIN_PATH} to ${TARGET_OUT}/${ZTUNNEL_BIN}"
+  mkdir -p "${TARGET_OUT}"
+  cp "${ZTUNNEL_BIN_PATH}" "${TARGET_OUT}/${ZTUNNEL_BIN}"
   popd
 }
 
