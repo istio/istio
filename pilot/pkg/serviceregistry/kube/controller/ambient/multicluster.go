@@ -298,6 +298,10 @@ func (a *index) buildGlobalCollections(
 		opts,
 	)
 
+	GlobalWorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, "service", func(o model.WorkloadInfo) []string {
+		return maps.Keys(o.Workload.Services)
+	})
+
 	workloadNetworkServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, "network;service", func(o model.WorkloadInfo) []string {
 		res := make([]string, 0, len(o.Workload.Services))
 		for svc := range o.Workload.Services {
@@ -322,7 +326,8 @@ func (a *index) buildGlobalCollections(
 			}
 
 			svcName := parts[1]
-			svc := krt.FetchOne(ctx, a.services.Collection, krt.FilterKey(svcName))
+			svc := krt.FetchOne(ctx, GlobalMergedWorkloadServices, krt.FilterKey(svcName))
+
 			if svc == nil {
 				log.Errorf("Failed to find service %s to coalesce workloads", svcName)
 				return nil
@@ -356,42 +361,21 @@ func (a *index) buildGlobalCollections(
 			wi := a.createSplitHorizonWorkload(svcName, svc.Service, &gw, capacity, meshCfg)
 			wi = ptr.Of(precomputeWorkload(*wi))
 			return []model.WorkloadInfo{*wi}
-		}, opts.WithName("remoteCoalesedWorkloads")...,
+		}, opts.WithName("CoalesedWorkloads")...,
 	)
 	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, i model.WorkloadInfo) *model.WorkloadInfo {
-		if i.Workload.Network == a.Network(ctx).String() {
-			return &i
+		if i.Workload.Network != a.Network(ctx).String() {
+			return nil
 		}
-		return nil
+		return &i
 	}, opts.WithName("NetworkLocalWorkloads")...)
-
-	remoteGwWorkloads := krt.NewCollection(
-		a.networks.NetworkGateways,
-		func(ctx krt.HandlerContext, g NetworkGateway) *model.WorkloadInfo {
-			localNetwork := a.Network(ctx).String()
-			if g.Network.String() == localNetwork {
-				// We don't want to create split horizon workloads for the local network
-				return nil
-			}
-			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
-			if meshCfg == nil {
-				log.Errorf("Failed to find mesh config for remote gateway %s", g.ResourceName())
-				return nil
-			}
-			wi, err := a.createNetworkGatewayWorkload(g, meshCfg)
-			if err != nil {
-				log.Errorf("Failed to create network gateway workload for cluster %s: %v", g.Cluster, err)
-				return nil
-			}
-			return ptr.Of(precomputeWorkload(*wi))
-		}, opts.WithName("RemoteGatewayWorkloads")...)
 
 	SplitHorizonWorkloads := krt.JoinCollection(
 		[]krt.Collection[model.WorkloadInfo]{
 			coalescedWorkloads,
 			networkLocalWorkloads,
-			remoteGwWorkloads,
-		}, opts.WithName("SplitHorizonWorkloads")...,
+		},
+		opts.WithName("SplitHorizonWorkloads")...,
 	)
 	SplitHorizonWorkloads.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.WorkloadInfo) *workloadapi.Workload {
@@ -401,11 +385,11 @@ func (a *index) buildGlobalCollections(
 		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName),
 	), false)
 
-	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](SplitHorizonWorkloads, "networkAddress", networkAddressFromWorkload)
-	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](SplitHorizonWorkloads, "service", func(o model.WorkloadInfo) []string {
+	SplitHorizonWorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](SplitHorizonWorkloads, "networkAddress", networkAddressFromWorkload)
+	SplitHorizonWorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](SplitHorizonWorkloads, "service", func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
 	})
-	WorkloadWaypointIndexHostname := krt.NewIndex(SplitHorizonWorkloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
+	SplitHorizonWorkloadWaypointIndexHostname := krt.NewIndex(SplitHorizonWorkloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -424,7 +408,7 @@ func (a *index) buildGlobalCollections(
 			Hostname:  waypointAddress.Hostname,
 		}}
 	})
-	WorkloadWaypointIndexIP := krt.NewIndex(SplitHorizonWorkloads, "waypointIp", func(w model.WorkloadInfo) []networkAddress {
+	SplitHorizonWorkloadWaypointIndexIP := krt.NewIndex(SplitHorizonWorkloads, "waypointIp", func(w model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -447,52 +431,45 @@ func (a *index) buildGlobalCollections(
 		return []networkAddress{netaddr}
 	})
 
-	// This is a first pass at creating the collection of services for local workloads.
-	// Here, we only include services that have a remote workload.
-	// Later, we join with all services, giving this ones here priority.
 	SplitHorizonServices := krt.NewCollection(
-		WorkloadServiceIndex.AsCollection(),
-		func(ctx krt.HandlerContext, i krt.IndexObject[string, model.WorkloadInfo]) *model.ServiceInfo {
-			localNetwork := a.Network(ctx).String()
-			svc := krt.FetchOne(ctx, a.services.Collection, krt.FilterKey(i.Key))
-			if svc == nil {
-				log.Errorf("Failed to find service %s for SplitHorizonServices", i.Key)
-				return nil
+		GlobalMergedWorkloadServices,
+		func(ctx krt.HandlerContext, i model.ServiceInfo) *model.ServiceInfo {
+			// We only want to include services that have remote workloads
+			// If the service is already in SplitHorizonServicesWithWorkloads, we don't need to add it again
+			if i.Scope != model.Global {
+				return &i
 			}
-			if svc.Scope != model.Global {
-				return nil
+
+			wls := krt.Fetch(ctx, GlobalWorkloads, krt.FilterIndex(GlobalWorkloadServiceIndex, i.ResourceName()))
+			if len(wls) == 0 {
+				return &i
 			}
+
 			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
 			if meshCfg == nil {
 				log.Errorf("Failed to find mesh config")
 				return nil
 			}
+			localNetwork := a.Network(ctx).String()
 			sans := sets.String{}
-			for _, wl := range i.Objects {
+
+			for _, wl := range wls {
 				if wl.Workload.Network == localNetwork {
 					continue
 				}
 				sans.Insert(spiffe.MustGenSpiffeURI(meshCfg.MeshConfig, wl.Workload.Namespace, wl.Workload.ServiceAccount))
 			}
 			if sans.IsEmpty() {
-				// Ignore workloads without remote workloads
-				return nil
+				return &i
 			}
-			sans = sans.Union(sets.New(svc.Service.SubjectAltNames...))
+			sans = sans.Union(sets.New(i.Service.SubjectAltNames...))
 
-			newSvc := &model.ServiceInfo{
-				Service: protomarshal.Clone(svc.Service),
-				Scope:   svc.Scope,
+			newSvcInfo := &model.ServiceInfo{
+				Service: protomarshal.Clone(i.Service),
+				Scope:   i.Scope,
 			}
-			newSvc.Service.SubjectAltNames = sans.UnsortedList()
-			return precomputeServicePtr(newSvc)
-		}, opts.WithName("SplitHorizonServicesWithWorkloads")...)
-
-	// Give the SplitHorizonServicesWithWorkloads priority as they also have the sans set.
-	SplitHorizonServices = krt.JoinCollection(
-		[]krt.Collection[model.ServiceInfo]{
-			SplitHorizonServices,
-			GlobalMergedWorkloadServices,
+			newSvcInfo.Service.SubjectAltNames = sans.UnsortedList()
+			return precomputeServicePtr(newSvcInfo)
 		},
 		opts.WithName("SplitHorizonServices")...)
 
@@ -504,8 +481,8 @@ func (a *index) buildGlobalCollections(
 		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
 	), false)
 
-	ServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](SplitHorizonServices, "serviceAddress", networkAddressFromService)
-	ServiceInfosByOwningWaypointHostname := krt.NewIndex(SplitHorizonServices, "namespaceHostname", func(s model.ServiceInfo) []NamespaceHostname {
+	SplitHorizonServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](SplitHorizonServices, "serviceAddress", networkAddressFromService)
+	SplitHorizonServiceInfosByOwningWaypointHostname := krt.NewIndex(SplitHorizonServices, "namespaceHostname", func(s model.ServiceInfo) []NamespaceHostname {
 		// Filter out waypoint services
 		// TODO: we are looking at the *selector* -- we should be looking the labels themselves or something equivalent.
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
@@ -525,7 +502,7 @@ func (a *index) buildGlobalCollections(
 			Hostname:  waypointAddress.Hostname,
 		}}
 	})
-	ServiceInfosByOwningWaypointIP := krt.NewIndex(SplitHorizonServices, "owningWaypointIp", func(s model.ServiceInfo) []networkAddress {
+	SplitHorizonServiceInfosByOwningWaypointIP := krt.NewIndex(SplitHorizonServices, "owningWaypointIp", func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -552,7 +529,7 @@ func (a *index) buildGlobalCollections(
 			a.XDSUpdater,
 			GlobalWorkloads,
 			LocalNamespacesInfo,
-			WorkloadServiceIndex,
+			SplitHorizonWorkloadServiceIndex,
 			GlobalMergedWorkloadServices,
 			LocalServiceAddressIndex, // TODO: should we consider allowing ingress -> remote services?
 			opts,
@@ -562,17 +539,17 @@ func (a *index) buildGlobalCollections(
 
 	a.workloads = workloadsCollection{
 		Collection:               SplitHorizonWorkloads,
-		ByAddress:                WorkloadAddressIndex,
-		ByServiceKey:             WorkloadServiceIndex,
-		ByOwningWaypointHostname: WorkloadWaypointIndexHostname,
-		ByOwningWaypointIP:       WorkloadWaypointIndexIP,
+		ByAddress:                SplitHorizonWorkloadAddressIndex,
+		ByServiceKey:             SplitHorizonWorkloadServiceIndex,
+		ByOwningWaypointHostname: SplitHorizonWorkloadWaypointIndexHostname,
+		ByOwningWaypointIP:       SplitHorizonWorkloadWaypointIndexIP,
 	}
 
 	a.services = servicesCollection{
 		Collection:               SplitHorizonServices,
-		ByAddress:                ServiceAddressIndex,
-		ByOwningWaypointHostname: ServiceInfosByOwningWaypointHostname,
-		ByOwningWaypointIP:       ServiceInfosByOwningWaypointIP,
+		ByAddress:                SplitHorizonServiceAddressIndex,
+		ByOwningWaypointHostname: SplitHorizonServiceInfosByOwningWaypointHostname,
+		ByOwningWaypointIP:       SplitHorizonServiceInfosByOwningWaypointIP,
 	}
 	a.authorizationPolicies = AllPolicies
 	// TODO: Should this be the set of global waypoints?
@@ -816,32 +793,6 @@ func wrapObjectWithCluster[T any](clusterID cluster.ID) func(obj T) config.Objec
 	}
 }
 
-func (a *index) createNetworkGatewayWorkload(networkGateway NetworkGateway, meshCfg *MeshConfig,
-) (*model.WorkloadInfo, error) {
-	address, err := netip.ParseAddr(networkGateway.Addr)
-	if err != nil {
-		return nil, err
-	}
-	wl := workloadapi.Workload{
-		Uid:            networkGateway.ResourceName(),
-		Name:           networkGateway.ResourceName(),
-		Namespace:      networkGateway.Source.Namespace,
-		Network:        networkGateway.Network.String(),
-		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
-		TrustDomain:    pickTrustDomain(meshCfg),
-		ServiceAccount: networkGateway.ServiceAccount.Name,
-		Capacity:       &wrapperspb.UInt32Value{Value: 1},
-		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
-		Addresses:      [][]byte{address.AsSlice()},
-		ClusterId:      networkGateway.Cluster.String(),
-	}
-	return &model.WorkloadInfo{
-		Workload: &wl,
-		Source:   kind.KubernetesGateway,
-		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
-	}, nil
-}
-
 func (a *index) createSplitHorizonWorkload(
 	svcNamespacedName string, svc *workloadapi.Service, networkGateway *NetworkGateway, capacity uint32, meshCfg *MeshConfig,
 ) *model.WorkloadInfo {
@@ -852,12 +803,12 @@ func (a *index) createSplitHorizonWorkload(
 	uid := generateSplitHorizonWorkloadUID(networkGateway.Network.String(), networkGateway.ResourceName(), svcNamespacedName)
 	wl := workloadapi.Workload{
 		Uid:            uid,
-		Name:           uid, // TODO(stevenjin8): better name?
+		Name:           uid,
 		Namespace:      svc.Namespace,
 		Network:        networkGateway.Network.String(),
 		TrustDomain:    pickTrustDomain(meshCfg),
 		Capacity:       &wrapperspb.UInt32Value{Value: capacity},
-		WorkloadType:   workloadapi.WorkloadType_DEPLOYMENT, // TODO(stevenjin8): What is the correct type here?
+		WorkloadType:   workloadapi.WorkloadType_POD, // TODO(stevenjin8): What is the correct type here?
 		TunnelProtocol: workloadapi.TunnelProtocol_HBONE,
 		NetworkGateway: &workloadapi.GatewayAddress{
 			Destination:   &workloadapi.GatewayAddress_Address{},

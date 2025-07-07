@@ -494,6 +494,9 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			return fmt.Errorf("expected 3 pods, got %d", len(ais))
 		}
 		shwl := s.workloads.GetKey(splitHorizonName)
+		if shwl == nil {
+			return fmt.Errorf("expected split horizon workload to exist, but it does not")
+		}
 		if len(shwl.Workload.Addresses) != 0 {
 			return fmt.Errorf("expected no addresses in split horizon workload, got %v", shwl.Workload.Addresses)
 		}
@@ -536,6 +539,9 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			return fmt.Errorf("expected 3 pods, got %d", len(ais))
 		}
 		shwl := s.workloads.GetKey(splitHorizonName)
+		if shwl == nil {
+			return fmt.Errorf("expected split horizon workload to exist, but it does not")
+		}
 		if shwl.Workload.Capacity.GetValue() != 2 {
 			return fmt.Errorf("expected split horizon workload to have capacity 2, got %d", shwl.Workload.Capacity.GetValue())
 		}
@@ -562,6 +568,9 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			return fmt.Errorf("expected 3 pods, got %d", len(ais))
 		}
 		shwl := s.workloads.GetKey(splitHorizonName)
+		if shwl == nil {
+			return fmt.Errorf("expected split horizon workload to exist, but it does not")
+		}
 		if shwl.Workload.Capacity.GetValue() != 2 {
 			return fmt.Errorf("expected split horizon workload to have capacity 2, got %d", shwl.Workload.Capacity.GetValue())
 		}
