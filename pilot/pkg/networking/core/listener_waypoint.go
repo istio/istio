@@ -539,6 +539,23 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 	if tlsInspector != nil {
 		l.ListenerFilters = append(l.ListenerFilters, tlsInspector)
 	}
+
+	if features.EnableAmbientMultiNetwork && isEastWestGateway {
+		// If there are no filter chains, populate a dummy one that never matches
+		if len(l.FilterChains) == 0 {
+			l.FilterChains = []*listener.FilterChain{{
+				Name: model.VirtualInboundBlackholeFilterChainName,
+				Filters: []*listener.Filter{{
+					Name: wellknown.TCPProxy,
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(&tcp.TcpProxy{
+						StatPrefix:       util.BlackHoleCluster,
+						ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: util.BlackHoleCluster},
+					})},
+				}},
+			}}
+		}
+	}
+
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	return l
 }

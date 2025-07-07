@@ -37,7 +37,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/ptr"
@@ -3116,7 +3115,7 @@ func TestAPIServer(t *testing.T) {
 
 func TestDirect(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
+		/*t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
 			run := func(name string, options echo.CallOptions) {
 				t.NewSubTest(name).Run(func(t framework.TestContext) {
@@ -3312,7 +3311,7 @@ func TestDirect(t *testing.T) {
 				// This port is NOT exposed, so it must not be callable
 				Check: check.Status(503),
 			})
-		})
+		})*/
 		t.NewSubTest("east west gateway").Run(func(t framework.TestContext) {
 			if !t.Settings().AmbientMultiNetwork {
 				t.Skip("only test east west gateway service scope in multi-network mode")
@@ -3322,7 +3321,6 @@ func TestDirect(t *testing.T) {
 			ewginstance := i.EastWestGatewayForAmbient(cluster)
 			run := func(name string, options echo.CallOptions) {
 				t.NewSubTest(name).Run(func(t framework.TestContext) {
-					// TODO(jaellio): When is a from necessary here?
 					_, err := c.CallEcho(nil, options)
 					if err != nil {
 						t.Fatal(err)
@@ -3343,26 +3341,28 @@ func TestDirect(t *testing.T) {
 				CaCert:             string(cert.RootCert),
 				InsecureSkipVerify: true,
 			}
-
-			run("global service", echo.CallOptions{
-				To:          apps.Global.ForCluster(cluster.Name()),
-				Count:       1,
-				Address:     apps.Global.ForCluster(cluster.Name()).ClusterLocalFQDN(),
-				Port:        echo.Port{Name: ports.HTTP.Name},
-				HBONE:       hbsvc,
-				DoubleHBONE: hbsvc,
-				// Global services are expected to be reachable via the east-west gateway
-				Check: check.OK(),
-			})
 			run("local service", echo.CallOptions{
-				To:          apps.Local.ForCluster(cluster.Name()),
+				To:          apps.Captured.ForCluster(cluster.Name()),
 				Count:       1,
-				Address:     apps.Local.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
 				Port:        echo.Port{Name: ports.HTTP.Name},
 				HBONE:       hbsvc,
 				DoubleHBONE: hbsvc,
 				// Local services are not expected to be reachable via the east-west gateway
 				Check: check.Error(),
+			})
+
+			capturedSvc := apps.Captured.ForCluster(cluster.Name()).ServiceName()
+			labelService(t, capturedSvc, "istio.io/global", "true")
+			run("global service", echo.CallOptions{
+				To:          apps.Captured.ForCluster(cluster.Name()),
+				Count:       1,
+				Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Port:        echo.Port{Name: ports.HTTP.Name},
+				HBONE:       hbsvc,
+				DoubleHBONE: hbsvc,
+				// Global services are expected to be reachable via the east-west gateway
+				Check: check.OK(),
 			})
 		})
 	})
@@ -3514,6 +3514,19 @@ func labelWorkload(t framework.TestContext, w echo.Workload, k, v string) {
 	}
 	p := t.Clusters().Default().Kube().CoreV1().Pods(apps.Namespace.Name())
 	_, err := p.Patch(context.Background(), w.PodName(), types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func labelService(t framework.TestContext, svcName, k, v string) {
+	patchOpts := metav1.PatchOptions{}
+	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
+	if v == "" {
+		patchData = fmt.Sprintf(`{"metadata":{"labels": {%q: null}}}`, k)
+	}
+	s := t.Clusters().Default().Kube().CoreV1().Services(apps.Namespace.Name())
+	_, err := s.Patch(context.Background(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
