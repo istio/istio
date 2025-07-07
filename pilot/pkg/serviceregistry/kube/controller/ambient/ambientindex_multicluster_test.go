@@ -302,7 +302,6 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				// Removing the service changes the WDS workload in that cluster due to service attachments.
 				// Note that we should NOT get an event changing the service attachment in our local cluster.
 				// We also get a service event because we lost an IP
-
 				if clusterToNetwork[rc.clusterID] == clusterToNetwork[s.clusterID] {
 					s.deleteServiceForClient(t, "svc2", rc.sc)
 					s.assertEvent(t, s.podXdsNameForCluster("pod1", rc.clusterID), s.svcXdsName("svc2"))
@@ -396,6 +395,8 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		}, svc1Host)
 	})
 }
+
+// TODO: Test the merging details (the correct number of VIPs, no duplicates, etc.)
 
 func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)

@@ -392,7 +392,6 @@ func New(options Options) Index {
 
 		return []networkAddress{netaddr}
 	})
-
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *workloadapi.Service {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
@@ -428,7 +427,6 @@ func New(options Options) Index {
 	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, "service", func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
 	})
-
 	WorkloadWaypointIndexHostname := krt.NewIndex(Workloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
@@ -605,7 +603,6 @@ func (a *index) Lookup(key string) []model.AddressInfo {
 	}
 	networkAddr := networkAddress{network: network, ip: ip}
 
-	// Don't really need to check split horizon here because the coalesed workloads dont have addresses
 	if wls := a.workloads.ByAddress.Lookup(networkAddr); len(wls) > 0 {
 		return slices.Map(wls, modelWorkloadToAddressInfo)
 	}
@@ -650,8 +647,27 @@ func (a *index) inRevision(obj any) bool {
 
 // All return all known workloads. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
-	res := slices.Map(a.workloads.List(), modelWorkloadToAddressInfo)
+	var res []model.AddressInfo
+	// Add all workloads
+	for _, wl := range a.workloads.List() {
+		// If EnableAmbientMultiNetwork is enabled, we only want to add workloads that are local to this cluster
+		// Non cluster local workloads will be added by the service lookup
+		if features.EnableAmbientMultiNetwork && wl.Workload.ClusterId != a.ClusterID.String() {
+			continue
+		}
+		res = append(res, wl.AsAddress)
+	}
+	// Add all services
+	// TODO: Update to split horizon
 	for _, s := range a.services.List() {
+		if features.EnableAmbientMultiNetwork && s.Scope == model.Global {
+			// If EnableAmbientMultiNetwork is enabled, we want to add workloads that correspond to global services
+			for _, wl := range a.workloads.ByServiceKey.Lookup(s.ResourceName()) {
+				if wl.Workload.ClusterId != string(a.ClusterID) {
+					res = append(res, wl.AsAddress)
+				}
+			}
+		}
 		res = append(res, s.AsAddress)
 	}
 	return res
