@@ -86,9 +86,6 @@ func (d *doubleDialer) DialContext(ctx context.Context, network, address string)
 		innerTransport = &http2.Transport{
 			TLSClientConfig: d.innerTLSConfig,
 			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
-				// TODO(jaellio): Why isn't this necessary? With this line got errors related to
-				// invalid ServerName/SNI
-				// tlsCfg.ServerName = resp.Request.Host
 				// Upgrade the raw connection to a TLS connection.
 				c := tls.Client(pc, tlsCfg)
 				err := c.HandshakeContext(ctx)
