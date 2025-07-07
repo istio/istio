@@ -111,10 +111,6 @@ type EchoDeployments struct {
 	Uncaptured echo.Instances
 	// Sidecar echo services with sidecar
 	Sidecar echo.Instances
-	// Globally scoped echo service
-	Global echo.Instances
-	// Locally scoped echo service
-	Local echo.Instances
 
 	// All echo services
 	All echo.Instances
@@ -347,42 +343,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		})
 	}
 
-	// Only deploy local and global apps if ambient multi-network is enabled
-	if t.Settings().AmbientMultiNetwork {
-		builder = builder.WithConfig(echo.Config{
-			Service:        Global,
-			ServiceLabels:  map[string]string{"istio.io/global": "true"},
-			Namespace:      apps.Namespace,
-			Ports:          ports.All(),
-			ServiceAccount: true,
-			Subsets: []echo.SubsetConfig{
-				{
-					Replicas: 1,
-					Version:  "v1",
-				},
-				{
-					Replicas: 1,
-					Version:  "v2",
-				},
-			},
-		}).WithConfig(echo.Config{
-			Service:        Local,
-			Namespace:      apps.Namespace,
-			Ports:          ports.All(),
-			ServiceAccount: true,
-			Subsets: []echo.SubsetConfig{
-				{
-					Replicas: 1,
-					Version:  "v1",
-				},
-				{
-					Replicas: 1,
-					Version:  "v2",
-				},
-			},
-		})
-	}
-
 	external := cdeployment.External{Namespace: apps.ExternalNamespace}
 	external.Build(t, builder)
 
@@ -407,8 +367,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Uncaptured = match.ServiceName(echo.NamespacedName{Name: Uncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Captured = match.ServiceName(echo.NamespacedName{Name: Captured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Sidecar = match.ServiceName(echo.NamespacedName{Name: Sidecar, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.Global = match.ServiceName(echo.NamespacedName{Name: Global, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.Local = match.ServiceName(echo.NamespacedName{Name: Local, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Mesh = inMesh.GetMatches(echos)
 	apps.MeshExternal = match.Not(inMesh).GetMatches(echos)
 
