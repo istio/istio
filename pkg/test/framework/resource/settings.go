@@ -187,6 +187,9 @@ type Settings struct {
 
 	GatewayConformanceTimeoutConfig gwConformanceConfig.TimeoutConfig
 
+	// GatewayConformanceAllowCRDsMismatch lets gateway conformance tests to run on environments with pre-installed gateway-api CRDs
+	GatewayConformanceAllowCRDsMismatch bool
+
 	// OpenShift indicates the tests run in an OpenShift platform rather than in plain Kubernetes.
 	OpenShift bool
 }
@@ -270,6 +273,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("HelmRepo:          						 %v\n", s.HelmRepo)
 	result += fmt.Sprintf("IPFamilies:							 %v\n", s.IPFamilies)
 	result += fmt.Sprintf("GatewayConformanceStandardOnly: %v\n", s.GatewayConformanceStandardOnly)
+	result += fmt.Sprintf("GatewayConformanceAllowCRDsMismatch: %v\n", s.GatewayConformanceAllowCRDsMismatch)
 	return result
 }
 
