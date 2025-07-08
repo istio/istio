@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
-	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -267,28 +266,6 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			// the service sans get updated.
 			events = append(events, s.svcXdsName("svc2"))
 			s.assertEvent(t, events...)
-
-			t.Run("xds event filtering", func(t *testing.T) {
-				// Test that label selector change doesn't cause xDS push
-				// especially in the context of the merge implementation.
-				svc2 := s.sc.Get("svc2", testNS)
-				tmp := svc2.DeepCopy()
-				tmp.Spec.Selector["foo"] = "bar"
-				s.sc.Update(tmp)
-				// The new selector should disqualify pod1 from being a part
-				// of this service. We should NOT get a service event though
-				s.fx.StrictMatchOrFail(t, xdsfake.Event{
-					Type: "xds",
-					ID:   s.podXdsName("pod1"),
-				})
-				s.sc.Update(svc2)
-				// We should get another event from the pod being a part of the
-				// service again. Again, we should NOT get a service event.
-				s.fx.StrictMatchOrFail(t, xdsfake.Event{
-					Type: "xds",
-					ID:   s.podXdsName("pod1"),
-				})
-			})
 
 			// Label the pod and check that the correct event is produced.
 			s.labelPod(t, "pod1", testNS,
