@@ -651,13 +651,14 @@ func (a *index) All() []model.AddressInfo {
 	if ln := a.networks.LocalSystemNamespace.Get(); ln != nil {
 		localNetwork = *ln
 	} else {
-		log.Warnf("Local system namespace is not set, cannot determine local network for ambient index")
+		log.Warnf("Local system namespace is not set, cannot determine local network for ambient index." +
+			" Defaults to an unset network")
 	}
 	// Add all workloads
 	for _, wl := range a.workloads.List() {
 		// If EnableAmbientMultiNetwork is enabled, we only want to add workloads that are local to this cluster
 		// Non cluster local workloads will be added by the service lookup
-		if features.EnableAmbientMultiNetwork && wl.Workload.Network != localNetwork{
+		if features.EnableAmbientMultiNetwork && wl.Workload.Network != localNetwork {
 			continue
 		}
 		res = append(res, wl.AsAddress)
