@@ -193,7 +193,6 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				},
 			}, rClients...)
 			for _, client := range clients {
-				ips := clusterToIPs[client.clusterID]
 				// Test ambient index already creates istio-system namespace
 				if client.clusterID != s.clusterID {
 					client.ns.Create(&corev1.Namespace{
@@ -223,7 +222,16 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				if networkGatewayIps[client.clusterID] != "" {
 					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], clusterToNetwork[client.clusterID], client.grc)
 				}
+			}
 
+			// Need the namespaces to exist before creating services
+			assert.EventuallyEqual(t, func() int {
+				ns := s.namespaces.List()
+				return len(ns)
+			}, 2)
+
+			for _, client := range clients {
+				ips := clusterToIPs[client.clusterID]
 				// These steps happen for every test regardless of traffic type.
 				// It involves creating a waypoint for the specified traffic type
 				// then creating a workload and a service with no annotations set
@@ -241,20 +249,24 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 
 			// Service configuration needs to be uniform, so we add services to all clusters first,
 			// then check for events
+			events := make([]string, 0, len(clients))
 			for _, client := range clients {
 				ips := clusterToIPs[client.clusterID]
 				s.addPodsForClient(t, ips["pod1"], "pod1", "sa1",
 					map[string]string{"app": "a"}, nil, true, corev1.PodRunning, client.pc)
 				if clusterToNetwork[client.clusterID] == clusterToNetwork[s.clusterID] {
-					s.assertEvent(t, s.podXdsNameForCluster("pod1", client.clusterID))
+					events = append(events, s.podXdsNameForCluster("pod1", client.clusterID))
 				} else if networkGatewayIps[client.clusterID] != "" {
-					s.assertEvent(t, fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
+					events = append(events, fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
 						clusterToNetwork[client.clusterID],
 						networkGatewayIps[client.clusterID],
 						s.svcXdsName("svc2"),
 					))
 				}
 			}
+			// the service sans get updated.
+			events = append(events, s.svcXdsName("svc2"))
+			s.assertEvent(t, events...)
 
 			t.Run("xds event filtering", func(t *testing.T) {
 				// Test that label selector change doesn't cause xDS push
