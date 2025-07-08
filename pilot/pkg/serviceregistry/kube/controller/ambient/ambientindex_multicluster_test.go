@@ -68,17 +68,20 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 	cases := []struct {
 		name         string
 		trafficType  string
-		podAssertion func(s *ambientTestServer)
-		svcAssertion func(s *ambientTestServer)
+		podAssertion func(s *ambientTestServer, c cluster.ID)
+		svcAssertion func(s *ambientTestServer, svcKey string)
 	}{
 		{
 			name:        "service traffic",
 			trafficType: constants.ServiceTraffic,
-			podAssertion: func(s *ambientTestServer) {
+			podAssertion: func(s *ambientTestServer, c cluster.ID) {
 				s.t.Helper()
-				s.assertNoEvent(s.t)
+				// Test that there's no events for workloads in our cluster
+				// as a result of our actions (we can't control pushes for
+				// workloads from other clusters)
+				s.assertNoMatchingEvent(s.t, c.String())
 			},
-			svcAssertion: func(s *ambientTestServer) {
+			svcAssertion: func(s *ambientTestServer, _ string) {
 				s.t.Helper()
 				s.assertEvent(s.t, s.svcXdsName("svc2"))
 			},
@@ -86,11 +89,11 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 		{
 			name:        "all traffic",
 			trafficType: constants.AllTraffic,
-			podAssertion: func(s *ambientTestServer) {
+			podAssertion: func(s *ambientTestServer, _ cluster.ID) {
 				s.t.Helper()
 				s.assertEvent(s.t, s.podXdsName("pod1"))
 			},
-			svcAssertion: func(s *ambientTestServer) {
+			svcAssertion: func(s *ambientTestServer, _ string) {
 				s.t.Helper()
 				s.assertEvent(s.t, s.svcXdsName("svc2"))
 			},
@@ -98,25 +101,25 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 		{
 			name:        "workload traffic",
 			trafficType: constants.WorkloadTraffic,
-			podAssertion: func(s *ambientTestServer) {
+			podAssertion: func(s *ambientTestServer, c cluster.ID) {
 				s.t.Helper()
 				s.assertEvent(s.t, s.podXdsName("pod1"))
 			},
-			svcAssertion: func(s *ambientTestServer) {
+			svcAssertion: func(s *ambientTestServer, svcKey string) {
 				s.t.Helper()
-				s.assertNoEvent(s.t)
+				s.assertNoMatchingEvent(s.t, svcKey)
 			},
 		},
 		{
 			name:        "no traffic",
 			trafficType: constants.NoTraffic,
-			podAssertion: func(s *ambientTestServer) {
+			podAssertion: func(s *ambientTestServer, c cluster.ID) {
 				s.t.Helper()
-				s.assertNoEvent(s.t)
+				s.assertNoMatchingEvent(s.t, c.String())
 			},
-			svcAssertion: func(s *ambientTestServer) {
+			svcAssertion: func(s *ambientTestServer, svcKey string) {
 				s.t.Helper()
-				s.assertNoEvent(s.t)
+				s.assertNoMatchingEvent(s.t, svcKey)
 			},
 		},
 	}
@@ -293,7 +296,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			// Label the pod and check that the correct event is produced.
 			s.labelPod(t, "pod1", testNS,
 				map[string]string{"app": "a", label.IoIstioUseWaypoint.Name: "test-wp"})
-			c.podAssertion(s)
+			c.podAssertion(s, testC)
 
 			// Label the service and check that the correct event is produced.
 			s.labelService(t, "svc2", testNS,
