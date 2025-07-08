@@ -1203,7 +1203,8 @@ func TestMatchServiceScope(t *testing.T) {
 								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
 									{
 										Key:      "istio.io/global",
-										Operator: string(metav1.LabelSelectorOpExists),
+										Operator: string(metav1.LabelSelectorOpIn),
+										Values:   []string{"true"},
 									},
 								},
 							},
@@ -1534,7 +1535,8 @@ func TestMatchServiceScope(t *testing.T) {
 								MatchExpressions: []*meshConfig.LabelSelectorRequirement{
 									{
 										Key:      "istio.io/global",
-										Operator: string(metav1.LabelSelectorOpExists),
+										Operator: string(metav1.LabelSelectorOpIn),
+										Values:   []string{"true"},
 									},
 								},
 							},

@@ -23,7 +23,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/scopes"
@@ -36,9 +38,10 @@ const (
 	eastWestIngressIstioLabel     = "istio=" + eastWestIngressIstioNameLabel
 	eastWestIngressServiceName    = "istio-" + eastWestIngressIstioNameLabel
 	eastWestGatewayNameLabel      = "istio.io-eastwest-controller"
-	eastWestGatewayLabel          = "gateway.istio.io/managed=" + eastWestGatewayNameLabel
 	ambientEastWestGatewayClass   = "istio-east-west"
+	eastWestGatewayName           = "istio-eastwestgateway"
 	eastWestGatewayServiceName    = "istio-eastwestgateway-istio-east-west"
+	eastWestGatewayLabel          = "gateway.istio.io/managed=" + constants.ManagedGatewayEastWestControllerLabel
 )
 
 var (
@@ -150,22 +153,23 @@ func (i *istioImpl) deployAmbientEastWestGateway(cluster cluster.Cluster) error 
 		return fmt.Errorf("failed applying eastwest gateway yaml: %v", err)
 	}
 
-	// wait for a ready pod
+	// wait east west gateway to be programmed (pods are ready)
 	if err := retry.UntilSuccess(func() error {
-		pods, err := cluster.Kube().CoreV1().Pods(i.cfg.SystemNamespace).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: eastWestGatewayLabel,
-		})
+		gwc, err := cluster.GatewayAPI().GatewayV1().Gateways(i.cfg.SystemNamespace).Get(context.TODO(), eastWestGatewayName, metav1.GetOptions{})
+		if err == nil {
+			// Check if gateway has Programmed condition set to true
+			for _, cond := range gwc.Status.Conditions {
+				if cond.Type == string(gateway.GatewayConditionProgrammed) && string(cond.Status) == "True" {
+					return nil
+				}
+			}
+		}
 		if err != nil {
 			return err
 		}
-		for _, p := range pods.Items {
-			if p.Status.Phase == corev1.PodRunning {
-				return nil
-			}
-		}
-		return fmt.Errorf("no ready pods %v for "+eastWestGatewayLabel, pods.Items)
+		return fmt.Errorf("gateway %s status is not programmed", eastWestGatewayName)
 	}, componentDeployTimeout, componentDeployDelay); err != nil {
-		return fmt.Errorf("failed waiting for %s to become ready: %v in cluster %s", eastWestGatewayServiceName, err, cluster.Name())
+		return fmt.Errorf("failed waiting for %s to become ready: %v in cluster %s", eastWestGatewayName, err, cluster.Name())
 	}
 
 	return nil

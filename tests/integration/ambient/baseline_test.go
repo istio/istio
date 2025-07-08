@@ -3322,7 +3322,6 @@ func TestDirect(t *testing.T) {
 			ewginstance := i.EastWestGatewayForAmbient(cluster)
 			run := func(name string, options echo.CallOptions) {
 				t.NewSubTest(name).Run(func(t framework.TestContext) {
-					// TODO(jaellio): When is a from necessary here?
 					_, err := c.CallEcho(nil, options)
 					if err != nil {
 						t.Fatal(err)
@@ -3343,26 +3342,28 @@ func TestDirect(t *testing.T) {
 				CaCert:             string(cert.RootCert),
 				InsecureSkipVerify: true,
 			}
-
-			run("global service", echo.CallOptions{
-				To:          apps.Global.ForCluster(cluster.Name()),
-				Count:       1,
-				Address:     apps.Global.ForCluster(cluster.Name()).ClusterLocalFQDN(),
-				Port:        echo.Port{Name: ports.HTTP.Name},
-				HBONE:       hbsvc,
-				DoubleHBONE: hbsvc,
-				// Global services are expected to be reachable via the east-west gateway
-				Check: check.OK(),
-			})
 			run("local service", echo.CallOptions{
-				To:          apps.Local.ForCluster(cluster.Name()),
+				To:          apps.Captured.ForCluster(cluster.Name()),
 				Count:       1,
-				Address:     apps.Local.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
 				Port:        echo.Port{Name: ports.HTTP.Name},
 				HBONE:       hbsvc,
 				DoubleHBONE: hbsvc,
 				// Local services are not expected to be reachable via the east-west gateway
 				Check: check.Error(),
+			})
+
+			capturedSvc := apps.Captured.ForCluster(cluster.Name()).ServiceName()
+			labelService(t, capturedSvc, "istio.io/global", "true")
+			run("global service", echo.CallOptions{
+				To:          apps.Captured.ForCluster(cluster.Name()),
+				Count:       1,
+				Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Port:        echo.Port{Name: ports.HTTP.Name},
+				HBONE:       hbsvc,
+				DoubleHBONE: hbsvc,
+				// Global services are expected to be reachable via the east-west gateway
+				Check: check.OK(),
 			})
 		})
 	})
@@ -3514,6 +3515,19 @@ func labelWorkload(t framework.TestContext, w echo.Workload, k, v string) {
 	}
 	p := t.Clusters().Default().Kube().CoreV1().Pods(apps.Namespace.Name())
 	_, err := p.Patch(context.Background(), w.PodName(), types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func labelService(t framework.TestContext, svcName, k, v string) {
+	patchOpts := metav1.PatchOptions{}
+	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
+	if v == "" {
+		patchData = fmt.Sprintf(`{"metadata":{"labels": {%q: null}}}`, k)
+	}
+	s := t.Clusters().Default().Kube().CoreV1().Services(apps.Namespace.Name())
+	_, err := s.Patch(context.Background(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
