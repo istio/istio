@@ -38,7 +38,7 @@ const (
 	eastWestGatewayNameLabel      = "istio.io-eastwest-controller"
 	eastWestGatewayLabel          = "gateway.istio.io/managed=" + eastWestGatewayNameLabel
 	ambientEastWestGatewayClass   = "istio-east-west"
-	eastWestGatewayServiceName    = "istio-eastwestgateway"
+	eastWestGatewayServiceName    = "istio-eastwestgateway-istio-east-west"
 )
 
 var (
