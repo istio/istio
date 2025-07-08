@@ -474,6 +474,13 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		}
 	}
 
+	var nativeSidecarModeEnabled bool
+	if features.EnableNativeSidecars == features.NativeSidecarModeDisabled {
+		nativeSidecarModeEnabled = false
+	} else {
+		nativeSidecarModeEnabled = true
+	}
+
 	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: model.GetOrDefault(gw.Annotations[annotation.GatewayNameOverride.Name], defaultName),
@@ -483,6 +490,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 
 		KubeVersion:               kube.GetVersionAsInt(d.client),
 		Revision:                  d.revision,
+		NativeSidecars:            nativeSidecarModeEnabled,
 		ServiceType:               serviceType,
 		ProxyUID:                  proxyUID,
 		ProxyGID:                  proxyGID,
@@ -915,6 +923,7 @@ type TemplateInput struct {
 	ClusterID                 string
 	KubeVersion               int
 	Revision                  string
+	NativeSidecars            bool
 	ProxyUID                  int64
 	ProxyGID                  int64
 	CompliancePolicy          string
