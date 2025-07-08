@@ -478,9 +478,7 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 
 			var podName, ns string
 			if len(args) == 0 {
-				if resolvedRevision == "" {
-					resolvedRevision = "default"
-				}
+				// resolvedRevision is already set by ctx.RevisionOrDefault(opts.Revision)
 				if len(istiodLabelSelector) > 0 {
 					istiodLabelSelector = fmt.Sprintf("%s,%s=%s", istiodLabelSelector, label.IoIstioRev.Name, resolvedRevision)
 				} else {
