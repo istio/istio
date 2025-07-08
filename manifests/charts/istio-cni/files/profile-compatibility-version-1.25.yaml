@@ -2,6 +2,10 @@
 # The original version of this file is located at /manifests/helm-profiles directory.
 # If you want to make a change in this file, edit the original one and run "make gen".
 
+pilot:
+  env:
+    # 1.27 behavioral changes
+    ENABLE_NATIVE_SIDECARS: "false"
 ambient:
   # 1.26 behavioral changes
   shareHostNetworkNamespace: true
