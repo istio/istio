@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
+	gatewayapiinferenceclient "sigs.k8s.io/gateway-api-inference-extension/client-go/clientset/versioned"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
@@ -58,6 +59,9 @@ type ClientGetter interface {
 
 	// GatewayAPI returns the gateway-api kube client.
 	GatewayAPI() gatewayapiclient.Interface
+
+	// GatewayAPIInference returns the gateway-api-inference-extension kube client.
+	GatewayAPIInference() gatewayapiinferenceclient.Interface
 
 	// Informers returns an informer factory.
 	Informers() informerfactory.InformerFactory
