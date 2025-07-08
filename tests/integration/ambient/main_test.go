@@ -84,14 +84,6 @@ values:
     terminationGracePeriodSeconds: 5
     env:
       SECRET_TTL: 5m
-  meshConfig:
-    serviceScopeConfigs:
-      - servicesSelector:
-          matchExpressions:
-            - key: istio.io/global
-              operator: In
-              values: ["true"]
-        scope: GLOBAL
 `
 )
 
