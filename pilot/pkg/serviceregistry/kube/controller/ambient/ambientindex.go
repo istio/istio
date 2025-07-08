@@ -682,6 +682,8 @@ func (a *index) All() []model.AddressInfo {
 // waypoints containing global services. Result is un-ordered
 func (a *index) AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo {
 	var res []model.ServiceInfo
+	// TODO(jaellio): Improve this to use a more efficient lookup/index since this is in the
+	// hot path for east west gateway updates/configuration.
 	for _, svc := range a.services.List() {
 		workloads := a.workloads.ByServiceKey.Lookup(svc.ResourceName())
 		// All workloads for a service should belong in the same network
