@@ -13,7 +13,6 @@ contents:
     - libnfnetlink
     - libmnl
     - libgcc
-    - nftables-slim
 archs:
   - x86_64
   - aarch64
