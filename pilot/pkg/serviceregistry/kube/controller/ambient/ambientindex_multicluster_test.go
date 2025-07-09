@@ -490,6 +490,20 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		if svc.Scope != model.Global {
 			return fmt.Errorf("expected service scope to be Global, got %s", svc.Scope)
 		}
+		gwwl := s.workloads.GetKey("NetworkGateway/remote-network/172.0.1.2/0")
+		if gwwl == nil {
+			return fmt.Errorf("expected network gateway workload to exist, but it does not")
+		}
+		if len(gwwl.Workload.Addresses) != 1 {
+			return fmt.Errorf("expected network gateway workload to have addresses, got %v", gwwl.Workload.Addresses)
+		}
+		expectedAddress := []uint8{172, 0, 1, 2}
+		if !reflect.DeepEqual(gwwl.Workload.Addresses[0], expectedAddress) {
+			return fmt.Errorf("expected network gateway workload to have address %s, got %s",
+				networkGatewayIP,
+				gwwl.Workload.Addresses[0],
+			)
+		}
 		return nil
 	})
 
