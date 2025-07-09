@@ -306,10 +306,11 @@ func archToGoFlags(a string) []string {
 func archToEnvMap(a string) map[string]string {
 	os, arch, _ := strings.Cut(a, "/")
 	return map[string]string{
-		"TARGET_OS":        os,
-		"TARGET_ARCH":      arch,
-		"TARGET_OUT":       filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("%s_%s", os, arch)),
-		"TARGET_OUT_LINUX": filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("linux_%s", arch)),
+		"TARGET_OS":          os,
+		"TARGET_ARCH":        arch,
+		"TARGET_OUT":         filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("%s_%s", os, arch)),
+		"TARGET_OUT_LINUX":   filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("linux_%s", arch)),
+		"TARGET_OUT_WINDOWS": filepath.Join(testenv.IstioSrc, "out", fmt.Sprintf("windows_%s", arch)),
 	}
 }
 

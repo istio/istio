@@ -54,7 +54,7 @@ function set_download_command () {
 #   $2: The full path of the output binary.
 #   $3: Non-versioned name to use
 function download_ztunnel_if_necessary () {
-  if [[ -f "$2" ]]; then
+  if [[ -f "$2" || "$TARGET_OS" == "windows" ]]; then
     return
   fi
   # Enter the output directory.
@@ -110,7 +110,7 @@ function maybe_build_ztunnel() {
 
   ZTUNNEL_BIN=ztunnel
   TARGET_OUT="${TARGET_OUT_LINUX}"
-  if [[ "$BUILD_ZTUNNEL_TARGET" == *"windows"* ]]; then
+  if [[ "$TARGET_OS" == "windows" ]]; then
     ZTUNNEL_BIN="${ZTUNNEL_BIN}.exe"
     TARGET_OUT=${TARGET_OUT_WINDOWS}
   fi

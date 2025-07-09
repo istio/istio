@@ -148,10 +148,10 @@ func RunSave(a Args, files map[string]string) error {
 }
 
 func RunBake(args Args) error {
-	for _, arch := range args.Architectures {
-		out := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("docker-bake-%s.json", strings.ReplaceAll(arch, "/", "-")))
+	for _, targetOs := range []string{"linux", "windows"} {
+		out := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("docker-bake-%s.json", targetOs))
 		_ = os.MkdirAll(filepath.Join(testenv.LocalOut, "release", "docker"), 0o755)
-		builderName, err := createBuildxBuilderIfNeeded(args)
+		builderName, err := createBuildxBuilderIfNeeded(args, targetOs)
 		if err != nil {
 			return err
 		}
@@ -166,20 +166,18 @@ func RunBake(args Args) error {
 }
 
 // --save requires a custom builder. Automagically create it if needed.
-func createBuildxBuilderIfNeeded(a Args) (string, error) {
+func createBuildxBuilderIfNeeded(a Args, targetOs string) (string, error) {
 	log.Infof("Checking builder for architectures: %v, save: %v", a.Architectures, a.Save)
 	// If we're also compiling for Windows, we need a special builder.
-	for _, arch := range a.Architectures {
-		if strings.HasPrefix(arch, "windows/") {
-			log.Infof("Creating windows builder for %v", arch)
-			return WindowsBuilderName, exec.Command("sh", "-c", strings.ReplaceAll(`
+	if targetOs == "windows" {
+		log.Infof("Creating windows builder for %v", targetOs)
+		return WindowsBuilderName, exec.Command("sh", "-c", strings.ReplaceAll(`
 export DOCKER_CLI_EXPERIMENTAL=enabled
 if ! docker buildx ls | grep -q {{builder-name}}; then
   docker buildx create --name {{builder-name}} --platform=windows/amd64
   # Pre-warm the builder. If it fails, fetch logs, but continue
   docker buildx inspect --bootstrap {{builder-name}} || docker logs buildx_buildkit_{{builder-name}}0 || true
 fi`, "{{builder-name}}", WindowsBuilderName)).Run()
-		}
 	}
 	if !a.Save {
 		return "default", nil // default builder supports all but .save
@@ -234,15 +232,11 @@ func ConstructBakeFiles(a Args) (map[string]string, error) {
 	tarFiles := map[string]string{}
 
 	allDestinations := sets.New[string]()
+	targets := map[string]Target{}
+	// First we gather all the targets that will be built.
 	for _, arch := range a.Architectures {
-		// Targets defines all images we are actually going to build
-		targets := map[string]Target{}
-		// Groups just bundles targets together to make them easier to work with
-		groups := map[string]Group{}
-		allGroups := sets.New[string]()
 		for _, variant := range a.Variants {
 			for _, target := range a.Targets {
-				// Just for Dockerfile, so do not worry about architecture
 				bp := a.PlanFor(arch).Find(target)
 				if bp == nil {
 					continue
@@ -256,58 +250,93 @@ func ConstructBakeFiles(a Args) (map[string]string, error) {
 				if strings.HasPrefix(target, "app_") && variant == DistrolessVariant {
 					continue
 				}
-				p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))
-				t := Target{
-					Context:    ptr.Of(p),
-					Dockerfile: ptr.Of(filepath.Base(bp.Dockerfile)),
-					Args:       createArgs(a, target, variant, ""),
-					Platforms:  []string{arch},
-				}
-
-				t.Tags = append(t.Tags, extractTags(a, target, variant, hasDoubleDefault)...)
-				allDestinations.InsertAll(t.Tags...)
-
-				// See https://docs.docker.com/engine/reference/commandline/buildx_build/#output
-				if a.Push {
-					t.Outputs = []string{"type=registry"}
-				} else if a.Save || strings.HasPrefix(arch, "windows/") {
-					// We assume that Windows images are always saved, as they can't be output
-					// directly to a local Linux docker.
-					n := target
-					if variant != "" && variant != DefaultVariant { // For default variant, we do not add it.
-						n += "-" + variant
-					}
-
-					tarFiles[n+a.suffix] = ""
-					if variant == PrimaryVariant && hasDoubleDefault {
-						tarFiles[n+a.suffix] = target + a.suffix
-					}
-					t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+a.suffix+".tar")}
-				} else {
-					t.Outputs = []string{"type=docker"}
-				}
-
-				if a.NoCache {
-					x := true
-					t.NoCache = &x
-				}
 
 				name := fmt.Sprintf("%s-%s", target, variant)
-				targets[name] = t
-				tgts := groups[variant].Targets
-				tgts = append(tgts, name)
-				groups[variant] = Group{tgts}
 
-				allGroups.Insert(variant)
+				if val, exists := targets[name]; exists {
+					val.Platforms = append(val.Platforms, arch)
+					targets[name] = val
+				} else {
+					p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))
+					t := Target{
+						Context:    ptr.Of(p),
+						Dockerfile: ptr.Of(filepath.Base(bp.Dockerfile)),
+						Args:       createArgs(a, target, variant, ""),
+						Platforms:  []string{arch},
+					}
+
+					t.Tags = append(t.Tags, extractTags(a, target, variant, hasDoubleDefault)...)
+					allDestinations.InsertAll(t.Tags...)
+
+					// See https://docs.docker.com/engine/reference/commandline/buildx_build/#output
+					if a.Push {
+						t.Outputs = []string{"type=registry"}
+					} else if a.Save || strings.HasPrefix(arch, "windows/") {
+						// We assume that Windows images are always saved, as they can't be output
+						// directly to a local Linux docker.
+						n := target
+						if variant != "" && variant != DefaultVariant { // For default variant, we do not add it.
+							n += "-" + variant
+						}
+
+						tarFiles[n+a.suffix] = ""
+						if variant == PrimaryVariant && hasDoubleDefault {
+							tarFiles[n+a.suffix] = target + a.suffix
+						}
+						t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+a.suffix+".tar")}
+					} else {
+						t.Outputs = []string{"type=docker"}
+					}
+
+					if a.NoCache {
+						x := true
+						t.NoCache = &x
+					}
+
+					targets[name] = t
+				}
 			}
 		}
-		groups["all"] = Group{sets.SortedList(allGroups)}
+	}
+
+	// Then we separate the targets into different bake files, one per OS.
+	for _, targetOs := range []string{"linux", "windows"} {
 		bf := BakeFile{
-			Target: targets,
-			Group:  groups,
+			Target: map[string]Target{},
+			Group:  map[string]Group{},
 		}
-		arch = strings.ReplaceAll(arch, "/", "-")
-		out := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("docker-bake-%s.json", arch))
+
+		for name, t := range targets {
+			for _, platform := range t.Platforms {
+				if strings.HasPrefix(platform, targetOs+"/") {
+					bf.Target[name] = t
+				}
+			}
+		}
+
+		if len(bf.Target) == 0 {
+			continue
+		}
+
+		// Groups just bundles targets together to make them easier to work with
+		groups := map[string]Group{}
+		allGroups := sets.New[string]()
+
+		for name, _ := range bf.Target {
+			split := strings.Split(name, "-")
+			variant := split[len(split)-1]
+			allGroups.Insert(variant)
+			if g, exists := groups[variant]; !exists {
+				groups[variant] = Group{Targets: []string{name}}
+			} else {
+				groups[variant] = Group{Targets: append(g.Targets, name)}
+			}
+		}
+
+		bf.Group = groups
+		bf.Group["all"] = Group{Targets: sets.SortedList(allGroups)}
+
+		out := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("docker-bake-%s.json", targetOs))
 		j, err := json.MarshalIndent(bf, "", "  ")
 		if err != nil {
 			return nil, err

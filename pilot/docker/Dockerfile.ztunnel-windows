@@ -1,4 +1,7 @@
 ARG WINBASE=mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:v1.0.0
+
 FROM ${WINBASE}
-COPY /ztunnel.exe /ztunnel.exe
+
+ARG TARGETARCH
+COPY ${TARGETARCH:-amd64}/ztunnel.exe /ztunnel.exe
 ENTRYPOINT [ "ztunnel.exe" ]

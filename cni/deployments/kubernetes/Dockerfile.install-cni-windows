@@ -1,5 +1,6 @@
 FROM mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:v1.0.0
-# TODO: fix docker-copy to use the correct architecture path for the source binaries.
-COPY /install-cni.exe /install-cni.exe
-COPY /istio-cni.exe /opt/cni/bin/istio-cni.exe
+
+ARG TARGETARCH
+COPY ${TARGETARCH:-amd64}/install-cni.exe /install-cni.exe
+COPY ${TARGETARCH:-amd64}/istio-cni.exe /opt/cni/bin/istio-cni.exe
 ENTRYPOINT [ "/install-cni.exe" ]

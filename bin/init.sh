@@ -123,6 +123,11 @@ function download_envoy_if_necessary () {
 
 mkdir -p "${TARGET_OUT}"
 
+if [[ $TARGET_OS == "windows" ]]; then
+  echo "Skipping envoy download for Windows target."
+  exit 0
+fi
+
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
 set_download_command
 
