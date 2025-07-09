@@ -36,6 +36,11 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+const (
+	WindowsBuilderName = "windows-builder"
+	LinuxBuilderName   = "container-builder"
+)
+
 // RunDocker builds docker images using the `docker buildx bake` commands. Buildx is the
 // next-generation docker builder, and `bake` is an important part of that which allows us to
 // construct a big build plan which docker can execute in parallel. This provides order of magnitude
@@ -75,13 +80,14 @@ func RunDocker(args Args) error {
 }
 
 func runDocker(args Args) error {
-	tarFiles, err := ConstructBakeFile(args)
+	tarFiles, err := ConstructBakeFiles(args)
 	if err != nil {
 		return err
 	}
 
 	makeStart := time.Now()
 	for _, arch := range args.Architectures {
+		log.Infof("Running make for %v", args.PlanFor(arch).Targets())
 		if err := RunMake(context.Background(), args, arch, args.PlanFor(arch).Targets()...); err != nil {
 			return err
 		}
@@ -144,26 +150,50 @@ func RunSave(a Args, files map[string]string) error {
 }
 
 func RunBake(args Args) error {
-	out := filepath.Join(testenv.LocalOut, "dockerx_build", "docker-bake.json")
-	_ = os.MkdirAll(filepath.Join(testenv.LocalOut, "release", "docker"), 0o755)
-	if err := createBuildxBuilderIfNeeded(args); err != nil {
-		return err
+	targetOsSet := sets.New[string]()
+	for _, arch := range args.Architectures {
+		os := strings.Split(arch, "/")[0]
+		targetOsSet.Insert(os)
 	}
-	c := VerboseCommand("docker", "buildx", "bake", "-f", out, "all")
-	c.Stdout = os.Stdout
-	return c.Run()
+	for targetOs := range targetOsSet {
+		out := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("docker-bake-%s.json", targetOs))
+		_ = os.MkdirAll(filepath.Join(testenv.LocalOut, "release", "docker"), 0o755)
+		builderName, err := createBuildxBuilderIfNeeded(args, targetOs)
+		if err != nil {
+			return err
+		}
+		c := VerboseCommand("docker", "buildx", "bake", "--builder", builderName, "-f", out, "all")
+		c.Stdout = os.Stdout
+		err = c.Run()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// --save requires a custom builder. Automagically create it if needed
-func createBuildxBuilderIfNeeded(a Args) error {
+// --save requires a custom builder. Automagically create it if needed.
+func createBuildxBuilderIfNeeded(a Args, targetOs string) (string, error) {
+	log.Infof("Checking builder for architectures: %v, save: %v", a.Architectures, a.Save)
+	// If we're also compiling for Windows, we need a special builder.
+	if targetOs == "windows" {
+		log.Infof("Creating windows builder for %v", targetOs)
+		return WindowsBuilderName, exec.Command("sh", "-c", strings.ReplaceAll(`
+export DOCKER_CLI_EXPERIMENTAL=enabled
+if ! docker buildx ls | grep -q {{builder-name}}; then
+  docker buildx create --name {{builder-name}} --platform=windows/amd64
+  # Pre-warm the builder. If it fails, fetch logs, but continue
+  docker buildx inspect --bootstrap {{builder-name}} || docker logs buildx_buildkit_{{builder-name}}0 || true
+fi`, "{{builder-name}}", WindowsBuilderName)).Run()
+	}
 	if !a.Save {
-		return nil // default builder supports all but .save
+		return "default", nil // default builder supports all but .save
 	}
 	if _, f := os.LookupEnv("CI"); !f {
 		// If we are not running in CI and the user is not using --save, assume the current
 		// builder is OK.
 		if !a.Save {
-			return nil
+			return "", nil
 		}
 		// --save is specified so verify if the current builder's driver is `docker-container` (needed to satisfy the export)
 		// This is typically used when running release-builder locally.
@@ -173,141 +203,181 @@ func createBuildxBuilderIfNeeded(a Args) error {
 		c.Stdout = out
 		err := c.Run()
 		if err != nil {
-			return fmt.Errorf("command failed: %v", err)
+			return "", fmt.Errorf("command failed: %v", err)
 		}
 		matches := regexp.MustCompile(`Driver:\s+(.*)`).FindStringSubmatch(out.String())
 		if len(matches) == 0 || matches[1] != "docker-container" {
-			return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
-				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0" +
-				" --name container-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
+			return "", fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n"+
+				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0"+
+				" --name %s --driver docker-container --buildkitd-flags=\"--debug\" --use)", LinuxBuilderName)
 		}
-		return nil
+		return LinuxBuilderName, nil
 	}
-	return exec.Command("sh", "-c", `
+	return LinuxBuilderName, exec.Command("sh", "-c", strings.ReplaceAll(`
 export DOCKER_CLI_EXPERIMENTAL=enabled
-if ! docker buildx ls | grep -q container-builder; then
-  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name container-builder --buildkitd-flags="--debug"
+if ! docker buildx ls | grep -q {{builder-name}}; then
+  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name {{builder-name}} --buildkitd-flags="--debug"
   # Pre-warm the builder. If it fails, fetch logs, but continue
-  docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
-fi
-docker buildx use container-builder`).Run()
+  docker buildx inspect --bootstrap {{builder-name}} || docker logs buildx_buildkit_{{builder-name}}0 || true
+fi`, "{{builder-name}}", LinuxBuilderName)).Run()
 }
 
-// ConstructBakeFile constructs a docker-bake.json to be passed to `docker buildx bake`.
+// ConstructBakeFiles constructs json files to be passed to `docker buildx bake`.
 // This command is an extremely powerful command to build many images in parallel, but is pretty undocumented.
 // Most info can be found from the source at https://github.com/docker/buildx/blob/master/bake/bake.go.
-func ConstructBakeFile(a Args) (map[string]string, error) {
-	// Targets defines all images we are actually going to build
-	targets := map[string]Target{}
-	// Groups just bundles targets together to make them easier to work with
-	groups := map[string]Group{}
-
+// At the moment, as `buildx bake` doesn't support multi-arch builds, we generate one separate bake
+// file per architecture, and each bake file can be processed by a different `docker buildx` builder.
+func ConstructBakeFiles(a Args) (map[string]string, error) {
 	variants := sets.New(a.Variants...)
 	// hasDoubleDefault checks if we defined both DefaultVariant and PrimaryVariant. If we did, these
 	// are the same exact docker build, just requesting different tags. As an optimization, and to ensure
 	// byte-for-byte identical images, we will collapse these into a single build with multiple tags.
 	hasDoubleDefault := variants.Contains(DefaultVariant) && variants.Contains(PrimaryVariant)
 
-	allGroups := sets.New[string]()
 	// Tar files builds a mapping of tar file name (when used with --save) -> alias for that
 	// If the value is "", the tar file exists but has no aliases
 	tarFiles := map[string]string{}
 
 	allDestinations := sets.New[string]()
-	for _, variant := range a.Variants {
-		for _, target := range a.Targets {
-			// Just for Dockerfile, so do not worry about architecture
-			bp := a.PlanFor(a.Architectures[0]).Find(target)
-			if bp == nil {
-				continue
-			}
-			if variant == DefaultVariant && hasDoubleDefault {
-				// This will be process by the PrimaryVariant, skip it here
-				continue
-			}
-
-			// These images do not actually use distroless even when specified. So skip to avoid extra building
-			if strings.HasPrefix(target, "app_") && variant == DistrolessVariant {
-				continue
-			}
-			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))
-			t := Target{
-				Context:    ptr.Of(p),
-				Dockerfile: ptr.Of(filepath.Base(bp.Dockerfile)),
-				Args:       createArgs(a, target, variant, ""),
-				Platforms:  a.Architectures,
-			}
-
-			t.Tags = append(t.Tags, extractTags(a, target, variant, hasDoubleDefault)...)
-			allDestinations.InsertAll(t.Tags...)
-
-			// See https://docs.docker.com/engine/reference/commandline/buildx_build/#output
-			if a.Push {
-				t.Outputs = []string{"type=registry"}
-			} else if a.Save {
-				n := target
-				if variant != "" && variant != DefaultVariant { // For default variant, we do not add it.
-					n += "-" + variant
+	targets := map[string]Target{}
+	// First we gather all the targets that will be built.
+	for _, arch := range a.Architectures {
+		for _, variant := range a.Variants {
+			for _, target := range a.Targets {
+				bp := a.PlanFor(arch).Find(target)
+				if bp == nil {
+					continue
+				}
+				if variant == DefaultVariant && hasDoubleDefault {
+					// This will be process by the PrimaryVariant, skip it here
+					continue
 				}
 
-				tarFiles[n+a.suffix] = ""
-				if variant == PrimaryVariant && hasDoubleDefault {
-					tarFiles[n+a.suffix] = target + a.suffix
+				// These images do not actually use distroless even when specified. So skip to avoid extra building
+				if strings.HasPrefix(target, "app_") && variant == DistrolessVariant {
+					continue
 				}
-				t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+a.suffix+".tar")}
-			} else {
-				t.Outputs = []string{"type=docker"}
+
+				name := fmt.Sprintf("%s-%s", target, variant)
+
+				if val, exists := targets[name]; exists {
+					val.Platforms = append(val.Platforms, arch)
+					targets[name] = val
+				} else {
+					p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))
+					t := Target{
+						Context:    ptr.Of(p),
+						Dockerfile: ptr.Of(filepath.Base(bp.Dockerfile)),
+						Args:       createArgs(a, target, variant, ""),
+						Platforms:  []string{arch},
+					}
+
+					t.Tags = append(t.Tags, extractTags(a, target, variant, hasDoubleDefault)...)
+					allDestinations.InsertAll(t.Tags...)
+
+					// See https://docs.docker.com/engine/reference/commandline/buildx_build/#output
+					if a.Push {
+						t.Outputs = []string{"type=registry"}
+					} else if a.Save || strings.HasPrefix(arch, "windows/") {
+						// We assume that Windows images are always saved, as they can't be output
+						// directly to a local Linux docker.
+						n := target
+						if variant != "" && variant != DefaultVariant { // For default variant, we do not add it.
+							n += "-" + variant
+						}
+
+						tarFiles[n+a.suffix] = ""
+						if variant == PrimaryVariant && hasDoubleDefault {
+							tarFiles[n+a.suffix] = target + a.suffix
+						}
+						t.Outputs = []string{"type=docker,dest=" + filepath.Join(testenv.LocalOut, "release", "docker", n+a.suffix+".tar")}
+					} else {
+						t.Outputs = []string{"type=docker"}
+					}
+
+					if a.NoCache {
+						x := true
+						t.NoCache = &x
+					}
+
+					targets[name] = t
+				}
 			}
+		}
+	}
 
-			if a.NoCache {
-				x := true
-				t.NoCache = &x
+	// Then we separate the targets into different bake files, one per OS.
+	for _, targetOs := range []string{"linux", "windows"} {
+		bf := BakeFile{
+			Target: map[string]Target{},
+			Group:  map[string]Group{},
+		}
+
+		for name, t := range targets {
+			for _, platform := range t.Platforms {
+				if strings.HasPrefix(platform, targetOs+"/") {
+					bf.Target[name] = t
+				}
 			}
+		}
 
-			name := fmt.Sprintf("%s-%s", target, variant)
-			targets[name] = t
-			tgts := groups[variant].Targets
-			tgts = append(tgts, name)
-			groups[variant] = Group{tgts}
+		if len(bf.Target) == 0 {
+			continue
+		}
 
+		// Groups just bundles targets together to make them easier to work with
+		groups := map[string]Group{}
+		allGroups := sets.New[string]()
+
+		for name := range bf.Target {
+			split := strings.Split(name, "-")
+			variant := split[len(split)-1]
 			allGroups.Insert(variant)
-		}
-	}
-	groups["all"] = Group{sets.SortedList(allGroups)}
-	bf := BakeFile{
-		Target: targets,
-		Group:  groups,
-	}
-	out := filepath.Join(testenv.LocalOut, "dockerx_build", "docker-bake.json")
-	j, err := json.MarshalIndent(bf, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	_ = os.MkdirAll(filepath.Join(testenv.LocalOut, "dockerx_build"), 0o755)
-
-	if a.NoClobber {
-		e := errgroup.Group{}
-		for _, i := range sets.SortedList(allDestinations) {
-			if strings.HasSuffix(i, ":latest") { // Allow clobbering of latest - don't verify existence
-				continue
+			if g, exists := groups[variant]; !exists {
+				groups[variant] = Group{Targets: []string{name}}
+			} else {
+				groups[variant] = Group{Targets: append(g.Targets, name)}
 			}
-			e.Go(func() error {
-				exists, err := image.Exists(i)
-				if err != nil {
-					return fmt.Errorf("failed to check image existence: %v", err)
-				}
-				if exists {
-					return fmt.Errorf("image %q already exists", i)
-				}
-				return nil
-			})
 		}
-		if err := e.Wait(); err != nil {
+
+		bf.Group = groups
+		bf.Group["all"] = Group{Targets: sets.SortedList(allGroups)}
+
+		out := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("docker-bake-%s.json", targetOs))
+		j, err := json.MarshalIndent(bf, "", "  ")
+		if err != nil {
 			return nil, err
 		}
-	}
+		_ = os.MkdirAll(filepath.Join(testenv.LocalOut, "dockerx_build"), 0o755)
 
-	return tarFiles, os.WriteFile(out, j, 0o644)
+		if a.NoClobber {
+			e := errgroup.Group{}
+			for _, i := range sets.SortedList(allDestinations) {
+				if strings.HasSuffix(i, ":latest") { // Allow clobbering of latest - don't verify existence
+					continue
+				}
+				e.Go(func() error {
+					exists, err := image.Exists(i)
+					if err != nil {
+						return fmt.Errorf("failed to check image existence: %v", err)
+					}
+					if exists {
+						return fmt.Errorf("image %q already exists", i)
+					}
+					return nil
+				})
+			}
+			if err := e.Wait(); err != nil {
+				return nil, err
+			}
+		}
+
+		err = os.WriteFile(out, j, 0o644)
+		if err != nil {
+			return nil, fmt.Errorf("failed to write docker bake file %q: %v", out, err)
+		}
+	}
+	return tarFiles, nil
 }
 
 func Copy(srcFile, dstFile string) error {

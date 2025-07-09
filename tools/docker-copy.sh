@@ -43,7 +43,9 @@ function detect_arch() {
     esac
   fi
   FILE_INFO=$(file "${FILE}" || true)
-  if [[ ${FILE_INFO} == *"ELF 64-bit LSB"* ]]; then
+  # Here we need to support ELF (unix-based) and PE (Windows)
+  # executable formats.
+  if [[ ${FILE_INFO} == *"executable"* ]]; then
     case ${FILE_INFO} in
       *x86-64*)
         echo "amd64"

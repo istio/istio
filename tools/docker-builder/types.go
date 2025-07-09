@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -120,6 +121,8 @@ type ImagePlan struct {
 	// as most building in Istio is done outside of docker.
 	// When this is set, cross-compile is disabled for components unless emulation is epxlicitly specified
 	EmulationRequired bool `json:"emulationRequired"`
+	// Platforms for which this image can be built.
+	Platforms []string `json:"platforms"`
 }
 
 func (p ImagePlan) Dependencies() []string {
@@ -127,6 +130,10 @@ func (p ImagePlan) Dependencies() []string {
 	v = append(v, p.Files...)
 	v = append(v, p.Targets...)
 	return v
+}
+
+func (p ImagePlan) CanBuildForPlatform(t string) bool {
+	return slices.Contains(p.Platforms, t)
 }
 
 type BuildPlan struct {
