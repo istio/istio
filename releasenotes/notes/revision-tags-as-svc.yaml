@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: installation
-issue: []
-releaseNotes:
-  - |
-    **Added** a new representation of revision tags using cluster IP services, meant to stop using mutating webhooks in ambient mode.
-    `istioctl tag set <tag> --revision <rev>` and the `revisionTags` helm value will both create a MutatingWebhook using the current
-    specifications and a Service similar to the istiod Service but including the `istio.io/tag` label to store the mapping.

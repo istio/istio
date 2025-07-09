@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -465,53 +464,17 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 	}
 }
 
-func TestGenerateTagService(t *testing.T) {
-	scheme := runtime.NewScheme()
-	codecFactory := serializer.NewCodecFactory(scheme)
-	deserializer := codecFactory.UniversalDeserializer()
-
-	tag := "canary"
-	revision := "revision"
-	opts := &GenerateOptions{
-		IstioNamespace: "istio-system",
-		Tag:            tag,
-		Revision:       revision,
-	}
-	svcYAML, err := generateTagService(opts)
-	if err != nil {
-		t.Fatalf("Could not generate tag service: %q", err)
-	}
-
-	svcObject, _, err := deserializer.Decode([]byte(svcYAML), nil, &corev1.Service{})
-	if err != nil {
-		t.Fatalf("Could not parse service: %q", svcYAML)
-	}
-
-	service := svcObject.(*corev1.Service)
-
-	labels := service.GetLabels()
-	assert.Equal(t, labels[label.IoIstioRev.Name], revision, "Tag service does not have expected revision")
-	assert.Equal(t, labels[label.IoIstioTag.Name], tag, "Tag service does not have expected tag")
-	assert.Equal(t, service.GetName(), "istiod-revision-tag-canary", "Tag service does not have expected name")
-	assert.Equal(t, service.GetNamespace(), "istio-system", "Tag service does not have expected namespace")
-
-	selector := service.Spec.Selector
-
-	assert.Equal(t, selector[label.IoIstioRev.Name], revision, "Selector istio.io/rev does not match expected value")
-}
-
 func testGenerateOption(t *testing.T, generate bool, assertFunc func(*testing.T, []admitv1.MutatingWebhook, []admitv1.MutatingWebhook)) {
 	defaultWh := defaultRevisionCanonicalWebhook.DeepCopy()
 	fakeClient := kube.NewFakeClient(defaultWh)
 
 	opts := &GenerateOptions{
-		Generate:       generate,
-		Tag:            "default",
-		Revision:       "default",
-		IstioNamespace: "istio-system",
+		Generate: generate,
+		Tag:      "default",
+		Revision: "default",
 	}
 
-	_, err := Generate(context.TODO(), fakeClient, opts)
+	_, err := Generate(context.TODO(), fakeClient, opts, "istio-system")
 	assert.NoError(t, err)
 
 	wh, err := fakeClient.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().
