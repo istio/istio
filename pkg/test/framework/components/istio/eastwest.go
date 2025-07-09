@@ -37,8 +37,6 @@ const (
 	eastWestIngressIstioNameLabel = "eastwestgateway"
 	eastWestIngressIstioLabel     = "istio=" + eastWestIngressIstioNameLabel
 	eastWestIngressServiceName    = "istio-" + eastWestIngressIstioNameLabel
-	eastWestGatewayNameLabel      = "istio.io-eastwest-controller"
-	ambientEastWestGatewayClass   = "istio-east-west"
 	eastWestGatewayName           = "istio-eastwestgateway"
 	eastWestGatewayServiceName    = "istio-eastwestgateway-istio-east-west"
 	eastWestGatewayLabel          = "gateway.istio.io/managed=" + constants.ManagedGatewayEastWestControllerLabel

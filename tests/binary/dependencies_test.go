@@ -80,7 +80,6 @@ func TestDependencies(t *testing.T) {
 		{
 			entrypoint: "pilot/cmd/pilot-discovery",
 			tag:        "vtprotobuf,disable_pgv",
-			exceptions: []string{},
 			denied: []string{
 				// Deps meant only for other components; if we import them, something may be wrong
 				`^github\.com/containernetworking/`,
@@ -100,7 +99,6 @@ func TestDependencies(t *testing.T) {
 		},
 		{
 			entrypoint: "istioctl/cmd/istioctl",
-			exceptions: []string{},
 			denied: []string{
 				// Deps meant only for other components; if we import them, something may be wrong
 				`^github\.com/containernetworking/`,

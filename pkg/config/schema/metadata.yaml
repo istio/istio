@@ -252,6 +252,15 @@ resources:
     statusProto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteStatus"
     statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
 
+  - kind: "InferencePool"
+    plural: "inferencepools"
+    group: "inference.networking.x-k8s.io"
+    version: "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+    proto: "x-k8s.io.gateway-api-inference-extension.api.v1alpha2.InferencePoolSpec"
+    statusProto: "x-k8s.io.gateway-api-inference-extension.api.v1alpha2.InferencePoolStatus"
+    statusProtoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
+    
   - kind: "GRPCRoute"
     plural: "grpcroutes"
     group: "gateway.networking.k8s.io"

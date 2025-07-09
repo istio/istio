@@ -733,9 +733,9 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 }
 
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
-	if key.IsNetworkGateway {
+	if key.IsNetworkGateway && features.EnableAmbientMultiNetwork {
 		// If this is a network gateway waypoint, we only return the global services
-		// that are local to this network and have backing workloads
+		// that are local to this network and waypoints with global services
 		return a.AllLocalNetworkGlobalServices(key)
 	}
 

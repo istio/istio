@@ -178,10 +178,6 @@ var (
 	EnableDualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
 		"If true, Istio will enable the Dual Stack feature.").Get()
 
-	// This is used in injection templates, it is not unused.
-	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
-		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
-
 	Enable100ContinueHeaders = env.Register("ENABLE_100_CONTINUE_HEADERS", true,
 		"If enabled, istiod will proxy 100-continue headers as is").Get()
 
@@ -201,4 +197,7 @@ var (
 
 	EnvoyStatusPortEnableProxyProtocol = env.Register("ENVOY_STATUS_PORT_ENABLE_PROXY_PROTOCOL", false,
 		"If enabled, Envoy will support requests with proxy protocol on its status port").Get()
+
+	SupportGatewayAPIInferenceExtension = env.Register("SUPPORT_GATEWAY_API_INFERENCE_EXTENSION", false,
+		"If true, support gateway inference extension routing apis").Get()
 )

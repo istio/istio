@@ -25,6 +25,7 @@ import (
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapipolicyv1 "k8s.io/api/policy/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	sigsk8siogatewayapiinferenceextensionapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/api/v1alpha2"
 	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1alpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -86,6 +87,11 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1beta1.HTTPRoute{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.HTTPRouteSpec)),
+		}, metav1.CreateOptions{})
+	case gvk.InferencePool:
+		return c.GatewayAPIInference().InferenceV1alpha2().InferencePools(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePool{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePoolSpec)),
 		}, metav1.CreateOptions{})
 	case gvk.KubernetesGateway:
 		return c.GatewayAPI().GatewayV1beta1().Gateways(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1beta1.Gateway{
@@ -219,6 +225,11 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.HTTPRouteSpec)),
 		}, metav1.UpdateOptions{})
+	case gvk.InferencePool:
+		return c.GatewayAPIInference().InferenceV1alpha2().InferencePools(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePool{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePoolSpec)),
+		}, metav1.UpdateOptions{})
 	case gvk.KubernetesGateway:
 		return c.GatewayAPI().GatewayV1beta1().Gateways(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1beta1.Gateway{
 			ObjectMeta: objMeta,
@@ -350,6 +361,11 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1beta1.HTTPRoute{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1beta1.HTTPRouteStatus)),
+		}, metav1.UpdateOptions{})
+	case gvk.InferencePool:
+		return c.GatewayAPIInference().InferenceV1alpha2().InferencePools(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePool{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePoolStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.Ingress:
 		return c.Kube().NetworkingV1().Ingresses(cfg.Namespace).UpdateStatus(context.TODO(), &k8sioapinetworkingv1.Ingress{
@@ -565,6 +581,21 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 			return nil, err
 		}
 		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.InferencePool:
+		oldRes := &sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePool{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePoolSpec)),
+		}
+		modRes := &sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePool{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePoolSpec)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return c.GatewayAPIInference().InferenceV1alpha2().InferencePools(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.KubernetesGateway:
 		oldRes := &sigsk8siogatewayapiapisv1beta1.Gateway{
@@ -848,6 +879,8 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().Delete(context.TODO(), name, deleteOptions)
 	case gvk.HTTPRoute:
 		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.InferencePool:
+		return c.GatewayAPIInference().InferenceV1alpha2().InferencePools(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.KubernetesGateway:
 		return c.GatewayAPI().GatewayV1beta1().Gateways(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.PeerAuthentication:
@@ -1190,6 +1223,25 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.HorizontalPodAutoscaler,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.InferencePool: func(r runtime.Object) config.Config {
+		obj := r.(*sigsk8siogatewayapiinferenceextensionapiv1alpha2.InferencePool)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.InferencePool,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

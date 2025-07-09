@@ -22,9 +22,12 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	overridehost "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
+	roundrobin "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/round_robin/v3"
 	cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	metadatav3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -41,10 +44,12 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 var maxSecondsValue = int64((math.MaxInt64 - 999999999) / (1000 * 1000 * 1000)) // 9223372035, which is about 292 years.
@@ -171,6 +176,67 @@ func (m *metadataCerts) String() string {
 func newClusterWrapper(cluster *cluster.Cluster) *clusterWrapper {
 	return &clusterWrapper{
 		cluster: cluster,
+	}
+}
+
+func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {
+	// `locality_weighted_lb_config` is not compatible with
+	// `load_balancing_policy`.
+	if cw.cluster.GetCommonLbConfig() != nil && cw.cluster.GetCommonLbConfig().GetLocalityWeightedLbConfig() != nil {
+		cw.cluster.GetCommonLbConfig().LocalityConfigSpecifier = nil
+	}
+
+	// `LOAD_BALANCING_POLICY_CONFIG` is technically deprecated, but `lb_policy`
+	// is an Enum, with `ROUND_ROBIN` as the default value, so to avoid any
+	// confusion, we're explicitly setting it.
+	cw.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
+
+	// TODO(liorlieberman) move this art somewhere else potentially.
+	// completely override any previously selected LB Policy
+	if cw.cluster.GetLoadBalancingPolicy() == nil {
+		cw.cluster.LoadBalancingPolicy = &cluster.LoadBalancingPolicy{Policies: []*cluster.LoadBalancingPolicy_Policy{}}
+	}
+	cw.cluster.LoadBalancingPolicy.Policies = []*cluster.LoadBalancingPolicy_Policy{
+		{
+			TypedExtensionConfig: &core.TypedExtensionConfig{
+				Name: wellknown.EnvoyOverrideHostLbPolicy,
+				TypedConfig: protoconv.MessageToAny(&overridehost.OverrideHost{
+					// A list of sources to get host addresses from. The host sources are searched in the order
+					// specified. The request is forwarded to the first address and subsequent addresses are used
+					// for request retries or hedging.
+					//
+					// Note that if an overridden host address is not present in the current endpoint set, it is
+					// skipped and the next found address is used. If there are not enough overridden addresses to
+					// satisfy all retry attempts the fallback load balancing policy is used to pick a host.
+					OverrideHostSources: []*overridehost.OverrideHost_OverrideHostSource{
+						{
+							Metadata: &metadatav3.MetadataKey{
+								Key: constants.EnvoySubsetNamespace,
+								Path: []*metadatav3.MetadataKey_PathSegment{
+									{
+										Segment: &metadatav3.MetadataKey_PathSegment_Key{
+											Key: constants.GatewayInferenceExtensionEndpointHintKey,
+										},
+									},
+								},
+							},
+						},
+					},
+					// The fallback LB policy is triggered in case neither header nor metadata with selected
+					// hosts is present or there were not enough endpoints to satisfy all retry attempts.
+					FallbackPolicy: &cluster.LoadBalancingPolicy{
+						Policies: []*cluster.LoadBalancingPolicy_Policy{
+							{
+								TypedExtensionConfig: &core.TypedExtensionConfig{
+									Name:        wellknown.EnvoyRoundRobinLbPolicy,
+									TypedConfig: protoconv.MessageToAny(&roundrobin.RoundRobin{}),
+								},
+							},
+						},
+					},
+				}),
+			},
+		},
 	}
 }
 

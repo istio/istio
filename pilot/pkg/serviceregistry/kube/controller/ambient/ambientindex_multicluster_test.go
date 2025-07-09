@@ -240,7 +240,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 
 				s.addServiceForClient(t, "svc2",
 					map[string]string{
-						"istio.io/global": "",
+						"istio.io/global": "true",
 					},
 					map[string]string{},
 					[]int32{80}, map[string]string{"app": "a"}, ips["svc2"], client.sc)
