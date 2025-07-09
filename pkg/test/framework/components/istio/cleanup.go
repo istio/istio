@@ -24,7 +24,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/errgroup"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -175,12 +174,17 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 			err = multierror.Append(err, e)
 		}
 
-		// Delete the "default" revision tag service that was created similarly to MutatingWebhookConfigurations
-		if e := c.Kube().CoreV1().Services(i.cfg.SystemNamespace).Delete(
-			context.Background(), "istiod-revision-tag-default", metav1.DeleteOptions{}); e != nil {
-			// Only append the error if it's not a NotFound error
-			if !kerrors.IsNotFound(e) {
-				err = multierror.Append(err, e)
+		// Delete the revision tags service that were created similarly to MutatingWebhookConfigurations
+		services, err := c.Kube().CoreV1().Services(i.cfg.SystemNamespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: "istio.io/tag",
+		})
+		if err != nil {
+			err = multierror.Append(err, fmt.Errorf("failed to list services with istio.io/tag label: %v", err))
+		} else {
+			for _, svc := range services.Items {
+				if e := c.Kube().CoreV1().Services(i.cfg.SystemNamespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{}); e != nil {
+					err = multierror.Append(err, fmt.Errorf("failed to delete service %s/%s: %v", svc.Namespace, svc.Name, e))
+				}
 			}
 		}
 
