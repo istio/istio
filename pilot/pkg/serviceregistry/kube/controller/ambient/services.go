@@ -21,9 +21,14 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 
+	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
@@ -49,9 +54,10 @@ func (a *index) ServicesCollection(
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	meshConfig krt.Singleton[MeshConfig],
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.ServiceInfo] {
-	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces),
+	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces, meshConfig),
 		append(
 			opts.WithName("ServicesInfo"),
 			krt.WithMetadata(krt.Metadata{
@@ -87,6 +93,7 @@ func GlobalMergedWorkloadServicesCollection(
 	waypointsByCluster krt.Index[cluster.ID, krt.Collection[Waypoint]],
 	globalNamespaces krt.Collection[krt.Collection[*v1.Namespace]],
 	namespacesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Namespace]],
+	meshConfig krt.Singleton[MeshConfig],
 	globalNetworks networkCollections,
 	domainSuffix string,
 	opts krt.OptionsBuilder,
@@ -96,6 +103,8 @@ func GlobalMergedWorkloadServicesCollection(
 		localServiceInfos,
 		wrapObjectWithCluster[model.ServiceInfo](localCluster.ID),
 		opts.WithName("LocalServiceInfosWithCluster")...)
+
+	checkServiceScope := features.EnableAmbientMultiNetwork
 
 	// This will contain the serviceinfos derived from ServiceEntries only
 	return nestedCollectionFromLocalAndRemote(
@@ -112,16 +121,23 @@ func GlobalMergedWorkloadServicesCollection(
 			namespaces := cluster.Namespaces()
 			// We can't have duplicate collections (otherwise FetchOne will panic) so use
 			// sync.Once to ensure we only create the collection once and return that same value
-			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(waypoints, namespaces, domainSuffix, func(ctx krt.HandlerContext) network.ID {
-				nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
-				if nwPtr == nil {
-					log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
-					ctx.DiscardResult()
-					return ""
-				}
-				nw := *nwPtr
-				return network.ID(ptr.OrEmpty(nw.Get()))
-			}), opts.With(
+			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(
+				waypoints,
+				namespaces,
+				meshConfig,
+				domainSuffix,
+				false,
+				checkServiceScope,
+				func(ctx krt.HandlerContext) network.ID {
+					nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
+					if nwPtr == nil {
+						log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
+						ctx.DiscardResult()
+						return ""
+					}
+					nw := *nwPtr
+					return network.ID(ptr.OrEmpty(nw.Get()))
+				}), opts.With(
 				append(
 					opts.WithName(fmt.Sprintf("ServiceServiceInfos[%s]", cluster.ID)),
 					krt.WithMetadata(krt.Metadata{
@@ -147,10 +163,26 @@ func GlobalMergedWorkloadServicesCollection(
 func serviceServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	meshConfig krt.Singleton[MeshConfig],
 	domainSuffix string,
+	localCluster bool,
+	checkServiceScope bool,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
+		serviceScope := model.Local
+		if checkServiceScope {
+			meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+			if meshCfg != nil {
+				serviceScope = matchServiceScope(meshCfg, namespaces, s)
+			}
+			if !localCluster && serviceScope != model.Global {
+				// If this is a remote service, we only want to return it if it is globally scoped.
+				// This is because we do not want to expose local services from other clusters.
+				log.Debugf("Skipping non-global service %s/%s in remote cluster", s.Namespace, s.Name)
+				return nil
+			}
+		}
 		if s.Spec.Type == v1.ServiceTypeExternalName {
 			// ExternalName services are not implemented by ambient (but will still work).
 			// The DNS requests will forward to the upstream DNS server, then Ztunnel can handle the request based on the target
@@ -180,23 +212,122 @@ func serviceServiceBuilder(
 		waypointStatus.Error = wperr
 
 		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
+
 		return precomputeServicePtr(&model.ServiceInfo{
 			Service:       svc,
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(s.Spec.Selector),
 			Source:        MakeSource(s),
 			Waypoint:      waypointStatus,
+			Scope:         serviceScope,
 		})
 	}
+}
+
+// LabelSelectorAsSelector converts a mesh api LabelSelector to a labels.Selector.
+func LabelSelectorAsSelector(ps *meshapi.LabelSelector) (labels.Selector, error) {
+	if ps == nil {
+		return labels.Nothing(), nil
+	}
+	if len(ps.MatchLabels)+len(ps.MatchExpressions) == 0 {
+		return labels.Everything(), nil
+	}
+	requirements := make([]labels.Requirement, 0, len(ps.MatchLabels)+len(ps.MatchExpressions))
+	for k, v := range ps.MatchLabels {
+		r, err := labels.NewRequirement(k, selection.Equals, []string{v})
+		if err != nil {
+			return nil, err
+		}
+		requirements = append(requirements, *r)
+	}
+	for _, expr := range ps.MatchExpressions {
+		var op selection.Operator
+		switch metav1.LabelSelectorOperator(expr.Operator) {
+		case metav1.LabelSelectorOpIn:
+			op = selection.In
+		case metav1.LabelSelectorOpNotIn:
+			op = selection.NotIn
+		case metav1.LabelSelectorOpExists:
+			op = selection.Exists
+		case metav1.LabelSelectorOpDoesNotExist:
+			op = selection.DoesNotExist
+		default:
+			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
+		}
+		r, err := labels.NewRequirement(expr.Key, op, append([]string(nil), expr.Values...))
+		if err != nil {
+			return nil, err
+		}
+		requirements = append(requirements, *r)
+	}
+	selector := labels.NewSelector()
+	selector = selector.Add(requirements...)
+	return selector, nil
+}
+
+func matchServiceScope(meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namespace], s *v1.Service) model.ServiceScope {
+	// Apply label selectors from the MeshConfig's servieScopeConfig to determine the scope of the service based on the namespace
+	// or service label matches
+	// Check if the service matches any label selectors defined in the meshConfig's serviceScopeConfig.
+	for _, scopeConfig := range meshCfg.ServiceScopeConfigs {
+		// Match namespace labels
+		// Treat Nothing selectors as Everything selectors
+		nss, err := LabelSelectorAsSelector(scopeConfig.NamespaceSelector)
+		if err != nil {
+			log.Warnf("failed to convert namespace selector: %v", err)
+			continue
+		}
+		if nss.String() == labels.Nothing().String() {
+			nss = labels.Everything()
+		}
+		ss, err := LabelSelectorAsSelector(scopeConfig.ServicesSelector)
+		if err != nil {
+			log.Warnf("failed to convert service selector: %v", err)
+			continue
+		}
+		if ss.String() == labels.Nothing().String() {
+			ss = labels.Everything()
+		}
+
+		// Get labels from the service and service's namespace
+		namespace := namespaces.GetKey(s.Namespace)
+		if namespace == nil || *namespace == nil {
+			log.Warnf("namespace %s not found for service %s/%s in namespaces %v", s.Namespace, s.Name, s.UID, namespaces.List())
+			continue
+		}
+		namespaceLabels := labels.Set((*namespace).Labels)
+		serviceLabels := labels.Set(s.Labels)
+
+		if nss.Matches(namespaceLabels) && ss.Matches(serviceLabels) {
+			// If the service matches a global scope config, return global scope
+			if scopeConfig.GetScope() == meshapi.MeshConfig_ServiceScopeConfigs_GLOBAL {
+				log.Debugf("service %s/%s is globally scoped", s.Namespace, s.Name)
+				return model.Global
+			}
+		}
+	}
+
+	// Default to local scope if no match is found
+	log.Debugf("service %s/%s is locally scoped", s.Namespace, s.Name)
+	return model.Local
 }
 
 func (a *index) serviceServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	meshConfig krt.Singleton[MeshConfig],
 ) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
-	return serviceServiceBuilder(waypoints, namespaces, a.DomainSuffix, func(ctx krt.HandlerContext) network.ID {
-		return a.Network(ctx)
-	})
+	return serviceServiceBuilder(
+		waypoints,
+		namespaces,
+		meshConfig,
+		a.DomainSuffix,
+		true,
+		features.EnableAmbientMultiNetwork,
+		func(ctx krt.HandlerContext) network.ID {
+			return a.Network(ctx)
+		},
+	)
 }
 
 // MakeSource is a helper to turn an Object into a model.TypedObject.
@@ -322,6 +453,7 @@ func constructServiceEntries(
 	return res
 }
 
+// Construct a workload API service
 func constructService(
 	ctx krt.HandlerContext,
 	svc *v1.Service,

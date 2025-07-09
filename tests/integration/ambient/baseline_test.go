@@ -3313,6 +3313,64 @@ func TestDirect(t *testing.T) {
 				Check: check.Status(503),
 			})
 		})
+		t.NewSubTest("east west gateway").Run(func(t framework.TestContext) {
+			if !t.Settings().AmbientMultiNetwork {
+				t.Skip("only test east west gateway service scope in multi-network mode")
+			}
+			c := common.NewCaller()
+			cluster := t.Clusters().Default() // TODO: support multicluster
+			ewginstance := i.EastWestGatewayForAmbient(cluster)
+			run := func(name string, options echo.CallOptions) {
+				t.NewSubTest(name).Run(func(t framework.TestContext) {
+					_, err := c.CallEcho(nil, options)
+					if err != nil {
+						t.Fatal(err)
+					}
+				})
+			}
+			i := istio.GetOrFail(t)
+			ewgaddresses, ewgports := ewginstance.HBONEAddresses()
+			if len(ewgaddresses) == 0 || len(ewgports) == 0 {
+				t.Fatal("east-west gateway address or ports not found")
+			}
+			ewgaddr := ewgaddresses[0]
+			ewgport := ewgports[0]
+			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			hbsvc := echo.HBONE{
+				Address:            fmt.Sprintf("%s:%v", ewgaddr, ewgport),
+				Headers:            nil,
+				Cert:               string(cert.ClientCert),
+				Key:                string(cert.Key),
+				CaCert:             string(cert.RootCert),
+				InsecureSkipVerify: true,
+			}
+			run("local service", echo.CallOptions{
+				To:          apps.Captured.ForCluster(cluster.Name()),
+				Count:       1,
+				Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Port:        echo.Port{Name: ports.HTTP.Name},
+				HBONE:       hbsvc,
+				DoubleHBONE: hbsvc,
+				// Local services are not expected to be reachable via the east-west gateway
+				Check: check.Error(),
+			})
+
+			capturedSvc := apps.Captured.ForCluster(cluster.Name()).ServiceName()
+			labelService(t, capturedSvc, "istio.io/global", "true")
+			run("global service", echo.CallOptions{
+				To:          apps.Captured.ForCluster(cluster.Name()),
+				Count:       1,
+				Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+				Port:        echo.Port{Name: ports.HTTP.Name},
+				HBONE:       hbsvc,
+				DoubleHBONE: hbsvc,
+				// Global services are expected to be reachable via the east-west gateway
+				Check: check.OK(),
+			})
+		})
 	})
 }
 
@@ -3462,6 +3520,19 @@ func labelWorkload(t framework.TestContext, w echo.Workload, k, v string) {
 	}
 	p := t.Clusters().Default().Kube().CoreV1().Pods(apps.Namespace.Name())
 	_, err := p.Patch(context.Background(), w.PodName(), types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func labelService(t framework.TestContext, svcName, k, v string) {
+	patchOpts := metav1.PatchOptions{}
+	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
+	if v == "" {
+		patchData = fmt.Sprintf(`{"metadata":{"labels": {%q: null}}}`, k)
+	}
+	s := t.Clusters().Default().Kube().CoreV1().Services(apps.Namespace.Name())
+	_, err := s.Patch(context.Background(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
