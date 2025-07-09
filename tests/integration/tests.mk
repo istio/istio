@@ -122,8 +122,8 @@ test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
 # In presubmit, this target runs a minimal set. In postsubmit, all tests are run
 .PHONY: test.integration.kube.environment
 test.integration.kube.environment: | $(JUNIT_REPORT) check-go-tag
-ifeq (${JOB_TYPE},postsubmit)
+# ifeq (${JOB_TYPE},postsubmit)
 	$(call run-test,./tests/integration/...)
-else
-	$(call run-test,./tests/integration/security/ ./tests/integration/pilot,-run="TestReachability|TestTraffic|TestGatewayConformance")
-endif
+# else
+# 	$(call run-test,./tests/integration/security/ ./tests/integration/pilot,-run="TestReachability|TestTraffic|TestGatewayConformance")
+# endif

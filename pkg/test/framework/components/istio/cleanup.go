@@ -210,6 +210,11 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 			}
 			res := fmt.Sprintf("Still waiting for %d pods and %d services to terminate in %s ", len(fetchedPod), len(fetchedSvc), i.cfg.SystemNamespace)
 			scopes.Framework.Infof(res)
+
+			for _, svc := range fetchedSvc {
+				scopes.Framework.Infof("Service still present: namespace=%s, name=%s", svc.Namespace, svc.Name)
+			}
+
 			return errors.New(res)
 		}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
 
