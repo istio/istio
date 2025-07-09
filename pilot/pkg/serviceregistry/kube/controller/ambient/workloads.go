@@ -1507,6 +1507,7 @@ func gatewayUID(gw model.NetworkGateway) string {
 func convertGateway(gw NetworkGateway) model.WorkloadInfo {
 	wl := &workloadapi.Workload{
 		Uid:            gatewayUID(gw.NetworkGateway),
+		Name:           gatewayUID(gw.NetworkGateway),
 		ServiceAccount: gw.ServiceAccount.Name,
 		Namespace:      gw.ServiceAccount.Namespace,
 		Network:        gw.Network.String(),
