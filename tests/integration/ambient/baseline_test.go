@@ -3329,13 +3329,18 @@ func TestDirect(t *testing.T) {
 				})
 			}
 			i := istio.GetOrFail(t)
-			ewgaddr := ewginstance.DiscoveryAddresses()[0].Addr()
+			ewgaddresses, ewgports := ewginstance.HBONEAddresses()
+			if len(ewgaddresses) == 0 || len(ewgports) == 0 {
+				t.Fatal("east-west gateway address or ports not found")
+			}
+			ewgaddr := ewgaddresses[0]
+			ewgport := ewgports[0]
 			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
 			if err != nil {
 				t.Fatal(err)
 			}
 			hbsvc := echo.HBONE{
-				Address:            fmt.Sprintf("%s:%v", ewgaddr.String(), 15008),
+				Address:            fmt.Sprintf("%s:%v", ewgaddr, ewgport),
 				Headers:            nil,
 				Cert:               string(cert.ClientCert),
 				Key:                string(cert.Key),
