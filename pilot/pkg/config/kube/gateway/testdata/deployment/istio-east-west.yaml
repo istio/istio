@@ -12,7 +12,7 @@ metadata:
     gateway.istio.io/managed: istio.io-eastwest-controller
     gateway.networking.k8s.io/gateway-name: eastwestgateway
     topology.istio.io/network: network-1
-  name: eastwestgateway-istio-east-west
+  name: eastwestgateway
   namespace: istio-system
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1
@@ -28,7 +28,7 @@ metadata:
     gateway.istio.io/managed: istio.io-eastwest-controller
     gateway.networking.k8s.io/gateway-name: eastwestgateway
     topology.istio.io/network: network-1
-  name: eastwestgateway-istio-east-west
+  name: eastwestgateway
   namespace: istio-system
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1
@@ -50,7 +50,7 @@ spec:
         gateway.istio.io/managed: istio.io-eastwest-controller
         gateway.networking.k8s.io/gateway-name: eastwestgateway
         istio.io/dataplane-mode: none
-        service.istio.io/canonical-name: eastwestgateway-istio-east-west
+        service.istio.io/canonical-name: eastwestgateway
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
         topology.istio.io/network: network-1
@@ -62,7 +62,7 @@ spec:
         - --domain
         - $(POD_NAMESPACE).svc.<no value>
         - --serviceCluster
-        - eastwestgateway-istio-east-west.$(POD_NAMESPACE)
+        - eastwestgateway.$(POD_NAMESPACE)
         - --proxyLogLevel
         - <nil>
         - --proxyComponentLogLevel
@@ -124,9 +124,9 @@ spec:
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
-          value: eastwestgateway-istio-east-west
+          value: eastwestgateway
         - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/eastwestgateway-istio-east-west
+          value: kubernetes://apis/apps/v1/namespaces/istio-system/deployments/eastwestgateway
         - name: ISTIO_META_MESH_ID
           value: cluster.local
         - name: TRUST_DOMAIN
@@ -186,7 +186,7 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
-      serviceAccountName: eastwestgateway-istio-east-west
+      serviceAccountName: eastwestgateway
       terminationGracePeriodSeconds: 2
       volumes:
       - emptyDir: {}
@@ -230,7 +230,7 @@ metadata:
     gateway.istio.io/managed: istio.io-eastwest-controller
     gateway.networking.k8s.io/gateway-name: eastwestgateway
     topology.istio.io/network: network-1
-  name: eastwestgateway-istio-east-west
+  name: eastwestgateway
   namespace: istio-system
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1

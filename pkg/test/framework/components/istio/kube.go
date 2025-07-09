@@ -146,7 +146,7 @@ func (i *istioImpl) EastWestGatewayFor(c cluster.Cluster) ingress.Instance {
 }
 
 func (i *istioImpl) EastWestGatewayForAmbient(c cluster.Cluster) ingress.Instance {
-	name := types.NamespacedName{Name: eastWestGatewayServiceName, Namespace: i.cfg.SystemNamespace}
+	name := types.NamespacedName{Name: eastWestGatewayName, Namespace: i.cfg.SystemNamespace}
 	return i.CustomIngressFor(c, name, eastWestGatewayLabel)
 }
 
