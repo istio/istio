@@ -364,6 +364,9 @@ func (a *index) buildGlobalCollections(
 		}, opts.WithName("CoalesedWorkloads")...,
 	)
 	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, i model.WorkloadInfo) *model.WorkloadInfo {
+		if strings.HasPrefix(i.Workload.Uid, "NetworkGateway/") {
+			return &i
+		}
 		if i.Workload.Network != a.Network(ctx).String() {
 			return nil
 		}
