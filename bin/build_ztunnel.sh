@@ -54,6 +54,7 @@ function set_download_command () {
 #   $2: The full path of the output binary.
 #   $3: Non-versioned name to use
 function download_ztunnel_if_necessary () {
+  # shellcheck disable=SC2153
   if [[ -f "$2" || "$TARGET_OS" == "windows" ]]; then
     return
   fi

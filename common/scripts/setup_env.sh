@@ -77,10 +77,10 @@ fi
 TOOLS_REGISTRY_PROVIDER=${TOOLS_REGISTRY_PROVIDER:-gcr.io}
 PROJECT_ID=${PROJECT_ID:-istio-testing}
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  IMAGE_VERSION=master-ad62c06c1bc16a88743df338ec45a297ea9fcd91
+  IMAGE_VERSION=master-6ffbc42a6a6e53188b7b86c84609475167106efd
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
-  IMAGE_NAME=build-tools
+  IMAGE_NAME=build-tools-windows
 fi
 
 DOCKER_GID="${DOCKER_GID:-$(grep '^docker:' /etc/group | cut -f3 -d:)}"

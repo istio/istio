@@ -36,8 +36,10 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-const WindowsBuilderName = "windows-builder"
-const LinuxBuilderName = "container-builder"
+const (
+	WindowsBuilderName = "windows-builder"
+	LinuxBuilderName   = "container-builder"
+)
 
 // RunDocker builds docker images using the `docker buildx bake` commands. Buildx is the
 // next-generation docker builder, and `bake` is an important part of that which allows us to
@@ -148,7 +150,12 @@ func RunSave(a Args, files map[string]string) error {
 }
 
 func RunBake(args Args) error {
-	for _, targetOs := range []string{"linux", "windows"} {
+	targetOsSet := sets.New[string]()
+	for _, arch := range args.Architectures {
+		os := strings.Split(arch, "/")[0]
+		targetOsSet.Insert(os)
+	}
+	for targetOs := range targetOsSet {
 		out := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("docker-bake-%s.json", targetOs))
 		_ = os.MkdirAll(filepath.Join(testenv.LocalOut, "release", "docker"), 0o755)
 		builderName, err := createBuildxBuilderIfNeeded(args, targetOs)
@@ -322,7 +329,7 @@ func ConstructBakeFiles(a Args) (map[string]string, error) {
 		groups := map[string]Group{}
 		allGroups := sets.New[string]()
 
-		for name, _ := range bf.Target {
+		for name := range bf.Target {
 			split := strings.Split(name, "-")
 			variant := split[len(split)-1]
 			allGroups.Insert(variant)
