@@ -82,7 +82,6 @@ type workloadsCollection struct {
 	ByServiceKey             krt.Index[string, model.WorkloadInfo]
 	ByOwningWaypointHostname krt.Index[NamespaceHostname, model.WorkloadInfo]
 	ByOwningWaypointIP       krt.Index[networkAddress, model.WorkloadInfo]
-	ByNetwork                krt.Index[network.ID, NetworkGateway]
 }
 
 type waypointsCollection struct {

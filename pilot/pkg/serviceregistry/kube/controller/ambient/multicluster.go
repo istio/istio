@@ -359,18 +359,17 @@ func (a *index) buildGlobalCollections(
 			}
 			gw := gws[0]
 			wi := a.createSplitHorizonWorkload(svcName, svc.Service, &gw, capacity, meshCfg)
-			wi = ptr.Of(precomputeWorkload(*wi))
-			return []model.WorkloadInfo{*wi}
+			return []model.WorkloadInfo{wi}
 		}, opts.WithName("CoalesedWorkloads")...,
 	)
-	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, i model.WorkloadInfo) *model.WorkloadInfo {
-		if strings.HasPrefix(i.Workload.Uid, "NetworkGateway/") {
-			return &i
+	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, wi model.WorkloadInfo) *model.WorkloadInfo {
+		if strings.HasPrefix(wi.Workload.Uid, "NetworkGateway/") {
+			return &wi
 		}
-		if i.Workload.Network != a.Network(ctx).String() {
+		if wi.Workload.Network != a.Network(ctx).String() {
 			return nil
 		}
-		return &i
+		return &wi
 	}, opts.WithName("NetworkLocalWorkloads")...)
 
 	SplitHorizonWorkloads := krt.JoinCollection(
@@ -436,16 +435,14 @@ func (a *index) buildGlobalCollections(
 
 	SplitHorizonServices := krt.NewCollection(
 		GlobalMergedWorkloadServices,
-		func(ctx krt.HandlerContext, i model.ServiceInfo) *model.ServiceInfo {
-			// We only want to include services that have remote workloads
-			// If the service is already in SplitHorizonServicesWithWorkloads, we don't need to add it again
-			if i.Scope != model.Global {
-				return &i
+		func(ctx krt.HandlerContext, svc model.ServiceInfo) *model.ServiceInfo {
+			if svc.Scope != model.Global {
+				return &svc
 			}
 
-			wls := krt.Fetch(ctx, GlobalWorkloads, krt.FilterIndex(GlobalWorkloadServiceIndex, i.ResourceName()))
+			wls := krt.Fetch(ctx, GlobalWorkloads, krt.FilterIndex(GlobalWorkloadServiceIndex, svc.ResourceName()))
 			if len(wls) == 0 {
-				return &i
+				return &svc
 			}
 
 			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
@@ -463,13 +460,13 @@ func (a *index) buildGlobalCollections(
 				sans.Insert(spiffe.MustGenSpiffeURI(meshCfg.MeshConfig, wl.Workload.Namespace, wl.Workload.ServiceAccount))
 			}
 			if sans.IsEmpty() {
-				return &i
+				return &svc
 			}
-			sans = sans.Union(sets.New(i.Service.SubjectAltNames...))
+			sans = sans.Union(sets.New(svc.Service.SubjectAltNames...))
 
 			newSvcInfo := &model.ServiceInfo{
-				Service: protomarshal.Clone(i.Service),
-				Scope:   i.Scope,
+				Service: protomarshal.Clone(svc.Service),
+				Scope:   svc.Scope,
 			}
 			newSvcInfo.Service.SubjectAltNames = sans.UnsortedList()
 			return precomputeServicePtr(newSvcInfo)
@@ -798,7 +795,7 @@ func wrapObjectWithCluster[T any](clusterID cluster.ID) func(obj T) config.Objec
 
 func (a *index) createSplitHorizonWorkload(
 	svcNamespacedName string, svc *workloadapi.Service, networkGateway *NetworkGateway, capacity uint32, meshCfg *MeshConfig,
-) *model.WorkloadInfo {
+) model.WorkloadInfo {
 	hboneMtlsPort := networkGateway.HBONEPort
 	if hboneMtlsPort == 0 {
 		hboneMtlsPort = 15008
@@ -843,10 +840,10 @@ func (a *index) createSplitHorizonWorkload(
 		}
 	}
 
-	wi := &model.WorkloadInfo{
+	wi := model.WorkloadInfo{
 		Workload: &wl,
 		Source:   kind.KubernetesGateway,
 		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
 	}
-	return wi
+	return precomputeWorkload(wi)
 }
