@@ -177,8 +177,8 @@ ztunnel:
 $(TARGET_OUT)/ztunnel.exe: ztunnel
 $(TARGET_OUT)/ztunnel: ztunnel
 
-# Pull dependencies such as envoy
-depend: init | $(TARGET_OUT)
+# Pull dependencies such as envoy and ztunnel
+depend: init ztunnel | $(TARGET_OUT)
 
 DIRS_TO_CLEAN := $(TARGET_OUT)
 DIRS_TO_CLEAN += $(TARGET_OUT_LINUX)
