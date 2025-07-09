@@ -23,7 +23,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/scopes"
@@ -35,6 +37,8 @@ const (
 	eastWestIngressIstioNameLabel = "eastwestgateway"
 	eastWestIngressIstioLabel     = "istio=" + eastWestIngressIstioNameLabel
 	eastWestIngressServiceName    = "istio-" + eastWestIngressIstioNameLabel
+	eastWestGatewayServiceName    = "istio-eastwestgateway"
+	eastWestGatewayLabel          = "gateway.istio.io/managed=" + constants.ManagedGatewayEastWestControllerLabel
 )
 
 var (
@@ -117,9 +121,52 @@ func (i *istioImpl) deployEastWestGateway(cluster cluster.Cluster, revision stri
 				return nil
 			}
 		}
-		return fmt.Errorf("no ready pods for " + eastWestIngressIstioLabel)
+		return fmt.Errorf("no ready pods %v for "+eastWestIngressIstioLabel, pods.Items)
 	}, componentDeployTimeout, componentDeployDelay); err != nil {
-		return fmt.Errorf("failed waiting for %s to become ready: %v", eastWestIngressServiceName, err)
+		return fmt.Errorf("failed waiting for %s to become ready: %v in cluster %s with IOP file %s", eastWestIngressServiceName, err, cluster.Name(), iopFile)
+	}
+
+	return nil
+}
+
+// deployAmbientEastWestGateway will create a separate gateway deployment for cross-cluster discovery or cross-network services.
+func (i *istioImpl) deployAmbientEastWestGateway(cluster cluster.Cluster) error {
+	// generate istio operator yaml
+	args := []string{
+		"--cluster", cluster.Name(),
+		"--network", cluster.NetworkName(),
+		"--mesh", meshID,
+		"--ambient",
+	}
+	if !i.env.IsMultiCluster() {
+		args = []string{"--single-cluster"}
+	}
+	cmd := exec.Command(genGatewayScript, args...)
+	gw, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed generating eastwest gateway yaml: %v: %v", err, string(gw))
+	}
+	if err = i.ctx.ConfigKube(cluster).YAML(i.cfg.SystemNamespace, string(gw)).Apply(); err != nil {
+		return fmt.Errorf("failed applying eastwest gateway yaml: %v", err)
+	}
+
+	// wait east west gateway to be programmed (pods are ready)
+	if err := retry.UntilSuccess(func() error {
+		gwc, err := cluster.GatewayAPI().GatewayV1().Gateways(i.cfg.SystemNamespace).Get(context.TODO(), eastWestGatewayServiceName, metav1.GetOptions{})
+		if err == nil {
+			// Check if gateway has Programmed condition set to true
+			for _, cond := range gwc.Status.Conditions {
+				if cond.Type == string(gateway.GatewayConditionProgrammed) && string(cond.Status) == "True" {
+					return nil
+				}
+			}
+		}
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("gateway %s status is not programmed", eastWestGatewayServiceName)
+	}, componentDeployTimeout, componentDeployDelay); err != nil {
+		return fmt.Errorf("failed waiting for %s to become ready: %v in cluster %s", eastWestGatewayServiceName, err, cluster.Name())
 	}
 
 	return nil

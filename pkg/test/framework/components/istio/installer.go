@@ -130,6 +130,9 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 		mesh.NewPrinterForWriter(&stdOut)); err != nil {
 		return fmt.Errorf("failed installing %s on cluster %s: %v. Details: %s", componentName, c.Name(), err, &stdErr)
 	}
+	if componentName == "eastwestgateway" {
+		scopes.Framework.Infof("Installed %s on cluster %s: %s, yaml: %s", componentName, c.Name(), iArgs, yaml)
+	}
 	return nil
 }
 

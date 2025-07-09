@@ -139,7 +139,7 @@ func (a *index) addSecret(name types.NamespacedName, s *corev1.Secret, debugger 
 	syncers := slices.Map(addedClusters, func(c *multicluster.Cluster) cache.InformerSynced { return c.HasSynced })
 	// Don't allow the event handler to continue without the cluster being synced
 	if !kube.WaitForCacheSync("remoteClusters", a.stop, syncers...) {
-		return fmt.Errorf("Timed out waiting for remote clusters %#v to sync", addedClusters)
+		return fmt.Errorf("timed out waiting for remote clusters %#v to sync", addedClusters)
 	}
 
 	log.Infof("Number of remote clusters: %d", a.cs.Len())
