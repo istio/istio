@@ -302,7 +302,7 @@ func (b *builder) getOrCreateNamespace(prefix string) (*builder, namespace.Insta
 func (b *builder) deployServices() (err error) {
 	services := make(map[string]string)
 	for _, cfg := range b.configs {
-		svc, err := kube.GenerateService(cfg)
+		svc, err := kube.GenerateService(cfg, b.ctx.Settings().OpenShift)
 		if err != nil {
 			return err
 		}
