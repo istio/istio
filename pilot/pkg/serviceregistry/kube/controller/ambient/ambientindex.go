@@ -644,7 +644,7 @@ func (a *index) inRevision(obj any) bool {
 	return result
 }
 
-// All return all known workloads. Result is un-ordered
+// All return all known workloads and services. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
 	// Add all workloads
 	res := make([]model.AddressInfo, 0, len(a.workloads.List())+len(a.services.List()))
