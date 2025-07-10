@@ -165,7 +165,7 @@ func NewController(
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "gateway", options.KrtDebugger)
 
-	tw := revisions.NewTagWatcher(kc, options.Revision, options.SystemNamespace)
+	tw := revisions.NewTagWatcher(kc, options.Revision)
 	c := &Controller{
 		client:         kc,
 		cluster:        options.ClusterID,
