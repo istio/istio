@@ -668,15 +668,37 @@ func mergeServiceInfosWithCluster(
 		if svcInfosLen == 0 {
 			return nil
 		}
+
 		if svcInfosLen == 1 {
 			return &serviceInfos[0]
+		}
+
+		// If we can't find a local serviceinfo, we just take the first one.
+		base := serviceInfos[0]
+		for _, obj := range serviceInfos {
+			if obj.ClusterID == localClusterID {
+				base = obj
+				// If there's a service entry that's considered external to the mesh, we
+				// prioritize that
+				if obj.Object.Source.Kind == kind.ServiceEntry {
+					break
+				}
+			}
+		}
+
+		// If we have a locally scoped service
+		if base.Object != nil && base.Object.Scope != model.Global {
+			// and we did not find one in the local cluster, skip it
+			if base.ClusterID != localClusterID {
+				return nil
+			}
+			// otherwise, skip merging
+			return &base
 		}
 
 		vips := sets.NewWithLength[simpleNetworkAddress](svcInfosLen)
 		sans := sets.NewWithLength[string](svcInfosLen)
 		ports := map[portKey]sets.Set[simplePort]{}
-		var base config.ObjectWithCluster[model.ServiceInfo]
-		setBase := false
 		workloadPortsToSimplePort := func(p *workloadapi.Port) simplePort {
 			return simplePort{
 				servicePort: p.ServicePort,
@@ -703,21 +725,7 @@ func mergeServiceInfosWithCluster(
 				}
 			})...)
 			sans.InsertAll(obj.Object.Service.GetSubjectAltNames()...)
-			if obj.ClusterID == localClusterID {
-				if obj.Object.Source.Kind == kind.ServiceEntry {
-					// If there's a service entry that's considered external to the mesh, we
-					// prioritize that
-					base = obj
-				} else if !setBase {
-					base = obj
-					setBase = true
-				}
-			}
-		}
 
-		if !setBase {
-			// No local objects found, so just use the first one
-			base = serviceInfos[0]
 		}
 
 		basePorts := sets.New(slices.Map(base.Object.Service.Ports, workloadPortsToSimplePort)...)
