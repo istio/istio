@@ -302,6 +302,9 @@ func (a *index) buildGlobalCollections(
 		return maps.Keys(o.Workload.Services)
 	})
 
+	// This allows us to find all the workloads that correspond to a service, network pair.
+	// This will allow us to build coalesced workloads that represent all the workloads in a remote network,
+	// for a given service. This helps reduce the number of XDS objects we to proxies.
 	workloadNetworkServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, "network;service", func(o model.WorkloadInfo) []string {
 		res := make([]string, 0, len(o.Workload.Services))
 		for svc := range o.Workload.Services {
@@ -446,6 +449,8 @@ func (a *index) buildGlobalCollections(
 				return &svc
 			}
 
+			// Since we merge the workloads in the remote cluster, we need to input the
+			// service account sans of the remote workloads through the SubjectAlNames field.
 			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
 			if meshCfg == nil {
 				log.Errorf("Failed to find mesh config")
