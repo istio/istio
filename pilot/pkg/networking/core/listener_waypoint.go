@@ -87,7 +87,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	if wps != nil {
 		orderedWPS = wps.orderedServices
 	}
-	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
+	if features.EnableAmbientMultiNetwork && IsEastWestGateway(lb.node) {
 		forwarder = buildWaypointForwardInnerConnectListener(lb.push, lb.node)
 	} else {
 		forwarder = buildWaypointConnectOriginateListener(lb.push, lb.node)
@@ -233,7 +233,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
-	isEastWestGateway := isEastWestGateway(lb.node)
+	isEastWestGateway := IsEastWestGateway(lb.node)
 	ipMatcher := &matcher.IPMatcher{}
 	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{
 		Map: make(map[string]*matcher.Matcher_OnMatch),
