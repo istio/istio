@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -168,7 +169,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.XdsLogDetails) {
-	var edsUpdatedServices map[string]struct{}
+	var edsUpdatedServices sets.String
 	// canSendPartialFullPushes determines if we can send a partial push (ie a subset of known CLAs).
 	// This is safe when only Services has changed, as this implies that only the CLAs for the
 	// associated Service changed. Note when a multi-network Service changes it triggers a push with
@@ -177,14 +178,30 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	// see https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#grouping-resources-into-responses
 	if !req.Full || canSendPartialFullPushes(req) {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, kind.ServiceEntry)
+		// If we are using a waypoint, or use waypoint with ingress, the endpoints for a svc will be that of its waypoints.
+		// So if a waypoint is updated, we need to update the endpoints for services that use the waypoint.
+		// Do a two step process to avoid modifying a set while iterating over it.
+		edsUpdatedServices2 := sets.New[string]()
+		if proxy.Type == model.Router {
+			for wpSvc, _ := range edsUpdatedServices {
+				for _, swi := range req.Push.ServicesWithWaypoint(wpSvc) {
+					if !swi.IngressUseWaypoint && !core.IsEastWestGateway(proxy) {
+						continue
+					}
+					edsUpdatedServices2.Insert(swi.Service.Namespace + "/" + swi.Service.Hostname)
+				}
+			}
+		}
+		edsUpdatedServices = edsUpdatedServices.Union(edsUpdatedServices2)
 	}
+
 	var resources model.Resources
 	empty := 0
 	cached := 0
 	regenerated := 0
 	for clusterName := range w.ResourceNames {
 		if edsUpdatedServices != nil {
-			if _, ok := edsUpdatedServices[model.ParseSubsetKeyHostname(clusterName)]; !ok {
+			if !edsUpdatedServices.Contains(model.ParseSubsetKeyHostname(clusterName)) {
 				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
 				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
 				continue
