@@ -102,8 +102,6 @@ spec:
 		t.Fatal(err)
 	}
 
-	
-
 	t.ConfigIstio().YAML(apps.Namespace.Name(), `
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
