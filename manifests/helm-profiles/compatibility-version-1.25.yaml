@@ -1,3 +1,7 @@
+pilot:
+  env:
+    # 1.27 behavioral changes
+    ENABLE_NATIVE_SIDECARS: "false"
 ambient:
   # 1.26 behavioral changes
   shareHostNetworkNamespace: true
