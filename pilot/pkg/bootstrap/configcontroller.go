@@ -515,7 +515,7 @@ func (s *Server) checkAndRunNonRevisionLeaderElectionIfRequired(args *PilotArgs,
 							// now that we have the leader lock, we can activate the per-revision status writer
 							close(activateCh)
 							log.Infof("Activating gateway status writer")
-							<-leaderStop
+							// <-leaderStop
 						}).
 						Run(stop)
 					return nil

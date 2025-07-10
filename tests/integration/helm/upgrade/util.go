@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
+	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
@@ -205,7 +206,7 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient, nsConfig)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
-		_, oldClient, oldServer := sanitycheck.SetupTrafficTestAmbient(t, "")
+		_, oldClient, oldServer, _ := sanitycheck.SetupTrafficTestAmbient(t, "")
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", isAmbient)
@@ -223,7 +224,7 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		}
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
-		newNS, newClient, newServer := sanitycheck.SetupTrafficTestAmbient(t, "")
+		newNS, newClient, newServer, _ := sanitycheck.SetupTrafficTestAmbient(t, "")
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy
@@ -302,7 +303,7 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 
 // performRevisionTagsUpgradeFunc returns the provided function necessary to run inside an integration test
 // for upgrade capability with stable label revision upgrades
-func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestContext) {
+func performRevisionTagsUpgradeFunc(previousVersion string, ambient bool) func(framework.TestContext) {
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
@@ -329,6 +330,15 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 				namespace.Dump(t, helmtest.IstioNamespace)
 			}
 		})
+		var setupTrafficTest func(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance)
+		if ambient {
+			setupTrafficTest = func(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
+				ns, client, server, _ := sanitycheck.SetupTrafficTestAmbient(t, revision)
+				return ns, client, server
+			}
+		} else {
+			setupTrafficTest = sanitycheck.SetupTrafficTest
+		}
 		s := t.Settings()
 		// install MAJOR.MINOR.PATCH charts with revision set to "MAJOR-MINOR-PATCH" name. For example,
 		// helm install istio-base istio/base --version 1.15.0 --namespace istio-system -f values.yaml
@@ -346,7 +356,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		})
 
 		// setup istio.io/rev=1-15-0 for the default-1 namespace
-		oldNs, oldClient, oldServer := sanitycheck.SetupTrafficTest(t, previousRevision)
+		oldNs, oldClient, oldServer := setupTrafficTest(t, previousRevision)
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		// install the charts from this branch with revision set to "latest"
@@ -370,7 +380,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		})
 
 		// setup istio.io/rev=latest for the default-2 namespace
-		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, latestRevisionTag)
+		_, newClient, newServer := setupTrafficTest(t, latestRevisionTag)
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy between a client
