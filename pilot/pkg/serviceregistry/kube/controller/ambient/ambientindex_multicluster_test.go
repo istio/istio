@@ -218,6 +218,23 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 							ControllerName: constants.ManagedGatewayMeshController,
 						},
 					})
+
+					// Ensure the namespace network is set in up in the collection before doing other assertions
+					assert.EventuallyEqual(t, func() bool {
+						networks := s.networks.RemoteSystemNamespaceNetworkByCluster.Lookup(client.clusterID)
+						if len(networks) == 0 {
+							return false
+						}
+						singleton := networks[0]
+						if singleton == nil {
+							return false
+						}
+						nw := singleton.Get()
+						if nw == nil {
+							return false
+						}
+						return *nw == clusterToNetwork[client.clusterID]
+					}, true)
 				}
 				if networkGatewayIps[client.clusterID] != "" {
 					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], clusterToNetwork[client.clusterID], client.grc)
@@ -270,7 +287,6 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			// the service sans get updated.
 			events = append(events, s.svcXdsName("svc2"))
 			s.assertEvent(t, events...)
-
 			t.Run("xds event filtering", func(t *testing.T) {
 				// Test that label selector change doesn't cause xDS push
 				// especially in the context of the merge implementation.
@@ -304,7 +320,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 					label.IoIstioUseWaypoint.Name: "test-wp",
 					"istio.io/global":             "true",
 				})
-			c.svcAssertion(s)
+			c.svcAssertion(s, s.svcXdsName("svc2"))
 
 			// clean up resources
 			s.deleteService(t, "svc2")

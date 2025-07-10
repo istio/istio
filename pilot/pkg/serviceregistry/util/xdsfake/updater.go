@@ -275,6 +275,7 @@ func (fx *Updater) AssertNoMatch(t test.Failer, dur time.Duration, matchers ...E
 	if dur == 0 {
 		select {
 		case e := <-fx.Events:
+			t.Logf("got event %q/%v", e.Type, e.ID)
 			for _, m := range matchers {
 				if e.Type == m.Type &&
 					(m.IDPrefix != "" && strings.HasPrefix(e.ID, m.IDPrefix)) ||
@@ -287,6 +288,7 @@ func (fx *Updater) AssertNoMatch(t test.Failer, dur time.Duration, matchers ...E
 	} else {
 		select {
 		case e := <-fx.Events:
+			t.Logf("got event %q/%v", e.Type, e.ID)
 			for _, m := range matchers {
 				if e.Type == m.Type &&
 					(m.IDPrefix != "" && strings.HasPrefix(e.ID, m.IDPrefix)) ||

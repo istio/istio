@@ -591,7 +591,6 @@ func nestedCollectionFromLocalAndRemote[T any](
 		}
 	})
 	remoteCollections := krt.NewCollection(clustersCollection, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[T] {
-		// Do this after the fetches just to ensure we stay subscribed
 		if existing := cache.Get(c.ID); existing != nil {
 			return ptr.Of(existing)
 		}

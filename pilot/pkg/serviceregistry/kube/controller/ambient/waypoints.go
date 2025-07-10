@@ -301,7 +301,7 @@ func GlobalWaypointsCollection(
 				trafficType = tt
 			}
 
-			nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+			nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.RemoteSystemNamespaceNetworkByCluster, c.ID))
 			if nwPtr == nil {
 				log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
 				return nil

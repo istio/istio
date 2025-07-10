@@ -129,7 +129,8 @@ func GlobalMergedWorkloadServicesCollection(
 				false,
 				checkServiceScope,
 				func(ctx krt.HandlerContext) network.ID {
-					nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
+					idx := krt.FilterIndex(globalNetworks.RemoteSystemNamespaceNetworkByCluster, cluster.ID)
+					nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, idx)
 					if nwPtr == nil {
 						log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
 						ctx.DiscardResult()
@@ -210,9 +211,9 @@ func serviceServiceBuilder(
 			}
 		}
 		waypointStatus.Error = wperr
+		network := networkGetter(ctx)
 
-		svc := constructService(ctx, s, waypoint, domainSuffix, networkGetter)
-
+		svc := constructService(s, waypoint, domainSuffix, network)
 		return precomputeServicePtr(&model.ServiceInfo{
 			Service:       svc,
 			PortNames:     portNames,
@@ -344,18 +345,16 @@ func (a *index) serviceEntryServiceBuilder(
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.ServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []model.ServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
-		return serviceEntriesInfo(ctx, s, waypoint, waypointError, func(ctx krt.HandlerContext) network.ID {
-			return a.Network(ctx)
-		})
+		network := a.Network(ctx)
+		return serviceEntriesInfo(s, waypoint, waypointError, network)
 	}
 }
 
 func serviceEntriesInfo(
-	ctx krt.HandlerContext,
 	s *networkingclient.ServiceEntry,
 	w *Waypoint,
 	wperr *model.StatusMessage,
-	networkGetter func(ctx krt.HandlerContext) network.ID,
+	network network.ID,
 ) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
 	portNames := map[int32]model.ServicePortName{}
@@ -375,7 +374,7 @@ func serviceEntriesInfo(
 	if wperr != nil {
 		waypoint.Error = wperr
 	}
-	return slices.Map(constructServiceEntries(ctx, s, w, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
+	return slices.Map(constructServiceEntries(s, w, network), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
@@ -387,14 +386,13 @@ func serviceEntriesInfo(
 }
 
 func constructServiceEntries(
-	ctx krt.HandlerContext,
 	svc *networkingclient.ServiceEntry,
 	w *Waypoint,
-	networkGetter func(ctx krt.HandlerContext) network.ID,
+	network network.ID,
 ) []*workloadapi.Service {
 	var autoassignedHostAddresses map[string][]netip.Addr
 	addresses, err := slices.MapErr(svc.Spec.Addresses, func(e string) (*workloadapi.NetworkAddress, error) {
-		return toNetworkAddressFromCidr(e, networkGetter(ctx))
+		return toNetworkAddressFromCidr(e, network)
 	})
 	if err != nil {
 		// TODO: perhaps we should support CIDR in the future?
@@ -435,7 +433,7 @@ func constructServiceEntries(
 		if len(hostsAddresses) == 0 && !host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
 			if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
 				hostsAddresses = slices.Map(hostsAddrs, func(e netip.Addr) *workloadapi.NetworkAddress {
-					return toNetworkAddressFromIP(e, networkGetter(ctx))
+					return toNetworkAddressFromIP(e, network)
 				})
 			}
 		}
@@ -455,11 +453,10 @@ func constructServiceEntries(
 
 // Construct a workload API service
 func constructService(
-	ctx krt.HandlerContext,
 	svc *v1.Service,
 	w *Waypoint,
 	domainSuffix string,
-	networkGetter func(krt.HandlerContext) network.ID,
+	network network.ID,
 ) *workloadapi.Service {
 	ports := make([]*workloadapi.Port, 0, len(svc.Spec.Ports))
 	for _, p := range svc.Spec.Ports {
@@ -470,7 +467,7 @@ func constructService(
 	}
 
 	addresses, err := slices.MapErr(getVIPs(svc), func(e string) (*workloadapi.NetworkAddress, error) {
-		return toNetworkAddress(ctx, e, networkGetter)
+		return toNetworkAddress(e, network)
 	})
 	if err != nil {
 		log.Warnf("fail to parse service %v: %v", config.NamespacedName(svc), err)

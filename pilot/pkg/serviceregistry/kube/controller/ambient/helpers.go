@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -73,13 +72,13 @@ func mustByteIPToString(b []byte) string {
 	return ip.String()
 }
 
-func toNetworkAddress(ctx krt.HandlerContext, vip string, networkGetter func(krt.HandlerContext) network.ID) (*workloadapi.NetworkAddress, error) {
+func toNetworkAddress(vip string, network network.ID) (*workloadapi.NetworkAddress, error) {
 	ip, err := netip.ParseAddr(vip)
 	if err != nil {
 		return nil, fmt.Errorf("parse %v: %v", vip, err)
 	}
 	return &workloadapi.NetworkAddress{
-		Network: networkGetter(ctx).String(),
+		Network: network.String(),
 		Address: ip.AsSlice(),
 	}, nil
 }

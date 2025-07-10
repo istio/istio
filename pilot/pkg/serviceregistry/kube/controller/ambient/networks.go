@@ -49,11 +49,11 @@ func (n NetworkGateway) ResourceName() string {
 type networkCollections struct {
 	LocalSystemNamespace          krt.Singleton[string]
 	RemoteSystemNamespaceNetworks krt.Collection[krt.Singleton[string]]
-	// SystemNamespaceNetworkByCluster is an index of cluster ID to the system namespace network
+	// RemoteSystemNamespaceNetworkByCluster is an index of cluster ID to the system namespace network
 	// for that cluster.
-	SystemNamespaceNetworkByCluster krt.Index[cluster.ID, krt.Singleton[string]]
-	NetworkGateways                 krt.Collection[NetworkGateway]
-	GatewaysByNetwork               krt.Index[network.ID, NetworkGateway]
+	RemoteSystemNamespaceNetworkByCluster krt.Index[cluster.ID, krt.Singleton[string]]
+	NetworkGateways                       krt.Collection[NetworkGateway]
+	GatewaysByNetwork                     krt.Index[network.ID, NetworkGateway]
 }
 
 func (c networkCollections) HasSynced() bool {
@@ -81,6 +81,7 @@ func buildGlobalNetworkCollections(
 		}
 		return &nw
 	}, opts.WithName("LocalSystemNamespaceNetwork")...)
+
 	RemoteSystemNamespaceNetworks := krt.NewCollection(
 		clusters,
 		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Singleton[string] {
@@ -139,8 +140,6 @@ func buildGlobalNetworkCollections(
 				return nil
 			}
 			gateways := *gatewaysPtr
-			// We can't have duplicate collections (otherwise FetchOne will panic) so use
-			// sync.Once to ensure we only create the collection once and return that same value
 			nwGateways := krt.NewManyCollection(
 				gateways,
 				func(ctx krt.HandlerContext, gw config.ObjectWithCluster[*v1beta1.Gateway]) []config.ObjectWithCluster[NetworkGateway] {
@@ -193,11 +192,11 @@ func buildGlobalNetworkCollections(
 	})
 
 	return networkCollections{
-		SystemNamespaceNetworkByCluster: RemoteSystemNamespaceNetworksByCluster,
-		NetworkGateways:                 MergedNetworkGateways,
-		GatewaysByNetwork:               GatewaysByNetwork,
-		LocalSystemNamespace:            LocalSystemNamespaceNetwork,
-		RemoteSystemNamespaceNetworks:   RemoteSystemNamespaceNetworks,
+		RemoteSystemNamespaceNetworkByCluster: RemoteSystemNamespaceNetworksByCluster,
+		NetworkGateways:                       MergedNetworkGateways,
+		GatewaysByNetwork:                     GatewaysByNetwork,
+		LocalSystemNamespace:                  LocalSystemNamespaceNetwork,
+		RemoteSystemNamespaceNetworks:         RemoteSystemNamespaceNetworks,
 	}
 }
 

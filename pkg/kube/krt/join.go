@@ -250,37 +250,35 @@ func handleInnerCollectionEvent[T any](
 		for key := range changedKeys {
 			merged := getMergedForKey(key)
 			entry := updateMergedCache(key, handlerID, merged)
-			if entry.current == nil && entry.prev == nil {
+			var e Event[T]
+
+			switch {
+			case entry.current == nil && entry.prev == nil:
 				log.Warnf("Merged (nested) join collection: Received event for key %s but it's not longer in our set of collections. Skipping...", key)
 				continue
-			}
-
 			// No current entry in our cache for this handler. This key was deleted across all our collections
-			if entry.current == nil {
-				mergedEvents = append(mergedEvents, Event[T]{
+			case entry.current == nil:
+				e = Event[T]{
 					Event: controllers.EventDelete,
 					Old:   entry.prev,
-				})
-				continue
-			}
-
+				}
 			// No previous entry in our cache for this handler.
 			// This key was added for the first time across all our collections.
-			if entry.prev == nil {
-				mergedEvents = append(mergedEvents, Event[T]{
+			case entry.prev == nil:
+				e = Event[T]{
 					Event: controllers.EventAdd,
 					New:   merged,
-				})
-				continue
-			}
-
+				}
 			// We have both a current and previous entry in our cache for this handler.
 			// This key was updated due to a change in one of our collections
-			mergedEvents = append(mergedEvents, Event[T]{
-				Event: controllers.EventUpdate,
-				Old:   entry.prev,
-				New:   merged,
-			})
+			default:
+				e = Event[T]{
+					Event: controllers.EventUpdate,
+					Old:   entry.prev,
+					New:   merged,
+				}
+			}
+			mergedEvents = append(mergedEvents, e)
 		}
 		handler(mergedEvents)
 	}
