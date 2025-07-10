@@ -315,7 +315,7 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 					cfg.CNIConfName = firstCNIConfigFilename
 				}
 			}
-			log.Infof("jaellio - got error since defaultCNIConfigFilepath %s and cniConfigFilePath %s are not equal", defaultCNIConfigFilepath, cniConfigFilepath)
+			log.Infof("cniConfigFilePath mismatch: expected %s but found %s", defaultCNIConfigFilepath, cniConfigFilepath)
 			return fmt.Errorf("CNI config file %q preempted by %q", cniConfigFilepath, defaultCNIConfigFilepath)
 		}
 	}
