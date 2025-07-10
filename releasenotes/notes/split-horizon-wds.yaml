@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-issue: [56044]
-releaseNotes: 
-  - |
-    **Added** support for split horizon WDS for multicluster ambient.

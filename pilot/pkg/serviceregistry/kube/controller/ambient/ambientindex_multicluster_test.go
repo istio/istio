@@ -465,6 +465,7 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 		},
 	})
 	s.addServiceForClient(t, "svc2",
+
 		map[string]string{},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1", localClient.sc,
@@ -528,7 +529,6 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 		}
 		if len(svc.Service.Addresses) != 2 {
 			return fmt.Errorf("expected service to have 2 addresses, got %d", len(svc.Service.Addresses))
-
 		}
 		return nil
 	})
@@ -593,12 +593,16 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	networkGatewayIP := "172.0.1.2"
 	s.addNetworkGatewayForClient(t, networkGatewayIP, remoteNetwork, remoteClient.grc)
 	s.addServiceForClient(t, "svc2",
-		map[string]string{},
+		map[string]string{
+			"istio.io/global": "true",
+		},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1", localClient.sc,
 	)
 	s.addServiceForClient(t, "svc2",
-		map[string]string{},
+		map[string]string{
+			"istio.io/global": "true",
+		},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "127.1.0.1", remoteClient.sc,
 	)
