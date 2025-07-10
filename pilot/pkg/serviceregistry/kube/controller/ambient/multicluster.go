@@ -355,6 +355,7 @@ func (a *index) buildGlobalCollections(
 				return nil
 			}
 			if len(gws) > 1 {
+				// See https://github.com/istio/istio/issues/56960
 				log.Warnf("Multiple gateways found for network %s, using the first one", networkID)
 			}
 			gw := gws[0]
