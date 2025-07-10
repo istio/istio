@@ -4,14 +4,15 @@ import (
 	"context"
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
+
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // VerifyMutatingWebhookConfigurations verifies that the proper number of mutating webhooks are running, used with

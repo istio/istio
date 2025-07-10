@@ -15,6 +15,8 @@
 package sanitycheck
 
 import (
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
@@ -25,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/k8sgateway"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/scopes"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 // RunTrafficTest deploys echo server/client and runs an Istio traffic test
@@ -35,16 +36,22 @@ func RunTrafficTest(t framework.TestContext, ambient bool) {
 	RunTrafficTestClientServer(t, client, server)
 }
 
-func SetupTrafficTestAmbient(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance, map[types.NamespacedName]ambient.WaypointProxy) {
+func SetupTrafficTestAmbient(t framework.TestContext, revision string) (namespace.Instance,
+	echo.Instance, echo.Instance, map[types.NamespacedName]ambient.WaypointProxy,
+) {
 	return setupTrafficTest(t, revision, true)
 }
 
-func SetupTrafficTest(t framework.TestContext, revision string) (namespace.Instance, echo.Instance, echo.Instance) {
+func SetupTrafficTest(t framework.TestContext, revision string) (namespace.Instance,
+	echo.Instance, echo.Instance,
+) {
 	ns, client, server, _ := setupTrafficTest(t, revision, false)
 	return ns, client, server
 }
 
-func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (namespace.Instance, echo.Instance, echo.Instance, map[types.NamespacedName]ambient.WaypointProxy) {
+func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (namespace.Instance,
+	echo.Instance, echo.Instance, map[types.NamespacedName]ambient.WaypointProxy,
+) {
 	var client, server echo.Instance
 	nsConfig := namespace.Config{
 		Prefix:   "default",
@@ -95,7 +102,7 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 	// for now, let's make sure sanity checks can include ready waypoints.
 	waypoints := buildWaypointsOrFail(t, echo.Instances{client, server})
 
-	for nsName, _ := range waypoints {
+	for nsName := range waypoints {
 		for _, cls := range t.AllClusters() {
 			k8sgateway.VerifyGatewaysProgrammed(t, cls, []types.NamespacedName{nsName})
 		}
