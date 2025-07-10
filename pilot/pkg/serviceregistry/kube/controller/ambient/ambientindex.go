@@ -644,35 +644,15 @@ func (a *index) inRevision(obj any) bool {
 	return result
 }
 
-// All return all known workloads. Result is un-ordered
+// All return all known workloads and services. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
-	var res []model.AddressInfo
-	var localNetwork string
-	if ln := a.networks.LocalSystemNamespace.Get(); ln != nil {
-		localNetwork = *ln
-	} else {
-		log.Warnf("Local system namespace is not set, cannot determine local network for ambient index." +
-			" Defaults to an unset network")
-	}
 	// Add all workloads
+	res := make([]model.AddressInfo, 0, len(a.workloads.List())+len(a.services.List()))
 	for _, wl := range a.workloads.List() {
-		// If EnableAmbientMultiNetwork is enabled, we only want to add workloads that are local to this cluster
-		// Non cluster local workloads will be added by the service lookup
-		if features.EnableAmbientMultiNetwork && wl.Workload.Network != localNetwork {
-			continue
-		}
 		res = append(res, wl.AsAddress)
 	}
 	// Add all services
 	for _, s := range a.services.List() {
-		if features.EnableAmbientMultiNetwork && s.Scope == model.Global {
-			// If EnableAmbientMultiNetwork is enabled, we want to add workloads that correspond to global services
-			for _, wl := range a.workloads.ByServiceKey.Lookup(s.ResourceName()) {
-				if wl.Workload.Network != localNetwork {
-					res = append(res, wl.AsAddress)
-				}
-			}
-		}
 		res = append(res, s.AsAddress)
 	}
 	return res

@@ -92,7 +92,7 @@ func sanitizeTrustDomain(td string) string {
 }
 
 // GenSpiffeURI returns the formatted uri(SPIFFE format for now) for the certificate.
-func genSpiffeURI(td string, ns, serviceAccount string) (string, error) {
+func genSpiffeURI(td, ns, serviceAccount string) (string, error) {
 	var err error
 	if ns == "" || serviceAccount == "" {
 		err = fmt.Errorf(

@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 
@@ -34,6 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -210,8 +212,21 @@ func TestKubeConfigOverride(t *testing.T) {
 	})
 }
 
-func testingBuildClientsFromConfig(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
-	return kube.NewFakeClient(), nil
+func testingBuildClientsFromConfig(t test.Failer) func([]byte, cluster.ID, ...func(*rest.Config)) (kube.Client, error) {
+	return func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		client := kube.NewFakeClient()
+		for _, crd := range []schema.GroupVersionResource{
+			gvr.AuthorizationPolicy,
+			gvr.PeerAuthentication,
+			gvr.KubernetesGateway,
+			gvr.GatewayClass,
+			gvr.WorkloadEntry,
+			gvr.ServiceEntry,
+		} {
+			clienttest.MakeCRD(t, client, crd)
+		}
+		return client, nil
+	}
 }
 
 type testController struct {
@@ -235,7 +250,7 @@ func buildTestControllerBase(t *testing.T, startClient bool) testController {
 		SystemNamespace: "istio-system",
 		DomainSuffix:    "company.com",
 		MeshConfig:      watcher,
-		ClientBuilder:   testingBuildClientsFromConfig,
+		ClientBuilder:   testingBuildClientsFromConfig(t),
 	}
 	t.Cleanup(options.Client.Shutdown)
 	a := newAmbientTestServerFromOptions(t, testNW, options, startClient)
