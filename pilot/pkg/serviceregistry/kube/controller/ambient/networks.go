@@ -126,7 +126,7 @@ func buildGlobalNetworkCollections(
 	})
 
 	localNetworkGateways := krt.NewManyCollection(localGateways, func(ctx krt.HandlerContext, gw *v1beta1.Gateway) []config.ObjectWithCluster[NetworkGateway] {
-		return k8sGatewayToNetworkGatwaysWithCluster(options.ClusterID, gw, options.ClusterID)
+		return k8sGatewayToNetworkGatewaysWithCluster(options.ClusterID, gw, options.ClusterID)
 	}, opts.WithName("LocalNetworkGateways")...)
 
 	GlobalNetworkGateways := nestedCollectionFromLocalAndRemote(
@@ -148,7 +148,7 @@ func buildGlobalNetworkCollections(
 					if innerGw == nil {
 						return nil
 					}
-					return k8sGatewayToNetworkGatwaysWithCluster(c.ID, innerGw, options.ClusterID)
+					return k8sGatewayToNetworkGatewaysWithCluster(c.ID, innerGw, options.ClusterID)
 				},
 				append(
 					opts.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID)),
@@ -234,7 +234,7 @@ func buildNetworkCollections(
 	}
 }
 
-func k8sGatewayToNetworkGatwaysWithCluster(
+func k8sGatewayToNetworkGatewaysWithCluster(
 	clusterID cluster.ID,
 	gw *v1beta1.Gateway,
 	localClusterID cluster.ID,

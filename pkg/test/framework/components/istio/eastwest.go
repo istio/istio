@@ -37,7 +37,7 @@ const (
 	eastWestIngressIstioNameLabel = "eastwestgateway"
 	eastWestIngressIstioLabel     = "istio=" + eastWestIngressIstioNameLabel
 	eastWestIngressServiceName    = "istio-" + eastWestIngressIstioNameLabel
-	eastWestGatewayServiceName    = "istio-eastwestgateway"
+	eastWestGatewayName           = "istio-eastwestgateway"
 	eastWestGatewayLabel          = "gateway.istio.io/managed=" + constants.ManagedGatewayEastWestControllerLabel
 )
 
@@ -152,7 +152,7 @@ func (i *istioImpl) deployAmbientEastWestGateway(cluster cluster.Cluster) error 
 
 	// wait east west gateway to be programmed (pods are ready)
 	if err := retry.UntilSuccess(func() error {
-		gwc, err := cluster.GatewayAPI().GatewayV1().Gateways(i.cfg.SystemNamespace).Get(context.TODO(), eastWestGatewayServiceName, metav1.GetOptions{})
+		gwc, err := cluster.GatewayAPI().GatewayV1().Gateways(i.cfg.SystemNamespace).Get(context.TODO(), eastWestGatewayName, metav1.GetOptions{})
 		if err == nil {
 			// Check if gateway has Programmed condition set to true
 			for _, cond := range gwc.Status.Conditions {
@@ -164,9 +164,9 @@ func (i *istioImpl) deployAmbientEastWestGateway(cluster cluster.Cluster) error 
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("gateway %s status is not programmed", eastWestGatewayServiceName)
+		return fmt.Errorf("gateway %s status is not programmed", eastWestGatewayName)
 	}, componentDeployTimeout, componentDeployDelay); err != nil {
-		return fmt.Errorf("failed waiting for %s to become ready: %v in cluster %s", eastWestGatewayServiceName, err, cluster.Name())
+		return fmt.Errorf("failed waiting for %s to become ready: %v in cluster %s", eastWestGatewayName, err, cluster.Name())
 	}
 
 	return nil

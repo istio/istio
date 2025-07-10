@@ -251,5 +251,12 @@ func hasListenerModeSet(l gatewayx.ListenerEntry, mode string) bool {
 }
 
 func GatewaySA(gw *v1beta1.Gateway) string {
-	return model.GetOrDefault(gw.GetAnnotations()[annotation.GatewayServiceAccount.Name], fmt.Sprintf("%s-%s", gw.Name, gw.Spec.GatewayClassName))
+	name := model.GetOrDefault(gw.GetAnnotations()[annotation.GatewayServiceAccount.Name], "")
+	if name != "" {
+		return name
+	}
+	if gw.Spec.GatewayClassName == constants.RemoteGatewayClassName {
+		return fmt.Sprintf("%s-%s", gw.Name, gw.Spec.GatewayClassName)
+	}
+	return gw.Name
 }
