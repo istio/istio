@@ -118,6 +118,16 @@ type Event struct {
 	EndpointCount int
 }
 
+type EventMatcher struct {
+	// Type must match exactly
+	Type string
+	// A prefix to match the id of incoming events.
+	IDPrefix string
+
+	// A prefix to match the namespace of incoming events.
+	NamespacePrefix string
+}
+
 func (fx *Updater) EDSUpdate(c model.ShardKey, hostname string, ns string, entry []*model.IstioEndpoint) {
 	select {
 	case fx.Events <- Event{Type: "eds", ID: hostname, Endpoints: entry, Namespace: ns}:
@@ -255,6 +265,37 @@ func (fx *Updater) AssertEmpty(t test.Failer, dur time.Duration) {
 		select {
 		case e := <-fx.Events:
 			t.Fatalf("got unexpected event %+v", e)
+		case <-time.After(dur):
+		}
+	}
+}
+
+func (fx *Updater) AssertNoMatch(t test.Failer, dur time.Duration, matchers ...EventMatcher) {
+	t.Helper()
+	if dur == 0 {
+		select {
+		case e := <-fx.Events:
+			t.Logf("got event %q/%v", e.Type, e.ID)
+			for _, m := range matchers {
+				if e.Type == m.Type &&
+					(m.IDPrefix != "" && strings.HasPrefix(e.ID, m.IDPrefix)) ||
+					(m.NamespacePrefix != "" && strings.HasPrefix(e.Namespace, m.NamespacePrefix)) {
+					t.Fatalf("got unexpected matching event %+v", e)
+				}
+			}
+		default:
+		}
+	} else {
+		select {
+		case e := <-fx.Events:
+			t.Logf("got event %q/%v", e.Type, e.ID)
+			for _, m := range matchers {
+				if e.Type == m.Type &&
+					(m.IDPrefix != "" && strings.HasPrefix(e.ID, m.IDPrefix)) ||
+					(m.NamespacePrefix != "" && strings.HasPrefix(e.Namespace, m.NamespacePrefix)) {
+					t.Fatalf("got unexpected matching event before timeout %+v", e)
+				}
+			}
 		case <-time.After(dur):
 		}
 	}
