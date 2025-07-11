@@ -339,12 +339,8 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	if svcPort == nil {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
-	// If we're an east west gateway, then we also want to send to waypoints
-	// TODO: depending on the final design, there will be times we DON'T want
-	// the e/w gateway to send to waypoints. That conditional logic will either live
-	// here or in the listener logic.
-	// what?
-	if features.EnableAmbientMultiNetwork && isEastWestGateway(b.proxy) {
+
+	if features.EnableIngressWaypointRouting {
 		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
 			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 			locLbEps := b.generate(waypointEps, true)
@@ -352,7 +348,11 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		}
 	}
 
-	if features.EnableIngressWaypointRouting {
+	// If we're an east west gateway, then we also want to send to waypoints
+	// TODO: depending on the final design, there will be times we DON'T want
+	// the e/w gateway to send to waypoints. That conditional logic will either live
+	// here or in the listener logic.
+	if features.EnableAmbientMultiNetwork && isEastWestGateway(b.proxy) {
 		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
 			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 			locLbEps := b.generate(waypointEps, true)

@@ -2057,7 +2057,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 
 	idx := New(options)
 
-	// dumpOnFailure(t, options.Debugger)
+	dumpOnFailure(t, options.Debugger)
 	a := &ambientTestServer{
 		t:         t,
 		clusterID: options.ClusterID,

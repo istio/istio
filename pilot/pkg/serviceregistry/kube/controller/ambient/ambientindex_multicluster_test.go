@@ -237,6 +237,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				// then creating a workload and a service with no annotations set
 				// on these objects yet.
 				s.addWaypointForClient(t, ips["waypoint"], "test-wp", c.trafficType, true, client.grc)
+
 				s.addServiceForClient(t, "svc2",
 					map[string]string{
 						"istio.io/global": "true",
