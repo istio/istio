@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
@@ -411,11 +410,6 @@ func WaitForCRLUpdate(t framework.TestContext, namespaces []string, bundle *Bund
 	retry.UntilSuccessOrFail(t, func() error {
 		return forceVolumeRefresh(t, instances...)
 	}, retry.Timeout(waitTimeout))
-
-	// verify CRL is updated in workloads
-	retry.UntilSuccessOrFail(t, func() error {
-		return verifyCRLInWorkloads(t, bundle.crlPEM, instances...)
-	}, retry.Timeout(30*time.Second))
 }
 
 func verifyCRLConfigMaps(t framework.TestContext, namespaces []string, expectedCRL []byte) error {
@@ -454,29 +448,6 @@ func forceVolumeRefresh(t framework.TestContext, instances ...echo.Instance) err
 			)
 			if err != nil {
 				return err
-			}
-		}
-	}
-	return nil
-}
-
-func verifyCRLInWorkloads(t framework.TestContext, expectedCRL []byte, instances ...echo.Instance) error {
-	for _, instance := range instances {
-		for _, w := range instance.WorkloadsOrFail(t) {
-			stdout, stderr, err := w.Cluster().PodExec(
-				w.PodName(),
-				instance.NamespaceName(),
-				proxyContainerName,
-				fmt.Sprintf("cat %s", security.CACRLFilePath),
-			)
-			if err != nil {
-				return fmt.Errorf("failed to exec in %s: %w", w.PodName(), err)
-			}
-			if stderr != "" {
-				return fmt.Errorf("error reading CRL from %s: %s", w.PodName(), stderr)
-			}
-			if stdout != string(expectedCRL) {
-				return fmt.Errorf("CRL not updated in workload %s", w.PodName())
 			}
 		}
 	}

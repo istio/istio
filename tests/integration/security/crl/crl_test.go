@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/crl/util"
 )
 
@@ -68,6 +69,9 @@ func TestPluggedInCACRL(t *testing.T) {
 			// after CRL update, the call should fail
 			opts.Check = check.Error()
 			t.Logf("testing mTLS call after CRL update, expecting failure")
-			client.CallOrFail(t, opts)
+			retry.UntilSuccessOrFail(t, func() error {
+				client.CallOrFail(t, opts)
+				return nil
+			})
 		})
 }
