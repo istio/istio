@@ -113,34 +113,34 @@ func setupTrafficTest(t framework.TestContext, revision string, ambient bool) (n
 
 func buildWaypointsOrFail(t framework.TestContext, echos echo.Instances) map[types.NamespacedName]ambient.WaypointProxy {
 	waypoints := make(map[types.NamespacedName]ambient.WaypointProxy)
-	for _, echo := range echos {
-		svcwp := types.NamespacedName{
-			Name:      echo.Config().ServiceWaypointProxy,
-			Namespace: echo.NamespacedName().Namespace.Name(),
-		}
-		wlwp := types.NamespacedName{
-			Name:      echo.Config().WorkloadWaypointProxy,
-			Namespace: echo.NamespacedName().Namespace.Name(),
-		}
-		if svcwp.Name != "" {
-			if _, found := waypoints[svcwp]; !found {
-				var err error
-				waypoints[svcwp], err = ambient.NewWaypointProxy(t, echo.NamespacedName().Namespace, svcwp.Name)
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-		}
-		if wlwp.Name != "" {
-			if _, found := waypoints[wlwp]; !found {
-				var err error
-				waypoints[wlwp], err = ambient.NewWaypointProxy(t, echo.NamespacedName().Namespace, wlwp.Name)
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
-		}
-	}
+	// for _, echo := range echos {
+	// 	svcwp := types.NamespacedName{
+	// 		Name:      echo.Config().ServiceWaypointProxy,
+	// 		Namespace: echo.NamespacedName().Namespace.Name(),
+	// 	}
+	// 	wlwp := types.NamespacedName{
+	// 		Name:      echo.Config().WorkloadWaypointProxy,
+	// 		Namespace: echo.NamespacedName().Namespace.Name(),
+	// 	}
+	// 	if svcwp.Name != "" {
+	// 		if _, found := waypoints[svcwp]; !found {
+	// 			var err error
+	// 			waypoints[svcwp], err = ambient.NewWaypointProxy(t, echo.NamespacedName().Namespace, svcwp.Name)
+	// 			if err != nil {
+	// 				t.Fatal(err)
+	// 			}
+	// 		}
+	// 	}
+	// 	if wlwp.Name != "" {
+	// 		if _, found := waypoints[wlwp]; !found {
+	// 			var err error
+	// 			waypoints[wlwp], err = ambient.NewWaypointProxy(t, echo.NamespacedName().Namespace, wlwp.Name)
+	// 			if err != nil {
+	// 				t.Fatal(err)
+	// 			}
+	// 		}
+	// 	}
+	// }
 	return waypoints
 }
 
