@@ -353,13 +353,13 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 		s.addService(t, "wp",
 			map[string]string{},
 			map[string]string{},
-			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.2")
+			[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.1")
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
 
 		s.addPodsForClient(t, "10.0.1.5", "wp-pod", "sa1",
 			map[string]string{"app": "waypoint"}, nil, true, corev1.PodRunning, s.pc)
+		// Event IDs do not have the namespace prefix for EDS
 		s.assertEvent(s.t, "svc1.ns1.svc.company.com")
-
 	})
 
 	t.Run("hostname (multicluster but unused)", func(t *testing.T) {
