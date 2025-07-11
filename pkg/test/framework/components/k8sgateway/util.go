@@ -1,6 +1,3 @@
-//go:build integ
-// +build integ
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
