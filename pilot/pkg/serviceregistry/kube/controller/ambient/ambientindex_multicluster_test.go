@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
-	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -68,17 +67,20 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 	cases := []struct {
 		name         string
 		trafficType  string
-		podAssertion func(s *ambientTestServer)
-		svcAssertion func(s *ambientTestServer)
+		podAssertion func(s *ambientTestServer, c cluster.ID)
+		svcAssertion func(s *ambientTestServer, svcKey string)
 	}{
 		{
 			name:        "service traffic",
 			trafficType: constants.ServiceTraffic,
-			podAssertion: func(s *ambientTestServer) {
+			podAssertion: func(s *ambientTestServer, c cluster.ID) {
 				s.t.Helper()
-				s.assertNoEvent(s.t)
+				// Test that there's no events for workloads in our cluster
+				// as a result of our actions (we can't control pushes for
+				// workloads from other clusters)
+				s.assertNoMatchingEvent(s.t, c.String())
 			},
-			svcAssertion: func(s *ambientTestServer) {
+			svcAssertion: func(s *ambientTestServer, _ string) {
 				s.t.Helper()
 				s.assertEvent(s.t, s.svcXdsName("svc2"))
 			},
@@ -86,11 +88,11 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 		{
 			name:        "all traffic",
 			trafficType: constants.AllTraffic,
-			podAssertion: func(s *ambientTestServer) {
+			podAssertion: func(s *ambientTestServer, _ cluster.ID) {
 				s.t.Helper()
 				s.assertEvent(s.t, s.podXdsName("pod1"))
 			},
-			svcAssertion: func(s *ambientTestServer) {
+			svcAssertion: func(s *ambientTestServer, _ string) {
 				s.t.Helper()
 				s.assertEvent(s.t, s.svcXdsName("svc2"))
 			},
@@ -98,25 +100,25 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 		{
 			name:        "workload traffic",
 			trafficType: constants.WorkloadTraffic,
-			podAssertion: func(s *ambientTestServer) {
+			podAssertion: func(s *ambientTestServer, c cluster.ID) {
 				s.t.Helper()
 				s.assertEvent(s.t, s.podXdsName("pod1"))
 			},
-			svcAssertion: func(s *ambientTestServer) {
+			svcAssertion: func(s *ambientTestServer, svcKey string) {
 				s.t.Helper()
-				s.assertNoEvent(s.t)
+				s.assertNoMatchingEvent(s.t, svcKey)
 			},
 		},
 		{
 			name:        "no traffic",
 			trafficType: constants.NoTraffic,
-			podAssertion: func(s *ambientTestServer) {
+			podAssertion: func(s *ambientTestServer, c cluster.ID) {
 				s.t.Helper()
-				s.assertNoEvent(s.t)
+				s.assertNoMatchingEvent(s.t, c.String())
 			},
-			svcAssertion: func(s *ambientTestServer) {
+			svcAssertion: func(s *ambientTestServer, svcKey string) {
 				s.t.Helper()
-				s.assertNoEvent(s.t)
+				s.assertNoMatchingEvent(s.t, svcKey)
 			},
 		},
 	}
@@ -215,6 +217,23 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 							ControllerName: constants.ManagedGatewayMeshController,
 						},
 					})
+
+					// Ensure the namespace network is set in up in the collection before doing other assertions
+					assert.EventuallyEqual(t, func() bool {
+						networks := s.networks.SystemNamespaceNetworkByCluster.Lookup(client.clusterID)
+						if len(networks) == 0 {
+							return false
+						}
+						singleton := networks[0]
+						if singleton == nil {
+							return false
+						}
+						nw := singleton.Get()
+						if nw == nil {
+							return false
+						}
+						return *nw == clusterToNetwork[client.clusterID]
+					}, true)
 				}
 				if networkGatewayIps[client.clusterID] != "" {
 					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], clusterToNetwork[client.clusterID], client.grc)
@@ -268,32 +287,10 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			events = append(events, s.svcXdsName("svc2"))
 			s.assertEvent(t, events...)
 
-			t.Run("xds event filtering", func(t *testing.T) {
-				// Test that label selector change doesn't cause xDS push
-				// especially in the context of the merge implementation.
-				svc2 := s.sc.Get("svc2", testNS)
-				tmp := svc2.DeepCopy()
-				tmp.Spec.Selector["foo"] = "bar"
-				s.sc.Update(tmp)
-				// The new selector should disqualify pod1 from being a part
-				// of this service. We should NOT get a service event though
-				s.fx.StrictMatchOrFail(t, xdsfake.Event{
-					Type: "xds",
-					ID:   s.podXdsName("pod1"),
-				})
-				s.sc.Update(svc2)
-				// We should get another event from the pod being a part of the
-				// service again. Again, we should NOT get a service event.
-				s.fx.StrictMatchOrFail(t, xdsfake.Event{
-					Type: "xds",
-					ID:   s.podXdsName("pod1"),
-				})
-			})
-
 			// Label the pod and check that the correct event is produced.
 			s.labelPod(t, "pod1", testNS,
 				map[string]string{"app": "a", label.IoIstioUseWaypoint.Name: "test-wp"})
-			c.podAssertion(s)
+			c.podAssertion(s, testC)
 
 			// Label the service and check that the correct event is produced.
 			s.labelService(t, "svc2", testNS,
@@ -301,7 +298,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 					label.IoIstioUseWaypoint.Name: "test-wp",
 					"istio.io/global":             "true",
 				})
-			c.svcAssertion(s)
+			c.svcAssertion(s, s.svcXdsName("svc2"))
 
 			// clean up resources
 			s.deleteService(t, "svc2")

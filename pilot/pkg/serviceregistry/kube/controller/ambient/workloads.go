@@ -422,7 +422,7 @@ func MergedGlobalWorkloadsCollection(
 						return c.ID
 					},
 					func(hc krt.HandlerContext) network.ID {
-						nwPtr := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+						nwPtr := krt.FetchOne(hc, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 						if nwPtr == nil {
 							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
 							hc.DiscardResult()
