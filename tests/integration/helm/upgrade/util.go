@@ -347,6 +347,9 @@ func performRevisionTagsUpgradeFunc(previousVersion string, ambient, checkGatewa
 		// helm install istio-base istio/base --version 1.15.0 --namespace istio-system -f values.yaml
 		// helm install istiod-1-15 istio/istiod --version 1.15.0 -f values.yaml
 		previousRevision := strings.ReplaceAll(previousVersion, ".", "-")
+		if len(previousRevision) < 1 {
+			previousRevision = "previous"
+		}
 		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, previousRevision, false)
 		helmtest.InstallIstioWithRevision(t, cs, h, previousVersion, previousRevision, overrideValuesFile, false, true)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
