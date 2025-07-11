@@ -2658,6 +2658,11 @@ func (s *ambientTestServer) assertUnorderedEvent(t *testing.T, ip ...string) {
 	s.fx.MatchOrFail(t, ev...)
 }
 
+func (s *ambientTestServer) assertNoMatchingEvent(t *testing.T, ip string) {
+	t.Helper()
+	s.fx.AssertNoMatch(t, time.Millisecond*10, xdsfake.EventMatcher{Type: "xds", IDPrefix: ip})
+}
+
 func (s *ambientTestServer) assertNoEvent(t *testing.T) {
 	t.Helper()
 	s.fx.AssertEmpty(t, time.Millisecond*10)
