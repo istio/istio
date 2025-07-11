@@ -24,12 +24,15 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/k8sgateway"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/helm"
 	kubetest "istio.io/istio/pkg/test/kube"
@@ -123,7 +126,7 @@ func deleteIstioRevision(h *helm.Helm, revision string) error {
 	scopes.Framework.Infof("cleaning up revision resources (%s)", revision)
 	name := helmtest.IstiodReleaseName + "-" + strings.ReplaceAll(revision, ".", "-")
 	if err := h.DeleteChart(name, helmtest.IstioNamespace); err != nil {
-		return fmt.Errorf("failed to delete revision (%s)", name)
+		return fmt.Errorf("failed to delete revision (%s): %s", name, err)
 	}
 
 	return nil
@@ -303,7 +306,7 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 
 // performRevisionTagsUpgradeFunc returns the provided function necessary to run inside an integration test
 // for upgrade capability with stable label revision upgrades
-func performRevisionTagsUpgradeFunc(previousVersion string, ambient bool) func(framework.TestContext) {
+func performRevisionTagsUpgradeFunc(previousVersion string, ambient, checkGatewayStatus bool) func(framework.TestContext) {
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
@@ -357,6 +360,9 @@ func performRevisionTagsUpgradeFunc(previousVersion string, ambient bool) func(f
 
 		// setup istio.io/rev=1-15-0 for the default-1 namespace
 		oldNs, oldClient, oldServer := setupTrafficTest(t, previousRevision)
+		if checkGatewayStatus {
+			deployWaypointsAndWaitForReady(t, cs, echo.Instances{oldServer})
+		}
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		// install the charts from this branch with revision set to "latest"
@@ -381,6 +387,9 @@ func performRevisionTagsUpgradeFunc(previousVersion string, ambient bool) func(f
 
 		// setup istio.io/rev=latest for the default-2 namespace
 		_, newClient, newServer := setupTrafficTest(t, latestRevisionTag)
+		if checkGatewayStatus {
+			deployWaypointsAndWaitForReady(t, cs, echo.Instances{newServer})
+		}
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy between a client
@@ -406,6 +415,10 @@ func performRevisionTagsUpgradeFunc(previousVersion string, ambient bool) func(f
 		err = oldServer.Restart()
 		if err != nil {
 			t.Fatal("could not restart old server")
+		}
+
+		if checkGatewayStatus {
+			deployWaypointsAndWaitForReady(t, cs, echo.Instances{newServer})
 		}
 
 		// make sure the restarted pods in default-1 namespace do not use
@@ -436,4 +449,51 @@ func checkVersion(t framework.TestContext, namespace, version string) error {
 	}
 
 	return nil
+}
+
+func deployWaypointsAndWaitForReady(t framework.TestContext, cs cluster.Cluster,
+	servers echo.Instances) {
+
+	// TODO: this should really be a part of the echo deployment, but it will be a heavy lift.
+	// for now, let's make sure sanity checks can include ready waypoints.
+	waypoints := buildWaypointsOrFail(t, servers)
+
+	for nsName := range waypoints {
+		for _, cls := range t.AllClusters() {
+			k8sgateway.VerifyGatewaysProgrammed(t, cls, []types.NamespacedName{nsName})
+		}
+	}
+}
+
+func buildWaypointsOrFail(t framework.TestContext, echos echo.Instances) map[types.NamespacedName]ambient.WaypointProxy {
+	waypoints := make(map[types.NamespacedName]ambient.WaypointProxy)
+	for _, echo := range echos {
+		svcwp := types.NamespacedName{
+			Name:      echo.Config().ServiceWaypointProxy,
+			Namespace: echo.NamespacedName().Namespace.Name(),
+		}
+		wlwp := types.NamespacedName{
+			Name:      echo.Config().WorkloadWaypointProxy,
+			Namespace: echo.NamespacedName().Namespace.Name(),
+		}
+		if svcwp.Name != "" {
+			if _, found := waypoints[svcwp]; !found {
+				var err error
+				waypoints[svcwp], err = ambient.NewWaypointProxy(t, echo.NamespacedName().Namespace, svcwp.Name)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		if wlwp.Name != "" {
+			if _, found := waypoints[wlwp]; !found {
+				var err error
+				waypoints[wlwp], err = ambient.NewWaypointProxy(t, echo.NamespacedName().Namespace, wlwp.Name)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+	return waypoints
 }

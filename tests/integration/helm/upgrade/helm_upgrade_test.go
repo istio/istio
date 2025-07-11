@@ -30,6 +30,7 @@ import (
 )
 
 var (
+	currentVersion           string
 	previousSupportedVersion string
 	nMinusTwoVersion         string
 )
@@ -47,6 +48,7 @@ func initVersions(ctx resource.Context) error {
 		return err
 	}
 
+	currentVersion = v.String()
 	previousVersion := semver.New(v.Major(), v.Minor()-1, v.Patch(), v.Prerelease(), v.Metadata())
 
 	// If the previous version is not published yet, use the latest one
@@ -88,28 +90,28 @@ func TestCanaryUpgradeFromTwoMinorRelease(t *testing.T) {
 func TestStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion, false))
+		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion, false, false))
 }
 
 // TestStableRevisionLabelsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
 func TestStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion, false))
+		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion, false, false))
 }
 
 // TestAmbientStableRevisionLabelsUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-1)
 func TestAmbientStableRevisionLabelsUpgradeFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion, true))
+		Run(performRevisionTagsUpgradeFunc(previousSupportedVersion, true, false))
 }
 
 // TestStableRevisionLabelsUpgradeFromTwoMinorRelease tests Istio upgrade using Helm with default options for Istio 1.(n-2)
 func TestAmbientStableRevisionLabelsUpgradeFromTwoMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion, true))
+		Run(performRevisionTagsUpgradeFunc(nMinusTwoVersion, true, false))
 }
 
 // TestAmbientInPlaceUpgradeFromPreviousMinorRelease tests Istio upgrade using Helm with ambient profile for Istio 1.(n-1)
@@ -124,4 +126,10 @@ func TestZtunnelFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(upgradeAllButZtunnel(previousSupportedVersion))
+}
+
+func TestAmbientStableRevisionLabelsGatewayStatus(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(performRevisionTagsUpgradeFunc(currentVersion, true, true))
 }
