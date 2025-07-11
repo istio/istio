@@ -19,6 +19,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
@@ -59,7 +60,7 @@ func RegisterEdsShim(
 		Services,
 		func(ctx krt.HandlerContext, svc model.ServiceInfo) *serviceEDS {
 			useWaypoint := ingressUseWaypoint(svc, krt.FetchOne(ctx, Namespaces, krt.FilterKey(svc.Service.Namespace)))
-			if !useWaypoint {
+			if !useWaypoint && (!features.EnableAmbientMultiNetwork || svc.Scope != model.Global) {
 				// Currently, we only need this for ingres -> waypoint usage
 				// If we extend this to sidecars, etc we can drop this.
 				return nil
