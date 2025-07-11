@@ -3,6 +3,7 @@ kind: IstioOperator
 spec:
   profile: remote
   values:
+    profile: remote
     global:
       multiCluster:
         clusterName: remote0
@@ -10,6 +11,4 @@ spec:
       remotePilotAddress: 169.10.112.88
       omitSidecarInjectorConfigMap: false
     istiodRemote:
-      injectionURL: https://xxx:15017/inject
-    base:
-      validationURL: https://xxx:15017/validate
+      enabledLocalInjectorIstiod: true
