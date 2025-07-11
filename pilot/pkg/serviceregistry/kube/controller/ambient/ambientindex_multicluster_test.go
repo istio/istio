@@ -343,8 +343,10 @@ func TestMulticlusterAmbientIndex_ServicesForWaypoint(t *testing.T) {
 	t.Run("waypoint eds", func(t *testing.T) {
 		s := newAmbientTestServer(t, testC, testNW, "")
 		s.addService(t, "svc1",
-			map[string]string{label.IoIstioUseWaypoint.Name: "wp",
-				"istio.io/global": "true"},
+			map[string]string{
+				label.IoIstioUseWaypoint.Name: "wp",
+				"istio.io/global":             "true",
+			},
 			map[string]string{},
 			[]int32{80}, map[string]string{"app": "app1"}, "11.0.0.1")
 		s.assertEvent(s.t, s.svcXdsName("svc1"))
