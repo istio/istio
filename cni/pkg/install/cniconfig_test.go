@@ -533,6 +533,7 @@ func TestCreateCNIConfigFile(t *testing.T) {
 			AmbientEnabled:              c.ambientEnabled,
 			IstioOwnedCNIConfig:         c.istioOwnedCNIConfig,
 			IstioOwnedCNIConfigFilename: c.istioOwnedCNIConfigFile,
+			NativeNftables:              false,
 		}
 		test := func(cfg config.InstallConfig) func(t *testing.T) {
 			return func(t *testing.T) {

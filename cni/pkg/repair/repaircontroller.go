@@ -110,6 +110,21 @@ func redirectRunningPod(pod *corev1.Pod, netns string) error {
 	return nil
 }
 
+// redirectRunningPodNFT dynamically enters the provided pod, that is already running,
+// and programs it's networking configuration using nftables rules.
+func redirectRunningPodNFT(pod *corev1.Pod, netns string) error {
+	pi := plugin.ExtractPodInfo(pod)
+	redirect, err := plugin.NewRedirect(pi)
+	if err != nil {
+		return fmt.Errorf("setup redirect: %v", err)
+	}
+	rulesMgr := plugin.NftablesInterceptRuleMgr()
+	if err := rulesMgr.Program(pod.Name, netns, redirect); err != nil {
+		return fmt.Errorf("program redirection: %v", err)
+	}
+	return nil
+}
+
 const (
 	ReasonDeleteBrokenPod = "DeleteBrokenPod"
 	ReasonLabelBrokenPod  = "LabelBrokenPod"
