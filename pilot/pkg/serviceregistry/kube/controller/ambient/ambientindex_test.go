@@ -2049,7 +2049,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	}
 
 	if options.ClientBuilder == nil && features.EnableAmbientMultiNetwork {
-		options.ClientBuilder = testingBuildClientsFromConfig
+		options.ClientBuilder = testingBuildClientsFromConfig(t)
 	}
 
 	// The index is always for the config cluster
@@ -2082,6 +2082,14 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	a.gwcls.Create(&k8sbeta.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.WaypointGatewayClassName,
+		},
+		Spec: k8sv1.GatewayClassSpec{
+			ControllerName: constants.ManagedGatewayMeshController,
+		},
+	})
+	a.gwcls.Create(&k8sbeta.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.EastWestGatewayClassName,
 		},
 		Spec: k8sv1.GatewayClassSpec{
 			ControllerName: constants.ManagedGatewayMeshController,
@@ -2134,7 +2142,7 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 	}
 
 	if features.EnableAmbientMultiNetwork {
-		o.ClientBuilder = testingBuildClientsFromConfig
+		o.ClientBuilder = testingBuildClientsFromConfig(t)
 		o.MeshConfig.Mesh().ServiceScopeConfigs = []*v1alpha1.MeshConfig_ServiceScopeConfigs{
 			{
 				ServicesSelector: &v1alpha1.LabelSelector{
@@ -2171,6 +2179,71 @@ func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 			t.Log(string(b))
 		}
 	})
+}
+
+func (s *ambientTestServer) deleteNetworkGatewayForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+	t.Helper()
+	grc.Delete(name, testNS)
+}
+
+func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, network string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+	s.addNetworkGatewaySpecificAddressForClient(t, ip, "", "east-west", network, true, grc)
+}
+
+func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
+	t *testing.T,
+	ip, hostname, name, network string,
+	ready bool,
+	grc clienttest.TestWriter[*k8sbeta.Gateway],
+) {
+	t.Helper()
+	gatewaySpec := k8sbeta.GatewaySpec{
+		GatewayClassName: constants.EastWestGatewayClassName,
+		Listeners: []k8sbeta.Listener{
+			{
+				Name:     "mesh",
+				Port:     15008,
+				Protocol: "HBONE",
+				TLS: &k8sbeta.GatewayTLSConfig{
+					Mode: ptr.Of(k8sv1.TLSModeTerminate),
+					Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
+						"gateway.istio.io/tls-terminate-mode": "ISTIO_MUTUAL",
+					},
+				},
+			},
+		},
+	}
+
+	gateway := k8sbeta.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       gvk.KubernetesGateway.Kind,
+			APIVersion: gvk.KubernetesGateway.GroupVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testNS,
+			Labels: map[string]string{
+				"topology.istio.io/network": network,
+			},
+		},
+		Spec:   gatewaySpec,
+		Status: k8sbeta.GatewayStatus{},
+	}
+
+	if ready {
+		addr := []k8sv1.GatewayStatusAddress{}
+		if ip != "" {
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.IPAddressType), Value: ip})
+		}
+		if hostname != "" {
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.HostnameAddressType), Value: hostname})
+		}
+		gateway.Status = k8sbeta.GatewayStatus{
+			Addresses: addr,
+		}
+	}
+
+	grc.CreateOrUpdate(&gateway)
 }
 
 func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType string, ready bool) {
