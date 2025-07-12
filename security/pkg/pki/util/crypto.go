@@ -66,7 +66,7 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 		}
 		cert, err := x509.ParseCertificate(cb.Bytes)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse X.509 certificate")
+			return nil, nil, fmt.Errorf("failed to parse X.509 certificate: %v", err)
 		}
 		certs = append(certs, cert)
 		if len(certBytes) == 0 {
@@ -77,6 +77,38 @@ func ParsePemEncodedCertificateChain(certBytes []byte) ([]*x509.Certificate, []b
 		return nil, nil, fmt.Errorf("no PEM encoded X.509 certificates parsed")
 	}
 	return certs, rootCertBytes, nil
+}
+
+// We want to filter out certs that are invalid for whatever reason (e.g. negative serial number).
+// First return are parsed certificates, second return is the bytes of valid certs,
+// and the third return is a slice of errors from parsing the certs.
+func ParseRootCerts(certBytes []byte) ([]*x509.Certificate, []byte, []error) {
+	var (
+		certs         []*x509.Certificate
+		cb            *pem.Block
+		validRootCertBytes []byte
+		errs         []error
+	)
+	validRootCertBytes = make([]byte, 0, len(certBytes))
+	certBytes = bytes.TrimSpace(certBytes)
+	for {
+		cb, certBytes = pem.Decode(certBytes)
+		if cb == nil {
+			errs = append(errs, fmt.Errorf("invalid PEM encoded certificate"))
+			continue
+		}
+		cert, err := x509.ParseCertificate(cb.Bytes)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		certs = append(certs, cert)
+		validRootCertBytes = append(validRootCertBytes, cb.Bytes...)
+		if len(certBytes) == 0 {
+			break
+		}
+	}
+	return certs, validRootCertBytes, errs
 }
 
 // ParsePemEncodedCSR constructs a `x509.CertificateRequest` object using the
