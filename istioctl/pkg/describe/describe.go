@@ -107,7 +107,7 @@ func podDescribeCmd(ctx cli.Context) *cobra.Command {
 		Short:   "Describe pods and their Istio configuration [kube-only]",
 		Long: `Analyzes pod, its Services, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that pod.`,
-		Example: `  #Pod query with inferred namespace (current context's namespace)
+		Example: `  # Pod query with inferred namespace (current context's namespace)
   istioctl experimental describe pod helloworld-v1-676yyy3y5r-d8hdl
 
   # Pod query with explicit namespace 
@@ -1208,7 +1208,7 @@ func svcDescribeCmd(ctx cli.Context) *cobra.Command {
 		Short:   "Describe services and their Istio configuration [kube-only]",
 		Long: `Analyzes service, pods, DestinationRules, and VirtualServices and reports
 the configuration objects that affect that service.`,
-		Example: `  #Service query with inferred namespace (current context's namespace)
+		Example: `  # Service query with inferred namespace (current context's namespace)
   istioctl experimental describe service productpage
 
   # Service query with explicit namespace
