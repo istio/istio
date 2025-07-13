@@ -730,7 +730,7 @@ func TestVersionManagement(t *testing.T) {
 }
 
 func TestHandlerEnqueueFunction(t *testing.T) {
-
+	log.SetOutputLevel(istiolog.DebugLevel)
 	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
 	defaultGatewayClass := &k8sbeta.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
@@ -972,7 +972,6 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			reconciles := atomic.NewInt32(0)
 			dummyReconcile := func(types.NamespacedName) error {
 				reconciles.Inc()
@@ -1020,7 +1019,6 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 
 			assert.EventuallyEqual(t, reconciles.Load, tt.reconciles, retry.Timeout(time.Second*5), retry.Message("reconciliations count check"))
-
 		})
 	}
 }
